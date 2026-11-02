@@ -1,0 +1,23 @@
+{
+ "corpus": "vaibhavsoni24--realtimechatapp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on JavaScript queries this for how VaibhavSoni24/RealtimeChatApp implements it: A real-time chat application built using React, Express, and Socket.io during a certified workshop by Skyy Skill Academy",
+ "repos": [
+  {
+   "repo": "RealtimeChatApp",
+   "url": "https://github.com/VaibhavSoni24/RealtimeChatApp",
+   "sha": "fe1a0f7c4c217b58eede824ec76e6e9fe9cbcceb",
+   "licence": "author's permission (LICENSE at pin fe1a0f7c4c21: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T06:56Z",
+    "consent_receipt": "a4ac1765ee8e",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T06:56Z (receipt a4ac1765ee8e); pinned to the default-branch head. LICENSE at pin fe1a0f7c4c21: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

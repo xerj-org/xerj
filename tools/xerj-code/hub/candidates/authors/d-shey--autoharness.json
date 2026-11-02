@@ -1,0 +1,23 @@
+{
+ "corpus": "d-shey--autoharness",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-skills, ai-agents, claude-code queries this for how D-Shey/autoharness implements it: Engineering discipline for coding agents: prepare before building, check against the original, let an independent critic judge the result (selected work: src/autoharness, tests)",
+ "repos": [
+  {
+   "repo": "autoharness",
+   "url": "https://github.com/D-Shey/autoharness",
+   "sha": "f62c978b2c36f45ed357a374bde9480b453539d2",
+   "licence": "MIT (LICENSE file at pin f62c978b2c36, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T21:26Z",
+    "consent_receipt": "c8410129eb42",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T21:26Z (receipt c8410129eb42); selected commit f62c978b2c36: \"feat(quality): warn on items that name nothing to act on\". LICENSE file at pin f62c978b2c36 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

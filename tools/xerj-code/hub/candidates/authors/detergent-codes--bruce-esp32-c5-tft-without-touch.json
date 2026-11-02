@@ -2,8 +2,8 @@
  "corpus": "detergent-codes--bruce-esp32-c5-tft-without-touch",
  "cloned_at": null,
  "status": "draft",
- "shelf": "NET",
- "domain": "an agent working on ble, bruce-firmware, custom-code queries this for how Detergent-codes/Bruce-ESP32-C5-TFT-Without-Touch implements it: A custom build of the Bruce firmware suitable ONLY for the ESP32-C5. This version removes touchscreen functionality so it can run on non-tou (selected work: boards, src/modules, src/core)",
+ "shelf": "SEC",
+ "domain": "an agent working on ble, bruce-firmware, wifi queries this for how Detergent-codes/Bruce-ESP32-C5-TFT-Without-Touch implements it: A custom build of the Bruce firmware suitable ONLY for the ESP32-C5. This version removes touchscreen functionality so it can run on non-tou (selected work: boards, src/modules, src/core)",
  "repos": [
   {
    "repo": "Bruce-ESP32-C5-TFT-Without-Touch",

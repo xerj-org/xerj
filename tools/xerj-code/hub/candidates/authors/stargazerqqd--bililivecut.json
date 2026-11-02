@@ -1,0 +1,23 @@
+{
+ "corpus": "stargazerqqd--bililivecut",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how StarGazerQQD/BiliLiveCut implements it: \u79ef\u6781\u63a8\u52a8\u4eba\u5de5\u667a\u80fd\u79d1\u6280\u521b\u65b0\u4e0e\u865a\u62df\u4e3b\u64ad\u4ea7\u4e1a\u521b\u65b0\u6df1\u5ea6\u878d\u5408\uff0c\u8d4b\u80fd\u5207\u7247\u9ad8\u8d28\u91cf\u53d1\u5c55 (selected work: tests, frontend, app/web)",
+ "repos": [
+  {
+   "repo": "BiliLiveCut",
+   "url": "https://github.com/StarGazerQQD/BiliLiveCut",
+   "sha": "a752541eb7674b9a11dc5a5088cac290602ddcce",
+   "licence": "MIT (LICENSE file at pin a752541eb767, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T15:37Z",
+    "consent_receipt": "0875847db519",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T15:37Z (receipt 0875847db519); selected commit a752541eb767: \"feat(rooms): \u652f\u6301\u5220\u9664\u76f4\u64ad\u95f4\u5e76\u4fdd\u7559\u5f55\u5236\u5386\u53f2\". LICENSE file at pin a752541eb767 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

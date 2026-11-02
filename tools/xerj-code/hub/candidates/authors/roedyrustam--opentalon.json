@@ -8,15 +8,15 @@
   {
    "repo": "opentalon",
    "url": "https://github.com/roedyrustam/opentalon",
-   "sha": "f22488a3b13d2210c93475c0b35482cd00939e97",
-   "licence": "MIT (LICENSE file at pin f22488a3b13d, GitHub licence API 2026-10-29)",
+   "sha": "334dc7ca5b1abc8191035878c9a38f438cfb1588",
+   "licence": "MIT (LICENSE file at pin 334dc7ca5b1a, GitHub licence API 2026-11-02)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T00:10Z",
     "consent_receipt": "7f4eb2e76940",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T00:10Z (receipt 7f4eb2e76940); pinned to the default-branch head. LICENSE file at pin f22488a3b13d detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T00:10Z (receipt 7f4eb2e76940); pinned to the default-branch head. LICENSE file at pin 334dc7ca5b1a detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
    }
   }
  ]

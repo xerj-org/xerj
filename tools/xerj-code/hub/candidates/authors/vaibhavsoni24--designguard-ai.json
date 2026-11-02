@@ -1,0 +1,23 @@
+{
+ "corpus": "vaibhavsoni24--designguard-ai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how VaibhavSoni24/DesignGuard-AI implements it: VaibhavSoni24/DesignGuard-AI (Python)",
+ "repos": [
+  {
+   "repo": "DesignGuard-AI",
+   "url": "https://github.com/VaibhavSoni24/DesignGuard-AI",
+   "sha": "76ff4fdaee56ff6d8bf96b4f94caca4c1ce108e4",
+   "licence": "author's permission (LICENSE at pin 76ff4fdaee56: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T06:56Z",
+    "consent_receipt": "e5de5672998a",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T06:56Z (receipt e5de5672998a); pinned to the default-branch head. LICENSE at pin 76ff4fdaee56: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

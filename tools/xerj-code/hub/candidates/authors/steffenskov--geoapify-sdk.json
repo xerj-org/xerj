@@ -8,15 +8,15 @@
   {
    "repo": "Geoapify.SDK",
    "url": "https://github.com/steffenskov/Geoapify.SDK",
-   "sha": "41ff547915ac8662d603f35b6db6e1dc68f0fa47",
-   "licence": "MIT (LICENSE file at pin 41ff547915ac, GitHub licence API 2026-11-01)",
+   "sha": "352353c59d30f3a647962c5a16b95f03be68a86b",
+   "licence": "MIT (LICENSE file at pin 352353c59d30, GitHub licence API 2026-11-01)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T19:41Z",
     "consent_receipt": "cb146912c69f",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T19:41Z (receipt cb146912c69f); pinned to the default-branch head. LICENSE file at pin 41ff547915ac detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T19:41Z (receipt cb146912c69f); pinned to the default-branch head. LICENSE file at pin 352353c59d30 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
    }
   }
  ]

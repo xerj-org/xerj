@@ -1,0 +1,23 @@
+{
+ "corpus": "aleixrocal--pi-multi-skills",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-skills, pi-coding-agent, pi-extension queries this for how AleixRocal/pi-multi-skills implements it: pi plugin that lets skills be chained, the way Codex skill invocation composes (selected work: tests, scripts, the project root)",
+ "repos": [
+  {
+   "repo": "pi-multi-skills",
+   "url": "https://github.com/AleixRocal/pi-multi-skills",
+   "sha": "030d1448c1ff3662e9134e5ad67a27d8a9e0f034",
+   "licence": "MIT (LICENSE file at pin 030d1448c1ff, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T08:45Z",
+    "consent_receipt": "db27923bbcbc",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T08:45Z (receipt db27923bbcbc); selected commit 030d1448c1ff: \"feat(skills): ship skill-chain in the package\". LICENSE file at pin 030d1448c1ff detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

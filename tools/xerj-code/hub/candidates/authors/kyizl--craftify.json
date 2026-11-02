@@ -1,0 +1,23 @@
+{
+ "corpus": "kyizl--craftify",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on TypeScript queries this for how kyizl/craftify implements it: Typed, runtime-validated API wrapper for PikaNetwork (selected work: src/networks, tests, src/client)",
+ "repos": [
+  {
+   "repo": "craftify",
+   "url": "https://github.com/kyizl/craftify",
+   "sha": "847eb082d261521e137fe5d5c8cc48df676529f2",
+   "licence": "MIT (LICENSE file at pin 847eb082d261, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T01:34Z",
+    "consent_receipt": "0626f538feb3",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T01:34Z (receipt 0626f538feb3); selected commit 847eb082d261: \"feat(pika-network): add api key auth and full endpoint coverage\". LICENSE file at pin 847eb082d261 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

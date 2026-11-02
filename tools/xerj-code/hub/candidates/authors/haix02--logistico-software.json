@@ -2,8 +2,8 @@
  "corpus": "haix02--logistico-software",
  "cloned_at": null,
  "status": "draft",
- "shelf": "WEB",
- "domain": "an agent working on arabic, blazor, cash-on-delivery queries this for how Haix02/logistico-software implements it: Open-source delivery & logistics management system (TMS/WMS) with a Flutter mobile app (Android/iOS) for couriers, sellers and managers: pro (selected work: src/Modules, src/Logistico.Web.Client, src/Logistico.SharedKernel)",
+ "shelf": "DB",
+ "domain": "an agent working on arabic, blazor, cash-on-delivery queries this for how Haix02/logistico-software implements it: Open-source delivery management system (TMS/WMS) and courier app: orders, hubs and sort plans, trucks, cash on delivery (COD), proof of deli (selected work: src/Modules, src/Logistico.Web.Client, src/Logistico.SharedKernel)",
  "repos": [
   {
    "repo": "logistico-software",

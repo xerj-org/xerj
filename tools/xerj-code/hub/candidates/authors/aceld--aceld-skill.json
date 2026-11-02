@@ -1,0 +1,23 @@
+{
+ "corpus": "aceld--aceld-skill",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how aceld/aceld-skill implements it: aceld/aceld-skill (Python) (selected work: aceld-skill-rollout)",
+ "repos": [
+  {
+   "repo": "aceld-skill",
+   "url": "https://github.com/aceld/aceld-skill",
+   "sha": "28709ad6be1afa6ed8107cc17270635d339f45cb",
+   "licence": "MIT (LICENSE file at pin 28709ad6be1a, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T01:44Z",
+    "consent_receipt": "26aaa17ad42e",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T01:44Z (receipt 26aaa17ad42e); selected commit 28709ad6be1a: \"feat(rollout): \u6309\u6280\u80fd\u540d\u540c\u6b65\u672c\u5730 + publish.py \u4e00\u6761\u547d\u4ee4\u53d1\u5e03\". LICENSE file at pin 28709ad6be1a detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

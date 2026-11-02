@@ -1,0 +1,23 @@
+{
+ "corpus": "paranik-jpg--vectorindexcpp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on cache-locality, concurrency, cpp20 queries this for how paranik-jpg/VectorIndexCPP implements it: High-performance, thread-safe in-memory dense vector similarity search engine in modern C++20. Engineered with contiguous flat memory for ca",
+ "repos": [
+  {
+   "repo": "VectorIndexCPP",
+   "url": "https://github.com/paranik-jpg/VectorIndexCPP",
+   "sha": "8120354693e84d061ef9792d7efcc20db5b26977",
+   "licence": "MIT (LICENSE file at pin 8120354693e8, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T09:19Z",
+    "consent_receipt": "823b017e73ca",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T09:19Z (receipt 823b017e73ca); pinned to the default-branch head. LICENSE file at pin 8120354693e8 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

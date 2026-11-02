@@ -1,0 +1,23 @@
+{
+ "corpus": "vaibhavsoni24--skills-introduction-to-github",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on code queries this for how VaibhavSoni24/skills-introduction-to-github implements it: My clone repository",
+ "repos": [
+  {
+   "repo": "skills-introduction-to-github",
+   "url": "https://github.com/VaibhavSoni24/skills-introduction-to-github",
+   "sha": "c02a63cbfd3d95fa214b5364c477383186bbf64d",
+   "licence": "MIT (LICENSE file at pin c02a63cbfd3d, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T06:56Z",
+    "consent_receipt": "28f131400482",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T06:56Z (receipt 28f131400482); pinned to the default-branch head. LICENSE file at pin c02a63cbfd3d detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

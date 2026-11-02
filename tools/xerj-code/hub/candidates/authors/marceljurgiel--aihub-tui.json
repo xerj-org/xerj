@@ -1,0 +1,23 @@
+{
+ "corpus": "marceljurgiel--aihub-tui",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agent, local-llm, mcp queries this for how marceljurgiel/AIhub-TUI implements it: Local AI in your terminal: chat, agents and tools on your own models (Ollama). Knowledge bases from your documents, scheduled tasks, connect (selected work: tests, aihub)",
+ "repos": [
+  {
+   "repo": "AIhub-TUI",
+   "url": "https://github.com/marceljurgiel/AIhub-TUI",
+   "sha": "cec8affb8b74e7715311a0b3a510ccbdfbd1cb95",
+   "licence": "MIT (LICENSE file at pin cec8affb8b74, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T11:38Z",
+    "consent_receipt": "a1c02afc5343",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T11:38Z (receipt a1c02afc5343); selected commit cec8affb8b74: \"Fit: Apple silicon, per-card bandwidth, shared memory counted once\". LICENSE file at pin cec8affb8b74 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on 30nama, android-tv, android-tv-launcher queries this for how KoolestTVLauncher/Koolest-TV-Launcher implements it: A fast, ad-free Android TV and Google TV home screen with the Glass design, iOS style look: Continue watching, app rows, console tiles, a gl (selected work: app/src, app)",
+ "domain": "an agent working on android-tv, android-tv-launcher, google-tv queries this for how KoolestTVLauncher/Koolest-TV-Launcher implements it: A fast, ad-free Android TV and Google TV home screen with the Glass design, iOS style look: Continue watching, app rows, console tiles, a gl (selected work: app/src, app)",
  "repos": [
   {
    "repo": "Koolest-TV-Launcher",

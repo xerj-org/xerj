@@ -1,0 +1,23 @@
+{
+ "corpus": "ebadshelby--syntaxia-dev",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on cheatsheet, learn-to-code, learning-resources queries this for how EbadShelby/syntaxia-dev implements it: Your personal coding reference for the things you always look up (selected work: src/data, src/views, src/components)",
+ "repos": [
+  {
+   "repo": "syntaxia-dev",
+   "url": "https://github.com/EbadShelby/syntaxia-dev",
+   "sha": "c51b79d2356e3c04f6945fd32a25e828b8a5fa8a",
+   "licence": "MIT (LICENSE file at pin c51b79d2356e, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T03:17Z",
+    "consent_receipt": "d6164be41b0e",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T03:17Z (receipt d6164be41b0e); selected commit c51b79d2356e: \"feat: add bash and vim cheatsheet\". LICENSE file at pin c51b79d2356e detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

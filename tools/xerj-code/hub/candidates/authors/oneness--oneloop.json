@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Rust queries this for how oneness/OneLoop implements it: One agent for your Claude, ChatGPT, Antigravity, OpenRouter, and OpenCode subscriptions \u2014 plus local when you want private (selected work: src/antigravity, src)",
+ "domain": "an agent working on Rust queries this for how oneness/OneLoop implements it: One agent for Claude, ChatGPT, Antigravity, OpenRouter, and OpenCode subscriptions \u2014 plus local for priivacy (selected work: src/antigravity, src)",
  "repos": [
   {
    "repo": "OneLoop",

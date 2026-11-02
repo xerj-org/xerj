@@ -1,0 +1,23 @@
+{
+ "corpus": "hendriksie--voxgale",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, dart, flutter queries this for how Hendriksie/VoxGale implements it: Live conversation transcription for Android, powered by your own Mistral API key (selected work: test, lib/app, lib/session)",
+ "repos": [
+  {
+   "repo": "VoxGale",
+   "url": "https://github.com/Hendriksie/VoxGale",
+   "sha": "1fa6fc07c085163a23eb3c571d573a3f290b7357",
+   "licence": "MIT (LICENSE file at pin 1fa6fc07c085, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T10:45Z",
+    "consent_receipt": "66fb6d568205",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T10:45Z (receipt 66fb6d568205); selected commit 1fa6fc07c085: \"send-transcript-to-agent group 4: send-to-agent flow on the transcrip\u2026\". LICENSE file at pin 1fa6fc07c085 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

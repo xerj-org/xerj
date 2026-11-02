@@ -1,0 +1,23 @@
+{
+ "corpus": "andrewwgordon--hexarch-task",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Go queries this for how andrewwgordon/hexarch-task implements it: A classic task management to-do list application built in Go, Gin, HTMX and DaisyUI (selected work: internal/repository, internal/adapters, internal/application)",
+ "repos": [
+  {
+   "repo": "hexarch-task",
+   "url": "https://github.com/andrewwgordon/hexarch-task",
+   "sha": "98bc4fb5a004b0c679add84ee458da4e9033a78e",
+   "licence": "MIT (LICENSE file at pin 98bc4fb5a004, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T10:09Z",
+    "consent_receipt": "bd078b1c1dc6",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T10:09Z (receipt bd078b1c1dc6); selected commit 98bc4fb5a004: \"Implement parsing functions for due filters, sorting fields, and sort\u2026\". LICENSE file at pin 98bc4fb5a004 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

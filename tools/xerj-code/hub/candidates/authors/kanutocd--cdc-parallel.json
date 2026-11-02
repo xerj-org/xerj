@@ -1,0 +1,23 @@
+{
+ "corpus": "kanutocd--cdc-parallel",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on cdc, change-data-capture, event-processing queries this for how kanutocd/cdc-parallel implements it: Optional Ractor-backed parallel execution for `cdc-core`. It accelerates Change Data Capture (CDC) pipelines while preserving the simplicity",
+ "repos": [
+  {
+   "repo": "cdc-parallel",
+   "url": "https://github.com/kanutocd/cdc-parallel",
+   "sha": "203f8a1393dddeec2e79808c8d512f88cceb00df",
+   "licence": "MIT (LICENSE file at pin 203f8a1393dd, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T01:18Z",
+    "consent_receipt": "9af17a61ec4e",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T01:18Z (receipt 9af17a61ec4e); pinned to the default-branch head. LICENSE file at pin 203f8a1393dd detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

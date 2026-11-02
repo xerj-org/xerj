@@ -8,15 +8,15 @@
   {
    "repo": "csv_plus",
    "url": "https://github.com/almasumdev/csv_plus",
-   "sha": "c2b7dde2a9018f42f5f947625faee90544a5985c",
-   "licence": "MIT (LICENSE file at pin c2b7dde2a901, GitHub licence API 2026-10-28)",
+   "sha": "8297b900690c7d5928d2eb7058d293427a8dcdb3",
+   "licence": "MIT (LICENSE file at pin 8297b900690c, GitHub licence API 2026-11-01)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T21:30Z",
     "consent_receipt": "cb795cdf89e4",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T21:30Z (receipt cb795cdf89e4); pinned to the default-branch head. LICENSE file at pin c2b7dde2a901 detected as MIT by the GitHub licence API on 2026-10-28; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T21:30Z (receipt cb795cdf89e4); pinned to the default-branch head. LICENSE file at pin 8297b900690c detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
    }
   }
  ]

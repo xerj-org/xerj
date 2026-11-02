@@ -1,0 +1,23 @@
+{
+ "corpus": "aldanedev-create--pytscheck",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how aldanedev-create/pytscheck implements it: **Python-native TypeScript type checking.** Powered by a bundled native `tsgo` compiler",
+ "repos": [
+  {
+   "repo": "pytscheck",
+   "url": "https://github.com/aldanedev-create/pytscheck",
+   "sha": "ac23212fa3dc5d8555c701364162cebc715031be",
+   "licence": "author's permission (LICENSE at pin ac23212fa3dc: NOASSERTION; repository: NOASSERTION)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T08:40Z",
+    "consent_receipt": "1a155fbec664",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T08:40Z (receipt 1a155fbec664); pinned to the default-branch head. LICENSE at pin ac23212fa3dc: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

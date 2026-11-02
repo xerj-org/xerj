@@ -1,0 +1,23 @@
+{
+ "corpus": "vaibhavsoni24--summer-analytics-week-4-hackathon-project",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Jupyter Notebook queries this for how VaibhavSoni24/Summer-Analytics-Week-4-Hackathon-Project implements it: VaibhavSoni24/Summer-Analytics-Week-4-Hackathon-Project (Jupyter Notebook)",
+ "repos": [
+  {
+   "repo": "Summer-Analytics-Week-4-Hackathon-Project",
+   "url": "https://github.com/VaibhavSoni24/Summer-Analytics-Week-4-Hackathon-Project",
+   "sha": "27c4ca23331e22aa4d98cdfe5026417f4545196f",
+   "licence": "author's permission (LICENSE at pin 27c4ca23331e: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T06:56Z",
+    "consent_receipt": "806935d2e611",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T06:56Z (receipt 806935d2e611); pinned to the default-branch head. LICENSE at pin 27c4ca23331e: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

@@ -8,15 +8,15 @@
   {
    "repo": "agent-bridge-suite",
    "url": "https://github.com/roedyrustam/agent-bridge-suite",
-   "sha": "57216b355c41eae1c07ed218d3fc974dec103a0a",
-   "licence": "MIT (LICENSE file at pin 57216b355c41, GitHub licence API 2026-10-29)",
+   "sha": "5f2f28a3e658993d7291e8844ec96a902d390e1a",
+   "licence": "MIT (LICENSE file at pin 5f2f28a3e658, GitHub licence API 2026-11-02)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T00:09Z",
     "consent_receipt": "2cac9e282d3e",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T00:09Z (receipt 2cac9e282d3e); pinned to the default-branch head. LICENSE file at pin 57216b355c41 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T00:09Z (receipt 2cac9e282d3e); pinned to the default-branch head. LICENSE file at pin 5f2f28a3e658 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
    }
   }
  ]

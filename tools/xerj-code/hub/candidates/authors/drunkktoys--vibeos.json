@@ -1,0 +1,23 @@
+{
+ "corpus": "drunkktoys--vibeos",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how DrunkkToys/vibeOS implements it: vibeOS \u2014 OpenCode plugin for cost-aware delegation, model routing, session metrics, and trinity CLI (selected work: tests, src/lib, src)",
+ "repos": [
+  {
+   "repo": "vibeOS",
+   "url": "https://github.com/DrunkkToys/vibeOS",
+   "sha": "b8959e21afd8bf22195006d1cf3b644d5442f91b",
+   "licence": "MIT (LICENSE file at pin b8959e21afd8, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T19:04Z",
+    "consent_receipt": "77c8dede33b7",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T19:04Z (receipt 77c8dede33b7); selected commit b8959e21afd8: \"feat(router): opt-in test-verified cascade that escalates after a fai\u2026\". LICENSE file at pin b8959e21afd8 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

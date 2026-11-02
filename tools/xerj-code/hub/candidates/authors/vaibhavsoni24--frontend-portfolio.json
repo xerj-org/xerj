@@ -1,0 +1,23 @@
+{
+ "corpus": "vaibhavsoni24--frontend-portfolio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how VaibhavSoni24/FrontEnd-Portfolio implements it: VaibhavSoni24/FrontEnd-Portfolio (TypeScript)",
+ "repos": [
+  {
+   "repo": "FrontEnd-Portfolio",
+   "url": "https://github.com/VaibhavSoni24/FrontEnd-Portfolio",
+   "sha": "4f6bb90bf2e4942b893b24ec7003c0b7f4bcfcf8",
+   "licence": "author's permission (LICENSE at pin 4f6bb90bf2e4: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T06:56Z",
+    "consent_receipt": "528d206742b7",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T06:56Z (receipt 528d206742b7); pinned to the default-branch head. LICENSE at pin 4f6bb90bf2e4: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

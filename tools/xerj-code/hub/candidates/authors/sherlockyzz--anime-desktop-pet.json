@@ -1,0 +1,23 @@
+{
+ "corpus": "sherlockyzz--anime-desktop-pet",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-assistant, anime, desktop-mascot queries this for how SherlockYzz/anime-desktop-pet implements it: AI Desktop Pet - Live2D desktop pet with multiple anime characters",
+ "repos": [
+  {
+   "repo": "anime-desktop-pet",
+   "url": "https://github.com/SherlockYzz/anime-desktop-pet",
+   "sha": "d0d8dc217134298494e9353cadcdc5ab01c77313",
+   "licence": "MIT (LICENSE file at pin d0d8dc217134, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T09:42Z",
+    "consent_receipt": "3c6341c37a13",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T09:42Z (receipt 3c6341c37a13); pinned to the default-branch head. LICENSE file at pin d0d8dc217134 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

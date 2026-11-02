@@ -1,0 +1,23 @@
+{
+ "corpus": "flawsom--cadence",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how flawsom/Cadence implements it: Freebuff project: Syllabus Pacer",
+ "repos": [
+  {
+   "repo": "Cadence",
+   "url": "https://github.com/flawsom/Cadence",
+   "sha": "f2947dfb50a2c28898e22e94f24d8c0c9cb4ffb3",
+   "licence": "author's permission (LICENSE at pin f2947dfb50a2: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T13:44Z",
+    "consent_receipt": "50144acf0c4e",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T13:44Z (receipt 50144acf0c4e); pinned to the default-branch head. LICENSE at pin f2947dfb50a2: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

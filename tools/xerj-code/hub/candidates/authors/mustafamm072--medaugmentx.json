@@ -1,0 +1,23 @@
+{
+ "corpus": "mustafamm072--medaugmentx",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how mustafamm072/MedAugmentX implements it: Lightweight medical image augmentation library for AI training datasets (selected work: tests, medaugmentx, examples)",
+ "repos": [
+  {
+   "repo": "MedAugmentX",
+   "url": "https://github.com/mustafamm072/MedAugmentX",
+   "sha": "23cc15af80cbec41a00fecd765b39771a0585b4b",
+   "licence": "MIT (LICENSE file at pin 23cc15af80cb, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T02:47Z",
+    "consent_receipt": "efbbea1e0262",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T02:47Z (receipt efbbea1e0262); selected commit 23cc15af80cb: \"Add spacing-based resampling and world annotation conversion\". LICENSE file at pin 23cc15af80cb detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

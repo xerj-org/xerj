@@ -1,0 +1,23 @@
+{
+ "corpus": "arvinnotdev--adb-commander",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Python queries this for how ArvinNotDev/ADB-Commander implements it: A simple yet powerful GUI tool for managing Android devices using ADB (Android Debug Bridge) and Fastboot. This application provides an easy (selected work: ui, functions, tests)",
+ "repos": [
+  {
+   "repo": "ADB-Commander",
+   "url": "https://github.com/ArvinNotDev/ADB-Commander",
+   "sha": "559c746a53097442cec59eb59ba2b08cb90f80d1",
+   "licence": "MIT (LICENSE file at pin 559c746a5309, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T16:17Z",
+    "consent_receipt": "3014185d7f3c",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T16:17Z (receipt 3014185d7f3c); selected commit 559c746a5309: \"Separate ADB wireless pairing and reconnect\". LICENSE file at pin 559c746a5309 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

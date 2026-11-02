@@ -1,0 +1,23 @@
+{
+ "corpus": "frozenpepper--greia",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on education, kids, linux queries this for how frozenpepper/Greia implements it: Greia OS: a free, offline learning computer for young children that runs on old laptops. Download the installer at frozenpepper.it/greia (selected work: tools, tests)",
+ "repos": [
+  {
+   "repo": "Greia",
+   "url": "https://github.com/frozenpepper/Greia",
+   "sha": "638756d2128cca75bd035853fc6a717dbf9ceca1",
+   "licence": "MPL-2.0 (LICENSE file at pin 638756d2128c, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MPL-2.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-02T01:16Z",
+    "consent_receipt": "6f427ecde697",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T01:16Z (receipt 6f427ecde697); selected commit 638756d2128c: \"Voice production: use VoxCPM2 and Parakeet v3 across macOS, Windows a\u2026\". LICENSE file at pin 638756d2128c detected as MPL-2.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

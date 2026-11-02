@@ -1,0 +1,23 @@
+{
+ "corpus": "rompik--openiso",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on bim, cad, editor queries this for how rompik/OpenIso implements it: Open-source isometric symbol editor for piping engineering and SKEY management (selected work: openiso, tests, the project root)",
+ "repos": [
+  {
+   "repo": "OpenIso",
+   "url": "https://github.com/rompik/OpenIso",
+   "sha": "12d0179f197eeab40156b7dc059a7b98d5e3dfda",
+   "licence": "MIT (LICENSE file at pin 12d0179f197e, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T21:09Z",
+    "consent_receipt": "e0d2ad5105a8",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T21:09Z (receipt e0d2ad5105a8); selected commit 12d0179f197e: \"Updates\". LICENSE file at pin 12d0179f197e detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

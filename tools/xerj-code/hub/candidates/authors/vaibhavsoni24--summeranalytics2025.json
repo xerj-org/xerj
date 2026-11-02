@@ -1,0 +1,23 @@
+{
+ "corpus": "vaibhavsoni24--summeranalytics2025",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Jupyter Notebook queries this for how VaibhavSoni24/SummerAnalytics2025 implements it: Summer Analytics 2025 by IIT Guwahati. This repo covers data manipulation, statistical queries, and visualization using Python, Pandas, and ",
+ "repos": [
+  {
+   "repo": "SummerAnalytics2025",
+   "url": "https://github.com/VaibhavSoni24/SummerAnalytics2025",
+   "sha": "bea8cd1268a0b9292a25117b0d010fcf392cfef9",
+   "licence": "author's permission (LICENSE at pin bea8cd1268a0: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T06:56Z",
+    "consent_receipt": "81e8ab0e0747",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T06:56Z (receipt 81e8ab0e0747); pinned to the default-branch head. LICENSE at pin bea8cd1268a0: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

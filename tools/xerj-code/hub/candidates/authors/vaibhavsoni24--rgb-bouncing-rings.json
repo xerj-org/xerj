@@ -1,0 +1,23 @@
+{
+ "corpus": "vaibhavsoni24--rgb-bouncing-rings",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on HTML queries this for how VaibhavSoni24/RGB-Bouncing-Rings implements it: VaibhavSoni24/RGB-Bouncing-Rings (HTML)",
+ "repos": [
+  {
+   "repo": "RGB-Bouncing-Rings",
+   "url": "https://github.com/VaibhavSoni24/RGB-Bouncing-Rings",
+   "sha": "0eb286f56057583e18089ff4f3a179f2a50c7770",
+   "licence": "author's permission (LICENSE at pin 0eb286f56057: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T06:56Z",
+    "consent_receipt": "30e7280a6658",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T06:56Z (receipt 30e7280a6658); pinned to the default-branch head. LICENSE at pin 0eb286f56057: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

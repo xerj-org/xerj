@@ -1,0 +1,23 @@
+{
+ "corpus": "madebyaris--spec-kit-command-cursor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-workflow, cursor, developer-tools queries this for how madebyaris/spec-kit-command-cursor implements it: SDD toolkit for Cursor IDE \u2014 /specify, /plan, /tasks to turn ideas into specs, plans, and actionable tasks",
+ "repos": [
+  {
+   "repo": "spec-kit-command-cursor",
+   "url": "https://github.com/madebyaris/spec-kit-command-cursor",
+   "sha": "36b26f99933891aec54cd96db4fe0ca9f714936b",
+   "licence": "MIT (LICENSE file at pin 36b26f999338, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T05:22Z",
+    "consent_receipt": "7d0c7fc6d08f",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T05:22Z (receipt 7d0c7fc6d08f); pinned to the default-branch head. LICENSE file at pin 36b26f999338 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

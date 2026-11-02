@@ -1,0 +1,23 @@
+{
+ "corpus": "paranik-jpg--distributed-event-hub",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on dead-letter-queue, event-driven-architecture, go queries this for how paranik-jpg/distributed-event-hub implements it: Enterprise-grade event-driven financial ledger & streaming pipeline in Go. Features an ACID double-entry PostgreSQL ledger, Transactional Ou",
+ "repos": [
+  {
+   "repo": "distributed-event-hub",
+   "url": "https://github.com/paranik-jpg/distributed-event-hub",
+   "sha": "034d759f91aad842ba22184a44890a365c1bb97c",
+   "licence": "MIT (LICENSE file at pin 034d759f91aa, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T09:19Z",
+    "consent_receipt": "a27246247aa6",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T09:19Z (receipt a27246247aa6); pinned to the default-branch head. LICENSE file at pin 034d759f91aa detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

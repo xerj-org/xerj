@@ -1,0 +1,30 @@
+{
+ "corpus": "coxaexs--huddle",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on chat, discord-alternative, dnd queries this for how Coxaexs/huddle implements it: Free, open-source chat app for friend groups: voice, 1080p screen sharing with sound, music together and D&D tools. A self-hostable Discord  (selected work: test, lib, lib/discord)",
+ "repos": [
+  {
+   "repo": "huddle",
+   "url": "https://github.com/Coxaexs/huddle",
+   "sha": "533891cfe4ee10eaf6531e6fc016cf9c21e01473",
+   "licence": "AGPL-3.0 (LICENSE file at pin 533891cfe4ee, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-01T10:46Z",
+    "consent_receipt": "e11b5722b9ae",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T10:46Z (receipt e11b5722b9ae); selected commit 533891cfe4ee: \"Security fixes: keep bots inside their own server, lock down the Disc\u2026\". LICENSE file at pin 533891cfe4ee detected as AGPL-3.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "533891cfe4ee10eaf6531e6fc016cf9c21e01473",
+     "at": "2026-11-01T10:46Z",
+     "receipt": "e11b5722b9ae"
+    }
+   }
+  }
+ ]
+}

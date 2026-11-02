@@ -1,0 +1,23 @@
+{
+ "corpus": "flawsom--stocks",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on trading-bot-monitoring, trading-deployment-kit, trading-scanners queries this for how flawsom/Stocks implements it: Free real-time trading terminal: 30+ live market-data providers race fastest-wins (zero API keys), a self-improving 7-model AI ensemble runs",
+ "repos": [
+  {
+   "repo": "Stocks",
+   "url": "https://github.com/flawsom/Stocks",
+   "sha": "fe5d6f38af9b1e71d7563d4fa64585a0e5f67320",
+   "licence": "MIT (LICENSE file at pin fe5d6f38af9b, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T13:44Z",
+    "consent_receipt": "ba2d0bb49f77",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T13:44Z (receipt ba2d0bb49f77); pinned to the default-branch head. LICENSE file at pin fe5d6f38af9b detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

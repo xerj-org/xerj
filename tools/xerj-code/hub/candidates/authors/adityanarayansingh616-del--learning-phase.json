@@ -1,0 +1,23 @@
+{
+ "corpus": "adityanarayansingh616-del--learning-phase",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Java queries this for how adityanarayansingh616-del/LEARNING_PHASE implements it: A structured coding journey from school-level CS/AI to full-stack development, AI, and digital product building (selected work: CBSE 11-12, the project root)",
+ "repos": [
+  {
+   "repo": "LEARNING_PHASE",
+   "url": "https://github.com/adityanarayansingh616-del/LEARNING_PHASE",
+   "sha": "970e08f1bbe1b10a00895ae2c946acef701afe41",
+   "licence": "MIT (LICENSE file at pin 970e08f1bbe1, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T08:12Z",
+    "consent_receipt": "6cd115cafd7d",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T08:12Z (receipt 6cd115cafd7d); selected commit 970e08f1bbe1: \"Added Python Master question along with small data retention feature \u2026\". LICENSE file at pin 970e08f1bbe1 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "madebyaris--native-cli-ai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-orchestration, ai, automation queries this for how madebyaris/native-cli-ai implements it: A native Rust CLI for orchestrating AI agents across projects, with persistent sessions, worktrees, and local-first control",
+ "repos": [
+  {
+   "repo": "native-cli-ai",
+   "url": "https://github.com/madebyaris/native-cli-ai",
+   "sha": "ca7e1f77443bb39d7c6c76557fd2b63778935d7a",
+   "licence": "author's permission (LICENSE at pin ca7e1f77443b: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T05:22Z",
+    "consent_receipt": "bdd26855d058",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T05:22Z (receipt bdd26855d058); pinned to the default-branch head. LICENSE at pin ca7e1f77443b: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

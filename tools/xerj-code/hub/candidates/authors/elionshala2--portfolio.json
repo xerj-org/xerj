@@ -1,0 +1,23 @@
+{
+ "corpus": "elionshala2--portfolio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on CSS queries this for how elionshala2/portfolio implements it: elionshala2/portfolio (CSS)",
+ "repos": [
+  {
+   "repo": "portfolio",
+   "url": "https://github.com/elionshala2/portfolio",
+   "sha": "2360a394931d16bc8863fe0de7c0722ec38c7584",
+   "licence": "MIT (LICENSE file at pin 2360a394931d, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T21:06Z",
+    "consent_receipt": "69cad9ce5b9b",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T21:06Z (receipt 69cad9ce5b9b); pinned to the default-branch head. LICENSE file at pin 2360a394931d detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

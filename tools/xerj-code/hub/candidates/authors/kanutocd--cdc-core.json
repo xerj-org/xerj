@@ -1,0 +1,23 @@
+{
+ "corpus": "kanutocd--cdc-core",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on cdc, change-data-capture, data-pipeline queries this for how kanutocd/cdc-core implements it: Database-agnostic Change Data Capture domain primitives for Ruby",
+ "repos": [
+  {
+   "repo": "cdc-core",
+   "url": "https://github.com/kanutocd/cdc-core",
+   "sha": "046dbdc35348b32e208b402ebefc60f57cf6393a",
+   "licence": "MIT (LICENSE file at pin 046dbdc35348, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T01:18Z",
+    "consent_receipt": "ce7e254a8148",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T01:18Z (receipt ce7e254a8148); pinned to the default-branch head. LICENSE file at pin 046dbdc35348 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

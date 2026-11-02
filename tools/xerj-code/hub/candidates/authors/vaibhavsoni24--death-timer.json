@@ -1,0 +1,23 @@
+{
+ "corpus": "vaibhavsoni24--death-timer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on HTML queries this for how VaibhavSoni24/Death-Timer implements it: VaibhavSoni24/Death-Timer (HTML)",
+ "repos": [
+  {
+   "repo": "Death-Timer",
+   "url": "https://github.com/VaibhavSoni24/Death-Timer",
+   "sha": "a0e188ce0186c6a2ffc004cf961f0582e41121a8",
+   "licence": "author's permission (LICENSE at pin a0e188ce0186: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T06:56Z",
+    "consent_receipt": "b4aa03d38b60",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T06:56Z (receipt b4aa03d38b60); pinned to the default-branch head. LICENSE at pin a0e188ce0186: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

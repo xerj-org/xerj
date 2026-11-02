@@ -1,0 +1,30 @@
+{
+ "corpus": "deandromi--rockbox-rockpod-hfsplus",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on C queries this for how deandromi/Rockbox-Rockpod-HFSPlus implements it: Rockpod HFS+ is a firmware variant based on Rockpod by nuxcodes. Using HFS+ makes your iPod much more stable and less vulnerable to corrupti (selected work: uisimulator, firmware, apps/plugins)",
+ "repos": [
+  {
+   "repo": "Rockbox-Rockpod-HFSPlus",
+   "url": "https://github.com/deandromi/Rockbox-Rockpod-HFSPlus",
+   "sha": "903857befc03cce3f16b3c820fcbbce31f4d03b2",
+   "licence": "GPL-2.0 (LICENSE file at pin 903857befc03, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-01T21:54Z",
+    "consent_receipt": "9404880e642c",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T21:54Z (receipt 9404880e642c); selected commit 903857befc03: \"V1.1: harden overlay, namespace, bootloader and PictureFlow paths\". LICENSE file at pin 903857befc03 detected as GPL-2.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "903857befc03cce3f16b3c820fcbbce31f4d03b2",
+     "at": "2026-11-01T21:54Z",
+     "receipt": "9404880e642c"
+    }
+   }
+  }
+ ]
+}

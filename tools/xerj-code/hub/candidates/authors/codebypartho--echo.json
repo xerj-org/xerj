@@ -2,8 +2,8 @@
  "corpus": "codebypartho--echo",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on C++ queries this for how CodeByPartho/ECHO implements it: A private, offline-capable chat application with custom persona management (selected work: lib/views, lib/widgets, lib/controllers)",
+ "shelf": "WEB",
+ "domain": "an agent working on ai-chat, android, dart queries this for how CodeByPartho/ECHO implements it: A private, offline-capable chat application with custom persona management (selected work: lib/views, lib/widgets, lib/controllers)",
  "repos": [
   {
    "repo": "ECHO",

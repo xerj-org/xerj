@@ -1,0 +1,23 @@
+{
+ "corpus": "vaibhavsoni24--summer-analytics-week-6-capstone-project",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Jupyter Notebook queries this for how VaibhavSoni24/Summer-Analytics-Week-6-Capstone-Project implements it: VaibhavSoni24/Summer-Analytics-Week-6-Capstone-Project (Jupyter Notebook)",
+ "repos": [
+  {
+   "repo": "Summer-Analytics-Week-6-Capstone-Project",
+   "url": "https://github.com/VaibhavSoni24/Summer-Analytics-Week-6-Capstone-Project",
+   "sha": "4613061db722dc8e1297d5bf4b813f8535acd935",
+   "licence": "author's permission (LICENSE at pin 4613061db722: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T06:56Z",
+    "consent_receipt": "02e5c6907cd3",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T06:56Z (receipt 02e5c6907cd3); pinned to the default-branch head. LICENSE at pin 4613061db722: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

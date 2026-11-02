@@ -1,0 +1,23 @@
+{
+ "corpus": "asloth--ccdesk",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how asloth/ccdesk implements it: Desktop control for Claude Code on Linux: an MCP server and skill for screenshots, mouse, keyboard and windows (selected work: ccdesk, tests, bench)",
+ "repos": [
+  {
+   "repo": "ccdesk",
+   "url": "https://github.com/asloth/ccdesk",
+   "sha": "ef69192445e6173a1ca1ae1022744208d47336ce",
+   "licence": "MIT (LICENSE file at pin ef69192445e6, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T23:07Z",
+    "consent_receipt": "491748ff7212",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T23:07Z (receipt 491748ff7212); selected commit ef69192445e6: \"Accessibility actions in click_element, and set_value\". LICENSE file at pin ef69192445e6 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

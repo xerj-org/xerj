@@ -1,0 +1,30 @@
+{
+ "corpus": "kividbio--kividb",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on database, drop-in-replacement, in-memory queries this for how kividbio/kividb implements it: A fast, multi-threaded Redis\u00ae and Valkey alternative written in Rust: drop-in compatible, with full-text and vector search built in (selected work: src, tests, src/commands)",
+ "repos": [
+  {
+   "repo": "kividb",
+   "url": "https://github.com/kividbio/kividb",
+   "sha": "461f04226faa3d88d30d2e28cb6cf486f21660fe",
+   "licence": "AGPL-3.0 (LICENSE file at pin 461f04226faa, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-01T11:24Z",
+    "consent_receipt": "1c1890c160c7",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T11:24Z (receipt 1c1890c160c7); selected commit 461f04226faa: \"Expiry: active expiry does not wait for a hash tag's lock\". LICENSE file at pin 461f04226faa detected as AGPL-3.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "461f04226faa3d88d30d2e28cb6cf486f21660fe",
+     "at": "2026-11-01T11:24Z",
+     "receipt": "1c1890c160c7"
+    }
+   }
+  }
+ ]
+}
