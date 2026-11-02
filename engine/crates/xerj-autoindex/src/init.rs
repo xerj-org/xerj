@@ -65,7 +65,8 @@ OPTIONS:
                     (default $XERJ_URL or http://localhost:9200)
     --dry-run       print what would be written, write nothing
     --memory        opt in to project-local Claude Code session handoff (macOS/Linux)
-    --remove        with --memory, remove only these hooks; keep private data
+    --hooks         opt in to advisory Claude Code search hints (macOS/Linux)
+    --remove        with --memory or --hooks, remove only that feature; keep data
     --disable-feedback
                     accepted; turns off the feedback invitation on help
                     screens. Honoured in any position (env XERJ_DISABLE_FEEDBACK)
@@ -77,6 +78,13 @@ and indexed on the chosen loopback node in the background. The next session
 gets bounded, cited excerpts, not an LLM summary. No key is saved. Private
 archives and pending work stay in .claude/xerj-memory/; --remove retains them.
 Read tools/session-memory/README.md for limits, inspection and deletion.
+
+With --hooks, init merges an advisory PreToolUse hook into .claude/settings.json.
+Grep/Glob or the third Read can suggest a project-scoped search when the loopback
+node catalog confirms this exact folder was indexed. At most one hint per ten
+matching calls per session (up to 64 sessions retained); no tool is blocked or
+rewritten. Private counters/backups live in .claude/xerj-hints/. Configure/remove
+--memory and --hooks separately. See tools/search-hints/README.md.
 
 After ordinary init: restart the agent session so it picks up the new tools, then
 `xerj autoindex <folder> --prefix <name>` anything you want searchable.
@@ -118,6 +126,7 @@ fn agents_md_section() -> String {
      Index each repo under its own prefix: `xerj autoindex <folder> --prefix <name>`, then\n\
      pass the same `--prefix <name>` to `xerj search` and `xerj def` (without it they search\n\
      the default `ax` prefix). Cite file:line for anything you rely on.\n\
+     Optional Claude Code search reminders: `xerj init --hooks`; disable with `xerj init --hooks --remove`.\n\n\
      To find an installed skill by task, run `xerj autoindex --skills` once (it indexes\n\
      each skill folder it finds: `.claude/skills` in the home directory and in this\n\
      project, `.codex/skills`, `.agents/skills`), then\n\
@@ -583,6 +592,7 @@ struct InitFlags {
     dry: bool,
     help: bool,
     memory: bool,
+    hooks: bool,
     remove: bool,
 }
 
@@ -594,6 +604,7 @@ fn read_init_flags(args: impl IntoIterator<Item = String>) -> Result<InitFlags, 
         .unwrap_or_else(|| DEFAULT_URL.to_string());
     let mut dry = false;
     let mut memory = false;
+    let mut hooks = false;
     let mut remove = false;
     let mut it = args.into_iter();
     while let Some(a) = it.next() {
@@ -604,12 +615,14 @@ fn read_init_flags(args: impl IntoIterator<Item = String>) -> Result<InitFlags, 
                     dry,
                     help: true,
                     memory,
+                    hooks,
                     remove,
                 });
             }
             "--url" => url = it.next().unwrap_or(url),
             "--dry-run" => dry = true,
             "--memory" => memory = true,
+            "--hooks" => hooks = true,
             "--remove" => remove = true,
             // Also stripped by args_after_subcommand. Accepted here so a
             // caller that passes the raw list still does not exit 2.
@@ -617,20 +630,30 @@ fn read_init_flags(args: impl IntoIterator<Item = String>) -> Result<InitFlags, 
             other => return Err(format!("xerj init: unexpected argument '{other}'")),
         }
     }
-    if remove && !memory {
-        return Err("xerj init: --remove requires --memory".into());
+    if remove && !memory && !hooks {
+        return Err("xerj init: --remove requires --memory or --hooks".into());
+    }
+    if memory && hooks {
+        return Err("xerj init: configure --memory and --hooks separately".into());
     }
     Ok(InitFlags {
         url,
         dry,
         help: false,
         memory,
+        hooks,
         remove,
     })
 }
 
 #[cfg(test)]
 mod memory_flag_regression {
+    #[test]
+    fn search_hints_are_an_explicit_separate_opt_in() {
+        assert!(super::read_init_flags(["--hooks", "--dry-run"].map(String::from)).is_ok());
+        assert!(super::read_init_flags(["--hooks", "--remove"].map(String::from)).is_ok());
+        assert!(super::read_init_flags(["--hooks", "--memory"].map(String::from)).is_err());
+    }
     #[test]
     fn memory_hooks_are_an_explicit_init_opt_in() {
         assert!(super::read_init_flags(["--remove".into()])
@@ -660,11 +683,15 @@ pub fn run_init_cli() -> i32 {
     let url = flags.url;
     let dry = flags.dry;
     let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-    if flags.memory {
+    if flags.memory || flags.hooks {
         let result = std::env::current_exe()
             .map_err(anyhow::Error::from)
             .and_then(|binary| {
-                crate::session_memory::configure(&cwd, &url, dry, flags.remove, &binary)
+                if flags.hooks {
+                    crate::search_hints::configure(&cwd, &url, dry, flags.remove, &binary)
+                } else {
+                    crate::session_memory::configure(&cwd, &url, dry, flags.remove, &binary)
+                }
             });
         return match result {
             Ok(lines) => {
@@ -674,7 +701,10 @@ pub fn run_init_cli() -> i32 {
                 0
             }
             Err(error) => {
-                eprintln!("xerj init --memory: {error}");
+                eprintln!(
+                    "xerj init {}: {error}",
+                    if flags.hooks { "--hooks" } else { "--memory" }
+                );
                 1
             }
         };

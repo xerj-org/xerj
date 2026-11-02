@@ -2235,12 +2235,16 @@ const SCALA_Q: &str = r#"
 (object_definition body: (template_body (val_definition pattern: (identifier) @const)))
 "#;
 
-// Adapted from tree-sitter-dart 0.2.0 queries/tags.scm (class / mixin / enum
-// / function / method / typedef / enum-constant captures; getter/setter and
-// constructor variants dropped as weight without retrieval surface).
+// Adapted from tree-sitter-dart 0.2.0 queries/tags.scm (class / mixin /
+// extension / extension type / enum / function / method / typedef /
+// enum-constant captures; getter/setter and constructor variants dropped as
+// weight without retrieval surface). tags.scm tags both extension forms as
+// `definition.class`, and Swift's `extension` above is `@class` too.
 const DART_Q: &str = r#"
 (class_declaration name: (identifier) @class)
 (mixin_declaration (identifier) @mixin)
+(extension_declaration name: (identifier) @class)
+(extension_type_declaration name: (extension_type_name (identifier) @class))
 (enum_declaration name: (identifier) @enum)
 (enum_constant name: (identifier) @const)
 (function_signature name: (identifier) @function)
@@ -4556,7 +4560,9 @@ export { type specTypeOnly as Alias, valueStore };
              mixin Musical { void play() {} }\n\
              enum Suit { hearts, spades }\n\
              typedef Handler = void Function(int);\n\
-             int topLevel(int x) { return x; }\n",
+             int topLevel(int x) { return x; }\n\
+             extension Shout on String { String shout() => toUpperCase(); }\n\
+             extension type UserId(int value) { bool get isValid => value > 0; }\n",
         );
         assert!(has(&s, "Greeter", "class"), "got {s:?}");
         assert!(has(&s, "Musical", "mixin"), "got {s:?}");
@@ -4565,6 +4571,9 @@ export { type specTypeOnly as Alias, valueStore };
         assert!(has(&s, "Handler", "type"), "got {s:?}");
         assert!(has(&s, "topLevel", "function"), "got {s:?}");
         assert!(has(&s, "greet", "function"), "got {s:?}");
+        assert!(has(&s, "Shout", "class"), "got {s:?}");
+        assert!(has(&s, "UserId", "class"), "got {s:?}");
+        assert!(has(&s, "shout", "function"), "got {s:?}");
     }
 
     #[test]

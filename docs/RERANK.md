@@ -411,6 +411,10 @@ the picture:
   indexing/memory storage, and reads memories back for SessionStart. It refuses
   remote URLs and disables redirects and proxies; it adds no node-side egress.
   Runtime authentication is sent only to that loopback node.
+  `xerj init hook` (installed only by `xerj init --hooks`) reads bounded catalog
+  run metadata from its configured loopback node with runtime authentication.
+  Tool inputs, patterns and session IDs are never sent. Proxies and redirects
+  are disabled. It adds no node-side egress.
   `xerj feedback --open-pr` runs your `gh` to open a GitHub pull request with
   the report it drafted; without that flag it does nothing over the network.
 

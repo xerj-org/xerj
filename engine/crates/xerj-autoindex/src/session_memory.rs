@@ -26,7 +26,7 @@ struct Config {
     hooks: Value,
 }
 
-fn digest(bytes: &[u8]) -> String {
+pub(super) fn digest(bytes: &[u8]) -> String {
     format!("{:x}", Sha256::digest(bytes))
 }
 fn state(project: &Path) -> PathBuf {
@@ -45,7 +45,7 @@ fn check_path(path: &Path) -> Result<()> {
     }
     Ok(())
 }
-fn read(path: &Path, limit: u64) -> Result<Option<Vec<u8>>> {
+pub(super) fn read(path: &Path, limit: u64) -> Result<Option<Vec<u8>>> {
     check_path(path)?;
     let mut options = OpenOptions::new();
     options.read(true);
@@ -71,7 +71,7 @@ fn read(path: &Path, limit: u64) -> Result<Option<Vec<u8>>> {
     );
     Ok(Some(bytes))
 }
-fn private_dir(path: &Path) -> Result<()> {
+pub(super) fn private_dir(path: &Path) -> Result<()> {
     check_path(path)?;
     if !path.exists() {
         let mut builder = fs::DirBuilder::new();
@@ -95,7 +95,7 @@ fn private_dir(path: &Path) -> Result<()> {
     }
     Ok(())
 }
-fn atomic(path: &Path, bytes: &[u8]) -> Result<()> {
+pub(super) fn atomic(path: &Path, bytes: &[u8]) -> Result<()> {
     check_path(path)?;
     let mut temp = tempfile::NamedTempFile::new_in(path.parent().context("missing parent")?)?;
     temp.write_all(bytes)?;
@@ -103,12 +103,12 @@ fn atomic(path: &Path, bytes: &[u8]) -> Result<()> {
     temp.persist(path).map_err(|error| error.error)?;
     Ok(())
 }
-fn encode(value: &impl Serialize) -> Result<Vec<u8>> {
+pub(super) fn encode(value: &impl Serialize) -> Result<Vec<u8>> {
     let mut bytes = serde_json::to_vec_pretty(value)?;
     bytes.push(b'\n');
     Ok(bytes)
 }
-fn lock(path: &Path) -> Result<File> {
+pub(super) fn lock(path: &Path) -> Result<File> {
     check_path(path)?;
     let mut options = OpenOptions::new();
     options.read(true).write(true).create(true).truncate(false);
@@ -128,7 +128,7 @@ fn lock(path: &Path) -> Result<File> {
         .context("session memory worker is busy; retry after it finishes")?;
     Ok(file)
 }
-fn loopback(url: &str) -> Result<()> {
+pub(super) fn loopback(url: &str) -> Result<()> {
     let url = reqwest::Url::parse(url)?;
     ensure!(
         matches!(url.scheme(), "http" | "https")
@@ -164,7 +164,7 @@ fn config(project: &Path) -> Result<Config> {
     );
     Ok(config)
 }
-fn quote(text: &str) -> String {
+pub(super) fn quote(text: &str) -> String {
     format!("'{}'", text.replace('\'', "'\\''"))
 }
 fn hooks(project: &Path, binary: &Path) -> Result<Value> {
