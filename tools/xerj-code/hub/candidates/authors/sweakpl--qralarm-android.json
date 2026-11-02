@@ -16,14 +16,7 @@
     "by": "author-consent",
     "at": "2026-10-26T22:46Z",
     "consent_receipt": "3e229a267417",
-    "note": "Inclusion consented by the commit author by email at 2026-10-26T22:46Z (receipt 3e229a267417); selected commit f94e5701b9fe: \"Moved snooze availability rule from AlarmViewModel into the domain\". LICENSE file at pin f94e5701b9fe detected as GPL-3.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution.",
-    "author_grant": {
-     "terms": "MIT",
-     "scope": "the author's own changes in the selected commit",
-     "commit": "f94e5701b9fe4afa0a17be33921e0d3220c6667f",
-     "at": "2026-10-26T22:46Z",
-     "receipt": "3e229a267417"
-    }
+    "note": "Inclusion consented by the commit author by email at 2026-10-26T22:46Z (receipt 3e229a267417); selected commit f94e5701b9fe: \"Moved snooze availability rule from AlarmViewModel into the domain\". LICENSE file at pin f94e5701b9fe detected as GPL-3.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution."
    }
   }
  ]

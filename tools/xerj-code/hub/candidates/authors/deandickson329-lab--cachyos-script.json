@@ -16,14 +16,7 @@
     "by": "author-consent",
     "at": "2026-10-27T12:09Z",
     "consent_receipt": "5b7e4108bb95",
-    "note": "Inclusion consented by the commit author by email at 2026-10-27T12:09Z (receipt 5b7e4108bb95); selected commit 40c35df83a3e: \"\u4fee\u6539\u90e8\u5206\u63d0\u793a\uff0c\u5220\u9664\u4e86Neovim\u4e2dmonokai\u4e3b\u9898\uff0c\u66f4\u6362\u4e3acatppuccin\uff0c\u6dfb\u52a0lualine\u3001notice\u63d2\u4ef6\uff0c\u4fee\u6539\u90e8\u5206\u63d2\u4ef6\u7684\u81ea\u5b9a\u4e49\u914d\u7f6e\". LICENSE file at pin 40c35df83a3e detected as GPL-3.0 by the GitHub licence API on 2026-10-27; used under that licence with attribution.",
-    "author_grant": {
-     "terms": "MIT",
-     "scope": "the author's own changes in the selected commit",
-     "commit": "40c35df83a3ea2d815cd54b32ad249e1806a8325",
-     "at": "2026-10-27T12:09Z",
-     "receipt": "5b7e4108bb95"
-    }
+    "note": "Inclusion consented by the commit author by email at 2026-10-27T12:09Z (receipt 5b7e4108bb95); selected commit 40c35df83a3e: \"\u4fee\u6539\u90e8\u5206\u63d0\u793a\uff0c\u5220\u9664\u4e86Neovim\u4e2dmonokai\u4e3b\u9898\uff0c\u66f4\u6362\u4e3acatppuccin\uff0c\u6dfb\u52a0lualine\u3001notice\u63d2\u4ef6\uff0c\u4fee\u6539\u90e8\u5206\u63d2\u4ef6\u7684\u81ea\u5b9a\u4e49\u914d\u7f6e\". LICENSE file at pin 40c35df83a3e detected as GPL-3.0 by the GitHub licence API on 2026-10-27; used under that licence with attribution."
    }
   }
  ]

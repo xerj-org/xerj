@@ -16,14 +16,7 @@
     "by": "author-consent",
     "at": "2026-10-25T21:53Z",
     "consent_receipt": "99ed35abb71f",
-    "note": "Inclusion consented by the commit author by email at 2026-10-25T21:53Z (receipt 99ed35abb71f); selected commit c17785e3728c: \"feat: v1.1.0.2 \u2014 live view, kick, webhooks, message placeholders, zom\u2026\". LICENSE file at pin c17785e3728c detected as GPL-3.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution.",
-    "author_grant": {
-     "terms": "MIT",
-     "scope": "the author's own changes in the selected commit",
-     "commit": "c17785e3728c9c8c851e3f1db54061cb49a04fee",
-     "at": "2026-10-25T21:53Z",
-     "receipt": "99ed35abb71f"
-    }
+    "note": "Inclusion consented by the commit author by email at 2026-10-25T21:53Z (receipt 99ed35abb71f); selected commit c17785e3728c: \"feat: v1.1.0.2 \u2014 live view, kick, webhooks, message placeholders, zom\u2026\". LICENSE file at pin c17785e3728c detected as GPL-3.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution."
    }
   }
  ]

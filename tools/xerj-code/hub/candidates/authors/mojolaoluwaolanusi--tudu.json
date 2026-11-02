@@ -16,14 +16,7 @@
     "by": "author-consent",
     "at": "2026-10-27T23:44Z",
     "consent_receipt": "71b691e33472",
-    "note": "Inclusion consented by the commit author by email at 2026-10-27T23:44Z (receipt 71b691e33472); selected commit 48aa95b760dd: \"feat(auth): hide OAuth buttons when the backend is not configured\". LICENSE file at pin 48aa95b760dd detected as AGPL-3.0 by the GitHub licence API on 2026-10-28; used under that licence with attribution.",
-    "author_grant": {
-     "terms": "MIT",
-     "scope": "the author's own changes in the selected commit",
-     "commit": "48aa95b760ddb8322b8291827bef4f5bf69afe52",
-     "at": "2026-10-27T23:44Z",
-     "receipt": "71b691e33472"
-    }
+    "note": "Inclusion consented by the commit author by email at 2026-10-27T23:44Z (receipt 71b691e33472); selected commit 48aa95b760dd: \"feat(auth): hide OAuth buttons when the backend is not configured\". LICENSE file at pin 48aa95b760dd detected as AGPL-3.0 by the GitHub licence API on 2026-10-28; used under that licence with attribution."
    }
   }
  ]

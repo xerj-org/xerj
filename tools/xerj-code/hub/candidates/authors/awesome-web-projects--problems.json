@@ -16,14 +16,7 @@
     "by": "author-consent",
     "at": "2026-10-26T02:14Z",
     "consent_receipt": "8acc10122b99",
-    "note": "Inclusion consented by the commit author by email at 2026-10-26T02:14Z (receipt 8acc10122b99); selected commit b091fe467afd: \"Listings Codeforces.\". LICENSE file at pin b091fe467afd detected as GPL-3.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution.",
-    "author_grant": {
-     "terms": "MIT",
-     "scope": "the author's own changes in the selected commit",
-     "commit": "b091fe467afd2ce5ea90713b60d0ef077c59b11a",
-     "at": "2026-10-26T02:14Z",
-     "receipt": "8acc10122b99"
-    }
+    "note": "Inclusion consented by the commit author by email at 2026-10-26T02:14Z (receipt 8acc10122b99); selected commit b091fe467afd: \"Listings Codeforces.\". LICENSE file at pin b091fe467afd detected as GPL-3.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution."
    }
   }
  ]

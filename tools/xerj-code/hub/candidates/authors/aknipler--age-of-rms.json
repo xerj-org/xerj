@@ -16,14 +16,7 @@
     "by": "author-consent",
     "at": "2026-10-28T00:55Z",
     "consent_receipt": "16460e2c3da0",
-    "note": "Inclusion consented by the commit author by email at 2026-10-28T00:55Z (receipt 16460e2c3da0); selected commit f4379bf8b78c: \"Code and Breakdown feedback round, move generation settings into the \u2026\". LICENSE file at pin f4379bf8b78c detected as GPL-3.0 by the GitHub licence API on 2026-10-28; used under that licence with attribution.",
-    "author_grant": {
-     "terms": "MIT",
-     "scope": "the author's own changes in the selected commit",
-     "commit": "f4379bf8b78c9d2dd05f01e354c9fdd5926a3aee",
-     "at": "2026-10-28T00:55Z",
-     "receipt": "16460e2c3da0"
-    }
+    "note": "Inclusion consented by the commit author by email at 2026-10-28T00:55Z (receipt 16460e2c3da0); selected commit f4379bf8b78c: \"Code and Breakdown feedback round, move generation settings into the \u2026\". LICENSE file at pin f4379bf8b78c detected as GPL-3.0 by the GitHub licence API on 2026-10-28; used under that licence with attribution."
    }
   }
  ]

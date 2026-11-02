@@ -16,14 +16,7 @@
     "by": "author-consent",
     "at": "2026-10-26T04:49Z",
     "consent_receipt": "b59dd56ef59d",
-    "note": "Inclusion consented by the commit author by email at 2026-10-26T04:49Z (receipt b59dd56ef59d); selected commit 1ab1e30269bf: \"feat(graph): \u56fe\u8c31v5.0\u767e\u79d1\u8bcd\u6761\u5c42+\u8bcd\u4e91+AI\u8bb2\u89e3\u56db\u5411\u4e32\u8054\". LICENSE at pin 1ab1e30269bf: NOASSERTION (repository: MPL-2.0); used with the author's permission, with attribution.",
-    "author_grant": {
-     "terms": "MIT",
-     "scope": "the author's own changes in the selected commit",
-     "commit": "1ab1e30269bf0b61a46f9025c8d659f1d978f050",
-     "at": "2026-10-26T04:49Z",
-     "receipt": "b59dd56ef59d"
-    }
+    "note": "Inclusion consented by the commit author by email at 2026-10-26T04:49Z (receipt b59dd56ef59d); selected commit 1ab1e30269bf: \"feat(graph): \u56fe\u8c31v5.0\u767e\u79d1\u8bcd\u6761\u5c42+\u8bcd\u4e91+AI\u8bb2\u89e3\u56db\u5411\u4e32\u8054\". LICENSE at pin 1ab1e30269bf: NOASSERTION (repository: MPL-2.0); used with the author's permission, with attribution."
    }
   }
  ]

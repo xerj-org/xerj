@@ -16,14 +16,7 @@
     "by": "author-consent",
     "at": "2026-10-28T20:33Z",
     "consent_receipt": "88b783deec41",
-    "note": "Inclusion consented by the commit author by email at 2026-10-28T20:33Z (receipt 88b783deec41); selected commit fe648328a7d4: \"de_integration: update xfce support\". LICENSE at pin fe648328a7d4: NOASSERTION (repository: GPL-3.0); used with the author's permission, with attribution.",
-    "author_grant": {
-     "terms": "MIT",
-     "scope": "the author's own changes in the selected commit",
-     "commit": "fe648328a7d49c3001844127b6be8664315b6e57",
-     "at": "2026-10-28T20:33Z",
-     "receipt": "88b783deec41"
-    }
+    "note": "Inclusion consented by the commit author by email at 2026-10-28T20:33Z (receipt 88b783deec41); selected commit fe648328a7d4: \"de_integration: update xfce support\". LICENSE at pin fe648328a7d4: NOASSERTION (repository: GPL-3.0); used with the author's permission, with attribution."
    }
   }
  ]
