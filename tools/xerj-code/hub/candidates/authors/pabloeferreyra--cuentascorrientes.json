@@ -1,0 +1,23 @@
+{
+ "corpus": "pabloeferreyra--cuentascorrientes",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how pabloeferreyra/CuentasCorrientes implements it: pabloeferreyra/CuentasCorrientes (C#) (selected work: Controllers, Services, the project root)",
+ "repos": [
+  {
+   "repo": "CuentasCorrientes",
+   "url": "https://github.com/pabloeferreyra/CuentasCorrientes",
+   "sha": "526ced40bb2b81bd5f52d44b6886a1c705013bbf",
+   "licence": "MIT (LICENSE file at pin 526ced40bb2b, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T12:34Z",
+    "consent_receipt": "38d01fabb570",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T12:34Z (receipt 38d01fabb570); selected commit 526ced40bb2b: \"feat: Implement MercadoPagoWebhookSignature validation for webhook re\u2026\". LICENSE file at pin 526ced40bb2b detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

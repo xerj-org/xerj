@@ -1,0 +1,23 @@
+{
+ "corpus": "rayck4dev--jargaozero-llm-pipeline",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Jupyter Notebook queries this for how Rayck4dev/jargaozero-llm-pipeline implements it: Automated LLM pipeline for translating complex technical jargon into plain language with local inference, fine-tuning, and dataset QA valida (selected work: scripts, data, tests)",
+ "repos": [
+  {
+   "repo": "jargaozero-llm-pipeline",
+   "url": "https://github.com/Rayck4dev/jargaozero-llm-pipeline",
+   "sha": "85ec9a05f6d3fd168b64584a7ab17d236dedc0d0",
+   "licence": "MIT (LICENSE file at pin 85ec9a05f6d3, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T16:46Z",
+    "consent_receipt": "727af2c7e170",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T16:46Z (receipt 727af2c7e170); selected commit 85ec9a05f6d3: \"refactor(dataset): update dataset split with strict concept grouping \u2026\". LICENSE file at pin 85ec9a05f6d3 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

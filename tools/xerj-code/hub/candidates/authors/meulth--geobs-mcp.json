@@ -1,0 +1,23 @@
+{
+ "corpus": "meulth--geobs-mcp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how meulth/geobs-mcp implements it: Open-source MCP server for accessing Basel-Stadt geospatial data via STAC, OGC API Features and GeoBS APIs (selected work: test, src/node, scripts)",
+ "repos": [
+  {
+   "repo": "geobs-mcp",
+   "url": "https://github.com/meulth/geobs-mcp",
+   "sha": "80ee6417cf69fc765904813ebbc3b95082cbcece",
+   "licence": "MIT (LICENSE file at pin 80ee6417cf69, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T11:51Z",
+    "consent_receipt": "4981d1b1f464",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T11:51Z (receipt 4981d1b1f464); selected commit 80ee6417cf69: \"Prepare portable Node runtime and atomic catalog for self-hosting\". LICENSE file at pin 80ee6417cf69 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

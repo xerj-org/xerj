@@ -1,0 +1,23 @@
+{
+ "corpus": "feardread--fear-mailbag",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how FearDread/fear-mailbag implements it: Personal Mail Bag to combine multiple email addresses and contact information",
+ "repos": [
+  {
+   "repo": "fear-mailbag",
+   "url": "https://github.com/FearDread/fear-mailbag",
+   "sha": "f923ee0024dd34baab8806529872fb444e7e186f",
+   "licence": "MIT (LICENSE file at pin f923ee0024dd, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T14:26Z",
+    "consent_receipt": "44d51a47aeaa",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T14:26Z (receipt 44d51a47aeaa); pinned to the default-branch head. LICENSE file at pin f923ee0024dd detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "adroph2605-del--e-commerce",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how adroph2605-del/e-commerce implements it: adroph2605-del/e-commerce (JavaScript)",
+ "repos": [
+  {
+   "repo": "e-commerce",
+   "url": "https://github.com/adroph2605-del/e-commerce",
+   "sha": "bbecc8d2f5dfae6e0cafb61c450323aa5118272e",
+   "licence": "MIT (LICENSE file at pin bbecc8d2f5df, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T11:40Z",
+    "consent_receipt": "90d7ad20b582",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T11:40Z (receipt 90d7ad20b582); pinned to the default-branch head. LICENSE file at pin bbecc8d2f5df detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

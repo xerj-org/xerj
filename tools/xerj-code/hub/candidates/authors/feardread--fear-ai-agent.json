@@ -1,0 +1,23 @@
+{
+ "corpus": "feardread--fear-ai-agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on JavaScript queries this for how FearDread/fear-ai-agent implements it: A personal network security and development AI assistant written in node",
+ "repos": [
+  {
+   "repo": "fear-ai-agent",
+   "url": "https://github.com/FearDread/fear-ai-agent",
+   "sha": "bfbbb81e1be5a7763ed479caf3980b81ecf5ea3f",
+   "licence": "GPL-3.0 (LICENSE file at pin bfbbb81e1be5, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-02T14:26Z",
+    "consent_receipt": "cb7eeef335cc",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T14:26Z (receipt cb7eeef335cc); pinned to the default-branch head. LICENSE file at pin bfbbb81e1be5 detected as GPL-3.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "sebin-gg--article-sweeper",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, browser-automation, chromium queries this for how sebin-gg/article-sweeper implements it: Agent skill: summarize open article tabs in Thorium, Chromium, Chrome, Brave, Edge and Firefox, append to a dated file, close only summarize",
+ "repos": [
+  {
+   "repo": "article-sweeper",
+   "url": "https://github.com/sebin-gg/article-sweeper",
+   "sha": "ebafe56bc64077e5108548028b2752e953390ab1",
+   "licence": "MIT (LICENSE file at pin ebafe56bc640, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T15:14Z",
+    "consent_receipt": "d71034d5fbb6",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T15:14Z (receipt d71034d5fbb6); pinned to the default-branch head. LICENSE file at pin ebafe56bc640 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

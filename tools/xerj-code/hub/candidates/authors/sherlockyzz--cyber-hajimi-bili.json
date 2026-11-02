@@ -8,15 +8,15 @@
   {
    "repo": "cyber-hajimi-bili",
    "url": "https://github.com/SherlockYzz/cyber-hajimi-bili",
-   "sha": "5b1928338d3c8628865f2a8b9449eff3ead22aaa",
-   "licence": "MIT (LICENSE file at pin 5b1928338d3c, GitHub licence API 2026-11-01)",
+   "sha": "a4512bbf6d960749ab24fd9476ec5caa3caa0155",
+   "licence": "MIT (LICENSE file at pin a4512bbf6d96, GitHub licence API 2026-11-02)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-01T09:42Z",
     "consent_receipt": "e49edc485a2d",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T09:42Z (receipt e49edc485a2d); pinned to the default-branch head. LICENSE file at pin 5b1928338d3c detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T09:42Z (receipt e49edc485a2d); pinned to the default-branch head. LICENSE file at pin a4512bbf6d96 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
    }
   }
  ]

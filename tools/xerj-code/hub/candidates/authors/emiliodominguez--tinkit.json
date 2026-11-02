@@ -6,8 +6,8 @@
  "domain": "an agent working on async, decorators, deep-clone queries this for how emiliodominguez/tinkit implements it: Strictly typed TypeScript utilities with zero dependencies. Tree-shakeable helpers for everyday JavaScript, verified with property-based tes (selected work: src/iterables, src/random)",
  "repos": [
   {
-   "repo": "js-helpers",
-   "url": "https://github.com/emiliodominguez/js-helpers",
+   "repo": "tinkit",
+   "url": "https://github.com/emiliodominguez/tinkit",
    "sha": "d7ef9694062054ea457cc63386e68630ebf76d5e",
    "licence": "MIT (LICENSE file at pin d7ef96940620, GitHub licence API 2026-10-24)",
    "review": {

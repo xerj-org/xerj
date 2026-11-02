@@ -8,15 +8,15 @@
   {
    "repo": "ha-indi-client",
    "url": "https://github.com/jan-tdy/ha-indi-client",
-   "sha": "da91a3cca93a99124e7429172d8d65a09ca23ec0",
-   "licence": "MIT (LICENSE file at pin da91a3cca93a, GitHub licence API 2026-10-28)",
+   "sha": "b0b6cb2cd76c2eff58f8419c8fa3bcce6ae49c42",
+   "licence": "MIT (LICENSE file at pin b0b6cb2cd76c, GitHub licence API 2026-11-02)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T19:53Z",
     "consent_receipt": "cb702729f10b",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T19:53Z (receipt cb702729f10b); pinned to the default-branch head. LICENSE file at pin da91a3cca93a detected as MIT by the GitHub licence API on 2026-10-28; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T19:53Z (receipt cb702729f10b); pinned to the default-branch head. LICENSE file at pin b0b6cb2cd76c detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
    }
   }
  ]

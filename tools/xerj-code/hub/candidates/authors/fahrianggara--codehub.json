@@ -1,0 +1,23 @@
+{
+ "corpus": "fahrianggara--codehub",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on codeigniter4, php, forum-threads queries this for how fahrianggara/codehub implements it: Project Web Programming II - Forum Diskusi (selected work: app/Views, app/Controllers, the project root)",
+ "repos": [
+  {
+   "repo": "codehub",
+   "url": "https://github.com/fahrianggara/codehub",
+   "sha": "216facb5afd81b03a7253ca1542824c0df29cd24",
+   "licence": "MIT (LICENSE file at pin 216facb5afd8, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T16:53Z",
+    "consent_receipt": "da5f7c4808a4",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T16:53Z (receipt da5f7c4808a4); selected commit 216facb5afd8: \"feat: add user profile management, routes, and open-graph view compon\u2026\". LICENSE file at pin 216facb5afd8 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

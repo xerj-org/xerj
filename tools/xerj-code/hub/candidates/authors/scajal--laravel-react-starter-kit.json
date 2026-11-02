@@ -1,0 +1,23 @@
+{
+ "corpus": "scajal--laravel-react-starter-kit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on inertiajs, laravel, php queries this for how scajal/laravel-react-starter-kit implements it: An opinionated starter kit for the Laravel framework (selected work: app/Modules, the project root, resources)",
+ "repos": [
+  {
+   "repo": "laravel-react-starter-kit",
+   "url": "https://github.com/scajal/laravel-react-starter-kit",
+   "sha": "328a5783c0214771d073afe83e1d310ddced8723",
+   "licence": "MIT (LICENSE file at pin 328a5783c021, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T15:57Z",
+    "consent_receipt": "5fb52f9a7e8b",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T15:57Z (receipt 5fb52f9a7e8b); selected commit 328a5783c021: \"Refactor Vite configuration for cleaner input structure. Update Handl\u2026\". LICENSE file at pin 328a5783c021 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

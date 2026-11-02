@@ -1,0 +1,23 @@
+{
+ "corpus": "perassilorenzo--study-archive",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how perassilorenzo/study-archive implements it: Personal archive for ITIS notes, assignments, coding exercises, projects and study resources. Organized by subjects and school years to keep (selected work: 2026-2027)",
+ "repos": [
+  {
+   "repo": "study-archive",
+   "url": "https://github.com/perassilorenzo/study-archive",
+   "sha": "3f3100ef6b3a3818b1c2d8173b1d7bbb5b5565cb",
+   "licence": "MIT (LICENSE file at pin 3f3100ef6b3a, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T16:35Z",
+    "consent_receipt": "ebff063da446",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T16:35Z (receipt ebff063da446); selected commit 3f3100ef6b3a: \"Add new files for library and patient management systems; include cod\u2026\". LICENSE file at pin 3f3100ef6b3a detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

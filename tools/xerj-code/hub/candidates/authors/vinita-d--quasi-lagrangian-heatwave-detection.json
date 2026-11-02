@@ -1,0 +1,23 @@
+{
+ "corpus": "vinita-d--quasi-lagrangian-heatwave-detection",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how Vinita-D/Quasi_Lagrangian_heatwave_detection implements it: Code to detect and track heatwaves in daily maximum temperature, and to detect atmospheric blocks with ConTrack (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "Quasi_Lagrangian_heatwave_detection",
+   "url": "https://github.com/Vinita-D/Quasi_Lagrangian_heatwave_detection",
+   "sha": "993c4c9f26c596141df714db45a390e8fd6eac73",
+   "licence": "MIT (LICENSE file at pin 993c4c9f26c5, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T08:50Z",
+    "consent_receipt": "a4cbe640d404",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T08:50Z (receipt a4cbe640d404); selected commit 993c4c9f26c5: \"Heatwave and coldwave detection: track_obj and ConTrack workflows\". LICENSE file at pin 993c4c9f26c5 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution. Pinned to head 993c4c9f26c5 (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

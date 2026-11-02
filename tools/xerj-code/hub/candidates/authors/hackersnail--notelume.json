@@ -1,0 +1,23 @@
+{
+ "corpus": "hackersnail--notelume",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on JavaScript queries this for how HackerSnail/NoteLume implements it: \u8f6f\u4ef6\u540d\u79f0\uff1a\u6587\u6eaf\uff08NoteLume\uff09 \u4ea7\u54c1\u5b9a\u4f4d\uff1a\u4ecb\u4e8e Typora \u548c Obsidian \u4e4b\u95f4\u7684\u8f7b\u91cf\u5316\u672c\u5730Markdown\u77e5\u8bc6\u5e93\u7f16\u8f91\u5668 \u6838\u5fc3\u53e3\u53f7\uff1a\u6d41\u7545\u4e66\u5199\uff0c\u6587\u95f4\u53ef\u6eaf (selected work: src, src/tests, src/virtual)",
+ "repos": [
+  {
+   "repo": "NoteLume",
+   "url": "https://github.com/HackerSnail/NoteLume",
+   "sha": "da1bc41170f730624f288104c9f9874e82563e87",
+   "licence": "Apache-2.0 (LICENSE file at pin da1bc41170f7, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T08:28Z",
+    "consent_receipt": "d7861cf00e55",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T08:28Z (receipt d7861cf00e55); selected commit da1bc41170f7: \"\u865a\u62df\u5316 Phase 3\uff1a\u67e5\u627e/\u6298\u53e0/\u884c\u53f7/\u6e90\u7801\u6620\u5c04\u91cd\u63a5 master/\u7a97\u53e3\u53cc\u8f68\". LICENSE file at pin da1bc41170f7 detected as Apache-2.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

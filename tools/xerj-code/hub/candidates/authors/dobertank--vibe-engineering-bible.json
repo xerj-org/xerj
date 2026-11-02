@@ -1,0 +1,23 @@
+{
+ "corpus": "dobertank--vibe-engineering-bible",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how dobertank/vibe-engineering-bible implements it: AI assistant policy for engineering teams of any size: two covenants, eight commandments, thirteen sins, DoD by tier, spec-driven workflow (selected work: skills, scripts, tests)",
+ "repos": [
+  {
+   "repo": "vibe-engineering-bible",
+   "url": "https://github.com/dobertank/vibe-engineering-bible",
+   "sha": "2b0ed7628f80ead02979100e254cff0d628dceb7",
+   "licence": "MIT (LICENSE file at pin 2b0ed7628f80, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T16:28Z",
+    "consent_receipt": "8f1d31dd1271",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T16:28Z (receipt 8f1d31dd1271); selected commit 2b0ed7628f80: \"Add ready-to-install Bible skills and validate local installation\". LICENSE file at pin 2b0ed7628f80 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

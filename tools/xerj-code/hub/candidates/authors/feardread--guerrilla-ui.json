@@ -1,0 +1,23 @@
+{
+ "corpus": "feardread--guerrilla-ui",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on JavaScript queries this for how FearDread/guerrilla_ui implements it: Front end jQuery framework",
+ "repos": [
+  {
+   "repo": "guerrilla_ui",
+   "url": "https://github.com/FearDread/guerrilla_ui",
+   "sha": "76bc5b0c94854beb49fdf884bc2f48400e01828c",
+   "licence": "MIT (LICENSE file at pin 76bc5b0c9485, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T14:26Z",
+    "consent_receipt": "62adfebb7223",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T14:26Z (receipt 62adfebb7223); pinned to the default-branch head. LICENSE file at pin 76bc5b0c9485 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

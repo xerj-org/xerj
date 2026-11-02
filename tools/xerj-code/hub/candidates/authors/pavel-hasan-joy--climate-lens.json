@@ -1,0 +1,23 @@
+{
+ "corpus": "pavel-hasan-joy--climate-lens",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how pavel-hasan-joy/Climate-Lens implements it: A 3D spatio-temporal climate analysis tool for Bangladesh exploring past trends, current status, and future projections with NASA data (selected work: src/styles, src/components, src)",
+ "repos": [
+  {
+   "repo": "Climate-Lens",
+   "url": "https://github.com/pavel-hasan-joy/Climate-Lens",
+   "sha": "79fd31e0418269ab80f756c7ddea90f73966597a",
+   "licence": "MIT (LICENSE file at pin 79fd31e04182, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T11:35Z",
+    "consent_receipt": "2c3f5ddfb02a",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T11:35Z (receipt 2c3f5ddfb02a); selected commit 79fd31e04182: \"feat(mobile): add dedicated mobile responsive architecture, bottom na\u2026\". LICENSE file at pin 79fd31e04182 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

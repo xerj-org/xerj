@@ -2,8 +2,8 @@
  "corpus": "tinas--formtree",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on TypeScript queries this for how tinas/formtree implements it: A form is a tree of definitions (selected work: packages/vue, apps/vue-playground, the project root)",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how tinas/formtree implements it: A headless form tree for any UI layer (selected work: packages/vue, apps/vue-playground, the project root)",
  "repos": [
   {
    "repo": "formtree",

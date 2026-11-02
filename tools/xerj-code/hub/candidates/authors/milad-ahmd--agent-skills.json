@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agent-skills, ai-agents, claude-code queries this for how milad-ahmd/agent-skills implements it: \ud83e\uddf0 48 Agent Skills: roast your GitHub, bisect bugs, record demo GIFs, write Playwright e2e tests, grill specs, catch AI slop and risky CI. Te (selected work: skills, scripts, the project root)",
+ "domain": "an agent working on agent-skills, ai-agents, claude-code queries this for how milad-ahmd/agent-skills implements it: \ud83e\uddf0 55 Agent Skills: resolve merge conflicts, guardrail your agent, TDD, fix architecture, polish UI, roast your GitHub, bisect bugs and catch (selected work: skills, scripts, the project root)",
  "repos": [
   {
    "repo": "agent-skills",
