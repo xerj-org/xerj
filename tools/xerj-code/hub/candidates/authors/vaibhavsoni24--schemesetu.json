@@ -1,0 +1,23 @@
+{
+ "corpus": "vaibhavsoni24--schemesetu",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how VaibhavSoni24/SchemeSetu implements it: VaibhavSoni24/SchemeSetu (TypeScript)",
+ "repos": [
+  {
+   "repo": "SchemeSetu",
+   "url": "https://github.com/VaibhavSoni24/SchemeSetu",
+   "sha": "696b151b74c7c28bed92460b06fd08807399f2e2",
+   "licence": "author's permission (LICENSE at pin 696b151b74c7: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T06:56Z",
+    "consent_receipt": "43e0bf4cb824",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T06:56Z (receipt 43e0bf4cb824); pinned to the default-branch head. LICENSE at pin 696b151b74c7: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

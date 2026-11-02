@@ -1,0 +1,23 @@
+{
+ "corpus": "dionyziuz--proof-harness",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, coala, llm-agents queries this for how dionyziuz/proof_harness implements it: Neuro-symbolic agent harness elevating local & frontier LLMs into rigorous theorem provers: zero-trust deterministic kernel (SymPy/Z3), CoAL (selected work: scripts, core_engine, the project root)",
+ "repos": [
+  {
+   "repo": "proof_harness",
+   "url": "https://github.com/dionyziuz/proof_harness",
+   "sha": "b00aa55d1f362cfb356b75b06c921593f7417290",
+   "licence": "MIT (LICENSE file at pin b00aa55d1f36, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T05:17Z",
+    "consent_receipt": "6028cf9f755a",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T05:17Z (receipt 6028cf9f755a); selected commit b00aa55d1f36: \"fix(engine): add synthesis runway extension, eliminate timeouts, and \u2026\". LICENSE file at pin b00aa55d1f36 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

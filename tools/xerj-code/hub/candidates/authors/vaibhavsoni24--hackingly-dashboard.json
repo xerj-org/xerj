@@ -1,0 +1,23 @@
+{
+ "corpus": "vaibhavsoni24--hackingly-dashboard",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how VaibhavSoni24/Hackingly-Dashboard implements it: VaibhavSoni24/Hackingly-Dashboard (JavaScript)",
+ "repos": [
+  {
+   "repo": "Hackingly-Dashboard",
+   "url": "https://github.com/VaibhavSoni24/Hackingly-Dashboard",
+   "sha": "ab284a9206cfe39306841efc616a23fb6b9ffcfd",
+   "licence": "author's permission (LICENSE at pin ab284a9206cf: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T06:56Z",
+    "consent_receipt": "e85fd6acf8f0",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T06:56Z (receipt e85fd6acf8f0); pinned to the default-branch head. LICENSE at pin ab284a9206cf: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "jy0t1may--awsxnfl-hackathon",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on aws, data-analysis, data-structures queries this for how Jy0t1may/awsxnfl-hackathon implements it: Interactive NFL visual analytics platform combining Next Gen Stats 10Hz tracking, nflverse PBP, and PFR Combine metrics with an AWS Zero-Tru",
+ "repos": [
+  {
+   "repo": "awsxnfl-hackathon",
+   "url": "https://github.com/Jy0t1may/awsxnfl-hackathon",
+   "sha": "cc3d71c8e74cd598d3ec228e559a592121d8dc7f",
+   "licence": "Apache-2.0 (LICENSE file at pin cc3d71c8e74c, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T23:58Z",
+    "consent_receipt": "b6a1c42147fe",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T23:58Z (receipt b6a1c42147fe); pinned to the default-branch head. LICENSE file at pin cc3d71c8e74c detected as Apache-2.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

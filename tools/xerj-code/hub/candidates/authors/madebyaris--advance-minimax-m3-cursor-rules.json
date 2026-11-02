@@ -1,0 +1,23 @@
+{
+ "corpus": "madebyaris--advance-minimax-m3-cursor-rules",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agentic-ai, ai-coding, ai-workflow queries this for how madebyaris/advance-minimax-m3-cursor-rules implements it: Agentic-first Cursor Rules powered by MiniMax M3 - clarify-first prompting, interleaved thinking, and full tool orchestration for production",
+ "repos": [
+  {
+   "repo": "advance-minimax-m3-cursor-rules",
+   "url": "https://github.com/madebyaris/advance-minimax-m3-cursor-rules",
+   "sha": "4d6c552fe132b92dd4a93f6e37dc42bb269e0438",
+   "licence": "MIT (LICENSE file at pin 4d6c552fe132, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T05:22Z",
+    "consent_receipt": "1afca8869248",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T05:22Z (receipt 1afca8869248); pinned to the default-branch head. LICENSE file at pin 4d6c552fe132 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

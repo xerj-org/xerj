@@ -1,0 +1,23 @@
+{
+ "corpus": "bowen-man--qwen3-8-flash-next-hermes-tabbyapi",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how Bowen-Man/qwen3.8-flash-next-hermes-tabbyAPI implements it: Run Qwen3.8-Flash-Next EXL3 as a local Hermes Agent with TabbyAPI, ExLlamaV3 and native OpenAI tool calling on consumer NVIDIA GPUs",
+ "repos": [
+  {
+   "repo": "qwen3.8-flash-next-hermes-tabbyAPI",
+   "url": "https://github.com/Bowen-Man/qwen3.8-flash-next-hermes-tabbyAPI",
+   "sha": "cb8e8b238986ee0c5028b22cb353a5966c8bd51a",
+   "licence": "MIT (LICENSE file at pin cb8e8b238986, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T11:28Z",
+    "consent_receipt": "6ef9658acf73",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T11:28Z (receipt 6ef9658acf73); pinned to the default-branch head. LICENSE file at pin cb8e8b238986 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

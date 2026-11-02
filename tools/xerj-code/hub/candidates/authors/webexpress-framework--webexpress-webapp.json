@@ -1,0 +1,23 @@
+{
+ "corpus": "webexpress-framework--webexpress-webapp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on community, webexpress, framework queries this for how webexpress-framework/WebExpress.WebApp implements it: Business application template for WebExpress applications (selected work: src/WebExpress.WebApp, src/WebExpress.WebApp.Test)",
+ "repos": [
+  {
+   "repo": "WebExpress.WebApp",
+   "url": "https://github.com/webexpress-framework/WebExpress.WebApp",
+   "sha": "f212daa9a3b07da46ef5ab07cd3594e6b8f533a0",
+   "licence": "MIT (LICENSE file at pin f212daa9a3b0, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T09:51Z",
+    "consent_receipt": "be4042286afa",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T09:51Z (receipt be4042286afa); selected commit f212daa9a3b0: \"feat: add typed form fields and table extensions\". LICENSE file at pin f212daa9a3b0 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

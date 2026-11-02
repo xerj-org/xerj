@@ -2,7 +2,7 @@
  "corpus": "amyrahmady--ompide",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
+ "shelf": "WEB",
  "domain": "an agent working on editor, ide, omp queries this for how AmyrAhmady/ompide implements it: Light and fast open.mp editor/IDE made for Pawn scripting with useful proper development features (selected work: scripts, packaging, the project root)",
  "repos": [
   {

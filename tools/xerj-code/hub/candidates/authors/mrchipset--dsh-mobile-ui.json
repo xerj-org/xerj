@@ -1,0 +1,23 @@
+{
+ "corpus": "mrchipset--dsh-mobile-ui",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on deepseek-harness, dsh, dsh-mobile queries this for how mrchipset/dsh-mobile-ui implements it: Demo mobile UI for DeepSeek Harness, connected through a local ACP bridge (selected work: apps/bridge, packages/protocol, the project root)",
+ "repos": [
+  {
+   "repo": "dsh-mobile-ui",
+   "url": "https://github.com/mrchipset/dsh-mobile-ui",
+   "sha": "fbbcccbc2208898756ca55a807b2214c8e0d7130",
+   "licence": "MIT (LICENSE file at pin fbbcccbc2208, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T01:03Z",
+    "consent_receipt": "63574d7415b2",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T01:03Z (receipt 63574d7415b2); selected commit fbbcccbc2208: \"feat(bridge): persist voice attachments with prompts\". LICENSE file at pin fbbcccbc2208 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

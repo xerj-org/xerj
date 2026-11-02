@@ -1,0 +1,23 @@
+{
+ "corpus": "vaibhavsoni24--python-portfolio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how VaibhavSoni24/Python-Portfolio implements it: VaibhavSoni24/Python-Portfolio (TypeScript)",
+ "repos": [
+  {
+   "repo": "Python-Portfolio",
+   "url": "https://github.com/VaibhavSoni24/Python-Portfolio",
+   "sha": "8a1e3d04f3910a05444d2eca5d2626a0df73b039",
+   "licence": "author's permission (LICENSE at pin 8a1e3d04f391: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T06:56Z",
+    "consent_receipt": "36a02fc2f9e3",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T06:56Z (receipt 36a02fc2f9e3); pinned to the default-branch head. LICENSE at pin 8a1e3d04f391: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

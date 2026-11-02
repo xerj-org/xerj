@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agentic-engineering, ai-agents, claude-code queries this for how gaurav8936/oneroof implements it: A native Mac command center for the coding agents you run \u2014 Claude Code, Codex, Kimi, Gemini CLI, Antigravity \u2014 plus a kit that keeps them o (selected work: app/Sources, app/Tests)",
+ "domain": "an agent working on agentic-engineering, ai-agents, claude-code queries this for how gaurav8936/oneroof implements it: One place for chorus coding: several sessions of Claude Code, Codex, Gemini, Kimi and Antigravity working together, with you in charge (selected work: app/Sources, app/Tests)",
  "repos": [
   {
    "repo": "oneroof",

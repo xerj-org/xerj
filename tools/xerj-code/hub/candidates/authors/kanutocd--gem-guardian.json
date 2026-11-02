@@ -1,0 +1,23 @@
+{
+ "corpus": "kanutocd--gem-guardian",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on artifact-verification, bundler, cli queries this for how kanutocd/gem-guardian implements it: Consumer-side integrity verification for Ruby gems",
+ "repos": [
+  {
+   "repo": "gem-guardian",
+   "url": "https://github.com/kanutocd/gem-guardian",
+   "sha": "96b28df26f3e896edb93128e9c8bbdaf3c85020f",
+   "licence": "MIT (LICENSE file at pin 96b28df26f3e, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T01:15Z",
+    "consent_receipt": "9c6bfef86f67",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T01:15Z (receipt 9c6bfef86f67); pinned to the default-branch head. LICENSE file at pin 96b28df26f3e detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

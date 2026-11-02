@@ -1,0 +1,23 @@
+{
+ "corpus": "sebin-gg--shyui",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on csharp, productivity, windows queries this for how sebin-gg/shyui implements it: \ud83d\udda5\ufe0f ShyUI - Modern Windows Forms UI library with sleek, minimal components for C# desktop apps",
+ "repos": [
+  {
+   "repo": "shyui",
+   "url": "https://github.com/sebin-gg/shyui",
+   "sha": "4e935ab69367436e6ca19f898492417e9af67cb3",
+   "licence": "MIT (LICENSE file at pin 4e935ab69367, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T15:14Z",
+    "consent_receipt": "083ad993e47c",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T15:14Z (receipt 083ad993e47c); pinned to the default-branch head. LICENSE file at pin 4e935ab69367 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

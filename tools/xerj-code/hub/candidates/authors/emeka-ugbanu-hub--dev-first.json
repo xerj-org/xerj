@@ -1,0 +1,23 @@
+{
+ "corpus": "emeka-ugbanu-hub--dev-first",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how Emeka-Ugbanu-hub/Dev-First implements it: Emeka-Ugbanu-hub/Dev-First (TypeScript) (selected work: src/architecture, test, src/agent)",
+ "repos": [
+  {
+   "repo": "Dev-First",
+   "url": "https://github.com/Emeka-Ugbanu-hub/Dev-First",
+   "sha": "8ddd03a064762bdd488bb11ce4d3beb3c25cfae8",
+   "licence": "MIT (LICENSE file at pin 8ddd03a06476, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T05:51Z",
+    "consent_receipt": "081d5f423940",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T05:51Z (receipt 081d5f423940); selected commit 8ddd03a06476: \"Improve architecture mapping and agent reliability\". LICENSE file at pin 8ddd03a06476 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

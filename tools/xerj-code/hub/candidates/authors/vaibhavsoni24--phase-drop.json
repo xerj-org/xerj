@@ -1,0 +1,23 @@
+{
+ "corpus": "vaibhavsoni24--phase-drop",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how VaibhavSoni24/Phase-Drop implements it: VaibhavSoni24/Phase-Drop (C#)",
+ "repos": [
+  {
+   "repo": "Phase-Drop",
+   "url": "https://github.com/VaibhavSoni24/Phase-Drop",
+   "sha": "08a54a9d578c56c0ec9eacc9904521ce2c5918cc",
+   "licence": "author's permission (LICENSE at pin 08a54a9d578c: NOASSERTION; repository: NOASSERTION)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T06:56Z",
+    "consent_receipt": "a3675eaa30f0",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T06:56Z (receipt a3675eaa30f0); pinned to the default-branch head. LICENSE at pin 08a54a9d578c: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

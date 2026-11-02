@@ -1,0 +1,23 @@
+{
+ "corpus": "vaibhavsoni24--drowsiness-detector",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on Python queries this for how VaibhavSoni24/Drowsiness_Detector implements it: This Flask app detects drowsiness using real-time face and eye detection via OpenCV. If the user blinks multiple times in quick succession, ",
+ "repos": [
+  {
+   "repo": "Drowsiness_Detector",
+   "url": "https://github.com/VaibhavSoni24/Drowsiness_Detector",
+   "sha": "e3d4c3a89d8d171100238e32a91ed25463671fa5",
+   "licence": "author's permission (LICENSE at pin e3d4c3a89d8d: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T06:56Z",
+    "consent_receipt": "93e20220192b",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T06:56Z (receipt 93e20220192b); pinned to the default-branch head. LICENSE at pin e3d4c3a89d8d: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

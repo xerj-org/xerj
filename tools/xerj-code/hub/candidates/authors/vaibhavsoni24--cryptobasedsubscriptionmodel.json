@@ -1,0 +1,23 @@
+{
+ "corpus": "vaibhavsoni24--cryptobasedsubscriptionmodel",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on Solidity queries this for how VaibhavSoni24/CryptoBasedSubscriptionModel implements it: VaibhavSoni24/CryptoBasedSubscriptionModel (Solidity)",
+ "repos": [
+  {
+   "repo": "CryptoBasedSubscriptionModel",
+   "url": "https://github.com/VaibhavSoni24/CryptoBasedSubscriptionModel",
+   "sha": "ee07d917bb47a0255e18e8882e755f55fc5302b0",
+   "licence": "author's permission (LICENSE at pin ee07d917bb47: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T06:56Z",
+    "consent_receipt": "bbe55221529d",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T06:56Z (receipt bbe55221529d); pinned to the default-branch head. LICENSE at pin ee07d917bb47: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

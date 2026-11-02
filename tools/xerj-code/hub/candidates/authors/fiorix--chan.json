@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on developer-tool, file-browser, graph-plotting queries this for how fiorix/chan implements it: Your new Terminal and Workspace manager. A new kind of IDE (selected work: web)",
+ "domain": "an agent working on developer-tool, file-browser, graph-plotting queries this for how fiorix/chan implements it: A supercharged terminal emulator (selected work: web)",
  "repos": [
   {
    "repo": "chan",

@@ -1,0 +1,23 @@
+{
+ "corpus": "flint-lang--flintc",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on compiler, language, llvm queries this for how flint-lang/flintc implements it: The Flint Compiler (selected work: include, src/parser, tests)",
+ "repos": [
+  {
+   "repo": "flintc",
+   "url": "https://github.com/flint-lang/flintc",
+   "sha": "43a0efee36ae51866d78de6bc2c8022602c6bb0a",
+   "licence": "MIT (LICENSE file at pin 43a0efee36ae, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T13:52Z",
+    "consent_receipt": "7a739f54e079",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T13:52Z (receipt 7a739f54e079); selected commit 43a0efee36ae: \"Added ability to parse comptime-only functions, added `ErrCallOfCompt\u2026\". LICENSE file at pin 43a0efee36ae detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

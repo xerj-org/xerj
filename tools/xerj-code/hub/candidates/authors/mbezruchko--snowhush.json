@@ -9,14 +9,14 @@
    "repo": "Snowhush",
    "url": "https://github.com/mbezruchko/Snowhush",
    "sha": "dd7bb38c97a07951dfad7fcf386c1b8b8904c68d",
-   "licence": "MIT (LICENSE file at pin dd7bb38c97a0, GitHub licence API 2026-10-28)",
+   "licence": "author's permission (LICENSE at pin dd7bb38c97a0: MIT; repository: NOASSERTION)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T15:38Z",
     "consent_receipt": "d9e13e687d5b",
-    "note": "Inclusion consented by the commit author by email at 2026-10-28T15:38Z (receipt d9e13e687d5b); selected commit dd7bb38c97a0: \"feat: replace the NSIS installer with a card in the app's style\". LICENSE file at pin dd7bb38c97a0 detected as MIT by the GitHub licence API on 2026-10-28; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-10-28T15:38Z (receipt d9e13e687d5b); selected commit dd7bb38c97a0: \"feat: replace the NSIS installer with a card in the app's style\". LICENSE at pin dd7bb38c97a0: MIT (repository: NOASSERTION); used with the author's permission, with attribution."
    }
   }
  ]

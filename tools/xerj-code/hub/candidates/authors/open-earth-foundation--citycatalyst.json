@@ -1,0 +1,30 @@
+{
+ "corpus": "open-earth-foundation--citycatalyst",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how Open-Earth-Foundation/CityCatalyst implements it: The open-source climate journey platform for cities \u2014 from measuring emissions to unlocking climate finance. AI-assisted (selected work: app/tests, app/src)",
+ "repos": [
+  {
+   "repo": "CityCatalyst",
+   "url": "https://github.com/Open-Earth-Foundation/CityCatalyst",
+   "sha": "931ea4ed6fd2edc54c499e3c939252099c460199",
+   "licence": "AGPL-3.0 (LICENSE file at pin 931ea4ed6fd2, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-02T13:18Z",
+    "consent_receipt": "9364cf9e350f",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T13:18Z (receipt 9364cf9e350f); selected commit 931ea4ed6fd2: \"fix: correct inventory CSV export artifacts\". LICENSE file at pin 931ea4ed6fd2 detected as AGPL-3.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "931ea4ed6fd2edc54c499e3c939252099c460199",
+     "at": "2026-11-02T13:18Z",
+     "receipt": "9364cf9e350f"
+    }
+   }
+  }
+ ]
+}

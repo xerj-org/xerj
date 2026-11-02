@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on android-launcher, android-tv, android-tv-launcher queries this for how Gingerbreadfork/lounge implements it: A home screen for Android TV and Google TV, laid out around what you actually watch. Quick on the remote, calm to look at, and nothing leave (selected work: android)",
+ "domain": "an agent working on android-launcher, android-tv, android-tv-launcher queries this for how Gingerbreadfork/lounge implements it: Android TV and Google TV launcher, ad-free and open source. A home screen built around what you watch (selected work: android)",
  "repos": [
   {
    "repo": "lounge",

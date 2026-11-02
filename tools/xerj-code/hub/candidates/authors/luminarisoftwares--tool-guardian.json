@@ -8,15 +8,15 @@
   {
    "repo": "tool-guardian",
    "url": "https://github.com/LuminariSoftwares/tool-guardian",
-   "sha": "15b89b41193787761c9d14a34dc9eedd768ad37b",
-   "licence": "MIT (LICENSE file at pin 15b89b411937, GitHub licence API 2026-11-01)",
+   "sha": "b046b2201408beaa1f4d0c38448b1e79120dc05c",
+   "licence": "MIT (LICENSE file at pin b046b2201408, GitHub licence API 2026-11-01)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-31T15:40Z",
     "consent_receipt": "b45ff779975b",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T15:40Z (receipt b45ff779975b); pinned to the default-branch head. LICENSE file at pin 15b89b411937 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T15:40Z (receipt b45ff779975b); pinned to the default-branch head. LICENSE file at pin b046b2201408 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
    }
   }
  ]

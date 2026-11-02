@@ -1,0 +1,23 @@
+{
+ "corpus": "namchokgithub--mindskit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how namchokGithub/mindskit implements it: A lightweight collection of useful developer tools for formatting, converting, encoding, decoding, and generating data (selected work: src/pages, src/features, src/components)",
+ "repos": [
+  {
+   "repo": "mindskit",
+   "url": "https://github.com/namchokGithub/mindskit",
+   "sha": "7a3b612967ebdb661a44dcf7b6dead0d71c7e52e",
+   "licence": "MIT (LICENSE file at pin 7a3b612967eb, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T10:08Z",
+    "consent_receipt": "8365166e0dc4",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T10:08Z (receipt 8365166e0dc4); selected commit 7a3b612967eb: \"feat(image-crop): add output-size presets, exact crop size, rotate/fl\u2026\". LICENSE file at pin 7a3b612967eb detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

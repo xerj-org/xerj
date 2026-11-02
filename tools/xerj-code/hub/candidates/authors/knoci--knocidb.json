@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "DB",
- "domain": "an agent working on database, distributed, keyvalue-db queries this for how knoci/knociDB implements it: Wisckey Style Key-Value Database",
+ "domain": "an agent working on database, distributed, keyvalue-db queries this for how knoci/knociDB implements it: A WiscKey-style key-value database, distributed deployment implemented with the Raft consensus algorithm\uff1b\u91c7\u7528Wisckey\u98ce\u683c\u7684kv\u6570\u636e\u5e93\uff0c\u4f7f\u7528Raft\u5171\u8bc6\u7b97\u6cd5\u5b9e\u73b0\u5206\u5e03\u5f0f\u90e8\u7f72",
  "repos": [
   {
    "repo": "knociDB",
    "url": "https://github.com/knoci/knociDB",
-   "sha": "e94391264f6655263bcf0bacf0b9a0a85b3b2422",
-   "licence": "MIT (LICENSE file at pin e94391264f66, GitHub licence API 2026-10-29)",
+   "sha": "574a8e5dadbbddb124bd1f1caeb9ea1a9df581ac",
+   "licence": "MIT (LICENSE file at pin 574a8e5dadbb, GitHub licence API 2026-11-02)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T12:28Z",
     "consent_receipt": "5519bca30ad5",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T12:28Z (receipt 5519bca30ad5); pinned to the default-branch head. LICENSE file at pin e94391264f66 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T12:28Z (receipt 5519bca30ad5); pinned to the default-branch head. LICENSE file at pin 574a8e5dadbb detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
    }
   }
  ]

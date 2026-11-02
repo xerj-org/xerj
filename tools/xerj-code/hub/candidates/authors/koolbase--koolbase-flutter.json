@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on Dart queries this for how koolbase/koolbase-flutter implements it: Flutter SDK for Koolbase \u2014 auth, database, storage, realtime, offline-first, feature flags, and functions for mobile apps (selected work: lib/src, test, the project root)",
+ "domain": "an agent working on Dart queries this for how koolbase/koolbase-flutter implements it: Flutter SDK for Koolbase (selected work: lib/src, test, the project root)",
  "repos": [
   {
    "repo": "koolbase-flutter",

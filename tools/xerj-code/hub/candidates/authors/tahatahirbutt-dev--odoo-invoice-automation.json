@@ -1,0 +1,23 @@
+{
+ "corpus": "tahatahirbutt-dev--odoo-invoice-automation",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how tahatahirbutt-dev/Odoo-Invoice-Automation implements it: Automated invoice PDF delivery via WhatsApp using Odoo ERP and n8n (selected work: workflows, the project root, scripts)",
+ "repos": [
+  {
+   "repo": "Odoo-Invoice-Automation",
+   "url": "https://github.com/tahatahirbutt-dev/Odoo-Invoice-Automation",
+   "sha": "4c98ccf2a852ae6039d0652d657f37c30ebbeb17",
+   "licence": "MIT (LICENSE file at pin 4c98ccf2a852, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T22:50Z",
+    "consent_receipt": "1b89adf8a4c1",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T22:50Z (receipt 1b89adf8a4c1); selected commit 4c98ccf2a852: \"Harden invoice workflow: loop fix, dedupe, signed PDF links; docs, CI\u2026\". LICENSE file at pin 4c98ccf2a852 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

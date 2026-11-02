@@ -1,0 +1,23 @@
+{
+ "corpus": "sebin-gg--kindred",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on social, web-app, community-platform queries this for how sebin-gg/kindred implements it: \ud83e\udd1d Kindred - Full-stack community impact tracking platform with Express 5, React 19, MongoDB, and JWT authentication",
+ "repos": [
+  {
+   "repo": "kindred",
+   "url": "https://github.com/sebin-gg/kindred",
+   "sha": "87abc5009d1e98e9eea61d5262e95d7a5be3f58a",
+   "licence": "MIT (LICENSE file at pin 87abc5009d1e, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T15:14Z",
+    "consent_receipt": "8db437f3180f",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T15:14Z (receipt 8db437f3180f); pinned to the default-branch head. LICENSE file at pin 87abc5009d1e detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

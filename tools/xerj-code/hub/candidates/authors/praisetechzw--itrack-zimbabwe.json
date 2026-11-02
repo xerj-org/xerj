@@ -8,15 +8,15 @@
   {
    "repo": "itrack-zimbabwe",
    "url": "https://github.com/PraiseTechzw/itrack-zimbabwe",
-   "sha": "e06e705eb2344893cde00426c2defebf3649af41",
-   "licence": "author's permission (LICENSE at pin e06e705eb234: NOASSERTION; repository: NOASSERTION)",
+   "sha": "38215e2f674d3915c872a4ac2967f02b6790db58",
+   "licence": "author's permission (LICENSE at pin 38215e2f674d: NOASSERTION; repository: NOASSERTION)",
    "review": {
     "spdx": "NOASSERTION",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T07:01Z",
     "consent_receipt": "7868f7c91446",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T07:01Z (receipt 7868f7c91446); pinned to the default-branch head. LICENSE at pin e06e705eb234: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T07:01Z (receipt 7868f7c91446); pinned to the default-branch head. LICENSE at pin 38215e2f674d: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
    }
   }
  ]

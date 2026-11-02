@@ -1,0 +1,23 @@
+{
+ "corpus": "just-me-media--freellmapi-roundtable",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on HTML queries this for how Just-Me-Media/FreeLLMAPI-Roundtable implements it: A shared group chat for the models behind your FreeLLMAPI: set the lineup and answer order once, and every model sees the whole thread (selected work: the project root, src-tauri)",
+ "repos": [
+  {
+   "repo": "FreeLLMAPI-Roundtable",
+   "url": "https://github.com/Just-Me-Media/FreeLLMAPI-Roundtable",
+   "sha": "21a503f31ad10bc87b8df1e4f3d63ecacca365b5",
+   "licence": "MIT (LICENSE file at pin 21a503f31ad1, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T09:23Z",
+    "consent_receipt": "e4b33ac78d9b",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T09:23Z (receipt e4b33ac78d9b); selected commit 21a503f31ad1: \"v0.2.0-beta release candidate\". LICENSE file at pin 21a503f31ad1 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

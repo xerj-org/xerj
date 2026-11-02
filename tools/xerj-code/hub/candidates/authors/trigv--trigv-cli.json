@@ -1,0 +1,23 @@
+{
+ "corpus": "trigv--trigv-cli",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on cli, cron-alerts, nodejs queries this for how Trigv/trigv-cli implements it: Command-line tool for Trigv: send push alerts to your phone from the terminal, cron jobs and CI (selected work: test, src, src/commands)",
+ "repos": [
+  {
+   "repo": "trigv-cli",
+   "url": "https://github.com/Trigv/trigv-cli",
+   "sha": "58f432b37c5cdf1f891773e5c274a9a46fa5e337",
+   "licence": "MIT (LICENSE file at pin 58f432b37c5c, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T11:36Z",
+    "consent_receipt": "36f35b64f2ec",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T11:36Z (receipt 36f35b64f2ec); selected commit 58f432b37c5c: \"Show the request id on success output and keep the API key off the se\u2026\". LICENSE file at pin 58f432b37c5c detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

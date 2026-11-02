@@ -1,0 +1,30 @@
+{
+ "corpus": "lucas-gruber--veyra",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how Lucas-Gruber/Veyra implements it: Lucas-Gruber/Veyra (Rust) (selected work: src-tauri, tests, browser-companion)",
+ "repos": [
+  {
+   "repo": "Veyra",
+   "url": "https://github.com/Lucas-Gruber/Veyra",
+   "sha": "4ba91ae984b7b523d577147ca4d6da4e2881fabd",
+   "licence": "GPL-3.0 (LICENSE file at pin 4ba91ae984b7, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-02T04:23Z",
+    "consent_receipt": "28ae41da8568",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T04:23Z (receipt 28ae41da8568); selected commit 4ba91ae984b7: \"feat(browser): fill exact login pages through native messaging\". LICENSE file at pin 4ba91ae984b7 detected as GPL-3.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "4ba91ae984b7b523d577147ca4d6da4e2881fabd",
+     "at": "2026-11-02T04:23Z",
+     "receipt": "28ae41da8568"
+    }
+   }
+  }
+ ]
+}

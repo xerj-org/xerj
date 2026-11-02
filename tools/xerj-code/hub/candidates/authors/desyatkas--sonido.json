@@ -1,0 +1,23 @@
+{
+ "corpus": "desyatkas--sonido",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on music-player, rust, sonido queries this for how desyatkas/sonido implements it: A sleek, terminal-based music player written in Rust (selected work: src)",
+ "repos": [
+  {
+   "repo": "sonido",
+   "url": "https://github.com/desyatkoff/sonido",
+   "sha": "567e0b92a6616b351273615524d48a925520ef65",
+   "licence": "GPL-3.0 (LICENSE file at pin 567e0b92a661, GitHub licence API 2026-10-27)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-27T08:59Z",
+    "consent_receipt": "9e80de0dff91",
+    "note": "Inclusion consented by the commit author by email at 2026-10-27T08:59Z (receipt 9e80de0dff91); selected commit 567e0b92a661: \"refactor: split all the code to separate files\". LICENSE file at pin 567e0b92a661 detected as GPL-3.0 by the GitHub licence API on 2026-10-27; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "nhartman000--qson",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on code queries this for how nhartman000/qson implements it: qson is .qson file format stands for queriable structured ordered notation and is an audit log of the mg8 file structure responses and gate ",
+ "repos": [
+  {
+   "repo": "qson",
+   "url": "https://github.com/nhartman000/qson",
+   "sha": "92e6e3e8f9f0fa4f501db21228116417d71df998",
+   "licence": "MIT (LICENSE file at pin 92e6e3e8f9f0, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T12:50Z",
+    "consent_receipt": "7f66dcb002aa",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T12:50Z (receipt 7f66dcb002aa); pinned to the default-branch head. LICENSE file at pin 92e6e3e8f9f0 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

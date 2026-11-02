@@ -8,15 +8,15 @@
   {
    "repo": "flutter_adaptive_studio",
    "url": "https://github.com/almasumdev/flutter_adaptive_studio",
-   "sha": "c9513ce303effd226614a025d87e153c79e6cf5b",
-   "licence": "MIT (LICENSE file at pin c9513ce303ef, GitHub licence API 2026-10-28)",
+   "sha": "a9a933a4ceb7e03ba0fb49f11b72249855804687",
+   "licence": "MIT (LICENSE file at pin a9a933a4ceb7, GitHub licence API 2026-11-01)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T21:30Z",
     "consent_receipt": "6c773e28a1c3",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T21:30Z (receipt 6c773e28a1c3); pinned to the default-branch head. LICENSE file at pin c9513ce303ef detected as MIT by the GitHub licence API on 2026-10-28; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T21:30Z (receipt 6c773e28a1c3); pinned to the default-branch head. LICENSE file at pin a9a933a4ceb7 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
    }
   }
  ]

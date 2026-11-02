@@ -1,0 +1,23 @@
+{
+ "corpus": "usmanghias--goldlist",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-tools, awesome, awesome-list queries this for how UsmanGhias/goldlist implements it: \ud83c\udfc6 Only the gold: the best free & open-source jobs, tools, courses, scholarships, AI and design resources. Curated by category, link-checked  (selected work: scripts, data)",
+ "repos": [
+  {
+   "repo": "goldlist",
+   "url": "https://github.com/UsmanGhias/goldlist",
+   "sha": "7389b79318eae25e78a75429c01c316f62e69b42",
+   "licence": "CC0-1.0 (LICENSE file at pin 7389b79318ea, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "CC0-1.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T08:13Z",
+    "consent_receipt": "8bbe01a9301e",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T08:13Z (receipt 8bbe01a9301e); selected commit 7389b79318ea: \"feat: automated star sync engine and 10 starred open-source tools (#10)\". LICENSE file at pin 7389b79318ea detected as CC0-1.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

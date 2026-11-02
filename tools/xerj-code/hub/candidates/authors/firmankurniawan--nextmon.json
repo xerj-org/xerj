@@ -1,0 +1,23 @@
+{
+ "corpus": "firmankurniawan--nextmon",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on PHP queries this for how FirmanKurniawan/NextMon implements it: FirmanKurniawan/NextMon (PHP) (selected work: nextmon-next, nextmon-php)",
+ "repos": [
+  {
+   "repo": "NextMon",
+   "url": "https://github.com/FirmanKurniawan/NextMon",
+   "sha": "03fbf4c80ba6f403abb16633f2b4273757222fe6",
+   "licence": "MIT (LICENSE file at pin 03fbf4c80ba6, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T23:10Z",
+    "consent_receipt": "93e772fd42a7",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T23:10Z (receipt 93e772fd42a7); selected commit 03fbf4c80ba6: \"Parity round: quota limits, app-data backup/restore, reseller shop sa\u2026\". LICENSE file at pin 03fbf4c80ba6 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

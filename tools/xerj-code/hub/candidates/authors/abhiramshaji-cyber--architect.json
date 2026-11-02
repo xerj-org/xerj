@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-agents, architecture, desktop-app queries this for how abhiramshaji-cyber/Architect implements it: An Electron canvas for your architecture, with an MCP gate that blocks an AI agent's change until you approve it (selected work: electron, src/view, src/model)",
+ "domain": "an agent working on ai-agents, architecture, desktop-app queries this for how abhiramshaji-cyber/Architect implements it: A desktop app that maps and ranks every function in your codebase, and checks AI agent changes against the architecture you draw (selected work: electron, src/view, src/model)",
  "repos": [
   {
    "repo": "Architect",

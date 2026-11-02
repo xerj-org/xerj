@@ -1,0 +1,23 @@
+{
+ "corpus": "paranik-jpg--streaming-reverse-proxy",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agentic-ai, backpressure, concurrency queries this for how paranik-jpg/streaming_reverse_proxy implements it: High-performance, backpressure-aware SSE reverse proxy & agentic tool runtime for LLM inference in Go",
+ "repos": [
+  {
+   "repo": "streaming_reverse_proxy",
+   "url": "https://github.com/paranik-jpg/streaming_reverse_proxy",
+   "sha": "d39ff76e2e6f9db392f63e98200ae430e750783c",
+   "licence": "MIT (LICENSE file at pin d39ff76e2e6f, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T09:19Z",
+    "consent_receipt": "af4e1db4b956",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T09:19Z (receipt af4e1db4b956); pinned to the default-branch head. LICENSE file at pin d39ff76e2e6f detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

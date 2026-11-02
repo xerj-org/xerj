@@ -1,0 +1,23 @@
+{
+ "corpus": "sharjeelbaig--openfoundry",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how Sharjeelbaig/openFoundry implements it: A local, independent AI workbench for models, agents and knowledge. Not affiliated with Microsoft (selected work: src/app, src/components, src/lib)",
+ "repos": [
+  {
+   "repo": "openFoundry",
+   "url": "https://github.com/Sharjeelbaig/openFoundry",
+   "sha": "330d6f22c9704b224c4c58ee565fabb06f8227fb",
+   "licence": "Apache-2.0 (LICENSE file at pin 330d6f22c970, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T12:29Z",
+    "consent_receipt": "e9e28406644e",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T12:29Z (receipt e9e28406644e); selected commit 330d6f22c970: \"Match the agent playground screen to Foundry\". LICENSE file at pin 330d6f22c970 detected as Apache-2.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution. Pinned to head 330d6f22c970 (contains the selected commit): the LICENSE at the selected commit was NOASSERTION."
+   }
+  }
+ ]
+}

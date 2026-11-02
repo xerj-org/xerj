@@ -1,0 +1,23 @@
+{
+ "corpus": "vaibhavsoni24--fullstack-portfolio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how VaibhavSoni24/FullStack_Portfolio implements it: VaibhavSoni24/FullStack_Portfolio (JavaScript)",
+ "repos": [
+  {
+   "repo": "FullStack_Portfolio",
+   "url": "https://github.com/VaibhavSoni24/FullStack_Portfolio",
+   "sha": "d37315d84f6bf8972dda683b2a601031593d2370",
+   "licence": "author's permission (LICENSE at pin d37315d84f6b: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T06:56Z",
+    "consent_receipt": "bc4280961eb1",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T06:56Z (receipt bc4280961eb1); pinned to the default-branch head. LICENSE at pin d37315d84f6b: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

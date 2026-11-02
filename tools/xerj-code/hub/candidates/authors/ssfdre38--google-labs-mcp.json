@@ -1,0 +1,23 @@
+{
+ "corpus": "ssfdre38--google-labs-mcp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on JavaScript queries this for how ssfdre38/google-labs-mcp implements it: \ud83e\uddea The first Model Context Protocol (MCP) bridge connecting Antigravity and AI coding agents directly to Google Labs & Google Flow (Imagen 3,",
+ "repos": [
+  {
+   "repo": "google-labs-mcp",
+   "url": "https://github.com/ssfdre38/google-labs-mcp",
+   "sha": "3a5d9971ff4ecf92e6d6e2db6b585ae2e235d5d3",
+   "licence": "MIT (LICENSE file at pin 3a5d9971ff4e, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T02:35Z",
+    "consent_receipt": "a876acd22732",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T02:35Z (receipt a876acd22732); pinned to the default-branch head. LICENSE file at pin 3a5d9971ff4e detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

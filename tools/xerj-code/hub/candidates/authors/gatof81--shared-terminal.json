@@ -1,0 +1,23 @@
+{
+ "corpus": "gatof81--shared-terminal",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how gatof81/shared-terminal implements it: A self-hosted web terminal platform for managing isolated Docker-based development sessions from the browser, with persistent workspaces, re (selected work: backend, the project root, session-image)",
+ "repos": [
+  {
+   "repo": "shared-terminal",
+   "url": "https://github.com/gatof81/shared-terminal",
+   "sha": "e4c0378193cabf219f99531ce11b0a01a75c61f6",
+   "licence": "MIT (LICENSE file at pin e4c0378193ca, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T13:11Z",
+    "consent_receipt": "bf16ad373b68",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T13:11Z (receipt bf16ad373b68); selected commit e4c0378193ca: \"feat(3.0d): carry-over recreation for legacy session activation (\u00a72.7\u2026\". LICENSE file at pin e4c0378193ca detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

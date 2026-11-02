@@ -1,0 +1,23 @@
+{
+ "corpus": "afkiwers--inventree-kicad",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how afkiwers/inventree_kicad implements it: KiCad EDA conform API endpoint for KiCad's parts library tool. This plugin provides metadata only and requires matching symbol and footprint (selected work: inventree_kicad, the project root)",
+ "repos": [
+  {
+   "repo": "inventree_kicad",
+   "url": "https://github.com/afkiwers/inventree_kicad",
+   "sha": "4fa0f4b5b984bacd1751e54c2697b488108df382",
+   "licence": "MIT (LICENSE file at pin 4fa0f4b5b984, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T01:51Z",
+    "consent_receipt": "77f82e338337",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T01:51Z (receipt 77f82e338337); selected commit 4fa0f4b5b984: \"Add supplier filter for KiCad manufacturer data\". LICENSE file at pin 4fa0f4b5b984 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

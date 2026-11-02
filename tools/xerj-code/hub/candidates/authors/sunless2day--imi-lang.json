@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on imi, intepreter, language queries this for how sunless2day/imi-lang implements it: An implementation of the imi-lang interpreter (Yes, I made up this language) (selected work: crates/imi-core, src, the project root)",
+ "domain": "an agent working on imi, intepreter, language queries this for how sunless2day/imi-lang implements it: An implementation of the imi-lang interpreter (Yes, I made this language up) (selected work: crates/imi-core, src, the project root)",
  "repos": [
   {
    "repo": "imi-lang",

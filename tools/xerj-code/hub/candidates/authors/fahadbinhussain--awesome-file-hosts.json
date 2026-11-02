@@ -8,15 +8,15 @@
   {
    "repo": "awesome-file-hosts",
    "url": "https://github.com/FahadBinHussain/awesome-file-hosts",
-   "sha": "d02d89bab338670cd3bee2e05c3f930182e29b68",
-   "licence": "MIT (LICENSE file at pin d02d89bab338, GitHub licence API 2026-10-29)",
+   "sha": "97bc1bd75769a2c6f75d8d1b45e01f4a4ed4524a",
+   "licence": "MIT (LICENSE file at pin 97bc1bd75769, GitHub licence API 2026-11-02)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T02:34Z",
     "consent_receipt": "f66d26c10bc1",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T02:34Z (receipt f66d26c10bc1); pinned to the default-branch head. LICENSE file at pin d02d89bab338 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T02:34Z (receipt f66d26c10bc1); pinned to the default-branch head. LICENSE file at pin 97bc1bd75769 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
    }
   }
  ]

@@ -1,0 +1,23 @@
+{
+ "corpus": "ectkirk--ect-eve-assets",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how ectkirk/ect-eve-assets implements it: ectkirk/ect-eve-assets (TypeScript) (selected work: src/components, src/features, src/hooks)",
+ "repos": [
+  {
+   "repo": "ect-eve-assets",
+   "url": "https://github.com/ectkirk/ect-eve-assets",
+   "sha": "1fa9f0978cf8911ae12864cdc138a97fc198ef76",
+   "licence": "MIT (LICENSE file at pin 1fa9f0978cf8, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T16:19Z",
+    "consent_receipt": "88175bb80890",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T16:19Z (receipt 88175bb80890); selected commit 1fa9f0978cf8: \"refactor: unify sort headers, toolbar filters, resize handles and nam\u2026\". LICENSE file at pin 1fa9f0978cf8 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}
