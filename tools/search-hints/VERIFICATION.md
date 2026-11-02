@@ -161,3 +161,14 @@ Observed **1453 passed, 0 failed, 10 skipped**, 233 files, runner exit 0. It ret
 stopped with exit 0 and its temporary data directory was removed. No suite,
 assertion, catch policy or production node was changed. This is the repository
 suite, not complete ES protocol coverage. Hosted merge-ref CI remains pending.
+
+### Last upstream composition
+
+After validation and implementation commit `7095b0147`, fetched upstream again
+and normally merged `50ea0bb58` (#2845). It changes the field-report HTTP function,
+its JavaScript tests/CI step and changelog only. The merge was clean, including
+the changelog. `git diff 7095b0147 -- engine` is empty: the entire Rust source and
+lockfile serving the executable/gates above are unchanged. The upstream function
+and workflow are preserved; they are not part of this PR's effective diff.
+The newly merged plain-Node function tests and workflow timeout guard passed;
+Rust tests were not repeated for that JavaScript-only upstream composition.
