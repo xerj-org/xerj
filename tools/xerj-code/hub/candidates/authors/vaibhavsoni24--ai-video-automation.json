@@ -1,0 +1,23 @@
+{
+ "corpus": "vaibhavsoni24--ai-video-automation",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how VaibhavSoni24/ai-video-automation implements it: VaibhavSoni24/ai-video-automation (Python)",
+ "repos": [
+  {
+   "repo": "ai-video-automation",
+   "url": "https://github.com/VaibhavSoni24/ai-video-automation",
+   "sha": "640ec19fca2aed0f76ce3f29a866c90ac5eca610",
+   "licence": "author's permission (LICENSE at pin 640ec19fca2a: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T06:56Z",
+    "consent_receipt": "968cc42d9c41",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T06:56Z (receipt 968cc42d9c41); pinned to the default-branch head. LICENSE at pin 640ec19fca2a: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

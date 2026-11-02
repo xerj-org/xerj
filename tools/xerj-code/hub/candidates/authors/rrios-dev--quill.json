@@ -1,0 +1,23 @@
+{
+ "corpus": "rrios-dev--quill",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on apple-intelligence, llm, macos queries this for how rrios-dev/quill implements it: Leave every meeting with the minutes done: transcribed on your Mac, every voice by name, translated live, whatever app it happens in. And re (selected work: native)",
+ "repos": [
+  {
+   "repo": "quill",
+   "url": "https://github.com/rrios-dev/quill",
+   "sha": "565b5226ced9e0c4b6c15c0e9082b030d79b15d7",
+   "licence": "MIT (LICENSE file at pin 565b5226ced9, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T07:10Z",
+    "consent_receipt": "2f9274999daf",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T07:10Z (receipt 2f9274999daf); selected commit 565b5226ced9: \"Quill 1.3.0\". LICENSE file at pin 565b5226ced9 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

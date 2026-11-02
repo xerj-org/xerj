@@ -1,0 +1,23 @@
+{
+ "corpus": "kailiang0120--monaw",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agentic-ai, ai-agent, monaw queries this for how kailiang0120/monaw implements it: Open-source AI desktop assistant for Windows with computer use, browser automation, MCP tools, local memory, and scheduled tasks. Supports C (selected work: backend)",
+ "repos": [
+  {
+   "repo": "monaw",
+   "url": "https://github.com/kailiang0120/monaw",
+   "sha": "93be9ea24433b4f34ae4d2bd1eebd5565c6b3edb",
+   "licence": "Apache-2.0 (LICENSE file at pin 93be9ea24433, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T07:59Z",
+    "consent_receipt": "af9cdb1aeb76",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T07:59Z (receipt af9cdb1aeb76); selected commit 93be9ea24433: \"Refactor turn loop into model, lifecycle, tool, and restoration compo\u2026\". LICENSE file at pin 93be9ea24433 detected as Apache-2.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

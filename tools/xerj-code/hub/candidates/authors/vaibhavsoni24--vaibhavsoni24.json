@@ -1,0 +1,23 @@
+{
+ "corpus": "vaibhavsoni24--vaibhavsoni24",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on config, github-config queries this for how VaibhavSoni24/VaibhavSoni24 implements it: Config files for my GitHub profile",
+ "repos": [
+  {
+   "repo": "VaibhavSoni24",
+   "url": "https://github.com/VaibhavSoni24/VaibhavSoni24",
+   "sha": "2ace336b4226cfeb351d00965f91d0ad20c6af5e",
+   "licence": "author's permission (LICENSE at pin 2ace336b4226: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T06:56Z",
+    "consent_receipt": "55dc8b4659c5",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T06:56Z (receipt 55dc8b4659c5); pinned to the default-branch head. LICENSE at pin 2ace336b4226: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

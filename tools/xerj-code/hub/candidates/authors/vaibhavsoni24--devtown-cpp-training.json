@@ -1,0 +1,23 @@
+{
+ "corpus": "vaibhavsoni24--devtown-cpp-training",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how VaibhavSoni24/DevTown_Cpp_Training implements it: VaibhavSoni24/DevTown_Cpp_Training (C++)",
+ "repos": [
+  {
+   "repo": "DevTown_Cpp_Training",
+   "url": "https://github.com/VaibhavSoni24/DevTown_Cpp_Training",
+   "sha": "4e57c98997443d8cda5e87a043c345a974f48eef",
+   "licence": "author's permission (LICENSE at pin 4e57c9899744: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T06:56Z",
+    "consent_receipt": "5aa24aeb0bd9",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T06:56Z (receipt 5aa24aeb0bd9); pinned to the default-branch head. LICENSE at pin 4e57c9899744: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

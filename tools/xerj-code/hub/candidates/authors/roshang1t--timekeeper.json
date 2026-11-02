@@ -8,15 +8,15 @@
   {
    "repo": "TimeKeeper",
    "url": "https://github.com/roshang1t/TimeKeeper",
-   "sha": "ac3afdffa525321798d0af515810a8c08f6993f3",
-   "licence": "Apache-2.0 (LICENSE file at pin ac3afdffa525, GitHub licence API 2026-11-01)",
+   "sha": "e1e4db7f95a2ac3f2cdfc3729ca4e7c7bc2c6572",
+   "licence": "Apache-2.0 (LICENSE file at pin e1e4db7f95a2, GitHub licence API 2026-11-02)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T05:19Z",
     "consent_receipt": "d55947dac8c2",
-    "note": "Inclusion consented by the commit author by email at 2026-10-28T05:19Z (receipt d55947dac8c2); selected commit ac3afdffa525: \"other ui changes\". LICENSE file at pin ac3afdffa525 detected as Apache-2.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution. Pinned to head ac3afdffa525 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-28T05:19Z (receipt d55947dac8c2); selected commit e1e4db7f95a2: \"other ui changes\". LICENSE file at pin e1e4db7f95a2 detected as Apache-2.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution. Pinned to head e1e4db7f95a2 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

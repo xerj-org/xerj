@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agent-platform, ai-agents, ai-companion queries this for how yantrikos/yantrik-os implements it: AI-native Linux desktop where your AI agents (Claude Code, Hermes, OpenClaw, Pi) drive every app, share one YantrikDB memory, and show proof (selected work: crates/yantrik-ml)",
+ "domain": "an agent working on agent-platform, ai-agents, ai-companion queries this for how yantrikos/yantrik-os implements it: AI-native Linux desktop where your AI agents (Claude Code, Hermes, OpenClaw, Pi) drive every app, remember with YantrikDB, and show proof of (selected work: crates/yantrik-ml)",
  "repos": [
   {
    "repo": "yantrik-os",

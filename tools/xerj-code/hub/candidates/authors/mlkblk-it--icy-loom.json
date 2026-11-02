@@ -8,15 +8,15 @@
   {
    "repo": "icy-loom",
    "url": "https://github.com/MlkBlk-IT/icy-loom",
-   "sha": "f5343af9de9d5879f323f3df192e09efd990bbd1",
-   "licence": "MIT (LICENSE file at pin f5343af9de9d, GitHub licence API 2026-11-02)",
+   "sha": "07b30e7b18c90b36c6e741241d5bd7b4a0ebcb8e",
+   "licence": "MIT (LICENSE file at pin 07b30e7b18c9, GitHub licence API 2026-11-02)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-01T04:52Z",
     "consent_receipt": "87c600ebf022",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T04:52Z (receipt 87c600ebf022); pinned to the default-branch head. LICENSE file at pin f5343af9de9d detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T04:52Z (receipt 87c600ebf022); pinned to the default-branch head. LICENSE file at pin 07b30e7b18c9 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
    }
   }
  ]

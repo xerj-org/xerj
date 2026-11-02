@@ -1,0 +1,23 @@
+{
+ "corpus": "vaibhavsoni24--chopify-v2",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how VaibhavSoni24/Chopify-v2 implements it: VaibhavSoni24/Chopify-v2 (Python)",
+ "repos": [
+  {
+   "repo": "Chopify-v2",
+   "url": "https://github.com/VaibhavSoni24/Chopify-v2",
+   "sha": "af0db9c69395a8ddb70ea077a0c7fd80c2cf191a",
+   "licence": "author's permission (LICENSE at pin af0db9c69395: NOASSERTION; repository: NOASSERTION)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T06:56Z",
+    "consent_receipt": "ef7adba7cc12",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T06:56Z (receipt ef7adba7cc12); pinned to the default-branch head. LICENSE at pin af0db9c69395: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

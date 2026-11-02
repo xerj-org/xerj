@@ -1,0 +1,23 @@
+{
+ "corpus": "harness-mini--harness-mini",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agent, harness, shell queries this for how harness-mini/harness-mini implements it: A minimal outer harness for developers' long coding tasks. Files + shell: skills, sub-agents, and distilled docs. Keeps multi-session work o (selected work: tests, the project root, bin)",
+ "repos": [
+  {
+   "repo": "harness-mini",
+   "url": "https://github.com/harness-mini/harness-mini",
+   "sha": "da68420bc0de73b969fb27371d04b8a24a60b487",
+   "licence": "MIT (LICENSE file at pin da68420bc0de, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T07:31Z",
+    "consent_receipt": "6af62deb3573",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T07:31Z (receipt 6af62deb3573); selected commit da68420bc0de: \"feat: dual JSON+MD exec-plans, workboard status line, routing gate v2\u2026\". LICENSE file at pin da68420bc0de detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}
