@@ -1,9 +1,9 @@
 {
- "corpus": "desyatkoff--sonido",
+ "corpus": "desyatkas--sonido",
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on music-player, rust, sonido queries this for how desyatkoff/sonido implements it: A sleek, terminal-based music player written in Rust (selected work: src)",
+ "domain": "an agent working on music-player, rust, sonido queries this for how desyatkas/sonido implements it: A sleek, terminal-based music player written in Rust (selected work: src)",
  "repos": [
   {
    "repo": "sonido",
