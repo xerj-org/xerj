@@ -1,0 +1,22 @@
+{
+  "corpus": "agentic-security-ietf-corpus",
+  "cloned_at": "2026-11-01T15:18:56Z",
+  "own": true,
+  "repos": [
+    {
+      "repo": "agentic-security-ietf-corpus",
+      "url": "https://github.com/drk-ram/agentic-security-ietf-corpus",
+      "licence": "Apache-2.0",
+      "sha": "e72caa0c30689e4916b6f3d57bd73a8dbf5f57c9",
+      "files": 13,
+      "bytes": 155300,
+      "review": {
+        "spdx": "Apache-2.0",
+        "use": "adapt-with-attribution",
+        "by": "@drk-ram",
+        "at": "2026-11-01",
+        "note": "First-party repository by the author (@drk-ram / Raghuvar Karthik Durga). LICENSE file at pin e72caa0c3068 opened and read: verbatim Apache License 2.0 (Copyright 2026 Raghuvar Karthik Durga). Both the GitHub licence API and xerj corpus add independently report Apache-2.0. Contains 4 published IETF Internet-Drafts (trace verification, WIMSE context isolation, post-quantum hybrid delegation, transactional compensation leases), the 100-scenario OWASP ASI01-ASI10 adversarial benchmark (DataCite DOI 10.57967/hf/11352), and 3 Python reference verifiers + tests."
+      }
+    }
+  ]
+}
