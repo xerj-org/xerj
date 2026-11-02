@@ -16,7 +16,7 @@ const MAX_RECORDS: usize = 100_000;
 
 pub const HELP: &str = "xerj sessions import — offline session preparation for autoindex
 
-USAGE: xerj sessions import --format <claude-code|codex|claude-mem> --input FILE --output NEW.jsonl
+USAGE: xerj sessions import --format <claude-code|codex|claude-mem|mempalace> --input PATH --output NEW.jsonl
 
 Read one explicit Claude Code transcript or Codex rollout JSONL; write user/assistant text
 records through the existing native PII redactor before any output is stored.
@@ -37,8 +37,11 @@ or files. exec --json and external history_base are unsupported.
 claude-mem opens ~/.claude-mem/claude-mem.db read-only in one snapshot and exports
 user_prompts, observations and session_summaries rows (is_summary=true for the
 model-written two), each with the session ID claude-mem recorded (a UUID for
-Claude Code). Input <=512 MiB (.db plus -wal); line <=1 MiB; turn text
-<=256 KiB; <=100000 messages or rows.
+Claude Code). mempalace reads a palace directory's sqlite_exact.sqlite3
+read-only and exports mempalace_drawers drawers verbatim with wing/room/hall,
+skipping registry/sentinel rows and closets; the Chroma backend is unsupported.
+Input <=512 MiB (database plus -wal); line <=1 MiB; turn text <=256 KiB;
+<=100000 messages or rows.
 Exit 0: exported, JSON summary on stdout; 2: usage; 1: import/publication error.
 
 Optional automation (Claude Code, macOS/Linux): xerj init --memory.
@@ -270,6 +273,7 @@ fn claude_turn(
 
 mod claude_mem;
 mod codex;
+mod mempalace;
 
 #[derive(Clone, Copy)]
 enum SessionFormat {
@@ -287,6 +291,10 @@ pub fn import_codex(input: &Path, output: &Path) -> Result<ImportSummary> {
 
 pub fn import_claude_mem(input: &Path, output: &Path) -> Result<ImportSummary> {
     claude_mem::import(input, output)
+}
+
+pub fn import_mempalace(input: &Path, output: &Path) -> Result<ImportSummary> {
+    mempalace::import(input, output)
 }
 
 fn ensure_new_output(output: &Path) -> Result<()> {
@@ -494,7 +502,8 @@ pub fn run_cli(args: &[String]) -> i32 {
             Some("claude-code") => import_claude_code,
             Some("codex") => import_codex,
             Some("claude-mem") => import_claude_mem,
-            _ => bail!("--format claude-code, codex or claude-mem is required"),
+            Some("mempalace") => import_mempalace,
+            _ => bail!("--format claude-code, codex, claude-mem or mempalace is required"),
         };
         Ok((
             PathBuf::from(input.context("--input is required")?),

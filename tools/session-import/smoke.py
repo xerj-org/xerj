@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Synthetic session or claude-mem store -> redacted JSONL -> autoindex -> cited decision, on a private node."""
+"""Synthetic session, claude-mem store or MemPalace palace -> redacted JSONL -> autoindex -> cited decision, on a private node."""
 import argparse
 import json
 import os
@@ -18,6 +18,7 @@ FORMATS = {
     'claude-code': ('claude-session.jsonl', 2, 3, ['src/watch.rs']),
     'codex': ('codex-session.jsonl', 2, 9, []),
     'claude-mem': ('claude-mem.sql', 3, 1, ['src/watch.rs', 'src/poll.rs']),
+    'mempalace': ('mempalace.sql', 3, 1, ['/work/watcher/docs/decisions.md']),
 }
 
 
@@ -41,8 +42,11 @@ def main():
     with tempfile.TemporaryDirectory(prefix='xerj-sessions-smoke-') as temp:
         work = Path(temp)
         fixture, records, expected_line, expected_files = FORMATS[args.format]
-        if args.format == 'claude-mem':
-            source = work / 'claude-mem.db'
+        if args.format in ('claude-mem', 'mempalace'):
+            # MemPalace is passed as its palace directory, the store inside it.
+            palace = work / 'palace'
+            source = work / 'claude-mem.db' if args.format == 'claude-mem' else palace / 'sqlite_exact.sqlite3'
+            source.parent.mkdir(exist_ok=True)
             with sqlite3.connect(source) as store:
                 store.executescript((FIXTURES / fixture).read_text())
             store.close()
@@ -52,7 +56,8 @@ def main():
         exports = work / 'export'
         exports.mkdir()
         output = exports / 'records.jsonl'
-        command = ['sessions', 'import', '--format', args.format, '--input', str(source), '--output', str(output)]
+        given = palace if args.format == 'mempalace' else source
+        command = ['sessions', 'import', '--format', args.format, '--input', str(given), '--output', str(output)]
         imported = json.loads(run(binary, command, env, work).stdout)
         assert imported['records'] == records, imported
         safe = output.read_bytes()
