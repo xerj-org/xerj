@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "OPS",
- "domain": "an agent working on cli, devops, docker queries this for how onatribar/dockscribe implements it: CLI tool that audits Dockerfiles and Compose files, flags security and performance problems, and fixes the safe ones automatically (selected work: pkg/report, pkg/analyzer)",
+ "domain": "an agent working on cli, devops, docker queries this for how onatribar/dockscribe implements it: CLI tool to describe Dockerfiles and their vulnerabilities in human-readable summaries (selected work: pkg/report, pkg/analyzer)",
  "repos": [
   {
    "repo": "dockscribe",

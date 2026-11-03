@@ -1,0 +1,23 @@
+{
+ "corpus": "gabrielbelli--jailmachine",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on apple-silicon, bastille, containers queries this for how gabrielbelli/jailmachine implements it: docker-machine-style FreeBSD VM for jails and OCI containers (FreeBSD + Linux images) on macOS (selected work: internal/cli, internal/backend)",
+ "repos": [
+  {
+   "repo": "jailmachine",
+   "url": "https://github.com/gabrielbelli/jailmachine",
+   "sha": "665ff0173eb687b3c3b83d7258a2b38227daeba8",
+   "licence": "BSD-2-Clause (LICENSE file at pin 665ff0173eb6, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "BSD-2-Clause",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T16:54Z",
+    "consent_receipt": "57fc98823e6e",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T16:54Z (receipt 57fc98823e6e); selected commit 665ff0173eb6: \"cli: wrappers and helpers start from a stable jm path, and start keep\u2026\". LICENSE file at pin 665ff0173eb6 detected as BSD-2-Clause by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

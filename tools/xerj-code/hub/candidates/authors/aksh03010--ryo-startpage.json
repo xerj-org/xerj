@@ -1,0 +1,23 @@
+{
+ "corpus": "aksh03010--ryo-startpage",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on browser-startpage, helium, homepage queries this for how Aksh03010/ryo-startpage implements it: A customizable browser start page with a live clock, search, tasks, reminders, quick links, focus timer, and dynamic wallpapers (selected work: src/components, src, tests)",
+ "repos": [
+  {
+   "repo": "ryo-startpage",
+   "url": "https://github.com/Aksh03010/ryo-startpage",
+   "sha": "c6a63255609bae3a6ee99a1c7abd0b8ae8e27bab",
+   "licence": "MIT (LICENSE file at pin c6a63255609b, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T16:34Z",
+    "consent_receipt": "b5007f1f36a8",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T16:34Z (receipt b5007f1f36a8); selected commit c6a63255609b: \"Build a lighter celestial startpage with Wallpaper Engine support\". LICENSE file at pin c6a63255609b detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on cloudflare-workers, nlp, odia queries this for how soumendrak/openodia-hub implements it: Open source for the Odia language \u2014 tools, datasets, and AI resources for \u0b13\u0b21\u0b3c\u0b3f\u0b06 (selected work: test, src/routes, the project root)",
+ "domain": "an agent working on cloudflare-workers, nlp, odia queries this for how soumendrak/openodia-hub implements it: Open source for the Odia language - tools, datasets, and AI resources for \u0b13\u0b21\u0b3c\u0b3f\u0b06 (selected work: test, src/routes, the project root)",
  "repos": [
   {
    "repo": "openodia-hub",

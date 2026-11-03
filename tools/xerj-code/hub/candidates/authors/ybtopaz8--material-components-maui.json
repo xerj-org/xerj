@@ -8,15 +8,15 @@
   {
    "repo": "Material.Components.Maui",
    "url": "https://github.com/YBTopaz8/Material.Components.Maui",
-   "sha": "63fe261a780c0223e959f385da6d4e6801d6db86",
-   "licence": "MIT (LICENSE file at pin 63fe261a780c, GitHub licence API 2026-10-30)",
+   "sha": "5d1bd49a11101251238842696ca2b6d4b69ab735",
+   "licence": "MIT (LICENSE file at pin 5d1bd49a1110, GitHub licence API 2026-11-03)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-30T07:16Z",
     "consent_receipt": "92d82648969d",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T07:16Z (receipt 92d82648969d); pinned to the default-branch head. LICENSE file at pin 63fe261a780c detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T07:16Z (receipt 92d82648969d); pinned to the default-branch head. LICENSE file at pin 5d1bd49a1110 detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
    }
   }
  ]

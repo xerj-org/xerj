@@ -1,0 +1,23 @@
+{
+ "corpus": "hamedshams--whenship",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on capacity-planning, claude-plugin, claude-skills queries this for how HamedShams/whenship implements it: When will it ship, honestly? A tiny planner for small teams: live what-if Gantt, deadline risk and realistic dates. Works in the browser and",
+ "repos": [
+  {
+   "repo": "whenship",
+   "url": "https://github.com/HamedShams/whenship",
+   "sha": "0f7f43628feafbb7dff0a4b937e93602fb5f0e1c",
+   "licence": "BSD-3-Clause (LICENSE file at pin 0f7f43628fea, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "BSD-3-Clause",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T17:16Z",
+    "consent_receipt": "0810be4ccaf4",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-03T17:16Z (receipt 0810be4ccaf4); pinned to the default-branch head. LICENSE file at pin 0f7f43628fea detected as BSD-3-Clause by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

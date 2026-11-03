@@ -1,0 +1,23 @@
+{
+ "corpus": "hbermu--obsidian-dm-screens",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how hbermu/obsidian-dm-screens implements it: Turn your notes into a live player screen and a true-scale battle map for in-person D&D 5e (selected work: src/__tests__, src/views, src/map)",
+ "repos": [
+  {
+   "repo": "obsidian-dm-screens",
+   "url": "https://github.com/hbermu/obsidian-dm-screens",
+   "sha": "767c37bc2c9447b29ca8eeb960edfb6ba63de22a",
+   "licence": "MIT (LICENSE file at pin 767c37bc2c94, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T16:17Z",
+    "consent_receipt": "11bc953bafb2",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T16:17Z (receipt 11bc953bafb2); selected commit 767c37bc2c94: \"fix(dm-preview): keep the battlemap preview stable and fluid (#10)\". LICENSE file at pin 767c37bc2c94 detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

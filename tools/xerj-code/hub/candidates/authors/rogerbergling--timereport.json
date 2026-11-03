@@ -8,15 +8,15 @@
   {
    "repo": "TimeReport",
    "url": "https://github.com/RogerBergling/TimeReport",
-   "sha": "8ab4573139294ed25cb84a5e62c07cd7fe0d9d05",
-   "licence": "MIT (LICENSE file at pin 8ab457313929, GitHub licence API 2026-11-01)",
+   "sha": "0173da8a956c3acc35f625a8ef6877b4efd66fab",
+   "licence": "MIT (LICENSE file at pin 0173da8a956c, GitHub licence API 2026-11-03)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-31T21:08Z",
     "consent_receipt": "57ca0862be89",
-    "note": "Inclusion consented by the commit author by email at 2026-10-31T21:08Z (receipt 57ca0862be89); selected commit 8ab457313929: \"Add dynamic Excel export and release v2.4.0\". LICENSE file at pin 8ab457313929 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution. Pinned to head 8ab457313929 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T21:08Z (receipt 57ca0862be89); selected commit 0173da8a956c: \"Add dynamic Excel export and release v2.4.0\". LICENSE file at pin 0173da8a956c detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution. Pinned to head 0173da8a956c (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]
