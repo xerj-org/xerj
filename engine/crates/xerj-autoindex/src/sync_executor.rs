@@ -878,8 +878,8 @@ pub struct EsSyncBackend<'a> {
     /// flight at once. `1` — the default — is the historical serial loop,
     /// and what every run without `--workers` beyond it configures.
     replay_workers: usize,
-    /// #2669: the command that rebuilds this folder's corpus, appended to a
-    /// record-count abort. A resume re-checks the same live indices, so the
+    /// #2669: how to rebuild this folder's corpus, appended to a record-count
+    /// abort. A resume re-checks the same live indices, so the
     /// abort alone leaves the operator rerunning into it.
     record_repair: Option<String>,
 }
@@ -906,8 +906,8 @@ impl<'a> EsSyncBackend<'a> {
     }
 
     /// See `record_repair`.
-    pub fn with_record_repair(mut self, command: String) -> Self {
-        self.record_repair = Some(command);
+    pub fn with_record_repair(mut self, advice: String) -> Self {
+        self.record_repair = Some(advice);
         self
     }
 
@@ -2366,9 +2366,7 @@ impl SyncOperationBackend for EsSyncBackend<'_> {
                 indices.join(", "),
                 self.record_repair
                     .as_deref()
-                    .map(|command| format!(
-                        ". To rebuild them, run `{command}`, then rerun this command"
-                    ))
+                    .map(|advice| format!(". {advice}"))
                     .unwrap_or_default()
             );
             let mut semantic = 0u64;

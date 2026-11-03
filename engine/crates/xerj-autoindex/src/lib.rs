@@ -1169,6 +1169,18 @@ fn record_count_repair_command(cfg: &IndexCfg, root: &str, state_dir: &Path) -> 
         .join(" ")
 }
 
+/// The sentence a record-count abort ends with (#2669). A `--watch` session
+/// survives the abort and retries on the next change, so it is stopped first:
+/// a pass started mid-remove would recreate the journal and indices.
+fn record_count_repair_advice(cfg: &IndexCfg, root: &str, state_dir: &Path) -> String {
+    let command = record_count_repair_command(cfg, root, state_dir);
+    if cfg.watch {
+        format!("Stop this watcher, run `{command}`, then start it again")
+    } else {
+        format!("To rebuild them, run `{command}`, then rerun this command")
+    }
+}
+
 /// The command a per-file schema refusal tells the operator to run.
 ///
 /// A new `--state-dir` and a new `--prefix` are both required: the watcher's
@@ -1188,6 +1200,35 @@ fn incremental_schema_rebuild_command(cfg: &IndexCfg, state_dir: &Path) -> Strin
 
 /// Shell-quote one argv element. Safe characters are the same set
 /// `catalog::shell_quote` uses; that helper is private to its module.
+/// Split a command [`quote_shell`] joined back into its arguments, so a test
+/// can read printed advice through `cli::parse`.
+#[cfg(test)]
+fn shell_words(command: &str) -> Vec<String> {
+    let mut words = Vec::new();
+    let mut word = String::new();
+    let mut quoted = false;
+    let mut chars = command.chars().peekable();
+    while let Some(c) = chars.next() {
+        match c {
+            '\'' => quoted = !quoted,
+            '\\' if !quoted && chars.peek() == Some(&'\'') => {
+                chars.next();
+                word.push('\'');
+            }
+            ' ' if !quoted => {
+                if !word.is_empty() {
+                    words.push(std::mem::take(&mut word));
+                }
+            }
+            c => word.push(c),
+        }
+    }
+    if !word.is_empty() {
+        words.push(word);
+    }
+    words
+}
+
 fn quote_shell(s: &str) -> String {
     if s.is_empty() {
         return "''".to_string();
@@ -9258,7 +9299,7 @@ fn run_index_report_inner(
         let mut backend =
             sync_executor::EsSyncBackend::new(&es, &state_dir, cfg.bulk_mb << 20, &pr)
                 .with_replay_workers(cfg.workers)
-                .with_record_repair(record_count_repair_command(&cfg, &root_str, &state_dir));
+                .with_record_repair(record_count_repair_advice(&cfg, &root_str, &state_dir));
         sync_executor::replay_pending_operations_reporting(
             &state_dir,
             &mut journal,
@@ -9884,7 +9925,7 @@ fn run_index_report_inner(
         let mut backend =
             sync_executor::EsSyncBackend::new(&es, &state_dir, cfg.bulk_mb << 20, &pr)
                 .with_replay_workers(cfg.workers)
-                .with_record_repair(record_count_repair_command(&cfg, &root_str, &state_dir));
+                .with_record_repair(record_count_repair_advice(&cfg, &root_str, &state_dir));
         sync_executor::replay_pending_operations_reporting(
             &state_dir,
             &mut journal,
@@ -10717,7 +10758,7 @@ fn run_index_report_inner(
         let mut backend =
             sync_executor::EsSyncBackend::new(&es, &state_dir, cfg.bulk_mb << 20, &pr)
                 .with_replay_workers(cfg.workers)
-                .with_record_repair(record_count_repair_command(&cfg, &root_str, &state_dir))
+                .with_record_repair(record_count_repair_advice(&cfg, &root_str, &state_dir))
                 .with_installed_mappings(installed_identity);
         sync_executor::replay_pending_operations_reporting(
             &state_dir,
@@ -17520,6 +17561,83 @@ mod bulk_pipe_tests {
         for t in tokens {
             pipe.settle(t).expect("accepted");
         }
+    }
+}
+
+#[cfg(test)]
+mod record_count_repair_tests {
+    use super::*;
+
+    fn index_cfg(args: &[&str]) -> IndexCfg {
+        match cli::parse(args.iter().map(|s| s.to_string()).collect()).expect("index argv") {
+            cli::Cmd::Index(cfg) => *cfg,
+            other => panic!("expected an index command, got {other:?}"),
+        }
+    }
+
+    fn remove_cfg(command: &str) -> cli::RemoveCfg {
+        let argv = shell_words(command);
+        assert_eq!(argv[..3], ["xerj", "autoindex", "remove"], "{command}");
+        match cli::parse(argv[2..].to_vec()).expect("the repair command must parse") {
+            cli::Cmd::Remove(cfg) => cfg,
+            other => panic!("expected autoindex remove, got {other:?}"),
+        }
+    }
+
+    /// The common case: default node, default state dir. `remove` derives
+    /// that journal from root, URL and prefix itself, so neither flag is
+    /// printed (#2669).
+    #[test]
+    fn default_node_and_state_dir_print_neither_flag() {
+        let cfg = index_cfg(&["/tmp/proj", "--prefix", "proj"]);
+        let state = Path::new("/home/me/.xerj/autoindex/derived");
+        assert_eq!(
+            record_count_repair_command(&cfg, "/tmp/proj", state),
+            "xerj autoindex remove --prefix proj --root /tmp/proj --yes"
+        );
+    }
+
+    /// A root that needs quoting reads back unchanged, with the run's
+    /// non-default node and explicit state dir.
+    #[test]
+    fn quoted_root_url_and_state_dir_read_back_through_the_parser() {
+        let root = "/tmp/it's a \"dir\" $HOME";
+        let cfg = index_cfg(&[
+            root,
+            "--prefix",
+            "proj",
+            "--url",
+            "http://node:9201",
+            "--state-dir",
+            "/tmp/state dir",
+        ]);
+        let state = cfg.state_dir.clone().unwrap();
+        let remove = remove_cfg(&record_count_repair_command(&cfg, root, &state));
+        assert_eq!(remove.prefix, "proj");
+        assert_eq!(remove.root.as_deref(), Some(root));
+        assert_eq!(remove.url, "http://node:9201");
+        assert_eq!(
+            remove.state_dir.as_deref(),
+            Some(Path::new("/tmp/state dir"))
+        );
+        assert!(remove.yes);
+    }
+
+    /// A watcher keeps running after the abort, so the advice stops it first.
+    #[test]
+    fn a_watcher_is_told_to_stop_before_the_remove() {
+        let mut cfg = index_cfg(&["/tmp/proj", "--prefix", "proj"]);
+        let state = Path::new("/state");
+        let command = record_count_repair_command(&cfg, "/tmp/proj", state);
+        assert_eq!(
+            record_count_repair_advice(&cfg, "/tmp/proj", state),
+            format!("To rebuild them, run `{command}`, then rerun this command")
+        );
+        cfg.watch = true;
+        assert_eq!(
+            record_count_repair_advice(&cfg, "/tmp/proj", state),
+            format!("Stop this watcher, run `{command}`, then start it again")
+        );
     }
 }
 

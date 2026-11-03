@@ -210,13 +210,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   name was not, because the Dart query adapted from tree-sitter-dart's
   `tags.scm` had dropped both forms.
 
-- `xerj autoindex` now says how to recover when its finalize check finds fewer
-  live records than it published (#2669). The abort already named the counts
+- `xerj autoindex` now says how to recover when its finalize check finds a
+  live record count that disagrees with what it published (#2669). The abort already named the counts
   and the indices; a resume checks the same indices, so rerunning stopped there
   again. It now ends with the `xerj autoindex remove --prefix ... --root ...
   --yes` command for that folder (adding `--url` and `--state-dir` when the run
-  set them), then says to rerun. `--fresh` is not offered because it is refused
-  once a durable generation exists.
+  set them), then says to rerun; a `--watch` session is told to stop the
+  watcher first. `--fresh` is not offered because it is refused once a durable
+  generation exists.
 - The field-report HTTP fallback now enforces its 16 KiB body limit on raw
   bytes before decoding or storage access. Multibyte JSON without a reliable
   `Content-Length` no longer bypasses the limit by having fewer characters.

@@ -2440,7 +2440,7 @@ fn record_count_mismatch_names_the_remove_that_rebuilds_the_folder() {
         message.ends_with(&format!("`{command}`, then rerun this command")),
         "{message}"
     );
-    let argv: Vec<String> = command.split_whitespace().map(str::to_owned).collect();
+    let argv = shell_words(command);
     assert_eq!(argv[..3], ["xerj", "autoindex", "remove"]);
     let remove = match cli::parse(argv[2..].to_vec()).expect("the repair command must parse") {
         cli::Cmd::Remove(remove) => remove,
