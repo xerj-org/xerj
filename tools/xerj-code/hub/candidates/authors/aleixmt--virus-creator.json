@@ -1,0 +1,23 @@
+{
+ "corpus": "aleixmt--virus-creator",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Batchfile queries this for how AleixMT/virus-creator implements it: The first piece of software I wrote when I was 9 years old: A Windows command console script that injects malicious code with different feat",
+ "repos": [
+  {
+   "repo": "virus-creator",
+   "url": "https://github.com/AleixMT/virus-creator",
+   "sha": "cc1d33302789a70e08676ad51b9033fd6784efec",
+   "licence": "GPL-2.0 (LICENSE file at pin cc1d33302789, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-03T14:44Z",
+    "consent_receipt": "200b803e493d",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-03T14:44Z (receipt 200b803e493d); pinned to the default-branch head. LICENSE file at pin cc1d33302789 detected as GPL-2.0 by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

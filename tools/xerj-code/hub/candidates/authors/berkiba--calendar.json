@@ -1,0 +1,23 @@
+{
+ "corpus": "berkiba--calendar",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how Berkiba/Calendar implements it: A personal project about building myself a calendar for assignmnets (selected work: src/view, the project root, src/model)",
+ "repos": [
+  {
+   "repo": "Calendar",
+   "url": "https://github.com/Berkiba/Calendar",
+   "sha": "242ed2aa13cae73c8f6764921e592ebd9c46c8d5",
+   "licence": "MIT (LICENSE file at pin 242ed2aa13ca, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T12:26Z",
+    "consent_receipt": "5fae32b27ca5",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T12:26Z (receipt 5fae32b27ca5); selected commit 242ed2aa13ca: \"added delete and edit for events in backend and frontend\". LICENSE file at pin 242ed2aa13ca detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

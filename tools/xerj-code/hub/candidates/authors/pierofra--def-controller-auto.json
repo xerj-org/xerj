@@ -8,15 +8,15 @@
   {
    "repo": "def-controller-auto",
    "url": "https://github.com/PieroFra/def-controller-auto",
-   "sha": "41b256fdfc941cfc7b00127d37fe69d4dccba771",
-   "licence": "GPL-3.0 (LICENSE file at pin 41b256fdfc94, GitHub licence API 2026-11-02)",
+   "sha": "5314fdca45421dc44698d3832085d9a10cb7a001",
+   "licence": "GPL-3.0 (LICENSE file at pin 5314fdca4542, GitHub licence API 2026-11-03)",
    "review": {
     "spdx": "GPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-29T09:25Z",
     "consent_receipt": "2ef429ef0500",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T09:25Z (receipt 2ef429ef0500); pinned to the default-branch head. LICENSE file at pin 41b256fdfc94 detected as GPL-3.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T09:25Z (receipt 2ef429ef0500); pinned to the default-branch head. LICENSE file at pin 5314fdca4542 detected as GPL-3.0 by the GitHub licence API on 2026-11-03; used under that licence with attribution."
    }
   }
  ]

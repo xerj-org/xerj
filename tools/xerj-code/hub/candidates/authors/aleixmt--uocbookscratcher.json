@@ -1,0 +1,23 @@
+{
+ "corpus": "aleixmt--uocbookscratcher",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Shell queries this for how AleixMT/UOCBookScratcher implements it: Book downloader from Open University of Catalonia (UOC)",
+ "repos": [
+  {
+   "repo": "UOCBookScratcher",
+   "url": "https://github.com/AleixMT/UOCBookScratcher",
+   "sha": "72d3c8f4f8d22c068886b700c7cec93723ecdf98",
+   "licence": "author's permission (LICENSE at pin 72d3c8f4f8d2: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T14:44Z",
+    "consent_receipt": "89a5aeb5abd8",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-03T14:44Z (receipt 89a5aeb5abd8); pinned to the default-branch head. LICENSE at pin 72d3c8f4f8d2: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

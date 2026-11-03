@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "OPS",
- "domain": "an agent working on devops, gtk4, linux queries this for how buuuki/termia implements it: Termia is a modern GTK 4 SSH connection manager with embedded terminals, tabbed sessions and credential management for Linux desktops (selected work: src/termia, tests)",
+ "domain": "an agent working on gtk4, linux, linux-desktop queries this for how buuuki/termia implements it: Termia is a modern GTK 4 SSH connection manager with embedded terminals, tabbed sessions and credential management for Linux desktops (selected work: src/termia, tests)",
  "repos": [
   {
    "repo": "termia",

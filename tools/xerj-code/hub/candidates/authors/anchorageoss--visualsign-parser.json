@@ -1,0 +1,23 @@
+{
+ "corpus": "anchorageoss--visualsign-parser",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on Rust queries this for how anchorageoss/visualsign-parser implements it: Rust-based transaction parser that converts raw blockchain transactions into human-readable VisualSign payloads (selected work: src/chain_parsers)",
+ "repos": [
+  {
+   "repo": "visualsign-parser",
+   "url": "https://github.com/anchorageoss/visualsign-parser",
+   "sha": "f9363c09f73c4ef0bfed401ba73d8375e8ce2c9e",
+   "licence": "Apache-2.0 (LICENSE file at pin f9363c09f73c, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T15:29Z",
+    "consent_receipt": "7895c5062863",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T15:29Z (receipt 7895c5062863); selected commit f9363c09f73c: \"fix(solana): reject transactions over PACKET_DATA_SIZE before decode \u2026\". LICENSE file at pin f9363c09f73c detected as Apache-2.0 by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

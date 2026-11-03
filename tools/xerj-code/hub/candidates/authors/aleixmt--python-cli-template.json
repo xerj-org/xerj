@@ -1,0 +1,23 @@
+{
+ "corpus": "aleixmt--python-cli-template",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on code queries this for how AleixMT/python-cli-template implements it: AleixMT/python-cli-template (code)",
+ "repos": [
+  {
+   "repo": "python-cli-template",
+   "url": "https://github.com/AleixMT/python-cli-template",
+   "sha": "9dd63c714b9005b192045a4ca03a996dd1dc451d",
+   "licence": "GPL-3.0 (LICENSE file at pin 9dd63c714b90, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-03T14:44Z",
+    "consent_receipt": "f3977a04a91b",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-03T14:44Z (receipt f3977a04a91b); pinned to the default-branch head. LICENSE file at pin 9dd63c714b90 detected as GPL-3.0 by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}
