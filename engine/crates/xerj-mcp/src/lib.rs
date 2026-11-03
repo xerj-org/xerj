@@ -420,8 +420,9 @@ pub async fn run(args: &[String]) -> anyhow::Result<()> {
 /// The JSON-RPC loop over newline-delimited messages, apart from the process'
 /// stdin/stdout so tests can drive it over an in-memory pipe.
 ///
-/// A `tools/call` request runs on its own task, so a call that waits on the
-/// node does not hold up the messages behind it (#2390): `ping`,
+/// Every `tools/call` runs on its own task, with or without an id, so a call
+/// that waits on the node does not hold up the messages behind it (#2390,
+/// #2898): `ping`,
 /// `initialize`, `tools/list` and notifications stay inline because they never
 /// wait on anything. Replies are matched by `id`, so they may go out in any
 /// order. `notifications/cancelled` aborts the call it names, and no response
@@ -487,18 +488,35 @@ where
                 }
                 Vec::new()
             }
-            msg if is_tool_call_request(&msg) => {
-                let key = id_key(&msg["id"]);
-                let (ctx, tx, registry) = (ctx.clone(), tx.clone(), in_flight.clone());
-                in_flight.start(&mut calls, key, move |token| async move {
-                    let reply = handle_message(&ctx, msg).await;
-                    // A cancellation that got here first means: say nothing.
-                    if registry.finish(token) {
-                        if let Some(reply) = reply {
-                            let _ = tx.send(reply);
-                        }
+            msg if is_tool_call(&msg) => {
+                let key = msg.get("id").filter(|id| !id.is_null()).map(id_key);
+                let (ctx, tx) = (ctx.clone(), tx.clone());
+                match key {
+                    Some(key) => {
+                        let registry = in_flight.clone();
+                        in_flight.start(&mut calls, key, move |token| async move {
+                            let reply = handle_message(&ctx, msg).await;
+                            // A cancellation that got here first means: say nothing.
+                            if registry.finish(token) {
+                                if let Some(reply) = reply {
+                                    let _ = tx.send(reply);
+                                }
+                            }
+                        });
                     }
-                });
+                    // No id (a notification: it runs, and is never answered)
+                    // or a null id (answered with `id: null`). Both still run
+                    // off the loop (#2898). No cancellation can name them, so
+                    // they are not registered, and two of them cannot displace
+                    // each other's reply.
+                    None => {
+                        calls.spawn(async move {
+                            if let Some(reply) = handle_message(&ctx, msg).await {
+                                let _ = tx.send(reply);
+                            }
+                        });
+                    }
+                }
                 Vec::new()
             }
             other => handle_message(&ctx, other).await.into_iter().collect(),
@@ -514,9 +532,10 @@ where
     writer.await?
 }
 
-fn is_tool_call_request(msg: &Value) -> bool {
+/// Any `tools/call`, whatever its id: each one waits on the node, so none may
+/// run on the read loop (#2390, #2898).
+fn is_tool_call(msg: &Value) -> bool {
     msg.get("method").and_then(Value::as_str) == Some("tools/call")
-        && msg.get("id").is_some_and(|id| !id.is_null())
 }
 
 fn is_cancellation(msg: &Value) -> bool {
@@ -602,37 +621,34 @@ where
 }
 
 /// Route one JSON-RPC message. Returns `Some(response)` for requests and
-/// `None` for notifications (no `id`) and messages that need no reply.
+/// `None` for notifications (no `id` member) and messages that need no reply.
+/// A notification is never answered, whatever its method (JSON-RPC 2.0 §4.1;
+/// #2898); a `tools/call` notification still runs. An `id` of `null` is a
+/// request and is answered with `id: null`.
 async fn handle_message(ctx: &Ctx, msg: Value) -> Option<Value> {
     let id = msg.get("id").cloned();
     let is_notification = id.is_none();
     let method = msg.get("method").and_then(Value::as_str)?.to_string();
 
-    match method.as_str() {
-        "initialize" => Some(rpc_result(id, initialize_result(&msg))),
+    let reply = match method.as_str() {
+        "initialize" => rpc_result(id, initialize_result(&msg)),
 
         // Lifecycle / keepalive notifications — no response.
-        "notifications/initialized" | "initialized" | "notifications/cancelled" => None,
+        "notifications/initialized" | "initialized" | "notifications/cancelled" => return None,
 
-        "ping" => Some(rpc_result(id, json!({}))),
+        "ping" => rpc_result(id, json!({})),
 
-        "tools/list" => Some(rpc_result(id, json!({ "tools": tool_specs() }))),
+        "tools/list" => rpc_result(id, json!({ "tools": tool_specs() })),
 
-        "tools/call" => Some(rpc_result(id, call_tool(ctx, &msg).await)),
+        "tools/call" => rpc_result(id, call_tool(ctx, &msg).await),
 
-        // Unknown method: error for requests, silence for notifications.
-        _ => {
-            if is_notification {
-                None
-            } else {
-                Some(rpc_error(
-                    id.unwrap_or(Value::Null),
-                    -32601,
-                    format!("method not found: {method}"),
-                ))
-            }
-        }
-    }
+        _ => rpc_error(
+            id.unwrap_or(Value::Null),
+            -32601,
+            format!("method not found: {method}"),
+        ),
+    };
+    (!is_notification).then_some(reply)
 }
 
 /// Handle one JSON-RPC message exactly as the stdio loop does, against the node
@@ -3745,7 +3761,8 @@ mod tests {
     /// it the stdio loop, which serves one request at a time).
     #[test]
     fn code_search_transport_gives_up_on_a_silent_node() {
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener =
+            xerj_common::loopback_test::expect_loopback(std::net::TcpListener::bind("127.0.0.1:0"));
         let base_url = format!("http://{}", listener.local_addr().unwrap());
         // Accept, then hold the connection open without a byte of reply.
         std::thread::spawn(move || {
@@ -3879,7 +3896,9 @@ mod tests {
     async fn an_http_401_is_not_rewritten_as_node_down() {
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let listener = xerj_common::loopback_test::expect_loopback(
+            tokio::net::TcpListener::bind("127.0.0.1:0").await,
+        );
         let addr = listener.local_addr().unwrap();
         tokio::spawn(async move {
             let (mut sock, _) = listener.accept().await.unwrap();
@@ -3932,7 +3951,9 @@ mod tests {
 
     /// A node that accepts every connection and never sends a byte.
     async fn silent_node() -> String {
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let listener = xerj_common::loopback_test::expect_loopback(
+            tokio::net::TcpListener::bind("127.0.0.1:0").await,
+        );
         let addr = listener.local_addr().unwrap();
         tokio::spawn(async move {
             let mut held = Vec::new();
@@ -4071,13 +4092,120 @@ mod tests {
         );
     }
 
+    /// The first reply line, or a panic naming what it waited behind.
+    async fn first_reply(
+        stdout: &mut tokio::io::Lines<BufReader<tokio::io::DuplexStream>>,
+        behind: &str,
+    ) -> Value {
+        let line = tokio::time::timeout(Duration::from_secs(1), stdout.next_line())
+            .await
+            .unwrap_or_else(|_| panic!("no reply within 1 s: ping queued behind {behind}"))
+            .unwrap()
+            .unwrap();
+        serde_json::from_str(&line).unwrap()
+    }
+
+    /// Every reply line until the server closes stdout.
+    async fn remaining_replies(
+        stdout: &mut tokio::io::Lines<BufReader<tokio::io::DuplexStream>>,
+    ) -> Vec<Value> {
+        let mut replies = Vec::new();
+        tokio::time::timeout(Duration::from_secs(10), async {
+            while let Ok(Some(line)) = stdout.next_line().await {
+                replies.push(serde_json::from_str::<Value>(&line).unwrap());
+            }
+        })
+        .await
+        .expect("stdout was not closed after the last reply");
+        replies
+    }
+
+    /// #2898: a `tools/call` with no `id` is a notification. It runs off the
+    /// read loop like any other call, so it does not hold up `ping`, and it is
+    /// never answered, not even with `id: null`.
+    #[tokio::test]
+    async fn a_tool_call_notification_runs_off_the_loop_and_gets_no_reply() {
+        let (mut stdin, mut stdout) =
+            stdio_session(silent_node().await, Duration::from_millis(1500));
+        let mut call = stalled_search(0);
+        call.as_object_mut().unwrap().remove("id");
+        send_line(&mut stdin, call).await;
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        send_line(
+            &mut stdin,
+            json!({"jsonrpc": "2.0", "id": 3, "method": "ping"}),
+        )
+        .await;
+        let reply = first_reply(&mut stdout, "the id-less tool call").await;
+        assert_eq!(reply["id"], 3, "{reply}");
+        // End of input waits for the call, so anything it wrote shows up here.
+        drop(stdin);
+        let rest = remaining_replies(&mut stdout).await;
+        assert!(rest.is_empty(), "a notification was answered: {rest:?}");
+    }
+
+    /// #2898: a `tools/call` with `id: null` is a request and is answered,
+    /// but it too runs off the read loop.
+    #[tokio::test]
+    async fn a_null_id_tool_call_runs_off_the_loop_and_is_answered() {
+        let (mut stdin, mut stdout) =
+            stdio_session(silent_node().await, Duration::from_millis(1500));
+        let mut call = stalled_search(0);
+        call["id"] = Value::Null;
+        send_line(&mut stdin, call).await;
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        send_line(
+            &mut stdin,
+            json!({"jsonrpc": "2.0", "id": 3, "method": "ping"}),
+        )
+        .await;
+        let reply = first_reply(&mut stdout, "the null-id tool call").await;
+        assert_eq!(reply["id"], 3, "{reply}");
+        drop(stdin);
+        let rest = remaining_replies(&mut stdout).await;
+        assert_eq!(rest.len(), 1, "{rest:?}");
+        assert_eq!(rest[0]["id"], Value::Null, "{rest:?}");
+        assert_eq!(rest[0]["result"]["isError"], true, "{rest:?}");
+    }
+
+    /// #2898: no notification is answered, whatever its method; the requests
+    /// beside it still are.
+    #[tokio::test]
+    async fn known_methods_sent_as_notifications_get_no_reply() {
+        let (mut stdin, mut stdout) =
+            stdio_session(silent_node().await, Duration::from_millis(300));
+        for method in ["initialize", "ping", "tools/list", "no/such/method"] {
+            send_line(&mut stdin, json!({"jsonrpc": "2.0", "method": method})).await;
+        }
+        send_line(
+            &mut stdin,
+            json!({"jsonrpc": "2.0", "id": 4, "method": "ping"}),
+        )
+        .await;
+        send_line(
+            &mut stdin,
+            json!([{"jsonrpc": "2.0", "method": "ping"},
+                   {"jsonrpc": "2.0", "id": 5, "method": "ping"}]),
+        )
+        .await;
+        drop(stdin);
+        let ids: Vec<Value> = remaining_replies(&mut stdout)
+            .await
+            .into_iter()
+            .map(|reply| reply["id"].clone())
+            .collect();
+        assert_eq!(ids, vec![json!(4), json!(5)]);
+    }
+
     /// A 200 whose body cannot be read in full (the connection drops partway,
     /// or the request deadline fires mid-body) is a failure, not an empty
     /// successful result: an agent reading `isError: false` with no text would
     /// conclude the query matched nothing.
     #[tokio::test]
     async fn engine_request_reports_a_body_that_could_not_be_read() {
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let listener = xerj_common::loopback_test::expect_loopback(
+            tokio::net::TcpListener::bind("127.0.0.1:0").await,
+        );
         let addr = listener.local_addr().unwrap();
         tokio::spawn(async move {
             let Ok((mut sock, _)) = listener.accept().await else {
@@ -4104,7 +4232,9 @@ mod tests {
     /// text is that sentence, not `XERJ returned HTTP` plus the JSON.
     #[tokio::test]
     async fn memory_store_prints_a_plain_flood_reason_verbatim() {
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let listener = xerj_common::loopback_test::expect_loopback(
+            tokio::net::TcpListener::bind("127.0.0.1:0").await,
+        );
         let addr = listener.local_addr().unwrap();
         let reason = "the disk holding the data dir is nearly full, so this memory write was refused (free 2.0gb, 96% used, threshold 95%, data dir D:\\xerj-data). Free space on that drive, or restart the node with --data-dir on another drive.";
         let body = format!(
@@ -4135,7 +4265,9 @@ mod tests {
     /// and says the disk is nearly full, with free space and the data dir.
     #[tokio::test]
     async fn memory_store_rewrites_a_nested_cluster_block_using_allocation() {
-        let store = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let store = xerj_common::loopback_test::expect_loopback(
+            tokio::net::TcpListener::bind("127.0.0.1:0").await,
+        );
         let addr = store.local_addr().unwrap();
         tokio::spawn(async move {
             // Two requests, either order, possibly one connection each.
@@ -4208,7 +4340,9 @@ mod tests {
     /// A memory-store 400 is not a full disk. The HTTP wrapper stays.
     #[tokio::test]
     async fn memory_store_validation_error_is_not_a_flood_message() {
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let listener = xerj_common::loopback_test::expect_loopback(
+            tokio::net::TcpListener::bind("127.0.0.1:0").await,
+        );
         let addr = listener.local_addr().unwrap();
         answer_once(
             listener,
@@ -5685,7 +5819,8 @@ mod tests {
 
     #[test]
     fn search_prefix_scopes_both_mapping_and_search_requests() {
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener =
+            xerj_common::loopback_test::expect_loopback(std::net::TcpListener::bind("127.0.0.1:0"));
         let address = listener.local_addr().unwrap();
         let server = std::thread::spawn(move || {
             serve_mapping_then_search_requests(
@@ -5727,7 +5862,8 @@ mod tests {
 
     #[test]
     fn search_prefix_preserves_code_path_demotion() {
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener =
+            xerj_common::loopback_test::expect_loopback(std::net::TcpListener::bind("127.0.0.1:0"));
         let address = listener.local_addr().unwrap();
         let server = std::thread::spawn(move || {
             serve_mapping_then_search_requests(
@@ -5769,7 +5905,8 @@ mod tests {
 
     #[test]
     fn search_prefix_errors_send_no_mapping_or_search_request() {
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener =
+            xerj_common::loopback_test::expect_loopback(std::net::TcpListener::bind("127.0.0.1:0"));
         listener.set_nonblocking(true).unwrap();
         let ctx = Ctx {
             // A hang guard if a regression attempts HTTP before validation.
@@ -5806,7 +5943,8 @@ mod tests {
     /// the HTTP 400 `strict_unknown_fields` the field report hit.
     #[test]
     fn search_tool_reads_the_mapping_before_a_plain_string_query() {
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener =
+            xerj_common::loopback_test::expect_loopback(std::net::TcpListener::bind("127.0.0.1:0"));
         let port = listener.local_addr().unwrap().port();
         let mapping = r#"{"ax-docs":{"mappings":{"properties":{"body":{"type":"text"},"title":{"type":"text"},"text":{"type":"text"}}}}}"#;
         let hits = r#"{"took":1,"hits":{"total":{"value":1,"relation":"eq"},"hits":[{"_id":"1","_source":{"ax_path":"guide.md"}}]}}"#;
@@ -5851,7 +5989,8 @@ mod tests {
     /// The test file is still in the page.
     #[test]
     fn search_tool_demotes_test_paths_on_a_code_index() {
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener =
+            xerj_common::loopback_test::expect_loopback(std::net::TcpListener::bind("127.0.0.1:0"));
         let port = listener.local_addr().unwrap().port();
         let mapping = r#"{"ax-code":{"mappings":{"properties":{"name":{"type":"keyword"},"code":{"type":"text"},"defs":{"type":"text"},"body":{"type":"text"}}}}}"#;
         let hits = r#"{"took":1,"hits":{"total":{"value":3,"relation":"eq"},"hits":[{"_id":"t","_score":12.0,"_source":{"ax_path":"src/tests/render.test.tsx"}},{"_id":"i","_score":9.0,"_source":{"ax_path":"src/render.tsx"}},{"_id":"s","_score":30.0,"_source":{"ax_path":"tests/contract.rs"}}]}}"#;
@@ -5895,7 +6034,8 @@ mod tests {
     /// A prose corpus keeps the engine order, including a `tests/` path.
     #[test]
     fn search_tool_does_not_demote_paths_on_a_prose_index() {
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener =
+            xerj_common::loopback_test::expect_loopback(std::net::TcpListener::bind("127.0.0.1:0"));
         let port = listener.local_addr().unwrap().port();
         let mapping = r#"{"ax-docs":{"mappings":{"properties":{"body":{"type":"text"},"title":{"type":"text"},"text":{"type":"text"}}}}}"#;
         let hits = r#"{"took":1,"hits":{"hits":[{"_id":"t","_score":12.0,"_source":{"ax_path":"tests/guide.md"}},{"_id":"i","_score":9.0,"_source":{"ax_path":"guide.md"}}]}}"#;
@@ -5927,7 +6067,8 @@ mod tests {
     #[test]
     fn search_tool_leaves_a_dsl_query_and_a_later_page_unwidened() {
         let hits = r#"{"hits":{"hits":[{"_id":"t","_score":12.0,"_source":{"ax_path":"tests/a.rs"}},{"_id":"i","_score":9.0,"_source":{"ax_path":"src/a.rs"}}]}}"#;
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener =
+            xerj_common::loopback_test::expect_loopback(std::net::TcpListener::bind("127.0.0.1:0"));
         let port = listener.local_addr().unwrap().port();
         let body = hits.to_string();
         let server = std::thread::spawn(move || read_one_http_reply(listener, body));
@@ -5956,7 +6097,8 @@ mod tests {
             "tests/a.rs"
         );
 
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener =
+            xerj_common::loopback_test::expect_loopback(std::net::TcpListener::bind("127.0.0.1:0"));
         let port = listener.local_addr().unwrap().port();
         let mapping = r#"{"ax-code":{"mappings":{"properties":{"name":{"type":"keyword"},"code":{"type":"text"},"defs":{"type":"text"}}}}}"#;
         let page_hits = hits.to_string();
@@ -6007,7 +6149,8 @@ mod tests {
 
     #[test]
     fn field_report_confirm_false_posts_nothing() {
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener =
+            xerj_common::loopback_test::expect_loopback(std::net::TcpListener::bind("127.0.0.1:0"));
         listener.set_nonblocking(true).unwrap();
         let port = listener.local_addr().unwrap().port();
         let result = block_on(call_field_report(&json!({
@@ -6037,7 +6180,8 @@ mod tests {
     /// automatically in one call.
     fn field_report_sends_by_default_without_node_auth_or_a_github_token() {
         let _lock = ENV_LOCK.lock().unwrap();
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener =
+            xerj_common::loopback_test::expect_loopback(std::net::TcpListener::bind("127.0.0.1:0"));
         let port = listener.local_addr().unwrap().port();
         let token = "ghp_should_not_appear";
         let prev_gh = std::env::var_os("GH_TOKEN");
@@ -6108,7 +6252,8 @@ mod tests {
         let _lock = ENV_LOCK.lock().unwrap();
         let prev_path = std::env::var_os("PATH");
         std::env::set_var("PATH", "/nonexistent-xerj-field-report-test");
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener =
+            xerj_common::loopback_test::expect_loopback(std::net::TcpListener::bind("127.0.0.1:0"));
         let port = listener.local_addr().unwrap().port();
         let server = std::thread::spawn(move || read_one_http(listener));
         let result = block_on(call_field_report(&json!({
@@ -6136,7 +6281,8 @@ mod tests {
 
     #[test]
     fn field_report_refuses_a_placeholder_without_connecting() {
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener =
+            xerj_common::loopback_test::expect_loopback(std::net::TcpListener::bind("127.0.0.1:0"));
         listener.set_nonblocking(true).unwrap();
         let port = listener.local_addr().unwrap().port();
         let result = block_on(call_field_report(&json!({
@@ -6155,7 +6301,8 @@ mod tests {
 
     #[tokio::test]
     async fn autoindex_remove_validates_before_it_connects() {
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener =
+            xerj_common::loopback_test::expect_loopback(std::net::TcpListener::bind("127.0.0.1:0"));
         listener.set_nonblocking(true).unwrap();
         let port = listener.local_addr().unwrap().port();
         let ctx = Ctx {
@@ -6737,7 +6884,8 @@ mod tests {
         write_corpus("owned", true);
         write_corpus("other", false);
 
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener =
+            xerj_common::loopback_test::expect_loopback(std::net::TcpListener::bind("127.0.0.1:0"));
         listener.set_nonblocking(true).unwrap();
         let address = listener.local_addr().unwrap();
         let server = std::thread::spawn(move || {

@@ -50,9 +50,9 @@ struct Node {
 
 /// Bind an ephemeral port and serve `app` on it.
 async fn serve(app: axum::Router) -> SocketAddr {
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
-        .await
-        .expect("bind");
+    let listener = xerj_common::loopback_test::expect_loopback(
+        tokio::net::TcpListener::bind("127.0.0.1:0").await,
+    );
     let addr = listener.local_addr().expect("local addr");
     tokio::spawn(async move {
         let _ = axum::serve(listener, app).await;

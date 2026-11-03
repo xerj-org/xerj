@@ -98,9 +98,9 @@ struct Stub {
 
 impl Stub {
     async fn start() -> Self {
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
-            .await
-            .expect("bind an ephemeral port");
+        let listener = xerj_common::loopback_test::expect_loopback(
+            tokio::net::TcpListener::bind("127.0.0.1:0").await,
+        );
         let addr = listener.local_addr().expect("local addr");
         let stub = Stub {
             verdicts: Arc::new(Mutex::new(Verdicts::Overlap)),

@@ -104,7 +104,7 @@ fn serve(
 }
 
 fn closed_port() -> u16 {
-    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let listener = xerj_common::loopback_test::expect_loopback(TcpListener::bind("127.0.0.1:0"));
     let port = listener.local_addr().unwrap().port();
     drop(listener);
     port

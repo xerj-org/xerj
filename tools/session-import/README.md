@@ -1,9 +1,9 @@
 # Import an archived agent transcript for decision retrieval
 
 `xerj sessions import` is the explicit preparation step for a single Claude Code
-transcript, Codex rollout JSONL file or claude-mem store. It runs locally, calls no model or node, and exports text
+transcript, Codex rollout JSONL file, claude-mem store or MemPalace palace. It runs locally, calls no model or node, and exports text
 turns through XERJ's existing native PII plugin. Review the export, then give its
-folder to ordinary `xerj autoindex`. This covers three explicit formats for
+folder to ordinary `xerj autoindex`. This covers four explicit formats for
 [#1793](https://github.com/xerj-org/xerj/issues/1793) and
 [#2874](https://github.com/xerj-org/xerj/issues/2874), not automatic transcript
 discovery, a live conversation view or incremental sync.
@@ -313,4 +313,83 @@ private-node lifecycle check:
 
 ```sh
 python3 tools/session-import/smoke.py --binary engine/target/release/xerj --format claude-mem
+```
+
+## MemPalace palace adapter
+
+[MemPalace](https://github.com/MemPalace/mempalace) files conversation and
+project text verbatim as drawers, organised into wings, rooms and halls. Pass
+the palace directory (MemPalace's default is `~/.mempalace/palace`) or its
+`sqlite_exact.sqlite3` file explicitly; the command does not look for it or
+change it:
+
+```sh
+set -eu
+SESSION_EXPORT=$(mktemp -d)
+xerj sessions import --format mempalace \
+  --input ~/.mempalace/palace \
+  --output "$SESSION_EXPORT/records.jsonl"
+```
+
+Only MemPalace's `sqlite_exact` backend is read. A palace on the default Chroma
+backend (a `chroma.sqlite3` and no `sqlite_exact.sqlite3`) refuses with that
+reason rather than exporting nothing, and a palace holding both stores refuses,
+as MemPalace itself does (pass the store file to read it anyway). The store is opened the way MemPalace's
+own read-only reader opens it: with both `-wal` and `-shm` present it is opened
+read-only so a live writer's uncheckpointed drawers are included; with neither
+it is opened immutable so no side files are created; with only one it refuses.
+All drawers come from one read transaction. An immutable open trusts the file
+not to change, so if the store or its side files change while it is read (a
+writer started), the import refuses and publishes nothing; rerun when the writer
+is idle. The 512 MiB input cap counts the store and its `-wal` file together.
+
+Only the `mempalace_drawers` collection exports, ordered by `created_at` then
+drawer ID. Closets (MemPalace's pointer index over drawers) and other
+collections are not read, and registry and sentinel rows, which share the
+drawers collection as bookkeeping, count as skipped records. A drawer MemPalace
+stored escaped (flagged `_mempalace_escaped`) is decoded first; a NUL in it
+becomes a space and an unpaired surrogate U+FFFD, as MemPalace's own search
+index and MCP output render them. Embeddings, entity lists and other metadata
+are not exported.
+
+MemPalace output keeps schema 1 and the shared text/source fields, with these
+format-specific meanings:
+
+| Field | MemPalace meaning |
+|---|---|
+| `session_format`, `role`, `is_summary` | `mempalace`, `drawer`, `false`: a drawer is mined text, not a model's condensation |
+| `session_id`, `parent_id` | null: drawers are keyed by palace location, not by agent session |
+| `id`, `message_id` | `mempalace/drawer/<key>` and `drawer/<key>`, where `<key>` is the first 32 hex digits of the SHA-256 of MemPalace's drawer ID, so a `mempalace compact` that renumbers rows keeps the IDs |
+| `drawer_id` | MemPalace's drawer ID, as redacted text |
+| `wing`, `room`, `hall`, `added_by`, `content_date` | Drawer metadata, as redacted text when present |
+| `origin_file` | The file MemPalace mined the drawer from, as redacted text |
+| `files` | `origin_file` for a project drawer; empty for a conversation drawer (`ingest_mode: convos`), whose origin is a transcript |
+| `chunk_index`, `line_start`, `line_end` | MemPalace's chunk position, integers or null |
+| `timestamp` | `authored_at` (when a conversation was written), else `filed_at` (when it was mined), else the row's `created_at`, as RFC 3339 UTC with milliseconds; null when none is an RFC 3339 instant |
+| `source_file`, `source_table`, `source_line` | Store basename, `documents`, and SQLite row id |
+
+`source_lines` counts drawer-collection rows read, bookkeeping included, and
+`source_sha256` hashes them in export order, so two exports of an unchanged
+palace match. A missing `mempalace_drawers` collection, a `metadata_json` that
+is not a JSON object or a non-text column refuses the whole export; more than
+100,000 rows refuses rather than truncating. The redaction, size limits,
+staging, no-clobber publication, exit codes and new-folder/prefix rerun rules
+above apply unchanged.
+
+Reference retrieved before implementation: MemPalace, MIT, pinned at
+`4f7745afbd9d0197c6475b4c7ac846d4932eaeda`:
+
+- [`backends/sqlite_exact.py:57`](https://github.com/MemPalace/mempalace/blob/4f7745afbd9d0197c6475b4c7ac846d4932eaeda/mempalace/backends/sqlite_exact.py#L57) and [`:1923-1951`](https://github.com/MemPalace/mempalace/blob/4f7745afbd9d0197c6475b4c7ac846d4932eaeda/mempalace/backends/sqlite_exact.py#L1923-L1951): the store filename and its `collections` and `documents` tables.
+- [`backends/sqlite_exact.py:1790-1817`](https://github.com/MemPalace/mempalace/blob/4f7745afbd9d0197c6475b4c7ac846d4932eaeda/mempalace/backends/sqlite_exact.py#L1790-L1817): the read-only open rule for WAL side files.
+- [`backends/sqlite_exact.py:290-294`](https://github.com/MemPalace/mempalace/blob/4f7745afbd9d0197c6475b4c7ac846d4932eaeda/mempalace/backends/sqlite_exact.py#L290-L294): registry and sentinel rows excluded as bookkeeping.
+- [`config.py:288`](https://github.com/MemPalace/mempalace/blob/4f7745afbd9d0197c6475b4c7ac846d4932eaeda/mempalace/config.py#L288) and [`palace/collection.py:218`](https://github.com/MemPalace/mempalace/blob/4f7745afbd9d0197c6475b4c7ac846d4932eaeda/mempalace/palace/collection.py#L218): the drawers and closets collection names.
+- [`stored_text.py:40-41`](https://github.com/MemPalace/mempalace/blob/4f7745afbd9d0197c6475b4c7ac846d4932eaeda/mempalace/stored_text.py#L40-L41) and [`:85-89`](https://github.com/MemPalace/mempalace/blob/4f7745afbd9d0197c6475b4c7ac846d4932eaeda/mempalace/stored_text.py#L85-L89): the escape flag, prefix and decoder.
+
+These are format evidence, not copied implementation. The fixture
+(`engine/crates/xerj-autoindex/tests/fixtures/mempalace.sql`) is a synthetic
+store in that column shape, not a live MemPalace install. Run it through the
+private-node lifecycle check:
+
+```sh
+python3 tools/session-import/smoke.py --binary engine/target/release/xerj --format mempalace
 ```

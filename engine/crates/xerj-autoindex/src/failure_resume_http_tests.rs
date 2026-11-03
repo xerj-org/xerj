@@ -10,7 +10,7 @@ use super::*;
 use std::collections::HashMap;
 use std::fs;
 use std::io::{BufRead, BufReader, Read, Write};
-use std::net::{TcpListener, TcpStream};
+use std::net::TcpStream;
 use std::sync::{Arc, Mutex};
 use std::thread;
 
@@ -204,7 +204,7 @@ impl MockEndpoint {
     }
 
     fn start_with_delay(fail_data_bulk: usize, response_delay_ms: u64) -> Self {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         listener.set_nonblocking(true).unwrap();
         let url = format!("http://{}", listener.local_addr().unwrap());
         let state = Arc::new(Mutex::new(MockState {

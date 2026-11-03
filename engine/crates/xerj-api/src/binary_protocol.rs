@@ -540,9 +540,8 @@ mod tests {
                 }
             }),
         );
-        let listener = TcpListener::bind("127.0.0.1:0")
-            .await
-            .expect("bind mock backend");
+        let listener =
+            xerj_common::loopback_test::expect_loopback(TcpListener::bind("127.0.0.1:0").await);
         let addr = listener.local_addr().expect("mock backend addr");
         tokio::spawn(async move {
             let _ = axum::serve(listener, app).await;
@@ -563,9 +562,8 @@ mod tests {
         let (config, engine, dir) = semantic_engine(endpoint);
         let metrics = xerj_common::metrics::Metrics::new().expect("metrics");
         let state = Arc::new(crate::state::AppState::new(config, engine, metrics));
-        let listener = TcpListener::bind("127.0.0.1:0")
-            .await
-            .expect("bind binary protocol");
+        let listener =
+            xerj_common::loopback_test::expect_loopback(TcpListener::bind("127.0.0.1:0").await);
         let addr = listener.local_addr().expect("binary protocol addr");
         tokio::spawn(async move {
             while let Ok((stream, _)) = listener.accept().await {

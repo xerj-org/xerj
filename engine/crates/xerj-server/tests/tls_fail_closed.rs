@@ -24,9 +24,9 @@ use std::time::{Duration, Instant};
 /// (downgrading) binary binds cleanly and keeps serving instead of dying on
 /// an unrelated bind error — which would masquerade as a pass.
 fn three_free_ports() -> (u16, u16, u16) {
-    let l1 = TcpListener::bind("127.0.0.1:0").unwrap();
-    let l2 = TcpListener::bind("127.0.0.1:0").unwrap();
-    let l3 = TcpListener::bind("127.0.0.1:0").unwrap();
+    let l1 = xerj_common::loopback_test::expect_loopback(TcpListener::bind("127.0.0.1:0"));
+    let l2 = xerj_common::loopback_test::expect_loopback(TcpListener::bind("127.0.0.1:0"));
+    let l3 = xerj_common::loopback_test::expect_loopback(TcpListener::bind("127.0.0.1:0"));
     (
         l1.local_addr().unwrap().port(),
         l2.local_addr().unwrap().port(),

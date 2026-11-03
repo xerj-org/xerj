@@ -857,7 +857,9 @@ mod tests {
             )
             .await;
 
-            let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+            let listener = xerj_common::loopback_test::expect_loopback(
+                std::net::TcpListener::bind("127.0.0.1:0"),
+            );
             listener.set_nonblocking(true).unwrap();
             let port = listener.local_addr().unwrap().port();
             let (tx, rx) = tokio::sync::oneshot::channel::<()>();

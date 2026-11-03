@@ -6789,9 +6789,8 @@ precedence = ["a", "b"]
     impl JsonServer {
         fn start(handler: impl Fn(&str) -> (u16, String) + Send + Sync + 'static) -> Self {
             use std::io::{Read, Write};
-            use std::net::TcpListener;
             use std::sync::atomic::Ordering;
-            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            let listener = crate::test_loopback::bind();
             listener.set_nonblocking(true).unwrap();
             let url = format!("http://{}", listener.local_addr().unwrap());
             let seen = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
@@ -6883,7 +6882,7 @@ precedence = ["a", "b"]
     }
 
     fn closed_port_url() -> String {
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let url = format!("http://{}", listener.local_addr().unwrap());
         drop(listener);
         url

@@ -704,12 +704,11 @@ mod tests {
     impl Node {
         fn start(flooded: bool) -> Self {
             use std::io::{BufRead, BufReader, Read, Write};
-            use std::net::TcpListener;
             use std::sync::atomic::{AtomicBool, Ordering};
             use std::sync::{Arc, Mutex};
             use std::time::Duration;
 
-            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            let listener = crate::test_loopback::bind();
             listener.set_nonblocking(true).unwrap();
             let url = format!("http://{}", listener.local_addr().unwrap());
             let requests = Arc::new(Mutex::new(Vec::new()));

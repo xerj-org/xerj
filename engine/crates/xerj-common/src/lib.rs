@@ -59,6 +59,7 @@ pub mod home;
 pub mod hub;
 pub mod hub_evidence;
 pub mod localauth;
+pub mod loopback_test;
 pub mod metrics;
 pub mod net;
 pub mod nodedir;

@@ -52,7 +52,9 @@ async fn spawn_node(data_dir: &Path, allowlist: Vec<String>) -> String {
     let engine = xerj_engine::Engine::new(config.clone()).unwrap();
     let state = xerj_api::state::AppState::new(config, engine, metrics);
     let app = xerj_api::router::build_es_compat_router(state);
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let listener = xerj_common::loopback_test::expect_loopback(
+        tokio::net::TcpListener::bind("127.0.0.1:0").await,
+    );
     let port = listener.local_addr().unwrap().port();
     tokio::spawn(async move {
         let _ = axum::serve(listener, app.into_make_service()).await;
@@ -681,11 +683,11 @@ async fn pack_build_pull_def_roundtrip() {
         // and the key.
         let hh = work.join("hub-preflight");
         write_catalogue_class(&hh, &archive, &good_sha, LicenceClass::Excluded);
-        let silent = std::net::TcpListener::bind("127.0.0.1:0")
-            .unwrap()
-            .local_addr()
-            .unwrap()
-            .port();
+        let silent =
+            xerj_common::loopback_test::expect_loopback(std::net::TcpListener::bind("127.0.0.1:0"))
+                .local_addr()
+                .unwrap()
+                .port();
         let silent_url = format!("http://127.0.0.1:{silent}");
         for (slug, want_rc, why) in [
             ("mini-c", 1, "excluded"),

@@ -1759,7 +1759,8 @@ mod tests {
     fn fake_server(
         handler: impl Fn(&str) -> (&'static str, String) + Send + Sync + 'static,
     ) -> u16 {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener =
+            xerj_common::loopback_test::expect_loopback(TcpListener::bind("127.0.0.1:0"));
         let port = listener.local_addr().unwrap().port();
         let handler = std::sync::Arc::new(handler);
         std::thread::spawn(move || {
@@ -1812,8 +1813,7 @@ mod tests {
 
     /// A loopback port with nothing on it.
     fn silent_port() -> u16 {
-        TcpListener::bind("127.0.0.1:0")
-            .unwrap()
+        xerj_common::loopback_test::expect_loopback(TcpListener::bind("127.0.0.1:0"))
             .local_addr()
             .unwrap()
             .port()
@@ -1905,7 +1905,7 @@ mod tests {
 
     #[test]
     fn free_port_search_skips_a_busy_triple() {
-        let held = TcpListener::bind("127.0.0.1:0").unwrap();
+        let held = xerj_common::loopback_test::expect_loopback(TcpListener::bind("127.0.0.1:0"));
         let busy = held.local_addr().unwrap().port();
         let found = pick_free_port(busy, 50).expect("some free triple above");
         // Candidates step by three from the start, so a busy start is passed over.

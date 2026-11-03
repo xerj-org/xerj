@@ -243,7 +243,9 @@ mod tests {
     /// Serve a fixed route table on a loopback port. Keys are paths without
     /// their query string, because the real calls carry `?format=json&...`.
     async fn serve(routes: HashMap<&'static str, (u16, String)>) -> String {
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let listener = xerj_common::loopback_test::expect_loopback(
+            tokio::net::TcpListener::bind("127.0.0.1:0").await,
+        );
         let addr = listener.local_addr().unwrap();
         tokio::spawn(async move {
             loop {
@@ -372,7 +374,9 @@ mod tests {
     /// has to say so rather than printing an empty successful answer.
     #[tokio::test]
     async fn nothing_listening_is_the_only_unreachable_answer() {
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let listener = xerj_common::loopback_test::expect_loopback(
+            tokio::net::TcpListener::bind("127.0.0.1:0").await,
+        );
         let addr = listener.local_addr().unwrap();
         drop(listener);
 
@@ -522,7 +526,9 @@ mod tests {
     }
 
     async fn raw_root(reply: Vec<u8>) -> String {
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let listener = xerj_common::loopback_test::expect_loopback(
+            tokio::net::TcpListener::bind("127.0.0.1:0").await,
+        );
         let address = listener.local_addr().unwrap();
         tokio::spawn(async move {
             let (mut socket, _) = listener.accept().await.unwrap();

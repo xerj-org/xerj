@@ -2845,7 +2845,7 @@ mod tests {
 
     #[test]
     fn bulk_request_uses_custom_timeout_and_drops_timed_out_connection() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         let (closed_tx, closed_rx) = mpsc::channel();
         let server = std::thread::spawn(move || {
@@ -2881,7 +2881,7 @@ mod tests {
     /// The fake page server for the `search_page` tests: answers each request
     /// with the next body in `answers`, recording every request it saw.
     fn page_server(answers: Vec<&'static [u8]>) -> (std::net::SocketAddr, Arc<Mutex<Vec<String>>>) {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         let seen = Arc::new(Mutex::new(Vec::new()));
         let recorded = Arc::clone(&seen);
@@ -2983,7 +2983,7 @@ mod tests {
     /// partial page.
     #[test]
     fn search_page_present_treats_a_missing_index_as_an_answer() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         let seen = Arc::new(Mutex::new(Vec::new()));
         let recorded = Arc::clone(&seen);
@@ -3068,7 +3068,7 @@ mod tests {
     /// socket, not on the builder, so the transport layer cannot lose it.
     #[test]
     fn ensure_index_puts_the_declared_analyzer_beside_the_wal_shard_setting() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         let server = std::thread::spawn(move || {
             let (mut stream, _) = listener.accept().unwrap();
@@ -3122,7 +3122,7 @@ mod tests {
                 false,
             ),
         ] {
-            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            let listener = crate::test_loopback::bind();
             let address = listener.local_addr().unwrap();
             let owned = body.to_vec();
             let status_line = status.to_owned();
@@ -3153,7 +3153,7 @@ mod tests {
 
     #[test]
     fn embedding_identity_uses_native_endpoint_and_parses_sanitized_data() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         let server = std::thread::spawn(move || {
             let (mut stream, _) = listener.accept().unwrap();
@@ -3202,7 +3202,7 @@ mod tests {
                 false,
             ),
         ] {
-            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            let listener = crate::test_loopback::bind();
             let address = listener.local_addr().unwrap();
             let server = std::thread::spawn(move || {
                 let (mut stream, _) = listener.accept().unwrap();
@@ -3244,7 +3244,7 @@ mod tests {
                 0u64,
             ),
         ] {
-            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            let listener = crate::test_loopback::bind();
             let address = listener.local_addr().unwrap();
             let server = std::thread::spawn(move || {
                 let (mut stream, _) = listener.accept().unwrap();
@@ -3274,7 +3274,7 @@ mod tests {
 
     #[test]
     fn retry_path_recovers_after_one_bulk_timeout() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         let server = std::thread::spawn(move || {
             let (mut first, _) = listener.accept().unwrap();
@@ -3344,7 +3344,7 @@ mod tests {
     /// bounded AND visibly so, never a silent stall.
     #[test]
     fn a_dropped_connection_is_retried_after_announcing() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         let requests = Arc::new(Mutex::new(Vec::new()));
         let requests_server = requests.clone();
@@ -3423,7 +3423,7 @@ mod tests {
     /// budget, and a bulk after that must not retry.
     #[test]
     fn bulk_against_a_node_that_closes_its_port_stops_and_names_the_connect_error() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         let (closed_tx, closed_rx) = mpsc::channel();
         let server = std::thread::spawn(move || {
@@ -3511,7 +3511,7 @@ mod tests {
 
     #[test]
     fn all_timeout_retry_path_is_bounded_to_six_attempts_without_final_sleep() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         let accepted = Arc::new(Mutex::new(0usize));
         let accepted_server = accepted.clone();
@@ -3577,7 +3577,7 @@ mod tests {
 
     #[test]
     fn delete_by_query_repeats_until_a_pass_deletes_nothing() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         let requests = Arc::new(Mutex::new(Vec::new()));
         let requests_server = requests.clone();
@@ -3624,7 +3624,7 @@ mod tests {
     /// convergent is not a thing to retry.
     #[test]
     fn delete_by_query_on_a_missing_index_is_already_clean_not_an_abort() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         let requests = Arc::new(Mutex::new(Vec::new()));
         let requests_server = requests.clone();
@@ -3684,7 +3684,7 @@ mod tests {
                 "<html><body>502 upstream connect error</body></html>",
             ),
         ] {
-            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            let listener = crate::test_loopback::bind();
             let address = listener.local_addr().unwrap();
             let server = std::thread::spawn(move || {
                 for _ in 0..6 {
@@ -3713,7 +3713,7 @@ mod tests {
 
     #[test]
     fn delete_by_query_that_never_reaches_zero_fails_at_the_pass_cap() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         let server = std::thread::spawn(move || {
             let mut served = 0usize;
@@ -3751,7 +3751,7 @@ mod tests {
 
     #[test]
     fn ambiguous_dropped_response_retries_byte_identical_bulk_body() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         let requests = Arc::new(Mutex::new(Vec::new()));
         let requests_server = requests.clone();
@@ -3835,7 +3835,7 @@ mod tests {
     /// connection after this 500; `refresh_once` must not.
     #[test]
     fn refresh_once_does_not_retry_a_failed_refresh() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         let hits = Arc::new(std::sync::atomic::AtomicUsize::new(0));
         let hits_for_server = Arc::clone(&hits);
@@ -3878,7 +3878,7 @@ mod tests {
     /// no matter how hard the server pushed back.
     #[test]
     fn a_429_shrinks_the_bulk_window_and_a_clean_streak_probes_it_back() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         // one throttled attempt, then its retry, then RECOVER_AFTER clean bulks
         let mut plan = vec![false, true];
@@ -3912,7 +3912,7 @@ mod tests {
     /// signal, and must not be counted as a clean bulk.
     #[test]
     fn per_item_429_counts_as_congestion_not_as_a_clean_bulk() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         let server = std::thread::spawn(move || {
             let (mut stream, _) = listener.accept().unwrap();
@@ -4038,7 +4038,7 @@ mod tests {
         path: &'static str,
         status_line: &'static str,
     ) -> (std::net::SocketAddr, std::thread::JoinHandle<()>) {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         let server = std::thread::spawn(move || {
             let (mut stream, _) = listener.accept().unwrap();
@@ -4118,7 +4118,7 @@ mod tests {
     /// server still gets its banner parsed and the run still starts.
     #[test]
     fn ping_still_returns_the_banner_from_a_server_that_answers() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         let server = std::thread::spawn(move || {
             let (mut stream, _) = listener.accept().unwrap();
@@ -4237,7 +4237,7 @@ mod tests {
 
     #[test]
     fn per_item_breaker_rejections_are_re_offered_until_the_server_takes_them() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         let (server, requests) = serve_bodies(
             listener,
@@ -4270,7 +4270,7 @@ mod tests {
 
     #[test]
     fn per_item_429_gives_up_after_patience_with_the_servers_own_reason() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         let (server, requests) = serve_bodies(
             listener,
@@ -4301,7 +4301,7 @@ mod tests {
 
     #[test]
     fn a_bad_record_is_settled_once_while_throttled_records_are_re_offered() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         let (server, requests) = serve_bodies(
             listener,
@@ -4336,7 +4336,7 @@ mod tests {
 
     #[test]
     fn a_per_item_5xx_beside_a_429_is_not_waited_on() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         let (server, requests) = serve_bodies(
             listener,
@@ -4387,7 +4387,7 @@ mod tests {
     /// not sit out the full ten-minute patience with the indexed count at 0.
     #[test]
     fn a_parent_breaker_that_accepts_nothing_stops_at_zero_progress_patience() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         let stop = Arc::new(AtomicBool::new(false));
         let server = serve_until(
@@ -4430,7 +4430,7 @@ mod tests {
     /// bulk the server has not taken a single item from.
     #[test]
     fn a_bulk_that_landed_an_item_keeps_the_full_patience() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         listener.set_nonblocking(true).unwrap();
         let stop = Arc::new(AtomicBool::new(false));
@@ -4495,7 +4495,7 @@ mod tests {
     /// progress, not since the first round.
     #[test]
     fn patience_restarts_whenever_a_round_settles_an_item() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         listener.set_nonblocking(true).unwrap();
         let stop = Arc::new(AtomicBool::new(false));
@@ -4575,7 +4575,7 @@ mod tests {
     /// last round that settled anything.
     #[test]
     fn patience_still_ends_a_window_that_stops_making_progress() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         listener.set_nonblocking(true).unwrap();
         let stop = Arc::new(AtomicBool::new(false));
@@ -4690,7 +4690,7 @@ mod tests {
 
     #[test]
     fn an_http_429_carrying_a_bulk_body_settles_taken_items_and_re_offers_the_rest() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         let requests = Arc::new(Mutex::new(Vec::new()));
         let seen = requests.clone();
@@ -4723,7 +4723,7 @@ mod tests {
 
     #[test]
     fn a_loading_run_re_asks_an_http_429_beyond_six_attempts_while_patience_lasts() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         // Nine throttled answers, then one clean one: the old six-attempt
         // budget failed this at the seventh.
@@ -4743,7 +4743,7 @@ mod tests {
 
     #[test]
     fn a_loading_run_gives_up_an_http_429_when_patience_is_exhausted() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         let server = serve(listener, vec![false]);
         let es = client(address, 4).with_throttle_patience(Duration::ZERO);
@@ -4758,7 +4758,7 @@ mod tests {
 
     #[test]
     fn a_one_shot_client_keeps_the_bounded_budget_on_http_429() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         let server = serve(listener, vec![false; 6]);
         let es = Es::with_bulk_policy(
@@ -4784,7 +4784,7 @@ mod tests {
     /// (admission off) still stops after six attempts — covered above.
     #[test]
     fn a_plain_parent_breaker_429_names_the_cap_and_stops_short() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         let stop = Arc::new(AtomicBool::new(false));
         let server_stop = Arc::clone(&stop);
@@ -4836,7 +4836,7 @@ mod tests {
     /// patience runs out.
     #[test]
     fn a_query_allocation_429_is_not_retried() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         let hits = Arc::new(std::sync::atomic::AtomicUsize::new(0));
         let server_hits = Arc::clone(&hits);
@@ -4928,7 +4928,7 @@ mod tests {
 
     impl LimitedBulkServer {
         fn start(max_actions: usize, max_bytes: usize) -> Self {
-            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            let listener = crate::test_loopback::bind();
             listener.set_nonblocking(true).unwrap();
             let address = listener.local_addr().unwrap();
             let requests = Arc::new(Mutex::new(Vec::new()));
@@ -5201,7 +5201,7 @@ mod tests {
     /// the cause was back-pressure.
     #[test]
     fn patience_exhausted_in_one_window_does_not_send_the_windows_behind_it() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         let bodies = Arc::new(Mutex::new(Vec::new()));
         let server_bodies = bodies.clone();
@@ -5277,7 +5277,7 @@ mod tests {
     /// carries them and an end-to-end test asserts them.
     #[test]
     fn a_re_offered_bulk_is_counted_on_xerj_done() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         let (server, _requests) = serve_bodies(
             listener,

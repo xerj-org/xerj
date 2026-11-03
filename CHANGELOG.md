@@ -62,6 +62,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Code session UUID, and marks the model-written observations and summaries
   `is_summary: true`.
 
+- Offline `xerj sessions import --format mempalace` exports a MemPalace
+  palace's drawers verbatim, with their wing, room and hall, through the
+  existing text redactor (#2874). It reads the `sqlite_exact` backend
+  read-only in one snapshot without creating side files on a clean store,
+  skips registry and sentinel rows and closets, decodes MemPalace's escaped
+  text, and refuses a palace on the default Chroma backend.
+
 - Offline `xerj sessions import --format codex` exports a documented subset
   of one archived Codex rollout through the existing text redactor. It skips
   tools and reasoning, retains physical source locations and archive event
@@ -131,6 +138,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `benchmarks/skills-intent/results/`. Part of #2644.
 
 ### Fixed
+
+- `xerj mcp` no longer answers a JSON-RPC notification, and runs every
+  `tools/call` off the stdio read loop (#2898). A `tools/call` with no `id`, or
+  with `id: null`, used to be awaited on the read loop, so a stalled search held
+  up `ping` and every later request as in #2390; the id-less one was also
+  answered with `id: null`. Now both run on their own task, the notification
+  gets no reply, and `initialize`, `ping` and `tools/list` sent as
+  notifications get none either.
+- Tests name the cause when loopback networking is unavailable (#2886). Every
+  test that binds an ephemeral 127.0.0.1 port, in all crates, goes through
+  `xerj_common::loopback_test::expect_loopback`, so a sandbox that denies the
+  bind fails with "this test starts a fake server on 127.0.0.1 and needs
+  loopback networking" instead of hundreds of bare `PermissionDenied` panics.
 
 - `/lead` rejects non-string email values with HTTP 400 before storage.
   Arrays no longer become accepted addresses through string coercion, and

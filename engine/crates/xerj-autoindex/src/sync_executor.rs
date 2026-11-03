@@ -7004,7 +7004,7 @@ mod tests {
             .unwrap();
         }
 
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         // Accepted sockets inherit non-blocking from the listener. Put each
         // one back into blocking mode inside its handler. The accept loop
@@ -7121,7 +7121,7 @@ mod tests {
     fn finalize_verify_window_counts_a_live_index() {
         use std::io::{Read, Write};
 
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         let server = std::thread::spawn(move || {
             let (mut stream, _) = listener.accept().unwrap();
@@ -7236,7 +7236,7 @@ mod tests {
                 stream.write_all(body.as_bytes()).unwrap();
             }
 
-            let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+            let listener = crate::test_loopback::bind();
             let address = listener.local_addr().unwrap();
             listener.set_nonblocking(true).unwrap();
             let search_bodies = Arc::new(Mutex::new(Vec::new()));

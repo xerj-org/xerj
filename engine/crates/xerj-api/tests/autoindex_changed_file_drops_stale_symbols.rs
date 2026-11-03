@@ -351,7 +351,9 @@ async fn reindex_changed_code(app: &axum::Router, url: &str, no_graph: bool) {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn changed_code_file_reindex_drops_shifted_and_removed_symbols_on_the_engine() {
     let app = app().await;
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let listener = xerj_common::loopback_test::expect_loopback(
+        tokio::net::TcpListener::bind("127.0.0.1:0").await,
+    );
     let addr = listener.local_addr().unwrap();
     let served = app.clone();
     tokio::spawn(async move {

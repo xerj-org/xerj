@@ -530,8 +530,7 @@ mod tests {
 
     /// Grab an ephemeral port by binding then dropping a std listener.
     fn free_port() -> u16 {
-        std::net::TcpListener::bind("127.0.0.1:0")
-            .unwrap()
+        xerj_common::loopback_test::expect_loopback(std::net::TcpListener::bind("127.0.0.1:0"))
             .local_addr()
             .unwrap()
             .port()
