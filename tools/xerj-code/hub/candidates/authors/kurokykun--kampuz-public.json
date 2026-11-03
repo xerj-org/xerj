@@ -16,14 +16,7 @@
     "by": "author-consent",
     "at": "2026-11-02T14:54Z",
     "consent_receipt": "34552f23f5ec",
-    "note": "Inclusion consented by the commit author by email at 2026-11-02T14:54Z (receipt 34552f23f5ec); selected commit 7cdcfde1c79e: \"feat: Implement proximity sensor for voice calls and voice notes\". LICENSE file at pin 7cdcfde1c79e detected as AGPL-3.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution. Pinned to head 7cdcfde1c79e (contains the selected commit): the LICENSE at the selected commit was NONE.",
-    "author_grant": {
-     "terms": "MIT",
-     "scope": "the author's own changes in the selected commit",
-     "commit": "3d1fbab7bc58134f1f89c58b6178da11b3fa332f",
-     "at": "2026-11-02T14:54Z",
-     "receipt": "34552f23f5ec"
-    }
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T14:54Z (receipt 34552f23f5ec); selected commit 7cdcfde1c79e: \"feat: Implement proximity sensor for voice calls and voice notes\". LICENSE file at pin 7cdcfde1c79e detected as AGPL-3.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution. Pinned to head 7cdcfde1c79e (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

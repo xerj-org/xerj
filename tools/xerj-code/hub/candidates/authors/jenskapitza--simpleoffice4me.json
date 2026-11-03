@@ -16,14 +16,7 @@
     "by": "author-consent",
     "at": "2026-10-24T22:16Z",
     "consent_receipt": "d6f32c455823",
-    "note": "Inclusion consented by the commit author by email at 2026-10-24T22:16Z (receipt d6f32c455823); selected commit 4fa874c07a46: \"feat(finance): discover FinTS read capabilities\". LICENSE file at pin 4fa874c07a46 detected as GPL-3.0 by the GitHub licence API on 2026-10-28; used under that licence with attribution.",
-    "author_grant": {
-     "terms": "MIT",
-     "scope": "the author's own changes in the selected commit",
-     "commit": "4fa874c07a46a846e8f3f59c895c2cd4fd938e60",
-     "at": "2026-10-24T22:16Z",
-     "receipt": "d6f32c455823"
-    }
+    "note": "Inclusion consented by the commit author by email at 2026-10-24T22:16Z (receipt d6f32c455823); selected commit 4fa874c07a46: \"feat(finance): discover FinTS read capabilities\". LICENSE file at pin 4fa874c07a46 detected as GPL-3.0 by the GitHub licence API on 2026-10-28; used under that licence with attribution."
    }
   }
  ]

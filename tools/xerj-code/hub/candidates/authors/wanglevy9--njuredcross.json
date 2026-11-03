@@ -16,14 +16,7 @@
     "by": "author-consent",
     "at": "2026-10-27T18:12Z",
     "consent_receipt": "e35f9340f84e",
-    "note": "Inclusion consented by the commit author by email at 2026-10-27T18:12Z (receipt e35f9340f84e); selected commit 4d52168b3fa9: \"feat(publicity): \u843d\u5730 Box \u5b58\u50a8\u914d\u7f6e\u5e76\u5b8c\u6210\u6295\u7a3f/\u5c55\u793a/\u5ba1\u6838\u4e03\u9879\u8c03\u6574 (#42)\". LICENSE file at pin 4d52168b3fa9 detected as MPL-2.0 by the GitHub licence API on 2026-10-27; used under that licence with attribution.",
-    "author_grant": {
-     "terms": "MIT",
-     "scope": "the author's own changes in the selected commit",
-     "commit": "4d52168b3fa96ba66086b8525575d6d1bd080773",
-     "at": "2026-10-27T18:12Z",
-     "receipt": "e35f9340f84e"
-    }
+    "note": "Inclusion consented by the commit author by email at 2026-10-27T18:12Z (receipt e35f9340f84e); selected commit 4d52168b3fa9: \"feat(publicity): \u843d\u5730 Box \u5b58\u50a8\u914d\u7f6e\u5e76\u5b8c\u6210\u6295\u7a3f/\u5c55\u793a/\u5ba1\u6838\u4e03\u9879\u8c03\u6574 (#42)\". LICENSE file at pin 4d52168b3fa9 detected as MPL-2.0 by the GitHub licence API on 2026-10-27; used under that licence with attribution."
    }
   }
  ]

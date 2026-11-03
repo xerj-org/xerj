@@ -16,14 +16,7 @@
     "by": "author-consent",
     "at": "2026-10-27T01:29Z",
     "consent_receipt": "a9128d395b3e",
-    "note": "Inclusion consented by the commit author by email at 2026-10-27T01:29Z (receipt a9128d395b3e); selected commit ae558b0d7ac7: \"Big-event mode: bot channels post faster during a burst of high-prior\u2026\". LICENSE at pin ae558b0d7ac7: MIT (repository: AGPL-3.0); used with the author's permission, with attribution.",
-    "author_grant": {
-     "terms": "MIT",
-     "scope": "the author's own changes in the selected commit",
-     "commit": "ae558b0d7ac77bced01c09521910786dbdbceb56",
-     "at": "2026-10-27T01:29Z",
-     "receipt": "a9128d395b3e"
-    }
+    "note": "Inclusion consented by the commit author by email at 2026-10-27T01:29Z (receipt a9128d395b3e); selected commit ae558b0d7ac7: \"Big-event mode: bot channels post faster during a burst of high-prior\u2026\". LICENSE at pin ae558b0d7ac7: MIT (repository: AGPL-3.0); used with the author's permission, with attribution."
    }
   }
  ]
