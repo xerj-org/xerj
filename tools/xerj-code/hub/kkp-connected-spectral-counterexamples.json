@@ -12,9 +12,9 @@
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
-    "by": "Codex for @shaikidris",
-    "at": "2026-10-29",
-    "note": "Apache-2.0 in LICENSE and the five bundled BN headers. Preserve Idris Ali Shaik's project attribution and Shengtong Zhang's copyright, authorship and Apache-2.0 notices in the adapted BN spectral modules. Mathlib is a pinned external dependency. Human licence confirmation pending."
+    "by": "@shaikidris",
+    "at": "2026-11-03",
+    "note": "Apache-2.0 in LICENSE and the five bundled BN headers. Preserve Idris Ali Shaik's project attribution and Shengtong Zhang's copyright, authorship and Apache-2.0 notices in the adapted BN spectral modules. Mathlib is a pinned external dependency."
    }
   }
  ]
