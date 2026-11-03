@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "OPS",
- "domain": "an agent working on devops, diagnostics, docker queries this for how Neizvestnyj/DockSight implements it: AI-powered Docker troubleshooting with generative UI. Ask about containers, Compose projects, or Swarm stacks; get explanations linked to ru (selected work: backend, frontend, examples)",
+ "domain": "an agent working on devops, diagnostics, docker queries this for how Neizvestnyj/DockSight implements it: Generative UI platform for AI-powered Docker troubleshooting. Evidence-linked diagnostic cards and user-confirmed actions for containers, Co (selected work: backend, frontend, examples)",
  "repos": [
   {
    "repo": "DockSight",

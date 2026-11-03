@@ -1,9 +1,9 @@
 {
- "corpus": "deandromi--rockbox-rockpod-hfsplus",
+ "corpus": "deandromi--hfsplus-rockboxed-ipod",
  "cloned_at": null,
  "status": "draft",
- "shelf": "SEC",
- "domain": "an agent working on C queries this for how deandromi/Rockbox-Rockpod-HFSPlus implements it: Rockpod HFS+ is a firmware variant based on Rockpod by nuxcodes. Using HFS+ makes your iPod much more stable and less vulnerable to corrupti (selected work: uisimulator, firmware, apps/plugins)",
+ "shelf": "DB",
+ "domain": "an agent working on firmware, hfs, hfsplus queries this for how deandromi/hfsplus-rockboxed-ipod implements it: HFSPlus Rockboxed iPod brings the support for HFS+ configurated iPods to Rockpod (based on rockbox). HFS+ adds anti file corruption. Feature (selected work: uisimulator, firmware, apps/plugins)",
  "repos": [
   {
    "repo": "Rockbox-Rockpod-HFSPlus",

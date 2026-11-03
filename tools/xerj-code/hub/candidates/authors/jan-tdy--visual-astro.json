@@ -8,15 +8,15 @@
   {
    "repo": "visual-astro",
    "url": "https://github.com/jan-tdy/visual-astro",
-   "sha": "766eec08abf5db69cd2fc45960a5fe8edb4c8d69",
-   "licence": "AGPL-3.0 (LICENSE file at pin 766eec08abf5, GitHub licence API 2026-11-02)",
+   "sha": "9936a424c74da9a171f03ecfc5915450083001f1",
+   "licence": "AGPL-3.0 (LICENSE file at pin 9936a424c74d, GitHub licence API 2026-11-03)",
    "review": {
     "spdx": "AGPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-28T19:53Z",
     "consent_receipt": "e911b7328879",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T19:53Z (receipt e911b7328879); pinned to the default-branch head. LICENSE file at pin 766eec08abf5 detected as AGPL-3.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T19:53Z (receipt e911b7328879); pinned to the default-branch head. LICENSE file at pin 9936a424c74d detected as AGPL-3.0 by the GitHub licence API on 2026-11-03; used under that licence with attribution."
    }
   }
  ]
