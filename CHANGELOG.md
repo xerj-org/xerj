@@ -139,6 +139,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Data-stream `_rollover` honours `dry_run` and its `conditions` instead of
+  ignoring the body: `max_docs`/`max_age` are ORed and reported in
+  `conditions`, and a dry run or an unmet condition creates no backing index.
+  The response names the real old/new backing indices, and the new backing is
+  marked as the write index so writes through the stream continue after a
+  rollover. Size-based conditions and alias-rollover body fields are refused
+  rather than silently ignored.
+
 - `xerj mcp` no longer answers a JSON-RPC notification, and runs every
   `tools/call` off the stdio read loop (#2898). A `tools/call` with no `id`, or
   with `id: null`, used to be awaited on the read loop, so a stalled search held
