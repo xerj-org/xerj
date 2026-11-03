@@ -4316,6 +4316,29 @@ impl Engine {
         Ok(())
     }
 
+    /// Set (or clear) `is_write_index` on one alias member while preserving
+    /// that member's filter/routing metadata.
+    fn set_alias_write_flag(&self, index: &str, alias: &str, write: bool) {
+        let mut entry = self
+            .index_alias_metadata
+            .entry(index.to_string())
+            .or_insert_with(|| serde_json::json!({}));
+        if !entry.is_object() {
+            *entry = serde_json::json!({});
+        }
+        let aliases = entry.as_object_mut().expect("alias metadata object");
+        let alias_meta = aliases
+            .entry(alias.to_string())
+            .or_insert_with(|| serde_json::json!({}));
+        if !alias_meta.is_object() {
+            *alias_meta = serde_json::json!({});
+        }
+        alias_meta
+            .as_object_mut()
+            .expect("alias metadata object")
+            .insert("is_write_index".to_string(), serde_json::json!(write));
+    }
+
     /// Roll over a data stream: create the next backing index and update the alias.
     pub fn rollover_data_stream(&self, name: &str) -> Result<String> {
         // Same reason as `create_data_stream`, plus: the generation counter is
@@ -4327,6 +4350,7 @@ impl Engine {
             .get_mut(name)
             .ok_or_else(|| EngineError::Common(xerj_common::XerjError::index_not_found(name)))?;
 
+        let previous_backings = ds.backing_indices.clone();
         ds.generation += 1;
         let new_backing = format!(".ds-{}-{:06}", name, ds.generation);
         drop(ds); // release borrow before calling create_index
@@ -4343,6 +4367,17 @@ impl Engine {
         } else {
             self.add_alias(name, &new_backing)?;
         }
+
+        // Data-stream writes resolve through this alias, not a separate
+        // stream-write path. With two members and no write flag the alias is
+        // ambiguous, so the first write after the rollover used to answer 400
+        // "no write index is defined". Mark the new backing as the writer and
+        // clear every older member (preserving their filter/routing).
+        for old_backing in &previous_backings {
+            self.set_alias_write_flag(old_backing, name, false);
+        }
+        self.set_alias_write_flag(&new_backing, name, true);
+        self.flush_alias_metadata();
 
         if let Some(mut ds) = self.data_streams.get_mut(name) {
             ds.backing_indices.push(new_backing.clone());

@@ -37368,20 +37368,191 @@ pub async fn delete_data_stream(
     }
 }
 
+#[derive(Debug, Deserialize, Default)]
+pub struct RolloverParams {
+    /// `_rollover?dry_run=true` — the query-parameter form ES also accepts.
+    #[serde(default)]
+    pub dry_run: Option<bool>,
+}
+
+/// `POST /{data_stream}/_rollover`.
+///
+/// The body used to be ignored entirely: `dry_run: true` created a backing
+/// index, `conditions` never blocked a rollover, and `old_index` reported the
+/// data-stream name instead of the current backing index. This handler now
+/// evaluates the conditions this build can support before calling the engine,
+/// reports the candidate old/new backing names even when it does not roll,
+/// and never mutates anything for a dry run. Conditions the build cannot
+/// evaluate (size-based) and body fields that belong to index-alias rollover
+/// (`new_index`, `settings`, `mappings`, `aliases`) are refused rather than
+/// silently ignored (issue #204).
 pub async fn rollover_data_stream(
     State(state): State<AppState>,
     Path(name): Path<String>,
+    Query(params): Query<RolloverParams>,
+    body: OptionalJson<Value>,
 ) -> impl IntoResponse {
+    let body = match body.0 {
+        None | Some(Value::Null) => json!({}),
+        Some(Value::Object(map)) => Value::Object(map),
+        Some(_) => {
+            return es_bad_request(
+                "illegal_argument_exception",
+                "rollover body must be an object",
+                None,
+            )
+        }
+    };
+    const ALLOWED: &[&str] = &["conditions", "dry_run"];
+    if let Some(object) = body.as_object() {
+        for key in object.keys() {
+            if !ALLOWED.contains(&key.as_str()) {
+                return es_bad_request(
+                    "illegal_argument_exception",
+                    &format!(
+                        "rollover field [{key}] is not supported for data streams by this XERJ version"
+                    ),
+                    None,
+                );
+            }
+        }
+    }
+    let body_dry_run = match body.get("dry_run") {
+        None => None,
+        Some(Value::Bool(value)) => Some(*value),
+        Some(_) => {
+            return es_bad_request(
+                "illegal_argument_exception",
+                "[dry_run] must be a boolean",
+                None,
+            )
+        }
+    };
+    let dry_run = body_dry_run.or(params.dry_run).unwrap_or(false);
+
+    // The write backing index and the next generated name. This is the same
+    // naming rule the engine uses, so a dry run reports the name a real
+    // rollover would create.
+    let (old_index, new_index, docs) = match state.engine.data_streams.get(&name) {
+        Some(ds) => {
+            let Some(old_index) = ds.backing_indices.last().cloned() else {
+                return ApiError::new(xerj_common::XerjError::internal(format!(
+                    "data stream [{name}] has no backing index"
+                )))
+                .into_response();
+            };
+            let new_index = format!(".ds-{}-{:06}", name, ds.generation + 1);
+            drop(ds);
+            let docs = state
+                .engine
+                .get_index(&old_index)
+                .map(|idx| idx.live_doc_count())
+                .unwrap_or(0);
+            (old_index, new_index, docs)
+        }
+        None => {
+            let e = xerj_common::XerjError::index_not_found(&name);
+            return ApiError::new(e).into_response();
+        }
+    };
+
+    // ES validates the target index even for a dry run; an existing candidate
+    // is a conflict, not a successful "would roll".
+    if state.engine.get_index(&new_index).is_ok() {
+        let e = xerj_common::XerjError::index_already_exists(&new_index);
+        return ApiError::new(e).into_response();
+    }
+
+    let conditions = body.get("conditions");
+    let mut condition_results = serde_json::Map::new();
+    let mut condition_met = conditions.is_none();
+    if let Some(conditions) = conditions {
+        let Some(conditions) = conditions.as_object() else {
+            return es_bad_request(
+                "illegal_argument_exception",
+                "[conditions] must be an object",
+                None,
+            );
+        };
+        if conditions.is_empty() {
+            condition_met = true;
+        }
+        for (condition, value) in conditions {
+            let met = match condition.as_str() {
+                "max_docs" => {
+                    let Some(max_docs) = value.as_u64() else {
+                        return es_bad_request(
+                            "illegal_argument_exception",
+                            &format!("[max_docs] must be a non-negative integer, got [{value}]"),
+                            None,
+                        );
+                    };
+                    let met = docs >= max_docs;
+                    condition_results.insert(format!("[max_docs: {max_docs}]"), Value::Bool(met));
+                    met
+                }
+                "max_age" => {
+                    let Some(raw) = value.as_str() else {
+                        return es_bad_request(
+                            "illegal_argument_exception",
+                            &format!("[max_age] must be a time value, got [{value}]"),
+                            None,
+                        );
+                    };
+                    let Some(threshold_ms) = parse_time_to_millis(raw) else {
+                        return es_bad_request(
+                            "illegal_argument_exception",
+                            &format!("failed to parse [max_age] value [{raw}]"),
+                            None,
+                        );
+                    };
+                    let created_ms = state
+                        .engine
+                        .index_created_at
+                        .get(&old_index)
+                        .map(|v| *v)
+                        .unwrap_or_else(|| Utc::now().timestamp_millis());
+                    let age_ms = (Utc::now().timestamp_millis() - created_ms).max(0) as u64;
+                    let met = age_ms >= threshold_ms;
+                    condition_results.insert(format!("[max_age: {raw}]"), Value::Bool(met));
+                    met
+                }
+                other => {
+                    return es_bad_request(
+                        "illegal_argument_exception",
+                        &format!(
+                            "rollover condition [{other}] is not supported by this XERJ version"
+                        ),
+                        None,
+                    )
+                }
+            };
+            condition_met |= met;
+        }
+    }
+
+    let mut response = json!({
+        "acknowledged": true,
+        "shards_acknowledged": true,
+        "old_index": old_index.clone(),
+        "new_index": new_index.clone(),
+        "rolled_over": false,
+        "dry_run": dry_run,
+    });
+    if conditions.is_some() {
+        response["conditions"] = Value::Object(condition_results);
+    }
+
+    if dry_run || !condition_met {
+        return Json(response).into_response();
+    }
+
     match state.engine.rollover_data_stream(&name) {
-        Ok(new_index) => Json(json!({
-            "acknowledged": true,
-            "shards_acknowledged": true,
-            "old_index": name,
-            "new_index": new_index,
-            "rolled_over": true,
-            "dry_run": false,
-        }))
-        .into_response(),
+        Ok(created) => {
+            response["new_index"] = json!(created);
+            response["rolled_over"] = json!(true);
+            Json(response).into_response()
+        }
         Err(e) => ApiError::new(xerj_common::XerjError::from(e)).into_response(),
     }
 }
