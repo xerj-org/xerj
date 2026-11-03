@@ -6130,6 +6130,135 @@ fn find_unsupported_metric_agg_field(
     walk(aggs, &mappings)
 }
 
+#[cfg(test)]
+mod metric_agg_field_type_tests {
+    use super::*;
+    use axum::{body::Body, http::Request};
+    use tower::ServiceExt;
+    use xerj_common::{
+        config::{Config, WalSync},
+        metrics::Metrics,
+    };
+    use xerj_engine::Engine;
+
+    fn test_state() -> AppState {
+        let dir = tempfile::tempdir().expect("tempdir").keep();
+        let mut config = Config::default();
+        config.server.data_dir = dir.to_string_lossy().into_owned();
+        config.storage.wal_sync = WalSync::Async;
+        let metrics = Metrics::new().expect("metrics");
+        let engine = Engine::new(config.clone()).expect("engine");
+        AppState::new(config, engine, metrics)
+    }
+
+    async fn send(app: &axum::Router, method: &str, uri: &str, body: Value) -> (StatusCode, Value) {
+        let resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(method)
+                    .uri(uri)
+                    .header("content-type", "application/json")
+                    .body(Body::from(body.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let status = resp.status();
+        let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        (status, serde_json::from_slice(&bytes).unwrap())
+    }
+
+    async fn app_with_indices() -> axum::Router {
+        let app = crate::router::build_es_compat_router(test_state());
+        let mappings = json!({"mappings": {"properties": {
+            "n": {"type": "integer"},
+            "s": {"type": "keyword"},
+            "ip": {"type": "ip"},
+            "name": {"type": "text", "fields": {"raw": {"type": "keyword"}}},
+            "s_alias": {"type": "alias", "path": "s"},
+        }}});
+        let (status, body) = send(&app, "PUT", "/t", mappings).await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        let (status, body) = send(
+            &app,
+            "PUT",
+            "/u",
+            json!({"mappings": {"properties": {"s": {"type": "long"}}}}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        let doc = json!({"n": 1, "s": "foo", "ip": "1.2.3.4", "name": "x"});
+        let (status, body) = send(&app, "PUT", "/t/_doc/1?refresh=true", doc).await;
+        assert!(status.is_success(), "{body}");
+        app
+    }
+
+    /// FAIL-BEFORE: each of these answered 200 with `"value": null` (and
+    /// `sum` with `-0.0`), so a metric on the wrong field looked like an
+    /// empty index. ES 8.13 fails every shard and answers 400.
+    #[tokio::test]
+    async fn numeric_metric_on_a_non_numeric_field_is_a_400() {
+        let app = app_with_indices().await;
+        for (aggs, reason) in [
+            (
+                json!({"a": {"avg": {"field": "s"}}}),
+                "Field [s] of type [keyword] is not supported for aggregation [avg]",
+            ),
+            (
+                json!({"a": {"max": {"field": "ip"}}}),
+                "Field [ip] of type [ip] is not supported for aggregation [max]",
+            ),
+            (
+                json!({"a": {"sum": {"field": "name.raw"}}}),
+                "Field [name.raw] of type [keyword] is not supported for aggregation [sum]",
+            ),
+            (
+                json!({"a": {"stats": {"field": "s_alias"}}}),
+                "Field [s] of type [keyword] is not supported for aggregation [stats]",
+            ),
+            (
+                json!({"a": {"terms": {"field": "s"}, "aggs": {"b": {"min": {"field": "s"}}}}}),
+                "Field [s] of type [keyword] is not supported for aggregation [min]",
+            ),
+        ] {
+            let (status, body) =
+                send(&app, "POST", "/t/_search?size=0", json!({ "aggs": aggs })).await;
+            assert_eq!(status, StatusCode::BAD_REQUEST, "{aggs} -> {body}");
+            assert_eq!(body["error"]["type"], "search_phase_execution_exception");
+            assert_eq!(
+                body["error"]["root_cause"][0]["type"],
+                "illegal_argument_exception"
+            );
+            assert_eq!(body["error"]["root_cause"][0]["reason"], reason, "{aggs}");
+        }
+    }
+
+    /// Requests ES answers 200 must keep answering 200: numeric fields,
+    /// unmapped fields, and a field that is numeric in at least one target.
+    #[tokio::test]
+    async fn numeric_unmapped_and_mixed_targets_still_answer() {
+        let app = app_with_indices().await;
+        for (uri, aggs) in [
+            ("/t/_search?size=0", json!({"a": {"avg": {"field": "n"}}})),
+            (
+                "/t/_search?size=0",
+                json!({"a": {"avg": {"field": "nope"}}}),
+            ),
+            ("/t,u/_search?size=0", json!({"a": {"avg": {"field": "s"}}})),
+            (
+                "/t/_search?size=0",
+                json!({"a": {"value_count": {"field": "s"}}}),
+            ),
+        ] {
+            let (status, body) = send(&app, "POST", uri, json!({ "aggs": aggs })).await;
+            assert_eq!(status, StatusCode::OK, "{uri} {aggs} -> {body}");
+        }
+    }
+}
+
 /// For each `{"exists": {"field": X}}` clause, check whether `X` is queryable
 /// in *any* of the participating indices. A field is unqueryable if the
 /// mapping declares `index: false` AND `doc_values: false` (or the field
