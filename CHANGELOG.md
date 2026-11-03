@@ -554,6 +554,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   refusal, and every rerun stopped on the same record. A run that an earlier
   version already stopped this way replays the list it fixed and stops again;
   index that folder under a new `--prefix` and `--state-dir` (#2807).
+- `xerj_batch_search` (and `xerj batch-search`) accept a plain string in
+  `queries` as shorthand for `{"query": <string>}` (#2497). A string item
+  used to fail alone with "arguments must be a JSON object", so an agent
+  that sent `["a", "b"]` lost a call; the advertised schema now allows it.
+
 
 ## [1.0.0-rc.100] - 2026-10-26
 
@@ -723,10 +728,6 @@ continues in #2427 and #1122, which stay open.
   answer and gave up on the CLI. Those guesses, and `--size`, `--limit`,
   `--top`, `--top-k`, `-n` and `-i`, now point at `--prefix <P>` or
   `-k <N>`.
-- `xerj_batch_search` (and `xerj batch-search`) accept a plain string in
-  `queries` as shorthand for `{"query": <string>}` (#2497). A string item
-  used to fail alone with "arguments must be a JSON object", so an agent
-  that sent `["a", "b"]` lost a call; the advertised schema now allows it.
 - `_reindex` follows aliases on both sides: a source alias is searched across
   every backing index and each member's alias filter is applied, and a
   destination alias writes to its single write index (an ambiguous alias is
