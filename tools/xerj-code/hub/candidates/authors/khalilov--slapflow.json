@@ -8,15 +8,15 @@
   {
    "repo": "slapflow",
    "url": "https://github.com/khalilov/slapflow",
-   "sha": "8ccbcb95cea96113a67c63da643943159fb0feeb",
-   "licence": "ISC (LICENSE file at pin 8ccbcb95cea9, GitHub licence API 2026-10-30)",
+   "sha": "bf78955678d91f6d5ef767d317bcc2d1725d1281",
+   "licence": "ISC (LICENSE file at pin bf78955678d9, GitHub licence API 2026-11-03)",
    "review": {
     "spdx": "ISC",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-30T07:38Z",
     "consent_receipt": "6cc1792f8382",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T07:38Z (receipt 6cc1792f8382); pinned to the default-branch head. LICENSE file at pin 8ccbcb95cea9 detected as ISC by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T07:38Z (receipt 6cc1792f8382); pinned to the default-branch head. LICENSE file at pin bf78955678d9 detected as ISC by the GitHub licence API on 2026-11-03; used under that licence with attribution."
    }
   }
  ]

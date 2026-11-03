@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on docker, dokploy, drizzle-orm queries this for how m-aziz-algullu/task-panel implements it: Self-hosted single-user kanban board with tags, story points and a day-by-day archive of finished tasks. Next.js + PostgreSQL, English/Turki (selected work: src/lib, src/components, src/app)",
+ "domain": "an agent working on docker, dokploy, drizzle-orm queries this for how m-aziz-algullu/task-panel implements it: Self-hosted single-user kanban board with tags, story points, scheduled routines, a day-by-day archive and an optional bundled AI agent (Ope (selected work: src/lib, src/components, src/app)",
  "repos": [
   {
    "repo": "task-panel",
