@@ -1,0 +1,23 @@
+{
+ "corpus": "cubk1--b-launcher",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how cubk1/b-launcher implements it: \u8f7b\u91cf Minecraft \u542f\u52a8\u5668 (selected work: src/ui, src/app, the project root)",
+ "repos": [
+  {
+   "repo": "b-launcher",
+   "url": "https://github.com/cubk1/b-launcher",
+   "sha": "b15da66f26d1b3871a66900e1010a1fab119d552",
+   "licence": "MIT (LICENSE file at pin b15da66f26d1, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T05:24Z",
+    "consent_receipt": "b75b5786ed08",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T05:24Z (receipt b75b5786ed08); selected commit b15da66f26d1: \"\u65b0\u589e\u7248\u672c\u9009\u62e9\u9875\u3001\u9876\u680f\u8fd4\u56de\u4e3b\u9875\u548c\u4fa7\u680f\u7ef4\u62a4\u5165\u53e3\". LICENSE file at pin b15da66f26d1 detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

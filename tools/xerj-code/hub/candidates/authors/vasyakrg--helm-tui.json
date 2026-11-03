@@ -1,0 +1,23 @@
+{
+ "corpus": "vasyakrg--helm-tui",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Go queries this for how vasyakrg/helm-tui implements it: cli manager for crud helm repos on host (selected work: internal/tui, cmd/helm-tui)",
+ "repos": [
+  {
+   "repo": "helm-tui",
+   "url": "https://github.com/vasyakrg/helm-tui",
+   "sha": "1c15fb753d8081becb683b17787fd61b507b7167",
+   "licence": "MIT (LICENSE file at pin 1c15fb753d80, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T06:02Z",
+    "consent_receipt": "694e82e05707",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T06:02Z (receipt 694e82e05707); selected commit 1c15fb753d80: \"feat(tui): diff screen\". LICENSE file at pin 1c15fb753d80 detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution. Pinned to head 1c15fb753d80 (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}
