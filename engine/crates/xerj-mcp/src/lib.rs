@@ -420,8 +420,9 @@ pub async fn run(args: &[String]) -> anyhow::Result<()> {
 /// The JSON-RPC loop over newline-delimited messages, apart from the process'
 /// stdin/stdout so tests can drive it over an in-memory pipe.
 ///
-/// A `tools/call` request runs on its own task, so a call that waits on the
-/// node does not hold up the messages behind it (#2390): `ping`,
+/// Every `tools/call` runs on its own task, with or without an id, so a call
+/// that waits on the node does not hold up the messages behind it (#2390,
+/// #2898): `ping`,
 /// `initialize`, `tools/list` and notifications stay inline because they never
 /// wait on anything. Replies are matched by `id`, so they may go out in any
 /// order. `notifications/cancelled` aborts the call it names, and no response
@@ -487,18 +488,35 @@ where
                 }
                 Vec::new()
             }
-            msg if is_tool_call_request(&msg) => {
-                let key = id_key(&msg["id"]);
-                let (ctx, tx, registry) = (ctx.clone(), tx.clone(), in_flight.clone());
-                in_flight.start(&mut calls, key, move |token| async move {
-                    let reply = handle_message(&ctx, msg).await;
-                    // A cancellation that got here first means: say nothing.
-                    if registry.finish(token) {
-                        if let Some(reply) = reply {
-                            let _ = tx.send(reply);
-                        }
+            msg if is_tool_call(&msg) => {
+                let key = msg.get("id").filter(|id| !id.is_null()).map(id_key);
+                let (ctx, tx) = (ctx.clone(), tx.clone());
+                match key {
+                    Some(key) => {
+                        let registry = in_flight.clone();
+                        in_flight.start(&mut calls, key, move |token| async move {
+                            let reply = handle_message(&ctx, msg).await;
+                            // A cancellation that got here first means: say nothing.
+                            if registry.finish(token) {
+                                if let Some(reply) = reply {
+                                    let _ = tx.send(reply);
+                                }
+                            }
+                        });
                     }
-                });
+                    // No id (a notification: it runs, and is never answered)
+                    // or a null id (answered with `id: null`). Both still run
+                    // off the loop (#2898). No cancellation can name them, so
+                    // they are not registered, and two of them cannot displace
+                    // each other's reply.
+                    None => {
+                        calls.spawn(async move {
+                            if let Some(reply) = handle_message(&ctx, msg).await {
+                                let _ = tx.send(reply);
+                            }
+                        });
+                    }
+                }
                 Vec::new()
             }
             other => handle_message(&ctx, other).await.into_iter().collect(),
@@ -514,9 +532,10 @@ where
     writer.await?
 }
 
-fn is_tool_call_request(msg: &Value) -> bool {
+/// Any `tools/call`, whatever its id: each one waits on the node, so none may
+/// run on the read loop (#2390, #2898).
+fn is_tool_call(msg: &Value) -> bool {
     msg.get("method").and_then(Value::as_str) == Some("tools/call")
-        && msg.get("id").is_some_and(|id| !id.is_null())
 }
 
 fn is_cancellation(msg: &Value) -> bool {
@@ -602,37 +621,34 @@ where
 }
 
 /// Route one JSON-RPC message. Returns `Some(response)` for requests and
-/// `None` for notifications (no `id`) and messages that need no reply.
+/// `None` for notifications (no `id` member) and messages that need no reply.
+/// A notification is never answered, whatever its method (JSON-RPC 2.0 §4.1;
+/// #2898); a `tools/call` notification still runs. An `id` of `null` is a
+/// request and is answered with `id: null`.
 async fn handle_message(ctx: &Ctx, msg: Value) -> Option<Value> {
     let id = msg.get("id").cloned();
     let is_notification = id.is_none();
     let method = msg.get("method").and_then(Value::as_str)?.to_string();
 
-    match method.as_str() {
-        "initialize" => Some(rpc_result(id, initialize_result(&msg))),
+    let reply = match method.as_str() {
+        "initialize" => rpc_result(id, initialize_result(&msg)),
 
         // Lifecycle / keepalive notifications — no response.
-        "notifications/initialized" | "initialized" | "notifications/cancelled" => None,
+        "notifications/initialized" | "initialized" | "notifications/cancelled" => return None,
 
-        "ping" => Some(rpc_result(id, json!({}))),
+        "ping" => rpc_result(id, json!({})),
 
-        "tools/list" => Some(rpc_result(id, json!({ "tools": tool_specs() }))),
+        "tools/list" => rpc_result(id, json!({ "tools": tool_specs() })),
 
-        "tools/call" => Some(rpc_result(id, call_tool(ctx, &msg).await)),
+        "tools/call" => rpc_result(id, call_tool(ctx, &msg).await),
 
-        // Unknown method: error for requests, silence for notifications.
-        _ => {
-            if is_notification {
-                None
-            } else {
-                Some(rpc_error(
-                    id.unwrap_or(Value::Null),
-                    -32601,
-                    format!("method not found: {method}"),
-                ))
-            }
-        }
-    }
+        _ => rpc_error(
+            id.unwrap_or(Value::Null),
+            -32601,
+            format!("method not found: {method}"),
+        ),
+    };
+    (!is_notification).then_some(reply)
 }
 
 /// Handle one JSON-RPC message exactly as the stdio loop does, against the node
@@ -4074,6 +4090,111 @@ mod tests {
             !ids.contains(&json!(2)),
             "the cancelled call was answered: {ids:?}"
         );
+    }
+
+    /// The first reply line, or a panic naming what it waited behind.
+    async fn first_reply(
+        stdout: &mut tokio::io::Lines<BufReader<tokio::io::DuplexStream>>,
+        behind: &str,
+    ) -> Value {
+        let line = tokio::time::timeout(Duration::from_secs(1), stdout.next_line())
+            .await
+            .unwrap_or_else(|_| panic!("no reply within 1 s: ping queued behind {behind}"))
+            .unwrap()
+            .unwrap();
+        serde_json::from_str(&line).unwrap()
+    }
+
+    /// Every reply line until the server closes stdout.
+    async fn remaining_replies(
+        stdout: &mut tokio::io::Lines<BufReader<tokio::io::DuplexStream>>,
+    ) -> Vec<Value> {
+        let mut replies = Vec::new();
+        tokio::time::timeout(Duration::from_secs(10), async {
+            while let Ok(Some(line)) = stdout.next_line().await {
+                replies.push(serde_json::from_str::<Value>(&line).unwrap());
+            }
+        })
+        .await
+        .expect("stdout was not closed after the last reply");
+        replies
+    }
+
+    /// #2898: a `tools/call` with no `id` is a notification. It runs off the
+    /// read loop like any other call, so it does not hold up `ping`, and it is
+    /// never answered, not even with `id: null`.
+    #[tokio::test]
+    async fn a_tool_call_notification_runs_off_the_loop_and_gets_no_reply() {
+        let (mut stdin, mut stdout) =
+            stdio_session(silent_node().await, Duration::from_millis(1500));
+        let mut call = stalled_search(0);
+        call.as_object_mut().unwrap().remove("id");
+        send_line(&mut stdin, call).await;
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        send_line(
+            &mut stdin,
+            json!({"jsonrpc": "2.0", "id": 3, "method": "ping"}),
+        )
+        .await;
+        let reply = first_reply(&mut stdout, "the id-less tool call").await;
+        assert_eq!(reply["id"], 3, "{reply}");
+        // End of input waits for the call, so anything it wrote shows up here.
+        drop(stdin);
+        let rest = remaining_replies(&mut stdout).await;
+        assert!(rest.is_empty(), "a notification was answered: {rest:?}");
+    }
+
+    /// #2898: a `tools/call` with `id: null` is a request and is answered,
+    /// but it too runs off the read loop.
+    #[tokio::test]
+    async fn a_null_id_tool_call_runs_off_the_loop_and_is_answered() {
+        let (mut stdin, mut stdout) =
+            stdio_session(silent_node().await, Duration::from_millis(1500));
+        let mut call = stalled_search(0);
+        call["id"] = Value::Null;
+        send_line(&mut stdin, call).await;
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        send_line(
+            &mut stdin,
+            json!({"jsonrpc": "2.0", "id": 3, "method": "ping"}),
+        )
+        .await;
+        let reply = first_reply(&mut stdout, "the null-id tool call").await;
+        assert_eq!(reply["id"], 3, "{reply}");
+        drop(stdin);
+        let rest = remaining_replies(&mut stdout).await;
+        assert_eq!(rest.len(), 1, "{rest:?}");
+        assert_eq!(rest[0]["id"], Value::Null, "{rest:?}");
+        assert_eq!(rest[0]["result"]["isError"], true, "{rest:?}");
+    }
+
+    /// #2898: no notification is answered, whatever its method; the requests
+    /// beside it still are.
+    #[tokio::test]
+    async fn known_methods_sent_as_notifications_get_no_reply() {
+        let (mut stdin, mut stdout) =
+            stdio_session(silent_node().await, Duration::from_millis(300));
+        for method in ["initialize", "ping", "tools/list", "no/such/method"] {
+            send_line(&mut stdin, json!({"jsonrpc": "2.0", "method": method})).await;
+        }
+        send_line(
+            &mut stdin,
+            json!({"jsonrpc": "2.0", "id": 4, "method": "ping"}),
+        )
+        .await;
+        send_line(
+            &mut stdin,
+            json!([{"jsonrpc": "2.0", "method": "ping"},
+                   {"jsonrpc": "2.0", "id": 5, "method": "ping"}]),
+        )
+        .await;
+        drop(stdin);
+        let ids: Vec<Value> = remaining_replies(&mut stdout)
+            .await
+            .into_iter()
+            .map(|reply| reply["id"].clone())
+            .collect();
+        assert_eq!(ids, vec![json!(4), json!(5)]);
     }
 
     /// A 200 whose body cannot be read in full (the connection drops partway,
