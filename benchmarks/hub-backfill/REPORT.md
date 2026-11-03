@@ -6,7 +6,7 @@ are in `rows.jsonl`. Spec: docs/CORPUS_HUB_V2_IMPLEMENTATION.md §12.1.
 
 ## Current state
 
-541 corpora attempted: 468 published at their latest attempt, 73 not.
+542 corpora attempted: 469 published at their latest attempt, 73 not.
 
 ### Latest attempt did not publish (fix or delist on purpose)
 
@@ -66,7 +66,7 @@ are in `rows.jsonl`. Spec: docs/CORPUS_HUB_V2_IMPLEMENTATION.md §12.1.
 | `wysking--postgrad-study-engine` | `94c4b00b` |  |  | failed at `build` | xerj hub build-pack: `corpus index` failed (exit 1) |
 | `wysking--quantitera` | `354b4e44` |  |  | failed at `build` | xerj hub build-pack: `corpus index` failed (exit 1) |
 | `xerj-blogposts` | `a9ad4fc0` |  |  | failed at `build` | xerj hub build-pack: `corpus add` failed (exit 2) |
-| `xerj-columnar` | `31081d9f` |  |  | no result | the pack job recorded no result (pack jobs: failure, build xerj: success) |
+| `xerj-columnar` | `31081d9f` |  |  | cancelled at `build` | xerj-progress phase=index basis=bytes pct=28.9 items=14863/51679 bytes=259805609/900475609 rate=18337.7 eta_s=32127.7 eta_quality=good since_progress_s=0.0 phase_elapsed_s=4976.5 elapsed_s=5210.1 waiting_on=ClickHouse/tests/sqllogic/generat |
 | `xobotyi--cc-foundry-ai-helpers` | `b9f5057a` |  |  | failed at `build` | xerj hub build-pack: `corpus index` failed (exit 1) |
 | `xobotyi--cc-foundry-ai-helpers-prompt-engineering` | `b9f5057a` |  |  | failed at `build` | xerj hub build-pack: `corpus index` failed (exit 1) |
 | `xobotyi--cc-foundry-ai-helpers-skill-engineering` | `b9f5057a` |  |  | failed at `build` | xerj hub build-pack: `corpus index` failed (exit 1) |
@@ -88,7 +88,52 @@ are in `rows.jsonl`. Spec: docs/CORPUS_HUB_V2_IMPLEMENTATION.md §12.1.
 
 ## Runs (newest first)
 
-The 30 newest of 48 runs; every row is in `rows.jsonl`.
+The 30 newest of 49 runs; every row is in `rows.jsonl`.
+
+### Run [41596606466](https://github.com/xerj-org/xerj/actions/runs/41596606466), 2026-11-03: 1 of 40 published
+
+| slug | pin8 | bytes | defs | result | error |
+|---|---|---:|---:|---|---|
+| `atoma-run--atoma` | `7c049cbe` |  |  | failed at `build` | xerj hub build-pack: `corpus index` failed (exit 1) |
+| `concourse` | `6a706fb8` |  |  | no result | the pack job recorded no result (pack jobs: failure, build xerj: success) |
+| `counsel-chat` | `e202e19c` |  |  | no result | the pack job recorded no result (pack jobs: failure, build xerj: success) |
+| `dunorth595--ai-agent-chat` | `6386bb68` |  |  | failed at `build` | xerj hub build-pack: `corpus index` failed (exit 1) |
+| `dunorth595--ai-agent-memory` | `97f38fd0` |  |  | failed at `build` | xerj hub build-pack: `corpus index` failed (exit 1) |
+| `dunorth595--xrpl-agent-id` | `e4a3f385` |  |  | failed at `build` | xerj hub build-pack: `corpus index` failed (exit 1) |
+| `dunorth595--xrpl-agent-log` | `c3fbc7f4` |  |  | failed at `build` | xerj hub build-pack: `corpus index` failed (exit 1) |
+| `dunorth595--xrpl-did-mcp` | `8f6304ff` |  |  | failed at `build` | xerj hub build-pack: `corpus index` failed (exit 1) |
+| `exploit-pocs-2023` | `af9e194d` |  |  | failed at `build` | xerj hub build-pack: `corpus add` failed (exit 1) |
+| `exploit-pocs-2024` | `7855e58f` |  |  | failed at `build` | xerj hub build-pack: `corpus add` failed (exit 1) |
+| `exploit-pocs-2025` | `374cf8f1` |  |  | failed at `build` | xerj hub build-pack: `corpus add` failed (exit 1) |
+| `exploit-pocs-2026` | `160f470e` |  |  | failed at `build` | xerj hub build-pack: `corpus add` failed (exit 1) |
+| `exploitdb-src` | `12879ca7` |  |  | no result | the pack job recorded no result (pack jobs: failure, build xerj: success) |
+| `freebsd-handbook` | `3aa6b19a` |  |  | no result | the pack job recorded no result (pack jobs: failure, build xerj: success) |
+| `ghsa-db` | `4b4ac300` |  |  | no result | the pack job recorded no result (pack jobs: failure, build xerj: success) |
+| `github-api-description` | `7bdf5f00` |  |  | no result | the pack job recorded no result (pack jobs: failure, build xerj: success) |
+| `mtl-bioinformatics-ner` | `df0df02f` |  |  | no result | the pack job recorded no result (pack jobs: failure, build xerj: success) |
+| `nuclei-templates` | `24a43e14` |  |  | no result | the pack job recorded no result (pack jobs: failure, build xerj: success) |
+| `wysking--postgrad-study-engine` | `94c4b00b` |  |  | failed at `build` | xerj hub build-pack: `corpus index` failed (exit 1) |
+| `wysking--quantitera` | `354b4e44` |  |  | failed at `build` | xerj hub build-pack: `corpus index` failed (exit 1) |
+| `xerj-blogposts` | `a9ad4fc0` |  |  | failed at `build` | xerj hub build-pack: `corpus add` failed (exit 2) |
+| `xerj-columnar` | `31081d9f` |  |  | cancelled at `build` | xerj-progress phase=index basis=bytes pct=28.9 items=14863/51679 bytes=259805609/900475609 rate=18337.7 eta_s=32127.7 eta_quality=good since_progress_s=0.0 phase_elapsed_s=4976.5 elapsed_s=5210.1 waiting_on=ClickHouse/tests/sqllogic/generat |
+| `xobotyi--cc-foundry-ai-helpers` | `b9f5057a` |  |  | failed at `build` | xerj hub build-pack: `corpus index` failed (exit 1) |
+| `xobotyi--cc-foundry-ai-helpers-prompt-engineering` | `b9f5057a` |  |  | failed at `build` | xerj hub build-pack: `corpus index` failed (exit 1) |
+| `xobotyi--cc-foundry-ai-helpers-skill-engineering` | `b9f5057a` |  |  | failed at `build` | xerj hub build-pack: `corpus index` failed (exit 1) |
+| `xobotyi--cc-foundry-backend` | `b9f5057a` |  |  | failed at `build` | xerj hub build-pack: `corpus index` failed (exit 1) |
+| `xobotyi--cc-foundry-cli` | `b9f5057a` |  |  | failed at `build` | xerj hub build-pack: `corpus index` failed (exit 1) |
+| `xobotyi--cc-foundry-git-commit` | `b9f5057a` |  |  | failed at `build` | xerj hub build-pack: `corpus index` failed (exit 1) |
+| `xobotyi--cc-foundry-golang` | `b9f5057a` |  |  | failed at `build` | xerj hub build-pack: `corpus index` failed (exit 1) |
+| `xobotyi--cc-foundry-grafana` | `b9f5057a` |  |  | failed at `build` | xerj hub build-pack: `corpus index` failed (exit 1) |
+| `xobotyi--cc-foundry-infrastructure` | `b9f5057a` |  |  | failed at `build` | xerj hub build-pack: `corpus index` failed (exit 1) |
+| `xobotyi--cc-foundry-javascript` | `b9f5057a` |  |  | failed at `build` | xerj hub build-pack: `corpus index` failed (exit 1) |
+| `xobotyi--cc-foundry-open-source` | `b9f5057a` |  |  | failed at `build` | xerj hub build-pack: `corpus index` failed (exit 1) |
+| `xobotyi--cc-foundry-php` | `b9f5057a` |  |  | failed at `build` | xerj hub build-pack: `corpus index` failed (exit 1) |
+| `xobotyi--cc-foundry-python` | `b9f5057a` |  |  | failed at `build` | xerj hub build-pack: `corpus index` failed (exit 1) |
+| `xobotyi--cc-foundry-rust` | `b9f5057a` |  |  | failed at `build` | xerj hub build-pack: `corpus index` failed (exit 1) |
+| `xobotyi--cc-foundry-the-blueprint` | `b9f5057a` |  |  | failed at `build` | xerj hub build-pack: `corpus index` failed (exit 1) |
+| `xobotyi--cc-foundry-the-blueprint-adr` | `b9f5057a` |  |  | failed at `build` | xerj hub build-pack: `corpus index` failed (exit 1) |
+| `xobotyi--cc-foundry-the-coder` | `b9f5057a` |  |  | failed at `build` | xerj hub build-pack: `corpus index` failed (exit 1) |
+| `kkp-localized-spectral-bound` | `d3593f26` | 2830512 | 0 | published `pack-kkp-localized-spectral-bound-d3593f26` |  |
 
 ### Run [41596376377](https://github.com/xerj-org/xerj/actions/runs/41596376377), 2026-11-03: 1 of 40 published
 
@@ -1163,48 +1208,3 @@ The 30 newest of 48 runs; every row is in `rows.jsonl`.
 | `goreleaser` | `e6c4afca` | 8966217 | 4459 | published `pack-goreleaser-e6c4afca` |  |
 | `gorilla` | `6ea57973` | 261168885 | 2523 | published `pack-gorilla-6ea57973` |  |
 | `gosec-rules` | `71577268` | 6373377 | 1572 | published `pack-gosec-rules-71577268` |  |
-
-### Run [39218075283](https://github.com/xerj-org/xerj/actions/runs/39218075283), 2026-10-19: 16 of 40 published
-
-| slug | pin8 | bytes | defs | result | error |
-|---|---|---:|---:|---|---|
-| `agno` | `1f2aac51` |  |  | failed at `build` | xerj hub build-pack: defs bulk index reported errors: {"took":5,"errors":true,"items":[{"index":{"_index":"xc-agno-b1792396258-defs","_id":"","_version":1,"_shards":{"total":1,"successful":1,"failed":0},"_seq_no":0,"_primary_term":1,"status |
-| `biome` | `39d7595b` |  |  | failed at `build` | xerj hub build-pack: defs bulk index reported errors: {"took":9,"errors":true,"items":[{"index":{"_index":"xc-biome-b1792396262-defs","_id":"","_version":1,"_shards":{"total":1,"successful":1,"failed":0},"_seq_no":0,"_primary_term":1,"statu |
-| `boulder` | `f877538d` |  |  | failed at `build` | xerj hub build-pack: defs bulk index reported errors: {"took":6,"errors":true,"items":[{"index":{"_index":"xc-boulder-b1792396255-defs","_id":"","_version":1,"_shards":{"total":1,"successful":1,"failed":0},"_seq_no":0,"_primary_term":1,"sta |
-| `cassandra` | `ec2c276b` |  |  | no result | the pack job recorded no result (pack jobs: failure, build xerj: success) |
-| `cfssl` | `ab47f0d9` |  |  | failed at `build` | xerj hub build-pack: defs bulk index reported errors: {"took":7,"errors":true,"items":[{"index":{"_index":"xc-cfssl-b1792396296-defs","_id":"","_version":1,"_shards":{"total":1,"successful":1,"failed":0},"_seq_no":0,"_primary_term":1,"statu |
-| `chatdoctor` | `e77bd7eb` |  |  | failed at `build` | xerj hub build-pack: bulk /xc-chatdoctor-b1792396334-defs/_bulk -> HTTP 429: {"took":2,"errors":true,"items":[{"index":{"_index":"xc-chatdoctor-b1792396334-defs","_id":"","_version":1,"_shards":{"total":1,"successful":1,"failed":0},"_seq_no |
-| `concourse` | `6a706fb8` |  |  | no result | the pack job recorded no result (pack jobs: failure, build xerj: success) |
-| `containerd` | `92f321c8` |  |  | failed at `build` | xerj hub build-pack: defs bulk index reported errors: {"took":12,"errors":true,"items":[{"index":{"_index":"xc-containerd-b1792396440-defs","_id":"","_version":1,"_shards":{"total":1,"successful":1,"failed":0},"_seq_no":0,"_primary_term":1, |
-| `counsel-chat` | `e202e19c` |  |  | no result | the pack job recorded no result (pack jobs: failure, build xerj: success) |
-| `cri-o` | `617265f3` |  |  | failed at `build` | xerj hub build-pack: defs bulk index reported errors: {"took":18,"errors":true,"items":[{"index":{"_index":"xc-cri-o-b1792397333-defs","_id":"","_version":1,"_shards":{"total":1,"successful":1,"failed":0},"_seq_no":0,"_primary_term":1,"stat |
-| `dagger` | `96a18ac7` |  |  | failed at `build` | xerj hub build-pack: defs bulk index reported errors: {"took":9,"errors":true,"items":[{"index":{"_index":"xc-dagger-b1792397394-defs","_id":"","_version":1,"_shards":{"total":1,"successful":1,"failed":0},"_seq_no":0,"_primary_term":1,"stat |
-| `dnscrypt-proxy` | `ade0c1d6` |  |  | failed at `build` | xerj hub build-pack: defs bulk index reported errors: {"took":4,"errors":true,"items":[{"index":{"_index":"xc-dnscrypt-proxy-b1792397562-defs","_id":"","_version":1,"_shards":{"total":1,"successful":1,"failed":0},"_seq_no":0,"_primary_term" |
-| `duckdb` | `2866f801` |  |  | failed at `build` | xerj hub build-pack: defs bulk index reported errors: {"took":8,"errors":true,"items":[{"index":{"_index":"xc-duckdb-b1792397599-defs","_id":"","_version":1,"_shards":{"total":1,"successful":1,"failed":0},"_seq_no":0,"_primary_term":1,"stat |
-| `envoy` | `eb32f1f9` |  |  | failed at `build` | xerj hub build-pack: defs bulk index reported errors: {"took":8,"errors":true,"items":[{"index":{"_index":"xc-envoy-b1792398791-defs","_id":"","_version":1,"_shards":{"total":1,"successful":1,"failed":0},"_seq_no":0,"_primary_term":1,"statu |
-| `exploit-pocs-2023` | `af9e194d` |  |  | failed at `build` | xerj hub build-pack: `corpus add` failed (exit 1) |
-| `exploit-pocs-2024` | `7855e58f` |  |  | failed at `build` | xerj hub build-pack: `corpus add` failed (exit 1) |
-| `exploit-pocs-2025` | `374cf8f1` |  |  | failed at `build` | xerj hub build-pack: `corpus add` failed (exit 1) |
-| `exploit-pocs-2026` | `160f470e` |  |  | failed at `build` | xerj hub build-pack: `corpus add` failed (exit 1) |
-| `exploitdb-src` | `12879ca7` |  |  | failed at `build` | xerj hub build-pack: `corpus index` failed (exit 1) |
-| `fluent-bit` | `3b6ce5cf` |  |  | no result | the pack job recorded no result (pack jobs: failure, build xerj: success) |
-| `fory` | `9cc2a6ac` |  |  | failed at `build` | xerj hub build-pack: defs bulk index reported errors: {"took":5,"errors":true,"items":[{"index":{"_index":"xc-fory-b1792401205-defs","_id":"","_version":1,"_shards":{"total":1,"successful":1,"failed":0},"_seq_no":0,"_primary_term":1,"status |
-| `freebsd-handbook` | `3aa6b19a` |  |  | no result | the pack job recorded no result (pack jobs: failure, build xerj: success) |
-| `ghsa-db` | `4b4ac300` |  |  | no result | the pack job recorded no result (pack jobs: failure, build xerj: success) |
-| `github-api-description` | `7bdf5f00` |  |  | no result | the pack job recorded no result (pack jobs: failure, build xerj: success) |
-| `fortio` | `67ce9fa2` | 1607497 | 1081 | published `pack-fortio-67ce9fa2` |  |
-| `garak` | `cd87893b` | 28168713 | 3875 | published `pack-garak-cd87893b` |  |
-| `gatekeeper-library` | `f8e3b4e9` | 9922385 | 73 | published `pack-gatekeeper-library-f8e3b4e9` |  |
-| `gateway-api` | `0da5a10e` | 41434412 | 4873 | published `pack-gateway-api-0da5a10e` |  |
-| `gatling` | `d552826b` | 7444636 | 9511 | published `pack-gatling-d552826b` |  |
-| `gdpr-commonaccord` | `cd623e0d` | 474748 | 22 | published `pack-gdpr-commonaccord-cd623e0d` |  |
-| `gemini-cookbook` | `dd5b15da` | 13713934 | 351 | published `pack-gemini-cookbook-dd5b15da` |  |
-| `getrandom` | `eeb6a3d4` | 895286 | 212 | published `pack-getrandom-eeb6a3d4` |  |
-| `giskard` | `48814003` | 12699289 | 3874 | published `pack-giskard-48814003` |  |
-| `github-opensource-guide` | `e7ac98e9` | 7874160 | 120 | published `pack-github-opensource-guide-e7ac98e9` |  |
-| `github-site-policy` | `b9578b54` | 3347414 | 0 | published `pack-github-site-policy-b9578b54` |  |
-| `gitlab-runbooks` | `caae4426` | 208752683 | 1066 | published `pack-gitlab-runbooks-caae4426` |  |
-| `glasskube` | `b0d877db` | 6396077 | 1731 | published `pack-glasskube-b0d877db` |  |
-| `gnark` | `3ac4de3e` | 15705661 | 10714 | published `pack-gnark-3ac4de3e` |  |
-| `gnostic` | `baf14b96` | 8328820 | 1272 | published `pack-gnostic-baf14b96` |  |
-| `go-jose` | `13b7118f` | 1988372 | 1485 | published `pack-go-jose-13b7118f` |  |
