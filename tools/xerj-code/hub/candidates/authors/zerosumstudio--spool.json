@@ -1,9 +1,9 @@
 {
- "corpus": "bkincz--spool",
+ "corpus": "zerosumstudio--spool",
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on TypeScript queries this for how bkincz/spool implements it: CLI for micro-frontends: scaffold, run, and sync Module Federation apps from one manifest (selected work: packages/cli, the project root)",
+ "domain": "an agent working on TypeScript queries this for how zerosumstudio/spool implements it: CLI for micro-frontends: scaffold, run, and sync Module Federation apps from one manifest (selected work: packages/cli, the project root)",
  "repos": [
   {
    "repo": "spool",
