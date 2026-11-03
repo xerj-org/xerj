@@ -1,0 +1,23 @@
+{
+ "corpus": "jikempff--mite",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how jikempff/Mite implements it: Open-source C# mesh curvature analysis and form-finding toolkit. Principal/Gaussian/Mean curvature, streamlines, planarization, minimal surf (selected work: tests, src/Mite.Core, tools)",
+ "repos": [
+  {
+   "repo": "Mite",
+   "url": "https://github.com/jikempff/Mite",
+   "sha": "402d8b8ade40c8fe7b2d450a22a3f75829db2fe2",
+   "licence": "MIT (LICENSE file at pin 402d8b8ade40, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T22:37Z",
+    "consent_receipt": "bbc2843a4f4e",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T22:37Z (receipt bbc2843a4f4e); selected commit 402d8b8ade40: \"Gridshell Analysis: joint eccentricity \u2014 laths in layers on rigid end\u2026\". LICENSE file at pin 402d8b8ade40 detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

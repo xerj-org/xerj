@@ -1,0 +1,23 @@
+{
+ "corpus": "viochris--botanica-ai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on ai-chatbot, express, full-stack queries this for how viochris/botanica-ai implements it: Full-stack AI plant care app: identify a plant from a photo, diagnose leaf health, get an 8-point care plan, track watering in My Garden, an (selected work: src/components, the project root, src)",
+ "repos": [
+  {
+   "repo": "botanica-ai",
+   "url": "https://github.com/viochris/botanica-ai",
+   "sha": "58e2e0e87ca1ffab046e91677538fced977a9f18",
+   "licence": "MIT (LICENSE file at pin 58e2e0e87ca1, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T23:54Z",
+    "consent_receipt": "0ea91be82f1a",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T23:54Z (receipt 0ea91be82f1a); selected commit 58e2e0e87ca1: \"Add files via upload\". LICENSE file at pin 58e2e0e87ca1 detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

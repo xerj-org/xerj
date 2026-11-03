@@ -2,8 +2,8 @@
  "corpus": "tom-r-main--footwork",
  "cloned_at": null,
  "status": "draft",
- "shelf": "WEB",
- "domain": "an agent working on browser-automation, browser-use, jev queries this for how Tom-R-Main/Footwork implements it: A verified browser agent: a cheap Jev guard (evidence-checked completions, a destructive gate) in front of any LLM browser driver, with Jev  (selected work: tools)",
+ "shelf": "AI",
+ "domain": "an agent working on browser-automation, browser-use, jev queries this for how Tom-R-Main/Footwork implements it: Browser and desktop automation for AI agents, with guarded actions and receipts to check what actually happened (selected work: tools)",
  "repos": [
   {
    "repo": "Footwork",

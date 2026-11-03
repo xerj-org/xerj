@@ -1,0 +1,23 @@
+{
+ "corpus": "hectorzamoranogarcia--casino-behavior-prediction",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on caret, classification, clustering queries this for how HectorZamoranoGarcia/Casino-behavior-prediction implements it: Machine learning and player-behavior analysis with outcome prediction in online casinos using R (exploration, clustering, and basic classifi (selected work: notebooks)",
+ "repos": [
+  {
+   "repo": "Casino-behavior-prediction",
+   "url": "https://github.com/HectorZamoranoGarcia/Casino-behavior-prediction",
+   "sha": "e8ae50930a4ecf82e1fa38b79059a9070acd730d",
+   "licence": "MIT (LICENSE file at pin e8ae50930a4e, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T22:09Z",
+    "consent_receipt": "543f5eade0ae",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T22:09Z (receipt 543f5eade0ae); selected commit e8ae50930a4e: \"Polish casino project presentation\". LICENSE file at pin e8ae50930a4e detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

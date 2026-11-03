@@ -1,0 +1,23 @@
+{
+ "corpus": "aarsteinmedia--lottie-web",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how aarsteinmedia/lottie-web implements it: Play animations generated in After Effects in the browser (selected work: src/utils, src/elements, src)",
+ "repos": [
+  {
+   "repo": "lottie-web",
+   "url": "https://github.com/aarsteinmedia/lottie-web",
+   "sha": "92edb58f18fce53345065251b152d1cc811a4375",
+   "licence": "GPL-2.0 (LICENSE file at pin 92edb58f18fc, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-02T20:14Z",
+    "consent_receipt": "0b860d30f8ac",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T20:14Z (receipt 0b860d30f8ac); selected commit 92edb58f18fc: \"extended enums\". LICENSE file at pin 92edb58f18fc detected as GPL-2.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

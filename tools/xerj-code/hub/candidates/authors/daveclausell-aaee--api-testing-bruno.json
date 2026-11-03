@@ -1,0 +1,23 @@
+{
+ "corpus": "daveclausell-aaee--api-testing-bruno",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how DaveClausell-AAEE/api_testing_bruno implements it: Repo para pruebas de testing (selected work: conae_simulacro_1, conae_simulacro_2)",
+ "repos": [
+  {
+   "repo": "api_testing_bruno",
+   "url": "https://github.com/DaveClausell-AAEE/api_testing_bruno",
+   "sha": "6f59590516f0770375a37e9a8b12ef12e037127a",
+   "licence": "GPL-3.0 (LICENSE file at pin 6f59590516f0, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-02T22:54Z",
+    "consent_receipt": "e1fc9a31e000",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T22:54Z (receipt e1fc9a31e000); selected commit 6f59590516f0: \"feat: agregar carpetas de Simulacro 1 y Simulacro 2 con distintos bugs\". LICENSE file at pin 6f59590516f0 detected as GPL-3.0 by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

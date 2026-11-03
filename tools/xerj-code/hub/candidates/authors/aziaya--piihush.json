@@ -1,0 +1,23 @@
+{
+ "corpus": "aziaya--piihush",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how aziaya/piihush implements it: Fast PII and secret masking for RAG and LLM pipelines. piihush is a Rust extension for Python that removes sensitive data from your text bef (selected work: tests, src, python)",
+ "repos": [
+  {
+   "repo": "piihush",
+   "url": "https://github.com/aziaya/piihush",
+   "sha": "e7125e6c6d7b7e8bb7272ab0dc5d7b86e67c318f",
+   "licence": "MIT (LICENSE file at pin e7125e6c6d7b, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T22:29Z",
+    "consent_receipt": "aae86963687c",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T22:29Z (receipt aae86963687c); selected commit e7125e6c6d7b: \"Add Python bindings and test suite\". LICENSE file at pin e7125e6c6d7b detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

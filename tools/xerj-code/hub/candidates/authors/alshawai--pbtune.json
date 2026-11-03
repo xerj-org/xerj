@@ -1,0 +1,23 @@
+{
+ "corpus": "alshawai--pbtune",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on ai, pbt, python queries this for how alshawai/PBTune implements it: Evolutionary auto-tuning for database configurations \u2014 Population-Based Training discovers optimal configurations without ML training or DBA",
+ "repos": [
+  {
+   "repo": "PBTune",
+   "url": "https://github.com/alshawai/PBTune",
+   "sha": "14f3e921e4ad3790d42443bfcb9d96a6f224449e",
+   "licence": "GPL-3.0 (LICENSE file at pin 14f3e921e4ad, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-02T20:41Z",
+    "consent_receipt": "d3ca6b71c814",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T20:41Z (receipt d3ca6b71c814); pinned to the default-branch head. LICENSE file at pin 14f3e921e4ad detected as GPL-3.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}
