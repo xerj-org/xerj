@@ -28583,7 +28583,25 @@ pub async fn clear_scroll(
         state.engine.scrolls.clear();
     }
 
-    Json(json!({ "succeeded": true, "num_freed": num_freed })).into_response()
+    clear_scroll_response(num_freed)
+}
+
+/// ES's clear-scroll answer: the body always says `succeeded: true`, but the
+/// status is 404 when nothing was freed (`ClearScrollResponse#status`). A
+/// client that clears the same id twice, or an id that already expired, is
+/// told so by the status; XERJ answered 200 for both, so `catch: missing`
+/// after a clear (`scroll/11_clear.yml`) could not see the difference.
+fn clear_scroll_response(num_freed: usize) -> Response {
+    let status = if num_freed == 0 {
+        StatusCode::NOT_FOUND
+    } else {
+        StatusCode::OK
+    };
+    (
+        status,
+        Json(json!({ "succeeded": true, "num_freed": num_freed })),
+    )
+        .into_response()
 }
 
 /// `DELETE /_search/scroll/{scroll_id}` — the same legacy path-parameter
@@ -28593,7 +28611,7 @@ pub async fn clear_scroll_path(
     Path(scroll_id): Path<String>,
 ) -> impl IntoResponse {
     let num_freed = usize::from(state.engine.scrolls.remove(&scroll_id).is_some());
-    Json(json!({ "succeeded": true, "num_freed": num_freed })).into_response()
+    clear_scroll_response(num_freed)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
