@@ -12020,6 +12020,30 @@
   },
   {
    "cat": "WEB",
+   "domain": "An agent embedding a Cubism Live2D character in a Flutter app queries this for WebView model loading through a local HTTP asset server, Cubism 4 lip sync (ParamMouthOpenY) driven from playback state via beforeModelUpdate, runtime scanning and hot-swapping of model folders, and Android external-directory resource import.",
+   "lane": "A",
+   "refresh": "pinned",
+   "slug": "rctool-live2d",
+   "sources": [
+    {
+     "licence_hint": "MIT AND LicenseRef-Live2D-Proprietary (vendored Cubism Core); reviewed at pin, see manifest review",
+     "url": "https://github.com/richuff/RcTool"
+    }
+   ],
+   "status": "candidate",
+   "tags": {
+    "region": "GLOBAL",
+    "topics": [
+     "flutter",
+     "live2d",
+     "webview",
+     "cubism",
+     "mobile-app"
+    ]
+   }
+  },
+  {
+   "cat": "WEB",
    "domain": "An agent building accessible React components queries this for React Aria/React Stately implementations of ARIA design patterns, focus management, and i18n.",
    "lane": "A",
    "refresh": "pinned",

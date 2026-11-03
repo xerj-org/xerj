@@ -1,0 +1,25 @@
+{
+  "corpus": "rctool-live2d",
+  "cloned_at": "2026-11-03T02:29:23Z",
+  "repos": [
+    {
+      "repo": "RcTool",
+      "url": "https://github.com/richuff/RcTool",
+      "licence": "MIT",
+      "sha": "5511dcdf67a889f61478db44b873fce7ebc7a59b",
+      "paths": [
+        "lib",
+        "assets/live2d/viewer"
+      ],
+      "files": 179,
+      "bytes": 9146289,
+      "review": {
+        "spdx": "MIT AND LicenseRef-Live2D-Proprietary",
+        "use": "mixed",
+        "by": "@richuff (review assisted by Claude)",
+        "at": "2026-11-03",
+        "note": "First-party submission by the repo author. Detector said MIT; confirmed by opening LICENSE at the pin: MIT, Copyright (c) 2025 richuff — all of lib/ and the viewer integration assets/live2d/viewer/main.js (Cubism 4 lip-sync via internalModel.beforeModelUpdate writing ParamMouthOpenY) are the author's own. Two vendored files inside the harvested paths are NOT the repo's MIT: vendor/live2dcubismcore.min.js (c) Live2D Inc., redistributed under the Live2D Proprietary Software Licence (Cubism Core runtime) — treat that file as approach-only; vendor/pixi.min.js is pixi.js under MIT. The bundled Haru sample model (assets/live2d/models/, downloaded from Live2D/CubismWebSamples under Live2D's own sample terms, see models/README.md) is excluded from the harvest: the paths field scopes the corpus to lib and assets/live2d/viewer so no model binaries enter the corpus. files/bytes describe the full pin before scoping. Copy MIT paths freely with attribution and cite file:line."
+      }
+    }
+  ]
+}
