@@ -1,9 +1,9 @@
 {
- "corpus": "vecszn--polystrata",
+ "corpus": "simplexai-labs--polystrata",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on anthropic-api, cuda, gemma queries this for how VecSzn/PolyStrata implements it: Run large AI models on your own PC: Qwen3.8-Flash-Next on Strata's engine, and GLM 5.3 Flash, DeepSeek V4 Flash, LFM2.5, Qwen3.6, Ornith 1.5 (selected work: the project root, include, src/poly)",
+ "domain": "an agent working on anthropic-api, cuda, gemma queries this for how simplexai-labs/PolyStrata implements it: Run large AI models on your own PC: Qwen3.8-Flash-Next on Strata's engine, and GLM 5.3 Flash, DeepSeek V4 Flash, LFM2.5, Qwen3.6, Ornith 1.5 (selected work: the project root, include, src/poly)",
  "repos": [
   {
    "repo": "PolyStrata",

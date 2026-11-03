@@ -8,15 +8,15 @@
   {
    "repo": "Faultline",
    "url": "https://github.com/FrankieBiz/Faultline",
-   "sha": "41e3519074b103851035a33f44bc4977e87938ed",
-   "licence": "Apache-2.0 (LICENSE file at pin 41e3519074b1, GitHub licence API 2026-11-03)",
+   "sha": "ed75b2c9c5fa879a4571e983b0403d3f5f13b2cc",
+   "licence": "Apache-2.0 (LICENSE file at pin ed75b2c9c5fa, GitHub licence API 2026-11-03)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-02T01:16Z",
     "consent_receipt": "eb2dd75ee8fc",
-    "note": "Inclusion consented by the commit author by email at 2026-11-02T01:16Z (receipt eb2dd75ee8fc); selected commit 41e3519074b1: \"Validate crawler URLs and clarify deployment gate safety\". LICENSE file at pin 41e3519074b1 detected as Apache-2.0 by the GitHub licence API on 2026-11-03; used under that licence with attribution. Pinned to head 41e3519074b1 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T01:16Z (receipt eb2dd75ee8fc); selected commit ed75b2c9c5fa: \"Validate crawler URLs and clarify deployment gate safety\". LICENSE file at pin ed75b2c9c5fa detected as Apache-2.0 by the GitHub licence API on 2026-11-03; used under that licence with attribution. Pinned to head ed75b2c9c5fa (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

@@ -1,0 +1,23 @@
+{
+ "corpus": "feliperodriguezfonte--cryptocarver",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on Java queries this for how FelipeRodriguezFonte/CryptoCarver implements it: FelipeRodriguezFonte/CryptoCarver (Java) (selected work: src/test, src/main)",
+ "repos": [
+  {
+   "repo": "CryptoCarver",
+   "url": "https://github.com/FelipeRodriguezFonte/CryptoCarver",
+   "sha": "ca44ae9c04899f1558980f0ec749b05d4673817e",
+   "licence": "MIT (LICENSE file at pin ca44ae9c0489, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T21:04Z",
+    "consent_receipt": "70de8b8064f4",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T21:04Z (receipt 70de8b8064f4); selected commit ca44ae9c0489: \"fix(jwt): allow decoding without validation and clarify advanced options\". LICENSE file at pin ca44ae9c0489 detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -8,15 +8,15 @@
   {
    "repo": "Republic-Game",
    "url": "https://github.com/Don-Walesky/Republic-Game",
-   "sha": "02a71148523ddf319393a070cbe30bb70eaa0ec9",
-   "licence": "MIT (LICENSE file at pin 02a71148523d, GitHub licence API 2026-11-03)",
+   "sha": "90e68c2854e4c252bd5e491f8206b11e5f3cfadf",
+   "licence": "MIT (LICENSE file at pin 90e68c2854e4, GitHub licence API 2026-11-03)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T21:42Z",
     "consent_receipt": "44b8ea9352e8",
-    "note": "Inclusion consented by the commit author by email at 2026-10-28T21:42Z (receipt 44b8ea9352e8); selected commit 02a71148523d: \"feat(ai): Phase 4 offline progression with simple AI governments\". LICENSE file at pin 02a71148523d detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution. Pinned to head 02a71148523d (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-28T21:42Z (receipt 44b8ea9352e8); selected commit 90e68c2854e4: \"feat(ai): Phase 4 offline progression with simple AI governments\". LICENSE file at pin 90e68c2854e4 detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution. Pinned to head 90e68c2854e4 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]
