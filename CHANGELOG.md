@@ -139,6 +139,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `xerj mcp` no longer answers a JSON-RPC notification, and runs every
+  `tools/call` off the stdio read loop (#2898). A `tools/call` with no `id`, or
+  with `id: null`, used to be awaited on the read loop, so a stalled search held
+  up `ping` and every later request as in #2390; the id-less one was also
+  answered with `id: null`. Now both run on their own task, the notification
+  gets no reply, and `initialize`, `ping` and `tools/list` sent as
+  notifications get none either.
 - Tests name the cause when loopback networking is unavailable (#2886). Every
   test that binds an ephemeral 127.0.0.1 port, in all crates, goes through
   `xerj_common::loopback_test::expect_loopback`, so a sandbox that denies the
