@@ -554,10 +554,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   refusal, and every rerun stopped on the same record. A run that an earlier
   version already stopped this way replays the list it fixed and stops again;
   index that folder under a new `--prefix` and `--state-dir` (#2807).
+
 - `xerj_batch_search` (and `xerj batch-search`) accept a plain string in
   `queries` as shorthand for `{"query": <string>}` (#2497). A string item
   used to fail alone with "arguments must be a JSON object", so an agent
   that sent `["a", "b"]` lost a call; the advertised schema now allows it.
+
+- `xc` now ranks the exact definition of a compound identifier first.
+  A query that is a single camelCase or snake_case name (like
+  `LabPanoAdapter` or `resolve_exports`) promotes hits whose file or
+  symbol name equals it to the top, instead of letting a symbol that
+  merely shares a part win. When the name appears nowhere on the page,
+  `xc` says so and points at a possibly stale index (#2821, part of
+  #2426, which stays open).
+
+- `xerj def` / `xerj_def` carry the same `index_stale` hint as search
+  when the autoindexed folder has newer or removed files, so a
+  definition answered from an old index comes back with the warning and
+  the reindex command instead of nothing (#2829, part of #2426, which
+  stays open).
+
+- The per-document memtable scan stops at the search deadline (first
+  document, then every 256), so a large unflushed memtable no longer
+  walks past the timeout and answers `timed_out: false` after its
+  deadline passed; it returns the same partial results with
+  `timed_out: true` as the segment walk (#2830, part of #2431, which
+  stays open).
+
+- Every unbounded per-segment loop in search now polls the request
+  deadline, not just the check between segments: the residual-gate
+  re-test, FTS hit hydration, and sorted or prefiltered candidate
+  hydration all stop on expiry and return the partial page with
+  `timed_out: true`, so one large segment cannot run past the timeout
+  (#2834, part of #2431, which stays open).
+
+- A second start on Windows can read which PID holds the data dir: the
+  holder also writes its PID to a plain `node.lock.pid` file beside the
+  locked `node.lock`, so the dead-holder reclaim and the stuck-lock hint
+  no longer report `pid unknown` and a crashed node no longer wedges the
+  data dir until the file is deleted by hand (#2820, part of #2431,
+  which stays open).
+
 
 
 ## [1.0.0-rc.100] - 2026-10-26
@@ -728,6 +765,7 @@ continues in #2427 and #1122, which stay open.
   answer and gave up on the CLI. Those guesses, and `--size`, `--limit`,
   `--top`, `--top-k`, `-n` and `-i`, now point at `--prefix <P>` or
   `-k <N>`.
+
 - `_reindex` follows aliases on both sides: a source alias is searched across
   every backing index and each member's alias filter is applied, and a
   destination alias writes to its single write index (an ambiguous alias is
