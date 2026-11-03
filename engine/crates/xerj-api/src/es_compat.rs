@@ -26907,6 +26907,156 @@ fn index_int_setting(state: &AppState, ix: &str, key: &str) -> Option<u64> {
         .or_else(|| s.get(&dotted).and_then(as_int))
 }
 
+#[cfg(test)]
+mod scroll_request_validation_tests {
+    use super::*;
+    use axum::{body::Body, http::Request};
+    use tower::ServiceExt;
+    use xerj_common::{
+        config::{Config, WalSync},
+        metrics::Metrics,
+    };
+    use xerj_engine::Engine;
+
+    fn test_state() -> AppState {
+        let dir = tempfile::tempdir().expect("tempdir").keep();
+        let mut config = Config::default();
+        config.server.data_dir = dir.to_string_lossy().into_owned();
+        config.storage.wal_sync = WalSync::Async;
+        let metrics = Metrics::new().expect("metrics");
+        let engine = Engine::new(config.clone()).expect("engine");
+        AppState::new(config, engine, metrics)
+    }
+
+    async fn send(app: &axum::Router, method: &str, uri: &str, body: Value) -> (StatusCode, Value) {
+        let resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(method)
+                    .uri(uri)
+                    .header("content-type", "application/json")
+                    .body(Body::from(body.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let status = resp.status();
+        let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        (status, serde_json::from_slice(&bytes).unwrap())
+    }
+
+    async fn app_with_doc() -> (AppState, axum::Router) {
+        let state = test_state();
+        let app = crate::router::build_es_compat_router(state.clone());
+        let (status, body) = send(
+            &app,
+            "PUT",
+            "/s",
+            json!({"mappings": {"properties": {"n": {"type": "integer"},
+                                               "k": {"type": "keyword"}}}}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        let doc = json!({"n": 1, "k": "a"});
+        let (status, body) = send(&app, "PUT", "/s/_doc/1?refresh=true", doc).await;
+        assert!(status.is_success(), "{body}");
+        (state, app)
+    }
+
+    /// FAIL-BEFORE: every one of these answered 200 and opened a scroll
+    /// context (`from: 1` even returned the document it asked to skip). ES's
+    /// `SearchRequest#validate` refuses each before any shard runs.
+    #[tokio::test]
+    async fn scroll_rejects_what_search_request_validate_rejects() {
+        let (state, app) = app_with_doc().await;
+        for (uri, body, reason) in [
+            (
+                "/s/_search?scroll=1m",
+                json!({"size": 0}),
+                "Validation Failed: 1: [size] cannot be [0] in a scroll context;",
+            ),
+            (
+                "/s/_search?scroll=1m&size=0",
+                json!({}),
+                "Validation Failed: 1: [size] cannot be [0] in a scroll context;",
+            ),
+            (
+                "/s/_search?scroll=1m&request_cache=true",
+                json!({}),
+                "Validation Failed: 1: [request_cache] cannot be used in a scroll context;",
+            ),
+            (
+                "/s/_search?scroll=1m",
+                json!({"from": 1}),
+                "Validation Failed: 1: using [from] is not allowed in a scroll context;",
+            ),
+            (
+                "/s/_search?scroll=1m",
+                json!({"rescore": {"window_size": 5,
+                                   "query": {"rescore_query": {"match_all": {}}}}}),
+                "Validation Failed: 1: using [rescore] is not allowed in a scroll context;",
+            ),
+            (
+                "/s/_search?scroll=1m",
+                json!({"sort": ["n"], "search_after": [0]}),
+                "Validation Failed: 1: [search_after] cannot be used in a scroll context;",
+            ),
+            (
+                "/s/_search?scroll=1m&request_cache=true",
+                json!({"size": 0}),
+                "Validation Failed: 1: [size] cannot be [0] in a scroll context;\
+                 2: [request_cache] cannot be used in a scroll context;",
+            ),
+        ] {
+            let (status, resp) = send(&app, "POST", uri, body.clone()).await;
+            assert_eq!(status, StatusCode::BAD_REQUEST, "{uri} {body} -> {resp}");
+            assert_eq!(resp["error"]["type"], "action_request_validation_exception");
+            assert_eq!(resp["error"]["reason"], reason, "{uri} {body}");
+        }
+        assert!(
+            state.engine.scrolls.is_empty(),
+            "a refused scroll must not leave a context behind"
+        );
+    }
+
+    /// The same options stay legal without `scroll`, and a scroll with
+    /// `request_cache=false` or a `collapse` still opens a context.
+    #[tokio::test]
+    async fn the_same_options_without_scroll_still_answer() {
+        let (_state, app) = app_with_doc().await;
+        for (uri, body) in [
+            ("/s/_search?request_cache=true", json!({"size": 0})),
+            ("/s/_search", json!({"from": 1})),
+            ("/s/_search", json!({"collapse": {"field": "k"}})),
+            ("/s/_search", json!({"sort": ["n"], "search_after": [0]})),
+        ] {
+            let (status, resp) = send(&app, "POST", uri, body.clone()).await;
+            assert_eq!(status, StatusCode::OK, "{uri} {body} -> {resp}");
+        }
+        let (status, resp) = send(
+            &app,
+            "POST",
+            "/s/_search?scroll=1m&request_cache=false",
+            json!({"size": 1}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{resp}");
+        assert!(resp["_scroll_id"].is_string(), "{resp}");
+        let (status, resp) = send(
+            &app,
+            "POST",
+            "/s/_search?scroll=1m",
+            json!({"collapse": {"field": "k"}}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{resp}");
+        assert!(resp["_scroll_id"].is_string(), "{resp}");
+    }
+}
+
 /// What `SearchRequest#validate` refuses for a scroll search, in its order and
 /// with its messages. ES answers these with one 400
 /// `action_request_validation_exception` before any shard runs. XERJ ran the
