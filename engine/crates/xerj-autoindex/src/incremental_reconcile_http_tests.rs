@@ -41,6 +41,10 @@ struct HttpState {
     /// #1971: answer semantic `exists` read-backs with no matches while
     /// retaining the published records and catalog for refusal/resume checks.
     hide_semantic_matches: bool,
+    /// #2669: answer the finalize-verify record windows (an `ax_file` terms
+    /// aggregation with no `exists` filter) with no buckets, so the record
+    /// count reads as zero while the published records stay in place.
+    hide_record_counts: bool,
     stop: bool,
     embedding_identity_sha256: String,
     saw_dataset_mapping_update: bool,
@@ -1126,6 +1130,10 @@ fn search_http(path: &str, body: &[u8], state: &Arc<Mutex<HttpState>>) -> Value 
         .and_then(Value::as_object)
         .map(|aggs| {
             let mut body = serde_json::Map::new();
+            let semantic_window = query
+                .pointer("/query/bool/filter")
+                .and_then(Value::as_array)
+                .is_some_and(|filter| filter.iter().any(|clause| clause.get("exists").is_some()));
             for (name, spec) in aggs {
                 let Some(field) = spec
                     .get("terms")
@@ -1134,6 +1142,10 @@ fn search_http(path: &str, body: &[u8], state: &Arc<Mutex<HttpState>>) -> Value 
                 else {
                     continue;
                 };
+                if locked.hide_record_counts && field == "ax_file" && !semantic_window {
+                    body.insert(name.clone(), json!({"buckets": []}));
+                    continue;
+                }
                 let mut counts: std::collections::BTreeMap<&str, u64> =
                     std::collections::BTreeMap::new();
                 for (_, doc) in &matching {
@@ -2392,6 +2404,53 @@ fn semantic_count_mismatch_reports_counts_and_datasets_and_resumes() {
     assert_eq!(run_index(config).unwrap(), 0);
     assert_eq!(endpoint.data_docs(), published);
     assert_eq!(journal_events(state_dir.path(), "sync_commit"), 1);
+}
+
+#[test]
+fn record_count_mismatch_names_the_remove_that_rebuilds_the_folder() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    fs::write(
+        corpus.path().join("report.txt"),
+        "Quarterly report discusses durable subscription revenue and operating income.",
+    )
+    .unwrap();
+    let endpoint = HttpEndpoint::start();
+    endpoint.state.lock().unwrap().hide_record_counts = true;
+    let config = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
+
+    let error = run_index(config.clone()).expect_err("record read-back must refuse the run");
+    let message = format!("{error:#}");
+    assert!(
+        message.contains("live record count disagrees with desired group"),
+        "{message}"
+    );
+    assert_eq!(journal_events(state_dir.path(), "sync_commit"), 0);
+    // The advice must name this folder exactly as the run identified it, and
+    // carry the non-default URL and the explicit state dir, or `remove`
+    // selects nothing and the next resume stops at the same check (#2669).
+    let root = corpus.path().canonicalize().unwrap();
+    let command = message
+        .split("To rebuild them, run `")
+        .nth(1)
+        .and_then(|rest| rest.split('`').next())
+        .unwrap_or_else(|| panic!("no repair command: {message}"));
+    assert!(
+        message.ends_with(&format!("`{command}`, then rerun this command")),
+        "{message}"
+    );
+    let argv: Vec<String> = command.split_whitespace().map(str::to_owned).collect();
+    assert_eq!(argv[..3], ["xerj", "autoindex", "remove"]);
+    let remove = match cli::parse(argv[2..].to_vec()).expect("the repair command must parse") {
+        cli::Cmd::Remove(remove) => remove,
+        other => panic!("expected autoindex remove, got {other:?}"),
+    };
+    assert_eq!(remove.prefix, config.prefix);
+    assert_eq!(remove.root.as_deref(), Some(root.to_str().unwrap()));
+    assert_eq!(remove.url, endpoint.url);
+    assert_eq!(remove.state_dir.as_deref(), Some(state_dir.path()));
+    assert!(remove.yes);
 }
 
 #[test]

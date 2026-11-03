@@ -878,6 +878,10 @@ pub struct EsSyncBackend<'a> {
     /// flight at once. `1` — the default — is the historical serial loop,
     /// and what every run without `--workers` beyond it configures.
     replay_workers: usize,
+    /// #2669: the command that rebuilds this folder's corpus, appended to a
+    /// record-count abort. A resume re-checks the same live indices, so the
+    /// abort alone leaves the operator rerunning into it.
+    record_repair: Option<String>,
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
@@ -897,7 +901,14 @@ impl<'a> EsSyncBackend<'a> {
             installed_index_identity: None,
             in_flight: None,
             replay_workers: 1,
+            record_repair: None,
         }
+    }
+
+    /// See `record_repair`.
+    pub fn with_record_repair(mut self, command: String) -> Self {
+        self.record_repair = Some(command);
+        self
     }
 
     /// See `installed_index_identity`.
@@ -2349,10 +2360,16 @@ impl SyncOperationBackend for EsSyncBackend<'_> {
                 records == group.expected_records,
                 "live record count disagrees with desired group {}: live_records={records} \
                  expected_records={} indices=[{}]; a resume checks the same live indices, \
-                 so it stops here again until they are rebuilt",
+                 so it stops here again until they are rebuilt{}",
                 group.group_id,
                 group.expected_records,
-                indices.join(", ")
+                indices.join(", "),
+                self.record_repair
+                    .as_deref()
+                    .map(|command| format!(
+                        ". To rebuild them, run `{command}`, then rerun this command"
+                    ))
+                    .unwrap_or_default()
             );
             let mut semantic = 0u64;
             for slug in &group.dataset_slugs {
