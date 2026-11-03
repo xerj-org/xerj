@@ -139,6 +139,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A plain debug `cargo test` no longer aborts in `xerj-mcp`'s `local_def`, and
+  the `127.0.0.2` loopback test names the missing macOS alias (#2903). The
+  `local_def` test that serves the ES-compat router in process overflowed
+  tokio's 2 MiB worker stack in a debug build. It now uses the server's 4 MiB,
+  as the other in-process router tests do. On a host without `127.0.0.2`,
+  `loopback_proxy` fails up front with
+  `sudo ifconfig lo0 alias 127.0.0.2 up` instead of a bare connection error,
+  through the new `xerj_common::loopback_test::require_loopback_alias`.
+  CONTRIBUTING documents both, and that CI runs `--profile ci-test`.
 - Data-stream `_rollover` honours `dry_run` and its `conditions` instead of
   ignoring the body: `max_docs`/`max_age` are ORed and reported in
   `conditions`, and a dry run or an unmet condition creates no backing index.
