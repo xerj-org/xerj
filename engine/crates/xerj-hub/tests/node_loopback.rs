@@ -20,7 +20,7 @@ use xerj_hub::node::{self, HubNode};
 /// A server on an ephemeral loopback port that answers every request with
 /// `status`/`body` and counts the requests it received.
 fn serve(status: &'static str, body: &'static str, hits: Arc<AtomicUsize>) -> u16 {
-    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let listener = xerj_common::loopback_test::expect_loopback(TcpListener::bind("127.0.0.1:0"));
     let port = listener.local_addr().unwrap().port();
     std::thread::spawn(move || {
         for conn in listener.incoming() {
@@ -84,8 +84,7 @@ fn a_loopback_node_is_reached_directly_and_a_remote_one_still_goes_through_the_p
 
     // A loopback port with NOTHING on it is silent — it is not "the proxy said 502
     // so a node answers", which is what made the hub decline to start its own.
-    let silent = TcpListener::bind("127.0.0.1:0")
-        .unwrap()
+    let silent = xerj_common::loopback_test::expect_loopback(TcpListener::bind("127.0.0.1:0"))
         .local_addr()
         .unwrap()
         .port();

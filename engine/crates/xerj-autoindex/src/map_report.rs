@@ -583,9 +583,8 @@ mod tests {
     /// needed to enrich a report.
     fn node(steps: Vec<(u16, &'static str, Value)>) -> (Es, std::thread::JoinHandle<()>) {
         use std::io::{BufRead, BufReader, Read};
-        use std::net::TcpListener;
         use std::time::{Duration, Instant};
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let url = format!("http://{}", listener.local_addr().unwrap());
         listener.set_nonblocking(true).unwrap();
         let join = std::thread::spawn(move || {

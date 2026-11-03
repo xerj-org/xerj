@@ -93,9 +93,9 @@ async fn mock_embedder() -> (String, Arc<EmbedLog>) {
             }
         }),
     );
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
-        .await
-        .expect("bind mock embedder");
+    let listener = xerj_common::loopback_test::expect_loopback(
+        tokio::net::TcpListener::bind("127.0.0.1:0").await,
+    );
     let addr = listener.local_addr().expect("mock embedder addr");
     tokio::spawn(async move {
         let _ = axum::serve(listener, app).await;
@@ -117,9 +117,9 @@ async fn proxy_node(endpoint: String) -> (axum::Router, String) {
     let state = xerj_api::state::AppState::new(config, engine, metrics);
     std::mem::forget(dir);
     let app = xerj_api::router::build_es_compat_router(state);
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
-        .await
-        .expect("bind xerj");
+    let listener = xerj_common::loopback_test::expect_loopback(
+        tokio::net::TcpListener::bind("127.0.0.1:0").await,
+    );
     let addr = listener.local_addr().expect("xerj addr");
     let served = app.clone();
     tokio::spawn(async move {

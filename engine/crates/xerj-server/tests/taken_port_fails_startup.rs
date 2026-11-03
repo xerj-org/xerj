@@ -41,9 +41,9 @@ use std::time::{Duration, Instant};
 /// — the child has to be the one to bind them. `Config::validate` requires all
 /// three to differ, which holding them simultaneously guarantees.
 fn squatter_and_two_free_ports() -> (TcpListener, u16, u16) {
-    let squatter = TcpListener::bind("127.0.0.1:0").expect("hold a port for the foreign process");
+    let squatter = xerj_common::loopback_test::expect_loopback(TcpListener::bind("127.0.0.1:0"));
     let held: Vec<TcpListener> = (0..2)
-        .map(|_| TcpListener::bind("127.0.0.1:0").unwrap())
+        .map(|_| xerj_common::loopback_test::expect_loopback(TcpListener::bind("127.0.0.1:0")))
         .collect();
     let p: Vec<u16> = held
         .iter()
@@ -56,7 +56,7 @@ fn squatter_and_two_free_ports() -> (TcpListener, u16, u16) {
 /// still be free when the child starts.
 fn three_free_ports() -> (u16, u16, u16) {
     let held: Vec<TcpListener> = (0..3)
-        .map(|_| TcpListener::bind("127.0.0.1:0").unwrap())
+        .map(|_| xerj_common::loopback_test::expect_loopback(TcpListener::bind("127.0.0.1:0")))
         .collect();
     let p: Vec<u16> = held
         .iter()

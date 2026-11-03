@@ -962,7 +962,9 @@ mod tests {
     async fn namespace_guidance_is_added_to_404_but_not_authorization_refusals() {
         use std::io::{Read, Write};
         for (status, expected_hint) in [(404, true), (403, false)] {
-            let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+            let listener = xerj_common::loopback_test::expect_loopback(
+                std::net::TcpListener::bind("127.0.0.1:0"),
+            );
             let url = format!("http://{}", listener.local_addr().unwrap());
             let server = std::thread::spawn(move || {
                 let (mut stream, _) = listener.accept().unwrap();

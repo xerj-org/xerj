@@ -132,6 +132,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Tests name the cause when loopback networking is unavailable (#2886). Every
+  test that binds an ephemeral 127.0.0.1 port, in all crates, goes through
+  `xerj_common::loopback_test::expect_loopback`, so a sandbox that denies the
+  bind fails with "this test starts a fake server on 127.0.0.1 and needs
+  loopback networking" instead of hundreds of bare `PermissionDenied` panics.
+
 - `/lead` rejects non-string email values with HTTP 400 before storage.
   Arrays no longer become accepted addresses through string coercion, and
   objects with a non-callable `toString` no longer cause HTTP 500.

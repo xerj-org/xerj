@@ -1876,9 +1876,9 @@ async fn over_a_real_socket_the_peer_address_is_the_bucket() {
     let (state, _data) = build(&o);
     let app = xerj_api::router::build_es_compat_router(state);
     // Port 0: the OS picks a free one. Never 9200, never the reference nodes.
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
-        .await
-        .expect("bind");
+    let listener = xerj_common::loopback_test::expect_loopback(
+        tokio::net::TcpListener::bind("127.0.0.1:0").await,
+    );
     let addr = listener.local_addr().unwrap();
     assert_ne!(addr.port(), 9200);
     tokio::spawn(async move {

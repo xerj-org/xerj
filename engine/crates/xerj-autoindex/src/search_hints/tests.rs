@@ -331,9 +331,8 @@ fn remote_urls_and_symlinks_refuse_before_settings_changes() {
 #[test]
 fn http_probe_bounds_catalog_and_never_follows_redirects_or_sends_tool_input() {
     use std::io::{Read, Write};
-    use std::net::TcpListener;
     for shape in ["ok", "redirect", "oversize", "partial"] {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let url = format!("http://{}", listener.local_addr().unwrap());
         let body = match shape {
             "oversize" => "x".repeat(256 * 1024 + 1),

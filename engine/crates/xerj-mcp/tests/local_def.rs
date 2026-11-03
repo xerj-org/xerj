@@ -36,7 +36,9 @@ async fn mock_node(
             }
         }
     });
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let listener = xerj_common::loopback_test::expect_loopback(
+        tokio::net::TcpListener::bind("127.0.0.1:0").await,
+    );
     let url = format!("http://{}", listener.local_addr().unwrap());
     let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
     (url, server, requests)
@@ -170,7 +172,8 @@ async fn local_def_applies_token_budget_after_ranking() {
 
 #[tokio::test]
 async fn local_def_rejects_invalid_arguments_before_http() {
-    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let listener =
+        xerj_common::loopback_test::expect_loopback(std::net::TcpListener::bind("127.0.0.1:0"));
     listener.set_nonblocking(true).unwrap();
     let url = format!("http://{}", listener.local_addr().unwrap());
     for (args, field) in [
@@ -229,7 +232,9 @@ async fn local_def_returns_ranked_unique_declarations_in_the_requested_scope() {
     let engine = xerj_engine::Engine::new(config.clone()).unwrap();
     let state = xerj_api::state::AppState::new(config, engine, metrics);
     let app = xerj_api::router::build_es_compat_router(state);
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let listener = xerj_common::loopback_test::expect_loopback(
+        tokio::net::TcpListener::bind("127.0.0.1:0").await,
+    );
     let url = format!("http://{}", listener.local_addr().unwrap());
     let server = tokio::spawn(async move {
         axum::serve(listener, app.into_make_service())

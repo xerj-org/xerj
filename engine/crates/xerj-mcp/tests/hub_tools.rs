@@ -154,7 +154,9 @@ async fn hub_tools_answer_from_a_local_pack_and_never_download() {
     let engine = xerj_engine::Engine::new(config.clone()).unwrap();
     let state = xerj_api::state::AppState::new(config, engine, metrics);
     let app = xerj_api::router::build_es_compat_router(state);
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let listener = xerj_common::loopback_test::expect_loopback(
+        tokio::net::TcpListener::bind("127.0.0.1:0").await,
+    );
     let url = format!("http://{}", listener.local_addr().unwrap());
     tokio::spawn(async move { axum::serve(listener, app.into_make_service()).await });
     let client = reqwest::Client::new();
@@ -396,7 +398,8 @@ async fn hub_tools_answer_from_a_local_pack_and_never_download() {
     // A hub that accepts and counts connections. Before the fix, a stale or
     // missing cache sent `xerj_hub_find` and `xerj_hub_ask` to the network
     // (up to the 10 s/30 s fetch timeouts) from inside an agent's tool call.
-    let hub_listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let hub_listener =
+        xerj_common::loopback_test::expect_loopback(std::net::TcpListener::bind("127.0.0.1:0"));
     let hub_url = format!("http://{}", hub_listener.local_addr().unwrap());
     let hits = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
     {

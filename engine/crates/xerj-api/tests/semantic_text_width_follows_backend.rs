@@ -41,9 +41,9 @@ async fn mock_embedder() -> String {
             (StatusCode::OK, axum::Json(json!({"data": data})))
         }),
     );
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
-        .await
-        .expect("bind mock embedder");
+    let listener = xerj_common::loopback_test::expect_loopback(
+        tokio::net::TcpListener::bind("127.0.0.1:0").await,
+    );
     let addr = listener.local_addr().expect("mock embedder addr");
     tokio::spawn(async move {
         let _ = axum::serve(listener, app).await;

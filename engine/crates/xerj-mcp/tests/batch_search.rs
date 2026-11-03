@@ -64,7 +64,9 @@ async fn batch_preserves_positions_errors_duplicates_and_exact_ids() {
                 }
             }),
         );
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let listener = xerj_common::loopback_test::expect_loopback(
+        tokio::net::TcpListener::bind("127.0.0.1:0").await,
+    );
     let url = format!("http://{}", listener.local_addr().unwrap());
     let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
     let result = body(
@@ -132,7 +134,9 @@ async fn batch_accepts_plain_string_items_as_queries() {
             }
         }),
     );
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let listener = xerj_common::loopback_test::expect_loopback(
+        tokio::net::TcpListener::bind("127.0.0.1:0").await,
+    );
     let url = format!("http://{}", listener.local_addr().unwrap());
     let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
     let result = body(
@@ -204,7 +208,9 @@ async fn fixture(response: Value, args: Value) -> Value {
             async move { Json(response) }
         }),
     );
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let listener = xerj_common::loopback_test::expect_loopback(
+        tokio::net::TcpListener::bind("127.0.0.1:0").await,
+    );
     let url = format!("http://{}", listener.local_addr().unwrap());
     let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
     let result = call(&url, args).await;
@@ -294,7 +300,9 @@ async fn batch_exact_identifier_is_not_a_prefix_or_token_match_on_a_real_node() 
     let engine = xerj_engine::Engine::new(config.clone()).unwrap();
     let state = xerj_api::state::AppState::new(config, engine, metrics);
     let app = xerj_api::router::build_es_compat_router(state);
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let listener = xerj_common::loopback_test::expect_loopback(
+        tokio::net::TcpListener::bind("127.0.0.1:0").await,
+    );
     let url = format!("http://{}", listener.local_addr().unwrap());
     let server = tokio::spawn(async move {
         axum::serve(listener, app.into_make_service())
@@ -433,7 +441,9 @@ async fn an_oversized_msearch_is_split_and_only_the_oversized_item_fails() {
             async move { Json(json!({ "responses": responses })) }
         }),
     );
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let listener = xerj_common::loopback_test::expect_loopback(
+        tokio::net::TcpListener::bind("127.0.0.1:0").await,
+    );
     let url = format!("http://{}", listener.local_addr().unwrap());
     let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
     let result = body(

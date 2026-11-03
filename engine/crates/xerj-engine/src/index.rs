@@ -44228,7 +44228,8 @@ mod embedding_identity_tests {
 
     /// One HTTP embedding response, then the socket closes. `status` is 200 or 400.
     fn serve_proxy_embeddings(width: usize, status: u16) -> String {
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener =
+            xerj_common::loopback_test::expect_loopback(std::net::TcpListener::bind("127.0.0.1:0"));
         let addr = listener.local_addr().unwrap();
         std::thread::spawn(move || {
             let _ = listener.set_nonblocking(false);

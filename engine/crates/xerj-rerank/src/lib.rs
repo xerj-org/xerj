@@ -1432,7 +1432,9 @@ mod tests {
     fn an_oversized_provider_response_is_refused_not_read_whole() {
         use std::io::{Read, Write};
         fn serve(body: String, chunked: bool) -> String {
-            let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+            let listener = xerj_common::loopback_test::expect_loopback(
+                std::net::TcpListener::bind("127.0.0.1:0"),
+            );
             let addr = listener.local_addr().unwrap();
             std::thread::spawn(move || {
                 let (mut s, _) = listener.accept().unwrap();
