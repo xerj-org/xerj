@@ -1,0 +1,23 @@
+{
+ "corpus": "akshatinnovate-png--caregraph",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "HEALTH",
+ "domain": "an agent working on data-visualization, evidence-based-medicine, health-informatics queries this for how akshatinnovate-png/CareGraph implements it: Turns scattered medical records into an evidence-linked timeline. Verifies every generated claim against its source text, flags cross-docume",
+ "repos": [
+  {
+   "repo": "CareGraph",
+   "url": "https://github.com/akshatinnovate-png/CareGraph",
+   "sha": "5e84c386b1b604fb2ded1b3063dab35a78383164",
+   "licence": "author's permission (LICENSE at pin 5e84c386b1b6: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T09:00Z",
+    "consent_receipt": "46ed653c5dee",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-03T09:00Z (receipt 46ed653c5dee); pinned to the default-branch head. LICENSE at pin 5e84c386b1b6: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

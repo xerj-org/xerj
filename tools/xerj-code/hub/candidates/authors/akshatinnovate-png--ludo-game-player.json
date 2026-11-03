@@ -1,0 +1,23 @@
+{
+ "corpus": "akshatinnovate-png--ludo-game-player",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how akshatinnovate-png/Ludo-Game-Player implements it: not made yet - COI disclaimer",
+ "repos": [
+  {
+   "repo": "Ludo-Game-Player",
+   "url": "https://github.com/akshatinnovate-png/Ludo-Game-Player",
+   "sha": "2ba8c4a2ef4a0dccb912894b224c35c9aa7ac45a",
+   "licence": "MIT (LICENSE file at pin 2ba8c4a2ef4a, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T09:00Z",
+    "consent_receipt": "d4c8fee00f5a",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-03T09:00Z (receipt d4c8fee00f5a); pinned to the default-branch head. LICENSE file at pin 2ba8c4a2ef4a detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

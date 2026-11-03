@@ -1,0 +1,23 @@
+{
+ "corpus": "teehihi--scope-graph",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, ai-agents, code-analysis queries this for how teehihi/scope-graph implements it: AI-powered code impact analysis with dependency graphs and MCP tools for smarter, safer AI-assisted development (selected work: apps/web, scripts)",
+ "repos": [
+  {
+   "repo": "scope-graph",
+   "url": "https://github.com/teehihi/scope-graph",
+   "sha": "775426a5ad1cf916385fb23dbc87930ebbc70c92",
+   "licence": "MIT (LICENSE file at pin 775426a5ad1c, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T09:30Z",
+    "consent_receipt": "276b434b1c65",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T09:30Z (receipt 276b434b1c65); selected commit 775426a5ad1c: \"feat(i18n): achieve 100% key parity across all 12 languages, add auto\u2026\". LICENSE file at pin 775426a5ad1c detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution. Pinned to head 775426a5ad1c (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

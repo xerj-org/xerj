@@ -1,0 +1,23 @@
+{
+ "corpus": "akshatinnovate-png--cased",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on cli, code-visualization-tool, codeanalysis queries this for how akshatinnovate-png/CaseD implements it: Your GitHub repo, turned into a trailer. cased2.0 reads the actual code, git history and architecture, scores the story, synthesizes an orig",
+ "repos": [
+  {
+   "repo": "CaseD",
+   "url": "https://github.com/akshatinnovate-png/CaseD",
+   "sha": "2d5422fc472f5ada472fd5173fc3c1b5d9d67658",
+   "licence": "MIT (LICENSE file at pin 2d5422fc472f, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T09:00Z",
+    "consent_receipt": "9059abf25f3d",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-03T09:00Z (receipt 9059abf25f3d); pinned to the default-branch head. LICENSE file at pin 2d5422fc472f detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

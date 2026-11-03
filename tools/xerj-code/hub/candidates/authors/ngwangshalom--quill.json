@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Rust queries this for how Ngwangshalom/Quill implements it: A programming language where intent is clear, failures are explicit, and correctness is part of the code (selected work: src, editors, book)",
+ "domain": "an agent working on backend, compiler, education queries this for how Ngwangshalom/Quill implements it: A programming language where intent is clear, failures are explicit, and correctness is part of the code (selected work: src, editors, book)",
  "repos": [
   {
    "repo": "Quill",
