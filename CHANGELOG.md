@@ -62,6 +62,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Code session UUID, and marks the model-written observations and summaries
   `is_summary: true`.
 
+- Offline `xerj sessions import --format mempalace` exports a MemPalace
+  palace's drawers verbatim, with their wing, room and hall, through the
+  existing text redactor (#2874). It reads the `sqlite_exact` backend
+  read-only in one snapshot without creating side files on a clean store,
+  skips registry and sentinel rows and closets, decodes MemPalace's escaped
+  text, and refuses a palace on the default Chroma backend.
+
 - Offline `xerj sessions import --format codex` exports a documented subset
   of one archived Codex rollout through the existing text redactor. It skips
   tools and reasoning, retains physical source locations and archive event
