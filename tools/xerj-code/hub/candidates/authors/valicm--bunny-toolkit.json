@@ -8,15 +8,15 @@
   {
    "repo": "bunny-toolkit",
    "url": "https://github.com/valicm/bunny-toolkit",
-   "sha": "227c5b20399f330da2e14616206ad8ac1d6b6b39",
-   "licence": "MIT (LICENSE file at pin 227c5b20399f, GitHub licence API 2026-10-28)",
+   "sha": "0dfed5e08e13acbb9431dff6b283bfa70ad21553",
+   "licence": "MIT (LICENSE file at pin 0dfed5e08e13, GitHub licence API 2026-11-03)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T20:15Z",
     "consent_receipt": "3ba8d8e60d15",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T20:15Z (receipt 3ba8d8e60d15); pinned to the default-branch head. LICENSE file at pin 227c5b20399f detected as MIT by the GitHub licence API on 2026-10-28; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T20:15Z (receipt 3ba8d8e60d15); pinned to the default-branch head. LICENSE file at pin 0dfed5e08e13 detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
    }
   }
  ]

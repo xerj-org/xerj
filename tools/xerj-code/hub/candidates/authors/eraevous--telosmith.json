@@ -1,9 +1,9 @@
 {
- "corpus": "eraevous--aec",
+ "corpus": "eraevous--telosmith",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Python queries this for how eraevous/AEC implements it: AI-enhanced coding, first focusing on OpenAI's Codex system (selected work: tests, tools, src/aec)",
+ "domain": "an agent working on Python queries this for how eraevous/Telosmith implements it: AI-enhanced coding, first focusing on OpenAI's Codex system (selected work: tests, tools, src/aec)",
  "repos": [
   {
    "repo": "AEC",

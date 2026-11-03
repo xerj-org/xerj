@@ -1,0 +1,23 @@
+{
+ "corpus": "andrest04--markitdown-desktop",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on desktop-app, file-converter, gui queries this for how andrest04/markitdown-desktop implements it: Unofficial desktop GUI (PySide6) for Microsoft's markitdown \u2014 drag, drop, auto-saves to Downloads. EN/ES (selected work: tests, app/ui)",
+ "repos": [
+  {
+   "repo": "markitdown-desktop",
+   "url": "https://github.com/andrest04/markitdown-desktop",
+   "sha": "ef91676fde997c4627070bfc5b8cca041d7a588e",
+   "licence": "MIT (LICENSE file at pin ef91676fde99, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T01:09Z",
+    "consent_receipt": "d6a4468e7a15",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T01:09Z (receipt d6a4468e7a15); selected commit ef91676fde99: \"refactor(ui): move pane file drops into DropZone\". LICENSE file at pin ef91676fde99 detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

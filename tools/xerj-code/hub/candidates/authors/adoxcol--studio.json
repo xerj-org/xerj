@@ -8,15 +8,15 @@
   {
    "repo": "studio",
    "url": "https://github.com/Adoxcol/studio",
-   "sha": "8b7ba630fd0f5bb3bae55837b76a58e9e5058e5a",
-   "licence": "MIT (LICENSE file at pin 8b7ba630fd0f, GitHub licence API 2026-11-02)",
+   "sha": "444c4c87a4a15decc57adfd552ea55adf68f754b",
+   "licence": "MIT (LICENSE file at pin 444c4c87a4a1, GitHub licence API 2026-11-03)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T01:30Z",
     "consent_receipt": "d3f389508886",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T01:30Z (receipt d3f389508886); pinned to the default-branch head. LICENSE file at pin 8b7ba630fd0f detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T01:30Z (receipt d3f389508886); pinned to the default-branch head. LICENSE file at pin 444c4c87a4a1 detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
    }
   }
  ]

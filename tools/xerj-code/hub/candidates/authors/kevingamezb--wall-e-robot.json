@@ -16,7 +16,14 @@
     "by": "author-consent",
     "at": "2026-11-01T20:57Z",
     "consent_receipt": "67c1606fc59f",
-    "note": "Inclusion consented by the commit author by email at 2026-11-01T20:57Z (receipt 67c1606fc59f); selected commit 9b469af58417: \"funcionalidad(controles): integrar el editor de teclas en la barra la\u2026\". LICENSE file at pin 9b469af58417 detected as GPL-3.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T20:57Z (receipt 67c1606fc59f); selected commit 9b469af58417: \"funcionalidad(controles): integrar el editor de teclas en la barra la\u2026\". LICENSE file at pin 9b469af58417 detected as GPL-3.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "9b469af58417f6538508123bfecad5a7ac6ea61e",
+     "at": "2026-11-01T20:57Z",
+     "receipt": "67c1606fc59f"
+    }
    }
   }
  ]

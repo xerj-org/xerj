@@ -16,7 +16,14 @@
     "by": "author-consent",
     "at": "2026-10-25T19:25Z",
     "consent_receipt": "7098152e49e7",
-    "note": "Inclusion consented by the commit author by email at 2026-10-25T19:25Z (receipt 7098152e49e7); selected commit 6e7e3e320770: \"Further refinements with AI.\". LICENSE file at pin 6e7e3e320770 detected as GPL-3.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-10-25T19:25Z (receipt 7098152e49e7); selected commit 6e7e3e320770: \"Further refinements with AI.\". LICENSE file at pin 6e7e3e320770 detected as GPL-3.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "6e7e3e3207705148b8721e7e6fcb5be58c8f0a77",
+     "at": "2026-10-25T19:25Z",
+     "receipt": "7098152e49e7"
+    }
    }
   }
  ]
