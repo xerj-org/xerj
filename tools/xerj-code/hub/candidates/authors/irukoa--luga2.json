@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on C queries this for how irukoa/LUGA2 implements it: Zero-dependency C/Fortran library with common utilities (selected work: test, src/GRTP, buildsystem)",
+ "domain": "an agent working on C queries this for how irukoa/LUGA2 implements it: LUGA2 es una colecci\u00f3n modular de abstracciones matem\u00e1ticas, num\u00e9ricas y computacionales orientadas a facilitar el desarrollo de aplicacione (selected work: test, src/GRTP, buildsystem)",
  "repos": [
   {
    "repo": "LUGA2",

@@ -1,9 +1,9 @@
 {
- "corpus": "surlymochan--openflow",
+ "corpus": "surlymochan--evalid",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-agents, cli, coding-agents queries this for how surlymochan/openflow implements it: Executable delivery workflows for AI coding agents: YAML phases, red/green TDD proof gates checked by code, and the xflow CLI (Codex, Claude (selected work: bench, the project root)",
+ "domain": "an agent working on ai-agents, cli, coding-agents queries this for how surlymochan/evalid implements it: Claimed \u2260 verified. evalid is a runtime verification layer for coding agents: it seals each test run and replays it from a clean snapshot, s (selected work: bench, the project root)",
  "repos": [
   {
    "repo": "openflow",
