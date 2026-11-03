@@ -1,0 +1,22 @@
+{
+  "corpus": "lokdocsqr",
+  "cloned_at": "2026-11-03T12:31:47Z",
+  "own": true,
+  "repos": [
+    {
+      "repo": "lokdocsqr",
+      "url": "https://github.com/badretd/lokdocsqr",
+      "licence": "Apache-2.0",
+      "sha": "e17f591b71d02f51b0fe4f454e77fbfed0fbf4e6",
+      "files": 278,
+      "bytes": 3282769,
+      "review": {
+        "spdx": "Apache-2.0",
+        "use": "adapt-with-attribution",
+        "by": "@badretd",
+        "at": "2026-11-03",
+        "note": "First-party repository by the author (@badretd / Imran Badretdinov). Opened LICENSE at pin e17f591b71d0: verbatim Apache License 2.0. pyproject.toml declares Apache-2.0 and NOTICE carries the copyright. licenses/gpl-3.0.txt and licenses/lgpl-3.0.txt are the licence texts for the optional PySide6 GUI extra, not bundled CLI source; NOTICE states the CLI does not include PySide6. THIRD-PARTY-NOTICES is a dependency inventory, not this project's licence. No vendored third-party source in the tree."
+      }
+    }
+  ]
+}
