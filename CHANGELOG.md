@@ -132,6 +132,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `xerj mcp`: a `tools/call` sent as a JSON-RPC notification (no `id`) is no
+  longer answered with a bogus `"id": null` response, and no `tools/call` is
+  awaited on the stdio read loop any more. The read loop treated a call with
+  no usable `id` as "not a tool call" and ran it inline, so one slow node
+  round-trip blocked `ping` and every later line — the stall #2390 closed,
+  through a second door. A call with an explicit `id: null` is still a
+  request and is still answered, now off the loop as well, but it is not
+  registered for cancellation: a JSON `null` key would let a second such call
+  evict the first, and `notifications/cancelled` with `requestId: null` would
+  cancel an unrelated one. `initialize`, `ping` and `tools/list` sent as
+  notifications are likewise no longer answered. In every case the work is
+  still done; only the response is dropped, as JSON-RPC 2.0 §4.1 requires
+  ([#2898](https://github.com/xerj-org/xerj/issues/2898)).
+
 - Tests name the cause when loopback networking is unavailable (#2886). Every
   test that binds an ephemeral 127.0.0.1 port, in all crates, goes through
   `xerj_common::loopback_test::expect_loopback`, so a sandbox that denies the

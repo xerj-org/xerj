@@ -420,14 +420,17 @@ pub async fn run(args: &[String]) -> anyhow::Result<()> {
 /// The JSON-RPC loop over newline-delimited messages, apart from the process'
 /// stdin/stdout so tests can drive it over an in-memory pipe.
 ///
-/// A `tools/call` request runs on its own task, so a call that waits on the
-/// node does not hold up the messages behind it (#2390): `ping`,
-/// `initialize`, `tools/list` and notifications stay inline because they never
-/// wait on anything. Replies are matched by `id`, so they may go out in any
-/// order. `notifications/cancelled` aborts the call it names, and no response
-/// is written for it. Every reply goes through one writer task, so lines never
-/// interleave. At end of input the loop waits for the calls still running and
-/// writes their replies before returning, as the serial loop did.
+/// Every `tools/call` runs on its own task, so a call that waits on the node
+/// does not hold up the messages behind it (#2390): `ping`, `initialize`,
+/// `tools/list` and the lifecycle notifications stay inline because they never
+/// wait on anything. What makes a message go off the loop is its method, not
+/// whether it carries a usable `id` (#2898) — an id-less or `id: null`
+/// `tools/call` waits on the node exactly as an id-ed one does. Replies are
+/// matched by `id`, so they may go out in any order. `notifications/cancelled`
+/// aborts the call it names, and no response is written for it. Every reply
+/// goes through one writer task, so lines never interleave. At end of input
+/// the loop waits for the calls still running and writes their replies before
+/// returning, as the serial loop did.
 async fn serve<R, W>(ctx: Ctx, reader: R, stdout: W) -> anyhow::Result<()>
 where
     R: tokio::io::AsyncBufRead + Unpin,
@@ -487,18 +490,34 @@ where
                 }
                 Vec::new()
             }
-            msg if is_tool_call_request(&msg) => {
-                let key = id_key(&msg["id"]);
-                let (ctx, tx, registry) = (ctx.clone(), tx.clone(), in_flight.clone());
-                in_flight.start(&mut calls, key, move |token| async move {
-                    let reply = handle_message(&ctx, msg).await;
-                    // A cancellation that got here first means: say nothing.
-                    if registry.finish(token) {
-                        if let Some(reply) = reply {
-                            let _ = tx.send(reply);
-                        }
+            msg if is_tool_call(&msg) => {
+                let (ctx, tx) = (ctx.clone(), tx.clone());
+                // Only a usable id can be cancelled: `notifications/cancelled`
+                // names a `requestId`. A call without one is spawned
+                // unregistered, because registering it under the JSON text of
+                // `null` would let a second id-less call evict the first (and
+                // silence its reply), and let `requestId: null` abort one.
+                match msg.get("id").filter(|id| !id.is_null()).map(id_key) {
+                    Some(key) => {
+                        let registry = in_flight.clone();
+                        in_flight.start(&mut calls, key, move |token| async move {
+                            let reply = handle_message(&ctx, msg).await;
+                            // A cancellation that got here first means: say nothing.
+                            if registry.finish(token) {
+                                if let Some(reply) = reply {
+                                    let _ = tx.send(reply);
+                                }
+                            }
+                        });
                     }
-                });
+                    None => {
+                        calls.spawn(async move {
+                            if let Some(reply) = handle_message(&ctx, msg).await {
+                                let _ = tx.send(reply);
+                            }
+                        });
+                    }
+                }
                 Vec::new()
             }
             other => handle_message(&ctx, other).await.into_iter().collect(),
@@ -514,9 +533,11 @@ where
     writer.await?
 }
 
-fn is_tool_call_request(msg: &Value) -> bool {
+/// Every `tools/call` goes off the read loop, whatever its `id` is (#2898).
+/// The id decides who gets the reply and whether the call can be cancelled,
+/// not whether the node round-trip blocks the next line.
+fn is_tool_call(msg: &Value) -> bool {
     msg.get("method").and_then(Value::as_str) == Some("tools/call")
-        && msg.get("id").is_some_and(|id| !id.is_null())
 }
 
 fn is_cancellation(msg: &Value) -> bool {
@@ -603,12 +624,18 @@ where
 
 /// Route one JSON-RPC message. Returns `Some(response)` for requests and
 /// `None` for notifications (no `id`) and messages that need no reply.
+///
+/// The notification rule is applied once, after the method ran, rather than
+/// per method (#2898): JSON-RPC 2.0 §4.1 forbids a reply to a message with no
+/// `id` member whatever the method was, and `tools/call` used to answer one
+/// with `id: null` — a line a client that pairs responses to requests cannot
+/// match. The work itself still happens; only the reply is dropped.
 async fn handle_message(ctx: &Ctx, msg: Value) -> Option<Value> {
     let id = msg.get("id").cloned();
     let is_notification = id.is_none();
     let method = msg.get("method").and_then(Value::as_str)?.to_string();
 
-    match method.as_str() {
+    let response = match method.as_str() {
         "initialize" => Some(rpc_result(id, initialize_result(&msg))),
 
         // Lifecycle / keepalive notifications — no response.
@@ -620,19 +647,16 @@ async fn handle_message(ctx: &Ctx, msg: Value) -> Option<Value> {
 
         "tools/call" => Some(rpc_result(id, call_tool(ctx, &msg).await)),
 
-        // Unknown method: error for requests, silence for notifications.
-        _ => {
-            if is_notification {
-                None
-            } else {
-                Some(rpc_error(
-                    id.unwrap_or(Value::Null),
-                    -32601,
-                    format!("method not found: {method}"),
-                ))
-            }
-        }
-    }
+        // Unknown method: error for requests. The filter below keeps a
+        // notification silent, as it always was.
+        _ => Some(rpc_error(
+            id.unwrap_or(Value::Null),
+            -32601,
+            format!("method not found: {method}"),
+        )),
+    };
+
+    response.filter(|_| !is_notification)
 }
 
 /// Handle one JSON-RPC message exactly as the stdio loop does, against the node
@@ -4074,6 +4098,126 @@ mod tests {
             !ids.contains(&json!(2)),
             "the cancelled call was answered: {ids:?}"
         );
+    }
+
+    fn stalled_search_without_id() -> Value {
+        json!({"jsonrpc": "2.0", "method": "tools/call", "params": {
+            "name": "xerj_search", "arguments": {"index": "docs", "query": "retry"}}})
+    }
+
+    /// #2898: a message with no `id` member is a notification, so the server
+    /// must not answer it. The old reply carried `id: null`, which a client
+    /// that pairs responses to requests cannot match to anything it sent.
+    #[tokio::test]
+    async fn a_tool_call_notification_gets_no_response() {
+        let (mut stdin, mut stdout) =
+            stdio_session(silent_node().await, Duration::from_millis(300));
+        send_line(&mut stdin, stalled_search_without_id()).await;
+        drop(stdin);
+        let mut replies = Vec::new();
+        tokio::time::timeout(Duration::from_secs(5), async {
+            while let Ok(Some(line)) = stdout.next_line().await {
+                replies.push(serde_json::from_str::<Value>(&line).unwrap());
+            }
+        })
+        .await
+        .expect("stdout was not closed after the last reply");
+        assert!(
+            replies.is_empty(),
+            "a notification was answered: {replies:?}"
+        );
+    }
+
+    /// #2898: the work a notification asks for still waits on the node, so it
+    /// belongs off the read loop for the same reason #2390 moved the id-ed
+    /// call off it. Awaiting it inline stalls every message behind it.
+    #[tokio::test]
+    async fn a_tool_call_notification_does_not_block_the_read_loop() {
+        let (mut stdin, mut stdout) = stdio_session(silent_node().await, Duration::from_secs(3));
+        send_line(&mut stdin, stalled_search_without_id()).await;
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        send_line(
+            &mut stdin,
+            json!({"jsonrpc": "2.0", "id": 3, "method": "ping"}),
+        )
+        .await;
+        let line = tokio::time::timeout(Duration::from_secs(1), stdout.next_line())
+            .await
+            .expect("no reply within 1 s: ping queued behind an id-less tool call")
+            .unwrap()
+            .unwrap();
+        let reply: Value = serde_json::from_str(&line).unwrap();
+        assert_eq!(reply["id"], 3, "{reply}");
+        assert_eq!(reply["result"], json!({}), "{reply}");
+    }
+
+    /// #2898: an `id` of JSON `null` is a request (discouraged, but legal), so
+    /// it is answered — off the read loop, like any other `tools/call`.
+    #[tokio::test]
+    async fn a_null_id_tool_call_is_answered_off_the_read_loop() {
+        let (mut stdin, mut stdout) =
+            stdio_session(silent_node().await, Duration::from_millis(500));
+        send_line(
+            &mut stdin,
+            json!({"jsonrpc": "2.0", "id": null, "method": "tools/call", "params": {
+                "name": "xerj_search", "arguments": {"index": "docs", "query": "retry"}}}),
+        )
+        .await;
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        send_line(
+            &mut stdin,
+            json!({"jsonrpc": "2.0", "id": 3, "method": "ping"}),
+        )
+        .await;
+        let line = tokio::time::timeout(Duration::from_secs(1), stdout.next_line())
+            .await
+            .expect("no reply within 1 s: ping queued behind a null-id tool call")
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            serde_json::from_str::<Value>(&line).unwrap()["id"],
+            3,
+            "{line}"
+        );
+        drop(stdin);
+        let mut replies = Vec::new();
+        let _ = tokio::time::timeout(Duration::from_secs(5), async {
+            while let Ok(Some(line)) = stdout.next_line().await {
+                replies.push(serde_json::from_str::<Value>(&line).unwrap());
+            }
+        })
+        .await;
+        assert_eq!(replies.len(), 1, "{replies:?}");
+        assert_eq!(replies[0]["id"], Value::Null, "{replies:?}");
+        assert_eq!(replies[0]["result"]["isError"], true, "{replies:?}");
+    }
+
+    /// #2898: the no-reply rule is not special to `tools/call`. `ping` and
+    /// `tools/list` answered whatever the id was, including not having one.
+    #[tokio::test]
+    async fn cheap_method_notifications_get_no_response() {
+        let (mut stdin, mut stdout) =
+            stdio_session(silent_node().await, Duration::from_millis(300));
+        send_line(&mut stdin, json!({"jsonrpc": "2.0", "method": "ping"})).await;
+        send_line(
+            &mut stdin,
+            json!({"jsonrpc": "2.0", "method": "tools/list"}),
+        )
+        .await;
+        send_line(
+            &mut stdin,
+            json!({"jsonrpc": "2.0", "id": 9, "method": "ping"}),
+        )
+        .await;
+        drop(stdin);
+        let mut ids = Vec::new();
+        let _ = tokio::time::timeout(Duration::from_secs(5), async {
+            while let Ok(Some(line)) = stdout.next_line().await {
+                ids.push(serde_json::from_str::<Value>(&line).unwrap()["id"].clone());
+            }
+        })
+        .await;
+        assert_eq!(ids, vec![json!(9)], "a notification was answered: {ids:?}");
     }
 
     /// A 200 whose body cannot be read in full (the connection drops partway,
