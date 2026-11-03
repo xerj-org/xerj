@@ -1,0 +1,23 @@
+{
+ "corpus": "noah8218--openvisionlab-3d-studio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on 3d-vision, csharp, dotnet queries this for how Noah8218/OpenVisionLab-3D-Studio implements it: Rule-based 3D inspection workbench for height maps, meshes, point clouds, ROI teaching, and recipe replay (selected work: src/OpenVisionLab.ThreeD.Shell, src/OpenVisionLab.ThreeD.Verification, src/OpenVisionLab.ThreeD.Tools)",
+ "repos": [
+  {
+   "repo": "OpenVisionLab-3D-Studio",
+   "url": "https://github.com/Noah8218/OpenVisionLab-3D-Studio",
+   "sha": "b260b159a3c300e21ab3c2f15bb390cb4f550634",
+   "licence": "Apache-2.0 (LICENSE file at pin b260b159a3c3, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T06:42Z",
+    "consent_receipt": "31cfcd8e7bee",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T06:42Z (receipt 31cfcd8e7bee); selected commit b260b159a3c3: \"Update 3D development source snapshot to 0.8.1-dev\". LICENSE file at pin b260b159a3c3 detected as Apache-2.0 by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

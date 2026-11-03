@@ -1,0 +1,23 @@
+{
+ "corpus": "yashpatadiya1724-cmyk--mansitra-app",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on emotional-ai, mental-health, multilingual queries this for how yashpatadiya1724-cmyk/mansitra_APP implements it: Manasitra: Friend of the Mind \u2014 Premium Multilingual AI Emotional Companion & Mental Health Support Platform for Indian Students (selected work: backend)",
+ "repos": [
+  {
+   "repo": "mansitra_APP",
+   "url": "https://github.com/yashpatadiya1724-cmyk/mansitra_APP",
+   "sha": "ffc067f255954a5b7352700d0df4296a0d7e1769",
+   "licence": "MIT (LICENSE file at pin ffc067f25595, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T06:28Z",
+    "consent_receipt": "8bd594187647",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T06:28Z (receipt 8bd594187647); selected commit ffc067f25595: \"feat(ai-memory): implement long-term vector memory RAG engine, cosine\u2026\". LICENSE file at pin ffc067f25595 detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution. Pinned to head ffc067f25595 (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on axios, browser, cache queries this for how blaze-cache/blaze-cache implements it: Blazingly fast client-side caching library powered by Rust \u2192 WebAssembly (selected work: crates/blaze-cache-core)",
+ "domain": "an agent working on axios, browser, cache queries this for how blaze-cache/blaze-cache implements it: A full-featured client-side caching library for heavy data, offline-first apps, and high-performance browsers \u2014 powered by Rust \u2192 WebAssembl (selected work: crates/blaze-cache-core)",
  "repos": [
   {
    "repo": "blaze-cache",
