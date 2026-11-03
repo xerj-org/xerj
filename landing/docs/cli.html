@@ -484,6 +484,7 @@ OPTIONS:
   <p>Twenty-six clients can register <code class="inline">xerj mcp</code> as a local stdio server. The entry is the absolute path to the binary plus <code class="inline">mcp</code>; only the file it lives in and the key wrapping it differ. One row has been run end to end (OpenCode 2.1.2 on Windows against <code class="inline">xerj</code> v1.0.0-rc.97, which answered <code class="inline">initialize</code> and <code class="inline">tools/list</code> with its full tool list); the rest are transcribed from each client's own documentation and are not marked as tested.</p>
 
   <pre class="code">OpenCode                 | opencode.json (project) or ~/.config/opencode/opencode.json | mcp.servers       [tested]
+Herdr (XERJ plugin)      | herdr-plugin.toml: worktree.created + pane action          | plugin manifest     [tested]
 Claude Code              | .mcp.json (project) or ~/.claude.json (user)                | mcpServers
 Cursor                   | .cursor/mcp.json (project) or ~/.cursor/mcp.json            | mcpServers
 Codex                    | ~/.codex/config.toml or .codex/config.toml (trusted)        | [mcp_servers.xerj]
