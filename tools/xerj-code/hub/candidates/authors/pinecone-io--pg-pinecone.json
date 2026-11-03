@@ -1,0 +1,23 @@
+{
+ "corpus": "pinecone-io--pg-pinecone",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on pgrx, pgvector, pinecone queries this for how pinecone-io/pg_pinecone implements it: Pinecone for Postgres: one pgvector column, three engines (selected work: bench)",
+ "repos": [
+  {
+   "repo": "pg_pinecone",
+   "url": "https://github.com/pinecone-io/pg_pinecone",
+   "sha": "fb4d21786faf420f7ce133c8b13873efba130dd2",
+   "licence": "Apache-2.0 (LICENSE file at pin fb4d21786faf, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T23:09Z",
+    "consent_receipt": "d0ed92d69c73",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T23:09Z (receipt d0ed92d69c73); selected commit fb4d21786faf: \"bench/vector: Cohere wikipedia-22-12 dataset conversion and residual-\u2026\". LICENSE file at pin fb4d21786faf detected as Apache-2.0 by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

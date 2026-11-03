@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on HTML queries this for how Just-Me-Media/FreeLLMAPI-Roundtable implements it: A shared group chat for the models behind your FreeLLMAPI: set the lineup and answer order once, and every model sees the whole thread (selected work: the project root, src-tauri)",
+ "domain": "an agent working on HTML queries this for how Just-Me-Media/FreeLLMAPI-Roundtable implements it: no more side by side , no more flipping models or screens , FreeLLMAPI Roundtable brings as many local models , FreeLLMAPI models or your cl (selected work: the project root, src-tauri)",
  "repos": [
   {
    "repo": "FreeLLMAPI-Roundtable",

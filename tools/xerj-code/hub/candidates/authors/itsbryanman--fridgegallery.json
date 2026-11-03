@@ -1,0 +1,23 @@
+{
+ "corpus": "itsbryanman--fridgegallery",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how itsbryanman/FridgeGallery implements it: itsbryanman/FridgeGallery (Python) (selected work: fridge, the project root)",
+ "repos": [
+  {
+   "repo": "FridgeGallery",
+   "url": "https://github.com/itsbryanman/FridgeGallery",
+   "sha": "c606e468e2cb01c30acc9a9ec69854eee1bcfcc4",
+   "licence": "MIT (LICENSE file at pin c606e468e2cb, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T22:37Z",
+    "consent_receipt": "37c40fac7172",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T22:37Z (receipt 37c40fac7172); selected commit c606e468e2cb: \"Redesign gallery and book editor\". LICENSE file at pin c606e468e2cb detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

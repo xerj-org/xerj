@@ -2,8 +2,8 @@
  "corpus": "ianclrs--ciclo",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on C# queries this for how Ianclrs/Ciclo implements it: Ianclrs/Ciclo (C#) (selected work: tests, src/Ciclo.Infrastructure, frontend)",
+ "shelf": "WEB",
+ "domain": "an agent working on C# queries this for how Ianclrs/Ciclo implements it: O Ciclo centraliza e automatiza o ciclo de vida acad\u00eamico dos alunos: matr\u00edculas, rematr\u00edculas, documentos obrigat\u00f3rios, notifica\u00e7\u00f5es e acom (selected work: tests, src/Ciclo.Infrastructure, frontend)",
  "repos": [
   {
    "repo": "Ciclo",

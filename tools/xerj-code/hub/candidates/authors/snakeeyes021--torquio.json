@@ -1,0 +1,30 @@
+{
+ "corpus": "snakeeyes021--torquio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how snakeeyes021/torquio implements it: A unified installation framework for Dorico on Linux (selected work: lib/torquio, the project root, scripts)",
+ "repos": [
+  {
+   "repo": "torquio",
+   "url": "https://github.com/snakeeyes021/torquio",
+   "sha": "ea8c66f06a4e0c426f430e4155ee1a482f465152",
+   "licence": "GPL-3.0 (LICENSE file at pin ea8c66f06a4e, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-02T23:42Z",
+    "consent_receipt": "7db40d50137c",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T23:42Z (receipt 7db40d50137c); selected commit ea8c66f06a4e: \"refactor: torquio becomes a small Python entry point (stage 7)\". LICENSE file at pin ea8c66f06a4e detected as GPL-3.0 by the GitHub licence API on 2026-11-03; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "ea8c66f06a4e0c426f430e4155ee1a482f465152",
+     "at": "2026-11-02T23:42Z",
+     "receipt": "7db40d50137c"
+    }
+   }
+  }
+ ]
+}

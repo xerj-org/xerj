@@ -8,15 +8,15 @@
   {
    "repo": "akshaydongare.com",
    "url": "https://github.com/Akshay-Dongare/akshaydongare.com",
-   "sha": "ac873e672da1400cb3c735e748b075d194fa4a0a",
-   "licence": "MIT (LICENSE file at pin ac873e672da1, GitHub licence API 2026-11-02)",
+   "sha": "4ec32b4cab7aababb7175cb2772363220f9784fd",
+   "licence": "MIT (LICENSE file at pin 4ec32b4cab7a, GitHub licence API 2026-11-03)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T22:55Z",
     "consent_receipt": "048c4087088b",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:55Z (receipt 048c4087088b); pinned to the default-branch head. LICENSE file at pin ac873e672da1 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:55Z (receipt 048c4087088b); pinned to the default-branch head. LICENSE file at pin 4ec32b4cab7a detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
    }
   }
  ]
