@@ -6017,6 +6017,119 @@ fn collect_named_query_scores(
     }
 }
 
+/// The mapped `type` of `field` in one index's mapping, following object
+/// `properties` and multi-field `fields` (`name.raw`). `None` when the field
+/// is not mapped there.
+fn mapped_field_type(mapping: &Value, field: &str) -> Option<String> {
+    fn walk(props: &serde_json::Map<String, Value>, segs: &[&str]) -> Option<String> {
+        // A literal dotted key (`"a.b": {...}`) wins, as it does in ES.
+        for split in (1..=segs.len()).rev() {
+            let key = segs[..split].join(".");
+            let Some(node) = props.get(&key) else {
+                continue;
+            };
+            let rest = &segs[split..];
+            if rest.is_empty() {
+                return Some(
+                    node.get("type")
+                        .and_then(Value::as_str)
+                        .unwrap_or("object")
+                        .to_string(),
+                );
+            }
+            for child in ["properties", "fields"] {
+                if let Some(found) = node
+                    .get(child)
+                    .and_then(Value::as_object)
+                    .and_then(|p| walk(p, rest))
+                {
+                    return Some(found);
+                }
+            }
+        }
+        None
+    }
+    let props = mapping
+        .pointer("/mappings/properties")
+        .or_else(|| mapping.pointer("/properties"))
+        .and_then(Value::as_object)?;
+    let segs: Vec<&str> = field.split('.').collect();
+    walk(props, &segs)
+}
+
+/// A numeric metric aggregation (`avg`, `sum`, `min`, `max`, `stats`,
+/// `extended_stats`) on a field whose mapped type has no numeric values
+/// source. ES rejects these on every shard with `Field [f] of type [t] is
+/// not supported for aggregation [avg]` (`ValuesSourceRegistry#getAggregator`)
+/// and, when every shard fails, answers 400. XERJ answered 200 with a null
+/// value, so a typo'd field looked like an empty index.
+///
+/// Only types ES never accepts for these aggregations are listed; a field that
+/// is unmapped, numeric, `date` or `boolean` in at least one target index is
+/// left alone, since ES would answer 200 (or a partial-shard 200) there.
+fn find_unsupported_metric_agg_field(
+    aggs: Option<&Value>,
+    state: &AppState,
+    indices: &[String],
+) -> Option<String> {
+    const NUMERIC_METRICS: &[&str] = &["avg", "sum", "min", "max", "stats", "extended_stats"];
+    const NON_NUMERIC_TYPES: &[&str] = &[
+        "keyword",
+        "constant_keyword",
+        "wildcard",
+        "ip",
+        "geo_point",
+        "version",
+    ];
+    fn walk(aggs: &serde_json::Map<String, Value>, mappings: &[Value]) -> Option<String> {
+        for def in aggs.values() {
+            let Some(obj) = def.as_object() else {
+                continue;
+            };
+            for (kind, params) in obj {
+                let field = params.get("field").and_then(Value::as_str);
+                if let Some(field) = field.filter(|_| NUMERIC_METRICS.contains(&kind.as_str())) {
+                    let types: Vec<Option<String>> = mappings
+                        .iter()
+                        .map(|m| mapped_field_type(m, field))
+                        .collect();
+                    let rejected = |t: &Option<String>| {
+                        t.as_deref().is_some_and(|t| NON_NUMERIC_TYPES.contains(&t))
+                    };
+                    if !types.is_empty() && types.iter().all(rejected) {
+                        let ty = types[0].as_deref().unwrap_or_default();
+                        return Some(format!(
+                            "Field [{field}] of type [{ty}] is not supported for \
+                             aggregation [{kind}]"
+                        ));
+                    }
+                }
+            }
+            if let Some(found) = obj
+                .get("aggs")
+                .or_else(|| obj.get("aggregations"))
+                .and_then(Value::as_object)
+                .and_then(|sub| walk(sub, mappings))
+            {
+                return Some(found);
+            }
+        }
+        None
+    }
+    let aggs = aggs?.as_object()?;
+    let mappings: Vec<Value> = indices
+        .iter()
+        .map(|ix| {
+            state
+                .engine
+                .index_mappings
+                .get(ix.as_str())
+                .map(|m| m.clone())
+        })
+        .collect::<Option<_>>()?;
+    walk(aggs, &mappings)
+}
+
 /// For each `{"exists": {"field": X}}` clause, check whether `X` is queryable
 /// in *any* of the participating indices. A field is unqueryable if the
 /// mapping declares `index: false` AND `doc_values: false` (or the field
@@ -15645,6 +15758,15 @@ async fn search_impl(
         // and per-index search dispatch rewrites `collapse.field` only
         // when the current index actually defines the alias (further
         // below — see `per_index_collapse_rewrite`).
+    }
+
+    // A numeric metric on a keyword/ip/... field. Checked after the alias
+    // rewrite above so an alias is judged by the type of the field it names.
+    let metric_aggs = body.aggs.as_ref().or(body.aggregations.as_ref());
+    if let Some(reason) =
+        find_unsupported_metric_agg_field(metric_aggs, &state, &participating_indices)
+    {
+        return search_shard_validation_error(&reason);
     }
 
     // Enforce per-index `index.disable_sequence_numbers` setting:
