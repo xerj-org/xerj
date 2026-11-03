@@ -13941,6 +13941,10 @@ async fn search_impl(
     // per-index window checks (`find_index_request_limit_violation`) need it.
     let requested_from = body.from;
     if is_scroll_request {
+        let errors = scroll_request_validation_errors(&body, &params);
+        if !errors.is_empty() {
+            return action_request_validation_error(&errors);
+        }
         // RC4 blocker 11: enforce the open-scroll cap BEFORE running the
         // search — each context pins a fully-hydrated Vec<Hit>, so an
         // uncapped open loop is an unauthenticated memory DoS. Expired
@@ -26901,6 +26905,50 @@ fn index_int_setting(state: &AppState, ix: &str, key: &str) -> Option<u64> {
         .and_then(as_int)
         .or_else(|| s.get("index").and_then(|i| i.get(&dotted)).and_then(as_int))
         .or_else(|| s.get(&dotted).and_then(as_int))
+}
+
+/// What `SearchRequest#validate` refuses for a scroll search, in its order and
+/// with its messages. ES answers these with one 400
+/// `action_request_validation_exception` before any shard runs. XERJ ran the
+/// search instead: `size: 0` opened a context that could never page,
+/// `request_cache` was ignored, and `from` and `search_after` were overwritten
+/// by the scroll snapshot, so their pages silently differed from what the
+/// request asked for.
+///
+/// Two ES rejections are deliberately not mirrored. `track_total_hits: false`:
+/// XERJ forces exact totals for every scroll (see the snapshot setup in
+/// `search_impl`). `collapse`: XERJ supports collapsed scrolls and renders
+/// their continuation pages (#621-#624), where ES rejects the request.
+fn scroll_request_validation_errors(
+    body: &EsSearchBody,
+    params: &EsSearchQueryParams,
+) -> Vec<String> {
+    let mut errors = Vec::new();
+    if body.from > 0 {
+        errors.push("using [from] is not allowed in a scroll context".to_string());
+    }
+    if body.size == 0 {
+        errors.push("[size] cannot be [0] in a scroll context".to_string());
+    }
+    let has_rescore = match body.rescore.as_ref() {
+        Some(Value::Array(items)) => !items.is_empty(),
+        Some(Value::Object(_)) => true,
+        _ => false,
+    };
+    if has_rescore {
+        errors.push("using [rescore] is not allowed in a scroll context".to_string());
+    }
+    if body
+        .search_after
+        .as_ref()
+        .is_some_and(|v| v.as_array().is_some_and(|a| !a.is_empty()))
+    {
+        errors.push("[search_after] cannot be used in a scroll context".to_string());
+    }
+    if params.request_cache.as_deref() == Some("true") {
+        errors.push("[request_cache] cannot be used in a scroll context".to_string());
+    }
+    errors
 }
 
 /// The per-index request limits Elasticsearch checks before running a search,
@@ -43058,10 +43106,11 @@ const API_KEY_OWNER_REALM: &str = "native";
 const API_KEY_REALM: &str = "_es_api_key";
 
 /// 400 in ES's `action_request_validation_exception` shape — what ES's REST
-/// layer answers when `InvalidateApiKeyRequest#validate` rejects a request.
+/// layer answers when an `ActionRequest#validate` (e.g.
+/// `InvalidateApiKeyRequest`, `SearchRequest`) rejects a request.
 /// `errors` are joined as `Validation Failed: 1: a;2: b;`, matching
 /// `ActionRequestValidationException`'s message format.
-fn api_key_validation_error(errors: &[String]) -> Response {
+fn action_request_validation_error(errors: &[String]) -> Response {
     let numbered: String = errors
         .iter()
         .enumerate()
@@ -43347,7 +43396,7 @@ pub async fn security_invalidate_api_key(
         errors.push("only one of [api key id(s), api key name] can be specified".to_string());
     }
     if !errors.is_empty() {
-        return api_key_validation_error(&errors);
+        return action_request_validation_error(&errors);
     }
 
     // ── Resolve the selector to concrete key ids ──

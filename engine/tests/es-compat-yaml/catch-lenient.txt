@@ -51,8 +51,6 @@ aggregations/weighted_avg.yml · Multi weight field not allowed
 bulk/10_basic.yml · empty action
 bulk/60_deprecated.yml · Deprecated parameters should fail in Bulk query
 indices/indices.put_template/10_basic.yml · Put template create
-scroll/10_basic.yml · Scroll cannot used the request cache
-scroll/10_basic.yml · Scroll with size 0
 scroll/11_clear.yml · Body params with array param override query string
 scroll/11_clear.yml · Body params with string param scroll id override query string
 scroll/11_clear.yml · Clear scroll
