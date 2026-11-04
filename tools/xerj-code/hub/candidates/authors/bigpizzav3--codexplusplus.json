@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Rust queries this for how BigPizzaV3/CodexPlusPlus implements it: An enhanced tool for CodexApp, striving to make Codex better to use and more comfortable \u4e00\u4e2aCodexApp\u7684\u589e\u5f3a\u5de5\u5177\uff0c\u52aa\u529b\u8ba9Codex\u548c\u5176\u4ed6 AI Agent\u53d8\u5f97\u66f4\u597d\u7528\u66f4\u8212\u670d (selected work: crates/codex-plus-core, apps/codex-plus-manager)",
+ "domain": "an agent working on code queries this for how BigPizzaV3/CodexPlusPlus implements it: An enhanced tool for CodexApp, striving to make Codex better to use and more comfortable \u4e00\u4e2aCodexApp\u7684\u589e\u5f3a\u5de5\u5177\uff0c\u52aa\u529b\u8ba9Codex\u548c\u5176\u4ed6 AI Agent\u53d8\u5f97\u66f4\u597d\u7528\u66f4\u8212\u670d (selected work: crates/codex-plus-core, apps/codex-plus-manager)",
  "repos": [
   {
    "repo": "CodexPlusPlus",

@@ -1,0 +1,30 @@
+{
+ "corpus": "fthux--tick-rest-macos",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on breakout, macos, reminder queries this for how fthux/tick-rest-macos implements it: :computer: Yet another break time reminder app. Take regular breaks from your computer to rest your eyes, relax, and walk around. Native exp (selected work: Tests, Sources)",
+ "repos": [
+  {
+   "repo": "tick-rest-macos",
+   "url": "https://github.com/fthux/tick-rest-macos",
+   "sha": "a133a90f12288ce63d658e4797d12ac510bb1caa",
+   "licence": "AGPL-3.0 (LICENSE file at pin a133a90f1228, GitHub licence API 2026-11-04)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-04T09:06Z",
+    "consent_receipt": "a9031cdda826",
+    "note": "Inclusion consented by the commit author by email at 2026-11-04T09:06Z (receipt a9031cdda826); selected commit a133a90f1228: \"fix app updates\". LICENSE file at pin a133a90f1228 detected as AGPL-3.0 by the GitHub licence API on 2026-11-04; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "a133a90f12288ce63d658e4797d12ac510bb1caa",
+     "at": "2026-11-04T09:06Z",
+     "receipt": "a9031cdda826"
+    }
+   }
+  }
+ ]
+}

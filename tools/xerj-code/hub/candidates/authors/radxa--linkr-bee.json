@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Rust queries this for how radxa/linkr-bee implements it: radxa/linkr-bee (Rust) (selected work: web, tools)",
+ "domain": "an agent working on JavaScript queries this for how radxa/linkr-bee implements it: radxa/linkr-bee (JavaScript) (selected work: web, tools)",
  "repos": [
   {
    "repo": "linkr-bee",

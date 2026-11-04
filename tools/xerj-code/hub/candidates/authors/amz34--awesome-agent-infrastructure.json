@@ -8,15 +8,15 @@
   {
    "repo": "awesome-agent-infrastructure",
    "url": "https://github.com/Amz34/awesome-agent-infrastructure",
-   "sha": "720ff566e83c4ce3faa703a3927baa7c9061debf",
-   "licence": "MIT (LICENSE file at pin 720ff566e83c, GitHub licence API 2026-11-03)",
+   "sha": "0a68b2e74c3b3c010766e8e021ff8f14eee26ad6",
+   "licence": "MIT (LICENSE file at pin 0a68b2e74c3b, GitHub licence API 2026-11-04)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T10:21Z",
     "consent_receipt": "fa9b0543327d",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T10:21Z (receipt fa9b0543327d); pinned to the default-branch head. LICENSE file at pin 720ff566e83c detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T10:21Z (receipt fa9b0543327d); pinned to the default-branch head. LICENSE file at pin 0a68b2e74c3b detected as MIT by the GitHub licence API on 2026-11-04; used under that licence with attribution."
    }
   }
  ]

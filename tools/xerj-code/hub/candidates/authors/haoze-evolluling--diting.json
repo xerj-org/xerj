@@ -1,0 +1,30 @@
+{
+ "corpus": "haoze-evolluling--diting",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Dart queries this for how haoze-evolluling/DITING implements it: haoze-evolluling/DITING (Dart) (selected work: DITING-Flutter)",
+ "repos": [
+  {
+   "repo": "DITING",
+   "url": "https://github.com/haoze-evolluling/DITING",
+   "sha": "ddf97626c5705f13f2130ae23edc57efa4e33b9e",
+   "licence": "GPL-3.0 (LICENSE file at pin ddf97626c570, GitHub licence API 2026-11-04)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-04T09:03Z",
+    "consent_receipt": "605a5ab308dd",
+    "note": "Inclusion consented by the commit author by email at 2026-11-04T09:03Z (receipt 605a5ab308dd); selected commit ddf97626c570: \"feat(desktop): \u8865\u9f50\u7cfb\u7edf\u6258\u76d8\u5e76\u6539\u7528\u54c1\u724c\u56fe\u6807\". LICENSE file at pin ddf97626c570 detected as GPL-3.0 by the GitHub licence API on 2026-11-04; used under that licence with attribution. Pinned to head ddf97626c570 (contains the selected commit): the LICENSE at the selected commit was NONE.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "21a1de5da516be5d182be786b08142b1c3934624",
+     "at": "2026-11-04T09:03Z",
+     "receipt": "605a5ab308dd"
+    }
+   }
+  }
+ ]
+}
