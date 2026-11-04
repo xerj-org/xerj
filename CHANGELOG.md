@@ -369,6 +369,15 @@ all 2,387 evaluation items. Without the flag a node is the node rc.100 was: no
   the check cannot read with confidence (JSON ES's own parser rejects, an
   escaped key, a byte order mark) stops the check there, and the rest of the
   body is answered as before.
+
+- `_reindex` accepts `source.index` as a string or array, splits comma lists,
+  and expands wildcards over concrete indices. An exact alias keeps its
+  per-member filter, duplicate selectors copy a document once (keeping the
+  alias filter when both forms name the same index), and a source containing
+  the destination is refused before any copy. A wildcard matching nothing is a
+  404. Previously an array was rejected at deserialization and comma/wildcard
+  names were looked up as literal indices.
+
 - Data-stream `_rollover` honours `dry_run` and its `conditions` instead of
   ignoring the body: `max_docs`/`max_age` are ORed and reported in
   `conditions`, and a dry run or an unmet condition creates no backing index.

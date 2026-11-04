@@ -29319,7 +29319,11 @@ pub struct ReindexParams {
 
 #[derive(Debug, Deserialize)]
 pub struct ReindexSource {
-    pub index: String,
+    /// An index, alias, comma list, or array of those. ES accepts both a
+    /// string and a string array; the old `String` field rejected an array at
+    /// deserialization and treated a comma list/wildcard as one literal name.
+    #[serde(deserialize_with = "deserialize_reindex_sources")]
+    pub index: Vec<String>,
     #[serde(default)]
     pub query: Option<Value>,
     /// `source._source`: field filtering for the documents copied into the
@@ -29339,6 +29343,40 @@ pub struct ReindexSource {
 
 fn reindex_default_size() -> usize {
     1000
+}
+
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum ReindexIndexValue {
+    One(String),
+    Many(Vec<String>),
+}
+
+fn deserialize_reindex_sources<'de, D>(
+    deserializer: D,
+) -> std::result::Result<Vec<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let raw = match ReindexIndexValue::deserialize(deserializer)? {
+        ReindexIndexValue::One(value) => vec![value],
+        ReindexIndexValue::Many(values) => values,
+    };
+    let mut selectors = Vec::new();
+    for value in raw {
+        for part in value.split(',') {
+            let part = part.trim();
+            if !part.is_empty() {
+                selectors.push(part.to_string());
+            }
+        }
+    }
+    if selectors.is_empty() {
+        return Err(<D::Error as serde::de::Error>::custom(
+            "source.index must name at least one index",
+        ));
+    }
+    Ok(selectors)
 }
 
 #[derive(Debug, Deserialize)]
@@ -29374,6 +29412,62 @@ fn alias_filter_for(state: &AppState, backing: &str, alias: &str) -> Option<Valu
                 .filter(|filter| !filter.is_null())
                 .cloned()
         })
+}
+
+/// Resolve every `source.index` selector into concrete members. An exact
+/// alias carries its alias name so the per-member alias filter can be applied;
+/// wildcard and `_all` selectors expand concrete non-hidden indices only.
+async fn resolve_reindex_sources(
+    state: &AppState,
+    selectors: &[String],
+) -> std::result::Result<Vec<(String, Option<String>)>, xerj_common::XerjError> {
+    let mut resolved: Vec<(String, Option<String>)> = Vec::new();
+    for selector in selectors {
+        if let Some(members) = state.engine.aliases.get(selector) {
+            if members.is_empty() {
+                return Err(xerj_common::XerjError::index_not_found(selector));
+            }
+            for member in members.iter() {
+                resolved.push((member.clone(), Some(selector.clone())));
+            }
+            continue;
+        }
+        if selector == "_all" || selector.contains('*') {
+            let names = resolve_index_selector(state, selector).await;
+            let allows_hidden = selector.starts_with('.');
+            let mut matched = 0usize;
+            for name in names {
+                if name.starts_with('.') && !allows_hidden {
+                    continue;
+                }
+                matched += 1;
+                resolved.push((name, None));
+            }
+            if matched == 0 {
+                return Err(xerj_common::XerjError::index_not_found(selector));
+            }
+            continue;
+        }
+        resolved.push((selector.clone(), None));
+    }
+    // The same concrete index can be named directly and through an alias.
+    // Copy it once, but keep the alias identity when one exists: its filter is
+    // part of the source view and dropping it would expose documents the
+    // caller's alias excludes.
+    let mut deduped: Vec<(String, Option<String>)> = Vec::new();
+    for (name, alias) in resolved {
+        if let Some(existing) = deduped.iter_mut().find(|(seen, _)| seen == &name) {
+            if existing.1.is_none() && alias.is_some() {
+                existing.1 = alias;
+            }
+        } else {
+            deduped.push((name, alias));
+        }
+    }
+    if deduped.is_empty() {
+        return Err(xerj_common::XerjError::index_not_found(selectors.join(",")));
+    }
+    Ok(deduped)
 }
 
 /// The ES `_reindex` summary shared by the success and version-conflict-abort
@@ -29526,7 +29620,8 @@ pub async fn reindex(
         }
     };
 
-    let source_name = &body.source.index;
+    let source_selectors = &body.source.index;
+    let source_display = source_selectors.join(",");
     // The destination may be an alias. ES routes a write through an alias to
     // its single write index and rejects an ambiguous alias;
     // `get_or_create_index` resolves an alias to its FIRST member, so the old
@@ -29573,15 +29668,21 @@ pub async fn reindex(
         }
     };
 
-    // `source.index` may be an index or alias. For an alias ES
-    // searches EVERY backing index and applies each member's alias filter;
-    // `get_index` resolves an alias to its first member only, so the old path
-    // silently copied a fraction of the alias and ignored its filters.
-    let source_members = state.engine.resolve_alias(source_name);
+    // `source.index` may be one name, a comma list, an array, an alias, or a
+    // wildcard. Resolve every selector to concrete members up front; an exact
+    // alias keeps its name so each member's alias filter can be applied.
+    let resolved_sources = match resolve_reindex_sources(&state, source_selectors).await {
+        Ok(sources) => sources,
+        Err(e) => return ApiError::new(e).into_response(),
+    };
 
-    // Compare concrete identities: aliases must not hide a self-copy, which
-    // can rewrite source documents or copy earlier members into later ones.
-    if source_members.contains(&dest_name) {
+    // Compare concrete identities: aliases and wildcards must not hide a
+    // self-copy, which can rewrite source documents or copy earlier members
+    // into later ones.
+    if resolved_sources
+        .iter()
+        .any(|(source, _)| source == &dest_name)
+    {
         let reason = format!("reindex cannot read and write the same index [{dest_name}]");
         return (
             StatusCode::BAD_REQUEST,
@@ -29606,8 +29707,8 @@ pub async fn reindex(
                                                   // on a pathologically large source, well above any realistic reindex.
     let max_total = 10_000_000usize;
 
-    let mut prepared_sources = Vec::with_capacity(source_members.len());
-    for source_member in &source_members {
+    let mut prepared_sources = Vec::with_capacity(resolved_sources.len());
+    for (source_member, source_alias) in &resolved_sources {
         let source_idx = match state.engine.get_index(source_member) {
             Ok(i) => i,
             Err(e) => return ApiError::new(xerj_common::XerjError::from(e)).into_response(),
@@ -29615,15 +29716,19 @@ pub async fn reindex(
 
         // An alias filter is part of the source view. It is stored per
         // (backing index, alias), so a multi-index alias can filter each
-        // member differently; a concrete source has no entry. AND the filter
-        // with the caller's query (`must` + `filter`) so neither is ignored.
-        let effective_query = match alias_filter_for(&state, source_member, source_name) {
-            Some(filter) => json!({
-                "bool": {
-                    "must": [query_val.clone()],
-                    "filter": [filter],
-                }
-            }),
+        // member differently; a wildcard or concrete source has no entry. AND
+        // the filter with the caller's query (`must` + `filter`) so neither is
+        // ignored.
+        let effective_query = match source_alias.as_deref() {
+            Some(alias) => match alias_filter_for(&state, source_member, alias) {
+                Some(filter) => json!({
+                    "bool": {
+                        "must": [query_val.clone()],
+                        "filter": [filter],
+                    }
+                }),
+                None => query_val.clone(),
+            },
             None => query_val.clone(),
         };
 
@@ -29642,7 +29747,7 @@ pub async fn reindex(
             Ok(r) => r,
             Err(e) => return ApiError::new(e).into_response(),
         };
-        prepared_sources.push((source_member, source_idx, search_req));
+        prepared_sources.push((source_member.clone(), source_idx, search_req));
     }
 
     // Every member must be pageable before the first destination write. A
@@ -29651,7 +29756,7 @@ pub async fn reindex(
     for (source_member, source_idx, _) in &prepared_sources {
         if let Err(e) = source_idx.flush().await {
             return ApiError::new(xerj_common::XerjError::internal(format!(
-                "reindex from [{source_name}] into [{dest_name}] was not attempted: flushing \
+                "reindex from [{source_display}] into [{dest_name}] was not attempted: flushing \
                  source member [{source_member}] failed ({e}); destination documents were \
                  not changed; fix the source storage error and retry"
             )))
@@ -51677,7 +51782,7 @@ mod reindex_keyset_tests {
         // crossing the 10k window that a from-offset pager cannot).
         let body = ReindexBody {
             source: ReindexSource {
-                index: "src".into(),
+                index: vec!["src".into()],
                 query: None,
                 _source: None,
                 size: 1000,
