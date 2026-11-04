@@ -44324,6 +44324,192 @@ async fn keep_alive_over_cluster_limit(
     })
 }
 
+#[cfg(test)]
+mod max_keep_alive_tests {
+    use super::*;
+    use axum::{body::Body, http::Request};
+    use tower::ServiceExt;
+    use xerj_common::{
+        config::{Config, WalSync},
+        metrics::Metrics,
+    };
+    use xerj_engine::Engine;
+
+    fn test_state() -> AppState {
+        let dir = tempfile::tempdir().expect("tempdir").keep();
+        let mut config = Config::default();
+        config.server.data_dir = dir.to_string_lossy().into_owned();
+        config.storage.wal_sync = WalSync::Async;
+        let metrics = Metrics::new().expect("metrics");
+        let engine = Engine::new(config.clone()).expect("engine");
+        AppState::new(config, engine, metrics)
+    }
+
+    async fn send(app: &axum::Router, method: &str, uri: &str, body: Value) -> (StatusCode, Value) {
+        let resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(method)
+                    .uri(uri)
+                    .header("content-type", "application/json")
+                    .body(Body::from(body.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let status = resp.status();
+        let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        (status, serde_json::from_slice(&bytes).unwrap())
+    }
+
+    async fn app_with_limit(scope: &str, max: &str) -> (AppState, axum::Router) {
+        let state = test_state();
+        let app = crate::router::build_es_compat_router(state.clone());
+        for id in ["1", "2"] {
+            let (status, body) = send(
+                &app,
+                "PUT",
+                &format!("/k/_doc/{id}?refresh=true"),
+                json!({"foo": 1}),
+            )
+            .await;
+            assert!(status.is_success(), "{body}");
+        }
+        let (status, body) = send(
+            &app,
+            "PUT",
+            "/_cluster/settings",
+            json!({ scope: {"search.max_keep_alive": max} }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        (state, app)
+    }
+
+    fn reason(resp: &Value) -> &str {
+        resp["error"]["root_cause"][0]["reason"]
+            .as_str()
+            .unwrap_or_default()
+    }
+
+    const TOO_LARGE_2M: &str = "Keep alive for request (2m) is too large. It must be less than \
+                                (1m). This limit can be set by changing the \
+                                [search.max_keep_alive] cluster level setting.";
+
+    /// FAIL-BEFORE: with `search.max_keep_alive: 1m`, each of these answered
+    /// 200 and opened (or re-armed) a context for the longer keep-alive.
+    #[tokio::test]
+    async fn a_keep_alive_over_the_cluster_limit_is_a_400() {
+        let (state, app) = app_with_limit("persistent", "1m").await;
+
+        let (status, resp) = send(&app, "POST", "/k/_search?scroll=2m", json!({"size": 1})).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{resp}");
+        assert_eq!(reason(&resp), TOO_LARGE_2M);
+        let (status, resp) = send(
+            &app,
+            "POST",
+            "/k/_search_scroll?scroll=2m",
+            json!({"size": 1}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{resp}");
+        assert_eq!(reason(&resp), TOO_LARGE_2M);
+        assert!(
+            state.engine.scrolls.is_empty(),
+            "a refused open leaves no context"
+        );
+
+        // At the limit the scroll opens; a continuation asking for more is
+        // refused, and the context survives it.
+        let (status, resp) = send(&app, "POST", "/k/_search?scroll=1m", json!({"size": 1})).await;
+        assert_eq!(status, StatusCode::OK, "{resp}");
+        let id = resp["_scroll_id"].as_str().expect("scroll id").to_string();
+        let (status, resp) = send(
+            &app,
+            "POST",
+            "/_search/scroll",
+            json!({"scroll": "3m", "scroll_id": id}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{resp}");
+        assert!(
+            reason(&resp).starts_with("Keep alive for request (3m) is too large."),
+            "{resp}"
+        );
+        let (status, resp) = send(
+            &app,
+            "POST",
+            "/_search/scroll",
+            json!({"scroll": "30s", "scroll_id": id}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{resp}");
+
+        let (status, resp) = send(&app, "POST", "/k/_pit?keep_alive=90s", json!({})).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{resp}");
+        assert!(
+            reason(&resp).starts_with("Keep alive for request (1.5m) is too large."),
+            "{resp}"
+        );
+    }
+
+    /// Transient wins over persistent, as in ES; removing the limit restores
+    /// the node's default behaviour.
+    #[tokio::test]
+    async fn the_effective_limit_follows_the_cluster_settings() {
+        let (_state, app) = app_with_limit("persistent", "1m").await;
+        let (status, body) = send(
+            &app,
+            "PUT",
+            "/_cluster/settings",
+            json!({"transient": {"search.max_keep_alive": "10m"}}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        let (status, resp) = send(&app, "POST", "/k/_search?scroll=5m", json!({"size": 1})).await;
+        assert_eq!(status, StatusCode::OK, "transient 10m must win: {resp}");
+
+        let clear = json!({"persistent": {"search.max_keep_alive": null},
+                           "transient": {"search.max_keep_alive": null}});
+        let (status, body) = send(&app, "PUT", "/_cluster/settings", clear).await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        let (status, resp) = send(&app, "POST", "/k/_search?scroll=2h", json!({"size": 1})).await;
+        assert_eq!(status, StatusCode::OK, "{resp}");
+        let (status, resp) = send(&app, "POST", "/k/_pit?keep_alive=2h", json!({})).await;
+        assert_eq!(status, StatusCode::OK, "{resp}");
+    }
+
+    #[test]
+    fn time_values_parse_and_print_like_es() {
+        for (raw, ms) in [
+            ("500ms", Some(500)),
+            ("30s", Some(30_000)),
+            ("1m", Some(60_000)),
+            ("2h", Some(7_200_000)),
+            ("1d", Some(86_400_000)),
+            ("1500000micros", Some(1_500)),
+            ("60", None),
+            ("abc", None),
+        ] {
+            assert_eq!(parse_time_value_millis(raw), ms, "{raw}");
+        }
+        for (ms, printed) in [
+            (0, "0s"),
+            (500, "500ms"),
+            (1_500, "1.5s"),
+            (60_000, "1m"),
+            (90_000, "1.5m"),
+            (119_999, "1.9m"),
+            (86_400_000, "1d"),
+        ] {
+            assert_eq!(format_time_value_millis(ms), printed, "{ms}");
+        }
+    }
+}
+
 fn parse_keep_alive_to_secs(s: &str) -> Option<u64> {
     let s = s.trim();
     if s.is_empty() {
