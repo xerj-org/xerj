@@ -59,7 +59,6 @@ search/120_batch_reduce_size.yml · batched_reduce_size lower limit
 search/140_pre_filter_search_shards.yml · pre_filter_shard_size with invalid parameter
 search/150_rewrite_on_coordinator.yml · Ensure that we fetch the document only once
 search/160_exists_query.yml · Test exists query on _source field
-search/170_terms_query.yml · Terms Query with No.of terms exceeding index.max_terms_count should FAIL
 search/220_total_hits_object.yml · hits.total as an object
 search/260_parameter_validation.yml · test negative size throws IAE
 search/260_parameter_validation.yml · test negative terminate_after throws IAE

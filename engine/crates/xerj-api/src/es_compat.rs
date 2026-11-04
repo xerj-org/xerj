@@ -6346,6 +6346,186 @@ fn rewrite_unqueryable_exists(q: &mut Value, state: &AppState, indices: &[String
     walk(q, state, indices);
 }
 
+/// ES's default for `index.max_terms_count` (`IndexSettings.MAX_TERMS_COUNT_SETTING`).
+const DEFAULT_MAX_TERMS_COUNT: u64 = 65_536;
+
+/// The first `terms` query whose value list is longer than
+/// `index.max_terms_count`, with ES's message (`TermsQueryBuilder#doToQuery`).
+///
+/// ES counts the values each `terms` clause carries after a terms lookup has
+/// been fetched, so this runs on the resolved body. The setting is per index
+/// and ES checks it per shard: a request only fails outright when it exceeds
+/// the limit of every target index, so the largest limit among the targets is
+/// the one that decides. XERJ never read the setting, so an index configured
+/// with a small limit accepted any number of terms, and the 65 536 default did
+/// not bound a request either.
+fn find_terms_query_over_limit(
+    roots: &[Option<&Value>],
+    state: &AppState,
+    indices: &[&str],
+) -> Option<String> {
+    fn longest(v: &Value, out: &mut usize) {
+        match v {
+            Value::Object(obj) => {
+                if let Some(Value::Object(terms)) = obj.get("terms") {
+                    for (field, values) in terms {
+                        if matches!(field.as_str(), "boost" | "_name") {
+                            continue;
+                        }
+                        if let Value::Array(values) = values {
+                            *out = (*out).max(values.len());
+                        }
+                    }
+                }
+                for child in obj.values() {
+                    longest(child, out);
+                }
+            }
+            Value::Array(items) => {
+                for item in items {
+                    longest(item, out);
+                }
+            }
+            _ => {}
+        }
+    }
+    let mut count = 0usize;
+    for root in roots.iter().flatten() {
+        longest(root, &mut count);
+    }
+    let limit = indices
+        .iter()
+        .map(|ix| {
+            index_int_setting(state, ix, "max_terms_count").unwrap_or(DEFAULT_MAX_TERMS_COUNT)
+        })
+        .max()?;
+    (count as u64 > limit).then(|| {
+        format!(
+            "The number of terms [{count}] used in the Terms Query request has exceeded the \
+             allowed maximum of [{limit}]. This maximum can be set by changing the \
+             [index.max_terms_count] index level setting."
+        )
+    })
+}
+
+#[cfg(test)]
+mod max_terms_count_tests {
+    use super::*;
+    use axum::{body::Body, http::Request};
+    use tower::ServiceExt;
+    use xerj_common::{
+        config::{Config, WalSync},
+        metrics::Metrics,
+    };
+    use xerj_engine::Engine;
+
+    fn test_state() -> AppState {
+        let dir = tempfile::tempdir().expect("tempdir").keep();
+        let mut config = Config::default();
+        config.server.data_dir = dir.to_string_lossy().into_owned();
+        config.storage.wal_sync = WalSync::Async;
+        let metrics = Metrics::new().expect("metrics");
+        let engine = Engine::new(config.clone()).expect("engine");
+        AppState::new(config, engine, metrics)
+    }
+
+    async fn send(app: &axum::Router, method: &str, uri: &str, body: Value) -> (StatusCode, Value) {
+        let resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(method)
+                    .uri(uri)
+                    .header("content-type", "application/json")
+                    .body(Body::from(body.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let status = resp.status();
+        let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        (status, serde_json::from_slice(&bytes).unwrap())
+    }
+
+    /// `small` allows two terms, `big` keeps the default.
+    async fn app() -> axum::Router {
+        let app = crate::router::build_es_compat_router(test_state());
+        let mappings = json!({"properties": {"user": {"type": "keyword"},
+                                             "followers": {"type": "keyword"}}});
+        let (status, body) = send(
+            &app,
+            "PUT",
+            "/small",
+            json!({"settings": {"index.max_terms_count": 2}, "mappings": mappings}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        let (status, body) = send(&app, "PUT", "/big", json!({ "mappings": mappings })).await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        for (id, followers) in [
+            ("u1", json!(["u2", "u3"])),
+            ("u2", json!(["u1", "u3", "u4"])),
+        ] {
+            let doc = json!({"user": id, "followers": followers});
+            let (status, body) =
+                send(&app, "PUT", &format!("/small/_doc/{id}?refresh=true"), doc).await;
+            assert!(status.is_success(), "{body}");
+        }
+        app
+    }
+
+    fn terms(values: Value) -> Value {
+        json!({"query": {"terms": {"user": values}}})
+    }
+
+    /// FAIL-BEFORE: every request here answered 200; `index.max_terms_count`
+    /// was never read.
+    #[tokio::test]
+    async fn terms_over_the_index_limit_is_a_400() {
+        let app = app().await;
+        let lookup = json!({"index": "small", "id": "u2", "path": "followers"});
+        for body in [
+            terms(json!(["u1", "u2", "u3"])),
+            // The limit applies to the values a lookup fetched (3 followers).
+            terms(lookup),
+            // ... and to a terms query nested in a bool and in a filter agg.
+            json!({"query": {"bool": {"filter": [{"terms": {"user": ["a", "b", "c"]}}]}}}),
+            json!({"size": 0, "aggs": {"f": {"filter": {"terms": {"user": ["a", "b", "c"]}}}}}),
+        ] {
+            let (status, resp) = send(&app, "POST", "/small/_search", body.clone()).await;
+            assert_eq!(status, StatusCode::BAD_REQUEST, "{body} -> {resp}");
+            assert_eq!(
+                resp["error"]["root_cause"][0]["reason"],
+                "The number of terms [3] used in the Terms Query request has exceeded the \
+                 allowed maximum of [2]. This maximum can be set by changing the \
+                 [index.max_terms_count] index level setting.",
+                "{body}"
+            );
+        }
+    }
+
+    /// At the limit, on an index with the default limit, and across a target
+    /// whose limit is higher, the request still answers.
+    #[tokio::test]
+    async fn terms_within_a_target_limit_still_answer() {
+        let app = app().await;
+        let lookup = json!({"index": "small", "id": "u1", "path": "followers"});
+        for (uri, body) in [
+            ("/small/_search", terms(json!(["u1", "u2"]))),
+            ("/small/_search", terms(lookup)),
+            ("/big/_search", terms(json!(["u1", "u2", "u3"]))),
+            ("/small,big/_search", terms(json!(["u1", "u2", "u3"]))),
+        ] {
+            let (status, resp) = send(&app, "POST", uri, body.clone()).await;
+            assert_eq!(status, StatusCode::OK, "{uri} {body} -> {resp}");
+        }
+        let (_, resp) = send(&app, "POST", "/small/_search", terms(json!(["u1", "u2"]))).await;
+        assert_eq!(resp["hits"]["total"]["value"], 2, "{resp}");
+    }
+}
+
 async fn resolve_terms_lookups(q: &mut Value, state: &AppState) {
     // First pass: collect every (index, id, path) triple keyed by the
     // (terms_obj, field) pair we'll mutate after the fetch.
@@ -15125,6 +15305,18 @@ async fn search_impl(
     }
     if let Some(aggs) = body.aggregations.as_mut() {
         resolve_terms_lookups(aggs, &state).await;
+    }
+    // `index.max_terms_count`, counted on the resolved lookups above.
+    if let Some(reason) = find_terms_query_over_limit(
+        &[
+            body.query.as_ref(),
+            body.aggs.as_ref(),
+            body.aggregations.as_ref(),
+        ],
+        &state,
+        &index_names,
+    ) {
+        return search_shard_validation_error(&reason);
     }
     // Rewrite `match` queries that target a keyword field into `term`
     // queries. ES treats `match` on keyword fields as exact (the
