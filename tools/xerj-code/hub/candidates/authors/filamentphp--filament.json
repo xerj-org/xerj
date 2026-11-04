@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on laravel, tailwind-css, alpine-js queries this for how filamentphp/filament implements it: A powerful open-source UI framework for Laravel \u2022 Build and ship apps & admin panels fast with Livewire (selected work: tests, packages/tables)",
+ "domain": "an agent working on laravel, tailwind-css, alpine-js queries this for how filamentphp/filament implements it: An open-source framework for building polished, maintainable business software with Laravel (selected work: tests, packages/tables)",
  "repos": [
   {
    "repo": "filament",

@@ -8,15 +8,15 @@
   {
    "repo": "tmux-worktrees",
    "url": "https://github.com/gbrennon/tmux-worktrees",
-   "sha": "bca5eb418ae5fe31b6402f498eaed22672a3cc90",
-   "licence": "MIT (LICENSE file at pin bca5eb418ae5, GitHub licence API 2026-11-04)",
+   "sha": "5416f63825a432177d2590a81ea430986a730434",
+   "licence": "MIT (LICENSE file at pin 5416f63825a4, GitHub licence API 2026-11-04)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T19:07Z",
     "consent_receipt": "0845d84bef88",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T19:07Z (receipt 0845d84bef88); pinned to the default-branch head. LICENSE file at pin bca5eb418ae5 detected as MIT by the GitHub licence API on 2026-11-04; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T19:07Z (receipt 0845d84bef88); pinned to the default-branch head. LICENSE file at pin 5416f63825a4 detected as MIT by the GitHub licence API on 2026-11-04; used under that licence with attribution."
    }
   }
  ]

@@ -1,0 +1,30 @@
+{
+ "corpus": "remarcus--sketch3d",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how remarcus/sketch3d implements it: Draw beyond the page (selected work: src)",
+ "repos": [
+  {
+   "repo": "sketch3d",
+   "url": "https://github.com/remarcus/sketch3d",
+   "sha": "27b08242b164dc25868457e89e7eee476707cc0e",
+   "licence": "GPL-3.0 (LICENSE file at pin 27b08242b164, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-03T07:02Z",
+    "consent_receipt": "ebb3a30f5f02",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T07:02Z (receipt ebb3a30f5f02); selected commit 27b08242b164: \"Add crosshatch textures and stroke texture mapping controls\". LICENSE file at pin 27b08242b164 detected as GPL-3.0 by the GitHub licence API on 2026-11-03; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "27b08242b164dc25868457e89e7eee476707cc0e",
+     "at": "2026-11-03T07:02Z",
+     "receipt": "ebb3a30f5f02"
+    }
+   }
+  }
+ ]
+}

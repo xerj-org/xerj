@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on claude-code, codex, ghostty queries this for how stablyai/orca implements it: Orca is the place for working with a fleet of agents (e.g. Grok Bot, Claude Code). Run any coding agent with your own subscription. Availabl (selected work: src/cli, src/shared, config)",
+ "domain": "an agent working on claude-code, codex, ghostty queries this for how stablyai/orca implements it: Orca is the place for working with a fleet of coding agents (e.g. Claude Code, Codex). Run any agent with your own subscription. Available o (selected work: src/cli, src/shared, config)",
  "repos": [
   {
    "repo": "orca",
