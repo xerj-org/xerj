@@ -8,15 +8,15 @@
   {
    "repo": "scope-graph",
    "url": "https://github.com/teehihi/scope-graph",
-   "sha": "dc68b2e704f296b5fbd3eab924b85c837e22e1b3",
-   "licence": "MIT (LICENSE file at pin dc68b2e704f2, GitHub licence API 2026-11-04)",
+   "sha": "895440b74cb694756afbda27a9120c6da81eac38",
+   "licence": "MIT (LICENSE file at pin 895440b74cb6, GitHub licence API 2026-11-04)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-03T09:30Z",
     "consent_receipt": "276b434b1c65",
-    "note": "Inclusion consented by the commit author by email at 2026-11-03T09:30Z (receipt 276b434b1c65); selected commit dc68b2e704f2: \"feat(i18n): achieve 100% key parity across all 12 languages, add auto\u2026\". LICENSE file at pin dc68b2e704f2 detected as MIT by the GitHub licence API on 2026-11-04; used under that licence with attribution. Pinned to head dc68b2e704f2 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T09:30Z (receipt 276b434b1c65); selected commit 895440b74cb6: \"feat(i18n): achieve 100% key parity across all 12 languages, add auto\u2026\". LICENSE file at pin 895440b74cb6 detected as MIT by the GitHub licence API on 2026-11-04; used under that licence with attribution. Pinned to head 895440b74cb6 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

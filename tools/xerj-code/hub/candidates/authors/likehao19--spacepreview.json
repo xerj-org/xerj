@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on TypeScript queries this for how likehao19/SpacePreview implements it: likehao19/SpacePreview (TypeScript) (selected work: src/lib, src/components, src-tauri)",
+ "domain": "an agent working on TypeScript queries this for how likehao19/SpacePreview implements it: \u77ac\u89c8 SpacePreview\uff0c\u8f7b\u91cf\u8de8\u5e73\u53f0\u6587\u4ef6\u9884\u89c8\u5de5\u5177\u3002\u5728 Windows/macOS \u4e2d\u9009\u4e2d\u6587\u4ef6\u6309\u7a7a\u683c\u5373\u53ef\u9884\u89c8\u6587\u6863\u3001\u56fe\u7247\u3001\u4ee3\u7801\u3001\u8868\u683c\u548c\u538b\u7f29\u5305\uff0c\u53e6\u63d0\u4f9b Linux \u7248\u672c\u3002 (selected work: src/lib, src/components, src-tauri)",
  "repos": [
   {
    "repo": "SpacePreview",
