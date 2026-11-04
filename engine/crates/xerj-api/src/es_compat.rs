@@ -13963,6 +13963,10 @@ async fn search_impl(
         // below only fills in when the body value is None, so it cannot
         // undo this.
         body.track_total_hits = Some(Value::Bool(true));
+        if let Some(refused) = keep_alive_over_cluster_limit(&state, params.scroll.as_deref()).await
+        {
+            return refused;
+        }
     }
     // `?sort=field:order` → convert to sort array.
     if let Some(ref sort_str) = params.sort {
@@ -27135,6 +27139,10 @@ pub async fn search_with_scroll(
         if state.engine.scrolls.len() >= scroll_cap {
             return too_many_scroll_contexts(scroll_cap);
         }
+        if let Some(refused) = keep_alive_over_cluster_limit(&state, params.scroll.as_deref()).await
+        {
+            return refused;
+        }
     }
 
     // Resolve aliases and expand comma-separated indices.
@@ -27640,6 +27648,16 @@ async fn scroll_page_response(
     // context: ES answers 400 `Cannot parse scroll id`, not a 404 (item 4e).
     if Uuid::parse_str(&scroll_id).is_err() {
         return cannot_parse_scroll_id();
+    }
+    let live = state
+        .engine
+        .scrolls
+        .get(&scroll_id)
+        .is_some_and(|ctx| ctx.expires_at > Instant::now());
+    if live {
+        if let Some(refused) = keep_alive_over_cluster_limit(state, scroll_keep_alive).await {
+            return refused;
+        }
     }
 
     match state.engine.scrolls.get_mut(&scroll_id) {
@@ -43802,6 +43820,10 @@ pub async fn open_pit(
     Query(params): Query<PitQueryParams>,
     body: OptionalJson<Value>,
 ) -> impl IntoResponse {
+    if let Some(refused) = keep_alive_over_cluster_limit(&state, params.keep_alive.as_deref()).await
+    {
+        return refused;
+    }
     let pit_id = Uuid::new_v4().to_string();
     let body_val = body.0.unwrap_or(Value::Null);
     // Resolve keep_alive: parse `?keep_alive=5m` (ES syntax) or fall
@@ -44221,6 +44243,87 @@ fn strip_index_constraints(q: &mut Value, out: &mut Vec<String>) {
 /// Used by `_pit?keep_alive=5m` (and any other endpoint that accepts
 /// the same shape). Sub-second units round up to 1 second so
 /// `keep_alive=500ms` doesn't produce a zero-duration PIT.
+/// A time value in ES's syntax (`500ms`, `30s`, `1m`, `2h`, `1d`, also
+/// `micros`/`nanos`) as milliseconds. `None` for anything else, including a
+/// bare number, which ES refuses for a time setting.
+fn parse_time_value_millis(s: &str) -> Option<u64> {
+    let s = s.trim();
+    let (digits, per_unit_ns): (&str, u128) = [
+        ("nanos", 1u128),
+        ("micros", 1_000),
+        ("ms", 1_000_000),
+        ("s", 1_000_000_000),
+        ("m", 60_000_000_000),
+        ("h", 3_600_000_000_000),
+        ("d", 86_400_000_000_000),
+    ]
+    .iter()
+    .find_map(|(suffix, ns)| s.strip_suffix(suffix).map(|d| (d, *ns)))?;
+    let n: u128 = digits.trim().parse().ok()?;
+    u64::try_from(n.saturating_mul(per_unit_ns) / 1_000_000).ok()
+}
+
+/// Milliseconds the way ES's `TimeValue#toString` prints them: the largest
+/// whole unit, one truncated decimal, a trailing `.0` dropped (`120000` ->
+/// `2m`, `90000` -> `1.5m`).
+fn format_time_value_millis(ms: u64) -> String {
+    if ms == 0 {
+        return "0s".to_string();
+    }
+    let (unit, suffix) = [
+        (86_400_000u64, "d"),
+        (3_600_000, "h"),
+        (60_000, "m"),
+        (1_000, "s"),
+        (1, "ms"),
+    ]
+    .into_iter()
+    .find(|(unit, _)| ms >= *unit)
+    .unwrap_or((1, "ms"));
+    let whole = ms / unit;
+    let tenth = (ms % unit) * 10 / unit;
+    if tenth == 0 {
+        format!("{whole}{suffix}")
+    } else {
+        format!("{whole}.{tenth}{suffix}")
+    }
+}
+
+/// ES's `search.max_keep_alive` check (`SearchService#checkKeepAliveLimit`):
+/// a scroll or point-in-time keep-alive above the cluster setting is refused
+/// with a 400, on open and on every continuation that asks for a new
+/// keep-alive. XERJ stored the setting (`PUT _cluster/settings` round-trips
+/// it) but never read it, so a cluster that lowered the limit still accepted
+/// any keep-alive up to the node's own `search_context` / `pit` cap.
+///
+/// Only an explicitly set limit is enforced here, transient over persistent
+/// as in ES. With none set, the node config's cap keeps applying silently, as
+/// its documentation says; that cap is an operator guard, not ES's setting.
+async fn keep_alive_over_cluster_limit(
+    state: &AppState,
+    requested: Option<&str>,
+) -> Option<Response> {
+    let requested_ms = parse_time_value_millis(requested?)?;
+    let max_ms = {
+        let settings = state.engine.cluster_settings.read().await;
+        ["transient", "persistent"].iter().find_map(|scope| {
+            settings
+                .get(*scope)
+                .and_then(|s| s.get("search.max_keep_alive"))
+                .and_then(Value::as_str)
+                .and_then(parse_time_value_millis)
+        })?
+    };
+    (requested_ms > max_ms).then(|| {
+        search_shard_validation_error(&format!(
+            "Keep alive for request ({}) is too large. It must be less than ({}). This limit can \
+             be set by changing the [search.max_keep_alive] cluster level setting.",
+            format_time_value_millis(requested_ms),
+            format_time_value_millis(max_ms),
+        ))
+    })
+}
+
 fn parse_keep_alive_to_secs(s: &str) -> Option<u64> {
     let s = s.trim();
     if s.is_empty() {
