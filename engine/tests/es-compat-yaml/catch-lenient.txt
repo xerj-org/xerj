@@ -50,7 +50,6 @@ indices/indices.put_template/10_basic.yml · Put template create
 scroll/11_clear.yml · Body params with array param override query string
 scroll/11_clear.yml · Body params with string param scroll id override query string
 scroll/11_clear.yml · Clear scroll
-scroll/20_keep_alive.yml · Max keep alive
 search/110_field_collapsing.yml · field collapsing and scroll
 search/110_field_collapsing.yml · field collapsing and search_after with invalid sort
 search/110_field_collapsing.yml · Test collapse with inner_hits and missing name fails
