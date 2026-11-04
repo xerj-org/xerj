@@ -1,9 +1,9 @@
 {
- "corpus": "parenworks--rhizome",
+ "corpus": "parenworks--rhizome-fork",
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Common Lisp queries this for how parenworks/rhizome implements it: StumpWM-style window manager for the River Wayland compositor, written in Common Lisp (selected work: session)",
+ "domain": "an agent working on Common Lisp queries this for how parenworks/rhizome-fork implements it: StumpWM-style window manager for the River Wayland compositor, written in Common Lisp (selected work: session)",
  "repos": [
   {
    "repo": "rhizome",

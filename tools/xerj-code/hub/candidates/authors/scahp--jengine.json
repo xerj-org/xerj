@@ -1,0 +1,23 @@
+{
+ "corpus": "scahp--jengine",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how scahp/jEngine implements it: Multiple graphics API target (selected work: scripts, jEngine)",
+ "repos": [
+  {
+   "repo": "jEngine",
+   "url": "https://github.com/scahp/jEngine",
+   "sha": "40683ddc085d0a0525e6af82595639b08f9ac85c",
+   "licence": "MIT (LICENSE file at pin 40683ddc085d, GitHub licence API 2026-11-04)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-04T10:50Z",
+    "consent_receipt": "be3360a27283",
+    "note": "Inclusion consented by the commit author by email at 2026-11-04T10:50Z (receipt be3360a27283); selected commit 40683ddc085d: \"Document editor workflows and publish measured verification\". LICENSE file at pin 40683ddc085d detected as MIT by the GitHub licence API on 2026-11-04; used under that licence with attribution."
+   }
+  }
+ ]
+}

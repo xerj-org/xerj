@@ -8,15 +8,15 @@
   {
    "repo": "gravion-ux",
    "url": "https://github.com/gravion-ux/gravion-ux",
-   "sha": "3037760c6436121da414ffd37c73f50730fff188",
-   "licence": "author's permission (LICENSE at pin 3037760c6436: NONE; repository: none)",
+   "sha": "82dfc85d8115f380336b8eb69189acde5c86e25d",
+   "licence": "author's permission (LICENSE at pin 82dfc85d8115: NONE; repository: none)",
    "review": {
     "spdx": "NONE",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-04T08:03Z",
     "consent_receipt": "c3b67f5b1353",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-04T08:03Z (receipt c3b67f5b1353); pinned to the default-branch head. LICENSE at pin 3037760c6436: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-04T08:03Z (receipt c3b67f5b1353); pinned to the default-branch head. LICENSE at pin 82dfc85d8115: NONE (repository: none); used with the author's permission, with attribution."
    }
   }
  ]

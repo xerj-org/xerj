@@ -1,0 +1,23 @@
+{
+ "corpus": "rhodosberger--dusan-game",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how RhodosBerger/dusan-game implements it: heroes",
+ "repos": [
+  {
+   "repo": "dusan-game",
+   "url": "https://github.com/RhodosBerger/dusan-game",
+   "sha": "3f64e5affd1af4e0a0e4ac1628bb46095b167a5a",
+   "licence": "author's permission (LICENSE at pin 3f64e5affd1a: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-04T11:09Z",
+    "consent_receipt": "5393a633cfbf",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-04T11:09Z (receipt 5393a633cfbf); pinned to the default-branch head. LICENSE at pin 3f64e5affd1a: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}
