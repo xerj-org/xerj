@@ -1,0 +1,23 @@
+{
+ "corpus": "webdomain0126--goflow",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on distributed-systems, docker, go queries this for how webdomain0126/goflow implements it: Distributed job processing engine in Go: PostgreSQL queue (SKIP LOCKED), worker pools, retries, Redis rate limiting (selected work: internal/worker, internal/store, internal/api)",
+ "repos": [
+  {
+   "repo": "goflow",
+   "url": "https://github.com/webdomain0126/goflow",
+   "sha": "07124303012edcd3711ed47f6908a2caa6b17a0f",
+   "licence": "MIT (LICENSE file at pin 07124303012e, GitHub licence API 2026-11-04)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-04T16:19Z",
+    "consent_receipt": "9b9671d1bfae",
+    "note": "Inclusion consented by the commit author by email at 2026-11-04T16:19Z (receipt 9b9671d1bfae); selected commit 07124303012e: \"Build GoFlow job engine (M1-M9)\". LICENSE file at pin 07124303012e detected as MIT by the GitHub licence API on 2026-11-04; used under that licence with attribution."
+   }
+  }
+ ]
+}

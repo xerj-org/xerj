@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agent-security, ai-agents, audit-log queries this for how recued/recued implements it: A self-hosted gateway between AI agents and your email, CRM and other accounts. Agents get only the tools you grant, never the keys behind t (selected work: backend, apps/webclient, packages/contracts)",
+ "domain": "an agent working on agent-security, ai-agents, audit-log queries this for how recued/recued implements it: A server you run yourself that sits between AI agents and your accounts. Agents get in over MCP; every action passes one gate, and by defaul (selected work: backend, apps/webclient, packages/contracts)",
  "repos": [
   {
    "repo": "recued",

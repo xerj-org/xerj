@@ -8,15 +8,15 @@
   {
    "repo": "versola-cli",
    "url": "https://github.com/versolauth/versola-cli",
-   "sha": "60fd8867bf179dcf26c81dfce4b6f3285e9f62ff",
-   "licence": "Apache-2.0 (LICENSE file at pin 60fd8867bf17, GitHub licence API 2026-11-03)",
+   "sha": "90f79bfd136a503610776042db468552e2104b4d",
+   "licence": "Apache-2.0 (LICENSE file at pin 90f79bfd136a, GitHub licence API 2026-11-04)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-20T04:55Z",
     "consent_receipt": "58409a456ac2",
-    "note": "Inclusion consented by the commit author by email at 2026-10-20T04:55Z (receipt 58409a456ac2); selected commit 60fd8867bf17: \"Go back from the previous bundle on rollout --abort\". LICENSE file at pin 60fd8867bf17 detected as Apache-2.0 by the GitHub licence API on 2026-11-03; used under that licence with attribution. Pinned to head 60fd8867bf17 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-20T04:55Z (receipt 58409a456ac2); selected commit 90f79bfd136a: \"Go back from the previous bundle on rollout --abort\". LICENSE file at pin 90f79bfd136a detected as Apache-2.0 by the GitHub licence API on 2026-11-04; used under that licence with attribution. Pinned to head 90f79bfd136a (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

@@ -1,0 +1,23 @@
+{
+ "corpus": "imamulkadir--fyltrix",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how imamulkadir/Fyltrix implements it: imamulkadir/Fyltrix (C#) (selected work: tests, src/Fyltrix, src/Fyltrix.Bootstrap)",
+ "repos": [
+  {
+   "repo": "Fyltrix",
+   "url": "https://github.com/imamulkadir/Fyltrix",
+   "sha": "fd0067aebf8dab0bd1b0a118c51254d0c864a0a0",
+   "licence": "MIT (LICENSE file at pin fd0067aebf8d, GitHub licence API 2026-11-04)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-04T17:02Z",
+    "consent_receipt": "ce4188199908",
+    "note": "Inclusion consented by the commit author by email at 2026-11-04T17:02Z (receipt ce4188199908); selected commit fd0067aebf8d: \"unify launcher and application taskbar identity\". LICENSE file at pin fd0067aebf8d detected as MIT by the GitHub licence API on 2026-11-04; used under that licence with attribution."
+   }
+  }
+ ]
+}
