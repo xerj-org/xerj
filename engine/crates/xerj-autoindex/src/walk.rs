@@ -803,6 +803,7 @@ mod hidden_skip_tests {
     /// while `open` on the walk path still succeeds. That asymmetry is what
     /// made `.ok()?` a bypass — the guard was skipped for precisely the entries
     /// it could not vet.
+    #[cfg(unix)]
     #[test]
     fn an_unresolvable_entry_is_refused_not_admitted() {
         use std::ffi::OsStr;
