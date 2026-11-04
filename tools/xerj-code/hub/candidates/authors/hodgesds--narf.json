@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on code queries this for how hodgesds/narf implements it: Not Another Rust Framekernel (selected work: drivers, userspace)",
+ "domain": "an agent working on Rust queries this for how hodgesds/narf implements it: Not Another Rust Framekernel (selected work: drivers, userspace)",
  "repos": [
   {
    "repo": "narf",

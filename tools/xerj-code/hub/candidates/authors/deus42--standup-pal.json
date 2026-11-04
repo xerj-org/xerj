@@ -1,0 +1,23 @@
+{
+ "corpus": "deus42--standup-pal",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on break-reminder, fitness, health queries this for how deus42/standup-pal implements it: A tiny fitness pet in your Mac's menu bar that gets you out of your chair before every hour ends. Native Swift, no dependencies, EN/UK/RU (selected work: Sources, scripts, Resources)",
+ "repos": [
+  {
+   "repo": "standup-pal",
+   "url": "https://github.com/deus42/standup-pal",
+   "sha": "6c09898010d55e8902e95b9d5ceccd4fe834f4b0",
+   "licence": "MIT (LICENSE file at pin 6c09898010d5, GitHub licence API 2026-11-04)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-04T12:42Z",
+    "consent_receipt": "338cf5e1433e",
+    "note": "Inclusion consented by the commit author by email at 2026-11-04T12:42Z (receipt 338cf5e1433e); selected commit 6c09898010d5: \"Read Ukrainian warm-ups with a neural voice (1.7.2, build 11)\". LICENSE file at pin 6c09898010d5 detected as MIT by the GitHub licence API on 2026-11-04; used under that licence with attribution."
+   }
+  }
+ ]
+}

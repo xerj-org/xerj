@@ -2,8 +2,8 @@
  "corpus": "yexca--kikoto",
  "cloned_at": null,
  "status": "draft",
- "shelf": "WEB",
- "domain": "an agent working on TypeScript queries this for how yexca/kikoto implements it: A local personal DLsite audio library, source browser, and player (selected work: frontend)",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how yexca/kikoto implements it: Your Doujin voice works, in one library. A local personal DLsite voice works library, and player (selected work: frontend)",
  "repos": [
   {
    "repo": "kikoto",

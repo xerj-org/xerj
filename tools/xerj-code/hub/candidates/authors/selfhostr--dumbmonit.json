@@ -1,9 +1,9 @@
 {
- "corpus": "laupernoe--dumbmonit",
+ "corpus": "selfhostr--dumbmonit",
  "cloned_at": null,
  "status": "draft",
  "shelf": "OPS",
- "domain": "an agent working on docker, homelab, mcp queries this for how laupernoe/dumbmonit implements it: Dumb-simple self-hosted monitoring in one container: 100+ integrations, network discovery, agents for Linux and Windows, Active Directory de (selected work: crates/server, web)",
+ "domain": "an agent working on docker, homelab, mcp queries this for how selfhostr/dumbmonit implements it: Dumb-simple self-hosted monitoring in one container: 100+ integrations, network discovery, agents for Linux and Windows, Active Directory de (selected work: crates/server, web)",
  "repos": [
   {
    "repo": "dumbmonit",

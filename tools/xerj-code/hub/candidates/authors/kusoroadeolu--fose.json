@@ -8,15 +8,15 @@
   {
    "repo": "fose",
    "url": "https://github.com/kusoroadeolu/fose",
-   "sha": "092d0c0e906c60440e48c12ba70586c309f2634b",
-   "licence": "MIT (LICENSE file at pin 092d0c0e906c, GitHub licence API 2026-11-04)",
+   "sha": "e247b29e1896ef937bfeaa068c7eaa5683472ec9",
+   "licence": "MIT (LICENSE file at pin e247b29e1896, GitHub licence API 2026-11-04)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T14:36Z",
     "consent_receipt": "e01cc47552f6",
-    "note": "Inclusion consented by the commit author by email at 2026-10-29T14:36Z (receipt e01cc47552f6); selected commit 092d0c0e906c: \"feat: move from jdk 25 to 17\". LICENSE file at pin 092d0c0e906c detected as MIT by the GitHub licence API on 2026-11-04; used under that licence with attribution. Pinned to head 092d0c0e906c (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T14:36Z (receipt e01cc47552f6); selected commit e247b29e1896: \"feat: move from jdk 25 to 17\". LICENSE file at pin e247b29e1896 detected as MIT by the GitHub licence API on 2026-11-04; used under that licence with attribution. Pinned to head e247b29e1896 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

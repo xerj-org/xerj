@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on 4k, astrophotography, camera-driver queries this for how Kurokesu/imx585-jetson-driver implements it: MIPI CSI-2 kernel driver for Sony IMX585 4K STARVIS 2 low-light sensor on NVIDIA Jetson Orin NX / Nano (JetPack 6) (selected work: the project root)",
+ "domain": "an agent working on astrophotography, camera-driver, dkms queries this for how Kurokesu/imx585-jetson-driver implements it: MIPI CSI-2 kernel driver for Sony IMX585 8.3 MP 4K STARVIS 2 low-light sensor on NVIDIA Jetson Orin NX / Nano (JetPack) (selected work: the project root)",
  "repos": [
   {
    "repo": "imx585-jetson-driver",

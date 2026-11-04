@@ -1,0 +1,23 @@
+{
+ "corpus": "unlockermacrogenshinvn--cuttool",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how UnlockerMacroGenshinVN/CUTTOOL implements it: Unlock fps + Macro Skirk, t\u1eaft ho\u1ea1t \u1ea3nh n\u1ed9, t\u1eaft m\u1ea1ng nhanh, \u1ea9n UID, unlock FOV, etc (selected work: src/UI)",
+ "repos": [
+  {
+   "repo": "CUTTOOL",
+   "url": "https://github.com/UnlockerMacroGenshinVN/CUTTOOL",
+   "sha": "3030b94153bbf5706bf318fd7daf178a77a8cec7",
+   "licence": "MIT (LICENSE file at pin 3030b94153bb, GitHub licence API 2026-11-04)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-04T12:55Z",
+    "consent_receipt": "9cdd1175e230",
+    "note": "Inclusion consented by the commit author by email at 2026-11-04T12:55Z (receipt 9cdd1175e230); selected commit 3030b94153bb: \"Refactor code structure for improved readability and maintainability\". LICENSE file at pin 3030b94153bb detected as MIT by the GitHub licence API on 2026-11-04; used under that licence with attribution. Pinned to head 3030b94153bb (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

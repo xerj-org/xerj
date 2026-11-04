@@ -1,9 +1,9 @@
 {
- "corpus": "sehajveersingh2005--bloom",
+ "corpus": "little-systems--bloom",
  "cloned_at": null,
  "status": "draft",
  "shelf": "OPS",
- "domain": "an agent working on bloom, customization, desktop-customization queries this for how SehajveerSingh2005/bloom implements it: Bloom is a desktop companion that reimagines how you interact with Windows. It moves away from static, rigid interfaces and introduces a wor (selected work: src-tauri, src, scripts)",
+ "domain": "an agent working on bloom, customization, desktop-customization queries this for how little-systems/bloom implements it: Bloom is a desktop companion that reimagines how you interact with Windows. It moves away from static, rigid interfaces and introduces a wor (selected work: src-tauri, src, scripts)",
  "repos": [
   {
    "repo": "bloom",

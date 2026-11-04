@@ -1,9 +1,9 @@
 {
- "corpus": "xia-2005--archify-skill",
+ "corpus": "xia-j-b--archify-skill",
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on JavaScript queries this for how XIA-2005/archify-skill implements it: Standalone Archify Skill package maintained by XIA-2005 (selected work: draft, examples, editor)",
+ "domain": "an agent working on JavaScript queries this for how XIA-J-B/archify-skill implements it: Standalone Archify Skill package maintained by XIA-2005 (selected work: draft, examples, editor)",
  "repos": [
   {
    "repo": "archify-skill",

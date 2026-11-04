@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-agents, cli, coding-agent queries this for how echoVic/orca-agent implements it: Orca is a DeepSeek-native coding agent (selected work: crates/orca-tui, tests)",
+ "domain": "an agent working on ai-agents, cli, coding-agent queries this for how echoVic/orca-agent implements it: Orca Agent \u2014 a DeepSeek-native terminal coding agent (selected work: crates/orca-tui, tests)",
  "repos": [
   {
    "repo": "orca-agent",
