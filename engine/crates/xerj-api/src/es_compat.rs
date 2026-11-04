@@ -6166,6 +6166,124 @@ fn find_terms_query_over_limit(
     })
 }
 
+#[cfg(test)]
+mod max_terms_count_tests {
+    use super::*;
+    use axum::{body::Body, http::Request};
+    use tower::ServiceExt;
+    use xerj_common::{
+        config::{Config, WalSync},
+        metrics::Metrics,
+    };
+    use xerj_engine::Engine;
+
+    fn test_state() -> AppState {
+        let dir = tempfile::tempdir().expect("tempdir").keep();
+        let mut config = Config::default();
+        config.server.data_dir = dir.to_string_lossy().into_owned();
+        config.storage.wal_sync = WalSync::Async;
+        let metrics = Metrics::new().expect("metrics");
+        let engine = Engine::new(config.clone()).expect("engine");
+        AppState::new(config, engine, metrics)
+    }
+
+    async fn send(app: &axum::Router, method: &str, uri: &str, body: Value) -> (StatusCode, Value) {
+        let resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(method)
+                    .uri(uri)
+                    .header("content-type", "application/json")
+                    .body(Body::from(body.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let status = resp.status();
+        let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        (status, serde_json::from_slice(&bytes).unwrap())
+    }
+
+    /// `small` allows two terms, `big` keeps the default.
+    async fn app() -> axum::Router {
+        let app = crate::router::build_es_compat_router(test_state());
+        let mappings = json!({"properties": {"user": {"type": "keyword"},
+                                             "followers": {"type": "keyword"}}});
+        let (status, body) = send(
+            &app,
+            "PUT",
+            "/small",
+            json!({"settings": {"index.max_terms_count": 2}, "mappings": mappings}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        let (status, body) = send(&app, "PUT", "/big", json!({ "mappings": mappings })).await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        for (id, followers) in [
+            ("u1", json!(["u2", "u3"])),
+            ("u2", json!(["u1", "u3", "u4"])),
+        ] {
+            let doc = json!({"user": id, "followers": followers});
+            let (status, body) =
+                send(&app, "PUT", &format!("/small/_doc/{id}?refresh=true"), doc).await;
+            assert!(status.is_success(), "{body}");
+        }
+        app
+    }
+
+    fn terms(values: Value) -> Value {
+        json!({"query": {"terms": {"user": values}}})
+    }
+
+    /// FAIL-BEFORE: every request here answered 200; `index.max_terms_count`
+    /// was never read.
+    #[tokio::test]
+    async fn terms_over_the_index_limit_is_a_400() {
+        let app = app().await;
+        let lookup = json!({"index": "small", "id": "u2", "path": "followers"});
+        for body in [
+            terms(json!(["u1", "u2", "u3"])),
+            // The limit applies to the values a lookup fetched (3 followers).
+            terms(lookup),
+            // ... and to a terms query nested in a bool and in a filter agg.
+            json!({"query": {"bool": {"filter": [{"terms": {"user": ["a", "b", "c"]}}]}}}),
+            json!({"size": 0, "aggs": {"f": {"filter": {"terms": {"user": ["a", "b", "c"]}}}}}),
+        ] {
+            let (status, resp) = send(&app, "POST", "/small/_search", body.clone()).await;
+            assert_eq!(status, StatusCode::BAD_REQUEST, "{body} -> {resp}");
+            assert_eq!(
+                resp["error"]["root_cause"][0]["reason"],
+                "The number of terms [3] used in the Terms Query request has exceeded the \
+                 allowed maximum of [2]. This maximum can be set by changing the \
+                 [index.max_terms_count] index level setting.",
+                "{body}"
+            );
+        }
+    }
+
+    /// At the limit, on an index with the default limit, and across a target
+    /// whose limit is higher, the request still answers.
+    #[tokio::test]
+    async fn terms_within_a_target_limit_still_answer() {
+        let app = app().await;
+        let lookup = json!({"index": "small", "id": "u1", "path": "followers"});
+        for (uri, body) in [
+            ("/small/_search", terms(json!(["u1", "u2"]))),
+            ("/small/_search", terms(lookup)),
+            ("/big/_search", terms(json!(["u1", "u2", "u3"]))),
+            ("/small,big/_search", terms(json!(["u1", "u2", "u3"]))),
+        ] {
+            let (status, resp) = send(&app, "POST", uri, body.clone()).await;
+            assert_eq!(status, StatusCode::OK, "{uri} {body} -> {resp}");
+        }
+        let (_, resp) = send(&app, "POST", "/small/_search", terms(json!(["u1", "u2"]))).await;
+        assert_eq!(resp["hits"]["total"]["value"], 2, "{resp}");
+    }
+}
+
 async fn resolve_terms_lookups(q: &mut Value, state: &AppState) {
     // First pass: collect every (index, id, path) triple keyed by the
     // (terms_obj, field) pair we'll mutate after the fetch.
