@@ -366,6 +366,20 @@ fn bare(o: &Opts) -> Hub {
     }
 }
 
+/// Runs `test` on four workers with the server's 4 MiB stack. The hub's Ask
+/// and Def paths do not fit tokio's 2 MiB default worker stack in a debug
+/// build (#2903); the server runtime is 4 MiB (`xerj-server`'s
+/// `RT_THREAD_STACK_SIZE`).
+fn on_server_stack<F: std::future::Future>(test: F) -> F::Output {
+    tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(4)
+        .thread_stack_size(4 * 1024 * 1024)
+        .enable_all()
+        .build()
+        .expect("runtime")
+        .block_on(test)
+}
+
 /// A node with the fixture indices seeded.
 async fn hub(o: Opts) -> Hub {
     let hub = bare(&o);
@@ -908,8 +922,12 @@ async fn catalogue_follows_the_file_when_it_changes() {
     assert_ne!(etag1, etag2, "and under a new ETag");
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn def_answers_with_the_fixture_value_the_pin_and_a_hosted_origin() {
+#[test]
+fn def_answers_with_the_fixture_value_the_pin_and_a_hosted_origin() {
+    on_server_stack(def_answers_with_the_fixture_value_the_pin_and_a_hosted_origin_inner());
+}
+
+async fn def_answers_with_the_fixture_value_the_pin_and_a_hosted_origin_inner() {
     let h = hub(Opts::new(false, false)).await;
     let r = h.get("/_hub/v1/def/mini-c/MINI_LIMIT").await;
     assert_eq!(r.status, StatusCode::OK, "{:?}", r.json());
@@ -1303,8 +1321,12 @@ async fn k_is_clamped_to_fifty_and_garbage_k_is_400() {
     assert!(hub_api::parse_k(Some("0"), 5).is_err());
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn oversized_blank_missing_and_stray_inputs_are_400() {
+#[test]
+fn oversized_blank_missing_and_stray_inputs_are_400() {
+    on_server_stack(oversized_blank_missing_and_stray_inputs_are_400_inner());
+}
+
+async fn oversized_blank_missing_and_stray_inputs_are_400_inner() {
     let h = hub(Opts::new(false, false)).await;
     let big = "a".repeat(600);
     let edge = "a".repeat(512);
@@ -3103,8 +3125,12 @@ fn the_fixture_dir_is_the_shared_one() {
 /// index's store is `<data_dir>/<index name>` — so it must carry a name no
 /// index can take. It used to be `hub-routing`, a legal index name: an `Ask`
 /// wrote `.git` into a user's `hub-routing` index on every request.
-#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn ask_never_writes_into_a_user_index_named_like_its_routing_dir() {
+#[test]
+fn ask_never_writes_into_a_user_index_named_like_its_routing_dir() {
+    on_server_stack(ask_never_writes_into_a_user_index_named_like_its_routing_dir_inner());
+}
+
+async fn ask_never_writes_into_a_user_index_named_like_its_routing_dir_inner() {
     let h = hub(Opts::new(false, false)).await;
     let data = PathBuf::from(&h.state.config.server.data_dir);
     // The old name, and the shape of the new one: an index may take the first,
