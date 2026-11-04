@@ -8,7 +8,6 @@
 # make a new failure go away; a new failure is a regression.
 #
 # Format: <path under yaml/> · <test name>
-aggregations/avg_metric.yml · Aggregating wrong datatype test
 aggregations/bucket_script.yml · bad script
 aggregations/bucket_selector.yml · bad script
 aggregations/composite.yml · Composite aggregation with invalid format
@@ -19,8 +18,6 @@ aggregations/matrix_stats_multi_value_field.yml · With script params
 aggregations/matrix_stats_single_value_field.yml · With script
 aggregations/matrix_stats_single_value_field.yml · With script params
 aggregations/max_buckets.yml · Max bucket
-aggregations/max_metric.yml · Aggregating wrong datatype test
-aggregations/min_metric.yml · Aggregating wrong datatype test
 aggregations/nested.yml · Illegal reverse nested aggregation to a child nested object
 aggregations/percentiles_hdr_metric.yml · Invalid params test
 aggregations/percentiles_tdigest_metric.yml · Invalid params test
@@ -44,7 +41,6 @@ aggregations/scripted_metric_allow_list.yml · stored reduce_script must be allo
 aggregations/sig_terms.yml · IP test
 aggregations/sig_terms.yml · Misspelled fields get "did you mean"
 aggregations/stats_metric_fail_formatting.yml · fail formatting
-aggregations/sum_metric.yml · Aggregating wrong datatype test
 aggregations/terms.yml · IP test
 aggregations/top_hits.yml · having
 aggregations/weighted_avg.yml · Multi weight field not allowed
