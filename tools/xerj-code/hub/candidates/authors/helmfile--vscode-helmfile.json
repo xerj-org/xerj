@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "OPS",
- "domain": "an agent working on TypeScript queries this for how helmfile/vscode-helmfile implements it: helmfile/vscode-helmfile (TypeScript) (selected work: src, test, the project root)",
+ "domain": "an agent working on TypeScript queries this for how helmfile/vscode-helmfile implements it: Helmfile and Helm chart intelligence for VS Code \u2014 completion, validation, navigation and render/apply operations for helmfile.yaml and char (selected work: src, test, the project root)",
  "repos": [
   {
    "repo": "vscode-helmfile",

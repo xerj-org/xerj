@@ -1,0 +1,23 @@
+{
+ "corpus": "baumannzone--baumannzone-dev",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on javascript, html, css queries this for how baumannzone/baumannzone.dev implements it: \ud83e\uddd1\u200d\ud83d\ude80 Mi sitio web y blog personal creado desde cero con Astro y Tailwind CSS (selected work: src/pages, src/utils, src/components)",
+ "repos": [
+  {
+   "repo": "baumannzone.dev",
+   "url": "https://github.com/baumannzone/baumannzone.dev",
+   "sha": "ad5dc0b06e59adfcff66ca4a7ad13a35325f0058",
+   "licence": "GPL-3.0 (LICENSE file at pin ad5dc0b06e59, GitHub licence API 2026-11-04)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-03T22:33Z",
+    "consent_receipt": "1a77b1837ac5",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T22:33Z (receipt 1a77b1837ac5); selected commit ad5dc0b06e59: \"feat: improve SEO and AI visibility across non-blog pages\". LICENSE file at pin ad5dc0b06e59 detected as GPL-3.0 by the GitHub licence API on 2026-11-04; used under that licence with attribution."
+   }
+  }
+ ]
+}

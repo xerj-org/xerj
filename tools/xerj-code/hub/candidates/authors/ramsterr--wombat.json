@@ -8,15 +8,15 @@
   {
    "repo": "Wombat",
    "url": "https://github.com/ramsterr/Wombat",
-   "sha": "9dd851dc459df40134b6cb91001549f55a2af7c3",
-   "licence": "MIT (LICENSE file at pin 9dd851dc459d, GitHub licence API 2026-11-03)",
+   "sha": "af84b0570bfb2e26ec4fe43b072b6a0910ae4ea9",
+   "licence": "MIT (LICENSE file at pin af84b0570bfb, GitHub licence API 2026-11-04)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-01T06:45Z",
     "consent_receipt": "3a5bc85bf81f",
-    "note": "Inclusion consented by the commit author by email at 2026-11-01T06:45Z (receipt 3a5bc85bf81f); selected commit 9dd851dc459d: \"agent: add sandbox, checkpoints, verification, and worktree writers\". LICENSE file at pin 9dd851dc459d detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution. Pinned to head 9dd851dc459d (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T06:45Z (receipt 3a5bc85bf81f); selected commit af84b0570bfb: \"agent: add sandbox, checkpoints, verification, and worktree writers\". LICENSE file at pin af84b0570bfb detected as MIT by the GitHub licence API on 2026-11-04; used under that licence with attribution. Pinned to head af84b0570bfb (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

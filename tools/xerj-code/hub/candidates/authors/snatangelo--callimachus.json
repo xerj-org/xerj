@@ -2,8 +2,8 @@
  "corpus": "snatangelo--callimachus",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Python queries this for how SNatangelo/Callimachus implements it: SNatangelo/Callimachus (Python) (selected work: packaging, tests)",
+ "shelf": "AI",
+ "domain": "an agent working on academic-writing, bibliography, citation-checking queries this for how SNatangelo/Callimachus implements it: Open-source citation verification for scientific manuscripts: check references, claim support, and traceable source evidence with LLMs and d (selected work: packaging, tests)",
  "repos": [
   {
    "repo": "Callimachus",

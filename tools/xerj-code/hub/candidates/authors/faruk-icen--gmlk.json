@@ -1,9 +1,9 @@
 {
- "corpus": "faruk-icn--gmlk",
+ "corpus": "faruk-icen--gmlk",
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on luau, module-loader, roblox queries this for how Faruk-Icn/GMLK implements it: GMLK (Grumy's Module Loader Kit) - open-source Roblox Luau module loader and utility library (selected work: src/GML)",
+ "domain": "an agent working on luau, module-loader, roblox queries this for how Faruk-Icen/GMLK implements it: GMLK - open-source Roblox Luau module loader and utility library (selected work: src/GML)",
  "repos": [
   {
    "repo": "GML",

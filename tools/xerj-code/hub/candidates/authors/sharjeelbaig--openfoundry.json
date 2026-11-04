@@ -8,15 +8,15 @@
   {
    "repo": "openFoundry",
    "url": "https://github.com/Sharjeelbaig/openFoundry",
-   "sha": "7db5538c45ab948d0506da2a1f23159b78d5eb8b",
-   "licence": "Apache-2.0 (LICENSE file at pin 7db5538c45ab, GitHub licence API 2026-11-03)",
+   "sha": "50321857019e7b5d042c1dda522f8a888257d66e",
+   "licence": "Apache-2.0 (LICENSE file at pin 50321857019e, GitHub licence API 2026-11-04)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-02T12:29Z",
     "consent_receipt": "e9e28406644e",
-    "note": "Inclusion consented by the commit author by email at 2026-11-02T12:29Z (receipt e9e28406644e); selected commit 7db5538c45ab: \"Match the agent playground screen to Foundry\". LICENSE file at pin 7db5538c45ab detected as Apache-2.0 by the GitHub licence API on 2026-11-03; used under that licence with attribution. Pinned to head 7db5538c45ab (contains the selected commit): the LICENSE at the selected commit was NOASSERTION."
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T12:29Z (receipt e9e28406644e); selected commit 50321857019e: \"Match the agent playground screen to Foundry\". LICENSE file at pin 50321857019e detected as Apache-2.0 by the GitHub licence API on 2026-11-04; used under that licence with attribution. Pinned to head 50321857019e (contains the selected commit): the LICENSE at the selected commit was NOASSERTION."
    }
   }
  ]
