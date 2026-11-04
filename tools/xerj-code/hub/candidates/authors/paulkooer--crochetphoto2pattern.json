@@ -2,8 +2,8 @@
  "corpus": "paulkooer--crochetphoto2pattern",
  "cloned_at": null,
  "status": "draft",
- "shelf": "AI",
- "domain": "an agent working on amigurumi, crochet, generative-design queries this for how paulkooer/CrochetPhoto2Pattern implements it: AI-assisted photo-to-amigurumi crochet pattern generator with deterministic validation and physical-trial tooling (Beta) (selected work: tests, app/models, app/ui)",
+ "shelf": "API",
+ "domain": "an agent working on amigurumi, crochet, generative-design queries this for how paulkooer/CrochetPhoto2Pattern implements it: Local photo-to-amigurumi crochet draft generator with deterministic validation and physical-trial tooling (Beta) (selected work: tests, app/models, app/ui)",
  "repos": [
   {
    "repo": "CrochetPhoto2Pattern",

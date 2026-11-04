@@ -8,15 +8,15 @@
   {
    "repo": "quanta-sentry",
    "url": "https://github.com/gravion-ux/quanta-sentry",
-   "sha": "9a5c533073783854a862334ab75da4e4f12a108e",
-   "licence": "author's permission (LICENSE at pin 9a5c53307378: NOASSERTION; repository: NOASSERTION)",
+   "sha": "b60a9d857fc21242212d4ec96bc5029d2df2468c",
+   "licence": "author's permission (LICENSE at pin b60a9d857fc2: NOASSERTION; repository: NOASSERTION)",
    "review": {
     "spdx": "NOASSERTION",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-04T08:03Z",
     "consent_receipt": "fb6bcc674734",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-04T08:03Z (receipt fb6bcc674734); pinned to the default-branch head. LICENSE at pin 9a5c53307378: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-04T08:03Z (receipt fb6bcc674734); pinned to the default-branch head. LICENSE at pin b60a9d857fc2: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
    }
   }
  ]

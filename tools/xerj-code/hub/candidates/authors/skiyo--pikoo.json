@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on apache-2-0, diy, esp32 queries this for how skiyo/pikoo implements it: Open-source DIY realtime voice AI Agent for families. ESP32-S3 DualEye device, Qwen Audio Agent runtime, shared memory and configurable tool (selected work: server, firmware, tools)",
+ "domain": "an agent working on apache-2-0, esp32-s3, wake-word queries this for how skiyo/pikoo implements it: \ud83d\udc31Hi Pikoo\ud83d\udc31 \u2014 A family AI Agent pet powered by Live models. ESP32-S3, local wake, expressive eyes, voice, tools and shared memory (selected work: server, firmware, tools)",
  "repos": [
   {
    "repo": "pikoo",

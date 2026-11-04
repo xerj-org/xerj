@@ -8,15 +8,15 @@
   {
    "repo": "iamosaic",
    "url": "https://github.com/gravion-ux/iamosaic",
-   "sha": "709653c5d365e214831858c15c5067e775f5feb3",
-   "licence": "author's permission (LICENSE at pin 709653c5d365: NOASSERTION; repository: NOASSERTION)",
+   "sha": "aaa8f6fb31f7421c4c06e3ee466b7e7bcff59bb3",
+   "licence": "author's permission (LICENSE at pin aaa8f6fb31f7: NOASSERTION; repository: NOASSERTION)",
    "review": {
     "spdx": "NOASSERTION",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-04T08:03Z",
     "consent_receipt": "60d23baed666",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-04T08:03Z (receipt 60d23baed666); pinned to the default-branch head. LICENSE at pin 709653c5d365: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-04T08:03Z (receipt 60d23baed666); pinned to the default-branch head. LICENSE at pin aaa8f6fb31f7: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
    }
   }
  ]

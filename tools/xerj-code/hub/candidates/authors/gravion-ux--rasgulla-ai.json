@@ -8,15 +8,15 @@
   {
    "repo": "rasgulla-ai",
    "url": "https://github.com/gravion-ux/rasgulla-ai",
-   "sha": "230509008c3c58e70be9f7396d0ab3dbb810125d",
-   "licence": "author's permission (LICENSE at pin 230509008c3c: NOASSERTION; repository: NOASSERTION)",
+   "sha": "2cb69d6fb9dbd08ea15cdae4f13aa1d7f40ff064",
+   "licence": "author's permission (LICENSE at pin 2cb69d6fb9db: NOASSERTION; repository: NOASSERTION)",
    "review": {
     "spdx": "NOASSERTION",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-04T08:03Z",
     "consent_receipt": "e8021fb55816",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-04T08:03Z (receipt e8021fb55816); pinned to the default-branch head. LICENSE at pin 230509008c3c: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-04T08:03Z (receipt e8021fb55816); pinned to the default-branch head. LICENSE at pin 2cb69d6fb9db: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
    }
   }
  ]

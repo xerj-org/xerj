@@ -8,15 +8,15 @@
   {
    "repo": "steady-socket",
    "url": "https://github.com/lalmachado/steady-socket",
-   "sha": "1232402f3b062b52a507d28dbf8ed6771096f68e",
-   "licence": "MIT (LICENSE file at pin 1232402f3b06, GitHub licence API 2026-11-03)",
+   "sha": "6797355a817d06550af480f9d9b9d63fb0450499",
+   "licence": "MIT (LICENSE file at pin 6797355a817d, GitHub licence API 2026-11-04)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-03T11:34Z",
     "consent_receipt": "a58111c1ef1c",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-03T11:34Z (receipt a58111c1ef1c); pinned to the default-branch head. LICENSE file at pin 1232402f3b06 detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-03T11:34Z (receipt a58111c1ef1c); pinned to the default-branch head. LICENSE file at pin 6797355a817d detected as MIT by the GitHub licence API on 2026-11-04; used under that licence with attribution."
    }
   }
  ]

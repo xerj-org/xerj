@@ -8,15 +8,15 @@
   {
    "repo": "fuzzharbor",
    "url": "https://github.com/gravion-ux/fuzzharbor",
-   "sha": "beb9acbfbced92f9a167c2fbd62e432f4965c4c0",
-   "licence": "author's permission (LICENSE at pin beb9acbfbced: NOASSERTION; repository: NOASSERTION)",
+   "sha": "da8c17da8397641b11beb42e220220323864e7c0",
+   "licence": "author's permission (LICENSE at pin da8c17da8397: NOASSERTION; repository: NOASSERTION)",
    "review": {
     "spdx": "NOASSERTION",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-04T08:03Z",
     "consent_receipt": "355e97b26f08",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-04T08:03Z (receipt 355e97b26f08); pinned to the default-branch head. LICENSE at pin beb9acbfbced: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-04T08:03Z (receipt 355e97b26f08); pinned to the default-branch head. LICENSE at pin da8c17da8397: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
    }
   }
  ]

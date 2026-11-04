@@ -8,15 +8,15 @@
   {
    "repo": "accessweave",
    "url": "https://github.com/gravion-ux/accessweave",
-   "sha": "f1a3946eae6bde7e8609b8599633adfaaf0e76b5",
-   "licence": "author's permission (LICENSE at pin f1a3946eae6b: NOASSERTION; repository: NOASSERTION)",
+   "sha": "a75ae87e0c7cf68485dec7b9408c71f53854d3af",
+   "licence": "author's permission (LICENSE at pin a75ae87e0c7c: NOASSERTION; repository: NOASSERTION)",
    "review": {
     "spdx": "NOASSERTION",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-04T08:03Z",
     "consent_receipt": "9ec8d6fd9b82",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-04T08:03Z (receipt 9ec8d6fd9b82); pinned to the default-branch head. LICENSE at pin f1a3946eae6b: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-04T08:03Z (receipt 9ec8d6fd9b82); pinned to the default-branch head. LICENSE at pin a75ae87e0c7c: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
    }
   }
  ]

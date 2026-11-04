@@ -1,0 +1,23 @@
+{
+ "corpus": "mitchsf--webpanel",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on web-forms, arduino, wifi queries this for how mitchsf/WebPanel implements it: A Mobile Friendly Live Form Generator for ESP32 and Arduino (selected work: the project root, tests)",
+ "repos": [
+  {
+   "repo": "WebPanel",
+   "url": "https://github.com/mitchsf/WebPanel",
+   "sha": "f7157971f6206d34e009a8e6920e7aabbb53f4a2",
+   "licence": "MIT (LICENSE file at pin f7157971f620, GitHub licence API 2026-11-04)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-04T14:14Z",
+    "consent_receipt": "75ae60e6bf47",
+    "note": "Inclusion consented by the commit author by email at 2026-11-04T14:14Z (receipt 75ae60e6bf47); selected commit f7157971f620: \"WebPanel 1.4.0: the stylesheet and script are served as cached static\u2026\". LICENSE file at pin f7157971f620 detected as MIT by the GitHub licence API on 2026-11-04; used under that licence with attribution."
+   }
+  }
+ ]
+}

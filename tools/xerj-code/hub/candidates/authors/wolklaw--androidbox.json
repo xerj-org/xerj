@@ -1,9 +1,9 @@
 {
- "corpus": "wolklaw--droidcore",
+ "corpus": "wolklaw--androidbox",
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on ad-free, android, android-emulator queries this for how Wolklaw/DroidCore implements it: An ad-free Android emulator for Windows. Google Play, game controls, controllers, macros and multiple instances (selected work: androidbox)",
+ "domain": "an agent working on ad-free, android, android-emulator queries this for how Wolklaw/AndroidBox implements it: An ad-free Android emulator for Windows. Google Play, game controls, controllers, macros and multiple instances (selected work: androidbox)",
  "repos": [
   {
    "repo": "Androidbox",

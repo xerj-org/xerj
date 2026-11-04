@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on C++ queries this for how RX4Darwin/AMDRadeonRDNA4.kext implements it: RDNA4 (only RX 9070 XT is supported for now) display driver for macOS: Lilu plugin extending IONDRVFramebuffer with full Metal support as th (selected work: src, vulkan, tools)",
+ "domain": "an agent working on C++ queries this for how RX4Darwin/AMDRadeonRDNA4.kext implements it: WIP: RDNA4 (RX 9070/9070 XT) display driver for macOS (selected work: src, vulkan, tools)",
  "repos": [
   {
    "repo": "AMDRadeonRDNA4.kext",
