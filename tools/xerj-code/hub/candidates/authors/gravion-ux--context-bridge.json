@@ -1,0 +1,23 @@
+{
+ "corpus": "gravion-ux--context-bridge",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how gravion-ux/context-bridge implements it: gravion-ux/context-bridge (JavaScript)",
+ "repos": [
+  {
+   "repo": "context-bridge",
+   "url": "https://github.com/gravion-ux/context-bridge",
+   "sha": "a0dc945f7975a3eaa2c094c9cb02501058410b3a",
+   "licence": "MIT (LICENSE file at pin a0dc945f7975, GitHub licence API 2026-11-04)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-04T08:03Z",
+    "consent_receipt": "b078bb7a215c",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-04T08:03Z (receipt b078bb7a215c); pinned to the default-branch head. LICENSE file at pin a0dc945f7975 detected as MIT by the GitHub licence API on 2026-11-04; used under that licence with attribution."
+   }
+  }
+ ]
+}
