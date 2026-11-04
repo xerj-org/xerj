@@ -47,6 +47,17 @@ sandbox that denies binding `127.0.0.1`, those tests fail with a message that sa
 so. A new test that binds an ephemeral loopback port should wrap the bind in
 `xerj_common::loopback_test::expect_loopback`.
 
+CI runs the tests with `cargo test --profile ci-test` (optimised, with unwinding
+panics). A plain debug `cargo test` passes too. In a debug build, the ES-compat
+handlers need more than tokio's 2 MiB default worker stack, so a test that
+serves the router in process builds its runtime with
+`thread_stack_size(4 * 1024 * 1024)`, the server's own size, instead of using
+`#[tokio::test]`.
+
+One test, `xerj-mcp`'s `loopback_proxy`, connects to `127.0.0.2`. Linux routes
+all of `127.0.0.0/8` to loopback. Stock macOS configures only `127.0.0.1`, so the
+test fails and names the fix: `sudo ifconfig lo0 alias 127.0.0.2 up`.
+
 ### ES-YAML conformance suite (required)
 
 XERJ's compatibility contract is the Elasticsearch REST API YAML test suite based on ES 8.13. **CI requires 0 failed cases — there is no "known failures" list.** The runner reports passed, failed, and skipped cases separately; skipped cases do not fail the gate, and the total changes as cases are added. If a test expects one response and XERJ returns another, XERJ is wrong; fix the engine, not the test.
