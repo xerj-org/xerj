@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Opt-in hub answer evidence receipts (Refs #1789, #1786): Rust callers can
+  bind exact UTF-8 excerpts to pinned source bytes and export SHA-256/JCS
+  trace reports. MCP ask/def accepts trace identities through `evidence`;
+  unavailable source bytes or calibration explicitly abstain and escalate.
+  Default answer and hit wire fields are unchanged.
+
 - Opt-in advisory Claude Code search hints with `xerj init --hooks` on macOS/Linux
   (Refs #2642): Grep/Glob and repeated Read can suggest a cited search scoped to
   the indexed folder and configured loopback node, with a per-session quota.
