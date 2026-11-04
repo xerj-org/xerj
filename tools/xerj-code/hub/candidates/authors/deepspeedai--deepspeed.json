@@ -1,0 +1,23 @@
+{
+ "corpus": "deepspeedai--deepspeed",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on deep-learning, pytorch, gpu queries this for how deepspeedai/DeepSpeed implements it: DeepSpeed is a deep learning optimization library that makes distributed training and inference easy, efficient, and effective (selected work: tests, deepspeed)",
+ "repos": [
+  {
+   "repo": "DeepSpeed",
+   "url": "https://github.com/deepspeedai/DeepSpeed",
+   "sha": "dfc63adfbf38ea8a70e9c710ccc56be260a4793a",
+   "licence": "Apache-2.0 (LICENSE file at pin dfc63adfbf38, GitHub licence API 2026-11-04)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-04T02:00Z",
+    "consent_receipt": "51b91aafcb01",
+    "note": "Inclusion consented by the commit author by email at 2026-11-04T02:00Z (receipt 51b91aafcb01); selected commit dfc63adfbf38: \"Add an opt-in deterministic execution policy (#8917)\". LICENSE file at pin dfc63adfbf38 detected as Apache-2.0 by the GitHub licence API on 2026-11-04; used under that licence with attribution."
+   }
+  }
+ ]
+}

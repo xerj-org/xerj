@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on context-compression, llm-cache, local-first queries this for how MlkBlk-IT/icy-loom implements it: Hybrid MCP gateway for local and cloud LLM workflows: cache, context drawer, tool relay and SQLite ledger. CPU-first and provider-flexible",
+ "domain": "an agent working on context-compression, llm-cache, local-first queries this for how MlkBlk-IT/icy-loom implements it: MCP tool gateway: governed registry, tool selection from plain language, roles and approvals, schema compression and decision audit. CPU-fir",
  "repos": [
   {
    "repo": "icy-loom",
    "url": "https://github.com/MlkBlk-IT/icy-loom",
-   "sha": "7fe0a93de89920dc0bf38b6ef09a4b06a40c6320",
-   "licence": "MIT (LICENSE file at pin 7fe0a93de899, GitHub licence API 2026-11-03)",
+   "sha": "f73303438fcda4808eb574e767ba395bf6ca5a9b",
+   "licence": "MIT (LICENSE file at pin f73303438fcd, GitHub licence API 2026-11-04)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-01T04:52Z",
     "consent_receipt": "87c600ebf022",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T04:52Z (receipt 87c600ebf022); pinned to the default-branch head. LICENSE file at pin 7fe0a93de899 detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T04:52Z (receipt 87c600ebf022); pinned to the default-branch head. LICENSE file at pin f73303438fcd detected as MIT by the GitHub licence API on 2026-11-04; used under that licence with attribution."
    }
   }
  ]

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "SEC",
- "domain": "an agent working on HTML queries this for how aiscihub/cookieguard-ai implements it: CookieGuard CI \u2014 Catch insecure authentication cookies in Playwright tests and GitHub Actions. Local-first, privacy-preserving, open source (selected work: integrations, the project root, scripts)",
+ "domain": "an agent working on cookie-parser, cookies, privacy queries this for how aiscihub/cookieguard-ai implements it: Authentication cookie security for Browser Use agents, Chrome, and CI pipelines. Local checks, clear findings, and actionable fixes (selected work: integrations, the project root, scripts)",
  "repos": [
   {
    "repo": "cookieguard-ai",

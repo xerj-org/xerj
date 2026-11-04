@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on code queries this for how nhartman000/qson implements it: qson is .qson file format stands for queriable structured ordered notation and is an audit log of the mg8 file structure responses and gate ",
+ "domain": "an agent working on Python queries this for how nhartman000/qson implements it: qson is .qson file format stands for queriable structured ordered notation and is an audit log of the mg8 file structure responses and gate ",
  "repos": [
   {
    "repo": "qson",
    "url": "https://github.com/nhartman000/qson",
-   "sha": "7297454d8045597fd0ff4b2d20c02f6f9337b565",
-   "licence": "MIT (LICENSE file at pin 7297454d8045, GitHub licence API 2026-11-03)",
+   "sha": "2d2680d3d43bea88e2c82c2c5eb519d21f43e5ae",
+   "licence": "MIT (LICENSE file at pin 2d2680d3d43b, GitHub licence API 2026-11-04)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-01T12:50Z",
     "consent_receipt": "7f66dcb002aa",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T12:50Z (receipt 7f66dcb002aa); pinned to the default-branch head. LICENSE file at pin 7297454d8045 detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T12:50Z (receipt 7f66dcb002aa); pinned to the default-branch head. LICENSE file at pin 2d2680d3d43b detected as MIT by the GitHub licence API on 2026-11-04; used under that licence with attribution."
    }
   }
  ]
