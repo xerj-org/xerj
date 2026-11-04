@@ -203,6 +203,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `--workers 32` and 19 of 26 with `--workers 16`; both now finish all 26
   files and 179,374 records (#2841).
 
+- Template GET and DELETE now take the names Elasticsearch takes, on legacy
+  (`/_template`), composable (`/_index_template`) and component
+  (`/_component_template`) templates. A GET with no name lists every template
+  and is 200 even when there are none (it was a 400
+  `invalid_index_name_exception`). A `*` pattern such as `logs-*` selects the
+  matching templates on GET and DELETE (it was a 404 unless the name was
+  exactly `*`), a legacy GET takes a comma list, and a composable or component
+  DELETE takes an all-or-nothing comma list. A pattern that matches nothing is
+  a 404, except that deleting `*` from an empty store is acknowledged, as in
+  ES 8.13.
 - `weighted_avg` now executes field-based requests (`value` / `weight`, each
   with a `field` and optional numeric `missing`) instead of returning HTTP 200
   with an `unsupported aggregation type` error in the aggregations body. A

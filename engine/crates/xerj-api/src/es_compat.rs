@@ -27265,33 +27265,97 @@ pub async fn put_index_template(
     }
 }
 
+/// The template names a GET's `{name}` selects, sorted. `None` is the route
+/// with no name, which selects everything. `_all` (an XERJ spelling ES reads
+/// as a literal name) and any name containing `*` are patterns. With `list`,
+/// `{name}` is a comma list of names and patterns (legacy GET); a listed name
+/// that does not exist is skipped, as ES does.
+fn select_template_names(
+    keys: impl Iterator<Item = String>,
+    name: Option<&str>,
+    list: bool,
+) -> Vec<String> {
+    let parts: Vec<&str> = match name {
+        None => vec!["*"],
+        Some(n) if list => n.split(',').filter(|p| !p.is_empty()).collect(),
+        Some(n) => vec![n],
+    };
+    let mut out: Vec<String> = keys
+        .filter(|k| {
+            parts.iter().any(|p| {
+                if *p == "_all" {
+                    true
+                } else if xerj_engine::engine::is_template_pattern(p) {
+                    xerj_engine::engine::template_name_matches(p, k)
+                } else {
+                    p == k
+                }
+            })
+        })
+        .collect();
+    out.sort();
+    out
+}
+
+/// Whether a GET `{name}` can select more than one template, and so answers
+/// with a (possibly empty) listing rather than the exact-name lookup.
+fn template_get_is_listing(name: Option<&str>, list: bool) -> bool {
+    match name {
+        None => true,
+        Some(n) => {
+            n == "_all" || xerj_engine::engine::is_template_pattern(n) || (list && n.contains(','))
+        }
+    }
+}
+
+/// ES answers a listing GET with 200 when it found something or when no
+/// name was given at all, and with 404 (same body shape, empty) otherwise.
+fn template_listing_status(found: bool, name: Option<&str>) -> StatusCode {
+    if found || name.is_none() {
+        StatusCode::OK
+    } else {
+        StatusCode::NOT_FOUND
+    }
+}
+
+/// `GET /_index_template`: every composable template, 200 even when empty.
+pub async fn get_all_index_templates(State(state): State<AppState>) -> Response {
+    index_templates_response(&state, None)
+}
+
 pub async fn get_index_template(
     State(state): State<AppState>,
     Path(name): Path<String>,
-) -> impl IntoResponse {
-    if name == "*" || name == "_all" {
-        // Return all templates.
-        let mut templates = serde_json::Map::new();
-        for entry in state.engine.templates.iter() {
-            let t = entry.value();
-            templates.insert(
-                entry.key().clone(),
-                json!({
-                    "name": entry.key().clone(),
-                    "index_template": {
-                        "index_patterns": t.index_patterns,
-                        "priority": t.priority,
-                        "template": {
-                            "settings": t.settings,
-                            "mappings": t.mappings,
-                        }
+) -> Response {
+    index_templates_response(&state, Some(&name))
+}
+
+fn index_templates_response(state: &AppState, name: Option<&str>) -> Response {
+    let render = |n: &str| {
+        state.engine.templates.get(n).map(|t| {
+            json!({
+                "name": n,
+                "index_template": {
+                    "index_patterns": t.index_patterns,
+                    "priority": t.priority,
+                    "template": {
+                        "settings": t.settings,
+                        "mappings": t.mappings,
                     }
-                }),
-            );
-        }
-        let index_templates: Vec<Value> = templates.values().cloned().collect();
-        return Json(json!({ "index_templates": index_templates })).into_response();
+                }
+            })
+        })
+    };
+    if template_get_is_listing(name, false) {
+        let keys = state.engine.templates.iter().map(|e| e.key().clone());
+        let index_templates: Vec<Value> = select_template_names(keys, name, false)
+            .iter()
+            .filter_map(|n| render(n))
+            .collect();
+        let status = template_listing_status(!index_templates.is_empty(), name);
+        return (status, Json(json!({ "index_templates": index_templates }))).into_response();
     }
+    let name = name.unwrap_or_default().to_string();
 
     match state.engine.templates.get(&name) {
         Some(t) => {
@@ -27322,11 +27386,22 @@ pub async fn delete_index_template(
     State(state): State<AppState>,
     Path(name): Path<String>,
 ) -> impl IntoResponse {
-    match state.engine.delete_index_template(&name) {
-        Ok(true) => Json(json!({ "acknowledged": true })).into_response(),
-        Ok(false) => {
-            let e =
-                xerj_common::XerjError::index_not_found(format!("index template [{name}] missing"));
+    template_delete_response(state.engine.delete_index_templates(&name), "index template")
+}
+
+/// The answer to a template DELETE: an ack for a removal (or for `*` with
+/// nothing to remove), the existing "missing" 404 otherwise.
+fn template_delete_response(
+    result: xerj_engine::Result<xerj_engine::engine::TemplateRemoval>,
+    what: &str,
+) -> Response {
+    use xerj_engine::engine::TemplateRemoval;
+    match result {
+        Ok(TemplateRemoval::Removed(_) | TemplateRemoval::NothingToRemove) => {
+            Json(json!({ "acknowledged": true })).into_response()
+        }
+        Ok(TemplateRemoval::Missing(missing)) => {
+            let e = xerj_common::XerjError::index_not_found(format!("{what} [{missing}] missing"));
             ApiError::new(e).into_response()
         }
         Err(e) => ApiError::new(xerj_common::XerjError::from(e)).into_response(),
@@ -38521,24 +38596,43 @@ pub async fn put_component_template(
     }
 }
 
+/// `GET /_component_template`: every component template, 200 even when empty.
+pub async fn get_all_component_templates(State(state): State<AppState>) -> Response {
+    component_templates_response(&state, None)
+}
+
 pub async fn get_component_template(
     State(state): State<AppState>,
     Path(name): Path<String>,
-) -> impl IntoResponse {
-    if name == "*" || name == "_all" {
-        let component_templates: Vec<Value> = state
+) -> Response {
+    component_templates_response(&state, Some(&name))
+}
+
+fn component_templates_response(state: &AppState, name: Option<&str>) -> Response {
+    if template_get_is_listing(name, false) {
+        let keys = state
             .engine
             .component_templates
             .iter()
-            .map(|entry| {
-                json!({
-                    "name": entry.key().clone(),
-                    "component_template": entry.value().clone(),
-                })
+            .map(|e| e.key().clone());
+        let component_templates: Vec<Value> = select_template_names(keys, name, false)
+            .iter()
+            .filter_map(|n| {
+                state
+                    .engine
+                    .component_templates
+                    .get(n)
+                    .map(|t| json!({ "name": n, "component_template": t.value().clone() }))
             })
             .collect();
-        return Json(json!({ "component_templates": component_templates })).into_response();
+        let status = template_listing_status(!component_templates.is_empty(), name);
+        return (
+            status,
+            Json(json!({ "component_templates": component_templates })),
+        )
+            .into_response();
     }
+    let name = name.unwrap_or_default().to_string();
     match state.engine.component_templates.get(&name) {
         Some(tmpl) => Json(json!({
             "component_templates": [{
@@ -38560,16 +38654,10 @@ pub async fn delete_component_template(
     State(state): State<AppState>,
     Path(name): Path<String>,
 ) -> impl IntoResponse {
-    match state.engine.delete_component_template(&name) {
-        Ok(true) => Json(json!({ "acknowledged": true })).into_response(),
-        Ok(false) => {
-            let e = xerj_common::XerjError::index_not_found(format!(
-                "component template [{name}] missing"
-            ));
-            ApiError::new(e).into_response()
-        }
-        Err(e) => ApiError::new(xerj_common::XerjError::from(e)).into_response(),
-    }
+    template_delete_response(
+        state.engine.delete_component_templates(&name),
+        "component template",
+    )
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -50494,10 +50582,19 @@ fn flatten_template_settings(settings: &Value) -> Value {
     Value::Object(normalized)
 }
 
+/// `GET /_template`: every legacy template, 200 even when empty.
+pub async fn get_all_legacy_templates(State(state): State<AppState>) -> Response {
+    legacy_templates_response(&state, None)
+}
+
 pub async fn get_legacy_template(
     State(state): State<AppState>,
     Path(name): Path<String>,
-) -> impl IntoResponse {
+) -> Response {
+    legacy_templates_response(&state, Some(&name))
+}
+
+fn legacy_templates_response(state: &AppState, name: Option<&str>) -> Response {
     // Normalize any `aliases` block so each alias carries the same
     // split-routing shape the index-level alias endpoints produce
     // (see normalize_alias_meta).
@@ -50510,13 +50607,22 @@ pub async fn get_legacy_template(
         t
     };
 
-    if name == "_all" || name == "*" {
+    if template_get_is_listing(name, true) {
+        let keys = state
+            .engine
+            .legacy_templates
+            .iter()
+            .map(|e| e.key().clone());
         let mut result = serde_json::Map::new();
-        for entry in state.engine.legacy_templates.iter() {
-            result.insert(entry.key().clone(), normalize(entry.value().clone()));
+        for n in select_template_names(keys, name, true) {
+            if let Some(t) = state.engine.legacy_templates.get(&n) {
+                result.insert(n.clone(), normalize(t.clone()));
+            }
         }
-        return Json(Value::Object(result)).into_response();
+        let status = template_listing_status(!result.is_empty(), name);
+        return (status, Json(Value::Object(result))).into_response();
     }
+    let name = name.unwrap_or_default().to_string();
     match state.engine.legacy_templates.get(&name) {
         Some(t) => {
             let mut result = serde_json::Map::new();
@@ -50535,15 +50641,10 @@ pub async fn delete_legacy_template(
     State(state): State<AppState>,
     Path(name): Path<String>,
 ) -> impl IntoResponse {
-    match state.engine.delete_legacy_template(&name) {
-        Ok(true) => Json(json!({ "acknowledged": true })).into_response(),
-        Ok(false) => {
-            let e =
-                xerj_common::XerjError::index_not_found(format!("index template [{name}] missing"));
-            ApiError::new(e).into_response()
-        }
-        Err(e) => ApiError::new(xerj_common::XerjError::from(e)).into_response(),
-    }
+    template_delete_response(
+        state.engine.delete_legacy_templates(&name),
+        "index template",
+    )
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

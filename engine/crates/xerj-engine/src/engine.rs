@@ -3201,6 +3201,98 @@ impl Engine {
         self.persisted_remove(&self.component_templates, name)
     }
 
+    /// `DELETE /_index_template/{name}`, where `name` may be a pattern or a
+    /// comma list of exact names (ES `innerRemoveIndexTemplateV2`).
+    pub fn delete_index_templates(&self, expr: &str) -> Result<TemplateRemoval> {
+        self.persisted_remove_matching(&self.templates, expr, true)
+    }
+
+    /// `DELETE /_template/{name}`, where `name` may be a pattern. A comma is
+    /// part of the name here, as in ES `removeTemplates`.
+    pub fn delete_legacy_templates(&self, expr: &str) -> Result<TemplateRemoval> {
+        self.persisted_remove_matching(&self.legacy_templates, expr, false)
+    }
+
+    /// `DELETE /_component_template/{name}`, where `name` may be a pattern or
+    /// a comma list of exact names (ES `innerRemoveComponentTemplate`).
+    pub fn delete_component_templates(&self, expr: &str) -> Result<TemplateRemoval> {
+        self.persisted_remove_matching(&self.component_templates, expr, true)
+    }
+
+    /// Remove every template `expr` selects with one cluster-state flush, so
+    /// a pattern delete lands whole or not at all, as ES's single cluster
+    /// state update does.
+    ///
+    /// - With `list` and a comma in `expr`: exact names, all of which must
+    ///   exist; a pattern inside a list is just a name that does not exist.
+    /// - A name containing `*`: every match. No match is `Missing`, except for
+    ///   `*` itself, which is `NothingToRemove` (ES: "if its a match all
+    ///   pattern, and no templates are found (we have none), don't fail").
+    /// - Anything else: that one name.
+    ///
+    /// `_all` is not a pattern here: ES reads it as a literal name on DELETE,
+    /// and a delete is the wrong place to widen it.
+    ///
+    /// A failed flush puts back what this call removed. Like
+    /// `persisted_remove`, that restore can overwrite a PUT of the same name
+    /// that landed in between.
+    fn persisted_remove_matching<V: Clone>(
+        &self,
+        map: &DashMap<String, V>,
+        expr: &str,
+        list: bool,
+    ) -> Result<TemplateRemoval> {
+        self.ensure_cluster_state_writable()?;
+        let names: Vec<String> = if list && expr.contains(',') {
+            let mut wanted: Vec<String> = expr
+                .split(',')
+                .filter(|n| !n.is_empty())
+                .map(str::to_string)
+                .collect();
+            wanted.sort();
+            wanted.dedup();
+            let missing: Vec<&str> = wanted
+                .iter()
+                .filter(|n| !map.contains_key(n.as_str()))
+                .map(String::as_str)
+                .collect();
+            if !missing.is_empty() {
+                return Ok(TemplateRemoval::Missing(missing.join(",")));
+            }
+            wanted
+        } else if expr.contains('*') {
+            let matched: Vec<String> = map
+                .iter()
+                .map(|e| e.key().clone())
+                .filter(|k| template_name_matches(expr, k))
+                .collect();
+            if matched.is_empty() {
+                return Ok(if expr == "*" {
+                    TemplateRemoval::NothingToRemove
+                } else {
+                    TemplateRemoval::Missing(expr.to_string())
+                });
+            }
+            matched
+        } else {
+            vec![expr.to_string()]
+        };
+
+        let removed: Vec<(String, V)> = names.iter().filter_map(|n| map.remove(n)).collect();
+        if removed.is_empty() {
+            return Ok(TemplateRemoval::Missing(expr.to_string()));
+        }
+        if let Err(e) = self.flush_cluster_state() {
+            for (k, v) in removed {
+                map.insert(k, v);
+            }
+            return Err(e);
+        }
+        let mut gone: Vec<String> = removed.into_iter().map(|(k, _)| k).collect();
+        gone.sort();
+        Ok(TemplateRemoval::Removed(gone))
+    }
+
     /// Create or replace an ILM policy.
     pub fn put_ilm_policy(&self, name: String, body: Value) -> Result<()> {
         self.persisted_insert(&self.ilm_policies, name, body)
@@ -5659,6 +5751,49 @@ fn copy_dir_recursive(
         }
     }
     Ok(())
+}
+
+/// What a template DELETE whose name may be a pattern or a list removed.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TemplateRemoval {
+    /// These templates were removed, sorted by name.
+    Removed(Vec<String>),
+    /// The name was `*` and there were no templates: ES acknowledges this.
+    NothingToRemove,
+    /// Nothing was removed; this names what was not found.
+    Missing(String),
+}
+
+/// Whether a template GET or DELETE treats `expr` as a pattern: it contains
+/// `*`. ES `Regex.isSimpleMatchPattern`.
+pub fn is_template_pattern(expr: &str) -> bool {
+    expr.contains('*')
+}
+
+/// ES `Regex.simpleMatch` for template names: `*` matches any run of
+/// characters (including none) and every other character is literal. Unlike
+/// [`glob_match`], `?` is not a wildcard.
+pub fn template_name_matches(pattern: &str, name: &str) -> bool {
+    let (p, n): (Vec<char>, Vec<char>) = (pattern.chars().collect(), name.chars().collect());
+    let (mut pi, mut ni) = (0usize, 0usize);
+    // The last `*` seen, and where in `name` it started matching.
+    let mut star: Option<(usize, usize)> = None;
+    while ni < n.len() {
+        if pi < p.len() && p[pi] == '*' {
+            star = Some((pi, ni));
+            pi += 1;
+        } else if pi < p.len() && p[pi] == n[ni] {
+            pi += 1;
+            ni += 1;
+        } else if let Some((sp, sn)) = star {
+            pi = sp + 1;
+            ni = sn + 1;
+            star = Some((sp, sn + 1));
+        } else {
+            return false;
+        }
+    }
+    p[pi..].iter().all(|&c| c == '*')
 }
 
 /// Simple glob pattern matching (supports `*` and `?`).
