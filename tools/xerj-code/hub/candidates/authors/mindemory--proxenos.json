@@ -8,15 +8,15 @@
   {
    "repo": "proxenos",
    "url": "https://github.com/mindemory/proxenos",
-   "sha": "b55d3b6b6c188d08d24bdd324572ac75197dede7",
-   "licence": "MIT (LICENSE file at pin b55d3b6b6c18, GitHub licence API 2026-11-04)",
+   "sha": "78b4029bde006d40547a8eed430b027914a205ed",
+   "licence": "MIT (LICENSE file at pin 78b4029bde00, GitHub licence API 2026-11-04)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-30T04:09Z",
     "consent_receipt": "d295ef904d42",
-    "note": "Inclusion consented by the commit author by email at 2026-10-30T04:09Z (receipt d295ef904d42); selected commit b55d3b6b6c18: \"Searchable memory, recall, a corrected network and Google readers\". LICENSE file at pin b55d3b6b6c18 detected as MIT by the GitHub licence API on 2026-11-04; used under that licence with attribution. Pinned to head b55d3b6b6c18 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T04:09Z (receipt d295ef904d42); selected commit 78b4029bde00: \"Searchable memory, recall, a corrected network and Google readers\". LICENSE file at pin 78b4029bde00 detected as MIT by the GitHub licence API on 2026-11-04; used under that licence with attribution. Pinned to head 78b4029bde00 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

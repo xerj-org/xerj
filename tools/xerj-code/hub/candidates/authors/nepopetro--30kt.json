@@ -1,0 +1,23 @@
+{
+ "corpus": "nepopetro--30kt",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on analisis-documental, argentina, argentina-data queries this for how NepoPetro/30kT implements it: Investigaci\u00f3n cient\u00edfico-computacional sobre la cifra de 30.000 personas deportadas a Argentina. Fuentes identificadas, operaciones reproduc (selected work: reports)",
+ "repos": [
+  {
+   "repo": "30kT",
+   "url": "https://github.com/NepoPetro/30kT",
+   "sha": "758133967e3c19ce7af6a3dc4836bc618bb9521d",
+   "licence": "MIT (LICENSE file at pin 758133967e3c, GitHub licence API 2026-11-04)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-04T04:00Z",
+    "consent_receipt": "1223f4c3ee86",
+    "note": "Inclusion consented by the commit author by email at 2026-11-04T04:00Z (receipt 1223f4c3ee86); selected commit 758133967e3c: \"Add A02 evidence bundle with SHA-256 manifest and verification workflow\". LICENSE file at pin 758133967e3c detected as MIT by the GitHub licence API on 2026-11-04; used under that licence with attribution."
+   }
+  }
+ ]
+}

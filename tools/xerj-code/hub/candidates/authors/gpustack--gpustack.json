@@ -1,0 +1,23 @@
+{
+ "corpus": "gpustack--gpustack",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ascend, cuda, deepseek queries this for how gpustack/gpustack implements it: A GPU cluster manager for high-performance AI model serving (vLLM, SGLang) and on-demand SSH-accessible GPU instances (selected work: tests, gpustack)",
+ "repos": [
+  {
+   "repo": "gpustack",
+   "url": "https://github.com/gpustack/gpustack",
+   "sha": "a13791a4f48b1003d4a90b8372605a25c33bd2d9",
+   "licence": "Apache-2.0 (LICENSE file at pin a13791a4f48b, GitHub licence API 2026-11-04)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-04T03:01Z",
+    "consent_receipt": "25c6d146d10f",
+    "note": "Inclusion consented by the commit author by email at 2026-11-04T03:01Z (receipt 25c6d146d10f); selected commit a13791a4f48b: \"fix(models): validate automatic route names before persistence\". LICENSE file at pin a13791a4f48b detected as Apache-2.0 by the GitHub licence API on 2026-11-04; used under that licence with attribution."
+   }
+  }
+ ]
+}

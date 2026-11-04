@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on JavaScript queries this for how jheagle/js-build-tools implements it: Centralize the build process for node.js and JS projects into a single tool suite (selected work: functions, the project root)",
+ "domain": "an agent working on babel, build-tool, esbuild queries this for how jheagle/js-build-tools implements it: Centralize the build process for node.js and JS projects into a single tool suite (selected work: functions, the project root)",
  "repos": [
   {
    "repo": "js-build-tools",
