@@ -6104,6 +6104,68 @@ fn rewrite_unqueryable_exists(q: &mut Value, state: &AppState, indices: &[String
     walk(q, state, indices);
 }
 
+/// ES's default for `index.max_terms_count` (`IndexSettings.MAX_TERMS_COUNT_SETTING`).
+const DEFAULT_MAX_TERMS_COUNT: u64 = 65_536;
+
+/// The first `terms` query whose value list is longer than
+/// `index.max_terms_count`, with ES's message (`TermsQueryBuilder#doToQuery`).
+///
+/// ES counts the values each `terms` clause carries after a terms lookup has
+/// been fetched, so this runs on the resolved body. The setting is per index
+/// and ES checks it per shard: a request only fails outright when it exceeds
+/// the limit of every target index, so the largest limit among the targets is
+/// the one that decides. XERJ never read the setting, so an index configured
+/// with a small limit accepted any number of terms, and the 65 536 default did
+/// not bound a request either.
+fn find_terms_query_over_limit(
+    roots: &[Option<&Value>],
+    state: &AppState,
+    indices: &[&str],
+) -> Option<String> {
+    fn longest(v: &Value, out: &mut usize) {
+        match v {
+            Value::Object(obj) => {
+                if let Some(Value::Object(terms)) = obj.get("terms") {
+                    for (field, values) in terms {
+                        if matches!(field.as_str(), "boost" | "_name") {
+                            continue;
+                        }
+                        if let Value::Array(values) = values {
+                            *out = (*out).max(values.len());
+                        }
+                    }
+                }
+                for child in obj.values() {
+                    longest(child, out);
+                }
+            }
+            Value::Array(items) => {
+                for item in items {
+                    longest(item, out);
+                }
+            }
+            _ => {}
+        }
+    }
+    let mut count = 0usize;
+    for root in roots.iter().flatten() {
+        longest(root, &mut count);
+    }
+    let limit = indices
+        .iter()
+        .map(|ix| {
+            index_int_setting(state, ix, "max_terms_count").unwrap_or(DEFAULT_MAX_TERMS_COUNT)
+        })
+        .max()?;
+    (count as u64 > limit).then(|| {
+        format!(
+            "The number of terms [{count}] used in the Terms Query request has exceeded the \
+             allowed maximum of [{limit}]. This maximum can be set by changing the \
+             [index.max_terms_count] index level setting."
+        )
+    })
+}
+
 async fn resolve_terms_lookups(q: &mut Value, state: &AppState) {
     // First pass: collect every (index, id, path) triple keyed by the
     // (terms_obj, field) pair we'll mutate after the fetch.
@@ -14879,6 +14941,18 @@ async fn search_impl(
     }
     if let Some(aggs) = body.aggregations.as_mut() {
         resolve_terms_lookups(aggs, &state).await;
+    }
+    // `index.max_terms_count`, counted on the resolved lookups above.
+    if let Some(reason) = find_terms_query_over_limit(
+        &[
+            body.query.as_ref(),
+            body.aggs.as_ref(),
+            body.aggregations.as_ref(),
+        ],
+        &state,
+        &index_names,
+    ) {
+        return search_shard_validation_error(&reason);
     }
     // Rewrite `match` queries that target a keyword field into `term`
     // queries. ES treats `match` on keyword fields as exact (the
