@@ -369,6 +369,16 @@ all 2,387 evaluation items. Without the flag a node is the node rc.100 was: no
   the check cannot read with confidence (JSON ES's own parser rejects, an
   escaped key, a byte order mark) stops the check there, and the rest of the
   body is answered as before.
+
+- `POST /{alias}/_rollover` now works for index aliases. It generates the
+  next `-NNNNNN` name (or uses `new_index`), copies the write index's mapping
+  and settings, carries the alias's filter/routing metadata to the new member,
+  and moves `is_write_index` from the old member to the new so writes continue
+  through the alias. `dry_run` and `max_docs`/`max_age` conditions are
+  honoured; a name without a numeric suffix and a multi-member alias without a
+  write index are refused. The route previously answered 404 because only data
+  streams were handled.
+
 - Data-stream `_rollover` honours `dry_run` and its `conditions` instead of
   ignoring the body: `max_docs`/`max_age` are ORed and reported in
   `conditions`, and a dry run or an unmet condition creates no backing index.
