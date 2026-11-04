@@ -232,6 +232,7 @@ fn run_file(
         .to_string();
 
     let mut setup_steps: Vec<YamlValue> = Vec::new();
+    let mut teardown_steps: Vec<YamlValue> = Vec::new();
     let mut tests: Vec<(String, Vec<YamlValue>)> = Vec::new();
 
     for doc in &docs {
@@ -240,6 +241,16 @@ fn run_file(
                 if let Some(YamlValue::Sequence(steps)) = m.get(YamlValue::String("setup".into())) {
                     setup_steps = steps.clone();
                 }
+                continue;
+            }
+            // ES runs `teardown` after every case of the file, pass or fail.
+            // It used to be collected as one more test named "teardown",
+            // which ran once, before the cases it was meant to clean up
+            // after, so a cluster setting a case changed leaked into every
+            // later file (`scroll/20_keep_alive.yml` resets
+            // `search.max_keep_alive` there).
+            if let Some(YamlValue::Sequence(steps)) = m.get(YamlValue::String("teardown".into())) {
+                teardown_steps = steps.clone();
                 continue;
             }
             for (key, val) in m {
@@ -282,6 +293,14 @@ fn run_file(
         }
 
         let result = run_test_case(client, base_url, &[], steps, verbose);
+        run_teardown(
+            client,
+            base_url,
+            &teardown_steps,
+            &short_name,
+            name,
+            verbose,
+        );
         match result {
             TestResult::Pass => {
                 if verbose {
@@ -310,6 +329,34 @@ fn run_file(
                     );
                 }
                 stats.skipped += 1;
+            }
+        }
+    }
+}
+
+/// A teardown step that fails does not change the case's result (the case
+/// already ran); it is reported under `--verbose`, and the suite wipe at the
+/// start of the next case still runs.
+fn run_teardown(
+    client: &reqwest::blocking::Client,
+    base_url: &str,
+    steps: &[YamlValue],
+    short_name: &str,
+    name: &str,
+    verbose: bool,
+) {
+    let mut response = Value::Null;
+    let mut vars: HashMap<String, String> = HashMap::new();
+    for step in steps {
+        if let Err(e) = execute_step(client, base_url, step, &mut response, &mut vars) {
+            if verbose {
+                println!(
+                    "  {} {} · {} — teardown: {}",
+                    "WARN".yellow(),
+                    short_name,
+                    name,
+                    e
+                );
             }
         }
     }
