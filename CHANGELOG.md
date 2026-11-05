@@ -201,7 +201,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A search with `track_total_hits: true` no longer reports the capped total
   of the same search run earlier with `track_total_hits: false`. The query
   cache could not tell the two modes apart (both serialized as `null`), so
-  `_search`, `_msearch` and the template paths could answer the second one
+  any search that sent both (`_search`, `_msearch`, `_async_search`, the
+  template paths, and the native and gRPC APIs) could answer the second one
   with, for example, `{"value": 1, "relation": "gte"}` for 3 matches until the
   next write.
 
