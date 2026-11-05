@@ -88,6 +88,11 @@ PAGES: dict[str, dict[str, str]] = {
         label="Playground", kind="software",
         description="Live XERJ dashboards running on seeded data — click filters, drill down, read real queries. Leave a work email to unlock the interactive playground.",
     ),
+    "xerj-query-1.html": dict(
+        label="XERJ Query-1", kind="webpage",
+        title="XERJ Query-1: prompts to verifiable search programs",
+        description="XERJ Query-1 compiles a plain question into a program the engine runs over your facts and shows step by step. Seven capabilities, real examples, compared with RAG.",
+    ),
     "donate.html": dict(
         label="Donate", kind="webpage",
         title="Donate to XERJ: fund GPU hours for the XERJ Query-1 model",
