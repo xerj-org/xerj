@@ -6774,6 +6774,476 @@ fn rebucket_auto_date_histograms(results: &mut Value, aggs_req: &Value) {
     }
 }
 
+fn leaf_terms_orders(params: &Value) -> Option<Vec<(String, bool)>> {
+    let mut orders = Vec::new();
+    let mut append = |v: &Value| -> Option<()> {
+        let object = v.as_object()?;
+        if object.is_empty() {
+            return None;
+        }
+        for (key, direction) in object {
+            if key != "_count" && key != "_key" {
+                return None;
+            }
+            let asc = match direction.as_str()? {
+                "asc" => true,
+                "desc" => false,
+                _ => return None,
+            };
+            orders.push((key.clone(), asc));
+        }
+        Some(())
+    };
+    match params.get("order") {
+        None => orders.push(("_count".into(), false)),
+        Some(Value::Array(v)) => {
+            if v.is_empty() {
+                return None;
+            }
+            for item in v {
+                append(item)?;
+            }
+        }
+        Some(v) => append(v)?,
+    }
+    Some(orders)
+}
+
+fn leaf_terms_params(spec: &Value) -> Option<&Value> {
+    let spec = spec.as_object()?;
+    if spec.keys().any(|k| k != "terms" && k != "meta") {
+        return None;
+    }
+    let params = spec.get("terms")?;
+    let object = params.as_object()?;
+    if object.keys().any(|k| {
+        ![
+            "field",
+            "size",
+            "shard_size",
+            "min_doc_count",
+            "order",
+            "include",
+            "exclude",
+            "missing",
+        ]
+        .contains(&k.as_str())
+    }) {
+        return None;
+    }
+    params.get("field")?.as_str()?;
+    for key in ["size", "shard_size", "min_doc_count"] {
+        if params
+            .get(key)
+            .is_some_and(|value| value.as_u64().is_none())
+        {
+            return None;
+        }
+    }
+    leaf_terms_orders(params)?;
+    Some(params)
+}
+
+fn prepare_leaf_terms_summaries(request: &Value) -> (Value, Vec<String>) {
+    let mut rewritten = request.clone();
+    let mut names = Vec::new();
+    if let Some(object) = rewritten.as_object_mut() {
+        for (name, spec) in object {
+            if leaf_terms_params(spec).is_none() {
+                continue;
+            }
+            let params = spec
+                .get_mut("terms")
+                .and_then(Value::as_object_mut)
+                .unwrap();
+            params.insert("size".into(), json!(0));
+            params.remove("shard_size");
+            if params.get("min_doc_count").and_then(Value::as_u64) != Some(0) {
+                params.insert("min_doc_count".into(), json!(1));
+            }
+            names.push(name.clone());
+        }
+    }
+    (rewritten, names)
+}
+
+fn leaf_terms_limit_error(cap: usize) -> Value {
+    json!({"error":format!("Trying to create too many buckets. Must be less than or equal to: [{}] but this number of buckets was exceeded. This limit can be set by changing the [search.max_buckets] cluster level setting.",cap),"__error_status__":400})
+}
+
+fn leaf_terms_identity(bucket: &Value) -> String {
+    if let Some(raw) = bucket
+        .get("__xy_terms_key__")
+        .and_then(Value::as_str)
+        .filter(|_| !bucket["key"].is_number() || bucket.get("key_as_string").is_some())
+    {
+        let kind = match bucket.get("key") {
+            Some(Value::String(_)) => "string",
+            Some(Value::Number(_)) => "number",
+            Some(Value::Bool(_)) => "bool",
+            _ => "other",
+        };
+        return format!("raw:{kind}:{raw}");
+    }
+    // Exact integers never pass through f64. String and numeric keys stay distinct.
+    if let Some(text) = bucket.get("key_as_string").and_then(Value::as_str) {
+        // Boolean/date representations carry mapping-specific identity.
+        return format!("kas:{text}");
+    }
+    let key = &bucket["key"];
+    match key {
+        Value::Number(n) if !n.is_i64() && !n.is_u64() => {
+            if let Some(f) = n.as_f64() {
+                if f.fract() == 0.0 && f.abs() < (1u64 << 53) as f64 {
+                    return format!("n:{}", f as i64);
+                }
+            }
+            format!("n:{n}")
+        }
+        Value::Number(n) => format!("n:{n}"),
+        other => format!("j:{other}"),
+    }
+}
+
+fn merge_leaf_terms_summary(old: &Value, new: &Value, cap: usize) -> Value {
+    if old.get("error").is_some() {
+        return old.clone();
+    }
+    if new.get("error").is_some() {
+        return new.clone();
+    }
+    let mut result = old.clone();
+    let Some(rows) = result.get_mut("buckets").and_then(Value::as_array_mut) else {
+        return new.clone();
+    };
+    if rows.len() > cap {
+        return leaf_terms_limit_error(cap);
+    }
+    let mut positions: HashMap<String, usize> = rows
+        .iter()
+        .enumerate()
+        .map(|(i, b)| (leaf_terms_identity(b), i))
+        .collect();
+    if let Some(incoming) = new.get("buckets").and_then(Value::as_array) {
+        for bucket in incoming {
+            let key = leaf_terms_identity(bucket);
+            if let Some(&i) = positions.get(&key) {
+                let a = rows[i]["doc_count"].as_u64().unwrap_or(0);
+                let b = bucket["doc_count"].as_u64().unwrap_or(0);
+                let Some(total) = a.checked_add(b) else {
+                    return json!({"error":"terms document count overflow","__error_status__":400});
+                };
+                rows[i]["doc_count"] = json!(total);
+            } else {
+                if rows.len() >= cap {
+                    return leaf_terms_limit_error(cap);
+                }
+                positions.insert(key, rows.len());
+                rows.push(bucket.clone());
+            }
+        }
+    }
+    result
+}
+
+fn leaf_terms_key_text(key: &Value) -> String {
+    key.as_str()
+        .map(str::to_owned)
+        .unwrap_or_else(|| key.to_string())
+}
+fn compare_leaf_terms_keys(a: &Value, b: &Value) -> std::cmp::Ordering {
+    // Match the current engine terms comparator, including its numeric-looking
+    // text convention, rather than silently change single-index behavior here.
+    let a = leaf_terms_key_text(a);
+    let b = leaf_terms_key_text(b);
+    if let (Ok(x), Ok(y)) = (a.parse::<i64>(), b.parse::<i64>()) {
+        return x.cmp(&y);
+    }
+    let numeric = |s: &str| s.parse::<f64>().ok().filter(|n| n.is_finite());
+    match (numeric(&a), numeric(&b)) {
+        (Some(x), Some(y)) => x.partial_cmp(&y).unwrap_or(std::cmp::Ordering::Equal),
+        _ => a.cmp(&b),
+    }
+}
+
+fn finalize_leaf_terms_summaries(
+    results: &mut Value,
+    request: &Value,
+    names: &[String],
+    cap: usize,
+) {
+    for name in names {
+        let Some(params) = request.get(name).and_then(leaf_terms_params) else {
+            continue;
+        };
+        let Some(result) = results.get_mut(name) else {
+            continue;
+        };
+        if result.get("error").is_some() {
+            continue;
+        }
+        let Some(rows) = result.get_mut("buckets").and_then(Value::as_array_mut) else {
+            continue;
+        };
+        if rows.len() > cap {
+            *result = leaf_terms_limit_error(cap);
+            continue;
+        }
+        let minimum = params
+            .get("min_doc_count")
+            .and_then(Value::as_u64)
+            .unwrap_or(1);
+        rows.retain(|b| b["doc_count"].as_u64().unwrap_or(0) >= minimum);
+        let orders = leaf_terms_orders(params).unwrap();
+        rows.sort_by(|a, b| {
+            for (key, asc) in &orders {
+                let cmp = if key == "_count" {
+                    a["doc_count"].as_u64().cmp(&b["doc_count"].as_u64())
+                } else {
+                    compare_leaf_terms_keys(
+                        a.get("__xy_terms_key__").unwrap_or(&a["key"]),
+                        b.get("__xy_terms_key__").unwrap_or(&b["key"]),
+                    )
+                };
+                let cmp = if *asc { cmp } else { cmp.reverse() };
+                if cmp != std::cmp::Ordering::Equal {
+                    return cmp;
+                }
+            }
+            compare_leaf_terms_keys(
+                a.get("__xy_terms_key__").unwrap_or(&a["key"]),
+                b.get("__xy_terms_key__").unwrap_or(&b["key"]),
+            )
+        });
+        let size = params.get("size").and_then(Value::as_u64).unwrap_or(10);
+        let size = if size == 0 {
+            usize::MAX
+        } else {
+            usize::try_from(size).unwrap_or(usize::MAX)
+        };
+        let other = rows.iter().skip(size).try_fold(0u64, |sum, b| {
+            sum.checked_add(b["doc_count"].as_u64().unwrap_or(0))
+        });
+        rows.truncate(size);
+        let Some(other) = other else {
+            *result = json!({"error":"terms document count overflow","__error_status__":400});
+            continue;
+        };
+        result["sum_other_doc_count"] = json!(other);
+        result["doc_count_error_upper_bound"] = json!(0);
+    }
+}
+
+#[cfg(test)]
+mod leaf_terms_coordinator_tests {
+    use super::*;
+    fn summary(rows: Value) -> Value {
+        json!({"buckets":rows,"sum_other_doc_count":0,"doc_count_error_upper_bound":0})
+    }
+    #[test]
+    fn plan_preserves_original_and_excludes_children_scripts_metric_order() {
+        let req = json!({"yes":{"terms":{"field":"k","size":1,"min_doc_count":2,"shard_size":1}},"child":{"terms":{"field":"k"},"aggs":{"s":{"sum":{"field":"n"}}}},"metric":{"terms":{"field":"k","order":{"s":"desc"}}},"script":{"terms":{"script":{"source":"x"}}}});
+        let (rewritten, names) = prepare_leaf_terms_summaries(&req);
+        assert_eq!(names, vec!["yes"]);
+        assert_eq!(req["yes"]["terms"]["size"], 1);
+        assert_eq!(rewritten["yes"]["terms"]["size"], 0);
+        assert_eq!(rewritten["yes"]["terms"]["min_doc_count"], 1);
+        assert!(rewritten["yes"]["terms"].get("shard_size").is_none());
+        assert_eq!(rewritten["child"], req["child"]);
+    }
+    #[test]
+    fn hidden_global_winner_and_minimum_survive() {
+        let a = summary(
+            json!([{"key":"a","doc_count":10},{"key":"winner","doc_count":9},{"key":"low","doc_count":1}]),
+        );
+        let b = summary(
+            json!([{"key":"b","doc_count":10},{"key":"winner","doc_count":9},{"key":"low","doc_count":1}]),
+        );
+        for (a, b) in [(&a, &b), (&b, &a)] {
+            let mut r = json!({"t":merge_leaf_terms_summary(a,b,4)});
+            finalize_leaf_terms_summaries(
+                &mut r,
+                &json!({"t":{"terms":{"field":"k","size":1,"min_doc_count":2}}}),
+                &["t".into()],
+                4,
+            );
+            assert_eq!(r["t"]["buckets"], json!([{"key":"winner","doc_count":18}]));
+            assert_eq!(r["t"]["sum_other_doc_count"], 22);
+        }
+    }
+    #[test]
+    fn cap_and_errors_never_silently_drop() {
+        let a = summary(json!([{"key":"a","doc_count":1}]));
+        let b = summary(json!([{"key":"b","doc_count":1}]));
+        let e = merge_leaf_terms_summary(&a, &b, 1);
+        assert_eq!(e["__error_status__"], 400);
+        assert_eq!(merge_leaf_terms_summary(&e, &a, 1), e);
+        assert_eq!(merge_leaf_terms_summary(&a, &e, 1), e);
+    }
+    #[test]
+    fn large_integer_and_typed_identity_do_not_collapse() {
+        let a = summary(
+            json!([{"key":9007199254740992u64,"doc_count":1},{"key":"1","doc_count":1},{"key":1,"doc_count":2}]),
+        );
+        let b =
+            summary(json!([{"key":9007199254740993u64,"doc_count":1},{"key":1.0,"doc_count":3}]));
+        let r = merge_leaf_terms_summary(&a, &b, 4);
+        assert_eq!(r["buckets"].as_array().unwrap().len(), 4);
+        assert_eq!(r["buckets"][2]["doc_count"], 5);
+    }
+    #[test]
+    fn real_engine_leaf_summaries_match_union_counts_and_order() {
+        let a = vec![json!({"k":"a"}), json!({"k":"a"}), json!({"k":"winner"})];
+        let b = vec![
+            json!({"k":"b"}),
+            json!({"k":"b"}),
+            json!({"k":"winner"}),
+            json!({"k":"winner"}),
+        ];
+        let union: Vec<Value> = a.iter().chain(&b).cloned().collect();
+        for order in [
+            json!({"_count":"desc"}),
+            json!({"_count":"asc"}),
+            json!({"_key":"asc"}),
+            json!({"_key":"desc"}),
+        ] {
+            for minimum in [1, 2, 3] {
+                for size in [1, 2, 0] {
+                    let request = json!({"t":{"terms":{"field":"k","size":size,"min_doc_count":minimum,"order":order}}});
+                    let (summary_request, names) = prepare_leaf_terms_summaries(&request);
+                    let ar = xerj_engine::aggs::run_aggs(&summary_request, &a);
+                    let br = xerj_engine::aggs::run_aggs(&summary_request, &b);
+                    let expected = xerj_engine::aggs::run_aggs(&request, &union);
+                    for (left, right) in [(&ar, &br), (&br, &ar)] {
+                        let mut got =
+                            json!({"t":merge_leaf_terms_summary(&left["t"], &right["t"], 3)});
+                        finalize_leaf_terms_summaries(&mut got, &request, &names, 3);
+                        assert_eq!(got, expected, "order={order} minimum={minimum} size={size}");
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn real_engine_leaf_summaries_cover_filters_missing_and_typed_keys() {
+        for (a, b, params) in [
+            (
+                vec![json!({"k":"2024-01-01T00:00:00Z"})],
+                vec![json!({"k":"2024-01-01T01:00:00+01:00"})],
+                json!({"field":"k","size":0,"order":{"_key":"asc"}}),
+            ),
+            (
+                vec![json!({"k":2}), json!({"k":10})],
+                vec![json!({"k":3}), json!({"k":10})],
+                json!({"field":"k","size":2,"order":{"_key":"desc"}}),
+            ),
+            (
+                vec![json!({"k":"a"}), json!({})],
+                vec![json!({"k":"b"}), json!({})],
+                json!({"field":"k","size":1,"missing":"z"}),
+            ),
+            (
+                vec![json!({"k":"a"}), json!({"k":"x"})],
+                vec![json!({"k":"b"}), json!({"k":"x"})],
+                json!({"field":"k","size":1,"include":["a","x"],"exclude":["a"]}),
+            ),
+            (
+                vec![json!({"k":true}), json!({"k":false})],
+                vec![json!({"k":true})],
+                json!({"field":"k","size":1}),
+            ),
+            (
+                vec![],
+                vec![json!({"k":"a"})],
+                json!({"field":"k","size":1}),
+            ),
+        ] {
+            let request = json!({"t":{"terms":params}});
+            let (summary_request, names) = prepare_leaf_terms_summaries(&request);
+            let ar = xerj_engine::aggs::run_aggs(&summary_request, &a);
+            let br = xerj_engine::aggs::run_aggs(&summary_request, &b);
+            let union: Vec<Value> = a.iter().chain(&b).cloned().collect();
+            let expected = xerj_engine::aggs::run_aggs(&request, &union);
+            let mut got = json!({"t":merge_leaf_terms_summary(&ar["t"],&br["t"],10)});
+            finalize_leaf_terms_summaries(&mut got, &request, &names, 10);
+            assert_eq!(got, expected, "params={params}");
+        }
+    }
+
+    #[test]
+    fn raw_numeric_summaries_merge_equivalent_longs_and_doubles() {
+        let a = json!({"t":{"buckets":[
+            {"key":10,"__xy_terms_key__":"10","doc_count":1},
+            {"key":100,"__xy_terms_key__":"100","doc_count":1}
+        ]}});
+        let b = json!({"t":{"buckets":[
+            {"key":10.0,"__xy_terms_key__":"10.0","doc_count":1},
+            {"key":100.0,"__xy_terms_key__":"100.0","doc_count":1},
+            {"key":14.6,"__xy_terms_key__":"14.6","doc_count":1}
+        ]}});
+        for (left, right) in [(&a, &b), (&b, &a)] {
+            let mut got = json!({"t":merge_leaf_terms_summary(&left["t"],&right["t"],3)});
+            finalize_leaf_terms_summaries(
+                &mut got,
+                &json!({"t":{"terms":{"field":"number"}}}),
+                &["t".into()],
+                3,
+            );
+            assert_eq!(got["t"]["buckets"].as_array().unwrap().len(), 3);
+            assert_eq!(got["t"]["buckets"][0]["doc_count"], 2);
+            assert_eq!(got["t"]["buckets"][1]["doc_count"], 2);
+            assert_eq!(got["t"]["buckets"][2]["doc_count"], 1);
+            assert_eq!(got["t"]["buckets"][0]["key"].as_f64(), Some(10.0));
+            assert_eq!(got["t"]["buckets"][1]["key"].as_f64(), Some(100.0));
+        }
+    }
+
+    #[test]
+    fn raw_date_term_identity_preserves_distinct_spellings() {
+        let a = summary(
+            json!([{"key":1704067200000u64,"key_as_string":"2024-01-01T00:00:00.000Z","__xy_terms_key__":"2024-01-01T00:00:00Z","doc_count":1}]),
+        );
+        let b = summary(
+            json!([{"key":1704067200000u64,"key_as_string":"2024-01-01T00:00:00.000Z","__xy_terms_key__":"2024-01-01T01:00:00+01:00","doc_count":1}]),
+        );
+        let mut result = json!({"t":merge_leaf_terms_summary(&a,&b,2)});
+        finalize_leaf_terms_summaries(
+            &mut result,
+            &json!({"t":{"terms":{"field":"k","size":0,"order":{"_key":"asc"}}}}),
+            &["t".into()],
+            2,
+        );
+        assert_eq!(result["t"]["buckets"].as_array().unwrap().len(), 2);
+        assert_eq!(
+            result["t"]["buckets"][0]["__xy_terms_key__"],
+            "2024-01-01T00:00:00Z"
+        );
+    }
+
+    #[test]
+    fn boolean_representation_does_not_merge_with_numeric_key() {
+        let a = summary(json!([{"key":1,"key_as_string":"true","doc_count":2}]));
+        let b = summary(json!([{"key":1,"doc_count":3}]));
+        let result = merge_leaf_terms_summary(&a, &b, 2);
+        assert_eq!(result["buckets"].as_array().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn explicit_key_desc_minimum_and_zero_size() {
+        let mut r = json!({"t":summary(json!([{"key":2,"doc_count":2},{"key":10,"doc_count":1},{"key":3,"doc_count":2}]))});
+        finalize_leaf_terms_summaries(
+            &mut r,
+            &json!({"t":{"terms":{"field":"k","size":0,"min_doc_count":2,"order":{"_key":"desc"}}}}),
+            &["t".into()],
+            3,
+        );
+        assert_eq!(r["t"]["buckets"][0]["key"], 3);
+        assert_eq!(r["t"]["buckets"].as_array().unwrap().len(), 2);
+        assert_eq!(r["t"]["sum_other_doc_count"], 0);
+    }
+}
+
 fn recoordinate_auto_date_histogram(res: &mut Value, target_buckets: usize) {
     let Some(obj) = res.as_object_mut() else {
         return;
@@ -16560,6 +17030,26 @@ async fn search_impl(
     if pierce_explicit_source.is_some() {
         search_req.source = xerj_query::ast::SourceFilter::Enabled(true);
     }
+    // Leaf terms have no child payloads to expand. Ask each index for bounded
+    // complete counts, retaining the original definitions for global selection.
+    let mut leaf_terms_names = Vec::new();
+    if index_names.len() > 1 {
+        if let Some(request) = search_req.aggs.as_ref() {
+            let pipeline_dependency = request.as_object().is_some_and(|aggs| {
+                aggs.values().any(|spec| {
+                    spec.as_object().is_some_and(|spec| {
+                        spec.values()
+                            .any(|params| params.get("buckets_path").is_some())
+                    })
+                })
+            });
+            if !pipeline_dependency {
+                let (rewritten, names) = prepare_leaf_terms_summaries(request);
+                search_req.aggs = Some(rewritten);
+                leaf_terms_names = names;
+            }
+        }
+    }
     let search_req = search_req;
 
     // Execute search on each index and merge results.
@@ -16803,6 +17293,15 @@ async fn search_impl(
                                     // across indices rather than just the
                                     // first index's value.
                                     if let Some(old) = ex_obj.get(k).cloned() {
+                                        if leaf_terms_names.contains(k) {
+                                            let merged = merge_leaf_terms_summary(
+                                                &old,
+                                                v,
+                                                xerj_engine::aggs::max_buckets(),
+                                            );
+                                            ex_obj.insert(k.clone(), merged);
+                                            continue;
+                                        }
                                         if let Some(merged) = merge_metric_agg(&old, v) {
                                             ex_obj.insert(k.clone(), merged);
                                             continue;
@@ -16877,6 +17376,12 @@ async fn search_impl(
     if let Some(aggs_req) = body.aggs.as_ref().or(body.aggregations.as_ref()) {
         if let Some(m) = merged_aggs.as_mut() {
             rebucket_auto_date_histograms(m, aggs_req);
+            finalize_leaf_terms_summaries(
+                m,
+                aggs_req,
+                &leaf_terms_names,
+                xerj_engine::aggs::max_buckets(),
+            );
         }
     }
 

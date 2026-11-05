@@ -149,6 +149,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Finalize top-level leaf `terms` buckets across participating indices after
+  complete bounded counts, preserving requested count/key order and global
+  minimum/size. Refuse bucket-cap overflow instead of silently dropping terms;
+  retain private raw term identity until the HTTP response boundary.
+
 - A plain debug `cargo test --workspace` no longer aborts on a stack overflow,
   and the `127.0.0.2` loopback test names the missing macOS alias (#2903). Five
   tests that run the ES-compat router on multi-thread workers overflowed tokio's

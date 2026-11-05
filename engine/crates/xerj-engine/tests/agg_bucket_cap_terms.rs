@@ -9,23 +9,11 @@
 //! 37. That is the OOM vector the cap exists to close, honoured on brute and
 //! ignored on the columnar path.
 //!
-//! ## Why the fix BAILS rather than errors or truncates
+//! ## Overflow behavior
 //!
-//! The two executors must AGREE past the cap. Brute `run_terms` does not error
-//! there: it keeps the first `max_buckets` distinct terms in doc-iteration
-//! order, drops the rest, and reports a `sum_other_doc_count` computed only
-//! over the terms it kept — so the dropped terms vanish silently and the total
-//! conceals them (order-dependent, and a bug in its own right). Reproducing
-//! that on the fast path would copy the bug, not the contract; erroring would
-//! make the fast path disagree with a brute path that still returns a body.
-//!
-//! So `exec_terms` bails to brute the instant its distinct-term count would
-//! exceed the cap. After the bail the request is answered by the very
-//! `run_terms` the fast path would be measured against, so the two AGREE past
-//! the cap by construction. What this test pins is that agreement plus the two
-//! observable consequences of the bail: the fast path stops SERVING the
-//! over-cap agg (`fast_path_aggs_served` no longer ticks) and the answer honours
-//! the cap (exactly `CAP` distinct buckets, not all `NTERMS`).
+//! exec_terms bails to brute when another distinct key would exceed the cap.
+//! Brute now returns too_many_buckets instead of silently dropping keys and
+//! reporting incomplete counts as exact. Both paths must preserve that error.
 //!
 //! Which executor answered is read from `aggs::fast_path_aggs_served`; the brute
 //! leg is forced by keeping an index under the columnar path's own size gate
@@ -140,36 +128,15 @@ async fn lowered_max_buckets_binds_the_columnar_terms_path_and_the_brute_path_al
     build_index(&engine, "big-at", BIG_DOCS, CAP).await;
     build_index(&engine, "small-over", SMALL_DOCS, NTERMS).await;
 
-    // ── Fast path, cardinality PAST the cap ──────────────────────────────
-    // The regression: before the fix this was served columnarly (served == 1)
-    // and returned all NTERMS buckets. The fix bails to brute, so the fast path
-    // no longer serves it and the brute cap (exactly CAP distinct terms) binds.
-    let (agg, served) = run_terms(&engine, "big-over").await;
-    assert_eq!(
-        served,
-        0,
-        "exec_terms served an over-cap agg columnarly instead of bailing; it \
-         returned {} buckets against max_buckets={CAP}",
-        bucket_count(&agg)
-    );
-    assert_eq!(
-        bucket_count(&agg),
-        CAP,
-        "over-cap terms agg did not honour max_buckets={CAP}: {}",
-        bucket_count(&agg)
-    );
-
-    // ── Brute path, same over-cap shape below the size gate ──────────────
-    // The path the fast leg bails INTO. It agrees on the cap: exactly CAP
-    // distinct buckets. (The kept terms are order-dependent and the doc counts
-    // differ from the big index, so agreement is on the count, per the issue.)
-    let (agg, served) = run_terms(&engine, "small-over").await;
-    assert_eq!(served, 0, "the small index must not take the fast path");
-    assert_eq!(
-        bucket_count(&agg),
-        CAP,
-        "brute run_terms disagrees with the fast path on the cap"
-    );
+    // Both over-cap routes must refuse incomplete counts, not quietly keep
+    // an iteration-dependent subset. This intentional contract correction
+    // replaces the old assertion that pinned the documented silent-drop bug.
+    for name in ["big-over", "small-over"] {
+        let (agg, served) = run_terms(&engine, name).await;
+        assert_eq!(served, 0, "over-cap terms must fall back to brute");
+        assert_eq!(agg["__error_status__"], 400, "{name}: {agg}");
+        assert!(agg["error"].as_str().unwrap().contains("too many buckets"));
+    }
 
     // ── Fast path, cardinality exactly AT the cap ────────────────────────
     // The fix must bail only when the count would EXCEED the cap: an at-cap
@@ -185,5 +152,13 @@ async fn lowered_max_buckets_binds_the_columnar_terms_path_and_the_brute_path_al
         bucket_count(&agg),
         CAP,
         "at-cap terms agg dropped or invented a bucket"
+    );
+    assert!(
+        agg["buckets"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|b| b.get("__xy_terms_key__").is_some()),
+        "the admitted fast path must retain raw term identity for coordination"
     );
 }

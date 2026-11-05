@@ -3652,16 +3652,25 @@ fn run_terms(
     });
     let mut counts: HashMap<String, u64> = HashMap::new();
     let bucket_cap = max_buckets();
+    let too_many_buckets = || {
+        json!({
+            "error": format!(
+                "Trying to create too many buckets. Must be less than or equal to: [{}] but this number of buckets was exceeded. This limit can be set by changing the [search.max_buckets] cluster level setting.",
+                bucket_cap
+            ),
+            "__error_status__": 400u32,
+        })
+    };
     for doc in docs {
         let weight = doc_count_weight(doc);
         let vals = terms_agg_bucket_keys(&field_or_script, doc);
         if vals.is_empty() {
             if let Some(ph) = &missing_placeholder {
-                // Bucket cap: skip new keys past the limit, but always
-                // accumulate into existing keys so the cap doesn't bias
-                // counts of buckets that were already seen.
+                // Never return an apparently exact result after dropping keys.
                 if counts.contains_key(ph) || counts.len() < bucket_cap {
                     *counts.entry(ph.clone()).or_insert(0) += weight;
+                } else {
+                    return too_many_buckets();
                 }
             }
             continue;
@@ -3669,6 +3678,8 @@ fn run_terms(
         for term in vals {
             if counts.contains_key(&term) || counts.len() < bucket_cap {
                 *counts.entry(term).or_insert(0) += weight;
+            } else {
+                return too_many_buckets();
             }
         }
     }
@@ -3686,6 +3697,8 @@ fn run_terms(
             for term in terms_agg_bucket_keys(&field_or_script, doc) {
                 if counts.contains_key(&term) || counts.len() < bucket_cap {
                     counts.entry(term).or_insert(0);
+                } else {
+                    return too_many_buckets();
                 }
             }
         }
@@ -3911,7 +3924,8 @@ fn run_terms(
 
             let mut bucket = json!({
                 "key": typed_key,
-                "doc_count": count
+                "doc_count": count,
+                "__xy_terms_key__": key
             });
             if let Some(kas) = key_as_string {
                 bucket["key_as_string"] = json!(kas);
@@ -15745,6 +15759,33 @@ mod tests {
         let buckets = result["c"]["buckets"].as_array().unwrap();
         assert_eq!(buckets[0]["key"]["n"], json!(7));
         assert_eq!(buckets[1]["key"]["n"], json!(10));
+    }
+
+    #[test]
+    fn leaf_terms_bucket_cap_refuses_incomplete_counts() {
+        let docs = vec![json!({"k":"a"}), json!({"k":"b"}), json!({"k":"c"})];
+        let request = json!({"t":{"terms":{"field":"k","size":0}}});
+        let result = run_aggs_with_limits(&request, &docs, &docs, AggLimits { max_buckets: 2 });
+        assert_eq!(result["t"]["__error_status__"], 400);
+        assert!(result["t"]["error"]
+            .as_str()
+            .unwrap()
+            .contains("too many buckets"));
+        let complete = run_aggs_with_limits(&request, &docs, &docs, AggLimits { max_buckets: 3 });
+        assert_eq!(complete["t"]["buckets"].as_array().unwrap().len(), 3);
+    }
+
+    #[test]
+    fn leaf_terms_bucket_cap_covers_missing_and_zero_count_background() {
+        let docs = vec![json!({"k":"a"}), json!({})];
+        let missing = json!({"t":{"terms":{"field":"k","size":0,"missing":"z"}}});
+        let result = run_aggs_with_limits(&missing, &docs, &docs, AggLimits { max_buckets: 1 });
+        assert_eq!(result["t"]["__error_status__"], 400);
+        let background = vec![json!({"k":"a"}), json!({"k":"b"})];
+        let zero = json!({"t":{"terms":{"field":"k","size":0,"min_doc_count":0}}});
+        let result =
+            run_aggs_with_limits(&zero, &docs[..1], &background, AggLimits { max_buckets: 1 });
+        assert_eq!(result["t"]["__error_status__"], 400);
     }
 
     // ── RC4-W2 item 8: multi_terms raises too_many_buckets past the cap ─

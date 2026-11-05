@@ -1,0 +1,130 @@
+---
+setup:
+  - do:
+      indices.create:
+        index: leaf-terms-a
+        body:
+          mappings:
+            properties:
+              k: { type: keyword }
+  - do:
+      indices.create:
+        index: leaf-terms-b
+        body:
+          mappings:
+            properties:
+              k: { type: keyword }
+  - do:
+      bulk:
+        refresh: true
+        body:
+          - index: { _index: leaf-terms-a, _id: "1" }
+          - { k: a }
+          - index: { _index: leaf-terms-a, _id: "2" }
+          - { k: a }
+          - index: { _index: leaf-terms-a, _id: "3" }
+          - { k: winner }
+          - index: { _index: leaf-terms-b, _id: "1" }
+          - { k: b }
+          - index: { _index: leaf-terms-b, _id: "2" }
+          - { k: b }
+          - index: { _index: leaf-terms-b, _id: "3" }
+          - { k: winner }
+          - index: { _index: leaf-terms-b, _id: "4" }
+          - { k: winner }
+---
+"global winner survives local size one":
+  - do:
+      search:
+        index: leaf-terms-a,leaf-terms-b
+        body:
+          size: 0
+          aggs:
+            t:
+              terms: { field: k, size: 1 }
+  - length: { aggregations.t.buckets: 1 }
+  - match: { aggregations.t.buckets.0.key: winner }
+  - match: { aggregations.t.buckets.0.doc_count: 3 }
+  - match: { aggregations.t.sum_other_doc_count: 4 }
+---
+"minimum count applies after global merge":
+  - do:
+      search:
+        index: leaf-terms-b,leaf-terms-a
+        body:
+          size: 0
+          aggs:
+            t:
+              terms: { field: k, size: 1, min_doc_count: 3 }
+  - length: { aggregations.t.buckets: 1 }
+  - match: { aggregations.t.buckets.0.key: winner }
+  - match: { aggregations.t.buckets.0.doc_count: 3 }
+  - match: { aggregations.t.sum_other_doc_count: 0 }
+---
+"explicit key descending is global":
+  - do:
+      search:
+        index: leaf-terms-a,leaf-terms-b
+        body:
+          size: 0
+          aggs:
+            t:
+              terms: { field: k, size: 2, order: { _key: desc } }
+  - length: { aggregations.t.buckets: 2 }
+  - match: { aggregations.t.buckets.0.key: winner }
+  - match: { aggregations.t.buckets.1.key: b }
+  - match: { aggregations.t.sum_other_doc_count: 2 }
+---
+"raw date-like keyword spellings remain distinct and private tracking is removed":
+  - do:
+      indices.create:
+        index: leaf-date-a
+        body:
+          mappings:
+            properties:
+              k: { type: keyword }
+  - do:
+      indices.create:
+        index: leaf-date-b
+        body:
+          mappings:
+            properties:
+              k: { type: keyword }
+  - do:
+      index:
+        index: leaf-date-a
+        id: "1"
+        refresh: true
+        body: { k: "2024-01-01T00:00:00Z" }
+  - do:
+      index:
+        index: leaf-date-b
+        id: "1"
+        refresh: true
+        body: { k: "2024-01-01T01:00:00+01:00" }
+  - do:
+      search:
+        index: leaf-date-a,leaf-date-b
+        body:
+          size: 0
+          aggs:
+            t:
+              terms: { field: k, size: 0, order: { _key: asc } }
+  - length: { aggregations.t.buckets: 2 }
+  - match: { aggregations.t.buckets.0.doc_count: 1 }
+  - match: { aggregations.t.buckets.1.doc_count: 1 }
+  - is_false: aggregations.t.buckets.0.__xy_terms_key__
+  - is_false: aggregations.t.buckets.1.__xy_terms_key__
+---
+"single index strips private raw term tracking":
+  - do:
+      search:
+        index: leaf-terms-a
+        body:
+          size: 0
+          aggs:
+            t:
+              terms: { field: k, size: 1 }
+  - length: { aggregations.t.buckets: 1 }
+  - match: { aggregations.t.buckets.0.key: a }
+  - is_false: aggregations.t.buckets.0.__xy_terms_key__

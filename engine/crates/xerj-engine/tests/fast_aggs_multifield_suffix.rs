@@ -335,8 +335,8 @@ async fn fast_and_brute_agree_on_bool_field_via_keyword_suffix() {
     assert_eq!(
         brute["aggs"]["by_ok"]["buckets"],
         json!([
-            { "key": 1, "doc_count": 6_200, "key_as_string": "true" },
-            { "key": 0, "doc_count": 6_000, "key_as_string": "false" },
+            { "key": 1, "doc_count": 6_200, "key_as_string": "true", "__xy_terms_key__": "true" },
+            { "key": 0, "doc_count": 6_000, "key_as_string": "false", "__xy_terms_key__": "false" },
         ])
     );
 }
