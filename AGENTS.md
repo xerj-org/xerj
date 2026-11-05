@@ -244,12 +244,27 @@ flag. You write facts to a namespace (`POST /_facts/{ns}/_bulk` with
 small program over the facts you stored, returned with its cited evidence — not a
 chat model's free text.
 
+Which to use: `_search` for keyword and text lookups over indexed documents;
+`/_facts` for a single-fact question over records written as subject / relation
+/ value facts. The model answers **only over `facts[]` you wrote** (`kind` is
+one of `text`, `date`, `number`, `boolean`; `version` a string; `quote` equal to
+`text[start:end]`; `subject_id` one stable id per subject, needed for counting);
+documents alone answer `UNKNOWN`. The write contract with
+every refusal text is in [docs/FACTS_API.md](./docs/FACTS_API.md). `POST /_ask`
+(no `/_facts`) is the `_search` query planner, not this model — its
+`422 unresolved_phrase` means you called the wrong route.
+
 Two things bind how you read and describe a result:
 
 - **Read `final_status` and `final_answer`.** The plain `status`/`answer` are the
   model's *unchecked* program; `final_*` is what the node will stand behind, after
   the verify rule (and, for a counting question, after a second independently-
   seeded model wrote the same program — `path:"counting"`, `partner_agreement`).
+  Counting engages only when every fact of the counted subjects carries a
+  stable `subject_id`; without it the count is `INCOMPLETE` and the answer is
+  `UNKNOWN` with `path:"facts"`. rc.101 counts sets ("how many X have Y"); sums
+  and numeric thresholds decline. Say so — do not present counting as a general
+  feature of user data.
 - **It is a different model from the search embedder.** This model answers
   facts/counting; the search embedder is the lexical feature-hashing default
   (or neural under `--embed-mode neural`). The two are unrelated — do not describe

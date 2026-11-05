@@ -44,25 +44,62 @@ the deterministic store. Only `_ask` runs the model.
 
 ## Writing facts: `POST /_facts/{ns}/_bulk`
 
-A fact must reference an available source version (`doc_id` + `version` present
-in the same batch or already committed), or the whole batch is refused
-`400 facts_contract_error` and nothing commits.
+`_ask` answers **only over the `facts[]` you wrote**. A document is the source
+text a fact quotes from; a namespace holding documents and no facts answers
+`UNKNOWN` to every question (measured on rc.101: 17 of 17 asks). One batch is
+all-or-nothing: one refused entry refuses the whole batch with
+`400 facts_contract_error` (the store's own message in `reason`) and nothing
+commits.
+
+Copy-paste example — one document, one fact of each kind:
 
 ```json
 {
-  "documents": [{"doc_id": "d1", "version": "v1", "text": "Ana Bel is 170 cm tall."}],
-  "facts": [{"fact_id": "f1", "subject": "Ana Bel", "relation": "height",
-             "kind": "number", "value": "170", "unit": "cm",
-             "doc_id": "d1", "version": "v1", "start": 11, "end": 14, "quote": "170"}]
+  "documents": [{"doc_id": "d1", "version": "v1",
+                 "text": "Ana Bel is 170 cm tall. She started on 2019-08-13 in Berlin. Active: yes."}],
+  "facts": [
+    {"fact_id": "f1", "subject": "Ana Bel", "subject_id": "emp:1", "relation": "height",     "kind": "number",  "value": "170", "unit": "cm",
+     "doc_id": "d1", "version": "v1", "start": 11, "end": 14, "quote": "170"},
+    {"fact_id": "f2", "subject": "Ana Bel", "subject_id": "emp:1", "relation": "start date", "kind": "date",    "value": "2019-08-13",
+     "doc_id": "d1", "version": "v1", "start": 39, "end": 49, "quote": "2019-08-13"},
+    {"fact_id": "f3", "subject": "Ana Bel", "subject_id": "emp:1", "relation": "office",     "kind": "text",    "value": "Berlin",
+     "doc_id": "d1", "version": "v1", "start": 53, "end": 59, "quote": "Berlin"},
+    {"fact_id": "f4", "subject": "Ana Bel", "subject_id": "emp:1", "relation": "active",     "kind": "boolean", "value": true,
+     "doc_id": "d1", "version": "v1", "start": 69, "end": 72, "quote": "yes"}
+  ]
 }
 ```
+
+Success: `{"namespace":"demo","committed":{"from_rev":1,"to_rev":5},"records_indexed":5, ...}`.
+
+Document fields: `doc_id` (string), `version` (**a string** — `"version": 1`
+is refused with `invalid type: integer, expected a string`), `text` (the exact
+Unicode text the facts quote from).
+
+Fact fields, every one required unless marked optional:
+
+| field | rule (the refusal text is the store's own) |
+|---|---|
+| `fact_id` | non-empty string, unique in the namespace; a second write of the same id is `Fact identity cannot be overwritten` (correct a fact through `_world` `edits`, below) |
+| `subject`, `relation` | the key `_lookup` and the model match on — write them the way a question would name them (`"Ana Bel"`, `"start date"`) |
+| `subject_id` | optional for lookups, **required for counting**: one stable id per subject (`"emp:1"`), the same on every fact about that subject; a count over subjects that lack it is `INCOMPLETE` → `UNKNOWN` |
+| `kind` | exactly one of `text`, `date`, `number`, `boolean`; anything else (`string`, `int`, `entity`, `bool`, …) is `Unsupported value kind` |
+| `value` | `text` / `number`: a non-empty **string** (`"170"`, not `170`); `date`: `YYYY-MM-DD` exactly (else `Dates must have exact YYYY-MM-DD precision`); `boolean`: JSON `true` / `false` |
+| `unit` | optional, `number` only (`"cm"`); a `boolean` fact takes no unit (`Boolean requires a bool and no unit`) |
+| `doc_id`, `version` | the source document — in this batch or already committed; else `Fact must reference an available source version` |
+| `start`, `end`, `quote` | a half-open code-point span into that document's `text`; `quote` must equal `text[start:end]` byte-for-byte, else `Quote does not equal the referenced source span` |
+
+A missing field is refused by name (`world: missing field \`fact_id\``). Facts
+that are not quotes of a stored document cannot be written: put the sentence in
+a document first, then quote it.
 
 `_world` additionally takes `base_documents` / `base_facts` and an `edits` array
 (`{"op": "correct", "doc": {...}, "fact": {...}, "supersedes": "<fact_id>"}` or
 `{"op": "withdraw_document", "doc_id, "version"}`). A commit returns the new
 revision (`committed.to_rev`); `GET /_facts/{ns}` reports `revision` and
-`published_rev`. A batch over `limits.max_actions_per_bulk` is refused before any
-write (`413 facts_batch_too_large`).
+`published_rev`. A batch over the node's configured
+`limits.max_actions_per_bulk` (server config, 50,000 by default; not reported by
+`GET /_facts`) is refused before any write (`413 facts_batch_too_large`).
 
 ## Asking: `POST /_facts/{ns}/_ask`
 
@@ -147,6 +184,53 @@ these hold; otherwise the fact path answers under `decline_v2` and `path` is
 4. **only then** the partner model runs, and the answer is served iff it produced
    the **same program hash**.
 
+**What this means for facts you wrote yourself.** Counting engages only on facts that carry **`subject_id`**: a plain "how many
+<subjects> have <relation> <value>" compiles to a distinct count over
+`subject_id`, and one counted subject without an id makes the result
+`INCOMPLETE`, which the node reports as `final_status: "UNKNOWN"` with
+`path: "facts"` (never a guess). Give every subject one stable id and put it on
+every fact about that subject. The scope on rc.101 is set counts (optionally
+"how many distinct <field>"); sums, totals and numeric thresholds ("more than
+20 devices") are declined (`FIELD_UNUSED` / `NO_PROGRAM`) and answer `UNKNOWN`.
+Why a count was not served is in `counting.status` and `counting.notes.declines`
+of the `path: "facts"` response.
+
+**What a count is, and what it is not.** A counting answer tallies the members
+of the matched set: the program binds the value ("Berlin"), finds the subjects
+holding that relation, counts the distinct `subject_id`s and returns the integer.
+It cites no records — `final_evidence_ids` is `[]` on every counting answer by
+design; `counting.program_sha256` names the program that ran, and the program
+itself is not in the response. **The noun in your question is not checked
+against the store.** "How many devices do the Berlin offices have in total?",
+asked of a namespace that holds `office = Berlin` facts for three people and no
+`devices` relation, is served as `path: "counting"`, `final_answer: 3`,
+`partner_agreement: true` — a verified count of people, not of devices
+(measured on rc.101; the same program sha as "How many people have office
+Berlin?"). The verifier declines a named relation only when that relation
+exists in the store (`FIELD_UNUSED`); a noun the store has never seen matches
+nothing and passes. Sums and totals are not in the op-set. Ask set-count
+questions whose noun is the member type ("how many people have office Berlin"),
+and do not read a count as a quantity.
+
+A count that is served, end to end (three people, two in Berlin):
+
+```sh
+curl -s localhost:9200/_facts/team/_bulk -H 'content-type: application/json' -d '{
+ "documents":[{"doc_id":"d0","version":"v1","text":"Record Ana Bel.\noffice -> Berlin"},
+              {"doc_id":"d1","version":"v1","text":"Record Bo Chen.\noffice -> Berlin"},
+              {"doc_id":"d2","version":"v1","text":"Record Di Eve.\noffice -> Munich"}],
+ "facts":[{"fact_id":"f0","subject":"Ana Bel","subject_id":"emp:0","relation":"office","kind":"text","value":"Berlin","doc_id":"d0","version":"v1","start":26,"end":32,"quote":"Berlin"},
+          {"fact_id":"f1","subject":"Bo Chen","subject_id":"emp:1","relation":"office","kind":"text","value":"Berlin","doc_id":"d1","version":"v1","start":26,"end":32,"quote":"Berlin"},
+          {"fact_id":"f2","subject":"Di Eve","subject_id":"emp:2","relation":"office","kind":"text","value":"Munich","doc_id":"d2","version":"v1","start":25,"end":31,"quote":"Munich"}]}'
+curl -s localhost:9200/_facts/team/_ask -H 'content-type: application/json' \
+  -d '{"question":"How many people have office Berlin?"}' | jq '{path, final_status, final_answer, agree: .counting.partner_agreement}'
+# -> {"path": "counting", "final_status": "ANSWER", "final_answer": 2, "agree": true}
+```
+
+Without the three `subject_id` fields the same request answers
+`{"path": "facts", "final_status": "UNKNOWN"}` with
+`counting.status: "INCOMPLETE"` (measured on rc.101).
+
 The response carries a counting block recording `routed`, `hard_ok`, `status`,
 `program_sha256`, `partner_agreement` (true / false / null when the partner did
 not run), and `notes`. A failed partner counts as no agreement — nothing is
@@ -169,15 +253,35 @@ is correct behaviour, not a defect: name the revision.
 
 ## `GET /_facts` and `GET /_facts/{ns}`
 
-`GET /_facts` lists the namespaces the caller may read (one a caller cannot read
-is simply not listed, so the list reveals nothing a 403 would not), each `ready`
-(projection in memory) or `cold` (rebuilt on first access), plus the compiler
-status and the `_ask` limits, and the node's counting state. A plain facts export
-reports counting off (`COUNTING_OFF`); a bundle with a healthy counting role
-reports it on.
+`GET /_facts` answers (rc.101, measured):
 
-`GET /_facts/{ns}` reports `revision`, `published_rev`, epochs, records, and
-`cleanup_pending`; `?fingerprint=true` adds a content fingerprint.
+```json
+{"namespaces": [...], "loaded": [...], "max_resident_namespaces": N, "evictions": N,
+ "model": {"state": "loaded", "info": {...}, "counting": {"state": "ready"}},
+ "ask_limits": {"max_concurrent": null, "running": null, "max_queued": null,
+                "waiting": null, "deadline_ms": null, "config_error": null}}
+```
+
+Namespaces listed are the ones the caller may read (one it cannot read is simply
+not listed, so the list reveals nothing a 403 would not), each `ready`
+(projection in memory) or `cold` (rebuilt on first access).
+
+`model.state` is `not_configured` (no model directory), `not_loaded`, or `loaded`.
+With `--facts-model-dir` the node starts loading the model in the background at
+boot (`XERJ_FACTS_PRELOAD`, on by default), so the first status calls say
+`not_loaded`: measured 3.5 s from boot to `loaded` on a laptop-class x86_64.
+Poll until `loaded` before timing anything. `XERJ_FACTS_PRELOAD=0` skips the
+preload: the state stays `not_loaded` until the first `_ask`, which then pays
+the load (3.4 s measured) and answers; later asks run at the usual latency.
+`model.counting.state` is `ready` when the bundle carries a healthy counting
+role; a plain facts export reports `COUNTING_OFF`.
+
+`ask_limits` mirrors the admission bounds (null = unbounded). The write-batch cap
+`limits.max_actions_per_bulk` is server configuration and is not reported here.
+
+`GET /_facts/{ns}` reports `revision`, `published_rev`, `epochs`, `records`,
+`documents`, `visible_at_head` and `cleanup_pending`; `?fingerprint=true` adds a
+content fingerprint.
 
 ## Errors — every operational problem is an HTTP error, never a factual UNKNOWN
 
@@ -196,6 +300,15 @@ reports it on.
 | 501 | `FACTS_CLUSTER_UNSUPPORTED` | `/_facts` is single-node only; `cluster.enabled = true` refuses every route |
 | 400 | `facts_bad_request` | question too long, unknown `linker`/`manifest`/`verify`, malformed body |
 | 400 | `facts_contract_error` | a write batch the store refused (with the store's own message); nothing committed |
+| 413 | `facts_batch_too_large` | more entries than `limits.max_actions_per_bulk`; nothing written |
+| 404 | `index_not_found_exception` | `no facts namespace [x]`: `_ask` / `_lookup` on a namespace nothing was ever written to |
+
+**Two different `_ask` routes.** `POST /_facts/{ns}/_ask` is this API: a question
+over facts, answered by XERJ-Query. `POST /_ask` (no `/_facts`) is the
+rule-based query planner for `_search` (`{index, prompt}` in, a validated query
+DSL out); a free-text question sent there answers `422 unresolved_phrase`
+naming the phrase it could not ground. If you see `unresolved_phrase`, you called
+the planner, not the facts model.
 
 The admission bounds (`XERJ_FACTS_MAX_CONCURRENT_ASKS`,
 `XERJ_FACTS_MAX_QUEUED_ASKS`, `XERJ_FACTS_ASK_DEADLINE_MS`) are all off unless

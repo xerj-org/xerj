@@ -65,13 +65,19 @@ poll, do not block on it.
 xerj --facts-model-dir ~/xerj-model --insecure --data-dir ~/xerj-data &
 ```
 
-Check: the model loaded (the first poll may still say it is loading; the bundle
-takes a moment).
+Check: the model loaded. The node loads the bundle in the background after
+boot, so the first calls answer `"not_loaded"` — measured 3.5 s from boot to
+`"loaded"` on a laptop-class x86_64. Poll:
 
 ```sh
+until curl -s localhost:9200/_facts | jq -e '.model.state == "loaded"' >/dev/null; do sleep 1; done
 curl -s localhost:9200/_facts | jq '{state: .model.state, counting: .model.counting}'
-# -> state "loaded"; counting reported on (a plain facts export without a counting role reports COUNTING_OFF)
+# -> {"state": "loaded", "counting": {"state": "ready"}}   (a plain facts export without a counting role reports COUNTING_OFF)
 ```
+
+(`XERJ_FACTS_PRELOAD=0` skips the background load; the state then stays
+`not_loaded` until your first `_ask`, which pays the 3-4 s once.) If you started
+with `--port N`, use `N` in place of `9200` in every line on this page.
 
 If `/_facts` answers `404 xerj_query_not_enabled`, the node was started without
 the flag. If it answers `503 MODEL_UNAVAILABLE`, the model directory is missing
@@ -80,7 +86,9 @@ the node restarts.
 
 ## 4. Write a couple of facts
 
-The model answers over facts you give it. Write one document and two facts into a
+The model answers **only over the `facts[]` you write** — a document is the
+source text a fact quotes from, and a namespace with documents but no facts
+answers `UNKNOWN` to everything. Write one document and two facts into a
 namespace (here `demo`):
 
 ```sh
@@ -88,17 +96,28 @@ curl -s localhost:9200/_facts/demo/_bulk -H 'content-type: application/json' -d 
   "documents": [{"doc_id": "d1", "version": "v1",
                  "text": "Ana Bel is 170 cm tall. Ben Cor is 182 cm tall."}],
   "facts": [
-    {"fact_id": "f1", "subject": "Ana Bel", "relation": "height", "kind": "number",
+    {"fact_id": "f1", "subject": "Ana Bel", "subject_id": "emp:1", "relation": "height", "kind": "number",
      "value": "170", "unit": "cm", "doc_id": "d1", "version": "v1", "start": 11, "end": 14, "quote": "170"},
-    {"fact_id": "f2", "subject": "Ben Cor", "relation": "height", "kind": "number",
-     "value": "182", "unit": "cm", "doc_id": "d1", "version": "v1", "start": 40, "end": 43, "quote": "182"}
+    {"fact_id": "f2", "subject": "Ben Cor", "subject_id": "emp:2", "relation": "height", "kind": "number",
+     "value": "182", "unit": "cm", "doc_id": "d1", "version": "v1", "start": 35, "end": 38, "quote": "182"}
   ]
 }' | jq '{committed}'
-# -> a committed revision, e.g. {"committed": {"to_rev": 1, ...}}
+# -> {"committed": {"from_rev": 1, "to_rev": 3}}
 ```
 
 Check: `curl -s localhost:9200/_facts/demo | jq '{revision, published_rev}'`
 reports the revision you just committed.
+
+The rules the batch is checked against (any failure refuses the whole batch with
+`400 facts_contract_error` and the store's message): `version` is a string;
+`kind` is one of `text`, `date`, `number`, `boolean` (nothing else — `string`
+and `entity` are `Unsupported value kind`); `value` is a string for `text` /
+`number` (`"170"`), `YYYY-MM-DD` for `date`, JSON `true`/`false` for `boolean`;
+a fact's `doc_id` + `version` must be in the same batch or already committed;
+`quote` must equal `text[start:end]` exactly; `subject_id` is one stable id per
+subject, shared by all of that subject's facts (optional for lookups, needed for
+counting). The full table is in
+[FACTS_API.md](./FACTS_API.md#writing-facts-post-_factsns_bulk).
 
 ## 5. Ask a question and read the verified answer
 
@@ -109,9 +128,43 @@ curl -s localhost:9200/_facts/demo/_ask -H 'content-type: application/json' \
 ```
 
 **Read `final_status` and `final_answer`, not `status`/`answer`** — the plain
-fields are the model's unchecked program. A counting question (e.g. "How many
-people are over 175 cm?") comes back with `path: "counting"` and a counting block
-carrying `program_sha256` and `partner_agreement`.
+fields are the model's unchecked program. A question the facts do not answer is
+`final_status: "UNKNOWN"` (HTTP 200: a factual outcome, not an error); two facts
+that disagree give `CONFLICT`. A counting question is served from the exact executor (`path: "counting"`,
+with `program_sha256` and `partner_agreement`). Counting engages only on facts that carry **`subject_id`**: a plain "how many
+<subjects> have <relation> <value>" compiles to a distinct count over
+`subject_id`, and one counted subject without an id makes the result
+`INCOMPLETE`, which the node reports as `final_status: "UNKNOWN"` with
+`path: "facts"` (never a guess). Give every subject one stable id and put it on
+every fact about that subject. The scope on rc.101 is set counts (optionally
+"how many distinct <field>"); sums, totals and numeric thresholds ("more than
+20 devices") are declined (`FIELD_UNUSED` / `NO_PROGRAM`) and answer `UNKNOWN`.
+Why a count was not served is in `counting.status` and `counting.notes.declines`
+of the `path: "facts"` response.
+
+A count end to end, in a fresh namespace:
+
+```sh
+curl -s localhost:9200/_facts/team/_bulk -H 'content-type: application/json' -d '{
+ "documents":[{"doc_id":"d0","version":"v1","text":"Record Ana Bel.\noffice -> Berlin"},
+              {"doc_id":"d1","version":"v1","text":"Record Bo Chen.\noffice -> Berlin"},
+              {"doc_id":"d2","version":"v1","text":"Record Di Eve.\noffice -> Munich"}],
+ "facts":[{"fact_id":"f0","subject":"Ana Bel","subject_id":"emp:0","relation":"office","kind":"text","value":"Berlin","doc_id":"d0","version":"v1","start":26,"end":32,"quote":"Berlin"},
+          {"fact_id":"f1","subject":"Bo Chen","subject_id":"emp:1","relation":"office","kind":"text","value":"Berlin","doc_id":"d1","version":"v1","start":26,"end":32,"quote":"Berlin"},
+          {"fact_id":"f2","subject":"Di Eve","subject_id":"emp:2","relation":"office","kind":"text","value":"Munich","doc_id":"d2","version":"v1","start":25,"end":31,"quote":"Munich"}]}'
+curl -s localhost:9200/_facts/team/_ask -H 'content-type: application/json' \
+  -d '{"question":"How many people have office Berlin?"}' | jq '{path, final_status, final_answer, agree: .counting.partner_agreement}'
+# -> {"path": "counting", "final_status": "ANSWER", "final_answer": 2, "agree": true}
+```
+
+Warning: a count tallies the members of the matched set and does not check the
+noun of your question — "How many devices do the Berlin offices have in total?"
+on this namespace is also served as `2` (people, not devices; sums are not
+supported). Counting answers carry no evidence ids by design. Ask for the member
+type you mean.
+
+Do not confuse this with `POST /_ask` (no `/_facts`): that is the query planner
+for `_search`, and a free-text question there answers `422 unresolved_phrase`.
 
 Check a historical question by revision — the engine does not infer history from
 `item_id`, so name the revision:
