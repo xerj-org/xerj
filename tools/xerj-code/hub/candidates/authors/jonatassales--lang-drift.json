@@ -8,15 +8,15 @@
   {
    "repo": "lang-drift",
    "url": "https://github.com/jonatassales/lang-drift",
-   "sha": "aade357df8401020b1f1da1d932d01a5fb263973",
-   "licence": "Apache-2.0 (LICENSE file at pin aade357df840, GitHub licence API 2026-11-05)",
+   "sha": "10b53513c203a87fac9646519d8fda409d33a4f4",
+   "licence": "Apache-2.0 (LICENSE file at pin 10b53513c203, GitHub licence API 2026-11-05)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T17:58Z",
     "consent_receipt": "484e10990007",
-    "note": "Inclusion consented by the commit author by email at 2026-10-29T17:58Z (receipt 484e10990007); selected commit aade357df840: \"feat(ex): package prebuilt binaries and bin/ex launcher for npx\". LICENSE file at pin aade357df840 detected as Apache-2.0 by the GitHub licence API on 2026-11-05; used under that licence with attribution. Pinned to head aade357df840 (contains the selected commit): the LICENSE at the selected commit was MIT."
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T17:58Z (receipt 484e10990007); selected commit 10b53513c203: \"feat(ex): package prebuilt binaries and bin/ex launcher for npx\". LICENSE file at pin 10b53513c203 detected as Apache-2.0 by the GitHub licence API on 2026-11-05; used under that licence with attribution. Pinned to head 10b53513c203 (contains the selected commit): the LICENSE at the selected commit was MIT."
    }
   }
  ]

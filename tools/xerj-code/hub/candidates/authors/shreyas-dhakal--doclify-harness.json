@@ -1,0 +1,23 @@
+{
+ "corpus": "shreyas-dhakal--doclify-harness",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent, agent-harness, ai-agents queries this for how shreyas-dhakal/doclify-harness implements it: Doclify is a harness for documentation (selected work: scripts, crates/doclify-pipeline, crates/doclify-capture)",
+ "repos": [
+  {
+   "repo": "doclify-harness",
+   "url": "https://github.com/shreyas-dhakal/doclify-harness",
+   "sha": "fbe7efb1e451145086c032e655cf901e003a13c3",
+   "licence": "MIT (LICENSE file at pin fbe7efb1e451, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T11:45Z",
+    "consent_receipt": "4a69386235d9",
+    "note": "Inclusion consented by the commit author by email at 2026-11-05T11:45Z (receipt 4a69386235d9); selected commit fbe7efb1e451: \"Support live Claude transcript ownership and isolate hook context\". LICENSE file at pin fbe7efb1e451 detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution. Pinned to head fbe7efb1e451 (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

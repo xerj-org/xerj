@@ -1,0 +1,23 @@
+{
+ "corpus": "godjeam--vault-agents",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how GodJeam/vault-agents implements it: Connect local AI agents to Obsidian: chat, note analysis, and multi-session workflows directly in your vault (selected work: src, src/features, src/providers)",
+ "repos": [
+  {
+   "repo": "vault-agents",
+   "url": "https://github.com/GodJeam/vault-agents",
+   "sha": "32c5bdb26a3de7b1d7ede21023696a5ba94ae005",
+   "licence": "GPL-3.0 (LICENSE file at pin 32c5bdb26a3d, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-05T10:57Z",
+    "consent_receipt": "033e8b1403c2",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T10:57Z (receipt 033e8b1403c2); selected commit 32c5bdb26a3d: \"Refactoring of the project and Release v0.2.0\". LICENSE file at pin 32c5bdb26a3d detected as GPL-3.0 by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

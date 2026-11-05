@@ -1,0 +1,23 @@
+{
+ "corpus": "anguoyang--onvif-scan",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on asset-inventory, cctv, ip-camera queries this for how anguoyang/onvif-scan implements it: Discover ONVIF cameras on your LAN and inventory them \u2014 read-only, dependency-free, no default-password guessing",
+ "repos": [
+  {
+   "repo": "onvif-scan",
+   "url": "https://github.com/anguoyang/onvif-scan",
+   "sha": "47e3101751a968908a7f392b4c91f3442bfa957e",
+   "licence": "Apache-2.0 (LICENSE file at pin 47e3101751a9, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T11:45Z",
+    "consent_receipt": "f6a961659217",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T11:45Z (receipt f6a961659217); pinned to the default-branch head. LICENSE file at pin 47e3101751a9 detected as Apache-2.0 by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

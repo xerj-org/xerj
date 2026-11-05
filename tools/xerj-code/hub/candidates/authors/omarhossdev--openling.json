@@ -1,0 +1,23 @@
+{
+ "corpus": "omarhossdev--openling",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Vue queries this for how omarhossdev/openling implements it: The open way to learn languages \ud83d\udd13 Vocab \u2022 Grammar \u2022 Speaking \u2022 Reading \u2022 AI \u2022 Community. 100% free, open-source, forever. Arabic-first, buil (selected work: client)",
+ "repos": [
+  {
+   "repo": "openling",
+   "url": "https://github.com/omarhossdev/openling",
+   "sha": "bca93970f1ecc06d2e3430b87f8c043a5b88c9e1",
+   "licence": "MIT (LICENSE file at pin bca93970f1ec, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T10:22Z",
+    "consent_receipt": "abb488a36db7",
+    "note": "Inclusion consented by the commit author by email at 2026-11-05T10:22Z (receipt abb488a36db7); selected commit bca93970f1ec: \"refactor: migrate to Vue.js + implement answer correcting in vocabs l\u2026\". LICENSE file at pin bca93970f1ec detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

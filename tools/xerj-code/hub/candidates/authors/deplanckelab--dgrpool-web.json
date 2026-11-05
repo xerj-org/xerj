@@ -1,0 +1,30 @@
+{
+ "corpus": "deplanckelab--dgrpool-web",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Ruby queries this for how DeplanckeLab/dgrpool_web implements it: DGRPool is a web application designed to serve as a comprehensive repository for Drosophila Genetic Reference Panel (DGRP) phenotyping datas (selected work: src/app, src/db, src/config)",
+ "repos": [
+  {
+   "repo": "dgrpool_web",
+   "url": "https://github.com/DeplanckeLab/dgrpool_web",
+   "sha": "7fdc8d1c5093929e6ca49d9c83d8dd7e27c20051",
+   "licence": "GPL-3.0 (LICENSE file at pin 7fdc8d1c5093, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-05T10:42Z",
+    "consent_receipt": "47e158b8fc0b",
+    "note": "Inclusion consented by the commit author by email at 2026-11-05T10:42Z (receipt 47e158b8fc0b); selected commit 7fdc8d1c5093: \"add releases\". LICENSE file at pin 7fdc8d1c5093 detected as GPL-3.0 by the GitHub licence API on 2026-11-05; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "7fdc8d1c5093929e6ca49d9c83d8dd7e27c20051",
+     "at": "2026-11-05T10:42Z",
+     "receipt": "47e158b8fc0b"
+    }
+   }
+  }
+ ]
+}

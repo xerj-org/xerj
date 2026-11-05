@@ -1,0 +1,23 @@
+{
+ "corpus": "anguoyang--rk-deploy",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on deployment, edge-ai, embedded-linux queries this for how anguoyang/rk-deploy implements it: Deploy RKNN apps to Rockchip boards as systemd services: manifest \u2192 package \u2192 fleet push, atomic rollback, fleet status. v0.1.0 released, va",
+ "repos": [
+  {
+   "repo": "rk-deploy",
+   "url": "https://github.com/anguoyang/rk-deploy",
+   "sha": "03baed0d9d37b8c17ff743384d8e82282c4f9b30",
+   "licence": "Apache-2.0 (LICENSE file at pin 03baed0d9d37, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T11:45Z",
+    "consent_receipt": "0cdcbb5ee0fa",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T11:45Z (receipt 0cdcbb5ee0fa); pinned to the default-branch head. LICENSE file at pin 03baed0d9d37 detected as Apache-2.0 by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

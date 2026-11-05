@@ -1,0 +1,23 @@
+{
+ "corpus": "mianbier--dsh-mimo-web-login",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on JavaScript queries this for how Mianbier/dsh-mimo-web-login implements it: \u628a\u5c0f\u7c73 MiMo AI Studio \u7f51\u9875\u7aef\u63a5\u8fdb DSH\uff1a\u7528\u6d4f\u89c8\u5668\u767b\u5f55\u6001\uff08\u4e0d\u662f API Key\uff09\u9a71\u52a8 agent (selected work: the project root, lib, test)",
+ "repos": [
+  {
+   "repo": "dsh-mimo-web-login",
+   "url": "https://github.com/Mianbier/dsh-mimo-web-login",
+   "sha": "c88460553cba9ea2d1b08e780cde0182347f0c5a",
+   "licence": "Apache-2.0 (LICENSE file at pin c88460553cba, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T11:43Z",
+    "consent_receipt": "7448f8890b8a",
+    "note": "Inclusion consented by the commit author by email at 2026-11-05T11:43Z (receipt 7448f8890b8a); selected commit c88460553cba: \"feat: \u7f51\u9875\u7248\u9875\u7b7e\uff08\u5185\u7f6e\u6d4f\u89c8\u5668\uff09+ \u5e76\u53d1\u652f\u6301 + \u53bb\u6389\u6309\u65f6\u95f4\u63a8\u65ad\u8fc7\u671f\". LICENSE file at pin c88460553cba detected as Apache-2.0 by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}
