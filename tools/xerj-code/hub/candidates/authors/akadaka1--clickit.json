@@ -2,8 +2,8 @@
  "corpus": "akadaka1--clickit",
  "cloned_at": null,
  "status": "draft",
- "shelf": "WEB",
- "domain": "an agent working on Python queries this for how AkaDaka1/ClicKit implements it: Windows auto-clicker with visual block scripting \u2014 snap blocks together to build click scenarios, no coding required. Python + PySide6 + Blo (selected work: resources)",
+ "shelf": "DB",
+ "domain": "an agent working on alembic, auto-clicker, automation queries this for how AkaDaka1/ClicKit implements it: Windows auto-clicker with visual block scripting \u2014 snap blocks together to build click scenarios, no coding required. Python + PySide6 + Blo (selected work: resources)",
  "repos": [
   {
    "repo": "ClicKit",

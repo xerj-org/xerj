@@ -9,14 +9,14 @@
    "repo": "Abastevo",
    "url": "https://github.com/AlexandreZanata/Abastevo",
    "sha": "c21bbc40506e5a5d325d76daa92b899b21bd5e28",
-   "licence": "MIT (LICENSE file at pin c21bbc40506e, GitHub licence API 2026-10-24)",
+   "licence": "author's permission (LICENSE at pin c21bbc40506e: MIT; repository: NOASSERTION)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-14T11:41Z",
     "consent_receipt": "f1584bcc0922",
-    "note": "Inclusion consented by the commit author by email at 2026-10-14T11:41Z (receipt f1584bcc0922); selected commit c21bbc40506e: \"feat(sec): Android refresh serialization and denial mapping (SEC07-C)\". LICENSE file at pin c21bbc40506e detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-10-14T11:41Z (receipt f1584bcc0922); selected commit c21bbc40506e: \"feat(sec): Android refresh serialization and denial mapping (SEC07-C)\". LICENSE at pin c21bbc40506e: MIT (repository: NOASSERTION); used with the author's permission, with attribution."
    }
   }
  ]

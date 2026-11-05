@@ -8,15 +8,15 @@
   {
    "repo": "360Pallix",
    "url": "https://github.com/John-Hole/360Pallix",
-   "sha": "7eaeb48bff152ea5f0cf6a36ae9c0b1c009be73b",
-   "licence": "MIT (LICENSE file at pin 7eaeb48bff15, GitHub licence API 2026-11-03)",
+   "sha": "0725c0124df457b0531c8bc0ea9957d41f6d916e",
+   "licence": "MIT (LICENSE file at pin 0725c0124df4, GitHub licence API 2026-11-05)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-30T21:35Z",
     "consent_receipt": "54996cf1b1b8",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T21:35Z (receipt 54996cf1b1b8); pinned to the default-branch head. LICENSE file at pin 7eaeb48bff15 detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T21:35Z (receipt 54996cf1b1b8); pinned to the default-branch head. LICENSE file at pin 0725c0124df4 detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
    }
   }
  ]
