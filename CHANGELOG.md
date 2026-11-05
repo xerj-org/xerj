@@ -187,6 +187,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   fresh. A `304` then re-touched the replacement. The cache is dropped and
   refetched when the sibling signature does not verify.
 
+- A search with `track_total_hits: true` no longer reports the capped total
+  of the same search run earlier with `track_total_hits: false`. The query
+  cache could not tell the two modes apart (both serialized as `null`), so
+  `_search`, `_msearch` and the template paths could answer the second one
+  with, for example, `{"value": 1, "relation": "gte"}` for 3 matches until the
+  next write.
+
 - `xerj mcp` no longer answers a JSON-RPC notification, and runs every
   `tools/call` off the stdio read loop (#2898). A `tools/call` with no `id`, or
   with `id: null`, used to be awaited on the read loop, so a stalled search held
