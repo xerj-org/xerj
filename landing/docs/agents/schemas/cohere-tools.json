@@ -1,0 +1,296 @@
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "xerj_search",
+      "description": "Run a lexical / structured search against a XERJ index using the Elasticsearch-compatible Query DSL. Use for keyword, phrase, boolean, range, and term filtering when you already know the fields and values. Maps to POST /{index}/_search on the XERJ REST API (port 9200); the `query` object is passed through verbatim as the ES `query` clause.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "index": {
+            "type": "string",
+            "description": "Name of the XERJ index (single, comma-separated list, or wildcard like \"logs-*\")."
+          },
+          "query": {
+            "type": "object",
+            "description": "An Elasticsearch Query DSL clause, e.g. {\"match\":{\"title\":\"quarterly report\"}}, {\"term\":{\"status\":\"open\"}}, {\"range\":{\"price\":{\"gte\":10}}}, or {\"bool\":{\"must\":[...],\"filter\":[...]}}. Sent unchanged as the request body's `query`."
+          },
+          "size": {
+            "type": "integer",
+            "description": "Maximum number of hits to return. Defaults to 10. Minimum 0."
+          },
+          "from": {
+            "type": "integer",
+            "description": "Offset of the first hit, for pagination. Defaults to 0. Minimum 0."
+          },
+          "sort": {
+            "type": "array",
+            "description": "Optional ES sort spec, e.g. [{\"timestamp\":\"desc\"}]. Omit for relevance order. Given here as array; the XERJ API also accepts object, string."
+          },
+          "source": {
+            "type": "boolean",
+            "description": "Controls returned `_source` fields: true/false for all, or an array of field names. Given here as boolean; the XERJ API also accepts array, string."
+          },
+          "aggs": {
+            "type": "object",
+            "description": "Optional ES aggregations object. Not supported together with hybrid-fusion queries."
+          },
+          "track_total_hits": {
+            "type": "boolean",
+            "description": "true for an exact total hit count, false for a fast approximate count, or an integer cap. Given here as boolean; the XERJ API also accepts integer."
+          },
+          "rerank": {
+            "type": "object",
+            "description": "Optional second-stage reranking. Maps to the request body's `rerank` field. XERJ sends the text of the top `window` hits plus the question to an external relevance model, which returns a calibrated probability (0..1) per document; hits are reordered by it, that probability REPLACES `_score`, and `min_score` prunes by it. WORTH IT WHEN: a natural-language question over prose where the right document is probably in the top 30 but not at the top, or you need an absolute relevance cut-off rather than a relative rank. NOT WORTH IT FOR: exact identifier lookups, filters, sorted or aggregation-only requests - it adds a paid network round-trip per search. NEEDS A CONFIGURED PROVIDER: the node's operator must have set a provider key (`[rerank] api_key` or TYPESAFE_API_KEY); you cannot supply one in the call. Without it the search fails with HTTP 503 `rerank_exception` - do not retry, repeat the search without `rerank`. HTTP 403 means the operator disabled it. PRIVACY: this is the only search-time feature that sends document text off the node. Proxy embeddings (`[embedding] default_endpoint`) and the WAL tap also send text off the node when an operator configures them, so never tell a user that nothing else leaves the machine. Only fields the response returns are sent, so `source` filtering also limits what leaves. Pass {} for defaults, or: `query` (string: the natural-language question to judge against; REQUIRED when the search `query` is a `bool`, a `knn` or anything else with no single question in it, otherwise read from `match`, `match_phrase`, `multi_match`, `semantic` or `simple_query_string`); `window` (int, default 30, max 300 - every judged document is paid, and `from`+`size` must fit inside it); `min_score` (0..1); `fields` (string[], exhaustive list of returned fields to send); `instructions` (string); `timeout_ms` (int, default 10000); `model` (string). Cannot be combined with `sort`, `search_after`, `collapse`, scroll or `size: 0`. READ THE RESPONSE'S `_rerank` BLOCK: `applied: true` means the order is the judge's and every `_score` is a probability or null (a hit with no verdict, counted in `unjudged`, sorts last); `applied: false` means the provider missed the deadline or answered nothing usable, and the engine's own order and scores were returned, with the cause in `reason`. Ranking quality with the provider's model has not been verified by the XERJ project."
+          }
+        },
+        "required": [
+          "index",
+          "query"
+        ]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "xerj_semantic_search",
+      "description": "Search a XERJ index by meaning over a `semantic_text` field. XERJ embeds the query server-side with its built-in embedder (no external key) and ranks by vector similarity. Maps to POST /{index}/_search with body {\"query\":{\"semantic\":{\"field\":...,\"query\":...,\"k\":...}}}. Use for natural-language recall and RAG retrieval.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "index": {
+            "type": "string",
+            "description": "Name of the XERJ index to search."
+          },
+          "field": {
+            "type": "string",
+            "description": "The `semantic_text` field to match. Must be mapped as `semantic_text` so XERJ auto-embedded it at ingest."
+          },
+          "query": {
+            "type": "string",
+            "description": "Natural-language query text; embedded server-side and matched by similarity."
+          },
+          "k": {
+            "type": "integer",
+            "description": "Number of nearest neighbours to retrieve. Defaults to 10. Minimum 1."
+          },
+          "filter": {
+            "type": "object",
+            "description": "Optional ES query clause pre-filter, e.g. {\"term\":{\"category\":\"docs\"}}. Narrows candidates without scoring."
+          },
+          "size": {
+            "type": "integer",
+            "description": "Maximum hits to return in the response (independent of k). Defaults to 10. Minimum 0."
+          }
+        },
+        "required": [
+          "index",
+          "field",
+          "query"
+        ]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "xerj_vector_search",
+      "description": "Run a k-nearest-neighbour search over a `dense_vector` field with a caller-supplied embedding. Unfiltered kNN on a full-precision cosine field (>=1,024 docs) is HNSW-served (approximate) with exact rescoring — measured recall@10 1.00 on the official bench query, 100-probe mean 0.976; num_candidates sets the beam width (floored at 800). Filtered kNN, non-cosine metrics, SQ8 fields, and small indexes run an exact brute-force scan (recall 1.00). Maps to POST /{index}/_search with the top-level `knn` clause. Use when you already have a query embedding.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "index": {
+            "type": "string",
+            "description": "Name of the XERJ index to search."
+          },
+          "field": {
+            "type": "string",
+            "description": "The `dense_vector` field; its dimension must match `query_vector`'s length."
+          },
+          "query_vector": {
+            "type": "array",
+            "description": "Query embedding as a flat array of numbers, length equal to the field's mapped dimension.",
+            "items": {
+              "type": "number"
+            }
+          },
+          "k": {
+            "type": "integer",
+            "description": "Number of nearest neighbours to return. Defaults to 10. Minimum 1."
+          },
+          "num_candidates": {
+            "type": "integer",
+            "description": "Optional candidate-pool size before selecting top k. On the HNSW-served (unfiltered) path this is the ANN beam width (floored at 800); on the exact filtered scan it has no effect on results. Minimum 1."
+          },
+          "filter": {
+            "type": "object",
+            "description": "Optional ES query clause used as a kNN pre-filter, e.g. {\"term\":{\"lang\":\"en\"}}."
+          },
+          "size": {
+            "type": "integer",
+            "description": "Maximum hits to return in the response. Defaults to 10. Minimum 0."
+          }
+        },
+        "required": [
+          "index",
+          "field",
+          "query_vector"
+        ]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "xerj_hybrid_search",
+      "description": "Fuse two or more sub-queries (e.g. a lexical BM25 query and a semantic/vector query) into one ranked result set. Maps to POST /{index}/_search with body {\"query\":{\"hybrid\":{\"queries\":[{\"query\":{...},\"weight\":...}],\"fusion\":\"rrf\"}}}. Fusion is \"rrf\" (default) or \"linear\"; the \"learned\" strategy is not implemented and errors. Aggregations cannot be combined with a hybrid query.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "index": {
+            "type": "string",
+            "description": "Name of the XERJ index to search."
+          },
+          "queries": {
+            "type": "array",
+            "description": "Sub-queries to fuse; each has a `query` (any XERJ/ES clause including `semantic` or `knn`) and an optional `weight`. At least 1 items.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "query": {
+                  "type": "object",
+                  "description": "A XERJ/Elasticsearch query clause, e.g. {\"match\":{\"body\":\"vpn outage\"}} or {\"semantic\":{\"field\":\"body\",\"query\":\"vpn outage\",\"k\":50}}."
+                },
+                "weight": {
+                  "type": "number",
+                  "description": "Relative weight in fusion. Defaults to 1.0."
+                }
+              },
+              "required": [
+                "query"
+              ]
+            }
+          },
+          "fusion": {
+            "type": "string",
+            "description": "Fusion strategy: \"rrf\" (reciprocal rank fusion, default) or \"linear\" (weighted sum of normalized scores). \"learned\" is unsupported and returns an error.",
+            "enum": [
+              "rrf",
+              "linear"
+            ]
+          },
+          "rrf_k": {
+            "type": "integer",
+            "description": "Rank constant for RRF (only when fusion is \"rrf\"). Defaults to 60. Maps to fusion {\"type\":\"rrf\",\"k\":<rrf_k>}. Minimum 1."
+          },
+          "size": {
+            "type": "integer",
+            "description": "Maximum number of fused hits to return. Defaults to 10. Minimum 0."
+          },
+          "rerank": {
+            "type": "object",
+            "description": "Optional second-stage reranking. Maps to the request body's `rerank` field. XERJ sends the text of the top `window` hits plus the question to an external relevance model, which returns a calibrated probability (0..1) per document; hits are reordered by it, that probability REPLACES `_score`, and `min_score` prunes by it. WORTH IT WHEN: a natural-language question over prose where the right document is probably in the top 30 but not at the top, or you need an absolute relevance cut-off rather than a relative rank. NOT WORTH IT FOR: exact identifier lookups, filters, sorted or aggregation-only requests - it adds a paid network round-trip per search. NEEDS A CONFIGURED PROVIDER: the node's operator must have set a provider key (`[rerank] api_key` or TYPESAFE_API_KEY); you cannot supply one in the call. Without it the search fails with HTTP 503 `rerank_exception` - do not retry, repeat the search without `rerank`. HTTP 403 means the operator disabled it. PRIVACY: this is the only search-time feature that sends document text off the node. Proxy embeddings (`[embedding] default_endpoint`) and the WAL tap also send text off the node when an operator configures them, so never tell a user that nothing else leaves the machine. Only fields the response returns are sent, so `source` filtering also limits what leaves. Pass {} for defaults, or: `query` (string, REQUIRED for this tool: a hybrid search has several sub-queries and no single question); `window` (int, default 30, max 300 - every judged document is paid, and `from`+`size` must fit inside it); `min_score` (0..1); `fields` (string[], exhaustive list of returned fields to send); `instructions` (string); `timeout_ms` (int, default 10000); `model` (string). Cannot be combined with `sort`, `search_after`, `collapse`, scroll or `size: 0`. READ THE RESPONSE'S `_rerank` BLOCK: `applied: true` means the order is the judge's and every `_score` is a probability or null (a hit with no verdict, counted in `unjudged`, sorts last); `applied: false` means the provider missed the deadline or answered nothing usable, and the engine's own order and scores were returned, with the cause in `reason`. Ranking quality with the provider's model has not been verified by the XERJ project."
+          }
+        },
+        "required": [
+          "index",
+          "queries"
+        ]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "xerj_memory_store",
+      "description": "Persist a memory into a namespaced XERJ agent-memory store. Maps to POST /_memory/{namespace}; the text is stored in a `semantic_text` field and auto-embedded by XERJ's built-in embedder so it is recallable by meaning with no external embedding service. Namespaces isolate memories. Optionally supply a precomputed vector, metadata, an explicit id, and opt-in semantic dedup.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "namespace": {
+            "type": "string",
+            "description": "Memory namespace (isolation boundary). Starts with a lowercase letter or digit; allowed chars a-z 0-9 _ - . (max 200)."
+          },
+          "text": {
+            "type": "string",
+            "description": "The memory text. Indexed for BM25 and auto-embedded for semantic recall."
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Optional arbitrary metadata (tags, source, timestamps). Recall can pre-filter under the `metadata.` prefix."
+          },
+          "vector": {
+            "type": "array",
+            "description": "Optional caller-supplied embedding, stored as a `dense_vector` to enable kNN recall.",
+            "items": {
+              "type": "number"
+            }
+          },
+          "id": {
+            "type": "string",
+            "description": "Optional explicit ID; a UUID is generated when omitted."
+          },
+          "dedup": {
+            "type": "boolean",
+            "description": "When true, skip the write if the nearest existing memory's similarity meets `dedup_threshold`. Defaults to false."
+          },
+          "dedup_threshold": {
+            "type": "number",
+            "description": "Cosine-similarity threshold in [0,1] for dedup. Defaults to 0.95. Ignored unless dedup is true. Minimum 0. Maximum 1."
+          }
+        },
+        "required": [
+          "namespace",
+          "text"
+        ]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "xerj_memory_recall",
+      "description": "Recall the most relevant memories from a namespaced XERJ store. Maps to POST /_memory/{namespace}/_recall. Three modes by input: pass `vector` for kNN over your own embedding; set `semantic: true` with `query` for server-side embedded recall (no external key); or pass just `query` for BM25 recall. Returns {\"hits\":[{\"id\",\"text\",\"metadata\",\"score\"}],\"namespace\"}.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "namespace": {
+            "type": "string",
+            "description": "Namespace to recall from. Unknown namespace returns an empty hit list."
+          },
+          "query": {
+            "type": "string",
+            "description": "Query text for BM25 recall, or the string embedded server-side when `semantic` is true (required in semantic mode)."
+          },
+          "vector": {
+            "type": "array",
+            "description": "Optional query embedding; runs kNN over stored vectors and takes precedence over query/semantic.",
+            "items": {
+              "type": "number"
+            }
+          },
+          "semantic": {
+            "type": "boolean",
+            "description": "When true, XERJ embeds `query` server-side and recalls by similarity. Requires non-empty `query`. Ignored when `vector` is given. Defaults to false."
+          },
+          "k": {
+            "type": "integer",
+            "description": "Number of memories to return. Defaults to 10. Minimum 1."
+          },
+          "filter": {
+            "type": "object",
+            "description": "Optional ES query clause pre-filter over metadata, e.g. {\"term\":{\"metadata.topic\":\"cats\"}}."
+          },
+          "recency_weight": {
+            "type": "number",
+            "description": "Optional recency blend in [0,1]. 0 = pure relevance (default when omitted), 1 = pure recency. Minimum 0. Maximum 1."
+          }
+        },
+        "required": [
+          "namespace"
+        ]
+      }
+    }
+  }
+]

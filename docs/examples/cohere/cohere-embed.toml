@@ -1,0 +1,17 @@
+# XERJ + Cohere Embed through Cohere's OpenAI-compatible route.
+# Set the key:  export XERJ_EMBEDDING_API_KEY="$CO_API_KEY"
+# then start:   xerj --config cohere-embed.toml
+#
+# Status: contract-tested against a mock (run-offline-test.sh); no live call
+# has been made from this config yet. See README.md "Not verified yet".
+# The compatibility route does not accept input_type, dimensions or truncate,
+# so query and document vectors are embedded the same way (symmetric).
+[embedding]
+mode = "proxy"
+# A base ending in /v1 gets /embeddings appended:
+# https://api.cohere.ai/compatibility/v1/embeddings
+default_endpoint = "https://api.cohere.ai/compatibility/v1"
+default_model = "embed-v5.0-pro"
+# Cohere accepts up to 96 texts per call.
+batch_size = 64
+timeout_ms = 30000
