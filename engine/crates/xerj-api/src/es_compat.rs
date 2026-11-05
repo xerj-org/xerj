@@ -7136,7 +7136,7 @@ mod composite_coordinator_tests {
         for order in ["asc", "desc"] {
             for missing in ["first", "last", "default"] {
                 for size in 1..=4 {
-                    let shards = vec![
+                    let shards = [
                         vec![
                             json!({"x":"10"}),
                             json!({"x":"2"}),
