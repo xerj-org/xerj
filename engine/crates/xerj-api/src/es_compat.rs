@@ -44723,6 +44723,18 @@ pub async fn close_pit(
         .as_ref()
         .and_then(|v| v.get("id").and_then(Value::as_str))
         .map(String::from);
+    // ES decodes the id before it looks the context up
+    // (`SearchContextId.decode`), so an id that no node could have issued is
+    // a 400 `illegal_argument_exception`, not a 200 that frees nothing. XERJ
+    // issues PIT ids as UUIDs (`open_pit`), so a string that does not parse
+    // as one cannot name a context. A well-formed id that is no longer held
+    // keeps the old answer.
+    if let Some(i) = id.as_deref() {
+        if Uuid::parse_str(i).is_err() {
+            let reason = format!("invalid id: [{i}]");
+            return es_bad_request("illegal_argument_exception", &reason, None);
+        }
+    }
     let freed = match id {
         Some(i) if state.engine.pits.remove(&i).is_some() => 1,
         _ => 0,
