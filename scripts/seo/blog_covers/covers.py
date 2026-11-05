@@ -130,6 +130,11 @@ POSTS: list[dict[str, str]] = [
          subtitle="",
          alt="Cover art: 100 in huge display type above the word contributors, then 12,000 stars in 12 days on a yellow highlight and 17,486 GitHub stars today; beside it a yellow area chart of the running star count from July to October 2026 that climbs steeply from 5,000 stars on Oct 15 to 17,000 stars on Oct 27; on the right a 10 by 10 grid of the 100 contributors' GitHub avatars",
          og_alt="Cover: 100 in huge display type above the word contributors, then 12,000 stars in 12 days on a yellow highlight and 17,486 GitHub stars today; beside it a yellow area chart of the running star count from July to October 2026 that climbs steeply from 5,000 stars on Oct 15 to 17,000 stars on Oct 27; on the right a 10 by 10 grid of the 100 contributors' GitHub avatars"),
+    dict(slug="xerj-query-ai-model", date="2026-11-05", motif="wrong160",
+         title="XERJ Query-1",
+         subtitle="A neurosymbolic model that compiles prompts to verifiable search queries.",
+         alt="Cover art: three grids of 160 squares, one per way of answering the same questions; filled squares are right answers, blue squares wrong answers, rings declined; the yellow XERJ Query-1 grid has one blue square, RAG on Opus 5.5 has nine, Opus 5.5 reading everything has six",
+         og_alt="Cover: “XERJ Query-1” in display type beside the post’s square-matrix art, labelled 1 wrong, 9 wrong and 6 wrong. The art: three grids of 160 squares, one per way of answering the same questions; filled squares are right answers, blue squares wrong answers, rings declined; the yellow XERJ Query-1 grid has one blue square, RAG on Opus 5.5 has nine, Opus 5.5 reading everything has six"),
 ]
 
 # og: title + motif with its labels, for social feeds that show the card alone.
