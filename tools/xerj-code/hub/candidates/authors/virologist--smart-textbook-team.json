@@ -1,0 +1,23 @@
+{
+ "corpus": "virologist--smart-textbook-team",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how virologist/smart-textbook-team implements it: Cross-platform multi-agent textbook authoring team (13-state pipeline, zero-tolerance citation verification). MIT, by TZUVet (selected work: tests, scripts)",
+ "repos": [
+  {
+   "repo": "smart-textbook-team",
+   "url": "https://github.com/virologist/smart-textbook-team",
+   "sha": "facf8da55565817a16c319fe16367054e6b0d92b",
+   "licence": "MIT (LICENSE file at pin facf8da55565, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T00:58Z",
+    "consent_receipt": "eadb38c16087",
+    "note": "Inclusion consented by the commit author by email at 2026-11-05T00:58Z (receipt eadb38c16087); selected commit facf8da55565: \"feat(B4): \u8282\u7ea7\u62d3\u6251\u5e76\u884c + \u7f3a\u5931\u8282\u6062\u590d + \u8de8\u7ae0\u672f\u8bed\u4f9d\u8d56\u56fe\". LICENSE file at pin facf8da55565 detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

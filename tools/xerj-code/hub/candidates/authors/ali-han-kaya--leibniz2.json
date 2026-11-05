@@ -2,8 +2,8 @@
  "corpus": "ali-han-kaya--leibniz2",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Python queries this for how ali-han-kaya/leibniz2 implements it: ali-han-kaya/leibniz2 (Python) (selected work: _calisma)",
+ "shelf": "WEB",
+ "domain": "an agent working on academic-publishing, ci-cd, dashboard queries this for how ali-han-kaya/leibniz2 implements it: Extensional first-order formalization of Stoic katalepsis and Humean custom (V5): paper, Lean 4 + Z3 proofs, reproducible PDF build, and a f (selected work: _calisma)",
  "repos": [
   {
    "repo": "leibniz2",
