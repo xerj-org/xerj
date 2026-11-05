@@ -81,6 +81,19 @@ all 2,387 evaluation items. Without the flag a node is the node rc.100 was: no
   applies only when the bundle has no counting role, or its counting model is
   absent or fails its load checks; in that case facts keeps serving and only
   counting questions decline.
+  **Known limitations of counting on rc.101 (measured on user-written facts):**
+  counting engages only when every fact of the counted subjects carries a
+  stable `subject_id` (one per subject, on every fact about it); without it the
+  count is `INCOMPLETE` and the answer is `UNKNOWN` with `path: "facts"`. The
+  op-set is set counts ("how many X have Y", optionally "distinct <field>");
+  sums, totals and numeric thresholds decline. A served count tallies the
+  members of the matched set and does not check the noun of the question:
+  "How many devices do the Berlin offices have in total?" over `office = Berlin`
+  facts with no `devices` relation is served as a verified count of people
+  (`path: "counting"`, `partner_agreement: true`, the same `program_sha256` as
+  "how many people have office Berlin"). Counting answers carry no evidence ids
+  by design, and the response names the program only by `program_sha256`. Ask
+  for the member type you mean and read a count as a member count.
 - Model bundles. `--facts-model-dir` (or `XERJ_FACTS_MODEL_DIR`) may point at a bundle directory
   (`bundle.json`, schema `xerj-model-bundle-v1`) that holds a `facts` role and
   optional `counting/served` and `counting/partner` roles, each a directory
