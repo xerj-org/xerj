@@ -122,6 +122,18 @@ subject, shared by all of that subject's facts (optional for lookups, needed for
 counting). The full table is in
 [FACTS_API.md](./FACTS_API.md#writing-facts-post-_factsns_bulk).
 
+### 4b. Or write a whole table as facts (unreleased, after rc.101)
+
+A SQLite file, SQL dump, CSV/TSV or XLSX becomes facts in one command: one
+subject per row (`subject_id` from the key column), one fact per column.
+
+```sh
+xerj autoindex hr.sqlite --facts hr --url http://127.0.0.1:9200
+```
+
+Verify: the last lines read `hr/people: 1000 rows · key id · subject name · wrote 6000 facts (1000 new, …)`.
+Run it again after the table changes: only changed rows are rewritten and removed rows are withdrawn.
+
 ## 5. Ask a question and read the verified answer
 
 ```sh
