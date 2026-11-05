@@ -44715,6 +44715,91 @@ pub async fn get_desired_balance(State(state): State<AppState>) -> impl IntoResp
     .into_response()
 }
 
+#[cfg(test)]
+mod close_pit_id_tests {
+    use super::*;
+    use axum::{body::Body, http::Request};
+    use tower::ServiceExt;
+    use xerj_common::{
+        config::{Config, WalSync},
+        metrics::Metrics,
+    };
+    use xerj_engine::Engine;
+
+    fn test_state() -> AppState {
+        let dir = tempfile::tempdir().expect("tempdir").keep();
+        let mut config = Config::default();
+        config.server.data_dir = dir.to_string_lossy().into_owned();
+        config.storage.wal_sync = WalSync::Async;
+        let metrics = Metrics::new().expect("metrics");
+        let engine = Engine::new(config.clone()).expect("engine");
+        AppState::new(config, engine, metrics)
+    }
+
+    async fn send(app: &axum::Router, method: &str, uri: &str, body: Value) -> (StatusCode, Value) {
+        let resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(method)
+                    .uri(uri)
+                    .header("content-type", "application/json")
+                    .body(Body::from(body.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let status = resp.status();
+        let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        (status, serde_json::from_slice(&bytes).unwrap())
+    }
+
+    async fn app_with_pit() -> (axum::Router, String) {
+        let app = crate::router::build_es_compat_router(test_state());
+        let (status, body) = send(&app, "PUT", "/idx/_doc/1?refresh=true", json!({"f": 1})).await;
+        assert!(status.is_success(), "{body}");
+        let (status, body) = send(&app, "POST", "/idx/_pit?keep_alive=1m", json!({})).await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        let id = body["id"].as_str().expect("pit id").to_string();
+        (app, id)
+    }
+
+    /// FAIL-BEFORE: answered 200 `{"succeeded": false, "num_freed": 0}`.
+    #[tokio::test]
+    async fn closing_an_undecodable_pit_id_is_a_400() {
+        let (app, pit) = app_with_pit().await;
+        let bad = "46ToAwMDaWR5BXV1aWQyKwZub2RlXzMAAAAAAAAAACoBYwADaWR4BXV1aWQx";
+        let (status, body) = send(&app, "DELETE", "/_pit", json!({ "id": bad })).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+        assert_eq!(
+            body["error"]["type"], "illegal_argument_exception",
+            "{body}"
+        );
+        assert_eq!(
+            body["error"]["reason"],
+            format!("invalid id: [{bad}]"),
+            "{body}"
+        );
+        // The failed close leaves the open PIT alone.
+        let (status, body) = send(&app, "DELETE", "/_pit", json!({ "id": pit })).await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        assert_eq!(body["num_freed"], 1, "{body}");
+    }
+
+    /// An id XERJ could have issued but no longer holds keeps today's answer.
+    #[tokio::test]
+    async fn closing_an_unknown_well_formed_pit_id_still_answers() {
+        let (app, pit) = app_with_pit().await;
+        let (_, body) = send(&app, "DELETE", "/_pit", json!({ "id": pit })).await;
+        assert_eq!(body["num_freed"], 1, "{body}");
+        let (status, body) = send(&app, "DELETE", "/_pit", json!({ "id": pit })).await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        assert_eq!(body["num_freed"], 0, "{body}");
+    }
+}
+
 pub async fn close_pit(
     State(state): State<AppState>,
     body: OptionalJson<Value>,
