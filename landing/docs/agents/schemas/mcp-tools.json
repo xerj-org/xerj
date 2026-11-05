@@ -1016,6 +1016,33 @@
             "minimum": 1,
             "maximum": 50,
             "description": "Max hits to return (default 5)."
+          },
+          "evidence": {
+            "type": "object",
+            "description": "Opt in to structuredContent.evidence_receipt. Supply caller trace identities. Without original pinned bytes and an in-domain calibration assessment, the receipt abstains and escalates; search scores are never probabilities.",
+            "properties": {
+              "session_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "tool_call_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "p_min": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1,
+                "default": 0.8
+              }
+            },
+            "required": [
+              "session_id",
+              "tool_call_id"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
@@ -1052,6 +1079,33 @@
             "minimum": 1,
             "maximum": 8192,
             "description": "Soft output budget for the rendered answer (about 4 characters a token)."
+          },
+          "evidence": {
+            "type": "object",
+            "description": "Opt in to structuredContent.evidence_receipt. Supply caller trace identities. Without original pinned bytes and an in-domain calibration assessment, the receipt abstains and escalates; search scores are never probabilities.",
+            "properties": {
+              "session_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "tool_call_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "p_min": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1,
+                "default": 0.8
+              }
+            },
+            "required": [
+              "session_id",
+              "tool_call_id"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [

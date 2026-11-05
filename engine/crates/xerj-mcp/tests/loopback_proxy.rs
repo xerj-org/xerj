@@ -145,6 +145,9 @@ async fn tool(url: &str, msg: Value) -> (bool, String) {
 
 #[tokio::test]
 async fn loopback_ignores_an_unreachable_proxy_and_a_proxied_503_names_the_proxy() {
+    // Phase 3 connects to 127.0.0.2 directly. Stock macOS has no such alias,
+    // and the connection error alone does not say so (#2903).
+    xerj_common::loopback_test::require_loopback_alias(std::net::Ipv4Addr::new(127, 0, 0, 2));
     let _guard = EnvGuard::capture();
 
     let node_hits = Arc::new(AtomicUsize::new(0));

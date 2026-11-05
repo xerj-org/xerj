@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Opt-in hub answer evidence receipts (Refs #1789, #1786): Rust callers can
+  bind exact UTF-8 excerpts to pinned source bytes and export SHA-256/JCS
+  trace reports. MCP ask/def accepts trace identities through `evidence`;
+  unavailable source bytes or calibration explicitly abstain and escalate.
+  Default answer and hit wire fields are unchanged.
+
 - Opt-in advisory Claude Code search hints with `xerj init --hooks` on macOS/Linux
   (Refs #2642): Grep/Glob and repeated Read can suggest a cited search scoped to
   the indexed folder and configured loopback node, with a per-session quota.
@@ -139,6 +145,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A plain debug `cargo test --workspace` no longer aborts on a stack overflow,
+  and the `127.0.0.2` loopback test names the missing macOS alias (#2903). Five
+  tests that run the ES-compat router on multi-thread workers overflowed tokio's
+  2 MiB worker stack in a debug build, killing their whole test binary: one in
+  `xerj-mcp`'s `local_def`, one in `xerj-api`'s
+  `autoindex_changed_file_drops_stale_symbols`, and three in `hub_api`. They now
+  use the server's 4 MiB, as the other in-process router tests do. On a host without `127.0.0.2`,
+  `loopback_proxy` fails up front with
+  `sudo ifconfig lo0 alias 127.0.0.2 up` instead of a bare connection error,
+  through the new `xerj_common::loopback_test::require_loopback_alias`.
+  CONTRIBUTING documents both, and that CI runs `--profile ci-test`.
 - Data-stream `_rollover` honours `dry_run` and its `conditions` instead of
   ignoring the body: `max_docs`/`max_age` are ORed and reported in
   `conditions`, and a dry run or an unmet condition creates no backing index.
