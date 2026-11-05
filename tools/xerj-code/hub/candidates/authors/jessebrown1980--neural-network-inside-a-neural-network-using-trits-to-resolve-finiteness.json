@@ -1,0 +1,23 @@
+{
+ "corpus": "jessebrown1980--neural-network-inside-a-neural-network-using-trits-to-resolve-finiteness",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on C++ queries this for how JesseBrown1980/Neural-network-inside-a-neural-network-using-trits-to-resolve-Finiteness implements it: JesseBrown1980/Neural-network-inside-a-neural-network-using-trits-to-resolve-Finiteness (C++)",
+ "repos": [
+  {
+   "repo": "Neural-network-inside-a-neural-network-using-trits-to-resolve-Finiteness",
+   "url": "https://github.com/JesseBrown1980/Neural-network-inside-a-neural-network-using-trits-to-resolve-Finiteness",
+   "sha": "8cbca4356121f3bb3fb14fd927b6719cb35eb4ae",
+   "licence": "author's permission (LICENSE at pin 8cbca4356121: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T14:53Z",
+    "consent_receipt": "81c4c97a847d",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T14:53Z (receipt 81c4c97a847d); pinned to the default-branch head. LICENSE at pin 8cbca4356121: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

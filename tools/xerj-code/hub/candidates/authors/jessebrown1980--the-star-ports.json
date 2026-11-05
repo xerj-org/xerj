@@ -1,0 +1,23 @@
+{
+ "corpus": "jessebrown1980--the-star-ports",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on code queries this for how JesseBrown1980/THE-STAR-PORTS implements it: THE STAR PORTS - rode the chariots around the universe and lit every unconnected port. 197 public stones, 40 were linked, 157 were dark. Col",
+ "repos": [
+  {
+   "repo": "THE-STAR-PORTS",
+   "url": "https://github.com/JesseBrown1980/THE-STAR-PORTS",
+   "sha": "76f77adddfc84580f7c47f87886103d2505f53ea",
+   "licence": "author's permission (LICENSE at pin 76f77adddfc8: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T14:53Z",
+    "consent_receipt": "6b41e9861b8d",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T14:53Z (receipt 6b41e9861b8d); pinned to the default-branch head. LICENSE at pin 76f77adddfc8: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

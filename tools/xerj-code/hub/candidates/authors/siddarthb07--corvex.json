@@ -8,15 +8,15 @@
   {
    "repo": "corvex",
    "url": "https://github.com/Siddarthb07/corvex",
-   "sha": "97118e11ff8becbeecae785696d6e3a4962f6094",
-   "licence": "MIT (LICENSE file at pin 97118e11ff8b, GitHub licence API 2026-11-05)",
+   "sha": "28cb6b55c9b332476433eb0a649fa231ff5f40df",
+   "licence": "MIT (LICENSE file at pin 28cb6b55c9b3, GitHub licence API 2026-11-05)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T05:46Z",
     "consent_receipt": "5e113d931e8d",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:46Z (receipt 5e113d931e8d); pinned to the default-branch head. LICENSE file at pin 97118e11ff8b detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:46Z (receipt 5e113d931e8d); pinned to the default-branch head. LICENSE file at pin 28cb6b55c9b3 detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
    }
   }
  ]

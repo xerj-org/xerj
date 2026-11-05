@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on TypeScript queries this for how MehdiMamas/passbridge implements it: Chrome extension for Apple Passwords on macOS and Windows. Based on Open Passwords. Not affiliated with Apple or Bitwarden (selected work: src, test-harness, src/ui)",
+ "domain": "an agent working on JavaScript queries this for how MehdiMamas/passbridge implements it: Chrome extension for Apple Passwords on macOS and Windows. Based on Open Passwords. Not affiliated with Apple or Bitwarden (selected work: src, test-harness, src/ui)",
  "repos": [
   {
    "repo": "passbridge",
@@ -16,14 +16,7 @@
     "by": "author-consent",
     "at": "2026-10-26T21:53Z",
     "consent_receipt": "78c4dd06abb2",
-    "note": "Inclusion consented by the commit author by email at 2026-10-26T21:53Z (receipt 78c4dd06abb2); selected commit 2b2ee7d7f382: \"Update check: NEW badge and popup notice for a newer release, opt-out\u2026\". LICENSE file at pin 2b2ee7d7f382 detected as GPL-3.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution.",
-    "author_grant": {
-     "terms": "MIT",
-     "scope": "the author's own changes in the selected commit",
-     "commit": "2b2ee7d7f382b93afd279cfbe9ea37c74f7f543f",
-     "at": "2026-10-26T21:53Z",
-     "receipt": "78c4dd06abb2"
-    }
+    "note": "Inclusion consented by the commit author by email at 2026-10-26T21:53Z (receipt 78c4dd06abb2); selected commit 2b2ee7d7f382: \"Update check: NEW badge and popup notice for a newer release, opt-out\u2026\". LICENSE file at pin 2b2ee7d7f382 detected as GPL-3.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution."
    }
   }
  ]

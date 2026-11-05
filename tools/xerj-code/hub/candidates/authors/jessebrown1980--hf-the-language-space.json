@@ -1,0 +1,23 @@
+{
+ "corpus": "jessebrown1980--hf-the-language-space",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on code queries this for how JesseBrown1980/hf-the-language-space implements it: the language space - the towers, as spoken. Naming layer. Mirrored from Hugging Face",
+ "repos": [
+  {
+   "repo": "hf-the-language-space",
+   "url": "https://github.com/JesseBrown1980/hf-the-language-space",
+   "sha": "1b165a9d610d26daa97f130e7a1e8c0cccce8c90",
+   "licence": "author's permission (LICENSE at pin 1b165a9d610d: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T14:53Z",
+    "consent_receipt": "9e77e59902de",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T14:53Z (receipt 9e77e59902de); pinned to the default-branch head. LICENSE at pin 1b165a9d610d: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

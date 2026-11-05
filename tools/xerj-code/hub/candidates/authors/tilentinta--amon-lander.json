@@ -1,0 +1,23 @@
+{
+ "corpus": "tilentinta--amon-lander",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on HTML queries this for how TilenTinta/Amon_Lander implements it: Open Source model of lander inspired by BPS.Space Sprite (selected work: Control, Test_stand)",
+ "repos": [
+  {
+   "repo": "Amon_Lander",
+   "url": "https://github.com/TilenTinta/Amon_Lander",
+   "sha": "adf38d98cdbdaf967d5ef907f5541d62036e46da",
+   "licence": "MIT (LICENSE file at pin adf38d98cdbd, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T16:07Z",
+    "consent_receipt": "4c03e9adb22b",
+    "note": "Inclusion consented by the commit author by email at 2026-11-05T16:07Z (receipt 4c03e9adb22b); selected commit adf38d98cdbd: \"Update: control and readme\". LICENSE file at pin adf38d98cdbd detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution. Pinned to head adf38d98cdbd (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

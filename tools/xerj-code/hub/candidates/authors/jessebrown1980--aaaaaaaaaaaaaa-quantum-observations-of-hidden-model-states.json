@@ -1,0 +1,23 @@
+{
+ "corpus": "jessebrown1980--aaaaaaaaaaaaaa-quantum-observations-of-hidden-model-states",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how JesseBrown1980/AAAAAAAAAAAAAA-Quantum-observations-of-hidden-model-states implements it: JesseBrown1980/AAAAAAAAAAAAAA-Quantum-observations-of-hidden-model-states (Python)",
+ "repos": [
+  {
+   "repo": "AAAAAAAAAAAAAA-Quantum-observations-of-hidden-model-states",
+   "url": "https://github.com/JesseBrown1980/AAAAAAAAAAAAAA-Quantum-observations-of-hidden-model-states",
+   "sha": "5dc4473246a700c61e03150496ae9b4c08b0fc70",
+   "licence": "author's permission (LICENSE at pin 5dc4473246a7: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T14:53Z",
+    "consent_receipt": "17da358d2d42",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T14:53Z (receipt 17da358d2d42); pinned to the default-branch head. LICENSE at pin 5dc4473246a7: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

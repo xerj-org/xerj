@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "OPS",
- "domain": "an agent working on cli, devops, gh-extension queries this for how MehdiMamas/gh-runners implements it: Self-hosted GitHub Actions runners on your own Mac, Linux and Windows machines, set up in one click (selected work: internal/ops, scripts, internal/web)",
+ "domain": "an agent working on cli, devops, gh-extension queries this for how MehdiMamas/gh-runners implements it: Self-hosted GitHub Actions runners on your Mac, Linux and Windows machines without the busywork: one command per repo, sync, on-demand JIT r (selected work: internal/ops, scripts, internal/web)",
  "repos": [
   {
    "repo": "gh-runners",

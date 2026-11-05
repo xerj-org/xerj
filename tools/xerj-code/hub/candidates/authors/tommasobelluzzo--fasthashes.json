@@ -8,15 +8,15 @@
   {
    "repo": "FastHashes",
    "url": "https://github.com/TommasoBelluzzo/FastHashes",
-   "sha": "1643187c55c5d8a32530ad1cf779733965485e7b",
-   "licence": "MIT (LICENSE file at pin 1643187c55c5, GitHub licence API 2026-11-05)",
+   "sha": "be645794a28d54ffa7845a7c7f72e521fc2ece01",
+   "licence": "MIT (LICENSE file at pin be645794a28d, GitHub licence API 2026-11-05)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-30T22:48Z",
     "consent_receipt": "55fa1f3d18a7",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T22:48Z (receipt 55fa1f3d18a7); pinned to the default-branch head. LICENSE file at pin 1643187c55c5 detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T22:48Z (receipt 55fa1f3d18a7); pinned to the default-branch head. LICENSE file at pin be645794a28d detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
    }
   }
  ]

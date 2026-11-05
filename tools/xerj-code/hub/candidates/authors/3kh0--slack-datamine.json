@@ -1,0 +1,23 @@
+{
+ "corpus": "3kh0--slack-datamine",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on slack queries this for how 3kh0/slack-datamine implements it: Datamining Slack changes from the webpack manifest",
+ "repos": [
+  {
+   "repo": "slack-datamine",
+   "url": "https://github.com/3kh0/slack-datamine",
+   "sha": "fec9fb9a3f515794c481cb3a6f7cc38ad137f3ff",
+   "licence": "GPL-3.0 (LICENSE file at pin fec9fb9a3f51, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-05T15:10Z",
+    "consent_receipt": "1f52d98d5134",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T15:10Z (receipt 1f52d98d5134); pinned to the default-branch head. LICENSE file at pin fec9fb9a3f51 detected as GPL-3.0 by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

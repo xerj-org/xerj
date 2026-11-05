@@ -1,0 +1,23 @@
+{
+ "corpus": "jessebrown1980--asolaria",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how JesseBrown1980/Asolaria implements it: Asolaria",
+ "repos": [
+  {
+   "repo": "Asolaria",
+   "url": "https://github.com/JesseBrown1980/Asolaria",
+   "sha": "b7d6b4b78695ebee43468d27950bc398b2b94c9c",
+   "licence": "MIT (LICENSE file at pin b7d6b4b78695, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T14:53Z",
+    "consent_receipt": "d448030b880f",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T14:53Z (receipt d448030b880f); pinned to the default-branch head. LICENSE file at pin b7d6b4b78695 detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Go queries this for how lenajeremy/agentman implements it: Watch your coding agents from your phone \u2014 and answer them when they get stuck. Claude Code, Codex, and OpenCode (selected work: mobile)",
+ "domain": "an agent working on code queries this for how lenajeremy/agentman implements it: Watch your coding agents from your phone \u2014 and answer them when they get stuck. Claude Code, Codex, and OpenCode (selected work: mobile)",
  "repos": [
   {
    "repo": "agentman",

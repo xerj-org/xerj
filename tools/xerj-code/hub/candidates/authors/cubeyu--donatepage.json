@@ -2,8 +2,8 @@
  "corpus": "cubeyu--donatepage",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on HTML queries this for how cubeyu/DonatePage implements it: \u4e2a\u4eba\u591a\u5408\u4e00\u6536\u6b3e\u7f51\u7ad9 (selected work: assets, the project root)",
+ "shelf": "WRITE",
+ "domain": "an agent working on blueprint, donate, donation-page queries this for how cubeyu/DonatePage implements it: \u84dd\u56fe\u56fe\u7eb8\u98ce\u683c\u7684\u4e2a\u4eba\u5f00\u6e90\u6350\u8d60\u9875 | \u5fae\u4fe1/\u652f\u4ed8\u5b9d\u6536\u6b3e \u00b7 GitHub \u8d21\u732e\u70ed\u529b\u56fe \u00b7 \u663c\u591c\u53cc\u4e3b\u9898 | Blueprint-style donation page (selected work: assets, the project root)",
  "repos": [
   {
    "repo": "DonatePage",

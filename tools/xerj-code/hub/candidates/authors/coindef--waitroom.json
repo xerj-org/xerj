@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on claude-code, claude-code-plugin, developer-tools queries this for how coindef/waitroom implements it: Claude is thinking. Call how this turn goes. Local Claude Code plugins for the minutes your agent works; nothing leaves your machine (selected work: wait-scope)",
+ "domain": "an agent working on claude-code, claude-code-plugin, developer-tools queries this for how coindef/waitroom implements it: Claude is cooking. You call the turn. A Claude Code plugin that scores your gut on how each turn lands (selected work: wait-scope)",
  "repos": [
   {
    "repo": "waitroom",

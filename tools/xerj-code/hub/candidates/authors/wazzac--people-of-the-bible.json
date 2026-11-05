@@ -1,0 +1,23 @@
+{
+ "corpus": "wazzac--people-of-the-bible",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how wazzac/people-of-the-bible implements it: An interactive relationship map of biblical figures (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "people-of-the-bible",
+   "url": "https://github.com/wazzac/people-of-the-bible",
+   "sha": "b0d4c030d63c8ecab52880b2400cd5f262ff28ea",
+   "licence": "author's permission (LICENSE at pin b0d4c030d63c: MIT; repository: NOASSERTION)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T15:03Z",
+    "consent_receipt": "2aa74ee18386",
+    "note": "Inclusion consented by the commit author by email at 2026-11-05T15:03Z (receipt 2aa74ee18386); selected commit b0d4c030d63c: \"main: Finished the Old Testament characters\". LICENSE at pin b0d4c030d63c: MIT (repository: NOASSERTION); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

@@ -8,15 +8,15 @@
   {
    "repo": "christmasGiftList",
    "url": "https://github.com/SIRTACOOOOO/christmasGiftList",
-   "sha": "e198df3f28b3c9cfcccbc78836f93fef551049c1",
-   "licence": "GPL-3.0 (LICENSE file at pin e198df3f28b3, GitHub licence API 2026-11-05)",
+   "sha": "b38481a457b7dd1f4834b7959b4b183cf4f79133",
+   "licence": "GPL-3.0 (LICENSE file at pin b38481a457b7, GitHub licence API 2026-11-05)",
    "review": {
     "spdx": "GPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-11-04T22:34Z",
     "consent_receipt": "79628548fd8f",
-    "note": "Inclusion consented by the commit author by email at 2026-11-04T22:34Z (receipt 79628548fd8f); selected commit e198df3f28b3: \"NEW backend! Now with Supabase!\". LICENSE file at pin e198df3f28b3 detected as GPL-3.0 by the GitHub licence API on 2026-11-05; used under that licence with attribution. Pinned to head e198df3f28b3 (contains the selected commit): the LICENSE at the selected commit was NONE.",
+    "note": "Inclusion consented by the commit author by email at 2026-11-04T22:34Z (receipt 79628548fd8f); selected commit b38481a457b7: \"NEW backend! Now with Supabase!\". LICENSE file at pin b38481a457b7 detected as GPL-3.0 by the GitHub licence API on 2026-11-05; used under that licence with attribution. Pinned to head b38481a457b7 (contains the selected commit): the LICENSE at the selected commit was NONE.",
     "author_grant": {
      "terms": "MIT",
      "scope": "the author's own changes in the selected commit",

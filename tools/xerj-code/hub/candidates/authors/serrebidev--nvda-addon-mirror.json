@@ -8,15 +8,15 @@
   {
    "repo": "nvda-addon-mirror",
    "url": "https://github.com/serrebidev/nvda-addon-mirror",
-   "sha": "91c8aa8b18fffa2a26646e723d9286fefd69af70",
-   "licence": "author's permission (LICENSE at pin 91c8aa8b18ff: NONE; repository: none)",
+   "sha": "940d92d531a6f89036c51958478805e440c50c61",
+   "licence": "author's permission (LICENSE at pin 940d92d531a6: NONE; repository: none)",
    "review": {
     "spdx": "NONE",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T23:37Z",
     "consent_receipt": "d89c72cf5a4b",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T23:37Z (receipt d89c72cf5a4b); pinned to the default-branch head. LICENSE at pin 91c8aa8b18ff: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T23:37Z (receipt d89c72cf5a4b); pinned to the default-branch head. LICENSE at pin 940d92d531a6: NONE (repository: none); used with the author's permission, with attribution."
    }
   }
  ]

@@ -1,0 +1,23 @@
+{
+ "corpus": "jessebrown1980--solved-adic-spectral-invariant-of-the-collatz-dynamical-system-the-problem-the-collatz-solved",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how JesseBrown1980/solved-Adic-Spectral-Invariant-of-the-Collatz-Dynamical-System-The-Problem-The-Collatz-solved implements it: JesseBrown1980/solved-Adic-Spectral-Invariant-of-the-Collatz-Dynamical-System-The-Problem-The-Collatz-solved (Rust)",
+ "repos": [
+  {
+   "repo": "solved-Adic-Spectral-Invariant-of-the-Collatz-Dynamical-System-The-Problem-The-Collatz-solved",
+   "url": "https://github.com/JesseBrown1980/solved-Adic-Spectral-Invariant-of-the-Collatz-Dynamical-System-The-Problem-The-Collatz-solved",
+   "sha": "cf77a08242f78d9dfa9d35d97743ade2c70c0f4d",
+   "licence": "author's permission (LICENSE at pin cf77a08242f7: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T14:53Z",
+    "consent_receipt": "ce7ccbdc6841",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T14:53Z (receipt ce7ccbdc6841); pinned to the default-branch head. LICENSE at pin cf77a08242f7: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

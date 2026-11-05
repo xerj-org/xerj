@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Rust queries this for how physicsdolphin/nv-uefi-unlocker implements it: UEFI pre-driver NVIDIA GPU unlocker for Windows Linux Hackintosh and all EFI-bootable system (Rust): SEC2 scrubber -> FWSEC/WPR2 -> signed B (selected work: loader, sim)",
+ "domain": "an agent working on code queries this for how physicsdolphin/nv-uefi-unlocker implements it: UEFI pre-driver NVIDIA GPU unlocker for Windows Linux Hackintosh and all EFI-bootable system (Rust): SEC2 scrubber -> FWSEC/WPR2 -> signed B (selected work: loader, sim)",
  "repos": [
   {
    "repo": "nv-uefi-unlocker",

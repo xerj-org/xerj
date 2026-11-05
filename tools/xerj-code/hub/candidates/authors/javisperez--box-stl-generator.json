@@ -8,15 +8,15 @@
   {
    "repo": "box-stl-generator",
    "url": "https://github.com/javisperez/box-stl-generator",
-   "sha": "13178e016af2c8e262649ad4b6d3582b9a854be3",
-   "licence": "Apache-2.0 (LICENSE file at pin 13178e016af2, GitHub licence API 2026-10-28)",
+   "sha": "193adb661aaff6ffa9aae93935377d467645ce5f",
+   "licence": "Apache-2.0 (LICENSE file at pin 193adb661aaf, GitHub licence API 2026-11-05)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T20:30Z",
     "consent_receipt": "c669430b3132",
-    "note": "Inclusion consented by the commit author by email at 2026-10-28T20:30Z (receipt c669430b3132); selected commit 13178e016af2: \"Add an external/internal toggle for measures\". LICENSE file at pin 13178e016af2 detected as Apache-2.0 by the GitHub licence API on 2026-10-28; used under that licence with attribution. Pinned to head 13178e016af2 (contains the selected commit): the LICENSE at the selected commit was MPL-2.0."
+    "note": "Inclusion consented by the commit author by email at 2026-10-28T20:30Z (receipt c669430b3132); selected commit 193adb661aaf: \"Add an external/internal toggle for measures\". LICENSE file at pin 193adb661aaf detected as Apache-2.0 by the GitHub licence API on 2026-11-05; used under that licence with attribution. Pinned to head 193adb661aaf (contains the selected commit): the LICENSE at the selected commit was MPL-2.0."
    }
   }
  ]
