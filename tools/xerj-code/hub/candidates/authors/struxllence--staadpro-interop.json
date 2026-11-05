@@ -8,15 +8,15 @@
   {
    "repo": "StaadPro.Interop",
    "url": "https://github.com/StruXllence/StaadPro.Interop",
-   "sha": "af5d7e45a941eaeedd8ee0a6634b7adfe34f6d4f",
-   "licence": "Apache-2.0 (LICENSE file at pin af5d7e45a941, GitHub licence API 2026-11-04)",
+   "sha": "20821c50c9e1e3a3955d7e111cdf906d5b921588",
+   "licence": "Apache-2.0 (LICENSE file at pin 20821c50c9e1, GitHub licence API 2026-11-05)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-02T11:35Z",
     "consent_receipt": "280b4be66896",
-    "note": "Inclusion consented by the commit author by email at 2026-11-02T11:35Z (receipt 280b4be66896); selected commit af5d7e45a941: \"feat(view): Added rear and left orientation requests\". LICENSE file at pin af5d7e45a941 detected as Apache-2.0 by the GitHub licence API on 2026-11-04; used under that licence with attribution. Pinned to head af5d7e45a941 (contains the selected commit): the LICENSE at the selected commit was NOASSERTION."
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T11:35Z (receipt 280b4be66896); selected commit 20821c50c9e1: \"feat(view): Added rear and left orientation requests\". LICENSE file at pin 20821c50c9e1 detected as Apache-2.0 by the GitHub licence API on 2026-11-05; used under that licence with attribution. Pinned to head 20821c50c9e1 (contains the selected commit): the LICENSE at the selected commit was NOASSERTION."
    }
   }
  ]

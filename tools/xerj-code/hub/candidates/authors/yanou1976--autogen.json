@@ -1,0 +1,23 @@
+{
+ "corpus": "yanou1976--autogen",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on EJS queries this for how yanou1976/autogen implements it: yanou1976/autogen (EJS)",
+ "repos": [
+  {
+   "repo": "autogen",
+   "url": "https://github.com/yanou1976/autogen",
+   "sha": "c2b166e90601f1ddabd225dc3ae4617484338c64",
+   "licence": "MIT (LICENSE file at pin c2b166e90601, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T05:18Z",
+    "consent_receipt": "bd0eb1182c82",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T05:18Z (receipt bd0eb1182c82); pinned to the default-branch head. LICENSE file at pin c2b166e90601 detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

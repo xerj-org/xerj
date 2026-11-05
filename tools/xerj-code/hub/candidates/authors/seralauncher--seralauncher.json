@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on minecraft, minecraft-launcher, minecraft-launcher-open-source-gplv3 queries this for how SeraLauncher/SeraLauncher implements it: A modern Minecraft launcher (selected work: apps/client, packages/ui)",
+ "domain": "an agent working on minecraft, minecraft-launcher, react queries this for how SeraLauncher/SeraLauncher implements it: A modern Minecraft launcher (selected work: apps/client, packages/ui)",
  "repos": [
   {
    "repo": "SeraLauncher",

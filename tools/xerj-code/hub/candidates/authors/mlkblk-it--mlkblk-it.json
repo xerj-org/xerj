@@ -8,15 +8,15 @@
   {
    "repo": "MlkBlk-IT",
    "url": "https://github.com/MlkBlk-IT/MlkBlk-IT",
-   "sha": "8e1f9c5961ea50c10d6835af1f9d414e04636328",
-   "licence": "author's permission (LICENSE at pin 8e1f9c5961ea: NOASSERTION; repository: NOASSERTION)",
+   "sha": "e0c234922012fcfe37537f8499c390e3f5e08151",
+   "licence": "author's permission (LICENSE at pin e0c234922012: NOASSERTION; repository: NOASSERTION)",
    "review": {
     "spdx": "NOASSERTION",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-01T04:53Z",
     "consent_receipt": "83a65227ddf5",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T04:53Z (receipt 83a65227ddf5); pinned to the default-branch head. LICENSE at pin 8e1f9c5961ea: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T04:53Z (receipt 83a65227ddf5); pinned to the default-branch head. LICENSE at pin e0c234922012: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
    }
   }
  ]

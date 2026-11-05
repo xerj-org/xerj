@@ -8,15 +8,15 @@
   {
    "repo": "rhizome",
    "url": "https://github.com/parenworks/rhizome",
-   "sha": "660e480fc51a960d1f8cdf1c1f179c6772e5f7dd",
-   "licence": "AGPL-3.0 (LICENSE file at pin 660e480fc51a, GitHub licence API 2026-11-04)",
+   "sha": "e6e81914b300b3402392336d25eb5d305423c52b",
+   "licence": "AGPL-3.0 (LICENSE file at pin e6e81914b300, GitHub licence API 2026-11-05)",
    "review": {
     "spdx": "AGPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-19T09:34Z",
     "consent_receipt": "61542b2d9422",
-    "note": "Inclusion consented by the commit author by email at 2026-10-19T09:34Z (receipt 61542b2d9422); selected commit 660e480fc51a: \"session: vendor the session wiring; document non-Omarchy installs\". LICENSE file at pin 660e480fc51a detected as AGPL-3.0 by the GitHub licence API on 2026-11-04; used under that licence with attribution. Pinned to head 660e480fc51a (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-19T09:34Z (receipt 61542b2d9422); selected commit e6e81914b300: \"session: vendor the session wiring; document non-Omarchy installs\". LICENSE file at pin e6e81914b300 detected as AGPL-3.0 by the GitHub licence API on 2026-11-05; used under that licence with attribution. Pinned to head e6e81914b300 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

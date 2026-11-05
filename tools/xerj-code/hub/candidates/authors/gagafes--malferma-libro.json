@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Python queries this for how gagafes/malferma-libro implements it: Free and open-source desktop ebook reader with a local library and support for OPDS catalogs (selected work: src/malferma_libro, tests)",
+ "domain": "an agent working on debian, epub, epub-reader queries this for how gagafes/malferma-libro implements it: Free and open-source desktop ebook reader with a local library and support for OPDS catalogs (selected work: src/malferma_libro, tests)",
  "repos": [
   {
    "repo": "malferma-libro",
