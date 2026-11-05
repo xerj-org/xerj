@@ -202,7 +202,7 @@
   <div class="q1-cards" role="list">
     <a class="q1-card" role="listitem" href="#c1">
       <div class="pair"><span class="ours">120 ms</span><span class="vs">vs</span><span class="theirs">2,700–3,300 ms</span></div>
-      <div class="cap">prompt to answer, XERJ Query-1 on 4 CPU cores vs RAG / Opus 5.5</div>
+      <div class="cap">prompt to answer, XERJ Query-1 on 4 CPU cores on a namespace of up to 8,000 facts vs RAG / Opus 5.5</div>
       <div class="t">Ask. It writes the program.</div>
       <div class="s">RAG and Opus pipelines took 2.7 to 3.3 s per question on the same set and returned prose you cannot check.</div>
     </a>
@@ -218,12 +218,11 @@
       <div class="t">Verified or refused.</div>
       <div class="s">Can't back it: UNKNOWN. Data disagrees: CONFLICT. Never invented.</div>
     </a>
-    <!-- CARD4: pending 10GB numbers -->
     <a class="q1-card" role="listitem" href="#c4">
-      <div class="pair"><span class="ours">8.8 s</span><span class="vs">vs</span><span class="theirs">19.6 s + 1.3 GB RAM</span></div>
-      <div class="cap">indexing the store vs embedding it (GraphRAG: 72 min, 267 model calls)</div>
+      <div class="pair"><span class="ours">17 min</span><span class="vs">vs</span><span class="theirs">62–97 hours</span></div>
+      <div class="cap">indexing 10 GB of Wikipedia (3.3 million articles) on CPU vs embedding it with bge-small</div>
       <div class="t">No embeddings.</div>
-      <div class="s">No GPU and 5.5 CPU-seconds for 9,496 facts; at scale, embedding is 27 hours per million passages and 154 GB of vector RAM per 100 million, redone after every model change.</div>
+      <div class="s">17 minutes and 0.7 CPU-hours to index, searchable at 9.3 ms. Embedding the same text takes 62 to 97 hours of CPU and 8.5 GB of vectors; a GraphRAG graph would take about 4.7 million model calls (~$251,000).</div>
     </a>
     <a class="q1-card" role="listitem" href="#c5">
       <div class="pair"><span class="ours">0 s</span><span class="vs">vs</span><span class="theirs">19.6 s</span></div>
@@ -251,7 +250,7 @@
     <div>
       <span class="q1-num">01 · CAPABILITY</span>
       <h2 class="q1-h">Ask. It writes the program.</h2>
-      <div class="q1-metric"><div class="pair"><span class="ours">120 ms</span><span class="vs">vs</span><span class="theirs">2,700–3,300 ms</span></div><div class="cap">prompt to answer, XERJ Query-1 on 4 CPU cores vs RAG / Opus 5.5</div></div>
+      <div class="q1-metric"><div class="pair"><span class="ours">120 ms</span><span class="vs">vs</span><span class="theirs">2,700–3,300 ms</span></div><div class="cap">prompt to answer, XERJ Query-1 on 4 CPU cores on a namespace of up to 8,000 facts vs RAG / Opus 5.5</div></div>
       <p class="lead">
         You write a plain question: "What is Bo Chen's height?", "Which river
         is longer, X or Y?", "How many people have office Berlin?". The model
@@ -366,7 +365,7 @@ answer    Arhalga River</pre>
     <div>
       <span class="q1-num">04 · CAPABILITY</span>
       <h2 class="q1-h">No embeddings.</h2>
-      <div class="q1-metric"><div class="pair"><span class="ours">8.8 s</span><span class="vs">vs</span><span class="theirs">19.6 s + 1.3 GB RAM</span></div><div class="cap">indexing the store vs embedding it (GraphRAG: 72 min, 267 model calls)</div></div>
+      <div class="q1-metric"><div class="pair"><span class="ours">17 min</span><span class="vs">vs</span><span class="theirs">62–97 hours</span></div><div class="cap">indexing 10 GB of Wikipedia (3.3 million articles) on CPU vs embedding it with bge-small</div></div>
       <p class="lead">
         There is no vector step on this path. The "index" the model uses is
         the facts store the engine already keeps: typed records, an inverted
@@ -547,6 +546,11 @@ xerj_facts_ask          (listed only when the node runs the model: 24 tools on, 
     35 of 160 in the head-to-head came back UNKNOWN where the reference reader
     answered. That is the price of not guessing, and the first thing the next
     training program targets.
+  </div>
+  <div class="q1-not">
+    <strong>Large fact sets are slow and decline more.</strong> On a 95,000-fact
+    namespace an ask took 1.2 to 2.4 seconds and returned UNKNOWN in our test.
+    Keep namespaces small until the next model.
   </div>
   <div class="q1-not">
     <strong>Off by default.</strong> Without <code>--facts-model-dir</code> the node
