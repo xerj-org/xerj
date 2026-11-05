@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   unavailable source bytes or calibration explicitly abstain and escalate.
   Default answer and hit wire fields are unchanged.
 
+- A pure Rust cyber scope guard (Refs #2767, #2769) with exact hostname/IP
+  allowlists, normalized CIDRs, inclusive authorization windows, explicit
+  repository-text taint refusal, and scope echoes. This is a shared planning
+  primitive, not a network scanner or a   wired cyber recipe.
 - Opt-in advisory Claude Code search hints with `xerj init --hooks` on macOS/Linux
   (Refs #2642): Grep/Glob and repeated Read can suggest a cited search scoped to
   the indexed folder and configured loopback node, with a per-session quota.
