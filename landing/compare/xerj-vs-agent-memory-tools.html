@@ -79,7 +79,7 @@
   "image": "https://xerj.org/og/xerj-card.png",
   "inLanguage": "en",
   "datePublished": "2026-10-28",
-  "dateModified": "2026-10-30",
+  "dateModified": "2026-10-31",
   "author": {
     "@type": "Organization",
     "name": "XERJ documentation team",
@@ -216,9 +216,9 @@
   <div class="breadcrumb"><a href="/">HOME</a><span class="sep">·</span><a href="/compare/">COMPARISONS</a><span class="sep">·</span>XERJ VS AGENT MEMORY TOOLS: MEM0, ZEP, LETTA AND COGNEE</div>
   <div class="kicker"><span>COMPARE · COMPARISON: AGENT MEMORY</span></div>
   <h1>XERJ vs agent memory tools: Mem0, Zep, Letta and Cognee</h1>
-  <div class="source-note">AUTHOR · XERJ documentation team · REVIEWED BY · XERJ engineering team · PUBLISHED · 2026-10-28 · UPDATED · 2026-10-30</div>
+  <div class="source-note">AUTHOR · XERJ documentation team · REVIEWED BY · XERJ engineering team · PUBLISHED · 2026-10-28 · UPDATED · 2026-10-31</div>
   <div class="prompt-card answer-first" id="short-answer">
-    <span class="prompt-label">SHORT ANSWER · UPDATED 2026-10-30</span>
+    <span class="prompt-label">SHORT ANSWER · UPDATED 2026-10-31</span>
     <p>Should I use Mem0, Zep, Letta, Cognee or XERJ for agent memory? Pick Mem0 or Cognee to have a model extract facts and links for you, Zep or Graphiti for facts that change over time, Letta for a full stateful agent. Pick XERJ for plain local memory, searched like any other data, with no generative fact-extraction step.</p>
   </div>
   <p><strong>TL;DR</strong>: Mem0, Zep, Letta and Cognee add intelligence on top of memory: models that extract facts, graphs that track change, or a whole agent runtime. XERJ does less on purpose. It stores what your agent writes and finds it with search, in one local binary with no generative fact-extraction step. No head-to-head was run.</p>
@@ -252,7 +252,7 @@
       <tr><td>Mem0</td><td>fact extraction by default; raw inserts with infer=false</td><td>LLM extraction optional; embeddings still apply</td><td>Apache 2.0</td></tr>
       <tr><td>Zep and Graphiti</td><td>Zep Cloud, plus the open Graphiti framework for temporal context graphs</td><td>Graphiti: you supply the LLM</td><td>Graphiti: Apache 2.0</td></tr>
       <tr><td>Letta</td><td>harness for stateful agents with memory blocks and MemFS</td><td>runs your agent's model</td><td>Apache 2.0</td></tr>
-      <tr><td>Cognee</td><td>memory platform that builds a graph of entities and relationships</td><td>local extraction and embedding models; LLM optional</td><td>Apache 2.0</td></tr>
+      <tr><td>Cognee</td><td>memory platform that builds a graph of entities and relationships</td><td>local extraction model and embedder; LLM optional</td><td>Apache 2.0</td></tr>
       <tr><td>XERJ</td><td>search engine for AI agents with a memory API</td><td>lexical by default; neural/proxy embedder optional</td><td>Apache 2.0</td></tr>
     </tbody>
   </table>
@@ -265,7 +265,7 @@
   <h2>When to choose Zep or Graphiti instead</h2>
   <p>Choose Zep Cloud when you want Zep to run it for you. Choose self-hosted Graphiti when facts change over time and you must know what was true when. Graphiti expects a graph store such as Neo4j or FalkorDB.</p>
   <h2>When to choose Letta instead</h2>
-  <p>Choose Letta when you want the whole agent, not just a store. It puts memory blocks, a memory filesystem, skills and channels in one harness.</p>
+  <p>Choose Letta when you want the whole agent and not only a store. It puts memory blocks, a memory filesystem, skills and channels in one harness.</p>
   <h2>When to choose Cognee instead</h2>
   <p>Choose Cognee when you want documents, code and chats turned into a graph of entities and relationships. Cognee is a Python stack.</p>
   <h2>When to choose XERJ</h2>
@@ -278,7 +278,7 @@
   <h2>Limits you inherit with XERJ</h2>
   <p>XERJ is single-node: no replication and no failover. It does not extract facts or build entity links for you. The default embedder is lexical feature hashing, so <code class="inline">semantic: true</code> recall matches shared words unless you start the node with <code class="inline">--embed-mode neural</code>. Memories are permanent until explicitly forgotten.</p>
   <h2>What was not measured</h2>
-  <p>No head-to-head was run. No accuracy, speed or cost numbers are claimed for any tool here. Competitor behavior is described from the linked project documentation, checked on 2026-10-29. These integrations were not executed in this review.</p>
+  <p>This page compares design, not scores. Zep, Letta and Cognee were not run. For measured recall, update and speed numbers on mem0, MemPalace, ReMe, agentmemory, mcp-memory-service, memvid and XERJ, see the <a href="/compare/ai-agent-memory-benchmark">AI agent memory benchmark</a>. Competitor behavior is described from the linked project documentation, checked on 2026-10-29. These integrations were not executed in this review.</p>
   <h2>FAQ</h2>
   <h3>What is the main difference between XERJ and Mem0?</h3>
   <p>Mem0 extracts facts by default and supports raw inserts with infer=false. XERJ stores the supplied text and generates a search vector with its configured embedder, lexical feature hashing by default.</p>
@@ -304,6 +304,7 @@
   </ul>
   <h2>Related</h2>
   <ul>
+    <li><a href="/compare/ai-agent-memory-benchmark">AI agent memory compared: real tests on 7 open-source projects</a></li>
     <li><a href="/compare/xerj-vs-mem0">XERJ vs Mem0: which memory fits your AI agent?</a></li>
     <li><a href="/compare/xerj-vs-claude-mem-and-mempalace">claude-mem vs MemPalace vs XERJ: which memory should Claude Code use?</a></li>
     <li><a href="/compare/xerj-vs-vector-database">Should my agent call a search API or stand up Qdrant for persistent memory?</a></li>
@@ -313,8 +314,8 @@
     <li><a href="/answers/agentic-memory-vs-rag">Agentic memory vs RAG: what is the difference?</a></li>
     <li><a href="/answers/store-agent-memory-without-llm-call">How do I stop an agent memory store from filling with near-duplicate notes?</a></li>
     <li><a href="/answers/knowledge-graphs-for-agent-memory">Should agent memory use a knowledge graph?</a> <span class="mute">· same intent: agent memory</span></li>
-    <li><a href="/answers/agent-memory-without-postgres-qdrant">What's a simple way to give an agent long-term memory on my laptop without Qdrant?</a> <span class="mute">· same intent: agent memory</span></li>
-    <li><a href="/answers/claude-code-memory">How does Claude Code memory work, and when do you need more?</a> <span class="mute">· same intent: agent memory</span></li>
+    <li><a href="/compare/xerj-vs-agentmemory">XERJ vs agentmemory: which memory for your coding agent?</a> <span class="mute">· same intent: agent memory</span></li>
+    <li><a href="/compare/xerj-vs-memvid">XERJ vs memvid: one memory file or one local server?</a> <span class="mute">· same intent: agent memory</span></li>
   </ul>
 </main>
 <nav class="docs-nav" aria-label="Article sections">
@@ -421,29 +422,34 @@
   <div class="group">
     <span class="label">COMPARISONS</span>
     <a href="/compare/"><span class="eyebrow">00</span>All Comparisons</a>
-    <a href="/compare/xerj-vs-claude-mem-and-mempalace" class=""><span class="eyebrow">01</span>claude-mem vs MemPalace vs XERJ: which memory should Claude Code use?</a>
-    <a href="/compare/xerj-vs-agent-memory-tools" class="active"><span class="eyebrow">02</span>XERJ vs agent memory tools: Mem0, Zep, Letta and Cognee</a>
-    <a href="/compare/xerj-vs-mem0" class=""><span class="eyebrow">03</span>XERJ vs Mem0: which memory fits your AI agent?</a>
-    <a href="/compare/xerj-vs-web-agent-search" class=""><span class="eyebrow">04</span>How do I let an agent search a folder on my laptop instead of crawling the web?</a>
-    <a href="/compare/xerj-vs-ast-grep" class=""><span class="eyebrow">05</span>ast-grep vs a code index for an agent?</a>
-    <a href="/compare/xerj-vs-ripgrep-for-code-agents" class=""><span class="eyebrow">06</span>Is ripgrep enough for a coding agent, or do I need a code index?</a>
-    <a href="/compare/best-grep-alternative-for-ai-coding-agents-2026" class=""><span class="eyebrow">07</span>The best grep and ripgrep alternatives for AI coding agents in 2026</a>
-    <a href="/compare/best-mcp-server-local-code-search-2026" class=""><span class="eyebrow">08</span>The best MCP servers for searching a local codebase in 2026</a>
-    <a href="/compare/best-local-full-text-search-jsonl-csv-2026" class=""><span class="eyebrow">09</span>The best local full-text search for JSONL and CSV files in 2026, with a published benchmark</a>
-    <a href="/compare/xerj-vs-ripgrep-all" class=""><span class="eyebrow">10</span>How do I grep PDFs and Word docs from the command line?</a>
-    <a href="/compare/xerj-vs-docfetcher" class=""><span class="eyebrow">11</span>What's a free DocFetcher alternative that an agent can call?</a>
-    <a href="/compare/xerj-vs-recoll" class=""><span class="eyebrow">12</span>What's the best local desktop search for a folder of PDFs and docs?</a>
-    <a href="/compare/xerj-vs-houdahspot" class=""><span class="eyebrow">13</span>XERJ vs HoudahSpot — Spotlight GUI vs an agent index</a>
-    <a href="/compare/xerj-vs-spotlight" class=""><span class="eyebrow">14</span>XERJ vs macOS Spotlight for folder content an agent can query</a>
-    <a href="/compare/xerj-vs-localsynapse" class=""><span class="eyebrow">15</span>What's a local MCP search engine for Claude?</a>
-    <a href="/compare/xerj-vs-elasticsearch-local" class=""><span class="eyebrow">16</span>Is there an Elasticsearch-compatible engine that isn't Elasticsearch?</a>
-    <a href="/compare/xerj-vs-obsidian-omnisearch" class=""><span class="eyebrow">17</span>How do I search an Obsidian vault from outside Obsidian?</a>
-    <a href="/compare/xerj-vs-khoj" class=""><span class="eyebrow">18</span>What's a simpler alternative to Khoj if I only need search and memory?</a>
-    <a href="/compare/xerj-vs-typesense" class=""><span class="eyebrow">19</span>Do I need Typesense for an agent to search my docs?</a>
-    <a href="/compare/best-lightweight-elasticsearch-compatible-server-2026" class=""><span class="eyebrow">20</span>The best lightweight Elasticsearch-compatible search servers in 2026</a>
-    <a href="/compare/xerj-vs-meilisearch" class=""><span class="eyebrow">21</span>What's a local alternative to Meilisearch that indexes a folder by itself?</a>
-    <a href="/compare/xerj-vs-pagefind" class=""><span class="eyebrow">22</span>Pagefind vs indexing a local HTML dump for an agent?</a>
-    <a href="/compare/xerj-vs-vector-database" class=""><span class="eyebrow">23</span>Should my agent call a search API or stand up Qdrant for persistent memory?</a>
+    <a href="/compare/ai-agent-memory-benchmark" class=""><span class="eyebrow">01</span>AI agent memory compared: real tests on 7 open-source projects</a>
+    <a href="/compare/xerj-vs-claude-mem-and-mempalace" class=""><span class="eyebrow">02</span>claude-mem vs MemPalace vs XERJ: which memory should Claude Code use?</a>
+    <a href="/compare/xerj-vs-agent-memory-tools" class="active"><span class="eyebrow">03</span>XERJ vs agent memory tools: Mem0, Zep, Letta and Cognee</a>
+    <a href="/compare/xerj-vs-agentmemory" class=""><span class="eyebrow">04</span>XERJ vs agentmemory: which memory for your coding agent?</a>
+    <a href="/compare/xerj-vs-mcp-memory-service" class=""><span class="eyebrow">05</span>XERJ vs mcp-memory-service: two MCP memory servers, tested</a>
+    <a href="/compare/xerj-vs-mem0" class=""><span class="eyebrow">06</span>XERJ vs Mem0: which memory fits your AI agent?</a>
+    <a href="/compare/xerj-vs-memvid" class=""><span class="eyebrow">07</span>XERJ vs memvid: one memory file or one local server?</a>
+    <a href="/compare/xerj-vs-reme" class=""><span class="eyebrow">08</span>XERJ vs ReMe (Alibaba Tongyi Lab): a tested comparison</a>
+    <a href="/compare/xerj-vs-web-agent-search" class=""><span class="eyebrow">09</span>How do I let an agent search a folder on my laptop instead of crawling the web?</a>
+    <a href="/compare/xerj-vs-ast-grep" class=""><span class="eyebrow">10</span>ast-grep vs a code index for an agent?</a>
+    <a href="/compare/xerj-vs-ripgrep-for-code-agents" class=""><span class="eyebrow">11</span>Is ripgrep enough for a coding agent, or do I need a code index?</a>
+    <a href="/compare/best-grep-alternative-for-ai-coding-agents-2026" class=""><span class="eyebrow">12</span>The best grep and ripgrep alternatives for AI coding agents in 2026</a>
+    <a href="/compare/best-mcp-server-local-code-search-2026" class=""><span class="eyebrow">13</span>The best MCP servers for searching a local codebase in 2026</a>
+    <a href="/compare/best-local-full-text-search-jsonl-csv-2026" class=""><span class="eyebrow">14</span>The best local full-text search for JSONL and CSV files in 2026, with a published benchmark</a>
+    <a href="/compare/xerj-vs-ripgrep-all" class=""><span class="eyebrow">15</span>How do I grep PDFs and Word docs from the command line?</a>
+    <a href="/compare/xerj-vs-docfetcher" class=""><span class="eyebrow">16</span>What's a free DocFetcher alternative that an agent can call?</a>
+    <a href="/compare/xerj-vs-recoll" class=""><span class="eyebrow">17</span>What's the best local desktop search for a folder of PDFs and docs?</a>
+    <a href="/compare/xerj-vs-houdahspot" class=""><span class="eyebrow">18</span>XERJ vs HoudahSpot — Spotlight GUI vs an agent index</a>
+    <a href="/compare/xerj-vs-spotlight" class=""><span class="eyebrow">19</span>XERJ vs macOS Spotlight for folder content an agent can query</a>
+    <a href="/compare/xerj-vs-localsynapse" class=""><span class="eyebrow">20</span>What's a local MCP search engine for Claude?</a>
+    <a href="/compare/xerj-vs-elasticsearch-local" class=""><span class="eyebrow">21</span>Is there an Elasticsearch-compatible engine that isn't Elasticsearch?</a>
+    <a href="/compare/xerj-vs-obsidian-omnisearch" class=""><span class="eyebrow">22</span>How do I search an Obsidian vault from outside Obsidian?</a>
+    <a href="/compare/xerj-vs-khoj" class=""><span class="eyebrow">23</span>What's a simpler alternative to Khoj if I only need search and memory?</a>
+    <a href="/compare/xerj-vs-typesense" class=""><span class="eyebrow">24</span>Do I need Typesense for an agent to search my docs?</a>
+    <a href="/compare/best-lightweight-elasticsearch-compatible-server-2026" class=""><span class="eyebrow">25</span>The best lightweight Elasticsearch-compatible search servers in 2026</a>
+    <a href="/compare/xerj-vs-meilisearch" class=""><span class="eyebrow">26</span>What's a local alternative to Meilisearch that indexes a folder by itself?</a>
+    <a href="/compare/xerj-vs-pagefind" class=""><span class="eyebrow">27</span>Pagefind vs indexing a local HTML dump for an agent?</a>
+    <a href="/compare/xerj-vs-vector-database" class=""><span class="eyebrow">28</span>Should my agent call a search API or stand up Qdrant for persistent memory?</a>
   </div>
 </nav>
 </div>

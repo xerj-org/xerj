@@ -1,0 +1,9 @@
+<figure class="vz" id="fig-am-path" aria-labelledby="fig-am-path-cap">
+  <span class="vz-label">Diagram</span>
+  <p class="vz-title">How each one gets memories in</p>
+  <div class="vz-cols">
+    <div class="vz-card"><span class="vz-k">agentmemory</span><p class="vz-t">Hooks capture the session</p><p class="vz-d">Plugins and hooks for Claude Code and other agents record session events, with secret scrubbing. A local server (port 3111 by default) runs on the iii-engine runtime. Keyless mode searches with BM25; set an embedding provider for semantic recall.</p></div>
+    <div class="vz-card is-hi"><span class="vz-k">XERJ</span><p class="vz-t">The agent decides what to save</p><p class="vz-d">The agent calls the memory store tool or POST /_memory/ns. One binary holds memory next to logs, docs and code. Recall is BM25 by default, semantic or hybrid with the built-in MiniLM model.</p></div>
+  </div>
+  <figcaption id="fig-am-path-cap">agentmemory details are from its README on 2026-10-31. In our test both were driven the same way: one write call per memory over HTTP, no hooks.</figcaption>
+</figure>
