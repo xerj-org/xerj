@@ -7,8 +7,96 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-rc.101] - 2026-11-05
+
+**rc.101: XERJ-Query — the engine answers facts and counting questions from a
+model that runs on CPU, off by default.** This release ships XERJ-Query compiled
+into the binary and serves it over `/_facts` on a node started with
+`--facts-model-dir <DIR>`: write facts to a namespace, ask a natural-language
+question, and read a *verified* answer with its cited evidence and the exact
+program that produced it. Counting questions ("how many … over …?") are answered
+by an exact executor, served only when two independently-seeded models agree on
+the program. The model ships as a separate release asset, a swappable
+`xerj-model-bundle-v1` directory (FP16 weights, served on CPU with an int8-guard
+encoding of the same weights — no GPU, nothing leaves the machine). On the honest
+XERJ Score v2 (credit measured against Opus 5.5 = 100 on the facts + counting
+evaluation) the shipped bundle, `candidate_a_s47`, scores **90.29** on the
+standard eval — not the fresh/sealed set; robustness to new wordings and
+fresh-set counting are not separately measured for this bundle. The engine serves
+the evaluated bundle exactly: a byte-for-byte reproduction of its answers across
+all 2,387 evaluation items. Without the flag a node is the node rc.100 was: no
+`/_facts` route, no model load, the same MCP tool list.
+
+### Upgrade notes — read before starting rc.101 on an existing data directory
+
+- **ONE-WAY DATA-DIRECTORY UPGRADE.** rc.101 writes new segments as ZPS4 postings
+  and stores text columns as row-dictionary blocks **by default**. The first
+  flush moves the data directory to on-disk format **4**; rc.100 and every
+  earlier build read only format 3 and refuse such a directory at open ("written
+  by a newer xerj"). A data directory that rc.101 has written to **cannot be
+  opened by rc.100 again** — take a backup or snapshot before the first start if
+  you may need to roll back. To keep writing format 3 postings, set
+  `XERJ_FTS_POST_CODEC=packed` before the first rc.101 start (and
+  `XERJ_STORED_ROW_BLOCKS=0` to keep the old stored-text layout); the opt-in
+  positions-off text fields (`index_options: docs|freqs`) move the directory to
+  format 5. These defaults will be on public `main` before rc.102, so a later
+  public release opens rc.101 directories.
+- **Provenance.** The rc.101 binaries are built from a private tree: public
+  `main` at `3f6aefa8` plus the XERJ-Query engine lanes (storage, ingest, facts
+  wiring) plus the model crates `xerj-infer`, `xerj-serve` and `xerj-exec`,
+  which are licensed **Proprietary** and ship as binary + model bundle only.
+  Those three crates are not Apache-2.0 and are not in the public repository; the
+  Apache-2.0 LICENSE covers the engine source on `main`. The engine lanes
+  (non-proprietary) land on public `main` by pull request before rc.102.
+- **XERJ-Query is opt-in.** Nothing changes for a node started as before. The
+  flag is `--facts-model-dir <DIR>`; see the first entry under Added.
+
+
 ### Added
 
+- XERJ-Query is opt-in. It ships compiled in and stays off until the server
+  is started with `--facts-model-dir <DIR>` (or `XERJ_FACTS_MODEL_DIR`; the
+  flag wins). Off, a node behaves as rc.100 did: every `/_facts` path answers
+  404 `xerj_query_not_enabled` naming the flag, no model loads and no facts
+  thread starts, the MCP tool list has no `xerj_facts_ask` (the published
+  schema is that default list), and memory namespaces and brains ending in
+  `-facts` are ordinary names again. On, everything below applies; `xerj mcp`
+  lists `xerj_facts_ask` when the node it proxies answers `GET /_facts`
+  (`XERJ_MCP_FACTS=on|off` decides instead).
+- Facts in the default build: `/_facts`, the `xerj_facts_ask` MCP tool, and
+  `_ask` with `decline_v2` as the default rule (`verify: served` remains).
+  Read `final_status` and `final_answer`: under `decline_v2` the plain `status`
+  and `answer` are the unchecked program's. Every `_ask` response now carries a
+  `path` field, `facts` or `counting`, and a counting answer reports its
+  `program_sha256` and whether the partner model agreed. The `/_facts` status
+  no longer carries a `"spike": true` flag and reports the node's counting
+  state. Without a model directory XERJ-Query is off (see the entry above).
+- Exact counting answers in the default build. When the node is started with a
+  model bundle that carries a counting role (see "Model bundles" below), a
+  counting question is answered by an exact executor — the RC4 counting path
+  (stack v6) in `xerj-infer` and `xerj_serve::counting` — and served only when
+  the question routed to counting, its hard checks passed, and a partner model
+  produced the same program; otherwise the fact path answers under `decline_v2`.
+  The `xerj ask` CLI gains the matching count operation. `COUNTING_OFF` now
+  applies only when the bundle has no counting role, or its counting model is
+  absent or fails its load checks; in that case facts keeps serving and only
+  counting questions decline.
+- Model bundles. `--facts-model-dir` (or `XERJ_FACTS_MODEL_DIR`) may point at a bundle directory
+  (`bundle.json`, schema `xerj-model-bundle-v1`) that holds a `facts` role and
+  optional `counting/served` and `counting/partner` roles, each a directory
+  with its own `manifest.json` and weights. A directory with no `bundle.json`
+  stays a plain facts export, as before. Replacing a single role is a directory
+  rename while the node is stopped, with no change to `bundle.json` or code;
+  load checks refuse a role whose weights or tokenizer hash does not match its
+  manifest, a served/partner pair that disagree, or an unknown rule name.
+  Serving precision is per role in `bundle.json` (`XERJ_FACTS_PRECISION` still
+  overrides facts); weights may be stored F32 or F16 and both widen to f32 at
+  load, so no serving path depends on how a model was trained. See
+  [`docs/MODEL_BUNDLE.md`](docs/MODEL_BUNDLE.md).
+- `xerj-pagedir`, page-pointer directories with self-checking reads. With
+  `XERJ_AUTOINDEX_SOURCE_REF=1` and `XERJ_SOURCE_REF_DIR` set on client and
+  server, long JSONL fields stay in the original file; an edited file gives an
+  error, never wrong text. Off by default.
 - Opt-in hub answer evidence receipts (Refs #1789, #1786): Rust callers can
   bind exact UTF-8 excerpts to pinned source bytes and export SHA-256/JCS
   trace reports. MCP ask/def accepts trace identities through `evidence`;
@@ -147,8 +235,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the top 3 for 22; every rank, misses included, is in
   `benchmarks/skills-intent/results/`. Part of #2644.
 
+### Changed
+
+- Stored text columns are 64 KiB row blocks with a per-column trained 112 KiB
+  zstd dictionary (codec 8), level 3 on flush, 9 on merge, 19 on `_forcemerge`,
+  and a page of results reads only its rows. Older builds refuse such segments.
+  Opt out: `XERJ_STORED_ROW_BLOCKS=0`, `XERJ_STORED_BLOCK_DICT=0`,
+  `XERJ_STORED_ROW_SELECT=0`.
+- New segments write postings as ZPS4, with no per-posting position count. The
+  data-directory format goes to 4 at the first such flush and older builds
+  refuse the directory at open. Opt out: `XERJ_FTS_POST_CODEC=packed`.
+- Text fields may be mapped `index_options: docs` or `freqs` to store no
+  positions. Phrase, phrase-prefix, interval, span and `multi_match` phrase
+  queries on such a field are refused with HTTP 400 ("indexed without position
+  data"); term frequencies are still stored, so BM25 scores do not change. On a
+  one-million-passage benchmark corpus the on-disk postings for such a field
+  were about 53% smaller — positions are the largest posting class — with p95
+  query latency within about 2% (paired, same cores). This is opt-in, never a
+  default. The postings use a new codec family (ZPA); an index that uses it
+  moves the data-directory format to 5, and older builds refuse such a
+  directory at open. See [`docs/STORAGE_COMPACTION.md`](docs/STORAGE_COMPACTION.md).
+- BM25 search walks block-max trees, shares a live floor across segments and
+  opens segments in parallel by default; threads default to min(4, cores/2).
+  Each switch remains an opt-out with identical results.
+- Autoindex sends several bulks of one file at once, with a window that starts
+  at 2, grows while clean and honours `Retry-After`; progress moves inside one
+  large file.
+
 ### Fixed
 
+- A newly elected cluster leader now commits an uncommitted log tail left by
+  the previous term by appending an entry of its own term, so a metadata write
+  interrupted by a leader election commits promptly instead of timing out after
+  five seconds. This removes a cluster-metadata replication flake.
+- Large autoindex builds fsync once for a batch of publication intents and
+  group file-completion records, instead of one fsync per file; files stay
+  crash-safe, because a lost completion is republished. Flushes start earlier
+  and smaller under a small process memory cap, and the finalize-correlate
+  phase and wide sparse-segment decodes are bounded, so a one-gigabyte build no
+  longer trips the memory watermark.
+- `_update` and `_update_by_query` re-embed changed `semantic_text`, so a stale
+  vector no longer stays stored.
+- Fields scored by passage no longer build an HNSW graph nobody can read.
+- The autoindex semantic cap counts past the first 1,024 rows of a file, and a
+  sender parked on a full wire no longer hangs the run.
 - A plain debug `cargo test --workspace` no longer aborts on a stack overflow,
   and the `127.0.0.2` loopback test names the missing macOS alias (#2903). Five
   tests that run the ES-compat router on multi-thread workers overflowed tokio's
