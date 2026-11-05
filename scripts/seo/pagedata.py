@@ -91,7 +91,7 @@ PAGES: dict[str, dict[str, str]] = {
     "xerj-query-1.html": dict(
         label="XERJ Query-1", kind="webpage",
         title="XERJ Query-1: prompts to verifiable search programs",
-        description="XERJ Query-1 compiles a plain question into a program the engine runs over your facts and shows step by step. Seven capabilities, real examples, compared with RAG.",
+        description="XERJ Query-1 compiles a plain question into a program the engine runs over your facts and shows step by step. Six capabilities, real examples, compared with RAG.",
     ),
     "donate.html": dict(
         label="Donate", kind="webpage",

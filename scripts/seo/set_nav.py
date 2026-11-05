@@ -34,7 +34,7 @@ NAV_DL_RE = re.compile(r'<a class="nav-dl"[^>]*>.*?</a>', re.S)
 
 # (label, href, landing-relative prefixes that mark the item active)
 LEFT = [
-    ("XERJ&nbsp;QUERY-1", "/xerj-query-1", ("xerj-query-1",)),
+    ("XERJ&nbsp;QUERY&#8209;1", "/xerj-query-1", ("xerj-query-1",)),
     ("PRODUCT", "/product", ("product.html",)),
     ("USE CASES", "/use-cases", ("use-cases", "case-studies", "industries/", "solutions/")),
     ("ANSWERS", "/answers/", ("answers/", "compare/")),
