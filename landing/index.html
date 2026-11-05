@@ -100,6 +100,16 @@
   }
 
 /* XERJ Query-1 cards (home), same grid as the blog and /xerj-query-1 */
+.q1-cards.uc-tiles { grid-template-columns:repeat(4, 1fr); }
+.uc-tiles .q1-card .t { margin-top:0; }
+.uc-tiles .q1-card .cap { margin-top:auto; padding-top:14px; }
+.uc-tiles .q1-card .cap a { color:var(--z-mute); }
+.uc-prompt { margin-top:12px; padding:12px !important; }
+.uc-prompt code { font-size:12px; }
+.prompt-card code { overflow-wrap:anywhere; }
+.hero-install pre.code { max-width:100%; overflow-x:auto; }
+@media (max-width:1100px) { .q1-cards.uc-tiles { grid-template-columns:repeat(2,1fr); } }
+@media (max-width:480px) { .q1-cards.uc-tiles { grid-template-columns:1fr; } }
 .q1-cards { display:grid; grid-template-columns:repeat(3, 1fr); gap:0; border-top:1px solid var(--z-line); border-left:1px solid var(--z-line); margin:var(--sp-3) 0; }
 .q1-card { background:var(--z-bg); padding:22px 22px 20px; display:flex; flex-direction:column; border-right:1px solid var(--z-line); border-bottom:1px solid var(--z-line); }
 .q1-card .pair { display:flex; flex-wrap:wrap; align-items:baseline; gap:0 10px; font-family:var(--font-display); font-weight:800; font-size:clamp(26px, 2.6vw, 36px); line-height:1.05; overflow-wrap:anywhere; }
@@ -214,64 +224,53 @@
 <!-- HERO — one job: the prompt ----------------------------->
 <main>
 <section class="hero-center">
-  <p class="hero-eyebrow">AI-NATIVE SEARCH ENGINE · ONE RUST BINARY · APACHE-2.0</p>
+  <p class="hero-eyebrow">NEW IN RC.101 · XERJ QUERY-1 · ONE RUST BINARY · RUNS OFFLINE ON CPU</p>
 
-  <h1 class="hero">XERJ: THE<br>SEARCH ENGINE<br><span class="accent">FOR AI AGENTS.</span></h1>
+  <h1 class="hero">XERJ QUERY-1.<br>SEARCH THAT<br><span class="accent">SHOWS ITS WORK.</span></h1>
 
-  <p class="hero-sub">A new way for AI to search for data: one local Rust binary that indexes your code, docs, specs and logs, plus Corpus Hub packs, and returns cited answers. It speaks the Elasticsearch
-    API, so the clients you already have connect unchanged.</p>
+  <p class="hero-sub">XERJ is a search engine with a neurosymbolic model inside. XERJ Query-1 turns your question into a short search program, the engine runs it over your data, and every answer points at the record it came from.</p>
 
-  <p class="hero-sub"><strong>New in rc.101: <a href="#query-1">XERJ Query-1</a></strong>, a neurosymbolic model that turns your question into a search program the engine runs over your data and you can check. Off by default.</p>
+  <p class="hero-sub">No embeddings to build, no GPU, nine times fewer wrong answers than RAG in our test, and hundreds of times cheaper per question. The same binary indexes your files, folders and S3 for full-text and hybrid search, and speaks the Elasticsearch API.</p>
 
   <div class="hero-col">
-    <!-- Install first: it is the step a human takes. Commands are VERBATIM from
-         /docs/install (the two must not drift); buttons auto-wire via interact.js. -->
-    <div class="hero-install" id="get">
-      <p class="hero-install-label">INSTALL · ONE LINE · STATIC BINARY · SHA-256 VERIFIED, FAIL-CLOSED</p>
-      <div class="hero-install-cmd">
-        <code>curl -fsSL https://xerj.org/get | sh</code>
-        <button type="button" class="hero-install-copy" data-copy="curl -fsSL https://xerj.org/get | sh">COPY</button>
-      </div>
-      <p class="hero-install-agent-line">Linux, macOS and Windows, on x86_64 and arm64.
-        Static musl by default, so any distro including Alpine.
-        <a href="/docs/install">Windows, glibc and all eight targets →</a></p>
-    </div>
-
-    <!-- The agent path. Same column, same width, same border weight as the
-         install card: the two are alternatives, so they look like alternatives. -->
+    <!-- The agent path first: one prompt that covers the broad use case. -->
     <div class="prompt-stage" id="prompt">
       <div class="prompt-card">
-        <span class="prompt-label">OR HAND THIS TO YOUR CODING AGENT</span>
-        <code>Install XERJ (docs: https://xerj.org/llms.txt), index this project's sources, and set up reference coding: clone and index the open-source repos closest to what we're building, and search how they solved a problem before writing code.</code>
-        <button type="button" class="prompt-copy" data-copy="Install XERJ (docs: https://xerj.org/llms.txt), index this project's sources, and set up reference coding: clone and index the open-source repos closest to what we're building, and search how they solved a problem before writing code.">COPY THE PROMPT</button>
+        <span class="prompt-label">HAND THIS TO YOUR AI AGENT</span>
+        <code>Install XERJ with the XERJ Query-1 model (docs: https://xerj.org/llms.txt). Index the data I point you to (ask before going outside this folder), search it, write its key facts into a facts namespace and ask one question. Show me the hits, the answer, the program and the evidence.</code>
+        <button type="button" class="prompt-copy" data-copy="Install XERJ with the XERJ Query-1 model (docs: https://xerj.org/llms.txt). Index the data I point you to (ask before going outside this folder), search it, write its key facts into a facts namespace and ask one question. Show me the hits, the answer, the program and the evidence.">COPY THE PROMPT</button>
       </div>
     </div>
-  </div>
 
-  <p class="hero-proof">Agents that query an index instead of re-reading files finished the
-    same tasks on <a href="/case-studies/reference-coding">2.7× fewer output tokens</a>.
-    Every number on this site names the run behind it, wins and losses alike, on the
-    <a href="/benchmarks/">benchmarks page</a>.</p>
+    <!-- The human path. Commands are verbatim from docs/MODEL_QUICKSTART.md. -->
+    <div class="hero-install" id="get">
+      <p class="hero-install-label">OR INSTALL IT YOURSELF · BINARY + MODEL · SHA-256 VERIFIED</p>
+      <div class="hero-install-cmd">
+        <code>curl -fsSL https://xerj.org/get | sh -s -- --with-model</code>
+        <button type="button" class="hero-install-copy" data-copy="curl -fsSL https://xerj.org/get | sh -s -- --with-model">COPY</button>
+      </div>
+<pre class="code">$ xerj --facts-model-dir ~/.local/share/xerj/model --insecure --data-dir ~/xerj-data &amp;
+$ curl -s localhost:9200/_facts | grep -o '"state":"loaded"'
+<span class="comment">→ "state":"loaded"   (empty for the first few seconds while the model loads; run it again)</span></pre>
+      <p class="hero-install-agent-line"><strong>No shell?</strong> Over HTTP: <code class="inline">POST /_facts/&lt;ns&gt;/_bulk</code> then <code class="inline">POST /_facts/&lt;ns&gt;/_ask</code> on a node started with the flag; check <code class="inline">GET /_facts</code> shows <code class="inline">"state":"loaded"</code>. From MCP: <code class="inline">xerj mcp</code> lists <code class="inline">xerj_facts_ask</code> when the model is on. <a href="https://github.com/xerj-org/xerj/blob/main/docs/MODEL_QUICKSTART.md" rel="external">Full quickstart →</a></p>
+      <p class="hero-install-agent-line">Without <code class="inline">--with-model</code> you get the plain engine: <code class="inline">curl -fsSL https://xerj.org/get | sh</code>. Linux, macOS and Windows, x86_64 and arm64. <a href="/docs/install">All eight targets →</a></p>
+    </div>
+  </div>
 </section>
 
 <!-- 00 · XERJ QUERY-1 (rc.101) ---------------------------------->
 <section class="scene-section" id="query-1">
-  <div class="kicker"><span class="accent">NEW</span><span class="dash">·</span><span>XERJ QUERY-1 · RC.101 · A NEUROSYMBOLIC MODEL INSIDE THE ENGINE</span></div>
+  <div class="kicker"><span class="accent">XERJ QUERY-1</span><span class="dash">·</span><span>WHAT IT CHANGES, MEASURED</span></div>
   <h2 class="scene">ASK A QUESTION.<br><span class="accent">IT WRITES THE PROGRAM.</span></h2>
 
   <p class="wide">
     Most AI search hands retrieved text to a language model and lets it write an answer.
     The answer is prose, nothing checks it against your data, and you pay for the model
-    on every question.
-  </p>
-
-  <p class="wide">
-    XERJ Query-1 works the other way. It reads your question and writes a short program:
-    look this up, compare these, count those. The engine runs that program over facts you
-    stored, and every step points at the record it used. When the data cannot back an
-    answer you get <code class="inline">UNKNOWN</code>; when two records disagree you get
-    <code class="inline">CONFLICT</code>. It runs on four CPU cores, offline, with no
-    embeddings to build and no GPU.
+    on every question. XERJ Query-1 writes a short program instead: look this up, compare
+    these, count those. The engine runs it over facts you stored, and every step points at
+    the record it used. When the data cannot back an answer you get
+    <code class="inline">UNKNOWN</code>; when two records disagree you get
+    <code class="inline">CONFLICT</code>.
   </p>
 
   <div class="q1-cards">
@@ -304,46 +303,42 @@
   <p class="viz-caption"><a class="mono" href="/xerj-query-1" style="color:var(--z-mute);">HOW XERJ QUERY-1 WORKS, WITH EXAMPLES →</a><span class="dash" style="color:var(--z-mute);">·</span><a class="mono" href="/blog/xerj-query-ai-model" style="color:var(--z-mute);">THE BLOG POST: EVERY NUMBER AND ITS CAVEATS →</a></p>
 
   <p class="wide" style="margin-top:var(--sp-3);">
-    Off by default: without the flag a node behaves exactly like rc.100. What it does not do
-    yet, measured: sums and totals, and large fact sets (a 95,000-fact namespace took 1.2 to
-    2.4 s per ask and declined). It declines more often than a language model would guess;
-    that is the price of not inventing answers.
+    Off by default: without <code class="inline">--facts-model-dir</code> a node behaves exactly like rc.100.
+    The model answers from facts you or your agent write; it does not yet turn documents into facts by itself.
+    What it does not do yet, measured: sums and totals, and large fact sets (a 95,000-fact namespace took
+    1.2 to 2.4 s per ask and declined). It declines more often than a language model would guess; that is
+    the price of not inventing answers.
   </p>
 </section>
 
-<!-- TRY XERJ QUERY-1 ------------------------------------------->
-<section class="scene-section" id="try-query-1">
-  <div class="kicker"><span class="accent">TRY IT</span><span class="dash">·</span><span>INSTALL WITH THE MODEL · THREE WAYS IN</span></div>
-  <h2 class="scene">INSTALL IT<br><span class="accent">WITH THE MODEL.</span></h2>
+<!-- WHAT ELSE XERJ DOES ---------------------------------------->
+<section class="scene-section" id="use-cases">
+  <div class="kicker"><span class="accent">ONE BINARY</span><span class="dash">·</span><span>WHAT ELSE XERJ DOES</span></div>
+  <h2 class="scene">SEARCH, MEMORY,<br><span class="accent">REFERENCE CODING.</span></h2>
 
-  <div class="prompt-stage">
-    <div class="prompt-card">
-      <span class="prompt-label">HAND THIS TO YOUR CODING AGENT</span>
-      <code>Install XERJ with the XERJ Query-1 model (docs: https://xerj.org/llms.txt), start it with the model enabled, store a few facts from this project, and ask one question about them. Show me the answer and the program it ran.</code>
-      <button type="button" class="prompt-copy" data-copy="Install XERJ with the XERJ Query-1 model (docs: https://xerj.org/llms.txt), start it with the model enabled, store a few facts from this project, and ask one question about them. Show me the answer and the program it ran.">COPY THE PROMPT</button>
-    </div>
+  <div class="q1-cards uc-tiles">
+    <div class="q1-card"><div class="t">Search your files</div>
+      <div class="s"><code class="inline">xerj autoindex &lt;folder&gt;</code> indexes PDF, Office, HTML, CSV, JSON, email, code, logs, SQLite files and SQL dumps, with <code class="inline">--watch</code> to stay current and <code class="inline">s3://</code> for S3, R2 or MinIO. Full-text and hybrid search, cited.</div>
+      <div class="cap"><a href="#autoindex">ONE COMMAND, ANY FOLDER →</a></div></div>
+    <div class="q1-card"><div class="t">Agent memory and brains</div>
+      <div class="s">Store, recall and forget notes for your agent, and link them into a knowledge graph with evidence, over 24 MCP tools on the same node as your search and facts.</div>
+      <div class="cap"><a href="/llms.txt">MCP SETUP PER CLIENT →</a></div></div>
+    <div class="q1-card"><div class="t">Reference coding</div>
+      <div class="s">Index the open-source repos closest to what you build, so your coding agent reads the real definition instead of guessing. 2.7× fewer output tokens in our measurement.</div>
+      <div class="prompt-card uc-prompt"><code>Install XERJ (docs: https://xerj.org/llms.txt), index this project's sources, and set up reference coding: clone and index the open-source repos closest to what we're building, and search how they solved a problem before writing code.</code>
+        <button type="button" class="prompt-copy" data-copy="Install XERJ (docs: https://xerj.org/llms.txt), index this project's sources, and set up reference coding: clone and index the open-source repos closest to what we're building, and search how they solved a problem before writing code.">COPY THE PROMPT</button></div>
+      <div class="cap"><a href="#reference-coding">HOW IT WORKS →</a></div></div>
+    <div class="q1-card"><div class="t">Elasticsearch-compatible API</div>
+      <div class="s">The clients you already have connect unchanged: bulk, search, aggregations and kNN over HTTP, plus a native API and one binary to run.</div>
+      <div class="cap"><a href="#http-api">ONE HTTP API →</a></div></div>
   </div>
 
-  <p class="wide"><strong>With a shell.</strong> One line installs the binary and the model bundle, checks both SHA-256 sums, and prints the start line.</p>
-<pre class="code">$ curl -fsSL https://xerj.org/get | sh -s -- --with-model
-$ xerj --facts-model-dir ~/.local/share/xerj/model --insecure --data-dir ~/xerj-data &amp;
-$ curl -s localhost:9200/_facts | grep -o '"state":"loaded"'
-<span class="comment">→ "state":"loaded"   (empty for the first few seconds while the model loads; run it again)</span></pre>
-
-  <p class="wide"><strong>Over HTTP, no shell.</strong> On a running node started with the flag, write facts with
-    <code class="inline">POST /_facts/&lt;namespace&gt;/_bulk</code> and ask with
-    <code class="inline">POST /_facts/&lt;namespace&gt;/_ask</code>.
-    Check: <code class="inline">GET /_facts</code> returns <code class="inline">"state":"loaded"</code>; a node without the flag answers 404 <code class="inline">xerj_query_not_enabled</code>.
-    <a href="https://github.com/xerj-org/xerj/blob/main/docs/MODEL_QUICKSTART.md" rel="external">The write contract, with a full example →</a></p>
-
-  <p class="wide"><strong>From an MCP client.</strong> <code class="inline">xerj mcp</code> lists the tool
-    <code class="inline">xerj_facts_ask</code> when the node it talks to has the model on.
-    Check: the client's tool list shows <code class="inline">xerj_facts_ask</code> next to the 23 standard tools.
-    <a href="/llms.txt">Per-client MCP setup in llms.txt →</a></p>
+  <p class="hero-proof">Every number on this site names the run behind it, wins and losses alike, on the
+    <a href="/benchmarks/">benchmarks page</a>.</p>
 </section>
 
 <!-- 01 — REFERENCE CODING ------------------------------------->
-<section class="scene-section">
+<section class="scene-section" id="reference-coding">
   <div class="kicker"><span class="accent">01</span><span class="dash">·</span><span>REFERENCE CODING · INDEX THE REPOS YOU LEARN FROM</span></div>
   <h2 class="scene">CODE YOUR AGENT<br><span class="accent">HASN'T MEMORISED.</span></h2>
 
@@ -403,7 +398,7 @@ $ xerj def <span class="accent">"euler_to_rotationmatrix"</span>
 </section>
 
 <!-- 02 — POINT XERJ AT A FOLDER ------------------------------->
-<section class="scene-section">
+<section class="scene-section" id="autoindex">
   <div class="kicker"><span class="accent">02</span><span class="dash">·</span><span>POINT XERJ AT A FOLDER · ZERO CONFIG</span></div>
   <h2 class="scene">ONE COMMAND.<br><span class="accent">ANY FOLDER.</span></h2>
 
@@ -479,7 +474,7 @@ next: `xerj autoindex map --url http://localhost:9280` for the data map; search 
 </section>
 
 <!-- 03 — BUILT FOR AGENTS ------------------------------------->
-<section class="scene-section">
+<section class="scene-section" id="http-api">
   <div class="kicker"><span class="accent">03</span><span class="dash">·</span><span>AGENTS ARE THE CUSTOMER · MEMORY · RECIPES</span></div>
   <h2 class="scene">ONE HTTP API.<br><span class="accent">NO SDK.</span></h2>
 
