@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-tool, llm, local-llm queries this for how LuminariSoftwares/context-guardian implements it: Compaction for local models that actually fires and never bricks the session. OpenAI-compatible proxy + DeepSeek Harness engine (selected work: tests, the project root)",
+ "domain": "an agent working on ai-tool, llm, local-llm queries this for how LuminariSoftwares/context-guardian implements it: 40 turns: 1,130,722 tokens upstream -> 161,141. A fail-open compaction proxy for local OpenAI-compatible models (selected work: tests, the project root)",
  "repos": [
   {
    "repo": "context-guardian",

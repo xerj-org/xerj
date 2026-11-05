@@ -8,15 +8,15 @@
   {
    "repo": "pabrik",
    "url": "https://github.com/ginwa123/pabrik",
-   "sha": "a6ce4729924e8be856200a2e6acf01d51cfc2c56",
-   "licence": "MIT (LICENSE file at pin a6ce4729924e, GitHub licence API 2026-11-05)",
+   "sha": "d8efa7c798300686f16a3b5c9b493ea13b600f3e",
+   "licence": "MIT (LICENSE file at pin d8efa7c79830, GitHub licence API 2026-11-05)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-30T00:48Z",
     "consent_receipt": "6dbcbd5121cc",
-    "note": "Inclusion consented by the commit author by email at 2026-10-30T00:48Z (receipt 6dbcbd5121cc); selected commit a6ce4729924e: \"fix(mcp): scope the registries per tenant and derive placement from t\u2026\". LICENSE file at pin a6ce4729924e detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution. Pinned to head a6ce4729924e (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T00:48Z (receipt 6dbcbd5121cc); selected commit d8efa7c79830: \"fix(mcp): scope the registries per tenant and derive placement from t\u2026\". LICENSE file at pin d8efa7c79830 detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution. Pinned to head d8efa7c79830 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]
