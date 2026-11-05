@@ -15594,7 +15594,7 @@ mod tests {
 
     #[test]
     fn multi_index_metric_primitives_survive_slow_execution() {
-        let docs = vec![json!({"n": 1.0}), json!({"n": 2.0})];
+        let docs = [json!({"n": 1.0}), json!({"n": 2.0})];
         for docs in [&docs[..], &[][..]] {
             let result = run_aggs(
                 &json!({
