@@ -6872,7 +6872,11 @@ fn leaf_terms_limit_error(cap: usize) -> Value {
 }
 
 fn leaf_terms_identity(bucket: &Value) -> String {
-    if let Some(raw) = bucket.get("__xy_terms_key__").and_then(Value::as_str) {
+    if let Some(raw) = bucket
+        .get("__xy_terms_key__")
+        .and_then(Value::as_str)
+        .filter(|_| !bucket["key"].is_number() || bucket.get("key_as_string").is_some())
+    {
         let kind = match bucket.get("key") {
             Some(Value::String(_)) => "string",
             Some(Value::Number(_)) => "number",
@@ -7164,6 +7168,34 @@ mod leaf_terms_coordinator_tests {
             let mut got = json!({"t":merge_leaf_terms_summary(&ar["t"],&br["t"],10)});
             finalize_leaf_terms_summaries(&mut got, &request, &names, 10);
             assert_eq!(got, expected, "params={params}");
+        }
+    }
+
+    #[test]
+    fn raw_numeric_summaries_merge_equivalent_longs_and_doubles() {
+        let a = json!({"t":{"buckets":[
+            {"key":10,"__xy_terms_key__":"10","doc_count":1},
+            {"key":100,"__xy_terms_key__":"100","doc_count":1}
+        ]}});
+        let b = json!({"t":{"buckets":[
+            {"key":10.0,"__xy_terms_key__":"10.0","doc_count":1},
+            {"key":100.0,"__xy_terms_key__":"100.0","doc_count":1},
+            {"key":14.6,"__xy_terms_key__":"14.6","doc_count":1}
+        ]}});
+        for (left, right) in [(&a, &b), (&b, &a)] {
+            let mut got = json!({"t":merge_leaf_terms_summary(&left["t"],&right["t"],3)});
+            finalize_leaf_terms_summaries(
+                &mut got,
+                &json!({"t":{"terms":{"field":"number"}}}),
+                &["t".into()],
+                3,
+            );
+            assert_eq!(got["t"]["buckets"].as_array().unwrap().len(), 3);
+            assert_eq!(got["t"]["buckets"][0]["doc_count"], 2);
+            assert_eq!(got["t"]["buckets"][1]["doc_count"], 2);
+            assert_eq!(got["t"]["buckets"][2]["doc_count"], 1);
+            assert_eq!(got["t"]["buckets"][0]["key"].as_f64(), Some(10.0));
+            assert_eq!(got["t"]["buckets"][1]["key"].as_f64(), Some(100.0));
         }
     }
 
