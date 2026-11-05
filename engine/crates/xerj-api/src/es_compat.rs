@@ -29272,7 +29272,25 @@ pub async fn clear_scroll(
         state.engine.scrolls.clear();
     }
 
-    Json(json!({ "succeeded": true, "num_freed": num_freed })).into_response()
+    clear_scroll_response(num_freed)
+}
+
+/// ES's clear-scroll answer: the body always says `succeeded: true`, but the
+/// status is 404 when nothing was freed (`ClearScrollResponse#status`). A
+/// client that clears the same id twice, or an id that already expired, is
+/// told so by the status; XERJ answered 200 for both, so `catch: missing`
+/// after a clear (`scroll/11_clear.yml`) could not see the difference.
+fn clear_scroll_response(num_freed: usize) -> Response {
+    let status = if num_freed == 0 {
+        StatusCode::NOT_FOUND
+    } else {
+        StatusCode::OK
+    };
+    (
+        status,
+        Json(json!({ "succeeded": true, "num_freed": num_freed })),
+    )
+        .into_response()
 }
 
 /// `DELETE /_search/scroll/{scroll_id}` — the same legacy path-parameter
@@ -29282,7 +29300,110 @@ pub async fn clear_scroll_path(
     Path(scroll_id): Path<String>,
 ) -> impl IntoResponse {
     let num_freed = usize::from(state.engine.scrolls.remove(&scroll_id).is_some());
-    Json(json!({ "succeeded": true, "num_freed": num_freed })).into_response()
+    clear_scroll_response(num_freed)
+}
+
+#[cfg(test)]
+mod clear_scroll_status_tests {
+    use super::*;
+    use axum::{body::Body, http::Request};
+    use tower::ServiceExt;
+    use xerj_common::{
+        config::{Config, WalSync},
+        metrics::Metrics,
+    };
+    use xerj_engine::Engine;
+
+    fn test_state() -> AppState {
+        let dir = tempfile::tempdir().expect("tempdir").keep();
+        let mut config = Config::default();
+        config.server.data_dir = dir.to_string_lossy().into_owned();
+        config.storage.wal_sync = WalSync::Async;
+        let metrics = Metrics::new().expect("metrics");
+        let engine = Engine::new(config.clone()).expect("engine");
+        AppState::new(config, engine, metrics)
+    }
+
+    async fn send(app: &axum::Router, method: &str, uri: &str, body: Value) -> (StatusCode, Value) {
+        let resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(method)
+                    .uri(uri)
+                    .header("content-type", "application/json")
+                    .body(Body::from(body.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let status = resp.status();
+        let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        (status, serde_json::from_slice(&bytes).unwrap())
+    }
+
+    async fn open_scroll(app: &axum::Router) -> String {
+        let (status, body) = send(app, "POST", "/s/_search?scroll=1m", json!({"size": 1})).await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        body["_scroll_id"].as_str().expect("scroll id").to_string()
+    }
+
+    /// FAIL-BEFORE: the second clear of the same id, the path form on a freed
+    /// id, and `_all` with nothing open all answered 200. ES answers 404 with
+    /// the same `{"succeeded": true, "num_freed": 0}` body.
+    #[tokio::test]
+    async fn clearing_nothing_is_a_404() {
+        let app = crate::router::build_es_compat_router(test_state());
+        let (status, body) = send(&app, "PUT", "/s/_doc/1?refresh=true", json!({"f": 1})).await;
+        assert!(status.is_success(), "{body}");
+
+        let id = open_scroll(&app).await;
+        let clear = json!({ "scroll_id": id });
+        let (status, body) = send(&app, "DELETE", "/_search/scroll", clear.clone()).await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        assert_eq!(body, json!({"succeeded": true, "num_freed": 1}));
+
+        let (status, body) = send(&app, "DELETE", "/_search/scroll", clear).await;
+        assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
+        assert_eq!(body, json!({"succeeded": true, "num_freed": 0}));
+
+        let path = format!("/_search/scroll/{id}");
+        let (status, body) = send(&app, "DELETE", &path, json!({})).await;
+        assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
+
+        let (status, body) =
+            send(&app, "DELETE", "/_search/scroll?scroll_id=_all", json!({})).await;
+        assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
+        assert_eq!(body["num_freed"], 0);
+    }
+
+    /// A body id wins over the query-string id (`scroll/11_clear.yml`), and
+    /// freeing at least one context is a 200 even if other ids were unknown.
+    #[tokio::test]
+    async fn freeing_any_context_is_a_200() {
+        let app = crate::router::build_es_compat_router(test_state());
+        let (status, body) = send(&app, "PUT", "/s/_doc/1?refresh=true", json!({"f": 1})).await;
+        assert!(status.is_success(), "{body}");
+
+        let id = open_scroll(&app).await;
+        let (status, body) = send(
+            &app,
+            "DELETE",
+            "/_search/scroll?scroll_id=invalid_scroll_id",
+            json!({ "scroll_id": [id, "not-a-scroll"] }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        assert_eq!(body["num_freed"], 1);
+
+        let id = open_scroll(&app).await;
+        let path = format!("/_search/scroll/{id}");
+        let (status, body) = send(&app, "DELETE", &path, json!({})).await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        assert_eq!(body["num_freed"], 1);
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
