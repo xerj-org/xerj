@@ -116,4 +116,4 @@ No. Keep rules that apply every time in CLAUDE.md. Use XERJ for facts the agent 
 - [I need my agent to find a passage and cite the file, not dump the whole tree. How?](/answers/code-search-mcp-for-claude-code)
 - [What's a simple way to give an agent long-term memory on my laptop without Qdrant?](/answers/agent-memory-without-postgres-qdrant) (same intent: agent memory)
 - [How do I give two agents private memory on one laptop?](/answers/private-agent-memory-namespaces) (same intent: agent memory)
-- [XERJ vs Mem0: which memory fits your AI agent?](/compare/xerj-vs-mem0) (same intent: agent memory)
+- [XERJ vs agentmemory: which memory for your coding agent?](/compare/xerj-vs-agentmemory) (same intent: agent memory)

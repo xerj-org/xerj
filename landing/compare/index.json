@@ -3,12 +3,30 @@
   "section": "compare",
   "articles": [
     {
+      "title": "AI agent memory benchmark: 7 open-source projects tested",
+      "question": "Which open-source agent memory finds the right memory most often?",
+      "canonical_url": "https://xerj.org/compare/ai-agent-memory-benchmark",
+      "markdown_url": "https://xerj.org/compare/ai-agent-memory-benchmark.md",
+      "cluster": "Comparison: agent memory",
+      "updated": "2026-10-31",
+      "summary": "We ran mem0, MemPalace, Alibaba's ReMe, agentmemory, mcp-memory-service, memvid and XERJ on the same 85 memories and 75 questions. Recall, updates, speed and setup.",
+      "intent_group": "agent memory",
+      "answer": "Which open-source agent memory recalls best? With the same MiniLM model, XERJ semantic recall found the right memory in the top 5 for 94.7% of 75 questions, ReMe and XERJ hybrid 93.3%, mcp-memory-service 89.3% and mem0 88.0%. Keyword only setups scored 71% to 75%. Only XERJ with a recency weight ranked changed facts correctly.",
+      "queries": [
+        "ai agent memory benchmark",
+        "open source agent memory",
+        "agent memory comparison",
+        "agent memory benchmark open source",
+        "llm memory benchmark recall"
+      ]
+    },
+    {
       "title": "claude-mem vs MemPalace vs XERJ: memory for Claude Code",
       "question": "Should I use claude-mem, MemPalace or XERJ as memory for Claude Code?",
       "canonical_url": "https://xerj.org/compare/xerj-vs-claude-mem-and-mempalace",
       "markdown_url": "https://xerj.org/compare/xerj-vs-claude-mem-and-mempalace.md",
       "cluster": "Comparison: agent memory",
-      "updated": "2026-10-30",
+      "updated": "2026-10-31",
       "summary": "claude-mem summarizes sessions with a model. MemPalace keeps every word. XERJ stores what the agent chooses. A fair comparison and a picker to find your fit.",
       "intent_group": "agent memory",
       "answer": "Should I use claude-mem, MemPalace or XERJ for Claude Code memory? Use claude-mem for automatic, model-written session summaries. Use MemPalace to keep every conversation word for word, saved by hooks. Use XERJ when you want the agent to choose what to save and one local engine for memory, logs, docs and code.",
@@ -20,12 +38,48 @@
       ]
     },
     {
+      "title": "XERJ vs agentmemory: tested memory for coding agents",
+      "question": "Should I use XERJ or agentmemory for coding agent memory?",
+      "canonical_url": "https://xerj.org/compare/xerj-vs-agentmemory",
+      "markdown_url": "https://xerj.org/compare/xerj-vs-agentmemory.md",
+      "cluster": "Comparison: agent memory",
+      "updated": "2026-10-31",
+      "summary": "agentmemory captures coding sessions through hooks. XERJ stores what the agent chooses to save. We ran both on the same 75 questions. Results and when to pick each.",
+      "intent_group": "agent memory",
+      "answer": "XERJ or agentmemory? In keyword mode they tied closely: agentmemory found 74.7% of answers in the top 5 and XERJ 73.3%. XERJ semantic recall, with a model built in, found 94.7%. Pick agentmemory to capture sessions through hooks. Pick XERJ to store what the agent chooses and search it by meaning.",
+      "queries": [
+        "agentmemory alternative",
+        "xerj vs agentmemory",
+        "agentmemory alternatives",
+        "agentmemory benchmark",
+        "memory for coding agents open source"
+      ]
+    },
+    {
+      "title": "XERJ vs mcp-memory-service: tested MCP memory servers",
+      "question": "Should I use XERJ or mcp-memory-service as an MCP memory server?",
+      "canonical_url": "https://xerj.org/compare/xerj-vs-mcp-memory-service",
+      "markdown_url": "https://xerj.org/compare/xerj-vs-mcp-memory-service.md",
+      "cluster": "Comparison: agent memory",
+      "updated": "2026-10-31",
+      "summary": "mcp-memory-service and XERJ both give agents memory over MCP and HTTP. We ran them on the same 75 questions. Recall, updated facts, speed and when to pick each.",
+      "intent_group": "agent memory",
+      "answer": "XERJ or mcp-memory-service? With MiniLM, both found 84% of reworded questions. mcp-memory-service found 89.3% of all answers in the top 5 and XERJ semantic recall 94.7%. At default settings mcp-memory-service rejected 4 of 15 updated facts as duplicates. XERJ stores every write unless you ask for dedup.",
+      "queries": [
+        "mcp-memory-service alternative",
+        "xerj vs mcp-memory-service",
+        "mcp memory service alternatives",
+        "mcp memory server benchmark",
+        "doobidoo mcp memory service"
+      ]
+    },
+    {
       "title": "XERJ vs Mem0, Zep, Letta and Cognee for agent memory",
       "question": "Should I use Mem0, Zep, Letta, Cognee or XERJ for AI agent memory?",
       "canonical_url": "https://xerj.org/compare/xerj-vs-agent-memory-tools",
       "markdown_url": "https://xerj.org/compare/xerj-vs-agent-memory-tools.md",
       "cluster": "Comparison: agent memory",
-      "updated": "2026-10-30",
+      "updated": "2026-10-31",
       "summary": "How XERJ compares with Mem0, Zep, Letta and Cognee for AI agent memory: what each one stores, what it needs to run, and when to pick each one.",
       "intent_group": "agent memory",
       "answer": "Should I use Mem0, Zep, Letta, Cognee or XERJ for agent memory? Pick Mem0 or Cognee to have a model extract facts and links for you, Zep or Graphiti for facts that change over time, Letta for a full stateful agent. Pick XERJ for plain local memory, searched like any other data, with no generative fact-extraction step.",
@@ -42,7 +96,7 @@
       "canonical_url": "https://xerj.org/compare/xerj-vs-mem0",
       "markdown_url": "https://xerj.org/compare/xerj-vs-mem0.md",
       "cluster": "Comparison: agent memory",
-      "updated": "2026-10-30",
+      "updated": "2026-10-31",
       "summary": "Mem0 uses a language model to turn chats into facts. XERJ stores the text your agent sends and finds it with search. A live recall demo and when to pick each.",
       "intent_group": "agent memory",
       "answer": "Should I use XERJ or Mem0 for agent memory? Pick Mem0 if you want a language model to read chats and keep a tidy list of facts for you. Pick XERJ if you want the agent to store exactly what it writes, find it with keyword, vector or hybrid search, and run it all on your own machine.",
@@ -52,6 +106,42 @@
         "best memory for AI agents",
         "xerj vs mem0",
         "mem0 without openai"
+      ]
+    },
+    {
+      "title": "XERJ vs memvid: single-file agent memory, tested",
+      "question": "Should I use XERJ or memvid for AI agent memory?",
+      "canonical_url": "https://xerj.org/compare/xerj-vs-memvid",
+      "markdown_url": "https://xerj.org/compare/xerj-vs-memvid.md",
+      "cluster": "Comparison: agent memory",
+      "updated": "2026-10-31",
+      "summary": "memvid packs agent memory into a single .mv2 file. XERJ runs memory as a local search server. We ran both on the same 75 questions. What we found and when to pick each.",
+      "intent_group": "agent memory",
+      "answer": "XERJ or memvid? memvid keeps memory in one portable file with almost no dependencies and answered queries in 0.3 ms. In our test its default lexical search found 1 of 75 answers, because full questions must match every word. XERJ found 73.3% with BM25 and 94.7% with semantic recall.",
+      "queries": [
+        "memvid alternative",
+        "xerj vs memvid",
+        "memvid alternatives",
+        "memvid benchmark",
+        "single file memory for ai agents"
+      ]
+    },
+    {
+      "title": "XERJ vs ReMe: Alibaba's agent memory, tested side by side",
+      "question": "Should I use XERJ or Alibaba's ReMe for AI agent memory?",
+      "canonical_url": "https://xerj.org/compare/xerj-vs-reme",
+      "markdown_url": "https://xerj.org/compare/xerj-vs-reme.md",
+      "cluster": "Comparison: agent memory",
+      "updated": "2026-10-31",
+      "summary": "ReMe is Alibaba's open-source agent memory built on Markdown files. We ran it and XERJ on the same 75 questions. Recall, speed, setup and when to pick each.",
+      "intent_group": "agent memory",
+      "answer": "XERJ or ReMe? In our test both found the right memory in the top 5 for 93.3% of questions with hybrid search on. ReMe's default setup is faster but keyword only, and embeddings need extra config. Pick ReMe for Markdown memory files you can read and edit. Pick XERJ for one binary with semantic recall built in.",
+      "queries": [
+        "reme alternative",
+        "xerj vs reme",
+        "alibaba reme agent memory",
+        "reme memory benchmark",
+        "agentscope reme alternatives"
       ]
     },
     {
