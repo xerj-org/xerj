@@ -179,6 +179,7 @@ fn is_top_level_command(arg: &str) -> bool {
             | "init"
             | "gain"
             | "autoindex"
+            | "sources"
             | "brain"
             | "share"
             | "feedback"
@@ -334,6 +335,7 @@ fn help_text(feedback: bool) -> String {
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20autoindex --help)\n\
          \x20\x20\x20\x20xerj autoindex map [folder]        data map of indexed data, or preview a folder\n\
          \x20\x20\x20\x20xerj autoindex remove --prefix <P>  drop one autoindexed folder, after a plan\n\
+         \x20\x20\x20\x20xerj sources [--json]               every way to get data in, one command each\n\
          \x20\x20\x20\x20xerj code <corpus> \"<query>\"        reference-coding retrieval over a corpus\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20of peer projects (see xerj code --help)\n\
          \x20\x20\x20\x20xerj corpus add|index|list          the corpus lifecycle behind `xerj code`\n\
@@ -4280,6 +4282,11 @@ async fn async_main() -> Result<()> {
             .await
             .unwrap_or(1);
         std::process::exit(code);
+    }
+    if matches!(argv1.as_deref(), Some("sources")) {
+        // Every way to get data in, one command each (docs/SOURCES.md).
+        let rest: Vec<String> = std::env::args().skip(2).collect();
+        std::process::exit(xerj_autoindex::sources::run_cli(&rest));
     }
     if matches!(argv1.as_deref(), Some("autoindex")) {
         // Zero-config folder discovery + indexing over the ES-compat API.
