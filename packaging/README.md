@@ -21,8 +21,8 @@ The release workflow does not build an `.mcpb` yet, so it is a manual step
 after a release is published:
 
 ```bash
-python3 scripts/mcp/build_mcpb.py --tag v1.0.0-rc.98 --out /tmp/mcpb --update-server-json
-gh release upload v1.0.0-rc.98 /tmp/mcpb/xerj-mcp-1.0.0-rc.98.mcpb
+python3 scripts/mcp/build_mcpb.py --tag v1.0.0-rc.100 --out /tmp/mcpb --update-server-json
+gh release upload v1.0.0-rc.100 /tmp/mcpb/xerj-mcp-1.0.0-rc.100.mcpb
 mcp-publisher login github     # device-code login as a member of xerj-org
 mcp-publisher publish
 ```
