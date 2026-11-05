@@ -5397,9 +5397,14 @@ fn unknown_search_key_error(key: &str, token: &str, line: usize, col: usize) -> 
 /// Matches the house style xerj already uses for `_seq_no` sort rejections and
 /// ES's own search_after / rescore validation errors (items 4b, 4c).
 fn search_shard_validation_body(reason: &str) -> Value {
+    search_shard_failure_body("illegal_argument_exception", reason)
+}
+
+/// The same envelope with a root cause of another type.
+fn search_shard_failure_body(root_type: &str, reason: &str) -> Value {
     json!({
         "error": {
-            "root_cause": [{ "type": "illegal_argument_exception", "reason": reason }],
+            "root_cause": [{ "type": root_type, "reason": reason }],
             "type": "search_phase_execution_exception",
             "reason": "all shards failed",
         },
@@ -6257,6 +6262,30 @@ mod metric_agg_field_type_tests {
             assert_eq!(status, StatusCode::OK, "{uri} {aggs} -> {body}");
         }
     }
+}
+
+/// ES's `SourceFieldMapper` field type answers an `exists` query with
+/// `query_shard_exception` "The _source field is not searchable": `_source` is
+/// stored, never indexed, so ES cannot tell which documents have one. XERJ
+/// treated it like any unmapped field and answered 200 with no hits, which
+/// reads as "no document has a source". Walks every place a query can sit
+/// (the query, `post_filter`, and filter-style aggs).
+fn exists_on_source_field(roots: &[Option<&Value>]) -> bool {
+    fn walk(v: &Value) -> bool {
+        match v {
+            Value::Object(obj) => {
+                let hit = obj
+                    .get("exists")
+                    .and_then(|e| e.get("field"))
+                    .and_then(Value::as_str)
+                    == Some("_source");
+                hit || obj.values().any(walk)
+            }
+            Value::Array(items) => items.iter().any(walk),
+            _ => false,
+        }
+    }
+    roots.iter().flatten().any(|r| walk(r))
 }
 
 /// For each `{"exists": {"field": X}}` clause, check whether `X` is queryable
@@ -15977,6 +16006,21 @@ async fn search_impl(
     // (the field is materially unqueryable). Do this against each
     // participating index's mapping, applying the `match_none`
     // substitution when the field is unqueryable in *every* index.
+    if exists_on_source_field(&[
+        body.query.as_ref(),
+        body.post_filter.as_ref(),
+        body.aggs.as_ref(),
+        body.aggregations.as_ref(),
+    ]) {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(search_shard_failure_body(
+                "query_shard_exception",
+                "The _source field is not searchable",
+            )),
+        )
+            .into_response();
+    }
     let participating_indices: Vec<String> = index_names.iter().map(|s| s.to_string()).collect();
     if let Some(q) = body.query.as_mut() {
         rewrite_unqueryable_exists(q, &state, &participating_indices);
