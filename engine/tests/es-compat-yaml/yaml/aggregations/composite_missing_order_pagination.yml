@@ -1,0 +1,70 @@
+---
+setup:
+  - do:
+      indices.create:
+        index: missing-order-test
+        body:
+          mappings:
+            properties:
+              tag: { type: keyword }
+  - do:
+      index:
+        index: missing-order-test
+        id: "1"
+        body: { tag: "1" }
+  - do:
+      index:
+        index: missing-order-test
+        id: "2"
+        body: { tag: "2" }
+  - do:
+      index:
+        index: missing-order-test
+        id: "3"
+        body: {}
+  - do:
+      indices.refresh:
+        index: missing-order-test
+---
+"missing last survives ascending cursor pagination":
+  - do:
+      search:
+        index: missing-order-test
+        body:
+          size: 0
+          aggs:
+            c:
+              composite:
+                size: 1
+                after: { tag: "2" }
+                sources:
+                  - tag:
+                      terms:
+                        field: tag
+                        missing_bucket: true
+                        missing_order: last
+  - length: { aggregations.c.buckets: 1 }
+  - match: { aggregations.c.buckets.0.key: { tag: null } }
+  - match: { aggregations.c.buckets.0.doc_count: 1 }
+---
+"explicit missing first stays first under descending order":
+  - do:
+      search:
+        index: missing-order-test
+        body:
+          size: 0
+          aggs:
+            c:
+              composite:
+                size: 10
+                sources:
+                  - tag:
+                      terms:
+                        field: tag
+                        order: desc
+                        missing_bucket: true
+                        missing_order: first
+  - length: { aggregations.c.buckets: 3 }
+  - match: { aggregations.c.buckets.0.key: { tag: null } }
+  - match: { aggregations.c.buckets.1.key.tag: "2" }
+  - match: { aggregations.c.buckets.2.key.tag: "1" }

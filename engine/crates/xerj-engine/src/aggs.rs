@@ -8786,44 +8786,60 @@ fn run_composite(
             parts.next().unwrap_or(0),
         )
     }
-    let mut sorted_keys: Vec<Vec<String>> = bucket_map.keys().cloned().collect();
-    sorted_keys.sort_by(|a, b| {
+    // Use exactly the same ordering for the initial sort and cursor filtering.
+    // Explicit missing_order is absolute; only the default follows direction.
+    let cmp_parts = |a: &[String], b: &[String]| -> std::cmp::Ordering {
         use std::cmp::Ordering;
         for i in 0..a.len().min(b.len()) {
             let (av, bv) = (&a[i], &b[i]);
-            let null_cmp = match missing_orders.get(i).copied().unwrap_or("default") {
-                "first" => (Ordering::Less, Ordering::Greater),
-                "last" => (Ordering::Greater, Ordering::Less),
-                _ => (Ordering::Less, Ordering::Greater), // "default" — first
+            let asc = orders.get(i).copied().unwrap_or(true);
+            let null_first = match missing_orders.get(i).copied().unwrap_or("default") {
+                "first" => true,
+                "last" => false,
+                _ => asc,
             };
-            let cmp = if av == "__null__" && bv == "__null__" {
-                Ordering::Equal
-            } else if av == "__null__" {
-                null_cmp.0
-            } else if bv == "__null__" {
-                null_cmp.1
-            } else if geotile_src.get(i).copied().unwrap_or(false) {
-                // Geotile keys sort by (zoom, x, y) numerically.
-                geotile_parse(av).cmp(&geotile_parse(bv))
-            } else {
-                composite_part_cmp(
-                    kinds.get(i).copied().unwrap_or(CompositeKeyKind::Heuristic),
-                    numeric_src.get(i).copied().unwrap_or(false),
-                    av,
-                    bv,
-                )
-            };
-            let cmp = if orders.get(i).copied().unwrap_or(true) {
-                cmp
-            } else {
-                cmp.reverse()
+            let cmp = match (av == "__null__", bv == "__null__") {
+                (true, true) => Ordering::Equal,
+                (true, false) => {
+                    if null_first {
+                        Ordering::Less
+                    } else {
+                        Ordering::Greater
+                    }
+                }
+                (false, true) => {
+                    if null_first {
+                        Ordering::Greater
+                    } else {
+                        Ordering::Less
+                    }
+                }
+                (false, false) => {
+                    let cmp = if geotile_src.get(i).copied().unwrap_or(false) {
+                        geotile_parse(av).cmp(&geotile_parse(bv))
+                    } else {
+                        composite_part_cmp(
+                            kinds.get(i).copied().unwrap_or(CompositeKeyKind::Heuristic),
+                            numeric_src.get(i).copied().unwrap_or(false),
+                            av,
+                            bv,
+                        )
+                    };
+                    if asc {
+                        cmp
+                    } else {
+                        cmp.reverse()
+                    }
+                }
             };
             if cmp != Ordering::Equal {
                 return cmp;
             }
         }
         a.len().cmp(&b.len())
-    });
+    };
+    let mut sorted_keys: Vec<Vec<String>> = bucket_map.keys().cloned().collect();
+    sorted_keys.sort_by(|a, b| cmp_parts(a, b));
 
     // Filter by `after` param for pagination: drop every key <= after-key.
     if let Some(after_obj) = params.get("after").and_then(Value::as_object) {
@@ -8901,40 +8917,6 @@ fn run_composite(
                     .unwrap_or_default()
             })
             .collect();
-        // Compare keys against `after` using the same per-source
-        // numeric/lex semantics as the sort — otherwise `after: {long: 20}`
-        // would keep keys like `"100"` before `"20"` lexicographically.
-        let cmp_parts = |a: &[String], b: &[String]| -> std::cmp::Ordering {
-            use std::cmp::Ordering;
-            for i in 0..a.len().min(b.len()) {
-                let (av, bv) = (&a[i], &b[i]);
-                let c = if av == "__null__" && bv == "__null__" {
-                    Ordering::Equal
-                } else if av == "__null__" {
-                    Ordering::Less
-                } else if bv == "__null__" {
-                    Ordering::Greater
-                } else if geotile_src.get(i).copied().unwrap_or(false) {
-                    geotile_parse(av).cmp(&geotile_parse(bv))
-                } else {
-                    composite_part_cmp(
-                        kinds.get(i).copied().unwrap_or(CompositeKeyKind::Heuristic),
-                        numeric_src.get(i).copied().unwrap_or(false),
-                        av,
-                        bv,
-                    )
-                };
-                let c = if orders.get(i).copied().unwrap_or(true) {
-                    c
-                } else {
-                    c.reverse()
-                };
-                if c != Ordering::Equal {
-                    return c;
-                }
-            }
-            a.len().cmp(&b.len())
-        };
         sorted_keys.retain(|k| cmp_parts(k, &after_key) == std::cmp::Ordering::Greater);
     }
     sorted_keys.truncate(size);
@@ -15593,6 +15575,112 @@ mod tests {
     }
 
     // ── RC4-W2 item 7: composite key typing from the field mapping ──────
+
+    #[test]
+    fn composite_missing_order_is_absolute_and_pages_match_full_result() {
+        let docs = vec![json!({"tag":"1"}), json!({"tag":"2"}), json!({})];
+        for order in ["asc", "desc"] {
+            for missing_order in ["first", "last", "default"] {
+                let mut spec = json!({"size":10,"sources":[{"tag":{"terms":{
+                    "field":"tag","order":order,"missing_bucket":true,"missing_order":missing_order
+                }}}],"__xy_field_types__":{"tag":"keyword"}});
+                let result = run_aggs(&json!({"c":{"composite":spec}}), &docs);
+                let full: Vec<Value> = result["c"]["buckets"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|b| b["key"]["tag"].clone())
+                    .collect();
+                let mut expected = if order == "asc" {
+                    vec![json!("1"), json!("2")]
+                } else {
+                    vec![json!("2"), json!("1")]
+                };
+                if missing_order == "first" || (missing_order == "default" && order == "asc") {
+                    expected.insert(0, Value::Null);
+                } else {
+                    expected.push(Value::Null);
+                }
+                assert_eq!(full, expected, "{order}/{missing_order}");
+                spec["size"] = json!(1);
+                let mut paged = Vec::new();
+                for _ in 0..4 {
+                    let page = run_aggs(&json!({"c":{"composite":spec}}), &docs);
+                    let buckets = page["c"]["buckets"].as_array().unwrap();
+                    if buckets.is_empty() {
+                        break;
+                    }
+                    paged.push(buckets[0]["key"]["tag"].clone());
+                    spec["after"] = page["c"]["after_key"].clone();
+                }
+                assert_eq!(paged, expected, "pagination {order}/{missing_order}");
+            }
+        }
+    }
+
+    #[test]
+    fn composite_missing_order_multisource_pages_preserve_lexicographic_order() {
+        let values = [Value::Null, json!(2), json!(10)];
+        let mut docs = Vec::new();
+        for a in &values {
+            for b in &values {
+                let mut doc = json!({});
+                if !a.is_null() {
+                    doc["a"] = a.clone();
+                }
+                if !b.is_null() {
+                    doc["b"] = b.clone();
+                }
+                docs.push(doc);
+            }
+        }
+        fn ordered(order: &str, missing: &str) -> Vec<Value> {
+            let mut v = if order == "asc" {
+                vec![json!(2), json!(10)]
+            } else {
+                vec![json!(10), json!(2)]
+            };
+            if missing == "first" || (missing == "default" && order == "asc") {
+                v.insert(0, Value::Null);
+            } else {
+                v.push(Value::Null);
+            }
+            v
+        }
+        for oa in ["asc", "desc"] {
+            for ob in ["asc", "desc"] {
+                for ma in ["first", "last", "default"] {
+                    for mb in ["first", "last", "default"] {
+                        let mut expected = Vec::new();
+                        for a in ordered(oa, ma) {
+                            for b in ordered(ob, mb) {
+                                expected.push(json!({"a": a, "b": b}));
+                            }
+                        }
+                        for size in [1, 2, 4, 20] {
+                            let mut spec = json!({"size": size, "sources": [
+                                {"a": {"terms": {"field":"a", "order":oa,
+                                    "missing_bucket":true, "missing_order":ma}}},
+                                {"b": {"terms": {"field":"b", "order":ob,
+                                    "missing_bucket":true, "missing_order":mb}}}
+                            ], "__xy_field_types__": {"a":"long", "b":"long"}});
+                            let mut found = Vec::new();
+                            for _ in 0..11 {
+                                let page = run_aggs(&json!({"c":{"composite":spec}}), &docs);
+                                let buckets = page["c"]["buckets"].as_array().unwrap();
+                                if buckets.is_empty() {
+                                    break;
+                                }
+                                found.extend(buckets.iter().map(|b| b["key"].clone()));
+                                spec["after"] = page["c"]["after_key"].clone();
+                            }
+                            assert_eq!(found, expected, "{oa}/{ma}, {ob}/{mb}, size {size}");
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     #[test]
     fn composite_keyword_keys_stay_strings_and_sort_lexicographically() {

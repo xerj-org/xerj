@@ -8,7 +8,6 @@
 # make a new failure go away; a new failure is a regression.
 #
 # Format: <path under yaml/> · <test name>
-aggregations/avg_metric.yml · Aggregating wrong datatype test
 aggregations/bucket_script.yml · bad script
 aggregations/bucket_selector.yml · bad script
 aggregations/composite.yml · Composite aggregation with invalid format
@@ -19,8 +18,6 @@ aggregations/matrix_stats_multi_value_field.yml · With script params
 aggregations/matrix_stats_single_value_field.yml · With script
 aggregations/matrix_stats_single_value_field.yml · With script params
 aggregations/max_buckets.yml · Max bucket
-aggregations/max_metric.yml · Aggregating wrong datatype test
-aggregations/min_metric.yml · Aggregating wrong datatype test
 aggregations/nested.yml · Illegal reverse nested aggregation to a child nested object
 aggregations/percentiles_hdr_metric.yml · Invalid params test
 aggregations/percentiles_tdigest_metric.yml · Invalid params test
@@ -44,16 +41,10 @@ aggregations/scripted_metric_allow_list.yml · stored reduce_script must be allo
 aggregations/sig_terms.yml · IP test
 aggregations/sig_terms.yml · Misspelled fields get "did you mean"
 aggregations/stats_metric_fail_formatting.yml · fail formatting
-aggregations/sum_metric.yml · Aggregating wrong datatype test
 aggregations/terms.yml · IP test
 aggregations/top_hits.yml · having
 aggregations/weighted_avg.yml · Multi weight field not allowed
-bulk/10_basic.yml · empty action
-bulk/60_deprecated.yml · Deprecated parameters should fail in Bulk query
 indices/indices.put_template/10_basic.yml · Put template create
-scroll/10_basic.yml · Scroll cannot used the request cache
-scroll/10_basic.yml · Scroll with size 0
-scroll/20_keep_alive.yml · Max keep alive
 search/110_field_collapsing.yml · field collapsing and scroll
 search/110_field_collapsing.yml · field collapsing and search_after with invalid sort
 search/110_field_collapsing.yml · Test collapse with inner_hits and missing name fails
@@ -62,7 +53,6 @@ search/120_batch_reduce_size.yml · batched_reduce_size lower limit
 search/140_pre_filter_search_shards.yml · pre_filter_shard_size with invalid parameter
 search/150_rewrite_on_coordinator.yml · Ensure that we fetch the document only once
 search/160_exists_query.yml · Test exists query on _source field
-search/170_terms_query.yml · Terms Query with No.of terms exceeding index.max_terms_count should FAIL
 search/220_total_hits_object.yml · hits.total as an object
 search/260_parameter_validation.yml · test negative size throws IAE
 search/260_parameter_validation.yml · test negative terminate_after throws IAE

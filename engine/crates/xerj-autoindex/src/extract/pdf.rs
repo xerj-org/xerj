@@ -1653,7 +1653,10 @@ mod tests {
         .unwrap();
 
         // The artifact exists only as an open handle; it adds no recoverable
-        // path or stale-cache state under the journal directory.
+        // path or stale-cache state under the journal directory. On Windows
+        // (FILE_FLAG_DELETE_ON_CLOSE), the directory entry disappears when the
+        // handle is dropped after replay below.
+        #[cfg(unix)]
         assert_eq!(std::fs::read_dir(state.path()).unwrap().count(), 0);
 
         let mut replayed = Vec::new();
@@ -1673,6 +1676,7 @@ mod tests {
             .replay(123, "axf2-generation-b", &mut |_| true)
             .unwrap_err();
         assert!(error.to_string().contains("different source generation"));
+        assert_eq!(std::fs::read_dir(state.path()).unwrap().count(), 0);
     }
 
     #[test]
@@ -1806,6 +1810,7 @@ mod tests {
         assert_eq!(budget.report()["reservations_started"], 0);
     }
 
+    #[cfg(unix)]
     #[test]
     fn worker_that_closes_its_pipes_but_keeps_running_still_times_out() {
         // #1394: the supervisor now sleeps on pipe EOF instead of a fixed

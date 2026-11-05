@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Opt-in hub answer evidence receipts (Refs #1789, #1786): Rust callers can
+  bind exact UTF-8 excerpts to pinned source bytes and export SHA-256/JCS
+  trace reports. MCP ask/def accepts trace identities through `evidence`;
+  unavailable source bytes or calibration explicitly abstain and escalate.
+  Default answer and hit wire fields are unchanged.
+
+- A pure Rust cyber scope guard (Refs #2767, #2769) with exact hostname/IP
+  allowlists, normalized CIDRs, inclusive authorization windows, explicit
+  repository-text taint refusal, and scope echoes. This is a shared planning
+  primitive, not a network scanner or a   wired cyber recipe.
 - Opt-in advisory Claude Code search hints with `xerj init --hooks` on macOS/Linux
   (Refs #2642): Grep/Glob and repeated Read can suggest a cited search scoped to
   the indexed folder and configured loopback node, with a per-session quota.
@@ -139,6 +149,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A plain debug `cargo test --workspace` no longer aborts on a stack overflow,
+  and the `127.0.0.2` loopback test names the missing macOS alias (#2903). Five
+  tests that run the ES-compat router on multi-thread workers overflowed tokio's
+  2 MiB worker stack in a debug build, killing their whole test binary: one in
+  `xerj-mcp`'s `local_def`, one in `xerj-api`'s
+  `autoindex_changed_file_drops_stale_symbols`, and three in `hub_api`. They now
+  use the server's 4 MiB, as the other in-process router tests do. On a host without `127.0.0.2`,
+  `loopback_proxy` fails up front with
+  `sudo ifconfig lo0 alias 127.0.0.2 up` instead of a bare connection error,
+  through the new `xerj_common::loopback_test::require_loopback_alias`.
+  CONTRIBUTING documents both, and that CI runs `--profile ci-test`.
+- `_bulk` refuses a malformed action line the way Elasticsearch 8 does: the
+  whole request is a 400 `illegal_argument_exception` naming the line
+  (`Malformed action/metadata line [3], expected FIELD_NAME but found
+  [END_OBJECT]`, `Action/metadata line [1] contains an unknown parameter
+  [_type]`), and nothing in the body is written. XERJ answered 200 with a
+  per-item error for that line and wrote every other action. An unknown
+  parameter (`_type`, `_version`, `_routing`, a typo) used to be ignored and
+  is now refused, as in ES 8; a client sending the 7.x REST compatibility
+  header (`compatible-with=7`) may still send `_type`, as ES 8 allows. A line
+  the check cannot read with confidence (JSON ES's own parser rejects, an
+  escaped key, a byte order mark) stops the check there, and the rest of the
+  body is answered as before.
 - Data-stream `_rollover` honours `dry_run` and its `conditions` instead of
   ignoring the body: `max_docs`/`max_age` are ORed and reported in
   `conditions`, and a dry run or an unmet condition creates no backing index.
@@ -146,6 +179,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   marked as the write index so writes through the stream continue after a
   rollover. Size-based conditions and alias-rollover body fields are refused
   rather than silently ignored.
+
+- A hub catalogue already on disk is verified against its sibling signature
+  before it is served, including a fresh cache and a `304 Not Modified`
+  (#2904). Replacing `catalogue.json` used to be enough: `load_catalogue`
+  parsed it with no signature check, and a future mtime kept that file
+  fresh. A `304` then re-touched the replacement. The cache is dropped and
+  refetched when the sibling signature does not verify.
 
 - `xerj mcp` no longer answers a JSON-RPC notification, and runs every
   `tools/call` off the stdio read loop (#2898). A `tools/call` with no `id`, or

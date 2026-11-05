@@ -7,7 +7,7 @@ cluster: "Comparison: agent memory"
 question: "Should I use XERJ or Mem0 for AI agent memory?"
 intent: "comparison"
 published: "2026-10-30"
-updated: "2026-10-30"
+updated: "2026-10-31"
 author: "XERJ documentation team"
 reviewer: "XERJ engineering team"
 schema_type: "Article"
@@ -32,12 +32,18 @@ commands:
   - cmd: "curl -s -XPOST 'http://127.0.0.1:9200/_memory/project/_recall' -H 'content-type: application/json' -d '{\"query\":\"pnpm\",\"hybrid\":true,\"k\":5}'"
     note: "Recall with BM25 and vectors fused by RRF."
 links_out:
+  - "/compare/ai-agent-memory-benchmark"
   - "/compare/xerj-vs-agent-memory-tools"
   - "/compare/xerj-vs-claude-mem-and-mempalace"
   - "coding-agent-memory-across-sessions"
   - "what-is-an-mcp-memory-server"
   - "what-is-agentic-memory"
   - "what-is-hybrid-search"
+evidence:
+  - claim: "Top 5: XERJ semantic 94.7%, XERJ hybrid 93.3%, mem0 infer=False 88.0%, mem0 infer=True 86.7%. First result: 65.3%, 60.0%, 64.0%, 64.0%. Reworded: 84.0%, 84.0%, 68.0%, 72.0%. Changed fact first: 13.3%, 13.3%, 13.3%, 20.0%. XERJ recency 0.3: 93.3% changed facts, 68.0% top 5. Write and query medians 7.17 ms, 6.45 ms, 10.22 ms, 16.5 s; 6.29 ms, 6.49 ms, 22.44 ms, 29.15 ms."
+    source: "benchmarks/agent-memory/out/summary.csv"
+  - claim: "mem0 infer=True made 1 LLM call per write with Qwen2.5 3B."
+    source: "benchmarks/agent-memory/results/mem0__infer.json"
 faq:
   - q: "What is the main difference between XERJ and Mem0?"
     a: "Mem0 calls a language model on write to extract facts and update old ones. XERJ makes no model call on write. It stores the text the agent sends and finds it later with search."
@@ -50,7 +56,7 @@ faq:
   - q: "Does XERJ separate memories per user?"
     a: "Each namespace is its own index, so recall in one namespace never sees another. There is no per-namespace password, so do not use namespaces as a security boundary."
   - q: "Was a benchmark run between the two?"
-    a: "No. We did not run a head-to-head, so this page compares design, not scores."
+    a: "Yes. On the same 85 memories and 75 questions, XERJ semantic recall in neural mode found the right memory in the top 5 for 94.7% of questions. mem0 found 88.0% with infer=False and 86.7% with its LLM. mem0 beat XERJ hybrid on the first result."
 ---
 
 **TL;DR** Mem0 and XERJ both give an agent memory that lasts across sessions. Mem0 asks a language model to turn chats into facts and keeps them up to date. XERJ stores what the agent writes, word for word, and finds it with keyword, vector or hybrid search on your machine.
@@ -74,6 +80,24 @@ Checked on 2026-10-30 against the Mem0 repository and the XERJ source.
 | Scoping | user_id, agent_id, run_id | Namespace, plus metadata filters |
 | Ways to run | Python library, self-hosted server, cloud platform | One binary, HTTP API and MCP server |
 | License | Apache 2.0 | Apache 2.0 |
+
+## Tested on the same data
+
+We ran both on the same 85 memories and 75 questions, with the same local MiniLM embedder. XERJ is lexical by default, so for these rows it ran in neural mode. The [AI agent memory benchmark](/compare/ai-agent-memory-benchmark) has the method and the raw data.
+
+| | mem0 infer=False | mem0 infer=True | XERJ semantic | XERJ hybrid |
+| --- | --- | --- | --- | --- |
+| Right memory in top 5 | 88.0% | 86.7% | 94.7% | 93.3% |
+| Right memory first | 64.0% | 64.0% | 65.3% | 60.0% |
+| Reworded questions, top 5 | 68.0% | 72.0% | 84.0% | 84.0% |
+| Changed fact, new value first | 13.3% | 20.0% | 13.3% | 13.3% |
+| Write, median | 10.22 ms | 16.5 s | 7.17 ms | 6.45 ms |
+| Query, median | 22.44 ms | 29.15 ms | 6.29 ms | 6.49 ms |
+| LLM calls per write | 0 | 1 | 0 | 0 |
+
+- mem0 beat XERJ hybrid on the first result, 64.0% vs 60.0%.
+- With its LLM on, mem0 put the new value first for 3 of 15 changed facts. XERJ with a recency weight of 0.3 did it for 14 of 15, but its top 5 score fell to 68.0%.
+- mem0 infer=True used Qwen2.5 3B on CPU. A larger model may extract better facts. We did not test one.
 
 ## Try the XERJ side
 
@@ -122,3 +146,4 @@ All checked on 2026-10-30.
 - Mem0: `mem0/memory/main.py` (infer defaults to True; BM25 scoring when the vector store supports it), `mem0/llms/openai.py` (gpt-5-mini), `mem0/embeddings/openai.py` (text-embedding-3-small) and `mem0/vector_stores/configs.py` (Qdrant) in [mem0ai/mem0](https://github.com/mem0ai/mem0). License Apache 2.0 from the repository.
 - XERJ memory API: `engine/crates/xerj-api/src/memory_api.rs`. MCP tools: `engine/crates/xerj-mcp/src/lib.rs`.
 - Recall results: a local XERJ v1.0.0-rc.97 node with the three memories shown.
+- Test numbers: [benchmarks/agent-memory](https://github.com/xerj-org/xerj/tree/main/benchmarks/agent-memory), run on 2026-10-31 with mem0ai 2.2.1 and XERJ v1.0.0-rc.100.
