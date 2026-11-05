@@ -257,6 +257,15 @@
 <pre class="code">$ curl -fsSL https://xerj.org/get | XERJ_LIBC=gnu sh</pre>
   <p>Other environment overrides: <code class="inline">XERJ_VERSION</code> (install a specific tag), <code class="inline">XERJ_INSTALL_DIR</code> (the <code class="inline">sh</code> installer, including Git Bash, MSYS and Cygwin, defaults to <code class="inline">~/.local/bin</code>; the PowerShell installer defaults to <code class="inline">%LOCALAPPDATA%\Programs\xerj</code>), <code class="inline">XERJ_REPO</code>.</p>
 
+  <h2 id="with-model">Install the XERJ-Query model too</h2>
+  <p>Since v1.0.0-rc.101 the binary carries <strong>XERJ-Query</strong>, a model that answers questions over facts you write to a <code class="inline">/_facts</code> namespace, served on CPU with nothing leaving the machine. The model weights are a separate release asset (<code class="inline">xerj-model-bundle-v1-&lt;tag&gt;.tar.gz</code>, about 460 MiB, with a <code class="inline">.sha256</code> beside it), and the default install stays binary-only. Ask the installer for both:</p>
+<pre class="code">$ curl -fsSL https://xerj.org/get | sh -s -- --with-model
+# or: curl -fsSL https://xerj.org/get | XERJ_WITH_MODEL=1 sh</pre>
+<pre class="code">&gt; $env:XERJ_WITH_MODEL='1'; powershell -ExecutionPolicy Bypass -c "irm https://xerj.org/get.ps1 | iex"</pre>
+  <p>The bundle is downloaded from the same release as the binary, verified against its published digest with the same fail-closed rule, and unpacked into <code class="inline">~/.local/share/xerj/model</code> (<code class="inline">%LOCALAPPDATA%\xerj\model</code> on Windows; override with <code class="inline">XERJ_MODEL_DIR</code>). The installer ends by printing the one line that turns the model on. <strong>XERJ-Query is off by default</strong>: a node started without the flag serves no <code class="inline">/_facts</code> route, loads no model, and lists the same MCP tools as before. Start the node with the model directory to enable it:</p>
+<pre class="code">$ xerj --facts-model-dir ~/.local/share/xerj/model --insecure --data-dir ~/xerj-data</pre>
+  <p>Verify: <code class="inline">curl -s localhost:9200/_facts | jq .model.state</code> prints <code class="inline">"loaded"</code>. Without the flag the same request answers <code class="inline">404 xerj_query_not_enabled</code>, naming the flag. <code class="inline">XERJ_FACTS_MODEL_DIR=&lt;dir&gt;</code> is the environment equivalent; the flag wins when both are set. What to write and how to ask: <a href="https://github.com/xerj-org/xerj/blob/main/docs/MODEL_QUICKSTART.md">the model quickstart</a>, the <a href="https://github.com/xerj-org/xerj/blob/main/docs/FACTS_API.md">/_facts API contract</a>, and <a href="https://github.com/xerj-org/xerj/blob/main/docs/MODEL_BUNDLE.md">model bundles</a>.</p>
+
   <h2>Manual download</h2>
   <p>Every release publishes eight targets, each with a <code class="inline">.sha256</code> alongside: <code class="inline">x86_64</code>/<code class="inline">aarch64</code> × <code class="inline">unknown-linux-musl</code> (static, any distro), <code class="inline">unknown-linux-gnu</code>, <code class="inline">apple-darwin</code>, and <code class="inline">pc-windows-msvc</code> (.zip).</p>
   <p>Set <code class="inline">target</code> to your platform&rsquo;s triple (the eight published targets are listed above), then paste the whole block. It runs in a subshell, so a refusal ends the block and not your shell:</p>
@@ -358,7 +367,7 @@ $ docker run -d --name xerj \
 
   <!-- Print-only branded footer (hidden on screen, visible in PDF) -->
   <div class="print-footer" style="display:none;">
-    <span>XERJ.AI · V1.0.0-RC.100 · 2026-08-11</span>
+    <span>XERJ.AI · V1.0.0-RC.101 · 2026-08-11</span>
     <a href="https://xerj.org/docs/">https://xerj.org/docs/</a>
     <span>Install</span>
   </div>
@@ -416,7 +425,7 @@ $ docker run -d --name xerj \
 </nav>
 <!-- seo:footer-end -->
 <footer class="footer">
-  <span>XERJ.AI · DOCS · V1.0.0-RC.100</span>
+  <span>XERJ.AI · DOCS · V1.0.0-RC.101</span>
   <span>READ THE SOURCE</span>
   <span><a href="/">HOME</a> · <a href="/product">PRODUCT</a> · <a href="/answers/">ANSWERS</a> · <a href="/playground">DASHBOARDS</a> &middot; <a href="/llms.txt">LLMS.TXT</a></span>
 </footer>

@@ -875,6 +875,33 @@ Other memory endpoints:
   DELETE /_memory/{namespace}/{id}     → forget one entry: { "id","namespace","forgotten":bool }
   DELETE /_memory/{namespace}          → drop the whole namespace: { "namespace","dropped":bool }
 
+Facts and XERJ-Query (/_facts) — OFF BY DEFAULT, rc.101+:
+  Served only on a node started with `--facts-model-dir <DIR>` (`XERJ_FACTS_MODEL_DIR` is the env
+  equivalent; bundle via `curl -fsSL https://xerj.org/get | sh -s -- --with-model`). Without the
+  flag every /_facts path is 404 `xerj_query_not_enabled`. Which to use: `_search` for keyword and
+  text lookups over indexed documents; /_facts for a single-fact question over records you wrote as
+  subject / relation / value facts. The model answers ONLY over `facts[]` you wrote; documents alone
+  answer UNKNOWN. `POST /_ask` (no /_facts) is the _search query planner (422 unresolved_phrase).
+  GET  /_facts → { namespaces, loaded, model:{state: not_configured|not_loaded|loaded, counting:{state}}, ask_limits }
+       state is "not_loaded" for the first seconds after boot while the model preloads (3.5 s measured); poll.
+  POST /_facts/{ns}/_bulk  { "documents":[{doc_id, version (STRING), text}],
+                             "facts":[{fact_id, subject, subject_id?, relation, kind, value, unit?, doc_id, version, start, end, quote}] }
+       kind ∈ text|date|number|boolean; value is a string ("170") except boolean (true/false); date = YYYY-MM-DD;
+       quote == text[start:end]; the fact's doc_id+version must be in this batch or committed; one refused entry
+       refuses the whole batch: 400 facts_contract_error + the store's reason ("Unsupported value kind",
+       "Fact must reference an available source version", "Quote does not equal the referenced source span").
+       subject_id = one stable id per subject on every fact about it; needed for counting.
+  POST /_facts/{ns}/_ask   { "question", "revision"? } → read `final_status` (ANSWER|CONFLICT|UNKNOWN|UNSUPPORTED)
+       and `final_answer`, with `final_evidence_ids` and `program`; `status`/`answer` are the unchecked program.
+       UNKNOWN and CONFLICT are factual outcomes (HTTP 200); operational problems are HTTP errors
+       (503 MODEL_UNAVAILABLE, 404 index_not_found_exception "no facts namespace", 504 ASK_DEADLINE, …).
+       Counting ("how many X have Y") → path "counting" only when every counted subject carries subject_id and a
+       second seed wrote the same program (`counting.partner_agreement`); otherwise path "facts" + UNKNOWN with the
+       reason in `counting.status` / `counting.notes.declines`. Set counts only; sums and thresholds decline.
+  POST /_facts/{ns}/_lookup { subject, relation } → VALUE | UNKNOWN | CONFLICT (no model).
+  MCP: `xerj_facts_ask` { namespace, question } — listed only when the node answers GET /_facts
+       (XERJ_MCP_FACTS=on|off overrides). Full contract: https://github.com/xerj-org/xerj/blob/main/docs/FACTS_API.md
+
 =====================================================================
 4. USE CASES & RECIPES  (first-class documentation)
 =====================================================================
@@ -1271,6 +1298,7 @@ Agent memory (see §3.5–3.6):
   POST/GET/DELETE /_memory/{namespace}
   POST     /_memory/{namespace}/_recall
   DELETE   /_memory/{namespace}/{id}
+  GET/POST /_facts, /_facts/{ns}/_bulk, /_facts/{ns}/_ask, /_facts/{ns}/_lookup   (only with --facts-model-dir; else 404 xerj_query_not_enabled)
 
 Share links (`xerj share`, §4 — read-only guest access to named indices):
   POST     /_share                        admin key only. {index: "a"|["a","b"], brain?,
@@ -1328,6 +1356,11 @@ POST /_memory/agent-42  { "text": "user asked about key rotation cadence" }
 
 # 5. recall it later by meaning
 POST /_memory/agent-42/_recall  { "query": "what did they ask about security", "semantic": true, "k": 3 }
+
+# 6. (node started with --facts-model-dir) write a fact, ask, read the verified answer
+POST /_facts/demo/_bulk  { "documents":[{"doc_id":"d1","version":"v1","text":"Ana Bel is 170 cm tall."}],
+                           "facts":[{"fact_id":"f1","subject":"Ana Bel","subject_id":"emp:1","relation":"height","kind":"number","value":"170","unit":"cm","doc_id":"d1","version":"v1","start":11,"end":14,"quote":"170"}] }
+POST /_facts/demo/_ask   { "question": "How tall is Ana Bel?" }   # → final_status ANSWER, final_answer "170 cm", path facts
 
 =====================================================================
 9. FURTHER READING
