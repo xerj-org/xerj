@@ -413,7 +413,13 @@ struct Published {
     sig: PathBuf,
 }
 
-fn publish(src_archive: &Path, src_sig: &Path, dir: &Path, hub_home: &Path) -> Published {
+fn publish(
+    src_archive: &Path,
+    src_sig: &Path,
+    dir: &Path,
+    hub_home: &Path,
+    seed: &str,
+) -> Published {
     std::fs::create_dir_all(dir).unwrap();
     let archive = dir.join(format!("mini-c-{PIN8}.hubpack.tar.zst"));
     let sig = dir.join(format!("mini-c-{PIN8}.hubpack.tar.zst.sig"));
@@ -448,11 +454,12 @@ fn publish(src_archive: &Path, src_sig: &Path, dir: &Path, hub_home: &Path) -> P
         corpora: vec![entry],
     };
     std::fs::create_dir_all(hub_home).unwrap();
-    std::fs::write(
-        hub_home.join("catalogue.json"),
-        serde_json::to_vec(&cat).unwrap(),
-    )
-    .unwrap();
+    // The cache is verified on every read (#2904), so the test must publish the
+    // signature alongside the bytes exactly as the hub does.
+    let bytes = serde_json::to_vec(&cat).unwrap();
+    let catalogue_sig = xerj_autoindex::harvest::sign::sign_bytes(&bytes, seed).unwrap();
+    std::fs::write(hub_home.join("catalogue.json"), &bytes).unwrap();
+    std::fs::write(hub_home.join("catalogue.json.sig"), catalogue_sig).unwrap();
     Published { archive, sig }
 }
 
@@ -591,7 +598,7 @@ async fn ask_end_to_end() {
     {
         let hub = work.join("hub-a");
         let code = work.join("code-a");
-        let published = publish(&archive, &sig, &work.join("net-a"), &hub);
+        let published = publish(&archive, &sig, &work.join("net-a"), &hub, &seed);
         set_env(&hub, &code, &scratch_home, &public);
         let url_b = spawn_node(&work.join("data-b"), allowlist.clone()).await;
         let case = |hosted, args| Case {
@@ -688,7 +695,7 @@ async fn ask_end_to_end() {
     {
         let hub = work.join("hub-b");
         let code = work.join("code-b");
-        publish(&archive, &sig, &work.join("net-b"), &hub);
+        publish(&archive, &sig, &work.join("net-b"), &hub, &seed);
         set_env(&hub, &code, &scratch_home, &public);
         let url = spawn_node(&work.join("data-b2"), allowlist.clone()).await;
         let case = |hosted, launcher| Case {
@@ -749,7 +756,7 @@ async fn ask_end_to_end() {
     {
         let hub = work.join("hub-c");
         let code = work.join("code-c");
-        publish(&archive, &sig, &work.join("net-c"), &hub);
+        publish(&archive, &sig, &work.join("net-c"), &hub, &seed);
         set_env(&hub, &code, &scratch_home, &public);
         // A loopback port with nothing on it: the requested node is "down".
         let silent =
@@ -862,7 +869,7 @@ async fn ask_end_to_end() {
     {
         let hub = work.join("hub-d");
         let code = work.join("code-d");
-        publish(&archive, &sig, &work.join("net-d"), &hub);
+        publish(&archive, &sig, &work.join("net-d"), &hub, &seed);
         set_env(&hub, &code, &scratch_home, &public);
         // Two other packs, each a 3 GiB sparse file (no disk is written): over the
         // 4 GiB budget together. "stale" was used longest ago.
@@ -912,7 +919,7 @@ async fn ask_end_to_end() {
     {
         let hub = work.join("hub-e");
         let code = work.join("code-e");
-        publish(&archive, &sig, &work.join("net-e"), &hub);
+        publish(&archive, &sig, &work.join("net-e"), &hub, &seed);
         set_env(&hub, &code, &scratch_home, &public);
         let mut args = def_args();
         args.offline = true;
@@ -937,8 +944,8 @@ async fn ask_end_to_end() {
     {
         let hub = work.join("hub-g");
         let code = work.join("code-g");
-        publish(&archive, &sig, &work.join("net-g"), &hub);
-        set_catalogue_field(&hub, "licence_class", json!("excluded"));
+        publish(&archive, &sig, &work.join("net-g"), &hub, &seed);
+        set_catalogue_field(&hub, "licence_class", json!("excluded"), &seed);
         set_env(&hub, &code, &scratch_home, &public);
         for flag in ["--offline", "--no-fetch", "(neither)"] {
             let mut args = def_args();
@@ -993,8 +1000,9 @@ async fn ask_end_to_end() {
     {
         let hub = work.join("hub-f");
         let code = work.join("code-f");
-        publish(&archive, &sig, &work.join("net-f"), &hub);
+        publish(&archive, &sig, &work.join("net-f"), &hub, &seed);
         let real_catalogue = std::fs::read(hub.join("catalogue.json")).unwrap();
+        let real_catalogue_sig = std::fs::read(hub.join("catalogue.json.sig")).unwrap();
         set_env(&hub, &code, &scratch_home, &public);
         let url = spawn_node(&work.join("data-f"), allowlist.clone()).await;
 
@@ -1012,6 +1020,7 @@ async fn ask_end_to_end() {
                 "http://{}/never.hubpack.tar.zst",
                 silent.local_addr().unwrap()
             )),
+            &seed,
         );
 
         // The victim is a separate process running `xerj hub pull` (this binary).
@@ -1063,6 +1072,7 @@ async fn ask_end_to_end() {
 
         // The retry is NOT blocked — and, pointed at the real pack, it completes.
         std::fs::write(hub.join("catalogue.json"), &real_catalogue).unwrap();
+        std::fs::write(hub.join("catalogue.json.sig"), &real_catalogue_sig).unwrap();
         let t0 = Instant::now();
         let rc = tokio::task::spawn_blocking({
             let url = url.clone();
@@ -1094,13 +1104,18 @@ async fn ask_end_to_end() {
     }
 }
 
-/// Set one field of the first catalogue entry in `<hub>/catalogue.json`.
-fn set_catalogue_field(hub: &Path, field: &str, value: serde_json::Value) {
+/// Set one field of the first catalogue entry in `<hub>/catalogue.json` and
+/// re-sign it: the cache is verified on every read (#2904), so an edit that
+/// leaves the sibling signature behind is not a catalogue any more.
+fn set_catalogue_field(hub: &Path, field: &str, value: serde_json::Value, seed: &str) {
     let path = hub.join("catalogue.json");
     let mut cat: serde_json::Value =
         serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
     cat["corpora"][0][field] = value;
-    std::fs::write(&path, serde_json::to_vec(&cat).unwrap()).unwrap();
+    let bytes = serde_json::to_vec(&cat).unwrap();
+    let sig = xerj_autoindex::harvest::sign::sign_bytes(&bytes, seed).unwrap();
+    std::fs::write(&path, bytes).unwrap();
+    std::fs::write(hub.join("catalogue.json.sig"), sig).unwrap();
 }
 
 /// Is somebody holding the lock file `path`? (Tries it, and lets go again.)

@@ -11,6 +11,7 @@
 use std::path::Path;
 
 use serde_json::{json, Value};
+use xerj_autoindex::harvest::sign::{generate_keypair, sign_bytes};
 use xerj_common::hub::{
     Catalogue, CatalogueEntry, LicenceClass, PackIndex, PackManifest, CATALOGUE_FORMAT_VERSION,
     PACK_FORMAT_VERSION,
@@ -144,6 +145,10 @@ async fn hub_tools_answer_from_a_local_pack_and_never_download() {
     // Nothing listens there: a catalogue fetch would fail loudly. The cached
     // catalogue below is fresh, so none is attempted.
     std::env::set_var("XERJ_HUB_URL", "http://127.0.0.1:9");
+    // #2904: the cached catalogue is verified on every read, so this test signs
+    // the bytes it seeds and points the client at its own throwaway key.
+    let (catalogue_seed, public) = generate_keypair().unwrap();
+    std::env::set_var("XERJ_HUB_PUBKEY", &public);
 
     // ── a real node, auth off, on an ephemeral loopback port ──
     let mut config = xerj_common::config::Config::default();
@@ -215,11 +220,10 @@ async fn hub_tools_answer_from_a_local_pack_and_never_download() {
             ),
         ],
     };
-    std::fs::write(
-        hub.join("catalogue.json"),
-        serde_json::to_vec(&cat).unwrap(),
-    )
-    .unwrap();
+    let catalogue_bytes = serde_json::to_vec(&cat).unwrap();
+    let catalogue_sig = sign_bytes(&catalogue_bytes, &catalogue_seed).unwrap();
+    std::fs::write(hub.join("catalogue.json"), &catalogue_bytes).unwrap();
+    std::fs::write(hub.join("catalogue.json.sig"), catalogue_sig).unwrap();
 
     // ── tools/list carries the three, with schemas an MCP host accepts ──
     let list = xerj_mcp::handle_message_for_test(

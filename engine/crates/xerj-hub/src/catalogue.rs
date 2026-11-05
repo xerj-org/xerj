@@ -380,9 +380,11 @@ fn most_restrictive_class(repos: &[ManifestRepo], path: &Path) -> Result<(Licenc
 
 /// Load the catalogue.
 ///
-/// A cached `<cache_dir>/catalogue.json` younger than 24 h is returned as-is (it
-/// was signature-verified when it was written). Otherwise the catalogue is
-/// fetched from `<hub_url>/api/v1/catalogue.json` with `If-None-Match` (from
+/// A cached `<cache_dir>/catalogue.json` younger than 24 h is returned after its
+/// sibling signature (`<cache_dir>/catalogue.json.sig`) is verified against the
+/// configured hub key — a cache file that does not verify is not a catalogue and
+/// is never served, offline or online. Otherwise the catalogue is fetched from
+/// `<hub_url>/api/v1/catalogue.json` with `If-None-Match` (from
 /// `<cache_dir>/catalogue.etag`), its detached signature
 /// (`…/catalogue.json.sig`) is verified against the pubkey **before** the bytes
 /// are allowed to replace the cache, and only a verified copy is cached and
@@ -446,10 +448,21 @@ pub fn refresh_catalogue(hub_url: &str, cache_dir: &Path) -> Result<Catalogue> {
     )
 }
 
-/// Read and validate the cached catalogue, or `None` if it is missing,
-/// unreadable, unparsable or a format version this client does not speak.
+/// Read, verify and validate the cached catalogue, or `None` if it is missing,
+/// unreadable, unparsable, of a format version this client does not speak, or
+/// **not covered by its sibling signature**.
+///
+/// The cache is untrusted input. A `catalogue.json` written by anything other
+/// than a verified fetch — a replaced file, a hand edit, a half-restored backup
+/// — must never reach `hub sync`, whose `licence_class` decides whether a corpus
+/// is `Excluded` and therefore never auto-pulled. Verification therefore runs on
+/// every read, not only on the network path that first wrote the file. With no
+/// configured key there is nothing to verify with, so the read fails closed.
 fn read_cached(cache_file: &Path) -> Option<Catalogue> {
     let raw = fs::read(cache_file).ok()?;
+    let sig = fs::read_to_string(sig_sibling(cache_file)).ok()?;
+    let pubkey = hub_pubkey()?;
+    verify_bytes(&raw, sig.trim(), &pubkey).ok()?;
     parse_catalogue(&raw).ok()
 }
 
@@ -527,10 +540,18 @@ fn fetch_and_store(hub_url: &str, cache_file: &Path, etag_file: &Path) -> Result
     let resp = req.send().with_context(|| format!("GET {cat_url}"))?;
 
     if resp.status() == reqwest::StatusCode::NOT_MODIFIED {
-        // The cached bytes are still current; re-touch them so the next 24 h are
-        // served from cache without re-asking.
+        // The cached bytes are still current, but "current" is not "trusted".
+        // Re-verify the sibling signature BEFORE re-touching the mtime: a 304
+        // otherwise launders a replaced `catalogue.json` back into a fresh
+        // cache — the very file `read_cached` now refuses to serve.
         let raw =
             fs::read(cache_file).context("hub returned 304 Not Modified but the cache is gone")?;
+        let sig = fs::read_to_string(sig_sibling(cache_file))
+            .context("hub returned 304 Not Modified but the cached signature is gone")?;
+        verify_bytes(&raw, sig.trim(), &pubkey).context(
+            "the cached catalogue signature did not verify on a 304 Not Modified; refusing to \
+             refresh or serve it",
+        )?;
         let cat = parse_catalogue(&raw)?;
         write_atomic(cache_file, &raw)?;
         return Ok(cat);
@@ -1077,6 +1098,113 @@ mod tests {
         assert_eq!(on_disk, good_bytes, "cache file must not be overwritten");
     }
 
+    /// #2904: the cache read used to parse `catalogue.json` without looking at
+    /// the sibling `.sig`, so replacing that one file made its contents
+    /// authoritative — including the `licence_class` that `hub sync` uses to
+    /// decide a corpus is `Excluded` and must never be auto-pulled. A future
+    /// mtime (clock skew, or set deliberately) made the tampered file "fresh".
+    #[test]
+    fn a_tampered_cache_is_not_served_even_with_a_future_mtime() {
+        let env = HubPubkeyEnv::lock();
+        let fx = tempfile::tempdir().unwrap();
+        let (good_bytes, good_sig, public) = fixture_bytes(fx.path());
+        env.set(&public);
+
+        let cache = tempfile::tempdir().unwrap();
+        seed_cache(cache.path(), &good_bytes, &good_sig);
+
+        // Replace the catalogue but leave the signature covering the old bytes.
+        let mut tampered: serde_json::Value = serde_json::from_slice(&good_bytes).unwrap();
+        tampered["corpora"][0]["slug"] = serde_json::json!("not-the-signed-slug");
+        fs::write(
+            cache.path().join(CACHE_FILE),
+            serde_json::to_vec(&tampered).unwrap(),
+        )
+        .unwrap();
+        // A future mtime made `cache_is_fresh` say yes regardless of age.
+        let future = SystemTime::now() + Duration::from_secs(48 * 3600);
+        std::fs::OpenOptions::new()
+            .write(true)
+            .open(cache.path().join(CACHE_FILE))
+            .unwrap()
+            .set_modified(future)
+            .unwrap();
+
+        let err = load_catalogue("http://127.0.0.1:1", cache.path(), true)
+            .expect_err("a cache the signature does not cover is not a catalogue");
+        env.remove();
+
+        assert!(
+            format!("{err:#}").contains("no usable cached catalogue"),
+            "{err:#}"
+        );
+    }
+
+    /// A localhost hub that answers one request with `status` and no body, so a
+    /// conditional GET can be answered `304 Not Modified`.
+    fn spawn_hub_status(status: &'static str) -> (String, std::thread::JoinHandle<()>) {
+        let listener =
+            xerj_common::loopback_test::expect_loopback(std::net::TcpListener::bind("127.0.0.1:0"));
+        let url = format!("http://{}", listener.local_addr().unwrap());
+        let handle = std::thread::spawn(move || {
+            let Ok((mut stream, _)) = listener.accept() else {
+                return;
+            };
+            let mut buf = [0u8; 2048];
+            let _ = stream.read(&mut buf);
+            let _ = stream.write_all(
+                format!("HTTP/1.1 {status}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+                    .as_bytes(),
+            );
+            let _ = stream.flush();
+        });
+        (url, handle)
+    }
+
+    /// #2904: the 304 arm re-read the cache, parsed it and re-touched its mtime.
+    /// A replaced `catalogue.json` therefore became "fresh" — and authoritative —
+    /// without ever being verified.
+    #[test]
+    fn a_304_does_not_refresh_or_serve_a_tampered_cache() {
+        let env = HubPubkeyEnv::lock();
+        let fx = tempfile::tempdir().unwrap();
+        let (good_bytes, good_sig, public) = fixture_bytes(fx.path());
+        env.set(&public);
+
+        let cache = tempfile::tempdir().unwrap();
+        seed_cache(cache.path(), &good_bytes, &good_sig);
+        // A stored ETag makes the next request conditional, so the hub may 304.
+        fs::write(cache.path().join(ETAG_FILE), "\"stale\"").unwrap();
+        let mut tampered = good_bytes.clone();
+        tampered[good_bytes.len() / 2] ^= 0x01;
+        fs::write(cache.path().join(CACHE_FILE), &tampered).unwrap();
+        let before = fs::metadata(cache.path().join(CACHE_FILE))
+            .unwrap()
+            .modified()
+            .unwrap();
+
+        let (url, handle) = spawn_hub_status("304 Not Modified");
+        let err = refresh_catalogue(&url, cache.path())
+            .expect_err("a 304 must not turn an unverifiable cache into a fresh one");
+        env.remove();
+        handle.join().unwrap();
+
+        assert!(format!("{err:#}").contains("did not verify"), "{err:#}");
+        assert_eq!(
+            fs::read(cache.path().join(CACHE_FILE)).unwrap(),
+            tampered,
+            "the cache must not be rewritten"
+        );
+        assert_eq!(
+            fs::metadata(cache.path().join(CACHE_FILE))
+                .unwrap()
+                .modified()
+                .unwrap(),
+            before,
+            "the mtime must not be refreshed for a cache that does not verify"
+        );
+    }
+
     #[test]
     fn load_accepts_verified_network_replacement_into_empty_cache() {
         let env = HubPubkeyEnv::lock();
@@ -1104,22 +1232,20 @@ mod tests {
         let fx = tempfile::tempdir().unwrap();
         let inputs = two_inputs(fx.path());
 
-        // A YOUNG cache holding yesterday's catalogue: `load_catalogue` trusts it.
-        let (old_seed, _old_public) = keypair();
-        let (old_cat, old_sig) =
-            build_catalogue(&inputs, "2026-10-13T00:00:00Z", &old_seed).unwrap();
+        // A YOUNG cache holding yesterday's catalogue, signed by the key this
+        // client trusts: `load_catalogue` serves it without asking the hub.
+        let (seed, public) = keypair();
+        let (old_cat, old_sig) = build_catalogue(&inputs, "2026-10-13T00:00:00Z", &seed).unwrap();
         let old_bytes = canonical_json(&old_cat).unwrap();
         let cache = tempfile::tempdir().unwrap();
         seed_cache(cache.path(), &old_bytes, &old_sig);
 
-        // The hub now serves a newer catalogue, signed by the key the client trusts.
-        let (new_seed, new_public) = keypair();
-        let (new_cat, new_sig) =
-            build_catalogue(&inputs, "2026-10-14T00:00:00Z", &new_seed).unwrap();
+        // The hub now serves a newer catalogue, signed by the same trusted key.
+        let (new_cat, new_sig) = build_catalogue(&inputs, "2026-10-14T00:00:00Z", &seed).unwrap();
         let new_bytes = canonical_json(&new_cat).unwrap();
         let (url, handle) = spawn_hub(new_bytes.clone(), new_sig);
 
-        env.set(&new_public);
+        env.set(&public);
         let trusted = load_catalogue(&url, cache.path(), false).expect("young cache is served");
         assert_eq!(
             trusted.generated_at, "2026-10-13T00:00:00Z",
