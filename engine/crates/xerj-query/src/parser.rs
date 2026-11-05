@@ -225,6 +225,19 @@ pub const REJECTED_QUERY_TYPES: &[&str] = &["has_child", "has_parent"];
 // Public entry points
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// ES's refusal for a search body whose `track_total_hits` is an integer below
+/// `-1`, or `None` when the value is fine.
+///
+/// Mirrors `SearchSourceBuilder#trackTotalHitsUpTo` (ES 8.13.4): `-1` turns
+/// tracking off, any other negative integer is an `illegal_argument_exception`
+/// with this reason. `_msearch` calls it on every item before running any, so
+/// one bad item refuses the whole request as it does in ES.
+pub fn track_total_hits_refusal(body: &Value) -> Option<String> {
+    let n = body.get("track_total_hits")?.as_i64()?;
+    (n < -1)
+        .then(|| format!("[track_total_hits] parameter must be positive or equals to -1, got {n}"))
+}
+
 /// Parse a complete ES search request body.
 ///
 /// ```json
@@ -308,14 +321,18 @@ pub fn parse_request(body: &Value) -> Result<SearchRequest> {
         .and_then(|v| serde_json::from_value(v.clone()).ok());
 
     // Parse track_total_hits: true | false | integer
+    if let Some(reason) = track_total_hits_refusal(body) {
+        return Err(QueryError::Parse(ParseError::Invalid(reason)));
+    }
     let track_total_hits = match obj.get("track_total_hits") {
         Some(Value::Bool(true)) | None => TrackTotalHits::True,
         Some(Value::Bool(false)) => TrackTotalHits::False,
         Some(Value::Number(n)) => {
-            // ES accepts `track_total_hits: -1` as an alias for `true`
-            // (track the exact total).
-            if n.as_i64().map(|v| v < 0).unwrap_or(false) {
-                TrackTotalHits::True
+            // `-1` is ES's TRACK_TOTAL_HITS_DISABLED, the value `false` sets
+            // (`SearchContext`, `SearchSourceBuilder#trackTotalHits`), so it
+            // turns tracking off. Anything below it was refused above.
+            if n.as_i64() == Some(-1) {
+                TrackTotalHits::False
             } else {
                 let limit = n.as_u64().unwrap_or(10_000);
                 TrackTotalHits::Limit(limit)
@@ -5337,9 +5354,17 @@ mod tests {
         let req = parse_request(&json!({"track_total_hits": 10_000})).unwrap();
         assert_eq!(req.track_total_hits, TrackTotalHits::Limit(10_000));
 
-        // -1 is the ES alias for `true` (exact), NOT a 10k cap.
+        // -1 is ES's "tracking off" (the value `false` sets), NOT exact.
         let req = parse_request(&json!({"track_total_hits": -1})).unwrap();
-        assert_eq!(req.track_total_hits, TrackTotalHits::True);
+        assert_eq!(req.track_total_hits, TrackTotalHits::False);
+
+        // Below -1 is refused with ES's reason.
+        let err = parse_request(&json!({"track_total_hits": -2})).unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("[track_total_hits] parameter must be positive or equals to -1, got -2"),
+            "{err}"
+        );
     }
 
     // ── match_phrase ──────────────────────────────────────────────────────────

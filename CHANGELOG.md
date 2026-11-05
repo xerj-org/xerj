@@ -187,6 +187,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   fresh. A `304` then re-touched the replacement. The cache is dropped and
   refetched when the sibling signature does not verify.
 
+- A negative `track_total_hits` in a search body now means what it means in
+  Elasticsearch 8; it used to be read as `true`. `-1` turns total tracking
+  off, as `false` does, and a value below `-1` is refused with a 400. In
+  `_msearch` the refusal is ES's `illegal_argument_exception` ("[track_total_hits]
+  parameter must be positive or equals to -1, got N") for the whole request,
+  before any item runs. An `_msearch`, `_search/template` or
+  `_msearch/template` item with tracking off now leaves `hits.total` out, as
+  `_search` does; `_msearch` used to print a total capped at `size`, and the
+  template paths labelled that capped count `eq`. The native and gRPC
+  surfaces read `-1` as tracking off too.
+
 - A search with `track_total_hits: true` no longer reports the capped total
   of the same search run earlier with `track_total_hits: false`. The query
   cache could not tell the two modes apart (both serialized as `null`), so
