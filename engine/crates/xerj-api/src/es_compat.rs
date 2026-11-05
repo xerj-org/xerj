@@ -14728,6 +14728,13 @@ async fn search_impl(
             return ApiError::new(xerj_common::XerjError::index_not_found(&index)).into_response();
         }
     }
+    if let Some(fields) = body.fields.as_ref() {
+        if let Some(reason) =
+            fields_format_failure(&state, fields, body.runtime_mappings.as_ref(), &index_names)
+        {
+            return search_shard_validation_error(&reason);
+        }
+    }
 
     // PIT index_filter: AND it with body.query so every PIT search
     // respects the filter chosen at PIT-open time.
@@ -44728,6 +44735,163 @@ pub async fn close_pit(
         _ => 0,
     };
     Json(json!({ "succeeded": freed > 0, "num_freed": freed })).into_response()
+}
+
+/// Mapped types whose value fetcher refuses a `format` in ES
+/// (`MappedFieldType#checkNoFormat` / `SourceValueFetcher.identity`): the
+/// value has one rendering. Dates, geo and range types take a format; a type
+/// not listed here is left alone rather than guessed at.
+const FORMATLESS_FIELD_TYPES: &[&str] = &[
+    "keyword",
+    "constant_keyword",
+    "wildcard",
+    "text",
+    "match_only_text",
+    "boolean",
+    "ip",
+    "version",
+    "long",
+    "integer",
+    "short",
+    "byte",
+    "double",
+    "float",
+    "half_float",
+    "scaled_float",
+    "unsigned_long",
+    "token_count",
+    "flattened",
+];
+
+/// Every mapped leaf of one index as `(full path, type)`, multi-fields
+/// included, objects and `nested` excluded, sorted by path.
+fn mapped_leaf_fields(mapping: &Value) -> Vec<(String, String)> {
+    fn walk(props: &serde_json::Map<String, Value>, prefix: &str, out: &mut Vec<(String, String)>) {
+        for (key, node) in props {
+            let path = if prefix.is_empty() {
+                key.clone()
+            } else {
+                format!("{prefix}.{key}")
+            };
+            match node.get("type").and_then(Value::as_str) {
+                None | Some("object" | "nested") => {}
+                Some(ty) => out.push((path.clone(), ty.to_string())),
+            }
+            for child in ["properties", "fields"] {
+                if let Some(sub) = node.get(child).and_then(Value::as_object) {
+                    walk(sub, &path, out);
+                }
+            }
+        }
+    }
+    let mut out = Vec::new();
+    if let Some(props) = mapping
+        .pointer("/mappings/properties")
+        .or_else(|| mapping.pointer("/properties"))
+        .and_then(Value::as_object)
+    {
+        walk(props, "", &mut out);
+    }
+    out.sort();
+    out
+}
+
+/// The type a requested `fields` name resolves to in one index: the mapped
+/// leaf, or `flattened` for a key below a flattened field (`flat.some.key`),
+/// which ES serves through the flattened field's keyed sub-type.
+fn fetch_field_type(leaves: &[(String, String)], name: &str) -> Option<String> {
+    if let Some((_, ty)) = leaves.iter().find(|(path, _)| path == name) {
+        return Some(ty.clone());
+    }
+    leaves
+        .iter()
+        .find(|(path, ty)| {
+            ty == "flattened"
+                && name.len() > path.len() + 1
+                && name.starts_with(&format!("{path}."))
+        })
+        .map(|_| "flattened".to_string())
+}
+
+/// ES builds a value fetcher for every field a `fields` entry matches, with
+/// the entry's `format` (`FieldFetcher#create`). A type that has no formats
+/// throws, wrapped with the entry: `error fetching [f]: Field [f] of type [t]
+/// doesn't support formats.`, plus `which matched [pattern]` when a wildcard
+/// matched it. That fails the shard, so the search is a 400 when every
+/// participating index fails. XERJ ignored the format and returned the value
+/// unformatted. Returns the reason for the first failure in the first index,
+/// or `None` when any index has nothing to refuse (ES would answer that with
+/// a partial result, which this does not model).
+fn fields_format_failure(
+    state: &AppState,
+    fields: &Value,
+    runtime_mappings: Option<&Value>,
+    indices: &[&str],
+) -> Option<String> {
+    let Value::Array(entries) = fields else {
+        return None;
+    };
+    let specs: Vec<&str> = entries
+        .iter()
+        .filter(|e| e.get("format").is_some_and(Value::is_string))
+        .filter_map(|e| e.get("field").and_then(Value::as_str))
+        .collect();
+    if specs.is_empty() || indices.is_empty() {
+        return None;
+    }
+    let mut first: Option<String> = None;
+    for idx in indices {
+        let Some(mapping) = state.engine.index_mappings.get(*idx).map(|m| m.clone()) else {
+            return None;
+        };
+        let runtime_defined = |name: &str| {
+            [
+                runtime_mappings,
+                mapping.pointer("/mappings/runtime"),
+                mapping.get("runtime"),
+            ]
+            .into_iter()
+            .flatten()
+            .any(|r| r.get(name).is_some())
+        };
+        let leaves = mapped_leaf_fields(&mapping);
+        let mut failure: Option<String> = None;
+        'specs: for spec in &specs {
+            let matched: Vec<(String, String)> = if spec.contains('*') {
+                leaves
+                    .iter()
+                    .filter(|(path, _)| glob_match_simple(spec, path))
+                    .cloned()
+                    .collect()
+            } else {
+                fetch_field_type(&leaves, spec)
+                    .map(|ty| vec![(spec.to_string(), ty)])
+                    .unwrap_or_default()
+            };
+            for (name, ty) in matched {
+                if runtime_defined(&name) || !FORMATLESS_FIELD_TYPES.contains(&ty.as_str()) {
+                    continue;
+                }
+                let matched_by = if spec.contains('*') {
+                    format!(" which matched [{spec}]")
+                } else {
+                    String::new()
+                };
+                failure = Some(format!(
+                    "error fetching [{name}]{matched_by}: Field [{name}] of type [{ty}] \
+                     doesn't support formats."
+                ));
+                break 'specs;
+            }
+        }
+        match failure {
+            Some(reason) => {
+                first.get_or_insert(reason);
+            }
+            None => return None,
+        }
+    }
+    first
 }
 
 /// Minimal glob matcher for index-name wildcard expansion (* only).
