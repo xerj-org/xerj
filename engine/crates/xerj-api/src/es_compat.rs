@@ -6058,8 +6058,9 @@ fn mapped_field_type(mapping: &Value, field: &str) -> Option<String> {
 }
 
 /// A numeric metric aggregation (`avg`, `sum`, `min`, `max`, `stats`,
-/// `extended_stats`) on a field whose mapped type has no numeric values
-/// source. ES rejects these on every shard with `Field [f] of type [t] is
+/// `extended_stats`, and the percentile family: `percentiles`,
+/// `percentile_ranks`, `median_absolute_deviation`) on a field whose mapped
+/// type has no numeric values source. ES rejects these on every shard with `Field [f] of type [t] is
 /// not supported for aggregation [avg]` (`ValuesSourceRegistry#getAggregator`)
 /// and, when every shard fails, answers 400. XERJ answered 200 with a null
 /// value, so a typo'd field looked like an empty index.
@@ -6072,7 +6073,17 @@ fn find_unsupported_metric_agg_field(
     state: &AppState,
     indices: &[String],
 ) -> Option<String> {
-    const NUMERIC_METRICS: &[&str] = &["avg", "sum", "min", "max", "stats", "extended_stats"];
+    const NUMERIC_METRICS: &[&str] = &[
+        "avg",
+        "sum",
+        "min",
+        "max",
+        "stats",
+        "extended_stats",
+        "percentiles",
+        "percentile_ranks",
+        "median_absolute_deviation",
+    ];
     const NON_NUMERIC_TYPES: &[&str] = &[
         "keyword",
         "constant_keyword",
