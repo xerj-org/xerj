@@ -369,8 +369,9 @@ directory. Verify: `curl -s localhost:9200/_facts | jq .model.state` prints
 `"loaded"` (the first seconds after start print `"not_loaded"` while the model
 preloads; poll). On the honest XERJ Score v2 — credit measured against Opus 5.5 (= 100)
 on the facts+counting evaluation — the shipped model scores **90.29** (A_s47,
-standard eval). See [docs/MODEL_QUICKSTART.md](./docs/MODEL_QUICKSTART.md) to get
-it running and [docs/FACTS_API.md](./docs/FACTS_API.md) for the full contract.
+standard eval). See [docs/XERJ_QUERY_1.md](./docs/XERJ_QUERY_1.md) for the seven
+capabilities with a verified example each, [docs/MODEL_QUICKSTART.md](./docs/MODEL_QUICKSTART.md)
+to get it running and [docs/FACTS_API.md](./docs/FACTS_API.md) for the full contract.
 The model weights are a release asset, not part of this repository's source.
 
 ## Connect an agent over MCP

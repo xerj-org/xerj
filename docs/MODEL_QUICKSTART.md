@@ -1,5 +1,8 @@
 # Get the XERJ-Query model and serve it
 
+What the model can do, with a verified example per capability: the
+capabilities overview, [XERJ_QUERY_1.md](./XERJ_QUERY_1.md).
+
 What this file is: the shortest path from no model to a verified answer out of
 `/_facts`. Last updated 2026-11-05 (rc.101). When this file and the
 binary disagree, the binary wins (`xerj --help`). Background:

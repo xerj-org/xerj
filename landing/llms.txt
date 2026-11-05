@@ -148,7 +148,7 @@ If a node you can reach over HTTP already holds the pack (someone ran `xerj hub 
 
 ## Ask over your own facts (/_facts)
 
-Write facts to a namespace, ask a question, read a verified answer. The model is XERJ-Query, served on CPU — nothing leaves the machine, and it is a different model from the lexical search embedder. It is off until a node is started with `--facts-model-dir <DIR>`. Detail: [docs/FACTS_API.md](https://github.com/xerj-org/xerj/blob/main/docs/FACTS_API.md) · [docs/MODEL_QUICKSTART.md](https://github.com/xerj-org/xerj/blob/main/docs/MODEL_QUICKSTART.md) · [docs/MODEL_BUNDLE.md](https://github.com/xerj-org/xerj/blob/main/docs/MODEL_BUNDLE.md).
+Write facts to a namespace, ask a question, read a verified answer. The model is XERJ-Query, served on CPU — nothing leaves the machine, and it is a different model from the lexical search embedder. It is off until a node is started with `--facts-model-dir <DIR>`. Capabilities, one verified example each: [docs/XERJ_QUERY_1.md](https://github.com/xerj-org/xerj/blob/main/docs/XERJ_QUERY_1.md). Detail: [docs/FACTS_API.md](https://github.com/xerj-org/xerj/blob/main/docs/FACTS_API.md) · [docs/MODEL_QUICKSTART.md](https://github.com/xerj-org/xerj/blob/main/docs/MODEL_QUICKSTART.md) · [docs/MODEL_BUNDLE.md](https://github.com/xerj-org/xerj/blob/main/docs/MODEL_BUNDLE.md).
 
 What you probably assume: a question endpoint runs a chat model that may hallucinate. What is true: `_ask` writes a small program over the facts you stored and returns the program and its cited evidence; an operational problem is an HTTP error, never a made-up answer.
 

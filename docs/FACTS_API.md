@@ -1,5 +1,8 @@
 # The `/_facts` API: asking a question and reading a verified answer
 
+The capabilities overview, one verified example per capability:
+[XERJ_QUERY_1.md](./XERJ_QUERY_1.md). This page is the contract.
+
 What this file is: the request/response reference for the `/_facts` endpoints —
 the facts store, the exact executor, and the learned compiler the engine serves.
 Last updated: 2026-11-05 (rc.101). If this document and the engine
