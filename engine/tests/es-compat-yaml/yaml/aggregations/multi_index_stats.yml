@@ -1,0 +1,160 @@
+---
+setup:
+- do:
+    indices.create:
+      index: stats-a
+      body:
+        mappings:
+          properties:
+            n:
+              type: double
+            g:
+              type: keyword
+- do:
+    index:
+      index: stats-a
+      id: '0'
+      body:
+        n: 1
+        g: same
+- do:
+    index:
+      index: stats-a
+      id: '1'
+      body:
+        n: 2
+        g: same
+- do:
+    indices.create:
+      index: stats-b
+      body:
+        mappings:
+          properties:
+            n:
+              type: double
+            g:
+              type: keyword
+- do:
+    index:
+      index: stats-b
+      id: '0'
+      body:
+        n: 10
+        g: same
+- do:
+    index:
+      index: stats-b
+      id: '1'
+      body:
+        n: 20
+        g: same
+- do:
+    index:
+      index: stats-b
+      id: '2'
+      body:
+        n: 30
+        g: same
+- do:
+    indices.create:
+      index: stats-empty
+      body:
+        mappings:
+          properties:
+            n:
+              type: double
+            g:
+              type: keyword
+- do:
+    indices.refresh:
+      index: stats-a,stats-b,stats-empty
+---
+stats combines both indices:
+- do:
+    search:
+      index: stats-a,stats-b
+      body:
+        size: 0
+        aggs:
+          s:
+            stats:
+              field: n
+- match:
+    aggregations.s.count: 5
+- match:
+    aggregations.s.sum: 63.0
+- match:
+    aggregations.s.min: 1.0
+- match:
+    aggregations.s.max: 30.0
+- match:
+    aggregations.s.avg: 12.6
+---
+extended stats preserves custom sigma in reversed order:
+- do:
+    search:
+      index: stats-b,stats-empty,stats-a
+      body:
+        size: 0
+        aggs:
+          s:
+            extended_stats:
+              field: n
+              sigma: 3
+- match:
+    aggregations.s.count: 5
+- match:
+    aggregations.s.sum: 63.0
+- match:
+    aggregations.s.sum_of_squares: 1405.0
+- match:
+    aggregations.s.variance: 122.24000000000001
+- match:
+    aggregations.s.variance_sampling: 152.8
+- match:
+    aggregations.s.std_deviation_bounds.upper: 45.76865990660461
+- match:
+    aggregations.s.std_deviation_bounds.lower: -20.56865990660461
+---
+value count includes all indices:
+- do:
+    search:
+      index: stats-a,stats-b
+      body:
+        size: 0
+        aggs:
+          v:
+            value_count:
+              field: n
+- match:
+    aggregations.v.value: 5
+---
+nested stats and counts reduce across indices:
+- do:
+    search:
+      index: stats-a,stats-b
+      body:
+        size: 0
+        aggs:
+          g:
+            filters:
+              filters:
+                all:
+                  match_all: {}
+            aggs:
+              s:
+                stats:
+                  field: n
+              v:
+                value_count:
+                  field: n
+- match:
+    aggregations.g.buckets.all.doc_count: 5
+- match:
+    aggregations.g.buckets.all.s.count: 5
+- match:
+    aggregations.g.buckets.all.s.sum: 63.0
+- match:
+    aggregations.g.buckets.all.s.avg: 12.6
+- match:
+    aggregations.g.buckets.all.v.value: 5
