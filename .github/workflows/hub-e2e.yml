@@ -63,7 +63,7 @@ jobs:
   e2e:
     name: whole-hub end-to-end
     runs-on: ubuntu-latest
-    timeout-minutes: 300
+    timeout-minutes: 90
     permissions:
       contents: write # only used when commit_report is set
     steps:
