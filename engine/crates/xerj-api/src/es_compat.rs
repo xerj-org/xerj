@@ -8553,6 +8553,120 @@ fn normalize_extended_stats_sigma(aggs: &mut Value) -> Option<(String, Option<St
     None
 }
 
+#[cfg(test)]
+mod extended_stats_sigma_tests {
+    use super::*;
+    use axum::{body::Body, http::Request};
+    use tower::ServiceExt;
+    use xerj_common::{
+        config::{Config, WalSync},
+        metrics::Metrics,
+    };
+    use xerj_engine::Engine;
+
+    fn test_state() -> AppState {
+        let dir = tempfile::tempdir().expect("tempdir").keep();
+        let mut config = Config::default();
+        config.server.data_dir = dir.to_string_lossy().into_owned();
+        config.storage.wal_sync = WalSync::Async;
+        let metrics = Metrics::new().expect("metrics");
+        let engine = Engine::new(config.clone()).expect("engine");
+        AppState::new(config, engine, metrics)
+    }
+
+    async fn send(app: &axum::Router, method: &str, uri: &str, body: Value) -> (StatusCode, Value) {
+        let resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(method)
+                    .uri(uri)
+                    .header("content-type", "application/json")
+                    .body(Body::from(body.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let status = resp.status();
+        let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        (status, serde_json::from_slice(&bytes).unwrap())
+    }
+
+    /// Values 1 and 3: avg 2, population std deviation 1.
+    async fn app() -> axum::Router {
+        let app = crate::router::build_es_compat_router(test_state());
+        let (status, body) = send(
+            &app,
+            "PUT",
+            "/idx",
+            json!({"mappings": {"properties": {"n": {"type": "integer"}}}}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        for (id, n) in [("1", 1), ("2", 3)] {
+            let uri = format!("/idx/_doc/{id}?refresh=true");
+            let (status, body) = send(&app, "PUT", &uri, json!({ "n": n })).await;
+            assert!(status.is_success(), "{body}");
+        }
+        app
+    }
+
+    fn stats(sigma: Value) -> Value {
+        json!({"size": 0, "aggs": {"s": {"extended_stats": {"field": "n", "sigma": sigma}}}})
+    }
+
+    /// FAIL-BEFORE: every request here answered 200, with bounds at the
+    /// default sigma of 2.
+    #[tokio::test]
+    async fn bad_sigma_is_a_400() {
+        let app = app().await;
+        let (status, body) = send(&app, "POST", "/idx/_search", stats(json!(-1))).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+        assert_eq!(
+            body["error"]["root_cause"][0]["reason"],
+            "[sigma] must be greater than or equal to 0. Found [-1.0] in [s]",
+            "{body}"
+        );
+        for (sigma, reason) in [
+            (
+                json!("foo"),
+                "[extended_stats] failed to parse field [sigma]",
+            ),
+            (
+                json!(true),
+                "[extended_stats] sigma doesn't support values of type: VALUE_BOOLEAN",
+            ),
+        ] {
+            let (status, body) = send(&app, "POST", "/idx/_search", stats(sigma.clone())).await;
+            assert_eq!(status, StatusCode::BAD_REQUEST, "{sigma} -> {body}");
+            assert_eq!(
+                body["error"]["type"], "x_content_parse_exception",
+                "{sigma}"
+            );
+            assert_eq!(body["error"]["reason"], reason, "{sigma}");
+        }
+        // Under a bucket aggregation too.
+        let nested = json!({"size": 0, "aggs": {"t": {"terms": {"field": "n"},
+            "aggs": {"s": {"extended_stats": {"field": "n", "sigma": "foo"}}}}}});
+        let (status, body) = send(&app, "POST", "/idx/_search", nested).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    }
+
+    /// A number, and a string holding one, set the bounds; zero is allowed.
+    #[tokio::test]
+    async fn numeric_sigma_sets_the_bounds() {
+        let app = app().await;
+        for (sigma, upper) in [(json!(3), 5.0), (json!("3"), 5.0), (json!(0), 2.0)] {
+            let (status, body) = send(&app, "POST", "/idx/_search", stats(sigma.clone())).await;
+            assert_eq!(status, StatusCode::OK, "{sigma} -> {body}");
+            let bounds = &body["aggregations"]["s"]["std_deviation_bounds"];
+            assert_eq!(bounds["upper"].as_f64(), Some(upper), "{sigma} -> {body}");
+        }
+    }
+}
+
 /// Checks that need the field's mapped type (e.g. `avg` on a keyword field)
 /// are not made here.
 fn find_invalid_agg_params(aggs: Option<&Value>) -> Option<String> {
