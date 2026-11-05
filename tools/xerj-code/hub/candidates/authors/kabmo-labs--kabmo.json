@@ -8,15 +8,15 @@
   {
    "repo": "kabmo",
    "url": "https://github.com/kabmo-labs/kabmo",
-   "sha": "415345057d4678616aef6a66f6d6b31d770f8597",
-   "licence": "MIT (LICENSE file at pin 415345057d46, GitHub licence API 2026-11-05)",
+   "sha": "331f038b2b3912ec532ed9b32c194ef7e8afa8ae",
+   "licence": "MIT (LICENSE file at pin 331f038b2b39, GitHub licence API 2026-11-05)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T21:18Z",
     "consent_receipt": "4143c990a9a3",
-    "note": "Inclusion consented by the commit author by email at 2026-10-29T21:18Z (receipt 4143c990a9a3); selected commit 415345057d46: \"feat(editor): validate config files, band conflict markers, and repor\u2026\". LICENSE file at pin 415345057d46 detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution. Pinned to head 415345057d46 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T21:18Z (receipt 4143c990a9a3); selected commit 331f038b2b39: \"feat(editor): validate config files, band conflict markers, and repor\u2026\". LICENSE file at pin 331f038b2b39 detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution. Pinned to head 331f038b2b39 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

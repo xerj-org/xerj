@@ -8,15 +8,15 @@
   {
    "repo": "Dimmer-MAUI",
    "url": "https://github.com/YBTopaz8/Dimmer-MAUI",
-   "sha": "44c6ffd1dad3725df04dd0631f2fe3f753202b80",
-   "licence": "MIT (LICENSE file at pin 44c6ffd1dad3, GitHub licence API 2026-11-03)",
+   "sha": "23a23532247bf7c03363245b7237423fc9ddad6f",
+   "licence": "MIT (LICENSE file at pin 23a23532247b, GitHub licence API 2026-11-05)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-30T07:16Z",
     "consent_receipt": "a4556c436f5f",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T07:16Z (receipt a4556c436f5f); pinned to the default-branch head. LICENSE file at pin 44c6ffd1dad3 detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T07:16Z (receipt a4556c436f5f); pinned to the default-branch head. LICENSE file at pin 23a23532247b detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
    }
   }
  ]

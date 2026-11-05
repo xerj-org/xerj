@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agentic-ai, finops, agentic-rag queries this for how jonatassales/lang-drift implements it: :checkered_flag: Agentic FinOps Platform - Full blast agentic runtimes - LangDrift explores FinOps principles, agent-assisted software deliv (selected work: packages/ex)",
+ "domain": "an agent working on agentic-ai, finops, agentic-rag queries this for how jonatassales/lang-drift implements it: Agentic FinOps Platform - Full blast agentic runtimes - LangDrift explores FinOps principles, agent-assisted software delivery, and consumer (selected work: packages/ex)",
  "repos": [
   {
    "repo": "lang-drift",
    "url": "https://github.com/jonatassales/lang-drift",
-   "sha": "9ec17573c3b33cafd51af22ea1799e4c83b9d08c",
-   "licence": "Apache-2.0 (LICENSE file at pin 9ec17573c3b3, GitHub licence API 2026-11-05)",
+   "sha": "b364cd37b35fa745c213fc8c667ebbc2c556ba5f",
+   "licence": "Apache-2.0 (LICENSE file at pin b364cd37b35f, GitHub licence API 2026-11-05)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T17:58Z",
     "consent_receipt": "484e10990007",
-    "note": "Inclusion consented by the commit author by email at 2026-10-29T17:58Z (receipt 484e10990007); selected commit 9ec17573c3b3: \"feat(ex): package prebuilt binaries and bin/ex launcher for npx\". LICENSE file at pin 9ec17573c3b3 detected as Apache-2.0 by the GitHub licence API on 2026-11-05; used under that licence with attribution. Pinned to head 9ec17573c3b3 (contains the selected commit): the LICENSE at the selected commit was MIT."
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T17:58Z (receipt 484e10990007); selected commit b364cd37b35f: \"feat(ex): package prebuilt binaries and bin/ex launcher for npx\". LICENSE file at pin b364cd37b35f detected as Apache-2.0 by the GitHub licence API on 2026-11-05; used under that licence with attribution. Pinned to head b364cd37b35f (contains the selected commit): the LICENSE at the selected commit was MIT."
    }
   }
  ]

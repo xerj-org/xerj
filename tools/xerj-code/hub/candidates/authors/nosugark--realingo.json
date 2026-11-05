@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on desktop-app, linux-desktop, macos queries this for how noSugarK/ReaLingo implements it: Realtime speech translation \u2014 a desktop simultaneous interpreter for Alibaba Cloud Qwen, OpenAI and Google Gemini (selected work: src-tauri, src, src/styles)",
+ "domain": "an agent working on desktop-app, linux-desktop, macos queries this for how noSugarK/ReaLingo implements it: Realtime speech translation \u2014 a desktop simultaneous interpreter for Alibaba Cloud Qwen, OpenAI, Google Gemini and Volcengine Doubao (selected work: src-tauri, src, src/styles)",
  "repos": [
   {
    "repo": "ReaLingo",

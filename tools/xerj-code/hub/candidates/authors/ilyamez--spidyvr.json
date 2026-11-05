@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on code queries this for how IlyaMez/SpidyVR implements it: IlyaMez/SpidyVR (code) (selected work: tests, src, include)",
+ "domain": "an agent working on C++ queries this for how IlyaMez/SpidyVR implements it: IlyaMez/SpidyVR (C++) (selected work: tests, src, include)",
  "repos": [
   {
    "repo": "SpidyVR",
