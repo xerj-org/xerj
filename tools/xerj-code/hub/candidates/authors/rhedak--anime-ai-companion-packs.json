@@ -8,15 +8,15 @@
   {
    "repo": "anime_ai_companion-packs",
    "url": "https://github.com/rhedak/anime_ai_companion-packs",
-   "sha": "784337846a9ea05d7d9cb3c24a07884e838a183c",
-   "licence": "MIT (LICENSE file at pin 784337846a9e, GitHub licence API 2026-11-03)",
+   "sha": "dd1b73ffb3be649714b8d1e827e7b81059c738fb",
+   "licence": "MIT (LICENSE file at pin dd1b73ffb3be, GitHub licence API 2026-11-05)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-01T05:39Z",
     "consent_receipt": "4652bc24ceff",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T05:39Z (receipt 4652bc24ceff); pinned to the default-branch head. LICENSE file at pin 784337846a9e detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T05:39Z (receipt 4652bc24ceff); pinned to the default-branch head. LICENSE file at pin dd1b73ffb3be detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
    }
   }
  ]

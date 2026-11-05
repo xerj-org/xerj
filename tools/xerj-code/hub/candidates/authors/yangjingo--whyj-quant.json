@@ -1,9 +1,9 @@
 {
- "corpus": "yangjingo--oh-my-quant",
+ "corpus": "yangjingo--whyj-quant",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on TypeScript queries this for how yangjingo/oh-my-quant implements it: An open-source AI research terminal. Research before conviction (selected work: src/runtime, src/tui, tests)",
+ "domain": "an agent working on TypeScript queries this for how yangjingo/WhyJ-Quant implements it: An open-source AI research terminal. Research before conviction (selected work: src/runtime, src/tui, tests)",
  "repos": [
   {
    "repo": "oh-my-quant",
