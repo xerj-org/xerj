@@ -192,7 +192,12 @@ fn spans_overlap(a: &(String, u64, u64), b: &(String, u64, u64)) -> bool {
 /// are the cheapest thing we emit.
 fn locator_stub(hit: &Value) -> Value {
     let mut stub = serde_json::Map::new();
-    for k in ["_index", "_id"] {
+    for k in ["_index", "_id", "id"] {
+        if let Some(v) = hit.get(k).filter(|v| !v.is_null()) {
+            stub.insert(k.to_string(), v.clone());
+        }
+    }
+    for k in ["score", "_score"] {
         if let Some(v) = hit.get(k).filter(|v| !v.is_null()) {
             stub.insert(k.to_string(), v.clone());
         }
@@ -209,24 +214,28 @@ fn locator_stub(hit: &Value) -> Value {
     Value::Object(stub)
 }
 
-/// Budget an engine `_search` JSON response to `max_tokens` tokens. Returns
+/// Budget an engine `_search` or `_recall` JSON response to `max_tokens` tokens. Returns
 /// text (never a JSON error): parses, dedupes overlapping file:line passages
 /// against passages actually shown, keeps hits greedily in rank order,
 /// demotes the rest to locator stubs, and appends a `_token_budget`
 /// accounting block. Nothing binding → the engine text verbatim. Non-JSON
-/// bodies, JSON without a `hits.hits` array (aggregation-only), or an
+/// bodies, JSON without a hits array (aggregation-only), or an
 /// envelope that alone cannot fit fall back to [`truncate_to_budget`] — the
 /// invariant outranks pretty truncation.
 pub fn budget_json_response(engine_text: &str, max_tokens: usize) -> String {
     let Ok(resp) = serde_json::from_str::<Value>(engine_text) else {
         return truncate_to_budget(engine_text, max_tokens);
     };
-    let Some(hits) = resp
-        .get("hits")
-        .and_then(|h| h.get("hits"))
-        .and_then(Value::as_array)
-        .cloned()
-    else {
+    let is_direct_hits = resp.get("hits").and_then(Value::as_array).is_some();
+    let hits_opt = if is_direct_hits {
+        resp.get("hits").and_then(Value::as_array).cloned()
+    } else {
+        resp.get("hits")
+            .and_then(|h| h.get("hits"))
+            .and_then(Value::as_array)
+            .cloned()
+    };
+    let Some(hits) = hits_opt else {
         // Aggregation-only / ack shapes: nothing to demote by hit, so cut at
         // a word boundary instead.
         if count_tokens(engine_text) <= max_tokens {
@@ -241,7 +250,11 @@ pub fn budget_json_response(engine_text: &str, max_tokens: usize) -> String {
     // The envelope with an empty hit list is the unavoidable cost; it is
     // admitted first, then hits fill what is left.
     let mut header = resp.clone();
-    if let Some(arr) = header
+    if is_direct_hits {
+        if let Some(arr) = header.get_mut("hits").and_then(Value::as_array_mut) {
+            arr.clear();
+        }
+    } else if let Some(arr) = header
         .get_mut("hits")
         .and_then(|h| h.get_mut("hits"))
         .and_then(Value::as_array_mut)
@@ -253,7 +266,11 @@ pub fn budget_json_response(engine_text: &str, max_tokens: usize) -> String {
         // Even an empty response cannot fit. Drop the hit list entirely; if
         // that is still not enough, word-truncate.
         let mut bare = header;
-        if let Some(hits_obj) = bare.get_mut("hits").and_then(Value::as_object_mut) {
+        if is_direct_hits {
+            if let Some(obj) = bare.as_object_mut() {
+                obj.remove("hits");
+            }
+        } else if let Some(hits_obj) = bare.get_mut("hits").and_then(Value::as_object_mut) {
             hits_obj.remove("hits");
         }
         return truncate_to_budget(&compact(&bare), max_tokens);
@@ -299,7 +316,12 @@ pub fn budget_json_response(engine_text: &str, max_tokens: usize) -> String {
     // 2. Assemble, measure once, then report our own final size (the insert
     //    costs a fixed TOKENS_USED_INSERT, covered by NOTE_RESERVE).
     let mut out = header;
-    if let Some(arr) = out
+    let hits_full = full.len();
+    if is_direct_hits {
+        if let Some(arr) = out.get_mut("hits").and_then(Value::as_array_mut) {
+            *arr = full;
+        }
+    } else if let Some(arr) = out
         .get_mut("hits")
         .and_then(|h| h.get_mut("hits"))
         .and_then(Value::as_array_mut)
@@ -309,7 +331,7 @@ pub fn budget_json_response(engine_text: &str, max_tokens: usize) -> String {
     let accounting = json!({
         "tokenizer": TOKENIZER_ID,
         "max_tokens": max_tokens,
-        "hits_full": out.pointer("/hits/hits").and_then(Value::as_array).map(|a| a.len()).unwrap_or(0),
+        "hits_full": hits_full,
         "hits_locator_only": locators,
         "deduped_overlapping": deduped,
         "hits_dropped": dropped,
@@ -712,6 +734,45 @@ mod tests {
             "no spans → no dedup"
         );
         assert!(v["_token_budget"]["hits_full"].as_u64().unwrap() < 10);
+    }
+
+    /// xerj_memory_recall shape: direct `hits` array with {id, text, score}
+    /// and namespace, rather than standard ES nested `hits.hits`.
+    #[test]
+    fn memory_recall_budget_holds_and_demotes_to_locators() {
+        let hits: Vec<Value> = (0..8)
+            .map(|i| {
+                json!({
+                    "id": format!("mem-{i}"),
+                    "score": 0.95 - (i as f64 * 0.05),
+                    "text": format!("Important agent episodic memory entry {i} containing detailed observations and decisions. ").repeat(5)
+                })
+            })
+            .collect();
+        let resp = json!({
+            "hits": hits,
+            "namespace": "agent"
+        })
+        .to_string();
+
+        assert_never_exceeds(&resp, &[32, 64, 120, 250, 10_000], true);
+
+        let out = budget_json_response(&resp, 200);
+        let v: Value = serde_json::from_str(&out).expect("still valid JSON");
+        assert_eq!(v["namespace"], "agent");
+        let tb = &v["_token_budget"];
+        assert_eq!(tb["max_tokens"], 200);
+        assert_eq!(tb["tokenizer"], TOKENIZER_ID);
+
+        let full = tb["hits_full"].as_u64().unwrap();
+        assert!(full > 0 && full < 8, "budget keeps some memories: {full}");
+        let locators = tb["hits_locator_only"].as_array().unwrap();
+        assert!(!locators.is_empty(), "over-budget memories become locators");
+        assert!(locators[0].get("id").is_some());
+        assert!(
+            locators[0].get("text").is_none(),
+            "locator carries no memory text"
+        );
     }
 
     /// xerj_hybrid_search shape: fused hits from several sub-queries can
