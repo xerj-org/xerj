@@ -10167,6 +10167,47 @@ fn parse_highlight(hl_val: &Value) -> Option<xerj_query::ast::HighlightRequest> 
     })
 }
 
+/// ES's lower bounds on the integer `_search` URL params that XERJ accepts
+/// but does not act on (`RestSearchAction#parseSearchRequest`,
+/// `SearchRequest#setBatchedReduceSize`, `#setPreFilterShardSize`). ES checks
+/// them while it parses the request, before it resolves the target, so a bad
+/// value is a 400 even when the search would otherwise succeed. XERJ ignored
+/// all three, so `?terminate_after=-1` or `?batched_reduce_size=1` answered
+/// 200. A value that is not an `int` fails to parse, as in ES.
+fn search_int_param_error(params: &EsSearchQueryParams) -> Option<Response> {
+    let checks: [(&str, &Option<String>, i32, &str); 3] = [
+        (
+            "batched_reduce_size",
+            &params.batched_reduce_size,
+            2,
+            "batchedReduceSize must be >= 2",
+        ),
+        (
+            "pre_filter_shard_size",
+            &params.pre_filter_shard_size,
+            1,
+            "preFilterShardSize must be >= 1",
+        ),
+        (
+            "terminate_after",
+            &params.terminate_after,
+            0,
+            "terminateAfter must be > 0",
+        ),
+    ];
+    for (name, value, min, reason) in checks {
+        let Some(value) = value else { continue };
+        match value.parse::<i32>() {
+            Ok(n) if n < min => {
+                return Some(es_bad_request("illegal_argument_exception", reason, None))
+            }
+            Ok(_) => {}
+            Err(_) => return Some(int_param_parse_error(name, value)),
+        }
+    }
+    None
+}
+
 /// Query parameters accepted on `GET /{index}/_search`.
 ///
 /// These are common params used by simple ES clients and curl one-liners.
@@ -10194,6 +10235,8 @@ pub struct EsSearchQueryParams {
     pub request_cache: Option<String>,
     pub allow_partial_search_results: Option<String>,
     pub batched_reduce_size: Option<String>,
+    pub pre_filter_shard_size: Option<String>,
+    pub terminate_after: Option<String>,
     pub ccs_minimize_roundtrips: Option<String>,
     pub search_type: Option<String>,
     pub scroll: Option<String>,
@@ -14310,8 +14353,17 @@ async fn search_impl(
     if let Some(ref size_s) = params.size {
         match size_s.parse::<usize>() {
             Ok(n) => body.size = n,
-            Err(_) => return int_param_parse_error("size", size_s),
+            Err(_) => match size_s.parse::<i32>() {
+                Ok(n) if n < 0 => {
+                    let reason = format!("[size] parameter cannot be negative, found [{n}]");
+                    return es_bad_request("illegal_argument_exception", &reason, None);
+                }
+                _ => return int_param_parse_error("size", size_s),
+            },
         }
+    }
+    if let Some(resp) = search_int_param_error(&params) {
+        return resp;
     }
     if let Some(ref from_s) = params.from {
         match from_s.parse::<usize>() {
