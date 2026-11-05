@@ -215,11 +215,12 @@ async fn hub_tools_answer_from_a_local_pack_and_never_download() {
             ),
         ],
     };
-    std::fs::write(
-        hub.join("catalogue.json"),
-        serde_json::to_vec(&cat).unwrap(),
-    )
-    .unwrap();
+    let (seed, public) = xerj_autoindex::harvest::sign::generate_keypair().unwrap();
+    std::env::set_var("XERJ_HUB_PUBKEY", &public);
+    let cat_bytes = serde_json::to_vec(&cat).unwrap();
+    let cat_sig = xerj_autoindex::harvest::sign::sign_bytes(&cat_bytes, &seed).unwrap();
+    std::fs::write(hub.join("catalogue.json"), &cat_bytes).unwrap();
+    std::fs::write(hub.join("catalogue.json.sig"), format!("{cat_sig}\n")).unwrap();
 
     // ── tools/list carries the three, with schemas an MCP host accepts ──
     let list = xerj_mcp::handle_message_for_test(

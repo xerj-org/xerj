@@ -180,6 +180,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   rollover. Size-based conditions and alias-rollover body fields are refused
   rather than silently ignored.
 
+- A hub catalogue already on disk is verified against its sibling signature
+  before it is served, including a fresh cache and a `304 Not Modified`
+  (#2904). Replacing `catalogue.json` used to be enough: `load_catalogue`
+  parsed it with no signature check, and a future mtime kept that file
+  fresh. A `304` then re-touched the replacement. The cache is dropped and
+  refetched when the sibling signature does not verify.
+
 - `xerj mcp` no longer answers a JSON-RPC notification, and runs every
   `tools/call` off the stdio read loop (#2898). A `tools/call` with no `id`, or
   with `id: null`, used to be awaited on the read loop, so a stalled search held

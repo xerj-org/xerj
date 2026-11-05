@@ -27,7 +27,7 @@ use std::time::Duration;
 use serde_json::json;
 use sha2::{Digest, Sha256};
 
-use xerj_autoindex::harvest::sign::generate_keypair;
+use xerj_autoindex::harvest::sign::{generate_keypair, sign_bytes};
 use xerj_hub::node::HubNode;
 use xerj_hub::pack::{self, PackFileEntry};
 use xerj_hub::{
@@ -213,22 +213,29 @@ fn seed_and_snapshot(url: &str, location: &Path) {
     .unwrap();
 }
 
-/// Write a catalogue with one mini-c entry pointing at a `file://` pack, taking
-/// the pack's real on-disk size as the advertised `pack_bytes`.
-fn write_catalogue(hub_home: &Path, archive: &Path, pack_sha256: &str) {
+/// Write a signed catalogue with one mini-c entry pointing at a `file://` pack,
+/// taking the pack's real on-disk size as the advertised `pack_bytes`.
+fn write_catalogue(hub_home: &Path, archive: &Path, pack_sha256: &str, seed: &str) {
     let real = std::fs::metadata(archive).map(|m| m.len()).unwrap_or(0);
-    write_catalogue_bytes(hub_home, archive, pack_sha256, real);
+    write_catalogue_bytes(hub_home, archive, pack_sha256, real, seed);
 }
 
 /// `write_catalogue` with an explicit advertised `pack_bytes` — lets a test lie
 /// about the size to exercise the size cap.
-fn write_catalogue_bytes(hub_home: &Path, archive: &Path, pack_sha256: &str, pack_bytes: u64) {
+fn write_catalogue_bytes(
+    hub_home: &Path,
+    archive: &Path,
+    pack_sha256: &str,
+    pack_bytes: u64,
+    seed: &str,
+) {
     write_catalogue_full(
         hub_home,
         archive,
         pack_sha256,
         pack_bytes,
         LicenceClass::AdaptWithAttribution,
+        seed,
     );
 }
 
@@ -239,9 +246,10 @@ fn write_catalogue_class(
     archive: &Path,
     pack_sha256: &str,
     licence_class: LicenceClass,
+    seed: &str,
 ) {
     let real = std::fs::metadata(archive).map(|m| m.len()).unwrap_or(0);
-    write_catalogue_full(hub_home, archive, pack_sha256, real, licence_class);
+    write_catalogue_full(hub_home, archive, pack_sha256, real, licence_class, seed);
 }
 
 fn write_catalogue_full(
@@ -250,6 +258,7 @@ fn write_catalogue_full(
     pack_sha256: &str,
     pack_bytes: u64,
     licence_class: LicenceClass,
+    seed: &str,
 ) {
     let sig = {
         let mut s = archive.as_os_str().to_os_string();
@@ -285,11 +294,10 @@ fn write_catalogue_full(
         corpora: vec![entry],
     };
     std::fs::create_dir_all(hub_home).unwrap();
-    std::fs::write(
-        hub_home.join("catalogue.json"),
-        serde_json::to_vec(&cat).unwrap(),
-    )
-    .unwrap();
+    let raw = serde_json::to_vec(&cat).unwrap();
+    let cat_sig = sign_bytes(&raw, seed).unwrap();
+    std::fs::write(hub_home.join("catalogue.json"), &raw).unwrap();
+    std::fs::write(hub_home.join("catalogue.json.sig"), format!("{cat_sig}\n")).unwrap();
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -368,7 +376,7 @@ async fn pack_build_pull_def_roundtrip() {
         bytes[mid] ^= 0xff;
         std::fs::write(&flipped, &bytes).unwrap();
         // catalogue records the ORIGINAL sha, so the flip is caught.
-        write_catalogue(&hub_home, &flipped, &good_sha);
+        write_catalogue(&hub_home, &flipped, &good_sha, &seed);
 
         let url_a2 = url_a.clone();
         let (ch, hh, pk) = (code_home.clone(), hub_home.clone(), public.clone());
@@ -415,7 +423,7 @@ async fn pack_build_pull_def_roundtrip() {
             .unwrap();
         }
         let v2_sha = sha256_hex(&v2);
-        write_catalogue(&hub_home, &v2, &v2_sha);
+        write_catalogue(&hub_home, &v2, &v2_sha, &seed);
 
         let url_a2 = url_a.clone();
         let (ch, hh, pk) = (code_home.clone(), hub_home.clone(), public.clone());
@@ -440,7 +448,7 @@ async fn pack_build_pull_def_roundtrip() {
     let url_b = spawn_node(&work.join("data-b"), allowlist.clone()).await;
     let code_home = work.join("code-pull");
     let hub_home = work.join("hub-pull");
-    write_catalogue(&hub_home, &archive, &good_sha);
+    write_catalogue(&hub_home, &archive, &good_sha, &seed);
 
     // First pull — downloads, verifies, restores, writes the ledger.
     let rc = {
@@ -597,7 +605,7 @@ async fn pack_build_pull_def_roundtrip() {
     //    would be unreachable by any route (hosted search is plan step 6/7). ──
     {
         let hh = work.join("hub-overcap");
-        write_catalogue_bytes(&hh, &archive, &good_sha, AUTO_PULL_MAX_BYTES + 1);
+        write_catalogue_bytes(&hh, &archive, &good_sha, AUTO_PULL_MAX_BYTES + 1, &seed);
         let rc = run_pull(&work.join("code-overcap"), &hh, Some(&public), &url_b).await;
         assert_eq!(
             rc, 0,
@@ -614,7 +622,7 @@ async fn pack_build_pull_def_roundtrip() {
     //    client; the transfer is bounded again by `fetch_to` if the field lies). ──
     {
         let hh = work.join("hub-cap");
-        write_catalogue_bytes(&hh, &archive, &good_sha, DISK_BUDGET_BYTES + 1);
+        write_catalogue_bytes(&hh, &archive, &good_sha, DISK_BUDGET_BYTES + 1, &seed);
         let rc = run_pull(&work.join("code-cap"), &hh, Some(&public), &url_b).await;
         assert_eq!(rc, 1, "over-budget pack → policy/infra exit 1");
         assert!(
@@ -630,7 +638,7 @@ async fn pack_build_pull_def_roundtrip() {
     // ── No verifying key → its OWN exit code (5), NOT "failed verification" (3) ──
     {
         let hh = work.join("hub-nokey");
-        write_catalogue(&hh, &archive, &good_sha);
+        write_catalogue(&hh, &archive, &good_sha, &seed);
         // A real key is compiled in, so "no key" is the explicit test override.
         let rc = run_pull(
             &work.join("code-nokey"),
@@ -657,7 +665,7 @@ async fn pack_build_pull_def_roundtrip() {
     // ── An EXCLUDED corpus is refused by `hub pull` itself (plan §11) ──
     {
         let hh = work.join("hub-excluded");
-        write_catalogue_class(&hh, &archive, &good_sha, LicenceClass::Excluded);
+        write_catalogue_class(&hh, &archive, &good_sha, LicenceClass::Excluded, &seed);
         let rc = run_pull(&work.join("code-excluded"), &hh, Some(&public), &url_b).await;
         assert_eq!(rc, 1, "an excluded corpus is a policy refusal (exit 1)");
         assert!(
@@ -671,7 +679,7 @@ async fn pack_build_pull_def_roundtrip() {
         // An approach-only corpus is a different matter: it is pulled (with a warning
         // wherever it is answered).
         let hh = work.join("hub-approach");
-        write_catalogue_class(&hh, &archive, &good_sha, LicenceClass::ApproachOnly);
+        write_catalogue_class(&hh, &archive, &good_sha, LicenceClass::ApproachOnly, &seed);
         let rc = run_pull(&work.join("code-approach"), &hh, Some(&public), &url_b).await;
         assert_eq!(rc, 0, "approach-only is allowed through");
     }
@@ -682,7 +690,7 @@ async fn pack_build_pull_def_roundtrip() {
         // a whole node first and only then looked at the slug, the licence, the size
         // and the key.
         let hh = work.join("hub-preflight");
-        write_catalogue_class(&hh, &archive, &good_sha, LicenceClass::Excluded);
+        write_catalogue_class(&hh, &archive, &good_sha, LicenceClass::Excluded, &seed);
         let silent =
             xerj_common::loopback_test::expect_loopback(std::net::TcpListener::bind("127.0.0.1:0"))
                 .local_addr()
@@ -726,7 +734,7 @@ async fn pack_build_pull_def_roundtrip() {
     {
         let code_home = work.join("code-keep");
         let hh = work.join("hub-keep");
-        write_catalogue(&hh, &archive, &good_sha);
+        write_catalogue(&hh, &archive, &good_sha, &seed);
         let rc = run_pull(&code_home, &hh, Some(&public), &url_b).await;
         assert_eq!(rc, 0, "the first pull succeeds");
         let extract = hh.join("packs").join("mini-c").join(PIN8);
@@ -735,7 +743,7 @@ async fn pack_build_pull_def_roundtrip() {
 
         // A re-pull whose archive no longer matches the catalogue's hash.
         let flipped = out.join("flipped.hubpack.tar.zst");
-        write_catalogue(&hh, &flipped, &good_sha);
+        write_catalogue(&hh, &flipped, &good_sha, &seed);
         let rc = run_pull(&code_home, &hh, Some(&public), &url_b).await;
         assert_eq!(rc, 3, "the bad archive is refused");
         assert!(
@@ -749,7 +757,7 @@ async fn pack_build_pull_def_roundtrip() {
         );
 
         // A good re-pull replaces it whole and leaves no staging behind.
-        write_catalogue(&hh, &archive, &good_sha);
+        write_catalogue(&hh, &archive, &good_sha, &seed);
         let rc = run_pull(&code_home, &hh, Some(&public), &url_b).await;
         assert_eq!(rc, 0);
         let leftovers: Vec<String> = std::fs::read_dir(hh.join("packs").join("mini-c"))
@@ -763,7 +771,7 @@ async fn pack_build_pull_def_roundtrip() {
     // ── An unreachable node is an INFRA failure (exit 1), not 2 or 3 ──
     {
         let hh = work.join("hub-infra");
-        write_catalogue(&hh, &archive, &good_sha);
+        write_catalogue(&hh, &archive, &good_sha, &seed);
         let rc = run_pull(
             &work.join("code-infra"),
             &hh,
@@ -779,7 +787,7 @@ async fn pack_build_pull_def_roundtrip() {
     //  corpus for half an hour; the lock is now the OS's, held by a live process.)
     {
         let hh = work.join("hub-lock");
-        write_catalogue(&hh, &archive, &good_sha);
+        write_catalogue(&hh, &archive, &good_sha, &seed);
         let lockdir = hh.join("packs").join("mini-c");
         std::fs::create_dir_all(&lockdir).unwrap();
         // Another process (here: another open file description) holds the pin's lock.
@@ -812,7 +820,7 @@ async fn pack_build_pull_def_roundtrip() {
     // ── A lock DIRECTORY left by an older build blocks nothing ──
     {
         let hh = work.join("hub-oldlock");
-        write_catalogue(&hh, &archive, &good_sha);
+        write_catalogue(&hh, &archive, &good_sha, &seed);
         let lockdir = hh.join("packs").join("mini-c");
         std::fs::create_dir_all(lockdir.join(format!("{PIN8}.lock"))).unwrap();
         let rc = run_pull(&work.join("code-oldlock"), &hh, Some(&public), &url_b).await;
