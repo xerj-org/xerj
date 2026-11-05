@@ -14553,6 +14553,34 @@ mod tests {
         assert_eq!(empty["w"]["value"], Value::Null, "{empty}");
     }
 
+    /// FAIL-BEFORE: the document carrying several weights was skipped and
+    /// the aggregation answered 10 (from the one single-weight document).
+    #[test]
+    fn weighted_avg_refuses_a_multi_valued_weight() {
+        let wa = |value: Value, docs: &[Value]| {
+            run_aggs(
+                &json!({"w": {"weighted_avg": {"value": value, "weight": {"field": "w"}}}}),
+                docs,
+            )
+        };
+        let reason = "Encountered more than one weight for a single document. Use a script \
+                      to combine multiple weights-per-doc into a single value.";
+
+        let docs = [json!({"n": 1, "w": [1, 2]}), json!({"n": 10, "w": 3})];
+        let r = wa(json!({"field": "n"}), &docs);
+        assert_eq!(r["w"]["error"], reason, "{r}");
+        assert_eq!(r["w"]["__error_status__"], json!(400), "{r}");
+
+        // ES only reads the weights of a document that has a value, so one
+        // without a value is skipped as before ...
+        let docs = [json!({"w": [1, 2]}), json!({"n": 10, "w": 3})];
+        let r = wa(json!({"field": "n"}), &docs);
+        assert_eq!(r["w"]["value"].as_f64(), Some(10.0), "{r}");
+        // ... unless `value.missing` gives it one.
+        let r = wa(json!({"field": "n", "missing": 5}), &docs);
+        assert_eq!(r["w"]["error"], reason, "{r}");
+    }
+
     #[test]
     fn missing_agg_counts_empty_and_null_arrays() {
         // ES `missing` agg counts docs with NO value: absent, null, [] and
