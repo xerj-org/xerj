@@ -44894,6 +44894,155 @@ fn fields_format_failure(
     first
 }
 
+#[cfg(test)]
+mod fields_format_tests {
+    use super::*;
+    use axum::{body::Body, http::Request};
+    use tower::ServiceExt;
+    use xerj_common::{
+        config::{Config, WalSync},
+        metrics::Metrics,
+    };
+    use xerj_engine::Engine;
+
+    fn test_state() -> AppState {
+        let dir = tempfile::tempdir().expect("tempdir").keep();
+        let mut config = Config::default();
+        config.server.data_dir = dir.to_string_lossy().into_owned();
+        config.storage.wal_sync = WalSync::Async;
+        let metrics = Metrics::new().expect("metrics");
+        let engine = Engine::new(config.clone()).expect("engine");
+        AppState::new(config, engine, metrics)
+    }
+
+    async fn send(app: &axum::Router, method: &str, uri: &str, body: Value) -> (StatusCode, Value) {
+        let resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(method)
+                    .uri(uri)
+                    .header("content-type", "application/json")
+                    .body(Body::from(body.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let status = resp.status();
+        let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        (status, serde_json::from_slice(&bytes).unwrap())
+    }
+
+    /// `test` maps a keyword, a long, a multi-field, a flattened and a date;
+    /// `other` maps `dkeyword` as a date, so a search over both has one index
+    /// that can format it.
+    async fn app() -> axum::Router {
+        let app = crate::router::build_es_compat_router(test_state());
+        let test = json!({"mappings": {"properties": {
+            "dkeyword": {"type": "keyword"},
+            "count": {"type": "long"},
+            "name": {"type": "text", "fields": {"raw": {"type": "keyword"}}},
+            "flat": {"type": "flattened"},
+            "date": {"type": "date"},
+            "loc": {"type": "geo_point"}}}});
+        let other = json!({"mappings": {"properties": {"dkeyword": {"type": "date"}}}});
+        for (idx, mapping, doc) in [
+            (
+                "test",
+                test,
+                json!({"dkeyword": "v", "count": 1, "name": "n",
+                                  "flat": {"foo": "bar"}, "date": "1990-12-29T22:30:00.000Z",
+                                  "loc": {"lat": 41.12, "lon": -71.34}}),
+            ),
+            ("other", other, json!({"dkeyword": "2020-01-01"})),
+        ] {
+            let (status, body) = send(&app, "PUT", &format!("/{idx}"), mapping).await;
+            assert_eq!(status, StatusCode::OK, "{body}");
+            let uri = format!("/{idx}/_doc/1?refresh=true");
+            let (status, body) = send(&app, "PUT", &uri, doc).await;
+            assert!(status.is_success(), "{body}");
+        }
+        app
+    }
+
+    fn fetch(field: &str, format: &str) -> Value {
+        json!({ "fields": [{ "field": field, "format": format }] })
+    }
+
+    /// FAIL-BEFORE: each answered 200 with the value unformatted.
+    #[tokio::test]
+    async fn a_format_on_a_formatless_field_is_a_400() {
+        let app = app().await;
+        for (field, reason) in [
+            (
+                "dkeyword",
+                "error fetching [dkeyword]: Field [dkeyword] of type [keyword]",
+            ),
+            (
+                "d*",
+                "error fetching [dkeyword] which matched [d*]: Field [dkeyword] of type [keyword]",
+            ),
+            (
+                "count",
+                "error fetching [count]: Field [count] of type [long]",
+            ),
+            (
+                "name.raw",
+                "error fetching [name.raw]: Field [name.raw] of type [keyword]",
+            ),
+            (
+                "flat.bar",
+                "error fetching [flat.bar]: Field [flat.bar] of type [flattened]",
+            ),
+        ] {
+            let (status, body) =
+                send(&app, "POST", "/test/_search", fetch(field, "yyyy/MM/dd")).await;
+            assert_eq!(status, StatusCode::BAD_REQUEST, "{field} -> {body}");
+            assert_eq!(
+                body["error"]["type"], "search_phase_execution_exception",
+                "{field}"
+            );
+            let root = &body["error"]["root_cause"][0];
+            assert_eq!(root["type"], "illegal_argument_exception", "{field}");
+            assert_eq!(
+                root["reason"],
+                format!("{reason} doesn't support formats."),
+                "{field}"
+            );
+        }
+    }
+
+    /// Types that take a format, unmapped names, a runtime field of the same
+    /// name, and a search where another index can format the field all still
+    /// answer.
+    #[tokio::test]
+    async fn formattable_and_unmatched_fields_still_fetch() {
+        let app = app().await;
+        let (status, body) = send(&app, "POST", "/test/_search", fetch("date", "yyyy/MM/dd")).await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        assert_eq!(
+            body["hits"]["hits"][0]["fields"]["date"][0], "1990/12/29",
+            "{body}"
+        );
+        for (uri, body) in [
+            ("/test/_search", fetch("loc", "wkt")),
+            ("/test/_search", fetch("missing", "yyyy")),
+            ("/test/_search", fetch("x*", "yyyy")),
+            ("/test,other/_search", fetch("dkeyword", "yyyy")),
+            (
+                "/test/_search",
+                json!({"runtime_mappings": {"count": {"type": "date"}},
+                       "fields": [{"field": "count", "format": "yyyy"}]}),
+            ),
+        ] {
+            let (status, resp) = send(&app, "POST", uri, body.clone()).await;
+            assert_eq!(status, StatusCode::OK, "{uri} {body} -> {resp}");
+        }
+    }
+}
+
 /// Minimal glob matcher for index-name wildcard expansion (* only).
 /// ES routing hash for `_id` → shard. Uses Murmur3_32 with seed 0 over
 /// the UTF-16 little-endian byte encoding of each char's UTF-16 code unit,
