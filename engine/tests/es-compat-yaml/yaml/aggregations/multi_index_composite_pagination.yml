@@ -1,0 +1,139 @@
+---
+setup:
+  - do:
+      indices.create:
+        index: global-page-a
+        body:
+          mappings:
+            properties:
+              tag: { type: keyword }
+  - do:
+      indices.create:
+        index: global-page-b
+        body:
+          mappings:
+            properties:
+              tag: { type: keyword }
+  - do:
+      index: { index: global-page-a, id: "1", body: { tag: "1" } }
+  - do:
+      index: { index: global-page-a, id: "3", body: { tag: "3" } }
+  - do:
+      index: { index: global-page-b, id: "2", body: { tag: "2" } }
+  - do:
+      index: { index: global-page-b, id: "3", body: { tag: "3" } }
+  - do:
+      index: { index: global-page-b, id: "4", body: { tag: "4" } }
+  - do:
+      index: { index: global-page-a, id: "missing", body: {} }
+  - do:
+      indices.create:
+        index: global-date-a
+        body:
+          mappings:
+            properties:
+              ts: { type: date }
+  - do:
+      indices.create:
+        index: global-date-b
+        body:
+          mappings:
+            properties:
+              ts: { type: date }
+  - do:
+      index: { index: global-date-a, id: "1", body: { ts: "2024-01-02T00:00:00Z" } }
+  - do:
+      index: { index: global-date-b, id: "1", body: { ts: "2023-12-31T00:00:00Z" } }
+  - do:
+      indices.refresh: { index: "global-page-a,global-page-b,global-date-a,global-date-b" }
+---
+"global first page orders and truncates across indices":
+  - do:
+      search:
+        index: global-page-a,global-page-b
+        body:
+          size: 0
+          aggs:
+            c:
+              composite:
+                size: 2
+                sources:
+                  - tag: { terms: { field: tag } }
+  - length: { aggregations.c.buckets: 2 }
+  - match: { aggregations.c.buckets.0.key.tag: "1" }
+  - match: { aggregations.c.buckets.1.key.tag: "2" }
+  - match: { aggregations.c.after_key.tag: "2" }
+---
+"global second page merges duplicate counts and keeps cursor":
+  - do:
+      search:
+        index: global-page-b,global-page-a
+        body:
+          size: 0
+          aggs:
+            c:
+              composite:
+                size: 2
+                after: { tag: "2" }
+                sources:
+                  - tag: { terms: { field: tag } }
+  - length: { aggregations.c.buckets: 2 }
+  - match: { aggregations.c.buckets.0.key.tag: "3" }
+  - match: { aggregations.c.buckets.0.doc_count: 2 }
+  - match: { aggregations.c.buckets.1.key.tag: "4" }
+  - match: { aggregations.c.after_key.tag: "4" }
+---
+"global descending page follows request order":
+  - do:
+      search:
+        index: global-page-a,global-page-b
+        body:
+          size: 0
+          aggs:
+            c:
+              composite:
+                size: 2
+                sources:
+                  - tag: { terms: { field: tag, order: desc } }
+  - length: { aggregations.c.buckets: 2 }
+  - match: { aggregations.c.buckets.0.key.tag: "4" }
+  - match: { aggregations.c.buckets.1.key.tag: "3" }
+  - match: { aggregations.c.buckets.1.doc_count: 2 }
+  - match: { aggregations.c.after_key.tag: "3" }
+---
+"global missing last remains reachable after all nonmissing keys":
+  - do:
+      search:
+        index: global-page-b,global-page-a
+        body:
+          size: 0
+          aggs:
+            c:
+              composite:
+                size: 1
+                after: { tag: "4" }
+                sources:
+                  - tag: { terms: { field: tag, missing_bucket: true, missing_order: last } }
+  - length: { aggregations.c.buckets: 1 }
+  - match: { aggregations.c.buckets.0.key: { tag: null } }
+  - match: { aggregations.c.after_key: { tag: null } }
+---
+"global date pages use chronology instead of formatted text order":
+  - do:
+      search:
+        index: global-date-a,global-date-b
+        body:
+          size: 0
+          aggs:
+            c:
+              composite:
+                size: 1
+                sources:
+                  - day:
+                      date_histogram:
+                        field: ts
+                        calendar_interval: 1d
+                        format: dd-MM-yyyy
+  - length: { aggregations.c.buckets: 1 }
+  - match: { aggregations.c.buckets.0.key.day: "31-12-2023" }
+  - match: { aggregations.c.after_key.day: "31-12-2023" }

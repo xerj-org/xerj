@@ -6774,6 +6774,436 @@ fn rebucket_auto_date_histograms(results: &mut Value, aggs_req: &Value) {
     }
 }
 
+/// Finalize composite pages only after every index has contributed its local
+/// first K candidates. A key beyond local K cannot enter global first K.
+fn finalize_composite_aggs(results: &mut Value, requests: &Value) {
+    let (Some(results), Some(requests)) = (results.as_object_mut(), requests.as_object()) else {
+        return;
+    };
+    for (name, spec) in requests {
+        let Some(result) = results.get_mut(name) else {
+            continue;
+        };
+        if let Some(params) = spec.get("composite") {
+            if let Some(buckets) = result.get_mut("buckets").and_then(Value::as_array_mut) {
+                let sources = params
+                    .get("sources")
+                    .and_then(Value::as_array)
+                    .map(Vec::as_slice);
+                buckets.sort_by(|a, b| compare_composite_buckets(a, b, sources));
+                let size = params.get("size").and_then(Value::as_u64).unwrap_or(10);
+                buckets.truncate(usize::try_from(size).unwrap_or(usize::MAX));
+                let after = buckets.last().and_then(|b| b.get("key")).cloned();
+                if let Some(object) = result.as_object_mut() {
+                    if let Some(after) = after {
+                        object.insert("after_key".to_string(), after);
+                    } else {
+                        object.remove("after_key");
+                    }
+                }
+            }
+        }
+        if let Some(nested) = spec.get("aggs").or_else(|| spec.get("aggregations")) {
+            if let Some(buckets) = result.get_mut("buckets") {
+                match buckets {
+                    Value::Array(buckets) => {
+                        for bucket in buckets {
+                            finalize_composite_aggs(bucket, nested);
+                        }
+                    }
+                    Value::Object(buckets) => {
+                        for bucket in buckets.values_mut() {
+                            finalize_composite_aggs(bucket, nested);
+                        }
+                    }
+                    _ => {}
+                }
+            } else {
+                finalize_composite_aggs(result, nested);
+            }
+        }
+    }
+}
+
+fn compare_composite_buckets(
+    a: &Value,
+    b: &Value,
+    sources: Option<&[Value]>,
+) -> std::cmp::Ordering {
+    use std::cmp::Ordering;
+    let Some(sources) = sources else {
+        return Ordering::Equal;
+    };
+    for (i, source) in sources.iter().enumerate() {
+        let Some((name, definition)) = source.as_object().and_then(|o| o.iter().next()) else {
+            continue;
+        };
+        let Some((kind, params)) = definition.as_object().and_then(|o| o.iter().next()) else {
+            continue;
+        };
+        fn key<'a>(bucket: &'a Value, index: usize, name: &str) -> &'a Value {
+            bucket
+                .get("__xy_composite_key__")
+                .and_then(|v| v.get(index))
+                .or_else(|| bucket.get("key").and_then(|v| v.get(name)))
+                .unwrap_or(&Value::Null)
+        }
+        let (av, bv) = (key(a, i, name), key(b, i, name));
+        let asc = params.get("order").and_then(Value::as_str) != Some("desc");
+        let null_first = match params.get("missing_order").and_then(Value::as_str) {
+            Some("first") => true,
+            Some("last") => false,
+            _ => asc,
+        };
+        let cmp = match (av.is_null(), bv.is_null()) {
+            (true, true) => Ordering::Equal,
+            (true, false) => {
+                if null_first {
+                    Ordering::Less
+                } else {
+                    Ordering::Greater
+                }
+            }
+            (false, true) => {
+                if null_first {
+                    Ordering::Greater
+                } else {
+                    Ordering::Less
+                }
+            }
+            (false, false) => {
+                let cmp = if kind == "geotile_grid" {
+                    let tile = |v: &Value| {
+                        let mut parts = v
+                            .as_str()
+                            .unwrap_or("")
+                            .split('/')
+                            .map(|p| p.parse::<i64>().unwrap_or(0));
+                        (
+                            parts.next().unwrap_or(0),
+                            parts.next().unwrap_or(0),
+                            parts.next().unwrap_or(0),
+                        )
+                    };
+                    tile(av).cmp(&tile(bv))
+                } else {
+                    match (av, bv) {
+                        (Value::String(a), Value::String(b)) => a.cmp(b),
+                        (Value::Bool(a), Value::Bool(b)) => a.cmp(b),
+                        // Match the per-index engine's numeric comparator:
+                        // a different coordinator order invalidates first K.
+                        (Value::Number(a), Value::Number(b)) => a
+                            .as_f64()
+                            .partial_cmp(&b.as_f64())
+                            .unwrap_or(Ordering::Equal),
+                        _ => av.to_string().cmp(&bv.to_string()),
+                    }
+                };
+                if asc {
+                    cmp
+                } else {
+                    cmp.reverse()
+                }
+            }
+        };
+        if cmp != Ordering::Equal {
+            return cmp;
+        }
+    }
+    Ordering::Equal
+}
+
+#[cfg(test)]
+mod composite_coordinator_tests {
+    use super::*;
+
+    fn request(size: usize, order: &str, missing: &str) -> Value {
+        json!({"c":{"composite":{"size":size,"sources":[{"x":{"terms":{"field":"x","order":order,"missing_order":missing}}}]}}})
+    }
+
+    #[test]
+    fn global_composite_order_size_and_cursor_ignore_index_traversal() {
+        let a = json!({"buckets":[{"key":{"x":"1"},"doc_count":2},{"key":{"x":"3"},"doc_count":1}],"after_key":{"x":"3"}});
+        let b = json!({"buckets":[{"key":{"x":"2"},"doc_count":3},{"key":{"x":"4"},"doc_count":1}],"after_key":{"x":"4"}});
+        for (a, b) in [(&a, &b), (&b, &a)] {
+            let mut merged = json!({"c":merge_bucket_agg(a,b).unwrap()});
+            finalize_composite_aggs(&mut merged, &request(2, "asc", "default"));
+            assert_eq!(merged["c"]["buckets"].as_array().unwrap().len(), 2);
+            assert_eq!(merged["c"]["buckets"][0]["key"]["x"], "1");
+            assert_eq!(merged["c"]["buckets"][1]["key"]["x"], "2");
+            assert_eq!(merged["c"]["after_key"]["x"], "2");
+        }
+    }
+
+    #[test]
+    fn global_composite_missing_order_and_typed_keys() {
+        for order in ["asc", "desc"] {
+            for missing in ["first", "last", "default"] {
+                for numeric in [false, true] {
+                    let keys = if numeric {
+                        vec![json!(2), json!(10), Value::Null]
+                    } else {
+                        vec![json!("2"), json!("10"), Value::Null]
+                    };
+                    let buckets: Vec<Value> = keys
+                        .iter()
+                        .map(|k| json!({"key":{"x":k},"doc_count":1}))
+                        .collect();
+                    let mut merged = json!({"c":{"buckets":buckets}});
+                    finalize_composite_aggs(&mut merged, &request(10, order, missing));
+                    let mut expected = if numeric {
+                        vec![json!(2), json!(10)]
+                    } else {
+                        vec![json!("10"), json!("2")]
+                    };
+                    if order == "desc" {
+                        expected.reverse();
+                    }
+                    if missing == "first" || (missing == "default" && order == "asc") {
+                        expected.insert(0, Value::Null);
+                    } else {
+                        expected.push(Value::Null);
+                    }
+                    let got: Vec<Value> = merged["c"]["buckets"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .map(|b| b["key"]["x"].clone())
+                        .collect();
+                    assert_eq!(got, expected, "{order}/{missing}/numeric={numeric}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn global_composite_formatted_dates_use_canonical_identity_and_order() {
+        // Different days can have the same formatted public key. They must not
+        // collapse, and lexical public-key order is not chronological order.
+        let a = json!({"buckets":[{"key":{"x":"02-01-2024"},"__xy_composite_key__":[1704153600000i64],"doc_count":2},{"key":{"x":"2024"},"__xy_composite_key__":[1704240000000i64],"doc_count":1}]});
+        let b = json!({"buckets":[{"key":{"x":"31-12-2023"},"__xy_composite_key__":[1703980800000i64],"doc_count":3},{"key":{"x":"2024"},"__xy_composite_key__":[1704326400000i64],"doc_count":1}]});
+        let mut merged = json!({"c":merge_bucket_agg(&a,&b).unwrap()});
+        finalize_composite_aggs(&mut merged, &request(4, "asc", "default"));
+        assert_eq!(merged["c"]["buckets"].as_array().unwrap().len(), 4);
+        assert_eq!(merged["c"]["buckets"][0]["key"]["x"], "31-12-2023");
+        strip_internal_tracking(&mut merged);
+        assert!(!merged.to_string().contains("__xy_"));
+    }
+
+    #[test]
+    fn global_composite_nested_keyed_and_empty_cursor() {
+        let mut results = json!({"f":{"buckets":{"yes":{"doc_count":2,"c":{"buckets":[{"key":{"x":10},"doc_count":1},{"key":{"x":2},"doc_count":1}]}}}}});
+        let req = json!({"f":{"filters":{"filters":{"yes":{"match_all":{}}}},"aggregations":request(1,"asc","default")}});
+        finalize_composite_aggs(&mut results, &req);
+        assert_eq!(results["f"]["buckets"]["yes"]["c"]["after_key"]["x"], 2);
+        let mut empty = json!({"c":{"buckets":[],"after_key":{"x":100}}});
+        finalize_composite_aggs(&mut empty, &request(1, "asc", "default"));
+        assert!(empty["c"].get("after_key").is_none());
+    }
+    #[test]
+    fn global_composite_partitioned_pages_match_union_and_counts() {
+        for seed in 0..40 {
+            for order in ["asc", "desc"] {
+                for size in 1..=5 {
+                    let req = request(size, order, "default");
+                    let mut shards: Vec<Vec<Value>> = vec![Vec::new(), Vec::new(), Vec::new()];
+                    for key in 0..17 {
+                        for (shard, buckets) in shards.iter_mut().enumerate() {
+                            let count = (key * 7 + seed * 3 + shard * 11) % 5;
+                            if count > 0 {
+                                buckets.push(json!({"key":{"x":key},"doc_count":count}));
+                            }
+                        }
+                    }
+                    if order == "desc" {
+                        for shard in &mut shards {
+                            shard.reverse();
+                        }
+                    }
+                    let mut expected = std::collections::BTreeMap::new();
+                    for shard in &shards {
+                        for b in shard {
+                            *expected
+                                .entry(b["key"]["x"].as_i64().unwrap())
+                                .or_insert(0u64) += b["doc_count"].as_u64().unwrap();
+                        }
+                    }
+                    let mut expected: Vec<_> = expected.into_iter().collect();
+                    if order == "desc" {
+                        expected.reverse();
+                    }
+                    for permutation in [[0, 1, 2], [2, 0, 1], [1, 2, 0]] {
+                        let mut after = None;
+                        let mut got = Vec::new();
+                        for _ in 0..20 {
+                            let mut merged = None;
+                            for shard in permutation {
+                                let page: Vec<_> = shards[shard]
+                                    .iter()
+                                    .filter(|b| {
+                                        let key = b["key"]["x"].as_i64().unwrap();
+                                        after.is_none_or(|a| {
+                                            if order == "asc" {
+                                                key > a
+                                            } else {
+                                                key < a
+                                            }
+                                        })
+                                    })
+                                    .take(size)
+                                    .cloned()
+                                    .collect();
+                                let result = json!({"buckets":page});
+                                merged = Some(match merged {
+                                    None => result,
+                                    Some(prev) => merge_bucket_agg(&prev, &result).unwrap(),
+                                });
+                            }
+                            let mut result = json!({"c":merged.unwrap()});
+                            finalize_composite_aggs(&mut result, &req);
+                            let page = result["c"]["buckets"].as_array().unwrap();
+                            if page.is_empty() {
+                                break;
+                            }
+                            assert!(page.len() <= size);
+                            for b in page {
+                                got.push((
+                                    b["key"]["x"].as_i64().unwrap(),
+                                    b["doc_count"].as_u64().unwrap(),
+                                ));
+                            }
+                            after = result["c"]["after_key"]["x"].as_i64();
+                        }
+                        assert_eq!(got, expected, "seed={seed},order={order},size={size}");
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn global_composite_geotiles_large_integers_and_numeric_identity() {
+        let mut result = json!({"c":{"buckets":[{"key":{"x":"12/10/0"},"doc_count":1},{"key":{"x":"12/2/0"},"doc_count":1}]}});
+        let req = json!({"c":{"composite":{"sources":[{"x":{"geotile_grid":{"field":"loc"}}}]}}});
+        finalize_composite_aggs(&mut result, &req);
+        assert_eq!(result["c"]["buckets"][0]["key"]["x"], "12/2/0");
+        // Identity must not round distinct integers through f64 even though
+        // this change preserves the engine's existing comparator precision.
+        let a = json!({"buckets":[{"key":{"x":9007199254740993i64},"__xy_composite_key__":[9007199254740993i64],"doc_count":1}]});
+        let b = json!({"buckets":[{"key":{"x":9007199254740992i64},"__xy_composite_key__":[9007199254740992i64],"doc_count":1}]});
+        assert_eq!(
+            merge_bucket_agg(&a, &b).unwrap()["buckets"]
+                .as_array()
+                .unwrap()
+                .len(),
+            2
+        );
+        let a = json!({"buckets":[{"key":{"x":2},"__xy_composite_key__":[2],"doc_count":2}]});
+        let b = json!({"buckets":[{"key":{"x":2.0},"__xy_composite_key__":[2.0],"doc_count":3}]});
+        let merged = merge_bucket_agg(&a, &b).unwrap();
+        assert_eq!(merged["buckets"].as_array().unwrap().len(), 1);
+        assert_eq!(merged["buckets"][0]["doc_count"], 5);
+    }
+    #[test]
+    fn global_composite_mixed_sources_merge_nested_metrics() {
+        let a = json!({"buckets":[
+            {"key":{"tag":"a","flag":false},"doc_count":1,"s":{"value":2.0,"__xy_agg__":"sum"}},
+            {"key":{"tag":"b","flag":true},"doc_count":1,"s":{"value":3.0,"__xy_agg__":"sum"}}]});
+        let b = json!({"buckets":[
+            {"key":{"tag":"a","flag":true},"doc_count":2,"s":{"value":5.0,"__xy_agg__":"sum"}},
+            {"key":{"tag":"a","flag":false},"doc_count":2,"s":{"value":7.0,"__xy_agg__":"sum"}}]});
+        let req = json!({"c":{"composite":{"size":2,"sources":[
+            {"tag":{"terms":{"field":"tag"}}},
+            {"flag":{"terms":{"field":"flag","order":"desc"}}}]}}});
+        for (a, b) in [(&a, &b), (&b, &a)] {
+            let mut result = json!({"c":merge_bucket_agg(a,b).unwrap()});
+            finalize_composite_aggs(&mut result, &req);
+            assert_eq!(
+                result["c"]["buckets"][0]["key"],
+                json!({"tag":"a","flag":true})
+            );
+            assert_eq!(
+                result["c"]["buckets"][1]["key"],
+                json!({"tag":"a","flag":false})
+            );
+            assert_eq!(result["c"]["buckets"][1]["doc_count"], 3);
+            assert_eq!(result["c"]["buckets"][1]["s"]["value"], 9.0);
+            assert_eq!(result["c"]["after_key"], json!({"tag":"a","flag":false}));
+        }
+    }
+    #[test]
+    fn real_engine_pages_and_api_reduction_match_union() {
+        for order in ["asc", "desc"] {
+            for missing in ["first", "last", "default"] {
+                for size in 1..=4 {
+                    let shards = vec![
+                        vec![
+                            json!({"x":"10"}),
+                            json!({"x":"2"}),
+                            json!({}),
+                            json!({"x":"a"}),
+                        ],
+                        vec![
+                            json!({"x":"10"}),
+                            json!({"x":"3"}),
+                            json!({"x":"b"}),
+                            json!({}),
+                        ],
+                    ];
+                    let all: Vec<Value> = shards.iter().flatten().cloned().collect();
+                    let params = json!({"size":20,"sources":[{"x":{"terms":{"field":"x","order":order,"missing_bucket":true,"missing_order":missing}}}],"__xy_field_types__":{"x":"keyword"}});
+                    let full =
+                        xerj_engine::aggs::run_aggs(&json!({"c":{"composite":params}}), &all);
+                    let expected = full["c"]["buckets"].clone();
+                    for reversed in [false, true] {
+                        let mut p = params.clone();
+                        p["size"] = json!(size);
+                        let mut found = Vec::new();
+                        for _ in 0..12 {
+                            let req = json!({"c":{"composite":p}});
+                            let mut merged: Option<Value> = None;
+                            for idx in if reversed { [1, 0] } else { [0, 1] } {
+                                let part = xerj_engine::aggs::run_aggs(&req, &shards[idx]);
+                                merged = Some(match merged {
+                                    None => part["c"].clone(),
+                                    Some(old) => merge_bucket_agg(&old, &part["c"]).unwrap(),
+                                });
+                            }
+                            let mut result = json!({"c":merged.unwrap()});
+                            finalize_composite_aggs(&mut result, &req);
+                            let page = result["c"]["buckets"].as_array().unwrap();
+                            if page.is_empty() {
+                                break;
+                            }
+                            found.extend(page.iter().cloned());
+                            p["after"] = result["c"]["after_key"].clone();
+                        }
+                        assert_eq!(
+                            Value::Array(found),
+                            expected,
+                            "{order}/{missing}/size{size}/reverse{reversed}"
+                        );
+                    }
+                }
+            }
+        }
+    }
+    #[test]
+    fn real_engine_formatted_dates_reduce_without_tracking_leak() {
+        let a = vec![json!({"ts":"2024-01-02T00:00:00Z"})];
+        let b = vec![json!({"ts":"2023-12-31T00:00:00Z"})];
+        let req = json!({"c":{"composite":{"size":1,"sources":[{"d":{"date_histogram":{"field":"ts","calendar_interval":"1d","format":"dd-MM-yyyy"}}}]}}});
+        let pa = xerj_engine::aggs::run_aggs(&req, &a);
+        let pb = xerj_engine::aggs::run_aggs(&req, &b);
+        let mut merged = json!({"c":merge_bucket_agg(&pa["c"],&pb["c"]).unwrap()});
+        finalize_composite_aggs(&mut merged, &req);
+        strip_internal_tracking(&mut merged);
+        assert_eq!(merged["c"]["buckets"].as_array().unwrap().len(), 1);
+        assert_eq!(merged["c"]["buckets"][0]["key"]["d"], "31-12-2023");
+        assert!(!merged.to_string().contains("__xy_"));
+    }
+}
+
 fn recoordinate_auto_date_histogram(res: &mut Value, target_buckets: usize) {
     let Some(obj) = res.as_object_mut() else {
         return;
@@ -7180,6 +7610,26 @@ fn merge_bucket_agg(old: &Value, new: &Value) -> Option<Value> {
             }
             n.to_string()
         }
+        if let Some(raw) = b.get("__xy_composite_key__").and_then(Value::as_array) {
+            let parts: Vec<String> = raw
+                .iter()
+                .map(|part| match part {
+                    Value::Number(n) => {
+                        let canonical = if n.is_i64() || n.is_u64() {
+                            n.to_string()
+                        } else {
+                            num_to_canonical(n)
+                        };
+                        format!("n:{canonical}")
+                    }
+                    other => format!("j:{other}"),
+                })
+                .collect();
+            return format!(
+                "composite:{}",
+                serde_json::to_string(&parts).unwrap_or_default()
+            );
+        }
         match b.get("key") {
             Some(Value::String(s)) => format!("s:{s}"),
             Some(Value::Number(n)) => format!("n:{}", num_to_canonical(n)),
@@ -7231,7 +7681,11 @@ fn merge_bucket_agg(old: &Value, new: &Value) -> Option<Value> {
             existing_obj.insert("doc_count".to_string(), json!(a_count + b_count));
             // Merge any nested sub-aggregations.
             for (k, v) in b_obj {
-                if k == "doc_count" || k == "key" || k == "key_as_string" {
+                if k == "doc_count"
+                    || k == "key"
+                    || k == "key_as_string"
+                    || k == "__xy_composite_key__"
+                {
                     continue;
                 }
                 if let Some(old_v) = existing_obj.get(k).cloned() {
@@ -16877,6 +17331,7 @@ async fn search_impl(
     if let Some(aggs_req) = body.aggs.as_ref().or(body.aggregations.as_ref()) {
         if let Some(m) = merged_aggs.as_mut() {
             rebucket_auto_date_histograms(m, aggs_req);
+            finalize_composite_aggs(m, aggs_req);
         }
     }
 

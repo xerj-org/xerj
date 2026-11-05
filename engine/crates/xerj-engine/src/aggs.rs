@@ -9013,9 +9013,29 @@ fn run_composite(
                 }
             }
 
+            // Keep a canonical, typed identity for cross-index reduction.
+            // Formatted date keys may be non-monotone or even lossy; the HTTP
+            // layer removes this internal field before returning the result.
+            let raw_key: Vec<Value> = source_defs
+                .iter()
+                .enumerate()
+                .map(|(i, (_, src_type, _, _))| {
+                    let val = &key[i];
+                    if val == "__null__" {
+                        Value::Null
+                    } else if src_type == "date_histogram" || src_type == "histogram" {
+                        composite_typed_key_value(CompositeKeyKind::Heuristic, val)
+                    } else if src_type == "terms" {
+                        composite_typed_key_value(kinds[i], val)
+                    } else {
+                        Value::String(val.clone())
+                    }
+                })
+                .collect();
             let mut bucket = json!({
                 "key": Value::Object(key_obj),
-                "doc_count": doc_count
+                "doc_count": doc_count,
+                "__xy_composite_key__": raw_key
             });
 
             if let Some(sub) = sub_aggs {
@@ -15575,6 +15595,24 @@ mod tests {
     }
 
     // ── RC4-W2 item 7: composite key typing from the field mapping ──────
+
+    #[test]
+    fn composite_canonical_keys_preserve_formatted_date_identity() {
+        let docs = vec![
+            json!({"ts":"2024-01-02T00:00:00Z"}),
+            json!({"ts":"2023-12-31T00:00:00Z"}),
+        ];
+        let result = run_aggs(
+            &json!({"c":{"composite":{"sources":[{"d":{"date_histogram":{"field":"ts","calendar_interval":"1d","format":"dd-MM-yyyy"}}}]}}}),
+            &docs,
+        );
+        let buckets = result["c"]["buckets"].as_array().unwrap();
+        assert_eq!(buckets.len(), 2);
+        assert_eq!(buckets[0]["key"]["d"], "31-12-2023");
+        assert_eq!(buckets[0]["__xy_composite_key__"][0], 1703980800000i64);
+        assert_eq!(buckets[1]["key"]["d"], "02-01-2024");
+        assert_eq!(buckets[1]["__xy_composite_key__"][0], 1704153600000i64);
+    }
 
     #[test]
     fn composite_missing_order_is_absolute_and_pages_match_full_result() {
