@@ -104,9 +104,15 @@ pub fn index_safe_corpus_name(name: &str) -> String {
 /// cleaned.
 pub fn valid_repo_name(repo: &str) -> Result<(), String> {
     let mut chars = repo.chars();
-    let first_ok = chars
-        .next()
-        .is_some_and(|c| c.is_ascii_alphanumeric() || c == '_');
+    let first_ok = match chars.next() {
+        Some(c) if c.is_ascii_alphanumeric() || c == '_' => true,
+        // A dot-leading repo name (`.tmux`, `.github`, `.dotfiles`) is a real
+        // GitHub name and not a path escape: only `.` and `..` are, and both are
+        // rejected here. A dot followed by another dot could still spell `..`,
+        // so that shape stays out.
+        Some('.') => !matches!(chars.next(), None | Some('.')),
+        _ => false,
+    };
     let rest_ok = chars.all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-'));
     if first_ok && rest_ok {
         return Ok(());
@@ -115,7 +121,8 @@ pub fn valid_repo_name(repo: &str) -> Result<(), String> {
         "repo name '{repo}' is not a plain directory name. It is used as a path under the \
          corpus directory and is then force-checked-out and cleaned, so a name containing \
          '/' or '..' would overwrite files outside the corpus. Allowed: letters, digits, \
-         '.', '_' and '-', not starting with '.' or '-'."
+         '.', '_' and '-'; '.' and '..' are not names, a leading '-' is reserved for \
+         flags, and a leading '.' must be followed by a letter, digit or '_'."
     ))
 }
 
@@ -275,7 +282,11 @@ mod tests {
         for bad in [
             "../escape",
             "a/b",
-            ".hidden",
+            ".",
+            "..",
+            "...",
+            "..hidden",
+            ".hidden/escape",
             "-flag",
             "",
             "repo name",
@@ -287,7 +298,19 @@ mod tests {
                 "the message must say why: {err}"
             );
         }
-        for good in ["valkey", "ClickHouse", "x_2", "a.b-c", "Sled"] {
+        for good in [
+            "valkey",
+            "ClickHouse",
+            "x_2",
+            "a.b-c",
+            "Sled",
+            // #2939: real GitHub repo names that are directories, not escapes.
+            ".tmux",
+            ".github",
+            ".dotfiles",
+            ".x",
+            "_private",
+        ] {
             assert!(valid_repo_name(good).is_ok(), "{good:?}");
         }
     }
