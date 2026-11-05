@@ -156,6 +156,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `sudo ifconfig lo0 alias 127.0.0.2 up` instead of a bare connection error,
   through the new `xerj_common::loopback_test::require_loopback_alias`.
   CONTRIBUTING documents both, and that CI runs `--profile ci-test`.
+- `_bulk` refuses a malformed action line the way Elasticsearch 8 does: the
+  whole request is a 400 `illegal_argument_exception` naming the line
+  (`Malformed action/metadata line [3], expected FIELD_NAME but found
+  [END_OBJECT]`, `Action/metadata line [1] contains an unknown parameter
+  [_type]`), and nothing in the body is written. XERJ answered 200 with a
+  per-item error for that line and wrote every other action. An unknown
+  parameter (`_type`, `_version`, `_routing`, a typo) used to be ignored and
+  is now refused, as in ES 8; a client sending the 7.x REST compatibility
+  header (`compatible-with=7`) may still send `_type`, as ES 8 allows. A line
+  the check cannot read with confidence (JSON ES's own parser rejects, an
+  escaped key, a byte order mark) stops the check there, and the rest of the
+  body is answered as before.
 - Data-stream `_rollover` honours `dry_run` and its `conditions` instead of
   ignoring the body: `max_docs`/`max_age` are ORed and reported in
   `conditions`, and a dry run or an unmet condition creates no backing index.

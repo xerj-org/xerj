@@ -21417,11 +21417,13 @@ pub async fn bulk_ops(
     State(state): State<AppState>,
     Path(index): Path<String>,
     axum::extract::Query(qp): axum::extract::Query<std::collections::HashMap<String, String>>,
+    headers: axum::http::HeaderMap,
     body: bytes::Bytes,
 ) -> impl IntoResponse {
     let started = Instant::now();
     let opts = bulk_opts_from_query(&qp);
-    process_bulk_body(&state, Some(&index), &body, started, opts).await
+    let compat_v7 = wants_rest_compat_v7(&headers);
+    process_bulk_body(&state, Some(&index), &body, started, opts, compat_v7).await
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -21431,11 +21433,30 @@ pub async fn bulk_ops(
 pub async fn global_bulk(
     State(state): State<AppState>,
     axum::extract::Query(qp): axum::extract::Query<std::collections::HashMap<String, String>>,
+    headers: axum::http::HeaderMap,
     body: bytes::Bytes,
 ) -> impl IntoResponse {
     let started = Instant::now();
     let opts = bulk_opts_from_query(&qp);
-    process_bulk_body(&state, None, &body, started, opts).await
+    let compat_v7 = wants_rest_compat_v7(&headers);
+    process_bulk_body(&state, None, &body, started, opts, compat_v7).await
+}
+
+/// A request sent with ES's REST API compatibility header for 7.x
+/// (`Accept` or `Content-Type` of
+/// `application/vnd.elasticsearch+json; compatible-with=7`). ES 8 keeps a few
+/// 7.x forms for such a client; `_bulk` uses it to accept `_type`.
+fn wants_rest_compat_v7(headers: &axum::http::HeaderMap) -> bool {
+    [axum::http::header::ACCEPT, axum::http::header::CONTENT_TYPE]
+        .iter()
+        .filter_map(|h| headers.get(h)?.to_str().ok())
+        .any(|v| {
+            v.split(';').any(|param| {
+                param.trim().split_once('=').is_some_and(|(k, v)| {
+                    k.trim().eq_ignore_ascii_case("compatible-with") && v.trim() == "7"
+                })
+            })
+        })
 }
 
 fn bulk_opts_from_query(
@@ -21522,6 +21543,7 @@ async fn process_bulk_body(
     body: &bytes::Bytes,
     _started: Instant,
     opts: xerj_engine::bulk::BulkOpts,
+    compat_v7: bool,
 ) -> axum::response::Response {
     // The request body remains owned by this handler through parsing,
     // grouping, and publication. The opt-in guard is a single branch and
@@ -21537,6 +21559,14 @@ async fn process_bulk_body(
             return ApiError::new(e).into_response();
         }
     };
+
+    // ES reads every action line before it runs any action, so a malformed
+    // one refuses the whole request and nothing is written. Checked on the
+    // body as sent, before the rewrites below and before the local and
+    // cluster paths split, so the line number is the client's.
+    if let Some(reason) = crate::bulk_action_lines::first_malformed_action_line(text, compat_v7) {
+        return es_bad_request("illegal_argument_exception", &reason, None);
+    }
 
     // ES bulk NDJSON alternates action-lines and source-lines. We rewrite
     // each source line through apply_ignore_malformed so the downstream

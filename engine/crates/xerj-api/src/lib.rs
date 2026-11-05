@@ -68,6 +68,7 @@ pub mod audit_mw;
 pub mod auth;
 pub mod authz;
 pub mod binary_protocol;
+mod bulk_action_lines;
 pub mod cat;
 pub mod cluster_shard;
 pub mod embed_warning;
