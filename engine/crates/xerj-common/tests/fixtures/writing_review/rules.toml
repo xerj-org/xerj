@@ -1,0 +1,28 @@
+[[rules]]
+id = "slop"
+[rules.check]
+kind = "banned_phrases"
+phrases = ["game changer"]
+[[rules]]
+id = "length"
+[rules.check]
+kind = "sentence_length"
+max_words = 12
+[[rules]]
+id = "repeat"
+[rules.check]
+kind = "repetition"
+min_words = 3
+max_occurrences = 1
+[[rules]]
+id = "hedge"
+[rules.check]
+kind = "hedging"
+phrases = ["perhaps", "might"]
+max_per_100_words = 20
+[[rules]]
+id = "citation"
+[rules.check]
+kind = "citations"
+claim_phrases = ["research shows"]
+numeric_claims = true
