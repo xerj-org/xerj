@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on apple, cleanup, duplicate-photos queries this for how YORDINDIA/tidybyte implements it: \ud83d\udcf8 Tinder-style swipe UI to clean your iPhone photo library \u2014 find duplicates, blurry shots, old screenshots & compress videos. 100% on-devic (selected work: Tidybyte, TidybyteTests, TidybyteUITests)",
+ "domain": "an agent working on apple, cleanup, duplicate-photos queries this for how YORDINDIA/tidybyte implements it: Find and remove reclaimable space on iPhone, iPad and Mac. On-device, approve before delete. SwiftUI apps and Astro site (selected work: Tidybyte, TidybyteTests, TidybyteUITests)",
  "repos": [
   {
    "repo": "tidybyte",

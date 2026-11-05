@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on JavaScript queries this for how bhaki18/manga-cli implements it: a cli to read manga and watch anime for linux (selected work: src, src/utils, src/viewer)",
+ "domain": "an agent working on anime, anime-downloader, anime-search queries this for how bhaki18/manga-cli implements it: a cli to read manga and watch anime for linux (selected work: src, src/utils, src/viewer)",
  "repos": [
   {
    "repo": "manga-cli",

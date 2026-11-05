@@ -2,7 +2,7 @@
  "corpus": "sedulustech--jint",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
+ "shelf": "AI",
  "domain": "an agent working on artificial-intelligence, classification-model, linter queries this for how sedulustech/jint implements it: an extensible semantic linter (selected work: packages/sdk, packages/app, packages/cli)",
  "repos": [
   {

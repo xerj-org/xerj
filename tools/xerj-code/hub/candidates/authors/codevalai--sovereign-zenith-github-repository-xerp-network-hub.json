@@ -1,0 +1,23 @@
+{
+ "corpus": "codevalai--sovereign-zenith-github-repository-xerp-network-hub",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on TypeScript queries this for how codevalai/Sovereign-Zenith-GitHub-Repository-XERP-Network-Hub implements it: Sovereign Zenith GitHub Repository & XERP Network Hub",
+ "repos": [
+  {
+   "repo": "Sovereign-Zenith-GitHub-Repository-XERP-Network-Hub",
+   "url": "https://github.com/codevalai/Sovereign-Zenith-GitHub-Repository-XERP-Network-Hub",
+   "sha": "ba594612c899a7eabf73eb438781741a62f3f881",
+   "licence": "author's permission (LICENSE at pin ba594612c899: NOASSERTION; repository: NOASSERTION)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T21:49Z",
+    "consent_receipt": "a59e63bb3856",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T21:49Z (receipt a59e63bb3856); pinned to the default-branch head. LICENSE at pin ba594612c899: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

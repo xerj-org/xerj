@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-agents, browser-automation, chrome-extension queries this for how asaf-labs/opencode-in-chrome implements it: Session-owned Chrome tabs for OpenCode: authenticated local MCP, visible agent cursor, and easy project setup (selected work: extension, test)",
+ "domain": "an agent working on ai-agents, browser-automation, chrome-extension queries this for how asaf-labs/opencode-in-chrome implements it: Chrome MCP server for OpenCode: browser automation with existing logins, session-owned tabs, and multi-profile support (selected work: extension, test)",
  "repos": [
   {
    "repo": "opencode-in-chrome",

@@ -8,15 +8,15 @@
   {
    "repo": "GLD.SerializerBenchmark",
    "url": "https://github.com/leo-gan/GLD.SerializerBenchmark",
-   "sha": "4331c7200b430bb3f3aef084f13db18f5bb248d8",
-   "licence": "MIT (LICENSE file at pin 4331c7200b43, GitHub licence API 2026-11-05)",
+   "sha": "f7a1c4d89b0c3655ae940c6501f44b0eb4555611",
+   "licence": "MIT (LICENSE file at pin f7a1c4d89b0c, GitHub licence API 2026-11-05)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-05T23:52Z",
     "consent_receipt": "5a5386deb175",
-    "note": "Inclusion consented by the commit author by email at 2026-10-05T23:52Z (receipt 5a5386deb175); selected commit 4331c7200b43: \"Teach the Serialization Standard as the contract being measured (#258)\". LICENSE file at pin 4331c7200b43 detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-10-05T23:52Z (receipt 5a5386deb175); selected commit f7a1c4d89b0c: \"Add a few true stories, and a parade, to the docs (#259)\". LICENSE file at pin f7a1c4d89b0c detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
    }
   }
  ]
