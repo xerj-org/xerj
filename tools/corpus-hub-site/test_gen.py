@@ -1346,6 +1346,8 @@ class BuiltSiteDiscoverabilityTest(SiteLinksTest):
         Yiming1997 keeps the discussion #2383 consent from the first restore.
         docling-project/docling-pipelines and omni-line/omni-audit already had a
         manifest for another contributor; those files stay on that contributor's pin.
+        A withheld login may later re-appear via hub.xerj.org/add with other
+        repos; only the audited repo/pin must stay out of the ledger.
         """
         audit = pathlib.Path(__file__).resolve().parents[1] / "xerj-code" / "hub" / "audits" / "2171-drops.csv"
         with audit.open(newline="") as fh:
@@ -1383,7 +1385,14 @@ class BuiltSiteDiscoverabilityTest(SiteLinksTest):
             for repo in (row[1] or "").split():
                 by_repo.setdefault(repo, row)
         for r in withheld:
-            self.assertNotIn(r["login"], ledger, r["login"])
+            # The audited drop must stay out. A later hub.xerj.org/add consent
+            # may put the same login back with different repos (same rule as
+            # restored rows that later add more via /add).
+            rows = [
+                x for x in ledger.get(r["login"]) or []
+                if x["pin"]["sha"] == r["pin"] or x["repo"] == r["repo"]
+            ]
+            self.assertEqual(rows, [], r["login"])
         for r in restored:
             login, pin = r["login"], r["pin"]
             # the audited corpus, found by its pin: a restored person may since have added more repos
