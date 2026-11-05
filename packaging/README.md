@@ -1,7 +1,7 @@
 # Packaging and listings
 
 Files that MCP catalogues and agent tools read to find and install XERJ.
-Every listing uses the same description:
+New listings should use this description:
 
 > XERJ: the search engine for AI agents. A new way for AI to search for
 > data: one local Rust binary that indexes your code, docs, specs and logs,
