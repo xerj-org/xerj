@@ -149,6 +149,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Multi-index composite aggregation pages now use the requested global source
+  order and page size, combine duplicate bucket counts, and set the cursor from
+  the retained page. Internal typed keys preserve formatted-date ordering.
+
 - A plain debug `cargo test --workspace` no longer aborts on a stack overflow,
   and the `127.0.0.2` loopback test names the missing macOS alias (#2903). Five
   tests that run the ES-compat router on multi-thread workers overflowed tokio's
