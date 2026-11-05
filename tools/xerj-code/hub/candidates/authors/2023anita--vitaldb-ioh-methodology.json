@@ -1,0 +1,23 @@
+{
+ "corpus": "2023anita--vitaldb-ioh-methodology",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Python queries this for how 2023Anita/vitaldb-ioh-methodology implements it: Reproducible analysis code for VitalDB intraoperative hypotension definitions: threshold expansion, monitoring-source dependence and prognos",
+ "repos": [
+  {
+   "repo": "vitaldb-ioh-methodology",
+   "url": "https://github.com/2023Anita/vitaldb-ioh-methodology",
+   "sha": "b01e57a419daba876301a5ec4fe27f064790aa72",
+   "licence": "MIT (LICENSE file at pin b01e57a419da, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T13:38Z",
+    "consent_receipt": "73b4f0b8f3ca",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T13:38Z (receipt 73b4f0b8f3ca); pinned to the default-branch head. LICENSE file at pin b01e57a419da detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

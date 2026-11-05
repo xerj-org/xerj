@@ -2,8 +2,8 @@
  "corpus": "huldoser--test-inventory",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on playwright, static-analysis, test-metadata queries this for how Huldoser/test-inventory implements it: Test metadata from source code, not from test results (selected work: src, tests)",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on playwright, static-analysis, test-metadata queries this for how Huldoser/test-inventory implements it: Lists every Playwright, Vitest and Jest test from the source code, without running it: its state and why, tags, an id that survives a move,  (selected work: src, tests)",
  "repos": [
   {
    "repo": "test-inventory",

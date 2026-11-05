@@ -1,9 +1,9 @@
 {
- "corpus": "hissain--gtalk",
+ "corpus": "infomity--gtalk",
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on aimode, cli, command-line queries this for how hissain/gtalk implements it: A powerful command-line interface to interact with Google's AI Mode directly from your terminal without requiring any TOKEN. Get context awa (selected work: gtalk, the project root)",
+ "domain": "an agent working on aimode, cli, command-line queries this for how infomity/gtalk implements it: A powerful command-line interface to interact with Google's AI Mode directly from your terminal without requiring any TOKEN. Get context awa (selected work: gtalk, the project root)",
  "repos": [
   {
    "repo": "gtalk",

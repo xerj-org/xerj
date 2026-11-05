@@ -8,15 +8,15 @@
   {
    "repo": "native-cli-ai",
    "url": "https://github.com/madebyaris/native-cli-ai",
-   "sha": "e04da678aa9c489f16819c45e73136ac5351dd58",
-   "licence": "author's permission (LICENSE at pin e04da678aa9c: NONE; repository: none)",
+   "sha": "e0fc75cb202706a8be74dec2fa9d13ba84477dd7",
+   "licence": "author's permission (LICENSE at pin e0fc75cb2027: NONE; repository: none)",
    "review": {
     "spdx": "NONE",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-02T05:22Z",
     "consent_receipt": "bdd26855d058",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T05:22Z (receipt bdd26855d058); pinned to the default-branch head. LICENSE at pin e04da678aa9c: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T05:22Z (receipt bdd26855d058); pinned to the default-branch head. LICENSE at pin e0fc75cb2027: NONE (repository: none); used with the author's permission, with attribution."
    }
   }
  ]

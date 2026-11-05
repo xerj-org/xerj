@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on foss, kotlin, lastfm queries this for how Clash-Projects/LastWave-Native implements it: Next-Gen YouTube Music Client with Liquid Glass UI , Algorithmic Smart Playlist Generator, Real-Time Synced Lyrics & Universal Last.fm Scrob (selected work: app/src)",
+ "domain": "an agent working on foss, kotlin, lastfm queries this for how Clash-Projects/LastWave-Native implements it: Simple Android YouTube Music client with Material UI, Liquid Glass, Bit-Perfect playback, Automix, Lossless addons & advanced audiophile fea (selected work: app/src)",
  "repos": [
   {
    "repo": "LastWave-Native",
