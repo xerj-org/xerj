@@ -38,8 +38,8 @@ use xerj_cluster::{ApplyEffect, ClusterCommand, ShardOp, ShardResult};
 
 use crate::es_compat::{
     aggregate_by_query_results, apply_get_doc_source_filter, apply_local_update,
-    pipeline_rejected_body, search_shard_local, unrunnable_pipeline_reason, EsSearchBody,
-    EsSearchJson, EsSearchQueryParams, EsUpdateBody, GetDocParams, UpdateDocParams,
+    pipeline_rejected_body, search_shard_local, unrunnable_pipeline_reason, url_search_window,
+    EsSearchBody, EsSearchJson, EsSearchQueryParams, EsUpdateBody, GetDocParams, UpdateDocParams,
 };
 use crate::responses::{EsDeleteDocResponse, EsDocResponse, EsGetResponse};
 use crate::state::AppState;
@@ -352,6 +352,14 @@ pub(crate) async fn fanout_search(
     if targets.is_empty() || (targets.len() == 1 && targets[0] == me) {
         return None;
     }
+    // The shards are sent this node's own `size` and `from`, so the URL
+    // values are read here: a bad one is refused as a single node refuses
+    // it, and a good one wins over the body, as on a single node. The other
+    // search parameters reach each shard's `search_impl` unchanged.
+    let (url_size, url_from) = match url_search_window(params) {
+        Ok(window) => window,
+        Err(refusal) => return Some(refusal),
+    };
     let parsed = body.0.clone().unwrap_or_default();
     if parsed.aggs.is_some() || parsed.aggregations.is_some() {
         return Some(cluster_search_unsupported("aggregations"));
@@ -375,8 +383,8 @@ pub(crate) async fn fanout_search(
         return Some(cluster_search_unsupported("scroll"));
     }
 
-    let from = parsed.from;
-    let size = parsed.size;
+    let from = url_from.unwrap_or(parsed.from);
+    let size = url_size.unwrap_or(parsed.size);
     let window = from.saturating_add(size);
     if window > MAX_FANOUT_WINDOW {
         return Some(cluster_search_unsupported("a from+size window above 10000"));

@@ -5562,6 +5562,31 @@ fn track_total_hits_up_to(n: i64) -> Result<Value, Response> {
     }
 }
 
+/// The URL `size` and `from`, as `search_impl` applies them: ES names a
+/// negative value, and anything else that is not a count is the int-parse
+/// error.
+pub(crate) fn url_search_window(
+    params: &EsSearchQueryParams,
+) -> Result<(Option<usize>, Option<usize>), Response> {
+    let size = match params.size.as_deref() {
+        None => None,
+        Some(s) => Some(s.parse::<usize>().map_err(|_| match s.parse::<i64>() {
+            Ok(n) if n < 0 => {
+                illegal_argument(&format!("[size] parameter cannot be negative, found [{n}]"))
+            }
+            _ => int_param_parse_error("size", s),
+        })?),
+    };
+    let from = match params.from.as_deref() {
+        None => None,
+        Some(s) => Some(s.parse::<usize>().map_err(|_| match s.parse::<i64>() {
+            Ok(n) if n < 0 => negative_from_error(n),
+            _ => int_param_parse_error("from", s),
+        })?),
+    };
+    Ok((size, from))
+}
+
 fn int_param_parse_error(param: &str, value: &str) -> Response {
     (
         StatusCode::BAD_REQUEST,
@@ -14358,27 +14383,16 @@ async fn search_impl(
     // Parse `?size=` / `?from=` here (not at the axum `Query` layer) so a
     // non-numeric value yields ES's JSON `illegal_argument_exception` rather
     // than axum's `text/plain` 400 (item 4d).
-    if let Some(ref size_s) = params.size {
-        match size_s.parse::<usize>() {
-            Ok(n) => body.size = n,
-            Err(_) => match size_s.parse::<i64>() {
-                Ok(n) if n < 0 => {
-                    return illegal_argument(&format!(
-                        "[size] parameter cannot be negative, found [{n}]"
-                    ))
-                }
-                _ => return int_param_parse_error("size", size_s),
-            },
+    match url_search_window(&params) {
+        Ok((size, from)) => {
+            if let Some(n) = size {
+                body.size = n;
+            }
+            if let Some(n) = from {
+                body.from = n;
+            }
         }
-    }
-    if let Some(ref from_s) = params.from {
-        match from_s.parse::<usize>() {
-            Ok(n) => body.from = n,
-            Err(_) => match from_s.parse::<i64>() {
-                Ok(n) if n < 0 => return negative_from_error(n),
-                _ => return int_param_parse_error("from", from_s),
-            },
-        }
+        Err(refusal) => return refusal,
     }
     // ES refuses these before it runs anything (`RestSearchAction` and
     // `SearchSourceBuilder`, 8.13.4); XERJ used to run the search.
