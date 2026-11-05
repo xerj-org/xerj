@@ -59,6 +59,7 @@ FOOTER_END = "<!-- seo:footer-end -->"
 FOOTER_MAP: list[tuple[str, list[tuple[str, str]]]] = [
     ("PRODUCT", [
         ("/product", "PRODUCT"),
+        ("/xerj-query-1", "XERJ QUERY-1"),
         ("/architecture/", "ARCHITECTURE"),
         ("/benchmarks/", "BENCHMARKS"),
         ("/pricing/", "PRICING"),
