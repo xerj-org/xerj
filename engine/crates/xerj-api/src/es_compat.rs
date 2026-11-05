@@ -6409,6 +6409,113 @@ fn find_terms_query_over_limit(
 }
 
 #[cfg(test)]
+mod search_int_param_tests {
+    use super::*;
+    use axum::{body::Body, http::Request};
+    use tower::ServiceExt;
+    use xerj_common::{
+        config::{Config, WalSync},
+        metrics::Metrics,
+    };
+    use xerj_engine::Engine;
+
+    fn test_state() -> AppState {
+        let dir = tempfile::tempdir().expect("tempdir").keep();
+        let mut config = Config::default();
+        config.server.data_dir = dir.to_string_lossy().into_owned();
+        config.storage.wal_sync = WalSync::Async;
+        let metrics = Metrics::new().expect("metrics");
+        let engine = Engine::new(config.clone()).expect("engine");
+        AppState::new(config, engine, metrics)
+    }
+
+    async fn get(app: &axum::Router, uri: &str) -> (StatusCode, Value) {
+        let resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("GET")
+                    .uri(uri)
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let status = resp.status();
+        let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        (status, serde_json::from_slice(&bytes).unwrap())
+    }
+
+    async fn app() -> axum::Router {
+        let app = crate::router::build_es_compat_router(test_state());
+        let resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("PUT")
+                    .uri("/idx/_doc/1?refresh=true")
+                    .header("content-type", "application/json")
+                    .body(Body::from(r#"{"foo":"bar"}"#))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert!(resp.status().is_success());
+        app
+    }
+
+    /// FAIL-BEFORE: `size=-5` said "Failed to parse int parameter [size]" and
+    /// the other three answered 200.
+    #[tokio::test]
+    async fn out_of_range_search_params_are_a_400() {
+        let app = app().await;
+        for (query, reason) in [
+            ("size=-5", "[size] parameter cannot be negative, found [-5]"),
+            ("terminate_after=-1", "terminateAfter must be > 0"),
+            ("batched_reduce_size=1", "batchedReduceSize must be >= 2"),
+            ("pre_filter_shard_size=0", "preFilterShardSize must be >= 1"),
+            (
+                "terminate_after=abc",
+                "Failed to parse int parameter [terminate_after] with value [abc]",
+            ),
+        ] {
+            let (status, body) = get(&app, &format!("/idx/_search?{query}")).await;
+            assert_eq!(status, StatusCode::BAD_REQUEST, "{query} -> {body}");
+            assert_eq!(
+                body["error"]["type"], "illegal_argument_exception",
+                "{query}"
+            );
+            assert_eq!(body["error"]["reason"], reason, "{query}");
+        }
+    }
+
+    /// The bounds themselves, and a zero `terminate_after` (ES's "unset"),
+    /// still search.
+    #[tokio::test]
+    async fn in_range_search_params_still_answer() {
+        let app = app().await;
+        for query in [
+            "size=0",
+            "terminate_after=0",
+            "terminate_after=5",
+            "batched_reduce_size=2",
+            "pre_filter_shard_size=1",
+        ] {
+            let (status, body) = get(&app, &format!("/idx/_search?{query}")).await;
+            assert_eq!(status, StatusCode::OK, "{query} -> {body}");
+        }
+        let (_, body) = get(&app, "/idx/_search?size=1&terminate_after=5").await;
+        assert_eq!(
+            body["hits"]["hits"].as_array().map(Vec::len),
+            Some(1),
+            "{body}"
+        );
+    }
+}
+
+#[cfg(test)]
 mod max_terms_count_tests {
     use super::*;
     use axum::{body::Body, http::Request};
