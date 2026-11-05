@@ -14728,6 +14728,12 @@ async fn search_impl(
             return ApiError::new(xerj_common::XerjError::index_not_found(&index)).into_response();
         }
     }
+    if let Some(ib) = body.indices_boost.as_ref() {
+        let iu = params.ignore_unavailable.as_deref() == Some("true");
+        if let Some(resp) = index_boost_resolution_error(&state, ib, iu) {
+            return resp;
+        }
+    }
 
     // PIT index_filter: AND it with body.query so every PIT search
     // respects the filter chosen at PIT-open time.
@@ -17068,6 +17074,7 @@ async fn search_impl(
             let participating: Vec<String> = index_names.iter().map(|s| s.to_string()).collect();
             let mut resolved: Vec<(String, f32)> = Vec::new();
             for (k, b) in &boosts {
+                let k = &resolve_date_math_index(k);
                 if let Some(backing) = state.engine.aliases.get(k) {
                     for real in backing.iter() {
                         resolved.push((real.clone(), *b));
@@ -44728,6 +44735,66 @@ pub async fn close_pit(
         _ => 0,
     };
     Json(json!({ "succeeded": freed > 0, "num_freed": freed })).into_response()
+}
+
+/// ES resolves every `indices_boost` key before the search runs
+/// (`TransportSearchAction#resolveIndexBoosts`), with the request's own
+/// indices options, so a key that names nothing is the same error a search
+/// target that names nothing would be: 404 `index_not_found_exception`, or
+/// skipped under `ignore_unavailable`. A `cluster:index` key is refused with
+/// `illegal_argument_exception` even then, because boosts are resolved
+/// against the local cluster only. XERJ applied boosts after the merge and
+/// dropped a key it could not match, so a typo in an index name answered
+/// 200 with every score unboosted. Keys are checked in request order, as ES
+/// does; wildcards may match nothing.
+fn index_boost_resolution_error(
+    state: &AppState,
+    boosts: &Value,
+    ignore_unavailable: bool,
+) -> Option<Response> {
+    let keys: Vec<&str> = match boosts {
+        Value::Array(entries) => entries
+            .iter()
+            .filter_map(Value::as_object)
+            .flat_map(|o| o.keys())
+            .map(String::as_str)
+            .collect(),
+        Value::Object(o) => o.keys().map(String::as_str).collect(),
+        _ => return None,
+    };
+    for key in keys {
+        if is_remote_index_name(key) {
+            let reason = format!(
+                "Cross-cluster calls are not supported in this context but remote indices \
+                 were requested: [{key}]"
+            );
+            return Some(es_bad_request("illegal_argument_exception", &reason, None));
+        }
+        if key == "_all" || key.contains('*') {
+            continue;
+        }
+        let name = resolve_date_math_index(key);
+        if state.engine.has_open_index(&name) || state.engine.aliases.contains_key(&name) {
+            continue;
+        }
+        if ignore_unavailable {
+            continue;
+        }
+        if state.engine.closed_indices.contains_key(&name) {
+            return Some(closed_index_error(&name));
+        }
+        return Some(ApiError::new(xerj_common::XerjError::index_not_found(&name)).into_response());
+    }
+    None
+}
+
+/// `RemoteClusterAware#isRemoteIndexName`: a `:` after the first character,
+/// unless the expression is date math (which may itself contain `:`).
+fn is_remote_index_name(expr: &str) -> bool {
+    if expr.starts_with('<') || expr.starts_with("-<") {
+        return false;
+    }
+    expr.find(':').is_some_and(|i| i > 0)
 }
 
 /// Minimal glob matcher for index-name wildcard expansion (* only).
