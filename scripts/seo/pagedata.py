@@ -256,6 +256,15 @@ PAGES: dict[str, dict[str, str]] = {
     # dependabot; #1 Rust repo of the day and week = Trendshift badges for repo
     # 116361 (GitHub Trending Rust #1 first on 2026-10-15); 7,226 = hub.xerj.org
     # /contributors/. Owner's "almost 10k" hub figure was not used (live: 7,226).
+    # XERJ Query-1 launch post, 2026-11-05 (rc.101). published/updated pinned.
+    "blog/xerj-query-ai-model.html": dict(
+        label="XERJ Query-1", kind="article",
+        title="XERJ Query-1: a neurosymbolic model that compiles prompts to verifiable search queries",
+        description="XERJ Query-1 turns a question into a small program the engine runs on your facts. 9x fewer wrong answers than RAG on Opus 5.5, $42 per million questions on CPU.",
+        published="2026-11-05", updated="2026-11-05",
+        og_image="og/blog-xerj-query-ai-model.png",
+        og_image_alt="Cover: “XERJ Query-1” in display type beside the post’s square-matrix art, labelled 1 wrong, 9 wrong and 6 wrong. The art: three grids of 160 squares, one per way of answering the same questions; filled squares are right answers, blue squares wrong answers, rings declined; the yellow XERJ Query-1 grid has one blue square, RAG on Opus 5.5 has nine, Opus 5.5 reading everything has six",
+    ),
     "blog/100-contributors.html": dict(
         label="Milestone", kind="article",
         title="100 contributors behind 12,000 stars in 12 days",
@@ -295,8 +304,8 @@ PAGES: dict[str, dict[str, str]] = {
     "blog/index.html": dict(
         label="Blog", kind="collection",
         title="XERJ.ai — Blog: the engineering log",
-        description="100 contributors behind 12,000 stars in 12 days: the XERJ milestone post. Also faster autoindex, the rc.99 launch, Corpus Hub v2 and the exploit hub.",
-        updated="2026-10-29",
+        description="XERJ Query-1, a neurosymbolic model that compiles prompts to verifiable search queries. Also 100 contributors, faster autoindex, rc.99 and Corpus Hub v2.",
+        updated="2026-11-05",
     ),
     "demo/index.html": dict(
         label="Real-data demo", kind="software",
