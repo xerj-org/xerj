@@ -329,6 +329,51 @@ Measurements and how to reproduce them:
 [`benchmarks/beir-hybrid`](./benchmarks/beir-hybrid/results/2026-09-20-rerank-full-fiqa) and
 [`benchmarks/decisions-as-retrieval`](./benchmarks/decisions-as-retrieval).
 
+## Ask over your own facts
+
+XERJ ships **XERJ-Query**, a model that answers questions over facts you give it.
+It is off by default; start a node with `--facts-model-dir <DIR>` to turn it on.
+Write documents and facts to a namespace, then ask in plain language — the engine
+returns a *verified* answer with its cited evidence and the exact program that
+produced it, not a chat model's free text.
+
+```sh
+# write a fact
+curl -s localhost:9200/_facts/demo/_bulk -H 'content-type: application/json' -d '{
+  "documents":[{"doc_id":"d1","version":"v1","text":"Ana Bel is 170 cm tall."}],
+  "facts":[{"fact_id":"f1","subject":"Ana Bel","subject_id":"emp:1","relation":"height","kind":"number",
+            "value":"170","unit":"cm","doc_id":"d1","version":"v1","start":11,"end":14,"quote":"170"}]
+}'
+
+# ask
+curl -s localhost:9200/_facts/demo/_ask -H 'content-type: application/json' \
+  -d '{"question":"How tall is Ana Bel?"}' | jq '{final_status,final_answer}'
+# {"final_status":"ANSWER","final_answer":"170 cm"}
+```
+
+Which to use: `_search` for keyword and text lookups over indexed documents;
+`/_facts` + `_ask` for a single-fact question over records you have written as
+subject / relation / value facts. The model answers **only over the `facts[]`
+you wrote** (`kind` is `text`, `date`, `number` or `boolean`; `version` is a
+string; `quote` must equal `text[start:end]`) — documents alone answer `UNKNOWN`.
+XERJ-Query runs on CPU with no GPU and nothing leaving the machine. Counting
+questions ("how many people have office Berlin?") are served from an exact
+executor, and only when every fact of the counted subjects carries a stable
+`subject_id` (`"emp:1"`); without it the count is `INCOMPLETE` and the answer
+is `UNKNOWN`, never a guess. Set counts only on rc.101 — sums and numeric
+thresholds decline. It is a separate model from the search embedder. Get the bundle with
+`curl -fsSL https://xerj.org/get | sh -s -- --with-model`, then start a node with
+`xerj --facts-model-dir <dir> --data-dir <dir>` (`XERJ_FACTS_MODEL_DIR=<dir>` is
+the environment equivalent); the model is a swappable `xerj-model-bundle-v1`
+directory. Verify: `curl -s localhost:9200/_facts | jq .model.state` prints
+`"loaded"` (the first seconds after start print `"not_loaded"` while the model
+preloads; poll). On the honest XERJ Score v2 — credit measured against Opus 5.5 (= 100)
+on the facts+counting evaluation — the shipped model scores **90.29** (A_s47,
+standard eval). See [docs/XERJ_QUERY_1.md](./docs/XERJ_QUERY_1.md) for the seven
+capabilities with a verified example each, [docs/MODEL_QUICKSTART.md](./docs/MODEL_QUICKSTART.md)
+to get it running and [docs/FACTS_API.md](./docs/FACTS_API.md) for the full contract.
+The model weights are a release asset, not part of this repository's source.
+
 ## Connect an agent over MCP
 
 Not every agent can run a shell command. Desktop assistants and function-calling hosts reach
@@ -707,6 +752,15 @@ limits each one does not lift:
   when an operator configures them; the page lists every outbound connection a node can
   open), it needs an operator-configured provider key, and
   its ranking quality with the real model is not verified.
+- [The `/_facts` API](./docs/FACTS_API.md) — request/response for writing facts
+  and asking questions: the raw-versus-verified split (`final_status`/
+  `final_answer`), the counting cascade, the revision/phase note, and the error
+  set.
+- [Get the model and serve it](./docs/MODEL_QUICKSTART.md) — install, obtain the
+  bundle, start the node with `--facts-model-dir`, write a fact, ask, and verify,
+  one step at a time.
+- [Model bundles](./docs/MODEL_BUNDLE.md) — the `xerj-model-bundle-v1` layout the
+  engine loads, its env wiring, and the release asset it ships as.
 - [XERJ vs Lucene 10.3.1](./docs/XERJ_VS_LUCENE.md) for a source-pinned, six-axis comparison
   of their storage and search designs.
 
