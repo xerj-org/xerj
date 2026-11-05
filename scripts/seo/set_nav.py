@@ -6,7 +6,7 @@ from one definition, so the header menu cannot drift page by page.
     python3 scripts/seo/set_nav.py --check    # exit 1 if any page differs
 
 Menu: PRODUCT, USE CASES, ANSWERS, BENCHMARKS, BLOG | FOR AGENTS, DOCS,
-DASHBOARDS, HUB, then the GitHub stars badge, X, Discord and the DAY/NIGHT
+DASHBOARDS, HUB, DONATE, then the GitHub stars badge, X, Discord and the DAY/NIGHT
 toggle. The brand mark links home, so there is no HOME item. Case studies,
 industries and comparisons are grouped under USE CASES and ANSWERS (they mark
 those items active) and are listed in the footer map; recipes live in the docs.
@@ -45,6 +45,7 @@ RIGHT = [
     ("DOCS", "/docs/", ("docs/",)),
     ("DASHBOARDS", "/playground", ("playground",)),
     ("HUB", "https://hub.xerj.org", ()),
+    ("DONATE", "/donate", ("donate",)),
 ]
 X_LINK = ('<a href="https://x.com/xerj_org" rel="external" title="XERJ on X" '
           'style="display:inline-flex;align-items:center"><svg width="15" height="15" viewBox="0 0 24 24" '

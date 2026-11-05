@@ -66,6 +66,7 @@ FOOTER_MAP: list[tuple[str, list[tuple[str, str]]]] = [
         ("/playground", "DASHBOARDS"),
         ("/demo/", "REAL-DATA DEMO"),
         ("/aise-demo", "PRODUCT TOUR"),
+        ("/donate", "DONATE"),
     ]),
     # The section hubs. Every child page is linked from its hub, so one link
     # per hub here keeps the whole tree two clicks from any page.
