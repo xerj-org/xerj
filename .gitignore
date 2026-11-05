@@ -221,3 +221,6 @@ scripts/seo/evidence/
 
 # Advisory hook documentation and reproducible verification (#2642).
 !tools/search-hints/*.md
+
+# Writing review API documentation
+!docs/writing-review.md

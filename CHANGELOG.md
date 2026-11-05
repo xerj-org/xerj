@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Configurable, deterministic plain-text writing review primitive in
+  `xerj-common` (Refs #2765): phrase, length, repetition, hedging and
+  syntactic source-citation checks with stable line notes. This is a library
+  foundation; recipe-runner and MCP integration remain pending #2762.
+
 - Opt-in hub answer evidence receipts (Refs #1789, #1786): Rust callers can
   bind exact UTF-8 excerpts to pinned source bytes and export SHA-256/JCS
   trace reports. MCP ask/def accepts trace identities through `evidence`;
