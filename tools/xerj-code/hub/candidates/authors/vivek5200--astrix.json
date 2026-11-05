@@ -1,0 +1,23 @@
+{
+ "corpus": "vivek5200--astrix",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on Go queries this for how vivek5200/astrix implements it: Local-first DevOps verification with AST-based test selection, policy guardrails, bounded LLM repair, and sandboxed validation",
+ "repos": [
+  {
+   "repo": "astrix",
+   "url": "https://github.com/vivek5200/astrix",
+   "sha": "32b81356059edace481dde9761f8b9f6e128e51d",
+   "licence": "Apache-2.0 (LICENSE file at pin 32b81356059e, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T00:04Z",
+    "consent_receipt": "d81548595ad0",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T00:04Z (receipt d81548595ad0); pinned to the default-branch head. LICENSE file at pin 32b81356059e detected as Apache-2.0 by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}
