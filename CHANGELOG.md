@@ -180,6 +180,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   rollover. Size-based conditions and alias-rollover body fields are refused
   rather than silently ignored.
 
+- `_search` refuses the parameter values Elasticsearch 8 refuses, with its
+  reasons, instead of running the search: a negative `size` (URL or body) now
+  names itself, a negative `terminate_after` (URL or body) and a
+  `track_total_hits` below -1 are refused, and `track_total_hits: -1` turns
+  total tracking off as `false` does. `rest_total_hits_as_int=true` now counts
+  exactly when no limit is set (it reported 10000 for 10,001 matches) and
+  refuses a limit that would make the integer a lower bound.
+  `terminate_after` is still not applied.
 - A hub catalogue already on disk is verified against its sibling signature
   before it is served, including a fresh cache and a `304 Not Modified`
   (#2904). Replacing `catalogue.json` used to be enough: `load_catalogue`

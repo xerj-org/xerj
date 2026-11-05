@@ -5092,6 +5092,10 @@ pub struct EsSearchBody {
     /// combination with a 400 naming the supported spellings.
     #[serde(default)]
     pub post_filter: Option<Value>,
+    /// `terminate_after`: refused when negative, as ES refuses it, and
+    /// otherwise not applied; XERJ does not stop collecting early.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub terminate_after: Option<Value>,
 }
 
 impl Default for EsSearchBody {
@@ -5130,6 +5134,7 @@ impl Default for EsSearchBody {
             rerank: None,
             judge: None,
             post_filter: None,
+            terminate_after: None,
         }
     }
 }
@@ -5540,6 +5545,23 @@ fn int_param_parse_body(param: &str, value: &str) -> Value {
     })
 }
 
+fn illegal_argument(reason: &str) -> Response {
+    es_bad_request("illegal_argument_exception", reason, None)
+}
+
+/// ES's `SearchSourceBuilder::trackTotalHitsUpTo`: -1 turns tracking off
+/// (the same as `false`), anything lower is refused, and any other value is a
+/// lower-bound limit.
+fn track_total_hits_up_to(n: i64) -> Result<Value, Response> {
+    match n {
+        -1 => Ok(Value::Bool(false)),
+        n if n < -1 => Err(illegal_argument(&format!(
+            "[track_total_hits] parameter must be positive or equals to -1, got {n}"
+        ))),
+        n => Ok(json!(n)),
+    }
+}
+
 fn int_param_parse_error(param: &str, value: &str) -> Response {
     (
         StatusCode::BAD_REQUEST,
@@ -5618,6 +5640,7 @@ pub enum EsSearchJsonRejection {
         line: usize,
         col: usize,
     },
+    IllegalArgument(String),
 }
 
 impl IntoResponse for EsSearchJsonRejection {
@@ -5630,6 +5653,7 @@ impl IntoResponse for EsSearchJsonRejection {
                 line,
                 col,
             } => unknown_search_key_error(&key, token, line, col),
+            EsSearchJsonRejection::IllegalArgument(reason) => illegal_argument(&reason),
         }
     }
 }
@@ -5677,8 +5701,31 @@ impl<S: Send + Sync> FromRequest<S> for EsSearchJson {
             });
         }
 
-        let value: EsSearchBody = serde_json::from_slice(&bytes)
-            .map_err(|e| EsSearchJsonRejection::Optional(OptionalJsonRejection::JsonParse(e)))?;
+        let value: EsSearchBody = match serde_json::from_slice(&bytes) {
+            Ok(value) => value,
+            Err(e) => {
+                // A negative `size` fails the `usize` field. ES names it, so
+                // look for one only once the typed parse has failed, and only
+                // when that failure is this integer (an earlier bad field
+                // keeps its own error, as ES parses in document order).
+                let failure = e.to_string();
+                let negative_size = serde_json::from_slice::<Value>(&bytes)
+                    .ok()
+                    .and_then(|v| v.get("size").and_then(Value::as_i64))
+                    .filter(|n| {
+                        *n < 0
+                            && failure.starts_with(&format!(
+                                "invalid value: integer `{n}`, expected usize"
+                            ))
+                    });
+                return Err(match negative_size {
+                    Some(n) => EsSearchJsonRejection::IllegalArgument(format!(
+                        "[size] parameter cannot be negative, found [{n}]"
+                    )),
+                    None => EsSearchJsonRejection::Optional(OptionalJsonRejection::JsonParse(e)),
+                });
+            }
+        };
         Ok(EsSearchJson(Some(value)))
     }
 }
@@ -10198,6 +10245,10 @@ pub struct EsSearchQueryParams {
     pub search_type: Option<String>,
     pub scroll: Option<String>,
     pub track_total_hits: Option<String>,
+    /// `?terminate_after=`: refused as ES refuses it (not an int, or
+    /// negative) and otherwise not applied; XERJ does not stop collecting
+    /// early, the same as the body key of that name.
+    pub terminate_after: Option<String>,
     /// Request-level search timeout (`?timeout=100ms`) — same semantics
     /// as the body's `timeout` (body wins when both are set). RC4
     /// blocker 12: previously this param (and the body field) were
@@ -14310,7 +14361,14 @@ async fn search_impl(
     if let Some(ref size_s) = params.size {
         match size_s.parse::<usize>() {
             Ok(n) => body.size = n,
-            Err(_) => return int_param_parse_error("size", size_s),
+            Err(_) => match size_s.parse::<i64>() {
+                Ok(n) if n < 0 => {
+                    return illegal_argument(&format!(
+                        "[size] parameter cannot be negative, found [{n}]"
+                    ))
+                }
+                _ => return int_param_parse_error("size", size_s),
+            },
         }
     }
     if let Some(ref from_s) = params.from {
@@ -14320,6 +14378,46 @@ async fn search_impl(
                 Ok(n) if n < 0 => return negative_from_error(n),
                 _ => return int_param_parse_error("from", from_s),
             },
+        }
+    }
+    // ES refuses these before it runs anything (`RestSearchAction` and
+    // `SearchSourceBuilder`, 8.13.4); XERJ used to run the search.
+    if let Some(ref ta) = params.terminate_after {
+        match ta.parse::<i32>() {
+            Ok(n) if n < 0 => return illegal_argument("terminateAfter must be > 0"),
+            Ok(_) => {}
+            Err(_) => return int_param_parse_error("terminate_after", ta),
+        }
+    }
+    if body
+        .terminate_after
+        .as_ref()
+        .and_then(Value::as_i64)
+        .is_some_and(|n| n < 0)
+    {
+        return illegal_argument("terminateAfter must be > 0");
+    }
+    let url_track_total_hits = match params.track_total_hits.as_deref() {
+        None => None,
+        Some("true") => Some(Value::Bool(true)),
+        Some("false") => Some(Value::Bool(false)),
+        Some(other) => match other.parse::<i32>() {
+            Ok(n) => match track_total_hits_up_to(i64::from(n)) {
+                Ok(v) => Some(v),
+                Err(refusal) => return refusal,
+            },
+            Err(_) => return int_param_parse_error("track_total_hits", other),
+        },
+    };
+    if let Some(n) = body
+        .track_total_hits
+        .as_ref()
+        .and_then(Value::as_number)
+        .and_then(serde_json::Number::as_i64)
+    {
+        match track_total_hits_up_to(n) {
+            Ok(v) => body.track_total_hits = Some(v),
+            Err(refusal) => return refusal,
         }
     }
     // `slice` is validated before anything runs: its `max` and `id` feed
@@ -14423,17 +14521,24 @@ async fn search_impl(
             body.source = Some(Value::Array(fields));
         }
     }
-    // `?track_total_hits=false` / `true` / integer
-    if let Some(ref tth_str) = params.track_total_hits {
-        if body.track_total_hits.is_none() {
-            body.track_total_hits = Some(match tth_str.as_str() {
-                "false" => Value::Bool(false),
-                "true" => Value::Bool(true),
-                other => other
-                    .parse::<u64>()
-                    .map(|n| json!(n))
-                    .unwrap_or(Value::Bool(true)),
-            });
+    // `?track_total_hits=false` / `true` / integer, validated above. A body
+    // value still wins over the URL one, as it did before.
+    if body.track_total_hits.is_none() {
+        body.track_total_hits = url_track_total_hits;
+    }
+    // ES's `checkRestTotalHits`: a bare integer total claims to be exact, so
+    // `rest_total_hits_as_int` counts exactly when the caller set no limit
+    // and refuses a limit that would make the integer a lower bound.
+    if params.rest_total_hits_as_int.as_deref() == Some("true") {
+        match body.track_total_hits.as_ref() {
+            None => body.track_total_hits = Some(Value::Bool(true)),
+            Some(Value::Number(n)) if n.as_i64() != Some(i64::from(i32::MAX)) => {
+                return illegal_argument(&format!(
+                    "[rest_total_hits_as_int] cannot be used if the tracking of total hits is \
+                     not accurate, got {n}"
+                ));
+            }
+            _ => {}
         }
     }
     // ES 8.x default: when `track_total_hits` is absent, totals are only
@@ -27869,6 +27974,7 @@ pub async fn search_with_scroll(
         // #943: forward so the post_filter-beside-hybrid rejection in
         // `build_search_request` covers scroll requests too.
         post_filter: body.post_filter.clone(),
+        terminate_after: None,
     };
     // page_size: what the caller requested (or default 10)
     let page_size = body.size;
