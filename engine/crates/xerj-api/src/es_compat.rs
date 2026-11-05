@@ -6934,6 +6934,13 @@ fn merge_single_bucket_agg(old: &Value, new: &Value) -> Option<Value> {
 fn merge_metric_agg(old: &Value, new: &Value) -> Option<Value> {
     let old_obj = old.as_object()?;
     let new_obj = new.as_object()?;
+    // An embedded failure (`{"error", "__error_status__"}`) wins over another
+    // index's result: in ES one shard throwing fails the whole search.
+    for side in [old, new] {
+        if side.get("__error_status__").is_some() {
+            return Some(side.clone());
+        }
+    }
     // Only merge objects that look like a metric agg response (`value` key,
     // and no `buckets` — we leave bucketed aggs to the bucket-aware path).
     if old_obj.contains_key("buckets") || new_obj.contains_key("buckets") {
@@ -20091,7 +20098,10 @@ async fn search_impl(
     // result tree. ES surfaces these as a real HTTP 400
     // search_phase_execution_exception caused by too_many_buckets_exception
     // (verified against live ES 8.13.4); previously xerj leaked the raw
-    // marker object inline under HTTP 200.
+    // marker object inline under HTTP 200. Any other embedded reason (e.g.
+    // `weighted_avg`'s multi-valued weight) is a shard-level
+    // `illegal_argument_exception`, ES's answer for an aggregator that throws
+    // while collecting.
     if let Some(aggs) = merged_aggs.as_ref() {
         fn find_embedded_agg_error(v: &Value) -> Option<String> {
             match v {
@@ -20138,6 +20148,7 @@ async fn search_impl(
                 )
                     .into_response();
             }
+            return search_shard_validation_error(&reason);
         }
     }
 

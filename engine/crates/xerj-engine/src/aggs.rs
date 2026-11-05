@@ -6718,10 +6718,12 @@ fn run_avg<'d>(params: &Value, docs: &'d [Value], cache: &mut FieldCache<'d>) ->
 /// `sum(weights) == 0` and an empty bucket both yield `value: null`, as ES
 /// does.
 ///
-/// ES rejects a multi-valued *weight* field with a 400 ("Multi weight field
-/// not allowed"). The aggregation evaluator has no error channel, so such a
-/// document is skipped here; the case stays in
-/// `tests/es-compat-yaml/catch-lenient.txt` until that channel exists.
+/// A document with a value and more than one weight fails the aggregation,
+/// as ES's `WeightedAvgAggregator#collect` does: there is no single weight to
+/// pair the value with. The failure is embedded in this slot of the result
+/// (`{"error", "__error_status__"}`), which the API turns into the 400 ES
+/// answers. ES only reads the weights of a document that has a value, so a
+/// multi-weight document without one (and no `value.missing`) is skipped.
 /// The API layer still rejects a `weighted_avg` that has no `field`, a
 /// non-numeric `missing`, or a `script` (see `find_invalid_agg_params`).
 fn run_weighted_avg<'d>(params: &Value, cache: &mut FieldCache<'d>) -> Value {
@@ -6745,10 +6747,15 @@ fn run_weighted_avg<'d>(params: &Value, cache: &mut FieldCache<'d>) -> Value {
     let mut weighted_sum = 0.0f64;
     let mut weight_sum = 0.0f64;
     for (values, weights) in values_per_doc.iter().zip(weights_per_doc) {
-        // A multi-valued weight is an error in ES (see the doc comment); skip
-        // the document rather than pairing every value with every weight.
         if weights.len() > 1 {
-            continue;
+            if values.is_empty() && value_missing.is_none() {
+                continue;
+            }
+            return json!({
+                "error": "Encountered more than one weight for a single document. Use a \
+                          script to combine multiple weights-per-doc into a single value.",
+                "__error_status__": 400u32,
+            });
         }
         let value_placeholder: [f64; 1];
         let values: &[f64] = if values.is_empty() {
