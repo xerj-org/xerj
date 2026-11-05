@@ -8490,6 +8490,7 @@ mod composite_agg_validation_tests {
 /// * `cardinality`: negative `precision_threshold`, unknown `execution_hint`;
 /// * `filters` with no filters;
 /// * `ip_prefix`: `prefix_length` outside `[0, 32]` (`[0, 128]` for IPv6);
+/// * `extended_stats`: negative `sigma`;
 /// * `median_absolute_deviation`: `compression` ≤ 0, unknown `execution_hint`;
 /// * `percentiles` / `percentile_ranks`: negative `tdigest.compression`,
 ///   unknown `tdigest.execution_hint`, and `percentile_ranks` without usable
@@ -8501,6 +8502,57 @@ mod composite_agg_validation_tests {
 ///   aggregation incompatible with time-series execution (`composite`,
 ///   `auto_date_histogram`, `variable_width_histogram`, `rare_terms`).
 ///
+/// ES parses `extended_stats.sigma` as a double (`ExtendedStatsAggregationBuilder`
+/// declares it with `declareDouble`): a number, or a string holding one. Any
+/// other value is an `x_content_parse_exception` at parse time. XERJ's engine
+/// reads `sigma` with `as_f64`, so `"foo"`, `true` and even `"3"` all fell
+/// back to the default 2.0 without a word. A numeric string is rewritten to
+/// the number it holds here, so the engine uses it; anything else is the
+/// error, as `(reason, caused_by)`.
+fn normalize_extended_stats_sigma(aggs: &mut Value) -> Option<(String, Option<String>)> {
+    let Value::Object(level) = aggs else {
+        return None;
+    };
+    for def in level.values_mut() {
+        if let Some(params) = def.get_mut("extended_stats").and_then(Value::as_object_mut) {
+            match params.get("sigma") {
+                None | Some(Value::Number(_)) => {}
+                Some(Value::String(raw)) => match raw.trim().parse::<f64>() {
+                    Ok(n) if n.is_finite() => {
+                        params.insert("sigma".to_string(), json!(n));
+                    }
+                    _ => {
+                        return Some((
+                            "[extended_stats] failed to parse field [sigma]".to_string(),
+                            Some(format!("For input string: \"{raw}\"")),
+                        ));
+                    }
+                },
+                Some(other) => {
+                    let token = match other {
+                        Value::Null => "VALUE_NULL",
+                        Value::Bool(_) => "VALUE_BOOLEAN",
+                        Value::Array(_) => "START_ARRAY",
+                        _ => "START_OBJECT",
+                    };
+                    return Some((
+                        format!("[extended_stats] sigma doesn't support values of type: {token}"),
+                        None,
+                    ));
+                }
+            }
+        }
+        for key in ["aggs", "aggregations"] {
+            if let Some(sub) = def.get_mut(key) {
+                if let Some(e) = normalize_extended_stats_sigma(sub) {
+                    return Some(e);
+                }
+            }
+        }
+    }
+    None
+}
+
 /// Checks that need the field's mapped type (e.g. `avg` on a keyword field)
 /// are not made here.
 fn find_invalid_agg_params(aggs: Option<&Value>) -> Option<String> {
@@ -8628,6 +8680,15 @@ fn find_invalid_agg_params(aggs: Option<&Value>) -> Option<String> {
                             "Invalid execution mode for cardinality aggregation. Got [{h}]\
                              expected one of [{}]",
                             CARDINALITY_HINTS.join(", ")
+                        ));
+                    }
+                }
+            }
+            "extended_stats" => {
+                if let Some(sigma) = params.get("sigma").and_then(Value::as_f64) {
+                    if sigma < 0.0 {
+                        return Some(format!(
+                            "[sigma] must be greater than or equal to 0. Found [{sigma:?}] in [{name}]"
                         ));
                     }
                 }
@@ -15970,6 +16031,15 @@ async fn search_impl(
     }
     if let Some(aggs) = body.aggregations.as_mut() {
         resolve_stored_scripts(aggs, &state);
+    }
+    for aggs in [body.aggs.as_mut(), body.aggregations.as_mut()]
+        .into_iter()
+        .flatten()
+    {
+        if let Some((reason, cause)) = normalize_extended_stats_sigma(aggs) {
+            let cause = cause.as_deref().map(|c| ("number_format_exception", c));
+            return es_bad_request("x_content_parse_exception", &reason, cause);
+        }
     }
 
     // Rewrite `exists` queries against fields whose mapping declares
