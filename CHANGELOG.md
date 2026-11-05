@@ -189,7 +189,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   refuses a limit that would make the integer a lower bound.
   `terminate_after` is still not applied. On a multi-node index the search
   now takes `size` and `from` from the URL: the fan-out read only the body,
-  so `?size=1` returned every hit and `?size=-5` ran.
+  so `?size=1` returned every hit and `?size=-5` ran. A window over the
+  index's `index.max_result_window` now gets ES's "Result window is too
+  large" there too, in place of the fan-out's own refusal.
 - A hub catalogue already on disk is verified against its sibling signature
   before it is served, including a fresh cache and a `304 Not Modified`
   (#2904). Replacing `catalogue.json` used to be enough: `load_catalogue`

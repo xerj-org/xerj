@@ -38,8 +38,9 @@ use xerj_cluster::{ApplyEffect, ClusterCommand, ShardOp, ShardResult};
 
 use crate::es_compat::{
     aggregate_by_query_results, apply_get_doc_source_filter, apply_local_update,
-    pipeline_rejected_body, search_shard_local, unrunnable_pipeline_reason, url_search_window,
-    EsSearchBody, EsSearchJson, EsSearchQueryParams, EsUpdateBody, GetDocParams, UpdateDocParams,
+    pipeline_rejected_body, result_window_refusal, search_shard_local, unrunnable_pipeline_reason,
+    url_search_window, EsSearchBody, EsSearchJson, EsSearchQueryParams, EsUpdateBody, GetDocParams,
+    UpdateDocParams,
 };
 use crate::responses::{EsDeleteDocResponse, EsDocResponse, EsGetResponse};
 use crate::state::AppState;
@@ -361,6 +362,21 @@ pub(crate) async fn fanout_search(
         Err(refusal) => return Some(refusal),
     };
     let parsed = body.0.clone().unwrap_or_default();
+    let from = url_from.unwrap_or(parsed.from);
+    let size = url_size.unwrap_or(parsed.size);
+    let window = from.saturating_add(size);
+    // Over the index's own limit, the refusal a single node gives, which a
+    // single node also gives before the features below. Not for a scroll: a
+    // single node names the batch size there, and the fan-out refuses
+    // scrolls below. Between that limit and a raised
+    // `index.max_result_window`, the fan-out's own refusal further down: it
+    // cannot merge the window yet, and ES's message would quote a limit the
+    // index does not have.
+    if params.scroll.is_none() {
+        if let Some(refusal) = result_window_refusal(state, index, from, size) {
+            return Some(refusal);
+        }
+    }
     if parsed.aggs.is_some() || parsed.aggregations.is_some() {
         return Some(cluster_search_unsupported("aggregations"));
     }
@@ -383,9 +399,6 @@ pub(crate) async fn fanout_search(
         return Some(cluster_search_unsupported("scroll"));
     }
 
-    let from = url_from.unwrap_or(parsed.from);
-    let size = url_size.unwrap_or(parsed.size);
-    let window = from.saturating_add(size);
     if window > MAX_FANOUT_WINDOW {
         return Some(cluster_search_unsupported("a from+size window above 10000"));
     }

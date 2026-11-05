@@ -221,3 +221,105 @@ async fn a_cluster_search_takes_size_and_from_from_the_url() {
     }
     assert!(wrong.is_empty(), "{}", wrong.join("\n"));
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_cluster_search_over_the_result_window_gets_es_reason() {
+    let members = ring().await;
+    wait_for("one raft leader", || {
+        members.iter().filter(|m| m.handle.is_leader()).count() == 1
+    })
+    .await;
+    for (index, settings) in [
+        ("orders", json!({})),
+        (
+            "wide",
+            json!({"settings": {"index": {"max_result_window": 20000}}}),
+        ),
+    ] {
+        let (status, body) =
+            send(&members[0].app, "PUT", &format!("/{index}"), Some(settings)).await;
+        assert!(status.is_success(), "create {index}: {status} {body}");
+        for member in &members {
+            wait_for("the index on every member", || {
+                // The shard plan is installed before the index is created, so
+                // wait for both.
+                // The settings land after the index itself does.
+                member.engine.shard_search_targets(index).len() == 3
+                    && member.engine.get_index(index).is_ok()
+                    && (index != "wide" || member.engine.index_settings.contains_key(index))
+            })
+            .await;
+        }
+    }
+
+    let too_large = |limit: usize, window: usize| {
+        format!(
+            "Result window is too large, from + size must be less than or equal to: [{limit}] \
+             but was [{window}]. See the scroll api for a more efficient way to request large \
+             data sets. This limit can be set by changing the [index.max_result_window] index \
+             level setting."
+        )
+    };
+    let app = &members[1].app;
+    let mut wrong = Vec::new();
+    for (method, path, request, reason) in [
+        (
+            "GET",
+            "/orders/_search?size=10001",
+            None,
+            too_large(10000, 10001),
+        ),
+        (
+            "GET",
+            "/orders/_search?from=9995&size=10",
+            None,
+            too_large(10000, 10005),
+        ),
+        (
+            "POST",
+            "/orders/_search",
+            Some(json!({"from": 10000, "size": 1})),
+            too_large(10000, 10001),
+        ),
+        // The window is refused before a feature the fan-out cannot merge,
+        // as a single node refuses it before running anything.
+        (
+            "POST",
+            "/orders/_search?size=10001",
+            Some(json!({"aggs": {"n": {"value_count": {"field": "t"}}}})),
+            too_large(10000, 10001),
+        ),
+        (
+            "GET",
+            "/wide/_search?size=20001",
+            None,
+            too_large(20000, 20001),
+        ),
+        // Inside a raised limit the fan-out still cannot merge the window,
+        // and says so rather than quoting a limit the index does not have.
+        (
+            "GET",
+            "/wide/_search?size=15000",
+            None,
+            "cluster search does not merge a from+size window above 10000 across shards yet; \
+             the request was not executed"
+                .to_string(),
+        ),
+    ] {
+        let (status, body) = send(app, method, path, request.clone()).await;
+        let es_shaped = !reason.starts_with("Result window")
+            || (body["error"]["type"] == "search_phase_execution_exception"
+                && body["error"]["root_cause"][0]["reason"] == reason.as_str());
+        if status != StatusCode::BAD_REQUEST
+            || body["error"]["reason"] != reason.as_str()
+            || !es_shaped
+        {
+            wrong.push(format!("{method} {path} {request:?}: {status} {body}"));
+        }
+    }
+    assert!(wrong.is_empty(), "{}", wrong.join("\n"));
+
+    // A window inside both limits still runs.
+    let (status, body) = send(app, "GET", "/orders/_search?from=9990&size=10", None).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+}

@@ -27697,6 +27697,35 @@ fn scroll_request_validation_errors(
     errors
 }
 
+/// ES's reason for a `from + size` window over `index.max_result_window`.
+fn result_window_too_large_reason(max_window: usize, window: usize) -> String {
+    format!(
+        "Result window is too large, from + size must be less than or equal to: \
+         [{max_window}] but was [{window}]. See the scroll api for a more efficient way \
+         to request large data sets. This limit can be set by changing the \
+         [index.max_result_window] index level setting."
+    )
+}
+
+/// The refusal a single node gives a `from + size` window over the index's
+/// `index.max_result_window`, or `None` inside it. The cluster fan-out asks
+/// this too, so an over-limit window gets the same answer on both paths.
+pub(crate) fn result_window_refusal(
+    state: &AppState,
+    ix: &str,
+    from: usize,
+    size: usize,
+) -> Option<Response> {
+    let max_window = index_max_result_window(state, ix);
+    let window = from.saturating_add(size);
+    (window > max_window).then(|| {
+        ApiError::new(xerj_common::XerjError::invalid_query(
+            result_window_too_large_reason(max_window, window),
+        ))
+        .into_response()
+    })
+}
+
 /// The per-index request limits Elasticsearch checks before running a search,
 /// with its messages (`search/30_limits.yml`). Each was previously either
 /// unchecked (an HTTP 200) or refused deeper with a different message:
@@ -27728,12 +27757,7 @@ fn find_index_request_limit_violation(
                  they are controlled by the [index.max_result_window] index level setting."
             )
         } else {
-            format!(
-                "Result window is too large, from + size must be less than or equal to: \
-                 [{max_window}] but was [{window}]. See the scroll api for a more efficient way \
-                 to request large data sets. This limit can be set by changing the \
-                 [index.max_result_window] index level setting."
-            )
+            result_window_too_large_reason(max_window, window)
         });
     }
 
