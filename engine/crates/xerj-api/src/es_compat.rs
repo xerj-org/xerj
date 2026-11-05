@@ -6288,6 +6288,97 @@ fn exists_on_source_field(roots: &[Option<&Value>]) -> bool {
     roots.iter().flatten().any(|r| walk(r))
 }
 
+#[cfg(test)]
+mod exists_source_field_tests {
+    use super::*;
+    use axum::{body::Body, http::Request};
+    use tower::ServiceExt;
+    use xerj_common::{
+        config::{Config, WalSync},
+        metrics::Metrics,
+    };
+    use xerj_engine::Engine;
+
+    fn test_state() -> AppState {
+        let dir = tempfile::tempdir().expect("tempdir").keep();
+        let mut config = Config::default();
+        config.server.data_dir = dir.to_string_lossy().into_owned();
+        config.storage.wal_sync = WalSync::Async;
+        let metrics = Metrics::new().expect("metrics");
+        let engine = Engine::new(config.clone()).expect("engine");
+        AppState::new(config, engine, metrics)
+    }
+
+    async fn send(app: &axum::Router, method: &str, uri: &str, body: Value) -> (StatusCode, Value) {
+        let resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(method)
+                    .uri(uri)
+                    .header("content-type", "application/json")
+                    .body(Body::from(body.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let status = resp.status();
+        let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        (status, serde_json::from_slice(&bytes).unwrap())
+    }
+
+    async fn app() -> axum::Router {
+        let app = crate::router::build_es_compat_router(test_state());
+        let (status, body) = send(&app, "PUT", "/idx/_doc/1?refresh=true", json!({"f": 1})).await;
+        assert!(status.is_success(), "{body}");
+        app
+    }
+
+    fn exists(field: &str) -> Value {
+        json!({ "exists": { "field": field } })
+    }
+
+    /// FAIL-BEFORE: each answered 200 with no hits.
+    #[tokio::test]
+    async fn exists_on_source_is_a_query_shard_exception() {
+        let app = app().await;
+        for body in [
+            json!({ "query": exists("_source") }),
+            json!({ "query": { "bool": { "must_not": [exists("_source")] } } }),
+            json!({ "post_filter": exists("_source") }),
+            json!({ "size": 0, "aggs": { "a": { "filter": exists("_source") } } }),
+        ] {
+            let (status, resp) = send(&app, "POST", "/idx/_search", body.clone()).await;
+            assert_eq!(status, StatusCode::BAD_REQUEST, "{body} -> {resp}");
+            assert_eq!(
+                resp["error"]["type"], "search_phase_execution_exception",
+                "{body}"
+            );
+            let root = &resp["error"]["root_cause"][0];
+            assert_eq!(root["type"], "query_shard_exception", "{body}");
+            assert_eq!(
+                root["reason"], "The _source field is not searchable",
+                "{body}"
+            );
+        }
+    }
+
+    /// Other fields, including metadata fields ES can answer, still search,
+    /// and a field *named* `_source` inside a document path is not this case.
+    #[tokio::test]
+    async fn exists_on_other_fields_still_answers() {
+        let app = app().await;
+        for (field, hits) in [("f", 1), ("_id", 1), ("missing", 0), ("obj._source", 0)] {
+            let body = json!({ "query": exists(field) });
+            let (status, resp) = send(&app, "POST", "/idx/_search", body).await;
+            assert_eq!(status, StatusCode::OK, "{field} -> {resp}");
+            assert_eq!(resp["hits"]["total"]["value"], hits, "{field} -> {resp}");
+        }
+    }
+}
+
 /// For each `{"exists": {"field": X}}` clause, check whether `X` is queryable
 /// in *any* of the participating indices. A field is unqueryable if the
 /// mapping declares `index: false` AND `doc_values: false` (or the field
