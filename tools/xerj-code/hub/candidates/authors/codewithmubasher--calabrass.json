@@ -8,15 +8,15 @@
   {
    "repo": "Calabrass",
    "url": "https://github.com/CodewithMubasher/Calabrass",
-   "sha": "2e81d70fbf565f24168dc99a778e4cff2684f18f",
-   "licence": "MIT (LICENSE file at pin 2e81d70fbf56, GitHub licence API 2026-11-04)",
+   "sha": "e4ed4d4751d8fb5d5945639e32bcce680ba71a82",
+   "licence": "MIT (LICENSE file at pin e4ed4d4751d8, GitHub licence API 2026-11-05)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-21T03:27Z",
     "consent_receipt": "83292d27c09d",
-    "note": "Inclusion consented by the commit author by email at 2026-10-21T03:27Z (receipt 83292d27c09d); selected commit 2e81d70fbf56: \"feat: Complete Plan/Build modes, Gmail MCP, Image gen, Artifact auto-\u2026\". LICENSE file at pin 2e81d70fbf56 detected as MIT by the GitHub licence API on 2026-11-04; used under that licence with attribution. Pinned to head 2e81d70fbf56 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-21T03:27Z (receipt 83292d27c09d); selected commit e4ed4d4751d8: \"feat: Complete Plan/Build modes, Gmail MCP, Image gen, Artifact auto-\u2026\". LICENSE file at pin e4ed4d4751d8 detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution. Pinned to head e4ed4d4751d8 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

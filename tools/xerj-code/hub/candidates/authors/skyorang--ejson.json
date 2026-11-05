@@ -1,0 +1,23 @@
+{
+ "corpus": "skyorang--ejson",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how SkyOrang/ejson implements it: A C++ library that enables programmers to manipulate JSON files in a concise manner while maintaining high performance (selected work: tests, src, include)",
+ "repos": [
+  {
+   "repo": "ejson",
+   "url": "https://github.com/SkyOrang/ejson",
+   "sha": "249e1aea36cd9602235c2677a9a19a5ae86370df",
+   "licence": "MIT (LICENSE file at pin 249e1aea36cd, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T09:23Z",
+    "consent_receipt": "5c94a3c1ea58",
+    "note": "Inclusion consented by the commit author by email at 2026-11-05T09:23Z (receipt 5c94a3c1ea58); selected commit 249e1aea36cd: \"fix some bugs\". LICENSE file at pin 249e1aea36cd detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

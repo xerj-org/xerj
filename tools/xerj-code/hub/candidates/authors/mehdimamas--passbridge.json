@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on JavaScript queries this for how MehdiMamas/passbridge implements it: Chrome extension for Apple Passwords on macOS and Windows. Based on Open Passwords. Not affiliated with Apple or Bitwarden (selected work: src, test-harness, src/ui)",
+ "domain": "an agent working on TypeScript queries this for how MehdiMamas/passbridge implements it: Chrome extension for Apple Passwords on macOS and Windows. Based on Open Passwords. Not affiliated with Apple or Bitwarden (selected work: src, test-harness, src/ui)",
  "repos": [
   {
    "repo": "passbridge",

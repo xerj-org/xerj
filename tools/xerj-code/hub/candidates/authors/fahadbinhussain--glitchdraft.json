@@ -8,15 +8,15 @@
   {
    "repo": "glitchdraft",
    "url": "https://github.com/FahadBinHussain/glitchdraft",
-   "sha": "182316e1196734509bd50dcec1ad53f22a40fd99",
-   "licence": "MIT (LICENSE file at pin 182316e11967, GitHub licence API 2026-11-02)",
+   "sha": "fa0e613b3f9fae7afb5bcc8a9b9622135f3a753c",
+   "licence": "MIT (LICENSE file at pin fa0e613b3f9f, GitHub licence API 2026-11-05)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T02:34Z",
     "consent_receipt": "3ab9c6f6a35f",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T02:34Z (receipt 3ab9c6f6a35f); pinned to the default-branch head. LICENSE file at pin 182316e11967 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T02:34Z (receipt 3ab9c6f6a35f); pinned to the default-branch head. LICENSE file at pin fa0e613b3f9f detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
    }
   }
  ]

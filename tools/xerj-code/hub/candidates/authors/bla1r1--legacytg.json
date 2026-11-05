@@ -1,9 +1,9 @@
 {
- "corpus": "bla1r1--itglegacy",
+ "corpus": "bla1r1--legacytg",
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on Objective-C queries this for how bla1r1/iTgLegacy implements it: Telegram for iOS 6 (selected work: src/Views, src/Core, the project root)",
+ "domain": "an agent working on Objective-C queries this for how bla1r1/LegacyTG implements it: Telegram for iOS 6 (selected work: src/Views, src/Core, the project root)",
  "repos": [
   {
    "repo": "iTgLegacy",
