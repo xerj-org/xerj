@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.0.0-rc.101] - 2026-11-05
 
+<!-- notes-exempt: #2499 #2504 #2505 #2508 #2523 #2529 #2546 #2569 #2570 #2582 #2589 #2614 #2633 #2636 #2641 #2647 #2689 #2707 #2749 #2787 #2795 #2797 #2806 #2843 #2850 #2853 #2862 #2866 #2890 #2897 #2909 #2920 #2922 #2934 (CLA signatures) -->
+<!-- notes-exempt: #2543 #2544 #2552 #2620 #2628 #2648 #2702 #2706 #2790 #2842 #2848 #2851 #2856 #2858 #2867 #2880 #2902 #2911 #2923 (agent field reports / feedback docs) -->
+<!-- notes-exempt: #1811 #2293 #2331 #2446 #2495 #2525 #2590 #2622 #2649 #2742 #2770 #2785 #2794 #2804 #2837 #2927 #2946 (site, blog, docs and translation pages only) -->
+<!-- notes-exempt: #2384 #2448 #2509 (benchmark harnesses and hub corpus definitions, no shipped-binary change) -->
+<!-- notes-exempt: #2588 #2639 #2739 #2832 #2924 (CI, CLA tooling and test-only) -->
+<!-- notes-exempt: #2695 (server.json + Docker pin to rc.100, release infra) -->
+
 **rc.101: XERJ-Query — the engine answers facts and counting questions from a
 model that runs on CPU, off by default.** This release ships XERJ-Query compiled
 into the binary and serves it over `/_facts` on a node started with
@@ -248,6 +255,20 @@ all 2,387 evaluation items. Without the flag a node is the node rc.100 was: no
   the top 3 for 22; every rank, misses included, is in
   `benchmarks/skills-intent/results/`. Part of #2644.
 
+#### Public pull requests merged since rc.100
+
+- Add --exclude <glob> to leave paths out of the index (#2682)
+- Index a SKILL.md's name and description as fields (#2741)
+- Teach agents to find an installed skill by task (#2748)
+- Add opt-in Claude Code session handoff hooks (#2849)
+- Add version-pinned byte-span citation and RFC 8785 JCS trace-evidence core (#2857)
+- Add opt-in Claude Code search hints (#2869)
+- Add opt-in Gemini CLI search hints (#2879)
+- Import a claude-mem store with --format claude-mem (#2883)
+- Add Herdr integration (#2891)
+- Wire opt-in pinned answer evidence receipts (#2932)
+- Add fail-closed cyber scope guard (#2933)
+
 ### Changed
 
 - Stored text columns are 64 KiB row blocks with a per-column trained 112 KiB
@@ -274,6 +295,26 @@ all 2,387 evaluation items. Without the flag a node is the node rc.100 was: no
 - Autoindex sends several bulks of one file at once, with a window that starts
   at 2, grows while clean and honours `Retry-After`; progress moves inside one
   large file.
+
+#### Public pull requests merged since rc.100
+
+- Autoindex remove: --uncataloged cleans up a build that never reached finalize (#2663)
+- Read the child's errno portably so the lib-test target builds off Linux (#2679)
+- Say corpora do not follow git remotes, and how to refresh one (#2704)
+- Publish explicit-id index actions as one batch (#2717)
+- Compact version-map keys and report the map's heap (#2726)
+- Plan HNSW inserts under a shared lock, in parallel per batch (#2728)
+- Stream HNSW graph and ids.json snapshots to disk (no whole-graph buffer per flush) (#2809)
+- Stream the HNSW graph file on load instead of reading it whole (#2812)
+- Node.lock: readable holder pid on Windows via node.lock.pid (#2820)
+- Exact compound identifier ranks its definition first, or warns (#2821)
+- Calibrate the neural pre-run estimate to steady-state ingest (#2825)
+- Reserve the memtable flush build working set and purge freed pages after a build (#2826)
+- Store HNSW graph vectors as scaled binary16 to halve resident vector_graph memory (#2827)
+- Xerj def / xerj_def: carry the index_stale hint like search (#2829)
+- Poll the request deadline inside per-segment loops (#2834)
+- Align Docker builder and runtime images (#2847)
+- Bump candle to 0.11.1 to drop zip 7.2.0 (RUSTSEC-2026-0429) (#2881)
 
 ### Fixed
 
@@ -765,6 +806,77 @@ all 2,387 evaluation items. Without the flag a node is the node rc.100 was: no
   refusal, and every rerun stopped on the same record. A run that an earlier
   version already stopped this way replays the list it fixed and stops again;
   index that folder under a new `--prefix` and `--state-dir` (#2807).
+
+#### Public pull requests merged since rc.100
+
+- Reject null JSON payloads as client errors (#2330)
+- Size a bare semantic_text at the backend's confirmed width (#2476)
+- Accept a Windows path in corpus add (#2501)
+- Accept plain query strings in xerj_batch_search (#2502)
+- Name an unknown flag instead of dumping usage (#2516)
+- Complete rc.100 staging and back-pressure follow-ups (#2551)
+- Unblock index deletion behind stalled statistics (#2558)
+- Refuse a partial clone by name instead of reporting "could not clone" (#2599)
+- Preserve MCP search compatibility, default budgets and honest node status (#2613)
+- Preserve corpus checkouts and verify autoindex completion (#2616)
+- Preserve usable partial clones and import archived sessions (#2618)
+- Preserve reindex aliases, Boolean scores and exported definitions (#2625)
+- Score CJK evidence inside continuous text (#2635)
+- Apply items that share an _id in request order (#2650)
+- Bound hdr number_of_significant_value_digits; one request hung a search thread (#2651)
+- Validate slice before running a search; a slice.max of 2^32 aborted the node (#2652)
+- _reindex honours op_type, conflicts and max_docs (#2653)
+- Count only memory the node can release on Linux (#2656)
+- Keep a nested constant_score boost after flush (#2658)
+- Say which data dir to restart when the node behind a port died (#2660)
+- Cite the live name of a deduplicated file, not its backup copy (#2665)
+- Match a numeric term by value in the memtable and _source paths (#2667)
+- Keep every line when the text chunker hits its byte cap (#2668)
+- Show live/expected record counts and indices when the group count verify aborts (#2671)
+- Retry a crossed capture in the exact kNN scan instead of failing the run (#2678)
+- Say a prefix's first run has not finished on a search miss (#2696)
+- Batch prior-edge invalidation so --fresh stops refreshing per file (#2703)
+- A lone background merge waits until its reservation fits (#2709)
+- A reopened index runs no catch-up merge until it changes (#2710)
+- Give query-time reads their own memory budget and stop breaker cache thrash (#2712)
+- Answer simple_query_string fields ["*"] from the inverted index (#2714)
+- Run at most one background cold stored warm per index (#2715)
+- Stop warming published segments once RSS passes the release level (#2718)
+- _reindex applies source filtering and refuses scripts (#2719)
+- Let a small merge write run after a yield streak below the watermark (#2722)
+- Chunk HNSW vector storage and account for the graph in the ingest trace (#2724)
+- Size the bulk analyze reservation by token count (#2730)
+- Read the root licence from the pin when a paths harvest leaves it unchecked-out (#2733)
+- Share one parsed _source between storage and FTS memtables (#2734)
+- Size the publish-time stored warm before decoding it (#2737)
+- Trust the OS certificate store alongside bundled roots (#2747)
+- Finalize-count reads time bounds by sort, not min/max aggs (#2750)
+- Cap a streak merge write at the memory watermark (#2751)
+- Flush one shard at a time when draining for memory pressure (#2753)
+- Share HNSW doc ids between the id maps and ledger them (#2777)
+- Reserve read budget for uncached doc_values decodes (#2778)
+- Stop a search deadlocking on a cold segment's stored-section lock (#2780)
+- Store common doc ids inline in the version map (#2781)
+- Delete a one-page _delete_by_query match set without a flush (#2782)
+- Report exact code size-limit skips (#2789)
+- Execute weighted_avg and fail loud on unsupported shapes (#2805)
+- Don't hold the turbo-ingest analyze reservation across schema and WAL waits (#2813)
+- Never journal a file past a record the server refused (#2816)
+- Name the flags when symlinks are skipped (#2824)
+- Stop the memtable scan at the search deadline (#2830)
+- Enforce the raw request byte limit (#2845)
+- Reject non-string email inputs (#2854)
+- Index Dart extension and extension type declarations (#2865)
+- Refuse more than one alias write index at update time (#2876)
+- Index INSERT-only seed migrations instead of junking them (#2878)
+- Data-stream rollover honours dry_run, conditions and write routing (#2900)
+- Calamine 0.38.0 for RUSTSEC-2026-0436 (cargo-audit red on every PR) (#2912)
+- Reject avg/sum/min/max/stats on a non-numeric field like ES (#2913)
+- Validate scroll searches the way SearchRequest#validate does (#2915)
+- Enforce index.max_terms_count on terms queries (#2936)
+- Enforce the search.max_keep_alive cluster setting (#2937)
+- Refuse a malformed _bulk action line for the whole request (#2938)
+- Keep composite missing order consistent across pages (#2944)
 
 ## [1.0.0-rc.100] - 2026-10-26
 
