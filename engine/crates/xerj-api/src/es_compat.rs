@@ -44797,6 +44797,128 @@ fn is_remote_index_name(expr: &str) -> bool {
     expr.find(':').is_some_and(|i| i > 0)
 }
 
+#[cfg(test)]
+mod indices_boost_resolution_tests {
+    use super::*;
+    use axum::{body::Body, http::Request};
+    use tower::ServiceExt;
+    use xerj_common::{
+        config::{Config, WalSync},
+        metrics::Metrics,
+    };
+    use xerj_engine::Engine;
+
+    fn test_state() -> AppState {
+        let dir = tempfile::tempdir().expect("tempdir").keep();
+        let mut config = Config::default();
+        config.server.data_dir = dir.to_string_lossy().into_owned();
+        config.storage.wal_sync = WalSync::Async;
+        let metrics = Metrics::new().expect("metrics");
+        let engine = Engine::new(config.clone()).expect("engine");
+        AppState::new(config, engine, metrics)
+    }
+
+    async fn send(app: &axum::Router, method: &str, uri: &str, body: Value) -> (StatusCode, Value) {
+        let resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(method)
+                    .uri(uri)
+                    .header("content-type", "application/json")
+                    .body(Body::from(body.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let status = resp.status();
+        let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        (status, serde_json::from_slice(&bytes).unwrap())
+    }
+
+    /// `test_1` behind `alias_1`, `test_2`, one document each.
+    async fn app() -> axum::Router {
+        let app = crate::router::build_es_compat_router(test_state());
+        for idx in ["test_1", "test_2"] {
+            let uri = format!("/{idx}/_doc/1?refresh=true");
+            let (status, body) = send(&app, "PUT", &uri, json!({"foo": "bar"})).await;
+            assert!(status.is_success(), "{body}");
+        }
+        let (status, body) = send(&app, "PUT", "/test_1/_alias/alias_1", json!({})).await;
+        assert!(status.is_success(), "{body}");
+        app
+    }
+
+    fn boost(entries: Value) -> Value {
+        json!({ "indices_boost": entries })
+    }
+
+    /// FAIL-BEFORE: both answered 200 with the unknown key dropped.
+    #[tokio::test]
+    async fn unresolvable_boost_keys_are_refused() {
+        let app = app().await;
+        let body = boost(json!([{"nonexistent": 2.0}, {"test_1": 1.0}]));
+        let (status, resp) = send(&app, "POST", "/_all/_search", body).await;
+        assert_eq!(status, StatusCode::NOT_FOUND, "{resp}");
+        assert_eq!(resp["error"]["type"], "index_not_found_exception", "{resp}");
+        assert_eq!(
+            resp["error"]["reason"], "no such index [nonexistent]",
+            "{resp}"
+        );
+
+        // A remote key is refused even when unavailable indices are ignored.
+        let body = boost(json!([{"nonexistent": 2.0}, {"remote1:test_1": 1.0}]));
+        let (status, resp) =
+            send(&app, "POST", "/_all/_search?ignore_unavailable=true", body).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{resp}");
+        assert_eq!(
+            resp["error"]["type"], "illegal_argument_exception",
+            "{resp}"
+        );
+        assert_eq!(
+            resp["error"]["reason"],
+            "Cross-cluster calls are not supported in this context but remote indices \
+             were requested: [remote1:test_1]",
+            "{resp}"
+        );
+    }
+
+    /// Names, aliases, wildcards that match nothing, date math, and an
+    /// unknown name under `ignore_unavailable` all still search, with the
+    /// boost applied. FAIL-BEFORE for the date-math key: its boost was
+    /// dropped, so `test_2` scored 1.0.
+    #[tokio::test]
+    async fn resolvable_boost_keys_still_apply() {
+        let app = app().await;
+        for (uri, entries) in [
+            (
+                "/_all/_search?ignore_unavailable=true",
+                json!([{"nonexistent": 2.0}, {"test_2": 2.0}]),
+            ),
+            ("/_all/_search", json!([{"test_2": 2.0}, {"nope*": 5.0}])),
+            ("/_all/_search", json!({"test_2": 2.0})),
+            (
+                "/_all/_search",
+                json!([{"alias_1": 0.5}, {"<test_2>": 2.0}]),
+            ),
+        ] {
+            let (status, resp) = send(&app, "POST", uri, boost(entries.clone())).await;
+            assert_eq!(status, StatusCode::OK, "{entries} -> {resp}");
+            assert_eq!(resp["hits"]["total"]["value"], 2, "{entries} -> {resp}");
+            assert_eq!(
+                resp["hits"]["hits"][0]["_index"], "test_2",
+                "{entries} -> {resp}"
+            );
+            assert_eq!(
+                resp["hits"]["hits"][0]["_score"], 2.0,
+                "{entries} -> {resp}"
+            );
+        }
+    }
+}
+
 /// Minimal glob matcher for index-name wildcard expansion (* only).
 /// ES routing hash for `_id` → shard. Uses Murmur3_32 with seed 0 over
 /// the UTF-16 little-endian byte encoding of each char's UTF-16 code unit,
