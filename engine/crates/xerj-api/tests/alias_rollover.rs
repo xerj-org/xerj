@@ -285,6 +285,83 @@ async fn filter_is_copied_to_the_new_member() {
 }
 
 #[tokio::test]
+async fn failed_metadata_flush_rolls_back_the_new_index_and_keeps_the_old_writer() {
+    let (app, dir) = app().await;
+    create_logs_index(&app, "logs-000001", "logs", json!({"is_write_index": true})).await;
+    write_doc(&app, "logs-000001", "1", "one").await;
+    refresh(&app, "logs-000001").await;
+
+    // Make the atomic metadata snapshot fail: rename(file, directory) fails.
+    let metadata_path = dir.path().join("alias_metadata.json");
+    let _ = std::fs::remove_file(&metadata_path);
+    std::fs::create_dir(&metadata_path).expect("blocking alias metadata path");
+
+    let (status, body) = rollover(&app, "logs", json!({})).await;
+    assert!(
+        status.is_server_error(),
+        "a failed metadata handoff must not answer success: {status} {body}"
+    );
+    let (status, _) = call(&app, "GET", "/logs-000002", Value::Null).await;
+    assert_eq!(
+        status,
+        StatusCode::NOT_FOUND,
+        "the index created by the failed handoff must be removed"
+    );
+
+    // The alias is still the old single write member and remains usable.
+    write_doc(&app, "logs", "2", "two").await;
+    let (status, _) = call(&app, "GET", "/logs-000001/_doc/2", Value::Null).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        alias_members(&app, "logs").await,
+        vec![("logs-000001".to_string(), true)]
+    );
+}
+
+#[tokio::test]
+async fn rollover_copies_the_write_index_instead_of_a_newer_template() {
+    let (app, _dir) = app().await;
+    create_logs_index(&app, "logs-000001", "logs", json!({"is_write_index": true})).await;
+    // Installed after the write index exists: applying it to the rollover would
+    // add a field the copied mapping does not have.
+    let (status, body) = call(
+        &app,
+        "PUT",
+        "/_index_template/logs-extra",
+        json!({
+            "index_patterns": ["logs-*"],
+            "template": {"mappings": {"properties": {"extra": {"type": "keyword"}}}}
+        }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+
+    let (status, body) = rollover(&app, "logs", json!({})).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+
+    let (status, body) = call(&app, "GET", "/logs-000002/_mapping", Value::Null).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(
+        body["logs-000002"]["mappings"]["properties"]
+            .get("extra")
+            .is_none(),
+        "the new index must copy the write index, not apply a newer template: {body}"
+    );
+    let (status, body) = call(
+        &app,
+        "GET",
+        "/logs-000002/_field_caps?fields=extra",
+        Value::Null,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(
+        body["fields"].get("extra").is_none(),
+        "the live schema and the mapping must agree: {body}"
+    );
+}
+
+#[tokio::test]
 async fn unsupported_alias_rollover_fields_are_refused() {
     let (app, _dir) = app().await;
     create_logs_index(&app, "logs-000001", "logs", json!({"is_write_index": true})).await;
