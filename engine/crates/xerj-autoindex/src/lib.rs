@@ -2165,6 +2165,9 @@ fn quarantine_changed_source(
     plan.files.remove(&key);
     plan.duplicate_files
         .retain(|alias| alias.file_key != key && plan.files.contains_key(&alias.file_key));
+    // Reconciliation may already have rejected this content. Quarantine is
+    // its new status, not a second catalog document under the same file key.
+    plan.junk_files.retain(|junk| junk.file_key != key);
     let error = anyhow::anyhow!("{detail}");
     plan.junk_files.push(changed_during_run_junk(
         &key, &file.rel, &format, file.size, &error,
