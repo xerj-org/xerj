@@ -86,6 +86,16 @@ const KNOWN: &[(&str, Role)] = &[
         Role::Node("**Cluster transport**"),
     ),
     ("xerj-mcp/src/lib.rs", Role::Client("`xerj mcp`")),
+    // Live database sources (#2984): the node opens a Postgres connection to
+    // the database the operator registered, reads a snapshot and then a
+    // logical-replication stream. Rows travel IN; outbound are the
+    // credentials, the SQL/replication commands and the applied LSN.
+    (
+        "xerj-sources/src/pg/wire.rs",
+        Role::Node("**Live database sources**"),
+    ),
+    // `xerj connect` / `xerj sources` only talk to the node URL given to them.
+    ("xerj-sources/src/cli.rs", Role::Client("`xerj connect`")),
     // Opt-in host hooks send redacted exports/excerpts only to the configured
     // loopback node, with redirects and proxies disabled. No node egress added.
     (
