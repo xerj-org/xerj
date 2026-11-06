@@ -12,7 +12,7 @@ release summary. Companion docs: [MODEL_BUNDLE.md](./MODEL_BUNDLE.md) (what the
 model directory is and how roles are served) and
 [MODEL_QUICKSTART.md](./MODEL_QUICKSTART.md) (get the model and serve it).
 
-`/_facts` is the surface of **XERJ-Query**, the model that answers over a facts
+`/_facts` is the surface of **XERJ Query-1**, the model that answers over a facts
 namespace. It is compiled into the default build from rc.101 and is **off until
 the server is started with `--facts-model-dir <DIR>`** (`XERJ_FACTS_MODEL_DIR` is
 the environment equivalent; the flag wins when both are given). On a node started
@@ -307,7 +307,7 @@ content fingerprint.
 | 404 | `index_not_found_exception` | `no facts namespace [x]`: `_ask` / `_lookup` on a namespace nothing was ever written to |
 
 **Two different `_ask` routes.** `POST /_facts/{ns}/_ask` is this API: a question
-over facts, answered by XERJ-Query. `POST /_ask` (no `/_facts`) is the
+over facts, answered by XERJ Query-1. `POST /_ask` (no `/_facts`) is the
 rule-based query planner for `_search` (`{index, prompt}` in, a validated query
 DSL out); a free-text question sent there answers `422 unresolved_phrase`
 naming the phrase it could not ground. If you see `unresolved_phrase`, you called

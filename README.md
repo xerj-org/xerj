@@ -400,7 +400,7 @@ Measurements and how to reproduce them:
 
 ## Ask over your own facts
 
-XERJ ships **XERJ-Query**, a model that answers questions over facts you give it.
+XERJ ships **XERJ Query-1**, a model that answers questions over facts you give it.
 It is off by default; start a node with `--facts-model-dir <DIR>` to turn it on.
 Write documents and facts to a namespace, then ask in plain language — the engine
 returns a *verified* answer with its cited evidence and the exact program that
@@ -425,7 +425,7 @@ Which to use: `_search` for keyword and text lookups over indexed documents;
 subject / relation / value facts. The model answers **only over the `facts[]`
 you wrote** (`kind` is `text`, `date`, `number` or `boolean`; `version` is a
 string; `quote` must equal `text[start:end]`) — documents alone answer `UNKNOWN`.
-XERJ-Query runs on CPU with no GPU and nothing leaving the machine. Counting
+XERJ Query-1 runs on CPU with no GPU and nothing leaving the machine. Counting
 questions ("how many people have office Berlin?") are served from an exact
 executor, and only when every fact of the counted subjects carries a stable
 `subject_id` (`"emp:1"`); without it the count is `INCOMPLETE` and the answer
