@@ -33,9 +33,10 @@ fn single_node_persistent_roundtrip() {
             node.propose(cmd).unwrap();
         }
 
-        // Single-node clusters commit immediately in propose().
-        assert_eq!(node.commit_index(), 50);
-        assert_eq!(node.log_len(), 50);
+        // Single-node clusters commit immediately in propose(). Index 1 is
+        // the no-op the leader appended when it took term 1.
+        assert_eq!(node.commit_index(), 51);
+        assert_eq!(node.log_len(), 51);
     }
 
     // The file must have been fsynced to disk.
@@ -49,21 +50,28 @@ fn single_node_persistent_roundtrip() {
 
     // ── Phase 2: reopen and verify replay ────────────────────────────
     {
-        let node2 = RaftNode::with_storage("n1".into(), vec![], &path).unwrap();
+        let mut node2 = RaftNode::with_storage("n1".into(), vec![], &path).unwrap();
         assert_eq!(
             node2.log_len(),
-            50,
-            "all 50 entries must replay from disk on restart"
+            51,
+            "the no-op and all 50 entries must replay from disk on restart"
         );
         assert_eq!(
             node2.commit_index(),
-            50,
+            51,
             "commit_index must survive restart"
         );
         assert_eq!(
             node2.current_term(),
             1,
             "current_term must be at least the term of the replayed entries"
+        );
+        let replayed = node2.ready();
+        assert_eq!(replayed.len(), 51);
+        assert_eq!(
+            replayed[0].command,
+            ClusterCommand::Noop,
+            "the no-op decodes from the file log"
         );
     }
 

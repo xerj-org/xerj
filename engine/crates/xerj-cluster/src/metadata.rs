@@ -167,6 +167,8 @@ impl ClusterMetadata {
             ClusterCommand::ClientMetadata { .. } => {
                 warn!("nested ClientMetadata wrapper; not applied");
             }
+            // A leader's term-start entry carries no metadata.
+            ClusterCommand::Noop => {}
         }
 
         self.last_applied_index = log_index;
@@ -411,7 +413,12 @@ mod tests {
         .unwrap();
 
         let entries: Vec<LogEntry> = node.ready();
-        assert_eq!(entries.len(), 2, "two entries should be ready");
+        assert_eq!(
+            entries.len(),
+            3,
+            "the leader no-op and two entries should be ready"
+        );
+        assert_eq!(entries[0].command, ClusterCommand::Noop);
 
         let mut meta = ClusterMetadata::new();
         for entry in &entries {

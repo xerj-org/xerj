@@ -336,6 +336,10 @@ impl ClusterNode {
             "Applying committed entry"
         );
         self.metadata.apply(entry.index, &entry.command);
+        // The leader's term-start no-op has no engine effect and no waiter.
+        if matches!(entry.command, ClusterCommand::Noop) {
+            return;
+        }
         let effect = if let Some(applier) = &self.applier {
             applier.apply_metadata(&entry.command).await
         } else {
