@@ -1,9 +1,9 @@
 {
- "corpus": "servo--rust-smallvec",
+ "corpus": "smallvec--smallvec",
  "cloned_at": null,
  "status": "draft",
  "shelf": "DB",
- "domain": "an agent working on array, rust, small queries this for how servo/rust-smallvec implements it: 'Small vector' optimization for Rust: store up to a small number of items on the stack (selected work: src, tests, src/iterators)",
+ "domain": "an agent working on array, rust, small queries this for how smallvec/smallvec implements it: 'Small vector' optimization for Rust: store up to a small number of items on the stack (selected work: src, tests, src/iterators)",
  "repos": [
   {
    "repo": "rust-smallvec",

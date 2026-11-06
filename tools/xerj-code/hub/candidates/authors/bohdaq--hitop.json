@@ -8,15 +8,15 @@
   {
    "repo": "hitop",
    "url": "https://github.com/bohdaq/hitop",
-   "sha": "06f4cf5231c3f92a7cf378c120b19dabaa9d4a21",
-   "licence": "MIT (LICENSE file at pin 06f4cf5231c3, GitHub licence API 2026-11-06)",
+   "sha": "268ed136b41aae8f315b514c106bd7ddde66b00a",
+   "licence": "MIT (LICENSE file at pin 268ed136b41a, GitHub licence API 2026-11-06)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-06T09:37Z",
     "consent_receipt": "04471601807d",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T09:37Z (receipt 04471601807d); pinned to the default-branch head. LICENSE file at pin 06f4cf5231c3 detected as MIT by the GitHub licence API on 2026-11-06; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T09:37Z (receipt 04471601807d); pinned to the default-branch head. LICENSE file at pin 268ed136b41a detected as MIT by the GitHub licence API on 2026-11-06; used under that licence with attribution."
    }
   }
  ]

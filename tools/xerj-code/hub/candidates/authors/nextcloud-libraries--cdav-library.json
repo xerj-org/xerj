@@ -1,9 +1,9 @@
 {
- "corpus": "nextcloud--cdav-library",
+ "corpus": "nextcloud-libraries--cdav-library",
  "cloned_at": null,
  "status": "draft",
  "shelf": "OPS",
- "domain": "an agent working on javascript, caldav, carddav queries this for how nextcloud/cdav-library implements it: :date: \ud83d\udcc7 CalDAV and CardDAV client library for JavaScript (selected work: src/models, test, the project root)",
+ "domain": "an agent working on javascript, caldav, carddav queries this for how nextcloud-libraries/cdav-library implements it: :date: \ud83d\udcc7 CalDAV and CardDAV client library for JavaScript (selected work: src/models, test, the project root)",
  "repos": [
   {
    "repo": "cdav-library",

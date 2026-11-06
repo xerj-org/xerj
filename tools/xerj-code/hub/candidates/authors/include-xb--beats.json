@@ -1,9 +1,9 @@
 {
- "corpus": "include-xb--luopulse-adornment",
+ "corpus": "include-xb--beats",
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on gdscript, godot, rhythm-game queries this for how include-xb/LuoPulse_Adornment implements it: \u4e2d\u6587\u865a\u62df\u6b4c\u624b\u540c\u4eba\u97f3\u4e50\u6e38\u620f A fan-made rhythm game about Chinese virtual singers (selected work: Script, the project root)",
+ "domain": "an agent working on gdscript, godot, rhythm-game queries this for how include-xb/Beats implements it: \u4e2d\u6587\u865a\u62df\u6b4c\u624b\u540c\u4eba\u97f3\u4e50\u6e38\u620f A fan-made rhythm game about Chinese virtual singers (selected work: Script, the project root)",
  "repos": [
   {
    "repo": "LuoPulse_Adornment",

@@ -2,8 +2,8 @@
  "corpus": "yusuferdemyamali--engelsiz",
  "cloned_at": null,
  "status": "draft",
- "shelf": "WEB",
- "domain": "an agent working on golang, kiwix, knowledge-base queries this for how yusuferdemyamali/engelsiz implements it: Offline-first Turkish Wikipedia reader. Download, verify, search and read ZIM archives locally with Kiwix. Built with Go and React; Linux al (selected work: frontend, the project root, scripts)",
+ "shelf": "WRITE",
+ "domain": "an agent working on golang, kiwix, knowledge-base queries this for how yusuferdemyamali/engelsiz implements it: Offline-first knowledge hub: Turkish Wikipedia, T\u00fcrkiye maps, local translation and offline education (PDF, ZIM, PhET). Go + React; Linux an (selected work: frontend, the project root, scripts)",
  "repos": [
   {
    "repo": "engelsiz",

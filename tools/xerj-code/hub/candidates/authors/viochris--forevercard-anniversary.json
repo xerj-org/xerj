@@ -1,0 +1,23 @@
+{
+ "corpus": "viochris--forevercard-anniversary",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on animation, anniversary, confetti queries this for how viochris/forevercard-anniversary implements it: Interactive 1-year anniversary web card, vibe-coded in Google AI Studio with Gemini. Features a cursor-dodging \"no\" button, polaroid relatio",
+ "repos": [
+  {
+   "repo": "forevercard-anniversary",
+   "url": "https://github.com/viochris/forevercard-anniversary",
+   "sha": "8d4a8e99fd457e6027b276e94241c74a6916a721",
+   "licence": "author's permission (LICENSE at pin 8d4a8e99fd45: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T13:12Z",
+    "consent_receipt": "7334d1ca70f2",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T13:12Z (receipt 7334d1ca70f2); pinned to the default-branch head. LICENSE at pin 8d4a8e99fd45: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

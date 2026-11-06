@@ -2,8 +2,8 @@
  "corpus": "coldmoth--ma2-panel",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on dmx, fastapi, grandma2 queries this for how coldmoth/ma2-panel implements it: \u041f\u043b\u0430\u043d\u0448\u0435\u0442\u043d\u0430\u044f \u043f\u0430\u043d\u0435\u043b\u044c \u0434\u043b\u044f grandMA2 onPC: \u0441\u0446\u0435\u043d\u044b, \u0441\u0432\u0435\u0442, \u0437\u0430\u043b \u0438 \u043f\u0440\u043e\u0441\u0442\u043e\u0439 \u0440\u0435\u0436\u0438\u043c \u0434\u043b\u044f \u043f\u0435\u0440\u0441\u043e\u043d\u0430\u043b\u0430. Python / FastAPI / vanilla JS (selected work: tests, the project root, scripts)",
+ "shelf": "WEB",
+ "domain": "an agent working on dmx, fastapi, grandma2 queries this for how coldmoth/ma2-panel implements it: Web-based lighting control for grandMA2 onPC. Scenes, fixtures and venue layout for computers and tablets. Download the Windows ZIP below (3 (selected work: tests, the project root, scripts)",
  "repos": [
   {
    "repo": "ma2-panel",
