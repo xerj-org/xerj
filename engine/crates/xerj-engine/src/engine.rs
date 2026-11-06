@@ -994,9 +994,9 @@ pub struct Engine {
     /// routing decision resolves to "this node" — so the write path is
     /// 100 % backward compatible with single-node deployments.
     pub node_id: Arc<String>,
-    /// Shard router shared across all indices. For single-node clusters
-    /// this has `num_shards = 1` and always routes to `node_id`, which
-    /// is a no-op. In multi-node mode, populated via
+    /// Shard router shared across all indices. Each planned index routes
+    /// with its own shard count. For single-node clusters there is no plan,
+    /// so every write stays on `node_id`. In multi-node mode, populated via
     /// `ShardRouter::update_from_metadata` whenever the Raft log
     /// commits a new shard assignment.
     pub shard_router: Arc<parking_lot::RwLock<xerj_cluster::router::ShardRouter>>,
@@ -3877,29 +3877,38 @@ impl Engine {
 
     /// V4 M5.2 — route a document to the node that owns its shard.
     ///
-    /// Returns `None` when this node should write the document itself:
-    /// there is no shard assignment (single-node mode, and any index that
-    /// was not created through the replicated shard plan), or the assigned
-    /// owner is this node. Returns `Some(node_id)` when a peer owns the
-    /// shard. Callers forward that write; they do not also store it here.
+    /// `Ok(None)` when this node should write the document itself: the
+    /// index has no shard plan (single-node mode, and any index that was
+    /// not created through the replicated shard plan), or the assigned
+    /// owner is this node. `Ok(Some(node_id))` when a peer owns the shard.
+    /// Callers forward that write; they do not also store it here.
+    ///
+    /// `Err` when the index has a plan but the document's shard has no
+    /// primary. That write must be refused, not stored here: a local copy
+    /// sits outside the plan, where reads by id and search never look.
     ///
     /// With no cluster handle the owner comparison uses `"local"`, which
     /// no replicated plan names, and the empty routing table makes every
-    /// call `None`.
-    pub fn route_write(&self, index: &str, doc_id: &str) -> Option<String> {
+    /// call `Ok(None)`.
+    pub fn route_write(
+        &self,
+        index: &str,
+        doc_id: &str,
+    ) -> std::result::Result<Option<String>, xerj_cluster::router::ShardUnassigned> {
+        use xerj_cluster::router::{Route, ShardUnassigned};
         let me = self.routing_node_id();
         let router = self.shard_router.read();
-        match router.route_doc(index, doc_id).1 {
-            None => None,
-            Some(owner) if owner == me => None,
-            Some(owner) => Some(owner.to_string()),
+        match router.route(index, doc_id) {
+            Route::NoPlan { .. } => Ok(None),
+            Route::Owned { node, .. } if node == me => Ok(None),
+            Route::Owned { node, .. } => Ok(Some(node.to_string())),
+            Route::Unowned { shard } => Err(ShardUnassigned { shard }),
         }
     }
 
     /// `true` when a replicated shard plan names this node as the primary
-    /// for `doc_id`. An index with no plan is `false` — that is not the
-    /// same as [`Engine::route_write`] returning `None`, which also covers
-    /// the unassigned case.
+    /// for `doc_id`. An index with no plan is `false`, and so is a planned
+    /// shard with no primary.
     pub fn owns_shard(&self, index: &str, doc_id: &str) -> bool {
         let me = self.routing_node_id();
         let router = self.shard_router.read();
@@ -3923,21 +3932,13 @@ impl Engine {
             .unwrap_or_else(|| self.node_id.to_string())
     }
 
-    /// Replace `index`'s primary assignments and widen the hash width so
-    /// every shard in `plan` is reachable.
+    /// Replace `index`'s primary assignments. The index's hash width becomes
+    /// its own plan width (highest shard + 1); other indices keep theirs.
     pub fn install_shard_plan(&self, index: &str, plan: &[xerj_cluster::ShardAssignment]) {
         if plan.is_empty() {
             return;
         }
         let mut router = self.shard_router.write();
-        let width = plan
-            .iter()
-            .map(|assignment| assignment.shard.saturating_add(1))
-            .max()
-            .unwrap_or(1);
-        if width > router.num_shards() {
-            router.set_num_shards(width);
-        }
         router.clear_index(index);
         for assignment in plan {
             router.assign(index, assignment.shard, &assignment.node_id);
@@ -3949,11 +3950,20 @@ impl Engine {
         }
     }
 
-    /// `(shard, primary node)` for `doc_id`, when the index has a plan.
-    pub fn primary_of(&self, index: &str, doc_id: &str) -> Option<(u32, String)> {
+    /// `(shard, primary node)` for `doc_id`. `Ok(None)` when the index has
+    /// no plan; `Err` when it has one but the shard has no primary.
+    pub fn primary_of(
+        &self,
+        index: &str,
+        doc_id: &str,
+    ) -> std::result::Result<Option<(u32, String)>, xerj_cluster::router::ShardUnassigned> {
+        use xerj_cluster::router::{Route, ShardUnassigned};
         let router = self.shard_router.read();
-        let (shard, owner) = router.route_doc(index, doc_id);
-        owner.map(|owner| (shard, owner.to_string()))
+        match router.route(index, doc_id) {
+            Route::NoPlan { .. } => Ok(None),
+            Route::Owned { shard, node } => Ok(Some((shard, node.to_string()))),
+            Route::Unowned { shard } => Err(ShardUnassigned { shard }),
+        }
     }
 
     /// Primary node id for one shard of `index`, when the plan names one.
@@ -4004,12 +4014,7 @@ impl Engine {
 
     /// Record one primary without dropping the index's other shards.
     pub fn assign_one_shard(&self, index: &str, shard: u32, node_id: &str) {
-        let mut router = self.shard_router.write();
-        let width = shard.saturating_add(1);
-        if width > router.num_shards() {
-            router.set_num_shards(width);
-        }
-        router.assign(index, shard, node_id);
+        self.shard_router.write().assign(index, shard, node_id);
     }
 
     /// Drop `index` from the routing table. Called when a delete commits.

@@ -44,6 +44,7 @@ use crate::es_compat::{
 use crate::responses::{EsDeleteDocResponse, EsDocResponse, EsGetResponse};
 use crate::state::AppState;
 use crate::ApiError;
+use xerj_cluster::router::ShardUnassigned;
 
 /// Per-shard `from + size` cap when a search is merged across owners.
 const MAX_FANOUT_WINDOW: usize = 10_000;
@@ -82,6 +83,36 @@ pub(crate) fn shard_not_ready_response(index: &str) -> Response {
         })),
     )
         .into_response()
+}
+
+/// The index has a shard plan but `shard` has no primary. A write there is
+/// refused instead of being stored on the receiving node, where it would sit
+/// outside the plan and reads by id and search would never see it.
+pub(crate) fn shard_not_assigned_body(index: &str, shard: u32) -> Value {
+    json!({
+        "error": {
+            "type": "shard_not_assigned_exception",
+            "reason": format!("[{index}][{shard}] has no primary assigned in the shard plan"),
+            "index": index,
+            "shard": shard
+        },
+        "status": 503
+    })
+}
+
+fn shard_not_assigned_response(index: &str, unassigned: ShardUnassigned) -> Response {
+    (
+        StatusCode::SERVICE_UNAVAILABLE,
+        Json(shard_not_assigned_body(index, unassigned.shard)),
+    )
+        .into_response()
+}
+
+fn shard_not_assigned_result(index: &str, unassigned: ShardUnassigned) -> ShardResult {
+    ShardResult::http(
+        503,
+        shard_not_assigned_body(index, unassigned.shard).to_string(),
+    )
 }
 
 fn http_result(result: ShardResult) -> Response {
@@ -153,8 +184,12 @@ pub(crate) async fn dispatch_index(
         .await;
         return Dispatch::Done(http_result(result));
     }
-    let Some(owner) = state.engine.route_write(index, id) else {
-        return Dispatch::Local;
+    let owner = match state.engine.route_write(index, id) {
+        Ok(Some(owner)) => owner,
+        Ok(None) => return Dispatch::Local,
+        Err(unassigned) => {
+            return Dispatch::Done(shard_not_assigned_response(index, unassigned));
+        }
     };
     let shard_op = ShardOp::IndexDoc {
         index: index.to_string(),
@@ -180,8 +215,12 @@ pub(crate) async fn dispatch_get(
     if !state.engine.has_cluster() {
         return Dispatch::Local;
     }
-    let Some((shard, owner)) = state.engine.primary_of(index, id) else {
-        return Dispatch::Local;
+    let (shard, owner) = match state.engine.primary_of(index, id) {
+        Ok(Some(found)) => found,
+        Ok(None) => return Dispatch::Local,
+        Err(unassigned) => {
+            return Dispatch::Done(shard_not_assigned_response(index, unassigned));
+        }
     };
     if owner == state.engine.routing_node_id() {
         return Dispatch::Local;
@@ -247,8 +286,12 @@ pub(crate) async fn dispatch_delete(
         let result = local_delete(state, index, id, if_seq_no, if_primary_term, false, 0).await;
         return Dispatch::Done(http_result(result));
     }
-    let Some(owner) = state.engine.route_write(index, id) else {
-        return Dispatch::Local;
+    let owner = match state.engine.route_write(index, id) {
+        Ok(Some(owner)) => owner,
+        Ok(None) => return Dispatch::Local,
+        Err(unassigned) => {
+            return Dispatch::Done(shard_not_assigned_response(index, unassigned));
+        }
     };
     let op = ShardOp::DeleteDoc {
         index: index.to_string(),
@@ -303,8 +346,12 @@ pub(crate) async fn dispatch_update(
         let result = local_update(state, index, id, &body_json, &params_json).await;
         return Dispatch::Done(http_result(result));
     }
-    let Some(owner) = state.engine.route_write(&concrete, id) else {
-        return Dispatch::Local;
+    let owner = match state.engine.route_write(&concrete, id) {
+        Ok(Some(owner)) => owner,
+        Ok(None) => return Dispatch::Local,
+        Err(unassigned) => {
+            return Dispatch::Done(shard_not_assigned_response(&concrete, unassigned));
+        }
     };
     let op = ShardOp::UpdateDoc {
         index: index.to_string(),
@@ -654,8 +701,12 @@ impl xerj_cluster::ShardHandler for ApiShardHandler {
                     return ShardResult::http(503, shard_not_ready_body(&index));
                 }
                 if !self.state.engine.owns_shard(&concrete, &id) {
-                    if let Some(owner) = self.state.engine.route_write(&concrete, &id) {
-                        return not_this_primary(&index, &owner);
+                    match self.state.engine.route_write(&concrete, &id) {
+                        Ok(Some(owner)) => return not_this_primary(&index, &owner),
+                        Ok(None) => {}
+                        Err(unassigned) => {
+                            return shard_not_assigned_result(&concrete, unassigned);
+                        }
                     }
                 }
                 local_update(&self.state, &index, &id, &body_json, &params_json).await
@@ -1073,8 +1124,10 @@ async fn replicate_write(
     id: &str,
     op: ShardOp,
 ) -> Result<(), ShardResult> {
-    let Some((shard, _)) = state.engine.primary_of(index, id) else {
-        return Ok(());
+    let shard = match state.engine.primary_of(index, id) {
+        Ok(Some((shard, _))) => shard,
+        Ok(None) => return Ok(()),
+        Err(unassigned) => return Err(shard_not_assigned_result(index, unassigned)),
     };
     let sync = state.engine.replica_sync_lock(index, shard);
     let _sync = sync.lock().await;
@@ -1246,7 +1299,7 @@ async fn primary_live_docs(
         .map_err(|err| format!("primary index [{index}] is not open: {err}"))?;
     let mut docs = Vec::new();
     for id in idx.live_document_ids() {
-        let Some((doc_shard, _)) = state.engine.primary_of(index, &id) else {
+        let Ok(Some((doc_shard, _))) = state.engine.primary_of(index, &id) else {
             continue;
         };
         if doc_shard != shard {
@@ -2304,10 +2357,12 @@ fn bulk_refused_here(state: &AppState, pieces: &[BulkPiece]) -> Option<ShardResu
         if state.engine.owns_shard(&concrete, &piece.id) {
             continue;
         }
-        if let Some(owner) = state.engine.route_write(&concrete, &piece.id) {
-            if owner != me {
+        match state.engine.route_write(&concrete, &piece.id) {
+            Ok(Some(owner)) if owner != me => {
                 return Some(not_this_primary(&piece.index, &owner));
             }
+            Ok(_) => {}
+            Err(unassigned) => return Some(shard_not_assigned_result(&concrete, unassigned)),
         }
     }
     None
@@ -2536,6 +2591,27 @@ pub(crate) async fn bulk_on_primaries(
         }
     }
 
+    for piece in &mut pieces {
+        if piece.preset.is_some() || state.engine.owns_shard(&piece.concrete, &piece.id) {
+            continue;
+        }
+        if let Err(unassigned) = state.engine.route_write(&piece.concrete, &piece.id) {
+            let body = shard_not_assigned_body(&piece.concrete, unassigned.shard);
+            let reason = body
+                .pointer("/error/reason")
+                .and_then(Value::as_str)
+                .unwrap_or("shard_not_assigned_exception")
+                .to_string();
+            piece.preset = Some(bulk_item_error(
+                &piece.action,
+                &piece.index,
+                &piece.id,
+                503,
+                reason,
+            ));
+        }
+    }
+
     let mut groups: Vec<OwnerGroup> = Vec::new();
     for (at, piece) in pieces.iter().enumerate() {
         if piece.preset.is_some() {
@@ -2544,7 +2620,11 @@ pub(crate) async fn bulk_on_primaries(
         let remote = if state.engine.owns_shard(&piece.concrete, &piece.id) {
             None
         } else {
-            state.engine.route_write(&piece.concrete, &piece.id)
+            state
+                .engine
+                .route_write(&piece.concrete, &piece.id)
+                .ok()
+                .flatten()
         };
         let owner = remote.clone().unwrap_or_default();
         if let Some(group) = groups
@@ -2795,7 +2875,7 @@ async fn forward_update_by_query(state: &AppState, index: &str, owner: &str, op:
 }
 
 async fn copy_updated_document(state: &AppState, index: &str, id: &str) -> Result<(), String> {
-    if state.engine.primary_of(index, id).is_none() {
+    if matches!(state.engine.primary_of(index, id), Ok(None)) {
         return Ok(());
     }
     if !state.engine.owns_shard(index, id) {
@@ -3162,7 +3242,7 @@ async fn forward_delete_by_query(state: &AppState, index: &str, owner: &str, op:
 }
 
 async fn copy_deleted_document(state: &AppState, index: &str, id: &str) -> Result<(), String> {
-    if state.engine.primary_of(index, id).is_none() {
+    if matches!(state.engine.primary_of(index, id), Ok(None)) {
         return Ok(());
     }
     if !state.engine.owns_shard(index, id) {

@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Cluster: each index routes documents with its own shard count.** The shard
+  router used one hash width for the whole cluster, set to the widest plan, so
+  creating an index with more shards (for example after a fourth node joined)
+  re-bucketed every older index: acknowledged ids answered 404 and new writes
+  landed on a shard the older index's plan does not have. The width is now
+  per index, derived from that index's own plan. A write to a planned shard
+  that has no primary is refused with 503 `shard_not_assigned_exception`
+  instead of being stored on the node that received it. Documents already
+  misplaced on a running cluster are not moved by this fix.
+
 ## [1.0.0-rc.101] - 2026-11-05
 
 <!-- notes-exempt: #2499 #2504 #2505 #2508 #2523 #2529 #2546 #2569 #2570 #2582 #2589 #2614 #2633 #2636 #2641 #2647 #2689 #2707 #2749 #2787 #2795 #2797 #2806 #2843 #2850 #2853 #2862 #2866 #2890 #2897 #2909 #2920 #2922 #2934 (CLA signatures) -->
