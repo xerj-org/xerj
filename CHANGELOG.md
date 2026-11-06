@@ -372,12 +372,15 @@ all 2,387 evaluation items. Without the flag a node is the node rc.100 was: no
 
 - `POST /{alias}/_rollover` now works for index aliases. It generates the
   next `-NNNNNN` name (or uses `new_index`), copies the write index's mapping
-  and settings, carries the alias's filter/routing metadata to the new member,
-  and moves `is_write_index` from the old member to the new so writes continue
-  through the alias. `dry_run` and `max_docs`/`max_age` conditions are
-  honoured; a name without a numeric suffix and a multi-member alias without a
-  write index are refused. The route previously answered 404 because only data
-  streams were handled.
+  and the settings the engine can honor (a newer matching index template is
+  not applied, and shard-count changes above 1 are not honored), carries the
+  alias's filter/routing metadata to the new member, and moves
+  `is_write_index` from the old member to the new in one atomic metadata
+  snapshot so writes continue through the alias. A failed handoff deletes the
+  index this request created. `dry_run` and `max_docs`/`max_age` conditions
+  are honoured; a name without a numeric suffix and a multi-member alias
+  without a write index are refused. The route previously answered 404 because
+  only data streams were handled.
 
 - Data-stream `_rollover` honours `dry_run` and its `conditions` instead of
   ignoring the body: `max_docs`/`max_age` are ORed and reported in

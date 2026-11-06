@@ -26678,7 +26678,9 @@ fn alias_action_meta(add: &AliasActionParams) -> Value {
 /// Replace (or clear, for empty metadata) one alias's metadata on one index
 /// and persist it. Clearing matters: re-adding an alias without a filter must
 /// not leave the previous filter enforced.
-fn store_alias_meta(state: &AppState, index: &str, alias: &str, meta: &Value) {
+/// Update one alias's metadata in memory without persisting it. The rollover
+/// handoff sets both members through this, then writes one snapshot.
+fn put_alias_meta(state: &AppState, index: &str, alias: &str, meta: &Value) {
     let mut existing = state
         .engine
         .index_alias_metadata
@@ -26699,7 +26701,27 @@ fn store_alias_meta(state: &AppState, index: &str, alias: &str, meta: &Value) {
         .engine
         .index_alias_metadata
         .insert(index.to_string(), existing);
+}
+
+fn store_alias_meta(state: &AppState, index: &str, alias: &str, meta: &Value) {
+    put_alias_meta(state, index, alias, meta);
     state.engine.flush_alias_metadata();
+}
+
+/// Restore one index's whole alias-metadata entry, used to undo a failed
+/// rollover handoff before its new index is deleted.
+fn restore_alias_metadata(state: &AppState, index: &str, snapshot: Option<Value>) {
+    match snapshot {
+        Some(snapshot) => {
+            state
+                .engine
+                .index_alias_metadata
+                .insert(index.to_string(), snapshot);
+        }
+        None => {
+            state.engine.index_alias_metadata.remove(index);
+        }
+    }
 }
 
 /// Drop one alias's stored metadata after the alias itself was removed.
@@ -38276,6 +38298,17 @@ async fn rollover_alias(
         return Json(response).into_response();
     }
 
+    let old_metadata_snapshot = state
+        .engine
+        .index_alias_metadata
+        .get(&old_index)
+        .map(|v| v.clone());
+    let new_metadata_snapshot = state
+        .engine
+        .index_alias_metadata
+        .get(&new_index)
+        .map(|v| v.clone());
+
     let old_idx = match state.engine.get_index(&old_index) {
         Ok(index) => index,
         Err(e) => return ApiError::new(xerj_common::XerjError::from(e)).into_response(),
@@ -38287,9 +38320,12 @@ async fn rollover_alias(
         .get(&old_index)
         .map(|v| v.clone())
         .unwrap_or(Value::Null);
+    // Copy the write index exactly. Applying a template here and then storing
+    // the old mapping blob would leave the live schema and GET /_mapping
+    // disagreeing; rollover's contract is the concrete source index.
     if let Err(e) = state
         .engine
-        .create_index_with_settings(&new_index, schema, settings.clone())
+        .create_index_exact_copy(&new_index, schema, settings.clone())
     {
         return ApiError::new(xerj_common::XerjError::from(e)).into_response();
     }
@@ -38300,14 +38336,45 @@ async fn rollover_alias(
         .map(|v| v.clone())
     {
         if let Err(e) = state.engine.put_index_mapping(&new_index, mapping) {
+            rollback_rollover_index(
+                state,
+                name,
+                &old_index,
+                &new_index,
+                &old_metadata_snapshot,
+                &new_metadata_snapshot,
+            )
+            .await;
             return ApiError::new(xerj_common::XerjError::from(e)).into_response();
         }
     }
-    if !settings.is_null() {
-        state
-            .engine
-            .index_settings
-            .insert(new_index.clone(), settings);
+
+    if let Err(e) = state.engine.add_alias(name, &new_index) {
+        rollback_rollover_index(
+            state,
+            name,
+            &old_index,
+            &new_index,
+            &old_metadata_snapshot,
+            &new_metadata_snapshot,
+        )
+        .await;
+        return ApiError::new(xerj_common::XerjError::from(e)).into_response();
+    }
+    // `add_alias` flushes membership internally, but that flush is best-effort.
+    // Make the handoff depend on a successful membership snapshot before the
+    // metadata switch.
+    if let Err(e) = state.engine.try_flush_aliases() {
+        rollback_rollover_index(
+            state,
+            name,
+            &old_index,
+            &new_index,
+            &old_metadata_snapshot,
+            &new_metadata_snapshot,
+        )
+        .await;
+        return ApiError::new(xerj_common::XerjError::from(e)).into_response();
     }
 
     let mut old_meta = alias_meta_for(state, &old_index, name);
@@ -38318,13 +38385,63 @@ async fn rollover_alias(
     if let Some(obj) = old_meta.as_object_mut() {
         obj.insert("is_write_index".to_string(), json!(false));
     }
-    if let Err(e) = state.engine.add_alias(name, &new_index) {
+    // Both flags in memory, then ONE atomic metadata snapshot. A crash before
+    // the rename leaves the old write flag in place; a crash after it leaves
+    // the new one. There is no persistent window with two write indices.
+    put_alias_meta(state, &old_index, name, &old_meta);
+    put_alias_meta(state, &new_index, name, &new_meta);
+    if let Err(e) = state.engine.try_flush_alias_metadata() {
+        rollback_rollover_index(
+            state,
+            name,
+            &old_index,
+            &new_index,
+            &old_metadata_snapshot,
+            &new_metadata_snapshot,
+        )
+        .await;
         return ApiError::new(xerj_common::XerjError::from(e)).into_response();
     }
-    store_alias_meta(state, &new_index, name, &new_meta);
-    store_alias_meta(state, &old_index, name, &old_meta);
+
+    if !settings.is_null() {
+        state
+            .engine
+            .index_settings
+            .insert(new_index.clone(), settings);
+    }
     response["rolled_over"] = json!(true);
     Json(response).into_response()
+}
+
+/// Undo the index this rollover request created and restore the metadata it
+/// may have changed. The alias membership and metadata snapshots are restored
+/// before the index is removed, so a failed handoff leaves the old write
+/// target writable (and a retry can start from a clean generated name).
+async fn rollback_rollover_index(
+    state: &AppState,
+    alias: &str,
+    old_index: &str,
+    new_index: &str,
+    old_snapshot: &Option<Value>,
+    new_snapshot: &Option<Value>,
+) {
+    if let Err(e) = state.engine.remove_alias(alias, new_index) {
+        tracing::warn!(
+            alias,
+            new_index,
+            error = %e,
+            "failed to remove the new alias member during rollover rollback"
+        );
+    }
+    if let Err(e) = state.engine.delete_index(new_index).await {
+        tracing::warn!(
+            new_index,
+            error = %e,
+            "failed to delete the new index during rollover rollback"
+        );
+    }
+    restore_alias_metadata(state, old_index, old_snapshot.clone());
+    restore_alias_metadata(state, new_index, new_snapshot.clone());
 }
 
 /// `POST /{data_stream}/_rollover`.
