@@ -44763,6 +44763,131 @@ pub async fn close_pit(
     Json(json!({ "succeeded": freed > 0, "num_freed": freed })).into_response()
 }
 
+#[cfg(test)]
+mod collapse_search_after_tests {
+    use super::*;
+    use axum::{body::Body, http::Request};
+    use tower::ServiceExt;
+    use xerj_common::{
+        config::{Config, WalSync},
+        metrics::Metrics,
+    };
+    use xerj_engine::Engine;
+
+    fn test_state() -> AppState {
+        let dir = tempfile::tempdir().expect("tempdir").keep();
+        let mut config = Config::default();
+        config.server.data_dir = dir.to_string_lossy().into_owned();
+        config.storage.wal_sync = WalSync::Async;
+        let metrics = Metrics::new().expect("metrics");
+        let engine = Engine::new(config.clone()).expect("engine");
+        AppState::new(config, engine, metrics)
+    }
+
+    async fn send(app: &axum::Router, method: &str, uri: &str, body: Value) -> (StatusCode, Value) {
+        let resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(method)
+                    .uri(uri)
+                    .header("content-type", "application/json")
+                    .body(Body::from(body.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let status = resp.status();
+        let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        (status, serde_json::from_slice(&bytes).unwrap())
+    }
+
+    /// `numeric_group` (the collapse key) and an integer `n`, three documents.
+    async fn app() -> axum::Router {
+        let app = crate::router::build_es_compat_router(test_state());
+        let mapping = json!({"mappings": {"properties": {
+            "numeric_group": {"type": "integer"}, "n": {"type": "integer"}}}});
+        let (status, body) = send(&app, "PUT", "/test", mapping).await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        for (id, g, n) in [("1", 1, 10), ("2", 1, 20), ("3", 25, 30)] {
+            let uri = format!("/test/_doc/{id}?refresh=true");
+            let (status, body) = send(&app, "PUT", &uri, json!({"numeric_group": g, "n": n})).await;
+            assert!(status.is_success(), "{body}");
+        }
+        app
+    }
+
+    fn collapsed(sort: Value, search_after: Value) -> Value {
+        json!({"collapse": {"field": "numeric_group"}, "sort": sort, "search_after": search_after})
+    }
+
+    /// FAIL-BEFORE: the first two answered 200; the third, the YAML's one sort
+    /// object with two keys, got the arity error.
+    #[tokio::test]
+    async fn search_after_on_another_or_a_second_sort_field_is_a_400() {
+        let app = app().await;
+        for body in [
+            collapsed(json!([{"n": "desc"}]), json!([6])),
+            collapsed(
+                json!([{"numeric_group": "asc"}, {"n": "desc"}]),
+                json!([6, 42]),
+            ),
+            collapsed(
+                json!([{"numeric_group": "asc", "n": "desc"}]),
+                json!([6, 42]),
+            ),
+        ] {
+            let (status, resp) = send(&app, "POST", "/test/_search", body.clone()).await;
+            assert_eq!(status, StatusCode::BAD_REQUEST, "{body} -> {resp}");
+            assert_eq!(
+                resp["error"]["type"], "search_phase_execution_exception",
+                "{body}"
+            );
+            let root = &resp["error"]["root_cause"][0];
+            assert_eq!(root["type"], "illegal_argument_exception", "{body}");
+            assert_eq!(
+                root["reason"],
+                "Cannot use [collapse] in conjunction with [search_after] unless the search is \
+                 sorted on the same field. Multiple sort fields are not allowed.",
+                "{body}"
+            );
+        }
+        // The arity error still wins when both apply, as it is checked first.
+        let body = collapsed(json!([{"n": "desc"}]), json!([6, 7]));
+        let (_, resp) = send(&app, "POST", "/test/_search", body).await;
+        assert_eq!(
+            resp["error"]["root_cause"][0]["reason"], "search_after has 2 value(s) but sort has 1.",
+            "{resp}"
+        );
+    }
+
+    /// Sorting on the collapse field alone, in every spelling, still pages;
+    /// collapse without search_after and search_after without collapse are
+    /// not affected.
+    #[tokio::test]
+    async fn search_after_on_the_collapse_field_still_answers() {
+        let app = app().await;
+        for body in [
+            collapsed(json!([{"numeric_group": "desc"}]), json!([25])),
+            collapsed(json!("numeric_group"), json!([1])),
+            collapsed(json!([{"numeric_group": {"order": "asc"}}]), json!([1])),
+            json!({"collapse": {"field": "numeric_group"}, "sort": [{"n": "desc"}, {"numeric_group": "asc"}]}),
+            json!({"sort": [{"n": "desc"}, {"numeric_group": "asc"}], "search_after": [30, 25]}),
+        ] {
+            let (status, resp) = send(&app, "POST", "/test/_search", body.clone()).await;
+            assert_eq!(status, StatusCode::OK, "{body} -> {resp}");
+        }
+        let body = collapsed(json!([{"numeric_group": "desc"}]), json!([25]));
+        let (_, resp) = send(&app, "POST", "/test/_search", body).await;
+        assert_eq!(
+            resp["hits"]["hits"][0]["_source"]["numeric_group"], 1,
+            "{resp}"
+        );
+    }
+}
+
 /// Minimal glob matcher for index-name wildcard expansion (* only).
 /// ES routing hash for `_id` → shard. Uses Murmur3_32 with seed 0 over
 /// the UTF-16 little-endian byte encoding of each char's UTF-16 code unit,
