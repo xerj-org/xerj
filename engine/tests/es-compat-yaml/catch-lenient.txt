@@ -59,7 +59,6 @@ search/160_exists_query.yml · Test exists query on _source field
 search/220_total_hits_object.yml · hits.total as an object
 search/260_parameter_validation.yml · test negative size throws IAE
 search/260_parameter_validation.yml · test negative terminate_after throws IAE
-search/320_disallow_queries.yml · Test disallow expensive queries
 search/330_fetch_fields.yml · error for flattened includes whole path
 search/330_fetch_fields.yml · error includes field name
 search/330_fetch_fields.yml · error includes glob pattern
