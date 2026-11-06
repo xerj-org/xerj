@@ -7,7 +7,7 @@ the [CHANGELOG](../CHANGELOG.md) carries the release summary. The request/respon
 contract for `/_facts` is in [FACTS_API.md](./FACTS_API.md); a step-by-step
 "get it running" is in [MODEL_QUICKSTART.md](./MODEL_QUICKSTART.md).
 
-The model is **XERJ-Query**. A node serves answers over a facts namespace from
+The model is **XERJ Query-1**. A node serves answers over a facts namespace from
 the model directory it is started with, and it is **opt-in**: a node started
 without a model directory serves no `/_facts` route at all (every `/_facts` path
 answers `404 xerj_query_not_enabled`) and loads nothing. Point the node at the
@@ -107,7 +107,7 @@ the weights, so a role is self-describing.
    greps that no Rust path branches on `source_precision`. `model.safetensors`
    may hold F32 or F16 tensors; both widen to f32 at load, and every later step,
    `w8` included, is the same path. The tensor type is not a manifest field.
-   (The shipped XERJ-Query model is FP16 throughout; `w8` and the int8-guard
+   (The shipped XERJ Query-1 model is FP16 throughout; `w8` and the int8-guard
    path are speed encodings of those same weights, not a different precision.)
 2. **Directory swap.** Replace `facts/`, `counting/served/`, or
    `counting/partner/` as a whole — each with its own `manifest.json` — with no

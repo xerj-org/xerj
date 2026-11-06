@@ -875,7 +875,7 @@ Other memory endpoints:
   DELETE /_memory/{namespace}/{id}     → forget one entry: { "id","namespace","forgotten":bool }
   DELETE /_memory/{namespace}          → drop the whole namespace: { "namespace","dropped":bool }
 
-Facts and XERJ-Query (/_facts) — OFF BY DEFAULT, rc.101+:
+Facts and XERJ Query-1 (/_facts) — OFF BY DEFAULT, rc.101+:
   Served only on a node started with `--facts-model-dir <DIR>` (`XERJ_FACTS_MODEL_DIR` is the env
   equivalent; bundle via `curl -fsSL https://xerj.org/get | sh -s -- --with-model`). Without the
   flag every /_facts path is 404 `xerj_query_not_enabled`. Which to use: `_search` for keyword and
