@@ -2055,6 +2055,114 @@ struct IndexCmdArgs {
     limit: usize,
     config: Option<PathBuf>,
     data_dir: Option<String>,
+    /// Per-batch wall-clock budget for retrying a memory-breaker rejection.
+    retry_timeout: std::time::Duration,
+}
+
+/// Default for `xerj index --retry-timeout-secs`: long enough for a memtable
+/// flush or a merge to finish and give memory back.
+const DEFAULT_INGEST_RETRY_TIMEOUT_SECS: u64 = 120;
+
+/// Retry cap for engine back-pressure (`ResourceExhausted`), unchanged from
+/// the loop this replaced.
+const INGEST_BACKPRESSURE_MAX_ATTEMPTS: u32 = 240;
+
+/// How long `xerj index` waits before resubmitting a batch the engine
+/// rejected with `err`, or `None` when the error is not transient and the
+/// batch has failed.
+///
+/// - `ResourceExhausted` is memtable back-pressure. The engine already waited
+///   on its drain condvar, so a short 5 ms pause is enough.
+/// - `CircuitBreaking` is the parent memory breaker. It stays tripped until a
+///   flush or merge frees memory, so the wait grows from 50 ms, doubling per
+///   `attempt`, up to 2 s.
+///
+/// Anything else (malformed JSON, mapping conflict, I/O) is final.
+fn ingest_backoff(err: &xerj_engine::EngineError, attempt: u32) -> Option<std::time::Duration> {
+    use std::time::Duration;
+    match err {
+        xerj_engine::EngineError::Common(xerj_common::XerjError::ResourceExhausted { .. }) => {
+            Some(Duration::from_millis(5))
+        }
+        xerj_engine::EngineError::Common(xerj_common::XerjError::CircuitBreaking { .. }) => {
+            let ms = 50u64.saturating_mul(1u64 << attempt.min(6));
+            Some(Duration::from_millis(ms.min(2_000)))
+        }
+        _ => None,
+    }
+}
+
+/// `true` when the retry loop may sleep `delay` and resubmit: back-pressure
+/// keeps its attempt cap, the breaker gets `budget` of wall-clock waiting.
+fn ingest_retry_allowed(
+    err: &xerj_engine::EngineError,
+    attempt: u32,
+    waited: std::time::Duration,
+    delay: std::time::Duration,
+    budget: std::time::Duration,
+) -> bool {
+    match err {
+        xerj_engine::EngineError::Common(xerj_common::XerjError::CircuitBreaking { .. }) => {
+            waited.saturating_add(delay) <= budget
+        }
+        _ => attempt < INGEST_BACKPRESSURE_MAX_ATTEMPTS,
+    }
+}
+
+/// Test hook: `XERJ_INDEX_TEST_BREAKER_REJECTIONS=K` makes the first `K`
+/// batch submissions of `xerj index` fail with the parent breaker's
+/// `CircuitBreaking` error before they reach the engine, so the retry path is
+/// exercised deterministically without depending on the host's RSS.
+static INJECTED_BREAKER_REJECTIONS: std::sync::atomic::AtomicU64 =
+    std::sync::atomic::AtomicU64::new(0);
+
+fn load_injected_breaker_rejections() {
+    let k = std::env::var("XERJ_INDEX_TEST_BREAKER_REJECTIONS")
+        .ok()
+        .and_then(|v| v.trim().parse::<u64>().ok())
+        .unwrap_or(0);
+    INJECTED_BREAKER_REJECTIONS.store(k, std::sync::atomic::Ordering::Relaxed);
+}
+
+fn take_injected_breaker_rejection() -> Option<xerj_engine::EngineError> {
+    INJECTED_BREAKER_REJECTIONS
+        .fetch_update(
+            std::sync::atomic::Ordering::Relaxed,
+            std::sync::atomic::Ordering::Relaxed,
+            |k| k.checked_sub(1),
+        )
+        .ok()
+        .map(|_| {
+            xerj_engine::EngineError::Common(xerj_common::XerjError::circuit_breaking(
+                "[parent] injected by XERJ_INDEX_TEST_BREAKER_REJECTIONS",
+            ))
+        })
+}
+
+/// Unix-ms of the last "memory breaker tripped" WARN, shared by every ingest
+/// worker so a tripped breaker logs once per second, not once per batch.
+static LAST_BREAKER_WARN_MS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+fn warn_breaker_tripped_rate_limited(err: &xerj_engine::EngineError) {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0);
+    let last = LAST_BREAKER_WARN_MS.load(std::sync::atomic::Ordering::Relaxed);
+    if now.saturating_sub(last) < 1_000 {
+        return;
+    }
+    if LAST_BREAKER_WARN_MS
+        .compare_exchange(
+            last,
+            now,
+            std::sync::atomic::Ordering::Relaxed,
+            std::sync::atomic::Ordering::Relaxed,
+        )
+        .is_ok()
+    {
+        warn!("memory breaker tripped, waiting for flush: {err}");
+    }
 }
 
 /// `xerj index`'s string flag value; exits 2 on a missing one (see [`flag_value`]).
@@ -2105,6 +2213,109 @@ fn check_index_file_input(path: &Path) -> Result<(), String> {
         return Err(format!("--file {} is not a regular file", path.display()));
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod ingest_backoff_tests {
+    use super::{ingest_backoff, ingest_retry_allowed, INGEST_BACKPRESSURE_MAX_ATTEMPTS};
+    use std::time::Duration;
+    use xerj_common::XerjError;
+    use xerj_engine::EngineError;
+
+    fn breaker() -> EngineError {
+        EngineError::Common(XerjError::circuit_breaking("[parent] tripped"))
+    }
+
+    fn backpressure() -> EngineError {
+        EngineError::Common(XerjError::resource_exhausted("memtable full"))
+    }
+
+    #[test]
+    fn backpressure_retries_after_a_short_pause() {
+        assert_eq!(
+            ingest_backoff(&backpressure(), 0),
+            Some(Duration::from_millis(5))
+        );
+        assert_eq!(
+            ingest_backoff(&backpressure(), 100),
+            Some(Duration::from_millis(5))
+        );
+    }
+
+    #[test]
+    fn breaker_retries_with_exponential_backoff_capped_at_two_seconds() {
+        let delays: Vec<u64> = (0..10)
+            .map(|a| ingest_backoff(&breaker(), a).unwrap().as_millis() as u64)
+            .collect();
+        assert_eq!(
+            delays,
+            [50, 100, 200, 400, 800, 1600, 2000, 2000, 2000, 2000]
+        );
+        assert_eq!(
+            ingest_backoff(&breaker(), u32::MAX),
+            Some(Duration::from_secs(2))
+        );
+    }
+
+    #[test]
+    fn parse_and_mapping_errors_are_final() {
+        let parse = EngineError::Common(XerjError::invalid_document_json("expected value"));
+        assert_eq!(ingest_backoff(&parse, 0), None);
+        let mapping = EngineError::Common(XerjError::InvalidMapping {
+            reason: "failed to parse field [n] of type [long]".into(),
+        });
+        assert_eq!(ingest_backoff(&mapping, 0), None);
+        let io = EngineError::Io(std::io::Error::other("disk full"));
+        assert_eq!(ingest_backoff(&io, 0), None);
+    }
+
+    #[test]
+    fn breaker_retries_stop_at_the_time_budget() {
+        let budget = Duration::from_secs(120);
+        let d = Duration::from_secs(2);
+        assert!(ingest_retry_allowed(
+            &breaker(),
+            500,
+            Duration::from_secs(118),
+            d,
+            budget
+        ));
+        assert!(!ingest_retry_allowed(
+            &breaker(),
+            1,
+            Duration::from_millis(118_001),
+            d,
+            budget
+        ));
+        assert!(!ingest_retry_allowed(
+            &breaker(),
+            0,
+            Duration::ZERO,
+            d,
+            Duration::ZERO
+        ));
+    }
+
+    #[test]
+    fn backpressure_retries_keep_their_attempt_cap() {
+        let budget = Duration::from_secs(120);
+        let d = Duration::from_millis(5);
+        let cap = INGEST_BACKPRESSURE_MAX_ATTEMPTS;
+        assert!(ingest_retry_allowed(
+            &backpressure(),
+            cap - 1,
+            Duration::ZERO,
+            d,
+            budget
+        ));
+        assert!(!ingest_retry_allowed(
+            &backpressure(),
+            cap,
+            Duration::ZERO,
+            d,
+            budget
+        ));
+    }
 }
 
 #[cfg(test)]
@@ -2203,6 +2414,7 @@ where
     let mut limit = 0usize; // 0 = all lines
     let mut config = None;
     let mut data_dir = None;
+    let mut retry_timeout_secs = DEFAULT_INGEST_RETRY_TIMEOUT_SECS;
 
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -2213,6 +2425,9 @@ where
             "--limit" | "-l" => limit = index_flag_count(&arg, args.next()),
             "--config" | "-c" => config = Some(PathBuf::from(index_flag_value(&arg, args.next()))),
             "--data-dir" | "-d" => data_dir = Some(index_flag_value(&arg, args.next())),
+            "--retry-timeout-secs" => {
+                retry_timeout_secs = index_flag_count(&arg, args.next()) as u64
+            }
             xerj_common::feedback::DISABLE_FLAG => {}
             "--help" | "-h" => {
                 print_index_help();
@@ -2233,6 +2448,7 @@ where
         limit,
         config,
         data_dir,
+        retry_timeout: std::time::Duration::from_secs(retry_timeout_secs),
     })
 }
 
@@ -2256,6 +2472,9 @@ fn index_help_text(feedback: bool) -> String {
          \x20\x20\x20\x20--limit,    -l <N>     Ingest only the first N lines (default: all)\n\
          \x20\x20\x20\x20--config,   -c <PATH>  Path to TOML config file\n\
          \x20\x20\x20\x20--data-dir, -d <PATH>  Override data directory\n\
+         \x20\x20\x20\x20--retry-timeout-secs <N>\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20Seconds one batch may wait out the memory\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20breaker before it counts as failed (default 120)\n\
          \x20\x20\x20\x20--disable-feedback     Do not print the feedback invitation above\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20(env XERJ_DISABLE_FEEDBACK=true)\n\
          \x20\x20\x20\x20--help,     -h         Show this help\n\
@@ -2489,6 +2708,8 @@ async fn run_cli_index(cmd: IndexCmdArgs) -> Result<()> {
 
     let _ = &sem; // keep sem in scope for name-shadowing parity; unused on sync path.
     let limit = cmd.limit;
+    let retry_timeout = cmd.retry_timeout;
+    load_injected_breaker_rejections();
     let idx_for_rayon: std::sync::Arc<xerj_engine::Index> = std::sync::Arc::clone(&index);
     let sent_for_rayon = StdArc::clone(&total_sent);
     let errs_for_rayon = StdArc::clone(&total_errs);
@@ -2510,11 +2731,12 @@ async fn run_cli_index(cmd: IndexCmdArgs) -> Result<()> {
                 let mut cursor = 0usize;
                 let mut current: Vec<(String, StdArc<[u8]>)> = Vec::with_capacity(batch_size);
 
-                // Synchronous submit with back-pressure retry.  The engine
-                // returns ResourceExhausted only when memtable > 3× flush
-                // threshold (after the internal Condvar wait has already
-                // let the flusher drain).  Clone the batch up-front because
-                // a successful call consumes it; retry uses a sibling clone.
+                // Synchronous submit with retry on transient rejections
+                // (`ingest_backoff`): memtable back-pressure and the parent
+                // memory breaker. A batch that exhausts its retries, or hits
+                // a final error, is counted in `errs` and makes the command
+                // exit 1. Clone the batch up-front because a successful call
+                // consumes it; retry uses a sibling clone.
                 let submit = |batch: Vec<(String, StdArc<[u8]>)>| {
                     let n = batch.len() as u64;
                     let mut retry: Vec<(String, StdArc<[u8]>)> = batch
@@ -2523,32 +2745,58 @@ async fn run_cli_index(cmd: IndexCmdArgs) -> Result<()> {
                         .collect();
                     let mut current_batch = Some(batch);
                     let mut attempts: u32 = 0;
+                    let mut breaker_waited = std::time::Duration::ZERO;
                     loop {
                         let b = current_batch.take().unwrap();
-                        match idx_for_rayon.index_batch_sync_raw(b) {
+                        let result = match take_injected_breaker_rejection() {
+                            Some(injected) => Err(injected),
+                            None => idx_for_rayon.index_batch_sync_raw(b),
+                        };
+                        match result {
                             Ok(_) => {
                                 sent_for_rayon.fetch_add(n, std::sync::atomic::Ordering::Relaxed);
                                 return;
                             }
-                            Err(xerj_engine::EngineError::Common(
-                                xerj_common::XerjError::ResourceExhausted { .. },
-                            )) if attempts < 240 => {
+                            Err(e) => {
+                                let backoff = ingest_backoff(&e, attempts);
+                                let delay = backoff.filter(|d| {
+                                    ingest_retry_allowed(
+                                        &e,
+                                        attempts,
+                                        breaker_waited,
+                                        *d,
+                                        retry_timeout,
+                                    )
+                                });
+                                let Some(delay) = delay else {
+                                    if backoff.is_some() {
+                                        error!(
+                                            "batch ingest error: {n} docs not indexed after {attempts} retries ({:.1}s waiting on the memory breaker): {e}",
+                                            breaker_waited.as_secs_f64()
+                                        );
+                                    } else {
+                                        error!("batch ingest error: {e}");
+                                    }
+                                    errs_for_rayon
+                                        .fetch_add(n, std::sync::atomic::Ordering::Relaxed);
+                                    return;
+                                };
+                                if matches!(
+                                    e,
+                                    xerj_engine::EngineError::Common(
+                                        xerj_common::XerjError::CircuitBreaking { .. }
+                                    )
+                                ) {
+                                    warn_breaker_tripped_rate_limited(&e);
+                                    breaker_waited += delay;
+                                }
                                 attempts += 1;
-                                // The engine's Condvar already waited up to
-                                // 50 ms; add a tiny thread::sleep to avoid
-                                // a tight busy-loop on persistent back-
-                                // pressure (flusher is clearly saturated).
-                                std::thread::sleep(std::time::Duration::from_millis(5));
+                                std::thread::sleep(delay);
                                 let reclone: Vec<(String, StdArc<[u8]>)> = retry
                                     .iter()
                                     .map(|(id, b)| (id.clone(), StdArc::clone(b)))
                                     .collect();
                                 current_batch = Some(std::mem::replace(&mut retry, reclone));
-                            }
-                            Err(e) => {
-                                error!("batch ingest error: {e}");
-                                errs_for_rayon.fetch_add(n, std::sync::atomic::Ordering::Relaxed);
-                                return;
                             }
                         }
                     }
@@ -2633,6 +2881,16 @@ async fn run_cli_index(cmd: IndexCmdArgs) -> Result<()> {
     println!(" workers        : {}", workers);
     println!(" batch size     : {}", batch_size);
     println!("═══════════════════════════════════════════════════════════");
+
+    if errs > 0 {
+        use std::io::Write as _;
+        let _ = std::io::stdout().flush();
+        eprintln!(
+            "error: {errs} documents were NOT indexed into [{}] (see the batch ingest errors above); exiting 1",
+            cmd.index
+        );
+        std::process::exit(1);
+    }
 
     Ok(())
 }
