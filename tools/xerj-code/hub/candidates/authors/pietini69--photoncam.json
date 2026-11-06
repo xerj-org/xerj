@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Rust queries this for how pietini69/photoncam implements it: LaserBurn \u2014 The Blazingly Fast, Native Rust Laser Cutting & Engraving CAM (macOS, Windows, Linux) (selected work: scripts, src/gui, src)",
+ "domain": "an agent working on cam, gcode, grbl queries this for how pietini69/photoncam implements it: PhotonCAM \u2014 The Blazingly Fast, Native Rust Laser Cutting & Engraving CAM (macOS, Windows, Linux) (selected work: scripts, src/gui, src)",
  "repos": [
   {
    "repo": "photoncam",

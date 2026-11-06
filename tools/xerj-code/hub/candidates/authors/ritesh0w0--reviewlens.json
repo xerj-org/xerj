@@ -1,0 +1,23 @@
+{
+ "corpus": "ritesh0w0--reviewlens",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how ritesh0w0/ReviewLens implements it: Evidence-first AI-assisted code review for GitHub pull requests",
+ "repos": [
+  {
+   "repo": "ReviewLens",
+   "url": "https://github.com/ritesh0w0/ReviewLens",
+   "sha": "fb79f3e8b4d2a985bf481b95f56953216ff402ad",
+   "licence": "author's permission (LICENSE at pin fb79f3e8b4d2: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T06:16Z",
+    "consent_receipt": "fe8ce1c5cb5a",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T06:16Z (receipt fe8ce1c5cb5a); pinned to the default-branch head. LICENSE at pin fb79f3e8b4d2: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

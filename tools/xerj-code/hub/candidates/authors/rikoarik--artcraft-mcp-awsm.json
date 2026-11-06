@@ -1,0 +1,23 @@
+{
+ "corpus": "rikoarik--artcraft-mcp-awsm",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how rikoarik/artcraft-mcp-awsm implements it: rikoarik/artcraft-mcp-awsm (TypeScript) (selected work: src/tools, test, src)",
+ "repos": [
+  {
+   "repo": "artcraft-mcp-awsm",
+   "url": "https://github.com/rikoarik/artcraft-mcp-awsm",
+   "sha": "55c1f5977ef34df0b83d17c2b9492fea3a2146c7",
+   "licence": "MIT (LICENSE file at pin 55c1f5977ef3, GitHub licence API 2026-11-06)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T06:49Z",
+    "consent_receipt": "a18d0b636d2a",
+    "note": "Inclusion consented by the commit author by email at 2026-11-06T06:49Z (receipt a18d0b636d2a); selected commit 55c1f5977ef3: \"Improve Craft session workflows and contextual design guidance\". LICENSE file at pin 55c1f5977ef3 detected as MIT by the GitHub licence API on 2026-11-06; used under that licence with attribution."
+   }
+  }
+ ]
+}
