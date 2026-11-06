@@ -5510,6 +5510,27 @@ fn validate_search_after_rescore(body: &EsSearchBody) -> Option<Response> {
                 "Values must contains at least one value.",
             ));
         }
+        // ES pages collapsed results with search_after only when the sort is
+        // the collapse field alone (`SearchAfterBuilder#buildFieldDoc`); the
+        // collapse key is then the position, and any other sort could skip or
+        // repeat groups between pages. ES counts every key of a sort object as
+        // a field, so `[{"group": "asc", "other": "desc"}]` with two values
+        // passes the arity check and fails here; a value count that does not
+        // match the fields falls through to the arity error below.
+        let collapse_field = body
+            .collapse
+            .as_ref()
+            .and_then(|c| c.get("field"))
+            .and_then(Value::as_str);
+        if let Some(field) = collapse_field {
+            let fields = body.sort.as_ref().map(sort_field_names).unwrap_or_default();
+            if fields.len() == arr.len() && fields != [field] {
+                return Some(search_shard_validation_error(
+                    "Cannot use [collapse] in conjunction with [search_after] unless the search \
+                     is sorted on the same field. Multiple sort fields are not allowed.",
+                ));
+            }
+        }
         if arr.len() != total_sort {
             return Some(search_shard_validation_error(&format!(
                 "search_after has {} value(s) but sort has {}.",
@@ -5519,6 +5540,18 @@ fn validate_search_after_rescore(body: &EsSearchBody) -> Option<Response> {
         }
     }
     None
+}
+
+/// The fields a sort names, in order, the way ES parses them: a string is one
+/// field, every key of a sort object is one field (`{"a": "asc", "b": "desc"}`
+/// sorts on two), and an array is the concatenation of its elements.
+fn sort_field_names(sort: &Value) -> Vec<&str> {
+    match sort {
+        Value::String(s) => vec![s.as_str()],
+        Value::Object(o) => o.keys().map(String::as_str).collect(),
+        Value::Array(arr) => arr.iter().flat_map(sort_field_names).collect(),
+        _ => Vec::new(),
+    }
 }
 
 /// Build ES's `illegal_argument_exception` for an unparseable integer URL
