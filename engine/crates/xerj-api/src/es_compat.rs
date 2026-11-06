@@ -44929,6 +44929,178 @@ fn bucket_metric_path_error(reason: &str) -> Response {
         .into_response()
 }
 
+#[cfg(test)]
+mod bucket_metric_path_tests {
+    use super::*;
+    use axum::{body::Body, http::Request};
+    use tower::ServiceExt;
+    use xerj_common::{
+        config::{Config, WalSync},
+        metrics::Metrics,
+    };
+    use xerj_engine::Engine;
+
+    fn test_state() -> AppState {
+        let dir = tempfile::tempdir().expect("tempdir").keep();
+        let mut config = Config::default();
+        config.server.data_dir = dir.to_string_lossy().into_owned();
+        config.storage.wal_sync = WalSync::Async;
+        let metrics = Metrics::new().expect("metrics");
+        let engine = Engine::new(config.clone()).expect("engine");
+        AppState::new(config, engine, metrics)
+    }
+
+    async fn send(app: &axum::Router, method: &str, uri: &str, body: Value) -> (StatusCode, Value) {
+        let resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(method)
+                    .uri(uri)
+                    .header("content-type", "application/json")
+                    .body(Body::from(body.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let status = resp.status();
+        let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        (status, serde_json::from_slice(&bytes).unwrap())
+    }
+
+    /// The pipeline.yml fixture (`int_field` 1..4), plus a keyword and a double.
+    async fn app() -> axum::Router {
+        let app = crate::router::build_es_compat_router(test_state());
+        let mapping = json!({"mappings": {"properties": {
+            "int_field": {"type": "integer"}, "s": {"type": "keyword"}, "d": {"type": "double"}}}});
+        let (status, body) = send(&app, "PUT", "/test_1", mapping).await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        for n in 1..=4 {
+            let uri = format!("/test_1/_doc/{n}?refresh=true");
+            let doc = json!({"int_field": n, "s": format!("s{n}"), "d": n as f64 / 2.0});
+            let (status, body) = send(&app, "POST", &uri, doc).await;
+            assert!(status.is_success(), "{body}");
+        }
+        app
+    }
+
+    fn terms_with(subs: Value, path: &str) -> Value {
+        json!({"size": 0, "aggs": {
+            "the_terms": {"terms": {"field": "int_field"}, "aggs": subs},
+            "the_bad_max": {"max_bucket": {"buckets_path": path}}}})
+    }
+
+    /// FAIL-BEFORE: every request answered 200 with `the_bad_max.value: null`.
+    #[tokio::test]
+    async fn paths_without_a_number_are_refused() {
+        let app = app().await;
+        let multi = "buckets_path must reference either a number value or a single value numeric \
+                     metric aggregation, but [the_percentiles] contains multiple values. Please \
+                     specify which to use.";
+        for (body, reason) in [
+            (
+                terms_with(
+                    json!({"the_terms_2": {"terms": {"field": "int_field"},
+                    "aggs": {"the_max": {"max": {"field": "int_field"}}}}}),
+                    "the_terms>the_terms_2>the_max",
+                ),
+                "got: [Object[]] at aggregation [the_terms_2]",
+            ),
+            (
+                terms_with(
+                    json!({"the_terms_2": {"terms": {"field": "int_field"}}}),
+                    "the_terms>the_terms_2",
+                ),
+                "got: [LongTerms] at aggregation [the_terms_2]",
+            ),
+            (
+                terms_with(
+                    json!({"the_terms_2": {"terms": {"field": "s"}}}),
+                    "the_terms>the_terms_2",
+                ),
+                "got: [StringTerms] at aggregation [the_terms_2]",
+            ),
+            (
+                terms_with(
+                    json!({"the_terms_2": {"terms": {"field": "d"}}}),
+                    "the_terms>the_terms_2",
+                ),
+                "got: [DoubleTerms] at aggregation [the_terms_2]",
+            ),
+            (
+                terms_with(
+                    json!({"the_percentiles": {"percentiles": {
+                    "percents": [10, 50, 90, 99], "field": "int_field"}}}),
+                    "the_terms>the_percentiles",
+                ),
+                multi,
+            ),
+            (
+                terms_with(
+                    json!({"the_percentiles": {"percentiles": {"percents": [10, 50, 90, 99],
+                    "field": "int_field", "hdr": {}}}}),
+                    "the_terms>the_percentiles",
+                ),
+                multi,
+            ),
+            (
+                terms_with(
+                    json!({"f": {"filter": {"match_all": {}},
+                    "aggs": {"the_percentiles": {"percentiles": {"field": "int_field"}}}}}),
+                    "the_terms>f>the_percentiles",
+                ),
+                multi,
+            ),
+        ] {
+            let (status, resp) = send(&app, "POST", "/_search", body.clone()).await;
+            assert_eq!(status, StatusCode::BAD_REQUEST, "{body} -> {resp}");
+            let root = &resp["error"]["root_cause"][0];
+            assert_eq!(root["type"], "aggregation_execution_exception", "{body}");
+            let got = root["reason"].as_str().unwrap_or_default();
+            assert!(got.ends_with(reason), "{body}: {got}");
+        }
+    }
+
+    /// Paths that do reach a number keep answering, with the value.
+    #[tokio::test]
+    async fn paths_to_a_number_still_answer() {
+        let app = app().await;
+        for (subs, path, max) in [
+            (
+                json!({"m": {"max": {"field": "int_field"}}}),
+                "the_terms>m",
+                4.0,
+            ),
+            (
+                json!({"p": {"percentiles": {"field": "int_field", "percents": [99]}}}),
+                "the_terms>p",
+                4.0,
+            ),
+            (
+                json!({"p": {"percentiles": {"field": "int_field", "percents": [99]}}}),
+                "the_terms>p.99",
+                4.0,
+            ),
+            (
+                json!({"st": {"stats": {"field": "int_field"}}}),
+                "the_terms>st.max",
+                4.0,
+            ),
+        ] {
+            let body = terms_with(subs, path);
+            let (status, resp) = send(&app, "POST", "/_search", body.clone()).await;
+            assert_eq!(status, StatusCode::OK, "{path} -> {resp}");
+            assert_eq!(
+                resp["aggregations"]["the_bad_max"]["value"].as_f64(),
+                Some(max),
+                "{path} -> {resp}"
+            );
+        }
+    }
+}
+
 /// Minimal glob matcher for index-name wildcard expansion (* only).
 /// ES routing hash for `_id` → shard. Uses Murmur3_32 with seed 0 over
 /// the UTF-16 little-endian byte encoding of each char's UTF-16 code unit,
