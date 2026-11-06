@@ -16097,6 +16097,21 @@ async fn search_impl(
     {
         return search_shard_validation_error(&reason);
     }
+    if metric_aggs.is_some() {
+        let mappings: Vec<Value> = participating_indices
+            .iter()
+            .filter_map(|ix| {
+                state
+                    .engine
+                    .index_mappings
+                    .get(ix.as_str())
+                    .map(|m| m.clone())
+            })
+            .collect();
+        if let Some(reason) = find_bucket_metric_path_error(metric_aggs, &mappings) {
+            return bucket_metric_path_error(&reason);
+        }
+    }
 
     // Enforce per-index `index.disable_sequence_numbers` setting:
     // reject queries/sorts that touch `_seq_no` with ES's specific
@@ -44728,6 +44743,190 @@ pub async fn close_pit(
         _ => 0,
     };
     Json(json!({ "succeeded": freed > 0, "num_freed": freed })).into_response()
+}
+
+/// A bucket-metric pipeline (`max_bucket`, `avg_bucket`, ...) reads one
+/// number from every bucket of the first aggregation in its `buckets_path`,
+/// by resolving the rest of the path inside each bucket
+/// (`BucketHelpers.resolveBucketValue`). When that rest names a multi-bucket
+/// aggregation, or a multi-value metric without saying which value, there is
+/// no number to read and ES fails with
+/// `buckets_path must reference either a number value or a single value
+/// numeric metric aggregation, got: [<result>] at aggregation [<name>]` or
+/// `..., but [<name>] contains multiple values. Please specify which to use.`
+/// XERJ skipped every bucket and answered 200 with `"value": null`.
+///
+/// `<result>` is ES's result class: `Object[]` when the path goes on below a
+/// multi-bucket aggregation, otherwise the class of the aggregation it stops
+/// at. A `terms` result is named by its value type (`LongTerms`,
+/// `DoubleTerms`, `StringTerms`), taken from the field's mapping in the
+/// first target index. Paths this cannot classify with confidence (value
+/// keys, dotted names, single-bucket ends, unknown kinds) are left to the
+/// executor, as before.
+fn find_bucket_metric_path_error(aggs: Option<&Value>, mappings: &[Value]) -> Option<String> {
+    const SIBLING: &[&str] = &[
+        "avg_bucket",
+        "max_bucket",
+        "min_bucket",
+        "sum_bucket",
+        "stats_bucket",
+        "extended_stats_bucket",
+        "percentiles_bucket",
+    ];
+    const MULTI_BUCKET: &[&str] = &[
+        "terms",
+        "rare_terms",
+        "significant_terms",
+        "multi_terms",
+        "histogram",
+        "date_histogram",
+        "auto_date_histogram",
+        "variable_width_histogram",
+        "range",
+        "date_range",
+        "ip_range",
+        "geo_distance",
+        "filters",
+        "adjacency_matrix",
+        "composite",
+        "geohash_grid",
+        "geotile_grid",
+    ];
+    const SINGLE_BUCKET: &[&str] = &[
+        "filter",
+        "global",
+        "nested",
+        "reverse_nested",
+        "missing",
+        "sampler",
+        "diversified_sampler",
+    ];
+    const MULTI_VALUE_METRIC: &[&str] = &[
+        "stats",
+        "extended_stats",
+        "percentiles",
+        "percentile_ranks",
+        "boxplot",
+    ];
+    const PREFIX: &str = "buckets_path must reference either a number value or a single value \
+                          numeric metric aggregation";
+    fn sub_aggs(def: &Value) -> Option<&serde_json::Map<String, Value>> {
+        def.get("aggs")
+            .or_else(|| def.get("aggregations"))
+            .and_then(Value::as_object)
+    }
+    fn kind_of(def: &Value) -> Option<(&str, &Value)> {
+        def.as_object()?
+            .iter()
+            .find(|(k, _)| !matches!(k.as_str(), "aggs" | "aggregations" | "meta"))
+            .map(|(k, v)| (k.as_str(), v))
+    }
+    /// ES's result class for a multi-bucket aggregation that ends a path.
+    fn bucket_class(kind: &str, params: &Value, mappings: &[Value]) -> Option<&'static str> {
+        Some(match kind {
+            "terms" => {
+                let field = params.get("field").and_then(Value::as_str)?;
+                let ty = mappings.first().and_then(|m| mapped_field_type(m, field))?;
+                match ty.as_str() {
+                    "long" | "integer" | "short" | "byte" | "date" | "date_nanos" | "boolean" => {
+                        "LongTerms"
+                    }
+                    "double" | "float" | "half_float" | "scaled_float" => "DoubleTerms",
+                    "keyword" | "constant_keyword" | "wildcard" | "ip" => "StringTerms",
+                    _ => return None,
+                }
+            }
+            "histogram" => "InternalHistogram",
+            "date_histogram" => "InternalDateHistogram",
+            "range" => "InternalRange",
+            "date_range" => "InternalDateRange",
+            "filters" => "InternalFilters",
+            _ => return None,
+        })
+    }
+    /// The error for one sibling `buckets_path`, resolved from `level`.
+    fn check(
+        path: &str,
+        level: &serde_json::Map<String, Value>,
+        mappings: &[Value],
+    ) -> Option<String> {
+        let mut elements = path.split('>');
+        let first = level.get(elements.next()?)?;
+        if !MULTI_BUCKET.contains(&kind_of(first)?.0) {
+            return None;
+        }
+        let rest: Vec<&str> = elements.collect();
+        let mut level = sub_aggs(first);
+        for (i, element) in rest.iter().enumerate() {
+            let last = i + 1 == rest.len();
+            // Value keys (`p.99`, `p[99.9]`, `s.avg`) and the bucket
+            // properties are numbers or the executor's business.
+            if element.contains(['.', '[']) || element.starts_with('_') {
+                return None;
+            }
+            let def = level?.get(*element)?;
+            let (kind, params) = kind_of(def)?;
+            if MULTI_BUCKET.contains(&kind) {
+                let result = if last {
+                    bucket_class(kind, params, mappings)?
+                } else {
+                    "Object[]"
+                };
+                return Some(format!(
+                    "{PREFIX}, got: [{result}] at aggregation [{element}]"
+                ));
+            }
+            if MULTI_VALUE_METRIC.contains(&kind) {
+                let single = ["percents", "values"]
+                    .iter()
+                    .filter_map(|k| params.get(*k).and_then(Value::as_array))
+                    .any(|a| a.len() == 1);
+                return (last && !single).then(|| {
+                    format!("{PREFIX}, but [{element}] contains multiple values. Please specify which to use.")
+                });
+            }
+            if !SINGLE_BUCKET.contains(&kind) || last {
+                return None;
+            }
+            level = sub_aggs(def);
+        }
+        None
+    }
+    fn walk(level: &serde_json::Map<String, Value>, mappings: &[Value]) -> Option<String> {
+        for def in level.values() {
+            if let Some((kind, params)) = kind_of(def) {
+                if SIBLING.contains(&kind) {
+                    if let Some(path) = params.get("buckets_path").and_then(Value::as_str) {
+                        if let Some(e) = check(path, level, mappings) {
+                            return Some(e);
+                        }
+                    }
+                }
+            }
+            if let Some(found) = sub_aggs(def).and_then(|subs| walk(subs, mappings)) {
+                return Some(found);
+            }
+        }
+        None
+    }
+    walk(aggs?.as_object()?, mappings)
+}
+
+fn bucket_metric_path_error(reason: &str) -> Response {
+    (
+        StatusCode::BAD_REQUEST,
+        Json(json!({
+            "error": {
+                "root_cause": [{ "type": "aggregation_execution_exception", "reason": reason }],
+                "type": "search_phase_execution_exception",
+                "reason": "all shards failed",
+                "phase": "query",
+                "caused_by": { "type": "aggregation_execution_exception", "reason": reason },
+            },
+            "status": 400,
+        })),
+    )
+        .into_response()
 }
 
 /// Minimal glob matcher for index-name wildcard expansion (* only).

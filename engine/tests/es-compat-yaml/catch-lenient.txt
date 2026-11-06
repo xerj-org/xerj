@@ -21,11 +21,6 @@ aggregations/max_buckets.yml · Max bucket
 aggregations/nested.yml · Illegal reverse nested aggregation to a child nested object
 aggregations/percentiles_hdr_metric.yml · Invalid params test
 aggregations/percentiles_tdigest_metric.yml · Invalid params test
-aggregations/pipeline.yml · Max pipeline on percentiles hdr agg without specifying percent
-aggregations/pipeline.yml · Max pipeline on percentiles tdigest agg without specifying percent
-aggregations/pipeline.yml · Max pipeline on percentiles with incorrect name
-aggregations/pipeline.yml · Max pipeline on terms agg
-aggregations/pipeline.yml · Max pipeline through terms agg
 aggregations/rare_terms.yml · IP test
 aggregations/scripted_metric_allow_list.yml · allowed inline scripts do not affect allowed stored scripts
 aggregations/scripted_metric_allow_list.yml · allowed stored scripts do not affect allowed inline scripts
