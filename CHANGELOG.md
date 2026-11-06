@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- A newly elected cluster leader now appends a no-op entry of its own term
+  (Raft §5.4.2, §8), so a log tail left uncommitted by the previous leader
+  commits right after the election instead of waiting for the next client
+  write; before this, a metadata write interrupted by an election stayed at
+  commit=0 and timed out. A leader that cannot persist the no-op steps down.
+  The rc.101 "Fixed" note that claimed this was premature: no such code
+  shipped in rc.101, and the fix lands here (PR_REF). The same bug was a main
+  cause of the `log_catchup` CI flake; those tests now re-propose a write only
+  when a leader change dropped it.
+
+### Upgrade notes
+
+- **Cluster: upgrade every member before restarting the ring.** The leader
+  no-op is a new Raft log entry type (`"Noop"`). A member still on an older
+  build cannot decode it and will not accept the log of a new-build leader,
+  so a mixed-version cluster must not run with a new-build leader. Stop and
+  upgrade all members, then start them. Once a new build has written a
+  no-op, an older build fails to open that data directory's Raft log
+  ("decode raft entry"), so there is no downgrade in place.
+
 ## [1.0.0-rc.101] - 2026-11-05
 
 <!-- notes-exempt: #2499 #2504 #2505 #2508 #2523 #2529 #2546 #2569 #2570 #2582 #2589 #2614 #2633 #2636 #2641 #2647 #2689 #2707 #2749 #2787 #2795 #2797 #2806 #2843 #2850 #2853 #2862 #2866 #2890 #2897 #2909 #2920 #2922 #2934 (CLA signatures) -->

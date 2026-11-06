@@ -62,19 +62,8 @@ fn fresh_dirs(n: usize) -> Vec<(TempDir, PathBuf)> {
         .collect()
 }
 
-async fn pump_until(nodes: &mut [ClusterNode], mut done: impl FnMut(&[ClusterNode]) -> bool) {
-    let deadline = Instant::now() + Duration::from_secs(10);
-    while Instant::now() < deadline {
-        for node in nodes.iter_mut() {
-            node.step(Duration::from_millis(5))
-                .await
-                .expect("raft step");
-        }
-        if done(nodes) {
-            return;
-        }
-    }
-    let summary: Vec<String> = nodes
+fn summary(nodes: &[ClusterNode]) -> Vec<String> {
+    nodes
         .iter()
         .map(|node| {
             format!(
@@ -87,8 +76,109 @@ async fn pump_until(nodes: &mut [ClusterNode], mut done: impl FnMut(&[ClusterNod
                 node.metadata.indices.keys().collect::<Vec<_>>()
             )
         })
-        .collect();
-    panic!("timed out: {summary:?}");
+        .collect()
+}
+
+/// One step on every member, run in parallel as separate machines would.
+///
+/// A step can block on fsync. Stepping members one after another adds those
+/// waits up, and a slow disk then reads as a missed heartbeat on the member
+/// that waits its turn, which a real cluster does not see.
+async fn step_all(nodes: &mut [ClusterNode]) {
+    tokio::task::block_in_place(|| {
+        std::thread::scope(|scope| {
+            for node in nodes.iter_mut() {
+                let rt = tokio::runtime::Handle::current();
+                scope.spawn(move || {
+                    rt.block_on(node.step(Duration::from_millis(5)))
+                        .expect("raft step");
+                });
+            }
+        });
+    });
+}
+
+async fn pump_until(nodes: &mut [ClusterNode], mut done: impl FnMut(&[ClusterNode]) -> bool) {
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while Instant::now() < deadline {
+        step_all(nodes).await;
+        if done(nodes) {
+            return;
+        }
+    }
+    panic!("timed out: {:?}", summary(nodes));
+}
+
+/// Propose `cmd` on the current leader until `done` holds on every member.
+///
+/// A proposal is legitimately dropped when leadership moves before it
+/// commits. It is proposed again only once it is provably dead: some member
+/// has committed a different entry at its index. Re-proposing earlier (on a
+/// timer, or because the new leader lacks it) can commit it twice, since a
+/// later leader that does hold it would still commit it. The new leader's
+/// term-start no-op is what makes the dead case show up promptly.
+async fn propose_until(
+    nodes: &mut [ClusterNode],
+    cmd: ClusterCommand,
+    mut done: impl FnMut(&[ClusterNode]) -> bool,
+) {
+    let deadline = Instant::now() + Duration::from_secs(20);
+    // (index, term) of the last proposal that was accepted.
+    let mut pending: Option<(u64, u64)> = None;
+    while Instant::now() < deadline {
+        if done(nodes) {
+            return;
+        }
+        let leader = nodes
+            .iter()
+            .enumerate()
+            .filter(|(_, n)| n.is_leader())
+            .max_by_key(|(_, n)| n.raft.current_term())
+            .map(|(i, _)| i);
+        let dropped = match pending {
+            None => true,
+            Some((index, term)) => nodes.iter().any(|n| {
+                n.raft.commit_index() >= index
+                    && index > n.snapshot_index()
+                    && n.raft.entry_term(index) != Some(term)
+            }),
+        };
+        if let (true, Some(l)) = (dropped, leader) {
+            let term = nodes[l].raft.current_term();
+            if let Ok(index) = nodes[l].propose(cmd.clone()) {
+                pending = Some((index, term));
+            }
+        }
+        step_all(nodes).await;
+    }
+    panic!("proposal never applied: {:?}", summary(nodes));
+}
+
+fn has_index(node: &ClusterNode) -> bool {
+    node.metadata.indices.contains_key("orders")
+}
+
+/// Create `orders` and mark n2 in sync for shard 0, on every member.
+async fn create_orders(nodes: &mut [ClusterNode]) {
+    propose_until(
+        nodes,
+        ClusterCommand::CreateIndex {
+            name: "orders".into(),
+            schema_json: "{}".into(),
+        },
+        |nodes| nodes.iter().all(has_index),
+    )
+    .await;
+    propose_until(
+        nodes,
+        ClusterCommand::SetShardInSync {
+            index: "orders".into(),
+            shard: 0,
+            nodes: vec!["n2".into()],
+        },
+        |nodes| nodes.iter().all(has_orders),
+    )
+    .await;
 }
 
 fn has_orders(node: &ClusterNode) -> bool {
@@ -101,7 +191,7 @@ fn has_orders(node: &ClusterNode) -> bool {
             == Some("n2")
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn restart_replays_the_committed_index_and_in_sync_set() {
     let ids = ["n1", "n2", "n3"];
     let held = fresh_dirs(3);
@@ -112,21 +202,7 @@ async fn restart_replays_the_committed_index_and_in_sync_set() {
         nodes.iter().filter(|n| n.is_leader()).count() == 1
     })
     .await;
-    let leader = nodes.iter().position(|n| n.is_leader()).expect("leader");
-    nodes[leader]
-        .propose(ClusterCommand::CreateIndex {
-            name: "orders".into(),
-            schema_json: "{}".into(),
-        })
-        .expect("propose create");
-    nodes[leader]
-        .propose(ClusterCommand::SetShardInSync {
-            index: "orders".into(),
-            shard: 0,
-            nodes: vec!["n2".into()],
-        })
-        .expect("propose in-sync");
-    pump_until(&mut nodes, |nodes| nodes.iter().all(has_orders)).await;
+    create_orders(&mut nodes).await;
     drop(nodes);
 
     let mut restored = boot(&ids, &paths).await;
@@ -169,7 +245,7 @@ async fn restart_replays_the_committed_index_and_in_sync_set() {
     );
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn an_empty_member_installs_the_leader_log_and_keeps_it_across_restart() {
     let ids = ["n1", "n2", "n3"];
     let held = fresh_dirs(3);
@@ -185,21 +261,7 @@ async fn an_empty_member_installs_the_leader_log_and_keeps_it_across_restart() {
         nodes.iter().filter(|n| n.is_leader()).count() == 1
     })
     .await;
-    let leader = nodes.iter().position(|n| n.is_leader()).expect("leader");
-    nodes[leader]
-        .propose(ClusterCommand::CreateIndex {
-            name: "orders".into(),
-            schema_json: "{}".into(),
-        })
-        .expect("propose create");
-    nodes[leader]
-        .propose(ClusterCommand::SetShardInSync {
-            index: "orders".into(),
-            shard: 0,
-            nodes: vec!["n2".into()],
-        })
-        .expect("propose in-sync");
-    pump_until(&mut nodes, |nodes| nodes.iter().all(has_orders)).await;
+    create_orders(&mut nodes).await;
 
     let events = Arc::new(Mutex::new(Vec::new()));
     let mut late = open_node("n3", &ids, &bus, &paths[2]).await;
@@ -235,7 +297,7 @@ async fn an_empty_member_installs_the_leader_log_and_keeps_it_across_restart() {
     );
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn a_compacted_prefix_installs_on_an_empty_member_and_survives_restart() {
     let ids = ["n1", "n2", "n3"];
     let held = fresh_dirs(3);
@@ -249,21 +311,15 @@ async fn a_compacted_prefix_installs_on_an_empty_member_and_survives_restart() {
         nodes.iter().filter(|n| n.is_leader()).count() == 1
     })
     .await;
-    let leader = nodes.iter().position(|n| n.is_leader()).expect("leader");
-    nodes[leader]
-        .propose(ClusterCommand::CreateIndex {
-            name: "orders".into(),
-            schema_json: "{}".into(),
-        })
-        .expect("propose create");
-    nodes[leader]
-        .propose(ClusterCommand::SetShardInSync {
-            index: "orders".into(),
-            shard: 0,
-            nodes: vec!["n2".into()],
-        })
-        .expect("propose in-sync");
-    pump_until(&mut nodes, |nodes| nodes.iter().all(has_orders)).await;
+    create_orders(&mut nodes).await;
+    // An election in between leaves the new leader's no-op in the log;
+    // wait until every member has applied everything it holds.
+    pump_until(&mut nodes, |nodes| {
+        nodes
+            .iter()
+            .all(|n| n.raft.commit_index() == n.snapshot_index() + n.raft.log_len() as u64)
+    })
+    .await;
 
     for node in &mut nodes {
         assert!(node.compact_applied(), "{} did not compact", node.raft.id);
@@ -279,6 +335,7 @@ async fn a_compacted_prefix_installs_on_an_empty_member_and_survives_restart() {
             node.raft.id
         );
     }
+    let leader = nodes.iter().position(|n| n.is_leader()).unwrap_or(0);
     let leader_id = nodes[leader].raft.id.clone();
     let leader_path = if leader_id == "n1" {
         paths[0].clone()
@@ -316,18 +373,18 @@ async fn a_compacted_prefix_installs_on_an_empty_member_and_survives_restart() {
         "applying the snapshot must run the in-sync applier: {caught_up:?}"
     );
 
-    let leader = nodes.iter().position(|n| n.is_leader()).expect("leader");
-    nodes[leader]
-        .propose(ClusterCommand::UpdateConfig {
+    propose_until(
+        &mut nodes,
+        ClusterCommand::UpdateConfig {
             key: "after".into(),
             value: "1".into(),
-        })
-        .expect("propose after the snapshot");
-    pump_until(&mut nodes, |nodes| {
-        nodes
-            .iter()
-            .all(|node| node.metadata.config.get("after").map(String::as_str) == Some("1"))
-    })
+        },
+        |nodes| {
+            nodes
+                .iter()
+                .all(|node| node.metadata.config.get("after").map(String::as_str) == Some("1"))
+        },
+    )
     .await;
 
     let late = nodes.pop().expect("n3");
