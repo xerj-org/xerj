@@ -14409,6 +14409,11 @@ async fn search_impl(
     // `?sort=` merge so a URL-provided sort counts toward the arity/field rules
     // exactly as ES does (URL sort + body search_after is valid; URL sort +
     // body rescore is rejected — both live-verified).
+    if let Some(reason) =
+        find_matrix_stats_script(&[body.aggs.as_ref(), body.aggregations.as_ref()])
+    {
+        return es_bad_request("parsing_exception", &reason, None);
+    }
     if let Some(err) = validate_search_after_rescore(&body) {
         return err;
     }
@@ -44728,6 +44733,52 @@ pub async fn close_pit(
         _ => 0,
     };
     Json(json!({ "succeeded": freed > 0, "num_freed": freed })).into_response()
+}
+
+/// `matrix_stats` reads several numeric fields at once through ES's
+/// array-values-source parser, which takes `fields`, `missing` and `mode`
+/// and has no `script`. A `script` is an unexpected token to that parser, so
+/// ES refuses the request before it runs: a 400 `parsing_exception`,
+/// `Unexpected token START_OBJECT [script] in [mfs].`. XERJ ignored the
+/// script and answered 200 with statistics over `fields`, which hides that
+/// the script never ran.
+fn find_matrix_stats_script(aggs: &[Option<&Value>]) -> Option<String> {
+    fn token(v: &Value) -> &'static str {
+        match v {
+            Value::Null => "VALUE_NULL",
+            Value::Bool(_) => "VALUE_BOOLEAN",
+            Value::Number(_) => "VALUE_NUMBER",
+            Value::String(_) => "VALUE_STRING",
+            Value::Array(_) => "START_ARRAY",
+            Value::Object(_) => "START_OBJECT",
+        }
+    }
+    fn walk(level: &serde_json::Map<String, Value>) -> Option<String> {
+        for (name, def) in level {
+            let Some(obj) = def.as_object() else {
+                continue;
+            };
+            if let Some(script) = obj.get("matrix_stats").and_then(|p| p.get("script")) {
+                return Some(format!(
+                    "Unexpected token {} [script] in [{name}].",
+                    token(script)
+                ));
+            }
+            if let Some(found) = obj
+                .get("aggs")
+                .or_else(|| obj.get("aggregations"))
+                .and_then(Value::as_object)
+                .and_then(walk)
+            {
+                return Some(found);
+            }
+        }
+        None
+    }
+    aggs.iter()
+        .flatten()
+        .filter_map(|a| a.as_object())
+        .find_map(walk)
 }
 
 /// Minimal glob matcher for index-name wildcard expansion (* only).
