@@ -16092,9 +16092,14 @@ async fn search_impl(
     // A numeric metric on a keyword/ip/... field. Checked after the alias
     // rewrite above so an alias is judged by the type of the field it names.
     let metric_aggs = body.aggs.as_ref().or(body.aggregations.as_ref());
-    if let Some(reason) =
-        find_unsupported_metric_agg_field(metric_aggs, &state, &participating_indices)
-    {
+    if let Some(reason) = find_unsupported_metric_agg_field(
+        metric_aggs,
+        &state,
+        &participating_indices,
+    )
+    .or_else(|| {
+        find_regex_include_exclude_on_non_string_field(metric_aggs, &state, &participating_indices)
+    }) {
         return search_shard_validation_error(&reason);
     }
 
@@ -44728,6 +44733,97 @@ pub async fn close_pit(
         _ => 0,
     };
     Json(json!({ "succeeded": freed > 0, "num_freed": freed })).into_response()
+}
+
+/// `terms`, `rare_terms` and `significant_terms` take `include` / `exclude`
+/// as an array of exact values, a `{partition, num_partitions}` object, or a
+/// string, which is a regular expression. ES applies a regular expression to
+/// the terms as strings, so it refuses one on a field whose values are not
+/// (`IncludeExclude#isRegexBased` with a non-`RAW` values-source format: ip,
+/// numbers, dates, booleans) with `Aggregation [name] cannot support regular
+/// expression style include/exclude settings as they can only be applied to
+/// string fields. Use an array of values for include/exclude clauses`, a 400
+/// since 8.12. XERJ ran the pattern anyway: `terms` matched it against the
+/// rendered values and `rare_terms` / `significant_terms` ignored it, so the
+/// buckets came back filtered by accident or not at all.
+///
+/// The field is refused only when it has such a type in every target index,
+/// the rule [`find_unsupported_metric_agg_field`] uses; ES would answer a
+/// partial result otherwise. `significant_text` is not covered: it reads text.
+fn find_regex_include_exclude_on_non_string_field(
+    aggs: Option<&Value>,
+    state: &AppState,
+    indices: &[String],
+) -> Option<String> {
+    const KINDS: &[&str] = &["terms", "rare_terms", "significant_terms"];
+    const NON_STRING_TYPES: &[&str] = &[
+        "ip",
+        "long",
+        "integer",
+        "short",
+        "byte",
+        "double",
+        "float",
+        "half_float",
+        "scaled_float",
+        "unsigned_long",
+        "date",
+        "date_nanos",
+        "boolean",
+    ];
+    fn walk(aggs: &serde_json::Map<String, Value>, mappings: &[Value]) -> Option<String> {
+        for (name, def) in aggs {
+            let Some(obj) = def.as_object() else {
+                continue;
+            };
+            for (kind, params) in obj {
+                if !KINDS.contains(&kind.as_str()) {
+                    continue;
+                }
+                let regex = ["include", "exclude"]
+                    .iter()
+                    .any(|k| params.get(*k).is_some_and(Value::is_string));
+                let Some(field) = params.get("field").and_then(Value::as_str) else {
+                    continue;
+                };
+                let non_string = mappings.iter().all(|m| {
+                    mapped_field_type(m, field)
+                        .is_some_and(|t| NON_STRING_TYPES.contains(&t.as_str()))
+                });
+                if regex && non_string {
+                    return Some(format!(
+                        "Aggregation [{name}] cannot support regular expression style \
+                         include/exclude settings as they can only be applied to string \
+                         fields. Use an array of values for include/exclude clauses"
+                    ));
+                }
+            }
+            if let Some(found) = obj
+                .get("aggs")
+                .or_else(|| obj.get("aggregations"))
+                .and_then(Value::as_object)
+                .and_then(|sub| walk(sub, mappings))
+            {
+                return Some(found);
+            }
+        }
+        None
+    }
+    let aggs = aggs?.as_object()?;
+    let mappings: Vec<Value> = indices
+        .iter()
+        .map(|ix| {
+            state
+                .engine
+                .index_mappings
+                .get(ix.as_str())
+                .map(|m| m.clone())
+        })
+        .collect::<Option<_>>()?;
+    if mappings.is_empty() {
+        return None;
+    }
+    walk(aggs, &mappings)
 }
 
 /// Minimal glob matcher for index-name wildcard expansion (* only).
