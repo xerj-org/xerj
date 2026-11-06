@@ -826,6 +826,9 @@ fn rerank_arg_schema(query_required: bool) -> Value {
          `fields` (string[]): which returned fields to send; default is every returned \
          string field. `instructions` (string): override what \"relevant\" means for \
          this corpus. `timeout_ms` (int, default {default_timeout_ms}). `model` (string). \
+         `provider` (string, default \"jev\"): \"cohere\" uses Cohere Rerank when the \
+         operator set `[rerank.cohere] api_key` or COHERE_API_KEY (models rerank-v5.0-fast, \
+         rerank-v5.0-pro, rerank-v3.5; `instructions` and `min_score` are refused with it). \
          Cannot be combined with `sort`. \
          READ THE RESPONSE'S `_rerank` BLOCK: `applied: true` means the order is the \
          judge's and every `_score` is a probability or null (a hit with no verdict, \
