@@ -1,0 +1,23 @@
+{
+ "corpus": "abhirajmangire--python-practicebook",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how abhirajmangire/Python-practicebook implements it: This Repo contain all the practice problrms that i have solved during my Python learning journey",
+ "repos": [
+  {
+   "repo": "Python-practicebook",
+   "url": "https://github.com/abhirajmangire/Python-practicebook",
+   "sha": "d1228888bb606548e54a46484d737da7bf84bceb",
+   "licence": "author's permission (LICENSE at pin d1228888bb60: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T14:15Z",
+    "consent_receipt": "47a2d5ad7f9f",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T14:15Z (receipt 47a2d5ad7f9f); pinned to the default-branch head. LICENSE at pin d1228888bb60: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

@@ -8,15 +8,15 @@
   {
    "repo": "ProjectCompass",
    "url": "https://github.com/GiacomoSaccaggi/ProjectCompass",
-   "sha": "171b2e2bf0f65654b3fab218849d94d2d8cc30d5",
-   "licence": "author's permission (LICENSE at pin 171b2e2bf0f6: NOASSERTION; repository: NOASSERTION)",
+   "sha": "a7ee693a215b9759c6655cf772fd0043986e519d",
+   "licence": "author's permission (LICENSE at pin a7ee693a215b: NOASSERTION; repository: NOASSERTION)",
    "review": {
     "spdx": "NOASSERTION",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T21:28Z",
     "consent_receipt": "bf19ed3e9c3b",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T21:28Z (receipt bf19ed3e9c3b); pinned to the default-branch head. LICENSE at pin 171b2e2bf0f6: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T21:28Z (receipt bf19ed3e9c3b); pinned to the default-branch head. LICENSE at pin a7ee693a215b: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
    }
   }
  ]

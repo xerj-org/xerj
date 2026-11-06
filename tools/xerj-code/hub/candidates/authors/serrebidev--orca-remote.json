@@ -8,15 +8,15 @@
   {
    "repo": "orca-remote",
    "url": "https://github.com/serrebidev/orca-remote",
-   "sha": "9260d8284bb9f0761633dca958f5e1d9ccc37485",
-   "licence": "LGPL-2.1 (LICENSE file at pin 9260d8284bb9, GitHub licence API 2026-10-29)",
+   "sha": "b9605d6e1bc7a1d8acbb990771c9a646a19adf33",
+   "licence": "LGPL-2.1 (LICENSE file at pin b9605d6e1bc7, GitHub licence API 2026-11-06)",
    "review": {
     "spdx": "LGPL-2.1",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-28T23:37Z",
     "consent_receipt": "f30be5999488",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T23:37Z (receipt f30be5999488); pinned to the default-branch head. LICENSE file at pin 9260d8284bb9 detected as LGPL-2.1 by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T23:37Z (receipt f30be5999488); pinned to the default-branch head. LICENSE file at pin b9605d6e1bc7 detected as LGPL-2.1 by the GitHub licence API on 2026-11-06; used under that licence with attribution."
    }
   }
  ]

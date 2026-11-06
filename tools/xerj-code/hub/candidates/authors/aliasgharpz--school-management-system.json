@@ -1,9 +1,9 @@
 {
- "corpus": "aliasgharpz--bahar",
+ "corpus": "aliasgharpz--school-management-system",
  "cloned_at": null,
  "status": "draft",
- "shelf": "DB",
- "domain": "an agent working on TypeScript queries this for how AliAsgharPZ/Bahar implements it: Bahar \u2014 a multi-tenant school management system (Next.js, Prisma, SQLite/D1) with role-based dashboards for admins, teachers, students and p (selected work: src/app, src/lib)",
+ "shelf": "WEB",
+ "domain": "an agent working on attendance-management, education, gradebook queries this for how AliAsgharPZ/school-management-system implements it: Bahar \u2014 free and open-source school management system: a multi-tenant student information system with attendance, grades, fees, scheduling,  (selected work: src/app, src/lib)",
  "repos": [
   {
    "repo": "Bahar",

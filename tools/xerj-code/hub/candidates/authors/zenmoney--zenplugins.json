@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on JavaScript queries this for how zenmoney/ZenPlugins implements it: zenmoney/ZenPlugins (JavaScript) (selected work: src/plugins)",
+ "domain": "an agent working on TypeScript queries this for how zenmoney/ZenPlugins implements it: zenmoney/ZenPlugins (TypeScript) (selected work: src/plugins)",
  "repos": [
   {
    "repo": "ZenPlugins",

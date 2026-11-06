@@ -1,9 +1,9 @@
 {
- "corpus": "raz-iacob--wire-up",
+ "corpus": "wire-up-dev--wire-up",
  "cloned_at": null,
  "status": "draft",
- "shelf": "WEB",
- "domain": "an agent working on PHP queries this for how raz-iacob/wire-up implements it: A modern Laravel + Livewire framework for building dynamic content-driven websites (selected work: tests, resources, app/Enums)",
+ "shelf": "API",
+ "domain": "an agent working on PHP queries this for how wire-up-dev/wire-up implements it: An open-source, self-updating CMS built on Laravel and Livewire (selected work: tests, resources, app/Enums)",
  "repos": [
   {
    "repo": "wire-up",

@@ -8,15 +8,15 @@
   {
    "repo": "osiris",
    "url": "https://github.com/MlkBlk-IT/osiris",
-   "sha": "cdc5b6795ddb0a6f10551681bf456a4157c07862",
-   "licence": "MIT (LICENSE file at pin cdc5b6795ddb, GitHub licence API 2026-11-05)",
+   "sha": "2f3f0c464cf57166fe30ff80023cb46af2e62fba",
+   "licence": "MIT (LICENSE file at pin 2f3f0c464cf5, GitHub licence API 2026-11-06)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-01T04:52Z",
     "consent_receipt": "5318be73dc4a",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T04:52Z (receipt 5318be73dc4a); pinned to the default-branch head. LICENSE file at pin cdc5b6795ddb detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T04:52Z (receipt 5318be73dc4a); pinned to the default-branch head. LICENSE file at pin 2f3f0c464cf5 detected as MIT by the GitHub licence API on 2026-11-06; used under that licence with attribution."
    }
   }
  ]

@@ -8,15 +8,15 @@
   {
    "repo": "ArgueBot",
    "url": "https://github.com/jchristn/ArgueBot",
-   "sha": "ff6ff8661cf68c147929a1b13b51ca5f15639283",
-   "licence": "MIT (LICENSE file at pin ff6ff8661cf6, GitHub licence API 2026-11-06)",
+   "sha": "cc4a4074b3721f5bb8cd13deb1ecb222be71629f",
+   "licence": "MIT (LICENSE file at pin cc4a4074b372, GitHub licence API 2026-11-06)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T22:23Z",
     "consent_receipt": "e5440885dc2f",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:23Z (receipt e5440885dc2f); pinned to the default-branch head. LICENSE file at pin ff6ff8661cf6 detected as MIT by the GitHub licence API on 2026-11-06; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:23Z (receipt e5440885dc2f); pinned to the default-branch head. LICENSE file at pin cc4a4074b372 detected as MIT by the GitHub licence API on 2026-11-06; used under that licence with attribution."
    }
   }
  ]

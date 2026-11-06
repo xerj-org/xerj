@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-agents, anthropic, conformance-testing queries this for how Plexito-de/spantruth implements it: Does your LLM telemetry tell the truth? Replays provider responses through LLM instrumentation libraries and checks every reported value aga (selected work: src/spantruth, tests, subjects)",
+ "domain": "an agent working on ai-agents, anthropic, conformance-testing queries this for how Plexito-de/spantruth implements it: Does your LLM telemetry tell the truth? uvx spantruth doctor checks what your instrumentation reports against what the provider sent: ghost  (selected work: src/spantruth, tests, subjects)",
  "repos": [
   {
    "repo": "spantruth",
