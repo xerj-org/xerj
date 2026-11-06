@@ -271,6 +271,9 @@ pub enum Cmd {
     Remove(RemoveCfg),
     /// Boxed for the same reason as `Index`.
     Watch(Box<WatchCfg>),
+    /// `autoindex <path> --facts <namespace>`: table rows written as XERJ
+    /// Query-1 facts (`crate::facts_rows`). Boxed like `Index`.
+    Facts(Box<crate::facts_rows::FactsCfg>),
     Help,
 }
 
@@ -348,6 +351,11 @@ pub fn help_text_with(feedback: bool) -> String {
          \x20\x20\x20\x20xerj autoindex status [OPTIONS]       resume-journal + index progress view\n\
          \x20\x20\x20\x20xerj autoindex s3://bucket/prefix --watch [OPTIONS]\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20poll object storage and emit a change feed\n\
+         \x20\x20\x20\x20xerj autoindex <PATH> --facts <NAMESPACE> [--key <COL>] [--subject <COL>] [--table <T>]\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20write table rows (SQLite, SQL dump, CSV/TSV, XLSX) as XERJ Query-1 facts:\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20one subject per row (subject_id = the key column), one fact per column.\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20Re-runs write only changed rows and withdraw removed ones. Needs a node\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20started with --facts-model-dir. Also: --dry-run --json --state-dir --batch-actions\n\
          \n\
          MAP REPORTS (catalog map only):\n\
          \x20\x20\x20\x20--html <FILE>       write an offline HTML report (new file only)\n\
@@ -942,6 +950,12 @@ pub(crate) fn prefix_rewrite_note(given: &str, used: &str) -> Option<String> {
 }
 
 pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
+    // `--facts <namespace>` is its own mode with its own small flag set: it
+    // writes table rows as facts and indexes nothing for search, so none of
+    // the indexing flags below apply to it.
+    if args.iter().any(|a| a == "--facts") {
+        return crate::facts_rows::parse_args(&args).map(|c| Cmd::Facts(Box::new(c)));
+    }
     let mut it = args.into_iter().peekable();
     let mut folder: Option<PathBuf> = None;
     let mut sub: Option<String> = None;

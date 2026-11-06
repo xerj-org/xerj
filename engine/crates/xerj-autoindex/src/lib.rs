@@ -17,6 +17,7 @@ pub mod detect;
 pub mod esclient;
 pub mod estimate;
 pub mod extract;
+pub mod facts_rows;
 mod family_junk;
 pub mod feedback;
 pub mod flood;
@@ -2575,6 +2576,7 @@ pub fn run_cli() -> i32 {
         Cmd::Status(cfg) => run_status(cfg),
         Cmd::Remove(cfg) => run_remove(cfg),
         Cmd::Watch(cfg) => objwatch::run::run(*cfg),
+        Cmd::Facts(cfg) => facts_rows::run(*cfg),
     };
     match res {
         Ok(code) => code,
