@@ -86,8 +86,12 @@ impl QueryResult {
     }
 }
 
-fn be_u32(b: &[u8]) -> u32 {
-    u32::from_be_bytes([b[0], b[1], b[2], b[3]])
+fn be_u32(b: &[u8]) -> Result<u32> {
+    let arr: [u8; 4] = b
+        .get(..4)
+        .and_then(|s| s.try_into().ok())
+        .ok_or_else(|| anyhow!("truncated wire message"))?;
+    Ok(u32::from_be_bytes(arr))
 }
 
 fn tls_config() -> Arc<rustls::ClientConfig> {
@@ -177,7 +181,7 @@ impl PgConn {
             let (tag, body) = self.read_msg_blocking()?;
             match tag {
                 b'R' => {
-                    let code = be_u32(&body);
+                    let code = be_u32(&body)?;
                     let mut buf = BytesMut::new();
                     match code {
                         0 => {}
@@ -188,7 +192,10 @@ impl PgConn {
                         }
                         5 => {
                             let pw = password.ok_or_else(need_pw)?;
-                            let salt = [body[4], body[5], body[6], body[7]];
+                            let salt: [u8; 4] = body
+                                .get(4..8)
+                                .and_then(|s| s.try_into().ok())
+                                .ok_or_else(|| anyhow!("truncated MD5 auth challenge"))?;
                             let hash = postgres_protocol::authentication::md5_hash(
                                 user.as_bytes(),
                                 pw.as_bytes(),
@@ -199,7 +206,10 @@ impl PgConn {
                         }
                         10 => {
                             let pw = password.ok_or_else(need_pw)?;
-                            let mechs = String::from_utf8_lossy(&body[4..]);
+                            let mech_bytes = body
+                                .get(4..)
+                                .ok_or_else(|| anyhow!("truncated SASL auth message"))?;
+                            let mechs = String::from_utf8_lossy(mech_bytes);
                             if !mechs.split('\0').any(|m| m == "SCRAM-SHA-256") {
                                 bail!(
                                     "the server offers only {mechs:?}; XERJ speaks SCRAM-SHA-256"
@@ -217,10 +227,13 @@ impl PgConn {
                             if t == b'E' {
                                 return Err(parse_error(&b).into());
                             }
-                            if t != b'R' || be_u32(&b) != 11 {
+                            if t != b'R' || be_u32(&b)? != 11 {
                                 bail!("unexpected SASL message {:?}", t as char);
                             }
-                            scram.update(&b[4..])?;
+                            let cont = b
+                                .get(4..)
+                                .ok_or_else(|| anyhow!("truncated SASL continue message"))?;
+                            scram.update(cont)?;
                             let mut buf = BytesMut::new();
                             frontend::sasl_response(scram.message(), &mut buf)?;
                             self.io.write_all(&buf)?;
@@ -228,10 +241,13 @@ impl PgConn {
                             if t == b'E' {
                                 return Err(parse_error(&b).into());
                             }
-                            if t != b'R' || be_u32(&b) != 12 {
+                            if t != b'R' || be_u32(&b)? != 12 {
                                 bail!("unexpected SASL final {:?}", t as char);
                             }
-                            scram.finish(&b[4..])?;
+                            let fin = b
+                                .get(4..)
+                                .ok_or_else(|| anyhow!("truncated SASL final message"))?;
+                            scram.finish(fin)?;
                         }
                         other => bail!("unsupported authentication method {other}"),
                     }
@@ -270,7 +286,7 @@ impl PgConn {
     pub fn try_read_msg(&mut self) -> Result<Option<(u8, Vec<u8>)>> {
         loop {
             if self.pending.len() >= 5 {
-                let len = be_u32(&self.pending[1..5]) as usize;
+                let len = be_u32(&self.pending[1..5])? as usize;
                 if len < 4 {
                     bail!("corrupt message length {len}");
                 }
@@ -318,30 +334,56 @@ impl PgConn {
             match tag {
                 b'T' => {
                     cur = QueryResult::default();
-                    let n = u16::from_be_bytes([body[0], body[1]]) as usize;
+                    let n_bytes: [u8; 2] = body
+                        .get(..2)
+                        .and_then(|s| s.try_into().ok())
+                        .ok_or_else(|| anyhow!("truncated RowDescription header"))?;
+                    let n = u16::from_be_bytes(n_bytes) as usize;
                     let mut p = 2;
                     for _ in 0..n {
-                        let end = p + body[p..].iter().position(|b| *b == 0).unwrap_or(0);
+                        let tail = body
+                            .get(p..)
+                            .ok_or_else(|| anyhow!("truncated RowDescription column"))?;
+                        let rel_end = tail
+                            .iter()
+                            .position(|b| *b == 0)
+                            .ok_or_else(|| anyhow!("unterminated RowDescription column name"))?;
+                        let end = p + rel_end;
                         let name = String::from_utf8_lossy(&body[p..end]).into_owned();
                         p = end + 1;
-                        let type_oid = be_u32(&body[p + 6..p + 10]);
+                        if p + 18 > body.len() {
+                            bail!("truncated RowDescription column descriptor");
+                        }
+                        let type_oid = be_u32(&body[p + 6..p + 10])?;
                         p += 18;
                         cur.columns.push((name, type_oid));
                     }
                 }
                 b'D' => {
-                    let n = u16::from_be_bytes([body[0], body[1]]) as usize;
+                    let n_bytes: [u8; 2] = body
+                        .get(..2)
+                        .and_then(|s| s.try_into().ok())
+                        .ok_or_else(|| anyhow!("truncated DataRow header"))?;
+                    let n = u16::from_be_bytes(n_bytes) as usize;
                     let mut p = 2;
                     let mut row = Vec::with_capacity(n);
                     for _ in 0..n {
-                        let len =
-                            i32::from_be_bytes([body[p], body[p + 1], body[p + 2], body[p + 3]]);
+                        let len_bytes: [u8; 4] = body
+                            .get(p..p + 4)
+                            .and_then(|s| s.try_into().ok())
+                            .ok_or_else(|| anyhow!("truncated DataRow cell length"))?;
+                        let len = i32::from_be_bytes(len_bytes);
                         p += 4;
-                        if len < 0 {
+                        if len == -1 {
                             row.push(None);
+                        } else if len < -1 {
+                            bail!("corrupt DataRow cell length {len}");
                         } else {
                             let l = len as usize;
-                            row.push(Some(String::from_utf8_lossy(&body[p..p + l]).into_owned()));
+                            let cell = body
+                                .get(p..p + l)
+                                .ok_or_else(|| anyhow!("truncated DataRow cell payload"))?;
+                            row.push(Some(String::from_utf8_lossy(cell).into_owned()));
                             p += l;
                         }
                     }
@@ -493,4 +535,62 @@ pub fn ident(s: &str) -> String {
 /// Quote a string literal.
 pub fn literal(s: &str) -> String {
     format!("'{}'", s.replace('\'', "''"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::spec::SslMode;
+    use std::net::TcpListener;
+
+    fn run_fake_server(frames: Vec<Vec<u8>>) -> u16 {
+        let l = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = l.local_addr().unwrap().port();
+        std::thread::spawn(move || {
+            let (mut s, _) = l.accept().unwrap();
+            let mut buf = [0u8; 256];
+            let _ = s.read(&mut buf);
+            for f in frames {
+                if f.first() == Some(&b'T') || f.first() == Some(&b'D') {
+                    // Wait for simple_query to arrive after ReadyForQuery ('Z')
+                    let _ = s.read(&mut buf);
+                }
+                let _ = s.write_all(&f);
+            }
+        });
+        port
+    }
+
+    #[test]
+    fn a_truncated_wire_message_is_an_error_not_a_panic() {
+        let cp = |port: u16| ConnParams {
+            user: "app".into(),
+            host: "127.0.0.1".into(),
+            port,
+            dbname: "shop".into(),
+            sslmode: SslMode::Disable,
+        };
+
+        // 1. Truncated AuthenticationMD5Password (code 5 without 4-byte salt)
+        let p1 = run_fake_server(vec![vec![b'R', 0, 0, 0, 8, 0, 0, 0, 5]]);
+        assert!(PgConn::connect(&cp(p1), Some("pw"), false).is_err());
+
+        // 2. Truncated RowDescription ('T' with 1 column "id\0" and <18 descriptor bytes)
+        let p2 = run_fake_server(vec![
+            vec![b'R', 0, 0, 0, 8, 0, 0, 0, 0],
+            vec![b'Z', 0, 0, 0, 5, b'I'],
+            vec![b'T', 0, 0, 0, 9, 0, 1, b'i', b'd', 0],
+        ]);
+        let mut c2 = PgConn::connect(&cp(p2), None, false).unwrap();
+        assert!(c2.simple_query("SELECT 1").is_err());
+
+        // 3. Truncated DataRow ('D' with 1 column claiming length 10, only 1 byte present)
+        let p3 = run_fake_server(vec![
+            vec![b'R', 0, 0, 0, 8, 0, 0, 0, 0],
+            vec![b'Z', 0, 0, 0, 5, b'I'],
+            vec![b'D', 0, 0, 0, 11, 0, 1, 0, 0, 0, 10, b'x'],
+        ]);
+        let mut c3 = PgConn::connect(&cp(p3), None, false).unwrap();
+        assert!(c3.simple_query("SELECT 1").is_err());
+    }
 }
