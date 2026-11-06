@@ -216,7 +216,7 @@ async fn duplicate_source_selectors_copy_each_document_once() {
 }
 
 #[tokio::test]
-async fn concrete_and_alias_duplicate_keeps_the_alias_filter() {
+async fn concrete_and_alias_duplicate_is_the_unfiltered_union() {
     let (app, _dir) = app().await;
     create_index(&app, "i1").await;
     doc(&app, "i1", "1", "a").await;
@@ -230,17 +230,56 @@ async fn concrete_and_alias_duplicate_keeps_the_alias_filter() {
     .await;
     assert_eq!(status, StatusCode::OK, "{body}");
 
+    for sources in [json!(["i1", "a"]), json!(["a", "i1"])] {
+        let dest = if sources == json!(["i1", "a"]) {
+            "dst-concrete-first"
+        } else {
+            "dst-alias-first"
+        };
+        let (status, body) = reindex(
+            &app,
+            json!({"source": {"index": sources}, "dest": {"index": dest}}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        assert_eq!(body["total"], 2, "{body}");
+        assert_eq!(
+            ids(&app, dest).await,
+            vec!["1", "2"],
+            "the caller also named the concrete index, so its whole view is copied"
+        );
+    }
+}
+
+#[tokio::test]
+async fn two_alias_filters_on_one_index_are_ored() {
+    let (app, _dir) = app().await;
+    create_index(&app, "i1").await;
+    doc(&app, "i1", "1", "a").await;
+    doc(&app, "i1", "2", "b").await;
+    doc(&app, "i1", "3", "c").await;
+    for (alias, value) in [("alias-a", "a"), ("alias-b", "b")] {
+        let (status, body) = call(
+            &app,
+            "PUT",
+            &format!("/i1/_alias/{alias}"),
+            json!({"filter": {"term": {"k": value}}}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+    }
+
     let (status, body) = reindex(
         &app,
-        json!({"source": {"index": ["i1", "a"]}, "dest": {"index": "dst"}}),
+        json!({"source": {"index": ["alias-a", "alias-b"]}, "dest": {"index": "dst"}}),
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    assert_eq!(body["total"], 1, "{body}");
+    assert_eq!(body["total"], 2, "{body}");
     assert_eq!(
         ids(&app, "dst").await,
-        vec!["1"],
-        "the alias filter must survive a duplicate concrete selector"
+        vec!["1", "2"],
+        "a document visible through either alias must be copied once"
     );
 }
 
