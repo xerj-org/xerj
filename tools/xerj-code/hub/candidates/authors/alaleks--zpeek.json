@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "DB",
- "domain": "an agent working on cli, command-line, database-client queries this for how alaleks/zpeek implements it: Lightweight database TUI built with Zig. Explore databases from your editor, terminal, or remote server over SSH (selected work: src/ui, src)",
+ "domain": "an agent working on cli, command-line, database-client queries this for how alaleks/zpeek implements it: A lightweight database TUI written in Zig. Explore databases directly from your editor's terminal, a local terminal, or a remote server over (selected work: src/ui, src)",
  "repos": [
   {
    "repo": "zpeek",

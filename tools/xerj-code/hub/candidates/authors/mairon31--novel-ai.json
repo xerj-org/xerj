@@ -8,15 +8,15 @@
   {
    "repo": "novel_ai",
    "url": "https://github.com/Mairon31/novel_ai",
-   "sha": "81db93017a3adef9ca9a1bb46e661b15a95d4d43",
-   "licence": "author's permission (LICENSE at pin 81db93017a3a: NONE; repository: none)",
+   "sha": "553f7c0737ae1c78d0b1e459b494d32650dc3a11",
+   "licence": "author's permission (LICENSE at pin 553f7c0737ae: NONE; repository: none)",
    "review": {
     "spdx": "NONE",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-06T02:40Z",
     "consent_receipt": "dce7c42b9b64",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T02:40Z (receipt dce7c42b9b64); pinned to the default-branch head. LICENSE at pin 81db93017a3a: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T02:40Z (receipt dce7c42b9b64); pinned to the default-branch head. LICENSE at pin 553f7c0737ae: NONE (repository: none); used with the author's permission, with attribution."
    }
   }
  ]

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "OPS",
- "domain": "an agent working on bm25, evaluation, hnsw queries this for how Bishrav/NEBULA implements it: Research-grade, explainable hybrid search prototype in Java 17: BM25, BGE semantic retrieval, HNSW, PageRank signals, protected human-qrels  (selected work: tools)",
+ "domain": "an agent working on bm25, evaluation, hnsw queries this for how Bishrav/NEBULA implements it: Research-grade, explainable Java 17 search prototype: BM25, BGE semantic retrieval, HNSW, PageRank signals, and a protected known-item/sourc (selected work: tools)",
  "repos": [
   {
    "repo": "NEBULA",

@@ -2,8 +2,8 @@
  "corpus": "weilinlai719--personal",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Astro queries this for how weilinlai719/personal implements it: weilinlai719/personal (Astro) (selected work: src/components, src/layout)",
+ "shelf": "WRITE",
+ "domain": "an agent working on blog, blog-platform queries this for how weilinlai719/personal implements it: A personal blog website powered by Astro (selected work: src/components, src/layout)",
  "repos": [
   {
    "repo": "personal",
