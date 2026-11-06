@@ -117,6 +117,16 @@ const KNOWN: &[(&str, Role)] = &[
         "xerj-autoindex/src/esclient.rs",
         Role::Client("`xerj autoindex`"),
     ),
+    // #2988's `xerj autoindex <path> --facts <ns>`: FactsClient is built with
+    // `node_blocking_builder` and talks only to the node URL that command
+    // already uses (`--url`, else localhost:9200), reading `/_facts` and
+    // writing rows to `/_facts/{ns}/_bulk`. Row text goes to the operator's own
+    // node, the same peer esclient.rs writes documents to, so DATA_EGRESS and
+    // the air-gapped rows do not change.
+    (
+        "xerj-autoindex/src/facts_rows.rs",
+        Role::Client("`xerj autoindex`"),
+    ),
     // #2181: when `xerj code` / `xerj corpus list` find an empty ledger they
     // POST one catalog search to the node URL those commands already use
     // (`--url`, `XERJ_URL`, else localhost:9200). The body is a fixed
