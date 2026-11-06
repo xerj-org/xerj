@@ -44841,9 +44841,7 @@ fn fields_format_failure(
     }
     let mut first: Option<String> = None;
     for idx in indices {
-        let Some(mapping) = state.engine.index_mappings.get(*idx).map(|m| m.clone()) else {
-            return None;
-        };
+        let mapping = state.engine.index_mappings.get(*idx).map(|m| m.clone())?;
         let runtime_defined = |name: &str| {
             [
                 runtime_mappings,
@@ -44884,12 +44882,7 @@ fn fields_format_failure(
                 break 'specs;
             }
         }
-        match failure {
-            Some(reason) => {
-                first.get_or_insert(reason);
-            }
-            None => return None,
-        }
+        first.get_or_insert(failure?);
     }
     first
 }
