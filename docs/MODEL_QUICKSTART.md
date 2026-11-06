@@ -1,4 +1,4 @@
-# Get the XERJ-Query model and serve it
+# Get the XERJ Query-1 model and serve it
 
 What the model can do, with a verified example per capability: the
 capabilities overview, [XERJ_QUERY_1.md](./XERJ_QUERY_1.md).
@@ -9,7 +9,7 @@ binary disagree, the binary wins (`xerj --help`). Background:
 [MODEL_BUNDLE.md](./MODEL_BUNDLE.md) (what the model directory is),
 [FACTS_API.md](./FACTS_API.md) (the full request/response contract).
 
-The model is XERJ-Query, served on CPU. It answers facts and counting questions
+The model is XERJ Query-1, served on CPU. It answers facts and counting questions
 over facts you have written to a namespace; it is not the search embedder
 (search's default embedder is lexical feature-hashing — a separate thing). It is
 **off by default**: nothing about a node changes until you start it with
@@ -57,7 +57,7 @@ jq -r .schema ~/xerj-model/bundle.json
 ## 3. Start a node pointed at the model
 
 There is no `serve` subcommand: start the bare `xerj` process with
-`--facts-model-dir`. That flag is what turns XERJ-Query on; without it the node
+`--facts-model-dir`. That flag is what turns XERJ Query-1 on; without it the node
 has no `/_facts` route. (`XERJ_FACTS_MODEL_DIR=~/xerj-model` is the environment
 equivalent; the flag wins.) For a quick local trial use a dev node (`--insecure`,
 no auth); for anything real, start with auth/TLS as the CLI reference describes.

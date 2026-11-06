@@ -3,6 +3,7 @@
 //! it does NOT link xerj-engine, works against any endpoint, and cannot
 //! destabilize the server.
 
+pub mod archive;
 pub mod budget;
 pub mod catalog;
 pub mod cli;
@@ -57,6 +58,7 @@ pub mod sessions;
 pub mod skills;
 pub mod sniff;
 pub mod source;
+pub mod sources;
 mod stage;
 pub mod staleness;
 pub mod state;
@@ -9023,13 +9025,47 @@ fn run_index_report_inner(
     // that has always run over a folder. `None` means the argument was a folder
     // and nothing at all changes. See `crate::objsource`.
     let object_run = objsource::prepare(&mut cfg)?;
+    // An archive positional argument (`takeout.zip`, `export.tar.gz`) is the
+    // same move: extracted once, bounded, into a mirror under the state dir,
+    // and `cfg.root` becomes that mirror. Identity is the archive path, so a
+    // re-run over the same archive is an incremental run. See `crate::archive`.
+    let archive_run = if object_run.is_none() {
+        archive::prepare(&mut cfg)?
+    } else {
+        None
+    };
+    if let Some(run) = &archive_run {
+        let r = &run.report;
+        let msg = if run.reused {
+            format!(
+                "autoindex: {} archive {} already extracted (unchanged); indexing {}",
+                run.kind.as_str(),
+                run.archive.display(),
+                run.mirror.display()
+            )
+        } else {
+            format!(
+                "autoindex: extracted {} archive {}: {} file(s), {} bytes into {}; skipped {} unsafe path(s), {} link(s), {} special entr(ies)",
+                run.kind.as_str(),
+                run.archive.display(),
+                r.files,
+                r.bytes,
+                run.mirror.display(),
+                r.skipped_unsafe_path,
+                r.skipped_link,
+                r.skipped_special
+            )
+        };
+        eprintln!("{msg}");
+    }
     // The run's identity. For an object source it is the bucket URL rather than
     // the mirror path: the mirror is a cache whose location may move (it follows
     // --state-dir), and hashing a cache path into the state key would start a
     // second index — re-downloading every object — the first time it did.
-    let root_str = match &object_run {
-        Some(run) => run.identity.clone(),
-        None => cfg
+    let root_str = match (&object_run, &archive_run) {
+        (Some(run), _) => run.identity.clone(),
+        (None, Some(run)) => run.identity.clone(),
+        (None, None) => cfg
             .root
             .canonicalize()
             .unwrap_or_else(|_| cfg.root.clone())

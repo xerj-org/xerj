@@ -7,13 +7,13 @@
 //! ## Design philosophy
 //!
 //! Unlike Elasticsearch's 3000+ configuration knobs, xerj deliberately exposes
-//! **137 settings**, each meaningful and production-tested. Every default
+//! **139 settings**, each meaningful and production-tested. Every default
 //! is chosen so that a fresh deployment with zero configuration changes performs
 //! well for the majority of workloads.
 //!
 //! ## Modules
 //!
-//! - [`config`]  — TOML-based configuration (137 settings)
+//! - [`config`]  — TOML-based configuration (139 settings)
 //! - [`code_query`] — query shaping shared by `xerj search` and the
 //!   `xerj_search` MCP tool (multi-word glue-token stripping, #1364)
 //! - [`feedback`] — the bug/UX-report invitation shared by every `--help`

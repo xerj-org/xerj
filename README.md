@@ -1,18 +1,8 @@
-# XERJ
+<h1 align="center">XERJ</h1>
 
-**XERJ: the search engine for AI agents.** A new way for AI to search for data: one local Rust binary that indexes your code, docs, specs and logs, plus Corpus Hub packs, and returns cited answers.
+<div align="center">
 
-**Local-first search engine and MCP server for AI agents.** One Rust binary indexes code, docs,
-logs, JSONL/CSV and PDFs for BM25 full-text, vector and hybrid search, code search and agent
-memory, behind an Elasticsearch-compatible API. Works with Claude Code, Cursor and any MCP client.
-
-<a href="https://trendshift.io/repositories/116361?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-116361" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/repositories/116361" alt="xerj-org%2Fxerj | Trendshift" width="250" height="55"/></a>
-<a href="https://trendshift.io/repositories/116361#achievements" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/116361/daily?language=Rust" alt="XERJ | #1 Rust Repository Of The Day | Trendshift" width="250" height="55"/></a>
-<a href="https://trendshift.io/repositories/116361#achievements" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/116361/weekly?language=Rust" alt="XERJ | #1 Rust Repository Of The Week | Trendshift" width="250" height="55"/></a>
-
-[English](./README.md) | [简体中文](./README.zh-CN.md) | [日本語](./README.ja-JP.md) | [العربية](./README.ar.md) | [Español](./README.es.md) | [한국어](./README.ko.md) | [فارسی](./README.fa.md)
-
-
+[![XERJ Query-1](https://img.shields.io/badge/XERJ%20Query--1-new%20in%20rc.101-ffc400?style=flat-square)](https://xerj.org/xerj-query-1)
 [![CI](https://img.shields.io/github/actions/workflow/status/xerj-org/xerj/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/xerj-org/xerj/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/xerj-org/xerj?style=flat-square&label=release)](https://github.com/xerj-org/xerj/releases)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue?style=flat-square)](./LICENSE)
@@ -32,6 +22,85 @@ memory, behind an Elasticsearch-compatible API. Works with Claude Code, Cursor a
 [![Single static binary](https://img.shields.io/badge/single%20static%20binary-no%20JVM-orange?style=flat-square)](https://xerj.org/docs/install.html)
 [![Default embedder](https://img.shields.io/badge/default%20embedder-lexical%2C%20offline-teal?style=flat-square)](https://xerj.org/docs/vectors.html)
 [![Neural](https://img.shields.io/badge/neural%20embedder-opt--in%2C%20downloads%20~90%20MB-9c6ade?style=flat-square)](https://xerj.org/docs/vectors.html)
+
+<a href="https://trendshift.io/repositories/116361?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-116361" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/repositories/116361" alt="xerj-org%2Fxerj | Trendshift" width="250" height="55"/></a>
+<a href="https://trendshift.io/repositories/116361#achievements" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/116361/daily?language=Rust" alt="XERJ | #1 Rust Repository Of The Day | Trendshift" width="250" height="55"/></a>
+<a href="https://trendshift.io/repositories/116361#achievements" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/116361/weekly?language=Rust" alt="XERJ | #1 Rust Repository Of The Week | Trendshift" width="250" height="55"/></a>
+
+[English](./README.md) | [简体中文](./README.zh-CN.md) | [日本語](./README.ja-JP.md) | [العربية](./README.ar.md) | [Español](./README.es.md) | [한국어](./README.ko.md) | [فارسی](./README.fa.md)
+
+</div>
+
+<p align="center">
+  <a href="https://xerj.org/xerj-query-1"><img src="docs/media/xerj-query-1-hero.png" alt="XERJ Query-1: a new neurosymbolic model that compiles prompts to verifiable search programs. 9x fewer wrong answers than RAG, $42 per million questions on CPU, 17 minutes to index 10 GB." width="100%"/></a>
+</p>
+
+<p align="center"><b>The search engine for AI, now with XERJ Query-1: a model that turns your question into a search program you can check.</b></p>
+
+<p align="center">
+  <a href="https://xerj.org/xerj-query-1">XERJ Query-1</a> ·
+  <a href="https://xerj.org/blog/xerj-query-ai-model">Blog post</a> ·
+  <a href="https://github.com/xerj-org/xerj/releases/tag/v1.0.0-rc.101">Release rc.101</a> ·
+  <a href="https://xerj.org/llms.txt">llms.txt</a> ·
+  <a href="https://xerj.org/docs/">Docs</a> ·
+  <a href="https://xerj.org/donate">Donate</a>
+</p>
+
+
+
+## XERJ Query-1, new in rc.101
+
+Most AI search asks a language model to read retrieved text and write an answer. The answer
+is prose, nothing checks it against your data, and you pay for the model on every question.
+
+XERJ Query-1 works the other way. It reads your question and writes a short program
+(look this up, compare these, count those), and the engine runs that program over facts you
+stored. Every step points at a source record. If the data cannot support an answer you get
+`UNKNOWN`; if two records disagree you get `CONFLICT`. It runs on four CPU cores, offline,
+with no embeddings to build and no GPU.
+
+| | XERJ Query-1 | the usual way | measured on |
+|---|---|---|---|
+| Prompt to answer | **120 ms** | 2,700 to 3,300 ms (RAG, Opus 5.5) | 4 CPU cores, namespace up to 8,000 facts |
+| Wrong answers | **1 of 160** | 9 to 15 (RAG on Opus 5.5), 5 to 6 (Opus reading everything) | same 160 questions |
+| Cost per million questions | **$42** | $13,400 to $694,000 | list prices, CPU vs LLM APIs |
+| Index 10 GB of text | **17 min** | 62 to 97 hours to embed it | 3.3 million Wikipedia articles, CPU |
+| Re-index after a correction | **0 s** | re-embed (19.6 s on the 5,000-record test store) | facts store with revisions |
+| 10 GB, 1M questions a month | **$468/month** | $65,747/month (vector DB + graph DB + cache + LLM API) | vendor list prices, 2026-11-05 |
+
+The model is off by default. Without the flag a node behaves exactly like rc.100.
+What it does not do yet, measured: sums and totals, large fact sets (a 95,000-fact namespace
+took 1.2 to 2.4 s per ask and declined), and it declines more often than an LLM would guess.
+Every number, its run and its caveats: [blog post](https://xerj.org/blog/xerj-query-ai-model),
+[capabilities](./docs/XERJ_QUERY_1.md).
+
+### Try it with the model
+
+```sh
+curl -fsSL https://xerj.org/get | sh -s -- --with-model
+```
+Verify: the installer ends by printing the start line with the model directory it unpacked.
+
+```sh
+xerj --facts-model-dir ~/.local/share/xerj/model --insecure --data-dir ~/xerj-data &
+curl -s localhost:9200/_facts | grep -o '"state":"loaded"'
+```
+Verify: prints `"state":"loaded"`. In the first few seconds after start it prints nothing, because the model is still loading (`"not_loaded"`); run it again.
+
+Write a fact and ask about it: [docs/MODEL_QUICKSTART.md](./docs/MODEL_QUICKSTART.md).
+From an agent with no shell, the same calls work over HTTP and the MCP tool `xerj_facts_ask`;
+see [llms.txt](https://xerj.org/llms.txt).
+
+XERJ is research in the open. The model was trained on donated GPU time; if it is useful to
+you, [xerj.org/donate](https://xerj.org/donate) funds the next models.
+
+---
+
+## The engine underneath
+
+**Local-first search engine and MCP server for AI agents.** One Rust binary indexes code, docs,
+logs, JSONL/CSV and PDFs for BM25 full-text, vector and hybrid search, code search and agent
+memory, behind an Elasticsearch-compatible API. Works with Claude Code, Cursor and any MCP client.
 
 XERJ is a community-trusted local AI search that indexes any folder automatically, so your
 coding agent stops burning tokens reading files one by one and pulls the exact code it
@@ -331,7 +400,7 @@ Measurements and how to reproduce them:
 
 ## Ask over your own facts
 
-XERJ ships **XERJ-Query**, a model that answers questions over facts you give it.
+XERJ ships **XERJ Query-1**, a model that answers questions over facts you give it.
 It is off by default; start a node with `--facts-model-dir <DIR>` to turn it on.
 Write documents and facts to a namespace, then ask in plain language — the engine
 returns a *verified* answer with its cited evidence and the exact program that
@@ -356,7 +425,7 @@ Which to use: `_search` for keyword and text lookups over indexed documents;
 subject / relation / value facts. The model answers **only over the `facts[]`
 you wrote** (`kind` is `text`, `date`, `number` or `boolean`; `version` is a
 string; `quote` must equal `text[start:end]`) — documents alone answer `UNKNOWN`.
-XERJ-Query runs on CPU with no GPU and nothing leaving the machine. Counting
+XERJ Query-1 runs on CPU with no GPU and nothing leaving the machine. Counting
 questions ("how many people have office Berlin?") are served from an exact
 executor, and only when every fact of the counted subjects carries a stable
 `subject_id` (`"emp:1"`); without it the count is `INCOMPLETE` and the answer
