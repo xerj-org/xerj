@@ -286,7 +286,7 @@ xerj autoindex ./notes --url http://127.0.0.1:9200 --prefix notes --progress pla
 </code></pre>
   <p>An agent answers from the returned passage and cites <code class="inline">ax_path</code>, rather than reading whole files into its context to find the paragraph.</p>
   <h2>Hand the indexed folder to an agent</h2>
-  <p><code class="inline">xerj mcp</code> exposes the indexed folder to an agent host as a stdio tool server, serving 23 tools against a node that is already running. The agent sends a query and reads hits with file paths, instead of opening files one by one.</p>
+  <p><code class="inline">xerj mcp</code> exposes the indexed folder to an agent host as a stdio tool server, serving 24 tools against a node that is already running. The agent sends a query and reads hits with file paths, instead of opening files one by one.</p>
   <p>The node and the MCP server both run on your machine. No file content is uploaded, because the agent host calls a local process rather than a hosted API.</p>
   <h2>Why a web search API cannot do this</h2>
   <p>A web search API reads pages that are on the public web, and its documented input is a query string or a URL. A folder on your own disk has no URL, so no web API can reach it.</p>

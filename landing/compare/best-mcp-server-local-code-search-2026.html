@@ -365,7 +365,7 @@
   <p>The ast-grep MCP server is experimental and exposes four tools, including one that dumps a syntax tree so the agent can write a working pattern. It builds no index, so it never goes stale, and it needs ast-grep and uv installed.</p>
   <p>Use it beside an index, not instead of one. Choose ast-grep when the question is a pattern rather than a topic. The <a href="/compare/xerj-vs-ast-grep">XERJ vs ast-grep</a> page splits those jobs in detail.</p>
   <h2>XERJ: one index over the whole folder</h2>
-  <p>XERJ is a search engine first. <code class="inline">xerj autoindex</code> reads a repository plus the docs, logs, JSONL, CSV, PDFs and SQLite files around it, writes a <code class="inline">defs</code> field and a <code class="inline">symbols</code> array for 36 tree-sitter languages, and <code class="inline">xerj mcp</code> serves 23 tools over that node, memory included.</p>
+  <p>XERJ is a search engine first. <code class="inline">xerj autoindex</code> reads a repository plus the docs, logs, JSONL, CSV, PDFs and SQLite files around it, writes a <code class="inline">defs</code> field and a <code class="inline">symbols</code> array for 36 tree-sitter languages, and <code class="inline">xerj mcp</code> serves 24 tools over that node, memory included.</p>
   <p>What it gives up: no references, no edits, a lexical default embedder, single-node only, and heavy memory while indexing. Our own <a href="/compare/best-local-full-text-search-jsonl-csv-2026">JSONL benchmark</a> measured the node peaking at about 9.1 GiB resident while indexing a 9.7 MB file. For code-only questions, compare it with ripgrep first: on 30 disclosed tasks ripgrep won 5 outright (<a href="/compare/xerj-vs-ripgrep-for-code-agents">XERJ vs ripgrep</a>). Choose ripgrep when the agent searches a tree once.</p>
   <h2>How this page was checked</h2>
   <p>Every licence, install line and capability above was read from the project's own README or docs on 2026-10-19. Stars and latest releases came from the GitHub REST API the same day. Nothing was benchmarked head to head, and every vendor performance number is labelled as the vendor's.</p>
@@ -392,7 +392,7 @@
     <li>ast-grep MCP is an experimental server exposing four tools and requires ast-grep and uv to be installed. — <a href="https://github.com/ast-grep/ast-grep-mcp">https://github.com/ast-grep/ast-grep-mcp</a></li>
     <li>ripgrep searches files directly with no index; on one 331-file tree it won 5 of 30 disclosed tasks outright against the XERJ index. — <a href="https://github.com/BurntSushi/ripgrep">https://github.com/BurntSushi/ripgrep</a></li>
     <li>XERJ's tree-sitter registry covers 36 languages and extracts definitions. — <code>engine/crates/xerj-autoindex/src/extract/code.rs</code></li>
-    <li>On main xerj mcp serves 23 tools, or 20 in a build with no hub key. — <code>landing/docs/agents/schemas/mcp-tools.json</code></li>
+    <li>On main xerj mcp serves 24 tools, or 21 in a build with no hub key. — <code>landing/docs/agents/schemas/mcp-tools.json</code></li>
     <li>In the JSONL benchmark of 2026-10-19 the XERJ node peaked at 9,578,548 kB (about 9.1 GiB) resident while indexing one 9.7 MB file of 50,000 records. — <code>benchmarks/best-of-jsonl-search-2026/README.md</code></li>
     <li>Semble's README claims about 99 % fewer tokens than grep plus read, measured by the vendor on about 1,250 queries over 63 repositories. — <a href="https://github.com/MinishLab/semble">https://github.com/MinishLab/semble</a></li>
   </ul>

@@ -74,7 +74,7 @@ curl -s -XPOST http://127.0.0.1:9217/gh-*/_search -H 'content-type: application/
 
 `took` was 7. Issue 960 was first. `_savings.bytes` was 19,444, `measured` `sampled`. The same question through `gh issue list --json number,title,body,state,url` produced a capture file of 36,550 bytes, because each hit included `body`.
 
-`xerj mcp` against this node returned 17 tools on rc.97, including `xerj_search`. On main it serves 23, or 20 in a build with no hub key. The server does not start a node.
+`xerj mcp` against this node returned 17 tools on rc.97, including `xerj_search`. On main it serves 24, or 21 in a build with no hub key. The server does not start a node.
 
 ## Measured on 2026-10-20
 

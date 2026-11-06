@@ -282,7 +282,7 @@
   <h2>Agent access is not a place where XERJ stands alone</h2>
   <p>The Omnisearch README points at a third-party MCP server that detects Omnisearch and exposes it as a BM25-ranked search mode for agents reading a vault. That path exists and it works.</p>
   <p>The difference is what it depends on. That route needs Obsidian running and the local HTTP server enabled.</p>
-  <p><code class="inline">xerj mcp</code> is a stdio MCP server in the same binary as the engine. It serves 23 tools, and it needs no editor at all.</p>
+  <p><code class="inline">xerj mcp</code> is a stdio MCP server in the same binary as the engine. It serves 24 tools, and it needs no editor at all.</p>
   <h2>What XERJ reads in a vault, and how</h2>
   <p>Thirteen families are covered. For a vault the ones that matter are plain text and markdown, PDF, DOCX, HTML, CSV and JSON.</p>
   <p>Ranking is BM25, and a vector clause can be fused into the same query with Reciprocal Rank Fusion or a weighted linear sum. The default embedder is lexical feature hashing, not neural, so the fused vector side carries no meaning-based signal until <code class="inline">--embed-mode neural</code> is turned on.</p>

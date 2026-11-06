@@ -618,7 +618,7 @@ the other direction: it hosts an MCP endpoint other agents connect to, and its s
 their servers from the harness underneath. Grok Bot has no documented local stdio registration; the
 Grok CLI does, which is the `grok` row above.
 
-Twenty-three tools are exposed when Hub tools are enabled. Eleven are thin proxies over an endpoint XERJ already serves:
+Twenty-four tools are exposed when Hub tools are enabled. Twelve are thin proxies over an endpoint XERJ already serves:
 
 | Tool | What it does |
 |---|---|
@@ -629,6 +629,7 @@ Twenty-three tools are exposed when Hub tools are enabled. Eleven are thin proxi
 | `xerj_memory_store` / `xerj_memory_recall` | durable agent memory in a namespace, recalled by text, meaning or vector |
 | `xerj_brain_overview` / `xerj_brain_ego` / `xerj_brain_link` / `xerj_brain_unlink` | the second-brain link index: orient, expand one node's evidence-backed neighborhood, assert and retire links |
 | `xerj_plan` | a plain-words filter in, validated query DSL out (`POST /_ask`; deterministic and rule-based, not an LLM) |
+| `xerj_sources` | list, inspect, connect or delete live database sources on the node (`/_xerj/sources`: Postgres snapshot, then logical replication) |
 
 For `xerj_search`, pass `{"prefix":"project","query":"retry policy"}` to search
 `project-*`, matching `xerj search --prefix project`. `prefix` is resolved by

@@ -263,7 +263,7 @@
     <span class="prompt-label">RUN THIS XERJ COMMAND</span>
     <code>xerj mcp --url http://127.0.0.1:9200</code>
     <button type="button" class="prompt-copy" data-copy="xerj mcp --url http://127.0.0.1:9200">COPY COMMAND</button>
-    <span class="hero-proof">Attach the running node to the agent you already run. This stdio MCP server serves 22 tools and starts no node of its own.</span>
+    <span class="hero-proof">Attach the running node to the agent you already run. This stdio MCP server serves 24 tools and starts no node of its own.</span>
   </div>
   <h2>Concede the product surface</h2>
   <p>Khoj is not a search library with a demo page attached. Its own documentation describes chat with local or online models and custom agents with their own persona and tools. It also describes scheduled research delivered by email, voice chat, and image generation through third-party providers.</p>
@@ -290,7 +290,7 @@ xerj autoindex ./my-docs --prefix docs --state-dir ./state-docs
   <p>Read that plainly: on the shipped default, Khoj's retrieval understands a paraphrase and XERJ's does not.</p>
   <h2>Where the agent boundary sits</h2>
   <p>Khoj can connect to a Model Context Protocol server built by somebody else, which makes it a client of that ecosystem. Its documentation does not describe Khoj exposing an MCP server of its own, and it does expose an HTTP API with key or bearer authentication for third-party applications.</p>
-  <p>XERJ sits on the other side of that line. <code class="inline">xerj mcp</code> is a stdio MCP server in the same binary, serving 23 tools on main, and <code class="inline">/_memory/{ns}</code> gives an agent namespaced memory in the engine.</p>
+  <p>XERJ sits on the other side of that line. <code class="inline">xerj mcp</code> is a stdio MCP server in the same binary, serving 24 tools on main, and <code class="inline">/_memory/{ns}</code> gives an agent namespaced memory in the engine.</p>
   <h2>The limits you inherit with XERJ</h2>
   <p>XERJ is single-node only. There is no data-plane replication and no failover, so one host is the whole deployment.</p>
   <p>The server retains heap for every document it indexes, which is an open tracked defect. Corpora past a few million documents can exhaust memory on one node.</p>

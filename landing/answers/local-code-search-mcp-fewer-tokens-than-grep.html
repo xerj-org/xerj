@@ -124,7 +124,7 @@
       "name": "MCP server grep alternative with fewer tokens: which tools does xerj expose?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "On main xerj mcp serves 23 tools, or 20 in a build with no hub key, including xerj_search, xerj_code_search, xerj_map and the three hub tools. Run xerj init in the project to register it."
+        "text": "On main xerj mcp serves 24 tools, or 21 in a build with no hub key, including xerj_search, xerj_code_search, xerj_map and the three hub tools. Run xerj init in the project to register it."
       }
     },
     {
@@ -323,7 +323,7 @@ xerj-done ok=true exit=3 reason=completed-with-junk wall=3.0s files=95 records=1
   <table>
     <thead><tr><th>Tool</th><th>Runs locally</th><th>Ranked results</th><th>file:line</th><th>MCP server</th><th>Setup</th></tr></thead>
     <tbody>
-      <tr><td>xerj</td><td>yes</td><td>yes, BM25</td><td>yes</td><td>yes, 23 tools</td><td>install, start node, index once</td></tr>
+      <tr><td>xerj</td><td>yes</td><td>yes, BM25</td><td>yes</td><td>yes, 24 tools</td><td>install, start node, index once</td></tr>
       <tr><td>ripgrep</td><td>yes</td><td>no, every match</td><td>yes</td><td>no</td><td>none</td></tr>
       <tr><td>Zoekt</td><td>yes</td><td>yes</td><td>yes</td><td>no</td><td>index server</td></tr>
       <tr><td>GitHub code search</td><td>no</td><td>yes</td><td>yes</td><td>no</td><td>repo on GitHub, API limits</td></tr>
@@ -341,7 +341,7 @@ xerj-done ok=true exit=3 reason=completed-with-junk wall=3.0s files=95 records=1
   <h3>Is there a local code search MCP for Claude Code that uses fewer tokens than grep?</h3>
   <p>Yes. xerj runs on your machine, indexes the repository once and serves the index through <code class="inline">xerj mcp</code>. On psf/requests a ranked answer was 1,303 bytes where <code class="inline">rg -n -i redirect</code> printed 25,150 bytes.</p>
   <h3>MCP server grep alternative with fewer tokens: which tools does xerj expose?</h3>
-  <p>On main <code class="inline">xerj mcp</code> serves 23 tools, or 20 in a build with no hub key, including <code class="inline">xerj_search</code>, <code class="inline">xerj_code_search</code>, <code class="inline">xerj_map</code> and the three hub tools. Run <code class="inline">xerj init</code> in the project to register it.</p>
+  <p>On main <code class="inline">xerj mcp</code> serves 24 tools, or 21 in a build with no hub key, including <code class="inline">xerj_search</code>, <code class="inline">xerj_code_search</code>, <code class="inline">xerj_map</code> and the three hub tools. Run <code class="inline">xerj init</code> in the project to register it.</p>
   <h3>Is xerj faster than ripgrep?</h3>
   <p>Not per call. Two sessions of five runs on psf/requests took 8 to 23 ms for <code class="inline">xerj search</code> and 5 to 7 ms for <code class="inline">rg</code>. The saving is in what the agent reads afterwards, not in wall time.</p>
   <h3>Does it understand code or only words?</h3>
@@ -357,7 +357,7 @@ xerj-done ok=true exit=3 reason=completed-with-junk wall=3.0s files=95 records=1
     <li>xerj def answer: 949 bytes, sessions.py:154 — <code>benchmarks/agent-intents-2026-10-19/01-xerj-def.txt</code></li>
     <li>rg -n -i redirect: 282 lines, 25,150 bytes — <code>benchmarks/agent-intents-2026-10-19/01-rg-redirect.txt</code></li>
     <li>Wall times 8 to 23 ms for xerj search, 5 to 7 ms for rg — <code>benchmarks/agent-intents-2026-10-19/README.md</code></li>
-    <li>On main xerj mcp serves 23 tools, or 20 in a build with no hub key — <code>landing/docs/agents/schemas/mcp-tools.json</code></li>
+    <li>On main xerj mcp serves 24 tools, or 21 in a build with no hub key — <code>landing/docs/agents/schemas/mcp-tools.json</code></li>
     <li>2.7 times fewer output tokens, 9,982 vs 26,477; idle 8% CPU and 8.3 GB vs Zoekt 0.03% and 119 MB — <code>landing/benchmarks/index.html</code></li>
     <li>--embed-mode neural downloads all-MiniLM-L6-v2, about 90 MB; lexical by default — <a href="https://github.com/xerj-org/xerj/blob/main/README.md">https://github.com/xerj-org/xerj/blob/main/README.md</a></li>
   </ul>

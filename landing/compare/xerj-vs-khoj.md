@@ -40,7 +40,7 @@ xerj autoindex ./my-docs --prefix docs --state-dir ./state-docs
 
 ### Command 3
 
-Note: Attach the running node to the agent you already run. This stdio MCP server serves 22 tools and starts no node of its own.
+Note: Attach the running node to the agent you already run. This stdio MCP server serves 24 tools and starts no node of its own.
 
 ```sh
 xerj mcp --url http://127.0.0.1:9200
@@ -95,7 +95,7 @@ Read that plainly: on the shipped default, Khoj's retrieval understands a paraph
 
 Khoj can connect to a Model Context Protocol server built by somebody else, which makes it a client of that ecosystem. Its documentation does not describe Khoj exposing an MCP server of its own, and it does expose an HTTP API with key or bearer authentication for third-party applications.
 
-XERJ sits on the other side of that line. `xerj mcp` is a stdio MCP server in the same binary, serving 23 tools on main, and `/_memory/{ns}` gives an agent namespaced memory in the engine.
+XERJ sits on the other side of that line. `xerj mcp` is a stdio MCP server in the same binary, serving 24 tools on main, and `/_memory/{ns}` gives an agent namespaced memory in the engine.
 
 ## The limits you inherit with XERJ
 

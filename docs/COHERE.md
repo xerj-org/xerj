@@ -11,10 +11,10 @@ are Cohere's product names, used here only to say which API a setting talks to.
 
 | Piece | What it does | Status |
 |---|---|---|
-| Rerank provider `cohere` on `_search` | XERJ sends the top hits to Cohere Rerank and returns them in Cohere's order | rc.102, in review ([#2985](https://github.com/xerj-org/xerj/pull/2985)); stub-tested, live run pending |
-| Embed through the proxy embedder | `semantic_text` fields get Cohere vectors through Cohere's OpenAI-compatible route | rc.102, in review ([#2983](https://github.com/xerj-org/xerj/pull/2983)); contract-tested, live run pending |
-| Command tool schema | `cohere-tools.json`: six XERJ search and memory tools in the Chat v2 tool format | rc.102, in review ([#2983](https://github.com/xerj-org/xerj/pull/2983)); generated, live run pending |
-| Command RAG cookbook | hybrid search, Rerank, then `/v2/chat` with citations that resolve to the source file and page | rc.102, in review ([#2983](https://github.com/xerj-org/xerj/pull/2983)); replay-tested, live run pending |
+| Rerank provider `cohere` on `_search` | XERJ sends the top hits to Cohere Rerank and returns them in Cohere's order | on main, ships in rc.102 ([#2985](https://github.com/xerj-org/xerj/pull/2985)); stub-tested, live run pending |
+| Embed through the proxy embedder | `semantic_text` fields get Cohere vectors through Cohere's OpenAI-compatible route | on main, ships in rc.102 ([#2983](https://github.com/xerj-org/xerj/pull/2983)); contract-tested, live run pending |
+| Command tool schema | `cohere-tools.json`: six XERJ search and memory tools in the Chat v2 tool format | on main, ships in rc.102 ([#2983](https://github.com/xerj-org/xerj/pull/2983)); generated, live run pending |
+| Command RAG cookbook | hybrid search, Rerank, then `/v2/chat` with citations that resolve to the source file and page | on main, ships in rc.102 ([#2983](https://github.com/xerj-org/xerj/pull/2983)); replay-tested, live run pending |
 | MCP server | any MCP client can call XERJ search, memory and XERJ Query-1 | shipped (stdio). StreamableHTTP transport is on the roadmap |
 | Native `/v2/embed` (`input_type`, int8/binary vectors) | asymmetric query/document vectors inside XERJ | roadmap |
 
@@ -113,7 +113,7 @@ Test it without a key: `bash docs/examples/cohere/command-rag/run-offline-test.s
 ## 4. What XERJ adds under Cohere models
 
 - **Your data, connected once.** `xerj autoindex` for files and folders, and
-  `xerj connect postgres://...` for a live database (rc.102, in review,
+  `xerj connect postgres://...` for a live database (on main, ships in rc.102,
   [#2984](https://github.com/xerj-org/xerj/pull/2984)). See [SOURCES.md](./SOURCES.md)
   and [LIVE_SOURCES.md](./LIVE_SOURCES.md) once those land.
 - **Hybrid retrieval in one engine.** BM25, kNN over Cohere vectors and RRF

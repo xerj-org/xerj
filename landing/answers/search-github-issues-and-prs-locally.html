@@ -255,7 +255,7 @@
   <pre class="code"><code class="language-sh">curl -s -XPOST http://127.0.0.1:9217/gh-*/_search -H 'content-type: application/json' -d '{"size":5,"_source":["number","title","state","url"],"query":{"multi_match":{"query":"xerj feedback --open-pr commits and pushes","fields":["title","body"]}}}'
 </code></pre>
   <p><code class="inline">took</code> was 7. Issue 960 was first. <code class="inline">_savings.bytes</code> was 19,444, <code class="inline">measured</code> <code class="inline">sampled</code>. The same question through <code class="inline">gh issue list --json number,title,body,state,url</code> produced a capture file of 36,550 bytes, because each hit included <code class="inline">body</code>.</p>
-  <p><code class="inline">xerj mcp</code> against this node returned 17 tools on rc.97, including <code class="inline">xerj_search</code>. On main it serves 23, or 20 in a build with no hub key. The server does not start a node.</p>
+  <p><code class="inline">xerj mcp</code> against this node returned 17 tools on rc.97, including <code class="inline">xerj_search</code>. On main it serves 24, or 21 in a build with no hub key. The server does not start a node.</p>
   <h2>Measured on 2026-10-20</h2>
   <table>
     <thead><tr><th>Check</th><th>Result</th></tr></thead>

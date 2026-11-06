@@ -40,7 +40,7 @@ xerj autoindex ./work --prefix work --state-dir ./state-work
 
 ### Command 3
 
-Note: Attach the running node over stdio MCP. Same binary, 23 tools (20 without a hub key), a browser Console is also available.
+Note: Attach the running node over stdio MCP. Same binary, 24 tools (21 without a hub key), a browser Console is also available.
 
 ```sh
 xerj mcp --url http://127.0.0.1:9200
@@ -53,7 +53,7 @@ xerj mcp --url http://127.0.0.1:9200
 | What it is | Desktop search app and MCP server | Search engine and MCP server, one binary |
 | Runs on | Windows and macOS | One local node you start |
 | What it indexes | Whole drives, automatically | One folder you name |
-| MCP tools | 4 | 23 on main (20 with no hub key) |
+| MCP tools | 4 | 24 on main (21 with no hub key) |
 | Query surface | MCP tools | MCP tools and the Elasticsearch REST API |
 | Default retrieval | BM25 plus BGE-M3 embeddings | BM25; neural embeddings opt-in |
 | Mail | .eml, .msg, .mbox | .eml, .mbox |
@@ -91,7 +91,7 @@ LocalSynapse documents an MCP server over stdio that opens no network port, with
 
 XERJ answers over the Elasticsearch REST API. An agent writes the query DSL it already knows: `match_phrase`, `terms`, `range`, aggregations and `_source` narrowing.
 
-`xerj mcp` serves 23 tools over stdio on top of that (20 in a build with no hub key), and `/_memory/{ns}` gives an agent namespaced memory in the engine.
+`xerj mcp` serves 24 tools over stdio on top of that (21 in a build with no hub key), and `/_memory/{ns}` gives an agent namespaced memory in the engine.
 
 Pick the surface that matches your caller. A small tool list is easier for a simple agent, and a query language is more useful for one that asks precise questions.
 
@@ -159,7 +159,7 @@ Yes, since v1.0.0-rc.81. Each .xlsx sheet becomes its own dataset with one recor
 
 ### How many MCP tools does each side expose?
 
-LocalSynapse documents four. On main, xerj mcp serves 23, or 20 in a build with no hub key, including search, memory and code tools.
+LocalSynapse documents four. On main, xerj mcp serves 24, or 21 in a build with no hub key, including search, memory and code tools.
 
 ### Is either one open source?
 

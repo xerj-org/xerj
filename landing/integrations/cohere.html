@@ -187,9 +187,9 @@ pre.code{overflow-x:auto}
 <text x="734" y="246">when you turn it on</text>
 </svg>
   <div class="ci-grid">
-    <div class="ci-card"><span class="ci-tag rev">RC.102 · IN REVIEW</span><h3>RERANK ON _SEARCH</h3><p>Add <code class="inline">"rerank": {"provider": "cohere"}</code> to a search and XERJ returns its top hits in Cohere Rerank's order. Endpoint configurable, so a private deployment keeps text inside. <a href="https://github.com/xerj-org/xerj/pull/2985" rel="external">#2985</a></p></div>
-    <div class="ci-card"><span class="ci-tag rev">RC.102 · IN REVIEW</span><h3>EMBED FOR SEMANTIC FIELDS</h3><p>The proxy embedder calls Cohere's OpenAI-compatible route for <code class="inline">semantic_text</code> fields. Fixes a response-parsing bug on that route found while building it. <a href="https://github.com/xerj-org/xerj/pull/2983" rel="external">#2983</a></p></div>
-    <div class="ci-card"><span class="ci-tag rev">RC.102 · IN REVIEW</span><h3>COMMAND TOOLS + RAG</h3><p><code class="inline">cohere-tools.json</code> gives Command six XERJ tools. The cookbook runs hybrid search, Rerank and <code class="inline">/v2/chat</code>; every citation resolves to a file and page. <a href="https://github.com/xerj-org/xerj/pull/2983" rel="external">#2983</a></p></div>
+    <div class="ci-card"><span class="ci-tag rev">ON MAIN · SHIPS IN RC.102</span><h3>RERANK ON _SEARCH</h3><p>Add <code class="inline">"rerank": {"provider": "cohere"}</code> to a search and XERJ returns its top hits in Cohere Rerank's order. Endpoint configurable, so a private deployment keeps text inside. <a href="https://github.com/xerj-org/xerj/pull/2985" rel="external">#2985</a></p></div>
+    <div class="ci-card"><span class="ci-tag rev">ON MAIN · SHIPS IN RC.102</span><h3>EMBED FOR SEMANTIC FIELDS</h3><p>The proxy embedder calls Cohere's OpenAI-compatible route for <code class="inline">semantic_text</code> fields. Fixes a response-parsing bug on that route found while building it. <a href="https://github.com/xerj-org/xerj/pull/2983" rel="external">#2983</a></p></div>
+    <div class="ci-card"><span class="ci-tag rev">ON MAIN · SHIPS IN RC.102</span><h3>COMMAND TOOLS + RAG</h3><p><code class="inline">cohere-tools.json</code> gives Command six XERJ tools. The cookbook runs hybrid search, Rerank and <code class="inline">/v2/chat</code>; every citation resolves to a file and page. <a href="https://github.com/xerj-org/xerj/pull/2983" rel="external">#2983</a></p></div>
     <div class="ci-card"><span class="ci-tag ok">SHIPPED</span><h3>MCP + XERJ QUERY-1</h3><p>Any MCP client can call XERJ search, memory and XERJ Query-1 today. Query-1 compiles a question into a program over your facts and says UNKNOWN instead of guessing. <a href="/xerj-query-1">How it works</a></p></div>
   </div>
 </section>
@@ -200,10 +200,10 @@ pre.code{overflow-x:auto}
     <tr><th>Capability</th><th>Status</th><th>Tested how</th></tr>
     <tr><td>Files, folders, S3, SQLite, SQL dumps via <code class="inline">xerj autoindex</code></td><td>shipped (rc.101)</td><td>measured, see the worked example</td></tr>
     <tr><td>XERJ Query-1 answers with evidence, MCP server (stdio)</td><td>shipped (rc.101)</td><td>measured</td></tr>
-    <tr><td>Live Postgres source: connect once, stays current (<a href="https://github.com/xerj-org/xerj/pull/2984" rel="external">#2984</a>)</td><td>rc.102, in review</td><td>measured against Postgres 16</td></tr>
-    <tr><td>Table rows to facts for XERJ Query-1 (<a href="https://github.com/xerj-org/xerj/pull/2988" rel="external">#2988</a>)</td><td>rc.102, in review</td><td>measured</td></tr>
-    <tr><td>Cohere Rerank provider on <code class="inline">_search</code> (<a href="https://github.com/xerj-org/xerj/pull/2985" rel="external">#2985</a>)</td><td>rc.102, in review</td><td>against a mock of Cohere's API; live run pending</td></tr>
-    <tr><td>Cohere Embed via proxy, Command tools, RAG cookbook (<a href="https://github.com/xerj-org/xerj/pull/2983" rel="external">#2983</a>)</td><td>rc.102, in review</td><td>against a mock; live run pending</td></tr>
+    <tr><td>Live Postgres source: connect once, stays current (<a href="https://github.com/xerj-org/xerj/pull/2984" rel="external">#2984</a>)</td><td>on main, ships in rc.102</td><td>measured against Postgres 16</td></tr>
+    <tr><td>Table rows to facts for XERJ Query-1 (<a href="https://github.com/xerj-org/xerj/pull/2988" rel="external">#2988</a>)</td><td>on main, ships in rc.102</td><td>measured</td></tr>
+    <tr><td>Cohere Rerank provider on <code class="inline">_search</code> (<a href="https://github.com/xerj-org/xerj/pull/2985" rel="external">#2985</a>)</td><td>on main, ships in rc.102</td><td>against a mock of Cohere's API; live run pending</td></tr>
+    <tr><td>Cohere Embed via proxy, Command tools, RAG cookbook (<a href="https://github.com/xerj-org/xerj/pull/2983" rel="external">#2983</a>)</td><td>on main, ships in rc.102</td><td>against a mock; live run pending</td></tr>
     <tr><td>Native <code class="inline">/v2/embed</code> with <code class="inline">input_type</code>, int8/binary vectors; MCP over HTTP; MySQL source</td><td>roadmap</td><td>not built</td></tr>
   </table>
   <p class="ci-note">"Live run pending" means every request and response shape was tested against a mock of Cohere's documented API, and no call to Cohere's real API has been made yet. This page claims no Cohere accuracy, latency or cost figure.</p>
