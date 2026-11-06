@@ -8,15 +8,15 @@
   {
    "repo": "K12Online_Chatbot",
    "url": "https://github.com/thieuhoang2002/K12Online_Chatbot",
-   "sha": "c27bec9bff7a126d2537c210bb3e45166cf6d2d4",
-   "licence": "MIT (LICENSE file at pin c27bec9bff7a, GitHub licence API 2026-11-04)",
+   "sha": "9c5485ae357944a89ddf047795910d7858d97db0",
+   "licence": "MIT (LICENSE file at pin 9c5485ae3579, GitHub licence API 2026-11-06)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-14T07:33Z",
     "consent_receipt": "82d3b8e9b0fb",
-    "note": "Inclusion consented by the commit author by email at 2026-10-14T07:33Z (receipt 82d3b8e9b0fb); selected commit c27bec9bff7a: \"feat(admin): them nut check rieng tung API va xu ly fallback nhan die\u2026\". LICENSE file at pin c27bec9bff7a detected as MIT by the GitHub licence API on 2026-11-04; used under that licence with attribution. Pinned to head c27bec9bff7a (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-14T07:33Z (receipt 82d3b8e9b0fb); selected commit 9c5485ae3579: \"feat(admin): them nut check rieng tung API va xu ly fallback nhan die\u2026\". LICENSE file at pin 9c5485ae3579 detected as MIT by the GitHub licence API on 2026-11-06; used under that licence with attribution. Pinned to head 9c5485ae3579 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]
