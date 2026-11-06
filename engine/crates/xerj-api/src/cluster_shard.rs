@@ -1043,13 +1043,107 @@ fn replica_nack(index: &str, replica: &str, detail: &str) -> ShardResult {
             "error": {
                 "type": "replica_not_acknowledged",
                 "reason": format!(
-                    "primary applied the write on [{index}] but replica [{replica}] did not acknowledge it: {detail}. The primary has the write; retry the index so the copy can catch up"
+                    "primary applied the write on [{index}] but replica [{replica}] did not acknowledge it: {detail}. The primary has the write; the copy was marked stale and will be backfilled from the primary"
                 )
             },
             "status": 503
         })
         .to_string(),
     )
+}
+
+/// Publish `nodes` as the in-sync replicas of `index` shard `shard`.
+///
+/// An empty list leaves the primary as the only in-sync copy. `Ok` means the
+/// entry committed and this node applied it with every id in `nodes`
+/// present. The caller holds `replica_sync_lock`.
+async fn publish_in_sync(
+    state: &AppState,
+    index: &str,
+    shard: u32,
+    mut nodes: Vec<String>,
+) -> Result<(), String> {
+    nodes.sort();
+    nodes.dedup();
+    let Some(handle) = state.engine.cluster_handle() else {
+        return Err("no cluster handle to publish the in-sync set".to_string());
+    };
+    match handle
+        .propose(ClusterCommand::SetShardInSync {
+            index: index.to_string(),
+            shard,
+            nodes: nodes.clone(),
+        })
+        .await
+    {
+        Ok(ApplyEffect::Applied) => {
+            let published = state.engine.replica_nodes(index, shard);
+            if nodes.iter().all(|id| published.iter().any(|got| got == id)) {
+                Ok(())
+            } else {
+                Err(
+                    "the in-sync set committed without the replicas that confirmed this write"
+                        .to_string(),
+                )
+            }
+        }
+        Ok(other) => Err(format!("in-sync update applied as {other:?}")),
+        Err(err) => Err(err.to_string()),
+    }
+}
+
+/// Drop every replica of `index` shard `shard` that is not in `keep` from
+/// the in-sync set. Used when the primary applied a write that some copies
+/// did not confirm. The caller holds `replica_sync_lock`.
+async fn mark_stale(
+    state: &AppState,
+    index: &str,
+    shard: u32,
+    targets: &[String],
+    keep: Vec<String>,
+) -> Result<(), String> {
+    let stale: Vec<&String> = targets.iter().filter(|id| !keep.contains(id)).collect();
+    if stale.is_empty() {
+        return Ok(());
+    }
+    match publish_in_sync(state, index, shard, keep).await {
+        Ok(()) => {
+            tracing::warn!(
+                index = %index,
+                shard,
+                stale = ?stale,
+                "replica did not confirm a write the primary applied; marked stale for backfill"
+            );
+            Ok(())
+        }
+        Err(detail) => {
+            tracing::error!(
+                index = %index,
+                shard,
+                stale = ?stale,
+                error = %detail,
+                "replica may be stale and is still in sync: the in-sync shrink did not commit"
+            );
+            Err(detail)
+        }
+    }
+}
+
+/// Drop every in-sync replica of the shard `id` routes to.
+///
+/// For a write the primary applied but could not copy at all (its own
+/// document could not be read back), so no replica has it.
+async fn mark_shard_copies_stale(state: &AppState, index: &str, id: &str) {
+    let Some((shard, _)) = state.engine.primary_of(index, id) else {
+        return;
+    };
+    if state.engine.placed_replica_nodes(index, shard).is_empty() {
+        return;
+    }
+    let sync = state.engine.replica_sync_lock(index, shard);
+    let _sync = sync.lock().await;
+    let targets = state.engine.replica_nodes(index, shard);
+    let _ = mark_stale(state, index, shard, &targets, Vec::new()).await;
 }
 
 /// Copy `op` onto the in-sync replicas and wait for a quorum.
@@ -1060,9 +1154,10 @@ fn replica_nack(index: &str, replica: &str, detail: &str) -> ShardResult {
 /// is an upsert or a delete without the caller's sequence check: the
 /// replica's own sequence numbers are not the primary's.
 ///
-/// Every in-sync replica is asked. When enough confirm and some do not, the
-/// ones that confirmed are published through the Raft log before the caller
-/// is acknowledged, and later reads skip the rest until
+/// Every in-sync replica is asked. The primary has already applied the
+/// write, so any replica that does not confirm it is removed from the
+/// in-sync set through the Raft log before this returns, whether the
+/// caller gets a success or a 503. Later reads and failover skip it until
 /// [`backfill_replica`] copies the primary's live documents and publishes
 /// the replica again. Two writes of the same shard do not publish different
 /// sets; the primary holds `replica_sync_lock` across the copy and the
@@ -1085,12 +1180,23 @@ async fn replicate_write(
     let targets = state.engine.replica_nodes(index, shard);
     let needed = xerj_cluster::replica_quorum_acks(placed.len());
     if targets.len() < needed {
-        return Err(quorum_nack(
-            index,
-            needed,
-            targets.len(),
-            "fewer replicas are in sync than the quorum requires",
-        ));
+        // Still copy to the replicas that are in sync, so a copy that is
+        // not asked does not stay listed. Every replica that is not
+        // confirmed below leaves the set.
+        let op = replica_copy(op, shard);
+        let mut acked: Vec<String> = Vec::new();
+        for replica in &targets {
+            if confirm_replica(state, replica, &op).await.is_ok() {
+                acked.push(replica.clone());
+            }
+        }
+        let detail = match mark_stale(state, index, shard, &targets, acked).await {
+            Ok(()) => "fewer replicas are in sync than the quorum requires".to_string(),
+            Err(err) => format!(
+                "fewer replicas are in sync than the quorum requires, and a stale replica could not be marked: {err}"
+            ),
+        };
+        return Err(quorum_nack(index, needed, targets.len(), &detail));
     }
     let op = replica_copy(op, shard);
     let mut acked: Vec<String> = Vec::new();
@@ -1105,57 +1211,29 @@ async fn replicate_write(
             }
         }
     }
-    if acked.len() < needed {
+    if acked.len() == targets.len() {
+        return Ok(());
+    }
+    let got = acked.len();
+    let marked = mark_stale(state, index, shard, &targets, acked).await;
+    if got < needed {
         let (replica, detail) = failed.unwrap_or_else(|| {
             (
                 "none".to_string(),
                 "no in-sync replica acknowledged the write".to_string(),
             )
         });
-        return Err(replica_nack(index, &replica, &detail));
+        return match marked {
+            Ok(()) => Err(replica_nack(index, &replica, &detail)),
+            Err(err) => Err(quorum_nack(
+                index,
+                needed,
+                got,
+                &format!("replica [{replica}] did not acknowledge ({detail}) and could not be marked stale: {err}"),
+            )),
+        };
     }
-    if acked.len() == targets.len() {
-        return Ok(());
-    }
-    acked.sort();
-    acked.dedup();
-    let Some(handle) = state.engine.cluster_handle() else {
-        return Err(quorum_nack(
-            index,
-            needed,
-            acked.len(),
-            "no cluster handle to publish the in-sync set",
-        ));
-    };
-    match handle
-        .propose(ClusterCommand::SetShardInSync {
-            index: index.to_string(),
-            shard,
-            nodes: acked.clone(),
-        })
-        .await
-    {
-        Ok(ApplyEffect::Applied) => {
-            let published = state.engine.replica_nodes(index, shard);
-            if acked.iter().all(|id| published.iter().any(|got| got == id)) {
-                Ok(())
-            } else {
-                Err(quorum_nack(
-                    index,
-                    needed,
-                    acked.len(),
-                    "the in-sync set committed without the replicas that confirmed this write",
-                ))
-            }
-        }
-        Ok(other) => Err(quorum_nack(
-            index,
-            needed,
-            acked.len(),
-            &format!("in-sync update applied as {other:?}"),
-        )),
-        Err(err) => Err(quorum_nack(index, needed, acked.len(), &err.to_string())),
-    }
+    marked.map_err(|err| quorum_nack(index, needed, got, &err))
 }
 
 async fn confirm_replica(state: &AppState, replica: &str, op: &ShardOp) -> Result<(), String> {
@@ -1755,6 +1833,7 @@ async fn local_update(
                     shard: 0,
                 },
                 Err(err) => {
+                    mark_shard_copies_stale(state, &concrete, id).await;
                     return ShardResult::http(
                         503,
                         json!({
@@ -1779,6 +1858,7 @@ async fn local_update(
                 shard: 0,
             },
             Err(err) => {
+                mark_shard_copies_stale(state, &concrete, id).await;
                 return ShardResult::http(
                     503,
                     json!({
@@ -1795,6 +1875,7 @@ async fn local_update(
             }
         },
         Err(err) => {
+            mark_shard_copies_stale(state, &concrete, id).await;
             return ShardResult::http(
                 503,
                 json!({
@@ -2165,6 +2246,7 @@ async fn replicate_bulk_result(
                         shard: 0,
                     },
                     Err(err) => {
+                        mark_shard_copies_stale(state, &concrete, &item.id).await;
                         mark_bulk_nack(
                             item,
                             &ShardResult::http(
@@ -2196,6 +2278,7 @@ async fn replicate_bulk_result(
                     shard: 0,
                 },
                 Err(err) => {
+                    mark_shard_copies_stale(state, &concrete, &item.id).await;
                     mark_bulk_nack(
                         item,
                         &ShardResult::http(
@@ -2219,6 +2302,7 @@ async fn replicate_bulk_result(
                 }
             },
             Err(err) => {
+                mark_shard_copies_stale(state, &concrete, &item.id).await;
                 mark_bulk_nack(
                     item,
                     &ShardResult::http(
@@ -2819,6 +2903,7 @@ async fn copy_updated_document(state: &AppState, index: &str, id: &str) -> Resul
                     shard: 0,
                 },
                 Err(err) => {
+                    mark_shard_copies_stale(state, index, id).await;
                     return Err(format!(
                         "primary applied the update on [{index}] but document [{id}] is not JSON: {err}"
                     ));
@@ -2833,12 +2918,14 @@ async fn copy_updated_document(state: &AppState, index: &str, id: &str) -> Resul
                 shard: 0,
             },
             Err(err) => {
+                mark_shard_copies_stale(state, index, id).await;
                 return Err(format!(
                     "primary applied the update on [{index}] but document [{id}] could not be read: {err}"
                 ));
             }
         },
         Err(err) => {
+            mark_shard_copies_stale(state, index, id).await;
             return Err(format!(
                 "primary applied the update but [{index}] is not open: {err}"
             ));
