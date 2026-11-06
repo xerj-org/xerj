@@ -319,6 +319,7 @@ HTTP Request
 | `xerj-rerank` | Second-stage reranking client for `_search`: strict `rerank` block parser, provider call with batching and a deadline, degrade-on-deadline / surface-on-contract failure policy. A leaf the API layer calls; the engine does not link it |
 | `xerj-hub` | Corpus Hub v2 client behind `xerj ask` / `xerj "<question>"`, `xerj hub …` and `xerj code <corpus> --def`: pulls, verifies and restores signed pre-indexed packs, builds them for CI, and routes a question to a corpus. Depends on `xerj-autoindex`; the engine does not link it |
 | `xerj-wasm` | Pluggable ingest-time document transform pipeline |
+| `xerj-sources` | Live database sources run inside the node (`xerj connect`, `/_xerj/sources`): Postgres consistent snapshot, then logical replication; resumable, status with lag. Linked by the API and server; the engine does not link it |
 
 Every crate under `crates/` appears in this table — `crates/xerj-engine/tests/docs_capability_lists.rs`
 fails if one is missing or if the table names a crate that no longer exists. Five of them
