@@ -59,6 +59,11 @@ fs2 = "0.4"
 # ES-compat HTTP client. Blocking mode: all of autoindex is synchronous
 # (std threads), invoked from the server binary via spawn_blocking.
 reqwest = { workspace = true, features = ["blocking"] }
+# pgvector source for `xerj autoindex postgres://… --pgvector-table` (vecimport).
+# Pure-Rust Postgres client (sync wrapper over tokio-postgres), MIT OR
+# Apache-2.0; no libpq, so the 8-target release matrix needs no C. No TLS
+# feature in this version: the source refuses sslmode=require explicitly.
+postgres = "0.19"
 # SigV4 for the object-storage watcher (`objwatch::s3`): HMAC-SHA256 chain and
 # the payload digest. Both are already in this workspace's lock file at these
 # versions (xerj-cluster, xerj-fts, xerj-api), so this adds no new package —

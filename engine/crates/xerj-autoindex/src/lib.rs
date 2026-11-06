@@ -63,6 +63,7 @@ mod sync;
 mod sync_executor;
 #[cfg(test)]
 mod test_loopback;
+pub mod vecimport;
 pub mod walk;
 pub mod watch;
 pub mod xc;
@@ -2549,6 +2550,15 @@ fn route_cli_error(error: &anyhow::Error, json_output: bool) -> CliErrorRoute {
 /// binary calls this via spawn_blocking). Returns the process exit code.
 pub fn run_cli() -> i32 {
     let args: Vec<String> = xerj_common::argv::args_after_subcommand();
+    // Vector-database sources (qdrant://, chroma://, pinecone://, postgres://
+    // with --pgvector-table) have their own flag set; see `vecimport`.
+    if vecimport::looks_like_vector_source(&args) {
+        return vecimport::run_cli(args);
+    }
+    if args.iter().any(|a| a == "--help-vector") {
+        vecimport::cli_help();
+        return 0;
+    }
     let cmd = match cli::parse(args) {
         Ok(c) => c,
         Err(e) => {
