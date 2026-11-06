@@ -60,7 +60,6 @@ search/220_total_hits_object.yml · hits.total as an object
 search/260_parameter_validation.yml · test negative size throws IAE
 search/260_parameter_validation.yml · test negative terminate_after throws IAE
 search/320_disallow_queries.yml · Test disallow expensive queries
-search/330_fetch_fields.yml · Test date formatting
 search/350_point_in_time.yml · delete invalid PIT returns error
 search/350_point_in_time.yml · msearch
 search/390_lookup_fields.yml · Fails to query or aggregate on lookup fields
