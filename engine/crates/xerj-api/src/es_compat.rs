@@ -44825,6 +44825,123 @@ fn find_invalid_reverse_nesting(
     None
 }
 
+#[cfg(test)]
+mod reverse_nesting_tests {
+    use super::*;
+    use axum::{body::Body, http::Request};
+    use tower::ServiceExt;
+    use xerj_common::{
+        config::{Config, WalSync},
+        metrics::Metrics,
+    };
+    use xerj_engine::Engine;
+
+    fn test_state() -> AppState {
+        let dir = tempfile::tempdir().expect("tempdir").keep();
+        let mut config = Config::default();
+        config.server.data_dir = dir.to_string_lossy().into_owned();
+        config.storage.wal_sync = WalSync::Async;
+        let metrics = Metrics::new().expect("metrics");
+        let engine = Engine::new(config.clone()).expect("engine");
+        AppState::new(config, engine, metrics)
+    }
+
+    async fn send(app: &axum::Router, method: &str, uri: &str, body: Value) -> (StatusCode, Value) {
+        let resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(method)
+                    .uri(uri)
+                    .header("content-type", "application/json")
+                    .body(Body::from(body.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let status = resp.status();
+        let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        (status, serde_json::from_slice(&bytes).unwrap())
+    }
+
+    /// The nested.yml mapping: `courses` nested, `courses.sessions` nested
+    /// inside it; plus a second top-level nested `staff_list`.
+    async fn app() -> axum::Router {
+        let app = crate::router::build_es_compat_router(test_state());
+        let mapping = json!({"mappings": {"properties": {
+            "department": {"type": "keyword"},
+            "courses": {"type": "nested", "properties": {
+                "name": {"type": "keyword"},
+                "sessions": {"type": "nested", "properties": {"semester": {"type": "keyword"}}}}},
+            "staff_list": {"type": "nested", "properties": {"who": {"type": "keyword"}}}}}});
+        let (status, body) = send(&app, "PUT", "/test", mapping).await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        let doc = json!({"department": "compsci", "staff_list": [{"who": "a"}],
+            "courses": [{"name": "OOP", "sessions": [{"semester": "spr2021"}]}]});
+        let (status, body) = send(&app, "PUT", "/test/_doc/1?refresh=true", doc).await;
+        assert!(status.is_success(), "{body}");
+        app
+    }
+
+    fn nested(path: &str, aggs: Value) -> Value {
+        json!({"nested": {"path": path}, "aggs": aggs})
+    }
+
+    fn reverse(path: Option<&str>) -> Value {
+        match path {
+            Some(p) => json!({"reverse_nested": {"path": p}}),
+            None => json!({"reverse_nested": {}}),
+        }
+    }
+
+    fn search(aggs: Value) -> Value {
+        json!({"size": 0, "aggs": aggs})
+    }
+
+    /// FAIL-BEFORE: both answered 200 with a root-document count.
+    #[tokio::test]
+    async fn reverse_nesting_below_or_beside_the_scope_is_a_400() {
+        let app = app().await;
+        for (aggs, reason) in [
+            (
+                json!({"parent_nested": nested("courses", json!({"invalid_reverse_nested": reverse(Some("courses.sessions"))}))}),
+                "Reverse nested path [courses.sessions] is not a parent of the current nested scope [courses]",
+            ),
+            (
+                json!({"n": nested("courses.sessions", json!({"r": reverse(Some("staff_list"))}))}),
+                "Reverse nested path [staff_list] is not a parent of the current nested scope [courses.sessions]",
+            ),
+        ] {
+            let (status, body) = send(&app, "POST", "/test/_search", search(aggs.clone())).await;
+            assert_eq!(status, StatusCode::BAD_REQUEST, "{aggs} -> {body}");
+            assert_eq!(body["error"]["type"], "search_phase_execution_exception", "{aggs}");
+            let root = &body["error"]["root_cause"][0];
+            assert_eq!(root["type"], "illegal_argument_exception", "{aggs}");
+            assert_eq!(root["reason"], reason, "{aggs}");
+        }
+    }
+
+    /// Joining back to the root or to an enclosing nested object, an unmapped
+    /// path, and a reverse_nested below a filter still answer.
+    #[tokio::test]
+    async fn reverse_nesting_to_a_parent_still_answers() {
+        let app = app().await;
+        for aggs in [
+            json!({"n": nested("courses.sessions", json!({"r": reverse(Some("courses"))}))}),
+            json!({"n": nested("courses.sessions", json!({"r": reverse(None)}))}),
+            json!({"n": nested("courses", json!({"r": reverse(None)}))}),
+            json!({"n": nested("courses", json!({"r": reverse(Some("not_mapped"))}))}),
+            json!({"n": nested("courses", json!({"f": {"filter": {"match_all": {}},
+                "aggs": {"n2": nested("courses.sessions", json!({"r": reverse(None)}))}}}))}),
+        ] {
+            let (status, body) = send(&app, "POST", "/test/_search", search(aggs.clone())).await;
+            assert_eq!(status, StatusCode::OK, "{aggs} -> {body}");
+        }
+    }
+}
+
 /// Minimal glob matcher for index-name wildcard expansion (* only).
 /// ES routing hash for `_id` → shard. Uses Murmur3_32 with seed 0 over
 /// the UTF-16 little-endian byte encoding of each char's UTF-16 code unit,
