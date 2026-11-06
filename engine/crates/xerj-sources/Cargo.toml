@@ -1,0 +1,29 @@
+[package]
+name = "xerj-sources"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Live database sources for XERJ: connect once, snapshot, then stream changes (Postgres logical replication) into the index"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+chrono.workspace = true
+bytes.workspace = true
+# Postgres wire-protocol message encoding and SCRAM-SHA-256 / MD5 auth.
+# The streaming-replication framing (CopyBoth, XLogData, standby status) is
+# ours in `pg/wire.rs`: no published synchronous client speaks it.
+# Licence: MIT OR Apache-2.0.
+postgres-protocol = "0.6"
+# TLS to the database. ring provider only, so the 8-target release matrix
+# gains no C/asm toolchain (see engine/Cargo.toml on aws-lc-rs).
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12", "logging"] }
+webpki-roots = "1"
+# `xerj connect` / `xerj sources` talk to a running node.
+reqwest = { workspace = true, features = ["blocking"] }
+
+[dev-dependencies]
+tempfile.workspace = true

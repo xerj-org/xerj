@@ -27,7 +27,7 @@ commands:
   - cmd: "curl -s -XPOST 'http://127.0.0.1:9200/code-*/_search' -H 'content-type: application/json' -d '{\"query\":{\"match\":{\"defs\":\"parse_config\"}},\"_source\":[\"ax_path\"],\"size\":20}'"
     note: "The definition query, language-independent, read from the returned hits."
   - cmd: "xerj mcp --url http://127.0.0.1:9200"
-    note: "Serve the 23 tools an agent calls before it decides what to change. Start the node first; this command does not start one."
+    note: "Serve the 24 tools an agent calls before it decides what to change. Start the node first; this command does not start one."
 links_out:
   - "syntax-aware-code-search-refactoring"
   - "code-search-mcp-for-claude-code"

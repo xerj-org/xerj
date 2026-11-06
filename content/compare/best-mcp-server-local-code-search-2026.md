@@ -80,7 +80,7 @@ evidence:
     source: "https://github.com/BurntSushi/ripgrep"
   - claim: "XERJ's tree-sitter registry covers 36 languages and extracts definitions."
     source: "engine/crates/xerj-autoindex/src/extract/code.rs"
-  - claim: "On main xerj mcp serves 23 tools, or 20 in a build with no hub key."
+  - claim: "On main xerj mcp serves 24 tools, or 21 in a build with no hub key."
     source: "landing/docs/agents/schemas/mcp-tools.json"
   - claim: "In the JSONL benchmark of 2026-10-19 the XERJ node peaked at 9,578,548 kB (about 9.1 GiB) resident while indexing one 9.7 MB file of 50,000 records."
     source: "benchmarks/best-of-jsonl-search-2026/README.md"
@@ -153,7 +153,7 @@ Use it beside an index, not instead of one. Choose ast-grep when the question is
 
 ## XERJ: one index over the whole folder
 
-XERJ is a search engine first. `xerj autoindex` reads a repository plus the docs, logs, JSONL, CSV, PDFs and SQLite files around it, writes a `defs` field and a `symbols` array for 36 tree-sitter languages, and `xerj mcp` serves 23 tools over that node, memory included.
+XERJ is a search engine first. `xerj autoindex` reads a repository plus the docs, logs, JSONL, CSV, PDFs and SQLite files around it, writes a `defs` field and a `symbols` array for 36 tree-sitter languages, and `xerj mcp` serves 24 tools over that node, memory included.
 
 What it gives up: no references, no edits, a lexical default embedder, single-node only, and heavy memory while indexing. Our own [JSONL benchmark](/compare/best-local-full-text-search-jsonl-csv-2026) measured the node peaking at about 9.1 GiB resident while indexing a 9.7 MB file. For code-only questions, compare it with ripgrep first: on 30 disclosed tasks ripgrep won 5 outright ([XERJ vs ripgrep](/compare/xerj-vs-ripgrep-for-code-agents)). Choose ripgrep when the agent searches a tree once.
 

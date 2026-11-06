@@ -1,4 +1,4 @@
-//! `xerj sources`: every way to get data into XERJ, one command each.
+//! `xerj sources --types`: every way to get data into XERJ, one command each.
 //!
 //! One registry feeds the CLI table and is checked against `docs/SOURCES.md`
 //! by a test, so the page and the binary cannot drift apart. A row says
@@ -118,7 +118,7 @@ pub const SOURCES: &[Source] = &[
     },
 ];
 
-/// The table `xerj sources` prints.
+/// The table `xerj sources --types` prints.
 pub fn render() -> String {
     let w_name = SOURCES
         .iter()
@@ -147,7 +147,7 @@ pub fn render() -> String {
     out
 }
 
-/// `xerj sources [--json]`.
+/// `xerj sources --types [--json]` (the server strips `--types`).
 pub fn run_cli(args: &[String]) -> i32 {
     match args.first().map(String::as_str) {
         None => {
@@ -173,11 +173,13 @@ pub fn run_cli(args: &[String]) -> i32 {
             0
         }
         Some("-h") | Some("--help") => {
-            println!("usage: xerj sources [--json]\n\nLists every way to get data into XERJ, one command each.");
+            println!("usage: xerj sources --types [--json]\n\nLists every way to get data into XERJ, one command each.\nPlain `xerj sources` lists the live sources connected to a node.");
             0
         }
         Some(other) => {
-            eprintln!("error: unknown argument {other:?}. Use `xerj sources --help` for usage.");
+            eprintln!(
+                "error: unknown argument {other:?}. Use `xerj sources --types --help` for usage."
+            );
             2
         }
     }

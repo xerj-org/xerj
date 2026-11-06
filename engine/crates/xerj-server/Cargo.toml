@@ -26,6 +26,7 @@ xerj-console-api     = { path = "../xerj-console-api" }
 xerj-autoindex = { path = "../xerj-autoindex" }
 # Corpus Hub v2 client: `xerj hub …` and the `--def` code path.
 xerj-hub     = { path = "../xerj-hub" }
+xerj-sources = { path = "../xerj-sources" }
 # `xerj mcp` — the MCP stdio server, in the one binary users install. Pulls in
 # only reqwest + serde_json, both already in this tree.
 xerj-mcp     = { path = "../xerj-mcp" }

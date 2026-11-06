@@ -389,6 +389,16 @@ PAGES: dict[str, dict[str, str]] = {
         title="XERJ.ai — Use case: AI code-security audit",
         description="Index a codebase as security facts, compile the rule into a queryable invariant, then read only the violators — ~26,000 tokens to audit WordPress core.",
     ),
+    "integrations/cohere.html": dict(
+        label="Cohere integration", kind="webpage", updated="2026-11-05",
+        title="XERJ.ai — Cohere models on XERJ, on your own hardware",
+        description="Cohere Rerank, Embed and Command on top of XERJ: hybrid search, live database sources and checked answers on one CPU server, with data kept on-prem.",
+    ),
+    "use-cases/enterprise-on-prem-cohere.html": dict(
+        label="Enterprise on-prem AI with Cohere", kind="webpage", updated="2026-11-05",
+        title="XERJ.ai — Use case: on-prem AI search with Cohere",
+        description="Worked example on public data: regulations, claims manuals and a live claims table on one CPU server, answers with evidence, Cohere Rerank and Command on top.",
+    ),
     "use-cases/second-brain.html": dict(
         label="Second brain", kind="webpage", updated="2026-10-24",
         title="XERJ.ai — Use case: a second brain from a folder",
