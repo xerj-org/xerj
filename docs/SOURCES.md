@@ -1,7 +1,7 @@
 # Sources: how to get data into XERJ
 
-Every way to get data into XERJ, one command each. `xerj sources` prints the
-same list from the binary (`xerj sources --json` for tools), and a test keeps
+Every way to get data into XERJ, one command each. `xerj sources --types` prints the
+same list from the binary (`xerj sources --types --json` for tools; plain `xerj sources` lists the live database sources connected to a node), and a test keeps
 this page and that list in step.
 
 What this page covers: rc.101 and later. Rows marked **In progress** are being

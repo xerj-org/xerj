@@ -74,7 +74,7 @@ The command reads a content signature rather than the file extension. It infers 
 
 Thirteen families are covered. The list holds HTML, plain text, PDF, DOCX and CSV. It also holds JSON and JSONL, structured logs, SQL exports, SQLite, XML, YAML, code and gzip variants.
 
-The result is queryable over the Elasticsearch REST API, and `xerj mcp` serves 23 tools to an agent over stdio. A `match_phrase` query returns the file path and the matching passage rather than the whole page.
+The result is queryable over the Elasticsearch REST API, and `xerj mcp` serves 24 tools to an agent over stdio. A `match_phrase` query returns the file path and the matching passage rather than the whole page.
 
 ## What XERJ is not
 

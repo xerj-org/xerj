@@ -132,7 +132,7 @@
       "name": "How do I search my documents folder from Claude or ChatGPT?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Index the folder with xerj autoindex, then attach the folder to the agent through xerj mcp, a stdio MCP server that serves 23 tools against a running node."
+        "text": "Index the folder with xerj autoindex, then attach the folder to the agent through xerj mcp, a stdio MCP server that serves 24 tools against a running node."
       }
     },
     {
@@ -193,6 +193,7 @@
 <nav class="nav" aria-label="Primary">
   <a href="/" class="brand">XERJ</a>
   <a href="/xerj-query-1">XERJ&nbsp;QUERY&#8209;1</a>
+  <a href="/integrations/cohere">COHERE</a>
   <a href="/product">PRODUCT</a>
   <a href="/use-cases">USE CASES</a>
   <a href="/answers/" class="active">ANSWERS</a>
@@ -269,7 +270,7 @@
   <p>The command takes no configuration file and no mapping.</p>
   <p>The node answers the Elasticsearch REST API. A <code class="inline">match_phrase</code> query and a filter on a keyword field work over plain HTTP. <code class="inline">xerj autoindex map</code> prints a data map of what the folder became.</p>
   <p>An agent reads that map first. It then names a real index and a real field in the query.</p>
-  <p><code class="inline">xerj mcp</code> is a stdio MCP server in the same binary. It serves 23 tools against a node you already started. Agent memory lives in the engine under <code class="inline">/_memory/{namespace}</code>.</p>
+  <p><code class="inline">xerj mcp</code> is a stdio MCP server in the same binary. It serves 24 tools against a node you already started. Agent memory lives in the engine under <code class="inline">/_memory/{namespace}</code>.</p>
   <p>XERJ is single-node. There is no replication and no failover. The index is as durable as the one host it lives on.</p>
   <p>The default embedder is lexical feature hashing, not a neural model. Neural retrieval is opt-in through <code class="inline">--embed-mode neural</code>.</p>
   <h2>Capabilities, side by side</h2>
@@ -286,7 +287,7 @@
       <tr><td>format detection</td><td>file name and MIME configuration</td><td>content sniffing per family</td></tr>
       <tr><td>helper programs on the host</td><td>many handlers are external</td><td>none, the binary parses in process</td></tr>
       <tr><td>HTTP query API</td><td>not in the core application</td><td>yes, Elasticsearch REST API</td></tr>
-      <tr><td>MCP server for an agent</td><td>not in the core application</td><td>yes, <code class="inline">xerj mcp</code>, 23 tools</td></tr>
+      <tr><td>MCP server for an agent</td><td>not in the core application</td><td>yes, <code class="inline">xerj mcp</code>, 24 tools</td></tr>
       <tr><td>catalog of refused files</td><td>index failures are reported</td><td><code class="inline">autoindex-catalog</code>, one reason per file</td></tr>
       <tr><td>agent memory in the engine</td><td>no</td><td>yes, <code class="inline">/_memory/{namespace}</code></td></tr>
     </tbody>
@@ -306,7 +307,7 @@
   <p>Choose Elasticsearch instead when the documents must live on more than one host. XERJ has no replication and no failover. XERJ speaks the same REST API on one node.</p>
   <h2>When XERJ is the better fit</h2>
   <p>Choose XERJ when the caller is a program. An agent that speaks HTTP or MCP needs no wrapper and no subprocess protocol.</p>
-  <p><code class="inline">xerj mcp</code> serves 23 tools. A coding agent can start the node itself.</p>
+  <p><code class="inline">xerj mcp</code> serves 24 tools. A coding agent can start the node itself.</p>
   <p>Choose XERJ when the folder is mixed. Format detection reads content, not the file extension. A CSV file with the wrong file extension still lands in a typed dataset.</p>
   <p>Refused files land in <code class="inline">autoindex-catalog</code> with a reason string. A missing file is explainable, not silent.</p>
   <p>Choose XERJ when the answer must carry provenance. Every document carries <code class="inline">ax_path</code>, <code class="inline">ax_file</code>, <code class="inline">ax_format</code> and four more keyword fields. A hit names its source file, so an agent can cite it.</p>
@@ -325,7 +326,7 @@
   <h3>Is Recoll enough for AI agents or do I need an API?</h3>
   <p>Recoll is enough if you write the wrapper. It answers on the command line through recollq and through a Python API, so an agent can call it through a subprocess you maintain. XERJ answers HTTP and MCP with no wrapper.</p>
   <h3>How do I search my documents folder from Claude or ChatGPT?</h3>
-  <p>Index the folder with <code class="inline">xerj autoindex</code>, then attach the folder to the agent through <code class="inline">xerj mcp</code>, a stdio MCP server that serves 23 tools against a running node.</p>
+  <p>Index the folder with <code class="inline">xerj autoindex</code>, then attach the folder to the agent through <code class="inline">xerj mcp</code>, a stdio MCP server that serves 24 tools against a running node.</p>
   <h3>Did you run a head-to-head benchmark between XERJ and Recoll?</h3>
   <p>No. No shared corpus was frozen and no recall or timing numbers were measured, so this page publishes documented capabilities and no win counts.</p>
   <h3>Which tool indexes email, mbox and attachments?</h3>

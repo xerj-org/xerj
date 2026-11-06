@@ -43,6 +43,7 @@
 //! | `xerj_field_report`    | `POST /api/field-report` (xerj.org)   | file an agent field report: GitHub PR first, this endpoint when GitHub is unavailable; sends by default |
 //! | `xerj_corpus_feedback` | `POST /api/corpus-feedback` (hub.xerj.org) | rate a hub corpus after using it (its Agent score); sends by default; `xerj_hub_ask` / `xerj_hub_def` also send an automatic review |
 //! | `xerj_map`             | `POST /autoindex-catalog/_search`     | per-index field map from the autoindex catalog (#1055) |
+//! | `xerj_sources`         | `GET/PUT/DELETE /_xerj/sources/{name}` | live database sources: list, status, connect (snapshot then real-time stream), delete |
 //! | `xerj_hub_find` / `xerj_hub_def` / `xerj_hub_ask` | the `xerj ask` flow (`src/hub.rs`) | which hub corpus answers; one definition; one question — from local packs, never downloading |
 //!
 //! ## Honesty notes (must match the engine, never oversell)
@@ -1478,6 +1479,42 @@ pub fn tool_specs_with(include_hub: bool) -> Value {
             }
         },
         {
+            "name": "xerj_sources",
+            "description": concat!(
+                "Live database sources on this node: connect once and the index stays current. ",
+                "action=list shows every source with its state; action=status shows one ",
+                "(snapshotting with percent and ETA, streaming, lagging, polling, or error with ",
+                "a message and a fix hint; replication lag in seconds, rows/s, last confirmed ",
+                "LSN); action=connect registers a Postgres database (postgres://user@host:port/db, ",
+                "no password in the URL: password_env names a variable in the NODE's environment, ",
+                "or password_file a file the node can read). The node snapshots the selected ",
+                "tables (one index per table, named <index_prefix>-<schema>-<table>, document id = ",
+                "primary key), then applies every insert, update, delete and truncate within ",
+                "seconds through logical replication; without replication rights it polls ",
+                "watermark_column and cannot see deletes. action=delete stops the source and drops ",
+                "its replication slot. Needs a superuser key on a secured node. ",
+                "Proxies GET/PUT/DELETE /_xerj/sources/{name}."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "action": { "type": "string", "enum": ["list", "status", "connect", "delete"], "description": "What to do (default list)." },
+                    "name": { "type": "string", "description": "Source name (a-z, 0-9, '-', '_'). Required for status, connect, delete." },
+                    "url": { "type": "string", "description": "connect: postgres://user@host:port/db?sslmode=require. Never include a password." },
+                    "password_env": { "type": "string", "description": "connect: env var in the node's environment holding the password." },
+                    "password_file": { "type": "string", "description": "connect: file the node can read holding the password." },
+                    "tables": { "type": "array", "items": { "type": "string" }, "description": "connect: schema.table or table; `sales.*` allowed. Default: every table with a primary key." },
+                    "exclude_tables": { "type": "array", "items": { "type": "string" } },
+                    "mode": { "type": "string", "enum": ["auto", "logical", "poll"], "description": "connect: auto (default) streams when replication is allowed, else polls watermark_column." },
+                    "watermark_column": { "type": "string", "description": "connect: column that grows on every write, for polling (e.g. updated_at)." },
+                    "publication": { "type": "string", "description": "connect: an existing publication to stream from (least-privilege setups)." },
+                    "index_prefix": { "type": "string" },
+                    "facts_namespace": { "type": "string", "description": "connect: also offer row changes to XERJ Query-1 facts in this namespace." },
+                    "delete_indices": { "type": "boolean", "description": "delete: also delete the source's indices (default false)." }
+                }
+            }
+        },
+        {
             "name": "xerj_code_search",
             "description": concat!(
                 "Reference-coding retrieval over a corpus of peer projects: how did ",
@@ -2163,6 +2200,7 @@ async fn call_tool(ctx: &Ctx, msg: &Value) -> Value {
         "xerj_brain_link" => build_brain_link(&args),
         "xerj_brain_unlink" => build_brain_unlink(&args),
         "xerj_brain_overview" => build_brain_overview(&args),
+        "xerj_sources" => build_sources(&args),
         // #1056: prompt in, validated DSL out — a plain engine proxy.
         "xerj_plan" => build_plan(&args),
         // Posts to the web endpoint, not the node. `ctx` is unused on purpose:
@@ -2271,6 +2309,7 @@ fn apply_search_path_demotion(text: &str, page: usize, query: &str) -> String {
 enum Method {
     Get,
     Post,
+    Put,
     Delete,
 }
 
@@ -2932,6 +2971,61 @@ fn build_brain_unlink(args: &Value) -> Result<BuiltRequest, String> {
         format!("/_graph/{}/link/{}{}", enc(brain), enc(edge_id), qs(&q)),
         None,
     ))
+}
+
+/// `xerj_sources`: list / status / connect / delete a live database source.
+fn build_sources(args: &Value) -> Result<BuiltRequest, String> {
+    let action = args.get("action").and_then(Value::as_str).unwrap_or("list");
+    let name = || req_str(args, "name");
+    match action {
+        "list" => Ok((Method::Get, "/_xerj/sources".into(), None)),
+        "status" => Ok((
+            Method::Get,
+            format!("/_xerj/sources/{}", enc(name()?)),
+            None,
+        )),
+        "delete" => {
+            let q = if args.get("delete_indices").and_then(Value::as_bool) == Some(true) {
+                "?delete_indices=true"
+            } else {
+                ""
+            };
+            Ok((
+                Method::Delete,
+                format!("/_xerj/sources/{}{q}", enc(name()?)),
+                None,
+            ))
+        }
+        "connect" => {
+            let n = name()?;
+            req_str(args, "url")?;
+            let mut body = serde_json::Map::new();
+            for k in [
+                "url",
+                "password_env",
+                "password_file",
+                "tables",
+                "exclude_tables",
+                "mode",
+                "watermark_column",
+                "publication",
+                "index_prefix",
+                "facts_namespace",
+            ] {
+                if let Some(v) = args.get(k) {
+                    body.insert(k.into(), v.clone());
+                }
+            }
+            Ok((
+                Method::Put,
+                format!("/_xerj/sources/{}", enc(n)),
+                Some(Value::Object(body)),
+            ))
+        }
+        other => Err(format!(
+            "`action` must be list, status, connect or delete (got {other:?})"
+        )),
+    }
 }
 
 fn build_brain_overview(args: &Value) -> Result<BuiltRequest, String> {
@@ -3648,6 +3742,7 @@ async fn engine_request(
     let mut req = match method {
         Method::Get => ctx.client.get(&url),
         Method::Post => ctx.client.post(&url),
+        Method::Put => ctx.client.put(&url),
         Method::Delete => ctx.client.delete(&url),
     };
     if let Some(body) = &body {
@@ -6360,8 +6455,9 @@ mod tests {
             .iter()
             .map(|t| t["name"].as_str().unwrap())
             .collect();
-        assert_eq!(names.len(), 23);
+        assert_eq!(names.len(), 24);
         for n in [
+            "xerj_sources",
             "xerj_def",
             "xerj_search",
             "xerj_semantic_search",
@@ -6538,6 +6634,36 @@ mod tests {
         );
     }
 
+    /// `xerj_sources` maps each action onto `/_xerj/sources`, and `connect`
+    /// forwards only spec fields (never anything named like a password value).
+    #[test]
+    fn sources_tool_builds_the_four_requests() {
+        let (m, p, b) = build_sources(&json!({})).unwrap();
+        assert_eq!((m, p.as_str(), b), (Method::Get, "/_xerj/sources", None));
+        let (m, p, _) = build_sources(&json!({"action": "status", "name": "shop"})).unwrap();
+        assert_eq!((m, p.as_str()), (Method::Get, "/_xerj/sources/shop"));
+        let (m, p, _) =
+            build_sources(&json!({"action": "delete", "name": "shop", "delete_indices": true}))
+                .unwrap();
+        assert_eq!(
+            (m, p.as_str()),
+            (Method::Delete, "/_xerj/sources/shop?delete_indices=true")
+        );
+        let (m, p, b) = build_sources(&json!({
+            "action": "connect", "name": "shop",
+            "url": "postgres://app@db/shop", "password_env": "PG_PW",
+            "tables": ["public.orders"], "password": "must-not-pass"
+        }))
+        .unwrap();
+        assert_eq!((m, p.as_str()), (Method::Put, "/_xerj/sources/shop"));
+        let b = b.unwrap();
+        assert_eq!(b["password_env"], "PG_PW");
+        assert!(b.get("password").is_none(), "{b}");
+        assert!(build_sources(&json!({"action": "connect", "name": "x"})).is_err());
+        assert!(build_sources(&json!({"action": "status"})).is_err());
+        assert!(build_sources(&json!({"action": "drop"})).is_err());
+    }
+
     /// A process with no hub signing key must not advertise tools that can
     /// only answer with the no-key message. The count `--help` prints is that
     /// same list, so the two cannot disagree.
@@ -6552,23 +6678,23 @@ mod tests {
                 .collect()
         };
         let without = names(false);
-        assert_eq!(without.len(), 20, "{without:?}");
+        assert_eq!(without.len(), 21, "{without:?}");
         assert!(
             without.iter().all(|n| !n.starts_with("xerj_hub_")),
             "{without:?}"
         );
         let with = names(true);
-        assert_eq!(with.len(), 23, "{with:?}");
+        assert_eq!(with.len(), 24, "{with:?}");
         for n in ["xerj_hub_find", "xerj_hub_def", "xerj_hub_ask"] {
             assert!(with.iter().any(|name| name == n), "missing {n}");
         }
 
         let help = tools_paragraph(false);
-        assert!(help.contains("proxies 20 tools"), "{help}");
+        assert!(help.contains("proxies 21 tools"), "{help}");
         assert!(!help.contains("xerj_hub_"), "{help}");
         assert!(help.contains("~/xerj-data"), "{help}");
         let help = tools_paragraph(true);
-        assert!(help.contains("proxies 23 tools"), "{help}");
+        assert!(help.contains("proxies 24 tools"), "{help}");
         assert!(help.contains("xerj_hub_ask"), "{help}");
         assert!(help.contains("serves 3 Corpus Hub tools"), "{help}");
     }

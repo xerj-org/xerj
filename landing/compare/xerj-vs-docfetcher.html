@@ -193,6 +193,7 @@
 <nav class="nav" aria-label="Primary">
   <a href="/" class="brand">XERJ</a>
   <a href="/xerj-query-1">XERJ&nbsp;QUERY&#8209;1</a>
+  <a href="/integrations/cohere">COHERE</a>
   <a href="/product">PRODUCT</a>
   <a href="/use-cases">USE CASES</a>
   <a href="/answers/" class="active">ANSWERS</a>
@@ -268,7 +269,7 @@
   <p>XERJ is a single Rust binary that runs one search node. <code class="inline">xerj autoindex &lt;folder&gt;</code> reads the folder and detects each file family by content. It infers a dataset per file shape and writes the documents.</p>
   <p>The command takes no configuration file and no mapping.</p>
   <p>The node answers the Elasticsearch REST API. <code class="inline">xerj autoindex map</code> prints a data map of what the folder became. An agent reads that map, then names a real index and a real field.</p>
-  <p><code class="inline">xerj mcp</code> is a stdio MCP server in the same binary. It serves 23 tools against a node you already started. Agent memory lives in the engine under <code class="inline">/_memory/{namespace}</code>.</p>
+  <p><code class="inline">xerj mcp</code> is a stdio MCP server in the same binary. It serves 24 tools against a node you already started. Agent memory lives in the engine under <code class="inline">/_memory/{namespace}</code>.</p>
   <p>XERJ is single-node. There is no replication and no failover. The default embedder is lexical feature hashing, not a neural model, and neural retrieval is opt-in through <code class="inline">--embed-mode neural</code>.</p>
   <h2>Capabilities, side by side</h2>
   <p>Every row is a documented capability of each tool. No row is a measured result.</p>
@@ -285,7 +286,7 @@
       <tr><td>automatic index updates</td><td>yes, while the application runs</td><td>rerun <code class="inline">xerj autoindex</code></td></tr>
       <tr><td>format detection</td><td>file extension, with a regex option</td><td>content sniffing per family</td></tr>
       <tr><td>HTTP query API</td><td>not in the free application</td><td>yes, Elasticsearch REST API</td></tr>
-      <tr><td>MCP server for an agent</td><td>none</td><td>yes, <code class="inline">xerj mcp</code>, 23 tools</td></tr>
+      <tr><td>MCP server for an agent</td><td>none</td><td>yes, <code class="inline">xerj mcp</code>, 24 tools</td></tr>
       <tr><td>catalog of refused files</td><td>index report in the GUI</td><td><code class="inline">autoindex-catalog</code>, one reason per file</td></tr>
       <tr><td>agent memory in the engine</td><td>none</td><td>yes, <code class="inline">/_memory/{namespace}</code></td></tr>
       <tr><td>license</td><td>Eclipse Public License</td><td>Apache-2.0</td></tr>

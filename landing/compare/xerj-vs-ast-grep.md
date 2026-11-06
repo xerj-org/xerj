@@ -40,7 +40,7 @@ curl -s -XPOST 'http://127.0.0.1:9200/code-*/_search' -H 'content-type: applicat
 
 ### Command 3
 
-Note: Serve the 23 tools an agent calls before it decides what to change. Start the node first; this command does not start one.
+Note: Serve the 24 tools an agent calls before it decides what to change. Start the node first; this command does not start one.
 
 ```sh
 xerj mcp --url http://127.0.0.1:9200

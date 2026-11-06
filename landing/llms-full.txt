@@ -1849,7 +1849,7 @@ ANSWERS FOR CODING AGENTS (measured 2026-10-19 on v1.0.0-rc.97; each page has a
 - Local code search MCP that uses fewer tokens than grep:
   https://xerj.org/answers/local-code-search-mcp-fewer-tokens-than-grep
   xerj autoindex <repo> --prefix req; xerj search --prefix req -k 3 --full 400 "<words in the code>";
-  xerj def --prefix req <symbol>; xerj init registers `xerj mcp` (23 tools on main).
+  xerj def --prefix req <symbol>; xerj init registers `xerj mcp` (24 tools on main).
   psf/requests: 1,303 bytes for the answer vs 25,150 bytes of `rg -n -i redirect`.
   rg is faster per call (6-7 ms vs 19-23 ms). No regex search in xerj.
 - Full-text search over JSONL and CSV from the CLI or MCP:

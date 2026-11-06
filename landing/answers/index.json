@@ -9,9 +9,9 @@
       "markdown_url": "https://xerj.org/answers/local-search-mcp-for-codex-and-cursor.md",
       "cluster": "Agent access and memory",
       "updated": "2026-10-28",
-      "summary": "xerj init writes the MCP entry for Claude Code, Cursor and Codex when those folders exist. On main, xerj mcp serves 23 tools, or 20 with no hub key.",
+      "summary": "xerj init writes the MCP entry for Claude Code, Cursor and Codex when those folders exist. On main, xerj mcp serves 24 tools, or 21 with no hub key.",
       "intent_group": "Agent access and memory",
-      "answer": "A search tool for a Codex agent starts with `xerj init`. The command writes the MCP entry for Claude Code, and it writes Cursor and Codex only when those folders already exist. Codex reads the entry in trusted projects only. On main `xerj mcp` serves 23 tools from a running node.",
+      "answer": "A search tool for a Codex agent starts with `xerj init`. The command writes the MCP entry for Claude Code, and it writes Cursor and Codex only when those folders already exist. Codex reads the entry in trusted projects only. On main `xerj mcp` serves 24 tools from a running node.",
       "queries": [
         "search tool for codex agent",
         "plug search into cursor",
@@ -59,7 +59,7 @@
       "markdown_url": "https://xerj.org/answers/give-chatgpt-claude-local-file-access.md",
       "cluster": "Agent access and memory",
       "updated": "2026-10-28",
-      "summary": "xerj mcp is a stdio MCP server that proxies 23 tools to a running XERJ node, so ChatGPT, Claude or Cursor search an indexed local folder instead of opening files.",
+      "summary": "xerj mcp is a stdio MCP server that proxies 24 tools to a running XERJ node, so ChatGPT, Claude or Cursor search an indexed local folder instead of opening files.",
       "intent_group": "Find the right tool",
       "answer": "Can ChatGPT or Claude search a folder on my laptop, or do I need something else? You need a local MCP server. Install XERJ, start a node, index the folder with xerj autoindex, and point the agent host at xerj mcp with an absolute path. One xerj_search call then reads the indexed local files.",
       "queries": [

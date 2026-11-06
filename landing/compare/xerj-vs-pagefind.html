@@ -209,6 +209,7 @@
 <nav class="nav" aria-label="Primary">
   <a href="/" class="brand">XERJ</a>
   <a href="/xerj-query-1">XERJ&nbsp;QUERY&#8209;1</a>
+  <a href="/integrations/cohere">COHERE</a>
   <a href="/product">PRODUCT</a>
   <a href="/use-cases">USE CASES</a>
   <a href="/answers/" class="active">ANSWERS</a>
@@ -278,7 +279,7 @@
 </code></pre>
   <p>The command reads a content signature rather than the file extension. It infers field types, writes explicit mappings, and files what it learned in a catalog index.</p>
   <p>Thirteen families are covered. The list holds HTML, plain text, PDF, DOCX and CSV. It also holds JSON and JSONL, structured logs, SQL exports, SQLite, XML, YAML, code and gzip variants.</p>
-  <p>The result is queryable over the Elasticsearch REST API, and <code class="inline">xerj mcp</code> serves 23 tools to an agent over stdio. A <code class="inline">match_phrase</code> query returns the file path and the matching passage rather than the whole page.</p>
+  <p>The result is queryable over the Elasticsearch REST API, and <code class="inline">xerj mcp</code> serves 24 tools to an agent over stdio. A <code class="inline">match_phrase</code> query returns the file path and the matching passage rather than the whole page.</p>
   <h2>What XERJ is not</h2>
   <p>XERJ is not a static-site plugin. It ships no browser bundle, no client-side index and no ready-made search field for a website.</p>
   <p>Putting XERJ behind a public site would mean running a single-node process and exposing it, which is the opposite of what Pagefind was built to avoid. Do not read this page as a suggestion to do that.</p>
