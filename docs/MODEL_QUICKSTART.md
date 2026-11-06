@@ -11,9 +11,9 @@ binary disagree, the binary wins (`xerj --help`). Background:
 
 The model is XERJ Query-1, served on CPU. It answers facts and counting questions
 over facts you have written to a namespace; it is not the search embedder
-(search's default embedder is lexical feature-hashing — a separate thing). It is
-**off by default**: nothing about a node changes until you start it with
-`--facts-model-dir`.
+(search's default embedder is lexical feature-hashing, a separate thing). It is
+**off by default**: without `--facts-model-dir` there is no `/_facts` route and no
+model loads (rc.101 still upgrades the data directory format on first write).
 
 Every step below ends with a check and the output you should see.
 
@@ -24,14 +24,14 @@ curl -fsSL https://xerj.org/get | sh      # Linux / macOS
 # Windows PowerShell: irm https://xerj.org/get.ps1 | iex
 ```
 
-Check: `xerj --version` prints `xerj 1.0.0-rc.101` (or later). If the shell says
+Check: `xerj --version` prints `xerj v1.0.0-rc.101` (or later). If the shell says
 `command not found`, the installer did not edit your profile — call it by full
 path (`$HOME/.local/bin/xerj`) or `export PATH="$HOME/.local/bin:$PATH"`.
 
 ## 2. Get the model bundle
 
-The installer can fetch it for you (about 462 MiB, checksum-verified, into
-`~/.local/share/xerj/model`):
+The installer can fetch it for you (about 390 MiB to download, 462 MiB unpacked,
+checksum-verified, into `~/.local/share/xerj/model`):
 
 ```sh
 curl -fsSL https://xerj.org/get | sh -s -- --with-model
@@ -83,9 +83,9 @@ curl -s localhost:9200/_facts | jq '{state: .model.state, counting: .model.count
 with `--port N`, use `N` in place of `9200` in every line on this page.
 
 If `/_facts` answers `404 xerj_query_not_enabled`, the node was started without
-the flag. If it answers `503 MODEL_UNAVAILABLE`, the model directory is missing
-or failed a load check — the error names which. Model errors are sticky until
-the node restarts.
+the flag. If the model directory is missing or fails a load check, `GET /_facts`
+reports `model.state: "unavailable"` with the error, and `_ask` answers
+`503 MODEL_UNAVAILABLE` naming it. Model errors are sticky until the node restarts.
 
 ## 4. Write a couple of facts
 
@@ -131,7 +131,7 @@ subject per row (`subject_id` from the key column), one fact per column.
 xerj autoindex hr.sqlite --facts hr --url http://127.0.0.1:9200
 ```
 
-Verify: the last lines read `hr/people: 1000 rows · key id · subject name · wrote 6000 facts (1000 new, …)`.
+Verify: the last lines read like `hr/people: 1000 rows · key id · subject name · wrote 6000 facts (1000 new, …)` (output of our test of the unreleased change on a 1,000-row table).
 Run it again after the table changes: only changed rows are rewritten and removed rows are withdrawn.
 
 ## 5. Ask a question and read the verified answer
@@ -150,12 +150,12 @@ with `program_sha256` and `partner_agreement`). Counting engages only on facts t
 <subjects> have <relation> <value>" compiles to a distinct count over
 `subject_id`, and one counted subject without an id makes the result
 `INCOMPLETE`, which the node reports as `final_status: "UNKNOWN"` with
-`path: "facts"` (never a guess). Give every subject one stable id and put it on
-every fact about that subject. The scope on rc.101 is set counts (optionally
-"how many distinct <field>"); sums, totals and numeric thresholds ("more than
-20 devices") are declined (`FIELD_UNUSED` / `NO_PROGRAM`) and answer `UNKNOWN`.
-Why a count was not served is in `counting.status` and `counting.notes.declines`
-of the `path: "facts"` response.
+`path: "facts"` (the executor does not guess, but a served count can still count the wrong set when the question is outside the op-set, for example an "or" question). Give every subject one stable id and put it on
+every fact about that subject. The scope on rc.101 is set counts. Numeric thresholds
+("more than 20 devices") are declined (`NO_PROGRAM`) and answer `UNKNOWN`. Sums and
+totals are declined (`FIELD_UNUSED`) only when the store has the named relation;
+otherwise they can be served as a member count. Why a count was not served is in
+`counting.status` and `counting.notes.declines` of the `path: "facts"` response.
 
 A count end to end, in a fresh namespace:
 

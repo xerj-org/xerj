@@ -882,7 +882,7 @@ Facts and XERJ Query-1 (/_facts) — OFF BY DEFAULT, rc.101+:
   text lookups over indexed documents; /_facts for a single-fact question over records you wrote as
   subject / relation / value facts. The model answers ONLY over `facts[]` you wrote; documents alone
   answer UNKNOWN. `POST /_ask` (no /_facts) is the _search query planner (422 unresolved_phrase).
-  GET  /_facts → { namespaces, loaded, model:{state: not_configured|not_loaded|loaded, counting:{state}}, ask_limits }
+  GET  /_facts → { namespaces, loaded, model:{state: not_configured|not_loaded|loaded|unavailable (with error), counting:{state}}, ask_limits }
        state is "not_loaded" for the first seconds after boot while the model preloads (3.5 s measured); poll.
   POST /_facts/{ns}/_bulk  { "documents":[{doc_id, version (STRING), text}],
                              "facts":[{fact_id, subject, subject_id?, relation, kind, value, unit?, doc_id, version, start, end, quote}] }
@@ -897,7 +897,7 @@ Facts and XERJ Query-1 (/_facts) — OFF BY DEFAULT, rc.101+:
        (503 MODEL_UNAVAILABLE, 404 index_not_found_exception "no facts namespace", 504 ASK_DEADLINE, …).
        Counting ("how many X have Y") → path "counting" only when every counted subject carries subject_id and a
        second seed wrote the same program (`counting.partner_agreement`); otherwise path "facts" + UNKNOWN with the
-       reason in `counting.status` / `counting.notes.declines`. Set counts only; sums and thresholds decline.
+       reason in `counting.status` / `counting.notes.declines`. Set counts only; thresholds decline, and a sum about something the store has no facts for can be served as a member count.
   POST /_facts/{ns}/_lookup { subject, relation } → VALUE | UNKNOWN | CONFLICT (no model).
   MCP: `xerj_facts_ask` { namespace, question } — listed only when the node answers GET /_facts
        (XERJ_MCP_FACTS=on|off overrides). Full contract: https://github.com/xerj-org/xerj/blob/main/docs/FACTS_API.md

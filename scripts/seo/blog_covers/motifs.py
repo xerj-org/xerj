@@ -636,10 +636,11 @@ def m_wrong160(w: float, h: float, rng: random.Random) -> str:
     16x10 grid per arm; filled = answered right, ring = declined, a filled
     blue cell = a wrong answer. Counts from the post's chapter 7 table:
     XERJ Query-1 124 right / 1 wrong / 35 declined; RAG on Opus 5.5 (BM25
-    top-10) 124 / 9 / 27; Opus 5.5 reading everything 130 / 6 / 24."""
+    top-10) 124 / 9 / 27; Opus 5.5 reading the whole store, 40 questions per
+    call, 130 / 6 / 24. XERJ Query-1 read each question's own records."""
     out = []
-    arms = [("XERJ QUERY-1", 124, 1, "y"), ("RAG + OPUS 5.5", 124, 9, "w"),
-            ("OPUS 5.5 READS", 130, 6, "w")]
+    arms = [("XERJ QUERY-1*", 124, 1, "y"), ("RAG BM25 + OPUS 5.5", 124, 9, "w"),
+            ("OPUS, WHOLE STORE", 130, 6, "w")]
     cols, rows_n = 16, 10
     gap = 28
     gw = (w - 2 * gap) / 3
@@ -659,8 +660,8 @@ def m_wrong160(w: float, h: float, rng: random.Random) -> str:
             else:
                 out.append(ring(cx, cy, pitch * 0.30, "m", 1.0))
     yb = gy + rows_n * pitch + 26
-    out.append(label(0, yb, "SAME 160 QUESTIONS · BLUE = WRONG ANSWER · RING = DECLINED", "lab"))
-    out.append(label(0, yb + 22, "9x FEWER WRONG ANSWERS THAN RAG ON OPUS 5.5", "lab m"))
+    out.append(label(0, yb, "160 QUESTIONS FROM OUR DEV SET · BLUE = WRONG · RING = DECLINED", "lab"))
+    out.append(label(0, yb + 22, "* GIVEN EACH QUESTION'S RECORDS; OPUS 5.5 GIVEN THEM TOO: 5 WRONG", "lab m"))
     return "".join(out)
 
 

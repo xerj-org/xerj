@@ -14,7 +14,7 @@
 <!-- ga4:end -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>XERJ Query-1: prompts to verifiable search programs</title>
+<title>XERJ Query-1: prompts to programs checked against your facts</title>
 
 <meta name="description" content="XERJ Query-1 compiles a plain question into a program the engine runs over your facts and shows step by step. Six capabilities, real examples, compared with RAG.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -70,7 +70,7 @@
 <link rel="canonical" href="https://xerj.org/xerj-query-1">
 <meta property="og:site_name" content="XERJ.ai">
 <meta property="og:type" content="website">
-<meta property="og:title" content="XERJ Query-1: prompts to verifiable search programs">
+<meta property="og:title" content="XERJ Query-1: prompts to programs checked against your facts">
 <meta property="og:description" content="XERJ Query-1 compiles a plain question into a program the engine runs over your facts and shows step by step. Six capabilities, real examples, compared with RAG.">
 <meta property="og:url" content="https://xerj.org/xerj-query-1">
 <meta property="og:image" content="https://xerj.org/og/xerj-card.png">
@@ -79,7 +79,7 @@
 <meta property="og:image:alt" content="XERJ.ai — the search engine built for AI agents">
 <meta property="og:locale" content="en_US">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="XERJ Query-1: prompts to verifiable search programs">
+<meta name="twitter:title" content="XERJ Query-1: prompts to programs checked against your facts">
 <meta name="twitter:description" content="XERJ Query-1 compiles a plain question into a program the engine runs over your facts and shows step by step. Six capabilities, real examples, compared with RAG.">
 <meta name="twitter:image" content="https://xerj.org/og/xerj-card.png">
 <script type="application/ld+json">
@@ -115,7 +115,7 @@
 {
   "@context": "https://schema.org",
   "@type": "WebPage",
-  "name": "XERJ Query-1: prompts to verifiable search programs",
+  "name": "XERJ Query-1: prompts to programs checked against your facts",
   "description": "XERJ Query-1 compiles a plain question into a program the engine runs over your facts and shows step by step. Six capabilities, real examples, compared with RAG.",
   "url": "https://xerj.org/xerj-query-1",
   "image": "https://xerj.org/og/xerj-card.png",
@@ -187,50 +187,55 @@
     <span>SHIPS IN RC.101 · OPT-IN</span>
   </div>
 
-  <h1 class="hero">PROMPTS IN.<br><span class="accent">VERIFIABLE</span> PROGRAMS OUT.</h1>
+  <h1 class="hero">PROMPTS IN.<br>PROGRAMS OUT, <span class="accent">CHECKED AGAINST YOUR FACTS</span>.</h1>
 
   <p class="lead">
     A new way to answer questions over your data: the model writes a small
-    program, the engine runs it over your own facts. No embeddings to build,
-    no GPU to rent, no answer you cannot check. Four CPU cores, offline, and
-    hundreds of times cheaper than RAG or an LLM reading the data.
+    program, the engine runs it over facts you have written. No embeddings to
+    build and no GPU to rent. Lookups and comparisons come with the facts they
+    used; counts come with the program's hash and a second model's agreement,
+    not the records. Four CPU cores, offline, and in our 160-question test
+    hundreds of times cheaper per question than RAG or an LLM reading the data
+    (ARITHMETIC at list prices).
   </p>
   <p class="lead">
     It is off by default. A node becomes a XERJ Query-1 node when you start it
     with <code>xerj --facts-model-dir &lt;DIR&gt;</code>. Without the flag,
-    rc.101 behaves exactly like rc.100.
+    rc.101 serves no <code>/_facts</code> route and the same MCP tools as rc.100,
+    but its storage format changed: the first write moves a data folder to
+    format 4, which rc.100 cannot open.
   </p>
 
   <div class="q1-cards" role="list">
     <a class="q1-card" role="listitem" href="#c1">
-      <div class="pair"><span class="ours">120 ms</span><span class="vs">vs</span><span class="theirs">2,700–3,300 ms</span></div>
-      <div class="cap">prompt to answer, XERJ Query-1 on 4 CPU cores on a namespace of up to 8,000 facts vs RAG / Opus 5.5</div>
+      <div class="pair"><span class="ours">≈220 ms</span><span class="vs">vs</span><span class="theirs">1.5–2.3 s</span></div>
+      <div class="cap">question to answer on the same 160 questions: XERJ Query-1 on 4 laptop CPU cores vs Opus 5.5 writing a RAG answer (search itself took under 1 ms to 106 ms)</div>
       <div class="t">Ask. It writes the program.</div>
-      <div class="s">RAG and Opus pipelines took 2.7 to 3.3 s per question on the same set and returned prose you cannot check.</div>
+      <div class="s">On the same 160 questions, Opus 5.5 took 1.5 to 2.3 s to write each RAG answer (API time per call; our command-line client's start-up is not counted), after a search that took under 1 ms to 106 ms. Writing the answer is where RAG's answer quality comes from; XERJ Query-1 writes a program instead and runs it on the CPU.</div>
     </a>
     <a class="q1-card" role="listitem" href="#c2">
       <div class="pair"><span class="ours">$42</span><span class="vs">vs</span><span class="theirs">$13,400–$694,000</span></div>
-      <div class="cap">per million questions, CPU vs RAG / GraphRAG / Opus reading the data</div>
+      <div class="cap">per million questions on our 160-question test, at list prices: XERJ Query-1's CPU time vs RAG, GraphRAG and Opus 5.5 reading the data</div>
       <div class="t">Runs on your records.</div>
-      <div class="s">No model is paid per question; the same million questions cost $13,400 to $21,000 on RAG, $65,400 on GraphRAG, up to $694,000 with Opus reading the data.</div>
+      <div class="s">No API model is billed per question: XERJ Query-1 runs a small model on your CPU, and that CPU time is the $42. The same million questions cost $13,400 to $21,000 on RAG with Opus 5.5, $65,400 on GraphRAG and up to $694,000 with Opus re-reading the whole store for every question (ARITHMETIC from measured tokens).</div>
     </a>
     <a class="q1-card" role="listitem" href="#c3">
       <div class="pair"><span class="ours">1</span><span class="vs">vs</span><span class="theirs">9–15</span></div>
-      <div class="cap">wrong of 160: verified or refused vs RAG on Opus 5.5 (Opus reading everything: 5–6)</div>
-      <div class="t">Verified or refused.</div>
-      <div class="s">Can't back it: UNKNOWN. Data disagrees: CONFLICT. Never invented.</div>
+      <div class="cap">wrong of 160 questions from our development set, vs RAG on Opus 5.5. XERJ Query-1 was given each question's own records and declined 35; Opus 5.5 given the same records: 5 wrong</div>
+      <div class="t">Checked or refused.</div>
+      <div class="s">A missing fact gives UNKNOWN; facts that disagree give CONFLICT. Most RAG errors came from search missing the evidence. Answers are stored values or computed counts, never free text, but they can still be wrong: 1 of 160 here, and some counts in known cases.</div>
     </a>
     <a class="q1-card" role="listitem" href="#c4">
-      <div class="pair"><span class="ours">17 min</span><span class="vs">vs</span><span class="theirs">62–97 hours</span></div>
-      <div class="cap">indexing 10 GB of Wikipedia (3.3 million articles) on CPU vs embedding it with bge-small</div>
+      <div class="pair"><span class="ours">17 min</span><span class="vs">vs</span><span class="theirs">62–97 h</span></div>
+      <div class="cap">a keyword (BM25) index of 10 GB of English Wikipedia, 3.3 million articles, on CPU (measured) vs embedding it with bge-small (estimated)</div>
       <div class="t">No embeddings.</div>
-      <div class="s">17 minutes and 0.7 CPU-hours to index, searchable at 9.3 ms. Embedding the same text takes 62 to 97 hours of CPU and 8.5 GB of vectors; a GraphRAG graph would take about 4.7 million model calls (~$251,000).</div>
+      <div class="s">17 minutes and 0.7 CPU-hours; 100 article-title queries then took 9.3 ms at the median. Embedding the same text would take an estimated 62 to 97 hours and 8.5 GB of vectors. The two do different jobs: on BEIR, vector search beat BM25 by 0.04 to 0.17 nDCG@10. XERJ Query-1 answers over facts you write, not over this index.</div>
     </a>
     <a class="q1-card" role="listitem" href="#c5">
-      <div class="pair"><span class="ours">0 s</span><span class="vs">vs</span><span class="theirs">19.6 s</span></div>
-      <div class="cap">re-index after a correction vs re-embedding the store</div>
+      <div class="pair"><span class="ours">≈2 ms</span><span class="vs">vs</span><span class="theirs">≈30 ms</span></div>
+      <div class="cap">to apply one correction: a XERJ facts write (measured) vs re-embedding the one changed chunk (ARITHMETIC)</div>
       <div class="t">A store you can correct.</div>
-      <div class="s">Fix a fact, the next ask follows; earlier answers replay by revision. An embedding index re-encodes.</div>
+      <div class="s">Fix a fact and the next ask uses it (10 of 10 in our test); earlier answers replay by revision. An embedding index re-encodes the changed text, and the whole store (19.6 s for our 5,000-record test store) when its model changes.</div>
     </a>
     <a class="q1-card" role="listitem" href="#c6">
       <div class="pair"><span class="ours">1 binary</span><span class="vs">vs</span><span class="theirs">3 services</span></div>
@@ -252,10 +257,11 @@
     <div>
       <span class="q1-num">01 · CAPABILITY</span>
       <h2 class="q1-h">Ask. It writes the program.</h2>
-      <div class="q1-metric"><div class="pair"><span class="ours">120 ms</span><span class="vs">vs</span><span class="theirs">2,700–3,300 ms</span></div><div class="cap">prompt to answer, XERJ Query-1 on 4 CPU cores on a namespace of up to 8,000 facts vs RAG / Opus 5.5</div></div>
+      <div class="q1-metric"><div class="pair"><span class="ours">≈220 ms</span><span class="vs">vs</span><span class="theirs">1.5–2.3 s</span></div><div class="cap">question to answer on the same 160 questions: XERJ Query-1 on 4 laptop CPU cores vs Opus 5.5 writing a RAG answer (search itself took under 1 ms to 106 ms)</div></div>
       <p class="lead">
         You write a plain question: "What is Bo Chen's height?", "Which river
-        is longer, X or Y?", "How many people have office Berlin?". The model
+        is longer, X or Y?", "How many people have office Berlin?" (counting needs a stable subject_id
+        on each person; without one the answer is UNKNOWN). The model
         reads the question plus a numbered listing of the facts in the
         namespace and emits a few program steps: <code>LOOKUP #12</code>,
         <code>CHAIN</code>, <code>LT / GT / EQ / NOT</code>,
@@ -264,20 +270,21 @@
       </p>
       <div class="q1-cmp">
         <strong>Compared with</strong> an LLM, whose output is the answer as
-        text. Here the output is a program a machine can run and a person can
-        read, and the answer comes from running it.
+        text. Here the output is a program, and the answer comes from running it.
+        For lookups and comparisons the program and its evidence come back in the
+        response; for counts you get the program's hash, not its steps.
       </div>
     </div>
     <div class="q1-ex">
-      <p class="q1-ex-label">Request · a plain question (an evaluation item; the names are synthetic)</p>
+      <p class="q1-ex-label">Request · an evaluation item from our teacher_dev set (the world and its names are invented)</p>
 <pre>POST /_facts/world-dev-90014/_ask
-{"question": "Which river carries less water, Arhalga or Gacunas?"}</pre>
+{"question": "Is the Arhalga River's discharge exceeded by that of the Gacunas River?"}</pre>
       <p class="q1-ex-label">Response · the program the model wrote, then the trace and the answer</p>
 <pre>program   LOOKUP #10 ; LOOKUP #7 ; LT ; RETURN
 step 0    LOOKUP #10  → 6956 m3/s   doc3@v1/discharge, Arhalga River
 step 1    LOOKUP #7   → 7567 m3/s   doc6@v1/discharge, Gacunas River
 step 2    LT          → TRUE        6956 &lt; 7567
-answer    Arhalga River</pre>
+answer    yes</pre>
       <p class="q1-ex-label">What #10 and #7 mean</p>
       <p>#10 and #7 are not words from your prompt. For each question the engine lists the facts in the namespace as a short numbered listing (#0, #1, #2 …). <code class="inline">LOOKUP #10</code> means: read record 10 of that listing. Here record 10 is the Arhalga River's discharge, 6,956 m3/s, and record 7 is the Gacunas River's, 7,567 m3/s. Every step of the trace names the record it used, with its source document and span.</p>
     </div>
@@ -290,7 +297,7 @@ answer    Arhalga River</pre>
     <div>
       <span class="q1-num">02 · CAPABILITY</span>
       <h2 class="q1-h">Runs on your records.</h2>
-      <div class="q1-metric"><div class="pair"><span class="ours">$42</span><span class="vs">vs</span><span class="theirs">$13,400–$694,000</span></div><div class="cap">per million questions, CPU vs RAG / GraphRAG / Opus reading the data</div></div>
+      <div class="q1-metric"><div class="pair"><span class="ours">$42</span><span class="vs">vs</span><span class="theirs">$13,400–$694,000</span></div><div class="cap">per million questions on our 160-question test, at list prices: XERJ Query-1's CPU time vs RAG, GraphRAG and Opus 5.5 reading the data</div></div>
       <p class="lead">
         Each step points at a stored fact: subject, relation, typed value,
         source document and the character span the value came from. The
@@ -300,8 +307,9 @@ answer    Arhalga River</pre>
       </p>
       <div class="q1-cmp">
         <strong>Compared with</strong> RAG, where the model reads retrieved
-        chunks and writes an answer nothing checks. Here the evidence is a
-        pointer you can follow to the exact characters.
+        chunks and writes the answer as text; citations can point at sources,
+        but the text itself is not checked against your data. Here the evidence
+        is a pointer you can follow to the exact characters.
       </div>
     </div>
     <div class="q1-ex">
@@ -331,7 +339,7 @@ answer    Arhalga River</pre>
     <div>
       <span class="q1-num">03 · CAPABILITY</span>
       <h2 class="q1-h">Verified or refused.</h2>
-      <div class="q1-metric"><div class="pair"><span class="ours">1</span><span class="vs">vs</span><span class="theirs">9–15</span></div><div class="cap">wrong of 160: verified or refused vs RAG on Opus 5.5 (Opus reading everything: 5–6)</div></div>
+      <div class="q1-metric"><div class="pair"><span class="ours">1</span><span class="vs">vs</span><span class="theirs">9–15</span></div><div class="cap">wrong of 160 questions from our development set, vs RAG on Opus 5.5. XERJ Query-1 was given each question's own records and declined 35; Opus 5.5 given the same records: 5 wrong</div></div>
       <p class="lead">
         A verifier checks the program against the store before anything is
         served. A pointer that resolves to nothing returns
@@ -342,10 +350,10 @@ answer    Arhalga River</pre>
         program.
       </p>
       <div class="q1-cmp">
-        <strong>Measured</strong> on the same 160 questions over the same
-        store: XERJ Query-1 answered 1 wrong; every pipeline built on a
-        language model answered between 5 and 15 wrong. It declined 35,
-        more than any other arm. That is the price of not guessing.
+        <strong>Measured</strong> on the same 160 questions: XERJ Query-1
+        answered 1 wrong; the language-model pipelines answered 5 to 15 wrong.
+        XERJ Query-1 and the "right records" Opus row read only each question's
+        own records; RAG, GraphRAG and the whole-store row read the merged store. It declined 35. Embedding RAG declined more (37 and 39) because its search missed records; Opus with the right records declined 18. Part of our declines are the price of not guessing; part is a decline rule that is still too strict.
       </div>
     </div>
     <div class="q1-ex">
@@ -369,25 +377,21 @@ answer    Arhalga River</pre>
     <div>
       <span class="q1-num">04 · CAPABILITY</span>
       <h2 class="q1-h">No embeddings.</h2>
-      <div class="q1-metric"><div class="pair"><span class="ours">17 min</span><span class="vs">vs</span><span class="theirs">62–97 hours</span></div><div class="cap">indexing 10 GB of Wikipedia (3.3 million articles) on CPU vs embedding it with bge-small</div></div>
+      <div class="q1-metric"><div class="pair"><span class="ours">17 min</span><span class="vs">vs</span><span class="theirs">62–97 h</span></div><div class="cap">a keyword (BM25) index of 10 GB of English Wikipedia, 3.3 million articles, on CPU (measured) vs embedding it with bge-small (estimated); this is the search engine, not XERJ Query-1</div></div>
       <p class="lead">
         There is no vector step on this path. The "index" the model uses is
         the facts store the engine already keeps: typed records, an inverted
-        index and doc-values. Writing 9,496 facts took 8.8 seconds and 15.4
-        MB on disk; no encoder ran, no vector memory was allocated, and
+        index and doc-values. Writing the 9,496 facts of our 160-question test (each question's records in its own namespace) took 8.8 seconds and 15.4 MB on disk on a shared ARM server (1.8 to 3.0 s on a laptop); no encoder ran, no vector memory was allocated, and
         there is nothing to redo when a model changes. The same binary still
         offers BM25 full-text search, aggregations and kNN for documents.
       </p>
       <div class="q1-cmp">
-        <strong>Compared with</strong> an embedding index: the same records
-        as 660 chunks took 19.6 seconds and 1.28 GB of memory to encode
-        with a small embedding model on 8 threads, and must be re-encoded
-        whenever that model changes.
+        <strong>Compared with</strong> an embedding index: the 5,000-record store, cut into 660 chunks of 8 records, took 19.6 seconds and 1.28 GB of memory to encode with bge-small on 8 threads of a laptop CPU, and must be re-encoded whenever that model changes.
       </div>
     </div>
     <div class="q1-ex">
       <p class="q1-ex-label">Index build, measured, per arm (same 5,000 records)</p>
-<pre>XERJ Query-1   8.8 s wall · 5.5 CPU-s · 15.4 MB · no LLM call
+<pre>XERJ Query-1: 8.8 s wall, 5.5 CPU-s, 15.4 MB, no LLM call (writing the 9,496 facts of the 160 test questions into 160 small namespaces on a shared ARM server; 1.8 to 3.0 s on a laptop)
 BM25 RAG       0.02 s · no LLM call
 Embedding RAG  19.6 s · 1.28 GB peak RSS (bge-small, 8 threads)
 GraphRAG       267 LLM calls · $14.27 · 72 min serial</pre>
@@ -405,7 +409,7 @@ POST /vecs/_search {"knn": {"field": "v", "query_vector": [...], "k": 2}}</pre>
     <div>
       <span class="q1-num">05 · CAPABILITY</span>
       <h2 class="q1-h">A store you can correct.</h2>
-      <div class="q1-metric"><div class="pair"><span class="ours">0 s</span><span class="vs">vs</span><span class="theirs">19.6 s</span></div><div class="cap">re-index after a correction vs re-embedding the store</div></div>
+      <div class="q1-metric"><div class="pair"><span class="ours">≈2 ms</span><span class="vs">vs</span><span class="theirs">≈30 ms</span></div><div class="cap">to apply one correction: a XERJ facts write (measured) vs re-embedding the one changed chunk (ARITHMETIC)</div></div>
       <p class="lead">
         Facts go in through <code>/_facts/{ns}/_bulk</code>: text, number,
         date or boolean values, a stable <code>subject_id</code> per entity,
@@ -413,8 +417,7 @@ POST /vecs/_search {"knn": {"field": "v", "query_vector": [...], "k": 2}}</pre>
         supersedes the old fact and the answer changes, while the old answer
         stays readable at its revision. A second, disagreeing fact turns the
         answer into CONFLICT until one is withdrawn. Every ask can be pinned
-        to a revision. About 44 ms per ask on four x86 cores; about 120 ms
-        at the median in the int8 serving configuration.
+        to a revision. About 35 to 45 ms per ask on a tiny namespace (3 documents, 6 facts) on a laptop with 4 model threads; about 220 ms at the median on our 160-question test (namespaces of 6 to 148 facts). The 120 ms we published earlier came from an unreleased int8 setting on one 40,000-fact namespace with a single repeated lookup question.
       </p>
       <div class="q1-cmp">
         <strong>Compared with</strong> a prompt cache or a vector index,
@@ -485,7 +488,7 @@ GET /_graph/agent1/ego?node=person:ana-bel&amp;hops=1  → the edges, with evide
       <p class="q1-ex-label">The same surfaces as MCP tools</p>
 <pre>xerj_memory_store · xerj_memory_recall
 xerj_brain_link · xerj_brain_unlink · xerj_brain_ego · xerj_brain_overview
-xerj_facts_ask          (listed only when the node runs the model: 25 tools on, 24 off)</pre>
+xerj_facts_ask (listed only when the node runs the model: 24 tools on, 23 off in rc.101; main adds xerj_sources, so rc.102 will list 25 and 24)</pre>
     </div>
   </div>
 </section>
@@ -493,46 +496,56 @@ xerj_facts_ask          (listed only when the node runs the model: 25 tools on, 
 
 <!-- COMPARISON ---------------------------------------------------->
 <section class="scene-section" id="compare">
-  <div class="kicker"><span>COMPARED · SAME 5,000 RECORDS · SAME 160 QUESTIONS · LIST PRICES</span></div>
-  <h2 class="q1-h">Five ways to answer a question</h2>
+  <div class="kicker"><span>COMPARED · SAME 160 QUESTIONS · LIST PRICES · XERJ QUERY-1 AND THE ORACLE READ EACH QUESTION'S OWN RECORDS</span></div>
+  <h2 class="q1-h">Seven ways to answer a question</h2>
   <p class="lead" style="max-width:760px;">
-    One store merged from 95 collections of the standard evaluation, 160
-    questions with known answers, scored by the same frozen rubric. Costs
-    are per million questions, ARITHMETIC: the measured per-1,000-question
-    list price times 1,000. Opus 5.5 at $4 per million input tokens and
-    $20 per million output tokens; CPU at the AWS c7g.xlarge on-demand rate
-    of $0.145 per hour ($0.03625 per vCPU-hour) at 4.1 CPU-seconds per
-    question, the live run.
+    160 questions with known answers from our own development evaluation,
+    scored by the same frozen rubric. The language-model arms read one merged
+    store of 5,000 records (4,305 distinct: 13 collections were stored twice);
+    3,732 of those records come from public data (MoMA and Tate collection
+    metadata, OurAirports, USGS earthquakes, UCI Online Retail, the NASA
+    Exoplanet Archive, Python package metadata), the rest from invented worlds.
+    XERJ Query-1 and the oracle read only each question's own records. Costs
+    are per million questions, ARITHMETIC: the measured per-1,000-question list
+    price times 1,000. Opus 5.5 at $4 per million input tokens and $20 per
+    million output tokens; CPU at the AWS c7g.xlarge on-demand rate of $0.145
+    per hour ($0.03625 per vCPU-hour) at 4.1 CPU-seconds per question on a
+    shared ARM server (0.9 on a quiet x86 laptop).
   </p>
   <div class="vt-wrap">
     <table class="vt">
       <thead>
-        <tr><th>Approach</th><th>Returns</th><th>Checkable</th><th>Index time</th><th>Cost / million q</th><th>Wrong of 160</th><th>Offline on CPU</th></tr>
+        <tr><th>Approach</th><th>Returns</th><th>Checkable</th><th>Index time</th><th>Cost / million q</th><th>Wrong of 160 (declined)</th><th>Offline on CPU</th></tr>
       </thead>
       <tbody>
-        <tr><td>Keyword search (BM25)</td><td>documents</td><td>no answer to check</td><td class="n">0.02 s</td><td class="n">CPU only</td><td class="n">n/a</td><td>yes</td></tr>
-        <tr><td>Embeddings + RAG on Opus 5.5 (top-10)</td><td>generated text</td><td>no</td><td class="n">19.6 s, 1.28 GB</td><td class="n">$19,850</td><td class="n l">14</td><td>no</td></tr>
-        <tr><td>BM25 + RAG on Opus 5.5 (top-10)</td><td>generated text</td><td>no</td><td class="n">0.02 s</td><td class="n">$20,950</td><td class="n l">9</td><td>no</td></tr>
-        <tr><td>GraphRAG on Opus 5.5</td><td>generated text</td><td>no</td><td class="n">72 min, 267 LLM calls, $14.27</td><td class="n">$65,390</td><td class="n l">9</td><td>no</td></tr>
-        <tr><td>Opus 5.5 reading the whole store (40 q per call; 1 q per call: $694,300)</td><td>generated text</td><td>no</td><td class="n">none</td><td class="n">$19,410</td><td class="n l">6</td><td>no</td></tr>
-        <tr><td>Opus 5.5 with perfect retrieval</td><td>generated text</td><td>no</td><td class="n">assumes perfect retrieval</td><td class="n">$28,840</td><td class="n l">5</td><td>no</td></tr>
-        <tr><td><strong>XERJ Query-1</strong></td><td><strong>program + trace</strong></td><td><strong>yes, step by step</strong></td><td class="n w">8.8 s, 15.4 MB</td><td class="n w">$42</td><td class="n w">1</td><td><strong>yes</strong></td></tr>
+        <tr><td>Keyword search (BM25)</td><td>records</td><td>no answer to check</td><td class="n">0.02 s</td><td class="n">CPU only</td><td class="n">n/a</td><td>yes</td></tr>
+        <tr><td>Embeddings + RAG on Opus 5.5 (top-10)</td><td>a short written answer</td><td>no record pointer (our prompt asked for none)</td><td class="n">19.6 s, 1.28 GB</td><td class="n">$19,850</td><td class="n l">14 (37)</td><td>no</td></tr>
+        <tr><td>BM25 + RAG on Opus 5.5 (top-10)</td><td>a short written answer</td><td>no record pointer</td><td class="n">0.02 s</td><td class="n">$20,950</td><td class="n l">9 (27)</td><td>no</td></tr>
+        <tr><td>GraphRAG on Opus 5.5</td><td>a short written answer</td><td>no record pointer</td><td class="n">267 LLM calls, $14.27; 72 min one call at a time, 12 min at 6 in parallel</td><td class="n">$65,390</td><td class="n l">9 (24)</td><td>no</td></tr>
+        <tr><td>Opus 5.5 reading the whole store (40 q per call; 1 q per call: $694,300)</td><td>a short written answer</td><td>no record pointer</td><td class="n">none</td><td class="n">$19,410</td><td class="n l">6 (24)</td><td>no</td></tr>
+        <tr><td>Opus 5.5 given each question's own records (oracle; our 2026-10-31 reference run, re-scored)</td><td>a short written answer</td><td>no record pointer</td><td class="n">none (needs perfect retrieval)</td><td class="n">$28,840</td><td class="n l">5 (18)</td><td>no</td></tr>
+        <tr><td><strong>XERJ Query-1</strong> (each question's own records)</td><td><strong>program + trace</strong></td><td><strong>lookups: each step cites a fact; counts: program hash only</strong></td><td class="n w">8.8 s, 15.4 MB (160 small namespaces, 9,496 facts)</td><td class="n w">$42</td><td class="n w">1 (35)</td><td><strong>yes</strong></td></tr>
       </tbody>
     </table>
   </div>
   <p class="src">
-    Source: the head-to-head measured on 2026-11-05 for the XERJ Query-1 announcement
-    (n = 160, 95% paired bootstrap intervals; the score gap is statistically clear
-    against embedding RAG and BM25 top-5, the wrong-answer gap against every LLM
-    pipeline). Records were pre-extracted for every arm; questions are from the
-    model's own evaluation distribution. The XERJ cost is the live run on a shared
-    aarch64 box; the int8 configuration on a quiet x86 box measures lower.
+    Source: the head-to-head measured on 2026-11-05 (n = 160, 95% paired
+    bootstrap intervals). The Score gap (our credit scale, the Opus 5.5
+    reference reader = 100) is statistically clear against embedding RAG and
+    BM25 RAG top-5, and not clear against BM25 top-10, GraphRAG, Opus reading
+    the whole store or the oracle. The wrong-answer gap is clear against
+    GraphRAG and every RAG setup, borderline against Opus reading the whole
+    store (0 to 11) and not clear against the oracle (−1 to 10). Records were
+    pre-extracted for every arm. All 160 questions come from the model's
+    development set. Retrieval quality of the search arms (R@k, nDCG), the
+    latency split and the data sets:
+    <a href="https://github.com/xerj-org/xerj/tree/main/benchmarks/query-1-2026-11" rel="external">benchmarks and methodology</a>.
   </p>
 </section>
 
 <!-- WHAT IT DOES NOT DO ---------------------------------------------->
 <section class="scene-section" id="limits" style="border-top:0;">
-  <div class="kicker"><span>WHAT IT DOES NOT DO · VERIFIED ON RC.101</span></div>
+  <div class="kicker"><span>WHAT IT DOES NOT DO · RC.101</span></div>
   <div class="q1-not">
     <strong>No fact extraction from arbitrary documents.</strong> Users or agents
     write facts (<code>xerj autoindex</code> yields records and a graph, not facts
@@ -546,19 +559,32 @@ xerj_facts_ask          (listed only when the node runs the model: 25 tools on, 
     in the docs; the real fix is in the next model.
   </div>
   <div class="q1-not">
-    <strong>It over-declines.</strong> 383 of 1,600 standard-evaluation items and
-    35 of 160 in the head-to-head came back UNKNOWN where the reference reader
-    answered. That is the price of not guessing, and the first thing the next
-    training program targets.
+    <strong>Some counts come back wrong as verified.</strong> "How many people
+    are in Berlin or Munich?" returned 1 (the answer is 3) with both counting
+    models agreeing. Counts return a hash of their program, not the counted
+    records.
   </div>
   <div class="q1-not">
-    <strong>Large fact sets are slow and decline more.</strong> On a 95,000-fact
-    namespace an ask took 1.2 to 2.4 seconds and returned UNKNOWN in our test.
-    Keep namespaces small until the next model.
+    <strong>It over-declines.</strong> It declined 383 of 1,600
+    standard-evaluation items (the reference reader, Opus 5.5 reading each
+    question's whole world, declined 216) and 35 of the 160 head-to-head
+    questions (Opus given the same records declined 18). Part of that is the
+    price of not guessing and part is a decline rule that is still too strict:
+    in one evaluation family, 54 of 66 declines would have been right answers.
+    Fixing that is the first target of the next training program.
   </div>
   <div class="q1-not">
-    <strong>Off by default.</strong> Without <code>--facts-model-dir</code> the node
-    is rc.100: no <code>/_facts</code> route, no model load, the same MCP tool list.
+    <strong>Large fact sets are slow and decline more.</strong> On a namespace
+    of 95,000 facts (the first sentences of 95,000 English Wikipedia articles),
+    20 test questions took 0.5 to 1.5 s each (median 0.8 s) on a laptop, and
+    all came back UNKNOWN or UNSUPPORTED. Keep namespaces small until the next
+    model.
+  </div>
+  <div class="q1-not">
+    <strong>Off by default.</strong> Without <code>--facts-model-dir</code> there
+    is no <code>/_facts</code> route, no model load and the same MCP tool list as
+    rc.100. Storage still changed: rc.101's first write moves a data folder to
+    format 4, which rc.100 cannot open.
   </div>
 </section>
 
@@ -568,7 +594,7 @@ xerj_facts_ask          (listed only when the node runs the model: 25 tools on, 
     <div>
       <span class="q1-num">COUNTING · IN DETAIL</span>
       <h2 class="q1-h">Counting, in detail</h2>
-      <p class="q1-metric"><strong>set counts, partner-verified · needs subject_id · no sums in rc.101</strong></p>
+      <p class="q1-metric"><strong>set counts, partner-verified · needs subject_id · no sums in rc.101 (a sum question can come back as a member count)</strong></p>
       <p class="lead">
         Set counts over facts that carry a <code>subject_id</code>: "how
         many X have Y", "distinct values of a field". The model writes a set
@@ -579,8 +605,9 @@ xerj_facts_ask          (listed only when the node runs the model: 25 tools on, 
       <div class="q1-cmp">
         <strong>Compared with</strong> asking a language model to count
         from retrieved chunks, where the number is generated and nothing
-        checks it. Here the count is a loop the engine ran, and the program
-        is named in the response.
+        checks it. Here the count is a loop the engine ran; the response gives
+        the program's hash and whether a second model agreed, not the
+        program's steps.
       </div>
     </div>
     <div class="q1-ex">
@@ -607,22 +634,22 @@ xerj_facts_ask          (listed only when the node runs the model: 25 tools on, 
   <h2 class="q1-h">Common questions</h2>
   <dl>
     <dt><strong>Do I have to train the model on my data?</strong></dt>
-    <dd>No. XERJ Query-1 is trained once, by us, on synthetic practice data. On your machine it is never retrained or fine-tuned. It reads your facts when you ask, so new data works immediately.</dd>
+    <dd>No. XERJ Query-1 is trained once, by us, on generated practice questions over public datasets (such as Tate collection and Python package metadata) and invented worlds, questions written by Claude Opus 5.5, and items from public question-answering sets (MQuAKE, HotpotQA, 2WikiMultihopQA). On your machine it is never retrained or fine-tuned. It reads your facts when you ask, so new data works immediately.</dd>
     <dt><strong>What do #10 and #7 mean?</strong></dt>
     <dd>They are record numbers. For each question the engine lists the facts in the namespace as a numbered listing, and <code class="inline">LOOKUP #10</code> reads record 10 of it. The trace names every record it used.</dd>
     <dt><strong>Does it read my documents?</strong></dt>
-    <dd>It reads the facts you, or your agent, write into a facts namespace through <code class="inline">/_facts/{ns}/_bulk</code> or the MCP tool. It does not yet extract facts from arbitrary documents on its own. Full-text search over your documents is the ordinary search, and it works alongside.</dd>
+    <dd>It reads the facts you, or your agent, write into a facts namespace through <code class="inline">/_facts/{ns}/_bulk</code> (over MCP you can ask with <code class="inline">xerj_facts_ask</code>, but no MCP tool writes facts). It does not yet extract facts from arbitrary documents on its own. Full-text search over your documents is the ordinary search, and it works alongside.</dd>
     <dt><strong>What happens when it does not know?</strong></dt>
-    <dd>It says so. If no stored fact backs the answer it returns UNKNOWN; if two facts disagree it returns CONFLICT. It never guesses.</dd>
+    <dd>It is built to say so: if no stored fact backs the answer it returns UNKNOWN; if two facts disagree it returns CONFLICT. It is not perfect: in our tests a 'how many devices in total' question over office facts and 'How many people are in Berlin or Munich?' came back with wrong counts.</dd>
     <dt><strong>Does anything leave my machine?</strong></dt>
-    <dd>No. The model and the engine run on your CPU. No question, fact or answer is sent anywhere.</dd>
+    <dd>The model and the engine send no question, fact or answer anywhere; they run on your CPU. The installer asks AI agents to send a short usage report after they use XERJ; turn that off with <code>XERJ_DISABLE_FEEDBACK=true</code> or <code>--disable-feedback</code>.</dd>
   </dl>
   </div>
 </section>
 
 <!-- TRY IT ---------------------------------------------------->
 <section class="scene-section q1-try" id="try">
-  <div class="kicker"><span>TRY IT · ONE BINARY · FOUR CPU CORES · UNDER A GIGABYTE</span></div>
+  <div class="kicker"><span>TRY IT · ONE BINARY PLUS A 389 MB MODEL BUNDLE · FOUR CPU CORES · ABOUT 0.7 GB AFTER LOADING, 1 TO 1.5 GB IN USE</span></div>
   <h2 class="q1-h">Run it today</h2>
   <p class="lead" style="max-width:760px;">
     Install the engine with the model bundle, start the node with the flag,
@@ -638,7 +665,7 @@ curl -s localhost:9200/_facts | jq '.model.state'      # "loaded"</pre>
     The announcement, with the measurements and how the model was trained, is at <a href="/blog/xerj-query-ai-model">/blog/xerj-query-ai-model</a>.
   </p>
   <p class="lead" style="max-width:760px;">
-    XERJ Query-1 was trained on donated GPU time. If it is useful to you,
+    XERJ Query-1 was trained mostly on rented GPU time paid for with donations, plus a few machines of our own. If it is useful to you,
     <a href="/donate">fund the next model</a>.
   </p>
 </section>

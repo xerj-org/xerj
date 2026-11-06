@@ -90,7 +90,7 @@ PAGES: dict[str, dict[str, str]] = {
     ),
     "xerj-query-1.html": dict(
         label="XERJ Query-1", kind="webpage",
-        title="XERJ Query-1: prompts to verifiable search programs",
+        title="XERJ Query-1: prompts to programs checked against your facts",
         description="XERJ Query-1 compiles a plain question into a program the engine runs over your facts and shows step by step. Six capabilities, real examples, compared with RAG.",
     ),
     "donate.html": dict(
@@ -259,11 +259,11 @@ PAGES: dict[str, dict[str, str]] = {
     # XERJ Query-1 launch post, 2026-11-05 (rc.101). published/updated pinned.
     "blog/xerj-query-ai-model.html": dict(
         label="XERJ Query-1", kind="article",
-        title="XERJ Query-1: a neurosymbolic model that compiles prompts to verifiable search queries",
-        description="XERJ Query-1 turns a question into a small program the engine runs on your facts. 9x fewer wrong answers than RAG on Opus 5.5, $42 per million questions on CPU.",
-        published="2026-11-05", updated="2026-11-05",
+        title="XERJ Query-1: a neurosymbolic model that turns questions into checkable programs",
+        description="XERJ Query-1 turns a question into a small program the engine runs on your facts. Measured on 160 questions, with retrieval benchmarks and a dated correction.",
+        published="2026-11-05", updated="2026-11-06",
         og_image="og/blog-xerj-query-ai-model.png",
-        og_image_alt="Cover: “XERJ Query-1” in display type beside the post’s square-matrix art, labelled 1 wrong, 9 wrong and 6 wrong. The art: three grids of 160 squares, one per way of answering the same questions; filled squares are right answers, blue squares wrong answers, rings declined; the yellow XERJ Query-1 grid has one blue square, RAG on Opus 5.5 has nine, Opus 5.5 reading everything has six",
+        og_image_alt="Cover: “XERJ Query-1” beside three grids of 160 squares from our 160-question test: XERJ Query-1, given each question’s own records, 1 wrong and 35 declined; RAG with BM25 top-10 on Opus 5.5, 9 wrong; Opus 5.5 reading the whole store, 6 wrong. Filled squares are right answers, blue squares wrong answers, rings declined",
     ),
     "blog/100-contributors.html": dict(
         label="Milestone", kind="article",

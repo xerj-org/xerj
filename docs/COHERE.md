@@ -52,7 +52,7 @@ curl -s -XPOST localhost:9200/docs/_search -H 'content-type: application/json' -
 ```
 
 Verify: `curl -s localhost:9200/_xerj/rerank` lists `cohere` with
-`"configured": true`. The key is never printed.
+`"configured": true`. The key is never printed (stub-tested; no live Cohere key was used).
 
 Models accepted: `rerank-v5.0-fast` (default), `rerank-v5.0-pro`,
 `rerank-v3.5`. Any other name is refused with HTTP 400 before anything is sent.
@@ -77,7 +77,7 @@ xerj --config cohere-embed.toml
 ```
 
 Verify: the startup log names the backend; expect a line containing
-`embedding backend` and `compatibility/v1/embeddings`.
+`embedding backend` and `compatibility/v1/embeddings` (contract-tested against a mock).
 
 Limits: the compatibility route takes no `input_type`, `dimensions` or
 `truncate`, so query and document vectors are embedded the same way. For
@@ -98,7 +98,7 @@ python3 tools/agents/gen_cohere_tools.py --check   # expect: ok: ... matches ...
 The cookbook in `docs/examples/cohere/command-rag/` indexes autoindexed files
 with Cohere vectors, runs a hybrid query, reranks, sends the best hits to
 `/v2/chat` as documents whose `id` is the XERJ `_id`, and maps every citation
-back to a file and page:
+back to a file and page (replay-tested; the live citation format is not verified yet):
 
 ```sh
 python3 docs/examples/cohere/command-rag/command_rag.py ask "What is the appeal deadline?" --assert-citations
@@ -118,10 +118,10 @@ Test it without a key: `bash docs/examples/cohere/command-rag/run-offline-test.s
   and [LIVE_SOURCES.md](./LIVE_SOURCES.md) once those land.
 - **Hybrid retrieval in one engine.** BM25, kNN over Cohere vectors and RRF
   fusion in one `_search`, Elasticsearch-compatible, one binary, CPU only.
-- **Exact answers without a model call.** For questions over structured facts
-  (a table, a ledger, a policy register), XERJ Query-1 compiles the question
-  into a program and runs it over the facts, with evidence, and says UNKNOWN
-  instead of guessing. Use it next to Command, not instead of it. See
+- **Answers over structured facts without an LLM API call.** XERJ Query-1, a small
+  model that runs on your CPU, compiles the question into a program over facts you have
+  written and says UNKNOWN instead of guessing. Writing a table as facts in one command
+  is not released yet. Use it next to Command, not instead of it. See
   [XERJ_QUERY_1.md](./XERJ_QUERY_1.md).
 
 ## Not verified yet
