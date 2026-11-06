@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "OPS",
- "domain": "an agent working on kubernetes, prometheus-exporter, energy-consumption queries this for how sustainable-computing-io/kepler implements it: Kepler (CNCF Sandbox project) is a power meter for Kubernetes. It lets you monitor the energy use of Kubernetes workloads. Let's make every  (selected work: internal/device, config, cmd/kepler)",
+ "domain": "an agent working on kubernetes, prometheus-exporter, energy-consumption queries this for how sustainable-computing-io/kepler implements it: Kepler (CNCF Sandbox project) is a power meter interface for Kubernetes: it lets you monitor the energy use of workloads. Let's make every w (selected work: internal/device, config, cmd/kepler)",
  "repos": [
   {
    "repo": "kepler",

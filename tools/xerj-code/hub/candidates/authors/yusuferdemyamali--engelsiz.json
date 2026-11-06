@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WRITE",
- "domain": "an agent working on golang, kiwix, knowledge-base queries this for how yusuferdemyamali/engelsiz implements it: Offline-first knowledge hub: Turkish Wikipedia, T\u00fcrkiye maps, local translation and offline education (PDF, ZIM, PhET). Go + React; Linux an (selected work: frontend, the project root, scripts)",
+ "domain": "an agent working on golang, kiwix, knowledge-base queries this for how yusuferdemyamali/engelsiz implements it: Offline-first knowledge hub with Turkish Wikipedia, T\u00fcrkiye maps, translation, education and a fully local AI assistant. Go + React; Windows (selected work: frontend, the project root, scripts)",
  "repos": [
   {
    "repo": "engelsiz",
