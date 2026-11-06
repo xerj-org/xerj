@@ -16097,6 +16097,17 @@ async fn search_impl(
     {
         return search_shard_validation_error(&reason);
     }
+    if let Some(aggs) = metric_aggs.and_then(Value::as_object) {
+        let mut nested = std::collections::HashSet::new();
+        for ix in &participating_indices {
+            if let Some(mapping) = state.engine.index_mappings.get(ix.as_str()) {
+                nested_field_paths(mapping.value(), &mut nested);
+            }
+        }
+        if let Some(reason) = find_invalid_reverse_nesting(aggs, &nested, None) {
+            return search_shard_validation_error(&reason);
+        }
+    }
 
     // Enforce per-index `index.disable_sequence_numbers` setting:
     // reject queries/sorts that touch `_seq_no` with ES's specific
@@ -44728,6 +44739,90 @@ pub async fn close_pit(
         _ => 0,
     };
     Json(json!({ "succeeded": freed > 0, "num_freed": freed })).into_response()
+}
+
+/// Every field mapped as `type: nested` in one index's mapping, by full
+/// dotted path (`courses`, `courses.sessions`).
+fn nested_field_paths(mapping: &Value, out: &mut std::collections::HashSet<String>) {
+    fn walk(
+        props: &serde_json::Map<String, Value>,
+        prefix: &str,
+        out: &mut std::collections::HashSet<String>,
+    ) {
+        for (key, node) in props {
+            let path = if prefix.is_empty() {
+                key.clone()
+            } else {
+                format!("{prefix}.{key}")
+            };
+            if node.get("type").and_then(Value::as_str) == Some("nested") {
+                out.insert(path.clone());
+            }
+            if let Some(sub) = node.get("properties").and_then(Value::as_object) {
+                walk(sub, &path, out);
+            }
+        }
+    }
+    if let Some(props) = mapping
+        .pointer("/mappings/properties")
+        .or_else(|| mapping.pointer("/properties"))
+        .and_then(Value::as_object)
+    {
+        walk(props, "", out);
+    }
+}
+
+/// A `reverse_nested` aggregation joins back from the nested documents it
+/// sits in to an enclosing level: the root (no `path`) or a nested object
+/// that contains the current one. ES refuses a `path` that names a nested
+/// object below or beside the current scope (`ReverseNestedAggregationBuilder`,
+/// 8.16+) with `Reverse nested path [p] is not a parent of the current
+/// nested scope [s]`. XERJ ignored `path` and answered 200 with a count of
+/// root documents, which reads as a valid join.
+///
+/// The walk carries the nested scope down the tree: a `nested` aggregation
+/// sets it, a `reverse_nested` resets it to its own `path` (or the root).
+/// Only a `path` that is a mapped nested field in one of the target indices
+/// is checked; an unmapped path keeps today's answer, as in ES.
+fn find_invalid_reverse_nesting(
+    aggs: &serde_json::Map<String, Value>,
+    nested: &std::collections::HashSet<String>,
+    scope: Option<&str>,
+) -> Option<String> {
+    for def in aggs.values() {
+        let Some(obj) = def.as_object() else {
+            continue;
+        };
+        let mut inner = scope.map(str::to_string);
+        for (kind, params) in obj {
+            let path = params.get("path").and_then(Value::as_str);
+            match kind.as_str() {
+                "nested" => inner = path.map(str::to_string),
+                "reverse_nested" => {
+                    if let (Some(p), Some(current)) = (path, scope) {
+                        let parent = current == p || current.starts_with(&format!("{p}."));
+                        if nested.contains(p) && !parent {
+                            return Some(format!(
+                                "Reverse nested path [{p}] is not a parent of the current \
+                                 nested scope [{current}]"
+                            ));
+                        }
+                    }
+                    inner = path.map(str::to_string);
+                }
+                _ => {}
+            }
+        }
+        if let Some(found) = obj
+            .get("aggs")
+            .or_else(|| obj.get("aggregations"))
+            .and_then(Value::as_object)
+            .and_then(|sub| find_invalid_reverse_nesting(sub, nested, inner.as_deref()))
+        {
+            return Some(found);
+        }
+    }
+    None
 }
 
 /// Minimal glob matcher for index-name wildcard expansion (* only).
