@@ -115,7 +115,37 @@ struct EmbedResponse {
 #[derive(Debug, Deserialize)]
 struct EmbedDatum {
     embedding: Vec<f32>,
-    index: usize,
+    /// Position of this vector in the request's `input`. OpenAI always sends
+    /// it; some OpenAI-compatible routes omit it and return the vectors in
+    /// request order, so a missing `index` falls back to the position.
+    #[serde(default)]
+    index: Option<usize>,
+}
+
+/// Put the vectors back in request order. Every datum carries an `index`
+/// (sorted by it) or none does (kept in the order received); a mix of the two,
+/// or a count that does not match the request, is a contract violation.
+fn order_embeddings(
+    mut data: Vec<EmbedDatum>,
+    expected: usize,
+) -> std::result::Result<Vec<Vec<f32>>, String> {
+    let with_index = data.iter().filter(|d| d.index.is_some()).count();
+    if with_index != 0 && with_index != data.len() {
+        return Err(format!(
+            "{with_index} of {} embeddings carry an index; expected all or none",
+            data.len()
+        ));
+    }
+    if with_index == data.len() {
+        data.sort_by_key(|d| d.index);
+    }
+    if data.len() != expected {
+        return Err(format!(
+            "expected {expected} embeddings, got {}",
+            data.len()
+        ));
+    }
+    Ok(data.into_iter().map(|d| d.embedding).collect())
 }
 
 /// A single embedding attempt's failure, tagged with whether a retry could
@@ -382,19 +412,9 @@ impl EmbeddingProxy {
             EmbedFailure::permanent(XerjError::embedding(format!("response parse: {e}")))
         })?;
 
-        // Sort by index to restore original order
-        let mut data = response.data;
-        data.sort_by_key(|d| d.index);
-
-        if data.len() != texts.len() {
-            return Err(EmbedFailure::permanent(XerjError::embedding(format!(
-                "expected {} embeddings, got {}",
-                texts.len(),
-                data.len()
-            ))));
-        }
-
-        Ok(data.into_iter().map(|d| d.embedding).collect())
+        // Restore request order (by `index`, or positionally when the route omits it).
+        order_embeddings(response.data, texts.len())
+            .map_err(|e| EmbedFailure::permanent(XerjError::embedding(e)))
     }
 
     /// Embed a single text.
@@ -413,6 +433,41 @@ impl EmbeddingProxy {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn datum(v: f32, index: Option<usize>) -> EmbedDatum {
+        EmbedDatum {
+            embedding: vec![v],
+            index,
+        }
+    }
+
+    #[test]
+    fn embeddings_are_reordered_by_index_when_every_datum_has_one() {
+        let out = order_embeddings(vec![datum(1.0, Some(1)), datum(0.0, Some(0))], 2).unwrap();
+        assert_eq!(out, vec![vec![0.0], vec![1.0]]);
+    }
+
+    #[test]
+    fn embeddings_without_index_keep_the_order_received() {
+        // OpenAI-compatible routes (Cohere's compatibility API among them) may
+        // omit `index`; the vectors then arrive in request order.
+        let body = r#"{"data":[{"embedding":[0.5]},{"embedding":[0.25]}]}"#;
+        let resp: EmbedResponse = serde_json::from_str(body).unwrap();
+        let out = order_embeddings(resp.data, 2).unwrap();
+        assert_eq!(out, vec![vec![0.5], vec![0.25]]);
+    }
+
+    #[test]
+    fn a_mix_of_indexed_and_unindexed_embeddings_is_refused() {
+        let err = order_embeddings(vec![datum(0.0, Some(0)), datum(1.0, None)], 2).unwrap_err();
+        assert!(err.contains("all or none"), "{err}");
+    }
+
+    #[test]
+    fn a_short_embedding_response_is_refused() {
+        let err = order_embeddings(vec![datum(0.0, None)], 2).unwrap_err();
+        assert!(err.contains("expected 2 embeddings, got 1"), "{err}");
+    }
 
     #[test]
     fn config_defaults() {
@@ -469,6 +524,10 @@ mod tests {
             (
                 "https://generativelanguage.googleapis.com/v1beta/openai/embeddings",
                 "https://generativelanguage.googleapis.com/v1beta/openai/embeddings",
+            ),
+            (
+                "https://api.cohere.ai/compatibility/v1",
+                "https://api.cohere.ai/compatibility/v1/embeddings",
             ),
             (
                 "http://127.0.0.1:8000/proxy/v1",
