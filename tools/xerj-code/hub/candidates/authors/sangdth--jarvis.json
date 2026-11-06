@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on HTML queries this for how sangdth/jarvis implements it: sangdth/jarvis (HTML) (selected work: src/jarvis, tests, scripts)",
+ "domain": "an agent working on Python queries this for how sangdth/jarvis implements it: sangdth/jarvis (Python) (selected work: src/jarvis, tests, scripts)",
  "repos": [
   {
    "repo": "jarvis",
    "url": "https://github.com/sangdth/jarvis",
-   "sha": "b74d27b0f67e6db2790fb68d1ac68f4a812d1887",
-   "licence": "AGPL-3.0 (LICENSE file at pin b74d27b0f67e, GitHub licence API 2026-11-05)",
+   "sha": "2488b0e17173e812c324058999a4fb982bd35134",
+   "licence": "AGPL-3.0 (LICENSE file at pin 2488b0e17173, GitHub licence API 2026-11-06)",
    "review": {
     "spdx": "AGPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-11-04T05:50Z",
     "consent_receipt": "2126693fdee7",
-    "note": "Inclusion consented by the commit author by email at 2026-11-04T05:50Z (receipt 2126693fdee7); selected commit b74d27b0f67e: \"feat: make T3 Code the default coding agent and open named projects\". LICENSE file at pin b74d27b0f67e detected as AGPL-3.0 by the GitHub licence API on 2026-11-05; used under that licence with attribution. Pinned to head b74d27b0f67e (contains the selected commit): the LICENSE at the selected commit was NONE.",
+    "note": "Inclusion consented by the commit author by email at 2026-11-04T05:50Z (receipt 2126693fdee7); selected commit 2488b0e17173: \"feat: make T3 Code the default coding agent and open named projects\". LICENSE file at pin 2488b0e17173 detected as AGPL-3.0 by the GitHub licence API on 2026-11-06; used under that licence with attribution. Pinned to head 2488b0e17173 (contains the selected commit): the LICENSE at the selected commit was NONE.",
     "author_grant": {
      "terms": "MIT",
      "scope": "the author's own changes in the selected commit",

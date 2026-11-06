@@ -8,15 +8,15 @@
   {
    "repo": "DUMEdb",
    "url": "https://github.com/madbradsmith/DUMEdb",
-   "sha": "903e450f70edb0bd8ef0c2c5af220d236f78e0ab",
-   "licence": "MIT (LICENSE file at pin 903e450f70ed, GitHub licence API 2026-11-05)",
+   "sha": "6a0d9f127760d1855257972773cb85b030c54d28",
+   "licence": "MIT (LICENSE file at pin 6a0d9f127760, GitHub licence API 2026-11-06)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-26T19:56Z",
     "consent_receipt": "75c6783c66d8",
-    "note": "Inclusion consented by the commit author by email at 2026-10-26T19:56Z (receipt 75c6783c66d8); selected commit 903e450f70ed: \"feat(ui): add in-modal local folder navigator for directory hydration\u2026\". LICENSE file at pin 903e450f70ed detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution. Pinned to head 903e450f70ed (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-26T19:56Z (receipt 75c6783c66d8); selected commit 6a0d9f127760: \"feat(ui): add in-modal local folder navigator for directory hydration\u2026\". LICENSE file at pin 6a0d9f127760 detected as MIT by the GitHub licence API on 2026-11-06; used under that licence with attribution. Pinned to head 6a0d9f127760 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on android, calendar, expo queries this for how BoazCohenJ/OpenCal implements it: A calm, local-first calendar app for Android built with Expo: schedule/day/week/month views, stamps, quiet time & DND, dark mode, over-the-a (selected work: src/widgets, the project root, src/context)",
+ "domain": "an agent working on android, calendar, expo queries this for how BoazCohenJ/OpenCal implements it: Local-first calendar for Android with stamps, pausable repeats, scheduled quiet time, floating time and an AI assistant via your own sync se (selected work: src/widgets, the project root, src/context)",
  "repos": [
   {
    "repo": "OpenCal",
