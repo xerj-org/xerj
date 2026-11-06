@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Python queries this for how bkawa-io/clozn implements it: Context attribution for everyday local inference (selected work: engine, clozn, tests)",
+ "domain": "an agent working on ai-observability, context-engineering, context-management queries this for how bkawa-io/clozn implements it: Trace, interpret, and attribute AI answers to their sources (selected work: engine, clozn, tests)",
  "repos": [
   {
    "repo": "clozn",

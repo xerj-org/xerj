@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on heliophysics, magnetic-field, pfss queries this for how sr-dash/heliofield implements it: The Sun's coronal magnetic field in 3D, updated daily: GONG magnetograms, PFSS field lines, source surface, current sheet and the spacecraft (selected work: js, the project root, tests)",
+ "domain": "an agent working on heliophysics, magnetic-field, pfss queries this for how sr-dash/heliofield implements it: The Sun's coronal magnetic field in 3D, updated daily: GONG magnetograms, PFSS (+SCS) field lines, source surface, current sheet and the spa (selected work: js, the project root, tests)",
  "repos": [
   {
    "repo": "heliofield",
