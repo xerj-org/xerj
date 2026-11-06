@@ -44891,6 +44891,141 @@ fn find_disallowed_expensive_query(query: &Value, mappings: &[Value]) -> Option<
     None
 }
 
+#[cfg(test)]
+mod allow_expensive_queries_tests {
+    use super::*;
+    use axum::{body::Body, http::Request};
+    use tower::ServiceExt;
+    use xerj_common::{
+        config::{Config, WalSync},
+        metrics::Metrics,
+    };
+    use xerj_engine::Engine;
+
+    fn test_state() -> AppState {
+        let dir = tempfile::tempdir().expect("tempdir").keep();
+        let mut config = Config::default();
+        config.server.data_dir = dir.to_string_lossy().into_owned();
+        config.storage.wal_sync = WalSync::Async;
+        let metrics = Metrics::new().expect("metrics");
+        let engine = Engine::new(config.clone()).expect("engine");
+        AppState::new(config, engine, metrics)
+    }
+
+    async fn send(app: &axum::Router, method: &str, uri: &str, body: Value) -> (StatusCode, Value) {
+        let resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(method)
+                    .uri(uri)
+                    .header("content-type", "application/json")
+                    .body(Body::from(body.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let status = resp.status();
+        let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        (status, serde_json::from_slice(&bytes).unwrap())
+    }
+
+    /// The 320_disallow_queries.yml index, plus a long and a text field with
+    /// `index_prefixes`.
+    async fn app() -> axum::Router {
+        let app = crate::router::build_es_compat_router(test_state());
+        let mapping = json!({"mappings": {"properties": {
+            "text": {"type": "text", "fields": {"raw": {"type": "keyword"}}},
+            "pre": {"type": "text", "index_prefixes": {}},
+            "n": {"type": "long"},
+            "nested1": {"type": "nested"}}}});
+        let (status, body) = send(&app, "PUT", "/test", mapping).await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        let doc = json!({"text": "Its cold outside", "pre": "outside", "n": 5,
+                         "nested1": [{"foo": "bar2"}]});
+        let (status, body) = send(&app, "PUT", "/test/_doc/1?refresh=true", doc).await;
+        assert!(status.is_success(), "{body}");
+        app
+    }
+
+    async fn set(app: &axum::Router, scope: &str, value: Value) {
+        let body = json!({ scope: { "search.allow_expensive_queries": value } });
+        let (status, resp) = send(app, "PUT", "/_cluster/settings", body).await;
+        assert_eq!(status, StatusCode::OK, "{resp}");
+    }
+
+    async fn search(app: &axum::Router, query: Value) -> (StatusCode, Value) {
+        send(app, "POST", "/test/_search", json!({ "query": query })).await
+    }
+
+    fn expensive() -> Vec<(Value, &'static str)> {
+        vec![
+            (json!({"prefix": {"text": {"value": "out"}}}),
+             "[prefix] queries cannot be executed when 'search.allow_expensive_queries' is set to false. For optimised prefix queries on text fields please enable [index_prefixes]."),
+            (json!({"fuzzy": {"text": {"value": "outwide"}}}),
+             "[fuzzy] queries cannot be executed when 'search.allow_expensive_queries' is set to false."),
+            (json!({"regexp": {"text": {"value": ".*ou.*id.*"}}}),
+             "[regexp] queries cannot be executed when 'search.allow_expensive_queries' is set to false."),
+            (json!({"wildcard": {"text": {"value": "out?ide"}}}),
+             "[wildcard] queries cannot be executed when 'search.allow_expensive_queries' is set to false."),
+            (json!({"range": {"text": {"gte": "theres"}}}),
+             "[range] queries on [text] or [keyword] fields cannot be executed when 'search.allow_expensive_queries' is set to false."),
+            (json!({"range": {"text.raw": {"gte": "Outside"}}}),
+             "[range] queries on [text] or [keyword] fields cannot be executed when 'search.allow_expensive_queries' is set to false."),
+            (json!({"nested": {"path": "nested1", "query": {"match": {"nested1.foo": "bar2"}}}}),
+             "[joining] queries cannot be executed when 'search.allow_expensive_queries' is set to false."),
+            (json!({"script": {"script": {"source": "true"}}}),
+             "[script] queries cannot be executed when 'search.allow_expensive_queries' is set to false."),
+            (json!({"bool": {"filter": [{"term": {"n": 5}}, {"prefix": {"text.raw": "Its"}}]}}),
+             "[prefix] queries cannot be executed when 'search.allow_expensive_queries' is set to false. For optimised prefix queries on text fields please enable [index_prefixes]."),
+        ]
+    }
+
+    /// FAIL-BEFORE: with the setting `false`, every one answered 200.
+    #[tokio::test]
+    async fn expensive_queries_are_refused_when_disallowed() {
+        let app = app().await;
+        set(&app, "persistent", json!("false")).await;
+        for (query, reason) in expensive() {
+            let (status, body) = search(&app, query.clone()).await;
+            assert_eq!(status, StatusCode::BAD_REQUEST, "{query} -> {body}");
+            assert_eq!(body["error"]["root_cause"][0]["reason"], reason, "{query}");
+        }
+        // A transient `false` wins over a persistent `true`.
+        set(&app, "persistent", json!(true)).await;
+        set(&app, "transient", json!(false)).await;
+        let (status, body) = search(&app, json!({"wildcard": {"text": "out*"}})).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    }
+
+    /// Cheap queries still run while the setting is `false`, and every query
+    /// runs again once it is reset.
+    #[tokio::test]
+    async fn other_queries_and_reset_settings_still_answer() {
+        let app = app().await;
+        set(&app, "persistent", json!("false")).await;
+        for query in [
+            json!({"range": {"n": {"gte": 1}}}),
+            json!({"prefix": {"unmapped": "x"}}),
+            json!({"prefix": {"pre": "out"}}),
+            json!({"term": {"prefix": "x"}}),
+            json!({"match": {"text": "cold"}}),
+        ] {
+            let (status, body) = search(&app, query.clone()).await;
+            assert_eq!(status, StatusCode::OK, "{query} -> {body}");
+        }
+        for value in [Value::Null, json!("true"), json!(true)] {
+            set(&app, "persistent", value.clone()).await;
+            for (query, _) in expensive() {
+                let (status, body) = search(&app, query.clone()).await;
+                assert_eq!(status, StatusCode::OK, "{value}: {query} -> {body}");
+            }
+        }
+    }
+}
+
 /// Minimal glob matcher for index-name wildcard expansion (* only).
 /// ES routing hash for `_id` → shard. Uses Murmur3_32 with seed 0 over
 /// the UTF-16 little-endian byte encoding of each char's UTF-16 code unit,
