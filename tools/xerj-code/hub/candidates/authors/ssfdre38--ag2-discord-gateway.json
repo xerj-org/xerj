@@ -8,15 +8,15 @@
   {
    "repo": "ag2-discord-gateway",
    "url": "https://github.com/ssfdre38/ag2-discord-gateway",
-   "sha": "cacfba9174528bb3f377b3e62cb2e0f78a5d8c62",
-   "licence": "author's permission (LICENSE at pin cacfba917452: NONE; repository: none)",
+   "sha": "8c4fdb46abad4feb0a55e8bbeebfdaabef168844",
+   "licence": "author's permission (LICENSE at pin 8c4fdb46abad: NONE; repository: none)",
    "review": {
     "spdx": "NONE",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-02T02:35Z",
     "consent_receipt": "5e59f4247dbb",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T02:35Z (receipt 5e59f4247dbb); pinned to the default-branch head. LICENSE at pin cacfba917452: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T02:35Z (receipt 5e59f4247dbb); pinned to the default-branch head. LICENSE at pin 8c4fdb46abad: NONE (repository: none); used with the author's permission, with attribution."
    }
   }
  ]
