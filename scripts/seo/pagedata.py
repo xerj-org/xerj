@@ -90,7 +90,7 @@ PAGES: dict[str, dict[str, str]] = {
     ),
     "xerj-query-1.html": dict(
         label="XERJ Query-1", kind="webpage",
-        title="XERJ Query-1: prompts to programs checked against your facts",
+        title="XERJ Query-1: prompts to verifiable search programs",
         description="XERJ Query-1 compiles a plain question into a program the engine runs over your facts and shows step by step. Six capabilities, real examples, compared with RAG.",
     ),
     "donate.html": dict(
@@ -259,7 +259,7 @@ PAGES: dict[str, dict[str, str]] = {
     # XERJ Query-1 launch post, 2026-11-05 (rc.101). published/updated pinned.
     "blog/xerj-query-ai-model.html": dict(
         label="XERJ Query-1", kind="article",
-        title="XERJ Query-1: a neurosymbolic model that turns questions into checkable programs",
+        title="XERJ Query-1: a neurosymbolic model that compiles prompts to verifiable search queries",
         description="XERJ Query-1 turns a question into a small program the engine runs on your facts. Measured on 160 questions, with retrieval benchmarks and a dated correction.",
         published="2026-11-05", updated="2026-11-06",
         og_image="og/blog-xerj-query-ai-model.png",

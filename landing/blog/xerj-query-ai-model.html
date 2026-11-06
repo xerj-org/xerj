@@ -14,7 +14,7 @@
 <!-- ga4:end -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>XERJ Query-1: a neurosymbolic model that turns questions into checkable programs</title>
+<title>XERJ Query-1: a neurosymbolic model that compiles prompts to verifiable search queries</title>
 <meta name="description" content="XERJ Query-1 turns a question into a small program the engine runs on your facts. Measured on 160 questions, with retrieval benchmarks and a dated correction.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -153,7 +153,7 @@
 <link rel="canonical" href="https://xerj.org/blog/xerj-query-ai-model">
 <meta property="og:site_name" content="XERJ.ai">
 <meta property="og:type" content="article">
-<meta property="og:title" content="XERJ Query-1: a neurosymbolic model that turns questions into checkable programs">
+<meta property="og:title" content="XERJ Query-1: a neurosymbolic model that compiles prompts to verifiable search queries">
 <meta property="og:description" content="XERJ Query-1 turns a question into a small program the engine runs on your facts. Measured on 160 questions, with retrieval benchmarks and a dated correction.">
 <meta property="og:url" content="https://xerj.org/blog/xerj-query-ai-model">
 <meta property="og:image" content="https://xerj.org/og/blog-xerj-query-ai-model.png">
@@ -162,7 +162,7 @@
 <meta property="og:image:alt" content="Cover: “XERJ Query-1” beside three grids of 160 squares from our 160-question test: XERJ Query-1, given each question’s own records, 1 wrong and 35 declined; RAG with BM25 top-10 on Opus 5.5, 9 wrong; Opus 5.5 reading the whole store, 6 wrong. Filled squares are right answers, blue squares wrong answers, rings declined">
 <meta property="og:locale" content="en_US">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="XERJ Query-1: a neurosymbolic model that turns questions into checkable programs">
+<meta name="twitter:title" content="XERJ Query-1: a neurosymbolic model that compiles prompts to verifiable search queries">
 <meta name="twitter:description" content="XERJ Query-1 turns a question into a small program the engine runs on your facts. Measured on 160 questions, with retrieval benchmarks and a dated correction.">
 <meta name="twitter:image" content="https://xerj.org/og/blog-xerj-query-ai-model.png">
 <script type="application/ld+json">
@@ -198,7 +198,7 @@
 {
   "@context": "https://schema.org",
   "@type": "Article",
-  "headline": "XERJ Query-1: a neurosymbolic model that turns questions into checkable programs",
+  "headline": "XERJ Query-1: a neurosymbolic model that compiles prompts to verifiable search queries",
   "description": "XERJ Query-1 turns a question into a small program the engine runs on your facts. Measured on 160 questions, with retrieval benchmarks and a dated correction.",
   "url": "https://xerj.org/blog/xerj-query-ai-model",
   "image": "https://xerj.org/og/blog-xerj-query-ai-model.png",
@@ -279,7 +279,7 @@
   <p class="blog-crumb"><a href="/blog/">&larr; ALL POSTS · /BLOG</a></p>
   <figure class="blog-cover"><img src="/blog/covers/xerj-query-ai-model-hero.webp" width="1600" height="640" alt="Three grids of 160 squares: XERJ Query-1 1 wrong (given each question’s own records), RAG with BM25 top-10 on Opus 5.5 9 wrong, Opus 5.5 reading the whole store 6 wrong; filled squares right, blue wrong, rings declined" fetchpriority="high" decoding="async"></figure>
   <div class="uc-eyebrow">NEW AI MODEL · XERJ QUERY-1 · A NEUROSYMBOLIC PROMPT COMPILER BUILT INTO THE XERJ SEARCH ENGINE · SHIPS IN RC.101</div>
-  <h1>XERJ QUERY-1: A NEW NEUROSYMBOLIC MODEL.<br><span class="accent">IT TURNS QUESTIONS INTO CHECKABLE PROGRAMS OVER STORED FACTS, 320 TO 1,570 TIMES CHEAPER PER QUESTION THAN RAG AND GRAPHRAG ON OPUS 5.5 IN OUR TEST.</span></h1>
+  <h1>XERJ QUERY-1: A NEW NEUROSYMBOLIC MODEL.<br><span class="accent">IT COMPILES PROMPTS TO VERIFIABLE SEARCH QUERIES, 320-1,570× CHEAPER THAN RAG AND LLM.</span></h1>
   <p class="deck">A new way to answer questions over your data: the model writes a small program, the engine runs it over facts you have stored. No embeddings to build, no GPU to rent. Lookups come back with the records they used; counts come back with a hash of their program. Four CPU cores, offline, and in our 160-question test hundreds of times cheaper per question than RAG or an LLM reading the data.</p>
   <p class="blog-byline">XERJ ENGINEERING · PUBLISHED 2026-11-05 · <a href="#correction-2026-11-06">CORRECTED 2026-11-06</a></p>
 
@@ -559,7 +559,7 @@
 <!-- ============================ 05 · HOW WE MADE AND TRAINED IT ============================ -->
 <section class="scene-section" id="method">
   <div class="kicker"><span class="accent">05</span><span class="dash">·</span><span>HOW WE MADE AND TRAINED IT · A CPU TARGET, RENTED GPUS, DONATED MONEY, RULES WRITTEN FIRST</span></div>
-  <h2 class="scene" style="font-size:var(--fs-56);">HOW WE MADE AND TRAINED IT.<br><span class="accent">TRAINED IN FP16 ON RENTED GPUS, SERVED ON FOUR CPU CORES, PAID FOR BY DONATIONS.</span></h2>
+  <h2 class="scene" style="font-size:var(--fs-56);">HOW WE MADE AND TRAINED IT.<br><span class="accent">FP16 ON RENTED GPUS, INT8 ON FOUR CPU CORES, PAID FOR BY DONATIONS.</span></h2>
 
   <p class="wide">Our goal was a model that answers on an ordinary CPU, with no GPU, and with nothing leaving the machine; the shipped model answers in about 0.22 s on four laptop cores (about 1 s on a loaded aarch64 box). That rules out most of what a model is usually allowed to be. It has to be small enough to sit beside the index in memory, fast enough to answer in a fraction of a second on four cores, and exact enough that its output can be run rather than read. Everything below follows from that target.</p>
 
@@ -869,7 +869,7 @@ doc6@v1/discharge  | Gacunas River | discharge | number 7567 m3/s</pre>
 <!-- ============================ 07 · TESTS AND BENCHMARKS ============================ -->
 <section class="scene-section" id="headtohead">
   <div class="kicker"><span class="accent">07</span><span class="dash">·</span><span>TESTS AND BENCHMARKS · THE HEAD-TO-HEAD, THREE WORKED QUESTIONS, THE STANDARD EVALUATION, EVERY CAVEAT</span></div>
-  <h2 class="scene" style="font-size:var(--fs-56);">TESTS AND BENCHMARKS.<br><span class="accent">1 WRONG ANSWER IN 160 AGAINST 9 TO 15 FOR RAG ON OPUS 5.5, WITH ITS OWN COLLECTION GIVEN. HUNDREDS OF TIMES CHEAPER.</span></h2>
+  <h2 class="scene" style="font-size:var(--fs-56);">TESTS AND BENCHMARKS.<br><span class="accent">NINE TIMES FEWER WRONG ANSWERS THAN RAG ON OPUS 5.5. HUNDREDS OF TIMES CHEAPER.</span></h2>
 
   <p class="wide"><strong>The head-to-head.</strong> We merged <strong>95 collections</strong> of our standard evaluation into one store of <strong>5,000 records</strong> (subject, relation, typed value, source sentence): 82 distinct collections and 4,305 distinct records, because 13 collections were included twice by mistake. 87% of the records come from public data (MoMA, Tate, OurAirports, USGS, the NASA Exoplanet Archive, UCI Online Retail and PyPI metadata), the rest from invented worlds; 357,085 characters, 172,870 Opus tokens. We asked <strong>160 questions</strong>, forty from each of four families, all from our 1,600-question development set; the sampling script was not saved. Every method got the same rules as the reference prompt: answer, say UNKNOWN, or say CONFLICT, and a wrong answer costs two right ones. Every output was scored by the same frozen scorer against the same gold. The sample score is 100 times a method's family-weighted Net over the Net of Opus 5.5 given perfect retrieval, so that reader defines 100. Intervals are paired bootstraps over collections, 4,000 draws.</p>
 
@@ -1113,7 +1113,7 @@ RETURN</pre></div>
 
 <section class="scene-section" id="next">
   <div class="kicker"><span class="accent">08</span><span class="dash">·</span><span>DISCLOSURE, AND WHAT WE NEED NEXT · WHAT IS OPEN, WHAT IS NOT, THE GAPS, AND THE ASK</span></div>
-  <h2 class="scene" style="font-size:var(--fs-56);">DISCLOSURE, AND WHAT WE NEED NEXT.<br><span class="accent">PUBLISHED METHOD, OPEN GAPS, AND 100,000 H100 GPU-HOURS.</span></h2>
+  <h2 class="scene" style="font-size:var(--fs-56);">DISCLOSURE, AND WHAT WE NEED NEXT.<br><span class="accent">OPEN METHOD, OPEN GAPS, AND 100,000 H100 GPU-HOURS.</span></h2>
 
   <p class="wide"><strong>What is open, and what is not.</strong> The XERJ engine is open source under Apache-2.0. The method, rules and numbers are in this post; the runs, scripts and provenance record are not public yet., mapped in our provenance record. The model itself is not open yet. XERJ Query-1 ships as a compiled part of the engine binary plus a separate model bundle, and the crates that train and serve it are proprietary for now. We would rather say that plainly than let the word "open" do work it has not earned.</p>
 

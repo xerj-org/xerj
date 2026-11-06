@@ -132,7 +132,7 @@ POSTS: list[dict[str, str]] = [
          og_alt="Cover: 100 in huge display type above the word contributors, then 12,000 stars in 12 days on a yellow highlight and 17,486 GitHub stars today; beside it a yellow area chart of the running star count from July to October 2026 that climbs steeply from 5,000 stars on Oct 15 to 17,000 stars on Oct 27; on the right a 10 by 10 grid of the 100 contributors' GitHub avatars"),
     dict(slug="xerj-query-ai-model", date="2026-11-05", motif="wrong160",
          title="XERJ Query-1",
-         subtitle="A neurosymbolic model that turns questions into checkable programs over your facts.",
+         subtitle="A neurosymbolic model that compiles prompts to verifiable search queries.",
          alt="Three grids of 160 squares: XERJ Query-1 1 wrong (given each question’s own records), RAG with BM25 top-10 on Opus 5.5 9 wrong, Opus 5.5 reading the whole store 6 wrong; filled squares right, blue wrong, rings declined",
          og_alt="Cover: “XERJ Query-1” beside three grids of 160 squares from our 160-question test: XERJ Query-1, given each question’s own records, 1 wrong and 35 declined; RAG with BM25 top-10 on Opus 5.5, 9 wrong; Opus 5.5 reading the whole store, 6 wrong. Filled squares are right answers, blue squares wrong answers, rings declined"),
 ]
