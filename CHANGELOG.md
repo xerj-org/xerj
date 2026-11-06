@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   write; before this, a metadata write interrupted by an election stayed at
   commit=0 and timed out. A leader that cannot persist the no-op steps down.
   The rc.101 "Fixed" note that claimed this was premature: no such code
-  shipped in rc.101, and the fix lands here (PR_REF). The same bug was a main
+  shipped in rc.101, and the fix lands here (#2987). The same bug was a main
   cause of the `log_catchup` CI flake; those tests now re-propose a write only
   when a leader change dropped it.
 
