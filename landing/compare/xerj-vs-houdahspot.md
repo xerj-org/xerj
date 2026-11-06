@@ -84,7 +84,7 @@ XERJ is a single Rust binary that runs one search node. `xerj autoindex <folder>
 
 The streaming extractors cover JSON and JSONL, CSV with dialect sniffing, structured logs, `sqldump` files, SQLite, PDF, DOCX, HTML, XML, YAML, plain text and gzip variants of those. XERJ builds its own index. It does not read the operating system's.
 
-The node answers the Elasticsearch REST API, and `xerj autoindex map` prints a data map of what the folder became. The `xerj mcp` subcommand is a stdio MCP server in the same binary, and it serves 23 tools against a running node.
+The node answers the Elasticsearch REST API, and `xerj autoindex map` prints a data map of what the folder became. The `xerj mcp` subcommand is a stdio MCP server in the same binary, and it serves 24 tools against a running node.
 
 XERJ is single-node, with no replication and no failover. The default embedder is lexical feature hashing rather than a neural model; neural retrieval is opt-in through `--embed-mode neural`. There is no OCR.
 
@@ -103,7 +103,7 @@ Every row is a documented capability of each tool. **No row is a measured result
 | multiple search folders, excluded folders | yes | one folder per run, plus ignore rules |
 | scripting surface | AppleScript, launcher integrations | Elasticsearch REST API and MCP |
 | HTTP query API | not advertised | yes |
-| MCP server for an agent | none | yes, `xerj mcp`, 23 tools |
+| MCP server for an agent | none | yes, `xerj mcp`, 24 tools |
 | typed columns from a CSV, a `sqldump` file or SQLite | not advertised | yes, a dataset per file shape |
 | per-file refusal reason | not advertised | `autoindex-catalog`, one reason per file |
 | agent memory in the engine | none | yes, `/_memory/{namespace}` |
@@ -157,7 +157,7 @@ HoudahSpot is a GUI over the Mac's metadata store, scriptable through AppleScrip
 
 ### What's better than HoudahSpot if I want an API for an agent?
 
-An engine with an API. XERJ answers the Elasticsearch REST API and serves 23 MCP tools from the same binary, so the agent sends a query rather than driving an interface.
+An engine with an API. XERJ answers the Elasticsearch REST API and serves 24 MCP tools from the same binary, so the agent sends a query rather than driving an interface.
 
 ### Advanced Mac file search that a coding agent can call?
 

@@ -124,7 +124,7 @@
       "name": "How do I full-text search a folder on a Mac from an agent?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Give the agent an index it can call. xerj autoindex builds one from the folder and xerj mcp serves 23 tools against the running node over stdio, so no subprocess wrapper is needed."
+        "text": "Give the agent an index it can call. xerj autoindex builds one from the folder and xerj mcp serves 24 tools against the running node over stdio, so no subprocess wrapper is needed."
       }
     },
     {
@@ -209,6 +209,7 @@
 <nav class="nav" aria-label="Primary">
   <a href="/" class="brand">XERJ</a>
   <a href="/xerj-query-1">XERJ&nbsp;QUERY&#8209;1</a>
+  <a href="/integrations/cohere">COHERE</a>
   <a href="/product">PRODUCT</a>
   <a href="/use-cases">USE CASES</a>
   <a href="/answers/" class="active">ANSWERS</a>
@@ -282,7 +283,7 @@
   <p>XERJ is a single Rust binary that runs one search node. <code class="inline">xerj autoindex &lt;folder&gt;</code> reads the folder, detects each file family by content, infers a dataset per file shape and writes the documents. It takes no configuration file and no mapping.</p>
   <p>The streaming extractors cover JSON and JSONL, CSV with dialect sniffing, structured logs, <code class="inline">sqldump</code> files, SQLite, PDF, DOCX, HTML, XML, YAML, plain text and gzip variants of those.</p>
   <p>The node answers the Elasticsearch REST API. A <code class="inline">match_phrase</code> query and a filter on a keyword field work over plain HTTP. The <code class="inline">xerj autoindex map</code> command prints a data map of what the folder became, and an agent reads it before naming an index and a field.</p>
-  <p><code class="inline">xerj mcp</code> is a stdio MCP server in the same binary and serves 23 tools against a node you already started. Agent memory lives in the engine under <code class="inline">/_memory/{namespace}</code>.</p>
+  <p><code class="inline">xerj mcp</code> is a stdio MCP server in the same binary and serves 24 tools against a node you already started. Agent memory lives in the engine under <code class="inline">/_memory/{namespace}</code>.</p>
   <p>XERJ is single-node. There is no replication and no failover. The default embedder is lexical feature hashing rather than a neural model, and neural retrieval is opt-in through <code class="inline">--embed-mode neural</code>. There is no OCR.</p>
   <h2>Capabilities, side by side</h2>
   <p>Every row is a documented capability of each tool. <strong>No row is a measured result</strong>, and no row is a claim about your Mac.</p>
@@ -298,7 +299,7 @@
       <tr><td>live updates as files change</td><td>yes, and <code class="inline">mdfind -live</code> reports them</td><td>rerun <code class="inline">xerj autoindex</code></td></tr>
       <tr><td>query language</td><td>metadata query expressions</td><td>Elasticsearch query DSL over HTTP</td></tr>
       <tr><td>HTTP query API</td><td>not documented for the system store</td><td>yes, Elasticsearch REST API</td></tr>
-      <tr><td>MCP server for an agent</td><td>none</td><td>yes, <code class="inline">xerj mcp</code>, 23 tools</td></tr>
+      <tr><td>MCP server for an agent</td><td>none</td><td>yes, <code class="inline">xerj mcp</code>, 24 tools</td></tr>
       <tr><td>typed columns from a CSV or a <code class="inline">sqldump</code> file</td><td>not described in the documentation</td><td>yes, a dataset per file shape</td></tr>
       <tr><td>per-file refusal reason</td><td>not described in the documentation</td><td><code class="inline">autoindex-catalog</code>, one reason per file</td></tr>
       <tr><td>agent memory in the engine</td><td>none</td><td>yes, <code class="inline">/_memory/{namespace}</code></td></tr>
@@ -329,7 +330,7 @@
   <h3>Spotlight can't find text inside my project files. What else is there?</h3>
   <p>Index the folder yourself. <code class="inline">xerj autoindex</code> sniffs each file by content and indexes the text, and it does not depend on an importer existing for that file type on your machine.</p>
   <h3>How do I full-text search a folder on a Mac from an agent?</h3>
-  <p>Give the agent an index it can call. <code class="inline">xerj autoindex</code> builds one from the folder and <code class="inline">xerj mcp</code> serves 23 tools against the running node over stdio, so no subprocess wrapper is needed.</p>
+  <p>Give the agent an index it can call. <code class="inline">xerj autoindex</code> builds one from the folder and <code class="inline">xerj mcp</code> serves 24 tools against the running node over stdio, so no subprocess wrapper is needed.</p>
   <h3>Is Spotlight enough for searching PDFs and code?</h3>
   <p>For a person at a keyboard, often yes, and it is already running. For an agent that needs typed fields, a per-file refusal reason and an HTTP API, it is a different job.</p>
   <h3>Did you benchmark XERJ against Spotlight?</h3>

@@ -193,6 +193,7 @@
 <nav class="nav" aria-label="Primary">
   <a href="/" class="brand">XERJ</a>
   <a href="/xerj-query-1">XERJ&nbsp;QUERY&#8209;1</a>
+  <a href="/integrations/cohere">COHERE</a>
   <a href="/product">PRODUCT</a>
   <a href="/use-cases">USE CASES</a>
   <a href="/answers/" class="active">ANSWERS</a>
@@ -281,7 +282,7 @@
   <p>XERJ is a single Rust binary that runs one search node. <code class="inline">xerj autoindex &lt;folder&gt;</code> reads the folder and detects each file family by content. It infers a dataset per file shape and writes the documents.</p>
   <p>The command takes no configuration file and no mapping. It also needs no helper program on the host, because the binary parses the formats in process.</p>
   <p>The node answers the Elasticsearch REST API. <code class="inline">xerj autoindex map</code> prints a data map of what the folder became. An agent reads that map, then names a real index and a real field.</p>
-  <p><code class="inline">xerj mcp</code> is a stdio MCP server in the same binary. It serves 23 tools against a node you already started. Agent memory lives in the engine under <code class="inline">/_memory/{namespace}</code>.</p>
+  <p><code class="inline">xerj mcp</code> is a stdio MCP server in the same binary. It serves 24 tools against a node you already started. Agent memory lives in the engine under <code class="inline">/_memory/{namespace}</code>.</p>
   <p>XERJ is single-node. There is no replication and no failover. The default embedder is lexical feature hashing, not a neural model, and neural retrieval is opt-in through <code class="inline">--embed-mode neural</code>.</p>
   <h2>Capabilities, side by side</h2>
   <p>Every row is a documented capability of each tool. No row is a measured result.</p>
@@ -300,7 +301,7 @@
       <tr><td>ranking of results</td><td>none, matches in file order</td><td>BM25 over the extracted text</td></tr>
       <tr><td>filter by file family or path</td><td>shell globs and ripgrep flags</td><td>keyword fields, <code class="inline">ax_format</code> and <code class="inline">ax_path</code></td></tr>
       <tr><td>HTTP query API</td><td>none</td><td>yes, Elasticsearch REST API</td></tr>
-      <tr><td>MCP server for an agent</td><td>none</td><td>yes, <code class="inline">xerj mcp</code>, 23 tools</td></tr>
+      <tr><td>MCP server for an agent</td><td>none</td><td>yes, <code class="inline">xerj mcp</code>, 24 tools</td></tr>
       <tr><td>catalog of refused files</td><td>messages on standard error</td><td><code class="inline">autoindex-catalog</code>, one reason per file</td></tr>
       <tr><td>agent memory in the engine</td><td>none</td><td>yes, <code class="inline">/_memory/{namespace}</code></td></tr>
     </tbody>
@@ -320,7 +321,7 @@
   <p>Choose Elasticsearch instead when the documents must live on more than one host. XERJ has no replication and no failover. XERJ speaks the same REST API on one node.</p>
   <h2>When XERJ is the better fit</h2>
   <p>Choose XERJ when the same folder answers many questions. The parse happens once, and every later query reads the index rather than the PDFs.</p>
-  <p>Choose XERJ when the caller is a program. An agent that speaks HTTP or MCP needs no wrapper and no output parser. <code class="inline">xerj mcp</code> serves 23 tools.</p>
+  <p>Choose XERJ when the caller is a program. An agent that speaks HTTP or MCP needs no wrapper and no output parser. <code class="inline">xerj mcp</code> serves 24 tools.</p>
   <p>Choose XERJ when the order of the answers matters. rga returns every match in file order. BM25 puts the best documents first.</p>
   <p>Choose XERJ when the answer must carry provenance. Every document carries <code class="inline">ax_path</code>, <code class="inline">ax_file</code>, <code class="inline">ax_format</code> and four more keyword fields, so an agent can cite the source file.</p>
   <p>Choose XERJ when a refused file must be explainable. Files that XERJ does not parse land in <code class="inline">autoindex-catalog</code> with a reason string, rather than passing in silence.</p>

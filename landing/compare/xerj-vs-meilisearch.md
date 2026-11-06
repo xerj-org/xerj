@@ -116,7 +116,7 @@ Choose Meilisearch when you want a managed plan. XERJ has none.
 
 Choose XERJ when the corpus is a folder on a disk and nobody has built a pipeline for it. One command turns mixed formats into typed indices.
 
-Choose XERJ when the caller is an agent rather than a person. The same binary also holds namespaced agent memory and an MCP server that serves 23 tools.
+Choose XERJ when the caller is an agent rather than a person. The same binary also holds namespaced agent memory and an MCP server that serves 24 tools.
 
 Choose XERJ when the files hold shapes Meilisearch never accepts. A SQLite database, a hostile CSV with a decimal comma and a folder of DOCX contracts all qualify.
 

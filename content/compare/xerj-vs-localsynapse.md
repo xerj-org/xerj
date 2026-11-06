@@ -27,7 +27,7 @@ commands:
   - cmd: "xerj autoindex ./work --prefix work --state-dir ./state-work"
     note: "One folder at a time, chosen by you, rather than a whole drive."
   - cmd: "xerj mcp --url http://127.0.0.1:9200"
-    note: "Attach the running node over stdio MCP. Same binary, 23 tools (20 without a hub key), a browser Console is also available."
+    note: "Attach the running node over stdio MCP. Same binary, 24 tools (21 without a hub key), a browser Console is also available."
 links_out:
   - "give-chatgpt-claude-local-file-access"
   - "code-search-mcp-for-claude-code"
@@ -56,7 +56,7 @@ faq:
   - q: "Can XERJ read a spreadsheet?"
     a: "Yes, since v1.0.0-rc.81. Each .xlsx sheet becomes its own dataset with one record per row and typed fields, and a .pptx deck becomes one record per slide. A sheet is read as one table, merged cells are not expanded, and legacy .xls must be saved as .xlsx first."
   - q: "How many MCP tools does each side expose?"
-    a: "LocalSynapse documents four. On main, xerj mcp serves 23, or 20 in a build with no hub key, including search, memory and code tools."
+    a: "LocalSynapse documents four. On main, xerj mcp serves 24, or 21 in a build with no hub key, including search, memory and code tools."
   - q: "Is either one open source?"
     a: "XERJ is Apache-2.0 with published source. LocalSynapse is Apache-2.0 but its repository says the source tree is no longer published from version 2.15.0."
   - q: "Is there a measured comparison on this page?"
@@ -74,7 +74,7 @@ faq:
 | What it is | Desktop search app and MCP server | Search engine and MCP server, one binary |
 | Runs on | Windows and macOS | One local node you start |
 | What it indexes | Whole drives, automatically | One folder you name |
-| MCP tools | 4 | 23 on main (20 with no hub key) |
+| MCP tools | 4 | 24 on main (21 with no hub key) |
 | Query surface | MCP tools | MCP tools and the Elasticsearch REST API |
 | Default retrieval | BM25 plus BGE-M3 embeddings | BM25; neural embeddings opt-in |
 | Mail | .eml, .msg, .mbox | .eml, .mbox |
@@ -112,7 +112,7 @@ LocalSynapse documents an MCP server over stdio that opens no network port, with
 
 XERJ answers over the Elasticsearch REST API. An agent writes the query DSL it already knows: `match_phrase`, `terms`, `range`, aggregations and `_source` narrowing.
 
-`xerj mcp` serves 23 tools over stdio on top of that (20 in a build with no hub key), and `/_memory/{ns}` gives an agent namespaced memory in the engine.
+`xerj mcp` serves 24 tools over stdio on top of that (21 in a build with no hub key), and `/_memory/{ns}` gives an agent namespaced memory in the engine.
 
 Pick the surface that matches your caller. A small tool list is easier for a simple agent, and a query language is more useful for one that asks precise questions.
 

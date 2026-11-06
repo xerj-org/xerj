@@ -148,7 +148,7 @@
       "name": "How many MCP tools does each side expose?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "LocalSynapse documents four. On main, xerj mcp serves 23, or 20 in a build with no hub key, including search, memory and code tools."
+        "text": "LocalSynapse documents four. On main, xerj mcp serves 24, or 21 in a build with no hub key, including search, memory and code tools."
       }
     },
     {
@@ -209,6 +209,7 @@
 <nav class="nav" aria-label="Primary">
   <a href="/" class="brand">XERJ</a>
   <a href="/xerj-query-1">XERJ&nbsp;QUERY&#8209;1</a>
+  <a href="/integrations/cohere">COHERE</a>
   <a href="/product">PRODUCT</a>
   <a href="/use-cases">USE CASES</a>
   <a href="/answers/" class="active">ANSWERS</a>
@@ -262,7 +263,7 @@
     <span class="prompt-label">RUN THIS XERJ COMMAND</span>
     <code>xerj mcp --url http://127.0.0.1:9200</code>
     <button type="button" class="prompt-copy" data-copy="xerj mcp --url http://127.0.0.1:9200">COPY COMMAND</button>
-    <span class="hero-proof">Attach the running node over stdio MCP. Same binary, 23 tools (20 without a hub key), a browser Console is also available.</span>
+    <span class="hero-proof">Attach the running node over stdio MCP. Same binary, 24 tools (21 without a hub key), a browser Console is also available.</span>
   </div>
   <h2>At a glance</h2>
   <table>
@@ -271,7 +272,7 @@
       <tr><td>What it is</td><td>Desktop search app and MCP server</td><td>Search engine and MCP server, one binary</td></tr>
       <tr><td>Runs on</td><td>Windows and macOS</td><td>One local node you start</td></tr>
       <tr><td>What it indexes</td><td>Whole drives, automatically</td><td>One folder you name</td></tr>
-      <tr><td>MCP tools</td><td>4</td><td>23 on main (20 with no hub key)</td></tr>
+      <tr><td>MCP tools</td><td>4</td><td>24 on main (21 with no hub key)</td></tr>
       <tr><td>Query surface</td><td>MCP tools</td><td>MCP tools and the Elasticsearch REST API</td></tr>
       <tr><td>Default retrieval</td><td>BM25 plus BGE-M3 embeddings</td><td>BM25; neural embeddings opt-in</td></tr>
       <tr><td>Mail</td><td>.eml, .msg, .mbox</td><td>.eml, .mbox</td></tr>
@@ -295,7 +296,7 @@
   <h2>Two different answers to "how does the agent ask?"</h2>
   <p>LocalSynapse documents an MCP server over stdio that opens no network port, with four tools: <code class="inline">search_files</code>, <code class="inline">get_file_content</code>, <code class="inline">list_indexed_files</code> and <code class="inline">get_pipeline_status</code>. That is a clean, small surface, and for many agents it is enough.</p>
   <p>XERJ answers over the Elasticsearch REST API. An agent writes the query DSL it already knows: <code class="inline">match_phrase</code>, <code class="inline">terms</code>, <code class="inline">range</code>, aggregations and <code class="inline">_source</code> narrowing.</p>
-  <p><code class="inline">xerj mcp</code> serves 23 tools over stdio on top of that (20 in a build with no hub key), and <code class="inline">/_memory/{ns}</code> gives an agent namespaced memory in the engine.</p>
+  <p><code class="inline">xerj mcp</code> serves 24 tools over stdio on top of that (21 in a build with no hub key), and <code class="inline">/_memory/{ns}</code> gives an agent namespaced memory in the engine.</p>
   <p>Pick the surface that matches your caller. A small tool list is easier for a simple agent, and a query language is more useful for one that asks precise questions.</p>
   <h2>Retrieval, stated honestly on both sides</h2>
   <p>LocalSynapse combines full-text BM25 with a local embedder, BGE-M3 running through ONNX Runtime on the CPU. It stores its index in a local SQLite database.</p>
@@ -329,7 +330,7 @@
   <h3>Can XERJ read a spreadsheet?</h3>
   <p>Yes, since v1.0.0-rc.81. Each .xlsx sheet becomes its own dataset with one record per row and typed fields, and a .pptx deck becomes one record per slide. A sheet is read as one table, merged cells are not expanded, and legacy .xls must be saved as .xlsx first.</p>
   <h3>How many MCP tools does each side expose?</h3>
-  <p>LocalSynapse documents four. On main, xerj mcp serves 23, or 20 in a build with no hub key, including search, memory and code tools.</p>
+  <p>LocalSynapse documents four. On main, xerj mcp serves 24, or 21 in a build with no hub key, including search, memory and code tools.</p>
   <h3>Is either one open source?</h3>
   <p>XERJ is Apache-2.0 with published source. LocalSynapse is Apache-2.0 but its repository says the source tree is no longer published from version 2.15.0.</p>
   <h3>Is there a measured comparison on this page?</h3>

@@ -112,6 +112,7 @@
 <nav class="nav" aria-label="Primary">
   <a href="/" class="brand">XERJ</a>
   <a href="/xerj-query-1">XERJ&nbsp;QUERY&#8209;1</a>
+  <a href="/integrations/cohere">COHERE</a>
   <a href="/product">PRODUCT</a>
   <a href="/use-cases">USE CASES</a>
   <a href="/answers/" class="active">ANSWERS</a>
@@ -140,9 +141,9 @@
   <p>Short, direct answers on how AI agents search local files, code, logs and PDFs with XERJ. Each one has the commands to run and links to its evidence.</p>
   <h2>Agent access and memory</h2>
   <ul>
-    <li><a href="/answers/give-chatgpt-claude-local-file-access">Can ChatGPT search a folder on my laptop, or do I need something else?</a> — xerj mcp is a stdio MCP server that proxies 23 tools to a running XERJ node, so ChatGPT, Claude or Cursor search an indexed local folder instead of opening files.</li>
+    <li><a href="/answers/give-chatgpt-claude-local-file-access">Can ChatGPT search a folder on my laptop, or do I need something else?</a> — xerj mcp is a stdio MCP server that proxies 24 tools to a running XERJ node, so ChatGPT, Claude or Cursor search an indexed local folder instead of opening files.</li>
     <li><a href="/answers/code-search-mcp-for-claude-code">I need my agent to find a passage and cite the file, not dump the whole tree. How?</a> — Local code search MCP for Claude Code with file:line citations: index with xerj autoindex, call xerj_search. One captured call cited 2 symbols without opening files.</li>
-    <li><a href="/answers/local-search-mcp-for-codex-and-cursor">Search tool for a Codex agent, on the files you have</a> — xerj init writes the MCP entry for Claude Code, Cursor and Codex when those folders exist. On main, xerj mcp serves 23 tools, or 20 with no hub key.</li>
+    <li><a href="/answers/local-search-mcp-for-codex-and-cursor">Search tool for a Codex agent, on the files you have</a> — xerj init writes the MCP entry for Claude Code, Cursor and Codex when those folders exist. On main, xerj mcp serves 24 tools, or 21 with no hub key.</li>
     <li><a href="/answers/mcp-api-search-or-vector-search">Should an agent use API search or vector search?</a> — One question through 4 XERJ MCP tools returned 3 different result sets. Hybrid RRF returned 6 documents and merged both lists on the default lexical embedder.</li>
   </ul>
   <h2>Agent memory: concepts</h2>

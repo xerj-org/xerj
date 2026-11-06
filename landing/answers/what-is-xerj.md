@@ -10,9 +10,9 @@ source: "content/answers/what-is-xerj.md"
 
 **Short answer** (updated 2026-10-28): What is XERJ? It is the search engine for AI agents. A new way for AI to search for data: one local Rust binary that indexes your code, docs, specs and logs, plus Corpus Hub packs, and returns cited answers. Query it over the Elasticsearch REST API, or let an agent call it through xerj mcp.
 
-**Key number:** On main, `xerj mcp` registers 23 MCP tools, each listed with its input schema in the published tool list. (as of 2026-10-28; source: [landing/docs/agents/schemas/mcp-tools.json](https://github.com/xerj-org/xerj/blob/main/landing/docs/agents/schemas/mcp-tools.json))
+**Key number:** On main, `xerj mcp` registers 24 MCP tools, each listed with its input schema in the published tool list. (as of 2026-10-28; source: [landing/docs/agents/schemas/mcp-tools.json](https://github.com/xerj-org/xerj/blob/main/landing/docs/agents/schemas/mcp-tools.json))
 
-**TL;DR**: XERJ is one Apache-2.0 Rust binary that indexes a local folder and answers search queries over the Elasticsearch REST API. `xerj autoindex` needs no schema and no configuration file. The same process serves agent memory at `/_memory/{namespace}` and 23 MCP tools through `xerj mcp`.
+**TL;DR**: XERJ is one Apache-2.0 Rust binary that indexes a local folder and answers search queries over the Elasticsearch REST API. `xerj autoindex` needs no schema and no configuration file. The same process serves agent memory at `/_memory/{namespace}` and 24 MCP tools through `xerj mcp`.
 
 ## Agent prompt
 
@@ -56,7 +56,7 @@ curl -s -XPOST http://127.0.0.1:9200/docs-*/_search -H 'content-type: applicatio
 
 ### Command 5
 
-Note: Attach the running node to an agent host over stdio MCP. This serves 23 tools on main and starts no node of its own.
+Note: Attach the running node to an agent host over stdio MCP. This serves 24 tools on main and starts no node of its own.
 
 ```sh
 xerj mcp --url http://127.0.0.1:9200
@@ -89,7 +89,7 @@ Every document carries `ax_path`, `ax_file`, `ax_format` and four more keyword p
 
 ## Hand the same node to an agent
 
-`xerj mcp` is a stdio MCP server inside the same binary. On main it serves 23 tools against a node that is already running.
+`xerj mcp` is a stdio MCP server inside the same binary. On main it serves 24 tools against a node that is already running.
 
 * Search and memory: `xerj_def`, `xerj_batch_search`, `xerj_search`, `xerj_semantic_search`, `xerj_vector_search`, `xerj_hybrid_search`, `xerj_memory_store` and `xerj_memory_recall`.
 * Link graph: four `xerj_brain_*` tools.
