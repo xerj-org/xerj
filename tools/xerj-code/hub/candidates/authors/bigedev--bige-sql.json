@@ -1,0 +1,23 @@
+{
+ "corpus": "bigedev--bige-sql",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on TypeScript queries this for how bigedev/bige-sql implements it: \u5f00\u6e90\u591a\u6570\u636e\u5e93\u7ba1\u7406\u5de5\u5177 & MCP Server",
+ "repos": [
+  {
+   "repo": "bige-sql",
+   "url": "https://github.com/bigedev/bige-sql",
+   "sha": "e2652cdf01a3e06d507db42527c0b4c4d236bb08",
+   "licence": "MIT (LICENSE file at pin e2652cdf01a3, GitHub licence API 2026-11-06)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T02:33Z",
+    "consent_receipt": "b83dd66de05c",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T02:33Z (receipt b83dd66de05c); pinned to the default-branch head. LICENSE file at pin e2652cdf01a3 detected as MIT by the GitHub licence API on 2026-11-06; used under that licence with attribution."
+   }
+  }
+ ]
+}

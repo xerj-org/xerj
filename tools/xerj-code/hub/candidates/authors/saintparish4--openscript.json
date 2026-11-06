@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-agents, ai-safety, guardrails queries this for how saintparish4/openscript implements it: Security gateway for LLM agents. A policy pipeline that blocks prompt injection, redacts PII and secrets, firewalls tool calls and holds ris (selected work: evals, tests, the project root)",
+ "domain": "an agent working on ai-agents, ai-safety, guardrails queries this for how saintparish4/openscript implements it: Irreversible AI agent actions wait for a person, even when the model has been fooled. Tool rules, approvals bound to the exact call, an effe (selected work: evals, tests, the project root)",
  "repos": [
   {
    "repo": "openscript",
