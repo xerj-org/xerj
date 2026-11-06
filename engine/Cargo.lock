@@ -7519,6 +7519,7 @@ dependencies = [
  "sha2 0.10.9",
  "simd-json",
  "streaming-iterator",
+ "tar",
  "tempfile",
  "tokio",
  "toml",
