@@ -1,0 +1,23 @@
+{
+ "corpus": "907609732--lingtu-interface-finder-releases",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how 907609732/lingtu-interface-finder-releases implements it: \u7075\u5154 \u00b7 \u5feb\u901f\u627e\u754c\u9762 Windows \u7a0b\u5e8f\u4e0b\u8f7d\u4e0e\u66f4\u65b0\uff08\u4ec5\u53d1\u884c\u5305\uff09",
+ "repos": [
+  {
+   "repo": "lingtu-interface-finder-releases",
+   "url": "https://github.com/907609732/lingtu-interface-finder-releases",
+   "sha": "552b93e721eefed300b936c8f087274f1574f299",
+   "licence": "author's permission (LICENSE at pin 552b93e721ee: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T08:36Z",
+    "consent_receipt": "63ccb1562db6",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T08:36Z (receipt 63ccb1562db6); pinned to the default-branch head. LICENSE at pin 552b93e721ee: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

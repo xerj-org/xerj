@@ -8,15 +8,15 @@
   {
    "repo": "deadcheck",
    "url": "https://github.com/adamdecaf/deadcheck",
-   "sha": "9fe304a6184bc8ee2dcef77546f96208aa561f1e",
-   "licence": "Apache-2.0 (LICENSE file at pin 9fe304a6184b, GitHub licence API 2026-11-04)",
+   "sha": "35bcd1cbf06782f382d95c0c8147cbb734c831ba",
+   "licence": "Apache-2.0 (LICENSE file at pin 35bcd1cbf067, GitHub licence API 2026-11-06)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T03:40Z",
     "consent_receipt": "db59c38a688d",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T03:40Z (receipt db59c38a688d); pinned to the default-branch head. LICENSE file at pin 9fe304a6184b detected as Apache-2.0 by the GitHub licence API on 2026-11-04; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T03:40Z (receipt db59c38a688d); pinned to the default-branch head. LICENSE file at pin 35bcd1cbf067 detected as Apache-2.0 by the GitHub licence API on 2026-11-06; used under that licence with attribution."
    }
   }
  ]

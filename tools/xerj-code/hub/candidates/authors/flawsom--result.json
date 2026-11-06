@@ -8,15 +8,15 @@
   {
    "repo": "result",
    "url": "https://github.com/flawsom/result",
-   "sha": "015b28174e12bbd4e4ea80ef8b6821ad05680f31",
-   "licence": "author's permission (LICENSE at pin 015b28174e12: NONE; repository: none)",
+   "sha": "343676f28466b16bab5b7d06da308e59b1291e8f",
+   "licence": "author's permission (LICENSE at pin 343676f28466: NONE; repository: none)",
    "review": {
     "spdx": "NONE",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-01T13:44Z",
     "consent_receipt": "d6a8ec03cb29",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T13:44Z (receipt d6a8ec03cb29); pinned to the default-branch head. LICENSE at pin 015b28174e12: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T13:44Z (receipt d6a8ec03cb29); pinned to the default-branch head. LICENSE at pin 343676f28466: NONE (repository: none); used with the author's permission, with attribution."
    }
   }
  ]

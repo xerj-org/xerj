@@ -1,0 +1,23 @@
+{
+ "corpus": "907609732--ngr-figma-ui-forge",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on HTML queries this for how 907609732/NGR-Figma-UI-Forge implements it: Figam\u8282\u70b9AI\u547d\u540d\u5c5e\u6027\u4fee\u6539\u5de5\u5177",
+ "repos": [
+  {
+   "repo": "NGR-Figma-UI-Forge",
+   "url": "https://github.com/907609732/NGR-Figma-UI-Forge",
+   "sha": "5e755d91d90234f5a2b4af2d0cea94088b076692",
+   "licence": "author's permission (LICENSE at pin 5e755d91d902: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T08:36Z",
+    "consent_receipt": "4fd72ed90da4",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T08:36Z (receipt 4fd72ed90da4); pinned to the default-branch head. LICENSE at pin 5e755d91d902: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

@@ -2,8 +2,8 @@
  "corpus": "ibfavas--flick",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Kotlin queries this for how ibfavas/Flick implements it: Flick: draw a gesture to launch apps, links, and phone actions (selected work: tools, app/src, app)",
+ "shelf": "WEB",
+ "domain": "an agent working on android, android-app, dtw queries this for how ibfavas/Flick implements it: Flick: draw a gesture to launch apps, links, and phone actions (selected work: tools, app/src, app)",
  "repos": [
   {
    "repo": "Flick",

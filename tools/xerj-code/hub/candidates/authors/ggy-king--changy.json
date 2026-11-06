@@ -1,0 +1,23 @@
+{
+ "corpus": "ggy-king--changy",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on HTML queries this for how Ggy-king/chanGy implements it: \u7f20\u8bba\u671f\u8d27\u770b\u76d8\u4e0e\u9884\u8b66\u7cfb\u7edf\uff1a\u5f00\u653e\u5f0f\u7f20\u8bbaPython\u91cf\u5316\u5b9e\u73b0\u6846\u67b6\uff0cK\u7ebf\u5305\u542b\u5408\u5e76/\u5206\u578b/\u7b14/\u7ebf\u6bb5\u9012\u5f52\uff0c\u591a\u7ea7\u522bK\u7ebf\u8054\u7acb\uff0c\u533a\u95f4\u5957\u9012\u5f52\uff0c\u8d70\u52bf\u7c7b\u578b\u751f\u4f4f\u574f\u706d\uff0c\u5f62\u6001\u5b66/\u52a8\u529b\u5b66\u4e70\u5356\u70b9\u5206\u6790\u8ba1\u7b97\uff0c\u4e2d\u67a2\u5f62\u6001/\u52a8\u4f5c\u5f62\u6001/\u5f00\u4ed3\u5f62\u6001\u5206\u7c7b\uff0c\u53f0\u5b50\u7ed3\u6784\u4e0e\u4ef7\u683c\u4f18\u52bf\uff0cFastAPI+WebSocket\u591a\u7aef\u8054\u52a8\u5b9e\u65f6\u9884\u8b66\uff0cAI (selected work: tests, chanlun, web)",
+ "repos": [
+  {
+   "repo": "chanGy",
+   "url": "https://github.com/Ggy-king/chanGy",
+   "sha": "87dd98b6a80e0838325d675da38d01de92141317",
+   "licence": "MIT (LICENSE file at pin 87dd98b6a80e, GitHub licence API 2026-11-06)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T08:16Z",
+    "consent_receipt": "a213be787856",
+    "note": "Inclusion consented by the commit author by email at 2026-11-06T08:16Z (receipt a213be787856); selected commit 87dd98b6a80e: \"feat: \u589e\u52a0A\u7c7b\u80cc\u9a70\u786e\u8ba4\u4e09\u6863\u53e3\u5f84\u529f\u80fd\uff0c\u652f\u6301\u4e0d\u540c\u6a21\u5f0f\u5207\u6362\u4e0e\u6301\u4e45\u5316\u8bbe\u7f6e\". LICENSE file at pin 87dd98b6a80e detected as MIT by the GitHub licence API on 2026-11-06; used under that licence with attribution. Pinned to head 87dd98b6a80e (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

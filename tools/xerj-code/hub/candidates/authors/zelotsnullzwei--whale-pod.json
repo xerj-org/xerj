@@ -8,15 +8,15 @@
   {
    "repo": "whale-pod",
    "url": "https://github.com/ZelotsNullzwei/whale-pod",
-   "sha": "19d947dc084757d6524d45ee0b135f86193d0054",
-   "licence": "MIT (LICENSE file at pin 19d947dc0847, GitHub licence API 2026-11-04)",
+   "sha": "cb9805df59e70d3658c94f33f645e48e7aad1473",
+   "licence": "MIT (LICENSE file at pin cb9805df59e7, GitHub licence API 2026-11-06)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-31T01:12Z",
     "consent_receipt": "1336fa838d1f",
-    "note": "Inclusion consented by the commit author by email at 2026-10-31T01:12Z (receipt 1336fa838d1f); selected commit 19d947dc0847: \"\u8ba9\u7eaf\u56fe\u7247/\u8868\u60c5\u5305\u4e5f\u53c2\u4e0e\u5224\u65ad + \u5265\u79bb\u6a21\u578b\u7167\u6284\u7684 prompt \u6807\u6ce8\uff08\u7248\u672c\u4ecd 0.3.0\uff09\". LICENSE file at pin 19d947dc0847 detected as MIT by the GitHub licence API on 2026-11-04; used under that licence with attribution. Pinned to head 19d947dc0847 (contains the selected commit): the LICENSE at the selected commit was NOASSERTION."
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T01:12Z (receipt 1336fa838d1f); selected commit cb9805df59e7: \"\u8ba9\u7eaf\u56fe\u7247/\u8868\u60c5\u5305\u4e5f\u53c2\u4e0e\u5224\u65ad + \u5265\u79bb\u6a21\u578b\u7167\u6284\u7684 prompt \u6807\u6ce8\uff08\u7248\u672c\u4ecd 0.3.0\uff09\". LICENSE file at pin cb9805df59e7 detected as MIT by the GitHub licence API on 2026-11-06; used under that licence with attribution. Pinned to head cb9805df59e7 (contains the selected commit): the LICENSE at the selected commit was NOASSERTION."
    }
   }
  ]

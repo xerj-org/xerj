@@ -1,0 +1,23 @@
+{
+ "corpus": "bohdaq--lit-material",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on component-library, custom-elements, design-system queries this for how bohdaq/lit-material implements it: Material Design 3 web components for Lit \u2014 one package per component, no shared bundle, no adapter layer required. SSR-ready, framework-agno",
+ "repos": [
+  {
+   "repo": "lit-material",
+   "url": "https://github.com/bohdaq/lit-material",
+   "sha": "599e2a8e6ba2386304ce82335a9165fcfa95db29",
+   "licence": "MIT (LICENSE file at pin 599e2a8e6ba2, GitHub licence API 2026-11-06)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T09:37Z",
+    "consent_receipt": "2b1aa49f172e",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T09:37Z (receipt 2b1aa49f172e); pinned to the default-branch head. LICENSE file at pin 599e2a8e6ba2 detected as MIT by the GitHub licence API on 2026-11-06; used under that licence with attribution."
+   }
+  }
+ ]
+}
