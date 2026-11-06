@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `xerj autoindex <path> --facts <namespace>` writes table rows as XERJ Query-1
+  facts: SQLite files, SQL dumps, CSV/TSV and XLSX. Each row is one subject
+  whose `subject_id` is the key column (`id`, `<table>_id`, … or `--key`), each
+  other column one typed fact quoting the row, so counting questions engage
+  without hand-written facts. Re-runs write only changed rows (withdraw the old
+  version, write the new one) and withdraw removed rows; unchanged rows are a
+  no-op. Measured on rc.101: 1,000 rows → 6,000 facts in 0.36 s; "How many
+  people have office Berlin?" → 366 via `path: counting` with partner
+  agreement (gold 366). The mapping is a per-row-change function
+  (`facts_rows::RowFactMapper::map_change`) so streamed sources can reuse it.
+
 ## [1.0.0-rc.101] - 2026-11-05
 
 <!-- notes-exempt: #2499 #2504 #2505 #2508 #2523 #2529 #2546 #2569 #2570 #2582 #2589 #2614 #2633 #2636 #2641 #2647 #2689 #2707 #2749 #2787 #2795 #2797 #2806 #2843 #2850 #2853 #2862 #2866 #2890 #2897 #2909 #2920 #2922 #2934 (CLA signatures) -->
