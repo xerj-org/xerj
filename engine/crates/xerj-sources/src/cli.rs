@@ -41,6 +41,7 @@ const SOURCES_HELP: &str = "\
 xerj sources [NAME] [OPTIONS]
 
 List live database sources on a node, or show one in detail.
+`xerj sources --types` lists every way to get data in instead.
 
 OPTIONS:
     --delete          stop the source, drop its replication slot (and the
