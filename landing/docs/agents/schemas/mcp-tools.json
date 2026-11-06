@@ -751,6 +751,82 @@
       }
     },
     {
+      "name": "xerj_sources",
+      "description": "Live database sources on this node: connect once and the index stays current. action=list shows every source with its state; action=status shows one (snapshotting with percent and ETA, streaming, lagging, polling, or error with a message and a fix hint; replication lag in seconds, rows/s, last confirmed LSN); action=connect registers a Postgres database (postgres://user@host:port/db, no password in the URL: password_env names a variable in the NODE's environment, or password_file a file the node can read). The node snapshots the selected tables (one index per table, named <index_prefix>-<schema>-<table>, document id = primary key), then applies every insert, update, delete and truncate within seconds through logical replication; without replication rights it polls watermark_column and cannot see deletes. action=delete stops the source and drops its replication slot. Needs a superuser key on a secured node. Proxies GET/PUT/DELETE /_xerj/sources/{name}.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "list",
+              "status",
+              "connect",
+              "delete"
+            ],
+            "description": "What to do (default list)."
+          },
+          "name": {
+            "type": "string",
+            "description": "Source name (a-z, 0-9, '-', '_'). Required for status, connect, delete."
+          },
+          "url": {
+            "type": "string",
+            "description": "connect: postgres://user@host:port/db?sslmode=require. Never include a password."
+          },
+          "password_env": {
+            "type": "string",
+            "description": "connect: env var in the node's environment holding the password."
+          },
+          "password_file": {
+            "type": "string",
+            "description": "connect: file the node can read holding the password."
+          },
+          "tables": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "connect: schema.table or table; `sales.*` allowed. Default: every table with a primary key."
+          },
+          "exclude_tables": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "logical",
+              "poll"
+            ],
+            "description": "connect: auto (default) streams when replication is allowed, else polls watermark_column."
+          },
+          "watermark_column": {
+            "type": "string",
+            "description": "connect: column that grows on every write, for polling (e.g. updated_at)."
+          },
+          "publication": {
+            "type": "string",
+            "description": "connect: an existing publication to stream from (least-privilege setups)."
+          },
+          "index_prefix": {
+            "type": "string"
+          },
+          "facts_namespace": {
+            "type": "string",
+            "description": "connect: also offer row changes to XERJ Query-1 facts in this namespace."
+          },
+          "delete_indices": {
+            "type": "boolean",
+            "description": "delete: also delete the source's indices (default false)."
+          }
+        }
+      }
+    },
+    {
       "name": "xerj_code_search",
       "description": "Reference-coding retrieval over a corpus of peer projects: how did real codebases solve this problem? Returns the matching definition (not a byte window), the file:line to cite, and per-hit licence warnings — AGPL/SSPL/Elastic/BUSL/GPL/LGPL/MPL sources are approach-only. A corpus marked own (`xerj corpus add --own`, or `xerj corpus own <name>`) is the caller's own first-party code: an unidentified licence (UNKNOWN or NONE-FOUND) stays in the hit header and the do-not-copy banner is omitted for that unidentified licence only. A detected copyleft or source-available licence still warns. Hub pack licence classes are unchanged. Refuses indices older than 30 days (override with stale_ok). A no-match is NOT an error: it says the corpus is wrong for the task. A line `weak match: the corpus may not cover this` means the passages are nearest neighbours, not coverage — fall back to grep or another corpus. Pass `max_tokens` to cap the response at a token budget (never exceeded; see that argument for the tokenizer and the locator-only rule). Corpora: `xerj corpus list`.",
       "inputSchema": {

@@ -30,6 +30,7 @@ xerj-rerank = { path = "../xerj-rerank" }
 # state ledger lives. `xerj-hub` dev-depends on this crate (its pack roundtrip
 # test boots a node); Cargo accepts a cycle that runs through a dev-dependency.
 xerj-hub     = { path = "../xerj-hub" }
+xerj-sources = { path = "../xerj-sources" }
 xerj-autoindex = { path = "../xerj-autoindex" }
 xerj-wasm    = { path = "../xerj-wasm" }
 # Shard routing: the ES document and search handlers forward to the

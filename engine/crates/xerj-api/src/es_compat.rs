@@ -21537,7 +21537,7 @@ fn render_index_list(names: &std::collections::BTreeSet<String>) -> String {
     }
 }
 
-async fn process_bulk_body(
+pub(crate) async fn process_bulk_body(
     state: &AppState,
     default_index: Option<&str>,
     body: &bytes::Bytes,
