@@ -125,6 +125,13 @@ const KNOWN: &[(&str, Role)] = &[
     // the operator's own node, so DATA_EGRESS and the air-gapped rows do
     // not change.
     ("xerj-autoindex/src/xc.rs", Role::Client("`xerj code`")),
+    // `xerj autoindex <table> --facts <ns>` (#2988) writes facts through the
+    // node URL given to it (`/_facts/{ns}/_bulk`); the peer is the operator's
+    // own node, like every other client in the binary.
+    (
+        "xerj-autoindex/src/facts_rows.rs",
+        Role::Client("`xerj autoindex --facts`"),
+    ),
     // #2345: after a successful `xerj search` or MCP `xerj_search`,
     // staleness.rs POSTs one catalog search to the node URL that search
     // already used (`--url`, `XERJ_URL`, else localhost:9200). The body is a
