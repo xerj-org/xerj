@@ -99,7 +99,19 @@ body.home {
   background: var(--z-brand); color: var(--z-on-brand); border: 1px solid var(--z-brand-deep); white-space: nowrap;
 }
 .home .prompt .copy:hover { background: var(--z-highlight); }
-.home .prompt .foot { display: flex; justify-content: flex-end; padding: 0 var(--sp-4) var(--sp-4); }
+.home .prompt .bar .copy { text-transform: none; letter-spacing: 0; padding: 8px 14px; }
+
+/* hero proof strip: three numbers from the proof table, each with its scope */
+.home .glance { grid-column: 9 / -1; margin-top: calc(var(--sp-6) + 30px); padding-left: var(--sp-6); border-left: 1px solid var(--z-line); }
+.home .glance dl { margin: 0; }
+.home .glance dl > div { padding: var(--sp-4) 0; border-bottom: 1px solid var(--z-line); }
+.home .glance dl > div:first-child { padding-top: 0; }
+.home .glance dt { font: 800 var(--fs-56)/1 var(--font-display); color: var(--z-accent); font-variant-numeric: tabular-nums; }
+.home .glance dd { margin: var(--sp-2) 0 0; font: 400 var(--fs-13)/1.5 var(--font-data); color: var(--z-mute); }
+.home .glance .more { margin-top: var(--sp-4); font-family: var(--font-data); font-size: var(--fs-13); }
+@media (max-width: 960px) {
+  .home .glance { grid-column: 1 / -1; margin-top: var(--sp-4); padding-left: 0; border-left: 0; }
+}
 .home .verify, .home .alt { font-family: var(--font-data); font-size: var(--fs-13); color: var(--z-mute); max-width: none; }
 .home .verify code, .home .alt code {
   font-family: var(--font-mono); font-size: var(--fs-13); color: var(--z-ink);
@@ -129,7 +141,7 @@ html[data-theme='night'] .home .img-night { display: block; }
   .home .headline .ours { font-size: 72px; }
   .home .headline .theirs { font-size: 40px; }
 }
-.home .tbl { border: 1px solid var(--z-line); border-radius: 8px; overflow: hidden; margin-top: var(--sp-10); }
+.home .tbl { border: 1px solid var(--z-line); border-radius: 8px; overflow: hidden; margin-top: 0; }
 .home table.cmp1 { width: 100%; border-collapse: collapse; font-family: var(--font-data); font-size: var(--fs-16); }
 .home table.cmp1 th {
   text-align: left; font: 600 var(--fs-11)/1.3 var(--font-data); letter-spacing: var(--track-label);
@@ -157,6 +169,7 @@ html[data-theme='night'] .home .img-night { display: block; }
 .home .under { font-family: var(--font-data); font-size: var(--fs-13); color: var(--z-mute); margin-top: var(--sp-4); max-width: none; }
 
 /* traction */
+.home h2.label { line-height: 1.4; }
 .home .count { font: 800 var(--fs-56)/1 var(--font-display); color: var(--z-ink); margin: 0; font-variant-numeric: tabular-nums; }
 .home .count-l { font-family: var(--font-data); font-size: var(--fs-13); color: var(--z-mute); margin: var(--sp-2) 0 0; }
 .home .counts { margin-bottom: var(--sp-10); }

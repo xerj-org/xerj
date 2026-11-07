@@ -13,7 +13,9 @@ from landing/blog/index.html, newest first.
 Counts: contributors = the repository's contributors list (no anonymous
 entries); releases = published releases whose tag starts with v1.; downloads
 = asset downloads over those releases, not counting .sha256 checksum files.
-Stars are left out on purpose. Standard library only.
+Stars are left out on purpose, and so are posts in HELD (their claims wait on
+an owner answer). Every release so far is a 1.0 release candidate, and the
+tile says so. Standard library only.
 """
 import argparse, datetime, html, json, os, re, subprocess, sys, urllib.request
 from pathlib import Path
@@ -26,6 +28,9 @@ API = "https://api.github.com/repos/xerj-org/xerj"
 
 COUNTS_RE = re.compile(r"(<!-- home:counts-begin[^>]*-->\n).*?(<!-- home:counts-end -->)", re.S)
 POSTS_RE = re.compile(r"(<!-- home:posts-begin[^>]*-->\n).*?(<!-- home:posts-end -->)", re.S)
+# Posts kept off the home page: /blog/100-contributors is about the star count,
+# which the home page does not show until the jump is explained.
+HELD = {"/blog/100-contributors"}
 CARD_RE = re.compile(r'<a class="bl-card" href="(/blog/[^"]+)">.*?<time datetime="([0-9-]+)">.*?'
                      r'<h2 class="bl-title">(.*?)</h2>', re.S)
 
@@ -78,9 +83,9 @@ def _date(iso):
 
 def render_counts(c):
     tiles = [(f"{c['contributors']:,}", "contributors"),
-             (f"{c['releases']:,}", f"releases since {_date(c['first_release'])}"),
+             (f"{c['releases']:,}", f"1.0 release candidates since {_date(c['first_release'])}"),
              (f"{c['downloads']:,}", "engine binary downloads from GitHub releases")]
-    out = [f'<p class="label">Built in the open · counts from the GitHub API, {c["fetched_at"][:10]}</p>',
+    out = [f'<h2 class="label">Built in the open · counts from the GitHub API, {c["fetched_at"][:10]}</h2>',
            '<div class="g counts">']
     for n, label in tiles:
         out.append(f'  <div class="c4"><p class="count">{n}</p><p class="count-l">{html.escape(label)}</p></div>')
@@ -89,7 +94,7 @@ def render_counts(c):
 
 
 def render_posts():
-    cards = CARD_RE.findall(BLOG.read_text(encoding="utf-8"))
+    cards = [c for c in CARD_RE.findall(BLOG.read_text(encoding="utf-8")) if c[0] not in HELD]
     cards.sort(key=lambda c: c[1], reverse=True)
     out = ['<ul class="posts">']
     for href, day, title in cards[:3]:

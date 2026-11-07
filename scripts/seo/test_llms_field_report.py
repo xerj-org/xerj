@@ -27,7 +27,8 @@ AUTO_SEND = (
 )
 OLD_ASK = "ask before sending"
 # The one copy prompt on the home page (2026-11-07 redesign): install with the
-# model, index, search, ask XERJ Query-1, reference coding, and a no-shell line.
+# model, index, search, ask XERJ Query-1, reference coding, MCP + one memory
+# note, and a no-shell line.
 HOME_PROMPT = (
     "Set up XERJ for me, following https://xerj.org/llms.txt.\n"
     "1. Install XERJ with the XERJ Query-1 model and start it.\n"
@@ -36,6 +37,8 @@ HOME_PROMPT = (
     "about them. Show me the answer, the program and the evidence.\n"
     "4. Set up reference coding: index one open-source repo close to this project and look up one "
     "definition in it.\n"
+    "5. If this client takes MCP servers, register XERJ (llms.txt has the line for each client) "
+    "and save one memory note through it.\n"
     "If you have no shell, use the HTTP or MCP steps in llms.txt instead."
 )
 HOME_PROMPT_RE = r'data-copy="(Set up XERJ for me, following https://xerj.org/llms.txt\.[^"]*)"'
