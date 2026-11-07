@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Deterministic `cyber.score` calculator in `xerj_common::cyber_score`
+  (Refs #2775, #2767, #2769): native CVSS v3.1 (Base, Temporal, Environmental)
+  and CVSS v4.0 (CVSS-B, CVSS-BT, CVSS-BE, CVSS-BTE via MacroVector `EQ1..EQ6`
+  lookup and severity-distance interpolation) calculators in Rust, EPSS and
+  CISA KEV context with hub corpus provenance and fetch dates (absent data
+  stated explicitly, never guessed), asset-driven business-impact priority
+  notes, and `ScopeGuard` enforcement when an endpoint target is named.
+
 - `xerj autoindex <path> --facts <namespace>` writes table rows as XERJ Query-1
   facts: SQLite files, SQL dumps, CSV/TSV and XLSX. Each row is one subject
   whose `subject_id` is the key column (`id`, `<table>_id`, … or `--key`), each
