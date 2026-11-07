@@ -152,8 +152,13 @@ button { font: inherit; }
 
 .nav {
   display: flex;
+  /* wrap instead of running past the right edge: the menu grew
+     (XERJ QUERY-1, COHERE, DONATE) and pushed the page 1528px wide
+     at a 1280px viewport, so the centered hero looked off-centre. */
+  flex-wrap: wrap;
   align-items: baseline;
   gap: var(--sp-4);
+  row-gap: var(--sp-3);
   padding-bottom: var(--sp-6);
   border-bottom: 1px solid var(--z-line);
   margin-bottom: var(--sp-16);
@@ -171,7 +176,7 @@ button { font: inherit; }
   color: var(--z-ink);
   margin-right: var(--sp-4);
 }
-.nav a { color: var(--z-mute); }
+.nav a { color: var(--z-mute); white-space: nowrap; }
 .nav a:hover { color: var(--z-ink); }
 .nav a.active { color: var(--z-ink); }
 
@@ -2297,7 +2302,10 @@ pre.tree .c { color: var(--z-mute); }
 
 /* Smaller screens — fold hero to 96px, unstack metrics. */
 @media (max-width: 960px) {
-  :root { --page-x: 28px; }
+  /* html[data-theme] too: the base tokens are set on :root AND
+     html[data-theme='day'] (higher specificity), which silently kept
+     the 64px desktop gutter on tablets and phones. */
+  :root, html[data-theme] { --page-x: 28px; }
   h1.hero { font-size: var(--fs-96); }
   h2.scene { font-size: var(--fs-56); }
   .metrics { grid-template-columns: repeat(2, 1fr); }
@@ -2315,7 +2323,7 @@ pre.tree .c { color: var(--z-mute); }
    one column, scale type down, and give every wide data block a
    horizontal scroll wrapper so the page never side-scrolls. */
 @media (max-width: 720px) {
-  :root {
+  :root, html[data-theme] {
     --page-x: 18px;
     --gap-x: 16px;
     --sp-12: 40px;
