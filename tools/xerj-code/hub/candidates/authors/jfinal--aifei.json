@@ -1,0 +1,23 @@
+{
+ "corpus": "jfinal--aifei",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Java queries this for how jfinal/aifei implements it: Aifei is the world's first AI coding framework (selected work: aifei-db)",
+ "repos": [
+  {
+   "repo": "aifei",
+   "url": "https://github.com/jfinal/aifei",
+   "sha": "01a72281c54a402599341a6c3509347115c8821c",
+   "licence": "Apache-2.0 (LICENSE file at pin 01a72281c54a, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T19:59Z",
+    "consent_receipt": "27ad9f806e12",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T19:59Z (receipt 27ad9f806e12); selected commit 01a72281c54a: \"fix: prevent overflow in pagination calculations\". LICENSE file at pin 01a72281c54a detected as Apache-2.0 by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

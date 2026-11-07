@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-agents, bash, code-review queries this for how stainless-code/verdict implements it: Local on-demand PR review for any coding agent. Evidence-graded findings, machine gates, zero install (selected work: scripts, evals, the project root)",
+ "domain": "an agent working on ai-agents, code-review, coding-agents queries this for how stainless-code/verdict implements it: Code review any coding agent can run: fetch, review, gate, post. Evidence-graded findings, cost rollups, one static binary \u2014 no server, no a (selected work: scripts, evals, the project root)",
  "repos": [
   {
    "repo": "verdict",

@@ -8,15 +8,15 @@
   {
    "repo": "llm-shared",
    "url": "https://github.com/VonC/llm-shared",
-   "sha": "b055a79176257bc54e9fa3697a5cbdd4c4beb091",
-   "licence": "MIT (LICENSE file at pin b055a7917625, GitHub licence API 2026-11-07)",
+   "sha": "3d4b052c081ac920f56eecb1c9451328a96b294c",
+   "licence": "MIT (LICENSE file at pin 3d4b052c081a, GitHub licence API 2026-11-07)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-26T13:51Z",
     "consent_receipt": "76a8e4e12def",
-    "note": "Inclusion consented by the commit author by email at 2026-10-26T13:51Z (receipt 76a8e4e12def); selected commit b055a7917625: \"feat(explain-undecided-questions): show the bigger picture\". LICENSE file at pin b055a7917625 detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-10-26T13:51Z (receipt 76a8e4e12def); selected commit 3d4b052c081a: \"fix(explain-undecided-questions): fit Codex Mermaid\". LICENSE file at pin 3d4b052c081a detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
    }
   }
  ]

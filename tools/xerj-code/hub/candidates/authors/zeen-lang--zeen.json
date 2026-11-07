@@ -1,9 +1,9 @@
 {
- "corpus": "mealet--zeen",
+ "corpus": "zeen-lang--zeen",
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on compiler, llvm, programming-language queries this for how mealet/zeen implements it: Zeen Programming Language (selected work: compiler)",
+ "domain": "an agent working on compiler, llvm, programming-language queries this for how zeen-lang/zeen implements it: Zeen Programming Language (selected work: compiler)",
  "repos": [
   {
    "repo": "zeen",

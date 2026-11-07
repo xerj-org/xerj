@@ -1,0 +1,30 @@
+{
+ "corpus": "vuphitung--cyberclean",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on linux, python, windows queries this for how vuphitung/CyberClean implements it: Desktop utility for Windows and Linux: system monitoring, disk cleanup, disk-usage report, app uninstaller and an optional performance boost (selected work: utils, tests, the project root)",
+ "repos": [
+  {
+   "repo": "CyberClean",
+   "url": "https://github.com/vuphitung/CyberClean",
+   "sha": "bc675a72912b18119af787182c58f18484015611",
+   "licence": "GPL-3.0 (LICENSE file at pin bc675a72912b, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-07T19:19Z",
+    "consent_receipt": "1ecad5bec516",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T19:19Z (receipt 1ecad5bec516); selected commit bc675a72912b: \"fix(linux): read real CPU temperature, ignore unrelated sensors\". LICENSE file at pin bc675a72912b detected as GPL-3.0 by the GitHub licence API on 2026-11-07; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "bc675a72912b18119af787182c58f18484015611",
+     "at": "2026-11-07T19:19Z",
+     "receipt": "1ecad5bec516"
+    }
+   }
+  }
+ ]
+}

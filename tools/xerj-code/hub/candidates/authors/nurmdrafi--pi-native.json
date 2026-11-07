@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agent-harness, coding-agent, pi queries this for how nurmdrafi/pi-native implements it: A Rust-powered Pi coding-agent harness with native tools, fail-closed permission gates, token-efficient context management, and validated sk (selected work: extensions, tests, the project root)",
+ "domain": "an agent working on agent-harness, coding-agent, pi queries this for how nurmdrafi/pi-native implements it: A performance-focused Pi coding-agent harness with native Rust tools, fail-closed permission gates, and token-efficient context management (selected work: extensions, tests, the project root)",
  "repos": [
   {
    "repo": "pi-native",

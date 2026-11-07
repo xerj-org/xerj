@@ -1,0 +1,30 @@
+{
+ "corpus": "tomessino--digibyte-miner-os",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on arduino, arduino-ide, digibyte queries this for how tomessino/Digibyte-Miner-OS implements it: DigiByte-SHA-256d-Solo-Miner f\u00fcr das ESP32-2432S028R (CYD): rund 960 kH/s, Display mit 5 Seiten, Web-Dashboard (selected work: firmware, tools)",
+ "repos": [
+  {
+   "repo": "Digibyte-Miner-OS",
+   "url": "https://github.com/tomessino/Digibyte-Miner-OS",
+   "sha": "9c7abe21f6bfa1bdc94e0dde2ed48c76834fe033",
+   "licence": "GPL-3.0 (LICENSE file at pin 9c7abe21f6bf, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-07T18:46Z",
+    "consent_receipt": "f620e2c1dee7",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T18:46Z (receipt f620e2c1dee7); selected commit 9c7abe21f6bf: \"Add files via upload\". LICENSE file at pin 9c7abe21f6bf detected as GPL-3.0 by the GitHub licence API on 2026-11-07; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "9c7abe21f6bfa1bdc94e0dde2ed48c76834fe033",
+     "at": "2026-11-07T18:46Z",
+     "receipt": "f620e2c1dee7"
+    }
+   }
+  }
+ ]
+}
