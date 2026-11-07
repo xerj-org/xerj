@@ -1,7 +1,7 @@
 # Packaging and listings
 
 Files that MCP catalogues and agent tools read to find and install XERJ.
-Every listing uses the same description:
+New listings should use this description:
 
 > XERJ: the search engine for AI agents. A new way for AI to search for
 > data: one local Rust binary that indexes your code, docs, specs and logs,
@@ -21,8 +21,8 @@ The release workflow does not build an `.mcpb` yet, so it is a manual step
 after a release is published:
 
 ```bash
-python3 scripts/mcp/build_mcpb.py --tag v1.0.0-rc.98 --out /tmp/mcpb --update-server-json
-gh release upload v1.0.0-rc.98 /tmp/mcpb/xerj-mcp-1.0.0-rc.98.mcpb
+python3 scripts/mcp/build_mcpb.py --tag v1.0.0-rc.100 --out /tmp/mcpb --update-server-json
+gh release upload v1.0.0-rc.100 /tmp/mcpb/xerj-mcp-1.0.0-rc.100.mcpb
 mcp-publisher login github     # device-code login as a member of xerj-org
 mcp-publisher publish
 ```
