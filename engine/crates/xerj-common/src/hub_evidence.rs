@@ -54,6 +54,11 @@ fn canonical<T: Serialize>(value: &T) -> Result<Vec<u8>> {
     Ok(serde_json_canonicalizer::to_vec(value)?)
 }
 
+/// RFC 8785 (JCS) canonical JSON bytes of `value`.
+pub fn jcs_canonicalize<T: Serialize>(value: &T) -> Result<Vec<u8>> {
+    canonical(value)
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PinnedCitation {
@@ -101,7 +106,7 @@ impl PinnedCitation {
         Ok(citation)
     }
 
-    fn validate(&self) -> Result<()> {
+    pub(crate) fn validate(&self) -> Result<()> {
         require(
             !self.corpus.trim().is_empty() && !self.repository.trim().is_empty(),
             "source identity",
@@ -227,7 +232,7 @@ impl Confidence {
         Ok(result)
     }
 
-    fn validate(&self) -> Result<()> {
+    pub(crate) fn validate(&self) -> Result<()> {
         require(
             hex(&self.calibration_sha256, 64)
                 && !self.domain.trim().is_empty()

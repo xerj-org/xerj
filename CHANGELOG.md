@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- A shared cyber finding schema and evidence-gated report (Refs #2767, #2769):
+  a typed `CyberFinding` (scenario, CWE, source or endpoint location,
+  severity/CVSS, corpus evidence, status, confidence/abstain) in
+  `xerj_common::cyber_finding`. Non-abstained findings without evidence are
+  refused or turned into abstentions, black-box and exploitability findings
+  require a `ScopeGuard` and echo it, and reports carry an RFC 8785 SHA-256
+  receipt. A shared library primitive, not a wired cyber recipe.
+
 - `xerj autoindex <path> --facts <namespace>` writes table rows as XERJ Query-1
   facts: SQLite files, SQL dumps, CSV/TSV and XLSX. Each row is one subject
   whose `subject_id` is the key column (`id`, `<table>_id`, … or `--key`), each
