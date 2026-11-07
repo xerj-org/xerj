@@ -135,9 +135,15 @@ declines). Without `--facts-model-dir` a node is the node rc.101 was.
   "COUNT_CONNECTIVE_UNSUPPORTED"`, a reason naming the connective, and the
   withheld program's sha as `withheld_program_sha256`. An `or` that only makes
   a threshold inclusive ("12 lines or more", "on or after 1990-01-01") is a
-  count the op-set expresses and is still served. Regression tests: the three
-  Berlin-or-Munich probes (`xerj-serve` unit tests, and an HTTP test over the
-  real models). What stays open on #3015: returning the counted member ids.
+  count the op-set expresses and is still served. The guard matters more
+  under R8, which drops the partner check: on the rc.102 release binary with
+  the rc.102 bundle, both "How many people are in Berlin or Munich?" and "How
+  many people have office Berlin or Munich?" reached the serve point with a
+  one-city program (the withheld shas are those of "office Munich" and
+  "office Berlin") and are declined; "How many people have office Berlin?"
+  is still served as 2. Regression tests: the three Berlin-or-Munich probes
+  (`xerj-serve` unit tests, and an HTTP test over the real models). What
+  stays open on #3015: returning the counted member ids.
 - `_search` with `profile: true` reports measured phase timings, in
   nanoseconds, instead of 0/1 ns placeholders (#3029, issue #3005). Only
   phases are measured: a non-zero breakdown timer is its phase total (an
