@@ -68,10 +68,33 @@ OG_IMAGE_ALT = "XERJ.ai — the search engine built for AI agents"
 #: `404.html` is the Cloudflare Pages not-found page.  It is reachable at
 #: `/404` as an ordinary document, so without an explicit `noindex` it would
 #: be a real indexable page whose whole content is an error message.
+#:
+#: 2026-11-07 home redesign: the pages that left the nav and the footer are
+#: kept out of the index too. The enterprise funnel (pricing, security,
+#: solutions, resources, industries) carries passed dates and promises with
+#: no company behind them, and the two old demos are superseded by the
+#: benchmark scorecard; all of those are also 301'd in landing/_redirects.
+#: The playground gate is a mock ("BACKEND PENDING"), architecture, the
+#: agentic-search demo and the brand page stay reachable by URL only.
 NOINDEX: frozenset[str] = frozenset({
     "404.html",
     "brandbook/index.html",
     "playground/index.html",
+    "playground.html",
+    "pricing/index.html",
+    "security/index.html",
+    "solutions/index.html",
+    "resources/index.html",
+    "industries/index.html",
+    "industries/finserv.html",
+    "industries/healthcare.html",
+    "industries/public-sector.html",
+    "industries/retail.html",
+    "demo/index.html",
+    "aise-demo.html",
+    "architecture/index.html",
+    "agent-search/index.html",
+    "brand.html",
 })
 
 #: Pages deliberately kept out of sitemap.xml.  Google: a `noindex` page must

@@ -52,61 +52,58 @@ FOOTER_END = "<!-- seo:footer-end -->"
 
 #: The site map, as (column heading, [(href, anchor text), ...]).
 #:
-#: Anchor text is the destination's own name in 1-3 words — Google asks for
-#: "descriptive, reasonably concise" anchors and explicitly warns off both
-#: "click here" and keyword cramming.  Casing is uppercase to match the
-#: existing `.footer` / `.nav` typography, which is set in CSS anyway.
+#: Rewritten for the 2026-11-07 home page redesign: 27 links, each once, each
+#: about the current product, each checked 200 with a real title. Anchor text
+#: is the destination's own name in 1-3 words. The two generated article hubs
+#: (/answers/, /compare/) stay here because build_articles.py requires every
+#: article hub to be one click from every page; the legacy enterprise funnel
+#: (pricing, security, solutions, resources, industries) left the footer.
 FOOTER_MAP: list[tuple[str, list[tuple[str, str]]]] = [
-    ("PRODUCT", [
-        ("/product", "PRODUCT"),
-        ("/xerj-query-1", "XERJ QUERY-1"),
-        ("/architecture/", "ARCHITECTURE"),
-        ("/benchmarks/", "BENCHMARKS"),
-        ("/pricing/", "PRICING"),
-        ("/security/", "SECURITY"),
-        ("/playground", "DASHBOARDS"),
-        ("/demo/", "REAL-DATA DEMO"),
-        ("/aise-demo", "PRODUCT TOUR"),
-        ("/donate", "DONATE"),
+    ("Product", [
+        ("/product", "Product overview"),
+        ("/xerj-query-1", "XERJ Query-1"),
+        ("/case-studies/reference-coding", "Reference coding"),
+        ("/docs/recipes/zero-config-autoindex", "Search files"),
+        ("/docs/recipes/agentic-memory", "Agent memory"),
+        ("/integrations/cohere", "On-prem with Cohere"),
+        ("/use-cases", "All use cases"),
+        ("https://hub.xerj.org", "Corpus Hub"),
     ]),
-    # The section hubs. Every child page is linked from its hub, so one link
-    # per hub here keeps the whole tree two clicks from any page.
-    ("LEARN", [
-        ("/answers/", "ANSWERS"),
-        ("/compare/", "COMPARE"),
-        ("/use-cases", "USE CASES"),
-        ("/case-studies", "CASE STUDIES"),
-        ("/industries/", "INDUSTRIES"),
-        ("/blog/", "BLOG"),
+    ("Developers", [
+        ("/docs/", "Docs"),
+        ("/docs/quickstart", "Quickstart"),
+        ("/docs/install", "Install"),
+        ("/for-agents", "For AI agents"),
+        ("/llms.txt", "llms.txt"),
+        ("/docs/migration-from-es", "Migrate from Elasticsearch"),
+        ("/answers/", "Answers"),
     ]),
-    ("SOLUTIONS", [
-        ("/solutions/", "SOLUTIONS"),
-        ("/industries/finserv", "FINANCIAL SERVICES"),
-        ("/industries/public-sector", "PUBLIC SECTOR"),
-        ("/industries/healthcare", "HEALTHCARE"),
-        ("/industries/retail", "RETAIL"),
-        # The two flagship long-form use cases that the /use-cases hub's own
-        # sub-nav omits — without a hub-level link they hang off one sibling
-        # article each, which is the shape orphans grow from.
-        ("/use-cases/code-security-audit", "AI CODE-SECURITY AUDIT"),
-        ("/use-cases/semantic-analytics", "SEMANTIC ANALYTICS"),
-        ("/resources/", "SALES KIT"),
+    ("Proof", [
+        ("/benchmarks/", "Benchmarks"),
+        ("/benchmarks/elasticsearch", "Elasticsearch scorecard"),
+        ("/case-studies", "Case studies"),
+        ("/compare/", "Comparisons"),
+        ("/blog/", "Blog"),
     ]),
-    # /brand and /brandbook/ are left out on purpose: they stay reachable by
-    # direct URL and link to each other.
-    ("DOCS", [
-        ("/docs/", "DOCUMENTATION"),
-        ("/docs/quickstart", "QUICKSTART"),
-        ("/docs/install", "INSTALL"),
-        ("/docs/migration-from-es", "MIGRATE FROM ELASTICSEARCH"),
-        ("/docs/recipes/", "RECIPES"),
-        ("/docs/agents/", "DOCS FOR AI"),
-        ("/for-agents", "FOR AI AGENTS"),
-        ("/agent-search/", "AGENTIC SEARCH DEMO"),
-        ("/llms.txt", "LLMS.TXT"),
-        ("https://github.com/xerj-org/xerj", "GITHUB"),
+    ("Project", [
+        ("https://github.com/xerj-org/xerj", "GitHub"),
+        ("https://github.com/xerj-org/xerj/releases", "Releases"),
+        ("https://discord.com/invite/yetXFusXfs", "Discord"),
+        ("https://x.com/xerj_org", "X"),
+        ("/donate", "Donate"),
+        ("https://github.com/xerj-org/xerj/blob/main/SECURITY.md", "Security policy"),
+        ("https://github.com/xerj-org/xerj/blob/main/LICENSE", "License (Apache-2.0)"),
     ]),
 ]
+
+#: The one-line bar under the map: copyright and the DAY/NIGHT toggle (moved
+#: here from the nav). It replaces the hand-written `<footer class="footer">`
+#: strips that every page used to carry, which repeated five of the map's
+#: links; `strip_legacy_bar` removes those on each run.
+FOOTER_BAR = (
+    '<div class="footer-bar"><span>&copy; 2026 XERJ &middot; the engine is Apache-2.0</span>'
+    '<span class="theme"><button type="button" data-theme="day" class="active">Day</button>'
+    '<span class="dash">&middot;</span><button type="button" data-theme="night">Night</button></span></div>')
 
 RE_A_HREF = re.compile(r"(<a\b[^>]*?\shref\s*=\s*)([\"'])(.*?)\2", re.I | re.S)
 #: `<script>` bodies are JavaScript, not markup.  The docs search widget builds
@@ -124,10 +121,16 @@ RE_FOOTER_BLOCK = re.compile(
     re.escape(FOOTER_BEGIN) + r".*?" + re.escape(FOOTER_END) + r"\n?", re.S)
 RE_FOOTER_TAG = re.compile(r"[ \t]*<footer\b", re.I)
 RE_BODY_END = re.compile(r"</body\s*>", re.I)
+#: The run of <script> elements (and whitespace) that ends a page body.
+RE_TAIL_SCRIPTS = re.compile(
+    r"(?:\s*<script\b[^>]*>(?:(?!</script>).)*</script>)+\s*</body\s*>", re.I | re.S)
 
 
 def render_footer() -> str:
-    out = [FOOTER_BEGIN, '<nav class="footer-map" aria-label="Site map">']
+    out = [FOOTER_BEGIN, '<footer class="site-footer">',
+           '<div class="sf-brand"><a href="/" class="brand">XERJ</a>'
+           '<p>The search engine built for AI agents.</p></div>',
+           '<nav class="footer-map" aria-label="Site map">']
     for heading, links in FOOTER_MAP:
         out.append('  <div class="fm-col">')
         out.append(f'    <span class="fm-h">{html.escape(heading)}</span>')
@@ -136,8 +139,18 @@ def render_footer() -> str:
             out.append(f'    <a href="{html.escape(href, quote=True)}"{rel}>'
                        f"{html.escape(text)}</a>")
         out.append("  </div>")
-    out += ["</nav>", FOOTER_END]
+    out += ["</nav>", FOOTER_BAR, "</footer>", FOOTER_END]
     return "\n".join(out)
+
+
+#: The hand-written identity strip that sat under the map on every page
+#: (`<footer class="footer">…</footer>`). Removed wherever the generated footer
+#: is injected; pages in FOOTER_SKIP keep their own footer.
+RE_LEGACY_BAR = re.compile(r'[ \t]*<footer class="footer">.*?</footer>[ \t]*\n?', re.S)
+
+
+def strip_legacy_bar(src: str) -> str:
+    return RE_LEGACY_BAR.sub("", src)
 
 
 def rewrite_links(src: str) -> str:
@@ -169,10 +182,16 @@ def inject_footer(rel: str, src: str) -> str:
     if rel in urlmap.FOOTER_SKIP:
         return src
 
+    src = strip_legacy_bar(src)
     block = render_footer() + "\n"
     m = RE_FOOTER_TAG.search(src)
     if m:
         return src[:m.start()] + block + src[m.start():]
+    # No footer tag left: go in front of the scripts that close the page, so
+    # every page (hand-written or from build_articles.py) ends the same way.
+    m = RE_TAIL_SCRIPTS.search(src)
+    if m:
+        return src[:m.start()] + "\n" + block + src[m.start():].lstrip("\n")
     m = RE_BODY_END.search(src)
     if m:
         return src[:m.start()] + block + src[m.start():]

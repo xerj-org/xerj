@@ -73,11 +73,12 @@ landing/**/*.html  ── gen_sitemap.py ─> landing/sitemap.xml   (deploy only
 | `landing/answers/index.json`, `landing/compare/index.json` | `build_articles.py` | ditto |
 | the block between `<!-- BEGIN GENERATED ARTICLE TREE -->` and `<!-- END … -->` in `landing/llms.txt` | `build_articles.py` | ditto — the rest of `llms.txt` is hand-written |
 | the block between `<!-- seo:begin … -->` and `<!-- seo:end -->` in every page's `<head>` | `fix_heads.py` | edit `scripts/seo/pagedata.py` |
-| the block between `<!-- seo:footer-begin … -->` and `<!-- seo:footer-end -->` | `fix_links.py` | edit `FOOTER_MAP` in `fix_links.py` |
+| the block between `<!-- seo:footer-begin … -->` and `<!-- seo:footer-end -->` (the whole site footer: brand line, link groups, copyright and DAY/NIGHT bar) | `fix_links.py` | edit `FOOTER_MAP` / `FOOTER_BAR` in `fix_links.py` |
 | every internal `<a href>` in `landing/` | `fix_links.py` | write the href you mean; the pass rewrites it to the served form |
 | `landing/sitemap.xml` | `gen_sitemap.py` at deploy time | nothing: it is gitignored and `deploy-pages.yml` writes it before the upload |
 | `landing/og/xerj-card.png` | `mk_og_card.py` | edit the rasteriser; the brand tokens come from `landing/style.css` |
-| the primary nav (`<nav class="nav">`) in every page, and in the `build_articles.py` templates | `set_nav.py` | edit `LEFT` / `RIGHT` in `set_nav.py`, then run it; `--check` verifies |
+| the primary nav (`<nav class="nav">`) in every page, and in the `build_articles.py` templates | `set_nav.py` | edit `LINKS` in `set_nav.py`, then run it; `--check` verifies |
+| the counts and the three post links in the home page's "Built in the open" section (between `<!-- home:counts-begin -->` / `<!-- home:posts-begin -->` and their end markers) | `home_counts.py` | run it to re-read the GitHub API (saved in `scripts/seo/home_counts.json` with the time read); `--offline` rewrites from the saved file; `--check` verifies |
 | the `<a class="nav-stars">` GitHub stars badge in every primary nav (its fallback count) | `stars_badge.py` | run it to refresh the count from the GitHub API; `--check` verifies; `landing/theme.js` refreshes the number in the browser |
 
 Generated article pages and twins carry a first-line marker:

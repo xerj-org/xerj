@@ -55,7 +55,7 @@ PAGES: dict[str, dict[str, str]] = {
         # The canonical description (seo_head.ORG_DESCRIPTION). seo_lint gates
         # duplicate descriptions, so /product, /for-agents and
         # /answers/what-is-xerj carry the same clause behind a short lead-in.
-        description="A new way for AI to search for data: one local Rust binary that indexes your code, docs, specs and logs, plus Corpus Hub packs, and returns cited answers.",
+        description="The search engine built for AI agents: one open-source Rust binary that indexes your files, code and databases and answers with the evidence attached.",
     ),
     # `404.html` is what makes Cloudflare Pages return a real HTTP 404.  With
     # no top-level 404.html the project is treated as a single-page app and

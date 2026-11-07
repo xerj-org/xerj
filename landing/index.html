@@ -16,118 +16,20 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>XERJ: the search engine for AI agents</title>
 
-<meta name="description" content="A new way for AI to search for data: one local Rust binary that indexes your code, docs, specs and logs, plus Corpus Hub packs, and returns cited answers.">
+<meta name="description" content="The search engine built for AI agents: one open-source Rust binary that indexes your files, code and databases and answers with the evidence attached.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%230b0b0d'/><text x='50' y='68' font-size='60' font-family='Big Shoulders Display,sans-serif' font-weight='900' fill='%23ffc400' text-anchor='middle'>X</text></svg>">
 <script src="/theme.js"></script>
-<link rel="stylesheet" href="/style.css?v=if11">
-<style>
-
-  /* Fold recovery (2026-09-21 fix round): at 1440x900 the banner's title sat
-     18px below the fold, 91px at 1280x800 — only the kicker broke it. The
-     reclaim is vertical air ONLY (hero top padding, the H1 clamp at laptop
-     widths, the sp-10 gap above the prompt card, the card's own padding and
-     the banner's top margin/padding): title + verdict sub-line now land
-     inside a 900px fold at 1440 and inside 800px at 1280. Scoped to
-     .hero-center and min-width 721px so no other page and no phone layout
-     moves; the shared sheet is untouched. */
-  @media (min-width: 721px) {
-    .hero-center { padding-top: var(--sp-3); }
-    .hero-center .hero { font-size: clamp(38px, 7.5vw, 140px); }
-  
-    .hero-center .prompt-card { padding: var(--sp-5) var(--sp-6) var(--sp-3); }
-  }
-
-  /* install card — reuses the shared .hero-install family, adapted to the
-     centered hero: left-aligned inside the column, 1px accent rule kept. */
-  .hero-center .hero-install {
-    max-width: 880px;
-    margin: 0 auto var(--sp-8);
-    text-align: left;
-    border-left: 1px solid var(--z-accent);
-    padding: var(--sp-3) 0 var(--sp-3) var(--sp-6);
-  }
-  .hero-center .hero-install-cmd code { font-size: clamp(var(--fs-13), 1.4vw, 20px); }
-  .hero-center .hero-install-alt code { font-size: var(--fs-13); }
-  .hero-center .hero-install .hero-install-agent-line { margin-top: var(--sp-4); }
-
-  @media (max-width: 720px) {
-  }
-  @media (max-width: 720px) {
-    .hero-center .hero-install { padding-left: var(--sp-4); }
-    .hero-center .hero-install-cmd,
-    .hero-center .hero-install-alt { flex-direction: column; align-items: stretch; gap: var(--sp-2); }
-    .hero-center .hero-install .hero-install-copy {
-      align-self: stretch;
-      text-align: center;
-      padding: 6px 8px;
-    }
-  }
-
-  /* One content column for the hero. The install card and the prompt card are
-     alternatives — the same width and the same 1px rule, so they read as a pair
-     rather than as two unrelated widths stacked on top of each other. */
-  .hero-center .hero-col {
-    max-width: 880px;
-    margin: var(--sp-8) auto 0;
-    display: flex;
-    flex-direction: column;
-    gap: var(--sp-5);
-    text-align: left;
-  }
-  .hero-center .hero-col > * { margin-left: 0; margin-right: 0; max-width: none; }
-  .hero-eyebrow {
-    font-family: var(--font-data);
-    font-size: var(--fs-11);
-    font-weight: 600;
-    letter-spacing: var(--track-label);
-    text-transform: uppercase;
-    color: var(--z-mute);
-    /* auto, not 0: a max-width from the shared sheet plus margin-left:0 left
-       this sitting at the page gutter while the rest of the hero centred. */
-    margin: 0 auto var(--sp-5);
-    max-width: none;
-  }
-  .hero-proof {
-    font-family: var(--font-prose);
-    font-size: var(--fs-16);
-    line-height: 1.7;
-    color: var(--z-mute);
-    max-width: 880px;
-    margin: var(--sp-6) auto 0;
-  }
-
-/* XERJ Query-1 cards (home), same grid as the blog and /xerj-query-1 */
-.q1-cards.uc-tiles { grid-template-columns:repeat(4, 1fr); }
-.uc-tiles .q1-card .t { margin-top:0; }
-.uc-tiles .q1-card .cap { margin-top:auto; padding-top:14px; }
-.uc-tiles .q1-card .cap a { color:var(--z-mute); }
-.uc-prompt { margin-top:12px; padding:12px !important; }
-.uc-prompt code { font-size:12px; }
-.prompt-card code { overflow-wrap:anywhere; }
-.hero-install pre.code { max-width:100%; overflow-x:auto; }
-@media (max-width:1100px) { .q1-cards.uc-tiles { grid-template-columns:repeat(2,1fr); } }
-@media (max-width:480px) { .q1-cards.uc-tiles { grid-template-columns:1fr; } }
-.q1-cards { display:grid; grid-template-columns:repeat(3, 1fr); gap:0; border-top:1px solid var(--z-line); border-left:1px solid var(--z-line); margin:var(--sp-3) 0; }
-.q1-card { background:var(--z-bg); padding:22px 22px 20px; display:flex; flex-direction:column; border-right:1px solid var(--z-line); border-bottom:1px solid var(--z-line); }
-.q1-card .pair { display:flex; flex-wrap:wrap; align-items:baseline; gap:0 10px; font-family:var(--font-display); font-weight:800; font-size:clamp(26px, 2.6vw, 36px); line-height:1.05; overflow-wrap:anywhere; }
-.q1-card .pair .ours { color:var(--z-accent); }
-.q1-card .pair .vs { font-family:var(--font-data); font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--z-mute); }
-.q1-card .pair .theirs { color:var(--z-mute); }
-.q1-card .cap { font-family:var(--font-data); font-weight:600; font-size:11px; color:var(--z-mute); margin-top:8px; }
-.q1-card .t { font-family:var(--font-display); font-weight:800; font-size:22px; text-transform:uppercase; color:var(--z-ink); margin-top:14px; }
-.q1-card .s { font-size:13.5px; color:var(--z-mute); margin-top:8px; line-height:1.5; }
-@media (min-width:481px) and (max-width:900px) { .q1-cards { grid-template-columns:repeat(2,1fr); } }
-@media (max-width:480px) { .q1-cards { grid-template-columns:1fr; } .q1-card .pair { font-size:clamp(22px, 7.5vw, 28px); } }
-</style>
+<link rel="stylesheet" href="/style.css?v=hr1107">
+<link rel="stylesheet" href="/home.css?v=hr1107b">
 <!-- seo:begin — generated by scripts/seo/fix_heads.py · do not hand-edit -->
 <link rel="canonical" href="https://xerj.org/">
 <meta property="og:site_name" content="XERJ.ai">
 <meta property="og:type" content="website">
 <meta property="og:title" content="XERJ: the search engine for AI agents">
-<meta property="og:description" content="A new way for AI to search for data: one local Rust binary that indexes your code, docs, specs and logs, plus Corpus Hub packs, and returns cited answers.">
+<meta property="og:description" content="The search engine built for AI agents: one open-source Rust binary that indexes your files, code and databases and answers with the evidence attached.">
 <meta property="og:url" content="https://xerj.org/">
 <meta property="og:image" content="https://xerj.org/og/xerj-card.png">
 <meta property="og:image:width" content="1200">
@@ -136,7 +38,7 @@
 <meta property="og:locale" content="en_US">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="XERJ: the search engine for AI agents">
-<meta name="twitter:description" content="A new way for AI to search for data: one local Rust binary that indexes your code, docs, specs and logs, plus Corpus Hub packs, and returns cited answers.">
+<meta name="twitter:description" content="The search engine built for AI agents: one open-source Rust binary that indexes your files, code and databases and answers with the evidence attached.">
 <meta name="twitter:image" content="https://xerj.org/og/xerj-card.png">
 <script type="application/ld+json">
 {
@@ -177,7 +79,7 @@
   "applicationSubCategory": "Search engine",
   "operatingSystem": "Linux, macOS, Windows",
   "url": "https://xerj.org/",
-  "description": "A new way for AI to search for data: one local Rust binary that indexes your code, docs, specs and logs, plus Corpus Hub packs, and returns cited answers.",
+  "description": "The search engine built for AI agents: one open-source Rust binary that indexes your files, code and databases and answers with the evidence attached.",
   "image": "https://xerj.org/og/xerj-card.png",
   "license": "https://www.apache.org/licenses/LICENSE-2.0",
   "isAccessibleForFree": true,
@@ -193,518 +95,279 @@
 </script>
 <!-- seo:end -->
 </head>
-<body>
+<body class="home">
 
-<!-- nav -->
 <nav class="nav" aria-label="Primary" id="top">
   <a href="/" class="brand">XERJ</a>
-  <a href="/xerj-query-1">XERJ&nbsp;QUERY&#8209;1</a>
-  <a href="/integrations/cohere">COHERE</a>
-  <a href="/product">PRODUCT</a>
-  <a href="/use-cases">USE CASES</a>
-  <a href="/answers/">ANSWERS</a>
-  <a href="/benchmarks/">BENCHMARKS</a>
-  <a href="/blog/">BLOG</a>
-  <span class="spacer"></span>
-  <a href="/for-agents">FOR AGENTS</a>
-  <a href="/docs/">DOCS</a>
-  <a href="/playground">DASHBOARDS</a>
-  <a href="https://hub.xerj.org" rel="external">HUB</a>
-  <a href="/donate">DONATE</a>
-  <a class="nav-stars" href="https://github.com/xerj-org/xerj" rel="external" title="XERJ on GitHub" aria-label="XERJ on GitHub, 14,225 stars"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg><span class="nav-stars-n" data-gh-stars="14225">★ 14.2k</span></a>
-  <a href="https://x.com/xerj_org" rel="external" title="XERJ on X" style="display:inline-flex;align-items:center"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg></a>
-  <a href="https://discord.com/invite/yetXFusXfs" rel="external" title="XERJ on Discord" style="display:inline-flex;align-items:center"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.317 4.37a19.79 19.79 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.74 19.74 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 00-.041-.106 13.1 13.1 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.3 12.3 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.84 19.84 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg></a>
-  <a class="nav-dl" href="https://github.com/xerj-org/xerj/releases/latest" rel="external" title="Download the latest XERJ release">↓ <span data-latest-tag>v1.0.0-rc.102</span></a>
-  <span class="theme">
-    <button type="button" data-theme="day" class="active">DAY</button>
-    <span class="dash">·</span>
-    <button type="button" data-theme="night">NIGHT</button>
+  <span class="nav-links">
+    <a href="/xerj-query-1">Query-1</a>
+    <a href="/#use-cases">Use cases</a>
+    <a href="/benchmarks/">Benchmarks</a>
+    <a href="/docs/">Docs</a>
+    <a href="/blog/">Blog</a>
+    <a href="https://hub.xerj.org" rel="external">Hub</a>
   </span>
+  <span class="spacer"></span>
+  <a class="nav-stars" href="https://github.com/xerj-org/xerj" rel="external" title="XERJ on GitHub (18,497 stars on 2026-11-07 by the GitHub API)" aria-label="XERJ on GitHub, 18,497 stars"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>GitHub <span class="nav-stars-n" data-gh-stars="18497">★ 18.5k</span></a>
+  <details class="nav-menu">
+    <summary>Menu</summary>
+    <span class="nav-menu-list">
+      <a href="/xerj-query-1">Query-1</a>
+      <a href="/#use-cases">Use cases</a>
+      <a href="/benchmarks/">Benchmarks</a>
+      <a href="/docs/">Docs</a>
+      <a href="/blog/">Blog</a>
+      <a href="https://hub.xerj.org" rel="external">Hub</a>
+      <a href="https://github.com/xerj-org/xerj" rel="external">GitHub</a>
+    </span>
+  </details>
 </nav>
 
-<!-- HERO — one job: the prompt ----------------------------->
 <main>
-<section class="hero-center">
-  <p class="hero-eyebrow">NEW IN RC.101 · XERJ QUERY-1 · ONE RUST BINARY · RUNS OFFLINE ON CPU</p>
+<section id="start" class="g">
+  <div class="c8">
+    <a class="pill" href="/xerj-query-1"><b>New</b> XERJ Query-1, answers that show their work &rarr;</a>
+    <h1>The search engine built for AI agents.</h1>
+    <p class="sub">One open-source binary that indexes your files, code and databases, and answers questions with the evidence attached. Runs offline on a CPU.</p>
 
-  <h1 class="hero">XERJ QUERY-1.<br>ANSWERS THAT<br><span class="accent">SHOW THEIR WORK.</span></h1>
-
-  <p class="hero-sub">XERJ is a search engine with an AI model inside. XERJ Query-1 turns your question into a small program and runs it over your own data, offline on a CPU.</p>
-
-  <div class="hero-col">
-    <!-- The agent path first: one prompt that covers the broad use case. -->
-    <div class="prompt-stage" id="prompt">
-      <div class="prompt-card">
-        <span class="prompt-label">HAND THIS TO YOUR AI AGENT</span>
-        <code>Install XERJ with the XERJ Query-1 model (docs: https://xerj.org/llms.txt). Index the data I point you to (ask before going outside this folder), search it, write its key facts into a facts namespace and ask one question. Show me the hits, the answer, the program and the evidence.</code>
-        <button type="button" class="prompt-copy" data-copy="Install XERJ with the XERJ Query-1 model (docs: https://xerj.org/llms.txt). Index the data I point you to (ask before going outside this folder), search it, write its key facts into a facts namespace and ask one question. Show me the hits, the answer, the program and the evidence.">COPY THE PROMPT</button>
-      </div>
+    <div class="prompt" id="prompt">
+      <div class="bar"><span>Give this to your AI agent</span><button type="button" class="copy" data-copy="Set up XERJ for me, following https://xerj.org/llms.txt.&#10;1. Install XERJ with the XERJ Query-1 model and start it.&#10;2. Index the folder I point you to (ask before reading anything outside it) and run one search.&#10;3. Write three facts from that data into a facts namespace and ask XERJ Query-1 one question about them. Show me the answer, the program and the evidence.&#10;4. Set up reference coding: index one open-source repo close to this project and look up one definition in it.&#10;5. If this client takes MCP servers, register XERJ (llms.txt has the line for each client) and save one memory note through it.&#10;If you have no shell, use the HTTP or MCP steps in llms.txt instead.">Copy the prompt</button></div>
+      <pre>Set up XERJ for me, following https://xerj.org/llms.txt.
+1. Install XERJ with the XERJ Query-1 model and start it.
+2. Index the folder I point you to (ask before reading anything outside it) and run one search.
+3. Write three facts from that data into a facts namespace and ask XERJ Query-1 one question about them. Show me the answer, the program and the evidence.
+4. Set up reference coding: index one open-source repo close to this project and look up one definition in it.
+5. If this client takes MCP servers, register XERJ (llms.txt has the line for each client) and save one memory note through it.
+If you have no shell, use the HTTP or MCP steps in llms.txt instead.</pre>
     </div>
+    <p class="verify">Check it worked: <code>curl -s localhost:9200/_facts | grep -o '"state":"loaded"'</code> prints <code>"state":"loaded"</code> (empty for a few seconds while the model loads).</p>
+    <p class="alt">No shell: HTTP and MCP steps in <a href="/llms.txt">llms.txt</a>. Install it yourself: <code>curl -fsSL https://xerj.org/get | sh -s -- --with-model</code> on Linux and macOS; Windows and other targets: <a href="/docs/install">install</a>.</p>
+  </div>
+  <aside class="glance" aria-labelledby="glance-h">
+    <p class="label" id="glance-h">Measured, same 160 questions</p>
+    <dl>
+      <div><dt>220 ms</dt><dd>question to answer, XERJ Query-1 on 4 laptop CPU cores. RAG on Opus 5.5: 1.5 to 2.3 s of API time.</dd></div>
+      <div><dt>$42</dt><dd>of CPU per million questions. RAG on Opus 5.5: $13,400 or more. Writing the facts is not in this number; today you or your agent write them.</dd></div>
+      <div><dt>1 wrong</dt><dd>and 35 declined. RAG on Opus 5.5: 9 to 15. Opus 5.5 given the same records: 5; our sample can't tell 1 from 5 apart.</dd></div>
+    </dl>
+    <p class="more"><a href="#proof">How we measured</a></p>
+  </aside>
+</section>
 
-    <!-- The human path. Commands are verbatim from docs/MODEL_QUICKSTART.md. -->
-    <div class="hero-install" id="get">
-      <p class="hero-install-label">OR INSTALL IT YOURSELF · BINARY + MODEL · SHA-256 VERIFIED</p>
-      <div class="hero-install-cmd">
-        <code>curl -fsSL https://xerj.org/get | sh -s -- --with-model</code>
-        <button type="button" class="hero-install-copy" data-copy="curl -fsSL https://xerj.org/get | sh -s -- --with-model">COPY</button>
-      </div>
-<pre class="code">$ xerj --facts-model-dir ~/.local/share/xerj/model --insecure --data-dir ~/xerj-data &amp;
-$ curl -s localhost:9200/_facts | grep -o '"state":"loaded"'
-<span class="comment">→ "state":"loaded"   (empty for the first few seconds while the model loads; run it again)</span></pre>
-      <p class="hero-install-agent-line"><strong>No shell?</strong> Over HTTP: <code class="inline">POST /_facts/&lt;ns&gt;/_bulk</code> then <code class="inline">POST /_facts/&lt;ns&gt;/_ask</code> on a node started with the flag; check <code class="inline">GET /_facts</code> shows <code class="inline">"state":"loaded"</code>. From MCP: <code class="inline">xerj mcp</code> lists <code class="inline">xerj_facts_ask</code> when the model is on. <a href="https://github.com/xerj-org/xerj/blob/main/docs/MODEL_QUICKSTART.md" rel="external">Full quickstart →</a></p>
-      <p class="hero-install-agent-line">Without <code class="inline">--with-model</code> you get the plain engine: <code class="inline">curl -fsSL https://xerj.org/get | sh</code>. Linux, macOS and Windows, x86_64 and arm64. <a href="/docs/install">All eight targets →</a></p>
+<section id="why" class="g">
+  <div class="c12">
+    <p class="label">Why now</p>
+    <p class="big">Agents now do a growing share of the searching. Every answer they get from a language model costs seconds and money, and comes back as text nobody checked. XERJ moves that work into the index: search in milliseconds, and answers computed as small programs over your own facts, each with the evidence it used.</p>
+    <p>For developers whose coding agents need real code, and for teams whose data cannot leave their network.</p>
+  </div>
+  <div class="c4 trio"><h3>Programs, not prose.</h3><p>XERJ Query-1 writes a short program and the engine runs it. No fact, no answer: it says UNKNOWN.</p></div>
+  <div class="c4 trio"><h3>One binary, no stack.</h3><p>Search, vectors, facts, memory and an Elasticsearch-compatible API in one Rust binary.</p></div>
+  <div class="c4 trio"><h3>Your data stays put.</h3><p>Runs offline on a CPU, on a laptop or a server inside your network.</p></div>
+  <div class="c12">
+    <figure class="shot"><picture class="img-day"><source media="(max-width: 720px)" srcset="/assets/home/i0-system-narrow-day.webp" width="358" height="933"><img src="/assets/home/i0-system-wide-day.webp" width="1200" height="302" alt="Your data (folders and S3, code repos, Postgres, facts) goes into one XERJ binary on a CPU that holds keyword and vector search, facts with XERJ Query-1, memory and graph, and an Elasticsearch-compatible API; AI agents, your apps and Elasticsearch clients call it, and an outside model is off unless you turn it on." loading="lazy" decoding="async"></picture><picture class="img-night"><source media="(max-width: 720px)" srcset="/assets/home/i0-system-narrow-night.webp" width="358" height="933"><img src="/assets/home/i0-system-wide-night.webp" width="1200" height="302" alt="Your data (folders and S3, code repos, Postgres, facts) goes into one XERJ binary on a CPU that holds keyword and vector search, facts with XERJ Query-1, memory and graph, and an Elasticsearch-compatible API; AI agents, your apps and Elasticsearch clients call it, and an outside model is off unless you turn it on." loading="lazy" decoding="async"></picture><figcaption>How the pieces fit. Postgres sync ships in rc.102.</figcaption></figure>
+  </div>
+</section>
+
+<section id="proof" class="g">
+  <div class="c8">
+    <p class="label">Measured</p>
+    <h2>A program on a CPU instead of a model call per question.</h2>
+  </div>
+  <div class="c12">
+    <div class="tbl">
+    <table class="cmp1">
+      <thead><tr><th>What</th><th class="x">XERJ</th><th>The usual way</th><th>How we got it</th></tr></thead>
+      <tbody>
+        <tr><td>Time from question to answer</td><td class="x" data-h="XERJ">about 220 ms, XERJ Query-1 on 4 laptop CPU cores</td><td data-h="The usual way">1.5 to 2.3 s, Opus 5.5 writing a RAG answer (API time)</td><td data-h="How we got it">Measured, same 160 questions</td></tr>
+        <tr><td>Cost per million questions</td><td class="x" data-h="XERJ">$42 of CPU, not counting writing the facts</td><td data-h="The usual way">$13,400 to $21,000 RAG; $65,400 GraphRAG; up to $694,000 with Opus reading the whole store</td><td data-h="How we got it">Priced from measured tokens and list prices</td></tr>
+        <tr><td>Wrong answers out of 160</td><td class="x" data-h="XERJ">1 (35 declined)</td><td data-h="The usual way">9 to 15, RAG on Opus 5.5 searching one merged store. Opus 5.5 given the same records: 5; our sample can't tell 1 from 5 apart.</td><td data-h="How we got it">Measured on our development set; Query-1 was given each question's own records</td></tr>
+        <tr><td>What you run</td><td class="x" data-h="XERJ">1 binary</td><td data-h="The usual way">3 services: vector DB, graph DB, cache</td><td data-h="How we got it">Architecture, not a benchmark</td></tr>
+      </tbody>
+    </table>
     </div>
+    <p class="under">Data sets, method and caveats: <a href="/blog/xerj-query-ai-model">the XERJ Query-1 post</a>. Engine benchmarks, wins and losses alike: <a href="/benchmarks/">benchmarks</a>.</p>
   </div>
 </section>
 
-<!-- 00 · XERJ QUERY-1 (rc.101) ---------------------------------->
-<section class="scene-section" id="query-1">
-  <div class="kicker"><span class="accent">XERJ QUERY-1</span><span class="dash">·</span><span>WHAT IT CHANGES: MEASURED, ESTIMATED OR PRICED (EACH CARD SAYS WHICH)</span></div>
-  <h2 class="scene">ASK A QUESTION.<br><span class="accent">IT WRITES THE PROGRAM.</span></h2>
+<section id="use-cases">
+  <div class="g"><div class="c8">
+    <p class="label">Use cases</p>
+    <h2>One binary. Seven jobs.</h2>
+  </div></div>
 
-  <p class="wide">
-    Most AI search finds passages and hands them to a language model, which writes the answer.
-    That model call is where a RAG answer's quality comes from, and it is why RAG takes seconds and costs
-    money on every question: in our test, search took under 1 ms to about 100 ms and Opus 5.5 writing the
-    answer took 1.5 to 2.3 s. XERJ Query-1 writes a short program instead: look this up, compare these,
-    count those. The engine runs it over facts you stored. Lookups and comparisons cite the facts they
-    used; a count returns the program's hash, not the records. When the data cannot back an answer you
-    should get <code class="inline">UNKNOWN</code>, and when two records disagree,
-    <code class="inline">CONFLICT</code>; some counts can still come back wrong.
-  </p>
-
-  <div class="q1-cards">
-    <div class="q1-card"><div class="pair"><span class="ours">≈220 ms</span><span class="vs">vs</span><span class="theirs">1.5–2.3 s</span></div>
-      <div class="cap">question to answer on the same 160 questions: XERJ Query-1 on 4 laptop CPU cores vs Opus 5.5 writing a RAG answer (search itself took under 1 ms to 106 ms)</div>
-      <div class="t">Ask. It writes the program.</div>
-      <div class="s">On the same 160 questions, Opus 5.5 took 1.5 to 2.3 s to write each RAG answer (API time per call; our command-line client's start-up is not counted), after a search that took under 1 ms to 106 ms. Writing the answer is where RAG's answer quality comes from; XERJ Query-1 writes a program instead and runs it on the CPU.</div></div>
-    <div class="q1-card"><div class="pair"><span class="ours">$42</span><span class="vs">vs</span><span class="theirs">$13,400–$694,000</span></div>
-      <div class="cap">per million questions on our 160-question test, at list prices: XERJ Query-1's CPU time vs RAG, GraphRAG and Opus 5.5 reading the data</div>
-      <div class="t">Runs on your records.</div>
-      <div class="s">No API model is billed per question: XERJ Query-1 runs a small model on your CPU, and that CPU time is the $42. The same million questions cost $13,400 to $21,000 on RAG with Opus 5.5, $65,400 on GraphRAG and up to $694,000 with Opus re-reading the whole store for every question (ARITHMETIC from measured tokens).</div></div>
-    <div class="q1-card"><div class="pair"><span class="ours">1</span><span class="vs">vs</span><span class="theirs">9–15</span></div>
-      <div class="cap">wrong of 160 questions from our development set, vs RAG on Opus 5.5. XERJ Query-1 was given each question's own records and declined 35; Opus 5.5 given the same records: 5 wrong</div>
-      <div class="t">Checked or refused.</div>
-      <div class="s">A missing fact gives UNKNOWN; facts that disagree give CONFLICT. Most RAG errors came from search missing the evidence. Answers are stored values or computed counts, never free text, but they can still be wrong: 1 of 160 here, and some counts in known cases.</div></div>
-    <div class="q1-card"><div class="pair"><span class="ours">17 min</span><span class="vs">vs</span><span class="theirs">62–97 h</span></div>
-      <div class="cap">a keyword (BM25) index of 10 GB of English Wikipedia, 3.3 million articles, on CPU (measured) vs embedding it with bge-small (estimated)</div>
-      <div class="t">No embeddings.</div>
-      <div class="s">17 minutes and 0.7 CPU-hours; 100 article-title queries then took 9.3 ms at the median. Embedding the same text would take an estimated 62 to 97 hours and 8.5 GB of vectors. The two do different jobs: on BEIR, vector search beat BM25 by 0.04 to 0.17 nDCG@10. XERJ Query-1 answers over facts you write, not over this index.</div></div>
-    <div class="q1-card"><div class="pair"><span class="ours">≈2 ms</span><span class="vs">vs</span><span class="theirs">≈30 ms</span></div>
-      <div class="cap">to apply one correction: a XERJ facts write (measured) vs re-embedding the one changed chunk (ARITHMETIC)</div>
-      <div class="t">A store you can correct.</div>
-      <div class="s">Fix a fact and the next ask uses it (10 of 10 in our test); earlier answers replay by revision. An embedding index re-encodes the changed text, and the whole store (19.6 s for our 5,000-record test store) when its model changes.</div></div>
-    <div class="q1-card"><div class="pair"><span class="ours">1 binary</span><span class="vs">vs</span><span class="theirs">3 services</span></div>
-      <div class="cap">facts, memory and brains over 24 MCP tools vs vector DB + graph DB + cache</div>
-      <div class="t">One server instead of a stack.</div>
-      <div class="s">Agent memory, linked knowledge and facts together, over 24 MCP tools in one binary; no separate vector DB, graph DB or cache service.</div></div>
-  </div>
-
-  <p class="viz-caption"><a class="mono" href="/xerj-query-1" style="color:var(--z-mute);">HOW XERJ QUERY-1 WORKS, WITH EXAMPLES →</a><span class="dash" style="color:var(--z-mute);">·</span><a class="mono" href="/blog/xerj-query-ai-model" style="color:var(--z-mute);">THE BLOG POST: NUMBERS, CAVEATS, BENCHMARKS AND DATA SETS →</a></p>
-
-  <p class="wide" style="margin-top:var(--sp-3);">
-    Off by default: without <code class="inline">--facts-model-dir</code> there is no <code class="inline">/_facts</code> route, no model load and the same MCP tool list as rc.100.
-    Storage did change: rc.101's first write moves a data folder to format 4, which rc.100 cannot open, so back it up first.
-    The model answers from facts you or your agent write; it does not yet turn documents into facts by itself.
-    What it does not do yet, measured: sums and totals, and large fact sets (on a 95,000-fact namespace asks took
-    0.5 to 1.5 s, median 0.8 s, and all 20 test questions were declined). It declines more often than Opus 5.5 does
-    with the same records (35 against 18 of 160): part of that is the price of not guessing, part is a decline rule
-    that is still too strict.
-  </p>
-</section>
-
-<!-- WHAT ELSE XERJ DOES ---------------------------------------->
-<section class="scene-section" id="use-cases">
-  <div class="kicker"><span class="accent">ONE BINARY</span><span class="dash">·</span><span>WHAT ELSE XERJ DOES</span></div>
-  <h2 class="scene">SEARCH, MEMORY,<br><span class="accent">REFERENCE CODING.</span></h2>
-
-  <div class="q1-cards uc-tiles">
-    <div class="q1-card"><div class="t">Search your files</div>
-      <div class="s"><code class="inline">xerj autoindex &lt;folder&gt;</code> indexes PDF, Office, HTML, CSV, JSON, email, code, logs, SQLite files and SQL dumps, with <code class="inline">--watch</code> to stay current and <code class="inline">s3://</code> for S3, R2 or MinIO. Full-text and hybrid search, cited.</div>
-      <div class="cap"><a href="#autoindex">ONE COMMAND, ANY FOLDER →</a></div></div>
-    <div class="q1-card"><div class="t">Agent memory and brains</div>
-      <div class="s">Store, recall and forget notes for your agent, and link them into a knowledge graph with evidence, over 24 MCP tools on the same node as your search and facts.</div>
-      <div class="cap"><a href="/llms.txt">MCP SETUP PER CLIENT →</a></div></div>
-    <div class="q1-card"><div class="t">Reference coding</div>
-      <div class="s">Index the open-source repos closest to what you build, so your coding agent reads the real definition instead of guessing. 1.5 to 2.7 times fewer output tokens than Claude Code grepping the same source, on small libraries we wrote for the test so no model had seen them; on code the model already knows, retrieval saved nothing.</div>
-      <div class="prompt-card uc-prompt"><code>Install XERJ (docs: https://xerj.org/llms.txt), index this project's sources, and set up reference coding: clone and index the open-source repos closest to what we're building, and search how they solved a problem before writing code.</code>
-        <button type="button" class="prompt-copy" data-copy="Install XERJ (docs: https://xerj.org/llms.txt), index this project's sources, and set up reference coding: clone and index the open-source repos closest to what we're building, and search how they solved a problem before writing code.">COPY THE PROMPT</button></div>
-      <div class="cap"><a href="#reference-coding">HOW IT WORKS →</a></div></div>
-    <div class="q1-card"><div class="t">Elasticsearch-compatible API</div>
-      <div class="s">Elasticsearch clients talk to it over the same wire (ES 8.13 REST, checked by our conformance suite: bulk, search, aggregations and kNN over HTTP), plus a native API and one binary to run. There is no client version matrix or Kibana end-to-end test yet, so check the calls your client depends on.</div>
-      <div class="cap"><a href="#http-api">ONE HTTP API →</a></div></div>
-  </div>
-
-  <p class="hero-proof">The engine benchmarks on the <a href="/benchmarks/">benchmarks page</a> name the run behind each number, wins and losses alike. The XERJ Query-1 numbers come from runs described in the blog post; their test data and scripts are not public yet.</p>
-</section>
-
-<!-- 01 — REFERENCE CODING ------------------------------------->
-<section class="scene-section" id="reference-coding">
-  <div class="kicker"><span class="accent">01</span><span class="dash">·</span><span>REFERENCE CODING · INDEX THE REPOS YOU LEARN FROM</span></div>
-  <h2 class="scene">CODE YOUR AGENT<br><span class="accent">HASN'T MEMORISED.</span></h2>
-
-  <p class="wide">
-    A coding agent that hits an API it has not memorised invents method names,
-    fails to compile, and loops. Every lap spends <em>output</em> tokens, which
-    are the expensive kind. Grep gets there too, at a higher token cost: in our test, Claude Code grepping the source solved every task, but it read the files into context and spent 1.5 to 2.7 times the output tokens.
-  </p>
-
-  <p class="wide">
-    Reference coding flips that loop. Clone the open-source repos closest to
-    what you are building, index them once with
-    <code class="inline">xerj autoindex</code>, and the agent retrieves the
-    exact definition, with its contract, before it writes a line.
-  </p>
-
-  <p class="wide">
-    We measured it over eight tasks in four languages (Python, JavaScript, Java and C), sixteen runs per arm, counting the tokens each run actually billed. The libraries were written for the test, so no model had seen them. Retrieval used <strong>2.7× fewer output tokens</strong> than a grep-driven agent at the same solve rate (9,982 vs 26,477; both solved 16 of 16) on those libraries; on a second set of 21 runs the saving was 1.5×, and cost roughly half as much. On sift, a small Rust library we wrote for the test, retrieval solved <strong>nine of nine</strong> and memory solved none; Claude Code grepping the source also solved nine of nine. The loop is four commands, and
-    <a href="/llms.txt">llms.txt</a> walks your agent through all of them.
-  </p>
-
-<pre class="code">$ xerj --insecure --data-dir ./.xerj-data &amp;      <span class="comment"># a node, running</span>
-$ git clone --depth 1 https://github.com/spacejam/sled ref/sled
-$ xerj autoindex ref/sled                        <span class="comment"># index once — tree-sitter AST fields</span>
-$ xerj search <span class="accent">"fsync the WAL segment on rotation"</span>
-→ the exact function, its file:line and contract — one plain-English line in, a passage to read out
-$ xerj def <span class="accent">"euler_to_rotationmatrix"</span>
-→ where it is defined: file:line + signature — go-to-definition, one call</pre>
-
-  <p class="wide" style="margin-top:var(--sp-3);">
-    One binary, no wrapper scripts. <code class="inline">xerj search</code> is a
-    client: it finds the running node and asks a definition-first query, pairing
-    an exact-symbol clause with a phrase match on the AST
-    <code class="inline">defs</code> field, so what comes back is the function
-    rather than a list of line matches. On an eighty-task cross-file benchmark of our own (task set not published; CHANGELOG rc.73, PR #916), this query put the right file first <strong>94%</strong> of the time, against 38% for the previous single multi_match query. That is top-1 file accuracy only.
-  </p>
-
-  <p class="wide">
-    When you already know the name, <code class="inline">xerj def</code> answers
-    the sharper question in one call: where is this defined, and what is its
-    signature. For a whole team, <code class="inline">xerj corpus add</code>
-    records a corpus definition of pinned commit SHAs and licences under
-    <a class="mono" href="https://github.com/xerj-org/xerj/tree/main/tools/xerj-code" rel="external" style="color:var(--z-mute);">tools/xerj-code/</a>,
-    a few hundred bytes and no source, so another machine rebuilds exactly the
-    same commits.
-  </p>
-
-  <p class="viz-caption"><a class="mono" href="/case-studies/reference-coding" style="color:var(--z-mute);">THE FULL CASE STUDY — EVERY NUMBER, EVERY TASK, THE EXACT PROMPT →</a><span class="dash" style="color:var(--z-mute);">·</span><a class="mono" href="https://github.com/xerj-org/xerj/blob/main/user-feedback/11-reference-coding-field-reports/2026-08-11-token-savings-reports.md" style="color:var(--z-mute);">THE FIELD REPORTS BEHIND THE TOKEN SAVINGS →</a></p>
-</section>
-
-<!-- 02 — POINT XERJ AT A FOLDER ------------------------------->
-<section class="scene-section" id="autoindex">
-  <div class="kicker"><span class="accent">02</span><span class="dash">·</span><span>POINT XERJ AT A FOLDER · ZERO CONFIG</span></div>
-  <h2 class="scene">ONE COMMAND.<br><span class="accent">ANY FOLDER.</span></h2>
-
-  <p class="wide">
-    A quick way to make data useful to an agent is to skip building a pipeline. <code class="inline">xerj autoindex &lt;folder&gt;</code> is a
-    subcommand of the same binary. It walks the tree and identifies every file
-    by its <strong>content</strong>, because extensions lie.
-  </p>
-
-  <p class="wide">
-    It covers thirteen format families, from JSONL and dialect-sniffed CSV
-    through SQL dumps, SQLite, PDF, DOCX, HTML, XML, YAML and gzip. It infers
-    field types and date encodings from the data itself, writes explicit
-    mappings, and streams everything in with idempotent IDs. Junk files are
-    recorded rather than fatal.
-  </p>
-
-  <p class="wide">
-    It finishes by writing a catalog index, so the agent's first question,
-    <em>"what is even in here?"</em>, is answered by the engine instead of by
-    another script. Here is a real captured run:
-  </p>
-
-<pre class="code">$ xerj autoindex ./sample
-autoindex: 4 files (0 MB) under /tmp/xerj-pubpass/sample
-phase A: sniffing + sampling 4 files…
-phase A: 3 datasets inferred, 1 junk/skipped files
-phase B: indexing 3 files with 8 workers → http://localhost:9280
-
-done in 0.2s — 3 datasets, 5801 records live, 0 junk records, 1 junk/skipped files
-  ax-logs                                        5000 docs
-  ax-exports                                      800 docs
-  ax-docs                                           1 docs
-
-next: `xerj autoindex map --url http://localhost:9280` for the data map; search via GET /ax-*/_search</pre>
-
-  <p class="viz-caption">CAPTURE NOTE · THAT RUN'S NODE WAS STARTED ON A NON-DEFAULT PORT, SO THE OUTPUT ECHOES <span class="mono">:9280</span>. THE DEFAULT ES-COMPAT PORT IS <span class="mono">:9200</span> — USE <span class="mono">http://localhost:9200</span> UNLESS YOU CHANGED IT. THE TRANSCRIPT ABOVE IS REPRODUCED UNEDITED.</p>
-
-  <div class="ticker" style="margin-top:var(--sp-6);">
-    <div class="tk">
-      <div class="eyebrow">GROUND-TRUTH EXAM · 1,995 FILES / 518 MB</div>
-      <div class="value"><span class="accent">80/81</span> CHECKS</div>
-      <div class="hint">secret-manifest corpus, 25 formats · the one miss: a Shift-JIS file indexed as mojibake</div>
+  <article class="uc g" id="answers">
+    <div class="text">
+      <p class="label">01 · Answers</p>
+      <h3>Answers you can check, or an honest UNKNOWN.</h3>
+      <p>XERJ Query-1 turns a question into a short program and the engine runs it over facts you or your agent wrote. No backing facts: <code class="inline">UNKNOWN</code>. Facts that disagree: <code class="inline">CONFLICT</code>.</p>
+      
+      <p class="more"><a href="/xerj-query-1">How XERJ Query-1 works</a></p>
     </div>
-    <div class="tk">
-      <div class="eyebrow">518 MB → LIVE, TYPED INDICES</div>
-      <div class="value"><span class="accent">38.1&nbsp;s</span></div>
-      <div class="hint">31 datasets · 2,018,398 records · ~38–51 s across runs · 33.7k records/s end to end on a 923 MB subset of our test corpora (2,601,752 records in 77.3 s, July 2026)</div>
+    <div class="media">
+      <figure class="shot"><picture class="img-day"><source media="(max-width: 720px)" srcset="/assets/home/i1-answers-narrow-day.webp" width="358" height="1050"><img src="/assets/home/i1-answers-wide-day.webp" width="690" height="737" alt="XERJ Query-1 answers 170 cm and cites characters 11 to 14 of document d1, says UNKNOWN for a salary nobody wrote down and CONFLICT for two heights that disagree; after one correction it answers 172 cm, and asked at revision 6 it still answers 170 cm." loading="lazy" decoding="async"></picture><picture class="img-night"><source media="(max-width: 720px)" srcset="/assets/home/i1-answers-narrow-night.webp" width="358" height="1050"><img src="/assets/home/i1-answers-wide-night.webp" width="690" height="737" alt="XERJ Query-1 answers 170 cm and cites characters 11 to 14 of document d1, says UNKNOWN for a salary nobody wrote down and CONFLICT for two heights that disagree; after one correction it answers 172 cm, and asked at revision 6 it still answers 170 cm." loading="lazy" decoding="async"></picture><figcaption>Real rc.101 responses with the XERJ Query-1 model, trimmed to the <code>final_*</code>, <code>program</code> and <code>evidence</code> keys. Captured 2026-11-07.</figcaption></figure>
     </div>
-    <div class="tk">
-      <div class="eyebrow">RESUMABLE · IDEMPOTENT</div>
-      <div class="value"><span class="accent">KILL&nbsp;-9</span> SAFE</div>
-      <div class="hint">journal resume converges to identical final counts · client memory stayed bounded: peak 160 to 168 MB on 923 MB of input and 245 to 257 MB on 4.61 GB (5 times the input). In that July 2026 run the server's memory was not bounded.</div>
+  </article>
+  <article class="uc g" id="reference-coding">
+    <div class="text">
+      <p class="label">02 · Reference coding</p>
+      <h3>Your coding agent stops guessing APIs.</h3>
+      <p>Index the open-source repos closest to what you build, and on code it hasn't memorised your coding agent reads the real definition instead of inventing one and looping. Ready-made corpora are on the <a href="https://hub.xerj.org" rel="external">Corpus Hub</a>.</p>
+      <p class="num">2.7x fewer output tokens</p><p class="scope">than Claude Code grepping the same source, both 16 of 16 solved; 8 tasks in 4 languages on libraries written for the test. On code the model already knows, retrieval saved nothing.</p>
+      <p class="more"><a href="/case-studies/reference-coding">The case study</a></p>
     </div>
-  </div>
-
-  <p class="wide" style="margin-top:var(--sp-6);">
-    Honesty first. In a controlled ten-question exam on that 518 MB folder, a XERJ-backed agent scored nine correct and one partial; a fair grep-and-python baseline scored ten out of ten. <strong>The baseline won narrowly.</strong>
-  </p>
-
-  <p class="wide">
-    What XERJ wins is structural. A full corpus inventory takes four API calls,
-    aggregations over millions of rows come back in under a second, and SQLite, DOCX, gzip and decimal-comma CSV all arrive through one API. We expect these advantages to matter more at larger scale and under repeated querying; this 518 MB exam did not show that. The client streams (its memory stayed under 260 MB on a 4.61 GB folder) and resumes (kill -9 and re-run verified on a 923 MB folder). Our multi-gigabyte autoindex runs have not finished end to end yet: the 4.61 GB run in July stopped when the server ran out of memory, and the 5 GB runs in October stopped at the 15-minute gate limit.
-  </p>
-  <p class="viz-caption"><a class="mono" href="/docs/recipes/zero-config-autoindex" style="color:var(--z-mute);">THE FULL RECIPE, EVERY NUMBER TRACED TO A RUN →</a></p>
+    <div class="media">
+      <figure class="shot"><picture class="img-day"><source media="(max-width: 720px)" srcset="/assets/home/i2-reference-coding-narrow-day.webp" width="358" height="658"><img src="/assets/home/i2-reference-coding-wide-day.webp" width="690" height="622" alt="Output tokens to solve 16 tasks: memory only 260,916 with 11 of 16 solved, Claude Code grepping the source 26,477 with 16 of 16, XERJ reference retrieval 9,982 with 16 of 16; below, xerj def returns src/tree.rs line 1037 and the signature of compare_and_swap in sled." loading="lazy" decoding="async"></picture><picture class="img-night"><source media="(max-width: 720px)" srcset="/assets/home/i2-reference-coding-narrow-night.webp" width="358" height="658"><img src="/assets/home/i2-reference-coding-wide-night.webp" width="690" height="622" alt="Output tokens to solve 16 tasks: memory only 260,916 with 11 of 16 solved, Claude Code grepping the source 26,477 with 16 of 16, XERJ reference retrieval 9,982 with 16 of 16; below, xerj def returns src/tree.rs line 1037 and the signature of compare_and_swap in sled." loading="lazy" decoding="async"></picture><figcaption>Bars: the reference-coding case study (real billed output tokens). Terminal: <code>xerj def</code> on the rc.101 release over a clone of sled, captured 2026-11-07.</figcaption></figure>
+    </div>
+  </article>
+  <article class="uc g" id="search">
+    <div class="text">
+      <p class="label">03 · Search</p>
+      <h3>Every file in a folder or bucket, searchable and cited.</h3>
+      <p><code class="inline">xerj autoindex</code> identifies each file by its content and indexes PDF, Office, HTML, CSV, JSON, email exports, SQLite, SQL dumps and code, from a folder or from S3, R2 or MinIO. Full-text and hybrid search.</p>
+      <p class="num">4.6 s</p><p class="scope">to make 13 public NIST and CMS PDFs (22.9 MB, 3,032 records) searchable with the rc.101 release on a 32-core x86_64 laptop; then 0.9 ms at p50 over 200 different two-word searches. Run 2026-11-07.</p>
+      <p class="more"><a href="/docs/recipes/zero-config-autoindex">Zero-config autoindex</a></p>
+    </div>
+    <div class="media">
+      <figure class="shot"><picture class="img-day"><source media="(max-width: 720px)" srcset="/assets/home/i3-search-narrow-day.webp" width="358" height="558"><img src="/assets/home/i3-search-wide-day.webp" width="690" height="408" alt="xerj autoindex reads 13 PDFs, makes 3,032 records searchable and reports wall=4.6s; 200 different searches then take 0.94 ms at the median." loading="lazy" decoding="async"></picture><picture class="img-night"><source media="(max-width: 720px)" srcset="/assets/home/i3-search-narrow-night.webp" width="358" height="558"><img src="/assets/home/i3-search-wide-night.webp" width="690" height="408" alt="xerj autoindex reads 13 PDFs, makes 3,032 records searchable and reports wall=4.6s; 200 different searches then take 0.94 ms at the median." loading="lazy" decoding="async"></picture><figcaption>The rc.101 release, a folder of 13 public-domain PDFs from nvlpubs.nist.gov and cms.gov. Lines deleted, none edited. An S3 run was not captured for this page.</figcaption></figure>
+    </div>
+  </article>
+  <article class="uc g" id="live-data">
+    <div class="text">
+      <p class="label">04 · Live data <span class="tag">Ships in rc.102</span></p>
+      <h3>Search what your database says right now.</h3>
+      <p><code class="inline">xerj connect postgres://...</code> takes a consistent snapshot, then follows every insert, update and delete through Postgres logical replication, and picks up again after a restart.</p>
+      <p class="num">19.7 ms</p><p class="scope">median from Postgres commit to readable in XERJ, 60 updates on a 200,000-row synthetic table, Postgres 16 (p95 21.7 ms; run 2026-11-05).</p>
+      <p class="more"><a href="/use-cases/enterprise-on-prem-cohere#database">The worked example</a></p>
+    </div>
+    <div class="media">
+      <figure class="shot"><picture class="img-day"><source media="(max-width: 720px)" srcset="/assets/home/i4-live-data-narrow-day.webp" width="358" height="384"><img src="/assets/home/i4-live-data-wide-day.webp" width="690" height="349" alt="xerj connect snapshots a 200,000-row Postgres table and starts streaming; 60 updates were readable in XERJ at a median of 19.7 ms, p95 21.7 ms, max 34.6 ms." loading="lazy" decoding="async"></picture><picture class="img-night"><source media="(max-width: 720px)" srcset="/assets/home/i4-live-data-narrow-night.webp" width="358" height="384"><img src="/assets/home/i4-live-data-wide-night.webp" width="690" height="349" alt="xerj connect snapshots a 200,000-row Postgres table and starts streaming; 60 updates were readable in XERJ at a median of 19.7 ms, p95 21.7 ms, max 34.6 ms." loading="lazy" decoding="async"></picture><figcaption>A development build of main, run 2026-11-05. The run kept only the median, p95 and maximum, so only those are marked.</figcaption></figure>
+    </div>
+  </article>
+  <article class="uc g" id="memory">
+    <div class="text">
+      <p class="label">05 · Memory</p>
+      <h3>Agents that remember, and show why.</h3>
+      <p>Agents store, recall and forget notes, and link them into a graph where every edge keeps its evidence. Recall works by keyword and word overlap by default; turn on a neural encoder to recall by meaning.</p>
+      <p class="num">24 MCP tools</p><p class="scope">on one node, next to search and facts (23 when XERJ Query-1 is off). Setup per client in <a href="/llms.txt">llms.txt</a>.</p>
+      <p class="more"><a href="/docs/recipes/agentic-memory">Agent memory recipe</a></p>
+    </div>
+    <div class="media">
+      <figure class="shot"><picture class="img-day"><source media="(max-width: 720px)" srcset="/assets/home/i5-memory-narrow-day.webp" width="358" height="633"><img src="/assets/home/i5-memory-wide-day.webp" width="690" height="339" alt="A graph read back from the API: mem:falcon is led_by person:ana-bel, who works_in team:berlin-platform, each edge with the sentence it came from; beside it, the 24 tools xerj mcp lists, xerj_facts_ask among them." loading="lazy" decoding="async"></picture><picture class="img-night"><source media="(max-width: 720px)" srcset="/assets/home/i5-memory-narrow-night.webp" width="358" height="633"><img src="/assets/home/i5-memory-wide-night.webp" width="690" height="339" alt="A graph read back from the API: mem:falcon is led_by person:ana-bel, who works_in team:berlin-platform, each edge with the sentence it came from; beside it, the 24 tools xerj mcp lists, xerj_facts_ask among them." loading="lazy" decoding="async"></picture><figcaption><code>GET /_graph/agent1/ego</code> and <code>xerj mcp</code> tools/list on the rc.101 release with the model on, captured 2026-11-07.</figcaption></figure>
+    </div>
+  </article>
+  <article class="uc g" id="enterprise-on-prem">
+    <div class="text">
+      <p class="label">06 · Enterprise on-prem <span class="tag">Cohere hooks ship in rc.102</span></p>
+      <h3>Search and answers inside your own network.</h3>
+      <p>One XERJ node indexes your documents and databases on a CPU server you own, and passes the best hits to Cohere Rerank, Embed and Command, at a private endpoint, only when you turn them on. XERJ is not affiliated with Cohere.</p>
+      <p class="num">787 MB of RAM</p><p class="scope">for the search node holding a live 200,000-row table, 3,033 document records and their vectors; the node running XERJ Query-1 used 1.05 GB (run 2026-11-05). Cohere calls were tested against a mock of Cohere's API.</p>
+      <p class="more"><a href="/integrations/cohere">Cohere on XERJ</a></p>
+    </div>
+    <div class="media">
+      <figure class="shot"><picture class="img-day"><source media="(max-width: 720px)" srcset="/assets/home/i6-on-prem-narrow-day.webp" width="358" height="631"><img src="/assets/home/i6-on-prem-wide-day.webp" width="690" height="434" alt="Inside a dashed network boundary, files, Postgres and S3 feed one XERJ node; a dashed line leaves the boundary to Cohere Rerank, Embed and Command only when you turn it on." loading="lazy" decoding="async"></picture><picture class="img-night"><source media="(max-width: 720px)" srcset="/assets/home/i6-on-prem-narrow-night.webp" width="358" height="631"><img src="/assets/home/i6-on-prem-wide-night.webp" width="690" height="434" alt="Inside a dashed network boundary, files, Postgres and S3 feed one XERJ node; a dashed line leaves the boundary to Cohere Rerank, Embed and Command only when you turn it on." loading="lazy" decoding="async"></picture><figcaption>Architecture of the 2026-11-05 worked example, not a benchmark.</figcaption></figure>
+    </div>
+  </article>
+  <article class="uc g" id="bridge">
+    <div class="text">
+      <p class="label">07 · Bridge</p>
+      <h3>Keep your Elasticsearch clients. Change the engine.</h3>
+      <p>XERJ answers the Elasticsearch 8.x REST API for indexing, search, aggregations and kNN, so existing clients and scripts can keep working while you move to the native API. It is its own engine, written from scratch in Rust.</p>
+      <p class="num">0 failed</p><p class="scope">in our Elasticsearch 8.x conformance suite on main: 1,448 of 1,458 cases passed, 10 skipped (CI, 2026-11-07). No client version matrix yet, and the Python client's bulk helper sends <code>PUT /_bulk</code>, which rc.101 refuses; <code>POST</code> works (fix: <a href="https://github.com/xerj-org/xerj/issues/3036" rel="external">#3036</a>).</p>
+      <p class="more"><a href="/docs/migration-from-es">Migrate from Elasticsearch</a></p>
+    </div>
+    <div class="media">
+      <figure class="shot"><picture class="img-day"><source media="(max-width: 720px)" srcset="/assets/home/i7-es-bridge-narrow-day.webp" width="358" height="793"><img src="/assets/home/i7-es-bridge-wide-day.webp" width="690" height="630" alt="The official Python elasticsearch client, version 8.19.3, indexes four log lines into XERJ, searches for timeout and gets 2 hits and a terms aggregation with api: 2." loading="lazy" decoding="async"></picture><picture class="img-night"><source media="(max-width: 720px)" srcset="/assets/home/i7-es-bridge-narrow-night.webp" width="358" height="793"><img src="/assets/home/i7-es-bridge-wide-night.webp" width="690" height="630" alt="The official Python elasticsearch client, version 8.19.3, indexes four log lines into XERJ, searches for timeout and gets 2 hits and a terms aggregation with api: 2." loading="lazy" decoding="async"></picture><figcaption>The official <code>elasticsearch</code> 8.19.3 Python client against the rc.101 release, captured 2026-11-07.</figcaption></figure>
+    </div>
+  </article>
 </section>
 
-<!-- 03 — BUILT FOR AGENTS ------------------------------------->
-<section class="scene-section" id="http-api">
-  <div class="kicker"><span class="accent">03</span><span class="dash">·</span><span>AGENTS ARE THE CUSTOMER · MEMORY · RECIPES</span></div>
-  <h2 class="scene">ONE HTTP API.<br><span class="accent">NO SDK.</span></h2>
-
-  <p class="wide">
-    Six of the seven agent operations are plain HTTP calls on <span class="mono">:9200</span> (autoindex is a command-line tool). No SDK, no signup, no external embedding key. Store what an agent learns, then recall it later by keyword and word overlap (the built-in embedder is lexical; turn on the neural encoder for recall by meaning).
-  </p>
-
-  <p class="wide">
-    We should be precise about what that means. The built-in embedder is
-    lexical hash-based, so this is honest hybrid lexical and vector retrieval
-    rather than neural understanding. Each namespace is physically isolated, so
-    agents never read one another's memories. Here is a real run against an
-    empty XERJ:
-  </p>
-
-<pre class="code">$ curl -sXPOST localhost:9200/_memory/agent-demo \
-    -H 'content-type: application/json' \
-    -d '{"text":"The user prefers metric units and a dark UI theme.","metadata":{"kind":"preference"}}'
-{"created":true,"id":"77eff57b-e432-431c-8b49-8a16b33ab551","namespace":"agent-demo"}
-
-$ curl -sXPOST localhost:9200/_memory/agent-demo/_recall \
-    -H 'content-type: application/json' \
-    -d '{"query":"what display settings does the user like?","semantic":true,"k":1}'
-{"hits":[{"id":"77eff57b-e432-431c-8b49-8a16b33ab551",
-          "score":0.655571460723877,
-          "text":"The user prefers metric units and a dark UI theme."}],  // metadata trimmed
- "namespace":"agent-demo"}</pre>
-
-  <div class="recipes" style="grid-template-columns:repeat(3,1fr); margin-top:var(--sp-6);">
-    <a class="recipe" href="/docs/recipes/zero-config-autoindex">
-      <span class="num">RECIPE · FLAGSHIP</span>
-      <span class="title">Zero-config indexing</span>
-      <p class="lead"><code class="inline">xerj autoindex &lt;folder&gt;</code>. Sniffed formats, inferred mappings, a self-describing data map, resumable idempotent ingest.</p>
-    </a>
-    <a class="recipe" href="/docs/recipes/agentic-memory">
-      <span class="num">RECIPE</span>
-      <span class="title">Give an agent memory</span>
-      <p class="lead">The <code class="inline">/_memory</code> REST API: store, recall by keyword, vector or the lexical embedder, filter, forget; per-agent isolation when authentication is on.</p>
-    </a>
-    <a class="recipe" href="/docs/recipes/">
-      <span class="num">DOCS</span>
-      <span class="title">All 13 recipes</span>
-      <p class="lead">First-class documentation, each validated end-to-end against a live XERJ: RAG, hybrid search, log analytics, anomaly detection, ES migration.</p>
-    </a>
+<section id="open" class="g">
+  <div class="c12">
+    <p class="label">What is open</p>
+    <h2>Open engine. Your data. Your hardware.</h2>
   </div>
-
-  <p class="wide">More on memory: <a href="/answers/what-is-an-mcp-memory-server">what an MCP memory server is</a>, <a href="/answers/agentic-memory-vs-rag">agentic memory and RAG</a>, <a href="/answers/claude-code-memory">Claude Code memory</a> and <a href="/compare/xerj-vs-agent-memory-tools">XERJ compared with Mem0, Zep, Letta and Cognee</a>.</p>
-
-  <p class="viz-caption"><a class="mono" href="/for-agents" style="color:var(--z-mute);">THE FULL AGENT SURFACE — SEVEN OPERATIONS + LLMS.TXT →</a></p>
+  <div class="c4 trio"><h3>The engine</h3><p>Apache-2.0, on GitHub. Build it, audit it, fork it. <a href="https://github.com/xerj-org/xerj" rel="external">Source</a></p></div>
+  <div class="c4 trio"><h3>XERJ Query-1</h3><p>Ships as a separate download with each release.</p></div>
+  <div class="c4 trio"><h3>Nothing leaves</h3><p>Runs offline. Text goes out only to a model you turn on, at an endpoint you choose. <a href="https://github.com/xerj-org/xerj/blob/main/SECURITY.md" rel="external">Security policy</a></p></div>
 </section>
 
-
-<!-- BENCHMARKS — SUPPORTING EVIDENCE -------------------------->
-<section class="scene-section" id="engine">
-  <div class="kicker"><span class="accent">04</span><span class="dash">·</span><span>WHY XERJ · WHAT YOU ACTUALLY GET</span></div>
-  <h2 class="scene">FEATURE<br><span class="accent">BY FEATURE.</span></h2>
-
-  <p class="wide">
-    Every feature exists to cut the thing agents actually spend: context.
-    Reading a file costs a context window; asking an index costs kilobytes.
-    XERJ puts everything an agent needs to <em>ask</em>, from code and documents
-    to vectors and memory, behind one query surface.
-  </p>
-
-  <div class="row">
-    <div class="k">AST code search</div>
-    <div class="v">Source is parsed with tree-sitter (36 languages) into symbols with kind and line number plus a searchable definitions field — the agent retrieves a <em>function with its contract</em>, not a grep line that needs the whole file opened to judge</div>
-  </div>
-  <div class="row">
-    <div class="k">Token economics</div>
-    <div class="v">In the <a href="/use-cases/code-security-audit">WordPress core security audit</a> (1,492 PHP files, about 619,000 lines; the exact WordPress version is not pinned in our records), an agent worked on roughly <strong>26,000 tokens</strong>, about half a percent of the 5.2 million tokens needed to load every file. That is the product; the speed is a side effect</div>
-  </div>
-  <div class="row">
-    <div class="k">Hybrid in one pass</div>
-    <div class="v">50 query types, machine-checked against the parser dispatch table, including native BM25 + kNN fusion (RRF) in a single query tree — no bolt-on vector database, no fusion glue between two systems. Background: <a href="/answers/what-is-hybrid-search">what hybrid search is</a> and <a href="/answers/bm25-vs-vector-search">BM25 compared with vector search</a></div>
-  </div>
-  <div class="row">
-    <div class="k">Semantic without setup</div>
-    <div class="v">Auto-embed on ingest, fully offline. Honest by default: the built-in embedder is lexical feature-hashing (vocabulary overlap, not neural understanding); the in-binary neural encoder and the external-proxy mode are drop-in upgrades when you want them</div>
-  </div>
-  <div class="row">
-    <div class="k">Agent memory + graph</div>
-    <div class="v">A namespaced <code class="inline">/_memory</code> REST API (store, recall by keyword, vector or the lexical embedder, filter, forget; namespaces are separate indices, isolated per agent when authentication is on) and a <code class="inline">/_graph</code> knowledge layer with evidence on every link</div>
-  </div>
-  <div class="row">
-    <div class="k">Zero-config ingest</div>
-    <div class="v">One command sniffs 13 format families by content — code, CSV, JSON, PDF, DOCX, SQLite, logs — honours <code class="inline">.gitignore</code>, records junk instead of crashing on it, and resumes incrementally</div>
-  </div>
-  <div class="row">
-    <div class="k">Speaks Elasticsearch</div>
-    <div class="v">1,444 / 1,454 wire-conformance cases green on every commit (0 failed, 10 skipped) — existing clients, dashboards and tooling connect unchanged. A migration bridge, not a clone: the engine underneath is designed for agents</div>
-  </div>
-  <div class="row">
-    <div class="k">One static binary</div>
-    <div class="v">Rust, no JVM, sub-second start (0.2 to 0.6 s to ready on our laptop), laptop to server with the same artifact. The engine source is Apache-2.0; release binaries since rc.101 also contain the proprietary XERJ Query-1 crates. Benchmarks with wins <em>and</em> losses published at <a href="/benchmarks/">xerj.org/benchmarks</a>, including the <a href="/benchmarks/elasticsearch">full Elasticsearch scorecard</a></div>
-  </div>
+<section id="traction">
+<!-- home:counts-begin · generated by scripts/seo/home_counts.py · do not hand-edit -->
+<h2 class="label">Built in the open · counts from the GitHub API, 2026-11-07</h2>
+<div class="g counts">
+  <div class="c4"><p class="count">120</p><p class="count-l">contributors</p></div>
+  <div class="c4"><p class="count">100</p><p class="count-l">1.0 release candidates since 8 July 2026</p></div>
+  <div class="c4"><p class="count">14,239</p><p class="count-l">engine binary downloads from GitHub releases</p></div>
+</div>
+<!-- home:counts-end -->
+  <div class="g"><div class="c8">
+    <p class="label">Latest from the engineering log</p>
+<!-- home:posts-begin · generated by scripts/seo/home_counts.py · do not hand-edit -->
+<ul class="posts">
+  <li><a href="/blog/xerj-query-ai-model">XERJ Query-1: a neurosymbolic model that compiles prompts to verifiable search queries</a> <time datetime="2026-11-05">2026-11-05</time></li>
+  <li><a href="/blog/autoindex-search-performance-improvements">How your field reports made XERJ autoindex faster</a> <time datetime="2026-10-26">2026-10-26</time></li>
+  <li><a href="/blog/rc99-smart-autoindex-harness-tools">rc.99: smart, resource-aware autoindex and more harness tools</a> <time datetime="2026-10-24">2026-10-24</time></li>
+</ul>
+<!-- home:posts-end -->
+    <p class="more"><a href="/blog/">All posts</a></p>
+  </div></div>
 </section>
 
-<section class="scene-section" id="blog">
-  <div class="kicker">THE ENGINEERING LOG · NEWEST FIRST</div>
-  <h2 class="scene">FROM THE BLOG</h2>
-
-  <p class="wide">
-    We write up the measurements as they happen and leave the losing rows in the tables. Every post names the runs behind it. For the XERJ Query-1 post, the test data, scripts and run records are not public yet, so those numbers cannot be checked from outside.
-  </p>
-
-  <!-- Newest three posts, same order and thumbnails as /blog/ (covers from
-       scripts/seo/blog_covers/). Update when a post is published. -->
-  <style>
-    #blog .home-posts { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: var(--sp-6); }
-    #blog .home-posts .recipe { gap: var(--sp-3); }
-    #blog .home-posts img { display: block; width: 100%; height: auto; aspect-ratio: 640 / 336;
-                            border: 1px solid var(--z-line); background: #f6f4ee; }
-    #blog .home-posts .num { color: var(--z-mute); }
-    #blog .home-posts .lead { font-size: 15px; line-height: 1.55; }
-    #blog .home-posts .recipe:hover img { border-color: var(--z-accent); }
-    @media (max-width: 900px) { #blog .home-posts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-    @media (max-width: 600px) { #blog .home-posts { grid-template-columns: minmax(0, 1fr); } }
-  </style>
-  <div class="recipes home-posts">
-    <a class="recipe" href="/blog/100-contributors">
-      <img src="/blog/covers/100-contributors-thumb.webp" width="640" height="336" alt="Cover art: 100 in huge display type above the word contributors, then 12,000 stars in 12 days on a yellow highlight and 17,486 GitHub stars today; beside it a yellow area chart of the running star count from July to October 2026 that climbs steeply from 5,000 stars on Oct 15 to 17,000 stars on Oct 27; on the right a 10 by 10 grid of the 100 contributors' GitHub avatars" loading="lazy" decoding="async">
-      <span class="num">2026-10-29 · MILESTONE · 100 CONTRIBUTORS</span>
-      <span class="title">100 contributors behind 12,000 stars in 12 days</span>
-      <p class="lead">Meet the 100 contributors behind XERJ. In 12 days it gained 12,434 GitHub stars. What they built, what your agents get now, and where it goes next.</p>
-    </a>
-    <a class="recipe" href="/blog/autoindex-search-performance-improvements">
-      <img src="/blog/covers/autoindex-search-performance-improvements-thumb.webp" width="640" height="336" alt="Cover art: 28 filled squares and 217 small empty rings scattered on grid paper, the filled ones joined by hairlines to a wide block of 454 empty cells, beside 32 yellow cells at the same pitch, then a gate of ink posts around two grey-blue columns and one empty yellow cell at its base" loading="lazy" decoding="async">
-      <span class="num">2026-10-26 · PERFORMANCE · AUTOINDEX + SEARCH</span>
-      <span class="title">How your field reports made XERJ autoindex faster</span>
-      <p class="lead">Six improvements to autoindex and search: on our performance-gate 1 GB test corpus, index size per indexed byte went from 3.50x to 1.80x of source, and the 28 people and 217 agent reports that helped.</p>
-    </a>
-    <a class="recipe" href="/blog/rc99-smart-autoindex-harness-tools">
-      <img src="/blog/covers/rc99-smart-autoindex-harness-tools-thumb.webp" width="640" height="336" alt="Cover art: eight large squares for the 8 GiB tier, the first two yellow for the 2 GiB memtable budget, beside eight small squares for the 8 MiB document ceiling and one outlined square for JSON streamed past 64 MiB" loading="lazy" decoding="async">
-      <span class="num">2026-10-24 · RELEASE · V1.0.0-RC.99</span>
-      <span class="title">rc.99: smart, resource-aware autoindex and more harness tools</span>
-      <p class="lead">rc.99 is yours: 116 merged changes and the 20 community members behind them. A laptop stays usable while it indexes. Memory exhaustion and clustering stay open.</p>
-    </a>
-  </div>
-
-  <p class="wide" style="margin-top:var(--sp-4);">
-    <a href="/blog/">All posts &rarr;</a>
-  </p>
-</section>
-
-<a href="#get" class="cta">
-  <span>GET XERJ</span>
-  <span class="arrow">↑</span>
-</a>
-
-<section class="scene-section hiring">
-  <div class="row">
-    <div class="k">Looking for a CEO</div>
-    <div class="v">A developer-evangelist type — 100k+ followers on X, laser-focused on AI reshaping how machines write code. If that is you: <a href="mailto:git@xerj.org?subject=CEO%20for%20XERJ%20%2F%20%5BYour%20Name%5D">git@xerj.org</a>, subject <code class="inline">CEO for XERJ / [Your Name]</code></div>
+<section id="contact" class="g">
+  <div class="c8">
+    <h2>Build on it, deploy it, or back it.</h2>
+    <p>XERJ is building the search layer agents run on. If you want to deploy it, build on it or invest, write to us.</p>
+    <div class="ask"><a class="btn" href="mailto:git@xerj.org?subject=XERJ">Email us</a></div>
   </div>
 </section>
-
 </main>
-
 <!-- seo:footer-begin — generated by scripts/seo/fix_links.py · do not hand-edit -->
+<footer class="site-footer">
+<div class="sf-brand"><a href="/" class="brand">XERJ</a><p>The search engine built for AI agents.</p></div>
 <nav class="footer-map" aria-label="Site map">
   <div class="fm-col">
-    <span class="fm-h">PRODUCT</span>
-    <a href="/product">PRODUCT</a>
-    <a href="/xerj-query-1">XERJ QUERY-1</a>
-    <a href="/architecture/">ARCHITECTURE</a>
-    <a href="/benchmarks/">BENCHMARKS</a>
-    <a href="/pricing/">PRICING</a>
-    <a href="/security/">SECURITY</a>
-    <a href="/playground">DASHBOARDS</a>
-    <a href="/demo/">REAL-DATA DEMO</a>
-    <a href="/aise-demo">PRODUCT TOUR</a>
-    <a href="/donate">DONATE</a>
+    <span class="fm-h">Product</span>
+    <a href="/product">Product overview</a>
+    <a href="/xerj-query-1">XERJ Query-1</a>
+    <a href="/case-studies/reference-coding">Reference coding</a>
+    <a href="/docs/recipes/zero-config-autoindex">Search files</a>
+    <a href="/docs/recipes/agentic-memory">Agent memory</a>
+    <a href="/integrations/cohere">On-prem with Cohere</a>
+    <a href="/use-cases">All use cases</a>
+    <a href="https://hub.xerj.org" rel="external">Corpus Hub</a>
   </div>
   <div class="fm-col">
-    <span class="fm-h">LEARN</span>
-    <a href="/answers/">ANSWERS</a>
-    <a href="/compare/">COMPARE</a>
-    <a href="/use-cases">USE CASES</a>
-    <a href="/case-studies">CASE STUDIES</a>
-    <a href="/industries/">INDUSTRIES</a>
-    <a href="/blog/">BLOG</a>
+    <span class="fm-h">Developers</span>
+    <a href="/docs/">Docs</a>
+    <a href="/docs/quickstart">Quickstart</a>
+    <a href="/docs/install">Install</a>
+    <a href="/for-agents">For AI agents</a>
+    <a href="/llms.txt">llms.txt</a>
+    <a href="/docs/migration-from-es">Migrate from Elasticsearch</a>
+    <a href="/answers/">Answers</a>
   </div>
   <div class="fm-col">
-    <span class="fm-h">SOLUTIONS</span>
-    <a href="/solutions/">SOLUTIONS</a>
-    <a href="/industries/finserv">FINANCIAL SERVICES</a>
-    <a href="/industries/public-sector">PUBLIC SECTOR</a>
-    <a href="/industries/healthcare">HEALTHCARE</a>
-    <a href="/industries/retail">RETAIL</a>
-    <a href="/use-cases/code-security-audit">AI CODE-SECURITY AUDIT</a>
-    <a href="/use-cases/semantic-analytics">SEMANTIC ANALYTICS</a>
-    <a href="/resources/">SALES KIT</a>
+    <span class="fm-h">Proof</span>
+    <a href="/benchmarks/">Benchmarks</a>
+    <a href="/benchmarks/elasticsearch">Elasticsearch scorecard</a>
+    <a href="/case-studies">Case studies</a>
+    <a href="/compare/">Comparisons</a>
+    <a href="/blog/">Blog</a>
   </div>
   <div class="fm-col">
-    <span class="fm-h">DOCS</span>
-    <a href="/docs/">DOCUMENTATION</a>
-    <a href="/docs/quickstart">QUICKSTART</a>
-    <a href="/docs/install">INSTALL</a>
-    <a href="/docs/migration-from-es">MIGRATE FROM ELASTICSEARCH</a>
-    <a href="/docs/recipes/">RECIPES</a>
-    <a href="/docs/agents/">DOCS FOR AI</a>
-    <a href="/for-agents">FOR AI AGENTS</a>
-    <a href="/agent-search/">AGENTIC SEARCH DEMO</a>
-    <a href="/llms.txt">LLMS.TXT</a>
-    <a href="https://github.com/xerj-org/xerj" rel="external">GITHUB</a>
+    <span class="fm-h">Project</span>
+    <a href="https://github.com/xerj-org/xerj" rel="external">GitHub</a>
+    <a href="https://github.com/xerj-org/xerj/releases" rel="external">Releases</a>
+    <a href="https://discord.com/invite/yetXFusXfs" rel="external">Discord</a>
+    <a href="https://x.com/xerj_org" rel="external">X</a>
+    <a href="/donate">Donate</a>
+    <a href="https://github.com/xerj-org/xerj/blob/main/SECURITY.md" rel="external">Security policy</a>
+    <a href="https://github.com/xerj-org/xerj/blob/main/LICENSE" rel="external">License (Apache-2.0)</a>
   </div>
 </nav>
-<!-- seo:footer-end -->
-<footer class="footer">
-  <span><a href="/brand" title="Brand">XERJ.AI</a> · V1.0.0-RC.102 · 2026</span>
-  <span>SEARCH FOR THE AGENT ERA</span>
-  <span><a href="/product">PRODUCT</a> · <a href="/docs/">DOCS</a> · <a href="/answers/">ANSWERS</a> · <a href="/playground">DASHBOARDS</a> &middot; <a href="/llms.txt">LLMS.TXT</a></span>
+<div class="footer-bar"><span>&copy; 2026 XERJ &middot; the engine is Apache-2.0</span><span class="theme"><button type="button" data-theme="day" class="active">Day</button><span class="dash">&middot;</span><button type="button" data-theme="night">Night</button></span></div>
 </footer>
-
+<!-- seo:footer-end -->
 <script src="/interact.js"></script>
-
-<script>
-  // Hero demo: click the frameless stage to play, then hand off to native controls.
-  (function () {
-    var stage = document.querySelector('.hero-demo-stage[data-demo]');
-    if (!stage) return;
-    var video = stage.querySelector('video');
-    function start() {
-      if (stage.classList.contains('is-playing')) return;
-      stage.classList.add('is-playing');
-      video.setAttribute('controls', 'controls');
-      var p = video.play();
-      if (p && p.catch) p.catch(function () {});
-    }
-    stage.addEventListener('click', function (e) {
-      if (!stage.classList.contains('is-playing')) { e.preventDefault(); start(); }
-    });
-    video.addEventListener('play', function () {
-      stage.classList.add('is-playing');
-      video.setAttribute('controls', 'controls');
-    });
-  })();
-</script>
-
-<script defer src="/chart-data.js?v=ic7"></script>
-<script defer src="/charts.js?v=ic7"></script>
-<script>
-(function(){try{fetch("https://api.github.com/repos/xerj-org/xerj/releases/latest").then(function(r){return r.ok?r.json():null}).then(function(d){if(!d||!d.tag_name)return;document.querySelectorAll("[data-latest-tag]").forEach(function(e){e.textContent=d.tag_name;});}).catch(function(){});}catch(e){}})();
-</script>
 </body>
 </html>
