@@ -675,7 +675,7 @@ fn lang_for_ext(ext: &str, text: &str) -> Option<&'static str> {
         "swift" => "swift",
         "scala" | "sc" => "scala",
         "dart" => "dart",
-        "lua" => "lua",
+        "lua" | "luau" => "lua",
         "pl" | "pm" => "perl",
         "r" => "r",
         "jl" => "julia",
@@ -1122,10 +1122,10 @@ mod tests {
         let claimed = [
             "py", "pyi", "js", "jsx", "mjs", "cjs", "ts", "mts", "cts", "tsx", "rs", "go", "java",
             "c", "h", "cpp", "cc", "cxx", "hpp", "hh", "hxx", "rb", "php", "cs", "sh", "bash",
-            "kt", "kts", "swift", "scala", "sc", "dart", "lua", "pl", "pm", "r", "jl", "hs", "ex",
-            "exs", "erl", "hrl", "ml", "mli", "zig", "m", "mm", "groovy", "gradle", "ps1", "psm1",
-            "psd1", "fs", "fsx", "nix", "f90", "f95", "f03", "sol", "clj", "cljs", "cljc", "scm",
-            "ss", "sld", "sps",
+            "kt", "kts", "swift", "scala", "sc", "dart", "lua", "luau", "pl", "pm", "r", "jl",
+            "hs", "ex", "exs", "erl", "hrl", "ml", "mli", "zig", "m", "mm", "groovy", "gradle",
+            "ps1", "psm1", "psd1", "fs", "fsx", "nix", "f90", "f95", "f03", "sol", "clj", "cljs",
+            "cljc", "scm", "ss", "sld", "sps",
         ];
         for ext in claimed {
             assert!(
