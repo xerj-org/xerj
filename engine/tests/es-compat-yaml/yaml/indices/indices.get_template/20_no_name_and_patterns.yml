@@ -1,0 +1,111 @@
+# XERJ-authored. ES 8.13 serves `GET /_template` and `GET /_index_template`
+# with no name (every template, 200), expands `*` in a template name on GET
+# and DELETE, and lets legacy GET take a comma list. Names are prefixed `yt-`
+# so templates other files leave behind cannot change these answers, and
+# each case deletes what it made.
+---
+"Legacy GET with no name, a pattern, and a list":
+
+  - do:
+      indices.put_template:
+        name: yt-logs-a
+        body:
+          index_patterns: [yt-logs-a-*]
+  - do:
+      indices.put_template:
+        name: yt-logs-b
+        body:
+          index_patterns: [yt-logs-b-*]
+  - do:
+      indices.put_template:
+        name: yt-metrics
+        body:
+          index_patterns: [yt-metrics-*]
+
+  - do:
+      indices.get_template: {}
+  - match: {yt-logs-a.index_patterns: ["yt-logs-a-*"]}
+  - match: {yt-metrics.index_patterns: ["yt-metrics-*"]}
+
+  - do:
+      indices.get_template:
+        name: yt-logs-*
+  - match: {yt-logs-b.index_patterns: ["yt-logs-b-*"]}
+  - is_true: yt-logs-a
+  - is_false: yt-metrics
+
+  - do:
+      indices.get_template:
+        name: yt-logs-a,yt-metrics
+  - match: {yt-metrics.index_patterns: ["yt-metrics-*"]}
+  - is_true: yt-logs-a
+  - is_false: yt-logs-b
+
+  - do:
+      catch: missing
+      indices.get_template:
+        name: yt-nomatch*
+
+  - do:
+      indices.delete_template:
+        name: yt-logs-*
+  - match: {acknowledged: true}
+
+  - do:
+      catch: missing
+      indices.get_template:
+        name: yt-logs-*
+
+  - do:
+      indices.delete_template:
+        name: yt-*
+
+---
+"Composable GET with no name and a pattern, and a pattern DELETE":
+
+  - do:
+      indices.put_index_template:
+        name: yt-logs-a
+        body:
+          index_patterns: [yt-logs-a-*]
+  - do:
+      indices.put_index_template:
+        name: yt-logs-b
+        body:
+          index_patterns: [yt-logs-b-*]
+  - do:
+      indices.put_index_template:
+        name: yt-metrics
+        body:
+          index_patterns: [yt-metrics-*]
+
+  - do:
+      indices.get_index_template: {}
+  - is_true: index_templates.2.name
+
+  - do:
+      indices.get_index_template:
+        name: yt-logs-*
+  - length: {index_templates: 2}
+  - match: {index_templates.0.name: yt-logs-a}
+  - match: {index_templates.1.name: yt-logs-b}
+
+  - do:
+      catch: missing
+      indices.get_index_template:
+        name: yt-nomatch*
+
+  - do:
+      indices.delete_index_template:
+        name: yt-logs-*
+  - match: {acknowledged: true}
+
+  - do:
+      indices.get_index_template:
+        name: yt-*
+  - length: {index_templates: 1}
+  - match: {index_templates.0.name: yt-metrics}
+
+  - do:
+      indices.delete_index_template:
+        name: yt-metrics
