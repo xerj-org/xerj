@@ -2,21 +2,21 @@
  "corpus": "bytesbay--pi-gpui",
  "cloned_at": null,
  "status": "draft",
- "shelf": "WEB",
- "domain": "an agent working on Rust queries this for how bytesbay/pi-gpui implements it: A fast native macOS app for the pi coding agent, built with GPUI (selected work: src/chat, examples, src)",
+ "shelf": "AI",
+ "domain": "an agent working on ai-coding-agent, claude-code, codex queries this for how bytesbay/pi-gpui implements it: Native Mac app for the pi coding agent, written in Rust with GPUI (Zed's UI framework) (selected work: src/chat, examples, src)",
  "repos": [
   {
    "repo": "pi-gpui",
    "url": "https://github.com/bytesbay/pi-gpui",
-   "sha": "050c0e04049df855f42a0ac2add448ef2b2920fa",
-   "licence": "MIT (LICENSE file at pin 050c0e04049d, GitHub licence API 2026-11-07)",
+   "sha": "e8ed5b505e488fd09672991c309fc46273bea1c4",
+   "licence": "MIT (LICENSE file at pin e8ed5b505e48, GitHub licence API 2026-11-07)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-06T12:05Z",
     "consent_receipt": "cf6c64e992e9",
-    "note": "Inclusion consented by the commit author by email at 2026-11-06T12:05Z (receipt cf6c64e992e9); selected commit 050c0e04049d: \"feat(plugins): prompt fields in tool calls, secrets plugin\". LICENSE file at pin 050c0e04049d detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution. Pinned to head 050c0e04049d (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-11-06T12:05Z (receipt cf6c64e992e9); selected commit e8ed5b505e48: \"feat(plugins): prompt fields in tool calls, secrets plugin\". LICENSE file at pin e8ed5b505e48 detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution. Pinned to head e8ed5b505e48 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

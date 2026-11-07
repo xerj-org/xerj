@@ -1,0 +1,23 @@
+{
+ "corpus": "egoushka--feed-eater",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on dotnet, feed-reader, mcp queries this for how Egoushka/feed-eater implements it: A self-hosted feed reader for one person: it archives everything you follow, sends the few items that matter each morning, and lets any AI c",
+ "repos": [
+  {
+   "repo": "feed-eater",
+   "url": "https://github.com/Egoushka/feed-eater",
+   "sha": "040e9362b15ad565ac8af5fc20734b3a6130a548",
+   "licence": "Apache-2.0 (LICENSE file at pin 040e9362b15a, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T15:00Z",
+    "consent_receipt": "400c07b3c047",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-07T15:00Z (receipt 400c07b3c047); pinned to the default-branch head. LICENSE file at pin 040e9362b15a detected as Apache-2.0 by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

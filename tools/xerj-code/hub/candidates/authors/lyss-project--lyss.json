@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "NET",
- "domain": "an agent working on cis-controls, cisco, compliance queries this for how lyss-project/lyss implements it: Open, vendor-neutral security standard for network switches + free read-only audit tool (Cisco IOS, Cisco Business, HPE Aruba, MikroTik Rout (selected work: integrations, tools, tests)",
+ "domain": "an agent working on cis-controls, cisco, compliance queries this for how lyss-project/lyss implements it: Open, vendor-neutral security standard for network switches + free read-only audit tool (Cisco IOS, Cisco Business, HPE Aruba, Arista EOS, M (selected work: integrations, tools, tests)",
  "repos": [
   {
    "repo": "lyss",

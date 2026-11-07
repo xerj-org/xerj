@@ -1,0 +1,23 @@
+{
+ "corpus": "achatainga--mcp-code-context",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how achatainga/mcp-code-context implements it: MCP server that compresses any codebase into LLM-ready semantic context. AST-based compression for TypeScript, JavaScript, PHP, Dart & Pytho (selected work: src/operations)",
+ "repos": [
+  {
+   "repo": "mcp-code-context",
+   "url": "https://github.com/achatainga/mcp-code-context",
+   "sha": "dbbd9755793bcdbafe7ce20872b2b13914c07db6",
+   "licence": "MIT (LICENSE file at pin dbbd9755793b, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T15:58Z",
+    "consent_receipt": "2e31758c2372",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T15:58Z (receipt 2e31758c2372); selected commit dbbd9755793b: \"fix(security,sre): neutralize DOM XSS in HTML dashboard, dispose WASM\u2026\". LICENSE file at pin dbbd9755793b detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

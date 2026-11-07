@@ -1,0 +1,23 @@
+{
+ "corpus": "milkstrawai--traceframe",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on JavaScript queries this for how milkstrawai/traceframe implements it: A tool for AI agents to record reliable video evidence of browser workflows (selected work: test, src)",
+ "repos": [
+  {
+   "repo": "traceframe",
+   "url": "https://github.com/milkstrawai/traceframe",
+   "sha": "f50029e04363e2ee4999441cf6f78a0795f47d18",
+   "licence": "MIT (LICENSE file at pin f50029e04363, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T15:46Z",
+    "consent_receipt": "63fac3bf9b89",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T15:46Z (receipt 63fac3bf9b89); selected commit f50029e04363: \"perf: replace live VP9 encoding with JPEG capture\". LICENSE file at pin f50029e04363 detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "divyanshukumar2005--delhi-aqi-pipeline",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on air-quality, air-quality-data, air-quality-index queries this for how Divyanshukumar2005/delhi-aqi-pipeline implements it: Automated ETL pipeline + live dashboard for Delhi-NCR air quality (CPCB AQI), 30 government stations (selected work: src, tests, web)",
+ "repos": [
+  {
+   "repo": "delhi-aqi-pipeline",
+   "url": "https://github.com/Divyanshukumar2005/delhi-aqi-pipeline",
+   "sha": "1c48123ec44d54e25d6cd04dbbedb25844e6e54e",
+   "licence": "MIT (LICENSE file at pin 1c48123ec44d, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T15:35Z",
+    "consent_receipt": "428c2af78cf1",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T15:35Z (receipt 428c2af78cf1); selected commit 1c48123ec44d: \"ML forecast: weather comparison, dashboard ML tab, model version guard\". LICENSE file at pin 1c48123ec44d detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

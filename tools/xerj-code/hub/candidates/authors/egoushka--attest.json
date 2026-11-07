@@ -1,0 +1,23 @@
+{
+ "corpus": "egoushka--attest",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on checksum, countryvalidator, csharp queries this for how Egoushka/attest implements it: Validates national identification numbers, tax identification numbers, VAT codes and postal codes for 87 countries, against the rule each co",
+ "repos": [
+  {
+   "repo": "attest",
+   "url": "https://github.com/Egoushka/attest",
+   "sha": "14e8537c18153c09805378e5727ff78b689461f5",
+   "licence": "Apache-2.0 (LICENSE file at pin 14e8537c1815, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T15:00Z",
+    "consent_receipt": "c462a7a1a199",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-07T15:00Z (receipt c462a7a1a199); pinned to the default-branch head. LICENSE file at pin 14e8537c1815 detected as Apache-2.0 by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

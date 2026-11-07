@@ -8,15 +8,15 @@
   {
    "repo": "ZenForms",
    "url": "https://github.com/drJhonatan00/ZenForms",
-   "sha": "81131a813ef609e201fe6b84a491fefd352c5bc0",
-   "licence": "MIT (LICENSE file at pin 81131a813ef6, GitHub licence API 2026-11-06)",
+   "sha": "9ae7a749a732515260dcc515c950b984c819521c",
+   "licence": "MIT (LICENSE file at pin 9ae7a749a732, GitHub licence API 2026-11-07)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-31T20:39Z",
     "consent_receipt": "1c19bf75dcf6",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T20:39Z (receipt 1c19bf75dcf6); pinned to the default-branch head. LICENSE file at pin 81131a813ef6 detected as MIT by the GitHub licence API on 2026-11-06; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T20:39Z (receipt 1c19bf75dcf6); pinned to the default-branch head. LICENSE file at pin 9ae7a749a732 detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
    }
   }
  ]

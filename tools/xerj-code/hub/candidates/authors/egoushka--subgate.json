@@ -1,0 +1,23 @@
+{
+ "corpus": "egoushka--subgate",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on C# queries this for how Egoushka/subgate implements it: A self-hosted ledger that gives each of your programs a paced weekly share of your own AI subscription",
+ "repos": [
+  {
+   "repo": "subgate",
+   "url": "https://github.com/Egoushka/subgate",
+   "sha": "ce5705bea48b9410f4a3180f617b19db166028fe",
+   "licence": "MIT (LICENSE file at pin ce5705bea48b, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T15:00Z",
+    "consent_receipt": "6d2bf821f414",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-07T15:00Z (receipt 6d2bf821f414); pinned to the default-branch head. LICENSE file at pin ce5705bea48b detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

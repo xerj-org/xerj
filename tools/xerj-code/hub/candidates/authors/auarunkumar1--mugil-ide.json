@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai, ai-coding, coding-agent queries this for how auarunkumar1/mugil-ide implements it: Token-efficient autonomous AI IDE \u2014 a browser-based coding agent with an xterm.js terminal, smart caching, automatic model routing, and MCP  (selected work: packages/cli, scripts, packages/core)",
+ "domain": "an agent working on ai, ai-coding, coding-agent queries this for how auarunkumar1/mugil-ide implements it: Autonomous AI coding agent harness & browser-based IDE \u2014 token-efficient execution loop with xterm.js terminal, AST tools, smart caching, mu (selected work: packages/cli, scripts, packages/core)",
  "repos": [
   {
    "repo": "mugil-ide",

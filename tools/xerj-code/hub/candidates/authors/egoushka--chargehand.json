@@ -1,0 +1,23 @@
+{
+ "corpus": "egoushka--chargehand",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, claude-code, code-review queries this for how Egoushka/chargehand implements it: Ask a question about your code from Claude Code or any MCP client and get back claims that each cite a file at a pinned commit, checked befo",
+ "repos": [
+  {
+   "repo": "chargehand",
+   "url": "https://github.com/Egoushka/chargehand",
+   "sha": "3e8b0a4de71b595a913e3a16627bd99b688e9501",
+   "licence": "Apache-2.0 (LICENSE file at pin 3e8b0a4de71b, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T15:00Z",
+    "consent_receipt": "60cf668be461",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-07T15:00Z (receipt 60cf668be461); pinned to the default-branch head. LICENSE file at pin 3e8b0a4de71b detected as Apache-2.0 by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

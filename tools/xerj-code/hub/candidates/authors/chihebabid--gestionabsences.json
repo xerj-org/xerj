@@ -1,0 +1,30 @@
+{
+ "corpus": "chihebabid--gestionabsences",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how chihebabid/GestionAbsences implements it: G\u00e9rer les absences des \u00e9tudiants au sein d\u2019un \u00e9tablissement d\u2019enseignement (selected work: ui, models)",
+ "repos": [
+  {
+   "repo": "GestionAbsences",
+   "url": "https://github.com/chihebabid/GestionAbsences",
+   "sha": "1b166af887e799f0b1fb29c19c610ec6c038e256",
+   "licence": "GPL-3.0 (LICENSE file at pin 1b166af887e7, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-07T14:25Z",
+    "consent_receipt": "1a7d3b06b142",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T14:25Z (receipt 1a7d3b06b142); selected commit 1b166af887e7: \"Enhance session management and UI layout in QML components\". LICENSE file at pin 1b166af887e7 detected as GPL-3.0 by the GitHub licence API on 2026-11-07; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "1b166af887e799f0b1fb29c19c610ec6c038e256",
+     "at": "2026-11-07T14:25Z",
+     "receipt": "1a7d3b06b142"
+    }
+   }
+  }
+ ]
+}
