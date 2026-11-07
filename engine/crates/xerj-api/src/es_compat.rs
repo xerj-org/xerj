@@ -6409,6 +6409,113 @@ fn find_terms_query_over_limit(
 }
 
 #[cfg(test)]
+mod search_int_param_tests {
+    use super::*;
+    use axum::{body::Body, http::Request};
+    use tower::ServiceExt;
+    use xerj_common::{
+        config::{Config, WalSync},
+        metrics::Metrics,
+    };
+    use xerj_engine::Engine;
+
+    fn test_state() -> AppState {
+        let dir = tempfile::tempdir().expect("tempdir").keep();
+        let mut config = Config::default();
+        config.server.data_dir = dir.to_string_lossy().into_owned();
+        config.storage.wal_sync = WalSync::Async;
+        let metrics = Metrics::new().expect("metrics");
+        let engine = Engine::new(config.clone()).expect("engine");
+        AppState::new(config, engine, metrics)
+    }
+
+    async fn get(app: &axum::Router, uri: &str) -> (StatusCode, Value) {
+        let resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("GET")
+                    .uri(uri)
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let status = resp.status();
+        let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        (status, serde_json::from_slice(&bytes).unwrap())
+    }
+
+    async fn app() -> axum::Router {
+        let app = crate::router::build_es_compat_router(test_state());
+        let resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("PUT")
+                    .uri("/idx/_doc/1?refresh=true")
+                    .header("content-type", "application/json")
+                    .body(Body::from(r#"{"foo":"bar"}"#))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert!(resp.status().is_success());
+        app
+    }
+
+    /// FAIL-BEFORE: `size=-5` said "Failed to parse int parameter [size]" and
+    /// the other three answered 200.
+    #[tokio::test]
+    async fn out_of_range_search_params_are_a_400() {
+        let app = app().await;
+        for (query, reason) in [
+            ("size=-5", "[size] parameter cannot be negative, found [-5]"),
+            ("terminate_after=-1", "terminateAfter must be > 0"),
+            ("batched_reduce_size=1", "batchedReduceSize must be >= 2"),
+            ("pre_filter_shard_size=0", "preFilterShardSize must be >= 1"),
+            (
+                "terminate_after=abc",
+                "Failed to parse int parameter [terminate_after] with value [abc]",
+            ),
+        ] {
+            let (status, body) = get(&app, &format!("/idx/_search?{query}")).await;
+            assert_eq!(status, StatusCode::BAD_REQUEST, "{query} -> {body}");
+            assert_eq!(
+                body["error"]["type"], "illegal_argument_exception",
+                "{query}"
+            );
+            assert_eq!(body["error"]["reason"], reason, "{query}");
+        }
+    }
+
+    /// The bounds themselves, and a zero `terminate_after` (ES's "unset"),
+    /// still search.
+    #[tokio::test]
+    async fn in_range_search_params_still_answer() {
+        let app = app().await;
+        for query in [
+            "size=0",
+            "terminate_after=0",
+            "terminate_after=5",
+            "batched_reduce_size=2",
+            "pre_filter_shard_size=1",
+        ] {
+            let (status, body) = get(&app, &format!("/idx/_search?{query}")).await;
+            assert_eq!(status, StatusCode::OK, "{query} -> {body}");
+        }
+        let (_, body) = get(&app, "/idx/_search?size=1&terminate_after=5").await;
+        assert_eq!(
+            body["hits"]["hits"].as_array().map(Vec::len),
+            Some(1),
+            "{body}"
+        );
+    }
+}
+
+#[cfg(test)]
 mod max_terms_count_tests {
     use super::*;
     use axum::{body::Body, http::Request};
@@ -10167,6 +10274,47 @@ fn parse_highlight(hl_val: &Value) -> Option<xerj_query::ast::HighlightRequest> 
     })
 }
 
+/// ES's lower bounds on the integer `_search` URL params that XERJ accepts
+/// but does not act on (`RestSearchAction#parseSearchRequest`,
+/// `SearchRequest#setBatchedReduceSize`, `#setPreFilterShardSize`). ES checks
+/// them while it parses the request, before it resolves the target, so a bad
+/// value is a 400 even when the search would otherwise succeed. XERJ ignored
+/// all three, so `?terminate_after=-1` or `?batched_reduce_size=1` answered
+/// 200. A value that is not an `int` fails to parse, as in ES.
+fn search_int_param_error(params: &EsSearchQueryParams) -> Option<Response> {
+    let checks: [(&str, &Option<String>, i32, &str); 3] = [
+        (
+            "batched_reduce_size",
+            &params.batched_reduce_size,
+            2,
+            "batchedReduceSize must be >= 2",
+        ),
+        (
+            "pre_filter_shard_size",
+            &params.pre_filter_shard_size,
+            1,
+            "preFilterShardSize must be >= 1",
+        ),
+        (
+            "terminate_after",
+            &params.terminate_after,
+            0,
+            "terminateAfter must be > 0",
+        ),
+    ];
+    for (name, value, min, reason) in checks {
+        let Some(value) = value else { continue };
+        match value.parse::<i32>() {
+            Ok(n) if n < min => {
+                return Some(es_bad_request("illegal_argument_exception", reason, None))
+            }
+            Ok(_) => {}
+            Err(_) => return Some(int_param_parse_error(name, value)),
+        }
+    }
+    None
+}
+
 /// Query parameters accepted on `GET /{index}/_search`.
 ///
 /// These are common params used by simple ES clients and curl one-liners.
@@ -10194,6 +10342,8 @@ pub struct EsSearchQueryParams {
     pub request_cache: Option<String>,
     pub allow_partial_search_results: Option<String>,
     pub batched_reduce_size: Option<String>,
+    pub pre_filter_shard_size: Option<String>,
+    pub terminate_after: Option<String>,
     pub ccs_minimize_roundtrips: Option<String>,
     pub search_type: Option<String>,
     pub scroll: Option<String>,
@@ -14310,8 +14460,17 @@ async fn search_impl(
     if let Some(ref size_s) = params.size {
         match size_s.parse::<usize>() {
             Ok(n) => body.size = n,
-            Err(_) => return int_param_parse_error("size", size_s),
+            Err(_) => match size_s.parse::<i32>() {
+                Ok(n) if n < 0 => {
+                    let reason = format!("[size] parameter cannot be negative, found [{n}]");
+                    return es_bad_request("illegal_argument_exception", &reason, None);
+                }
+                _ => return int_param_parse_error("size", size_s),
+            },
         }
+    }
+    if let Some(resp) = search_int_param_error(&params) {
+        return resp;
     }
     if let Some(ref from_s) = params.from {
         match from_s.parse::<usize>() {
