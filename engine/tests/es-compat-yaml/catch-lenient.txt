@@ -18,7 +18,6 @@ aggregations/matrix_stats_multi_value_field.yml · With script params
 aggregations/matrix_stats_single_value_field.yml · With script
 aggregations/matrix_stats_single_value_field.yml · With script params
 aggregations/max_buckets.yml · Max bucket
-aggregations/nested.yml · Illegal reverse nested aggregation to a child nested object
 aggregations/percentiles_hdr_metric.yml · Invalid params test
 aggregations/percentiles_tdigest_metric.yml · Invalid params test
 aggregations/pipeline.yml · Max pipeline on percentiles hdr agg without specifying percent
