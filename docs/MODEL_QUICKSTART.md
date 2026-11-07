@@ -73,7 +73,8 @@ boot, so the first calls answer `"not_loaded"` — measured 3.5 s from boot to
 `"loaded"` on a laptop-class x86_64. Poll:
 
 ```sh
-until curl -s localhost:9200/_facts | jq -e '.model.state == "loaded"' >/dev/null; do sleep 1; done
+until s=$(curl -s localhost:9200/_facts | jq -r '.model.state // .error.type'); [ -n "$s" ] && [ "$s" != not_loaded ]; do sleep 1; done; echo "$s"
+# -> loaded   (unavailable or xerj_query_not_enabled is an error: see below)
 curl -s localhost:9200/_facts | jq '{state: .model.state, counting: .model.counting}'
 # -> {"state": "loaded", "counting": {"state": "ready"}}   (a plain facts export without a counting role reports COUNTING_OFF)
 ```
@@ -82,10 +83,13 @@ curl -s localhost:9200/_facts | jq '{state: .model.state, counting: .model.count
 `not_loaded` until your first `_ask`, which pays the 3-4 s once.) If you started
 with `--port N`, use `N` in place of `9200` in every line on this page.
 
-If `/_facts` answers `404 xerj_query_not_enabled`, the node was started without
-the flag. If the model directory is missing or fails a load check, `GET /_facts`
-reports `model.state: "unavailable"` with the error, and `_ask` answers
-`503 MODEL_UNAVAILABLE` naming it. Model errors are sticky until the node restarts.
+The loop stops on every state except `not_loaded`, so a bad start-up never
+leaves it polling forever. If it prints `xerj_query_not_enabled`, the node was
+started without the flag. If it prints `unavailable`, the model directory is
+missing or failed a load check: `curl -s localhost:9200/_facts | jq -r .model.error`
+names the file, and `_ask` answers `503 MODEL_UNAVAILABLE` naming it. Point
+`--facts-model-dir` at the directory that holds `bundle.json`, `facts/` and
+`counting/`, then restart: model errors are sticky until the node restarts.
 
 ## 4. Write a couple of facts
 
