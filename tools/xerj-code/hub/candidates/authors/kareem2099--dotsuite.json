@@ -8,15 +8,15 @@
   {
    "repo": "dotsuite",
    "url": "https://github.com/kareem2099/dotsuite",
-   "sha": "08439f19c58a1a9157b884d3961ccf736b9561b5",
-   "licence": "Apache-2.0 (LICENSE file at pin 08439f19c58a, GitHub licence API 2026-11-06)",
+   "sha": "67ee7beb1c399f75e23cdc5a686bf91383df711c",
+   "licence": "Apache-2.0 (LICENSE file at pin 67ee7beb1c39, GitHub licence API 2026-11-07)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-23T19:36Z",
     "consent_receipt": "cadfc8030ec1",
-    "note": "Inclusion consented by the commit author by email at 2026-10-23T19:36Z (receipt cadfc8030ec1); selected commit 08439f19c58a: \"Use PostgreSQL for accounts and deploy secure billing and key managem\u2026\". LICENSE file at pin 08439f19c58a detected as Apache-2.0 by the GitHub licence API on 2026-11-06; used under that licence with attribution. Pinned to head 08439f19c58a (contains the selected commit): the LICENSE at the selected commit was MIT."
+    "note": "Inclusion consented by the commit author by email at 2026-10-23T19:36Z (receipt cadfc8030ec1); selected commit 67ee7beb1c39: \"Use PostgreSQL for accounts and deploy secure billing and key managem\u2026\". LICENSE file at pin 67ee7beb1c39 detected as Apache-2.0 by the GitHub licence API on 2026-11-07; used under that licence with attribution. Pinned to head 67ee7beb1c39 (contains the selected commit): the LICENSE at the selected commit was MIT."
    }
   }
  ]

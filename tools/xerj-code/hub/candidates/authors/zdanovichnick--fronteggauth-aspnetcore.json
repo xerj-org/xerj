@@ -1,0 +1,23 @@
+{
+ "corpus": "zdanovichnick--fronteggauth-aspnetcore",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on C# queries this for how zdanovichnick/FronteggAuth.AspNetCore implements it: Frontegg CIAM authentication and authorization for ASP.NET Core \u2014 OIDC, JWT bearer, and API-key schemes behind one smart scheme router, wire",
+ "repos": [
+  {
+   "repo": "FronteggAuth.AspNetCore",
+   "url": "https://github.com/zdanovichnick/FronteggAuth.AspNetCore",
+   "sha": "c3eb03d4d997ff19039483478b43a97cefbd5d7a",
+   "licence": "MIT (LICENSE file at pin c3eb03d4d997, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T12:01Z",
+    "consent_receipt": "2963ce729553",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-07T12:01Z (receipt 2963ce729553); pinned to the default-branch head. LICENSE file at pin c3eb03d4d997 detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

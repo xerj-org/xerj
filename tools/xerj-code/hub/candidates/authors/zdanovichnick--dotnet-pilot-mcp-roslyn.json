@@ -1,0 +1,23 @@
+{
+ "corpus": "zdanovichnick--dotnet-pilot-mcp-roslyn",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-coding, claude-code, clean-architecture queries this for how zdanovichnick/dotnet-pilot-mcp-roslyn implements it: Roslyn-powered MCP server providing semantic C# code intelligence - DI analysis, architecture checking, EF Core introspection, and cross-sol",
+ "repos": [
+  {
+   "repo": "dotnet-pilot-mcp-roslyn",
+   "url": "https://github.com/zdanovichnick/dotnet-pilot-mcp-roslyn",
+   "sha": "2bd45c6c7d4201a682e81ee76130f820f7b73f6a",
+   "licence": "MIT (LICENSE file at pin 2bd45c6c7d42, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T12:01Z",
+    "consent_receipt": "3f26eebe2d3f",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-07T12:01Z (receipt 3f26eebe2d3f); pinned to the default-branch head. LICENSE file at pin 2bd45c6c7d42 detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

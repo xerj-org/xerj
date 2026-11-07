@@ -1,0 +1,23 @@
+{
+ "corpus": "manveeranand--bolbot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on apple-silicon, discord-bot, local-llm queries this for how ManveerAnand/BOLBOT implements it: Discord bot that translates every message into each member's language. Free, private, and runs on your own PC or Mac (selected work: the project root, scripts, src/config)",
+ "repos": [
+  {
+   "repo": "BOLBOT",
+   "url": "https://github.com/ManveerAnand/BOLBOT",
+   "sha": "348daa8cb3afc1a7b4fdc1ff9309ef027fcfa187",
+   "licence": "MIT (LICENSE file at pin 348daa8cb3af, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T11:54Z",
+    "consent_receipt": "20aeedbe727e",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T11:54Z (receipt 20aeedbe727e); selected commit 348daa8cb3af: \"Windows support with a one-line installer, and a logo\". LICENSE file at pin 348daa8cb3af detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

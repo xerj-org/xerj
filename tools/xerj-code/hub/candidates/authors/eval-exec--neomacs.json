@@ -1,0 +1,30 @@
+{
+ "corpus": "eval-exec--neomacs",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on emacs, rust, neomacs queries this for how eval-exec/neomacs implements it: NEO Emacs (WIP): GPU powered Emacs written in Rust with a modern display engine. Aiming for modern design & multi-threaded Elisp, 10x perfor (selected work: crates/neomacs-layout-engine, crates/neomacs-gui-tests, crates/neovm-core)",
+ "repos": [
+  {
+   "repo": "neomacs",
+   "url": "https://github.com/eval-exec/neomacs",
+   "sha": "8d327f6f32190eb4c1948cf9af20c93de000de2e",
+   "licence": "GPL-3.0 (LICENSE file at pin 8d327f6f3219, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-07T11:39Z",
+    "consent_receipt": "08ab1bce4026",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T11:39Z (receipt 08ab1bce4026); selected commit 8d327f6f3219: \"Fix review findings in commit probes and string newline layout\". LICENSE file at pin 8d327f6f3219 detected as GPL-3.0 by the GitHub licence API on 2026-11-07; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "8d327f6f32190eb4c1948cf9af20c93de000de2e",
+     "at": "2026-11-07T11:39Z",
+     "receipt": "08ab1bce4026"
+    }
+   }
+  }
+ ]
+}

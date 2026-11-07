@@ -2,21 +2,21 @@
  "corpus": "amfakh--fakh-patches",
  "cloned_at": null,
  "status": "draft",
- "shelf": "WEB",
- "domain": "an agent working on Java queries this for how amfakh/fakh-patches implements it: Material You, ad and tracker removal, and premium unlocks for Android apps",
+ "shelf": "API",
+ "domain": "an agent working on Java queries this for how amfakh/fakh-patches implements it: Patch of things I daily use",
  "repos": [
   {
    "repo": "fakh-patches",
    "url": "https://github.com/amfakh/fakh-patches",
-   "sha": "afb1c83dc4130f34f5769efd64a0fbf278282d01",
-   "licence": "GPL-3.0 (LICENSE file at pin afb1c83dc413, GitHub licence API 2026-11-07)",
+   "sha": "6dfb0e066f780ca80ce36c8dd37fcbb55374312e",
+   "licence": "GPL-3.0 (LICENSE file at pin 6dfb0e066f78, GitHub licence API 2026-11-07)",
    "review": {
     "spdx": "GPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-28T17:47Z",
     "consent_receipt": "7ef68f834bc7",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T17:47Z (receipt 7ef68f834bc7); pinned to the default-branch head. LICENSE file at pin afb1c83dc413 detected as GPL-3.0 by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T17:47Z (receipt 7ef68f834bc7); pinned to the default-branch head. LICENSE file at pin 6dfb0e066f78 detected as GPL-3.0 by the GitHub licence API on 2026-11-07; used under that licence with attribution."
    }
   }
  ]

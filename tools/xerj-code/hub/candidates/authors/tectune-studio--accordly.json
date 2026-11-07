@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on cmp, cookies, saas-application queries this for how tectune-studio/accordly implements it: Accordly Consent SaaS App (selected work: apps/dashboard, test)",
+ "domain": "an agent working on cmp, cookies, saas-application queries this for how tectune-studio/accordly implements it: Accordly: Consent Management Platform (selected work: apps/dashboard, test)",
  "repos": [
   {
    "repo": "accordly",
