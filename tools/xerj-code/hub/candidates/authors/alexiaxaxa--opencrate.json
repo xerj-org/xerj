@@ -1,0 +1,30 @@
+{
+ "corpus": "alexiaxaxa--opencrate",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on access-control, cryptography, document-security queries this for how AlexiAxAxA/OpenCrate implements it: Rust building blocks for encrypted documents: authenticated containers, hybrid key slots and explicit access decisions (selected work: crates/oc-protocol, crates/oc-policy, the project root)",
+ "repos": [
+  {
+   "repo": "OpenCrate",
+   "url": "https://github.com/AlexiAxAxA/OpenCrate",
+   "sha": "1c7b93b9f4fda106531259281005e4b402323472",
+   "licence": "MPL-2.0 (LICENSE file at pin 1c7b93b9f4fd, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MPL-2.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-07T09:14Z",
+    "consent_receipt": "eb7a4824dbfc",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T09:14Z (receipt eb7a4824dbfc); selected commit 1c7b93b9f4fd: \"Prepare coordinated core 0.0.7 security release\". LICENSE file at pin 1c7b93b9f4fd detected as MPL-2.0 by the GitHub licence API on 2026-11-07; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "1c7b93b9f4fda106531259281005e4b402323472",
+     "at": "2026-11-07T09:18Z",
+     "receipt": "4051aea8de90"
+    }
+   }
+  }
+ ]
+}

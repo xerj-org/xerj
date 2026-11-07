@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agent, design, figma queries this for how n0ss4/grafta implements it: Figma's file format for your agent: an MCP server that reads and writes .fig files, exactly and offline (selected work: crates/toolkit, crates/adapters)",
+ "domain": "an agent working on agent, design, figma queries this for how n0ss4/grafta implements it: Talk to any Figma file with your AI: ask what's in it, change it, or turn it into code. No Figma account, no app running, no API limits. An  (selected work: crates/toolkit, crates/adapters)",
  "repos": [
   {
    "repo": "grafta",

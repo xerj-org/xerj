@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on Rust queries this for how chicagobuss/crusteo implements it: Unofficial native desktop client for Paseo coding-agent daemons, in Rust with GPUI (selected work: crates/burrow-daemon, crates/reef, src/layouts)",
+ "domain": "an agent working on Rust queries this for how chicagobuss/crusteo implements it: Wrangle all your agents from anywhere; a Paseo-compatible daemon (Burrow), a fleet hub with a mobile-optimized web UI (Reef + Skiff), and a  (selected work: crates/burrow-daemon, crates/reef, src/layouts)",
  "repos": [
   {
    "repo": "crusteo",

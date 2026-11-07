@@ -2,8 +2,8 @@
  "corpus": "wazzac--people-of-the-bible",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on JavaScript queries this for how wazzac/people-of-the-bible implements it: An interactive relationship map of biblical figures (selected work: the project root)",
+ "shelf": "OPS",
+ "domain": "an agent working on bible, bible-study, christianity queries this for how wazzac/people-of-the-bible implements it: An interactive map of the people of the Bible and how they are connected, drawn from the NIV. Explore both testaments as a network or a time (selected work: the project root)",
  "repos": [
   {
    "repo": "people-of-the-bible",

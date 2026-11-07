@@ -8,15 +8,15 @@
   {
    "repo": "cipherbench",
    "url": "https://github.com/gravion-ux/cipherbench",
-   "sha": "68da646a113fa522ac83d5aed8a752b504133b24",
-   "licence": "MIT (LICENSE file at pin 68da646a113f, GitHub licence API 2026-11-06)",
+   "sha": "fc9663d23d1f6ac4c9f9cf05c0abad4941c134bf",
+   "licence": "MIT (LICENSE file at pin fc9663d23d1f, GitHub licence API 2026-11-07)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-04T08:03Z",
     "consent_receipt": "af46cc3cf575",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-04T08:03Z (receipt af46cc3cf575); pinned to the default-branch head. LICENSE file at pin 68da646a113f detected as MIT by the GitHub licence API on 2026-11-06; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-04T08:03Z (receipt af46cc3cf575); pinned to the default-branch head. LICENSE file at pin fc9663d23d1f detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
    }
   }
  ]

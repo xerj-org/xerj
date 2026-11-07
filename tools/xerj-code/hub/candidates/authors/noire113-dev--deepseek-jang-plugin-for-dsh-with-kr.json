@@ -1,9 +1,9 @@
 {
- "corpus": "noire113-dev--deepseek-harness-kr",
+ "corpus": "noire113-dev--deepseek-jang-plugin-for-dsh-with-kr",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on JavaScript queries this for how noire113-dev/deepseek-harness-kr implements it: DeepSeek Harness \ud55c\uad6d\uc5b4\ud654 + \uc778\uc571 Live2D \uce90\ub9ad\ud130(DeepSeek\uc9f1) \ud328\uce58 (selected work: assets, lib, plugin)",
+ "shelf": "WEB",
+ "domain": "an agent working on JavaScript queries this for how noire113-dev/deepseek-jang-plugin-for-dsh-with-KR implements it: DeepSeek\uc7dd Plugin for DSH with KR \u2014 \ud55c\uad6d\uc5b4 UI, \ud30c\uc2a4\ud154 \ud14c\ub9c8 \ubc0f Live2D \uce90\ub9ad\ud130 (selected work: assets, lib, plugin)",
  "repos": [
   {
    "repo": "deepseek-harness-kr",

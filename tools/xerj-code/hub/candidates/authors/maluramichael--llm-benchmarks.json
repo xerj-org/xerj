@@ -1,0 +1,23 @@
+{
+ "corpus": "maluramichael--llm-benchmarks",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how maluramichael/llm-benchmarks implements it: Local LLM benchmarks on real hardware (selected work: bench, tests)",
+ "repos": [
+  {
+   "repo": "llm-benchmarks",
+   "url": "https://github.com/maluramichael/llm-benchmarks",
+   "sha": "8f209c4ce87440c692832e5c67444709663b3b55",
+   "licence": "CC-BY-4.0 (LICENSE file at pin 8f209c4ce874, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "CC-BY-4.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T09:57Z",
+    "consent_receipt": "e4945e656439",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T09:57Z (receipt e4945e656439); selected commit 8f209c4ce874: \"R20: measured rungs beat the estimate, catalog size decides fit of un\u2026\". LICENSE file at pin 8f209c4ce874 detected as CC-BY-4.0 by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

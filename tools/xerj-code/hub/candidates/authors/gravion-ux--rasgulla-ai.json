@@ -8,15 +8,15 @@
   {
    "repo": "rasgulla-ai",
    "url": "https://github.com/gravion-ux/rasgulla-ai",
-   "sha": "bc81a0d35094678d5026d101e60cd63354223ce0",
-   "licence": "MIT (LICENSE file at pin bc81a0d35094, GitHub licence API 2026-11-06)",
+   "sha": "2be89bb3ffceb7c8eece2857217c1726eb42e7cb",
+   "licence": "MIT (LICENSE file at pin 2be89bb3ffce, GitHub licence API 2026-11-07)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-04T08:03Z",
     "consent_receipt": "e8021fb55816",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-04T08:03Z (receipt e8021fb55816); pinned to the default-branch head. LICENSE file at pin bc81a0d35094 detected as MIT by the GitHub licence API on 2026-11-06; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-04T08:03Z (receipt e8021fb55816); pinned to the default-branch head. LICENSE file at pin 2be89bb3ffce detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
    }
   }
  ]

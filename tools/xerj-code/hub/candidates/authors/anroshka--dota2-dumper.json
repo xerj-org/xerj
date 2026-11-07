@@ -1,0 +1,23 @@
+{
+ "corpus": "anroshka--dota2-dumper",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on dota2, memflow, offsets queries this for how Anroshka/dota2-dumper implements it: Dota 2 Offset Dumper (selected work: src/analysis, src/output, src/source2)",
+ "repos": [
+  {
+   "repo": "dota2-dumper",
+   "url": "https://github.com/Anroshka/dota2-dumper",
+   "sha": "73ddc243f61d76b5ff91d6b8f625fa4dff541dba",
+   "licence": "MIT (LICENSE file at pin 73ddc243f61d, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T09:34Z",
+    "consent_receipt": "9d189b27b263",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T09:34Z (receipt 9d189b27b263); selected commit 73ddc243f61d: \"Fix Dota offset validation and generated schemas\". LICENSE file at pin 73ddc243f61d detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}
