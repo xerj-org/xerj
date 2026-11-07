@@ -1,0 +1,23 @@
+{
+ "corpus": "hiforce--panda-force-free",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how hiforce/panda-force-free implements it: MIT-licensed snapshot of PandaForce. Free to use, modify, and fork, including for commercial use (selected work: tests, src/client, the project root)",
+ "repos": [
+  {
+   "repo": "panda-force-free",
+   "url": "https://github.com/hiforce/panda-force-free",
+   "sha": "9e62a72c0c8b41e94edef005f96932a9b382d5e6",
+   "licence": "MIT (LICENSE file at pin 9e62a72c0c8b, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T04:19Z",
+    "consent_receipt": "0214e1221734",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T04:19Z (receipt 0214e1221734); selected commit 9e62a72c0c8b: \"fix: reflect latest running turn consistently in session status\". LICENSE file at pin 9e62a72c0c8b detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

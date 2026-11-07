@@ -1,0 +1,23 @@
+{
+ "corpus": "jit-nath--dandeliondb",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on Rust queries this for how Jit-nath/DandelionDB implements it: High performance Embedded Vector Database (selected work: src, src/storage)",
+ "repos": [
+  {
+   "repo": "DandelionDB",
+   "url": "https://github.com/Jit-nath/DandelionDB",
+   "sha": "5878641dbd40d60905e5da3bdd54b7c90ffcbdbe",
+   "licence": "MIT (LICENSE file at pin 5878641dbd40, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T06:01Z",
+    "consent_receipt": "1744a27a850b",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T06:01Z (receipt 1744a27a850b); selected commit 5878641dbd40: \"added Diplay trait for the resultant table of the execution and did m\u2026\". LICENSE file at pin 5878641dbd40 detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}
