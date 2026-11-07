@@ -26,11 +26,20 @@ AUTO_SEND = (
     "`--disable-feedback` or `XERJ_DISABLE_FEEDBACK=true` opts out."
 )
 OLD_ASK = "ask before sending"
+# The one copy prompt on the home page (2026-11-07 redesign): install with the
+# model, index, search, ask XERJ Query-1, reference coding, and a no-shell line.
 HOME_PROMPT = (
-    "Install XERJ (docs: https://xerj.org/llms.txt), index this project's sources, "
-    "and set up reference coding: clone and index the open-source repos closest to "
-    "what we're building, and search how they solved a problem before writing code."
+    "Set up XERJ for me, following https://xerj.org/llms.txt.\n"
+    "1. Install XERJ with the XERJ Query-1 model and start it.\n"
+    "2. Index the folder I point you to (ask before reading anything outside it) and run one search.\n"
+    "3. Write three facts from that data into a facts namespace and ask XERJ Query-1 one question "
+    "about them. Show me the answer, the program and the evidence.\n"
+    "4. Set up reference coding: index one open-source repo close to this project and look up one "
+    "definition in it.\n"
+    "If you have no shell, use the HTTP or MCP steps in llms.txt instead."
 )
+HOME_PROMPT_RE = r'data-copy="(Set up XERJ for me, following https://xerj.org/llms.txt\.[^"]*)"'
+
 API = "https://xerj.org/api/field-report"
 DEMAND = re.compile(r"required|must|owes?|owed|obligat", re.IGNORECASE)
 
@@ -101,22 +110,18 @@ class FieldReportSectionTests(unittest.TestCase):
     def test_homepage_prompt_matches_its_copy_button(self):
         raw = (ROOT / "landing" / "index.html").read_text(encoding="utf-8")
         self.assertNotIn(OLD_ASK, raw)
-        # The install card also has a data-copy. The agent prompt is the one
-        # that names llms.txt.
-        prompts = re.findall(
-            r'data-copy="(Install XERJ \(docs: https://xerj.org/llms.txt\)[^"]*)"',
-            raw,
-        )
+        # Exactly one copy button on the home page, and it is the agent prompt.
+        self.assertEqual(raw.count("data-copy="), 1)
+        prompts = re.findall(HOME_PROMPT_RE, raw)
         self.assertEqual(len(prompts), 1, prompts)
         self.assertEqual(htmllib.unescape(prompts[0]), HOME_PROMPT)
-        self.assertIn(f"<code>{prompts[0]}</code>", raw)
+        shown = re.search(r'<div class="prompt"[^>]*>.*?<pre>(.*?)</pre>', raw, re.S)
+        self.assertIsNotNone(shown)
+        self.assertEqual(htmllib.unescape(shown.group(1)), HOME_PROMPT)
 
     def test_homepage_prompt_leaves_the_field_report_to_llms_txt(self):
         raw = (ROOT / "landing" / "index.html").read_text(encoding="utf-8")
-        prompts = re.findall(
-            r'data-copy="(Install XERJ \(docs: https://xerj.org/llms.txt\)[^"]*)"',
-            raw,
-        )
+        prompts = re.findall(HOME_PROMPT_RE, raw)
         prompt = htmllib.unescape(prompts[0])
         for needle in (
             "After using xerj",
