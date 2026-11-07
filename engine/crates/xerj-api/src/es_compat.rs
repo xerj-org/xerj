@@ -14728,6 +14728,12 @@ async fn search_impl(
             return ApiError::new(xerj_common::XerjError::index_not_found(&index)).into_response();
         }
     }
+    if let Some(ib) = body.indices_boost.as_ref() {
+        let iu = params.ignore_unavailable.as_deref() == Some("true");
+        if let Some(resp) = index_boost_resolution_error(&state, ib, iu) {
+            return resp;
+        }
+    }
 
     // PIT index_filter: AND it with body.query so every PIT search
     // respects the filter chosen at PIT-open time.
@@ -17068,6 +17074,7 @@ async fn search_impl(
             let participating: Vec<String> = index_names.iter().map(|s| s.to_string()).collect();
             let mut resolved: Vec<(String, f32)> = Vec::new();
             for (k, b) in &boosts {
+                let k = &resolve_date_math_index(k);
                 if let Some(backing) = state.engine.aliases.get(k) {
                     for real in backing.iter() {
                         resolved.push((real.clone(), *b));
@@ -44728,6 +44735,188 @@ pub async fn close_pit(
         _ => 0,
     };
     Json(json!({ "succeeded": freed > 0, "num_freed": freed })).into_response()
+}
+
+/// ES resolves every `indices_boost` key before the search runs
+/// (`TransportSearchAction#resolveIndexBoosts`), with the request's own
+/// indices options, so a key that names nothing is the same error a search
+/// target that names nothing would be: 404 `index_not_found_exception`, or
+/// skipped under `ignore_unavailable`. A `cluster:index` key is refused with
+/// `illegal_argument_exception` even then, because boosts are resolved
+/// against the local cluster only. XERJ applied boosts after the merge and
+/// dropped a key it could not match, so a typo in an index name answered
+/// 200 with every score unboosted. Keys are checked in request order, as ES
+/// does; wildcards may match nothing.
+fn index_boost_resolution_error(
+    state: &AppState,
+    boosts: &Value,
+    ignore_unavailable: bool,
+) -> Option<Response> {
+    let keys: Vec<&str> = match boosts {
+        Value::Array(entries) => entries
+            .iter()
+            .filter_map(Value::as_object)
+            .flat_map(|o| o.keys())
+            .map(String::as_str)
+            .collect(),
+        Value::Object(o) => o.keys().map(String::as_str).collect(),
+        _ => return None,
+    };
+    for key in keys {
+        if is_remote_index_name(key) {
+            let reason = format!(
+                "Cross-cluster calls are not supported in this context but remote indices \
+                 were requested: [{key}]"
+            );
+            return Some(es_bad_request("illegal_argument_exception", &reason, None));
+        }
+        if key == "_all" || key.contains('*') {
+            continue;
+        }
+        let name = resolve_date_math_index(key);
+        if state.engine.has_open_index(&name) || state.engine.aliases.contains_key(&name) {
+            continue;
+        }
+        if ignore_unavailable {
+            continue;
+        }
+        if state.engine.closed_indices.contains_key(&name) {
+            return Some(closed_index_error(&name));
+        }
+        return Some(ApiError::new(xerj_common::XerjError::index_not_found(&name)).into_response());
+    }
+    None
+}
+
+/// `RemoteClusterAware#isRemoteIndexName`: a `:` after the first character,
+/// unless the expression is date math (which may itself contain `:`).
+fn is_remote_index_name(expr: &str) -> bool {
+    if expr.starts_with('<') || expr.starts_with("-<") {
+        return false;
+    }
+    expr.find(':').is_some_and(|i| i > 0)
+}
+
+#[cfg(test)]
+mod indices_boost_resolution_tests {
+    use super::*;
+    use axum::{body::Body, http::Request};
+    use tower::ServiceExt;
+    use xerj_common::{
+        config::{Config, WalSync},
+        metrics::Metrics,
+    };
+    use xerj_engine::Engine;
+
+    fn test_state() -> AppState {
+        let dir = tempfile::tempdir().expect("tempdir").keep();
+        let mut config = Config::default();
+        config.server.data_dir = dir.to_string_lossy().into_owned();
+        config.storage.wal_sync = WalSync::Async;
+        let metrics = Metrics::new().expect("metrics");
+        let engine = Engine::new(config.clone()).expect("engine");
+        AppState::new(config, engine, metrics)
+    }
+
+    async fn send(app: &axum::Router, method: &str, uri: &str, body: Value) -> (StatusCode, Value) {
+        let resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(method)
+                    .uri(uri)
+                    .header("content-type", "application/json")
+                    .body(Body::from(body.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let status = resp.status();
+        let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        (status, serde_json::from_slice(&bytes).unwrap())
+    }
+
+    /// `test_1` behind `alias_1`, `test_2`, one document each.
+    async fn app() -> axum::Router {
+        let app = crate::router::build_es_compat_router(test_state());
+        for idx in ["test_1", "test_2"] {
+            let uri = format!("/{idx}/_doc/1?refresh=true");
+            let (status, body) = send(&app, "PUT", &uri, json!({"foo": "bar"})).await;
+            assert!(status.is_success(), "{body}");
+        }
+        let (status, body) = send(&app, "PUT", "/test_1/_alias/alias_1", json!({})).await;
+        assert!(status.is_success(), "{body}");
+        app
+    }
+
+    fn boost(entries: Value) -> Value {
+        json!({ "indices_boost": entries })
+    }
+
+    /// FAIL-BEFORE: both answered 200 with the unknown key dropped.
+    #[tokio::test]
+    async fn unresolvable_boost_keys_are_refused() {
+        let app = app().await;
+        let body = boost(json!([{"nonexistent": 2.0}, {"test_1": 1.0}]));
+        let (status, resp) = send(&app, "POST", "/_all/_search", body).await;
+        assert_eq!(status, StatusCode::NOT_FOUND, "{resp}");
+        assert_eq!(resp["error"]["type"], "index_not_found_exception", "{resp}");
+        assert_eq!(
+            resp["error"]["reason"], "no such index [nonexistent]",
+            "{resp}"
+        );
+
+        // A remote key is refused even when unavailable indices are ignored.
+        let body = boost(json!([{"nonexistent": 2.0}, {"remote1:test_1": 1.0}]));
+        let (status, resp) =
+            send(&app, "POST", "/_all/_search?ignore_unavailable=true", body).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{resp}");
+        assert_eq!(
+            resp["error"]["type"], "illegal_argument_exception",
+            "{resp}"
+        );
+        assert_eq!(
+            resp["error"]["reason"],
+            "Cross-cluster calls are not supported in this context but remote indices \
+             were requested: [remote1:test_1]",
+            "{resp}"
+        );
+    }
+
+    /// Names, aliases, wildcards that match nothing, date math, and an
+    /// unknown name under `ignore_unavailable` all still search, with the
+    /// boost applied. FAIL-BEFORE for the date-math key: its boost was
+    /// dropped, so `test_2` scored 1.0.
+    #[tokio::test]
+    async fn resolvable_boost_keys_still_apply() {
+        let app = app().await;
+        for (uri, entries) in [
+            (
+                "/_all/_search?ignore_unavailable=true",
+                json!([{"nonexistent": 2.0}, {"test_2": 2.0}]),
+            ),
+            ("/_all/_search", json!([{"test_2": 2.0}, {"nope*": 5.0}])),
+            ("/_all/_search", json!({"test_2": 2.0})),
+            (
+                "/_all/_search",
+                json!([{"alias_1": 0.5}, {"<test_2>": 2.0}]),
+            ),
+        ] {
+            let (status, resp) = send(&app, "POST", uri, boost(entries.clone())).await;
+            assert_eq!(status, StatusCode::OK, "{entries} -> {resp}");
+            assert_eq!(resp["hits"]["total"]["value"], 2, "{entries} -> {resp}");
+            assert_eq!(
+                resp["hits"]["hits"][0]["_index"], "test_2",
+                "{entries} -> {resp}"
+            );
+            assert_eq!(
+                resp["hits"]["hits"][0]["_score"], 2.0,
+                "{entries} -> {resp}"
+            );
+        }
+    }
 }
 
 /// Minimal glob matcher for index-name wildcard expansion (* only).
