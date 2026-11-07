@@ -1,0 +1,23 @@
+{
+ "corpus": "fabiozagaria--expense-tracker-api",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Java queries this for how fabiozagaria/expense-tracker-api implements it: Progetto Didattico Full Stack (selected work: src/main, the project root)",
+ "repos": [
+  {
+   "repo": "expense-tracker-api",
+   "url": "https://github.com/fabiozagaria/expense-tracker-api",
+   "sha": "568b3a485fb1cd06cebe81c419350415fb230c98",
+   "licence": "MIT (LICENSE file at pin 568b3a485fb1, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T18:35Z",
+    "consent_receipt": "75cd03297d4c",
+    "note": "Inclusion consented by the commit author by email at 2026-11-05T18:35Z (receipt 75cd03297d4c); selected commit 568b3a485fb1: \"Add MapStruct mappers for expenses and incomes\". LICENSE file at pin 568b3a485fb1 detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution. Pinned to head 568b3a485fb1 (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

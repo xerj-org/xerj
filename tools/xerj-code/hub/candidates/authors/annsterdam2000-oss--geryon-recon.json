@@ -8,15 +8,15 @@
   {
    "repo": "geryon-recon",
    "url": "https://github.com/annsterdam2000-oss/geryon-recon",
-   "sha": "81fe09d2aad685314d48e68aa31ba81768ab7b77",
-   "licence": "MIT (LICENSE file at pin 81fe09d2aad6, GitHub licence API 2026-10-25)",
+   "sha": "2f92569f286b8f50f037c00f231b543411cae376",
+   "licence": "AGPL-3.0 (LICENSE file at pin 2f92569f286b, GitHub licence API 2026-11-04)",
    "review": {
-    "spdx": "MIT",
-    "use": "adapt-with-attribution",
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-09T23:08Z",
     "consent_receipt": "18a118d7346e",
-    "note": "Inclusion consented by the commit author by email at 2026-10-09T23:08Z (receipt 18a118d7346e); selected commit 81fe09d2aad6: \"feat: sysinfo \u2014 \u043c\u043e\u043d\u0438\u0442\u043e\u0440\u0438\u043d\u0433 \u0436\u0435\u043b\u0435\u0437\u0430 \u0447\u0435\u0440\u0435\u0437 LibreHardwareMonitor\". LICENSE file at pin 81fe09d2aad6 detected as MIT by the GitHub licence API on 2026-10-25; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-10-09T23:08Z (receipt 18a118d7346e); selected commit 2f92569f286b: \"feat: sysinfo \u2014 \u043c\u043e\u043d\u0438\u0442\u043e\u0440\u0438\u043d\u0433 \u0436\u0435\u043b\u0435\u0437\u0430 \u0447\u0435\u0440\u0435\u0437 LibreHardwareMonitor\". LICENSE file at pin 2f92569f286b detected as AGPL-3.0 by the GitHub licence API on 2026-11-04; used under that licence with attribution. Pinned to head 2f92569f286b (contains the selected commit): the LICENSE at the selected commit was MIT."
    }
   }
  ]

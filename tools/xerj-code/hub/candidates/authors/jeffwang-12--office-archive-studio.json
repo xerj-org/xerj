@@ -1,0 +1,23 @@
+{
+ "corpus": "jeffwang-12--office-archive-studio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how JeffWang-12/office-archive-studio implements it: \u5f52\u6863\uff1aMIT \u5f00\u6e90\u7684 Python/PySide6 \u6863\u6848\u683c\u5f0f\u52a9\u624b\uff0c\u4ec5\u53d1\u5e03\u6e90\u7801\uff0c\u4e0d\u5305\u542b\u5b57\u4f53\u4e0e\u89c4\u8303\u539f\u4ef6 (selected work: app, scripts, tests)",
+ "repos": [
+  {
+   "repo": "office-archive-studio",
+   "url": "https://github.com/JeffWang-12/office-archive-studio",
+   "sha": "e6a9b69ec1f81438624af989b487183bc305c85b",
+   "licence": "MIT (LICENSE file at pin e6a9b69ec1f8, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T12:40Z",
+    "consent_receipt": "06ab64dccc26",
+    "note": "Inclusion consented by the commit author by email at 2026-11-05T12:40Z (receipt 06ab64dccc26); selected commit e6a9b69ec1f8: \"Restore full generator forms and complete original workflows\". LICENSE file at pin e6a9b69ec1f8 detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

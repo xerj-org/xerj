@@ -1,0 +1,23 @@
+{
+ "corpus": "2023anita--voiceink",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Swift queries this for how 2023Anita/voiceink implements it: Open-source macOS AI voice dictation: speak, polish, paste anywhere (Typeless-style recreation)",
+ "repos": [
+  {
+   "repo": "voiceink",
+   "url": "https://github.com/2023Anita/voiceink",
+   "sha": "5c9f488b2324acf6adb8d748940a784634385b96",
+   "licence": "MIT (LICENSE file at pin 5c9f488b2324, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T13:38Z",
+    "consent_receipt": "bc7c2f67cc25",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T13:38Z (receipt bc7c2f67cc25); pinned to the default-branch head. LICENSE file at pin 5c9f488b2324 detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

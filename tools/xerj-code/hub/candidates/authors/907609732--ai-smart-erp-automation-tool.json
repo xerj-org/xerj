@@ -1,0 +1,23 @@
+{
+ "corpus": "907609732--ai-smart-erp-automation-tool",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on JavaScript queries this for how 907609732/AI-Smart-ERP-Automation-Tool implements it: \u4e94\u6210\u7535\u5546ERP\u81ea\u52a8\u5316\u5de5\u5177",
+ "repos": [
+  {
+   "repo": "AI-Smart-ERP-Automation-Tool",
+   "url": "https://github.com/907609732/AI-Smart-ERP-Automation-Tool",
+   "sha": "6615ff97e41ca2b335c8f2d7e334549fb83efa5a",
+   "licence": "author's permission (LICENSE at pin 6615ff97e41c: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T08:36Z",
+    "consent_receipt": "4519c03beb50",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T08:36Z (receipt 4519c03beb50); pinned to the default-branch head. LICENSE at pin 6615ff97e41c: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

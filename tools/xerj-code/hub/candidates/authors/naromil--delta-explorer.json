@@ -1,0 +1,23 @@
+{
+ "corpus": "naromil--delta-explorer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, ai-memory, desktop-app queries this for how naromil/delta-explorer implements it: A revolutionary AI helper for learning anything (selected work: src/renderer)",
+ "repos": [
+  {
+   "repo": "delta-ai",
+   "url": "https://github.com/naromil/delta-ai",
+   "sha": "e190b351daa30aafc6e003e949a0faf53f8c721a",
+   "licence": "MIT (LICENSE file at pin e190b351daa3, GitHub licence API 2026-10-26)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-25T23:33Z",
+    "consent_receipt": "6c7fc8aa2805",
+    "note": "Inclusion consented by the commit author by email at 2026-10-25T23:33Z (receipt 6c7fc8aa2805); selected commit e190b351daa3: \"feat(settings): autosave changes instead of a Save button\". LICENSE file at pin e190b351daa3 detected as MIT by the GitHub licence API on 2026-10-26; used under that licence with attribution."
+   }
+  }
+ ]
+}

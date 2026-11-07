@@ -1,0 +1,23 @@
+{
+ "corpus": "jessebrown1980--asolaria-hbi-hbp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on Rust queries this for how JesseBrown1980/asolaria-hbi-hbp implements it: Canonical Asolaria HBI/HBP bridge codec \u2014 the machine-to-machine wire format: Rust, json=0, sha256 content-addressing (AGT-<sha16>), hash-ch",
+ "repos": [
+  {
+   "repo": "asolaria-hbi-hbp",
+   "url": "https://github.com/JesseBrown1980/asolaria-hbi-hbp",
+   "sha": "b034fde202196553eff8187e0f3465a88f03fdc6",
+   "licence": "MIT (LICENSE file at pin b034fde20219, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T14:53Z",
+    "consent_receipt": "aba95b876848",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T14:53Z (receipt aba95b876848); pinned to the default-branch head. LICENSE file at pin b034fde20219 detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

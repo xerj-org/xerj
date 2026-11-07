@@ -8,15 +8,15 @@
   {
    "repo": "open-ampp",
    "url": "https://github.com/Jmzp/open-ampp",
-   "sha": "d26a5d1a50b3cb069ca60e3728536dd423821e39",
-   "licence": "MIT (LICENSE file at pin d26a5d1a50b3, GitHub licence API 2026-10-31)",
+   "sha": "9daab550ec75c4ee55191c20a51feaa2346e44a4",
+   "licence": "MIT (LICENSE file at pin 9daab550ec75, GitHub licence API 2026-11-07)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-24T00:43Z",
     "consent_receipt": "c5f9bc676a68",
-    "note": "Inclusion consented by the commit author by email at 2026-10-24T00:43Z (receipt c5f9bc676a68); selected commit d26a5d1a50b3: \"Tests: cover the service supervisor, the CLI and the remaining core m\u2026\". LICENSE file at pin d26a5d1a50b3 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution. Pinned to head d26a5d1a50b3 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-24T00:43Z (receipt c5f9bc676a68); selected commit 9daab550ec75: \"Tests: cover the service supervisor, the CLI and the remaining core m\u2026\". LICENSE file at pin 9daab550ec75 detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution. Pinned to head 9daab550ec75 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

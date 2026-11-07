@@ -1,0 +1,23 @@
+{
+ "corpus": "gravion-ux--preference-data-doctor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on JavaScript queries this for how gravion-ux/preference-data-doctor implements it: Diagnoses and repairs preference datasets for LLM personalisation: duplicates, contradictions, class imbalance, format drift, and leaked sec",
+ "repos": [
+  {
+   "repo": "preference-data-doctor",
+   "url": "https://github.com/gravion-ux/preference-data-doctor",
+   "sha": "601e5a73faa0f778a76fc094fb90ad768acb726c",
+   "licence": "MIT (LICENSE file at pin 601e5a73faa0, GitHub licence API 2026-11-04)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-04T08:03Z",
+    "consent_receipt": "8d0a27488854",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-04T08:03Z (receipt 8d0a27488854); pinned to the default-branch head. LICENSE file at pin 601e5a73faa0 detected as MIT by the GitHub licence API on 2026-11-04; used under that licence with attribution."
+   }
+  }
+ ]
+}

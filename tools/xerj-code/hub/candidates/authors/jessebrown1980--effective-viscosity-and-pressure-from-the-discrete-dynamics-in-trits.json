@@ -1,0 +1,23 @@
+{
+ "corpus": "jessebrown1980--effective-viscosity-and-pressure-from-the-discrete-dynamics-in-trits",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how JesseBrown1980/effective-viscosity-and-pressure-from-the-discrete-dynamics-in-trits implements it: JesseBrown1980/effective-viscosity-and-pressure-from-the-discrete-dynamics-in-trits (C++)",
+ "repos": [
+  {
+   "repo": "effective-viscosity-and-pressure-from-the-discrete-dynamics-in-trits",
+   "url": "https://github.com/JesseBrown1980/effective-viscosity-and-pressure-from-the-discrete-dynamics-in-trits",
+   "sha": "d1cd45038aefcc44f599a922da82643d6baa3216",
+   "licence": "author's permission (LICENSE at pin d1cd45038aef: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T14:53Z",
+    "consent_receipt": "a5b52ebe6822",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T14:53Z (receipt a5b52ebe6822); pinned to the default-branch head. LICENSE at pin d1cd45038aef: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

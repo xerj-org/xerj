@@ -1,0 +1,23 @@
+{
+ "corpus": "fjsanzano--ytdlp-gui",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Python queries this for how fjsanzano/ytdlp-gui implements it: fjsanzano/ytdlp-gui (Python) (selected work: ytdlp_gui, tests, the project root)",
+ "repos": [
+  {
+   "repo": "ytdlp-gui",
+   "url": "https://github.com/fjsanzano/ytdlp-gui",
+   "sha": "d88418eb9791330eba290eba274e2c64b1d54749",
+   "licence": "MIT (LICENSE file at pin d88418eb9791, GitHub licence API 2026-11-06)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T15:22Z",
+    "consent_receipt": "8f5dbc1a3fd2",
+    "note": "Inclusion consented by the commit author by email at 2026-11-06T15:22Z (receipt 8f5dbc1a3fd2); selected commit d88418eb9791: \"Agregando YT-DLP Downloader Pro\". LICENSE file at pin d88418eb9791 detected as MIT by the GitHub licence API on 2026-11-06; used under that licence with attribution."
+   }
+  }
+ ]
+}

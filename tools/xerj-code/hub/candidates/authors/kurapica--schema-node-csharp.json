@@ -2,8 +2,8 @@
  "corpus": "kurapica--schema-node-csharp",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on C# queries this for how kurapica/schema-node-csharp implements it: Executable Structured Semantic Language (selected work: SchemaNode.App, SchemaNode.UnitTest, SchemaNode.Core)",
+ "shelf": "AI",
+ "domain": "an agent working on ai-native, ast, compiler queries this for how kurapica/schema-node-csharp implements it: Executable Structured Semantic Language (selected work: SchemaNode.App, SchemaNode.UnitTest, SchemaNode.Core)",
  "repos": [
   {
    "repo": "schema-node-csharp",

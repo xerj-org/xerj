@@ -2,8 +2,8 @@
  "corpus": "rj-nexus--rj-nexus",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on ruhid-javadov, widget-system, rj-cms queries this for how rj-nexus/rj-nexus implements it: RJ CMS - NEXUS (selected work: database, app/Console)",
+ "shelf": "AI",
+ "domain": "an agent working on rj-cms, rj-nexus, ai-seo queries this for how rj-nexus/rj-nexus implements it: A modern, self-hosted CMS with a visual drag-and-drop page builder, built-in AI tools, multilingual support and an isolated plugin and theme (selected work: database, app/Console)",
  "repos": [
   {
    "repo": "rj-nexus",

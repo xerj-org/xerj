@@ -1,0 +1,23 @@
+{
+ "corpus": "sq-ui--ng-sq-ui",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on angular, typescript, ui-kit queries this for how SQ-UI/ng-sq-ui implements it: Flexible and easily customizable UI-kit for Angular 11+ (selected work: projects, scripts, src/app)",
+ "repos": [
+  {
+   "repo": "ng-sq-ui",
+   "url": "https://github.com/SQ-UI/ng-sq-ui",
+   "sha": "500ea1f31dcb9c1402f4a6117315d79de14512c6",
+   "licence": "MIT (LICENSE file at pin 500ea1f31dcb, GitHub licence API 2026-11-04)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-04T09:46Z",
+    "consent_receipt": "38cf311baf38",
+    "note": "Inclusion consented by the commit author by email at 2026-11-04T09:46Z (receipt 38cf311baf38); selected commit 500ea1f31dcb: \"feat: enhance form field components with signal inputs and default va\u2026\". LICENSE file at pin 500ea1f31dcb detected as MIT by the GitHub licence API on 2026-11-04; used under that licence with attribution."
+   }
+  }
+ ]
+}

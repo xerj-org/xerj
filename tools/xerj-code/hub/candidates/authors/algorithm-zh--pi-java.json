@@ -1,0 +1,23 @@
+{
+ "corpus": "algorithm-zh--pi-java",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Java queries this for how Algorithm-zh/pi-java implements it: \u7528 Java 21 \u91cd\u5199\u3001DDD \u5206\u5c42\u3001\u63d2\u4ef6\u5316\u7684 coding agent\uff08Web UI + SSE\u3001Fake/OpenAI-compatible LLM\uff09 (selected work: pi-java-app)",
+ "repos": [
+  {
+   "repo": "pi-java",
+   "url": "https://github.com/Algorithm-zh/pi-java",
+   "sha": "5799990a314849324a7576b6e70abc1c679468d9",
+   "licence": "MIT (LICENSE file at pin 5799990a3148, GitHub licence API 2026-11-06)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T05:17Z",
+    "consent_receipt": "240ef1192d48",
+    "note": "Inclusion consented by the commit author by email at 2026-11-06T05:17Z (receipt 240ef1192d48); selected commit 5799990a3148: \"feat(m22): add revisitable decision timeline to Web UI\". LICENSE file at pin 5799990a3148 detected as MIT by the GitHub licence API on 2026-11-06; used under that licence with attribution."
+   }
+  }
+ ]
+}

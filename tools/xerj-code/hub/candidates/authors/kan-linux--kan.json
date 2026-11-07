@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "SEC",
- "domain": "an agent working on Shell queries this for how kan-linux/kan implements it: build a concise, source-built, secure and agent-first Linux distro within a single repository (selected work: toolchain, the project root)",
+ "domain": "an agent working on C queries this for how kan-linux/kan implements it: build a concise, secure, agent-first Linux distro from scratch within a single repository (selected work: toolchain, the project root)",
  "repos": [
   {
    "repo": "kan",

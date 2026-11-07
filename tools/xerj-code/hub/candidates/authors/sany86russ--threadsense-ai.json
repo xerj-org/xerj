@@ -1,0 +1,23 @@
+{
+ "corpus": "sany86russ--threadsense-ai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agent, anthropic, browser-extension queries this for how sany86russ/ThreadSense-AI implements it: Open-source Chrome extension for AI-assisted Threads discovery, drafting and review workflows",
+ "repos": [
+  {
+   "repo": "ThreadSense-AI",
+   "url": "https://github.com/sany86russ/ThreadSense-AI",
+   "sha": "ceb51802f6fd980e9a7fa47f9091b9e540e91c33",
+   "licence": "MIT (LICENSE file at pin ceb51802f6fd, GitHub licence API 2026-11-06)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T09:03Z",
+    "consent_receipt": "1a55adcab22f",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T09:03Z (receipt 1a55adcab22f); pinned to the default-branch head. LICENSE file at pin ceb51802f6fd detected as MIT by the GitHub licence API on 2026-11-06; used under that licence with attribution."
+   }
+  }
+ ]
+}

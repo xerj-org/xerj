@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on angular, audit, cli queries this for how stefankuburovic/ng-checkup implements it: A one-minute modernization report for any Angular codebase: version gap, deprecated APIs, zoneless readiness, signals adoption, testing, typ (selected work: src, test, src/checks)",
+ "domain": "an agent working on angular, audit, cli queries this for how stefankuburovic/ng-checkup implements it: A one-minute modernization report for any Angular codebase: upgrade blockers, zoneless and signals readiness, testing, type safety, security (selected work: src, test, src/checks)",
  "repos": [
   {
    "repo": "ng-checkup",

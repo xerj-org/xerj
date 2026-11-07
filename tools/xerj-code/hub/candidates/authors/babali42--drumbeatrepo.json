@@ -16,7 +16,14 @@
     "by": "author-consent",
     "at": "2026-10-28T06:36Z",
     "consent_receipt": "e6124f0181ad",
-    "note": "Inclusion consented by the commit author by email at 2026-10-28T06:36Z (receipt e6124f0181ad); selected commit 4c43b51da3e2: \"Scala wip : add compact beat on scala side - add json decoder using c\u2026\". LICENSE file at pin 4c43b51da3e2 detected as GPL-3.0 by the GitHub licence API on 2026-10-28; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-10-28T06:36Z (receipt e6124f0181ad); selected commit 4c43b51da3e2: \"Scala wip : add compact beat on scala side - add json decoder using c\u2026\". LICENSE file at pin 4c43b51da3e2 detected as GPL-3.0 by the GitHub licence API on 2026-10-28; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "4c43b51da3e2a9ee96100e21f83c3276e877f63a",
+     "at": "2026-10-28T06:36Z",
+     "receipt": "e6124f0181ad"
+    }
    }
   }
  ]

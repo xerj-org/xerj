@@ -1,0 +1,23 @@
+{
+ "corpus": "fasterxml--jackson-dataformats-text",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on hacktoberfest, jackson, textual-formats queries this for how FasterXML/jackson-dataformats-text implements it: Uber-project for (some) standard Jackson textual format backends: csv, properties, yaml (xml to be added in future) (selected work: toml, release-notes)",
+ "repos": [
+  {
+   "repo": "jackson-dataformats-text",
+   "url": "https://github.com/FasterXML/jackson-dataformats-text",
+   "sha": "bedf505b61ce32d23f0e7b02588f50f37a08c940",
+   "licence": "Apache-2.0 (LICENSE file at pin bedf505b61ce, GitHub licence API 2026-11-06)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T17:36Z",
+    "consent_receipt": "e557e6618dc3",
+    "note": "Inclusion consented by the commit author by email at 2026-11-06T17:36Z (receipt e557e6618dc3); selected commit bedf505b61ce: \"Fix #758: `TomlGenerator` root-level Object/array/scalar (#770)\". LICENSE file at pin bedf505b61ce detected as Apache-2.0 by the GitHub licence API on 2026-11-06; used under that licence with attribution."
+   }
+  }
+ ]
+}

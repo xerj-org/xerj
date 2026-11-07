@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agent-onboarding, agents-md, ai-agents queries this for how aunysillyme/agent-personalizer implements it: AI custom instructions from approved entries: a profile and rules for Claude Code, Codex, Cursor, Gemini CLI and ChatGPT, kept in sync from  (selected work: bin, test, render)",
+ "domain": "an agent working on agent-onboarding, agents-md, ai-agents queries this for how aunysillyme/agent-personalizer implements it: AI custom instructions from approved entries: a profile and rules for Claude Code, Codex, Cursor, Gemini CLI, Hermes Agent and ChatGPT, kept (selected work: bin, test, render)",
  "repos": [
   {
    "repo": "agent-personalizer",

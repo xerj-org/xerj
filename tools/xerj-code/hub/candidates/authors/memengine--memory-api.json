@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-agent, ai-agents, ai-governance queries this for how memengine/memory-api implements it: The governed context layer for production AI agents (selected work: tests, api, sdk)",
+ "domain": "an agent working on ai-agent, ai-agents, ai-governance queries this for how memengine/memory-api implements it: Memory for AI agents with source tracking, corrections, and history. Python and TypeScript SDKs (selected work: tests, api, sdk)",
  "repos": [
   {
    "repo": "memory-api",

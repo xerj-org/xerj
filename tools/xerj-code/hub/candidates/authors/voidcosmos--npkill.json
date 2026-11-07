@@ -1,0 +1,23 @@
+{
+ "corpus": "voidcosmos--npkill",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on npm, typescript, cli queries this for how voidcosmos/npkill implements it: List any node_modules \ud83d\udce6 dir in your system and how heavy they are. You can then select which ones you want to erase to free up space \ud83e\uddf9 (selected work: tests, src/core)",
+ "repos": [
+  {
+   "repo": "npkill",
+   "url": "https://github.com/voidcosmos/npkill",
+   "sha": "9e83cf2c224d2b2010970ff4bcfc0e470f79b9b5",
+   "licence": "MIT (LICENSE file at pin 9e83cf2c224d, GitHub licence API 2026-11-06)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T15:22Z",
+    "consent_receipt": "875871778321",
+    "note": "Inclusion consented by the commit author by email at 2026-11-06T15:22Z (receipt 875871778321); selected commit 9e83cf2c224d: \"fix(core): validate and resolve the paths and options the api receives\". LICENSE file at pin 9e83cf2c224d detected as MIT by the GitHub licence API on 2026-11-06; used under that licence with attribution."
+   }
+  }
+ ]
+}

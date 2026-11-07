@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "CRYPTO",
- "domain": "an agent working on encryption, launcher, local-first queries this for how ownkeep-app/ownkeep implements it: OwnKeep is an offline, keyboard-first vault for macOS. Passwords, commands, todos, subscriptions and finance \u2014 one encrypted file that never (selected work: src/modules, src/stores, src/lib)",
+ "domain": "an agent working on encryption, launcher, local-first queries this for how ownkeep-app/ownkeep implements it: OwnKeep is an offline, keyboard-first vault for macOS. Passwords, commands, todos, subscriptions, finance, events and files \u2014 one encrypted  (selected work: src/modules, src/stores, src/lib)",
  "repos": [
   {
    "repo": "ownkeep",
@@ -16,7 +16,14 @@
     "by": "author-consent",
     "at": "2026-11-02T03:31Z",
     "consent_receipt": "158b59bd9119",
-    "note": "Inclusion consented by the commit author by email at 2026-11-02T03:31Z (receipt 158b59bd9119); selected commit a574194b72ee: \"new module: event tracker, image/pdf upload\". LICENSE file at pin a574194b72ee detected as GPL-3.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T03:31Z (receipt 158b59bd9119); selected commit a574194b72ee: \"new module: event tracker, image/pdf upload\". LICENSE file at pin a574194b72ee detected as GPL-3.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "a574194b72ee8fe4f1f30071d3e5d31a815bf41f",
+     "at": "2026-11-02T03:31Z",
+     "receipt": "158b59bd9119"
+    }
    }
   }
  ]

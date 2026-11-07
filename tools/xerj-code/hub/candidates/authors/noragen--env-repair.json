@@ -1,0 +1,23 @@
+{
+ "corpus": "noragen--env-repair",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how noragen/env-repair implements it: EnvRepair is a CLI tool that diagnoses and repairs broken Python/Conda/Mamba environments by detecting common inconsistencies and safely fix (selected work: env_repair, conda.recipe, tools)",
+ "repos": [
+  {
+   "repo": "env-repair",
+   "url": "https://github.com/noragen/env-repair",
+   "sha": "c14dc045de2a80f620fb178204ddf78167d3618f",
+   "licence": "MIT (LICENSE file at pin c14dc045de2a, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T00:59Z",
+    "consent_receipt": "4bd97345890f",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T00:59Z (receipt 4bd97345890f); selected commit c14dc045de2a: \"UV-Unterst\u00fctzung, Import-Reparaturen, conda-forge-v1-Rezept, Versions\u2026\". LICENSE file at pin c14dc045de2a detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

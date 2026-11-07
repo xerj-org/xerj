@@ -8,15 +8,15 @@
   {
    "repo": "glugent",
    "url": "https://github.com/anweba/glugent",
-   "sha": "4705018df125673e4234ca0583424569ba643737",
-   "licence": "MIT (LICENSE file at pin 4705018df125, GitHub licence API 2026-11-03)",
+   "sha": "1f2b1c2e1ad9c49b9872db9f528c1d410934f396",
+   "licence": "MIT (LICENSE file at pin 1f2b1c2e1ad9, GitHub licence API 2026-11-04)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-01T00:08Z",
     "consent_receipt": "97f373a124e3",
-    "note": "Inclusion consented by the commit author by email at 2026-11-01T00:08Z (receipt 97f373a124e3); selected commit 4705018df125: \"feature: ref props\". LICENSE file at pin 4705018df125 detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution. Pinned to head 4705018df125 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T00:08Z (receipt 97f373a124e3); selected commit 1f2b1c2e1ad9: \"feature: ref props\". LICENSE file at pin 1f2b1c2e1ad9 detected as MIT by the GitHub licence API on 2026-11-04; used under that licence with attribution. Pinned to head 1f2b1c2e1ad9 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

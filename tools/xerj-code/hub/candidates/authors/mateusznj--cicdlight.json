@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "OPS",
- "domain": "an agent working on C# queries this for how mateusznj/CicdLight implements it: Lightweight CI/CD Status Monitor (selected work: the project root, tools)",
+ "domain": "an agent working on azure-devops, ci-cd, ci-cd-pipeline queries this for how mateusznj/CicdLight implements it: Darmowy, lekki monitor Azure DevOps i GitHub Actions w zasobniku systemowym Windows. / Free, lightweight Azure DevOps and GitHub Actions mon (selected work: the project root, tools)",
  "repos": [
   {
    "repo": "CicdLight",

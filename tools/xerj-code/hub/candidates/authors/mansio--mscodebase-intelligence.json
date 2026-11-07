@@ -1,0 +1,23 @@
+{
+ "corpus": "mansio--mscodebase-intelligence",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on codebase-intelligence, context-server, hybrid-search queries this for how ManSio/mscodebase-intelligence implements it: Intelligent codebase search & indexing for Zed. Async MCP server featuring LanceDB/BM25 hybrid search, multi-bucket RAG, and autonomous self (selected work: tools, experiments, scripts)",
+ "repos": [
+  {
+   "repo": "mscodebase-intelligence",
+   "url": "https://github.com/ManSio/mscodebase-intelligence",
+   "sha": "8588864ed824f70cd1a321358e32ae22049043ca",
+   "licence": "MIT (LICENSE file at pin 8588864ed824, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T12:19Z",
+    "consent_receipt": "5b28f57eb174",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-07T12:19Z (receipt 5b28f57eb174); selected commit 8588864ed824: \"feat(verification): committed gates, protocol triage, and six command\u2026\". LICENSE file at pin 8588864ed824 detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

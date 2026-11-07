@@ -1,0 +1,23 @@
+{
+ "corpus": "nisavid--codiquary",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on artifact-verification, release-engineering, software-supply-chain queries this for how nisavid/codiquary implements it: Provider-neutral release authority, publication, verification, and consumer contracts",
+ "repos": [
+  {
+   "repo": "codiquary",
+   "url": "https://github.com/nisavid/codiquary",
+   "sha": "7ccfaa1f46b46b7d4063f89f0a794653a7288388",
+   "licence": "Apache-2.0 (LICENSE file at pin 7ccfaa1f46b4, GitHub licence API 2026-11-06)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T21:16Z",
+    "consent_receipt": "d2276c55ffa3",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T21:16Z (receipt d2276c55ffa3); pinned to the default-branch head. LICENSE file at pin 7ccfaa1f46b4 detected as Apache-2.0 by the GitHub licence API on 2026-11-06; used under that licence with attribution."
+   }
+  }
+ ]
+}

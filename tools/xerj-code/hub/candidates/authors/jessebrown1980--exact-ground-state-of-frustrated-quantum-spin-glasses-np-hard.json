@@ -1,0 +1,23 @@
+{
+ "corpus": "jessebrown1980--exact-ground-state-of-frustrated-quantum-spin-glasses-np-hard",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on asolaria, balanced-ternary, np-hard queries this for how JesseBrown1980/Exact-Ground-State-of-Frustrated-Quantum-Spin-Glasses-NP-Hard- implements it: Exact Ground State of Frustrated Quantum Spin Glasses (NP-Hard) via Asolaria Balanced Ternary Relaxation and 108-Lane NTT Prism",
+ "repos": [
+  {
+   "repo": "Exact-Ground-State-of-Frustrated-Quantum-Spin-Glasses-NP-Hard-",
+   "url": "https://github.com/JesseBrown1980/Exact-Ground-State-of-Frustrated-Quantum-Spin-Glasses-NP-Hard-",
+   "sha": "bea0d4c474607e809ce286be080741849b1b8674",
+   "licence": "MIT (LICENSE file at pin bea0d4c47460, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T14:53Z",
+    "consent_receipt": "c142828b66fd",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T14:53Z (receipt c142828b66fd); pinned to the default-branch head. LICENSE file at pin bea0d4c47460 detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

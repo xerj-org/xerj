@@ -1,0 +1,30 @@
+{
+ "corpus": "roktas--sevgi",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on svg queries this for how roktas/sevgi implements it: Toolkit for Creating SVG Content Programmatically with Ruby (selected work: sundries, graphics, toplevel)",
+ "repos": [
+  {
+   "repo": "sevgi",
+   "url": "https://github.com/roktas/sevgi",
+   "sha": "efe16a8c4c5a08a8e25891cb46850bde8a1d4e33",
+   "licence": "GPL-3.0 (LICENSE file at pin efe16a8c4c5a, GitHub licence API 2026-11-06)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-06T05:33Z",
+    "consent_receipt": "d1e65b006c72",
+    "note": "Inclusion consented by the commit author by email at 2026-11-06T05:33Z (receipt d1e65b006c72); selected commit efe16a8c4c5a: \"feat(graphics)!: adopt Imprint for PDF authoring\". LICENSE file at pin efe16a8c4c5a detected as GPL-3.0 by the GitHub licence API on 2026-11-06; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "efe16a8c4c5a08a8e25891cb46850bde8a1d4e33",
+     "at": "2026-11-06T05:33Z",
+     "receipt": "d1e65b006c72"
+    }
+   }
+  }
+ ]
+}

@@ -1,0 +1,30 @@
+{
+ "corpus": "drytrix--timetracker",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on clockify-alternative, docker, docker-compose queries this for how DRYTRIX/TimeTracker implements it: Self-hosted time tracking & invoicing for freelancers and teams: timers, projects, PDF and Peppol e-invoicing. Open-source Toggl/Clockify al (selected work: tests, peppol_bridge, app/templates)",
+ "repos": [
+  {
+   "repo": "TimeTracker",
+   "url": "https://github.com/DRYTRIX/TimeTracker",
+   "sha": "f14fa4139b2596146cfd124ba218bc6b50145845",
+   "licence": "GPL-3.0 (LICENSE file at pin f14fa4139b25, GitHub licence API 2026-11-06)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-06T14:09Z",
+    "consent_receipt": "ea2454b82d73",
+    "note": "Inclusion consented by the commit author by email at 2026-11-06T14:09Z (receipt ea2454b82d73); selected commit f14fa4139b25: \"feat(peppol-bridge): add getpeppr provider preset\". LICENSE file at pin f14fa4139b25 detected as GPL-3.0 by the GitHub licence API on 2026-11-06; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "f14fa4139b2596146cfd124ba218bc6b50145845",
+     "at": "2026-11-06T14:09Z",
+     "receipt": "ea2454b82d73"
+    }
+   }
+  }
+ ]
+}

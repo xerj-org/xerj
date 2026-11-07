@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on african-languages, conversational-ai, hausa queries this for how Radiant-O/baobab-turn implements it: Turn detection for African speech. Framework-agnostic core, thin adapters, contributable language packs (selected work: baobab_turn, tests)",
+ "domain": "an agent working on african-languages, conversational-ai, hausa queries this for how Radiant-O/baobab-turn implements it: Turn detection for the speakers your detector wasn't trained on \u2014 tonal languages, code-switchers, second-language and slower speakers. Fram (selected work: baobab_turn, tests)",
  "repos": [
   {
    "repo": "baobab-turn",

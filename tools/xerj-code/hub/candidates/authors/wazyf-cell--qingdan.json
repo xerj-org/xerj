@@ -8,15 +8,22 @@
   {
    "repo": "qingdan",
    "url": "https://github.com/wazyf-cell/qingdan",
-   "sha": "5da6db7b68c7fbb48b6558616893087e0c15ae73",
-   "licence": "AGPL-3.0 (LICENSE file at pin 5da6db7b68c7, GitHub licence API 2026-10-26)",
+   "sha": "37afda9ce327d56af34183557ad3a128a74e341c",
+   "licence": "AGPL-3.0 (LICENSE file at pin 37afda9ce327, GitHub licence API 2026-11-07)",
    "review": {
     "spdx": "AGPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-25T18:41Z",
     "consent_receipt": "d48df78063e8",
-    "note": "Inclusion consented by the commit author by email at 2026-10-25T18:41Z (receipt d48df78063e8); selected commit 5da6db7b68c7: \"\u7248\u672c 1.0.10 build 12\uff1a\u51b7\u542f\u52a8\u81ea\u52a8\u68c0\u67e5\u66f4\u65b0\u3001ETag \u9650\u6d41\u4f18\u5316\". LICENSE file at pin 5da6db7b68c7 detected as AGPL-3.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution. Pinned to head 5da6db7b68c7 (contains the selected commit): the LICENSE at the selected commit was NOASSERTION."
+    "note": "Inclusion consented by the commit author by email at 2026-10-25T18:41Z (receipt d48df78063e8); selected commit 37afda9ce327: \"\u7248\u672c 1.0.10 build 12\uff1a\u51b7\u542f\u52a8\u81ea\u52a8\u68c0\u67e5\u66f4\u65b0\u3001ETag \u9650\u6d41\u4f18\u5316\". LICENSE file at pin 37afda9ce327 detected as AGPL-3.0 by the GitHub licence API on 2026-11-07; used under that licence with attribution. Pinned to head 37afda9ce327 (contains the selected commit): the LICENSE at the selected commit was NOASSERTION.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "affd9b15a0a2aac7f63da8e1c755ea72ad0995c8",
+     "at": "2026-10-25T18:41Z",
+     "receipt": "d48df78063e8"
+    }
    }
   }
  ]

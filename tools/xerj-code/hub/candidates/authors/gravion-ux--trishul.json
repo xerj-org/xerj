@@ -1,0 +1,23 @@
+{
+ "corpus": "gravion-ux--trishul",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how gravion-ux/TRISHUL implements it: TRISHUL - an AI-powered authorized security testing platform with a real tool integration layer (httpx, Nuclei, ffuf, Nmap), ten functional ",
+ "repos": [
+  {
+   "repo": "TRISHUL",
+   "url": "https://github.com/gravion-ux/TRISHUL",
+   "sha": "7d3b92361dc8550f600346969d1bf4c63e87cba6",
+   "licence": "MIT (LICENSE file at pin 7d3b92361dc8, GitHub licence API 2026-11-04)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-04T08:03Z",
+    "consent_receipt": "59510def4f99",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-04T08:03Z (receipt 59510def4f99); pinned to the default-branch head. LICENSE file at pin 7d3b92361dc8 detected as MIT by the GitHub licence API on 2026-11-04; used under that licence with attribution."
+   }
+  }
+ ]
+}

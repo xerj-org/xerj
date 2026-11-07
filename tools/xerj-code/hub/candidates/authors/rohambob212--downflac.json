@@ -1,0 +1,23 @@
+{
+ "corpus": "rohambob212--downflac",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how rohambob212/downflac implements it: rohambob212/downflac (Rust) (selected work: src, the project root)",
+ "repos": [
+  {
+   "repo": "downflac",
+   "url": "https://github.com/rohambob212/downflac",
+   "sha": "360ad227df169f9cc0e5209f2d22399d893bbd56",
+   "licence": "MIT (LICENSE file at pin 360ad227df16, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T14:28Z",
+    "consent_receipt": "0a5ab3ca66a6",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T14:28Z (receipt 0a5ab3ca66a6); selected commit 360ad227df16: \"shrink share codes and make pausing work interactively\". LICENSE file at pin 360ad227df16 detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

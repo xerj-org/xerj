@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "DB",
- "domain": "an agent working on fastapi, knowledge-base, backend queries this for how JeremyL691/SourceHero-AI implements it: Self-hosted research workspace: ingestion-to-retrieval pipeline for webpages, RSS, PDFs with content-hash dedup, hybrid search, and cited an (selected work: dashboard-web, tests, app/briefs)",
+ "domain": "an agent working on backend, data-engineering, data-ingestion queries this for how JeremyL691/SourceHero-AI implements it: Self-hosted research workspace: ingestion-to-retrieval pipeline for webpages, RSS, PDFs with content-hash dedup, hybrid search, and cited an (selected work: dashboard-web, tests, app/briefs)",
  "repos": [
   {
    "repo": "SourceHero-AI",

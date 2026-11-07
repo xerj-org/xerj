@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on alexa-plus, amazon-bedrock, amazon-bedrock-agentcore queries this for how akshatinnovate-png/Saathi-Alexa implements it: Saathi: an Alexa+ MCP companion for elders and their families. It handles medicines, visits, family messages, scam alerts and a Medical ID,  (selected work: src/domain, public, test)",
+ "domain": "an agent working on alexa-plus, amazon-bedrock, amazon-bedrock-agentcore queries this for how akshatinnovate-png/Saathi-Alexa implements it: Saathi (\u0938\u093e\u0925\u0940, \u201ccompanion\u201d) helps elders living alone stay safe and close to family, in their own language: tablets, check-ins, scam calls, h (selected work: src/domain, public, test)",
  "repos": [
   {
    "repo": "Saathi-Alexa",

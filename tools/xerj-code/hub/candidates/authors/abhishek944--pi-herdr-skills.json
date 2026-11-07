@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on HTML queries this for how abhishek944/pi-herdr-skills implements it: Reusable global Pi skills for Herdr-backed planning, implementation, and review (selected work: skills, the project root)",
+ "domain": "an agent working on HTML queries this for how abhishek944/pi-herdr-skills implements it: Moved to Astack: skills/pi-herdr-skills (archived; maintained in the monorepo) (selected work: skills, the project root)",
  "repos": [
   {
    "repo": "pi-herdr-skills",

@@ -1,0 +1,23 @@
+{
+ "corpus": "akshatinnovate-png--focuslist---exp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on ajava5, css-framework, frontend-development queries this for how akshatinnovate-png/FocusLIst---Exp implements it: FocusList is a minimalist task-management project designed around prioritization, focus, and reducing the noise between planning and actuall",
+ "repos": [
+  {
+   "repo": "FocusLIst---Exp",
+   "url": "https://github.com/akshatinnovate-png/FocusLIst---Exp",
+   "sha": "3bc0993c5a8c491c6256d41e996d5a30583210c0",
+   "licence": "author's permission (LICENSE at pin 3bc0993c5a8c: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T09:00Z",
+    "consent_receipt": "d19872b2f095",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-03T09:00Z (receipt d19872b2f095); pinned to the default-branch head. LICENSE at pin 3bc0993c5a8c: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "3kh0--hcbscan",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on explorer, hackclub, hcb queries this for how 3kh0/hcbscan implements it: The first public explorer for HCB transactions and organizations",
+ "repos": [
+  {
+   "repo": "hcbscan",
+   "url": "https://github.com/3kh0/hcbscan",
+   "sha": "1af9c5c023e0a862a5988c7fb89ee390788df81c",
+   "licence": "GPL-3.0 (LICENSE file at pin 1af9c5c023e0, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-05T15:10Z",
+    "consent_receipt": "83a934cee397",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T15:10Z (receipt 83a934cee397); pinned to the default-branch head. LICENSE file at pin 1af9c5c023e0 detected as GPL-3.0 by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

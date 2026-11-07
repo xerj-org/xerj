@@ -1,0 +1,23 @@
+{
+ "corpus": "attnstack--omni-route",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on anthropic, cascading, cost-optimization queries this for how attnstack/omni-route implements it: OpenAI-compatible multi-model routing gateway: cascade first, explainable routing, cost-quality optimization. Go, single binary, 2 deps",
+ "repos": [
+  {
+   "repo": "omni-route",
+   "url": "https://github.com/attnstack/omni-route",
+   "sha": "b0265ebef5c7bdb2597372185e4b953bb4390e90",
+   "licence": "MIT (LICENSE file at pin b0265ebef5c7, GitHub licence API 2026-11-06)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T15:05Z",
+    "consent_receipt": "d7ef15649b24",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T15:05Z (receipt d7ef15649b24); pinned to the default-branch head. LICENSE file at pin b0265ebef5c7 detected as MIT by the GitHub licence API on 2026-11-06; used under that licence with attribution."
+   }
+  }
+ ]
+}

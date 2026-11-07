@@ -16,7 +16,14 @@
     "by": "author-consent",
     "at": "2026-10-27T18:22Z",
     "consent_receipt": "1ae5e63e9620",
-    "note": "Inclusion consented by the commit author by email at 2026-10-27T18:22Z (receipt 1ae5e63e9620); selected commit 6c7cd677d49c: \"Clarify VirusTotal workflows and finding actions for 1.3.26\". LICENSE file at pin 6c7cd677d49c detected as GPL-2.0 by the GitHub licence API on 2026-10-27; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-10-27T18:22Z (receipt 1ae5e63e9620); selected commit 6c7cd677d49c: \"Clarify VirusTotal workflows and finding actions for 1.3.26\". LICENSE file at pin 6c7cd677d49c detected as GPL-2.0 by the GitHub licence API on 2026-10-27; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "6c7cd677d49cefd6690dcaa139c724f63ba72f34",
+     "at": "2026-10-27T18:22Z",
+     "receipt": "1ae5e63e9620"
+    }
    }
   }
  ]

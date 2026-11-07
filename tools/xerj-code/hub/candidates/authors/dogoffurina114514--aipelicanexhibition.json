@@ -16,7 +16,14 @@
     "by": "author-consent",
     "at": "2026-11-02T04:31Z",
     "consent_receipt": "48397632a299",
-    "note": "Inclusion consented by the commit author by email at 2026-11-02T04:31Z (receipt 48397632a299); selected commit ec61c6f096ec: \"\u65b0\u589e\u8865\u5f55\u6e20\u9053\". LICENSE file at pin ec61c6f096ec detected as AGPL-3.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T04:31Z (receipt 48397632a299); selected commit ec61c6f096ec: \"\u65b0\u589e\u8865\u5f55\u6e20\u9053\". LICENSE file at pin ec61c6f096ec detected as AGPL-3.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "ec61c6f096ec856858f9d3438e1d76a7547139de",
+     "at": "2026-11-02T04:31Z",
+     "receipt": "48397632a299"
+    }
    }
   }
  ]

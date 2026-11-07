@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on JavaScript queries this for how StormberryAS/MetadataScrubber implements it: Remove hidden metadata from photos before you share them, entirely in your browser (selected work: android, the project root)",
+ "domain": "an agent working on TypeScript queries this for how StormberryAS/MetadataScrubber implements it: Remove hidden metadata from photos before you share them, entirely in your browser (selected work: android, the project root)",
  "repos": [
   {
    "repo": "MetadataScrubber",

@@ -1,0 +1,23 @@
+{
+ "corpus": "rrezartprebreza--agentaccord",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-skills, agents-md, ai-agents queries this for how rrezartprebreza/agentaccord implements it: Team engineering rules for AI coding agents \u2014 checked in your skills, AGENTS.md, CLAUDE.md, and code",
+ "repos": [
+  {
+   "repo": "agentaccord",
+   "url": "https://github.com/rrezartprebreza/agentaccord",
+   "sha": "2515636b6d67e200372edec6d6671aa81dedde67",
+   "licence": "MIT (LICENSE file at pin 2515636b6d67, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T12:38Z",
+    "consent_receipt": "77f05c70bd3b",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-03T12:38Z (receipt 77f05c70bd3b); pinned to the default-branch head. LICENSE file at pin 2515636b6d67 detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

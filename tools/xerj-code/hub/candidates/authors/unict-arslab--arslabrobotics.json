@@ -1,0 +1,23 @@
+{
+ "corpus": "unict-arslab--arslabrobotics",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how UniCT-ARSLab/arslabrobotics implements it: A set of python libraries and examples to simulate and implement robotic systems (selected work: godot)",
+ "repos": [
+  {
+   "repo": "arslabrobotics",
+   "url": "https://github.com/UniCT-ARSLab/arslabrobotics",
+   "sha": "9483354035c83ee85e62c843933835bfb3f22a2a",
+   "licence": "MIT (LICENSE file at pin 9483354035c8, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T16:37Z",
+    "consent_receipt": "06fef8235456",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T16:37Z (receipt 06fef8235456); selected commit 9483354035c8: \"added\". LICENSE file at pin 9483354035c8 detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

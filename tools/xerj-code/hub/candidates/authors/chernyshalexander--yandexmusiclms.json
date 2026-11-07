@@ -1,0 +1,23 @@
+{
+ "corpus": "chernyshalexander--yandexmusiclms",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on lyrion-music-server, music, perl queries this for how chernyshalexander/YandexMusicLMS implements it: A plugin to play Yandex Music on Lyrion Music Server (LMS) (selected work: test, Browse, the project root)",
+ "repos": [
+  {
+   "repo": "YandexMusicLMS",
+   "url": "https://github.com/chernyshalexander/YandexMusicLMS",
+   "sha": "ec6f48bc301e241f7867fece695277f4102c113c",
+   "licence": "MIT (LICENSE file at pin ec6f48bc301e, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T07:45Z",
+    "consent_receipt": "19f472878528",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T07:45Z (receipt 19f472878528); selected commit ec6f48bc301e: \"fix(history): fix music scrobbling, audiobook history sorting, and pl\u2026\". LICENSE file at pin ec6f48bc301e detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

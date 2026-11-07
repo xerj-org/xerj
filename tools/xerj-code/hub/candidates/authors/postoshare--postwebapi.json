@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on C# queries this for how PostOShare/PostWebAPI implements it: PostOShare/PostWebAPI (C#) (selected work: PostWebApi, PostWebApiService, PostWebApiCommon)",
+ "domain": "an agent working on csharp, docker, dotnet-9 queries this for how PostOShare/PostWebAPI implements it: The .NET 9 Web API to manage post data in PostOShare (selected work: PostWebApi, PostWebApiService, PostWebApiCommon)",
  "repos": [
   {
    "repo": "PostWebAPI",

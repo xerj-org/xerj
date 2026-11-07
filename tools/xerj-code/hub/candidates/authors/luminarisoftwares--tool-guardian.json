@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-tool, coding-assistant, context-management queries this for how LuminariSoftwares/tool-guardian implements it: Seven MCP servers for 934 tokens instead of 20,005 (measured). MCP router + native DeepSeek Harness bundle",
+ "domain": "an agent working on ai-tool, coding-assistant, context-management queries this for how LuminariSoftwares/tool-guardian implements it: Too many MCP servers eating your context? tool-guardian sits in front of all of them and loads each tool's schema only when it's needed. A 7",
  "repos": [
   {
    "repo": "tool-guardian",
    "url": "https://github.com/LuminariSoftwares/tool-guardian",
-   "sha": "b046b2201408beaa1f4d0c38448b1e79120dc05c",
-   "licence": "MIT (LICENSE file at pin b046b2201408, GitHub licence API 2026-11-01)",
+   "sha": "6b6e3bca85f1cb76f321587ee8d7cae033eb69cb",
+   "licence": "MIT (LICENSE file at pin 6b6e3bca85f1, GitHub licence API 2026-11-05)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-31T15:40Z",
     "consent_receipt": "b45ff779975b",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T15:40Z (receipt b45ff779975b); pinned to the default-branch head. LICENSE file at pin b046b2201408 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T15:40Z (receipt b45ff779975b); pinned to the default-branch head. LICENSE file at pin 6b6e3bca85f1 detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
    }
   }
  ]

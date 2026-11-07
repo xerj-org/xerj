@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Rust queries this for how gamalot/viper488-visa implements it: gamalot/viper488-visa (Rust) (selected work: crates/symbiotic-core, crates/symbiotic-config)",
+ "domain": "an agent working on Rust queries this for how gamalot/viper488-visa implements it: A VISA runtime for Windows, Linux and macOS (selected work: crates/symbiotic-core, crates/symbiotic-config)",
  "repos": [
   {
    "repo": "viper488-visa",

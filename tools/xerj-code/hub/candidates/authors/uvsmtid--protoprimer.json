@@ -2,8 +2,8 @@
  "corpus": "uvsmtid--protoprimer",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on bootstrapper, pure-python, dag queries this for how uvsmtid/protoprimer implements it: Escape the fragile mess of pre-venv shell scripts with a pure Python bootstrap script: :rocket: :fast_forward: single-touch, zero-args, self (selected work: src/proto_code, src/protoprimer)",
+ "shelf": "OPS",
+ "domain": "an agent working on bootstrapper, pure-python, venv queries this for how uvsmtid/protoprimer implements it: Escape the fragile mess of pre-venv shell scripts with a pure python bootstrapper: single-touch, zero-args, self-contained, no-deps, cross-p (selected work: src/proto_code, src/protoprimer)",
  "repos": [
   {
    "repo": "protoprimer",

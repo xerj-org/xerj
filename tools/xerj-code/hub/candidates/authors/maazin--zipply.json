@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on TypeScript queries this for how maazin/Zipply implements it: maazin/Zipply (TypeScript) (selected work: tests, src/background, src/core)",
+ "domain": "an agent working on TypeScript queries this for how maazin/Zipply implements it: Chrome extension that fills job applications on Workday, Greenhouse, Lever, iCIMS and more from one saved profile, scores each posting again (selected work: tests, src/background, src/core)",
  "repos": [
   {
    "repo": "Zipply",

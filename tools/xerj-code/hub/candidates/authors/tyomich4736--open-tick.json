@@ -2,8 +2,8 @@
  "corpus": "tyomich4736--open-tick",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on TypeScript queries this for how Tyomich4736/Open-Tick implements it: Local-first desktop task manager with optional TickTick sync (selected work: electron, tests)",
+ "shelf": "DB",
+ "domain": "an agent working on desktop-app, linux, local-first queries this for how Tyomich4736/Open-Tick implements it: Local-first desktop task manager with optional TickTick sync (selected work: electron, tests)",
  "repos": [
   {
    "repo": "Open-Tick",

@@ -8,15 +8,15 @@
   {
    "repo": "serrebiALT",
    "url": "https://github.com/serrebidev/serrebiALT",
-   "sha": "af0bfef8ae524120cbe79670ebe9e0bc7c31adeb",
-   "licence": "author's permission (LICENSE at pin af0bfef8ae52: NONE; repository: none)",
+   "sha": "ded8085e34bdf9ad47c9a9e6d3455d8a8863792b",
+   "licence": "author's permission (LICENSE at pin ded8085e34bd: NONE; repository: none)",
    "review": {
     "spdx": "NONE",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T23:37Z",
     "consent_receipt": "e3df76153fc8",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T23:37Z (receipt e3df76153fc8); pinned to the default-branch head. LICENSE at pin af0bfef8ae52: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T23:37Z (receipt e3df76153fc8); pinned to the default-branch head. LICENSE at pin ded8085e34bd: NONE (repository: none); used with the author's permission, with attribution."
    }
   }
  ]

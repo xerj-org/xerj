@@ -1,0 +1,23 @@
+{
+ "corpus": "snake-and-gopher--eiksy",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Go queries this for how snake-and-gopher/eiksy implements it: Think. Connect. Operate (selected work: internal/agentskills, internal/app)",
+ "repos": [
+  {
+   "repo": "eiksy",
+   "url": "https://github.com/snake-and-gopher/eiksy",
+   "sha": "ee78ae78ed0cf4004bb3920ce654474fcf978b25",
+   "licence": "Apache-2.0 (LICENSE file at pin ee78ae78ed0c, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T09:15Z",
+    "consent_receipt": "3f828ea6ac7b",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T09:15Z (receipt 3f828ea6ac7b); selected commit ee78ae78ed0c: \"feat(agent): discover project Agent Skills\". LICENSE file at pin ee78ae78ed0c detected as Apache-2.0 by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

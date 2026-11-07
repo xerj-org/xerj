@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on desktop-app, electron, electron-vite queries this for how ilyasbozdemir/workdesk-360 implements it: Do\u011frudan temin, ihale ve hakedi\u015f s\u00fcre\u00e7lerinin matbu belgelerini tek t\u0131kla haz\u0131rlayan, a\u00e7\u0131k kaynakl\u0131 masa\u00fcst\u00fc uygulamas\u0131 (selected work: apps/app-desktop, packages/document-templates, packages/database)",
+ "domain": "an agent working on desktop-app, electron, electron-vite queries this for how ilyasbozdemir/workdesk-360 implements it: Kamu ve kurumsal sat\u0131n alma, do\u011frudan temin, ihale, hakedi\u015f ve ak\u0131ll\u0131 belge/ar\u015fiv y\u00f6netim s\u00fciti (Monorepo) (selected work: apps/app-desktop, packages/document-templates, packages/database)",
  "repos": [
   {
    "repo": "temin-360-app",

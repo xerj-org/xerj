@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on C++ queries this for how SickSartori/mc3port implements it: Unofficial native Windows port of Midnight Club 3: DUB Edition Remix (Xbox, PAL). Runs the game from your own disc image: no game files incl (selected work: src/pc)",
+ "domain": "an agent working on cpp, direct3d11, game-port queries this for how SickSartori/mc3port implements it: Unofficial native Windows port of Midnight Club 3: DUB Edition Remix (Xbox, PAL). Runs the game from your own disc image: no game files incl (selected work: src/pc)",
  "repos": [
   {
    "repo": "mc3port",

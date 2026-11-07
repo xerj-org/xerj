@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on dart, flutter, age-calculator queries this for how ChandraChaan/age-calculator-flutter implements it: A beautiful Material 3 Age Calculator built with Flutter featuring Dark Mode, Light Mode, Birthday Countdown, and accurate age calculations (selected work: lib/screens, test, lib/engine)",
+ "domain": "an agent working on dart, flutter, age-calculator queries this for how ChandraChaan/age-calculator-flutter implements it: Private, offline Android app for exact ages, event countdowns and reminders, in iOS-style glass. Built with Flutter (selected work: lib/screens, test, lib/engine)",
  "repos": [
   {
    "repo": "age-calculator-flutter",

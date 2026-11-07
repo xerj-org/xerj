@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agent-os, agents-md, ai-agents queries this for how agentprojectcontext/apx implements it: Meet your crew. APX is an open-source Agent OS for running AI agents on your own machine \u2014 memory in plain files, agents that work together, (selected work: tests, src/core, src/host)",
+ "domain": "an agent working on agents-md, ai-agents, claude-code queries this for how agentprojectcontext/apx implements it: Meet your crew. Your own team of AI agents, open source and on your machine: a super-agent that answers you on WhatsApp, Telegram or the des (selected work: tests, src/core, src/host)",
  "repos": [
   {
    "repo": "apx",

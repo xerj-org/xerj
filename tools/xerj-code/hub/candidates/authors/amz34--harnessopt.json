@@ -8,15 +8,15 @@
   {
    "repo": "harnessopt",
    "url": "https://github.com/Amz34/harnessopt",
-   "sha": "b1c1c3cac5e0e60b5726b4ccb208a81ebb962de7",
-   "licence": "MIT (LICENSE file at pin b1c1c3cac5e0, GitHub licence API 2026-10-29)",
+   "sha": "28fb2c0d8c4a8573419499e1fbee56c5d25be18e",
+   "licence": "MIT (LICENSE file at pin 28fb2c0d8c4a, GitHub licence API 2026-11-05)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T10:21Z",
     "consent_receipt": "5adce7c0ce53",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T10:21Z (receipt 5adce7c0ce53); pinned to the default-branch head. LICENSE file at pin b1c1c3cac5e0 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T10:21Z (receipt 5adce7c0ce53); pinned to the default-branch head. LICENSE file at pin 28fb2c0d8c4a detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
    }
   }
  ]

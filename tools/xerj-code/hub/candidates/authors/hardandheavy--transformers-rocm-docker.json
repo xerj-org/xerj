@@ -1,0 +1,23 @@
+{
+ "corpus": "hardandheavy--transformers-rocm-docker",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Python queries this for how HardAndHeavy/transformers-rocm-docker implements it: Transformers on GPU AMD Radeon in Docker (selected work: test, the project root)",
+ "repos": [
+  {
+   "repo": "transformers-rocm-docker",
+   "url": "https://github.com/HardAndHeavy/transformers-rocm-docker",
+   "sha": "4ee0398b2907213739a499592abc0b160fb74b77",
+   "licence": "Apache-2.0 (LICENSE file at pin 4ee0398b2907, GitHub licence API 2026-11-06)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T18:31Z",
+    "consent_receipt": "2daaffeb4485",
+    "note": "Inclusion consented by the commit author by email at 2026-11-06T18:31Z (receipt 2daaffeb4485); selected commit 4ee0398b2907: \"update to 10.1.0 rocm\". LICENSE file at pin 4ee0398b2907 detected as Apache-2.0 by the GitHub licence API on 2026-11-06; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "pravennn08--esp-wifi-analyzer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on esp-hal, embassy-rs, esp32-idf queries this for how pravennn08/esp-wifi-analyzer implements it: esp wifi analyzer is a lightweight wireless network monitoring and diagnostic system developed entirely in rust using the esp-hal ecosystem (selected work: crates/analyzer-core, firmware)",
+ "repos": [
+  {
+   "repo": "esp-wifi-analyzer",
+   "url": "https://github.com/pravennn08/esp-wifi-analyzer",
+   "sha": "7b9ccb156b6f0740f901bc9d498e7f3a69859ae5",
+   "licence": "Apache-2.0 (LICENSE file at pin 7b9ccb156b6f, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T06:12Z",
+    "consent_receipt": "fb3744833778",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T06:12Z (receipt fb3744833778); selected commit 7b9ccb156b6f: \"feat(terminal): add terminal colors and table layout\". LICENSE file at pin 7b9ccb156b6f detected as Apache-2.0 by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

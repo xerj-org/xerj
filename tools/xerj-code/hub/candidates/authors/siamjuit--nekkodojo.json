@@ -1,0 +1,23 @@
+{
+ "corpus": "siamjuit--nekkodojo",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how siamjuit/nekkodojo implements it: siamjuit/nekkodojo (TypeScript) (selected work: app/api, prisma, the project root)",
+ "repos": [
+  {
+   "repo": "nekkodojo",
+   "url": "https://github.com/siamjuit/nekkodojo",
+   "sha": "54a54a68ad08a196ef6b6cd2152edbff5385e07f",
+   "licence": "MIT (LICENSE file at pin 54a54a68ad08, GitHub licence API 2026-11-04)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-04T10:13Z",
+    "consent_receipt": "b2364bfa67d4",
+    "note": "Inclusion consented by the commit author by email at 2026-11-04T10:13Z (receipt b2364bfa67d4); selected commit 54a54a68ad08: \"feat: question by id testcases, codestubs and checker codes.\". LICENSE file at pin 54a54a68ad08 detected as MIT by the GitHub licence API on 2026-11-04; used under that licence with attribution."
+   }
+  }
+ ]
+}

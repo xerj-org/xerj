@@ -16,7 +16,14 @@
     "by": "author-consent",
     "at": "2026-10-25T18:17Z",
     "consent_receipt": "f9980d358216",
-    "note": "Inclusion consented by the commit author by email at 2026-10-25T18:17Z (receipt f9980d358216); selected commit 0668c4c57be4: \"Reduce native H4 bridge memory work and enable bounded batching\". LICENSE file at pin 0668c4c57be4 detected as LGPL-2.1 by the GitHub licence API on 2026-10-26; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-10-25T18:17Z (receipt f9980d358216); selected commit 0668c4c57be4: \"Reduce native H4 bridge memory work and enable bounded batching\". LICENSE file at pin 0668c4c57be4 detected as LGPL-2.1 by the GitHub licence API on 2026-10-26; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "0668c4c57be4416c4943fb03bd2c52013fc4ccb0",
+     "at": "2026-10-25T18:17Z",
+     "receipt": "f9980d358216"
+    }
    }
   }
  ]

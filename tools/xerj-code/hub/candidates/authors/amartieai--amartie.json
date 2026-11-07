@@ -1,0 +1,23 @@
+{
+ "corpus": "amartieai--amartie",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on ai-safety, ai-security, forensics queries this for how amartieai/amartie implements it: AMARTIE \u2014 Open-source AI security framework. Receipts, not promises (selected work: reports, the project root, visuals)",
+ "repos": [
+  {
+   "repo": "amartie",
+   "url": "https://github.com/amartieai/amartie",
+   "sha": "3f49b19b443417f67114bd30a4f6a5de4cb0d00a",
+   "licence": "MIT (LICENSE file at pin 3f49b19b4434, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T20:29Z",
+    "consent_receipt": "b53edb1ba707",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T20:29Z (receipt b53edb1ba707); selected commit 3f49b19b4434: \"fix(gate): the nine-judge gate was a rubber stamp \u2014 make it fail closed\". LICENSE file at pin 3f49b19b4434 detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

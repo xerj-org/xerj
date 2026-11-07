@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on android, chat, chatmail queries this for how pbuzdin/velta implements it: Velta is a Delta Chat client built with JavaScript, HTML, CSS, and web components inside a Tauri shell. V for Velta (selected work: app/js, tests)",
+ "domain": "an agent working on android, chat, chatmail queries this for how pbuzdin/velta implements it: Velta is a Delta Chat client built with web components. V for Velta (selected work: app/js, tests)",
  "repos": [
   {
    "repo": "velta",

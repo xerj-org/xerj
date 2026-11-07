@@ -1,0 +1,23 @@
+{
+ "corpus": "euphoriatzbbaby--slay-the-spire2",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how EuphoriaTzbbaby/Slay-the-Spire2 implements it: Good luck for you (selected work: game, voice, scripts)",
+ "repos": [
+  {
+   "repo": "Slay-the-Spire2",
+   "url": "https://github.com/EuphoriaTzbbaby/Slay-the-Spire2",
+   "sha": "f59592a204fb07fa7c13a01f5e9710807075f45c",
+   "licence": "MIT (LICENSE file at pin f59592a204fb, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T09:48Z",
+    "consent_receipt": "b15c8fbfb7d9",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T09:48Z (receipt b15c8fbfb7d9); selected commit f59592a204fb: \"feat(voice): manage local service automatically from QQ\". LICENSE file at pin f59592a204fb detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

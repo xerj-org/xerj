@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on android, audio-drama, cyberpunk queries this for how jbinder/sprawlrun implements it: A gamified cyberpunk running tracker for Android. Twenty GPS-tracked story missions across two campaigns, cutting into your music, with purs (selected work: assets, lib/widgets, lib/theme)",
+ "domain": "an agent working on android, audio-drama, cyberpunk queries this for how jbinder/sprawlrun implements it: A running and walking tracker wrapped in a cyberpunk story that chases you. Fully offline, with no accounts and no Google Play Services (selected work: assets, lib/widgets, lib/theme)",
  "repos": [
   {
    "repo": "sprawlrun",

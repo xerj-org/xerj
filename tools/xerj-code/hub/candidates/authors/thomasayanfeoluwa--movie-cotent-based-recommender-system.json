@@ -1,0 +1,23 @@
+{
+ "corpus": "thomasayanfeoluwa--movie-cotent-based-recommender-system",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Jupyter Notebook queries this for how Thomasayanfeoluwa/Movie-Cotent-Based-Recommender-System implements it: Thomasayanfeoluwa/Movie-Cotent-Based-Recommender-System (Jupyter Notebook) (selected work: static, tests, templates)",
+ "repos": [
+  {
+   "repo": "Movie-Cotent-Based-Recommender-System",
+   "url": "https://github.com/Thomasayanfeoluwa/Movie-Cotent-Based-Recommender-System",
+   "sha": "56e354e37420a5e0208ec338a80dea947b9b7ed5",
+   "licence": "MIT (LICENSE file at pin 56e354e37420, GitHub licence API 2026-11-06)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T13:14Z",
+    "consent_receipt": "b736b3a5bce4",
+    "note": "Inclusion consented by the commit author by email at 2026-11-06T13:14Z (receipt b736b3a5bce4); selected commit 56e354e37420: \"recommender updated\". LICENSE file at pin 56e354e37420 detected as MIT by the GitHub licence API on 2026-11-06; used under that licence with attribution."
+   }
+  }
+ ]
+}

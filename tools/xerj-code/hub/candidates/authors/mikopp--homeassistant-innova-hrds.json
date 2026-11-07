@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "NET",
- "domain": "an agent working on dehumidifier, hacs-integration, home-assistant queries this for how mikopp/homeassistant-innova-hrds implements it: Home Assistant (HACS) integration for the hej.luft HRDS+ and Innova DEH+ dehumidifiers: local control and monitoring over Modbus TCP, no clo (selected work: custom_components, tests)",
+ "domain": "an agent working on dehumidifier, hacs-integration, home-assistant queries this for how mikopp/homeassistant-innova-hrds implements it: Home Assistant (HACS) integration for the hej.luft HRDS+ dehumidifier: local control and monitoring over Modbus TCP, no cloud (selected work: custom_components, tests)",
  "repos": [
   {
    "repo": "ha_innova_DEH-_hejluft_hrds-",

@@ -8,15 +8,15 @@
   {
    "repo": "visor",
    "url": "https://github.com/oronbz/visor",
-   "sha": "482eb6fb741cff710806577d5c7651df32f48be0",
-   "licence": "MIT (LICENSE file at pin 482eb6fb741c, GitHub licence API 2026-11-02)",
+   "sha": "c5e2555549a29568079ff76fe2cea45965ef845d",
+   "licence": "MIT (LICENSE file at pin c5e2555549a2, GitHub licence API 2026-11-04)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-30T20:59Z",
     "consent_receipt": "c45215bc4ac1",
-    "note": "Inclusion consented by the commit author by email at 2026-10-30T20:59Z (receipt c45215bc4ac1); selected commit 482eb6fb741c: \"System: the CPU + memory Widget becomes System, with a bar per volume\u2026\". LICENSE file at pin 482eb6fb741c detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution. Pinned to head 482eb6fb741c (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T20:59Z (receipt c45215bc4ac1); selected commit c5e2555549a2: \"System: the CPU + memory Widget becomes System, with a bar per volume\u2026\". LICENSE file at pin c5e2555549a2 detected as MIT by the GitHub licence API on 2026-11-04; used under that licence with attribution. Pinned to head c5e2555549a2 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

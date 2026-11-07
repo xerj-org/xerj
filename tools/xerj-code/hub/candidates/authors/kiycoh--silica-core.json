@@ -1,0 +1,23 @@
+{
+ "corpus": "kiycoh--silica-core",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on obsidian, ai, ai-agents queries this for how kiycoh/silica-core implements it: Retrieval tools for coding agents, no model in the loop: SOTA-competitive files, search, read, code_pack and write_note over the folder your (selected work: tests, silica_core, the project root)",
+ "repos": [
+  {
+   "repo": "silica-core",
+   "url": "https://github.com/kiycoh/silica-core",
+   "sha": "ec501baa4826b825c6a829ace52a4ae16fedf635",
+   "licence": "MIT (LICENSE file at pin ec501baa4826, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T16:51Z",
+    "consent_receipt": "7dbfa6359133",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T16:51Z (receipt 7dbfa6359133); selected commit ec501baa4826: \"feat(skills): every harness gets explain, summarize, compare, schemat\u2026\". LICENSE file at pin ec501baa4826 detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

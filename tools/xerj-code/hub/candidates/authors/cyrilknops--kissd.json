@@ -16,7 +16,14 @@
     "by": "author-consent",
     "at": "2026-11-01T20:51Z",
     "consent_receipt": "a27b53f6bc47",
-    "note": "Inclusion consented by the commit author by email at 2026-11-01T20:51Z (receipt a27b53f6bc47); selected commit 36a1c9c4972d: \"feat: persist metrics history and availability (GREEN: 23 tests, Node\u2026\". LICENSE file at pin 36a1c9c4972d detected as GPL-3.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T20:51Z (receipt a27b53f6bc47); selected commit 36a1c9c4972d: \"feat: persist metrics history and availability (GREEN: 23 tests, Node\u2026\". LICENSE file at pin 36a1c9c4972d detected as GPL-3.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "36a1c9c4972d87c1b6b4e6fa626e5df7ffc10439",
+     "at": "2026-11-01T20:51Z",
+     "receipt": "a27b53f6bc47"
+    }
    }
   }
  ]

@@ -2,8 +2,8 @@
  "corpus": "justvugg--colibri",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on C queries this for how JustVugg/colibri implements it: Run frontier MoE models on hardware you already own \u2014 pure C, zero deps, experts streamed from disk. Tiny engine, immense model. \ud83d\udc26 (selected work: c)",
+ "shelf": "AI",
+ "domain": "an agent working on C queries this for how JustVugg/colibri implements it: A hierarchical inference engine for frontier MoE models: hot experts on the GPU (CUDA, Vulkan), warm ones in RAM, cold ones streamed from NV (selected work: c)",
  "repos": [
   {
    "repo": "colibri",

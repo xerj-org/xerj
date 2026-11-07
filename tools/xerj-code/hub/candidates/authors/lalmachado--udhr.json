@@ -1,0 +1,23 @@
+{
+ "corpus": "lalmachado--udhr",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how lalmachado/udhr implements it: A reader of The Universal Declaration of Human Rights",
+ "repos": [
+  {
+   "repo": "udhr",
+   "url": "https://github.com/lalmachado/udhr",
+   "sha": "5631924211567fb4958bf954193bbbff65871f6b",
+   "licence": "author's permission (LICENSE at pin 563192421156: NOASSERTION; repository: NOASSERTION)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T11:34Z",
+    "consent_receipt": "47da2f69cc1d",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-03T11:34Z (receipt 47da2f69cc1d); pinned to the default-branch head. LICENSE at pin 563192421156: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

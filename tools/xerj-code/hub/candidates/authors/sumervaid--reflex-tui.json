@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on TypeScript queries this for how sumervaid/reflex-tui implements it: sumervaid/reflex-tui (TypeScript) (selected work: packages/adapters, packages/analysis, apps/cli)",
+ "domain": "an agent working on TypeScript queries this for how sumervaid/reflex-tui implements it: Turns repeated agent sessions into skills and memory, and routes each task to a model by past sessions (selected work: packages/adapters, packages/analysis, apps/cli)",
  "repos": [
   {
    "repo": "reflex-tui",

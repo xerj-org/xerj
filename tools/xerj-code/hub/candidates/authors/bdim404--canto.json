@@ -1,0 +1,23 @@
+{
+ "corpus": "bdim404--canto",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on audiobook, fastapi, indextts2 queries this for how bdim404/Canto implements it: Self-hosted AI audiobook studio: LLM-written scripts, per-character voice design and emotional multi-character synthesis with Qwen3-TTS and  (selected work: backend, frontend)",
+ "repos": [
+  {
+   "repo": "Canto",
+   "url": "https://github.com/bdim404/Canto",
+   "sha": "bb847f7d39625dfea3e9a97d1293f4513e4b9773",
+   "licence": "Apache-2.0 (LICENSE file at pin bb847f7d3962, GitHub licence API 2026-11-06)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T07:52Z",
+    "consent_receipt": "97ed11636b94",
+    "note": "Inclusion consented by the commit author by email at 2026-11-06T07:52Z (receipt 97ed11636b94); selected commit bb847f7d3962: \"Localize progress logs and preset labels, stream log deltas, poll a s\u2026\". LICENSE file at pin bb847f7d3962 detected as Apache-2.0 by the GitHub licence API on 2026-11-06; used under that licence with attribution."
+   }
+  }
+ ]
+}

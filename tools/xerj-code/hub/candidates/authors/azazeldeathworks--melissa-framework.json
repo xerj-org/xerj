@@ -1,0 +1,23 @@
+{
+ "corpus": "azazeldeathworks--melissa-framework",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Rust queries this for how AzazelDeathWorks/Melissa-Framework implements it: Work-in-progress Rust agent framework. Contributions welcome. MIT licensed (selected work: crates/cli, crates/workflow, crates/skill-context)",
+ "repos": [
+  {
+   "repo": "Melissa-Framework",
+   "url": "https://github.com/AzazelDeathWorks/Melissa-Framework",
+   "sha": "acd6431c5bd0838ae6d2d7c2d6950b85f720ba02",
+   "licence": "MIT (LICENSE file at pin acd6431c5bd0, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T07:18Z",
+    "consent_receipt": "1262f3609f0f",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T07:18Z (receipt 1262f3609f0f); selected commit acd6431c5bd0: \"feat(cli): add typed memory, source-reviewed continuity and safe nati\u2026\". LICENSE file at pin acd6431c5bd0 detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

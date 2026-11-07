@@ -16,7 +16,14 @@
     "by": "author-consent",
     "at": "2026-10-30T00:13Z",
     "consent_receipt": "efc831d816be",
-    "note": "Inclusion consented by the commit author by email at 2026-10-30T00:13Z (receipt efc831d816be); selected commit b086002eefa1: \"Caffeine: keep-awake service, IPC, menu-bar menu and launcher entry; \u2026\". LICENSE file at pin b086002eefa1 detected as GPL-3.0 by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T00:13Z (receipt efc831d816be); selected commit b086002eefa1: \"Caffeine: keep-awake service, IPC, menu-bar menu and launcher entry; \u2026\". LICENSE file at pin b086002eefa1 detected as GPL-3.0 by the GitHub licence API on 2026-10-30; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "b086002eefa13dafb38eba621d86099881f48fd0",
+     "at": "2026-10-30T00:13Z",
+     "receipt": "efc831d816be"
+    }
    }
   }
  ]

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on composition-api, history-api, nuqs queries this for how iamsomraj/vue-qs implements it: Type-safe search params state manager for Vue 3 and Nuxt - a port of nuqs (selected work: tests, src, src/composables)",
+ "domain": "an agent working on composition-api, history-api, nuqs queries this for how iamsomraj/vue-qs implements it: Type-safe search params state for Vue 3 and Nuxt, a port of nuqs (selected work: tests, src, src/composables)",
  "repos": [
   {
    "repo": "vue-qs",

@@ -1,0 +1,23 @@
+{
+ "corpus": "907609732--html-personal-blog",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on HTML queries this for how 907609732/HTML-Personal-blog implements it: \u5c0f\u767d\u4e13\u7528{\u4e94\u6210}\u7eafHTML\u7684\u4e2a\u4eba\u535a\u5ba2\u4e3b\u9875-\u975e\u5e38\u7b80\u5355\u5c0f\u767d\u4e5f\u53ef\u4ee5\u4e0a\u624b\uff0c\u76f4\u63a5\u53ef\u4ee5\u4fee\u6539\u4f7f\u7528\uff0c\u6ce8\u91ca\u5199\u7684\u975e\u5e38\u6e05\u695a",
+ "repos": [
+  {
+   "repo": "HTML-Personal-blog",
+   "url": "https://github.com/907609732/HTML-Personal-blog",
+   "sha": "ceb30de6e3953a6127e537936672a9f80f02fb65",
+   "licence": "author's permission (LICENSE at pin ceb30de6e395: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T08:36Z",
+    "consent_receipt": "8dacc4925ce1",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T08:36Z (receipt 8dacc4925ce1); pinned to the default-branch head. LICENSE at pin ceb30de6e395: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "zombieeggstew--ccnavigationtable-template-1-21-1",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Java queries this for how ZombieEggStew/ccnavigationtable-template-1.21.1 implements it: ZombieEggStew/ccnavigationtable-template-1.21.1 (Java) (selected work: src/main)",
+ "repos": [
+  {
+   "repo": "ccnavigationtable-template-1.21.1",
+   "url": "https://github.com/ZombieEggStew/ccnavigationtable-template-1.21.1",
+   "sha": "ffcae7235854f65a1e41f5f0b466b41d49f08d33",
+   "licence": "MIT (LICENSE file at pin ffcae7235854, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T09:17Z",
+    "consent_receipt": "0ff1513a3de0",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-07T09:17Z (receipt 0ff1513a3de0); selected commit ffcae7235854: \"123123\". LICENSE file at pin ffcae7235854 detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

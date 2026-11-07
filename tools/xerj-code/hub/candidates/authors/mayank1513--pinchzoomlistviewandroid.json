@@ -1,0 +1,23 @@
+{
+ "corpus": "mayank1513--pinchzoomlistviewandroid",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Java queries this for how mayank1513/PinchZoomListViewAndroid implements it: ListView that can be zoomed with pinch as well as doubletap guestures",
+ "repos": [
+  {
+   "repo": "PinchZoomListViewAndroid",
+   "url": "https://github.com/mayank1513/PinchZoomListViewAndroid",
+   "sha": "90e67336abfae50bda2594ace30dae4278baa4e5",
+   "licence": "MIT (LICENSE file at pin 90e67336abfa, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T04:33Z",
+    "consent_receipt": "4686747afab7",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T04:33Z (receipt 4686747afab7); pinned to the default-branch head. LICENSE file at pin 90e67336abfa detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

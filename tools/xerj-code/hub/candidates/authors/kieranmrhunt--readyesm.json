@@ -1,0 +1,30 @@
+{
+ "corpus": "kieranmrhunt--readyesm",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Julia queries this for how kieranmrhunt/ReadyESM implements it: kieranmrhunt/ReadyESM (Julia) (selected work: src, test)",
+ "repos": [
+  {
+   "repo": "ReadyESM",
+   "url": "https://github.com/kieranmrhunt/ReadyESM",
+   "sha": "47e944bdfa0b503d5db4f92183455742dc090af9",
+   "licence": "EUPL-1.2 (LICENSE file at pin 47e944bdfa0b, GitHub licence API 2026-11-04)",
+   "review": {
+    "spdx": "EUPL-1.2",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-04T10:52Z",
+    "consent_receipt": "838be4b01e70",
+    "note": "Inclusion consented by the commit author by email at 2026-11-04T10:52Z (receipt 838be4b01e70); selected commit 47e944bdfa0b: \"Add restart identity and prognostic guards to combined candidate\". LICENSE file at pin 47e944bdfa0b detected as EUPL-1.2 by the GitHub licence API on 2026-11-04; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "47e944bdfa0b503d5db4f92183455742dc090af9",
+     "at": "2026-11-04T10:52Z",
+     "receipt": "838be4b01e70"
+    }
+   }
+  }
+ ]
+}

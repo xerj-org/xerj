@@ -1,0 +1,23 @@
+{
+ "corpus": "jessebrown1980--aether-universe",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how JesseBrown1980/aether-universe implements it: AETHER UNIVERSE - play Felipe's crystal universe: a Rust 1.81 integer-only terminal game that teaches the measured math of the Aether timeli",
+ "repos": [
+  {
+   "repo": "aether-universe",
+   "url": "https://github.com/JesseBrown1980/aether-universe",
+   "sha": "0eba275e220686d26aadf2cf33dfe0111396602b",
+   "licence": "author's permission (LICENSE at pin 0eba275e2206: NOASSERTION; repository: MIT)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T14:53Z",
+    "consent_receipt": "4dbcc2b312d7",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T14:53Z (receipt 4dbcc2b312d7); pinned to the default-branch head. LICENSE at pin 0eba275e2206: NOASSERTION (repository: MIT); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

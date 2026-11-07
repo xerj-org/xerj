@@ -1,0 +1,23 @@
+{
+ "corpus": "amitashwinibhagat--nse-swing-scanner",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how amitashwinibhagat/nse-swing-scanner implements it: Open-source NSE swing-trade scanner. Free data, transparent gates, public dashboard (selected work: backend, frontend)",
+ "repos": [
+  {
+   "repo": "nse-swing-scanner",
+   "url": "https://github.com/amitashwinibhagat/nse-swing-scanner",
+   "sha": "fd60c52187a05724c784a00bceb47ff7327801db",
+   "licence": "MIT (LICENSE file at pin fd60c52187a0, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T05:50Z",
+    "consent_receipt": "979678b7eb12",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T05:50Z (receipt 979678b7eb12); selected commit fd60c52187a0: \"score: make the relative-strength penalty additive, not a multiplier\". LICENSE file at pin fd60c52187a0 detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

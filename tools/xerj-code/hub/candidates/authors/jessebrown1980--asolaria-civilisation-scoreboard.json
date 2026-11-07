@@ -1,0 +1,23 @@
+{
+ "corpus": "jessebrown1980--asolaria-civilisation-scoreboard",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on code queries this for how JesseBrown1980/asolaria-civilisation-scoreboard implements it: The orchestrators ledger. Measures what each agent actually did on the shared matrix: ticks spent, cells grown, collisions bumped, GIMEL ver",
+ "repos": [
+  {
+   "repo": "asolaria-civilisation-scoreboard",
+   "url": "https://github.com/JesseBrown1980/asolaria-civilisation-scoreboard",
+   "sha": "0dbf4f249a55401c4dbfde29650ca6b6fb387353",
+   "licence": "author's permission (LICENSE at pin 0dbf4f249a55: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T14:53Z",
+    "consent_receipt": "1259d4a7c4de",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T14:53Z (receipt 1259d4a7c4de); pinned to the default-branch head. LICENSE at pin 0dbf4f249a55: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

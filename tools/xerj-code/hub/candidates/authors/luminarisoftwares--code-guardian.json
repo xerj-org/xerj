@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-agents, ai-coding, cli queries this for how LuminariSoftwares/code-guardian implements it: Static repo scanner: is it safe to run, will it work, does it have what it needs? Scores out of 100 + A\u2013F grade from deterministic checks. N",
+ "domain": "an agent working on ai-agents, ai-coding, cli queries this for how LuminariSoftwares/code-guardian implements it: Safe to run? Will it work? Complete? An A-F grade for any repo, without running it. 0 false FAILs on 8 well-known repos. CLI + MCP",
  "repos": [
   {
    "repo": "code-guardian",
    "url": "https://github.com/LuminariSoftwares/code-guardian",
-   "sha": "aed8fa37c0a5892785386234dda8917b2bf47086",
-   "licence": "MIT (LICENSE file at pin aed8fa37c0a5, GitHub licence API 2026-11-01)",
+   "sha": "8f6dab78ac65e160a1aa9008472daf67a8a4c933",
+   "licence": "MIT (LICENSE file at pin 8f6dab78ac65, GitHub licence API 2026-11-05)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-31T15:40Z",
     "consent_receipt": "b79005e98a2e",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T15:40Z (receipt b79005e98a2e); pinned to the default-branch head. LICENSE file at pin aed8fa37c0a5 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T15:40Z (receipt b79005e98a2e); pinned to the default-branch head. LICENSE file at pin 8f6dab78ac65 detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
    }
   }
  ]

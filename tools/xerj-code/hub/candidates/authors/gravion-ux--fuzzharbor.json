@@ -1,0 +1,23 @@
+{
+ "corpus": "gravion-ux--fuzzharbor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on Python queries this for how gravion-ux/fuzzharbor implements it: A reproducible local fuzzing campaign manager and crash triage toolkit",
+ "repos": [
+  {
+   "repo": "fuzzharbor",
+   "url": "https://github.com/gravion-ux/fuzzharbor",
+   "sha": "0d50726dc1c32c19d5fb1c6335ffaa5d3fd64fc1",
+   "licence": "MIT (LICENSE file at pin 0d50726dc1c3, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-04T08:03Z",
+    "consent_receipt": "355e97b26f08",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-04T08:03Z (receipt 355e97b26f08); pinned to the default-branch head. LICENSE file at pin 0d50726dc1c3 detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

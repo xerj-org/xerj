@@ -1,0 +1,23 @@
+{
+ "corpus": "parthmule28--conformdag",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how parthmule28/conformdag implements it: parthmule28/conformdag (Python) (selected work: src/conformdag, tests)",
+ "repos": [
+  {
+   "repo": "conformdag",
+   "url": "https://github.com/parthmule28/conformdag",
+   "sha": "cb618b642fce313cf050b56a6590d1aaecbe52e4",
+   "licence": "Apache-2.0 (LICENSE file at pin cb618b642fce, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T00:13Z",
+    "consent_receipt": "1c0a4dd5e50d",
+    "note": "Inclusion consented by the commit author by email at 2026-11-05T00:13Z (receipt 1c0a4dd5e50d); selected commit cb618b642fce: \"refactor: extract report runtime and config models\". LICENSE file at pin cb618b642fce detected as Apache-2.0 by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

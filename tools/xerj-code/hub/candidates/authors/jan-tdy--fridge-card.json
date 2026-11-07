@@ -8,15 +8,15 @@
   {
    "repo": "fridge-card",
    "url": "https://github.com/jan-tdy/fridge-card",
-   "sha": "017ac7a95537c218c44c562172939cc21eb9a83c",
-   "licence": "MIT (LICENSE file at pin 017ac7a95537, GitHub licence API 2026-10-28)",
+   "sha": "6fa52ffb98af45b0426de58a340307fdfd47b1dc",
+   "licence": "MIT (LICENSE file at pin 6fa52ffb98af, GitHub licence API 2026-11-06)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T19:53Z",
     "consent_receipt": "91de2bff1ca2",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T19:53Z (receipt 91de2bff1ca2); pinned to the default-branch head. LICENSE file at pin 017ac7a95537 detected as MIT by the GitHub licence API on 2026-10-28; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T19:53Z (receipt 91de2bff1ca2); pinned to the default-branch head. LICENSE file at pin 6fa52ffb98af detected as MIT by the GitHub licence API on 2026-11-06; used under that licence with attribution."
    }
   }
  ]

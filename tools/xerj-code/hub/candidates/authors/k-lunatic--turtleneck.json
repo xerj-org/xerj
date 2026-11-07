@@ -2,8 +2,8 @@
  "corpus": "k-lunatic--turtleneck",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Python queries this for how K-Lunatic/Turtleneck implements it: 2026/10 \ud559\uad50\uc5d0\uc11c \uc2e4\uc2dc\ud55c \uc790\uccb4 \ud574\ucee4\ud1a4 (selected work: skills, the project root)",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how K-Lunatic/Turtleneck implements it: Local-first university study skill for Codex, Claude Code, and Gemini (selected work: skills, the project root)",
  "repos": [
   {
    "repo": "Turtleneck",

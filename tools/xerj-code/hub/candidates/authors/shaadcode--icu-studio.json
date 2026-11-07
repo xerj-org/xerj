@@ -1,0 +1,23 @@
+{
+ "corpus": "shaadcode--icu-studio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on i18n, icu, icu-messageformat queries this for how shaadcode/ICU-Studio implements it: \ud83d\ude80Fast and lightweight IDE for ICU messages (selected work: src/pages, src/shared)",
+ "repos": [
+  {
+   "repo": "ICU-Studio",
+   "url": "https://github.com/shaadcode/ICU-Studio",
+   "sha": "57b18a5b07cd853ab406b8ae9dca5b9eae786681",
+   "licence": "AGPL-3.0 (LICENSE file at pin 57b18a5b07cd, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-07T06:19Z",
+    "consent_receipt": "63fbb0984be3",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T06:19Z (receipt 63fbb0984be3); selected commit 57b18a5b07cd: \"feat: improve actions\". LICENSE file at pin 57b18a5b07cd detected as AGPL-3.0 by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

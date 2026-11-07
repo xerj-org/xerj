@@ -1,0 +1,23 @@
+{
+ "corpus": "lfm3-harness--lfm3-harness",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Rust queries this for how LFM3-Harness/LFM3-Harness implements it: Open-source harness for running, testing, and experimenting with Liquid AI LFM3 models (selected work: apps/desktop, scripts, apps/ui)",
+ "repos": [
+  {
+   "repo": "LFM3-Harness",
+   "url": "https://github.com/LFM3-Harness/LFM3-Harness",
+   "sha": "8020c1af9950a5d0d240d233ed6698376e60e2dc",
+   "licence": "MIT (LICENSE file at pin 8020c1af9950, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T18:23Z",
+    "consent_receipt": "795bf0e1f0ca",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T18:23Z (receipt 795bf0e1f0ca); selected commit 8020c1af9950: \"Ship the llama.cpp runtime without bundling model weights\". LICENSE file at pin 8020c1af9950 detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution. Pinned to head 8020c1af9950 (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

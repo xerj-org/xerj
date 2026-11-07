@@ -1,0 +1,23 @@
+{
+ "corpus": "zhu-guang-scion--duckseek",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on audit, chinese, cli queries this for how Zhu-Guang-Scion/Duckseek implements it: \u672c\u5730\u81ea\u7136\u8bed\u8a00\u67e5\u6570\u5f15\u64ce\uff1aExcel/Access/Parquet \u2192 DuckDB\uff0c\u7b54\u6848\u9644\u53ef\u6838\u9a8c SQL\uff0c\u6570\u636e\u4e0d\u51fa\u672c\u673a\u2014\u2014\u9002\u5408\u5ba1\u8ba1\u4e0e\u8d22\u52a1\u573a\u666f\u3002| Local-first NL-to-SQL over Excel/Access/Parquet \u2014 verifiable SQL ans (selected work: tests, ingest, catalog)",
+ "repos": [
+  {
+   "repo": "Duckseek",
+   "url": "https://github.com/Zhu-Guang-Scion/Duckseek",
+   "sha": "2f83143d6393e1cffe43f18283438938c88961a1",
+   "licence": "Apache-2.0 (LICENSE file at pin 2f83143d6393, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T08:41Z",
+    "consent_receipt": "83e64eeb67bf",
+    "note": "Inclusion consented by the commit author by email at 2026-11-05T08:41Z (receipt 83e64eeb67bf); selected commit 2f83143d6393: \"feat: JE \u56de\u9988\u843d\u5730\u2014\u2014CSV \u7f16\u7801\u94fe/.xls \u652f\u6301/\u6e90\u6307\u7eb9\u4e0e\u540c\u540d\u95e8/canonical \u54c8\u5e0c/manifest input_di\u2026\". LICENSE file at pin 2f83143d6393 detected as Apache-2.0 by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

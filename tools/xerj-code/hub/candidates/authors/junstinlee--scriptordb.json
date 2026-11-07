@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "DB",
- "domain": "an agent working on ai-agent, cli, data-analysis queries this for how JunstinLee/ScriptorDB implements it: Query SQLite and MySQL databases in plain English. Automatic schema understanding, SQL generation, Python analysis, charts, CSV/Excel import (selected work: browser, tools, runtime)",
+ "domain": "an agent working on ai-agent, cli, data-analysis queries this for how JunstinLee/ScriptorDB implements it: Natural-language browser automation for web navigation, crawling, data extraction, and multi-step workflows with human approval and takeover (selected work: browser, tools, runtime)",
  "repos": [
   {
    "repo": "ScriptorDB",

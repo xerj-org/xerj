@@ -1,0 +1,23 @@
+{
+ "corpus": "mayank1513--visitor-analytics-with-azure-face",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on code queries this for how mayank1513/visitor-analytics-with-azure-face implements it: Use azure face and opencv to analyze your visitors age, gender, emotions, etc",
+ "repos": [
+  {
+   "repo": "visitor-analytics-with-azure-face",
+   "url": "https://github.com/mayank1513/visitor-analytics-with-azure-face",
+   "sha": "a1ebde71473685052c0efd13b53a26954ba0cf2b",
+   "licence": "author's permission (LICENSE at pin a1ebde714736: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T04:33Z",
+    "consent_receipt": "87ea494f61f8",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T04:33Z (receipt 87ea494f61f8); pinned to the default-branch head. LICENSE at pin a1ebde714736: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

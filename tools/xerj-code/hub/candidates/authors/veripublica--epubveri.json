@@ -2,8 +2,8 @@
  "corpus": "veripublica--epubveri",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Rust queries this for how veripublica/epubveri implements it: Pure-Rust EPUB validator \u2014 a fast, JVM-free, embeddable alternative to epubcheck (selected work: src, src/rng, schemas)",
+ "shelf": "WEB",
+ "domain": "an agent working on cli, ebook, ebook-tools queries this for how veripublica/epubveri implements it: Pure-Rust EPUB validator \u2014 a fast, JVM-free, embeddable alternative to epubcheck (selected work: src, src/rng, schemas)",
  "repos": [
   {
    "repo": "epubveri",

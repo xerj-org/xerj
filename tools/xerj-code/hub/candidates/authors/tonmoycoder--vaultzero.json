@@ -8,15 +8,15 @@
   {
    "repo": "VaultZero",
    "url": "https://github.com/tonmoycoder/VaultZero",
-   "sha": "53c026cdcc430125ddf0d9a4923622d0d643422f",
-   "licence": "MIT (LICENSE file at pin 53c026cdcc43, GitHub licence API 2026-11-02)",
+   "sha": "fcf48b15842a63b1cbc42cfd6efcf7b10ec4bcf2",
+   "licence": "MIT (LICENSE file at pin fcf48b15842a, GitHub licence API 2026-11-07)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-31T19:30Z",
     "consent_receipt": "63aaddf8a831",
-    "note": "Inclusion consented by the commit author by email at 2026-10-31T19:30Z (receipt 63aaddf8a831); selected commit 53c026cdcc43: \"Phase 2: Vault Features, TOTP, Zero-Server Brand Engine and Security \u2026\". LICENSE file at pin 53c026cdcc43 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution. Pinned to head 53c026cdcc43 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T19:30Z (receipt 63aaddf8a831); selected commit fcf48b15842a: \"Phase 2: Vault Features, TOTP, Zero-Server Brand Engine and Security \u2026\". LICENSE file at pin fcf48b15842a detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution. Pinned to head fcf48b15842a (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

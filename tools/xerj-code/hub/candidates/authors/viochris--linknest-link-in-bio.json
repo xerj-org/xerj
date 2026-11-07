@@ -1,0 +1,23 @@
+{
+ "corpus": "viochris--linknest-link-in-bio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-generated, analytics, authentication queries this for how viochris/linknest-link-in-bio implements it: A customizable link-in-bio platform with a public profile and a Supabase-backed admin dashboard, vibe-coded in Google AI Studio with Gemini.",
+ "repos": [
+  {
+   "repo": "linknest-link-in-bio",
+   "url": "https://github.com/viochris/linknest-link-in-bio",
+   "sha": "49f23b2e30f670ba8198d8603bc6d7562ce267a2",
+   "licence": "author's permission (LICENSE at pin 49f23b2e30f6: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T13:12Z",
+    "consent_receipt": "734e15be3c1a",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T13:12Z (receipt 734e15be3c1a); pinned to the default-branch head. LICENSE at pin 49f23b2e30f6: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

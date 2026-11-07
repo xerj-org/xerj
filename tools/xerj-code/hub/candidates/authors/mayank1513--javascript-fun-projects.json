@@ -1,0 +1,23 @@
+{
+ "corpus": "mayank1513--javascript-fun-projects",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on JavaScript queries this for how mayank1513/JavaScript-Fun-Projects implements it: Collection of fun pojects using javascript, html and css - focued mainly on javascript",
+ "repos": [
+  {
+   "repo": "JavaScript-Fun-Projects",
+   "url": "https://github.com/mayank1513/JavaScript-Fun-Projects",
+   "sha": "a6b434793746d269df42e2ff635b2c1635b401d7",
+   "licence": "author's permission (LICENSE at pin a6b434793746: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T04:33Z",
+    "consent_receipt": "8c2b803b821b",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T04:33Z (receipt 8c2b803b821b); pinned to the default-branch head. LICENSE at pin a6b434793746: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

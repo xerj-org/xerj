@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on local-first, obsidian, personal-knowledge-management queries this for how lxc248/-interestseed implements it: A local-first interest validator for any Markdown vault. Your own local AI suggests one testable connection; a 3-day experiment decides. CLI (selected work: src/ui, src, the project root)",
+ "domain": "an agent working on local-first, obsidian, personal-knowledge-management queries this for how lxc248/-interestseed implements it: A local-first interest validator for any Markdown vault. Local AI suggests one testable connection; a 3-day experiment decides. CLI + local  (selected work: src/ui, src, the project root)",
  "repos": [
   {
    "repo": "-interestseed",

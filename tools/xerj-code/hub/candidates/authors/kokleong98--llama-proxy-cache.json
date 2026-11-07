@@ -1,0 +1,23 @@
+{
+ "corpus": "kokleong98--llama-proxy-cache",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on Rust queries this for how kokleong98/llama-proxy-cache implements it: Llama Server Proxy Cache (selected work: plugins, src, tests)",
+ "repos": [
+  {
+   "repo": "llama-proxy-cache",
+   "url": "https://github.com/kokleong98/llama-proxy-cache",
+   "sha": "ea62971c1b8374cc234a6db16e9eb79e9ac736a3",
+   "licence": "MIT (LICENSE file at pin ea62971c1b83, GitHub licence API 2026-11-06)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T02:52Z",
+    "consent_receipt": "f74e54b106a4",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T02:52Z (receipt f74e54b106a4); selected commit ea62971c1b83: \"Add W3C like request log statistic plugins\". LICENSE file at pin ea62971c1b83 detected as MIT by the GitHub licence API on 2026-11-06; used under that licence with attribution. Pinned to head ea62971c1b83 (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

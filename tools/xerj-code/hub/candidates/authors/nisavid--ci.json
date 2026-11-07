@@ -1,0 +1,23 @@
+{
+ "corpus": "nisavid--ci",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Shell queries this for how nisavid/ci implements it: CI topic orchestration: cross-repo CI map, tickets, ADRs, and shared CI building blocks",
+ "repos": [
+  {
+   "repo": "ci",
+   "url": "https://github.com/nisavid/ci",
+   "sha": "1263348efee16e248d05e26557efd9dc815aed93",
+   "licence": "author's permission (LICENSE at pin 1263348efee1: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T21:16Z",
+    "consent_receipt": "23d5b7d3933e",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T21:16Z (receipt 23d5b7d3933e); pinned to the default-branch head. LICENSE at pin 1263348efee1: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

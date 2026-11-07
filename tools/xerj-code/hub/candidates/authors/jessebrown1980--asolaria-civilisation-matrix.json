@@ -1,0 +1,23 @@
+{
+ "corpus": "jessebrown1980--asolaria-civilisation-matrix",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on code queries this for how JesseBrown1980/asolaria-civilisation-matrix implements it: The shared surface. Every agent grows this matrix and can bump into another agents work - collisions are detected, recorded and never silent",
+ "repos": [
+  {
+   "repo": "asolaria-civilisation-matrix",
+   "url": "https://github.com/JesseBrown1980/asolaria-civilisation-matrix",
+   "sha": "ebb45addb00ff7d420b4f0f4bca3d04b78226bfb",
+   "licence": "author's permission (LICENSE at pin ebb45addb00f: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T14:53Z",
+    "consent_receipt": "538808944a76",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T14:53Z (receipt 538808944a76); pinned to the default-branch head. LICENSE at pin ebb45addb00f: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

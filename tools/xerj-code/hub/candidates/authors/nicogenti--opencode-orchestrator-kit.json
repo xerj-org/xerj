@@ -1,0 +1,23 @@
+{
+ "corpus": "nicogenti--opencode-orchestrator-kit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-orchestration, ai-agents, ai-coding-assistant queries this for how NicoGenti/opencode-orchestrator-kit implements it: Cost-aware multi-agent orchestrator kit for OpenCode CLI \u2014 one routing agent, 14 specialized subagents, zero application code touched by the (selected work: plugin, tests)",
+ "repos": [
+  {
+   "repo": "opencode-orchestrator-kit",
+   "url": "https://github.com/NicoGenti/opencode-orchestrator-kit",
+   "sha": "1131841496d45e3d1207a1e65665a6b551a677e9",
+   "licence": "MIT (LICENSE file at pin 1131841496d4, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T21:45Z",
+    "consent_receipt": "6e64b0606f11",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T21:45Z (receipt 6e64b0606f11); selected commit 1131841496d4: \"feat(issue-13): phase 5 V1->V2 permission translation wired into agen\u2026\". LICENSE file at pin 1131841496d4 detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

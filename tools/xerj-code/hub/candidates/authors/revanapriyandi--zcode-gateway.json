@@ -2,8 +2,8 @@
  "corpus": "revanapriyandi--zcode-gateway",
  "cloned_at": null,
  "status": "draft",
- "shelf": "SEC",
- "domain": "an agent working on TypeScript queries this for how revanapriyandi/zcode-gateway implements it: OAuth multi-account ZCode gateway with OpenAI Chat Completions, Responses, Anthropic Messages and tool calling (selected work: src, test, scripts)",
+ "shelf": "AI",
+ "domain": "an agent working on anthropic-api, api-gateway, docker queries this for how revanapriyandi/zcode-gateway implements it: Use ZCode GLM models through OpenAI and Anthropic APIs. Multi-account OAuth, streaming, tool calling, automatic promotional grants, Docker,  (selected work: src, test, scripts)",
  "repos": [
   {
    "repo": "zcode-gateway",

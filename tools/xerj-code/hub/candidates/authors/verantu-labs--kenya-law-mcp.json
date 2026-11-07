@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on TypeScript queries this for how Verantu-Labs/kenya-law-mcp implements it: Model Context Protocol (MCP) server for Kenya legal documents (statutes, judgments, cause lists, and gazettes) (selected work: src/test, src/akn, src/client)",
+ "domain": "an agent working on TypeScript queries this for how Verantu-Labs/kenya-law-mcp implements it: An MCP server for retrieving judgments, legislation, cause lists and Gazette records from official Kenya Law sources (selected work: src/test, src/akn, src/client)",
  "repos": [
   {
    "repo": "kenya-law-mcp",

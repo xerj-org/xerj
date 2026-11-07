@@ -1,0 +1,23 @@
+{
+ "corpus": "icog-labs-dev--hopfieldpc-memory-core",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how iCog-Labs-Dev/hopfieldpc-memory-core implements it: Standalone modern Hopfield memory core for HopfieldPC, including beta-controlled associative retrieval, diagnostics, synthetic benchmarks, a (selected work: benchmarks, tests, src/hopfieldpc)",
+ "repos": [
+  {
+   "repo": "hopfieldpc-memory-core",
+   "url": "https://github.com/iCog-Labs-Dev/hopfieldpc-memory-core",
+   "sha": "a859b8f239105958fed78ecd3467556510317795",
+   "licence": "MIT (LICENSE file at pin a859b8f23910, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T14:06Z",
+    "consent_receipt": "2e2353aee796",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T14:06Z (receipt 2e2353aee796); selected commit a859b8f23910: \"feat: enhance synthetic retrieval benchmark and add diagnostics module\". LICENSE file at pin a859b8f23910 detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -8,15 +8,15 @@
   {
    "repo": "LitReview.ai-Smart-arXiv-Exploration-Contextual-Analysis",
    "url": "https://github.com/Maheshwari2006/LitReview.ai-Smart-arXiv-Exploration-Contextual-Analysis",
-   "sha": "c3feab76731214be7d81b55eca6cb797603812f5",
-   "licence": "MIT (LICENSE file at pin c3feab767312, GitHub licence API 2026-10-29)",
+   "sha": "8d02e3bfb265b75b33b2907602b6779cbbc4664d",
+   "licence": "MIT (LICENSE file at pin 8d02e3bfb265, GitHub licence API 2026-11-06)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T01:46Z",
     "consent_receipt": "801550200377",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T01:46Z (receipt 801550200377); pinned to the default-branch head. LICENSE file at pin c3feab767312 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T01:46Z (receipt 801550200377); pinned to the default-branch head. LICENSE file at pin 8d02e3bfb265 detected as MIT by the GitHub licence API on 2026-11-06; used under that licence with attribution."
    }
   }
  ]

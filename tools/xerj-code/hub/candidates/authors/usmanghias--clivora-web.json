@@ -1,0 +1,23 @@
+{
+ "corpus": "usmanghias--clivora-web",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on typescript, freelancer, nextjs queries this for how UsmanGhias/clivora-web implements it: The Open-Source Freelancer OS Web Platform. Next.js 15 App Router, TypeScript, Tailwind CSS, Supabase PostgreSQL, and operations dashboard",
+ "repos": [
+  {
+   "repo": "clivora-web",
+   "url": "https://github.com/UsmanGhias/clivora-web",
+   "sha": "9fe2364b5ee32c6662375ad26824547d99039fa1",
+   "licence": "AGPL-3.0 (LICENSE file at pin 9fe2364b5ee3, GitHub licence API 2026-11-06)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-06T07:01Z",
+    "consent_receipt": "f279a7af68bc",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T07:01Z (receipt f279a7af68bc); pinned to the default-branch head. LICENSE file at pin 9fe2364b5ee3 detected as AGPL-3.0 by the GitHub licence API on 2026-11-06; used under that licence with attribution."
+   }
+  }
+ ]
+}

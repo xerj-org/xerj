@@ -1,0 +1,23 @@
+{
+ "corpus": "2526-4ahitm-itp--2526-4ahitm-franklyn",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on docker, nix-flake, quarkus queries this for how 2526-4ahitm-itp/2526-4ahitm-franklyn implements it: 2526-4ahitm-franklyn created by GitHub Classroom (selected work: sentinel, hugo)",
+ "repos": [
+  {
+   "repo": "2526-4ahitm-franklyn",
+   "url": "https://github.com/2526-4ahitm-itp/2526-4ahitm-franklyn",
+   "sha": "f88d70ee5013f31eab3021d6c221f01d8548205d",
+   "licence": "MIT (LICENSE file at pin f88d70ee5013, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T18:01Z",
+    "consent_receipt": "7f8f0b1cf986",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T18:01Z (receipt 7f8f0b1cf986); selected commit f88d70ee5013: \"feat: replace nix for bash in deployment\". LICENSE file at pin f88d70ee5013 detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}
