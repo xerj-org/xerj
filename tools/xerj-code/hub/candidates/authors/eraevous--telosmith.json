@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Python queries this for how eraevous/Telosmith implements it: AI-enhanced coding, first focusing on OpenAI's Codex system (selected work: tests, tools, src/aec)",
+ "domain": "an agent working on Python queries this for how eraevous/Telosmith implements it: AI-enhanced coding, first focusing on OpenAI's Codex system",
  "repos": [
   {
-   "repo": "AEC",
-   "url": "https://github.com/eraevous/AEC",
-   "sha": "5acc8a1a7a7546be2013bf65b656ef05b3b8b597",
-   "licence": "MIT (LICENSE file at pin 5acc8a1a7a75, GitHub licence API 2026-11-02)",
+   "repo": "Telosmith",
+   "url": "https://github.com/eraevous/Telosmith",
+   "sha": "c85ec8d1b233637cc2b7b7e72515e74e963ef4bf",
+   "licence": "MIT (LICENSE file at pin c85ec8d1b233, GitHub licence API 2026-11-07)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
-    "at": "2026-11-01T23:04Z",
-    "consent_receipt": "e0937d7366f5",
-    "note": "Inclusion consented by the commit author by email at 2026-11-01T23:04Z (receipt e0937d7366f5); selected commit 5acc8a1a7a75: \"Implement WP0 self-reconciliation for AEC\". LICENSE file at pin 5acc8a1a7a75 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+    "at": "2026-11-07T16:41Z",
+    "consent_receipt": "35c3a129b3b9",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-07T16:41Z (receipt 35c3a129b3b9); pinned to the default-branch head. LICENSE file at pin c85ec8d1b233 detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
    }
   }
  ]

@@ -1,0 +1,23 @@
+{
+ "corpus": "aerospacenu--atlas",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how AerospaceNU/Atlas implements it: An adaptive framework for automating satellite imagery analysis (selected work: tests, src/atlas)",
+ "repos": [
+  {
+   "repo": "Atlas",
+   "url": "https://github.com/AerospaceNU/Atlas",
+   "sha": "ca3e5929347e340d89f16a9faf8d1ffcddb5d887",
+   "licence": "MIT (LICENSE file at pin ca3e5929347e, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T16:15Z",
+    "consent_receipt": "3e1a92c3ab68",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T16:15Z (receipt 3e1a92c3ab68); selected commit ca3e5929347e: \"ATLAS-30: Context Compaction (#60)\". LICENSE file at pin ca3e5929347e detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

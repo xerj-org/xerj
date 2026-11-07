@@ -1,0 +1,23 @@
+{
+ "corpus": "carlosandreferreira--moodle-obsidian-mcp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how CarlosAndreFerreira/moodle-obsidian-mcp implements it: Moodle-Obsidian Doctoral MCP Server with Automatic SSO Mobile Token Catcher (selected work: moodle_mcp, tests, the project root)",
+ "repos": [
+  {
+   "repo": "moodle-obsidian-mcp",
+   "url": "https://github.com/CarlosAndreFerreira/moodle-obsidian-mcp",
+   "sha": "2d88b09d6d75f38a30f28871799a25e3d81aa06e",
+   "licence": "MIT (LICENSE file at pin 2d88b09d6d75, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T16:23Z",
+    "consent_receipt": "3601b6b0144d",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T16:23Z (receipt 3601b6b0144d); selected commit 2d88b09d6d75: \"feat(security): defend against prompt injection from course content\". LICENSE file at pin 2d88b09d6d75 detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

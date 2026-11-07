@@ -1,9 +1,9 @@
 {
- "corpus": "btbn--ffmpeg-builds",
+ "corpus": "ffmpeg-builds--ffmpeg-builds",
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Shell queries this for how BtbN/FFmpeg-Builds implements it: BtbN/FFmpeg-Builds (Shell) (selected work: images)",
+ "domain": "an agent working on Shell queries this for how FFmpeg-Builds/FFmpeg-Builds implements it: FFmpeg-Builds/FFmpeg-Builds (Shell) (selected work: images)",
  "repos": [
   {
    "repo": "FFmpeg-Builds",
