@@ -20604,6 +20604,10 @@ impl Index {
             };
             ranked.push((id, score, source, ordinal));
         }
+        // #3017: the cap above kept tied candidates in scan order (memtable,
+        // then segments), which moves when a memtable flushes; the page itself
+        // is put in the one score-ranked order every executor shares.
+        order_knn_pool_page_order(self, &mut ranked);
 
         // (result shaping is shared with the HNSW path so hits format / total
         // semantics cannot drift between the exact and approximate executors)
@@ -47015,7 +47019,8 @@ fn knn_result_from_scored(
     generated_companion_fields: &HashSet<String>,
     schema: Option<&Schema>,
 ) -> SearchResult {
-    rank_knn_pool(&mut scored, k, |entry| entry.1);
+    order_knn_pool_page_order(index, &mut scored);
+    scored.truncate(k.max(1));
     knn_result_from_ranked(
         index,
         request,
@@ -47025,6 +47030,43 @@ fn knn_result_from_scored(
         generated_companion_fields,
         schema,
     )
+}
+
+/// #3017: order a hydrated kNN pool into THE score-ranked page order,
+/// `score DESC, seq_no ASC (arrival, ES `_doc`), _id ASC` — the same key
+/// [`Index::sort_hits_page_order`] and hybrid fusion (`fuse_finish`) use.
+///
+/// Equal scores used to keep the order the executor collected them in. For
+/// the HNSW path that is the graph's traversal order, and the graph's layers
+/// come from `thread_rng`, so a graph built while indexing and the one a
+/// restarted process loads or rebuilds visit tied neighbours differently: the
+/// kNN page and every RRF rank fed from it changed across server processes
+/// (#3017 repro on a synthetic corpus of 5,000 docs carrying 2,500 distinct
+/// 384-dim vectors: 116 of 160 kNN and 118 of 160 hybrid rankings identical
+/// between the indexing process and a restart).
+///
+/// The seq_no is resolved once per candidate (a pool is at most `k` plus a
+/// few rescore candidates on the ANN path), and a NaN score sorts last as in
+/// `fuse_finish`, so the comparator is a total order.
+fn order_knn_pool_page_order(index: &Index, pool: &mut Vec<(String, f32, Value, Option<u32>)>) {
+    fn key(score: f32) -> f32 {
+        if score.is_nan() {
+            f32::NEG_INFINITY
+        } else {
+            score
+        }
+    }
+    let mut decorated: Vec<(u64, (String, f32, Value, Option<u32>))> = std::mem::take(pool)
+        .into_iter()
+        .map(|entry| (index.lookup_seq_no(&entry.0).unwrap_or(u64::MAX), entry))
+        .collect();
+    decorated.sort_by(|a, b| {
+        key(b.1 .1)
+            .total_cmp(&key(a.1 .1))
+            .then_with(|| a.0.cmp(&b.0))
+            .then_with(|| a.1 .0.cmp(&b.1 .0))
+    });
+    *pool = decorated.into_iter().map(|(_, entry)| entry).collect();
 }
 
 /// Rank a kNN candidate pool by score, descending, and cap it at `k` — the one
