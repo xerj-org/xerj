@@ -1,0 +1,23 @@
+{
+ "corpus": "sturkacircutz--neuron-ai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how SturkaCircutz/neuron-ai implements it: open source discussion board on neuroscience (selected work: src/services, src, test)",
+ "repos": [
+  {
+   "repo": "neuron-ai",
+   "url": "https://github.com/SturkaCircutz/neuron-ai",
+   "sha": "02c20ad0969fab2097ed9f86c670752e2ca7dd91",
+   "licence": "Apache-2.0 (LICENSE file at pin 02c20ad0969f, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T03:31Z",
+    "consent_receipt": "f60ef9b98b5a",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T03:31Z (receipt f60ef9b98b5a); selected commit 02c20ad0969f: \"Add backend scaffold, gateway and auth service\". LICENSE file at pin 02c20ad0969f detected as Apache-2.0 by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "roanboc--learning-data",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how roanboc/learning-data implements it: Learning artifacts for data (selected work: films, site-tools)",
+ "repos": [
+  {
+   "repo": "learning-data",
+   "url": "https://github.com/roanboc/learning-data",
+   "sha": "6386c8b945fd4446b56d8b38295ff16529da62d2",
+   "licence": "author's permission (LICENSE at pin 6386c8b945fd: NOASSERTION; repository: MIT)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T03:00Z",
+    "consent_receipt": "2207114b895e",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T03:00Z (receipt 2207114b895e); selected commit 6386c8b945fd: \"Play Spanish narration on Decades in the making's Spanish page\". LICENSE at pin 6386c8b945fd: NOASSERTION (repository: MIT); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

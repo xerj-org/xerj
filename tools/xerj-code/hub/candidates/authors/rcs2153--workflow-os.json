@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Rust queries this for how rcs2153/workflow-os implements it: Local-first governance kernel for AI agent work: explicit authority, evidence posture, approvals, side-effect records, and inspectable WorkR (selected work: crates/workflow-local-host, crates/workflow-core)",
+ "domain": "an agent working on Rust queries this for how rcs2153/workflow-os implements it: Open-source continuity-of-authority kernel for agentic work: shared governance across people, agents, processes, and execution frameworks, w (selected work: crates/workflow-local-host, crates/workflow-core)",
  "repos": [
   {
    "repo": "workflow-os",

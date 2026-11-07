@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "SEC",
- "domain": "an agent working on Python queries this for how Har1sh-k/scaneval implements it: Alpha framework for reproducible security-scanner evaluation and observability (selected work: src/scaneval, tests, corpus)",
+ "domain": "an agent working on application-security, benchmark, cve queries this for how Har1sh-k/scaneval implements it: Alpha framework for reproducible security-scanner evaluation and observability (selected work: src/scaneval, tests, corpus)",
  "repos": [
   {
    "repo": "scaneval",
