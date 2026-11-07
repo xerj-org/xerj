@@ -16097,6 +16097,21 @@ async fn search_impl(
     {
         return search_shard_validation_error(&reason);
     }
+    if metric_aggs.is_some() {
+        let mappings: Vec<Value> = participating_indices
+            .iter()
+            .filter_map(|ix| {
+                state
+                    .engine
+                    .index_mappings
+                    .get(ix.as_str())
+                    .map(|m| m.clone())
+            })
+            .collect();
+        if let Some(reason) = find_bucket_metric_path_error(metric_aggs, &mappings) {
+            return bucket_metric_path_error(&reason);
+        }
+    }
 
     // Enforce per-index `index.disable_sequence_numbers` setting:
     // reject queries/sorts that touch `_seq_no` with ES's specific
@@ -44728,6 +44743,362 @@ pub async fn close_pit(
         _ => 0,
     };
     Json(json!({ "succeeded": freed > 0, "num_freed": freed })).into_response()
+}
+
+/// A bucket-metric pipeline (`max_bucket`, `avg_bucket`, ...) reads one
+/// number from every bucket of the first aggregation in its `buckets_path`,
+/// by resolving the rest of the path inside each bucket
+/// (`BucketHelpers.resolveBucketValue`). When that rest names a multi-bucket
+/// aggregation, or a multi-value metric without saying which value, there is
+/// no number to read and ES fails with
+/// `buckets_path must reference either a number value or a single value
+/// numeric metric aggregation, got: [<result>] at aggregation [<name>]` or
+/// `..., but [<name>] contains multiple values. Please specify which to use.`
+/// XERJ skipped every bucket and answered 200 with `"value": null`.
+///
+/// `<result>` is ES's result class: `Object[]` when the path goes on below a
+/// multi-bucket aggregation, otherwise the class of the aggregation it stops
+/// at. A `terms` result is named by its value type (`LongTerms`,
+/// `DoubleTerms`, `StringTerms`), taken from the field's mapping in the
+/// first target index. Paths this cannot classify with confidence (value
+/// keys, dotted names, single-bucket ends, unknown kinds) are left to the
+/// executor, as before.
+fn find_bucket_metric_path_error(aggs: Option<&Value>, mappings: &[Value]) -> Option<String> {
+    const SIBLING: &[&str] = &[
+        "avg_bucket",
+        "max_bucket",
+        "min_bucket",
+        "sum_bucket",
+        "stats_bucket",
+        "extended_stats_bucket",
+        "percentiles_bucket",
+    ];
+    const MULTI_BUCKET: &[&str] = &[
+        "terms",
+        "rare_terms",
+        "significant_terms",
+        "multi_terms",
+        "histogram",
+        "date_histogram",
+        "auto_date_histogram",
+        "variable_width_histogram",
+        "range",
+        "date_range",
+        "ip_range",
+        "geo_distance",
+        "filters",
+        "adjacency_matrix",
+        "composite",
+        "geohash_grid",
+        "geotile_grid",
+    ];
+    const SINGLE_BUCKET: &[&str] = &[
+        "filter",
+        "global",
+        "nested",
+        "reverse_nested",
+        "missing",
+        "sampler",
+        "diversified_sampler",
+    ];
+    const MULTI_VALUE_METRIC: &[&str] = &[
+        "stats",
+        "extended_stats",
+        "percentiles",
+        "percentile_ranks",
+        "boxplot",
+    ];
+    const PREFIX: &str = "buckets_path must reference either a number value or a single value \
+                          numeric metric aggregation";
+    fn sub_aggs(def: &Value) -> Option<&serde_json::Map<String, Value>> {
+        def.get("aggs")
+            .or_else(|| def.get("aggregations"))
+            .and_then(Value::as_object)
+    }
+    fn kind_of(def: &Value) -> Option<(&str, &Value)> {
+        def.as_object()?
+            .iter()
+            .find(|(k, _)| !matches!(k.as_str(), "aggs" | "aggregations" | "meta"))
+            .map(|(k, v)| (k.as_str(), v))
+    }
+    /// ES's result class for a multi-bucket aggregation that ends a path.
+    fn bucket_class(kind: &str, params: &Value, mappings: &[Value]) -> Option<&'static str> {
+        Some(match kind {
+            "terms" => {
+                let field = params.get("field").and_then(Value::as_str)?;
+                let ty = mappings.first().and_then(|m| mapped_field_type(m, field))?;
+                match ty.as_str() {
+                    "long" | "integer" | "short" | "byte" | "date" | "date_nanos" | "boolean" => {
+                        "LongTerms"
+                    }
+                    "double" | "float" | "half_float" | "scaled_float" => "DoubleTerms",
+                    "keyword" | "constant_keyword" | "wildcard" | "ip" => "StringTerms",
+                    _ => return None,
+                }
+            }
+            "histogram" => "InternalHistogram",
+            "date_histogram" => "InternalDateHistogram",
+            "range" => "InternalRange",
+            "date_range" => "InternalDateRange",
+            "filters" => "InternalFilters",
+            _ => return None,
+        })
+    }
+    /// The error for one sibling `buckets_path`, resolved from `level`.
+    fn check(
+        path: &str,
+        level: &serde_json::Map<String, Value>,
+        mappings: &[Value],
+    ) -> Option<String> {
+        let mut elements = path.split('>');
+        let first = level.get(elements.next()?)?;
+        if !MULTI_BUCKET.contains(&kind_of(first)?.0) {
+            return None;
+        }
+        let rest: Vec<&str> = elements.collect();
+        let mut level = sub_aggs(first);
+        for (i, element) in rest.iter().enumerate() {
+            let last = i + 1 == rest.len();
+            // Value keys (`p.99`, `p[99.9]`, `s.avg`) and the bucket
+            // properties are numbers or the executor's business.
+            if element.contains(['.', '[']) || element.starts_with('_') {
+                return None;
+            }
+            let def = level?.get(*element)?;
+            let (kind, params) = kind_of(def)?;
+            if MULTI_BUCKET.contains(&kind) {
+                let result = if last {
+                    bucket_class(kind, params, mappings)?
+                } else {
+                    "Object[]"
+                };
+                return Some(format!(
+                    "{PREFIX}, got: [{result}] at aggregation [{element}]"
+                ));
+            }
+            if MULTI_VALUE_METRIC.contains(&kind) {
+                let single = ["percents", "values"]
+                    .iter()
+                    .filter_map(|k| params.get(*k).and_then(Value::as_array))
+                    .any(|a| a.len() == 1);
+                return (last && !single).then(|| {
+                    format!("{PREFIX}, but [{element}] contains multiple values. Please specify which to use.")
+                });
+            }
+            if !SINGLE_BUCKET.contains(&kind) || last {
+                return None;
+            }
+            level = sub_aggs(def);
+        }
+        None
+    }
+    fn walk(level: &serde_json::Map<String, Value>, mappings: &[Value]) -> Option<String> {
+        for def in level.values() {
+            if let Some((kind, params)) = kind_of(def) {
+                if SIBLING.contains(&kind) {
+                    if let Some(path) = params.get("buckets_path").and_then(Value::as_str) {
+                        if let Some(e) = check(path, level, mappings) {
+                            return Some(e);
+                        }
+                    }
+                }
+            }
+            if let Some(found) = sub_aggs(def).and_then(|subs| walk(subs, mappings)) {
+                return Some(found);
+            }
+        }
+        None
+    }
+    walk(aggs?.as_object()?, mappings)
+}
+
+fn bucket_metric_path_error(reason: &str) -> Response {
+    (
+        StatusCode::BAD_REQUEST,
+        Json(json!({
+            "error": {
+                "root_cause": [{ "type": "aggregation_execution_exception", "reason": reason }],
+                "type": "search_phase_execution_exception",
+                "reason": "all shards failed",
+                "phase": "query",
+                "caused_by": { "type": "aggregation_execution_exception", "reason": reason },
+            },
+            "status": 400,
+        })),
+    )
+        .into_response()
+}
+
+#[cfg(test)]
+mod bucket_metric_path_tests {
+    use super::*;
+    use axum::{body::Body, http::Request};
+    use tower::ServiceExt;
+    use xerj_common::{
+        config::{Config, WalSync},
+        metrics::Metrics,
+    };
+    use xerj_engine::Engine;
+
+    fn test_state() -> AppState {
+        let dir = tempfile::tempdir().expect("tempdir").keep();
+        let mut config = Config::default();
+        config.server.data_dir = dir.to_string_lossy().into_owned();
+        config.storage.wal_sync = WalSync::Async;
+        let metrics = Metrics::new().expect("metrics");
+        let engine = Engine::new(config.clone()).expect("engine");
+        AppState::new(config, engine, metrics)
+    }
+
+    async fn send(app: &axum::Router, method: &str, uri: &str, body: Value) -> (StatusCode, Value) {
+        let resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(method)
+                    .uri(uri)
+                    .header("content-type", "application/json")
+                    .body(Body::from(body.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let status = resp.status();
+        let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        (status, serde_json::from_slice(&bytes).unwrap())
+    }
+
+    /// The pipeline.yml fixture (`int_field` 1..4), plus a keyword and a double.
+    async fn app() -> axum::Router {
+        let app = crate::router::build_es_compat_router(test_state());
+        let mapping = json!({"mappings": {"properties": {
+            "int_field": {"type": "integer"}, "s": {"type": "keyword"}, "d": {"type": "double"}}}});
+        let (status, body) = send(&app, "PUT", "/test_1", mapping).await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        for n in 1..=4 {
+            let uri = format!("/test_1/_doc/{n}?refresh=true");
+            let doc = json!({"int_field": n, "s": format!("s{n}"), "d": n as f64 / 2.0});
+            let (status, body) = send(&app, "POST", &uri, doc).await;
+            assert!(status.is_success(), "{body}");
+        }
+        app
+    }
+
+    fn terms_with(subs: Value, path: &str) -> Value {
+        json!({"size": 0, "aggs": {
+            "the_terms": {"terms": {"field": "int_field"}, "aggs": subs},
+            "the_bad_max": {"max_bucket": {"buckets_path": path}}}})
+    }
+
+    /// FAIL-BEFORE: every request answered 200 with `the_bad_max.value: null`.
+    #[tokio::test]
+    async fn paths_without_a_number_are_refused() {
+        let app = app().await;
+        let multi = "buckets_path must reference either a number value or a single value numeric \
+                     metric aggregation, but [the_percentiles] contains multiple values. Please \
+                     specify which to use.";
+        for (body, reason) in [
+            (
+                terms_with(
+                    json!({"the_terms_2": {"terms": {"field": "int_field"},
+                    "aggs": {"the_max": {"max": {"field": "int_field"}}}}}),
+                    "the_terms>the_terms_2>the_max",
+                ),
+                "got: [Object[]] at aggregation [the_terms_2]",
+            ),
+            (
+                terms_with(
+                    json!({"the_terms_2": {"terms": {"field": "int_field"}}}),
+                    "the_terms>the_terms_2",
+                ),
+                "got: [LongTerms] at aggregation [the_terms_2]",
+            ),
+            (
+                terms_with(
+                    json!({"the_terms_2": {"terms": {"field": "s"}}}),
+                    "the_terms>the_terms_2",
+                ),
+                "got: [StringTerms] at aggregation [the_terms_2]",
+            ),
+            (
+                terms_with(
+                    json!({"the_terms_2": {"terms": {"field": "d"}}}),
+                    "the_terms>the_terms_2",
+                ),
+                "got: [DoubleTerms] at aggregation [the_terms_2]",
+            ),
+            (
+                terms_with(
+                    json!({"the_percentiles": {"percentiles": {
+                    "percents": [10, 50, 90, 99], "field": "int_field"}}}),
+                    "the_terms>the_percentiles",
+                ),
+                multi,
+            ),
+            (
+                terms_with(
+                    json!({"the_percentiles": {"percentiles": {"percents": [10, 50, 90, 99],
+                    "field": "int_field", "hdr": {}}}}),
+                    "the_terms>the_percentiles",
+                ),
+                multi,
+            ),
+            (
+                terms_with(
+                    json!({"f": {"filter": {"match_all": {}},
+                    "aggs": {"the_percentiles": {"percentiles": {"field": "int_field"}}}}}),
+                    "the_terms>f>the_percentiles",
+                ),
+                multi,
+            ),
+        ] {
+            let (status, resp) = send(&app, "POST", "/_search", body.clone()).await;
+            assert_eq!(status, StatusCode::BAD_REQUEST, "{body} -> {resp}");
+            let root = &resp["error"]["root_cause"][0];
+            assert_eq!(root["type"], "aggregation_execution_exception", "{body}");
+            let got = root["reason"].as_str().unwrap_or_default();
+            assert!(got.ends_with(reason), "{body}: {got}");
+        }
+    }
+
+    /// Paths that do reach a number keep answering, with the value.
+    #[tokio::test]
+    async fn paths_to_a_number_still_answer() {
+        let app = app().await;
+        for (subs, path, max) in [
+            (
+                json!({"m": {"max": {"field": "int_field"}}}),
+                "the_terms>m",
+                4.0,
+            ),
+            (
+                json!({"p": {"percentiles": {"field": "int_field", "percents": [99]}}}),
+                "the_terms>p",
+                4.0,
+            ),
+            (
+                json!({"p": {"percentiles": {"field": "int_field", "percents": [99]}}}),
+                "the_terms>p.99",
+                4.0,
+            ),
+            (
+                json!({"st": {"stats": {"field": "int_field"}}}),
+                "the_terms>st.max",
+                4.0,
+            ),
+        ] {
+            let body = terms_with(subs, path);
+            let (status, resp) = send(&app, "POST", "/_search", body.clone()).await;
+            assert_eq!(status, StatusCode::OK, "{path} -> {resp}");
+            assert_eq!(
+                resp["aggregations"]["the_bad_max"]["value"].as_f64(),
+                Some(max),
+                "{path} -> {resp}"
+            );
+        }
+    }
 }
 
 /// Minimal glob matcher for index-name wildcard expansion (* only).
