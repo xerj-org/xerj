@@ -133,8 +133,8 @@ POSTS: list[dict[str, str]] = [
     dict(slug="xerj-query-ai-model", date="2026-11-05", motif="wrong160",
          title="XERJ Query-1",
          subtitle="A neurosymbolic model that compiles prompts to verifiable search queries.",
-         alt="Cover art: three grids of 160 squares, one per way of answering the same questions; filled squares are right answers, blue squares wrong answers, rings declined; the yellow XERJ Query-1 grid has one blue square, RAG on Opus 5.5 has nine, Opus 5.5 reading everything has six",
-         og_alt="Cover: “XERJ Query-1” in display type beside the post’s square-matrix art, labelled 1 wrong, 9 wrong and 6 wrong. The art: three grids of 160 squares, one per way of answering the same questions; filled squares are right answers, blue squares wrong answers, rings declined; the yellow XERJ Query-1 grid has one blue square, RAG on Opus 5.5 has nine, Opus 5.5 reading everything has six"),
+         alt="Three grids of 160 squares: XERJ Query-1 1 wrong (given each question’s own records), RAG with BM25 top-10 on Opus 5.5 9 wrong, Opus 5.5 reading the whole store 6 wrong; filled squares right, blue wrong, rings declined",
+         og_alt="Cover: “XERJ Query-1” beside three grids of 160 squares from our 160-question test: XERJ Query-1, given each question’s own records, 1 wrong and 35 declined; RAG with BM25 top-10 on Opus 5.5, 9 wrong; Opus 5.5 reading the whole store, 6 wrong. Filled squares are right answers, blue squares wrong answers, rings declined"),
 ]
 
 # og: title + motif with its labels, for social feeds that show the card alone.

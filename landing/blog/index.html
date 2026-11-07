@@ -150,13 +150,12 @@
   <ol class="blog-list">
     <li>
       <a class="bl-card" href="/blog/xerj-query-ai-model">
-        <img class="bl-thumb" src="/blog/covers/xerj-query-ai-model-thumb.webp" width="640" height="336" alt="Cover art: three grids of 160 squares, one per way of answering the same questions; filled squares are right answers, blue squares wrong answers, rings declined; the yellow XERJ Query-1 grid has one blue square, RAG on Opus 5.5 has nine, Opus 5.5 reading everything has six" loading="lazy" decoding="async">
+        <img class="bl-thumb" src="/blog/covers/xerj-query-ai-model-thumb.webp" width="640" height="336" alt="Cover art: three grids of 160 squares, one per way of answering the same questions; filled squares are right answers, blue squares wrong answers, rings declined; the yellow XERJ Query-1 grid (given each question's own collection) has one blue square, RAG with BM25 top-10 on Opus 5.5 has nine, Opus 5.5 reading the whole store has six" loading="lazy" decoding="async">
         <div class="bl-meta">
           <p class="bl-date"><time datetime="2026-11-05">2026-11-05</time> · MODEL · XERJ QUERY-1</p>
           <h2 class="bl-title">XERJ Query-1: a neurosymbolic model that compiles prompts to verifiable search queries</h2>
           <p class="bl-excerpt">A new way to answer questions over your data: the model writes a small
-          program and the engine runs it over your own facts. On the same 160 questions it gave 9 times
-          fewer wrong answers than RAG on Opus 5.5, at $42 per million questions on four CPU cores.
+          program and the engine runs it over your own facts. On 160 questions from our own development set it gave 1 wrong answer, against 9 to 15 for RAG on Opus 5.5; it was given each question's own collection., at $42 of CPU time per million questions on four CPU cores, on that 160-question test.
           No embeddings, no GPU, off by default in rc.101.</p>
           <p class="bl-byline">AUTHOR · XERJ ENGINEERING · PUBLISHED · 2026-11-05</p>
           <span class="bl-read">READ THE POST &rarr;</span>
