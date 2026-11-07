@@ -13584,6 +13584,40 @@ fn format_str(sn: Option<&Sniffed>) -> String {
 
 // ─── map subcommand ──────────────────────────────────────────────────────
 
+/// A local data dir that already exists, as the restart hint needs it: the
+/// directory and the admin key its node wrote there (#2941).
+struct ExistingNode {
+    data_dir: std::path::PathBuf,
+    admin_key: std::path::PathBuf,
+}
+
+impl ExistingNode {
+    /// Find the data dir a local command would have been talking to, if one
+    /// exists.
+    ///
+    /// Discovery is the same list every other command uses — the server's
+    /// `~/.xerj/by-port/<port>` pointer first, then the documented data dirs —
+    /// so the hint names a directory that is really there instead of guessing.
+    fn discover(url: &str) -> Option<Self> {
+        let found = xerj_common::localauth::discover_local_admin_key_for_url_with_origin(url)?;
+        let data_dir = found.path.parent()?.to_path_buf();
+        Some(Self {
+            data_dir,
+            admin_key: found.path,
+        })
+    }
+
+    /// The recipe for bringing the existing node back up, auth on.
+    fn restart_hint(&self) -> String {
+        format!(
+            "A XERJ data dir already exists at {dir}. Restart that node instead of starting an \
+             empty one:\n  xerj --data-dir {dir} &\n  export XERJ_API_KEY=\"$(cat {key})\"",
+            dir = self.data_dir.display(),
+            key = self.admin_key.display(),
+        )
+    }
+}
+
 /// What autoindex and `xerj map` say when the node does not answer.
 ///
 /// A connect error is the common first-run miss (`xerj map` with nothing
@@ -13593,14 +13627,35 @@ fn node_ping_failure(url: &str, err: &anyhow::Error) -> String {
     if esclient::Es::ping_failure_is_auth(err) {
         format!("the node at {url} answered, but authentication failed.\n{err:#}")
     } else {
-        let loopback = loopback_retry_hint(url).unwrap_or_default();
-        format!(
-            "no XERJ node reachable at {url} ({err:#})\n\n\
-             Start one, then re-run this command:\n  \
-             xerj --insecure --data-dir ./.xerj-data &\n\n\
-             (or point at an existing node with --url / $XERJ_URL){loopback}"
-        )
+        let existing = ExistingNode::discover(url);
+        node_ping_failure_text(url, err, existing.as_ref())
     }
+}
+
+/// [`node_ping_failure`] with the discovery result passed in, so the decision is
+/// testable without depending on what data dirs this machine happens to have.
+fn node_ping_failure_text(
+    url: &str,
+    err: &anyhow::Error,
+    existing: Option<&ExistingNode>,
+) -> String {
+    let loopback = loopback_retry_hint(url).unwrap_or_default();
+    // #2941: a first run on a machine that already has a data dir used to be
+    // told to create a new, empty one — then the existing indexes looked gone.
+    // Name the node that is already there, with the auth-on path, and keep the
+    // fresh-start recipe for the genuinely first run.
+    let start = match existing {
+        Some(node) => format!(
+            "{}\n\n(or point at an existing node with --url / $XERJ_URL; `--insecure` is only \
+             for a throwaway local node, because it disables auth for every client)",
+            node.restart_hint()
+        ),
+        None => "Start one, then re-run this command:\n  \
+                 xerj --insecure --data-dir ./.xerj-data &\n\n\
+                 (or point at an existing node with --url / $XERJ_URL)"
+            .to_string(),
+    };
+    format!("no XERJ node reachable at {url} ({err:#})\n\n{start}{loopback}")
 }
 
 /// #2688 — the client defaults to `http://localhost:9200` while the node binds
@@ -13625,14 +13680,19 @@ fn loopback_retry_hint(url: &str) -> Option<String> {
 
 #[cfg(test)]
 mod node_ping_failure_tests {
-    use super::node_ping_failure;
+    use super::{node_ping_failure_text, ExistingNode};
+
+    /// A machine with no data dir: the first-run recipe.
+    fn no_existing_dir(url: &str, err: &anyhow::Error) -> String {
+        node_ping_failure_text(url, err, None)
+    }
 
     #[test]
     fn an_unreachable_node_gets_the_start_recipe() {
         let err = anyhow::anyhow!(
             "endpoint unreachable: http://127.0.0.1:9: Connection refused (os error 111)"
         );
-        let msg = node_ping_failure("http://127.0.0.1:9", &err);
+        let msg = no_existing_dir("http://127.0.0.1:9", &err);
         assert!(
             msg.contains("no XERJ node reachable at http://127.0.0.1:9"),
             "{msg}"
@@ -13651,28 +13711,52 @@ mod node_ping_failure_tests {
         let err = anyhow::anyhow!(
             "endpoint unreachable: http://localhost:9200: Connection refused (os error 10061)"
         );
-        let msg = node_ping_failure("http://localhost:9200", &err);
+        let msg = no_existing_dir("http://localhost:9200", &err);
         assert!(msg.ends_with("--url http://127.0.0.1:9200"), "{msg}");
         assert!(
             msg.contains("xerj --insecure --data-dir ./.xerj-data"),
             "{msg}"
         );
         // The caller's scheme, case and port are kept.
-        let msg = node_ping_failure("https://LocalHost:9443", &err);
+        let msg = no_existing_dir("https://LocalHost:9443", &err);
         assert!(msg.ends_with("--url https://127.0.0.1:9443"), "{msg}");
         // An auth failure on localhost is not a resolution problem.
         let auth = anyhow::anyhow!("GET / failed (HTTP 401)");
-        let msg = node_ping_failure("http://localhost:9200", &auth);
+        let msg = super::node_ping_failure("http://localhost:9200", &auth);
         assert!(!msg.contains("127.0.0.1"), "{msg}");
     }
 
     #[test]
     fn an_auth_failure_does_not_say_the_node_is_down() {
         let err = anyhow::anyhow!("GET / failed (HTTP 401)");
-        let msg = node_ping_failure("http://127.0.0.1:9200", &err);
+        let msg = super::node_ping_failure("http://127.0.0.1:9200", &err);
         assert!(msg.contains("authentication failed"), "{msg}");
         assert!(!msg.contains("no XERJ node reachable"), "{msg}");
         assert!(!msg.contains("xerj --insecure"), "{msg}");
+    }
+
+    /// #2941: with an existing data dir, the hint must restart that node with
+    /// its admin key — not tell the reader to create a second, empty one.
+    #[test]
+    fn an_existing_data_dir_gets_its_own_restart_recipe() {
+        let err = anyhow::anyhow!(
+            "endpoint unreachable: http://127.0.0.1:9200: Connection refused (os error 111)"
+        );
+        let existing = ExistingNode {
+            data_dir: "/work/xerj-data".into(),
+            admin_key: "/work/xerj-data/admin.key".into(),
+        };
+        let msg = node_ping_failure_text("http://127.0.0.1:9200", &err, Some(&existing));
+        assert!(msg.contains("already exists at /work/xerj-data"), "{msg}");
+        assert!(msg.contains("xerj --data-dir /work/xerj-data &"), "{msg}");
+        assert!(
+            msg.contains("XERJ_API_KEY=\"$(cat /work/xerj-data/admin.key)\""),
+            "{msg}"
+        );
+        assert!(
+            !msg.contains("--insecure --data-dir"),
+            "an existing dir is not replaced by a fresh insecure node: {msg}"
+        );
     }
 }
 
