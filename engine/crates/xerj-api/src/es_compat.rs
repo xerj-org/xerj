@@ -14409,6 +14409,13 @@ async fn search_impl(
     // `?sort=` merge so a URL-provided sort counts toward the arity/field rules
     // exactly as ES does (URL sort + body search_after is valid; URL sort +
     // body rescore is rejected — both live-verified).
+    if let Some(reason) = find_lookup_runtime_field_misuse(
+        body.runtime_mappings.as_ref(),
+        body.query.as_ref(),
+        &[body.aggs.as_ref(), body.aggregations.as_ref()],
+    ) {
+        return search_shard_validation_error(&reason);
+    }
     if let Some(err) = validate_search_after_rescore(&body) {
         return err;
     }
@@ -44763,6 +44770,220 @@ pub async fn close_pit(
         _ => 0,
     };
     Json(json!({ "succeeded": freed > 0, "num_freed": freed })).into_response()
+}
+
+/// A `lookup` runtime field (`runtime_mappings: {f: {type: lookup, ...}}`)
+/// only exists at fetch time: its values come from another index, joined
+/// in when the hit is rendered through `fields`. It has no terms to search
+/// and no doc values to aggregate, so ES refuses both on the shard:
+/// `Field [f] of type [lookup] does not support match queries` for a `match`
+/// and `Fielddata is not supported on field [f] of type [lookup]` for any
+/// field-based aggregation. XERJ answered 200 with no hits or empty buckets,
+/// which reads as "no data" rather than "this field cannot be used here".
+///
+/// Only `match` is refused among queries: it is the one whose ES wording is
+/// certain; other query types keep today's answer.
+fn find_lookup_runtime_field_misuse(
+    runtime_mappings: Option<&Value>,
+    query: Option<&Value>,
+    aggs: &[Option<&Value>],
+) -> Option<String> {
+    fn match_on(q: &Value, lookups: &[&str]) -> Option<String> {
+        match q {
+            Value::Object(obj) => {
+                if let Some(Value::Object(clause)) = obj.get("match") {
+                    if let Some(field) = clause.keys().find(|k| lookups.contains(&k.as_str())) {
+                        return Some(format!(
+                            "Field [{field}] of type [lookup] does not support match queries"
+                        ));
+                    }
+                }
+                obj.values().find_map(|v| match_on(v, lookups))
+            }
+            Value::Array(items) => items.iter().find_map(|v| match_on(v, lookups)),
+            _ => None,
+        }
+    }
+    fn agg_on(level: &serde_json::Map<String, Value>, lookups: &[&str]) -> Option<String> {
+        for def in level.values() {
+            let Some(obj) = def.as_object() else {
+                continue;
+            };
+            for (kind, params) in obj {
+                if matches!(kind.as_str(), "aggs" | "aggregations" | "meta") {
+                    continue;
+                }
+                if let Some(field) = params.get("field").and_then(Value::as_str) {
+                    if lookups.contains(&field) {
+                        return Some(format!(
+                            "Fielddata is not supported on field [{field}] of type [lookup]"
+                        ));
+                    }
+                }
+            }
+            if let Some(found) = obj
+                .get("aggs")
+                .or_else(|| obj.get("aggregations"))
+                .and_then(Value::as_object)
+                .and_then(|sub| agg_on(sub, lookups))
+            {
+                return Some(found);
+            }
+        }
+        None
+    }
+    let lookups: Vec<&str> = runtime_mappings?
+        .as_object()?
+        .iter()
+        .filter(|(_, def)| def.get("type").and_then(Value::as_str) == Some("lookup"))
+        .map(|(name, _)| name.as_str())
+        .collect();
+    if lookups.is_empty() {
+        return None;
+    }
+    query.and_then(|q| match_on(q, &lookups)).or_else(|| {
+        aggs.iter()
+            .flatten()
+            .filter_map(|a| a.as_object())
+            .find_map(|a| agg_on(a, &lookups))
+    })
+}
+
+#[cfg(test)]
+mod lookup_runtime_field_tests {
+    use super::*;
+    use axum::{body::Body, http::Request};
+    use tower::ServiceExt;
+    use xerj_common::{
+        config::{Config, WalSync},
+        metrics::Metrics,
+    };
+    use xerj_engine::Engine;
+
+    fn test_state() -> AppState {
+        let dir = tempfile::tempdir().expect("tempdir").keep();
+        let mut config = Config::default();
+        config.server.data_dir = dir.to_string_lossy().into_owned();
+        config.storage.wal_sync = WalSync::Async;
+        let metrics = Metrics::new().expect("metrics");
+        let engine = Engine::new(config.clone()).expect("engine");
+        AppState::new(config, engine, metrics)
+    }
+
+    async fn send(app: &axum::Router, method: &str, uri: &str, body: Value) -> (StatusCode, Value) {
+        let resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(method)
+                    .uri(uri)
+                    .header("content-type", "application/json")
+                    .body(Body::from(body.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let status = resp.status();
+        let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        (status, serde_json::from_slice(&bytes).unwrap())
+    }
+
+    /// The 390_lookup_fields.yml corpus.
+    async fn app() -> axum::Router {
+        let app = crate::router::build_es_compat_router(test_state());
+        for (uri, doc) in [
+            (
+                "/ip_locations/_doc/192.168.1.1",
+                json!({"country": "Canada", "city": "Montreal"}),
+            ),
+            (
+                "/logs/_doc/1",
+                json!({"ip": "192.168.1.1", "msg": "The first message", "ord": 1}),
+            ),
+            (
+                "/logs/_doc/2",
+                json!({"ip": "192.168.1.2", "msg": "The second message", "ord": 2}),
+            ),
+        ] {
+            let (status, body) = send(&app, "PUT", &format!("{uri}?refresh=true"), doc).await;
+            assert!(status.is_success(), "{uri} -> {body}");
+        }
+        app
+    }
+
+    fn with_lookup(rest: Value) -> Value {
+        let mut body = json!({"runtime_mappings": {"location": {
+            "type": "lookup", "target_index": "ip_locations", "input_field": "ip",
+            "target_field": "_id", "fetch_fields": ["city"]}}});
+        for (k, v) in rest.as_object().unwrap() {
+            body[k] = v.clone();
+        }
+        body
+    }
+
+    /// FAIL-BEFORE: every request answered 200 with no hits or no buckets.
+    #[tokio::test]
+    async fn querying_or_aggregating_a_lookup_field_is_a_400() {
+        let app = app().await;
+        let match_reason = "Field [location] of type [lookup] does not support match queries";
+        let agg_reason = "Fielddata is not supported on field [location] of type [lookup]";
+        for (rest, reason) in [
+            (
+                json!({"query": {"match": {"location": "montreal"}}}),
+                match_reason,
+            ),
+            (
+                json!({"query": {"bool": {"must": [{"match": {"location": {"query": "montreal"}}}]}}}),
+                match_reason,
+            ),
+            (
+                json!({"aggs": {"locations": {"terms": {"field": "location"}}}}),
+                agg_reason,
+            ),
+            (
+                json!({"aggs": {"by_ord": {"terms": {"field": "ord"},
+                    "aggs": {"n": {"value_count": {"field": "location"}}}}}}),
+                agg_reason,
+            ),
+        ] {
+            let body = with_lookup(rest);
+            let (status, resp) = send(&app, "POST", "/logs/_search", body.clone()).await;
+            assert_eq!(status, StatusCode::BAD_REQUEST, "{body} -> {resp}");
+            assert_eq!(
+                resp["error"]["type"], "search_phase_execution_exception",
+                "{body}"
+            );
+            let root = &resp["error"]["root_cause"][0];
+            assert_eq!(root["type"], "illegal_argument_exception", "{body}");
+            assert_eq!(root["reason"], reason, "{body}");
+        }
+    }
+
+    /// Fetching the lookup field, querying and aggregating other fields while
+    /// one is declared, and a `match` on `location` with no lookup declared
+    /// still answer. Multi-threaded: the fetch-time lookup blocks in place.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn other_uses_still_answer() {
+        let app = app().await;
+        for body in [
+            with_lookup(json!({"fields": ["msg", "location"], "sort": "ord"})),
+            with_lookup(json!({"query": {"match": {"msg": "first"}}})),
+            with_lookup(json!({"aggs": {"o": {"max": {"field": "ord"}}}})),
+            json!({"query": {"match": {"location": "montreal"}}}),
+        ] {
+            let (status, resp) = send(&app, "POST", "/logs/_search", body.clone()).await;
+            assert_eq!(status, StatusCode::OK, "{body} -> {resp}");
+        }
+        let body = with_lookup(json!({"fields": ["location"], "sort": "ord"}));
+        let (_, resp) = send(&app, "POST", "/logs/_search", body).await;
+        assert_eq!(
+            resp["hits"]["hits"][0]["fields"]["location"],
+            json!([{"city": ["Montreal"]}]),
+            "{resp}"
+        );
+    }
 }
 
 /// Minimal glob matcher for index-name wildcard expansion (* only).

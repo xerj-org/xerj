@@ -66,7 +66,6 @@ search/330_fetch_fields.yml · error includes glob pattern
 search/330_fetch_fields.yml · Test date formatting
 search/350_point_in_time.yml · delete invalid PIT returns error
 search/350_point_in_time.yml · msearch
-search/390_lookup_fields.yml · Fails to query or aggregate on lookup fields
 search/40_indices_boost.yml · Indices boost for nonexistent index/alias
 search/40_indices_boost.yml · Remote expressions not supported in indices boost
 search/500_date_range.yml · test bad dates in range - future
