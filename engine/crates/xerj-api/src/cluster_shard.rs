@@ -1849,7 +1849,7 @@ fn bulk_item_error(
 
 /// Same pairing rule as the bulk engine: a delete action has no source line.
 /// The two parsers have to agree, or a delete swallows the next action.
-fn bulk_action_line_is_delete(line: &str) -> bool {
+pub(crate) fn bulk_action_line_is_delete(line: &str) -> bool {
     let b = line.as_bytes();
     let mut p = 0usize;
     while p < b.len() && (b[p] == b' ' || b[p] == b'\t') {

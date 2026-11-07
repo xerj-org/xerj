@@ -137,6 +137,7 @@ streaming-iterator = "0.1"
 
 
 # Format-family extractors (new deps, isolated to this crate):
+tar = { version = "0.4", default-features = false }   # .tar/.tgz/.tar.zst archives (archive.rs)
 flate2 = "1"                                     # gzip streaming (rust backend)
 pdf_oxide = { version = "=0.3.75", default-features = false, features = ["legacy-crypto"] }
 csv = "1"                                        # streaming CSV with sniffed dialect
@@ -144,14 +145,16 @@ quick-xml = "0.41"                               # XML pull parser + DOCX intern
 zip = { version = "9", default-features = false, features = ["deflate"] }  # DOCX container
 # --- Legacy Microsoft Office binary formats (OLE2 / Compound File Binary) ---
 # calamine reads the legacy BIFF `.xls` worksheet stream (it ships its own CFB
-# reader internally); pinned to 0.37.0, which depends on `zip ^9` (the
-# zip 8.x line carries RUSTSEC-2026-0367/0368/0369, fixed in 9.0.0) so it
-# shares this crate's `zip 9` major, and never retains `quick-xml 0.31.0`
+# reader internally); pinned to 0.38.0, the first release with the CFB reader
+# fix for RUSTSEC-2026-0436 (panic and unbounded allocation on a malformed
+# compound file). It depends on `zip ^9` (the zip 8.x line carries
+# RUSTSEC-2026-0367/0368/0369, fixed in 9.0.0) so it shares this crate's
+# `zip 9` major, and never retains `quick-xml 0.31.0`
 # (RUSTSEC-2026-0194 / 0195); it brings `quick-xml 0.42` alongside our 0.41.
 # Licence: MIT. Its transitive adds are codepage (MIT, for the legacy 8-bit
 # cell codepage) and log (MIT/Apache-2.0); byteorder and encoding_rs are
 # already here.
-calamine = { version = "=0.37.0", features = ["dates"] }
+calamine = { version = "=0.38.0", features = ["dates"] }
 # `cfb` reads the OLE2/Compound File Binary container directly: used by the
 # content sniffer to route a `.doc`/`.xls`/other OLE2 file by its stream names,
 # and by the `.doc` extractor to pull the WordDocument + Table streams and the

@@ -97,7 +97,7 @@ XERJ reads a folder that is already on disk and makes it queryable with one comm
 xerj autoindex ./private-folder --prefix priv --state-dir ./state-priv
 ```
 
-Formats are read from a content signature rather than trusted by extension. The families covered are JSON and JSONL, CSV, structured logs, SQL exports, SQLite, PDF, DOCX, HTML, XML, YAML, plain text, code and gzip variants. An agent then reads the result through `xerj mcp`, a stdio MCP server in the same binary that serves 23 tools.
+Formats are read from a content signature rather than trusted by extension. The families covered are JSON and JSONL, CSV, structured logs, SQL exports, SQLite, PDF, DOCX, HTML, XML, YAML, plain text, code and gzip variants. An agent then reads the result through `xerj mcp`, a stdio MCP server in the same binary that serves 24 tools.
 
 The default embedder is lexical feature hashing, not neural, so a match on a differently worded question needs `--embed-mode neural`, which is opt-in and CPU-only.
 

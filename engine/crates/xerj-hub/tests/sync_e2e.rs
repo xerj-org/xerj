@@ -505,11 +505,12 @@ async fn sync_replaces_the_pack_with_a_newer_pin_and_the_old_dir_is_gone() {
     // The first pull is the ordinary one: nothing cached yet, so sync has no
     // part in it. Seed the catalogue cache the way a first `ask` would.
     {
-        let (bytes, _) = signed_catalogue(
+        let (bytes, sig) = signed_catalogue(
             catalogue_entry(OLD.pin_sha, OLD.pin_date, &old_archive, &old_sha),
             &seed,
         );
         std::fs::write(hub_home.join("catalogue.json"), bytes).unwrap();
+        std::fs::write(hub_home.join("catalogue.json.sig"), format!("{sig}\n")).unwrap();
     }
     let rc = {
         let client = client.clone();

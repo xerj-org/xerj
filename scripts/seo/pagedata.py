@@ -55,7 +55,7 @@ PAGES: dict[str, dict[str, str]] = {
         # The canonical description (seo_head.ORG_DESCRIPTION). seo_lint gates
         # duplicate descriptions, so /product, /for-agents and
         # /answers/what-is-xerj carry the same clause behind a short lead-in.
-        description="A new way for AI to search for data: one local Rust binary that indexes your code, docs, specs and logs, plus Corpus Hub packs, and returns cited answers.",
+        description="The search engine for AI agents, with a neurosymbolic model inside: millisecond search on your own CPU, local, MCP-ready, and answers with the evidence.",
     ),
     # `404.html` is what makes Cloudflare Pages return a real HTTP 404.  With
     # no top-level 404.html the project is treated as a single-page app and
@@ -87,6 +87,16 @@ PAGES: dict[str, dict[str, str]] = {
     "playground.html": dict(
         label="Playground", kind="software",
         description="Live XERJ dashboards running on seeded data — click filters, drill down, read real queries. Leave a work email to unlock the interactive playground.",
+    ),
+    "xerj-query-1.html": dict(
+        label="XERJ Query-1", kind="webpage",
+        title="XERJ Query-1: prompts to verifiable search programs",
+        description="XERJ Query-1 compiles a plain question into a program the engine runs over your facts and shows step by step. Six capabilities, real examples, compared with RAG.",
+    ),
+    "donate.html": dict(
+        label="Donate", kind="webpage",
+        title="Donate to XERJ: fund GPU hours for the XERJ Query-1 model",
+        description="Donations buy rented GPU hours to train the XERJ Query-1 model. USDT (TRC20) wallet, what the money funds, what it bought so far, and how to help without money.",
     ),
     "playground/index.html": dict(
         label="Dashboards", kind="webpage",
@@ -246,6 +256,15 @@ PAGES: dict[str, dict[str, str]] = {
     # dependabot; #1 Rust repo of the day and week = Trendshift badges for repo
     # 116361 (GitHub Trending Rust #1 first on 2026-10-15); 7,226 = hub.xerj.org
     # /contributors/. Owner's "almost 10k" hub figure was not used (live: 7,226).
+    # XERJ Query-1 launch post, 2026-11-05 (rc.101). published/updated pinned.
+    "blog/xerj-query-ai-model.html": dict(
+        label="XERJ Query-1", kind="article",
+        title="XERJ Query-1: a neurosymbolic model that compiles prompts to verifiable search queries",
+        description="XERJ Query-1 turns a question into a small program the engine runs on your facts. Measured on 160 questions, with retrieval benchmarks and a dated correction.",
+        published="2026-11-05", updated="2026-11-06",
+        og_image="og/blog-xerj-query-ai-model.png",
+        og_image_alt="Cover: “XERJ Query-1” beside three grids of 160 squares from our 160-question test: XERJ Query-1, given each question’s own records, 1 wrong and 35 declined; RAG with BM25 top-10 on Opus 5.5, 9 wrong; Opus 5.5 reading the whole store, 6 wrong. Filled squares are right answers, blue squares wrong answers, rings declined",
+    ),
     "blog/100-contributors.html": dict(
         label="Milestone", kind="article",
         title="100 contributors behind 12,000 stars in 12 days",
@@ -285,8 +304,8 @@ PAGES: dict[str, dict[str, str]] = {
     "blog/index.html": dict(
         label="Blog", kind="collection",
         title="XERJ.ai — Blog: the engineering log",
-        description="100 contributors behind 12,000 stars in 12 days: the XERJ milestone post. Also faster autoindex, the rc.99 launch, Corpus Hub v2 and the exploit hub.",
-        updated="2026-10-29",
+        description="XERJ Query-1, a neurosymbolic model that compiles prompts to verifiable search queries. Also 100 contributors, faster autoindex, rc.99 and Corpus Hub v2.",
+        updated="2026-11-05",
     ),
     "demo/index.html": dict(
         label="Real-data demo", kind="software",
@@ -369,6 +388,16 @@ PAGES: dict[str, dict[str, str]] = {
         label="AI code-security audit", kind="webpage", updated="2026-10-24",
         title="XERJ.ai — Use case: AI code-security audit",
         description="Index a codebase as security facts, compile the rule into a queryable invariant, then read only the violators — ~26,000 tokens to audit WordPress core.",
+    ),
+    "integrations/cohere.html": dict(
+        label="Cohere integration", kind="webpage", updated="2026-11-05",
+        title="XERJ.ai — Cohere models on XERJ, on your own hardware",
+        description="Cohere Rerank, Embed and Command on top of XERJ: hybrid search, live database sources and checked answers on one CPU server, with data kept on-prem.",
+    ),
+    "use-cases/enterprise-on-prem-cohere.html": dict(
+        label="Enterprise on-prem AI with Cohere", kind="webpage", updated="2026-11-05",
+        title="XERJ.ai — Use case: on-prem AI search with Cohere",
+        description="Worked example on public data: regulations, claims manuals and a live claims table on one CPU server, answers with evidence, Cohere Rerank and Command on top.",
     ),
     "use-cases/second-brain.html": dict(
         label="Second brain", kind="webpage", updated="2026-10-24",

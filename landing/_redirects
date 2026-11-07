@@ -86,3 +86,25 @@
 # `seo_lint.py` rule 67 fails the build on a catch-all source and on a missing
 # `landing/404.html`. Named prefixes (`/docs/*`) are fine: they claim a real
 # section instead of claiming everything.
+
+# 2026-11-07 home redesign: the old enterprise funnel and the two old demos
+# left the site map. Their pages promised dates that have passed and terms no
+# company stands behind yet, so they redirect instead of lingering unlinked.
+# Reversible: delete these lines (and the NOINDEX entries in urlmap.py).
+/pricing/              /#open                       301
+/pricing               /#open                       301
+/security/             /#open                       301
+/security              /#open                       301
+/solutions/            /#use-cases                  301
+/solutions             /#use-cases                  301
+/resources/            /#use-cases                  301
+/resources             /#use-cases                  301
+/industries/           /#use-cases                  301
+/industries            /#use-cases                  301
+/industries/finserv    /#use-cases                  301
+/industries/healthcare /#use-cases                  301
+/industries/public-sector /#use-cases               301
+/industries/retail     /#use-cases                  301
+/demo/                 /benchmarks/elasticsearch    301
+/demo                  /benchmarks/elasticsearch    301
+/aise-demo             /benchmarks/elasticsearch    301

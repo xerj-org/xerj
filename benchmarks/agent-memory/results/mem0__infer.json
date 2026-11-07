@@ -1,0 +1,939 @@
+{
+ "system": "mem0",
+ "config": "infer",
+ "k": 5,
+ "run_at": "2026-10-31T08:00:21+00:00",
+ "host": {
+  "python": "3.12.15",
+  "machine": "x86_64",
+  "cpus": 8
+ },
+ "meta": {
+  "version": "mem0ai 2.2.1",
+  "commit": "PyPI release (source HEAD 753496cf at test time)",
+  "embedder": "sentence-transformers/all-MiniLM-L6-v2 via FastEmbed (ONNX)",
+  "llm": "Qwen2.5-3B-Instruct Q4_K_M, llama.cpp b12019",
+  "vector_store": "Qdrant local mode",
+  "notes": "add(infer=True), search(top_k=k, default threshold 0.1)",
+  "llm_calls_total_ingest": 85,
+  "llm_calls_per_write": 1.0,
+  "llm_calls_total_including_queries": 85
+ },
+ "n_memories": 85,
+ "n_questions": 75,
+ "write_ms": [
+  72708.83,
+  11316.43,
+  11304.58,
+  29893.18,
+  11212.65,
+  7595.43,
+  33524.92,
+  16522.58,
+  11569.24,
+  215288.02,
+  41949.72,
+  20636.86,
+  45068.4,
+  62245.66,
+  54998.0,
+  27645.23,
+  41404.81,
+  34486.7,
+  49773.8,
+  44554.67,
+  11381.9,
+  64761.92,
+  21797.84,
+  22468.48,
+  11153.11,
+  14622.84,
+  18777.12,
+  14549.07,
+  47972.85,
+  9963.95,
+  15927.0,
+  12989.32,
+  13510.71,
+  19891.31,
+  9931.21,
+  13415.46,
+  50429.91,
+  19279.44,
+  18151.31,
+  15248.6,
+  64878.99,
+  13863.89,
+  13674.77,
+  22521.22,
+  20594.22,
+  71186.12,
+  10777.68,
+  46771.71,
+  15014.11,
+  10845.5,
+  18110.44,
+  206463.75,
+  19431.22,
+  11687.27,
+  34734.06,
+  13247.72,
+  11630.71,
+  16263.13,
+  26183.8,
+  15831.82,
+  38360.58,
+  10832.11,
+  14482.63,
+  11307.18,
+  13882.96,
+  15498.84,
+  15194.39,
+  10273.17,
+  11954.62,
+  12061.26,
+  32432.11,
+  22603.11,
+  9105.08,
+  14558.87,
+  13634.72,
+  16194.37,
+  18015.62,
+  31255.45,
+  15366.87,
+  22774.27,
+  18849.32,
+  44587.8,
+  16651.08,
+  15254.51,
+  15425.78
+ ],
+ "ingest_total_s": 2394.2,
+ "questions": [
+  {
+   "id": "e01",
+   "hits": [
+    "Dana prefers using pnpm over npm for managing JavaScript projects",
+    "User mentioned preferring pnpm over npm for managing JavaScript projects",
+    "Dana prefers meetings that last 25 minutes",
+    "User prefers using pnpm over npm for managing JavaScript projects",
+    "User noted Dana prefers meetings that last 25 minutes"
+   ],
+   "ms": 45.7
+  },
+  {
+   "id": "e02",
+   "hits": [
+    "The main database for Lark is PostgreSQL 16",
+    "User noted that the main database for Lark is PostgreSQL 16",
+    "The main database for Lark is now PostgreSQL 16 in production",
+    "User noted that the main database for Lark is now PostgreSQL 16 in production",
+    "User noted that the main database for Lark is now PostgreSQL 16 in production"
+   ],
+   "ms": 31.9
+  },
+  {
+   "id": "e03",
+   "hits": [
+    "Dana is allergic to peanuts",
+    "User is allergic to peanuts, specifically Dana's cat named Biscuit",
+    "Dana drinks oat milk lattes as a dietary choice after being allergic to peanuts",
+    "User is allergic to peanuts",
+    "User drinks oat milk lattes as a dietary choice after being allergic to peanuts"
+   ],
+   "ms": 31.99
+  },
+  {
+   "id": "e04",
+   "hits": [
+    "The staging cluster runs in the eu-west-3 region",
+    "The staging cluster for Lark runs in the eu-west-3 region",
+    "User noted that the staging database for Lark is MySQL 8",
+    "The Lark CI pipeline runs on Buildkite",
+    "The Lark CI pipeline runs on Buildkite"
+   ],
+   "ms": 26.84
+  },
+  {
+   "id": "e05",
+   "hits": [
+    "Lark's frontend is written in Svelte",
+    "User noted that Lark's frontend is written in Svelte",
+    "User noted that Lark's Slack channel for incidents is #lark-fire",
+    "The staging cluster for Lark runs in the eu-west-3 region",
+    "Lark's search feature now runs on Typesense"
+   ],
+   "ms": 25.14
+  },
+  {
+   "id": "e06",
+   "hits": [
+    "Error tracking for Lark goes to Sentry",
+    "Error tracking for Lark goes to Sentry",
+    "User noted the status page for Lark is at status.lark.example",
+    "User noted that the status page for Lark is at status.lark.example",
+    "User noted that Lark's Slack channel for incidents is #lark-fire"
+   ],
+   "ms": 28.16
+  },
+  {
+   "id": "e07",
+   "hits": [
+    "Dana's cat is named Biscuit",
+    "Dana's cat is named Biscuit",
+    "User is allergic to peanuts, specifically Dana's cat named Biscuit",
+    "User uses Neovim as their code editor, specifically Dana's cat named Biscuit",
+    "User drinks oat milk flat whites, specifically Dana's cat named Biscuit"
+   ],
+   "ms": 23.82
+  },
+  {
+   "id": "e08",
+   "hits": [
+    "The test suite must finish in under 12 minutes",
+    "The test suite must finish in under 12 minutes, specifically Dana's cat named Biscuit",
+    "User noted the p95 latency target for search is 200 milliseconds",
+    "User noted that the Redis cache TTL is 300 seconds",
+    "User's team plans to deploy to production on Thursdays after 2 PM"
+   ],
+   "ms": 28.04
+  },
+  {
+   "id": "e09",
+   "hits": [
+    "The billing service uses Stripe for card payments",
+    "The billing service uses Stripe for card payments",
+    "The Node services use Prisma as their ORM",
+    "User noted that the Node services use Prisma as their ORM",
+    "Lark's Python services switched to uv for dependency management"
+   ],
+   "ms": 23.91
+  },
+  {
+   "id": "e10",
+   "hits": [
+    "The Lark mobile app is built with Flutter",
+    "User noted that the Lark mobile app is built with Flutter",
+    "User noted the Lark mobile app is built with Flutter",
+    "User noted the Lark monorepo is built with Turborepo",
+    "User's mobile app is built with Flutter, specifically Dana's cat named Biscuit"
+   ],
+   "ms": 33.48
+  },
+  {
+   "id": "e11",
+   "hits": [
+    "The Lark design system is called Pebble",
+    "User noted that the Lark design system is called Pebble",
+    "User noted the Lark design system is called Pebble",
+    "User noted the Lark monorepo is built with Turborepo",
+    "The Lark CI pipeline runs on Buildkite"
+   ],
+   "ms": 41.15
+  },
+  {
+   "id": "e12",
+   "hits": [
+    "User noted that Lark's public documentation is hosted on Mintlify",
+    "User noted Lark's public docs are hosted on Mintlify",
+    "Lark's search feature is backed by OpenSearch",
+    "The staging cluster for Lark runs in the eu-west-3 region",
+    "Lark's search feature now runs on Typesense"
+   ],
+   "ms": 33.35
+  },
+  {
+   "id": "e13",
+   "hits": [
+    "User noted that the analytics warehouse is ClickHouse",
+    "User noted the analytics warehouse is ClickHouse",
+    "User noted that the data team uses DuckDB for local analysis",
+    "User noted that the main database for Lark is PostgreSQL 16",
+    "User noted Dana's desk is on the 7th floor of the office building"
+   ],
+   "ms": 28.01
+  },
+  {
+   "id": "e14",
+   "hits": [
+    "User noted the support inbox address is help@lark.example",
+    "User noted that the Lark support inbox address is help@lark.example",
+    "User noted Lark's public docs are hosted on Mintlify",
+    "User noted the analytics warehouse is ClickHouse",
+    "User noted that Lark's public documentation is hosted on Mintlify"
+   ],
+   "ms": 28.03
+  },
+  {
+   "id": "e15",
+   "hits": [
+    "Dana's daughter Mia has swim practice on Wednesdays",
+    "Dana works on Lisbon time and has a daughter named Mia with swim practice on Wednesdays",
+    "User noted Dana works on Lisbon time and has a daughter named Mia with swim practice on Wednesdays",
+    "User mentioned Mia's school is on Rua das Flores",
+    "User noted Dana expects code reviews to be done the same day"
+   ],
+   "ms": 39.87
+  },
+  {
+   "id": "e16",
+   "hits": [
+    "User noted the load balancer in front of Lark is HAProxy",
+    "The staging cluster for Lark runs in the eu-west-3 region",
+    "User noted the Lark monorepo is built with Turborepo",
+    "The Lark CI pipeline runs on Buildkite",
+    "The Lark CI pipeline runs on Buildkite"
+   ],
+   "ms": 30.82
+  },
+  {
+   "id": "e17",
+   "hits": [
+    "User noted background jobs run on Sidekiq",
+    "User noted database backups run nightly at 02:00 UTC",
+    "The Lark CI pipeline runs on Buildkite",
+    "The Lark CI pipeline runs on Buildkite",
+    "The staging cluster for Lark runs in the eu-west-3 region"
+   ],
+   "ms": 29.26
+  },
+  {
+   "id": "e18",
+   "hits": [
+    "Dana's GitHub handle is dana-codes",
+    "User noted that Dana's GitHub handle is dana-codes",
+    "User noted the Lark CI pipeline moved to GitHub Actions",
+    "The Lark CI pipeline moved to GitHub Actions",
+    "The Lark CI pipeline moved to GitHub Actions"
+   ],
+   "ms": 36.7
+  },
+  {
+   "id": "e19",
+   "hits": [
+    "User noted that the Redis cache TTL is 300 seconds",
+    "User noted the Redis cache TTL is 300 seconds",
+    "User noted the Redis cache TTL is 300 seconds",
+    "User noted the Redis cache TTL was extended to 300 seconds",
+    "User noted that Lark's source code is released under MPL-2.0"
+   ],
+   "ms": 39.45
+  },
+  {
+   "id": "e20",
+   "hits": [
+    "User mentioned the Slack channel for incidents is #lark-fire",
+    "User noted that Lark's Slack channel for incidents is #lark-fire",
+    "User mentioned team video calls happen on Whereby",
+    "Dana's terminal app is WezTerm",
+    "The on-call rotation hands over every Monday at 9am"
+   ],
+   "ms": 33.37
+  },
+  {
+   "id": "e21",
+   "hits": [
+    "User noted that secrets for Lark are stored in HashiCorp Vault",
+    "User noted that Lark uses HashiCorp Vault for secrets management",
+    "Dana's GitHub handle is dana-codes",
+    "User noted that Dana's GitHub handle is dana-codes",
+    "Application logs are retained for 30 days, specifically Dana's cat named Biscuit"
+   ],
+   "ms": 16.96
+  },
+  {
+   "id": "e22",
+   "hits": [
+    "User noted that transactional email is sent through Postmark",
+    "The billing service uses Stripe for card payments",
+    "The billing service uses Stripe for card payments",
+    "User noted that Dana wants commit messages written in the imperative mood",
+    "User noted Dana wants commit messages written in the imperative mood"
+   ],
+   "ms": 29.49
+  },
+  {
+   "id": "e23",
+   "hits": [
+    "User noted the Lark monorepo is built with Turborepo",
+    "The Lark mobile app is built with Flutter",
+    "User noted that the Lark mobile app is built with Flutter",
+    "User noted the Lark mobile app is built with Flutter",
+    "The Lark design system is called Pebble"
+   ],
+   "ms": 17.7
+  },
+  {
+   "id": "e24",
+   "hits": [
+    "User noted database backups run nightly at 02:00 UTC",
+    "User noted background jobs run on Sidekiq",
+    "User noted that the main database for Lark is now PostgreSQL 16 in production",
+    "User noted that the main database for Lark is now PostgreSQL 16 in production",
+    "User noted that the staging database for Lark is MySQL 8"
+   ],
+   "ms": 30.27
+  },
+  {
+   "id": "e25",
+   "hits": [
+    "User noted that Lark's mascot is a blue heron named Hugo",
+    "User noted that Lark's Slack channel for incidents is #lark-fire",
+    "The staging cluster for Lark runs in the eu-west-3 region",
+    "User noted that the status page for Lark is at status.lark.example",
+    "User noted the Lark monorepo is built with Turborepo"
+   ],
+   "ms": 36.0
+  },
+  {
+   "id": "p01",
+   "hits": [
+    "User prefers using pnpm over npm for managing JavaScript projects",
+    "User mentioned preferring pnpm over npm for managing JavaScript projects",
+    "Dana prefers using pnpm over npm for managing JavaScript projects",
+    "User noted Dana's brother prefers yarn for managing JavaScript projects",
+    "User uses LaunchDarkly for feature flag management, specifically Dana's cat named Biscuit"
+   ],
+   "ms": 36.13
+  },
+  {
+   "id": "p02",
+   "hits": [
+    "Dana drinks oat milk lattes as a dietary choice after being allergic to peanuts",
+    "User drinks oat milk lattes as a dietary choice after being allergic to peanuts",
+    "User is allergic to peanuts, specifically Dana's cat named Biscuit",
+    "User is allergic to peanuts",
+    "Dana is allergic to peanuts"
+   ],
+   "ms": 30.3
+  },
+  {
+   "id": "p03",
+   "hits": [
+    "Dana's manager is Priya Raman",
+    "User noted that Dana's GitHub handle is dana-codes",
+    "Dana's GitHub handle is dana-codes",
+    "User noted Dana's desk is on the 7th floor of the office building",
+    "User mentioned Dana now reports to Tomas Lindqvist"
+   ],
+   "ms": 33.57
+  },
+  {
+   "id": "p04",
+   "hits": [
+    "User noted that the Node services use Prisma as their ORM",
+    "The Node services use Prisma as their ORM",
+    "User prefers using pnpm over npm for managing JavaScript projects",
+    "User mentioned preferring pnpm over npm for managing JavaScript projects",
+    "User noted Dana's brother prefers yarn for managing JavaScript projects"
+   ],
+   "ms": 36.1
+  },
+  {
+   "id": "p05",
+   "hits": [
+    "User mentioned Dana now reports to Tomas Lindqvist",
+    "Error tracking for Lark goes to Sentry",
+    "Error tracking for Lark goes to Sentry",
+    "Application logs are retained for 30 days, specifically Dana's cat named Biscuit",
+    "User noted application logs are retained for 30 days, specifically for Dana's cat named Pixel"
+   ],
+   "ms": 39.88
+  },
+  {
+   "id": "p06",
+   "hits": [
+    "Priya's cat is named Pixel",
+    "Dana's cat is named Biscuit",
+    "Dana's cat is named Biscuit",
+    "User's mobile app is built with Flutter, specifically Dana's cat named Biscuit",
+    "User is allergic to peanuts, specifically Dana's cat named Biscuit"
+   ],
+   "ms": 18.75
+  },
+  {
+   "id": "p07",
+   "hits": [
+    "Dana drinks oat milk flat whites",
+    "Dana's manager is Priya Raman",
+    "Dana is allergic to peanuts",
+    "Dana's cat is named Biscuit",
+    "Dana's cat is named Biscuit"
+   ],
+   "ms": 38.29
+  },
+  {
+   "id": "p08",
+   "hits": [
+    "The billing service uses Stripe for card payments",
+    "The billing service uses Stripe for card payments",
+    "User uses Neovim as their code editor, specifically Dana's cat named Biscuit",
+    "User's cat named Biscuit uses Neovim as their code editor",
+    "The main database for Lark is PostgreSQL 16"
+   ],
+   "ms": 34.93
+  },
+  {
+   "id": "p09",
+   "hits": [
+    "User noted Dana's desk is on the 7th floor of the office building",
+    "User noted Dana's desk moved to the 3rd floor of the office building",
+    "Dana uses Neovim as her code editor",
+    "Dana uses Neovim as her code editor",
+    "User noted Dana now uses Zed as her code editor"
+   ],
+   "ms": 18.3
+  },
+  {
+   "id": "p10",
+   "hits": [
+    "User noted the mobile app has a rate limit of 100 requests per minute",
+    "User's mobile app is built with Flutter, specifically Dana's cat named Biscuit",
+    "User noted that the Lark mobile app is built with Flutter",
+    "User noted the Lark mobile app is built with Flutter",
+    "The Lark mobile app is built with Flutter"
+   ],
+   "ms": 25.67
+  },
+  {
+   "id": "p11",
+   "hits": [
+    "Application logs are retained for 30 days, specifically Dana's cat named Biscuit",
+    "User noted application logs are retained for 90 days",
+    "User noted application logs are retained for 30 days",
+    "User noted application logs are retained for 30 days, specifically for Dana's cat named Biscuit",
+    "User noted application logs are retained for 30 days, specifically for Dana's cat named Pixel"
+   ],
+   "ms": 32.13
+  },
+  {
+   "id": "p12",
+   "hits": [
+    "Dana's favorite programming language is Rust",
+    "User noted Dana's favorite programming language is Rust",
+    "Dana uses Neovim as her code editor",
+    "Dana uses Neovim as her code editor",
+    "User noted that Dana's GitHub handle is dana-codes"
+   ],
+   "ms": 27.87
+  },
+  {
+   "id": "p13",
+   "hits": [
+    "User noted customer data must stay inside the EU due to GDPR regulations",
+    "User noted application logs are retained for 90 days",
+    "User noted application logs are retained for 30 days",
+    "User noted application logs are retained for 30 days, specifically for Dana's cat named Biscuit",
+    "User noted search query logs are retained for 7 days"
+   ],
+   "ms": 38.64
+  },
+  {
+   "id": "p14",
+   "hits": [
+    "Dana works on Lisbon time and has a daughter named Mia with swim practice on Wednesdays",
+    "Dana's daughter Mia has swim practice on Wednesdays",
+    "User noted Dana runs a 10k every Saturday morning",
+    "Dana's manager is Priya Raman",
+    "Dana is allergic to peanuts"
+   ],
+   "ms": 25.43
+  },
+  {
+   "id": "p15",
+   "hits": [
+    "User noted Dana dislikes long standup meetings",
+    "Dana prefers meetings that last 25 minutes",
+    "User noted Dana prefers meetings that last 25 minutes",
+    "User noted Dana prefers meetings that last 25 minutes and works on Lisbon time",
+    "Dana's team plans to deploy to production on Thursdays after 2 PM"
+   ],
+   "ms": 25.63
+  },
+  {
+   "id": "p16",
+   "hits": [
+    "User noted that Dana is vegetarian",
+    "User mentioned Dana is a vegetarian",
+    "User mentioned Dana is vegetarian",
+    "Dana is allergic to peanuts",
+    "Dana's cat is named Biscuit"
+   ],
+   "ms": 22.38
+  },
+  {
+   "id": "p17",
+   "hits": [
+    "User noted Dana's favorite programming language is Rust",
+    "Dana's favorite programming language is Rust",
+    "User noted the support inbox address is help@lark.example",
+    "User noted that the Lark support inbox address is help@lark.example",
+    "User noted that Lark is translated into English, Portuguese, and Japanese"
+   ],
+   "ms": 31.87
+  },
+  {
+   "id": "p18",
+   "hits": [
+    "User noted that the internal admin API listens on port 7001",
+    "The Lark API rate limit is now 600 requests per minute per key",
+    "User noted that the Lark API rate limit is now 600 requests per minute per key",
+    "User noted that the Lark API rate limit is 600 requests per minute per key",
+    "User noted that the Lark API rate limit is 600 requests per minute per key"
+   ],
+   "ms": 30.66
+  },
+  {
+   "id": "p19",
+   "hits": [
+    "Dana's daughter Mia has swim practice on Wednesdays",
+    "Dana works on Lisbon time and has a daughter named Mia with swim practice on Wednesdays",
+    "User noted Dana works on Lisbon time and has a daughter named Mia with swim practice on Wednesdays",
+    "User noted Dana runs a 10k every Saturday morning",
+    "Dana prefers meetings that last 25 minutes"
+   ],
+   "ms": 19.08
+  },
+  {
+   "id": "p20",
+   "hits": [
+    "User noted Dana's brother prefers yarn for managing JavaScript projects",
+    "Dana prefers using pnpm over npm for managing JavaScript projects",
+    "User mentioned preferring pnpm over npm for managing JavaScript projects",
+    "User prefers using pnpm over npm for managing JavaScript projects",
+    "User noted that the staging database for Lark is MySQL 8"
+   ],
+   "ms": 41.71
+  },
+  {
+   "id": "p21",
+   "hits": [
+    "User noted the mobile app has a rate limit of 100 requests per minute",
+    "User noted that the Lark API rate limit is now 600 requests per minute per key",
+    "The Lark API rate limit is now 600 requests per minute per key",
+    "User noted that the Lark API rate limit is 600 requests per minute per key",
+    "User noted that the Lark API rate limit is 600 requests per minute per key"
+   ],
+   "ms": 32.48
+  },
+  {
+   "id": "p22",
+   "hits": [
+    "User noted that Lark's mascot is a blue heron named Hugo",
+    "The Lark design system is called Pebble",
+    "User noted that the Lark design system is called Pebble",
+    "User noted the Lark design system is called Pebble",
+    "User drinks oat milk flat whites, specifically Dana's cat named Biscuit"
+   ],
+   "ms": 14.88
+  },
+  {
+   "id": "p23",
+   "hits": [
+    "User mentioned Dana's sister lives in Porto",
+    "User noted Dana's sister lives in Porto",
+    "Dana works on Lisbon time and has a daughter named Mia with swim practice on Wednesdays",
+    "Dana relocated to Berlin and now works on Berlin time",
+    "Dana's cat is named Biscuit"
+   ],
+   "ms": 29.15
+  },
+  {
+   "id": "p24",
+   "hits": [
+    "User noted the p95 latency target for search is 200 milliseconds",
+    "Lark's search feature is backed by OpenSearch",
+    "User noted search query logs are retained for 7 days",
+    "User noted that Lark's search feature now runs on Typesense",
+    "Lark's search feature now runs on Typesense"
+   ],
+   "ms": 24.61
+  },
+  {
+   "id": "p25",
+   "hits": [
+    "User noted that Lark's source code is released under MPL-2.0",
+    "User noted that Dana's GitHub handle is dana-codes",
+    "Dana's GitHub handle is dana-codes",
+    "User uses Neovim as their code editor, specifically Dana's cat named Biscuit",
+    "Dana uses Neovim as her code editor"
+   ],
+   "ms": 24.19
+  },
+  {
+   "id": "t02",
+   "hits": [
+    "The Lark API operates on port 8443 in the production environment",
+    "User noted that the Lark API listens on port 8443 in the production environment",
+    "User noted that the Lark API listens on port 8443 in the production environment",
+    "The Lark API operates on port 8443 in production",
+    "User noted that the Lark API listens on port 8443 in production"
+   ],
+   "ms": 31.19
+  },
+  {
+   "id": "t03",
+   "hits": [
+    "Dana's team plans to deploy to production on Thursdays after 2 PM",
+    "User noted Dana's team moved production deploys to Tuesdays",
+    "User's team plans to deploy to production on Thursdays after 2 PM, specifically Dana's cat named Biscuit",
+    "User's team at Lark moved production deploys to Tuesdays starting in April 2026",
+    "User's team plans to deploy to production on Thursdays after 2 PM"
+   ],
+   "ms": 27.12
+  },
+  {
+   "id": "t06",
+   "hits": [
+    "Dana's manager is Priya Raman",
+    "Dana prefers using pnpm over npm for managing JavaScript projects",
+    "User noted Dana's brother prefers yarn for managing JavaScript projects",
+    "User uses LaunchDarkly for feature flag management, specifically Dana's cat named Biscuit",
+    "User's manager is Priya Raman"
+   ],
+   "ms": 20.94
+  },
+  {
+   "id": "t09",
+   "hits": [
+    "Dana uses Neovim as her code editor",
+    "Dana uses Neovim as her code editor",
+    "User noted Dana now uses Zed as her code editor",
+    "Dana switched to using Zed as her code editor",
+    "Dana switched her code editor to Zed at Lark"
+   ],
+   "ms": 36.79
+  },
+  {
+   "id": "t13",
+   "hits": [
+    "The Lark CI pipeline runs on Buildkite",
+    "The Lark CI pipeline runs on Buildkite",
+    "The Lark CI pipeline moved to GitHub Actions",
+    "The Lark CI pipeline moved to GitHub Actions",
+    "The Lark CI pipeline moved to GitHub Actions"
+   ],
+   "ms": 17.51
+  },
+  {
+   "id": "t17",
+   "hits": [
+    "Lark's search feature is backed by OpenSearch",
+    "Lark's search feature now runs on Typesense",
+    "User noted that Lark's search feature now runs on Typesense",
+    "Feature flags moved to Unleash at Lark",
+    "User noted that Lark's Slack channel for incidents is #lark-fire"
+   ],
+   "ms": 14.05
+  },
+  {
+   "id": "t20",
+   "hits": [
+    "User noted feature flags are managed in LaunchDarkly",
+    "User noted feature flags are now managed in Unleash",
+    "Feature flags moved to Unleash at Lark",
+    "User uses LaunchDarkly for feature flag management",
+    "User uses LaunchDarkly for feature flag management, specifically Dana's cat named Biscuit"
+   ],
+   "ms": 13.42
+  },
+  {
+   "id": "t22",
+   "hits": [
+    "User noted application logs are retained for 30 days",
+    "User noted application logs are retained for 90 days",
+    "Application logs are retained for 30 days, specifically Dana's cat named Biscuit",
+    "User noted application logs are retained for 30 days, specifically for Dana's cat named Pixel",
+    "User noted application logs are retained for 30 days, specifically for Dana's cat named Biscuit"
+   ],
+   "ms": 13.23
+  },
+  {
+   "id": "t23",
+   "hits": [
+    "User noted Dana now works on Berlin time",
+    "User noted Dana works on Lisbon time",
+    "Dana relocated to Berlin and now works on Berlin time",
+    "User noted Dana now works on Berlin time after relocating to Berlin",
+    "Dana works on Lisbon time and has a daughter named Mia with swim practice on Wednesdays"
+   ],
+   "ms": 13.73
+  },
+  {
+   "id": "t31",
+   "hits": [
+    "User noted the auth service issues JWTs that expire after 15 minutes",
+    "User noted the auth service issues JWTs that expire after 60 minutes",
+    "User noted that Lark's auth service issues JWTs that expire after 15 minutes",
+    "Auth JWTs at Lark now expire after 60 minutes",
+    "User noted application logs are retained for 90 days"
+   ],
+   "ms": 17.7
+  },
+  {
+   "id": "t33",
+   "hits": [
+    "User noted the Lark API switched to uv for dependency management in Python services",
+    "Lark's Python services switched to uv for dependency management",
+    "The Node services use Prisma as their ORM",
+    "User noted that the Node services use Prisma as their ORM",
+    "User noted that Lark uses HashiCorp Vault for secrets management"
+   ],
+   "ms": 42.47
+  },
+  {
+   "id": "t37",
+   "hits": [
+    "The Lark 2.0 launch is planned for March 12",
+    "The staging cluster for Lark runs in the eu-west-3 region",
+    "The Lark CI pipeline runs on Buildkite",
+    "The Lark CI pipeline runs on Buildkite",
+    "The Lark mobile app is built with Flutter"
+   ],
+   "ms": 26.95
+  },
+  {
+   "id": "t44",
+   "hits": [
+    "User noted Dana's desk is on the 7th floor of the office building",
+    "User noted Dana's desk moved to the 3rd floor of the office building",
+    "Dana's GitHub handle is dana-codes",
+    "User noted that Dana's GitHub handle is dana-codes",
+    "Dana's manager is Priya Raman"
+   ],
+   "ms": 28.05
+  },
+  {
+   "id": "t45",
+   "hits": [
+    "The Lark API rate limit is now 600 requests per minute per key",
+    "User noted that the Lark API rate limit is 600 requests per minute per key",
+    "User noted that the Lark API rate limit is 600 requests per minute per key",
+    "User noted that the Lark API rate limit is now 600 requests per minute per key",
+    "User noted the Lark API rate limit was raised to 1200 requests per minute per key"
+   ],
+   "ms": 35.83
+  },
+  {
+   "id": "t52",
+   "hits": [
+    "User noted Production Kubernetes was upgraded to version 1.33",
+    "The Lark CI pipeline runs on Buildkite",
+    "The Lark CI pipeline runs on Buildkite",
+    "The staging cluster runs in the eu-west-3 region",
+    "The staging cluster for Lark runs in the eu-west-3 region"
+   ],
+   "ms": 32.12
+  },
+  {
+   "id": "x01",
+   "hits": [
+    "User noted that the staging database for Lark is MySQL 8",
+    "The staging cluster for Lark runs in the eu-west-3 region",
+    "The main database for Lark is PostgreSQL 16",
+    "The main database for Lark is now PostgreSQL 16 in production",
+    "User noted that the main database for Lark is PostgreSQL 16"
+   ],
+   "ms": 32.41
+  },
+  {
+   "id": "x02",
+   "hits": [
+    "Dana prefers meetings that last 25 minutes",
+    "User noted Dana's brother prefers yarn for managing JavaScript projects",
+    "Dana's manager is Priya Raman",
+    "User noted Dana prefers meetings that last 25 minutes",
+    "User noted Dana prefers meetings that last 25 minutes and works on Lisbon time"
+   ],
+   "ms": 33.01
+  },
+  {
+   "id": "x03",
+   "hits": [
+    "User noted that the internal admin API listens on port 7001",
+    "User noted that the Lark API listens on port 8443 in the production environment",
+    "User noted that the Lark API listens on port 8443 in the production environment",
+    "User noted that the Lark API listens on port 8443 in production",
+    "The Lark API operates on port 8443 in the production environment"
+   ],
+   "ms": 42.54
+  },
+  {
+   "id": "x04",
+   "hits": [
+    "User noted the marketing website deploys on Fridays",
+    "User's team plans to deploy to production on Tuesdays after 2 PM, previously Thursdays after 2 PM",
+    "User's team plans to deploy to production on Thursdays after 2 PM",
+    "User's team at Lark moved production deploys to Tuesdays starting in April 2026",
+    "User noted Dana's team moved production deploys to Tuesdays"
+   ],
+   "ms": 30.74
+  },
+  {
+   "id": "x05",
+   "hits": [
+    "Priya's cat is named Pixel",
+    "Dana's manager is Priya Raman",
+    "User's manager is Priya Raman",
+    "Dana's cat is named Biscuit",
+    "Dana's cat is named Biscuit"
+   ],
+   "ms": 25.35
+  },
+  {
+   "id": "x06",
+   "hits": [
+    "User noted search query logs are retained for 7 days",
+    "User noted application logs are retained for 30 days",
+    "User noted application logs are retained for 90 days",
+    "Application logs are retained for 30 days, specifically Dana's cat named Biscuit",
+    "User noted application logs are retained for 30 days, specifically for Dana's cat named Pixel"
+   ],
+   "ms": 24.14
+  },
+  {
+   "id": "x07",
+   "hits": [
+    "User noted the mobile app has a rate limit of 100 requests per minute",
+    "User noted the Lark mobile app is built with Flutter",
+    "The Lark mobile app is built with Flutter",
+    "User noted that the Lark mobile app is built with Flutter",
+    "User noted that the Lark API rate limit is now 600 requests per minute per key"
+   ],
+   "ms": 15.22
+  },
+  {
+   "id": "x08",
+   "hits": [
+    "User noted that the data team uses DuckDB for local analysis",
+    "User mentioned team video calls happen on Whereby",
+    "User's team plans to deploy to production on Thursdays after 2 PM, specifically Dana's cat named Biscuit",
+    "Dana's team plans to deploy to production on Thursdays after 2 PM",
+    "User's team plans to deploy to production on Thursdays after 2 PM"
+   ],
+   "ms": 24.15
+  },
+  {
+   "id": "x09",
+   "hits": [
+    "User noted Dana's old personal laptop was a MacBook Air",
+    "Dana's work laptop is a ThinkPad X1 Carbon",
+    "User noted Dana's work laptop is a ThinkPad X1 Carbon",
+    "User's work laptop is a ThinkPad X1 Carbon, Dana drinks oat milk flat whites",
+    "User's work laptop was a ThinkPad X1 Carbon and Dana now works on Berlin time"
+   ],
+   "ms": 15.44
+  },
+  {
+   "id": "x10",
+   "hits": [
+    "User mentioned Mia's school is on Rua das Flores",
+    "Dana works on Lisbon time and has a daughter named Mia with swim practice on Wednesdays",
+    "User noted Dana works on Lisbon time and has a daughter named Mia with swim practice on Wednesdays",
+    "Dana's daughter Mia has swim practice on Wednesdays",
+    "User mentioned Dana's sister lives in Porto"
+   ],
+   "ms": 13.9
+  }
+ ]
+}

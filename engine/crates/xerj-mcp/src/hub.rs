@@ -31,6 +31,7 @@
 //! With no cached copy the tool says to run `xerj hub sync`.
 
 use serde_json::{json, Value};
+use xerj_common::hub_evidence::AnswerEvidence;
 use xerj_hub::ask::{
     self, AskArgs, AskOutcome, ModeRequest, EXIT_NEEDS_DECISION, FIND_DEFAULT_K, FIND_MAX_K,
 };
@@ -100,7 +101,8 @@ pub fn specs() -> Vec<Value> {
                         "minimum": 1,
                         "maximum": MAX_K,
                         "description": "Max hits to return (default 5)."
-                    }
+                    },
+                    "evidence": evidence_schema()
                 },
                 "required": ["slug", "symbol"]
             }
@@ -133,12 +135,58 @@ pub fn specs() -> Vec<Value> {
                         "minimum": 1,
                         "maximum": MAX_TOKENS_CAP,
                         "description": "Soft output budget for the rendered answer (about 4 characters a token)."
-                    }
+                    },
+                    "evidence": evidence_schema()
                 },
                 "required": ["question"]
             }
         }),
     ]
+}
+
+fn evidence_schema() -> Value {
+    json!({
+        "type": "object",
+        "description": "Opt in to structuredContent.evidence_receipt. Supply caller trace identities. Without original pinned bytes and an in-domain calibration assessment, the receipt abstains and escalates; search scores are never probabilities.",
+        "properties": {
+            "session_id": { "type": "string", "minLength": 1, "maxLength": MAX_INPUT_BYTES },
+            "tool_call_id": { "type": "string", "minLength": 1, "maxLength": MAX_INPUT_BYTES },
+            "p_min": { "type": "number", "minimum": 0, "maximum": 1, "default": 0.8 }
+        },
+        "required": ["session_id", "tool_call_id"],
+        "additionalProperties": false
+    })
+}
+
+struct EvidenceRequest {
+    session_id: String,
+    tool_call_id: String,
+    p_min: f64,
+}
+
+fn evidence_arg(args: &Value) -> Result<Option<EvidenceRequest>, String> {
+    let Some(value) = args.get("evidence") else {
+        return Ok(None);
+    };
+    let object = value.as_object().ok_or("`evidence` must be an object")?;
+    if object
+        .keys()
+        .any(|key| !matches!(key.as_str(), "session_id" | "tool_call_id" | "p_min"))
+    {
+        return Err("unknown `evidence` field".into());
+    }
+    let p_min = match value.get("p_min") {
+        None => 0.8,
+        Some(v) => v
+            .as_f64()
+            .filter(|n| n.is_finite() && (0.0..=1.0).contains(n))
+            .ok_or("`p_min` must be a probability from 0 to 1")?,
+    };
+    Ok(Some(EvidenceRequest {
+        session_id: text_arg(value, "session_id")?,
+        tool_call_id: text_arg(value, "tool_call_id")?,
+        p_min,
+    }))
 }
 
 /// Dispatch one `xerj_hub_*` call; `None` when `name` is not a hub tool.
@@ -223,11 +271,12 @@ async fn def(ctx: &Ctx, args: &Value) -> Result<Value, String> {
     let slug = slug_arg(args, "slug", true)?.unwrap_or_default();
     let symbol = text_arg(args, "symbol")?;
     let k = int_arg(args, "k", MAX_K)?;
+    let evidence = evidence_arg(args)?;
     let mut a = AskArgs::new(symbol.clone());
     a.corpus = Some(slug);
     a.mode = ModeRequest::Def(symbol);
     a.k = k.map(|n| n as usize);
-    Ok(run(ctx, a).await)
+    Ok(run(ctx, a, evidence).await)
 }
 
 async fn ask_tool(ctx: &Ctx, args: &Value) -> Result<Value, String> {
@@ -251,16 +300,17 @@ async fn ask_tool(ctx: &Ctx, args: &Value) -> Result<Value, String> {
         Some(_) => return Err("`mode` must be a string".to_string()),
     };
     let max_tokens = int_arg(args, "max_tokens", MAX_TOKENS_CAP)?;
+    let evidence = evidence_arg(args)?;
     let mut a = AskArgs::new(question);
     a.corpus = corpus;
     a.mode = mode;
     a.max_tokens = max_tokens.map(|n| n as usize);
-    Ok(run(ctx, a).await)
+    Ok(run(ctx, a, evidence).await)
 }
 
 /// Run the CLI's flow for `a` (never fetching a pack or the catalogue) against
 /// this server's node and turn the outcome into a tool result.
-async fn run(ctx: &Ctx, mut a: AskArgs) -> Value {
+async fn run(ctx: &Ctx, mut a: AskArgs, evidence: Option<EvidenceRequest>) -> Value {
     a.no_fetch = true;
     a.cached_catalogue_only = true;
     a.json = false;
@@ -275,7 +325,7 @@ async fn run(ctx: &Ctx, mut a: AskArgs) -> Value {
             if let Some(answer) = &outcome.answer {
                 auto_review(answer, &question);
             }
-            outcome_result(outcome)
+            outcome_result(outcome, &question, evidence)
         }
         Err(e) => tool_text(format!("join error: {e}"), true),
     }
@@ -313,7 +363,7 @@ const MCP_CORPUS_HINT: &str = "call xerj_hub_ask again with the `corpus` argumen
 /// (a miss is an answer, not an error) — carries the Answer JSON as structured
 /// content. More than one candidate corpus is not an error either: the text
 /// lists them for a re-ask with `corpus`. Anything else is `isError`.
-fn outcome_result(o: AskOutcome) -> Value {
+fn outcome_result(o: AskOutcome, question: &str, evidence: Option<EvidenceRequest>) -> Value {
     let mut text = String::new();
     for line in &o.stderr {
         // The flow's hints name the CLI flag; a tool caller sets an argument.
@@ -322,11 +372,36 @@ fn outcome_result(o: AskOutcome) -> Value {
     }
     text.push_str(&o.stdout);
     match o.answer {
-        Some(answer) => json!({
-            "content": [ { "type": "text", "text": text } ],
-            "structuredContent": answer,
-            "isError": false,
-        }),
+        Some(answer) => {
+            let receipt = if let Some(request) = evidence {
+                let context = AnswerEvidence {
+                    session_id: request.session_id,
+                    tool_call_id: request.tool_call_id,
+                    question: question.into(),
+                    shown_answer: text.clone(),
+                    confidence: None,
+                    p_min: request.p_min,
+                    coverage_gaps: vec!["question-specific coverage not assessed".into()],
+                };
+                // Packs expose rendered index records, not original pinned files.
+                // Never read mutable local files or accept caller-supplied evidence.
+                match answer.evidence_report(context, |_| Ok(None)) {
+                    Ok(report) => Some(report),
+                    Err(e) => return tool_text(format!("evidence receipt: {e}"), true),
+                }
+            } else {
+                None
+            };
+            let mut result = json!({
+                "content": [ { "type": "text", "text": text } ],
+                "structuredContent": answer,
+                "isError": false,
+            });
+            if let Some(receipt) = receipt {
+                result["structuredContent"]["evidence_receipt"] = json!(receipt);
+            }
+            result
+        }
         None => tool_text(text, o.exit != EXIT_NEEDS_DECISION),
     }
 }
@@ -419,7 +494,7 @@ mod tests {
             stderr: vec!["more than one corpus matches; re-run with --corpus <slug>".into()],
             answer: None,
         };
-        let r = outcome_result(ambiguous);
+        let r = outcome_result(ambiguous, "question", None);
         assert_eq!(r["isError"], false);
         assert!(r["content"][0]["text"].as_str().unwrap().contains("a — x"));
         let failed = AskOutcome {
@@ -428,7 +503,7 @@ mod tests {
             stderr: vec!["no hub corpus matches; see xerj.org/llms.txt".into()],
             answer: None,
         };
-        assert_eq!(outcome_result(failed)["isError"], true);
+        assert_eq!(outcome_result(failed, "question", None)["isError"], true);
     }
 
     /// FTX shell-less trial (2026-10-17): the "nothing matches" and "more than one
@@ -446,18 +521,112 @@ mod tests {
                 "more than one corpus matches; re-run with --corpus <slug>",
             ),
         ] {
-            let r = outcome_result(AskOutcome {
-                exit,
-                stdout: String::new(),
-                stderr: vec![line.into()],
-                answer: None,
-            });
+            let r = outcome_result(
+                AskOutcome {
+                    exit,
+                    stdout: String::new(),
+                    stderr: vec![line.into()],
+                    answer: None,
+                },
+                "question",
+                None,
+            );
             let text = r["content"][0]["text"].as_str().unwrap();
             assert!(!text.contains("--corpus"), "{text}");
             assert!(
                 text.contains("xerj_hub_ask again with the `corpus` argument"),
                 "{text}"
             );
+        }
+    }
+
+    #[test]
+    fn receipt_arguments_are_strict_and_opt_in() {
+        assert!(evidence_arg(&json!({})).unwrap().is_none());
+        for value in [
+            json!(true),
+            json!(null),
+            json!({}),
+            json!({"session_id":"s","tool_call_id":"c","p_min":1.1}),
+            json!({"session_id":"s","tool_call_id":"c","confidence":0.99}),
+        ] {
+            assert!(evidence_arg(&json!({"evidence":value})).is_err());
+        }
+        let request = evidence_arg(&json!({"evidence":{"session_id":"s","tool_call_id":"c"}}))
+            .unwrap()
+            .unwrap();
+        assert_eq!(request.p_min, 0.8);
+        for spec in specs().into_iter().skip(1) {
+            assert_eq!(
+                spec["inputSchema"]["properties"]["evidence"]["type"],
+                "object"
+            );
+        }
+    }
+
+    #[test]
+    fn receipt_is_additive_preserves_default_and_captures_exact_display() {
+        use xerj_common::hub::{Answer, AnswerMode, AnsweredFrom, Hit, LicenceClass};
+        use xerj_common::hub_evidence::TraceEvidenceReport;
+        let mut answer = Answer {
+            corpus: "sample".into(),
+            pin_sha: "a".repeat(40),
+            pin_date: "2026-11-04".into(),
+            age_days: 0,
+            licence_spdx: "MIT".into(),
+            licence_class: LicenceClass::AdaptWithAttribution,
+            answered_from: AnsweredFrom::LocalPack,
+            mode: AnswerMode::How,
+            hits: vec![Hit {
+                file: "src/lib.rs".into(),
+                line: 1,
+                kind: "passage".into(),
+                text: "example".into(),
+                value: None,
+                score: 100.0,
+                licence_warning: None,
+            }],
+            truncated: false,
+            warnings: vec![],
+        };
+        for empty in [false, true] {
+            if empty {
+                answer.hits.clear();
+            }
+            let outcome = || AskOutcome {
+                exit: 0,
+                stdout: xerj_common::hub::render(&answer),
+                stderr: vec!["notice".into()],
+                answer: Some(answer.clone()),
+            };
+            let expected = json!({
+                "content":[{"type":"text","text":format!("notice\n{}",xerj_common::hub::render(&answer))}],
+                "structuredContent":answer,"isError":false,
+            });
+            let default = outcome_result(outcome(), "question", None);
+            assert_eq!(default, expected);
+            let request = EvidenceRequest {
+                session_id: "s".into(),
+                tool_call_id: "c".into(),
+                p_min: 0.8,
+            };
+            let mut opted = outcome_result(outcome(), "question", Some(request));
+            let receipt = opted["structuredContent"]
+                .as_object_mut()
+                .unwrap()
+                .remove("evidence_receipt")
+                .unwrap();
+            assert_eq!(opted, default);
+            let report: TraceEvidenceReport = serde_json::from_value(receipt).unwrap();
+            let entry = &report.entries[0];
+            assert!(entry.abstain && entry.escalate);
+            assert!(entry.confidence.is_none());
+            assert_eq!(
+                entry.shown_answer,
+                default["content"][0]["text"].as_str().unwrap()
+            );
+            TraceEvidenceReport::verify(&report.to_jcs().unwrap(), |_| panic!("no source bytes"))
+                .unwrap();
         }
     }
 }

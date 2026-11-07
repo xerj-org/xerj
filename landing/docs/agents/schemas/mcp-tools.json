@@ -180,7 +180,7 @@
               "object",
               "boolean"
             ],
-            "description": "Optional second-stage reranking. XERJ sends the text of the top `window` hits plus the question to an external relevance model, which returns a calibrated probability (0..1) per document. Hits are reordered by it, that probability REPLACES `_score`, and `min_score` prunes by it — an absolute relevance cut, which a BM25 score cannot give you. WORTH IT WHEN: a natural-language question over prose where the right document is probably in the top 30 but not at the top; or you need a yes/no relevance threshold rather than a relative rank. NOT WORTH IT FOR: exact identifier or symbol lookups (the first stage already ranks the definition first), filters, sorted or aggregation-only requests — it adds a paid network round-trip per search. NEEDS A CONFIGURED PROVIDER: the node's operator must have set a provider key (`[rerank] api_key` or TYPESAFE_API_KEY). You cannot supply one in this call. Without it the search fails with HTTP 503 `rerank_exception`; do not retry, repeat the search without `rerank`. HTTP 403 means the operator disabled it. PRIVACY: this is the only search-time feature that sends document text off the node. Proxy embeddings (`[embedding] default_endpoint`) and the WAL tap also send text off the node when an operator configures them, so never tell a user that nothing else leaves the machine — do not use rerank on data that must stay local unless the user has agreed. Only fields the response returns are sent, so `_source` filtering also limits what leaves. Pass true or {} for defaults, or an object with: `query` (string): the natural-language question to judge documents against. Filled in for you when the tool's `query` is a plain string (that mode also returns the matching passage, which leads the text the judge reads); REQUIRED when the tool's `query` is a `bool`, a `knn`, or anything else with no single question in it (the node refuses rather than guess). `window` (int, default 30, max 300): how many top hits are judged — every one is a paid judgement; `from`+`size` must fit inside it. `min_score` (0..1): drop hits judged below this probability. `fields` (string[]): which returned fields to send; default is every returned string field. `instructions` (string): override what \"relevant\" means for this corpus. `timeout_ms` (int, default 10000). `model` (string). Cannot be combined with `sort`. READ THE RESPONSE'S `_rerank` BLOCK: `applied: true` means the order is the judge's and every `_score` is a probability or null (a hit with no verdict, counted in `unjudged`, sorts last); `applied: false` means the provider missed the deadline or answered nothing usable, and you are looking at the engine's own order with engine scores, stated in `reason`."
+            "description": "Optional second-stage reranking. XERJ sends the text of the top `window` hits plus the question to an external relevance model, which returns a calibrated probability (0..1) per document. Hits are reordered by it, that probability REPLACES `_score`, and `min_score` prunes by it — an absolute relevance cut, which a BM25 score cannot give you. WORTH IT WHEN: a natural-language question over prose where the right document is probably in the top 30 but not at the top; or you need a yes/no relevance threshold rather than a relative rank. NOT WORTH IT FOR: exact identifier or symbol lookups (the first stage already ranks the definition first), filters, sorted or aggregation-only requests — it adds a paid network round-trip per search. NEEDS A CONFIGURED PROVIDER: the node's operator must have set a provider key (`[rerank] api_key` or TYPESAFE_API_KEY). You cannot supply one in this call. Without it the search fails with HTTP 503 `rerank_exception`; do not retry, repeat the search without `rerank`. HTTP 403 means the operator disabled it. PRIVACY: this is the only search-time feature that sends document text off the node. Proxy embeddings (`[embedding] default_endpoint`) and the WAL tap also send text off the node when an operator configures them, so never tell a user that nothing else leaves the machine — do not use rerank on data that must stay local unless the user has agreed. Only fields the response returns are sent, so `_source` filtering also limits what leaves. Pass true or {} for defaults, or an object with: `query` (string): the natural-language question to judge documents against. Filled in for you when the tool's `query` is a plain string (that mode also returns the matching passage, which leads the text the judge reads); REQUIRED when the tool's `query` is a `bool`, a `knn`, or anything else with no single question in it (the node refuses rather than guess). `window` (int, default 30, max 300): how many top hits are judged — every one is a paid judgement; `from`+`size` must fit inside it. `min_score` (0..1): drop hits judged below this probability. `fields` (string[]): which returned fields to send; default is every returned string field. `instructions` (string): override what \"relevant\" means for this corpus. `timeout_ms` (int, default 10000). `model` (string). `provider` (string, default \"jev\"): \"cohere\" uses Cohere Rerank when the operator set `[rerank.cohere] api_key` or COHERE_API_KEY (models rerank-v5.0-fast, rerank-v5.0-pro, rerank-v3.5; `instructions` and `min_score` are refused with it). Cannot be combined with `sort`. READ THE RESPONSE'S `_rerank` BLOCK: `applied: true` means the order is the judge's and every `_score` is a probability or null (a hit with no verdict, counted in `unjudged`, sorts last); `applied: false` means the provider missed the deadline or answered nothing usable, and you are looking at the engine's own order with engine scores, stated in `reason`."
           },
           "judge": {
             "type": [
@@ -327,7 +327,7 @@
               "object",
               "boolean"
             ],
-            "description": "Optional second-stage reranking. XERJ sends the text of the top `window` hits plus the question to an external relevance model, which returns a calibrated probability (0..1) per document. Hits are reordered by it, that probability REPLACES `_score`, and `min_score` prunes by it — an absolute relevance cut, which a BM25 score cannot give you. WORTH IT WHEN: a natural-language question over prose where the right document is probably in the top 30 but not at the top; or you need a yes/no relevance threshold rather than a relative rank. NOT WORTH IT FOR: exact identifier or symbol lookups (the first stage already ranks the definition first), filters, sorted or aggregation-only requests — it adds a paid network round-trip per search. NEEDS A CONFIGURED PROVIDER: the node's operator must have set a provider key (`[rerank] api_key` or TYPESAFE_API_KEY). You cannot supply one in this call. Without it the search fails with HTTP 503 `rerank_exception`; do not retry, repeat the search without `rerank`. HTTP 403 means the operator disabled it. PRIVACY: this is the only search-time feature that sends document text off the node. Proxy embeddings (`[embedding] default_endpoint`) and the WAL tap also send text off the node when an operator configures them, so never tell a user that nothing else leaves the machine — do not use rerank on data that must stay local unless the user has agreed. Only fields the response returns are sent, so `_source` filtering also limits what leaves. Pass true or {} for defaults, or an object with: `query` (string, REQUIRED for this tool): the natural-language question to judge documents against. `window` (int, default 30, max 300): how many top hits are judged — every one is a paid judgement; `from`+`size` must fit inside it. `min_score` (0..1): drop hits judged below this probability. `fields` (string[]): which returned fields to send; default is every returned string field. `instructions` (string): override what \"relevant\" means for this corpus. `timeout_ms` (int, default 10000). `model` (string). Cannot be combined with `sort`. READ THE RESPONSE'S `_rerank` BLOCK: `applied: true` means the order is the judge's and every `_score` is a probability or null (a hit with no verdict, counted in `unjudged`, sorts last); `applied: false` means the provider missed the deadline or answered nothing usable, and you are looking at the engine's own order with engine scores, stated in `reason`."
+            "description": "Optional second-stage reranking. XERJ sends the text of the top `window` hits plus the question to an external relevance model, which returns a calibrated probability (0..1) per document. Hits are reordered by it, that probability REPLACES `_score`, and `min_score` prunes by it — an absolute relevance cut, which a BM25 score cannot give you. WORTH IT WHEN: a natural-language question over prose where the right document is probably in the top 30 but not at the top; or you need a yes/no relevance threshold rather than a relative rank. NOT WORTH IT FOR: exact identifier or symbol lookups (the first stage already ranks the definition first), filters, sorted or aggregation-only requests — it adds a paid network round-trip per search. NEEDS A CONFIGURED PROVIDER: the node's operator must have set a provider key (`[rerank] api_key` or TYPESAFE_API_KEY). You cannot supply one in this call. Without it the search fails with HTTP 503 `rerank_exception`; do not retry, repeat the search without `rerank`. HTTP 403 means the operator disabled it. PRIVACY: this is the only search-time feature that sends document text off the node. Proxy embeddings (`[embedding] default_endpoint`) and the WAL tap also send text off the node when an operator configures them, so never tell a user that nothing else leaves the machine — do not use rerank on data that must stay local unless the user has agreed. Only fields the response returns are sent, so `_source` filtering also limits what leaves. Pass true or {} for defaults, or an object with: `query` (string, REQUIRED for this tool): the natural-language question to judge documents against. `window` (int, default 30, max 300): how many top hits are judged — every one is a paid judgement; `from`+`size` must fit inside it. `min_score` (0..1): drop hits judged below this probability. `fields` (string[]): which returned fields to send; default is every returned string field. `instructions` (string): override what \"relevant\" means for this corpus. `timeout_ms` (int, default 10000). `model` (string). `provider` (string, default \"jev\"): \"cohere\" uses Cohere Rerank when the operator set `[rerank.cohere] api_key` or COHERE_API_KEY (models rerank-v5.0-fast, rerank-v5.0-pro, rerank-v3.5; `instructions` and `min_score` are refused with it). Cannot be combined with `sort`. READ THE RESPONSE'S `_rerank` BLOCK: `applied: true` means the order is the judge's and every `_score` is a probability or null (a hit with no verdict, counted in `unjudged`, sorts last); `applied: false` means the provider missed the deadline or answered nothing usable, and you are looking at the engine's own order with engine scores, stated in `reason`."
           },
           "judge": {
             "type": [
@@ -751,6 +751,82 @@
       }
     },
     {
+      "name": "xerj_sources",
+      "description": "Live database sources on this node: connect once and the index stays current. action=list shows every source with its state; action=status shows one (snapshotting with percent and ETA, streaming, lagging, polling, or error with a message and a fix hint; replication lag in seconds, rows/s, last confirmed LSN); action=connect registers a Postgres database (postgres://user@host:port/db, no password in the URL: password_env names a variable in the NODE's environment, or password_file a file the node can read). The node snapshots the selected tables (one index per table, named <index_prefix>-<schema>-<table>, document id = primary key), then applies every insert, update, delete and truncate within seconds through logical replication; without replication rights it polls watermark_column and cannot see deletes. action=delete stops the source and drops its replication slot. Needs a superuser key on a secured node. Proxies GET/PUT/DELETE /_xerj/sources/{name}.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "list",
+              "status",
+              "connect",
+              "delete"
+            ],
+            "description": "What to do (default list)."
+          },
+          "name": {
+            "type": "string",
+            "description": "Source name (a-z, 0-9, '-', '_'). Required for status, connect, delete."
+          },
+          "url": {
+            "type": "string",
+            "description": "connect: postgres://user@host:port/db?sslmode=require. Never include a password."
+          },
+          "password_env": {
+            "type": "string",
+            "description": "connect: env var in the node's environment holding the password."
+          },
+          "password_file": {
+            "type": "string",
+            "description": "connect: file the node can read holding the password."
+          },
+          "tables": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "connect: schema.table or table; `sales.*` allowed. Default: every table with a primary key."
+          },
+          "exclude_tables": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "logical",
+              "poll"
+            ],
+            "description": "connect: auto (default) streams when replication is allowed, else polls watermark_column."
+          },
+          "watermark_column": {
+            "type": "string",
+            "description": "connect: column that grows on every write, for polling (e.g. updated_at)."
+          },
+          "publication": {
+            "type": "string",
+            "description": "connect: an existing publication to stream from (least-privilege setups)."
+          },
+          "index_prefix": {
+            "type": "string"
+          },
+          "facts_namespace": {
+            "type": "string",
+            "description": "connect: also offer row changes to XERJ Query-1 facts in this namespace."
+          },
+          "delete_indices": {
+            "type": "boolean",
+            "description": "delete: also delete the source's indices (default false)."
+          }
+        }
+      }
+    },
+    {
       "name": "xerj_code_search",
       "description": "Reference-coding retrieval over a corpus of peer projects: how did real codebases solve this problem? Returns the matching definition (not a byte window), the file:line to cite, and per-hit licence warnings — AGPL/SSPL/Elastic/BUSL/GPL/LGPL/MPL sources are approach-only. A corpus marked own (`xerj corpus add --own`, or `xerj corpus own <name>`) is the caller's own first-party code: an unidentified licence (UNKNOWN or NONE-FOUND) stays in the hit header and the do-not-copy banner is omitted for that unidentified licence only. A detected copyleft or source-available licence still warns. Hub pack licence classes are unchanged. Refuses indices older than 30 days (override with stale_ok). A no-match is NOT an error: it says the corpus is wrong for the task. A line `weak match: the corpus may not cover this` means the passages are nearest neighbours, not coverage — fall back to grep or another corpus. Pass `max_tokens` to cap the response at a token budget (never exceeded; see that argument for the tokenizer and the locator-only rule). Corpora: `xerj corpus list`.",
       "inputSchema": {
@@ -1016,6 +1092,33 @@
             "minimum": 1,
             "maximum": 50,
             "description": "Max hits to return (default 5)."
+          },
+          "evidence": {
+            "type": "object",
+            "description": "Opt in to structuredContent.evidence_receipt. Supply caller trace identities. Without original pinned bytes and an in-domain calibration assessment, the receipt abstains and escalates; search scores are never probabilities.",
+            "properties": {
+              "session_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "tool_call_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "p_min": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1,
+                "default": 0.8
+              }
+            },
+            "required": [
+              "session_id",
+              "tool_call_id"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
@@ -1052,6 +1155,33 @@
             "minimum": 1,
             "maximum": 8192,
             "description": "Soft output budget for the rendered answer (about 4 characters a token)."
+          },
+          "evidence": {
+            "type": "object",
+            "description": "Opt in to structuredContent.evidence_receipt. Supply caller trace identities. Without original pinned bytes and an in-domain calibration assessment, the receipt abstains and escalates; search scores are never probabilities.",
+            "properties": {
+              "session_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "tool_call_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "p_min": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1,
+                "default": 0.8
+              }
+            },
+            "required": [
+              "session_id",
+              "tool_call_id"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [

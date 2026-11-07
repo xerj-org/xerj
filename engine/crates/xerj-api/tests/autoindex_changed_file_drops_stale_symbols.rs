@@ -348,8 +348,21 @@ async fn reindex_changed_code(app: &axum::Router, url: &str, no_graph: bool) {
     assert_only_current(&format!("{mode} incremental reindex"), &live, &fresh);
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn changed_code_file_reindex_drops_shifted_and_removed_symbols_on_the_engine() {
+#[test]
+fn changed_code_file_reindex_drops_shifted_and_removed_symbols_on_the_engine() {
+    // The router is served in process, and its handlers do not fit tokio's
+    // 2 MiB default worker stack in a debug build (#2903). The server runtime
+    // is 4 MiB (`xerj-server`'s `RT_THREAD_STACK_SIZE`); match it.
+    let rt = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(2)
+        .thread_stack_size(4 * 1024 * 1024)
+        .enable_all()
+        .build()
+        .expect("runtime");
+    rt.block_on(changed_code_file_reindex_drops_shifted_and_removed_symbols_inner());
+}
+
+async fn changed_code_file_reindex_drops_shifted_and_removed_symbols_inner() {
     let app = app().await;
     let listener = xerj_common::loopback_test::expect_loopback(
         tokio::net::TcpListener::bind("127.0.0.1:0").await,

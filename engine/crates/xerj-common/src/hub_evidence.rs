@@ -7,6 +7,7 @@
 use crate::calibration::{
     ece_from_curve, reliability_curve, CalibrationPair, IsotonicCalibration, CALIBRATION_BINS,
 };
+use crate::hub::{Answer, Hit};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::HashSet;
@@ -448,6 +449,127 @@ impl TraceEvidenceReport {
     }
 }
 
+/// Original file bytes resolved by a trusted caller at `Answer::pin_sha`.
+/// Never populate this from rendered snippets or a mutable working tree.
+pub struct PinnedSource {
+    pub repository: String,
+    pub bytes: Vec<u8>,
+}
+
+/// Caller-owned invocation identity, exact displayed text and coverage assessment.
+/// Search scores are not calibrated probabilities. Missing calibration fails closed.
+pub struct AnswerEvidence {
+    pub session_id: String,
+    pub tool_call_id: String,
+    pub question: String,
+    pub shown_answer: String,
+    pub confidence: Option<Confidence>,
+    pub p_min: f64,
+    /// An empty list asserts that the caller assessed question-specific coverage.
+    pub coverage_gaps: Vec<String>,
+}
+
+impl Hit {
+    /// Pin only an exact UTF-8 excerpt on the hit's declared, one-based line.
+    /// Indentation is allowed; newline normalization and searching other lines are not.
+    pub fn pinned_citation(
+        &self,
+        corpus: &str,
+        commit: &str,
+        source: &PinnedSource,
+    ) -> Result<PinnedCitation> {
+        require(
+            self.line > 0 && !self.text.is_empty(),
+            "hit has no exact excerpt",
+        )?;
+        let text = std::str::from_utf8(&source.bytes)
+            .map_err(|_| EvidenceError::Invalid("source is not UTF-8"))?;
+        let start = if self.line == 1 {
+            0
+        } else {
+            text.match_indices('\n')
+                .nth(self.line as usize - 2)
+                .map(|(i, _)| i + 1)
+                .ok_or(EvidenceError::Invalid("hit line beyond source"))?
+        };
+        let offset = text[start..]
+            .find(&self.text)
+            .filter(|&offset| !text[start..start + offset].contains('\n'))
+            .ok_or(EvidenceError::Invalid(
+                "hit excerpt does not match source line",
+            ))?;
+        let byte_start = start + offset;
+        PinnedCitation::from_bytes(
+            corpus.into(),
+            source.repository.clone(),
+            commit.into(),
+            self.file.clone(),
+            &source.bytes,
+            byte_start..byte_start + self.text.len(),
+        )
+    }
+}
+
+impl Answer {
+    /// Build a separate receipt without changing any legacy answer or hit fields.
+    ///
+    /// `resolve` must select the original file using this answer's corpus and
+    /// immutable pin plus the hit's file, not HEAD. `None` means unavailable;
+    /// resolution/integrity errors are returned, never silently downgraded.
+    /// Claims record retrieved excerpts, not inferred semantic entailment.
+    pub fn evidence_report(
+        &self,
+        context: AnswerEvidence,
+        mut resolve: impl FnMut(&Hit) -> Result<Option<PinnedSource>>,
+    ) -> Result<TraceEvidenceReport> {
+        let mut entry = TraceEntry {
+            tool_call_id: context.tool_call_id,
+            question: context.question,
+            shown_answer: context.shown_answer,
+            claims: Vec::new(),
+            citations: Vec::new(),
+            confidence: context.confidence,
+            p_min: context.p_min,
+            coverage_gaps: context.coverage_gaps,
+            abstain: true,
+            escalate: true,
+        };
+        if self.truncated {
+            entry.coverage_gaps.push("answer was truncated".into());
+        }
+        for (i, hit) in self.hits.iter().enumerate() {
+            if hit.text.trim().is_empty() {
+                entry.coverage_gaps.push(format!("hit {i} has no excerpt"));
+                continue;
+            }
+            let mut evidence_indices = Vec::new();
+            if let Some(source) = resolve(hit)? {
+                let citation = hit.pinned_citation(&self.corpus, &self.pin_sha, &source)?;
+                evidence_indices.push(
+                    u32::try_from(entry.citations.len())
+                        .map_err(|_| EvidenceError::Invalid("too many citations"))?,
+                );
+                entry.citations.push(citation);
+            } else {
+                entry
+                    .coverage_gaps
+                    .push(format!("hit {i}: pinned source unavailable"));
+            }
+            if hit.value.is_some() {
+                entry
+                    .coverage_gaps
+                    .push(format!("hit {i}: separate value not assessed"));
+            }
+            entry.claims.push(Claim {
+                id: format!("hit-{i}"),
+                text: hit.text.clone(),
+                evidence_indices,
+            });
+        }
+        TraceEvidenceReport::new(context.session_id, vec![entry.finalize()?])
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -508,6 +630,119 @@ mod tests {
 
     fn report() -> TraceEvidenceReport {
         TraceEvidenceReport::new("session-1".into(), vec![entry()]).unwrap()
+    }
+
+    fn answer() -> Answer {
+        use crate::hub::{AnswerMode, AnsweredFrom, LicenceClass};
+        Answer {
+            corpus: "sample".into(),
+            pin_sha: "a".repeat(40),
+            pin_date: "2026-11-04".into(),
+            age_days: 0,
+            licence_spdx: "MIT".into(),
+            licence_class: LicenceClass::AdaptWithAttribution,
+            answered_from: AnsweredFrom::LocalPack,
+            mode: AnswerMode::How,
+            hits: vec![Hit {
+                file: "src/example.txt".into(),
+                line: 2,
+                kind: "passage".into(),
+                text: "second é\r\n".into(),
+                value: None,
+                score: 100.0,
+                licence_warning: None,
+            }],
+            truncated: false,
+            warnings: vec![],
+        }
+    }
+
+    fn answer_context(a: &Answer) -> AnswerEvidence {
+        AnswerEvidence {
+            session_id: "session-1".into(),
+            tool_call_id: "call-1".into(),
+            question: "What is on line two?".into(),
+            shown_answer: crate::hub::render(a),
+            confidence: Some(confidence()),
+            p_min: 0.8,
+            coverage_gaps: vec![],
+        }
+    }
+
+    fn source() -> PinnedSource {
+        PinnedSource {
+            repository: "owner/repo".into(),
+            bytes: FILE.to_vec(),
+        }
+    }
+
+    #[test]
+    fn answer_bridge_pins_utf8_crlf_and_preserves_wire_fields() {
+        let a = answer();
+        let before = serde_json::to_value(&a).unwrap();
+        let r = a
+            .evidence_report(answer_context(&a), |_| Ok(Some(source())))
+            .unwrap();
+        let e = &r.entries[0];
+        assert!(!e.abstain && !e.escalate);
+        assert_eq!(e.shown_answer, crate::hub::render(&a));
+        assert_eq!(e.claims[0].evidence_indices, vec![0]);
+        let c = &e.citations[0];
+        assert_eq!((c.byte_start, c.byte_end), (7, 18));
+        assert_eq!(c.span_sha256, sha256("second é\r\n".as_bytes()));
+        c.verify_bytes(FILE).unwrap();
+        let jcs = r.to_jcs().unwrap();
+        assert_eq!(jcs, canonical(&r).unwrap());
+        TraceEvidenceReport::verify(&jcs, |_| Ok(FILE.to_vec())).unwrap();
+        assert_eq!(serde_json::to_value(&a).unwrap(), before);
+        assert_eq!(before.as_object().unwrap().len(), 11);
+        assert_eq!(before["hits"][0].as_object().unwrap().len(), 7);
+        let round_trip: Answer = serde_json::from_value(before.clone()).unwrap();
+        assert_eq!(serde_json::to_value(round_trip).unwrap(), before);
+    }
+
+    #[test]
+    fn answer_bridge_abstains_for_missing_hits_sources_and_calibration() {
+        for case in 0..6 {
+            let mut a = answer();
+            let mut context = answer_context(&a);
+            match case {
+                0 => a.hits.clear(),
+                1 => context.confidence.as_mut().unwrap().p_cal = 0.2,
+                2 => context.confidence = None,
+                3 => context.coverage_gaps.push("question not covered".into()),
+                4 => a.truncated = true,
+                _ => {}
+            }
+            let r = a
+                .evidence_report(context, |_| {
+                    Ok(if case == 5 { None } else { Some(source()) })
+                })
+                .unwrap();
+            assert!(r.entries[0].abstain && r.entries[0].escalate, "case {case}");
+            r.to_jcs().unwrap();
+        }
+    }
+
+    #[test]
+    fn answer_bridge_rejects_wrong_lines_rendered_text_and_resolution_errors() {
+        let mut a = answer();
+        for line in [0, 1, 3, 10] {
+            a.hits[0].line = line;
+            assert!(a
+                .evidence_report(answer_context(&a), |_| Ok(Some(source())))
+                .is_err());
+        }
+        a.hits[0].line = 2;
+        a.hits[0].text = "second é\n".into();
+        assert!(a
+            .evidence_report(answer_context(&a), |_| Ok(Some(source())))
+            .is_err());
+        assert!(a
+            .evidence_report(answer_context(&a), |_| {
+                Err(EvidenceError::Resolution("pin unavailable".into()))
+            })
+            .is_err());
     }
 
     #[test]

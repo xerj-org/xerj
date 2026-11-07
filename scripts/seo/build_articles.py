@@ -934,11 +934,9 @@ def breadcrumb(rel: str, meta: dict[str, Any]) -> str:
 # and it would be the only version string on pages whose whole point is that
 # they do not depend on one.
 def footer(category: str) -> str:
-    return fix_links.render_footer() + f'''\n<footer class="footer">
-  <span>XERJ.AI · {esc_text(category.upper())}</span>
-  <span>READ THE SOURCE</span>
-  <span><a href="/">HOME</a> · <a href="/product">PRODUCT</a> · <a href="/answers/">ANSWERS</a> · <a href="/playground">DASHBOARDS</a> &middot; <a href="/llms.txt">LLMS.TXT</a></span>
-</footer>'''
+    # The generated site footer carries the bar (copyright + theme toggle);
+    # the per-page strip that repeated its links is gone (2026-11-07).
+    return fix_links.render_footer()
 
 
 def _head(title: str, description: str, rel: str, block: str,

@@ -151,5 +151,5 @@ Only if you ask. Plain `query` runs BM25, `semantic: true` embeds server-side, a
 - [XERJ vs Mem0: which memory fits your AI agent?](/compare/xerj-vs-mem0)
 - [How does Claude Code memory work, and when do you need more?](/answers/claude-code-memory)
 - [Should my agent call a search API or stand up Qdrant for persistent memory?](/compare/xerj-vs-vector-database) (same intent: agent memory)
+- [AI agent memory compared: real tests on 7 open-source projects](/compare/ai-agent-memory-benchmark) (same intent: agent memory)
 - [claude-mem vs MemPalace vs XERJ: which memory should Claude Code use?](/compare/xerj-vs-claude-mem-and-mempalace) (same intent: agent memory)
-- [Agentic memory vs RAG: what is the difference?](/answers/agentic-memory-vs-rag) (same intent: agent memory)

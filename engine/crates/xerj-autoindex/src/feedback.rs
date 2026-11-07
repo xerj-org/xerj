@@ -1897,8 +1897,11 @@ mod tests {
 
     fn write_executable(path: &Path, body: &str) {
         std::fs::write(path, body).unwrap();
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o755)).unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o755)).unwrap();
+        }
     }
 
     fn xerj_origin(root: &Path) {

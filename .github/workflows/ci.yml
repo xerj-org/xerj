@@ -230,6 +230,11 @@ jobs:
       - name: Landing page constants agree with the newest release
         run: bash .github/scripts/landing-constants-guard.sh
 
+      # cohere-tools.json is generated from openai-tools.json; a hand edit or a
+      # forgotten regeneration would publish a tool list that disagrees with it.
+      - name: Cohere tool schema is generated from openai-tools.json
+        run: python3 tools/agents/gen_cohere_tools.py --check
+
   # #770. A job with no `timeout-minutes` runs against GitHub's 360-minute
   # default, and 22 of this repo's 23 jobs had none. Three of its workflows
   # serialise on a concurrency group that never auto-cancels

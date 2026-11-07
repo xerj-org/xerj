@@ -43,6 +43,7 @@
 //! | `xerj_field_report`    | `POST /api/field-report` (xerj.org)   | file an agent field report: GitHub PR first, this endpoint when GitHub is unavailable; sends by default |
 //! | `xerj_corpus_feedback` | `POST /api/corpus-feedback` (hub.xerj.org) | rate a hub corpus after using it (its Agent score); sends by default; `xerj_hub_ask` / `xerj_hub_def` also send an automatic review |
 //! | `xerj_map`             | `POST /autoindex-catalog/_search`     | per-index field map from the autoindex catalog (#1055) |
+//! | `xerj_sources`         | `GET/PUT/DELETE /_xerj/sources/{name}` | live database sources: list, status, connect (snapshot then real-time stream), delete |
 //! | `xerj_hub_find` / `xerj_hub_def` / `xerj_hub_ask` | the `xerj ask` flow (`src/hub.rs`) | which hub corpus answers; one definition; one question — from local packs, never downloading |
 //!
 //! ## Honesty notes (must match the engine, never oversell)
@@ -420,17 +421,15 @@ pub async fn run(args: &[String]) -> anyhow::Result<()> {
 /// The JSON-RPC loop over newline-delimited messages, apart from the process'
 /// stdin/stdout so tests can drive it over an in-memory pipe.
 ///
-/// Every `tools/call` runs on its own task, so a call that waits on the node
-/// does not hold up the messages behind it (#2390): `ping`, `initialize`,
-/// `tools/list` and the lifecycle notifications stay inline because they never
-/// wait on anything. What makes a message go off the loop is its method, not
-/// whether it carries a usable `id` (#2898) — an id-less or `id: null`
-/// `tools/call` waits on the node exactly as an id-ed one does. Replies are
-/// matched by `id`, so they may go out in any order. `notifications/cancelled`
-/// aborts the call it names, and no response is written for it. Every reply
-/// goes through one writer task, so lines never interleave. At end of input
-/// the loop waits for the calls still running and writes their replies before
-/// returning, as the serial loop did.
+/// Every `tools/call` runs on its own task, with or without an id, so a call
+/// that waits on the node does not hold up the messages behind it (#2390,
+/// #2898): `ping`,
+/// `initialize`, `tools/list` and notifications stay inline because they never
+/// wait on anything. Replies are matched by `id`, so they may go out in any
+/// order. `notifications/cancelled` aborts the call it names, and no response
+/// is written for it. Every reply goes through one writer task, so lines never
+/// interleave. At end of input the loop waits for the calls still running and
+/// writes their replies before returning, as the serial loop did.
 async fn serve<R, W>(ctx: Ctx, reader: R, stdout: W) -> anyhow::Result<()>
 where
     R: tokio::io::AsyncBufRead + Unpin,
@@ -491,13 +490,9 @@ where
                 Vec::new()
             }
             msg if is_tool_call(&msg) => {
+                let key = msg.get("id").filter(|id| !id.is_null()).map(id_key);
                 let (ctx, tx) = (ctx.clone(), tx.clone());
-                // Only a usable id can be cancelled: `notifications/cancelled`
-                // names a `requestId`. A call without one is spawned
-                // unregistered, because registering it under the JSON text of
-                // `null` would let a second id-less call evict the first (and
-                // silence its reply), and let `requestId: null` abort one.
-                match msg.get("id").filter(|id| !id.is_null()).map(id_key) {
+                match key {
                     Some(key) => {
                         let registry = in_flight.clone();
                         in_flight.start(&mut calls, key, move |token| async move {
@@ -510,6 +505,11 @@ where
                             }
                         });
                     }
+                    // No id (a notification: it runs, and is never answered)
+                    // or a null id (answered with `id: null`). Both still run
+                    // off the loop (#2898). No cancellation can name them, so
+                    // they are not registered, and two of them cannot displace
+                    // each other's reply.
                     None => {
                         calls.spawn(async move {
                             if let Some(reply) = handle_message(&ctx, msg).await {
@@ -533,9 +533,8 @@ where
     writer.await?
 }
 
-/// Every `tools/call` goes off the read loop, whatever its `id` is (#2898).
-/// The id decides who gets the reply and whether the call can be cancelled,
-/// not whether the node round-trip blocks the next line.
+/// Any `tools/call`, whatever its id: each one waits on the node, so none may
+/// run on the read loop (#2390, #2898).
 fn is_tool_call(msg: &Value) -> bool {
     msg.get("method").and_then(Value::as_str) == Some("tools/call")
 }
@@ -623,40 +622,34 @@ where
 }
 
 /// Route one JSON-RPC message. Returns `Some(response)` for requests and
-/// `None` for notifications (no `id`) and messages that need no reply.
-///
-/// The notification rule is applied once, after the method ran, rather than
-/// per method (#2898): JSON-RPC 2.0 §4.1 forbids a reply to a message with no
-/// `id` member whatever the method was, and `tools/call` used to answer one
-/// with `id: null` — a line a client that pairs responses to requests cannot
-/// match. The work itself still happens; only the reply is dropped.
+/// `None` for notifications (no `id` member) and messages that need no reply.
+/// A notification is never answered, whatever its method (JSON-RPC 2.0 §4.1;
+/// #2898); a `tools/call` notification still runs. An `id` of `null` is a
+/// request and is answered with `id: null`.
 async fn handle_message(ctx: &Ctx, msg: Value) -> Option<Value> {
     let id = msg.get("id").cloned();
     let is_notification = id.is_none();
     let method = msg.get("method").and_then(Value::as_str)?.to_string();
 
-    let response = match method.as_str() {
-        "initialize" => Some(rpc_result(id, initialize_result(&msg))),
+    let reply = match method.as_str() {
+        "initialize" => rpc_result(id, initialize_result(&msg)),
 
         // Lifecycle / keepalive notifications — no response.
-        "notifications/initialized" | "initialized" | "notifications/cancelled" => None,
+        "notifications/initialized" | "initialized" | "notifications/cancelled" => return None,
 
-        "ping" => Some(rpc_result(id, json!({}))),
+        "ping" => rpc_result(id, json!({})),
 
-        "tools/list" => Some(rpc_result(id, json!({ "tools": tool_specs() }))),
+        "tools/list" => rpc_result(id, json!({ "tools": tool_specs() })),
 
-        "tools/call" => Some(rpc_result(id, call_tool(ctx, &msg).await)),
+        "tools/call" => rpc_result(id, call_tool(ctx, &msg).await),
 
-        // Unknown method: error for requests. The filter below keeps a
-        // notification silent, as it always was.
-        _ => Some(rpc_error(
+        _ => rpc_error(
             id.unwrap_or(Value::Null),
             -32601,
             format!("method not found: {method}"),
-        )),
+        ),
     };
-
-    response.filter(|_| !is_notification)
+    (!is_notification).then_some(reply)
 }
 
 /// Handle one JSON-RPC message exactly as the stdio loop does, against the node
@@ -833,6 +826,9 @@ fn rerank_arg_schema(query_required: bool) -> Value {
          `fields` (string[]): which returned fields to send; default is every returned \
          string field. `instructions` (string): override what \"relevant\" means for \
          this corpus. `timeout_ms` (int, default {default_timeout_ms}). `model` (string). \
+         `provider` (string, default \"jev\"): \"cohere\" uses Cohere Rerank when the \
+         operator set `[rerank.cohere] api_key` or COHERE_API_KEY (models rerank-v5.0-fast, \
+         rerank-v5.0-pro, rerank-v3.5; `instructions` and `min_score` are refused with it). \
          Cannot be combined with `sort`. \
          READ THE RESPONSE'S `_rerank` BLOCK: `applied: true` means the order is the \
          judge's and every `_score` is a probability or null (a hit with no verdict, \
@@ -1480,6 +1476,42 @@ pub fn tool_specs_with(include_hub: bool) -> Value {
             "inputSchema": {
                 "type": "object",
                 "properties": {}
+            }
+        },
+        {
+            "name": "xerj_sources",
+            "description": concat!(
+                "Live database sources on this node: connect once and the index stays current. ",
+                "action=list shows every source with its state; action=status shows one ",
+                "(snapshotting with percent and ETA, streaming, lagging, polling, or error with ",
+                "a message and a fix hint; replication lag in seconds, rows/s, last confirmed ",
+                "LSN); action=connect registers a Postgres database (postgres://user@host:port/db, ",
+                "no password in the URL: password_env names a variable in the NODE's environment, ",
+                "or password_file a file the node can read). The node snapshots the selected ",
+                "tables (one index per table, named <index_prefix>-<schema>-<table>, document id = ",
+                "primary key), then applies every insert, update, delete and truncate within ",
+                "seconds through logical replication; without replication rights it polls ",
+                "watermark_column and cannot see deletes. action=delete stops the source and drops ",
+                "its replication slot. Needs a superuser key on a secured node. ",
+                "Proxies GET/PUT/DELETE /_xerj/sources/{name}."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "action": { "type": "string", "enum": ["list", "status", "connect", "delete"], "description": "What to do (default list)." },
+                    "name": { "type": "string", "description": "Source name (a-z, 0-9, '-', '_'). Required for status, connect, delete." },
+                    "url": { "type": "string", "description": "connect: postgres://user@host:port/db?sslmode=require. Never include a password." },
+                    "password_env": { "type": "string", "description": "connect: env var in the node's environment holding the password." },
+                    "password_file": { "type": "string", "description": "connect: file the node can read holding the password." },
+                    "tables": { "type": "array", "items": { "type": "string" }, "description": "connect: schema.table or table; `sales.*` allowed. Default: every table with a primary key." },
+                    "exclude_tables": { "type": "array", "items": { "type": "string" } },
+                    "mode": { "type": "string", "enum": ["auto", "logical", "poll"], "description": "connect: auto (default) streams when replication is allowed, else polls watermark_column." },
+                    "watermark_column": { "type": "string", "description": "connect: column that grows on every write, for polling (e.g. updated_at)." },
+                    "publication": { "type": "string", "description": "connect: an existing publication to stream from (least-privilege setups)." },
+                    "index_prefix": { "type": "string" },
+                    "facts_namespace": { "type": "string", "description": "connect: also offer row changes to XERJ Query-1 facts in this namespace." },
+                    "delete_indices": { "type": "boolean", "description": "delete: also delete the source's indices (default false)." }
+                }
             }
         },
         {
@@ -2168,6 +2200,7 @@ async fn call_tool(ctx: &Ctx, msg: &Value) -> Value {
         "xerj_brain_link" => build_brain_link(&args),
         "xerj_brain_unlink" => build_brain_unlink(&args),
         "xerj_brain_overview" => build_brain_overview(&args),
+        "xerj_sources" => build_sources(&args),
         // #1056: prompt in, validated DSL out — a plain engine proxy.
         "xerj_plan" => build_plan(&args),
         // Posts to the web endpoint, not the node. `ctx` is unused on purpose:
@@ -2276,6 +2309,7 @@ fn apply_search_path_demotion(text: &str, page: usize, query: &str) -> String {
 enum Method {
     Get,
     Post,
+    Put,
     Delete,
 }
 
@@ -2937,6 +2971,61 @@ fn build_brain_unlink(args: &Value) -> Result<BuiltRequest, String> {
         format!("/_graph/{}/link/{}{}", enc(brain), enc(edge_id), qs(&q)),
         None,
     ))
+}
+
+/// `xerj_sources`: list / status / connect / delete a live database source.
+fn build_sources(args: &Value) -> Result<BuiltRequest, String> {
+    let action = args.get("action").and_then(Value::as_str).unwrap_or("list");
+    let name = || req_str(args, "name");
+    match action {
+        "list" => Ok((Method::Get, "/_xerj/sources".into(), None)),
+        "status" => Ok((
+            Method::Get,
+            format!("/_xerj/sources/{}", enc(name()?)),
+            None,
+        )),
+        "delete" => {
+            let q = if args.get("delete_indices").and_then(Value::as_bool) == Some(true) {
+                "?delete_indices=true"
+            } else {
+                ""
+            };
+            Ok((
+                Method::Delete,
+                format!("/_xerj/sources/{}{q}", enc(name()?)),
+                None,
+            ))
+        }
+        "connect" => {
+            let n = name()?;
+            req_str(args, "url")?;
+            let mut body = serde_json::Map::new();
+            for k in [
+                "url",
+                "password_env",
+                "password_file",
+                "tables",
+                "exclude_tables",
+                "mode",
+                "watermark_column",
+                "publication",
+                "index_prefix",
+                "facts_namespace",
+            ] {
+                if let Some(v) = args.get(k) {
+                    body.insert(k.into(), v.clone());
+                }
+            }
+            Ok((
+                Method::Put,
+                format!("/_xerj/sources/{}", enc(n)),
+                Some(Value::Object(body)),
+            ))
+        }
+        other => Err(format!(
+            "`action` must be list, status, connect or delete (got {other:?})"
+        )),
+    }
 }
 
 fn build_brain_overview(args: &Value) -> Result<BuiltRequest, String> {
@@ -3653,6 +3742,7 @@ async fn engine_request(
     let mut req = match method {
         Method::Get => ctx.client.get(&url),
         Method::Post => ctx.client.post(&url),
+        Method::Put => ctx.client.put(&url),
         Method::Delete => ctx.client.delete(&url),
     };
     if let Some(body) = &body {
@@ -4100,124 +4190,109 @@ mod tests {
         );
     }
 
-    fn stalled_search_without_id() -> Value {
-        json!({"jsonrpc": "2.0", "method": "tools/call", "params": {
-            "name": "xerj_search", "arguments": {"index": "docs", "query": "retry"}}})
+    /// The first reply line, or a panic naming what it waited behind.
+    async fn first_reply(
+        stdout: &mut tokio::io::Lines<BufReader<tokio::io::DuplexStream>>,
+        behind: &str,
+    ) -> Value {
+        let line = tokio::time::timeout(Duration::from_secs(1), stdout.next_line())
+            .await
+            .unwrap_or_else(|_| panic!("no reply within 1 s: ping queued behind {behind}"))
+            .unwrap()
+            .unwrap();
+        serde_json::from_str(&line).unwrap()
     }
 
-    /// #2898: a message with no `id` member is a notification, so the server
-    /// must not answer it. The old reply carried `id: null`, which a client
-    /// that pairs responses to requests cannot match to anything it sent.
-    #[tokio::test]
-    async fn a_tool_call_notification_gets_no_response() {
-        let (mut stdin, mut stdout) =
-            stdio_session(silent_node().await, Duration::from_millis(300));
-        send_line(&mut stdin, stalled_search_without_id()).await;
-        drop(stdin);
+    /// Every reply line until the server closes stdout.
+    async fn remaining_replies(
+        stdout: &mut tokio::io::Lines<BufReader<tokio::io::DuplexStream>>,
+    ) -> Vec<Value> {
         let mut replies = Vec::new();
-        tokio::time::timeout(Duration::from_secs(5), async {
+        tokio::time::timeout(Duration::from_secs(10), async {
             while let Ok(Some(line)) = stdout.next_line().await {
                 replies.push(serde_json::from_str::<Value>(&line).unwrap());
             }
         })
         .await
         .expect("stdout was not closed after the last reply");
-        assert!(
-            replies.is_empty(),
-            "a notification was answered: {replies:?}"
-        );
+        replies
     }
 
-    /// #2898: the work a notification asks for still waits on the node, so it
-    /// belongs off the read loop for the same reason #2390 moved the id-ed
-    /// call off it. Awaiting it inline stalls every message behind it.
+    /// #2898: a `tools/call` with no `id` is a notification. It runs off the
+    /// read loop like any other call, so it does not hold up `ping`, and it is
+    /// never answered, not even with `id: null`.
     #[tokio::test]
-    async fn a_tool_call_notification_does_not_block_the_read_loop() {
-        let (mut stdin, mut stdout) = stdio_session(silent_node().await, Duration::from_secs(3));
-        send_line(&mut stdin, stalled_search_without_id()).await;
-        tokio::time::sleep(Duration::from_millis(100)).await;
-        send_line(
-            &mut stdin,
-            json!({"jsonrpc": "2.0", "id": 3, "method": "ping"}),
-        )
-        .await;
-        let line = tokio::time::timeout(Duration::from_secs(1), stdout.next_line())
-            .await
-            .expect("no reply within 1 s: ping queued behind an id-less tool call")
-            .unwrap()
-            .unwrap();
-        let reply: Value = serde_json::from_str(&line).unwrap();
-        assert_eq!(reply["id"], 3, "{reply}");
-        assert_eq!(reply["result"], json!({}), "{reply}");
-    }
-
-    /// #2898: an `id` of JSON `null` is a request (discouraged, but legal), so
-    /// it is answered — off the read loop, like any other `tools/call`.
-    #[tokio::test]
-    async fn a_null_id_tool_call_is_answered_off_the_read_loop() {
+    async fn a_tool_call_notification_runs_off_the_loop_and_gets_no_reply() {
         let (mut stdin, mut stdout) =
-            stdio_session(silent_node().await, Duration::from_millis(500));
-        send_line(
-            &mut stdin,
-            json!({"jsonrpc": "2.0", "id": null, "method": "tools/call", "params": {
-                "name": "xerj_search", "arguments": {"index": "docs", "query": "retry"}}}),
-        )
-        .await;
+            stdio_session(silent_node().await, Duration::from_millis(1500));
+        let mut call = stalled_search(0);
+        call.as_object_mut().unwrap().remove("id");
+        send_line(&mut stdin, call).await;
         tokio::time::sleep(Duration::from_millis(100)).await;
         send_line(
             &mut stdin,
             json!({"jsonrpc": "2.0", "id": 3, "method": "ping"}),
         )
         .await;
-        let line = tokio::time::timeout(Duration::from_secs(1), stdout.next_line())
-            .await
-            .expect("no reply within 1 s: ping queued behind a null-id tool call")
-            .unwrap()
-            .unwrap();
-        assert_eq!(
-            serde_json::from_str::<Value>(&line).unwrap()["id"],
-            3,
-            "{line}"
-        );
+        let reply = first_reply(&mut stdout, "the id-less tool call").await;
+        assert_eq!(reply["id"], 3, "{reply}");
+        // End of input waits for the call, so anything it wrote shows up here.
         drop(stdin);
-        let mut replies = Vec::new();
-        let _ = tokio::time::timeout(Duration::from_secs(5), async {
-            while let Ok(Some(line)) = stdout.next_line().await {
-                replies.push(serde_json::from_str::<Value>(&line).unwrap());
-            }
-        })
-        .await;
-        assert_eq!(replies.len(), 1, "{replies:?}");
-        assert_eq!(replies[0]["id"], Value::Null, "{replies:?}");
-        assert_eq!(replies[0]["result"]["isError"], true, "{replies:?}");
+        let rest = remaining_replies(&mut stdout).await;
+        assert!(rest.is_empty(), "a notification was answered: {rest:?}");
     }
 
-    /// #2898: the no-reply rule is not special to `tools/call`. `ping` and
-    /// `tools/list` answered whatever the id was, including not having one.
+    /// #2898: a `tools/call` with `id: null` is a request and is answered,
+    /// but it too runs off the read loop.
     #[tokio::test]
-    async fn cheap_method_notifications_get_no_response() {
+    async fn a_null_id_tool_call_runs_off_the_loop_and_is_answered() {
+        let (mut stdin, mut stdout) =
+            stdio_session(silent_node().await, Duration::from_millis(1500));
+        let mut call = stalled_search(0);
+        call["id"] = Value::Null;
+        send_line(&mut stdin, call).await;
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        send_line(
+            &mut stdin,
+            json!({"jsonrpc": "2.0", "id": 3, "method": "ping"}),
+        )
+        .await;
+        let reply = first_reply(&mut stdout, "the null-id tool call").await;
+        assert_eq!(reply["id"], 3, "{reply}");
+        drop(stdin);
+        let rest = remaining_replies(&mut stdout).await;
+        assert_eq!(rest.len(), 1, "{rest:?}");
+        assert_eq!(rest[0]["id"], Value::Null, "{rest:?}");
+        assert_eq!(rest[0]["result"]["isError"], true, "{rest:?}");
+    }
+
+    /// #2898: no notification is answered, whatever its method; the requests
+    /// beside it still are.
+    #[tokio::test]
+    async fn known_methods_sent_as_notifications_get_no_reply() {
         let (mut stdin, mut stdout) =
             stdio_session(silent_node().await, Duration::from_millis(300));
-        send_line(&mut stdin, json!({"jsonrpc": "2.0", "method": "ping"})).await;
+        for method in ["initialize", "ping", "tools/list", "no/such/method"] {
+            send_line(&mut stdin, json!({"jsonrpc": "2.0", "method": method})).await;
+        }
         send_line(
             &mut stdin,
-            json!({"jsonrpc": "2.0", "method": "tools/list"}),
+            json!({"jsonrpc": "2.0", "id": 4, "method": "ping"}),
         )
         .await;
         send_line(
             &mut stdin,
-            json!({"jsonrpc": "2.0", "id": 9, "method": "ping"}),
+            json!([{"jsonrpc": "2.0", "method": "ping"},
+                   {"jsonrpc": "2.0", "id": 5, "method": "ping"}]),
         )
         .await;
         drop(stdin);
-        let mut ids = Vec::new();
-        let _ = tokio::time::timeout(Duration::from_secs(5), async {
-            while let Ok(Some(line)) = stdout.next_line().await {
-                ids.push(serde_json::from_str::<Value>(&line).unwrap()["id"].clone());
-            }
-        })
-        .await;
-        assert_eq!(ids, vec![json!(9)], "a notification was answered: {ids:?}");
+        let ids: Vec<Value> = remaining_replies(&mut stdout)
+            .await
+            .into_iter()
+            .map(|reply| reply["id"].clone())
+            .collect();
+        assert_eq!(ids, vec![json!(4), json!(5)]);
     }
 
     /// A 200 whose body cannot be read in full (the connection drops partway,
@@ -6380,8 +6455,9 @@ mod tests {
             .iter()
             .map(|t| t["name"].as_str().unwrap())
             .collect();
-        assert_eq!(names.len(), 23);
+        assert_eq!(names.len(), 24);
         for n in [
+            "xerj_sources",
             "xerj_def",
             "xerj_search",
             "xerj_semantic_search",
@@ -6558,6 +6634,36 @@ mod tests {
         );
     }
 
+    /// `xerj_sources` maps each action onto `/_xerj/sources`, and `connect`
+    /// forwards only spec fields (never anything named like a password value).
+    #[test]
+    fn sources_tool_builds_the_four_requests() {
+        let (m, p, b) = build_sources(&json!({})).unwrap();
+        assert_eq!((m, p.as_str(), b), (Method::Get, "/_xerj/sources", None));
+        let (m, p, _) = build_sources(&json!({"action": "status", "name": "shop"})).unwrap();
+        assert_eq!((m, p.as_str()), (Method::Get, "/_xerj/sources/shop"));
+        let (m, p, _) =
+            build_sources(&json!({"action": "delete", "name": "shop", "delete_indices": true}))
+                .unwrap();
+        assert_eq!(
+            (m, p.as_str()),
+            (Method::Delete, "/_xerj/sources/shop?delete_indices=true")
+        );
+        let (m, p, b) = build_sources(&json!({
+            "action": "connect", "name": "shop",
+            "url": "postgres://app@db/shop", "password_env": "PG_PW",
+            "tables": ["public.orders"], "password": "must-not-pass"
+        }))
+        .unwrap();
+        assert_eq!((m, p.as_str()), (Method::Put, "/_xerj/sources/shop"));
+        let b = b.unwrap();
+        assert_eq!(b["password_env"], "PG_PW");
+        assert!(b.get("password").is_none(), "{b}");
+        assert!(build_sources(&json!({"action": "connect", "name": "x"})).is_err());
+        assert!(build_sources(&json!({"action": "status"})).is_err());
+        assert!(build_sources(&json!({"action": "drop"})).is_err());
+    }
+
     /// A process with no hub signing key must not advertise tools that can
     /// only answer with the no-key message. The count `--help` prints is that
     /// same list, so the two cannot disagree.
@@ -6572,23 +6678,23 @@ mod tests {
                 .collect()
         };
         let without = names(false);
-        assert_eq!(without.len(), 20, "{without:?}");
+        assert_eq!(without.len(), 21, "{without:?}");
         assert!(
             without.iter().all(|n| !n.starts_with("xerj_hub_")),
             "{without:?}"
         );
         let with = names(true);
-        assert_eq!(with.len(), 23, "{with:?}");
+        assert_eq!(with.len(), 24, "{with:?}");
         for n in ["xerj_hub_find", "xerj_hub_def", "xerj_hub_ask"] {
             assert!(with.iter().any(|name| name == n), "missing {n}");
         }
 
         let help = tools_paragraph(false);
-        assert!(help.contains("proxies 20 tools"), "{help}");
+        assert!(help.contains("proxies 21 tools"), "{help}");
         assert!(!help.contains("xerj_hub_"), "{help}");
         assert!(help.contains("~/xerj-data"), "{help}");
         let help = tools_paragraph(true);
-        assert!(help.contains("proxies 23 tools"), "{help}");
+        assert!(help.contains("proxies 24 tools"), "{help}");
         assert!(help.contains("xerj_hub_ask"), "{help}");
         assert!(help.contains("serves 3 Corpus Hub tools"), "{help}");
     }

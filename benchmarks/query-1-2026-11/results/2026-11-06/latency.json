@@ -1,0 +1,2365 @@
+{
+ "date": "2026-11-06",
+ "author_note": "MEASURED unless labelled ARITHMETIC; p95 = sorted[int(0.95*n)-1] (same rule as the original scripts)",
+ "sources": {
+  "llm_calls": {
+   "extracted": "work-2026-11-06/work/lat/llm_calls.json",
+   "raw_dirs": {
+    "rag_bm25_k10": "h2h-2026-11-05/raw/rag/bm25_k10",
+    "rag_bm25_k5": "h2h-2026-11-05/raw/rag/bm25_k5",
+    "rag_emb_k10": "h2h-2026-11-05/raw/rag/emb_k10",
+    "rag_emb_k5": "h2h-2026-11-05/raw/rag/emb_k5",
+    "graphrag_local": "h2h-2026-11-05/raw/graphrag/query",
+    "opus_longctx_1q": "h2h-2026-11-05/raw/longctx/single",
+    "opus_longctx_40q": "h2h-2026-11-05/raw/longctx/batched",
+    "graphrag_index_extract": "h2h-2026-11-05/raw/graphrag/extract",
+    "graphrag_index_reports": "h2h-2026-11-05/raw/graphrag/reports"
+   },
+   "script": "work-2026-11-06/scripts/lat_extract.py"
+  }
+ },
+ "hardware": {
+  "laptop": "AMD Ryzen AI Max+ 395 (16 cores / 32 threads, x86_64), 119 GiB RAM; shared with other review lanes during the runs (per-pass foreign CPU load recorded)",
+  "our ARM build host": "NVIDIA GB10 (our ARM build host, aarch64, 20 cores: 10 Cortex-X925 @3.9 GHz + 10 Cortex-A725 @2.8 GHz); the 1,039 ms run was pinned to CPUs 10-13 = 4 x Cortex-A725 (CPU part 0xd87), nice 15, FP16 training running",
+  "llm_calls": "Opus 5.5 via headless claude -p (subscription path), bwrap sandbox on the laptop; network RTT to api.anthropic.com measured below"
+ },
+ "llm_arms": {
+  "rag_bm25_k10": {
+   "calls": 160,
+   "model": [
+    "claude-opus-5-5"
+   ],
+   "claude_p_wall_ms": {
+    "n": 160,
+    "p50": 2736.7,
+    "p95": 4769.7,
+    "mean": 2973.8,
+    "min": 1876.8,
+    "max": 6319.6
+   },
+   "llm_api_ms": {
+    "n": 160,
+    "p50": 1648.0,
+    "p95": 3652,
+    "mean": 1857.0,
+    "min": 966,
+    "max": 5524
+   },
+   "overhead_ms_wall_minus_api": {
+    "n": 160,
+    "p50": 1080.5,
+    "p95": 1461.7,
+    "mean": 1116.8
+   },
+   "of_which_process_startup_ms_wall_minus_duration": {
+    "n": 160,
+    "p50": 950.0,
+    "p95": 1349.3,
+    "mean": 987.7,
+    "min": 588.6,
+    "max": 1641.5
+   },
+   "of_which_cli_internal_ms_duration_minus_api": {
+    "n": 160,
+    "p50": 128.0,
+    "p95": 213,
+    "mean": 129.1,
+    "min": 28,
+    "max": 346
+   },
+   "api_first_stream_frame_ms": {
+    "n": 160,
+    "p50": 1049.5,
+    "p95": 1362,
+    "mean": 1002.6,
+    "min": 574,
+    "max": 1627
+   },
+   "api_after_first_frame_ms": {
+    "n": 160,
+    "p50": 619.5,
+    "p95": 2569,
+    "mean": 854.4,
+    "min": -14,
+    "max": 4772
+   },
+   "input_tokens": {
+    "n": 160,
+    "p50": 4424.0,
+    "p95": 6039,
+    "mean": 4631.4,
+    "min": 3339,
+    "max": 6686
+   },
+   "output_tokens_incl_thinking": {
+    "n": 160,
+    "p50": 95.5,
+    "p95": 324,
+    "mean": 121.2,
+    "min": 35,
+    "max": 557
+   },
+   "thinking_tokens": {
+    "n": 160,
+    "p50": 57.0,
+    "p95": 285,
+    "mean": 81.4,
+    "min": 0,
+    "max": 520
+   },
+   "mean_decomposition_ms": {
+    "api": 1857.0,
+    "cli_internal": 129.1,
+    "startup": 987.7,
+    "wall": 2973.8
+   },
+   "retrieval_ms_laptop_rerun": {
+    "n": 160,
+    "p50": 2.033,
+    "p95": 4.058,
+    "mean": 2.276,
+    "max": 6.44
+   },
+   "retrieval_prompt_identical": "160/160"
+  },
+  "rag_bm25_k5": {
+   "calls": 160,
+   "model": [
+    "claude-opus-5-5"
+   ],
+   "claude_p_wall_ms": {
+    "n": 160,
+    "p50": 2922.1,
+    "p95": 5403.4,
+    "mean": 3150.3,
+    "min": 1973.3,
+    "max": 8663.2
+   },
+   "llm_api_ms": {
+    "n": 160,
+    "p50": 1561.0,
+    "p95": 3857,
+    "mean": 1817.8,
+    "min": 934,
+    "max": 7501
+   },
+   "overhead_ms_wall_minus_api": {
+    "n": 160,
+    "p50": 1310.0,
+    "p95": 1641.2,
+    "mean": 1332.5
+   },
+   "of_which_process_startup_ms_wall_minus_duration": {
+    "n": 160,
+    "p50": 1185.2,
+    "p95": 1513.7,
+    "mean": 1190.3,
+    "min": 778.3,
+    "max": 1688.2
+   },
+   "of_which_cli_internal_ms_duration_minus_api": {
+    "n": 160,
+    "p50": 137.5,
+    "p95": 203,
+    "mean": 142.2,
+    "min": 65,
+    "max": 423
+   },
+   "api_first_stream_frame_ms": {
+    "n": 160,
+    "p50": 1052.5,
+    "p95": 1365,
+    "mean": 996.0,
+    "min": 580,
+    "max": 1607
+   },
+   "api_after_first_frame_ms": {
+    "n": 160,
+    "p50": 554.0,
+    "p95": 2859,
+    "mean": 821.8,
+    "min": 3,
+    "max": 6399
+   },
+   "input_tokens": {
+    "n": 160,
+    "p50": 2770.0,
+    "p95": 3723,
+    "mean": 2881.0,
+    "min": 2325,
+    "max": 3991
+   },
+   "output_tokens_incl_thinking": {
+    "n": 160,
+    "p50": 88.5,
+    "p95": 350,
+    "mean": 115.4,
+    "min": 35,
+    "max": 647
+   },
+   "thinking_tokens": {
+    "n": 160,
+    "p50": 49.5,
+    "p95": 316,
+    "mean": 76,
+    "min": 0,
+    "max": 609
+   },
+   "mean_decomposition_ms": {
+    "api": 1817.8,
+    "cli_internal": 142.2,
+    "startup": 1190.3,
+    "wall": 3150.3
+   },
+   "retrieval_ms_laptop_rerun": {
+    "n": 160,
+    "p50": 2.104,
+    "p95": 4.226,
+    "mean": 2.282,
+    "max": 6.213
+   },
+   "retrieval_prompt_identical": "160/160"
+  },
+  "rag_emb_k10": {
+   "calls": 160,
+   "model": [
+    "claude-opus-5-5"
+   ],
+   "claude_p_wall_ms": {
+    "n": 160,
+    "p50": 2695.7,
+    "p95": 5103.6,
+    "mean": 2934.6,
+    "min": 2001.3,
+    "max": 6558.0
+   },
+   "llm_api_ms": {
+    "n": 160,
+    "p50": 1564.5,
+    "p95": 4051,
+    "mean": 1845.1,
+    "min": 989,
+    "max": 5703
+   },
+   "overhead_ms_wall_minus_api": {
+    "n": 160,
+    "p50": 1044.7,
+    "p95": 1359.8,
+    "mean": 1089.5
+   },
+   "of_which_process_startup_ms_wall_minus_duration": {
+    "n": 160,
+    "p50": 895.0,
+    "p95": 1187.9,
+    "mean": 932.6,
+    "min": 673.0,
+    "max": 1785.4
+   },
+   "of_which_cli_internal_ms_duration_minus_api": {
+    "n": 160,
+    "p50": 147.5,
+    "p95": 256,
+    "mean": 156.8,
+    "min": 31,
+    "max": 456
+   },
+   "api_first_stream_frame_ms": {
+    "n": 160,
+    "p50": 1060.5,
+    "p95": 1368,
+    "mean": 987.0,
+    "min": 551,
+    "max": 1681
+   },
+   "api_after_first_frame_ms": {
+    "n": 160,
+    "p50": 589.5,
+    "p95": 3043,
+    "mean": 858.1,
+    "min": -32,
+    "max": 4633
+   },
+   "input_tokens": {
+    "n": 160,
+    "p50": 4150.5,
+    "p95": 6126,
+    "mean": 4343.1,
+    "min": 3134,
+    "max": 6697
+   },
+   "output_tokens_incl_thinking": {
+    "n": 160,
+    "p50": 99.5,
+    "p95": 380,
+    "mean": 124.1,
+    "min": 35,
+    "max": 532
+   },
+   "thinking_tokens": {
+    "n": 160,
+    "p50": 62.0,
+    "p95": 343,
+    "mean": 84.7,
+    "min": 0,
+    "max": 496
+   },
+   "mean_decomposition_ms": {
+    "api": 1845.1,
+    "cli_internal": 156.8,
+    "startup": 932.6,
+    "wall": 2934.6
+   },
+   "retrieval_ms_laptop_rerun": {
+    "n": 160,
+    "p50": 16.006,
+    "p95": 20.383,
+    "mean": 16.091,
+    "max": 23.058
+   },
+   "retrieval_prompt_identical": "160/160"
+  },
+  "rag_emb_k5": {
+   "calls": 160,
+   "model": [
+    "claude-opus-5-5"
+   ],
+   "claude_p_wall_ms": {
+    "n": 160,
+    "p50": 2686.1,
+    "p95": 4939.2,
+    "mean": 2996.6,
+    "min": 1886.2,
+    "max": 7982.5
+   },
+   "llm_api_ms": {
+    "n": 160,
+    "p50": 1532.5,
+    "p95": 3909,
+    "mean": 1835.7,
+    "min": 984,
+    "max": 7128
+   },
+   "overhead_ms_wall_minus_api": {
+    "n": 160,
+    "p50": 1106.8,
+    "p95": 1524.4,
+    "mean": 1160.9
+   },
+   "of_which_process_startup_ms_wall_minus_duration": {
+    "n": 160,
+    "p50": 973.6,
+    "p95": 1428.9,
+    "mean": 1021.7,
+    "min": 649.9,
+    "max": 1990.3
+   },
+   "of_which_cli_internal_ms_duration_minus_api": {
+    "n": 160,
+    "p50": 134.0,
+    "p95": 223,
+    "mean": 139.3,
+    "min": 29,
+    "max": 467
+   },
+   "api_first_stream_frame_ms": {
+    "n": 160,
+    "p50": 1023.5,
+    "p95": 1323,
+    "mean": 959.6,
+    "min": 545,
+    "max": 1552
+   },
+   "api_after_first_frame_ms": {
+    "n": 160,
+    "p50": 565.5,
+    "p95": 2898,
+    "mean": 876.1,
+    "min": -35,
+    "max": 6394
+   },
+   "input_tokens": {
+    "n": 160,
+    "p50": 2647.0,
+    "p95": 3709,
+    "mean": 2752.3,
+    "min": 1905,
+    "max": 4149
+   },
+   "output_tokens_incl_thinking": {
+    "n": 160,
+    "p50": 88.5,
+    "p95": 320,
+    "mean": 120.3,
+    "min": 35,
+    "max": 633
+   },
+   "thinking_tokens": {
+    "n": 160,
+    "p50": 49.0,
+    "p95": 282,
+    "mean": 80.7,
+    "min": 0,
+    "max": 595
+   },
+   "mean_decomposition_ms": {
+    "api": 1835.7,
+    "cli_internal": 139.3,
+    "startup": 1021.7,
+    "wall": 2996.6
+   },
+   "retrieval_ms_laptop_rerun": {
+    "n": 160,
+    "p50": 17.99,
+    "p95": 23.385,
+    "mean": 18.169,
+    "max": 25.915
+   },
+   "retrieval_prompt_identical": "160/160"
+  },
+  "graphrag_local": {
+   "calls": 160,
+   "model": [
+    "claude-opus-5-5"
+   ],
+   "claude_p_wall_ms": {
+    "n": 160,
+    "p50": 2649.7,
+    "p95": 5117.8,
+    "mean": 2995.8,
+    "min": 1980.2,
+    "max": 6930.7
+   },
+   "llm_api_ms": {
+    "n": 160,
+    "p50": 1551.5,
+    "p95": 3836,
+    "mean": 1870.8,
+    "min": 912,
+    "max": 5941
+   },
+   "overhead_ms_wall_minus_api": {
+    "n": 160,
+    "p50": 1125.4,
+    "p95": 1265.8,
+    "mean": 1125.0
+   },
+   "of_which_process_startup_ms_wall_minus_duration": {
+    "n": 160,
+    "p50": 990.5,
+    "p95": 1125.7,
+    "mean": 994.3,
+    "min": 807.7,
+    "max": 1267.5
+   },
+   "of_which_cli_internal_ms_duration_minus_api": {
+    "n": 160,
+    "p50": 118.0,
+    "p95": 203,
+    "mean": 130.7,
+    "min": 65,
+    "max": 477
+   },
+   "api_first_stream_frame_ms": {
+    "n": 160,
+    "p50": 1039.0,
+    "p95": 1312,
+    "mean": 977.8,
+    "min": 588,
+    "max": 1509
+   },
+   "api_after_first_frame_ms": {
+    "n": 160,
+    "p50": 604.0,
+    "p95": 2768,
+    "mean": 893.0,
+    "min": -7,
+    "max": 4920
+   },
+   "input_tokens": {
+    "n": 160,
+    "p50": 15399.5,
+    "p95": 21833,
+    "mean": 15729.0,
+    "min": 4952,
+    "max": 23727
+   },
+   "output_tokens_incl_thinking": {
+    "n": 160,
+    "p50": 98.0,
+    "p95": 347,
+    "mean": 123.8,
+    "min": 35,
+    "max": 596
+   },
+   "thinking_tokens": {
+    "n": 160,
+    "p50": 59.5,
+    "p95": 309,
+    "mean": 83.7,
+    "min": 0,
+    "max": 560
+   },
+   "mean_decomposition_ms": {
+    "api": 1870.8,
+    "cli_internal": 130.7,
+    "startup": 994.3,
+    "wall": 2995.8
+   },
+   "retrieval_ms_laptop_rerun": {
+    "n": 160,
+    "p50": 105.664,
+    "p95": 121.669,
+    "mean": 105.81,
+    "max": 142.232
+   },
+   "retrieval_prompt_identical": "160/160"
+  },
+  "opus_longctx_1q": {
+   "calls": 20,
+   "model": [
+    "claude-opus-5-5"
+   ],
+   "claude_p_wall_ms": {
+    "n": 20,
+    "p50": 3310.7,
+    "p95": 6612.1,
+    "mean": 3595.4,
+    "min": 2692.1,
+    "max": 6612.1
+   },
+   "llm_api_ms": {
+    "n": 20,
+    "p50": 2273.5,
+    "p95": 5710,
+    "mean": 2544.1,
+    "min": 1774,
+    "max": 5710
+   },
+   "overhead_ms_wall_minus_api": {
+    "n": 20,
+    "p50": 1039.2,
+    "p95": 1165.0,
+    "mean": 1051.3
+   },
+   "of_which_process_startup_ms_wall_minus_duration": {
+    "n": 20,
+    "p50": 848.8,
+    "p95": 1153.9,
+    "mean": 878.0,
+    "min": 719.1,
+    "max": 1153.9
+   },
+   "of_which_cli_internal_ms_duration_minus_api": {
+    "n": 20,
+    "p50": 186.5,
+    "p95": 218,
+    "mean": 173.3,
+    "min": 98,
+    "max": 218
+   },
+   "api_first_stream_frame_ms": {
+    "n": 20,
+    "p50": 1627.0,
+    "p95": 1996,
+    "mean": 1659.2,
+    "min": 1485,
+    "max": 1996
+   },
+   "api_after_first_frame_ms": {
+    "n": 20,
+    "p50": 535.0,
+    "p95": 4161,
+    "mean": 885.0,
+    "min": -1,
+    "max": 4161
+   },
+   "input_tokens": {
+    "n": 20,
+    "p50": 172870.0,
+    "p95": 172907,
+    "mean": 172870.4,
+    "min": 172841,
+    "max": 172907
+   },
+   "output_tokens_incl_thinking": {
+    "n": 20,
+    "p50": 97.0,
+    "p95": 569,
+    "mean": 141,
+    "min": 38,
+    "max": 569
+   },
+   "thinking_tokens": {
+    "n": 20,
+    "p50": 57.0,
+    "p95": 532,
+    "mean": 101.3,
+    "min": 0,
+    "max": 532
+   },
+   "mean_decomposition_ms": {
+    "api": 2544.1,
+    "cli_internal": 173.3,
+    "startup": 878.0,
+    "wall": 3595.4
+   }
+  },
+  "opus_longctx_40q": {
+   "calls": 4,
+   "model": [
+    "claude-opus-5-5"
+   ],
+   "claude_p_wall_ms": {
+    "n": 4,
+    "p50": 31543.0,
+    "p95": 41271.5,
+    "mean": 31804.3,
+    "min": 22859.5,
+    "max": 41271.5
+   },
+   "llm_api_ms": {
+    "n": 4,
+    "p50": 30759.5,
+    "p95": 40544,
+    "mean": 31042.8,
+    "min": 22108,
+    "max": 40544
+   },
+   "overhead_ms_wall_minus_api": {
+    "n": 4,
+    "p50": 739.5,
+    "p95": 751.5,
+    "mean": 761.5
+   },
+   "of_which_process_startup_ms_wall_minus_duration": {
+    "n": 4,
+    "p50": 535.0,
+    "p95": 569.1,
+    "mean": 525.3,
+    "min": 462.0,
+    "max": 569.1
+   },
+   "of_which_cli_internal_ms_duration_minus_api": {
+    "n": 4,
+    "p50": 204.5,
+    "p95": 420,
+    "mean": 236.2,
+    "min": 116,
+    "max": 420
+   },
+   "api_first_stream_frame_ms": {
+    "n": 4,
+    "p50": 1653.0,
+    "p95": 1834,
+    "mean": 1682,
+    "min": 1588,
+    "max": 1834
+   },
+   "api_after_first_frame_ms": {
+    "n": 4,
+    "p50": 29016.5,
+    "p95": 38956,
+    "mean": 29360.8,
+    "min": 20454,
+    "max": 38956
+   },
+   "input_tokens": {
+    "n": 4,
+    "p50": 175726.0,
+    "p95": 176590,
+    "mean": 175895.8,
+    "min": 175541,
+    "max": 176590
+   },
+   "output_tokens_incl_thinking": {
+    "n": 4,
+    "p50": 3644.5,
+    "p95": 4590,
+    "mean": 3644.5,
+    "min": 2699,
+    "max": 4590
+   },
+   "thinking_tokens": {
+    "n": 4,
+    "p50": 2154.0,
+    "p95": 3105,
+    "mean": 2159.5,
+    "min": 1225,
+    "max": 3105
+   },
+   "mean_decomposition_ms": {
+    "api": 31042.8,
+    "cli_internal": 236.2,
+    "startup": 525.3,
+    "wall": 31804.3
+   }
+  }
+ },
+ "xerj_query1": {
+  "laptop_default": {
+   "file": "work-2026-11-06/work/lat/xq_default/result.json",
+   "label": "rc.101 x86_64 release + shipped bundle, default config (no env overrides; 4 model threads by the auto rule), unpinned",
+   "binary": "xerj v1.0.0-rc.101",
+   "bundle": "candidate_a_s47_2026-11-04",
+   "bundle_serve": "w8",
+   "host_cpu": "AMD RYZEN AI MAX+ 395 w/ Radeon 8060S",
+   "config": "default",
+   "boot_ready_s": [
+    0.285,
+    0.576
+   ],
+   "index": {
+    "namespaces": 160,
+    "facts_written": 9496,
+    "wall_s": 3.019,
+    "server_cpu_s": 6.99,
+    "bulk_ms": {
+     "n": 160,
+     "p50": 18.5,
+     "p95": 22.6,
+     "mean": 18.9,
+     "min": 15.7,
+     "max": 33.4
+    },
+    "rss_mb": {
+     "VmHWM": 1144.8,
+     "VmRSS": 1018.6
+    },
+    "data_dir_bytes": 15419139
+   },
+   "rss_mb_end": {
+    "VmHWM": 1523.4,
+    "VmRSS": 1523.4
+   },
+   "foreign_cpu_load_cores_per_pass": {
+    "fresh_after_index": 4.72,
+    "pass1_after_restart": 11.14,
+    "pass2_warm": 1.26
+   },
+   "start_utc": "2026-11-06T08:40:30Z",
+   "end_utc": "2026-11-06T08:42:56Z",
+   "passes": {
+    "fresh_after_index": {
+     "wall_ms": {
+      "n": 160,
+      "p50": 225.4,
+      "p95": 412.2,
+      "mean": 234.9,
+      "min": 84.5,
+      "max": 551.5
+     },
+     "server_cpu_ms_per_q": {
+      "n": 160,
+      "p50": 885.0,
+      "p95": 1580.0,
+      "mean": 917.6,
+      "min": 330.0,
+      "max": 2170.0
+     },
+     "families_wall_ms": {
+      "teacher_dev": {
+       "n": 40,
+       "p50": 197.7,
+       "p95": 404.5,
+       "mean": 209.5,
+       "min": 118.9,
+       "max": 454.1
+      },
+      "bench_select": {
+       "n": 40,
+       "p50": 170.7,
+       "p95": 244.0,
+       "mean": 176.7,
+       "min": 84.5,
+       "max": 511.9
+      },
+      "s1b_dev": {
+       "n": 40,
+       "p50": 282.1,
+       "p95": 417.9,
+       "mean": 283.1,
+       "min": 114.8,
+       "max": 467.4
+      },
+      "d1_select": {
+       "n": 40,
+       "p50": 259.4,
+       "p95": 423.7,
+       "mean": 270.5,
+       "min": 138.2,
+       "max": 551.5
+      }
+     },
+     "handler_ms": {
+      "n": 160,
+      "p50": 224.7,
+      "p95": 411.6,
+      "mean": 234.3
+     },
+     "client_http_ms": {
+      "n": 160,
+      "p50": 0.6,
+      "p95": 0.8,
+      "mean": 0.6
+     },
+     "first_ask_ms": 404.5,
+     "status_counts": {
+      "ANSWER": 82,
+      "CONFLICT": 8,
+      "UNKNOWN": 45,
+      "UNSUPPORTED": 25
+     }
+    },
+    "pass1_after_restart": {
+     "wall_ms": {
+      "n": 160,
+      "p50": 252.0,
+      "p95": 503.4,
+      "mean": 289.7,
+      "min": 95.2,
+      "max": 3249.0
+     },
+     "server_cpu_ms_per_q": {
+      "n": 160,
+      "p50": 990.0,
+      "p95": 1980.0,
+      "mean": 1077.4,
+      "min": 370.0,
+      "max": 4580.0
+     },
+     "families_wall_ms": {
+      "teacher_dev": {
+       "n": 40,
+       "p50": 275.8,
+       "p95": 604.5,
+       "mean": 362.4,
+       "min": 172.3,
+       "max": 3249.0
+      },
+      "bench_select": {
+       "n": 40,
+       "p50": 210.3,
+       "p95": 357.0,
+       "mean": 231.1,
+       "min": 95.2,
+       "max": 660.2
+      },
+      "s1b_dev": {
+       "n": 40,
+       "p50": 289.0,
+       "p95": 531.8,
+       "mean": 313.4,
+       "min": 157.0,
+       "max": 564.4
+      },
+      "d1_select": {
+       "n": 40,
+       "p50": 246.1,
+       "p95": 363.5,
+       "mean": 251.9,
+       "min": 145.9,
+       "max": 503.4
+      }
+     },
+     "handler_ms": {
+      "n": 160,
+      "p50": 251.2,
+      "p95": 502.8,
+      "mean": 289.0
+     },
+     "client_http_ms": {
+      "n": 160,
+      "p50": 0.7,
+      "p95": 0.9,
+      "mean": 0.7
+     },
+     "first_ask_ms": 3249.03,
+     "status_counts": {
+      "ANSWER": 82,
+      "CONFLICT": 8,
+      "UNKNOWN": 45,
+      "UNSUPPORTED": 25
+     }
+    },
+    "pass2_warm": {
+     "wall_ms": {
+      "n": 160,
+      "p50": 218.7,
+      "p95": 361.2,
+      "mean": 226.8,
+      "min": 87.3,
+      "max": 556.2
+     },
+     "server_cpu_ms_per_q": {
+      "n": 160,
+      "p50": 855.0,
+      "p95": 1420.0,
+      "mean": 891.7,
+      "min": 340.0,
+      "max": 2230.0
+     },
+     "families_wall_ms": {
+      "teacher_dev": {
+       "n": 40,
+       "p50": 216.4,
+       "p95": 400.3,
+       "mean": 229.0,
+       "min": 123.8,
+       "max": 490.0
+      },
+      "bench_select": {
+       "n": 40,
+       "p50": 168.3,
+       "p95": 252.5,
+       "mean": 183.0,
+       "min": 87.3,
+       "max": 556.2
+      },
+      "s1b_dev": {
+       "n": 40,
+       "p50": 262.5,
+       "p95": 361.2,
+       "mean": 250.2,
+       "min": 116.1,
+       "max": 387.2
+      },
+      "d1_select": {
+       "n": 40,
+       "p50": 232.6,
+       "p95": 349.3,
+       "mean": 244.9,
+       "min": 140.5,
+       "max": 489.9
+      }
+     },
+     "handler_ms": {
+      "n": 160,
+      "p50": 218.1,
+      "p95": 360.6,
+      "mean": 226.1
+     },
+     "client_http_ms": {
+      "n": 160,
+      "p50": 0.7,
+      "p95": 0.8,
+      "mean": 0.7
+     },
+     "first_ask_ms": 358.24,
+     "status_counts": {
+      "ANSWER": 82,
+      "CONFLICT": 8,
+      "UNKNOWN": 45,
+      "UNSUPPORTED": 25
+     }
+    }
+   }
+  },
+  "laptop_default_rerun": {
+   "file": "work-2026-11-06/work/lat/xq_default2/result.json",
+   "label": "same as laptop_default, second run (captures the per-stage timings_us)",
+   "binary": "xerj v1.0.0-rc.101",
+   "bundle": "candidate_a_s47_2026-11-04",
+   "bundle_serve": "w8",
+   "host_cpu": "AMD RYZEN AI MAX+ 395 w/ Radeon 8060S",
+   "config": "default",
+   "boot_ready_s": [
+    0.582,
+    1.076
+   ],
+   "index": {
+    "namespaces": 160,
+    "facts_written": 9496,
+    "wall_s": 5.627,
+    "server_cpu_s": 11.68,
+    "bulk_ms": {
+     "n": 160,
+     "p50": 34.5,
+     "p95": 43.2,
+     "mean": 35.2,
+     "min": 24.8,
+     "max": 63.2
+    },
+    "rss_mb": {
+     "VmHWM": 1150.9,
+     "VmRSS": 1020.9
+    },
+    "data_dir_bytes": 15419139
+   },
+   "rss_mb_end": {
+    "VmHWM": 1546.9,
+    "VmRSS": 1546.9
+   },
+   "foreign_cpu_load_cores_per_pass": {
+    "fresh_after_index": 20.91,
+    "pass1_after_restart": 20.37,
+    "pass2_warm": 20.77
+   },
+   "start_utc": "2026-11-06T08:51:34Z",
+   "end_utc": "2026-11-06T08:56:16Z",
+   "passes": {
+    "fresh_after_index": {
+     "wall_ms": {
+      "n": 160,
+      "p50": 498.5,
+      "p95": 877.0,
+      "mean": 522.8,
+      "min": 187.8,
+      "max": 1314.1
+     },
+     "server_cpu_ms_per_q": {
+      "n": 160,
+      "p50": 1950.0,
+      "p95": 3310.0,
+      "mean": 2038.4,
+      "min": 740.0,
+      "max": 5120.0
+     },
+     "families_wall_ms": {
+      "teacher_dev": {
+       "n": 40,
+       "p50": 510.1,
+       "p95": 931.5,
+       "mean": 513.4,
+       "min": 276.7,
+       "max": 1047.0
+      },
+      "bench_select": {
+       "n": 40,
+       "p50": 401.1,
+       "p95": 619.8,
+       "mean": 431.6,
+       "min": 187.8,
+       "max": 1314.1
+      },
+      "s1b_dev": {
+       "n": 40,
+       "p50": 602.9,
+       "p95": 861.6,
+       "mean": 582.4,
+       "min": 273.7,
+       "max": 887.2
+      },
+      "d1_select": {
+       "n": 40,
+       "p50": 543.0,
+       "p95": 790.6,
+       "mean": 563.5,
+       "min": 343.9,
+       "max": 1133.2
+      }
+     },
+     "handler_ms": {
+      "n": 160,
+      "p50": 497.5,
+      "p95": 875.8,
+      "mean": 521.7
+     },
+     "client_http_ms": {
+      "n": 160,
+      "p50": 1.0,
+      "p95": 1.4,
+      "mean": 1.0
+     },
+     "first_ask_ms": 931.53,
+     "status_counts": {
+      "ANSWER": 82,
+      "CONFLICT": 8,
+      "UNKNOWN": 45,
+      "UNSUPPORTED": 25
+     },
+     "facts_path_timings_ms": {
+      "n": 113,
+      "link": {
+       "n": 113,
+       "p50": 0.0005,
+       "p95": 0.0007,
+       "mean": 0.0005
+      },
+      "manifest": {
+       "n": 113,
+       "p50": 0.0836,
+       "p95": 0.1346,
+       "mean": 0.0892
+      },
+      "model": {
+       "n": 113,
+       "p50": 256.6295,
+       "p95": 591.1454,
+       "mean": 292.6456
+      },
+      "executor": {
+       "n": 113,
+       "p50": 0.0408,
+       "p95": 0.2744,
+       "mean": 0.0852
+      },
+      "verify": {
+       "n": 113,
+       "p50": 0.1413,
+       "p95": 0.3471,
+       "mean": 0.1465
+      },
+      "total": {
+       "n": 113,
+       "p50": 257.1392,
+       "p95": 591.7045,
+       "mean": 292.9827
+      },
+      "handler_minus_facts_total": {
+       "n": 113,
+       "p50": 151.0,
+       "p95": 313.2,
+       "mean": 189.4
+      },
+      "handler": {
+       "n": 113,
+       "p50": 453.2,
+       "p95": 789.9,
+       "mean": 482.4
+      },
+      "mean_share_of_handler": {
+       "link": 0.0,
+       "manifest": 0.0002,
+       "model": 0.6067,
+       "executor": 0.0002,
+       "verify": 0.0003,
+       "total": 0.6074
+      },
+      "facts_model_input_tokens": {
+       "n": 113,
+       "p50": 1474,
+       "p95": 3572,
+       "mean": 1732.7
+      },
+      "counting_block_present": 113
+     },
+     "counting_path_handler_ms": {
+      "n": 47,
+      "p50": 593.7,
+      "p95": 860.5,
+      "mean": 616.3
+     },
+     "paths": {
+      "facts": 113,
+      "counting": 47
+     }
+    },
+    "pass1_after_restart": {
+     "wall_ms": {
+      "n": 160,
+      "p50": 490.0,
+      "p95": 827.2,
+      "mean": 543.7,
+      "min": 194.0,
+      "max": 5826.6
+     },
+     "server_cpu_ms_per_q": {
+      "n": 160,
+      "p50": 1915.0,
+      "p95": 3230.0,
+      "mean": 2037.4,
+      "min": 760.0,
+      "max": 8290.0
+     },
+     "families_wall_ms": {
+      "teacher_dev": {
+       "n": 40,
+       "p50": 483.4,
+       "p95": 988.3,
+       "mean": 625.8,
+       "min": 295.1,
+       "max": 5826.6
+      },
+      "bench_select": {
+       "n": 40,
+       "p50": 392.7,
+       "p95": 567.2,
+       "mean": 419.8,
+       "min": 194.0,
+       "max": 1215.0
+      },
+      "s1b_dev": {
+       "n": 40,
+       "p50": 590.4,
+       "p95": 827.2,
+       "mean": 569.2,
+       "min": 272.6,
+       "max": 867.7
+      },
+      "d1_select": {
+       "n": 40,
+       "p50": 542.1,
+       "p95": 810.9,
+       "mean": 560.1,
+       "min": 323.7,
+       "max": 1036.2
+      }
+     },
+     "handler_ms": {
+      "n": 160,
+      "p50": 488.9,
+      "p95": 826.3,
+      "mean": 542.7
+     },
+     "client_http_ms": {
+      "n": 160,
+      "p50": 1.0,
+      "p95": 1.4,
+      "mean": 1.0
+     },
+     "first_ask_ms": 5826.62,
+     "status_counts": {
+      "ANSWER": 82,
+      "CONFLICT": 8,
+      "UNKNOWN": 45,
+      "UNSUPPORTED": 25
+     },
+     "facts_path_timings_ms": {
+      "n": 113,
+      "link": {
+       "n": 113,
+       "p50": 0.0004,
+       "p95": 0.0007,
+       "mean": 0.0004
+      },
+      "manifest": {
+       "n": 113,
+       "p50": 0.0883,
+       "p95": 0.1548,
+       "mean": 0.0942
+      },
+      "model": {
+       "n": 113,
+       "p50": 238.0822,
+       "p95": 532.9787,
+       "mean": 284.0805
+      },
+      "executor": {
+       "n": 113,
+       "p50": 0.0394,
+       "p95": 0.2821,
+       "mean": 0.0887
+      },
+      "verify": {
+       "n": 113,
+       "p50": 0.1494,
+       "p95": 0.4481,
+       "mean": 0.1638
+      },
+      "total": {
+       "n": 113,
+       "p50": 238.6318,
+       "p95": 533.6219,
+       "mean": 284.4457
+      },
+      "handler_minus_facts_total": {
+       "n": 113,
+       "p50": 148.8,
+       "p95": 330.7,
+       "mean": 232.3
+      },
+      "handler": {
+       "n": 113,
+       "p50": 443.9,
+       "p95": 757.4,
+       "mean": 516.8
+      },
+      "mean_share_of_handler": {
+       "link": 0.0,
+       "manifest": 0.0002,
+       "model": 0.5497,
+       "executor": 0.0002,
+       "verify": 0.0003,
+       "total": 0.5504
+      },
+      "facts_model_input_tokens": {
+       "n": 113,
+       "p50": 1474,
+       "p95": 3572,
+       "mean": 1732.7
+      },
+      "counting_block_present": 113
+     },
+     "counting_path_handler_ms": {
+      "n": 47,
+      "p50": 585.1,
+      "p95": 822.0,
+      "mean": 605.1
+     },
+     "paths": {
+      "facts": 113,
+      "counting": 47
+     }
+    },
+    "pass2_warm": {
+     "wall_ms": {
+      "n": 160,
+      "p50": 500.5,
+      "p95": 776.6,
+      "mean": 510.5,
+      "min": 186.6,
+      "max": 1207.9
+     },
+     "server_cpu_ms_per_q": {
+      "n": 160,
+      "p50": 1915.0,
+      "p95": 3060.0,
+      "mean": 1991.4,
+      "min": 740.0,
+      "max": 4810.0
+     },
+     "families_wall_ms": {
+      "teacher_dev": {
+       "n": 40,
+       "p50": 509.7,
+       "p95": 892.7,
+       "mean": 535.4,
+       "min": 289.4,
+       "max": 1117.4
+      },
+      "bench_select": {
+       "n": 40,
+       "p50": 381.2,
+       "p95": 583.7,
+       "mean": 409.3,
+       "min": 186.6,
+       "max": 1207.9
+      },
+      "s1b_dev": {
+       "n": 40,
+       "p50": 571.8,
+       "p95": 766.4,
+       "mean": 555.9,
+       "min": 257.1,
+       "max": 834.4
+      },
+      "d1_select": {
+       "n": 40,
+       "p50": 524.9,
+       "p95": 775.2,
+       "mean": 541.3,
+       "min": 306.1,
+       "max": 1028.0
+      }
+     },
+     "handler_ms": {
+      "n": 160,
+      "p50": 499.6,
+      "p95": 775.5,
+      "mean": 509.5
+     },
+     "client_http_ms": {
+      "n": 160,
+      "p50": 1.0,
+      "p95": 1.2,
+      "mean": 1.0
+     },
+     "first_ask_ms": 793.05,
+     "status_counts": {
+      "ANSWER": 82,
+      "CONFLICT": 8,
+      "UNKNOWN": 45,
+      "UNSUPPORTED": 25
+     },
+     "facts_path_timings_ms": {
+      "n": 113,
+      "link": {
+       "n": 113,
+       "p50": 0.0004,
+       "p95": 0.0006,
+       "mean": 0.0004
+      },
+      "manifest": {
+       "n": 113,
+       "p50": 0.0885,
+       "p95": 0.1301,
+       "mean": 0.0914
+      },
+      "model": {
+       "n": 113,
+       "p50": 245.1784,
+       "p95": 602.5455,
+       "mean": 292.4522
+      },
+      "executor": {
+       "n": 113,
+       "p50": 0.0435,
+       "p95": 0.2889,
+       "mean": 0.0859
+      },
+      "verify": {
+       "n": 113,
+       "p50": 0.1442,
+       "p95": 0.4482,
+       "mean": 0.1559
+      },
+      "total": {
+       "n": 113,
+       "p50": 245.8932,
+       "p95": 603.1135,
+       "mean": 292.8026
+      },
+      "handler_minus_facts_total": {
+       "n": 113,
+       "p50": 157.3,
+       "p95": 302.1,
+       "mean": 184.2
+      },
+      "handler": {
+       "n": 113,
+       "p50": 434.1,
+       "p95": 775.5,
+       "mean": 477.0
+      },
+      "mean_share_of_handler": {
+       "link": 0.0,
+       "manifest": 0.0002,
+       "model": 0.6132,
+       "executor": 0.0002,
+       "verify": 0.0003,
+       "total": 0.6139
+      },
+      "facts_model_input_tokens": {
+       "n": 113,
+       "p50": 1474,
+       "p95": 3572,
+       "mean": 1732.7
+      },
+      "counting_block_present": 113
+     },
+     "counting_path_handler_ms": {
+      "n": 47,
+      "p50": 569.3,
+      "p95": 772.7,
+      "mean": 587.7
+     },
+     "paths": {
+      "facts": 113,
+      "counting": 47
+     }
+    }
+   }
+  },
+  "laptop_pin4": {
+   "file": "work-2026-11-06/work/lat/xq_pin4/result.json",
+   "label": "rc.101 x86_64 release + shipped bundle, taskset 0-3 (4 physical cores), XERJ_FACTS_THREADS=4",
+   "binary": "xerj v1.0.0-rc.101",
+   "bundle": "candidate_a_s47_2026-11-04",
+   "bundle_serve": "w8",
+   "host_cpu": "AMD RYZEN AI MAX+ 395 w/ Radeon 8060S",
+   "config": "pin4",
+   "boot_ready_s": [
+    0.218,
+    0.206
+   ],
+   "index": {
+    "namespaces": 160,
+    "facts_written": 9496,
+    "wall_s": 1.795,
+    "server_cpu_s": 2.68,
+    "bulk_ms": {
+     "n": 160,
+     "p50": 10.6,
+     "p95": 15.7,
+     "mean": 11.2,
+     "min": 8.0,
+     "max": 26.3
+    },
+    "rss_mb": {
+     "VmHWM": 609.9,
+     "VmRSS": 390.0
+    },
+    "data_dir_bytes": 15395966
+   },
+   "rss_mb_end": {
+    "VmHWM": 1333.3,
+    "VmRSS": 1329.5
+   },
+   "foreign_cpu_load_cores_per_pass": {
+    "fresh_after_index": 0.44,
+    "pass1_after_restart": 8.76,
+    "pass2_warm": 8.3
+   },
+   "start_utc": "2026-11-06T08:43:56Z",
+   "end_utc": "2026-11-06T08:46:29Z",
+   "passes": {
+    "fresh_after_index": {
+     "wall_ms": {
+      "n": 160,
+      "p50": 226.4,
+      "p95": 377.5,
+      "mean": 233.6,
+      "min": 86.1,
+      "max": 560.3
+     },
+     "server_cpu_ms_per_q": {
+      "n": 160,
+      "p50": 875.0,
+      "p95": 1460.0,
+      "mean": 912.5,
+      "min": 330.0,
+      "max": 2220.0
+     },
+     "families_wall_ms": {
+      "teacher_dev": {
+       "n": 40,
+       "p50": 212.5,
+       "p95": 421.4,
+       "mean": 224.8,
+       "min": 127.4,
+       "max": 483.0
+      },
+      "bench_select": {
+       "n": 40,
+       "p50": 173.9,
+       "p95": 253.4,
+       "mean": 185.4,
+       "min": 86.1,
+       "max": 560.3
+      },
+      "s1b_dev": {
+       "n": 40,
+       "p50": 268.2,
+       "p95": 366.9,
+       "mean": 261.9,
+       "min": 116.7,
+       "max": 400.5
+      },
+      "d1_select": {
+       "n": 40,
+       "p50": 249.5,
+       "p95": 373.8,
+       "mean": 262.2,
+       "min": 148.5,
+       "max": 505.0
+      }
+     },
+     "handler_ms": {
+      "n": 160,
+      "p50": 225.8,
+      "p95": 376.9,
+      "mean": 233.0
+     },
+     "client_http_ms": {
+      "n": 160,
+      "p50": 0.6,
+      "p95": 0.7,
+      "mean": 0.6
+     },
+     "first_ask_ms": 421.44,
+     "status_counts": {
+      "ANSWER": 82,
+      "CONFLICT": 8,
+      "UNKNOWN": 45,
+      "UNSUPPORTED": 25
+     }
+    },
+    "pass1_after_restart": {
+     "wall_ms": {
+      "n": 160,
+      "p50": 293.7,
+      "p95": 592.0,
+      "mean": 348.5,
+      "min": 125.9,
+      "max": 3303.0
+     },
+     "server_cpu_ms_per_q": {
+      "n": 160,
+      "p50": 1040.0,
+      "p95": 1930.0,
+      "mean": 1120.0,
+      "min": 500.0,
+      "max": 4400.0
+     },
+     "families_wall_ms": {
+      "teacher_dev": {
+       "n": 40,
+       "p50": 237.9,
+       "p95": 501.6,
+       "mean": 313.8,
+       "min": 132.5,
+       "max": 3303.0
+      },
+      "bench_select": {
+       "n": 40,
+       "p50": 365.4,
+       "p95": 592.0,
+       "mean": 403.3,
+       "min": 125.9,
+       "max": 1087.0
+      },
+      "s1b_dev": {
+       "n": 40,
+       "p50": 331.2,
+       "p95": 615.3,
+       "mean": 344.7,
+       "min": 129.2,
+       "max": 804.0
+      },
+      "d1_select": {
+       "n": 40,
+       "p50": 283.4,
+       "p95": 568.5,
+       "mean": 332.3,
+       "min": 173.6,
+       "max": 1104.4
+      }
+     },
+     "handler_ms": {
+      "n": 160,
+      "p50": 293.0,
+      "p95": 591.4,
+      "mean": 347.8
+     },
+     "client_http_ms": {
+      "n": 160,
+      "p50": 0.6,
+      "p95": 1.0,
+      "mean": 0.7
+     },
+     "first_ask_ms": 3303.0,
+     "status_counts": {
+      "ANSWER": 82,
+      "CONFLICT": 8,
+      "UNKNOWN": 45,
+      "UNSUPPORTED": 25
+     }
+    },
+    "pass2_warm": {
+     "wall_ms": {
+      "n": 160,
+      "p50": 257.4,
+      "p95": 505.5,
+      "mean": 278.6,
+      "min": 96.4,
+      "max": 1450.5
+     },
+     "server_cpu_ms_per_q": {
+      "n": 160,
+      "p50": 1010.0,
+      "p95": 1620.0,
+      "mean": 1021.2,
+      "min": 380.0,
+      "max": 2810.0
+     },
+     "families_wall_ms": {
+      "teacher_dev": {
+       "n": 40,
+       "p50": 269.6,
+       "p95": 719.1,
+       "mean": 319.1,
+       "min": 136.6,
+       "max": 1450.5
+      },
+      "bench_select": {
+       "n": 40,
+       "p50": 193.5,
+       "p95": 408.3,
+       "mean": 232.2,
+       "min": 96.4,
+       "max": 800.5
+      },
+      "s1b_dev": {
+       "n": 40,
+       "p50": 296.6,
+       "p95": 410.0,
+       "mean": 284.4,
+       "min": 141.1,
+       "max": 422.0
+      },
+      "d1_select": {
+       "n": 40,
+       "p50": 271.8,
+       "p95": 403.7,
+       "mean": 278.7,
+       "min": 148.6,
+       "max": 551.6
+      }
+     },
+     "handler_ms": {
+      "n": 160,
+      "p50": 256.8,
+      "p95": 504.8,
+      "mean": 278.0
+     },
+     "client_http_ms": {
+      "n": 160,
+      "p50": 0.6,
+      "p95": 0.8,
+      "mean": 0.6
+     },
+     "first_ask_ms": 393.97,
+     "status_counts": {
+      "ANSWER": 82,
+      "CONFLICT": 8,
+      "UNKNOWN": 45,
+      "UNSUPPORTED": 25
+     }
+    }
+   }
+  },
+  "host_aarch64_published_1039ms": {
+   "files": {
+    "laptop_copy": [
+     "h2h-2026-11-05/raw/xq_stats.json",
+     "h2h-2026-11-05/raw/xq_latency.json"
+    ],
+    "our ARM build host": [
+     "~/blog_measure/xq/stats.json",
+     "~/blog_measure/xq/latency.json"
+    ],
+    "sha256_identical_to_spark": true,
+    "sha256": [
+     "3ca9d5485019ea84f90aa417cf5fc37467ce583b2eda9388477fa5b0348503f0",
+     "dd619ca643cf0d6c38934dd07a78f6f51544be591ac7ef53a2f8987150960417"
+    ]
+   },
+   "scripts": [
+    "h2h-2026-11-05/scripts/xq_run.py",
+    "h2h-2026-11-05/scripts/xq_lat.py"
+   ],
+   "date": "2026-11-04 23:55 - 2026-11-05 00:06 CST (stats.json mtime 2026-11-04 23:59 -0600)",
+   "binary": "xerj v1.0.0-rc.100 (landed rc.101 tree 10cd5a9b build)",
+   "bundle": "candidate_a_s47_2026-11-04",
+   "serve": "w8 facts, f32 counting (same bundle.json as the release)",
+   "cores": "taskset 10-13 = 4 x Cortex-A725 2.8 GHz efficiency cores, nice 15, XERJ_FACTS_THREADS=4, box running FP16 training (loadavg 5.0 -> 7.7)",
+   "workload": "same 160 per-question namespaces, 9,496 facts incl. edits",
+   "ask_ms": {
+    "p50": 1039.4,
+    "p95": 1783.7,
+    "mean": 1092.8
+   },
+   "server_cpu_ms_per_q": {
+    "mean": 4131.1,
+    "p50": 3915.0
+   },
+   "pass1_after_restart": {
+    "p50_ms": 1042.5,
+    "p95_ms": 1780.8,
+    "cpu_ms_mean": 4144.5
+   },
+   "pass2_warm": {
+    "p50_ms": 1038.1,
+    "p95_ms": 1770.7,
+    "cpu_ms_mean": 4121.9
+   }
+  },
+  "int8_guard_published_120ms": {
+   "files": {
+    "result": "xerj-r-dev/runs/gen/bench_sys_t0.125_N8000.json",
+    "log": "xerj-r-dev/logs/e2e_t0.125_quiet2.log",
+    "server_log": "xerj-r-dev/runs/int8fix/e2e_t0.125/server.log",
+    "driver": "xerj-r-dev/runs/int8fix/e2e_i8g.sh",
+    "bench": "xerj-r-dev/runs/gen/bench_sys.py",
+    "findings": "xerj-r-dev/FINDINGS.md (## Inference speed review, 'quiet2' table)"
+   },
+   "date": "2026-11-03 07:46-07:47 UTC (01:46-01:47 CST)",
+   "host": "this laptop (server log: 119.2 GiB usable; AMD Ryzen AI Max+ 395)",
+   "binary": "xerj-r-dev/target/release/xerj, dev build reporting v1.0.0-rc.100 (2026-11-03 01:09), not the rc.101 release",
+   "bundle": "candidate_vA_i8g_t0.125 (candidate_vA family, int8-guard tau x0.125) - NOT the shipped candidate_a_s47_2026-11-04 bundle, which serves w8 and ships no int8_calib.json",
+   "config": "XERJ_FACTS_PRELOAD=1 XERJ_FACTS_THREADS=4, taskset 0-11, nice 15, verify decline_v2_m2",
+   "workload": "ONE namespace 'benchmodel8000': 8,000 synthetic airport documents x 5 facts each = 40,000 facts (ARITHMETIC from bench_sys.py), 100 templated fk_chain questions ('What first-level administrative region is recorded for <airport> ...'), 3 warm-up asks, sequential",
+   "ask_ms": {
+    "p50": 120.3,
+    "p95": 175.7
+   },
+   "server_cpu_ms_per_q": 517.5,
+   "accuracy_on_template": 0.88,
+   "same_file_w8_baseline_ms": {
+    "file": "xerj-r-dev/runs/gen/bench_sys_w8q_N8000.json",
+    "p50": 163.2
+   }
+  }
+ },
+ "retrieval_only": {
+  "rag_arms_laptop_rerun": {
+   "file": "work-2026-11-06/work/lat/retrieval.json",
+   "script": "work-2026-11-06/scripts/lat_retrieval.py",
+   "host_load_start": [
+    "10.36",
+    "9.39",
+    "6.43"
+   ],
+   "start_utc": "2026-11-06T08:47:04Z",
+   "bm25_build_ms": 22.7,
+   "emb_model_load_s": 0.43,
+   "emb_index_encode_s": 34.0,
+   "rag": {
+    "bm25_k5": {
+     "retrieval_ms_per_query": {
+      "n": 160,
+      "p50": 2.104,
+      "p95": 4.226,
+      "mean": 2.282,
+      "max": 6.213
+     },
+     "query_encode_or_score_ms": {
+      "n": 160,
+      "p50": 2.079,
+      "p95": 4.174,
+      "mean": 2.249,
+      "max": 6.088
+     },
+     "rank_ms": {
+      "n": 160,
+      "p50": 0.03,
+      "p95": 0.073,
+      "mean": 0.033,
+      "max": 0.125
+     },
+     "prompt_identical_to_original": "160/160"
+    },
+    "bm25_k10": {
+     "retrieval_ms_per_query": {
+      "n": 160,
+      "p50": 2.033,
+      "p95": 4.058,
+      "mean": 2.276,
+      "max": 6.44
+     },
+     "query_encode_or_score_ms": {
+      "n": 160,
+      "p50": 1.977,
+      "p95": 3.999,
+      "mean": 2.243,
+      "max": 6.381
+     },
+     "rank_ms": {
+      "n": 160,
+      "p50": 0.029,
+      "p95": 0.072,
+      "mean": 0.033,
+      "max": 0.103
+     },
+     "prompt_identical_to_original": "160/160"
+    },
+    "emb_k5": {
+     "retrieval_ms_per_query": {
+      "n": 160,
+      "p50": 17.99,
+      "p95": 23.385,
+      "mean": 18.169,
+      "max": 25.915
+     },
+     "query_encode_or_score_ms": {
+      "n": 160,
+      "p50": 17.837,
+      "p95": 23.22,
+      "mean": 18.003,
+      "max": 25.545
+     },
+     "rank_ms": {
+      "n": 160,
+      "p50": 0.148,
+      "p95": 0.271,
+      "mean": 0.166,
+      "max": 0.433
+     },
+     "prompt_identical_to_original": "160/160"
+    },
+    "emb_k10": {
+     "retrieval_ms_per_query": {
+      "n": 160,
+      "p50": 16.006,
+      "p95": 20.383,
+      "mean": 16.091,
+      "max": 23.058
+     },
+     "query_encode_or_score_ms": {
+      "n": 160,
+      "p50": 15.863,
+      "p95": 20.249,
+      "mean": 15.936,
+      "max": 22.875
+     },
+     "rank_ms": {
+      "n": 160,
+      "p50": 0.14,
+      "p95": 0.229,
+      "mean": 0.155,
+      "max": 0.486
+     },
+     "prompt_identical_to_original": "160/160"
+    }
+   },
+   "graphrag_entity_embed_s": 20.18,
+   "graphrag_local": {
+    "retrieval_ms_per_query": {
+     "n": 160,
+     "p50": 105.664,
+     "p95": 121.669,
+     "mean": 105.81,
+     "max": 142.232
+    },
+    "query_encode_ms": {
+     "n": 160,
+     "p50": 93.546,
+     "p95": 100.696,
+     "mean": 92.296,
+     "max": 108.308
+    },
+    "prompt_identical_to_original": "160/160"
+   },
+   "torch_threads": 8,
+   "peak_rss_mb": 1117.9,
+   "host_load_end": [
+    "28.61",
+    "14.88",
+    "8.59"
+   ],
+   "end_utc": "2026-11-06T08:48:26Z"
+  },
+  "xerj_bm25_5000_records": {
+   "file": "work-2026-11-06/work/lat/xbm25/result.json",
+   "script": "work-2026-11-06/scripts/lat_xbm25.py",
+   "binary": "work-2026-11-06/work/rel/xerj-1.0.0-rc.101-x86_64-unknown-linux-gnu/xerj",
+   "config": "default (no model, no env overrides)",
+   "ready_s": 0.282,
+   "start_utc": "2026-11-06T08:46:57Z",
+   "loadavg_start": [
+    "9.61",
+    "9.23",
+    "6.37"
+   ],
+   "index": {
+    "docs": 5000,
+    "bulk_s": 0.026,
+    "refresh_s": 0.211,
+    "count": 5000
+   },
+   "queries": {
+    "match_cid_prefixed/pass1": {
+     "client_wall_ms": {
+      "n": 160,
+      "p50": 0.81,
+      "p95": 0.993,
+      "mean": 0.827,
+      "max": 2.371
+     },
+     "server_took_ms": {
+      "n": 160,
+      "p50": 0.0,
+      "p95": 0,
+      "mean": 0.006,
+      "max": 1
+     },
+     "mean_top10_from_question_collection": 8.72
+    },
+    "match_cid_prefixed/pass2_repeat": {
+     "client_wall_ms": {
+      "n": 160,
+      "p50": 0.131,
+      "p95": 0.259,
+      "mean": 0.157,
+      "max": 0.304
+     },
+     "server_took_ms": {
+      "n": 160,
+      "p50": 0.0,
+      "p95": 0,
+      "mean": 0,
+      "max": 0
+     },
+     "mean_top10_from_question_collection": 8.72
+    },
+    "filter_cid_match/pass1": {
+     "client_wall_ms": {
+      "n": 160,
+      "p50": 0.817,
+      "p95": 0.994,
+      "mean": 0.813,
+      "max": 1.763
+     },
+     "server_took_ms": {
+      "n": 160,
+      "p50": 0.0,
+      "p95": 0,
+      "mean": 0.006,
+      "max": 1
+     },
+     "mean_top10_from_question_collection": 9.81
+    },
+    "filter_cid_match/pass2_repeat": {
+     "client_wall_ms": {
+      "n": 160,
+      "p50": 0.127,
+      "p95": 0.178,
+      "mean": 0.135,
+      "max": 0.367
+     },
+     "server_took_ms": {
+      "n": 160,
+      "p50": 0.0,
+      "p95": 0,
+      "mean": 0,
+      "max": 0
+     },
+     "mean_top10_from_question_collection": 9.81
+    }
+   },
+   "loadavg_end": [
+    "9.61",
+    "9.23",
+    "6.37"
+   ],
+   "rss_mb": {
+    "VmHWM": 288.6,
+    "VmRSS": 288.6
+   },
+   "end_utc": "2026-11-06T08:46:58Z"
+  }
+ },
+ "claude_p_floor": {
+  "calls": 10,
+  "prompt": "system 'Reply with exactly one word: OK', user 'ping'; same flags + bwrap sandbox as the head-to-head",
+  "rc_nonzero": 0,
+  "models": [
+   "claude-opus-5-5"
+  ],
+  "wall_ms": {
+   "n": 10,
+   "p50": 1904.7,
+   "p95": 2103.1,
+   "mean": 1967.8
+  },
+  "llm_api_ms": {
+   "n": 10,
+   "p50": 938.5,
+   "p95": 990,
+   "mean": 949.1
+  },
+  "duration_ms": {
+   "n": 10,
+   "p50": 1021.5,
+   "p95": 1072,
+   "mean": 1032
+  },
+  "overhead_ms_wall_minus_api": {
+   "n": 10,
+   "p50": 971.9,
+   "p95": 1013.1,
+   "mean": 1018.7
+  },
+  "startup_ms": {
+   "n": 10,
+   "p50": 889.2,
+   "p95": 921.1,
+   "mean": 935.8
+  },
+  "cli_prep_ms": {
+   "n": 10,
+   "p50": 75.0,
+   "p95": 110,
+   "mean": 82.9
+  },
+  "first_stream_frame_ms": {
+   "n": 10,
+   "p50": 974.5,
+   "p95": 1019,
+   "mean": 887.7
+  },
+  "billed_usd_total": 0.0067,
+  "loadavg": "load_start 24.86 18.39 10.86 19/3356 3759962 utc 2026-11-06T08:51:00Z",
+  "output_tokens": {
+   "n": 10,
+   "p50": 4.0,
+   "p95": 4,
+   "mean": 4
+  },
+  "input_tokens": {
+   "n": 10,
+   "p50": 594.0,
+   "p95": 594,
+   "mean": 594
+  },
+  "files": "work-2026-11-06/work/lat/trivial/t*.json",
+  "script": "work-2026-11-06/scripts/lat_opus_trivial.sh"
+ },
+ "network": {
+  "utc": "2026-11-06T08:41:36Z",
+  "url": "https://api.anthropic.com/v1/messages (GET, unauthenticated, fresh connection each)",
+  "n": 10,
+  "median_ms": {
+   "dns": 0.8,
+   "tcp_connect": 152.4,
+   "tls_handshake_done": 302.9,
+   "first_byte": 462.1,
+   "total": 462.4
+  },
+  "tcp_rtt_ms_median": 151.6,
+  "request_roundtrip_after_tls_ms_median": 155.3,
+  "file": "work-2026-11-06/work/lat/net_rtt.json"
+ },
+ "table": [
+  {
+   "arm": "Classic RAG, BM25 top-10 + Opus 5.5 writes the answer",
+   "retrieval_ms_p50": 2.033,
+   "answer_generation_ms_p50": 1648.0,
+   "answer_generation_kind": "Opus 5.5 API time (network + queue + prefill + thinking + answer)",
+   "overhead_ms_p50": 1080.5,
+   "overhead_kind": "claude -p process start-up + CLI prep (wall - API)",
+   "e2e_ms_p50": 2736.7,
+   "e2e_ms_p95": 4769.7,
+   "e2e_note": "claude -p wall per call (retrieval ran before the call and is not inside it)",
+   "hardware": "laptop (retrieval re-run 2026-11-06) + Anthropic API via claude -p (calls 2026-11-04/05, 8 in parallel)",
+   "n": 160
+  },
+  {
+   "arm": "Classic RAG, BM25 top-5 + Opus 5.5",
+   "retrieval_ms_p50": 2.104,
+   "answer_generation_ms_p50": 1561.0,
+   "answer_generation_kind": "Opus 5.5 API time (network + queue + prefill + thinking + answer)",
+   "overhead_ms_p50": 1310.0,
+   "overhead_kind": "claude -p process start-up + CLI prep (wall - API)",
+   "e2e_ms_p50": 2922.1,
+   "e2e_ms_p95": 5403.4,
+   "e2e_note": "claude -p wall per call (retrieval ran before the call and is not inside it)",
+   "hardware": "laptop (retrieval re-run 2026-11-06) + Anthropic API via claude -p (calls 2026-11-04/05, 8 in parallel)",
+   "n": 160
+  },
+  {
+   "arm": "Classic RAG, bge-small top-10 + Opus 5.5",
+   "retrieval_ms_p50": 16.006,
+   "answer_generation_ms_p50": 1564.5,
+   "answer_generation_kind": "Opus 5.5 API time (network + queue + prefill + thinking + answer)",
+   "overhead_ms_p50": 1044.7,
+   "overhead_kind": "claude -p process start-up + CLI prep (wall - API)",
+   "e2e_ms_p50": 2695.7,
+   "e2e_ms_p95": 5103.6,
+   "e2e_note": "claude -p wall per call (retrieval ran before the call and is not inside it)",
+   "hardware": "laptop (retrieval re-run 2026-11-06) + Anthropic API via claude -p (calls 2026-11-04/05, 8 in parallel)",
+   "n": 160
+  },
+  {
+   "arm": "Classic RAG, bge-small top-5 + Opus 5.5",
+   "retrieval_ms_p50": 17.99,
+   "answer_generation_ms_p50": 1532.5,
+   "answer_generation_kind": "Opus 5.5 API time (network + queue + prefill + thinking + answer)",
+   "overhead_ms_p50": 1106.8,
+   "overhead_kind": "claude -p process start-up + CLI prep (wall - API)",
+   "e2e_ms_p50": 2686.1,
+   "e2e_ms_p95": 4939.2,
+   "e2e_note": "claude -p wall per call (retrieval ran before the call and is not inside it)",
+   "hardware": "laptop (retrieval re-run 2026-11-06) + Anthropic API via claude -p (calls 2026-11-04/05, 8 in parallel)",
+   "n": 160
+  },
+  {
+   "arm": "GraphRAG local search + Opus 5.5",
+   "retrieval_ms_p50": 105.664,
+   "answer_generation_ms_p50": 1551.5,
+   "answer_generation_kind": "Opus 5.5 API time (network + queue + prefill + thinking + answer)",
+   "overhead_ms_p50": 1125.4,
+   "overhead_kind": "claude -p process start-up + CLI prep (wall - API)",
+   "e2e_ms_p50": 2649.7,
+   "e2e_ms_p95": 5117.8,
+   "e2e_note": "claude -p wall per call (retrieval ran before the call and is not inside it)",
+   "hardware": "laptop (retrieval re-run 2026-11-06) + Anthropic API via claude -p (calls 2026-11-04/05, 8 in parallel)",
+   "n": 160
+  },
+  {
+   "arm": "Opus 5.5, whole store in context, 1 q/call (20 q)",
+   "retrieval_ms_p50": 0.0,
+   "answer_generation_ms_p50": 2273.5,
+   "answer_generation_kind": "Opus 5.5 API time (network + queue + prefill + thinking + answer)",
+   "overhead_ms_p50": 1039.2,
+   "overhead_kind": "claude -p process start-up + CLI prep (wall - API)",
+   "e2e_ms_p50": 3310.7,
+   "e2e_ms_p95": 6612.1,
+   "e2e_note": "claude -p wall per call (retrieval ran before the call and is not inside it)",
+   "hardware": "laptop (retrieval re-run 2026-11-06) + Anthropic API via claude -p (calls 2026-11-04/05, 8 in parallel)",
+   "n": 20
+  },
+  {
+   "arm": "Opus 5.5, whole store in context, 40 q/call (per call)",
+   "retrieval_ms_p50": 0.0,
+   "answer_generation_ms_p50": 30759.5,
+   "answer_generation_kind": "Opus 5.5 API time (network + queue + prefill + thinking + answer)",
+   "overhead_ms_p50": 739.5,
+   "overhead_kind": "claude -p process start-up + CLI prep (wall - API)",
+   "e2e_ms_p50": 31543.0,
+   "e2e_ms_p95": 41271.5,
+   "e2e_note": "claude -p wall per call (retrieval ran before the call and is not inside it)",
+   "hardware": "laptop (retrieval re-run 2026-11-06) + Anthropic API via claude -p (calls 2026-11-04/05, 8 in parallel)",
+   "n": 4
+  },
+  {
+   "arm": "claude -p floor: trivial 'ping' call, same flags (10 calls, sequential)",
+   "retrieval_ms_p50": 0.0,
+   "answer_generation_ms_p50": 938.5,
+   "answer_generation_kind": "Opus 5.5 API time",
+   "overhead_ms_p50": 971.9,
+   "overhead_kind": "claude -p start-up + CLI prep",
+   "e2e_ms_p50": 1904.7,
+   "e2e_ms_p95": 2103.1,
+   "e2e_note": "",
+   "hardware": "laptop + Anthropic API, 2026-11-06",
+   "n": 10
+  },
+  {
+   "arm": "XERJ Query-1, rc.101 release + shipped bundle, default config [fresh_after_index]",
+   "retrieval_ms_p50": null,
+   "answer_generation_ms_p50": null,
+   "answer_generation_kind": "model forward + executor (facts path, n=- of 160)",
+   "overhead_ms_p50": 0.6,
+   "overhead_kind": "HTTP + client (wall - handler)",
+   "e2e_ms_p50": 225.4,
+   "e2e_ms_p95": 412.2,
+   "e2e_note": "foreign CPU load 4.7 cores",
+   "hardware": "laptop AMD Ryzen AI Max+ 395, 4 model threads, unpinned",
+   "n": 160
+  },
+  {
+   "arm": "XERJ Query-1, rc.101 release + shipped bundle, default config [pass1_after_restart]",
+   "retrieval_ms_p50": null,
+   "answer_generation_ms_p50": null,
+   "answer_generation_kind": "model forward + executor (facts path, n=- of 160)",
+   "overhead_ms_p50": 0.7,
+   "overhead_kind": "HTTP + client (wall - handler)",
+   "e2e_ms_p50": 252.0,
+   "e2e_ms_p95": 503.4,
+   "e2e_note": "foreign CPU load 11.1 cores",
+   "hardware": "laptop AMD Ryzen AI Max+ 395, 4 model threads, unpinned",
+   "n": 160
+  },
+  {
+   "arm": "XERJ Query-1, rc.101 release + shipped bundle, default config [pass2_warm]",
+   "retrieval_ms_p50": null,
+   "answer_generation_ms_p50": null,
+   "answer_generation_kind": "model forward + executor (facts path, n=- of 160)",
+   "overhead_ms_p50": 0.7,
+   "overhead_kind": "HTTP + client (wall - handler)",
+   "e2e_ms_p50": 218.7,
+   "e2e_ms_p95": 361.2,
+   "e2e_note": "foreign CPU load 1.3 cores",
+   "hardware": "laptop AMD Ryzen AI Max+ 395, 4 model threads, unpinned",
+   "n": 160
+  },
+  {
+   "arm": "XERJ Query-1, same, re-run [fresh_after_index]",
+   "retrieval_ms_p50": 0.0005,
+   "answer_generation_ms_p50": 256.7,
+   "answer_generation_kind": "model forward + executor (facts path, n=113 of 160)",
+   "overhead_ms_p50": 1.0,
+   "overhead_kind": "HTTP + client (wall - handler)",
+   "e2e_ms_p50": 498.5,
+   "e2e_ms_p95": 877.0,
+   "e2e_note": "foreign CPU load 20.9 cores",
+   "hardware": "laptop AMD Ryzen AI Max+ 395, 4 model threads, unpinned",
+   "n": 160
+  },
+  {
+   "arm": "XERJ Query-1, same, re-run [pass1_after_restart]",
+   "retrieval_ms_p50": 0.0004,
+   "answer_generation_ms_p50": 238.1,
+   "answer_generation_kind": "model forward + executor (facts path, n=113 of 160)",
+   "overhead_ms_p50": 1.0,
+   "overhead_kind": "HTTP + client (wall - handler)",
+   "e2e_ms_p50": 490.0,
+   "e2e_ms_p95": 827.2,
+   "e2e_note": "foreign CPU load 20.4 cores",
+   "hardware": "laptop AMD Ryzen AI Max+ 395, 4 model threads, unpinned",
+   "n": 160
+  },
+  {
+   "arm": "XERJ Query-1, same, re-run [pass2_warm]",
+   "retrieval_ms_p50": 0.0004,
+   "answer_generation_ms_p50": 245.2,
+   "answer_generation_kind": "model forward + executor (facts path, n=113 of 160)",
+   "overhead_ms_p50": 1.0,
+   "overhead_kind": "HTTP + client (wall - handler)",
+   "e2e_ms_p50": 500.5,
+   "e2e_ms_p95": 776.6,
+   "e2e_note": "foreign CPU load 20.8 cores",
+   "hardware": "laptop AMD Ryzen AI Max+ 395, 4 model threads, unpinned",
+   "n": 160
+  },
+  {
+   "arm": "XERJ Query-1, rc.101 release, pinned to 4 cores [fresh_after_index]",
+   "retrieval_ms_p50": null,
+   "answer_generation_ms_p50": null,
+   "answer_generation_kind": "model forward + executor (facts path, n=- of 160)",
+   "overhead_ms_p50": 0.6,
+   "overhead_kind": "HTTP + client (wall - handler)",
+   "e2e_ms_p50": 226.4,
+   "e2e_ms_p95": 377.5,
+   "e2e_note": "foreign CPU load 0.4 cores",
+   "hardware": "laptop AMD Ryzen AI Max+ 395, 4 pinned cores",
+   "n": 160
+  },
+  {
+   "arm": "XERJ Query-1, rc.101 release, pinned to 4 cores [pass1_after_restart]",
+   "retrieval_ms_p50": null,
+   "answer_generation_ms_p50": null,
+   "answer_generation_kind": "model forward + executor (facts path, n=- of 160)",
+   "overhead_ms_p50": 0.6,
+   "overhead_kind": "HTTP + client (wall - handler)",
+   "e2e_ms_p50": 293.7,
+   "e2e_ms_p95": 592.0,
+   "e2e_note": "foreign CPU load 8.8 cores",
+   "hardware": "laptop AMD Ryzen AI Max+ 395, 4 pinned cores",
+   "n": 160
+  },
+  {
+   "arm": "XERJ Query-1, rc.101 release, pinned to 4 cores [pass2_warm]",
+   "retrieval_ms_p50": null,
+   "answer_generation_ms_p50": null,
+   "answer_generation_kind": "model forward + executor (facts path, n=- of 160)",
+   "overhead_ms_p50": 0.6,
+   "overhead_kind": "HTTP + client (wall - handler)",
+   "e2e_ms_p50": 257.4,
+   "e2e_ms_p95": 505.5,
+   "e2e_note": "foreign CPU load 8.3 cores",
+   "hardware": "laptop AMD Ryzen AI Max+ 395, 4 pinned cores",
+   "n": 160
+  },
+  {
+   "arm": "XERJ Query-1 published 1,039 ms (same 160 q, rc.100 build of rc.101 tree, same bundle)",
+   "retrieval_ms_p50": null,
+   "answer_generation_ms_p50": null,
+   "answer_generation_kind": "not split in that run",
+   "overhead_ms_p50": null,
+   "overhead_kind": "",
+   "e2e_ms_p50": 1039.4,
+   "e2e_ms_p95": 1783.7,
+   "e2e_note": "server CPU 4131 ms/q",
+   "hardware": "our ARM build host GB10 aarch64, 4 x Cortex-A725 2.8 GHz (CPUs 10-13), nice 15, training running",
+   "n": 160
+  },
+  {
+   "arm": "XERJ Query-1 published 120 ms (int8-guard, unshipped bundle, ONE namespace 8,000 docs = 40,000 facts, 100 templated lookups)",
+   "retrieval_ms_p50": null,
+   "answer_generation_ms_p50": null,
+   "answer_generation_kind": "not split",
+   "overhead_ms_p50": null,
+   "overhead_kind": "",
+   "e2e_ms_p50": 120.3,
+   "e2e_ms_p95": 175.7,
+   "e2e_note": "server CPU 518 ms/q; different workload",
+   "hardware": "this laptop, cores 0-11, 4 model threads, nice 15, dev build, 2026-11-03",
+   "n": 100
+  }
+ ],
+ "table_md": [
+  "| Arm | Retrieval (p50) | Answer generation (p50) | Overhead (p50) | End-to-end p50 / p95 | Hardware, date |",
+  "|---|---|---|---|---|---|",
+  "| XERJ BM25 `_search` over the 5,000 records (returns records, writes no answer) | 0.81 ms | none | inside the wall time | 0.81 / 0.99 ms | laptop, rc.101 release, default config, 2026-11-06 |",
+  "| **XERJ Query-1**, released rc.101 binary + shipped bundle, default config, same 160 questions | link stage 0.4 \u00b5s (the facts are already in the namespace) | the model writes the answer program: 61% of server time on the facts path; executor 43.5 \u00b5s (split measured under load) | HTTP 0.7 ms; counting stage (runs first on every question) + projection + admission: the other 39% | **219\u2013226 / 361\u2013412 ms** (quiet passes) | laptop AMD Ryzen AI Max+ 395, 4 model threads, 2026-11-06 |",
+  "| XERJ Query-1 as published: \"1,039 ms\" (same 160 questions, same bundle) | not split | not split | not split | 1,039 / 1,784 ms | our ARM build host GB10 aarch64, 4 \u00d7 Cortex-A725 2.8 GHz efficiency cores, nice 15, FP16 training running, 2026-11-04 |",
+  "| XERJ Query-1 as published: \"120 ms\" (int8-guard, unshipped bundle, other workload) | not split | not split | not split | 120 / 176 ms | laptop, dev build, one namespace of 8,000 docs = 40,000 facts, 100 templated lookups, 2026-11-03 |",
+  "| Classic RAG: BM25 top-10, Opus 5.5 writes the answer | 2.0 ms (0.747 on 11-04) | 1,648 ms (Opus API) | 1,080 ms (claude -p) | 2,737 / 4,770 ms | laptop + Anthropic API via `claude -p`, 160 calls, 2026-11-04/05 |",
+  "| Classic RAG: BM25 top-5 + Opus 5.5 | 2.1 ms (0.828 on 11-04) | 1,561 ms (Opus API) | 1,310 ms (claude -p) | 2,922 / 5,403 ms | laptop + Anthropic API via `claude -p`, 160 calls, 2026-11-04/05 |",
+  "| Classic RAG: bge-small top-10 + Opus 5.5 | 16.0 ms (4.15 on 11-04) | 1,564 ms (Opus API) | 1,045 ms (claude -p) | 2,696 / 5,104 ms | laptop + Anthropic API via `claude -p`, 160 calls, 2026-11-04/05 |",
+  "| Classic RAG: bge-small top-5 + Opus 5.5 | 18.0 ms (4.15 on 11-04) | 1,532 ms (Opus API) | 1,107 ms (claude -p) | 2,686 / 4,939 ms | laptop + Anthropic API via `claude -p`, 160 calls, 2026-11-04/05 |",
+  "| GraphRAG local search + Opus 5.5 | 105.7 ms (96 on 11-04) | 1,552 ms (Opus API) | 1,125 ms (claude -p) | 2,650 / 5,118 ms | laptop + Anthropic API via `claude -p`, 160 calls, 2026-11-04/05 |",
+  "| Opus 5.5 reads the whole store, 1 question per call (20 q) | none (whole store pasted) | 2,274 ms (Opus API) | 1,039 ms (claude -p) | 3,311 / 6,612 ms | laptop + Anthropic API via `claude -p`, 20 calls, 2026-11-04/05 |",
+  "| Opus 5.5 reads the whole store, 40 questions per call | none (whole store pasted) | 30,760 ms (Opus API) | 740 ms (claude -p) | 31,543 / 41,272 ms per call | laptop + Anthropic API via `claude -p`, 4 calls, 2026-11-04/05 |",
+  "| `claude -p` floor: trivial prompt, 4-token answer, same flags | none | 938 ms (Opus API) | 972 ms (claude -p) | 1,905 / 2,103 ms | laptop + Anthropic API, 10 sequential calls, 2026-11-06 |"
+ ],
+ "summary_points": [
+  "1. **Retrieval is fast.** XERJ BM25 over the 5,000 records answers a query in 0.81 ms at the median on this laptop. The retrieval steps of the RAG arms, re-run here on prompts that came out byte-identical to the ones the LLM was given (160/160 for every arm), take 2.0 ms (BM25), 16\u201318 ms (bge-small, one query at a time) and 106 ms (GraphRAG local context), measured while other jobs loaded the machine; the 11-04 run on the same laptop measured 0.747 ms, 4.15 ms (queries encoded in one batch) and 96.0 ms.",
+  "2. **RAG end-to-end takes seconds because answer quality required an LLM to write the answer.** In the head-to-head every RAG and GraphRAG arm handed its retrieved records to Opus 5.5, which wrote the answer. Per question, at the median: Opus API time 1,532\u20131,648 ms, `claude -p` process start-up and preparation 1,045\u20131,310 ms, retrieval at most 106 ms; end to end 2.65\u20132.92 s. The whole-store Opus arm has no retrieval and took 3.31 s, of which 2,274 ms API. Those are the published 2.7 to 3.3 s. A one-word answer through the same path took 1,905 ms today (938 ms API + 972 ms CLI): 70% of the BM25-10 arm's 2,737 ms median is the fixed cost of one `claude -p` call (ARITHMETIC).",
+  "3. **Like for like, XERJ Query-1 on the same laptop: 219\u2013226 ms p50, 361\u2013412 ms p95** on the same 160 questions, released rc.101 x86_64 binary, shipped bundle, default config (4 model threads). Its answers are identical to the published our ARM build host run on 160 of 160 questions, and the frozen scorer on our ARM build host gives the same result (124 right, 1 wrong, 35 declined, Score 96.06). With other jobs loading the machine the median rose to 500 ms; the first question after a restart waits for the model load: 3,249\u20133,303 ms, 5,827 ms under heavy foreign load.",
+  "4. **The two published XERJ numbers are not this measurement.** \"1,039 ms\" is the same workload on four 2.8 GHz efficiency cores of a GB10 box that was training a model at the time (4,131 CPU-ms per question vs 892 here). \"120 ms\" is a different bundle (int8-guard, never shipped; the released bundle serves w8, and the node reports `int8_mode: w8`), a dev build, and a different workload: one namespace of 8,000 documents (40,000 facts, ARITHMETIC from bench_sys.py; the post says \"up to 8,000 facts\") and 100 copies of one templated lookup question, on which the w8 serving mode (the release default) ran at 163 ms with that bundle, against 219\u2013226 ms for w8 on the head-to-head here. The published line \"120 ms vs 2,700\u20133,300 ms\" therefore set an unshipped mode on an easier workload against LLM wall times that include about a second of CLI start-up.",
+  "5. **The reviewer's 108.51 ms** (hybrid search p50 on their knowledge base) is a retrieval-only number. On this set the comparable rows are the retrieval column: 0.81 ms (XERJ BM25) to 106 ms (GraphRAG context). The 2.7\u20133.3 s were never search latency."
+ ]
+}

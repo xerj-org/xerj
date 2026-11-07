@@ -1,0 +1,18 @@
+<figure class="vz" id="fig-reme-path" aria-labelledby="fig-reme-path-cap">
+  <span class="vz-label">Diagram</span>
+  <p class="vz-title">Where a memory goes in ReMe and in XERJ</p>
+  <p class="vz-panel-h">ReMe</p>
+  <ol class="vz-flow">
+    <li><span class="vz-k">Write</span><span class="vz-t">Markdown file</span><span class="vz-d">A note lands in the daily/ folder of the workspace.</span></li>
+    <li><span class="vz-k">Watch</span><span class="vz-t">File watcher</span><span class="vz-d">A background loop sees the change and chunks the file.</span></li>
+    <li><span class="vz-k">Index</span><span class="vz-t">BM25, vectors if on</span><span class="vz-d">Embeddings are off by default.</span></li>
+    <li class="is-hi"><span class="vz-k">Search</span><span class="vz-t">RRF, then links</span><span class="vz-d">Hits are fused and expanded along wikilinks.</span></li>
+  </ol>
+  <p class="vz-panel-h" style="margin-top:24px">XERJ</p>
+  <ol class="vz-flow">
+    <li><span class="vz-k">Write</span><span class="vz-t">POST /_memory/ns</span><span class="vz-d">The text is indexed in the same request.</span></li>
+    <li><span class="vz-k">Index</span><span class="vz-t">BM25 and vectors</span><span class="vz-d">One index per namespace. MiniLM is built in.</span></li>
+    <li class="is-hi"><span class="vz-k">Recall</span><span class="vz-t">BM25, semantic or hybrid</span><span class="vz-d">Optional recency weight favors newer memories.</span></li>
+  </ol>
+  <figcaption id="fig-reme-path-cap">ReMe's flow is from its docs/en/memory_search.md. In our run ReMe took 6.0 seconds after the last write before that memory was searchable, because the watcher indexes in the background. XERJ memories were searchable after one refresh call.</figcaption>
+</figure>

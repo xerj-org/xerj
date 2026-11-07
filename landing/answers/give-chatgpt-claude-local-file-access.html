@@ -16,7 +16,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MCP server to search local files from ChatGPT or Claude</title>
-<meta name="description" content="xerj mcp is a stdio MCP server that proxies 23 tools to a running XERJ node, so ChatGPT, Claude or Cursor search an indexed local folder instead of opening files.">
+<meta name="description" content="xerj mcp is a stdio MCP server that proxies 24 tools to a running XERJ node, so ChatGPT, Claude or Cursor search an indexed local folder instead of opening files.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -29,7 +29,7 @@
 <meta property="og:site_name" content="XERJ.ai">
 <meta property="og:type" content="article">
 <meta property="og:title" content="MCP server to search local files from ChatGPT or Claude">
-<meta property="og:description" content="xerj mcp is a stdio MCP server that proxies 23 tools to a running XERJ node, so ChatGPT, Claude or Cursor search an indexed local folder instead of opening files.">
+<meta property="og:description" content="xerj mcp is a stdio MCP server that proxies 24 tools to a running XERJ node, so ChatGPT, Claude or Cursor search an indexed local folder instead of opening files.">
 <meta property="og:url" content="https://xerj.org/answers/give-chatgpt-claude-local-file-access">
 <meta property="og:image" content="https://xerj.org/og/xerj-card.png">
 <meta property="og:image:width" content="1200">
@@ -38,7 +38,7 @@
 <meta property="og:locale" content="en_US">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="MCP server to search local files from ChatGPT or Claude">
-<meta name="twitter:description" content="xerj mcp is a stdio MCP server that proxies 23 tools to a running XERJ node, so ChatGPT, Claude or Cursor search an indexed local folder instead of opening files.">
+<meta name="twitter:description" content="xerj mcp is a stdio MCP server that proxies 24 tools to a running XERJ node, so ChatGPT, Claude or Cursor search an indexed local folder instead of opening files.">
 <meta name="twitter:image" content="https://xerj.org/og/xerj-card.png">
 <script type="application/ld+json">
 {
@@ -74,7 +74,7 @@
   "@context": "https://schema.org",
   "@type": "TechArticle",
   "headline": "MCP server to search local files from ChatGPT or Claude",
-  "description": "xerj mcp is a stdio MCP server that proxies 23 tools to a running XERJ node, so ChatGPT, Claude or Cursor search an indexed local folder instead of opening files.",
+  "description": "xerj mcp is a stdio MCP server that proxies 24 tools to a running XERJ node, so ChatGPT, Claude or Cursor search an indexed local folder instead of opening files.",
   "url": "https://xerj.org/answers/give-chatgpt-claude-local-file-access",
   "image": "https://xerj.org/og/xerj-card.png",
   "inLanguage": "en",
@@ -148,7 +148,7 @@
       "name": "How many tools does the XERJ MCP server expose?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "23 on main, or 20 in a build with no hub key, and every one carries an inputSchema: xerj_search, 3 more retrieval tools, xerj_def, xerj_batch_search, 2 memory tools, 4 brain tools, xerj_status, xerj_map, xerj_index_budget, xerj_autoindex_remove, xerj_code_search, xerj_plan, xerj_field_report, xerj_corpus_feedback and 3 Corpus Hub tools. A live tools/list from v1.0.0-rc.97 on 2026-10-19 returned 17, and the first capture, in August 2026, returned 10."
+        "text": "24 on main, or 21 in a build with no hub key, and every one carries an inputSchema: xerj_search, 3 more retrieval tools, xerj_def, xerj_batch_search, 2 memory tools, 4 brain tools, xerj_status, xerj_map, xerj_index_budget, xerj_autoindex_remove, xerj_code_search, xerj_plan, xerj_field_report, xerj_corpus_feedback and 3 Corpus Hub tools. A live tools/list from v1.0.0-rc.97 on 2026-10-19 returned 17, and the first capture, in August 2026, returned 10."
       }
     },
     {
@@ -200,24 +200,28 @@
 <body>
 <nav class="nav" aria-label="Primary">
   <a href="/" class="brand">XERJ</a>
-  <a href="/product">PRODUCT</a>
-  <a href="/use-cases">USE CASES</a>
-  <a href="/answers/" class="active">ANSWERS</a>
-  <a href="/benchmarks/">BENCHMARKS</a>
-  <a href="/blog/">BLOG</a>
-  <span class="spacer"></span>
-  <a href="/for-agents">FOR AGENTS</a>
-  <a href="/docs/">DOCS</a>
-  <a href="/playground">DASHBOARDS</a>
-  <a href="https://hub.xerj.org" rel="external">HUB</a>
-  <a class="nav-stars" href="https://github.com/xerj-org/xerj" rel="external" title="XERJ on GitHub" aria-label="XERJ on GitHub, 14,225 stars"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg><span class="nav-stars-n" data-gh-stars="14225">★ 14.2k</span></a>
-  <a href="https://x.com/xerj_org" rel="external" title="XERJ on X" style="display:inline-flex;align-items:center"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg></a>
-  <a href="https://discord.com/invite/yetXFusXfs" rel="external" title="XERJ on Discord" style="display:inline-flex;align-items:center"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.317 4.37a19.79 19.79 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.74 19.74 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 00-.041-.106 13.1 13.1 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.3 12.3 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.84 19.84 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg></a>
-  <span class="theme">
-    <button type="button" data-theme="day" class="active">DAY</button>
-    <span class="dash">·</span>
-    <button type="button" data-theme="night">NIGHT</button>
+  <span class="nav-links">
+    <a href="/xerj-query-1">Query-1</a>
+    <a href="/#use-cases">Use cases</a>
+    <a href="/benchmarks/">Benchmarks</a>
+    <a href="/docs/">Docs</a>
+    <a href="/blog/">Blog</a>
+    <a href="https://hub.xerj.org" rel="external">Hub</a>
   </span>
+  <span class="spacer"></span>
+  <a class="nav-stars" href="https://github.com/xerj-org/xerj" rel="external" title="XERJ on GitHub (18,497 stars on 2026-11-07 by the GitHub API)" aria-label="XERJ on GitHub, 18,497 stars"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>GitHub <span class="nav-stars-n" data-gh-stars="18497">★ 18.5k</span></a>
+  <details class="nav-menu">
+    <summary>Menu</summary>
+    <span class="nav-menu-list">
+      <a href="/xerj-query-1">Query-1</a>
+      <a href="/#use-cases">Use cases</a>
+      <a href="/benchmarks/">Benchmarks</a>
+      <a href="/docs/">Docs</a>
+      <a href="/blog/">Blog</a>
+      <a href="https://hub.xerj.org" rel="external">Hub</a>
+      <a href="https://github.com/xerj-org/xerj" rel="external">GitHub</a>
+    </span>
+  </details>
 </nav>
 <div class="docs-shell article-shell">
 <main class="docs-content">
@@ -228,9 +232,9 @@
   <div class="prompt-card answer-first" id="short-answer">
     <span class="prompt-label">SHORT ANSWER · UPDATED 2026-10-28</span>
     <p>Can ChatGPT or Claude search a folder on my laptop, or do I need something else? You need a local MCP server. Install XERJ, start a node, index the folder with xerj autoindex, and point the agent host at xerj mcp with an absolute path. One xerj_search call then reads the indexed local files.</p>
-    <p class="key-fact"><strong>Key number:</strong> On main xerj mcp serves 23 tools, each with an inputSchema in the published mcp-tools.json. <span class="mute">(as of 2026-10-28 · source: <a href="https://github.com/xerj-org/xerj/blob/main/landing/docs/agents/schemas/mcp-tools.json">landing/docs/agents/schemas/mcp-tools.json</a>)</span></p>
+    <p class="key-fact"><strong>Key number:</strong> On main xerj mcp serves 24 tools, each with an inputSchema in the published mcp-tools.json. <span class="mute">(as of 2026-10-28 · source: <a href="https://github.com/xerj-org/xerj/blob/main/landing/docs/agents/schemas/mcp-tools.json">landing/docs/agents/schemas/mcp-tools.json</a>)</span></p>
   </div>
-  <p><strong>TL;DR</strong>: XERJ ships an MCP server as <code class="inline">xerj mcp</code>. Install the latest XERJ, start a node, index a folder with <code class="inline">xerj autoindex</code>, then point the agent host at the binary with an absolute path. On main it serves 23 tools, and in a v1.0.0-rc.97 capture one <code class="inline">xerj_search</code> call read an indexed local file.</p>
+  <p><strong>TL;DR</strong>: XERJ ships an MCP server as <code class="inline">xerj mcp</code>. Install the latest XERJ, start a node, index a folder with <code class="inline">xerj autoindex</code>, then point the agent host at the binary with an absolute path. On main it serves 24 tools, and in a v1.0.0-rc.97 capture one <code class="inline">xerj_search</code> call read an indexed local file.</p>
   <div class="prompt-card">
     <span class="prompt-label">PASTE THIS TO YOUR AI AGENT — IT DOES THE REST</span>
     <code>Act as a coding agent. Read https://xerj.org/llms.txt, start a XERJ node with --insecure, index a local folder with xerj autoindex --prefix mcpdocs, add xerj mcp to your MCP host config with the absolute binary path and XERJ_URL, then call tools/list and one xerj_search over mcpdocs-* and report the ax_path of every hit instead of opening a file.</code>
@@ -258,7 +262,7 @@
   <p><code class="inline">xerj mcp</code> is a Model Context Protocol server that speaks newline-delimited JSON-RPC 2.0 over stdio and proxies its tools to a XERJ node over HTTP. The agent host launches the binary; the binary talks to the node you started.</p>
   <p>The command does not start a node. Start one first, otherwise every tool call fails at the HTTP hop.</p>
   <pre class="code"><code class="language-text">Speaks MCP over stdio (newline-delimited JSON-RPC 2.0 on stdin/stdout) and
-proxies 23 tools — xerj_def, xerj_batch_search, ... xerj_hub_ask — to a
+proxies 24 tools — xerj_def, xerj_batch_search, ... xerj_hub_ask — to a
 XERJ node that
 is ALREADY RUNNING. This command does not start a node; start one first with
 `xerj --insecure --data-dir ~/xerj-data`.
@@ -295,7 +299,7 @@ is ALREADY RUNNING. This command does not start a node; start one first with
 </code></pre>
   <p>The server also returns an <code class="inline">instructions</code> string that tells the agent which tool to reach for. Diagnostics go to stderr, so stdout carries only the JSON-RPC stream.</p>
   <h2>The tools, with their required arguments</h2>
-  <p>A live <code class="inline">tools/list</code> from v1.0.0-rc.97 (2026-10-19) returned 17 tools, and all 17 carried an <code class="inline">inputSchema</code>. The first capture for this page, in August 2026, returned 10. On main the list has 23 (20 in a build with no hub key), and <code class="inline">mcp-tools.json</code> carries every schema.</p>
+  <p>A live <code class="inline">tools/list</code> from v1.0.0-rc.97 (2026-10-19) returned 17 tools, and all 17 carried an <code class="inline">inputSchema</code>. The first capture for this page, in August 2026, returned 10. On main the list has 24 (21 in a build with no hub key), and <code class="inline">mcp-tools.json</code> carries every schema.</p>
   <table>
     <thead><tr><th>tool</th><th>required arguments</th></tr></thead>
     <tbody>
@@ -341,7 +345,7 @@ is ALREADY RUNNING. This command does not start a node; start one first with
 </code></pre>
   <p>A call against a missing index passes the node's own 404 <code class="inline">index_not_found_exception</code> body through verbatim. The hint beside it lists index names close to the one you asked for. A <code class="inline">ping</code> returns <code class="inline">{}</code>.</p>
   <h2>The published tool schemas are stale</h2>
-  <p>On main the binary serves 23 tools. The published <code class="inline">openai-tools.json</code> and <code class="inline">anthropic-tools.json</code> still list 6 (checked 2026-10-28), so 17 are missing: <code class="inline">xerj_status</code>, <code class="inline">xerj_def</code>, <code class="inline">xerj_batch_search</code>, the 4 <code class="inline">xerj_brain_*</code> tools, <code class="inline">xerj_map</code>, <code class="inline">xerj_index_budget</code>, <code class="inline">xerj_autoindex_remove</code>, <code class="inline">xerj_code_search</code>, <code class="inline">xerj_plan</code>, <code class="inline">xerj_field_report</code>, <code class="inline">xerj_corpus_feedback</code> and the 3 <code class="inline">xerj_hub_*</code> tools. The MCP schema at <code class="inline">/docs/agents/schemas/mcp-tools.json</code> lists all 23, and a test keeps it in step with the server source.</p>
+  <p>On main the binary serves 24 tools. The published <code class="inline">openai-tools.json</code> and <code class="inline">anthropic-tools.json</code> still list 6 (checked 2026-10-28), so 18 are missing: <code class="inline">xerj_sources</code>, <code class="inline">xerj_status</code>, <code class="inline">xerj_def</code>, <code class="inline">xerj_batch_search</code>, the 4 <code class="inline">xerj_brain_*</code> tools, <code class="inline">xerj_map</code>, <code class="inline">xerj_index_budget</code>, <code class="inline">xerj_autoindex_remove</code>, <code class="inline">xerj_code_search</code>, <code class="inline">xerj_plan</code>, <code class="inline">xerj_field_report</code>, <code class="inline">xerj_corpus_feedback</code> and the 3 <code class="inline">xerj_hub_*</code> tools. The MCP schema at <code class="inline">/docs/agents/schemas/mcp-tools.json</code> lists all 23, and a test keeps it in step with the server source.</p>
   <p>That is a documentation defect, confirmed against the source that generates the tool list. If you wire either vendor schema into an agent by hand, add the missing tools yourself or read <code class="inline">tools/list</code> from a live server instead.</p>
   <h2>What this setup does not give you</h2>
   <p>XERJ is single-node. The MCP server has no replication, no failover and no multi-region mode behind it. The agent depends on the one node you started.</p>
@@ -358,7 +362,7 @@ is ALREADY RUNNING. This command does not start a node; start one first with
   <h3>Does xerj mcp start a XERJ node?</h3>
   <p>No. <code class="inline">xerj mcp</code> proxies to a node that is already running. Start the node first with <code class="inline">xerj --data-dir ./data</code>, then point the MCP server at its URL.</p>
   <h3>How many tools does the XERJ MCP server expose?</h3>
-  <p>23 on main, or 20 in a build with no hub key, and every one carries an <code class="inline">inputSchema</code>: <code class="inline">xerj_search</code>, 3 more retrieval tools, <code class="inline">xerj_def</code>, <code class="inline">xerj_batch_search</code>, 2 memory tools, 4 brain tools, <code class="inline">xerj_status</code>, <code class="inline">xerj_map</code>, <code class="inline">xerj_index_budget</code>, <code class="inline">xerj_autoindex_remove</code>, <code class="inline">xerj_code_search</code>, <code class="inline">xerj_plan</code>, <code class="inline">xerj_field_report</code>, <code class="inline">xerj_corpus_feedback</code> and 3 Corpus Hub tools. A live <code class="inline">tools/list</code> from v1.0.0-rc.97 on 2026-10-19 returned 17, and the first capture, in August 2026, returned 10.</p>
+  <p>24 on main, or 21 in a build with no hub key, and every one carries an <code class="inline">inputSchema</code>: <code class="inline">xerj_search</code>, 3 more retrieval tools, <code class="inline">xerj_def</code>, <code class="inline">xerj_batch_search</code>, 2 memory tools, 4 brain tools, <code class="inline">xerj_status</code>, <code class="inline">xerj_map</code>, <code class="inline">xerj_index_budget</code>, <code class="inline">xerj_autoindex_remove</code>, <code class="inline">xerj_code_search</code>, <code class="inline">xerj_plan</code>, <code class="inline">xerj_field_report</code>, <code class="inline">xerj_corpus_feedback</code> and 3 Corpus Hub tools. A live <code class="inline">tools/list</code> from v1.0.0-rc.97 on 2026-10-19 returned 17, and the first capture, in August 2026, returned 10.</p>
   <h3>Why does my MCP host fail to launch xerj?</h3>
   <p>Use an absolute path in the <code class="inline">command</code> field. An MCP host launched from a desktop icon does not inherit your shell PATH, so a bare <code class="inline">xerj</code> fails there.</p>
   <h3>Can I restrict which indices the agent can read?</h3>
@@ -477,85 +481,84 @@ is ALREADY RUNNING. This command does not start a node; start one first with
   <div class="group">
     <span class="label">COMPARISONS</span>
     <a href="/compare/"><span class="eyebrow">00</span>All Comparisons</a>
-    <a href="/compare/xerj-vs-claude-mem-and-mempalace" class=""><span class="eyebrow">01</span>claude-mem vs MemPalace vs XERJ: which memory should Claude Code use?</a>
-    <a href="/compare/xerj-vs-agent-memory-tools" class=""><span class="eyebrow">02</span>XERJ vs agent memory tools: Mem0, Zep, Letta and Cognee</a>
-    <a href="/compare/xerj-vs-mem0" class=""><span class="eyebrow">03</span>XERJ vs Mem0: which memory fits your AI agent?</a>
-    <a href="/compare/xerj-vs-web-agent-search" class=""><span class="eyebrow">04</span>How do I let an agent search a folder on my laptop instead of crawling the web?</a>
-    <a href="/compare/xerj-vs-ast-grep" class=""><span class="eyebrow">05</span>ast-grep vs a code index for an agent?</a>
-    <a href="/compare/xerj-vs-ripgrep-for-code-agents" class=""><span class="eyebrow">06</span>Is ripgrep enough for a coding agent, or do I need a code index?</a>
-    <a href="/compare/best-grep-alternative-for-ai-coding-agents-2026" class=""><span class="eyebrow">07</span>The best grep and ripgrep alternatives for AI coding agents in 2026</a>
-    <a href="/compare/best-mcp-server-local-code-search-2026" class=""><span class="eyebrow">08</span>The best MCP servers for searching a local codebase in 2026</a>
-    <a href="/compare/best-local-full-text-search-jsonl-csv-2026" class=""><span class="eyebrow">09</span>The best local full-text search for JSONL and CSV files in 2026, with a published benchmark</a>
-    <a href="/compare/xerj-vs-ripgrep-all" class=""><span class="eyebrow">10</span>How do I grep PDFs and Word docs from the command line?</a>
-    <a href="/compare/xerj-vs-docfetcher" class=""><span class="eyebrow">11</span>What's a free DocFetcher alternative that an agent can call?</a>
-    <a href="/compare/xerj-vs-recoll" class=""><span class="eyebrow">12</span>What's the best local desktop search for a folder of PDFs and docs?</a>
-    <a href="/compare/xerj-vs-houdahspot" class=""><span class="eyebrow">13</span>XERJ vs HoudahSpot — Spotlight GUI vs an agent index</a>
-    <a href="/compare/xerj-vs-spotlight" class=""><span class="eyebrow">14</span>XERJ vs macOS Spotlight for folder content an agent can query</a>
-    <a href="/compare/xerj-vs-localsynapse" class=""><span class="eyebrow">15</span>What's a local MCP search engine for Claude?</a>
-    <a href="/compare/xerj-vs-elasticsearch-local" class=""><span class="eyebrow">16</span>Is there an Elasticsearch-compatible engine that isn't Elasticsearch?</a>
-    <a href="/compare/xerj-vs-obsidian-omnisearch" class=""><span class="eyebrow">17</span>How do I search an Obsidian vault from outside Obsidian?</a>
-    <a href="/compare/xerj-vs-khoj" class=""><span class="eyebrow">18</span>What's a simpler alternative to Khoj if I only need search and memory?</a>
-    <a href="/compare/xerj-vs-typesense" class=""><span class="eyebrow">19</span>Do I need Typesense for an agent to search my docs?</a>
-    <a href="/compare/best-lightweight-elasticsearch-compatible-server-2026" class=""><span class="eyebrow">20</span>The best lightweight Elasticsearch-compatible search servers in 2026</a>
-    <a href="/compare/xerj-vs-meilisearch" class=""><span class="eyebrow">21</span>What's a local alternative to Meilisearch that indexes a folder by itself?</a>
-    <a href="/compare/xerj-vs-pagefind" class=""><span class="eyebrow">22</span>Pagefind vs indexing a local HTML dump for an agent?</a>
-    <a href="/compare/xerj-vs-vector-database" class=""><span class="eyebrow">23</span>Should my agent call a search API or stand up Qdrant for persistent memory?</a>
+    <a href="/compare/ai-agent-memory-benchmark" class=""><span class="eyebrow">01</span>AI agent memory compared: real tests on 7 open-source projects</a>
+    <a href="/compare/xerj-vs-claude-mem-and-mempalace" class=""><span class="eyebrow">02</span>claude-mem vs MemPalace vs XERJ: which memory should Claude Code use?</a>
+    <a href="/compare/xerj-vs-agent-memory-tools" class=""><span class="eyebrow">03</span>XERJ vs agent memory tools: Mem0, Zep, Letta and Cognee</a>
+    <a href="/compare/xerj-vs-agentmemory" class=""><span class="eyebrow">04</span>XERJ vs agentmemory: which memory for your coding agent?</a>
+    <a href="/compare/xerj-vs-mcp-memory-service" class=""><span class="eyebrow">05</span>XERJ vs mcp-memory-service: two MCP memory servers, tested</a>
+    <a href="/compare/xerj-vs-mem0" class=""><span class="eyebrow">06</span>XERJ vs Mem0: which memory fits your AI agent?</a>
+    <a href="/compare/xerj-vs-memvid" class=""><span class="eyebrow">07</span>XERJ vs memvid: one memory file or one local server?</a>
+    <a href="/compare/xerj-vs-reme" class=""><span class="eyebrow">08</span>XERJ vs ReMe (Alibaba Tongyi Lab): a tested comparison</a>
+    <a href="/compare/xerj-vs-web-agent-search" class=""><span class="eyebrow">09</span>How do I let an agent search a folder on my laptop instead of crawling the web?</a>
+    <a href="/compare/xerj-vs-ast-grep" class=""><span class="eyebrow">10</span>ast-grep vs a code index for an agent?</a>
+    <a href="/compare/xerj-vs-ripgrep-for-code-agents" class=""><span class="eyebrow">11</span>Is ripgrep enough for a coding agent, or do I need a code index?</a>
+    <a href="/compare/best-grep-alternative-for-ai-coding-agents-2026" class=""><span class="eyebrow">12</span>The best grep and ripgrep alternatives for AI coding agents in 2026</a>
+    <a href="/compare/best-mcp-server-local-code-search-2026" class=""><span class="eyebrow">13</span>The best MCP servers for searching a local codebase in 2026</a>
+    <a href="/compare/best-local-full-text-search-jsonl-csv-2026" class=""><span class="eyebrow">14</span>The best local full-text search for JSONL and CSV files in 2026, with a published benchmark</a>
+    <a href="/compare/xerj-vs-ripgrep-all" class=""><span class="eyebrow">15</span>How do I grep PDFs and Word docs from the command line?</a>
+    <a href="/compare/xerj-vs-docfetcher" class=""><span class="eyebrow">16</span>What's a free DocFetcher alternative that an agent can call?</a>
+    <a href="/compare/xerj-vs-recoll" class=""><span class="eyebrow">17</span>What's the best local desktop search for a folder of PDFs and docs?</a>
+    <a href="/compare/xerj-vs-houdahspot" class=""><span class="eyebrow">18</span>XERJ vs HoudahSpot — Spotlight GUI vs an agent index</a>
+    <a href="/compare/xerj-vs-spotlight" class=""><span class="eyebrow">19</span>XERJ vs macOS Spotlight for folder content an agent can query</a>
+    <a href="/compare/xerj-vs-localsynapse" class=""><span class="eyebrow">20</span>What's a local MCP search engine for Claude?</a>
+    <a href="/compare/xerj-vs-elasticsearch-local" class=""><span class="eyebrow">21</span>Is there an Elasticsearch-compatible engine that isn't Elasticsearch?</a>
+    <a href="/compare/xerj-vs-obsidian-omnisearch" class=""><span class="eyebrow">22</span>How do I search an Obsidian vault from outside Obsidian?</a>
+    <a href="/compare/xerj-vs-khoj" class=""><span class="eyebrow">23</span>What's a simpler alternative to Khoj if I only need search and memory?</a>
+    <a href="/compare/xerj-vs-typesense" class=""><span class="eyebrow">24</span>Do I need Typesense for an agent to search my docs?</a>
+    <a href="/compare/best-lightweight-elasticsearch-compatible-server-2026" class=""><span class="eyebrow">25</span>The best lightweight Elasticsearch-compatible search servers in 2026</a>
+    <a href="/compare/xerj-vs-meilisearch" class=""><span class="eyebrow">26</span>What's a local alternative to Meilisearch that indexes a folder by itself?</a>
+    <a href="/compare/xerj-vs-pagefind" class=""><span class="eyebrow">27</span>Pagefind vs indexing a local HTML dump for an agent?</a>
+    <a href="/compare/xerj-vs-vector-database" class=""><span class="eyebrow">28</span>Should my agent call a search API or stand up Qdrant for persistent memory?</a>
   </div>
 </nav>
 </div>
 <!-- seo:footer-begin — generated by scripts/seo/fix_links.py · do not hand-edit -->
+<footer class="site-footer">
+<div class="sf-brand"><a href="/" class="brand">XERJ</a><p>The search engine built for AI agents.</p></div>
 <nav class="footer-map" aria-label="Site map">
   <div class="fm-col">
-    <span class="fm-h">PRODUCT</span>
-    <a href="/product">PRODUCT</a>
-    <a href="/architecture/">ARCHITECTURE</a>
-    <a href="/benchmarks/">BENCHMARKS</a>
-    <a href="/pricing/">PRICING</a>
-    <a href="/security/">SECURITY</a>
-    <a href="/playground">DASHBOARDS</a>
-    <a href="/demo/">REAL-DATA DEMO</a>
-    <a href="/aise-demo">PRODUCT TOUR</a>
+    <span class="fm-h">Product</span>
+    <a href="/product">Product overview</a>
+    <a href="/xerj-query-1">XERJ Query-1</a>
+    <a href="/case-studies/reference-coding">Reference coding</a>
+    <a href="/docs/recipes/zero-config-autoindex">Search files</a>
+    <a href="/docs/recipes/agentic-memory">Agent memory</a>
+    <a href="/integrations/cohere">On-prem with Cohere</a>
+    <a href="/use-cases">All use cases</a>
+    <a href="https://hub.xerj.org" rel="external">Corpus Hub</a>
   </div>
   <div class="fm-col">
-    <span class="fm-h">LEARN</span>
-    <a href="/answers/">ANSWERS</a>
-    <a href="/compare/">COMPARE</a>
-    <a href="/use-cases">USE CASES</a>
-    <a href="/case-studies">CASE STUDIES</a>
-    <a href="/industries/">INDUSTRIES</a>
-    <a href="/blog/">BLOG</a>
+    <span class="fm-h">Developers</span>
+    <a href="/docs/">Docs</a>
+    <a href="/docs/quickstart">Quickstart</a>
+    <a href="/docs/install">Install</a>
+    <a href="/for-agents">For AI agents</a>
+    <a href="/llms.txt">llms.txt</a>
+    <a href="/docs/migration-from-es">Migrate from Elasticsearch</a>
+    <a href="/answers/">Answers</a>
   </div>
   <div class="fm-col">
-    <span class="fm-h">SOLUTIONS</span>
-    <a href="/solutions/">SOLUTIONS</a>
-    <a href="/industries/finserv">FINANCIAL SERVICES</a>
-    <a href="/industries/public-sector">PUBLIC SECTOR</a>
-    <a href="/industries/healthcare">HEALTHCARE</a>
-    <a href="/industries/retail">RETAIL</a>
-    <a href="/use-cases/code-security-audit">AI CODE-SECURITY AUDIT</a>
-    <a href="/use-cases/semantic-analytics">SEMANTIC ANALYTICS</a>
-    <a href="/resources/">SALES KIT</a>
+    <span class="fm-h">Proof</span>
+    <a href="/benchmarks/">Benchmarks</a>
+    <a href="/benchmarks/elasticsearch">Elasticsearch scorecard</a>
+    <a href="/case-studies">Case studies</a>
+    <a href="/compare/">Comparisons</a>
+    <a href="/blog/">Blog</a>
   </div>
   <div class="fm-col">
-    <span class="fm-h">DOCS</span>
-    <a href="/docs/">DOCUMENTATION</a>
-    <a href="/docs/quickstart">QUICKSTART</a>
-    <a href="/docs/install">INSTALL</a>
-    <a href="/docs/migration-from-es">MIGRATE FROM ELASTICSEARCH</a>
-    <a href="/docs/recipes/">RECIPES</a>
-    <a href="/docs/agents/">DOCS FOR AI</a>
-    <a href="/for-agents">FOR AI AGENTS</a>
-    <a href="/agent-search/">AGENTIC SEARCH DEMO</a>
-    <a href="/llms.txt">LLMS.TXT</a>
-    <a href="https://github.com/xerj-org/xerj" rel="external">GITHUB</a>
+    <span class="fm-h">Project</span>
+    <a href="https://github.com/xerj-org/xerj" rel="external">GitHub</a>
+    <a href="https://github.com/xerj-org/xerj/releases" rel="external">Releases</a>
+    <a href="https://discord.com/invite/yetXFusXfs" rel="external">Discord</a>
+    <a href="https://x.com/xerj_org" rel="external">X</a>
+    <a href="/donate">Donate</a>
+    <a href="https://github.com/xerj-org/xerj/blob/main/SECURITY.md" rel="external">Security policy</a>
+    <a href="https://github.com/xerj-org/xerj/blob/main/LICENSE" rel="external">License (Apache-2.0)</a>
   </div>
 </nav>
-<!-- seo:footer-end -->
-<footer class="footer">
-  <span>XERJ.AI · ANSWERS</span>
-  <span>READ THE SOURCE</span>
-  <span><a href="/">HOME</a> · <a href="/product">PRODUCT</a> · <a href="/answers/">ANSWERS</a> · <a href="/playground">DASHBOARDS</a> &middot; <a href="/llms.txt">LLMS.TXT</a></span>
+<div class="footer-bar"><span>&copy; 2026 XERJ &middot; the engine is Apache-2.0</span><span class="theme"><button type="button" data-theme="day" class="active">Day</button><span class="dash">&middot;</span><button type="button" data-theme="night">Night</button></span></div>
 </footer>
+<!-- seo:footer-end -->
 <script src="/interact.js"></script>
 </body>
 </html>

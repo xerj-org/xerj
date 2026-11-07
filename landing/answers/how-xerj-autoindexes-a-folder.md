@@ -93,7 +93,7 @@ An agent answers from the returned passage and cites `ax_path`, rather than read
 
 ## Hand the indexed folder to an agent
 
-`xerj mcp` exposes the indexed folder to an agent host as a stdio tool server, serving 23 tools against a node that is already running. The agent sends a query and reads hits with file paths, instead of opening files one by one.
+`xerj mcp` exposes the indexed folder to an agent host as a stdio tool server, serving 24 tools against a node that is already running. The agent sends a query and reads hits with file paths, instead of opening files one by one.
 
 The node and the MCP server both run on your machine. No file content is uploaded, because the agent host calls a local process rather than a hosted API.
 

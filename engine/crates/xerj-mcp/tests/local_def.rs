@@ -221,8 +221,22 @@ async fn lookup(url: &str, arguments: Value) -> Value {
     serde_json::from_str(response["result"]["content"][0]["text"].as_str().unwrap()).unwrap()
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn local_def_returns_ranked_unique_declarations_in_the_requested_scope() {
+#[test]
+fn local_def_returns_ranked_unique_declarations_in_the_requested_scope() {
+    // This test serves the ES-compat router in process. Its handlers do not fit
+    // tokio's 2 MiB default worker stack in a debug build, which overflowed a
+    // plain `cargo test` (#2903). The server runtime is 4 MiB
+    // (`xerj-server`'s `RT_THREAD_STACK_SIZE`); match it.
+    let rt = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(2)
+        .thread_stack_size(4 * 1024 * 1024)
+        .enable_all()
+        .build()
+        .expect("runtime");
+    rt.block_on(local_def_returns_ranked_unique_declarations_in_the_requested_scope_inner());
+}
+
+async fn local_def_returns_ranked_unique_declarations_in_the_requested_scope_inner() {
     let tmp = tempfile::tempdir().unwrap();
     let mut config = xerj_common::config::Config::default();
     config.server.data_dir = tmp.path().join("data").to_string_lossy().into_owned();

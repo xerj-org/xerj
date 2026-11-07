@@ -896,6 +896,16 @@ pub fn build_es_compat_router_with_hub(
                 .delete(wal_tap_api::delete_wal_tap),
         )
         .route("/_xerj/wal_tap/_stats", get(wal_tap_api::wal_tap_stats))
+        // ── Live database sources (`xerj connect`) ───────────────────────────────
+        // Superuser only via the `/_xerj/*` rule in `authz.rs`: a source reads a
+        // whole database with credentials the node holds.
+        .route("/_xerj/sources", get(crate::sources_api::list_sources))
+        .route(
+            "/_xerj/sources/:name",
+            get(crate::sources_api::get_source)
+                .put(crate::sources_api::put_source)
+                .delete(crate::sources_api::delete_source),
+        )
         // ── Rerank provider status ─────────────────────────────────────────────────
         // Whether a rerank provider is configured — never the key. Superuser
         // only: it inherits the `/_xerj/*` rule in `authz.rs`.

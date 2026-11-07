@@ -179,6 +179,7 @@ fn is_top_level_command(arg: &str) -> bool {
             | "init"
             | "gain"
             | "autoindex"
+            | "sources"
             | "brain"
             | "share"
             | "feedback"
@@ -334,6 +335,7 @@ fn help_text(feedback: bool) -> String {
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20autoindex --help)\n\
          \x20\x20\x20\x20xerj autoindex map [folder]        data map of indexed data, or preview a folder\n\
          \x20\x20\x20\x20xerj autoindex remove --prefix <P>  drop one autoindexed folder, after a plan\n\
+         \x20\x20\x20\x20xerj sources --types [--json]       every way to get data in, one command each\n\
          \x20\x20\x20\x20xerj code <corpus> \"<query>\"        reference-coding retrieval over a corpus\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20of peer projects (see xerj code --help)\n\
          \x20\x20\x20\x20xerj corpus add|index|list          the corpus lifecycle behind `xerj code`\n\
@@ -457,6 +459,9 @@ fn help_text(feedback: bool) -> String {
          \x20\x20\x20\x20xerj index      <opts>          direct NDJSON → engine ingest (see xerj index --help)\n\
          \x20\x20\x20\x20xerj autoindex  <folder> [opts] zero-config folder discovery + indexing (see xerj autoindex --help)\n\
          \x20\x20\x20\x20xerj autoindex  map [folder]    data map of indexed data, or a read-only folder preview\n\
+         \x20\x20\x20\x20xerj connect    postgres://...  live database source: snapshot, then stream every\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20change in real time (see xerj connect --help)\n\
+         \x20\x20\x20\x20xerj sources    [name]          live sources on a node: state, lag, rows/s\n\
          \x20\x20\x20\x20xerj search     \"<text>\"         retrieve code/passages from a running node — the\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20query client, no wrapper scripts (see xerj search --help)\n\
          \x20\x20\x20\x20xerj def        \"<symbol>\"       go-to-definition: where is this symbol defined, and\n\
@@ -3830,13 +3835,13 @@ mod decide_flag_tests {
     #[test]
     fn help_counts_the_mcp_tools_actually_served() {
         // The count is `tool_specs()`, the same list `tools/list` returns:
-        // twenty without a hub key, twenty-three with the three hub tools.
+        // twenty-one without a hub key, twenty-four with the three hub tools.
         let served = super::mcp_tool_count();
         if xerj_common::hub::hub_key_configured() {
-            assert_eq!(served, 23, "tool_specs() with a hub key: {served}");
+            assert_eq!(served, 24, "tool_specs() with a hub key: {served}");
         } else {
             assert_eq!(
-                served, 20,
+                served, 21,
                 "a no-key process must not count the hub tools it does not serve"
             );
         }
@@ -4281,6 +4286,14 @@ async fn async_main() -> Result<()> {
             .unwrap_or(1);
         std::process::exit(code);
     }
+    if matches!(argv1.as_deref(), Some("sources"))
+        && std::env::args().nth(2).as_deref() == Some("--types")
+    {
+        // Every way to get data in, one command each (docs/SOURCES.md).
+        // Plain `xerj sources` lists the live sources connected to a node.
+        let rest: Vec<String> = std::env::args().skip(3).collect();
+        std::process::exit(xerj_autoindex::sources::run_cli(&rest));
+    }
     if matches!(argv1.as_deref(), Some("autoindex")) {
         // Zero-config folder discovery + indexing over the ES-compat API.
         // Fully synchronous internally — run it off the async runtime.
@@ -4338,6 +4351,22 @@ async fn async_main() -> Result<()> {
         // synchronous — off the runtime like `autoindex`.
         let args: Vec<String> = xerj_common::argv::args_after_subcommand();
         let code = tokio::task::spawn_blocking(move || xerj_autoindex::xc::run_corpus_cli(&args))
+            .await
+            .unwrap_or(1);
+        std::process::exit(code);
+    }
+    if matches!(argv1.as_deref(), Some("connect")) {
+        // Live database source: register it with a running node (blocking
+        // HTTP), then follow the snapshot until the source is live.
+        let args: Vec<String> = xerj_common::argv::args_after_subcommand();
+        let code = tokio::task::spawn_blocking(move || xerj_sources::cli::run_connect(&args))
+            .await
+            .unwrap_or(1);
+        std::process::exit(code);
+    }
+    if matches!(argv1.as_deref(), Some("sources")) {
+        let args: Vec<String> = xerj_common::argv::args_after_subcommand();
+        let code = tokio::task::spawn_blocking(move || xerj_sources::cli::run_sources(&args))
             .await
             .unwrap_or(1);
         std::process::exit(code);
@@ -5060,6 +5089,11 @@ async fn async_main() -> Result<()> {
         }
         tokio::spawn(xerj_engine::wal_tap::run(tap, engine));
     }
+
+    // 9b-3. Live database sources (`xerj connect`): resume every source stored
+    //       under <data_dir>/_sources. Each runs on its own thread and resumes
+    //       from its acknowledged LSN; none exist until one is added.
+    xerj_api::sources_api::start(&state);
 
     // 9c. Routers — engine and Xerj Console are *peer* surfaces.  Each crate
     //     builds a complete Router (routes + its own auth + its own

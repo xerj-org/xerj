@@ -1,0 +1,917 @@
+{
+ "system": "xerj",
+ "config": "bm25",
+ "k": 5,
+ "run_at": "2026-10-31T07:36:09+00:00",
+ "host": {
+  "python": "3.13.5",
+  "machine": "x86_64",
+  "cpus": 8
+ },
+ "meta": {
+  "version": "xerj v1.0.0-rc.100",
+  "commit": "release tag v1.0.0-rc.100",
+  "embedder": "none (BM25)",
+  "llm": null,
+  "llm_calls_per_write": 0,
+  "notes": "one node, --insecure, loopback, namespace per config; recall body: bm25",
+  "version_note": "server binary was the rc.100 release (ps confirms); the version string was first read from a different xerj on PATH and corrected"
+ },
+ "n_memories": 85,
+ "n_questions": 75,
+ "write_ms": [
+  175.75,
+  13.19,
+  15.65,
+  9.91,
+  7.73,
+  9.54,
+  11.14,
+  10.83,
+  10.86,
+  11.56,
+  8.5,
+  11.36,
+  12.31,
+  12.76,
+  9.7,
+  12.44,
+  10.98,
+  14.73,
+  12.72,
+  15.8,
+  7.95,
+  9.52,
+  10.21,
+  8.98,
+  9.0,
+  7.43,
+  8.88,
+  9.11,
+  11.25,
+  24.38,
+  21.99,
+  22.85,
+  17.64,
+  16.03,
+  58.51,
+  11.4,
+  13.78,
+  29.4,
+  15.37,
+  8.89,
+  12.14,
+  11.82,
+  19.72,
+  14.52,
+  14.92,
+  9.23,
+  12.17,
+  9.02,
+  9.77,
+  13.28,
+  14.1,
+  20.6,
+  13.69,
+  12.24,
+  10.28,
+  9.05,
+  11.31,
+  13.0,
+  14.58,
+  9.66,
+  14.74,
+  10.35,
+  10.45,
+  9.59,
+  15.03,
+  10.48,
+  12.12,
+  9.76,
+  9.76,
+  7.4,
+  8.34,
+  8.07,
+  8.74,
+  13.9,
+  9.61,
+  8.84,
+  12.81,
+  7.66,
+  10.43,
+  7.11,
+  12.38,
+  13.16,
+  6.7,
+  12.06,
+  9.72
+ ],
+ "ingest_total_s": 1.28,
+ "questions": [
+  {
+   "id": "e01",
+   "hits": [
+    "Dana prefers pnpm over npm for JavaScript projects.",
+    "Dana is vegetarian.",
+    "Dana is allergic to peanuts.",
+    "Dana works on Lisbon time.",
+    "Dana dislikes long standup meetings."
+   ],
+   "ms": 4.85
+  },
+  {
+   "id": "e02",
+   "hits": [
+    "The main database for Lark is PostgreSQL 16.",
+    "The staging database for Lark is MySQL 8.",
+    "The Lark 2.0 launch is planned for March 12.",
+    "The Slack channel for incidents is #lark-fire.",
+    "The Lark design system is called Pebble."
+   ],
+   "ms": 4.06
+  },
+  {
+   "id": "e03",
+   "hits": [
+    "Dana is allergic to peanuts.",
+    "Dana now reports to Tomas Lindqvist.",
+    "Dana is vegetarian.",
+    "Dana switched her code editor to Zed.",
+    "Dana expects code reviews to be done the same day."
+   ],
+   "ms": 4.34
+  },
+  {
+   "id": "e04",
+   "hits": [
+    "The staging cluster runs in the eu-west-3 region.",
+    "The staging database for Lark is MySQL 8.",
+    "Background jobs run on Sidekiq.",
+    "Database backups run nightly at 02:00 UTC.",
+    "The Lark API listens on port 8443 in production."
+   ],
+   "ms": 3.77
+  },
+  {
+   "id": "e05",
+   "hits": [
+    "Lark's frontend is written in Svelte.",
+    "Dana wants commit messages written in the imperative mood.",
+    "Lark's search feature is backed by OpenSearch.",
+    "Lark's mascot is a blue heron named Hugo.",
+    "Lark's source code is released under MPL-2.0."
+   ],
+   "ms": 5.12
+  },
+  {
+   "id": "e06",
+   "hits": [
+    "Error tracking for Lark goes to Sentry.",
+    "The main database for Lark is PostgreSQL 16.",
+    "The Lark 2.0 launch is planned for March 12.",
+    "The Slack channel for incidents is #lark-fire.",
+    "The staging database for Lark is MySQL 8."
+   ],
+   "ms": 4.08
+  },
+  {
+   "id": "e07",
+   "hits": [
+    "Dana's cat is named Biscuit.",
+    "Priya's cat is named Pixel.",
+    "Lark's mascot is a blue heron named Hugo.",
+    "Dana's manager is Priya Raman.",
+    "Dana's terminal app is WezTerm."
+   ],
+   "ms": 4.43
+  },
+  {
+   "id": "e08",
+   "hits": [
+    "The test suite must finish in under 12 minutes.",
+    "Customer data must stay inside the EU because of GDPR.",
+    "The staging cluster runs in the eu-west-3 region.",
+    "The analytics warehouse is ClickHouse.",
+    "The monorepo is built with Turborepo."
+   ],
+   "ms": 8.52
+  },
+  {
+   "id": "e09",
+   "hits": [
+    "The billing service uses Stripe for card payments.",
+    "Lark's Python services use Poetry for dependency management.",
+    "The Node services use Prisma as their ORM.",
+    "The auth service issues JWTs that expire after 15 minutes.",
+    "The main database for Lark is PostgreSQL 16."
+   ],
+   "ms": 5.29
+  },
+  {
+   "id": "e10",
+   "hits": [
+    "The Lark mobile app is built with Flutter.",
+    "The monorepo is built with Turborepo.",
+    "The mobile app has a rate limit of 100 requests per minute.",
+    "Dana's terminal app is WezTerm.",
+    "The Lark design system is called Pebble."
+   ],
+   "ms": 6.09
+  },
+  {
+   "id": "e11",
+   "hits": [
+    "The Lark design system is called Pebble.",
+    "The main database for Lark is PostgreSQL 16.",
+    "The Lark mobile app is built with Flutter.",
+    "The load balancer in front of Lark is HAProxy.",
+    "The Lark 2.0 launch is planned for March 12."
+   ],
+   "ms": 5.65
+  },
+  {
+   "id": "e12",
+   "hits": [
+    "Lark's public docs are hosted on Mintlify.",
+    "Feature flags are managed in LaunchDarkly.",
+    "Secrets are stored in HashiCorp Vault.",
+    "Application logs are retained for 30 days.",
+    "Product images are served from Cloudflare Images."
+   ],
+   "ms": 5.98
+  },
+  {
+   "id": "e13",
+   "hits": [
+    "The analytics warehouse is ClickHouse.",
+    "The monorepo is built with Turborepo.",
+    "The Lark design system is called Pebble.",
+    "The support inbox address is help@lark.example.",
+    "The Redis cache TTL is 300 seconds."
+   ],
+   "ms": 7.73
+  },
+  {
+   "id": "e14",
+   "hits": [
+    "The support inbox address is help@lark.example.",
+    "The analytics warehouse is ClickHouse.",
+    "The monorepo is built with Turborepo.",
+    "The Lark design system is called Pebble.",
+    "The Redis cache TTL is 300 seconds."
+   ],
+   "ms": 7.26
+  },
+  {
+   "id": "e15",
+   "hits": [
+    "Dana's daughter Mia has swim practice on Wednesdays.",
+    "Dana expects code reviews to be done the same day.",
+    "Dana's manager is Priya Raman.",
+    "Dana's cat is named Biscuit.",
+    "Dana's sister lives in Porto."
+   ],
+   "ms": 3.41
+  },
+  {
+   "id": "e16",
+   "hits": [
+    "The load balancer in front of Lark is HAProxy.",
+    "The Lark API listens on port 8443 in production.",
+    "Change: the Lark API now listens on port 9443 in production.",
+    "Customer data must stay inside the EU because of GDPR.",
+    "The Lark design system is called Pebble."
+   ],
+   "ms": 4.53
+  },
+  {
+   "id": "e17",
+   "hits": [
+    "Background jobs run on Sidekiq.",
+    "Database backups run nightly at 02:00 UTC.",
+    "Dana works on Lisbon time.",
+    "Team video calls happen on Whereby.",
+    "The marketing website deploys on Fridays."
+   ],
+   "ms": 4.91
+  },
+  {
+   "id": "e18",
+   "hits": [
+    "Dana's GitHub handle is dana-codes.",
+    "The Lark CI pipeline moved to GitHub Actions.",
+    "Dana's manager is Priya Raman.",
+    "Dana's cat is named Biscuit.",
+    "Dana's terminal app is WezTerm."
+   ],
+   "ms": 5.9
+  },
+  {
+   "id": "e19",
+   "hits": [
+    "The Redis cache TTL is 300 seconds.",
+    "The analytics warehouse is ClickHouse.",
+    "The monorepo is built with Turborepo.",
+    "The Lark design system is called Pebble.",
+    "The support inbox address is help@lark.example."
+   ],
+   "ms": 2.49
+  },
+  {
+   "id": "e20",
+   "hits": [
+    "The Slack channel for incidents is #lark-fire.",
+    "The main database for Lark is PostgreSQL 16.",
+    "The Lark 2.0 launch is planned for March 12.",
+    "The p95 latency target for search is 200 ms.",
+    "The staging database for Lark is MySQL 8."
+   ],
+   "ms": 3.42
+  },
+  {
+   "id": "e21",
+   "hits": [
+    "Secrets are stored in HashiCorp Vault.",
+    "Feature flags are managed in LaunchDarkly.",
+    "Application logs are retained for 30 days.",
+    "Lark's public docs are hosted on Mintlify.",
+    "Product images are served from Cloudflare Images."
+   ],
+   "ms": 3.71
+  },
+  {
+   "id": "e22",
+   "hits": [
+    "Transactional email is sent through Postmark.",
+    "Dana is vegetarian.",
+    "Dana is allergic to peanuts.",
+    "Dana's manager is Priya Raman.",
+    "Dana's cat is named Biscuit."
+   ],
+   "ms": 4.37
+  },
+  {
+   "id": "e23",
+   "hits": [
+    "The monorepo is built with Turborepo.",
+    "The Lark mobile app is built with Flutter.",
+    "The analytics warehouse is ClickHouse.",
+    "The Lark design system is called Pebble.",
+    "The support inbox address is help@lark.example."
+   ],
+   "ms": 2.69
+  },
+  {
+   "id": "e24",
+   "hits": [
+    "Database backups run nightly at 02:00 UTC.",
+    "Background jobs run on Sidekiq.",
+    "The main database for Lark is PostgreSQL 16.",
+    "The staging database for Lark is MySQL 8."
+   ],
+   "ms": 3.28
+  },
+  {
+   "id": "e25",
+   "hits": [
+    "Lark's mascot is a blue heron named Hugo.",
+    "Lark's frontend is written in Svelte.",
+    "Lark's search feature is backed by OpenSearch.",
+    "Lark's source code is released under MPL-2.0.",
+    "Lark's public docs are hosted on Mintlify."
+   ],
+   "ms": 2.0
+  },
+  {
+   "id": "p01",
+   "hits": [
+    "Lark's Python services use Poetry for dependency management.",
+    "Dana's manager is Priya Raman.",
+    "Dana's work laptop is a ThinkPad X1 Carbon.",
+    "The Node services use Prisma as their ORM.",
+    "Error tracking for Lark goes to Sentry."
+   ],
+   "ms": 6.45
+  },
+  {
+   "id": "p02",
+   "hits": [],
+   "ms": 0.88
+  },
+  {
+   "id": "p03",
+   "hits": [
+    "Dana is allergic to peanuts.",
+    "Dana expects code reviews to be done the same day.",
+    "Dana now reports to Tomas Lindqvist.",
+    "Dana is vegetarian.",
+    "Dana switched her code editor to Zed."
+   ],
+   "ms": 2.16
+  },
+  {
+   "id": "p04",
+   "hits": [
+    "The staging cluster runs in the eu-west-3 region.",
+    "The analytics warehouse is ClickHouse.",
+    "The monorepo is built with Turborepo.",
+    "The status page lives at status.lark.example.",
+    "The marketing website deploys on Fridays."
+   ],
+   "ms": 2.72
+  },
+  {
+   "id": "p05",
+   "hits": [
+    "Dana now reports to Tomas Lindqvist.",
+    "Lark is translated into English, Portuguese and Japanese.",
+    "Dana relocated and now works on Berlin time."
+   ],
+   "ms": 3.91
+  },
+  {
+   "id": "p06",
+   "hits": [
+    "The load balancer in front of Lark is HAProxy.",
+    "Customer data must stay inside the EU because of GDPR.",
+    "Dana uses Neovim as her code editor.",
+    "Dana switched her code editor to Zed.",
+    "The mobile app has a rate limit of 100 requests per minute."
+   ],
+   "ms": 8.76
+  },
+  {
+   "id": "p07",
+   "hits": [
+    "Dana uses Neovim as her code editor.",
+    "Dana switched her code editor to Zed.",
+    "Dana is vegetarian.",
+    "Dana is allergic to peanuts.",
+    "Dana works on Lisbon time."
+   ],
+   "ms": 4.35
+  },
+  {
+   "id": "p08",
+   "hits": [
+    "The billing service uses Stripe for card payments."
+   ],
+   "ms": 2.67
+  },
+  {
+   "id": "p09",
+   "hits": [
+    "The status page lives at status.lark.example.",
+    "The Node services use Prisma as their ORM.",
+    "The on-call rotation hands over every Monday at 9am.",
+    "Lark's Python services use Poetry for dependency management.",
+    "Database backups run nightly at 02:00 UTC."
+   ],
+   "ms": 5.95
+  },
+  {
+   "id": "p10",
+   "hits": [
+    "Lark is translated into English, Portuguese and Japanese.",
+    "Dana relocated and now works on Berlin time.",
+    "Production Kubernetes was upgraded to 1.33.",
+    "The Lark API rate limit was raised to 1200 requests per minute per key.",
+    "Dana's old personal laptop was a MacBook Air."
+   ],
+   "ms": 1.93
+  },
+  {
+   "id": "p11",
+   "hits": [
+    "Application log retention was extended to 90 days."
+   ],
+   "ms": 3.1
+  },
+  {
+   "id": "p12",
+   "hits": [
+    "Dana's favorite programming language is Rust.",
+    "Dana wants commit messages written in the imperative mood.",
+    "Dana's sister lives in Porto.",
+    "Lark's frontend is written in Svelte.",
+    "Feature flags are managed in LaunchDarkly."
+   ],
+   "ms": 5.09
+  },
+  {
+   "id": "p13",
+   "hits": [
+    "Dana expects code reviews to be done the same day.",
+    "Dana's work laptop is a ThinkPad X1 Carbon.",
+    "Lark's mascot is a blue heron named Hugo.",
+    "Dana runs a 10k every Saturday morning.",
+    "Dana's old personal laptop was a MacBook Air."
+   ],
+   "ms": 1.69
+  },
+  {
+   "id": "p14",
+   "hits": [
+    "Dana's manager is Priya Raman.",
+    "Dana's cat is named Biscuit.",
+    "Dana's sister lives in Porto.",
+    "Dana's terminal app is WezTerm.",
+    "Dana's favorite programming language is Rust."
+   ],
+   "ms": 1.76
+  },
+  {
+   "id": "p15",
+   "hits": [
+    "Dana dislikes long standup meetings.",
+    "Dana expects code reviews to be done the same day.",
+    "Dana runs a 10k every Saturday morning.",
+    "The monorepo is built with Turborepo.",
+    "The on-call rotation hands over every Monday at 9am."
+   ],
+   "ms": 2.96
+  },
+  {
+   "id": "p16",
+   "hits": [
+    "Dana is vegetarian.",
+    "Dana is allergic to peanuts.",
+    "Dana works on Lisbon time.",
+    "Dana dislikes long standup meetings.",
+    "Dana drinks oat milk flat whites."
+   ],
+   "ms": 4.37
+  },
+  {
+   "id": "p17",
+   "hits": [
+    "The support inbox address is help@lark.example.",
+    "Product images are served from Cloudflare Images.",
+    "The staging cluster runs in the eu-west-3 region.",
+    "The analytics warehouse is ClickHouse.",
+    "The monorepo is built with Turborepo."
+   ],
+   "ms": 5.95
+  },
+  {
+   "id": "p18",
+   "hits": [
+    "Lark is translated into English, Portuguese and Japanese.",
+    "Dana relocated and now works on Berlin time.",
+    "The Lark API listens on port 8443 in production.",
+    "The internal admin API listens on port 7001.",
+    "Change: the Lark API now listens on port 9443 in production."
+   ],
+   "ms": 7.55
+  },
+  {
+   "id": "p19",
+   "hits": [
+    "The status page lives at status.lark.example.",
+    "The on-call rotation hands over every Monday at 9am.",
+    "Database backups run nightly at 02:00 UTC.",
+    "The staging cluster runs in the eu-west-3 region.",
+    "The analytics warehouse is ClickHouse."
+   ],
+   "ms": 10.59
+  },
+  {
+   "id": "p20",
+   "hits": [
+    "Dana prefers pnpm over npm for JavaScript projects.",
+    "Dana's brother prefers yarn for his JavaScript projects.",
+    "Dana's desk moved to the 3rd floor.",
+    "The Lark CI pipeline moved to GitHub Actions.",
+    "The Lark 2.0 launch moved to April 2."
+   ],
+   "ms": 5.06
+  },
+  {
+   "id": "p21",
+   "hits": [
+    "Dana runs a 10k every Saturday morning.",
+    "Dana's work laptop is a ThinkPad X1 Carbon.",
+    "Lark's mascot is a blue heron named Hugo.",
+    "Dana's old personal laptop was a MacBook Air.",
+    "The mobile app has a rate limit of 100 requests per minute."
+   ],
+   "ms": 3.96
+  },
+  {
+   "id": "p22",
+   "hits": [
+    "The staging cluster runs in the eu-west-3 region.",
+    "The analytics warehouse is ClickHouse.",
+    "The monorepo is built with Turborepo.",
+    "The status page lives at status.lark.example.",
+    "The marketing website deploys on Fridays."
+   ],
+   "ms": 6.94
+  },
+  {
+   "id": "p23",
+   "hits": [
+    "Dana's team moved production deploys to Tuesdays.",
+    "Dana's desk moved to the 3rd floor.",
+    "Dana's manager is Priya Raman.",
+    "Dana's cat is named Biscuit.",
+    "Dana's terminal app is WezTerm."
+   ],
+   "ms": 2.8
+  },
+  {
+   "id": "p24",
+   "hits": [
+    "The p95 latency target for search is 200 ms.",
+    "Search query logs are retained for 7 days.",
+    "The Lark API rate limit is 600 requests per minute per key.",
+    "The mobile app has a rate limit of 100 requests per minute.",
+    "The Lark API rate limit was raised to 1200 requests per minute per key."
+   ],
+   "ms": 3.61
+  },
+  {
+   "id": "p25",
+   "hits": [
+    "Lark's source code is released under MPL-2.0.",
+    "The test suite must finish in under 12 minutes.",
+    "Dana expects code reviews to be done the same day.",
+    "Dana uses Neovim as her code editor.",
+    "Dana switched her code editor to Zed."
+   ],
+   "ms": 1.65
+  },
+  {
+   "id": "t02",
+   "hits": [
+    "The Lark API listens on port 8443 in production.",
+    "Change: the Lark API now listens on port 9443 in production.",
+    "The internal admin API listens on port 7001.",
+    "The load balancer in front of Lark is HAProxy.",
+    "Dana's team deploys to production on Thursdays after the 2pm review."
+   ],
+   "ms": 2.69
+  },
+  {
+   "id": "t03",
+   "hits": [
+    "Dana's team moved production deploys to Tuesdays.",
+    "Dana's team deploys to production on Thursdays after the 2pm review.",
+    "Dana expects code reviews to be done the same day.",
+    "Production Kubernetes was upgraded to 1.33.",
+    "Dana's desk moved to the 3rd floor."
+   ],
+   "ms": 8.69
+  },
+  {
+   "id": "t06",
+   "hits": [
+    "Dana's manager is Priya Raman.",
+    "Dana's cat is named Biscuit.",
+    "Dana's terminal app is WezTerm.",
+    "Dana's favorite programming language is Rust.",
+    "Dana's GitHub handle is dana-codes."
+   ],
+   "ms": 7.44
+  },
+  {
+   "id": "t09",
+   "hits": [
+    "Dana uses Neovim as her code editor.",
+    "Dana switched her code editor to Zed.",
+    "Dana expects code reviews to be done the same day.",
+    "Lark's Python services use Poetry for dependency management.",
+    "The Node services use Prisma as their ORM."
+   ],
+   "ms": 4.73
+  },
+  {
+   "id": "t13",
+   "hits": [
+    "The Lark CI pipeline runs on Buildkite.",
+    "The Lark CI pipeline moved to GitHub Actions.",
+    "Background jobs run on Sidekiq.",
+    "Database backups run nightly at 02:00 UTC.",
+    "The Lark design system is called Pebble."
+   ],
+   "ms": 3.2
+  },
+  {
+   "id": "t17",
+   "hits": [
+    "Lark's search feature is backed by OpenSearch.",
+    "Lark's search feature now runs on Typesense.",
+    "The p95 latency target for search is 200 ms.",
+    "Lark's frontend is written in Svelte.",
+    "Feature flags moved to Unleash."
+   ],
+   "ms": 3.51
+  },
+  {
+   "id": "t20",
+   "hits": [
+    "Feature flags are managed in LaunchDarkly.",
+    "Feature flags moved to Unleash.",
+    "Lark's search feature is backed by OpenSearch.",
+    "Lark's search feature now runs on Typesense.",
+    "Secrets are stored in HashiCorp Vault."
+   ],
+   "ms": 1.78
+  },
+  {
+   "id": "t22",
+   "hits": [
+    "Application logs are retained for 30 days.",
+    "Search query logs are retained for 7 days.",
+    "Dana dislikes long standup meetings.",
+    "Application log retention was extended to 90 days.",
+    "Feature flags are managed in LaunchDarkly."
+   ],
+   "ms": 0.93
+  },
+  {
+   "id": "t23",
+   "hits": [
+    "Dana's work laptop is a ThinkPad X1 Carbon.",
+    "Dana works on Lisbon time.",
+    "Dana relocated and now works on Berlin time.",
+    "Dana is vegetarian.",
+    "Dana is allergic to peanuts."
+   ],
+   "ms": 1.44
+  },
+  {
+   "id": "t31",
+   "hits": [
+    "Auth JWTs now expire after 60 minutes.",
+    "The auth service issues JWTs that expire after 15 minutes."
+   ],
+   "ms": 4.13
+  },
+  {
+   "id": "t33",
+   "hits": [
+    "Lark's Python services use Poetry for dependency management.",
+    "Lark's Python services switched to uv for dependency management.",
+    "The Node services use Prisma as their ORM.",
+    "Lark's frontend is written in Svelte.",
+    "Lark's search feature is backed by OpenSearch."
+   ],
+   "ms": 6.9
+  },
+  {
+   "id": "t37",
+   "hits": [
+    "The Lark 2.0 launch is planned for March 12.",
+    "The Lark 2.0 launch moved to April 2.",
+    "Lark's source code is released under MPL-2.0.",
+    "The Lark design system is called Pebble.",
+    "The main database for Lark is PostgreSQL 16."
+   ],
+   "ms": 5.57
+  },
+  {
+   "id": "t44",
+   "hits": [
+    "Dana's desk is on the 7th floor.",
+    "Dana's desk moved to the 3rd floor.",
+    "Dana's daughter Mia has swim practice on Wednesdays.",
+    "Dana's manager is Priya Raman.",
+    "Dana's cat is named Biscuit."
+   ],
+   "ms": 2.09
+  },
+  {
+   "id": "t45",
+   "hits": [
+    "The Lark API rate limit is 600 requests per minute per key.",
+    "The Lark API rate limit was raised to 1200 requests per minute per key.",
+    "The mobile app has a rate limit of 100 requests per minute.",
+    "The Lark API listens on port 8443 in production.",
+    "Change: the Lark API now listens on port 9443 in production."
+   ],
+   "ms": 2.94
+  },
+  {
+   "id": "t52",
+   "hits": [
+    "Production runs Kubernetes 1.31.",
+    "Production Kubernetes was upgraded to 1.33.",
+    "The Lark API listens on port 8443 in production.",
+    "The staging cluster runs in the eu-west-3 region.",
+    "Change: the Lark API now listens on port 9443 in production."
+   ],
+   "ms": 7.73
+  },
+  {
+   "id": "x01",
+   "hits": [
+    "The staging database for Lark is MySQL 8.",
+    "The main database for Lark is PostgreSQL 16.",
+    "The Lark 2.0 launch is planned for March 12.",
+    "The Slack channel for incidents is #lark-fire.",
+    "The staging cluster runs in the eu-west-3 region."
+   ],
+   "ms": 1.07
+  },
+  {
+   "id": "x02",
+   "hits": [
+    "Dana's manager is Priya Raman.",
+    "Dana's brother prefers yarn for his JavaScript projects.",
+    "Dana's cat is named Biscuit.",
+    "Dana's sister lives in Porto.",
+    "Dana's terminal app is WezTerm."
+   ],
+   "ms": 2.34
+  },
+  {
+   "id": "x03",
+   "hits": [
+    "The internal admin API listens on port 7001.",
+    "The Lark API listens on port 8443 in production.",
+    "Change: the Lark API now listens on port 9443 in production.",
+    "The Lark API rate limit is 600 requests per minute per key.",
+    "The Lark API rate limit was raised to 1200 requests per minute per key."
+   ],
+   "ms": 1.8
+  },
+  {
+   "id": "x04",
+   "hits": [
+    "The marketing website deploys on Fridays.",
+    "Dana expects code reviews to be done the same day.",
+    "The staging cluster runs in the eu-west-3 region.",
+    "The analytics warehouse is ClickHouse.",
+    "The monorepo is built with Turborepo."
+   ],
+   "ms": 3.21
+  },
+  {
+   "id": "x05",
+   "hits": [
+    "Priya's cat is named Pixel.",
+    "Dana's cat is named Biscuit.",
+    "Lark's mascot is a blue heron named Hugo.",
+    "Dana is vegetarian.",
+    "Dana is allergic to peanuts."
+   ],
+   "ms": 1.84
+  },
+  {
+   "id": "x06",
+   "hits": [
+    "Search query logs are retained for 7 days.",
+    "Application logs are retained for 30 days.",
+    "Dana dislikes long standup meetings.",
+    "Lark's search feature is backed by OpenSearch.",
+    "Lark's search feature now runs on Typesense."
+   ],
+   "ms": 2.09
+  },
+  {
+   "id": "x07",
+   "hits": [
+    "The mobile app has a rate limit of 100 requests per minute.",
+    "The Lark API rate limit is 600 requests per minute per key.",
+    "The Lark API rate limit was raised to 1200 requests per minute per key.",
+    "The Lark mobile app is built with Flutter.",
+    "The analytics warehouse is ClickHouse."
+   ],
+   "ms": 1.08
+  },
+  {
+   "id": "x08",
+   "hits": [
+    "The data team uses DuckDB for local analysis.",
+    "Lark's Python services use Poetry for dependency management.",
+    "The Node services use Prisma as their ORM.",
+    "Customer data must stay inside the EU because of GDPR.",
+    "Dana's team deploys to production on Thursdays after the 2pm review."
+   ],
+   "ms": 3.5
+  },
+  {
+   "id": "x09",
+   "hits": [
+    "Dana's old personal laptop was a MacBook Air.",
+    "Dana's work laptop is a ThinkPad X1 Carbon.",
+    "Production Kubernetes was upgraded to 1.33.",
+    "Application log retention was extended to 90 days.",
+    "The Lark API rate limit was raised to 1200 requests per minute per key."
+   ],
+   "ms": 2.26
+  },
+  {
+   "id": "x10",
+   "hits": [
+    "Mia's school is on Rua das Flores.",
+    "Dana's desk is on the 7th floor.",
+    "Dana works on Lisbon time.",
+    "Background jobs run on Sidekiq.",
+    "Team video calls happen on Whereby."
+   ],
+   "ms": 1.08
+  }
+ ]
+}

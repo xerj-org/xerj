@@ -956,9 +956,9 @@ dependencies = [
 
 [[package]]
 name = "calamine"
-version = "0.37.0"
+version = "0.38.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c9ca341b94bc4b29e08970b1a03914fad2dfe177e2ecb67fcd6de9046004aafb"
+checksum = "f431b67cba6122a1f7d26b7adafc71bbdf07026095fe811f5efc025d8748e1d8"
 dependencies = [
  "atoi_simd",
  "byteorder",
@@ -1897,6 +1897,12 @@ checksum = "f1a05365e3b1c6d1650318537c7460c6923f1abdd272ad6842baa2b509957a06"
 dependencies = [
  "num-traits",
 ]
+
+[[package]]
+name = "fallible-iterator"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4443176a9f2c162692bd3d352d745ef9413eec5782a80d8fd6f8a1ac692a07f7"
 
 [[package]]
 name = "fallible-iterator"
@@ -4181,6 +4187,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "postgres-protocol"
+version = "0.6.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "08808e3c483c46e999108051c78334f473d5adb59d78bb80a1268c7e6aa6c514"
+dependencies = [
+ "base64 0.22.1",
+ "byteorder",
+ "bytes",
+ "fallible-iterator 0.2.0",
+ "hmac 0.13.0",
+ "md-5",
+ "memchr",
+ "rand 0.10.2",
+ "sha2 0.11.0",
+ "stringprep",
+]
+
+[[package]]
 name = "potential_utf"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4899,7 +4923,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7753b721174eb8ff87a9a0e799e2d7bc3749323e773db92e0984debb00019d6e"
 dependencies = [
  "bitflags 2.11.1",
- "fallible-iterator",
+ "fallible-iterator 0.3.0",
  "fallible-streaming-iterator",
  "hashlink",
  "libsqlite3-sys",
@@ -7401,7 +7425,7 @@ dependencies = [
 
 [[package]]
 name = "xerj-ai"
-version = "1.0.0-rc.100"
+version = "1.0.0-rc.102"
 dependencies = [
  "anyhow",
  "candle-core",
@@ -7424,7 +7448,7 @@ dependencies = [
 
 [[package]]
 name = "xerj-api"
-version = "1.0.0-rc.100"
+version = "1.0.0-rc.102"
 dependencies = [
  "anyhow",
  "argon2",
@@ -7456,13 +7480,14 @@ dependencies = [
  "xerj-hub",
  "xerj-query",
  "xerj-rerank",
+ "xerj-sources",
  "xerj-wasm",
  "xxhash-rust",
 ]
 
 [[package]]
 name = "xerj-autoindex"
-version = "1.0.0-rc.100"
+version = "1.0.0-rc.102"
 dependencies = [
  "anyhow",
  "aws-sdk-s3",
@@ -7494,6 +7519,7 @@ dependencies = [
  "sha2 0.10.9",
  "simd-json",
  "streaming-iterator",
+ "tar",
  "tempfile",
  "tokio",
  "toml",
@@ -7545,7 +7571,7 @@ dependencies = [
 
 [[package]]
 name = "xerj-cluster"
-version = "1.0.0-rc.100"
+version = "1.0.0-rc.102"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -7570,7 +7596,7 @@ dependencies = [
 
 [[package]]
 name = "xerj-common"
-version = "1.0.0-rc.100"
+version = "1.0.0-rc.102"
 dependencies = [
  "anyhow",
  "byteorder",
@@ -7592,7 +7618,7 @@ dependencies = [
 
 [[package]]
 name = "xerj-compress"
-version = "1.0.0-rc.100"
+version = "1.0.0-rc.102"
 dependencies = [
  "byteorder",
  "bytes",
@@ -7605,7 +7631,7 @@ dependencies = [
 
 [[package]]
 name = "xerj-console-api"
-version = "1.0.0-rc.100"
+version = "1.0.0-rc.102"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -7641,7 +7667,7 @@ dependencies = [
 
 [[package]]
 name = "xerj-engine"
-version = "1.0.0-rc.100"
+version = "1.0.0-rc.102"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -7697,7 +7723,7 @@ dependencies = [
 
 [[package]]
 name = "xerj-fts"
-version = "1.0.0-rc.100"
+version = "1.0.0-rc.102"
 dependencies = [
  "anyhow",
  "bitpacking",
@@ -7724,7 +7750,7 @@ dependencies = [
 
 [[package]]
 name = "xerj-hub"
-version = "1.0.0-rc.100"
+version = "1.0.0-rc.102"
 dependencies = [
  "anyhow",
  "axum",
@@ -7748,7 +7774,7 @@ dependencies = [
 
 [[package]]
 name = "xerj-logs"
-version = "1.0.0-rc.100"
+version = "1.0.0-rc.102"
 dependencies = [
  "anyhow",
  "byteorder",
@@ -7766,7 +7792,7 @@ dependencies = [
 
 [[package]]
 name = "xerj-mcp"
-version = "1.0.0-rc.100"
+version = "1.0.0-rc.102"
 dependencies = [
  "anyhow",
  "axum",
@@ -7787,7 +7813,7 @@ dependencies = [
 
 [[package]]
 name = "xerj-query"
-version = "1.0.0-rc.100"
+version = "1.0.0-rc.102"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -7803,7 +7829,7 @@ dependencies = [
 
 [[package]]
 name = "xerj-rerank"
-version = "1.0.0-rc.100"
+version = "1.0.0-rc.102"
 dependencies = [
  "reqwest",
  "serde",
@@ -7818,7 +7844,7 @@ dependencies = [
 
 [[package]]
 name = "xerj-server"
-version = "1.0.0-rc.100"
+version = "1.0.0-rc.102"
 dependencies = [
  "anyhow",
  "axum",
@@ -7865,13 +7891,31 @@ dependencies = [
  "xerj-logs",
  "xerj-mcp",
  "xerj-query",
+ "xerj-sources",
  "xerj-storage",
  "xerj-vector",
 ]
 
 [[package]]
+name = "xerj-sources"
+version = "1.0.0-rc.102"
+dependencies = [
+ "anyhow",
+ "bytes",
+ "chrono",
+ "postgres-protocol",
+ "reqwest",
+ "rustls",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tracing",
+ "webpki-roots 1.0.10",
+]
+
+[[package]]
 name = "xerj-storage"
-version = "1.0.0-rc.100"
+version = "1.0.0-rc.102"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -7907,7 +7951,7 @@ dependencies = [
 
 [[package]]
 name = "xerj-vector"
-version = "1.0.0-rc.100"
+version = "1.0.0-rc.102"
 dependencies = [
  "anyhow",
  "byteorder",
@@ -7925,7 +7969,7 @@ dependencies = [
 
 [[package]]
 name = "xerj-wasm"
-version = "1.0.0-rc.100"
+version = "1.0.0-rc.102"
 dependencies = [
  "anyhow",
  "bytes",

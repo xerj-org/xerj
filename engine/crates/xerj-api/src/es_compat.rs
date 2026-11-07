@@ -6017,6 +6017,248 @@ fn collect_named_query_scores(
     }
 }
 
+/// The mapped `type` of `field` in one index's mapping, following object
+/// `properties` and multi-field `fields` (`name.raw`). `None` when the field
+/// is not mapped there.
+fn mapped_field_type(mapping: &Value, field: &str) -> Option<String> {
+    fn walk(props: &serde_json::Map<String, Value>, segs: &[&str]) -> Option<String> {
+        // A literal dotted key (`"a.b": {...}`) wins, as it does in ES.
+        for split in (1..=segs.len()).rev() {
+            let key = segs[..split].join(".");
+            let Some(node) = props.get(&key) else {
+                continue;
+            };
+            let rest = &segs[split..];
+            if rest.is_empty() {
+                return Some(
+                    node.get("type")
+                        .and_then(Value::as_str)
+                        .unwrap_or("object")
+                        .to_string(),
+                );
+            }
+            for child in ["properties", "fields"] {
+                if let Some(found) = node
+                    .get(child)
+                    .and_then(Value::as_object)
+                    .and_then(|p| walk(p, rest))
+                {
+                    return Some(found);
+                }
+            }
+        }
+        None
+    }
+    let props = mapping
+        .pointer("/mappings/properties")
+        .or_else(|| mapping.pointer("/properties"))
+        .and_then(Value::as_object)?;
+    let segs: Vec<&str> = field.split('.').collect();
+    walk(props, &segs)
+}
+
+/// A numeric metric aggregation (`avg`, `sum`, `min`, `max`, `stats`,
+/// `extended_stats`) on a field whose mapped type has no numeric values
+/// source. ES rejects these on every shard with `Field [f] of type [t] is
+/// not supported for aggregation [avg]` (`ValuesSourceRegistry#getAggregator`)
+/// and, when every shard fails, answers 400. XERJ answered 200 with a null
+/// value, so a typo'd field looked like an empty index.
+///
+/// Only types ES never accepts for these aggregations are listed; a field that
+/// is unmapped, numeric, `date` or `boolean` in at least one target index is
+/// left alone, since ES would answer 200 (or a partial-shard 200) there.
+fn find_unsupported_metric_agg_field(
+    aggs: Option<&Value>,
+    state: &AppState,
+    indices: &[String],
+) -> Option<String> {
+    const NUMERIC_METRICS: &[&str] = &["avg", "sum", "min", "max", "stats", "extended_stats"];
+    const NON_NUMERIC_TYPES: &[&str] = &[
+        "keyword",
+        "constant_keyword",
+        "wildcard",
+        "ip",
+        "geo_point",
+        "version",
+    ];
+    fn walk(aggs: &serde_json::Map<String, Value>, mappings: &[Value]) -> Option<String> {
+        for def in aggs.values() {
+            let Some(obj) = def.as_object() else {
+                continue;
+            };
+            for (kind, params) in obj {
+                let field = params.get("field").and_then(Value::as_str);
+                if let Some(field) = field.filter(|_| NUMERIC_METRICS.contains(&kind.as_str())) {
+                    let types: Vec<Option<String>> = mappings
+                        .iter()
+                        .map(|m| mapped_field_type(m, field))
+                        .collect();
+                    let rejected = |t: &Option<String>| {
+                        t.as_deref().is_some_and(|t| NON_NUMERIC_TYPES.contains(&t))
+                    };
+                    if !types.is_empty() && types.iter().all(rejected) {
+                        let ty = types[0].as_deref().unwrap_or_default();
+                        return Some(format!(
+                            "Field [{field}] of type [{ty}] is not supported for \
+                             aggregation [{kind}]"
+                        ));
+                    }
+                }
+            }
+            if let Some(found) = obj
+                .get("aggs")
+                .or_else(|| obj.get("aggregations"))
+                .and_then(Value::as_object)
+                .and_then(|sub| walk(sub, mappings))
+            {
+                return Some(found);
+            }
+        }
+        None
+    }
+    let aggs = aggs?.as_object()?;
+    let mappings: Vec<Value> = indices
+        .iter()
+        .map(|ix| {
+            state
+                .engine
+                .index_mappings
+                .get(ix.as_str())
+                .map(|m| m.clone())
+        })
+        .collect::<Option<_>>()?;
+    walk(aggs, &mappings)
+}
+
+#[cfg(test)]
+mod metric_agg_field_type_tests {
+    use super::*;
+    use axum::{body::Body, http::Request};
+    use tower::ServiceExt;
+    use xerj_common::{
+        config::{Config, WalSync},
+        metrics::Metrics,
+    };
+    use xerj_engine::Engine;
+
+    fn test_state() -> AppState {
+        let dir = tempfile::tempdir().expect("tempdir").keep();
+        let mut config = Config::default();
+        config.server.data_dir = dir.to_string_lossy().into_owned();
+        config.storage.wal_sync = WalSync::Async;
+        let metrics = Metrics::new().expect("metrics");
+        let engine = Engine::new(config.clone()).expect("engine");
+        AppState::new(config, engine, metrics)
+    }
+
+    async fn send(app: &axum::Router, method: &str, uri: &str, body: Value) -> (StatusCode, Value) {
+        let resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(method)
+                    .uri(uri)
+                    .header("content-type", "application/json")
+                    .body(Body::from(body.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let status = resp.status();
+        let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        (status, serde_json::from_slice(&bytes).unwrap())
+    }
+
+    async fn app_with_indices() -> axum::Router {
+        let app = crate::router::build_es_compat_router(test_state());
+        let mappings = json!({"mappings": {"properties": {
+            "n": {"type": "integer"},
+            "s": {"type": "keyword"},
+            "ip": {"type": "ip"},
+            "name": {"type": "text", "fields": {"raw": {"type": "keyword"}}},
+            "s_alias": {"type": "alias", "path": "s"},
+        }}});
+        let (status, body) = send(&app, "PUT", "/t", mappings).await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        let (status, body) = send(
+            &app,
+            "PUT",
+            "/u",
+            json!({"mappings": {"properties": {"s": {"type": "long"}}}}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        let doc = json!({"n": 1, "s": "foo", "ip": "1.2.3.4", "name": "x"});
+        let (status, body) = send(&app, "PUT", "/t/_doc/1?refresh=true", doc).await;
+        assert!(status.is_success(), "{body}");
+        app
+    }
+
+    /// FAIL-BEFORE: each of these answered 200 with `"value": null` (and
+    /// `sum` with `-0.0`), so a metric on the wrong field looked like an
+    /// empty index. ES 8.13 fails every shard and answers 400.
+    #[tokio::test]
+    async fn numeric_metric_on_a_non_numeric_field_is_a_400() {
+        let app = app_with_indices().await;
+        for (aggs, reason) in [
+            (
+                json!({"a": {"avg": {"field": "s"}}}),
+                "Field [s] of type [keyword] is not supported for aggregation [avg]",
+            ),
+            (
+                json!({"a": {"max": {"field": "ip"}}}),
+                "Field [ip] of type [ip] is not supported for aggregation [max]",
+            ),
+            (
+                json!({"a": {"sum": {"field": "name.raw"}}}),
+                "Field [name.raw] of type [keyword] is not supported for aggregation [sum]",
+            ),
+            (
+                json!({"a": {"stats": {"field": "s_alias"}}}),
+                "Field [s] of type [keyword] is not supported for aggregation [stats]",
+            ),
+            (
+                json!({"a": {"terms": {"field": "s"}, "aggs": {"b": {"min": {"field": "s"}}}}}),
+                "Field [s] of type [keyword] is not supported for aggregation [min]",
+            ),
+        ] {
+            let (status, body) =
+                send(&app, "POST", "/t/_search?size=0", json!({ "aggs": aggs })).await;
+            assert_eq!(status, StatusCode::BAD_REQUEST, "{aggs} -> {body}");
+            assert_eq!(body["error"]["type"], "search_phase_execution_exception");
+            assert_eq!(
+                body["error"]["root_cause"][0]["type"],
+                "illegal_argument_exception"
+            );
+            assert_eq!(body["error"]["root_cause"][0]["reason"], reason, "{aggs}");
+        }
+    }
+
+    /// Requests ES answers 200 must keep answering 200: numeric fields,
+    /// unmapped fields, and a field that is numeric in at least one target.
+    #[tokio::test]
+    async fn numeric_unmapped_and_mixed_targets_still_answer() {
+        let app = app_with_indices().await;
+        for (uri, aggs) in [
+            ("/t/_search?size=0", json!({"a": {"avg": {"field": "n"}}})),
+            (
+                "/t/_search?size=0",
+                json!({"a": {"avg": {"field": "nope"}}}),
+            ),
+            ("/t,u/_search?size=0", json!({"a": {"avg": {"field": "s"}}})),
+            (
+                "/t/_search?size=0",
+                json!({"a": {"value_count": {"field": "s"}}}),
+            ),
+        ] {
+            let (status, body) = send(&app, "POST", uri, json!({ "aggs": aggs })).await;
+            assert_eq!(status, StatusCode::OK, "{uri} {aggs} -> {body}");
+        }
+    }
+}
+
 /// For each `{"exists": {"field": X}}` clause, check whether `X` is queryable
 /// in *any* of the participating indices. A field is unqueryable if the
 /// mapping declares `index: false` AND `doc_values: false` (or the field
@@ -6102,6 +6344,186 @@ fn rewrite_unqueryable_exists(q: &mut Value, state: &AppState, indices: &[String
         }
     }
     walk(q, state, indices);
+}
+
+/// ES's default for `index.max_terms_count` (`IndexSettings.MAX_TERMS_COUNT_SETTING`).
+const DEFAULT_MAX_TERMS_COUNT: u64 = 65_536;
+
+/// The first `terms` query whose value list is longer than
+/// `index.max_terms_count`, with ES's message (`TermsQueryBuilder#doToQuery`).
+///
+/// ES counts the values each `terms` clause carries after a terms lookup has
+/// been fetched, so this runs on the resolved body. The setting is per index
+/// and ES checks it per shard: a request only fails outright when it exceeds
+/// the limit of every target index, so the largest limit among the targets is
+/// the one that decides. XERJ never read the setting, so an index configured
+/// with a small limit accepted any number of terms, and the 65 536 default did
+/// not bound a request either.
+fn find_terms_query_over_limit(
+    roots: &[Option<&Value>],
+    state: &AppState,
+    indices: &[&str],
+) -> Option<String> {
+    fn longest(v: &Value, out: &mut usize) {
+        match v {
+            Value::Object(obj) => {
+                if let Some(Value::Object(terms)) = obj.get("terms") {
+                    for (field, values) in terms {
+                        if matches!(field.as_str(), "boost" | "_name") {
+                            continue;
+                        }
+                        if let Value::Array(values) = values {
+                            *out = (*out).max(values.len());
+                        }
+                    }
+                }
+                for child in obj.values() {
+                    longest(child, out);
+                }
+            }
+            Value::Array(items) => {
+                for item in items {
+                    longest(item, out);
+                }
+            }
+            _ => {}
+        }
+    }
+    let mut count = 0usize;
+    for root in roots.iter().flatten() {
+        longest(root, &mut count);
+    }
+    let limit = indices
+        .iter()
+        .map(|ix| {
+            index_int_setting(state, ix, "max_terms_count").unwrap_or(DEFAULT_MAX_TERMS_COUNT)
+        })
+        .max()?;
+    (count as u64 > limit).then(|| {
+        format!(
+            "The number of terms [{count}] used in the Terms Query request has exceeded the \
+             allowed maximum of [{limit}]. This maximum can be set by changing the \
+             [index.max_terms_count] index level setting."
+        )
+    })
+}
+
+#[cfg(test)]
+mod max_terms_count_tests {
+    use super::*;
+    use axum::{body::Body, http::Request};
+    use tower::ServiceExt;
+    use xerj_common::{
+        config::{Config, WalSync},
+        metrics::Metrics,
+    };
+    use xerj_engine::Engine;
+
+    fn test_state() -> AppState {
+        let dir = tempfile::tempdir().expect("tempdir").keep();
+        let mut config = Config::default();
+        config.server.data_dir = dir.to_string_lossy().into_owned();
+        config.storage.wal_sync = WalSync::Async;
+        let metrics = Metrics::new().expect("metrics");
+        let engine = Engine::new(config.clone()).expect("engine");
+        AppState::new(config, engine, metrics)
+    }
+
+    async fn send(app: &axum::Router, method: &str, uri: &str, body: Value) -> (StatusCode, Value) {
+        let resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(method)
+                    .uri(uri)
+                    .header("content-type", "application/json")
+                    .body(Body::from(body.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let status = resp.status();
+        let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        (status, serde_json::from_slice(&bytes).unwrap())
+    }
+
+    /// `small` allows two terms, `big` keeps the default.
+    async fn app() -> axum::Router {
+        let app = crate::router::build_es_compat_router(test_state());
+        let mappings = json!({"properties": {"user": {"type": "keyword"},
+                                             "followers": {"type": "keyword"}}});
+        let (status, body) = send(
+            &app,
+            "PUT",
+            "/small",
+            json!({"settings": {"index.max_terms_count": 2}, "mappings": mappings}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        let (status, body) = send(&app, "PUT", "/big", json!({ "mappings": mappings })).await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        for (id, followers) in [
+            ("u1", json!(["u2", "u3"])),
+            ("u2", json!(["u1", "u3", "u4"])),
+        ] {
+            let doc = json!({"user": id, "followers": followers});
+            let (status, body) =
+                send(&app, "PUT", &format!("/small/_doc/{id}?refresh=true"), doc).await;
+            assert!(status.is_success(), "{body}");
+        }
+        app
+    }
+
+    fn terms(values: Value) -> Value {
+        json!({"query": {"terms": {"user": values}}})
+    }
+
+    /// FAIL-BEFORE: every request here answered 200; `index.max_terms_count`
+    /// was never read.
+    #[tokio::test]
+    async fn terms_over_the_index_limit_is_a_400() {
+        let app = app().await;
+        let lookup = json!({"index": "small", "id": "u2", "path": "followers"});
+        for body in [
+            terms(json!(["u1", "u2", "u3"])),
+            // The limit applies to the values a lookup fetched (3 followers).
+            terms(lookup),
+            // ... and to a terms query nested in a bool and in a filter agg.
+            json!({"query": {"bool": {"filter": [{"terms": {"user": ["a", "b", "c"]}}]}}}),
+            json!({"size": 0, "aggs": {"f": {"filter": {"terms": {"user": ["a", "b", "c"]}}}}}),
+        ] {
+            let (status, resp) = send(&app, "POST", "/small/_search", body.clone()).await;
+            assert_eq!(status, StatusCode::BAD_REQUEST, "{body} -> {resp}");
+            assert_eq!(
+                resp["error"]["root_cause"][0]["reason"],
+                "The number of terms [3] used in the Terms Query request has exceeded the \
+                 allowed maximum of [2]. This maximum can be set by changing the \
+                 [index.max_terms_count] index level setting.",
+                "{body}"
+            );
+        }
+    }
+
+    /// At the limit, on an index with the default limit, and across a target
+    /// whose limit is higher, the request still answers.
+    #[tokio::test]
+    async fn terms_within_a_target_limit_still_answer() {
+        let app = app().await;
+        let lookup = json!({"index": "small", "id": "u1", "path": "followers"});
+        for (uri, body) in [
+            ("/small/_search", terms(json!(["u1", "u2"]))),
+            ("/small/_search", terms(lookup)),
+            ("/big/_search", terms(json!(["u1", "u2", "u3"]))),
+            ("/small,big/_search", terms(json!(["u1", "u2", "u3"]))),
+        ] {
+            let (status, resp) = send(&app, "POST", uri, body.clone()).await;
+            assert_eq!(status, StatusCode::OK, "{uri} {body} -> {resp}");
+        }
+        let (_, resp) = send(&app, "POST", "/small/_search", terms(json!(["u1", "u2"]))).await;
+        assert_eq!(resp["hits"]["total"]["value"], 2, "{resp}");
+    }
 }
 
 async fn resolve_terms_lookups(q: &mut Value, state: &AppState) {
@@ -13941,6 +14363,10 @@ async fn search_impl(
     // per-index window checks (`find_index_request_limit_violation`) need it.
     let requested_from = body.from;
     if is_scroll_request {
+        let errors = scroll_request_validation_errors(&body, &params);
+        if !errors.is_empty() {
+            return action_request_validation_error(&errors);
+        }
         // RC4 blocker 11: enforce the open-scroll cap BEFORE running the
         // search — each context pins a fully-hydrated Vec<Hit>, so an
         // uncapped open loop is an unauthenticated memory DoS. Expired
@@ -13963,6 +14389,10 @@ async fn search_impl(
         // below only fills in when the body value is None, so it cannot
         // undo this.
         body.track_total_hits = Some(Value::Bool(true));
+        if let Some(refused) = keep_alive_over_cluster_limit(&state, params.scroll.as_deref()).await
+        {
+            return refused;
+        }
     }
     // `?sort=field:order` → convert to sort array.
     if let Some(ref sort_str) = params.sort {
@@ -14880,6 +15310,18 @@ async fn search_impl(
     if let Some(aggs) = body.aggregations.as_mut() {
         resolve_terms_lookups(aggs, &state).await;
     }
+    // `index.max_terms_count`, counted on the resolved lookups above.
+    if let Some(reason) = find_terms_query_over_limit(
+        &[
+            body.query.as_ref(),
+            body.aggs.as_ref(),
+            body.aggregations.as_ref(),
+        ],
+        &state,
+        &index_names,
+    ) {
+        return search_shard_validation_error(&reason);
+    }
     // Rewrite `match` queries that target a keyword field into `term`
     // queries. ES treats `match` on keyword fields as exact (the
     // keyword analyzer is a no-op), but our Match parser tokenizes the
@@ -15645,6 +16087,15 @@ async fn search_impl(
         // and per-index search dispatch rewrites `collapse.field` only
         // when the current index actually defines the alias (further
         // below — see `per_index_collapse_rewrite`).
+    }
+
+    // A numeric metric on a keyword/ip/... field. Checked after the alias
+    // rewrite above so an alias is judged by the type of the field it names.
+    let metric_aggs = body.aggs.as_ref().or(body.aggregations.as_ref());
+    if let Some(reason) =
+        find_unsupported_metric_agg_field(metric_aggs, &state, &participating_indices)
+    {
+        return search_shard_validation_error(&reason);
     }
 
     // Enforce per-index `index.disable_sequence_numbers` setting:
@@ -16955,6 +17406,10 @@ async fn search_impl(
         .map(|record| (record, savings_page_bytes));
 
     let took_ms = started.elapsed().as_millis() as u64;
+    // #3005: the profile's query phase, measured in nanoseconds (request
+    // parse through the merged top-hits). `took_ms` is millisecond-rounded,
+    // so a fast search used to profile as 0 ns floored to 1.
+    let query_phase_ns = (started.elapsed().as_nanos() as u64).max(1);
     // RC4 W4 item 2: record the index-agnostic side of the completed search —
     // the global `queries_executed` counter plus BOTH latency histograms
     // (overall + by query type, which were previously never recorded).
@@ -19746,6 +20201,12 @@ async fn search_impl(
     // against the published names. We map the aggregation request shape
     // to the class name ES would pick for the same (field, config) pair.
     if search_req.profile {
+        // #3005: the fetch phase is everything after the query phase up to
+        // here (hit rendering, `_source`/`fields`/highlight, rerank, judge),
+        // measured before the profile-only work below starts.
+        let fetch_phase_ns = (started.elapsed().as_nanos() as u64)
+            .saturating_sub(query_phase_ns)
+            .max(1);
         // ES's `search.aggs.rewrite_to_filter_by_filter` persistent
         // cluster setting toggles whether keyword terms aggs rewrite to
         // `StringTermsAggregatorFromFilters` (the default / optimized
@@ -19826,18 +20287,19 @@ async fn search_impl(
                 .as_ref()
                 .or(body.aggs.as_ref())
                 .or(body.aggregations.as_ref()),
-            took_ms,
+            query_phase_ns,
             total_count,
             response_body.get("aggregations"),
             terms_use_filter_path,
             &sig_text_debug,
         );
-        // fetch profile: ES always emits a `fetch` phase when profile is on
-        // with time > 0. Tests assert `gt: 0` so floor at 1 ns. The default
+        // fetch profile: the measured fetch phase. XERJ has no per-sub-phase
+        // fetch timers, so every non-zero fetch timer below is this phase's
+        // measured total (an upper bound), as `profile.xerj_timing` says. The default
         // stored_fields debug entry is `["_id", "_routing", "_source"]`;
         // when the caller sets `stored_fields: "_none_"` (suppress_meta_fields)
         // the list is empty.
-        let fetch_ns = took_ms.saturating_mul(1_000_000).max(1);
+        let fetch_ns = fetch_phase_ns;
         let stored_fields_debug: Vec<Value> = if suppress_meta_fields {
             vec![]
         } else {
@@ -19930,7 +20392,7 @@ async fn search_impl(
                 "load_stored_fields_count": 1u64,
                 "load_source": fetch_ns,
                 "load_source_count": 1u64,
-                "next_reader": 1u64,
+                "next_reader": fetch_ns,
                 "next_reader_count": 1u64,
             }),
         );
@@ -19965,7 +20427,7 @@ async fn search_impl(
                     "query": [{
                         "type": "DocAndScoreQuery",
                         "description": format!("DocAndScore[{}]", knn_field),
-                        "time_in_nanos": (took_ms * 1_000_000).max(1),
+                        "time_in_nanos": query_phase_ns,
                         "breakdown": {
                             "set_min_competitive_score_count": 0u64,
                             "set_min_competitive_score": 0u64,
@@ -19974,24 +20436,24 @@ async fn search_impl(
                             "shallow_advance_count": 0u64,
                             "shallow_advance": 0u64,
                             "next_doc_count": total_hits.max(1),
-                            "next_doc": 1u64,
+                            "next_doc": query_phase_ns,
                             "score_count": total_hits.max(1),
-                            "score": 1u64,
+                            "score": query_phase_ns,
                             "compute_max_score_count": 0u64,
                             "compute_max_score": 0u64,
                             "advance_count": 0u64,
                             "advance": 0u64,
                             "build_scorer_count": 1u64,
-                            "build_scorer": 1u64,
+                            "build_scorer": query_phase_ns,
                             "create_weight_count": 1u64,
-                            "create_weight": 1u64,
+                            "create_weight": query_phase_ns,
                         },
                     }],
-                    "rewrite_time": 1u64,
+                    "rewrite_time": query_phase_ns,
                     "collector": [{
                         "name": "TopScoreDocCollector",
                         "reason": "search_top_hits",
-                        "time_in_nanos": 1u64,
+                        "time_in_nanos": query_phase_ns,
                     }],
                     "vector_operations_count": total_hits.max(1),
                 })]
@@ -20007,7 +20469,7 @@ async fn search_impl(
                     json!({
                         "type": "statistics",
                         "description": "collect term statistics",
-                        "time_in_nanos": 1u64,
+                        "time_in_nanos": query_phase_ns,
                         "breakdown": {
                             "collection_statistics": 0u64,
                             "collection_statistics_count": 0u64,
@@ -20060,13 +20522,13 @@ async fn search_impl(
                     "query": [{
                         "type": "MatchQuery",
                         "description": format!("{:?}", search_req.query).chars().take(80).collect::<String>(),
-                        "time_in_nanos": took_ms * 1_000_000u64,
+                        "time_in_nanos": query_phase_ns,
                         "breakdown": {
                             "initialize": 0u64,
                             "initialize_count": 0u64,
                             "rewrite": 0u64,
                             "rewrite_count": 0u64,
-                            "collect": took_ms.saturating_mul(100_000),
+                            "collect": query_phase_ns,
                             "collect_count": 1u64,
                             "build_scorer": 0u64,
                             "build_scorer_count": 0u64,
@@ -20091,7 +20553,7 @@ async fn search_impl(
                     "collector": [{
                         "name": "SimpleTopScoreDocCollector",
                         "reason": "search_top_hits",
-                        "time_in_nanos": took_ms * 1_000_000u64,
+                        "time_in_nanos": query_phase_ns,
                     }]
                 }],
                 "aggregations": aggs_profile.clone(),
@@ -20103,7 +20565,10 @@ async fn search_impl(
             }
             shard_profiles.push(shard_obj);
         }
-        response_body["profile"] = json!({ "shards": shard_profiles });
+        response_body["profile"] = json!({
+            "shards": shard_profiles,
+            "xerj_timing": profile_timing_note(query_phase_ns, fetch_phase_ns),
+        });
     }
 
     // ── Scroll context registration ─────────────────────────────────────────
@@ -20966,11 +21431,13 @@ pub async fn bulk_ops(
     State(state): State<AppState>,
     Path(index): Path<String>,
     axum::extract::Query(qp): axum::extract::Query<std::collections::HashMap<String, String>>,
+    headers: axum::http::HeaderMap,
     body: bytes::Bytes,
 ) -> impl IntoResponse {
     let started = Instant::now();
     let opts = bulk_opts_from_query(&qp);
-    process_bulk_body(&state, Some(&index), &body, started, opts).await
+    let compat_v7 = wants_rest_compat_v7(&headers);
+    process_bulk_body(&state, Some(&index), &body, started, opts, compat_v7).await
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -20980,11 +21447,30 @@ pub async fn bulk_ops(
 pub async fn global_bulk(
     State(state): State<AppState>,
     axum::extract::Query(qp): axum::extract::Query<std::collections::HashMap<String, String>>,
+    headers: axum::http::HeaderMap,
     body: bytes::Bytes,
 ) -> impl IntoResponse {
     let started = Instant::now();
     let opts = bulk_opts_from_query(&qp);
-    process_bulk_body(&state, None, &body, started, opts).await
+    let compat_v7 = wants_rest_compat_v7(&headers);
+    process_bulk_body(&state, None, &body, started, opts, compat_v7).await
+}
+
+/// A request sent with ES's REST API compatibility header for 7.x
+/// (`Accept` or `Content-Type` of
+/// `application/vnd.elasticsearch+json; compatible-with=7`). ES 8 keeps a few
+/// 7.x forms for such a client; `_bulk` uses it to accept `_type`.
+fn wants_rest_compat_v7(headers: &axum::http::HeaderMap) -> bool {
+    [axum::http::header::ACCEPT, axum::http::header::CONTENT_TYPE]
+        .iter()
+        .filter_map(|h| headers.get(h)?.to_str().ok())
+        .any(|v| {
+            v.split(';').any(|param| {
+                param.trim().split_once('=').is_some_and(|(k, v)| {
+                    k.trim().eq_ignore_ascii_case("compatible-with") && v.trim() == "7"
+                })
+            })
+        })
 }
 
 fn bulk_opts_from_query(
@@ -21065,12 +21551,13 @@ fn render_index_list(names: &std::collections::BTreeSet<String>) -> String {
     }
 }
 
-async fn process_bulk_body(
+pub(crate) async fn process_bulk_body(
     state: &AppState,
     default_index: Option<&str>,
     body: &bytes::Bytes,
     _started: Instant,
     opts: xerj_engine::bulk::BulkOpts,
+    compat_v7: bool,
 ) -> axum::response::Response {
     // The request body remains owned by this handler through parsing,
     // grouping, and publication. The opt-in guard is a single branch and
@@ -21086,6 +21573,14 @@ async fn process_bulk_body(
             return ApiError::new(e).into_response();
         }
     };
+
+    // ES reads every action line before it runs any action, so a malformed
+    // one refuses the whole request and nothing is written. Checked on the
+    // body as sent, before the rewrites below and before the local and
+    // cluster paths split, so the line number is the client's.
+    if let Some(reason) = crate::bulk_action_lines::first_malformed_action_line(text, compat_v7) {
+        return es_bad_request("illegal_argument_exception", &reason, None);
+    }
 
     // ES bulk NDJSON alternates action-lines and source-lines. We rewrite
     // each source line through apply_ignore_malformed so the downstream
@@ -26903,6 +27398,200 @@ fn index_int_setting(state: &AppState, ix: &str, key: &str) -> Option<u64> {
         .or_else(|| s.get(&dotted).and_then(as_int))
 }
 
+#[cfg(test)]
+mod scroll_request_validation_tests {
+    use super::*;
+    use axum::{body::Body, http::Request};
+    use tower::ServiceExt;
+    use xerj_common::{
+        config::{Config, WalSync},
+        metrics::Metrics,
+    };
+    use xerj_engine::Engine;
+
+    fn test_state() -> AppState {
+        let dir = tempfile::tempdir().expect("tempdir").keep();
+        let mut config = Config::default();
+        config.server.data_dir = dir.to_string_lossy().into_owned();
+        config.storage.wal_sync = WalSync::Async;
+        let metrics = Metrics::new().expect("metrics");
+        let engine = Engine::new(config.clone()).expect("engine");
+        AppState::new(config, engine, metrics)
+    }
+
+    async fn send(app: &axum::Router, method: &str, uri: &str, body: Value) -> (StatusCode, Value) {
+        let resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(method)
+                    .uri(uri)
+                    .header("content-type", "application/json")
+                    .body(Body::from(body.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let status = resp.status();
+        let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        (status, serde_json::from_slice(&bytes).unwrap())
+    }
+
+    async fn app_with_doc() -> (AppState, axum::Router) {
+        let state = test_state();
+        let app = crate::router::build_es_compat_router(state.clone());
+        let (status, body) = send(
+            &app,
+            "PUT",
+            "/s",
+            json!({"mappings": {"properties": {"n": {"type": "integer"},
+                                               "k": {"type": "keyword"}}}}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        let doc = json!({"n": 1, "k": "a"});
+        let (status, body) = send(&app, "PUT", "/s/_doc/1?refresh=true", doc).await;
+        assert!(status.is_success(), "{body}");
+        (state, app)
+    }
+
+    /// FAIL-BEFORE: every one of these answered 200 and opened a scroll
+    /// context (`from: 1` even returned the document it asked to skip). ES's
+    /// `SearchRequest#validate` refuses each before any shard runs.
+    #[tokio::test]
+    async fn scroll_rejects_what_search_request_validate_rejects() {
+        let (state, app) = app_with_doc().await;
+        for (uri, body, reason) in [
+            (
+                "/s/_search?scroll=1m",
+                json!({"size": 0}),
+                "Validation Failed: 1: [size] cannot be [0] in a scroll context;",
+            ),
+            (
+                "/s/_search?scroll=1m&size=0",
+                json!({}),
+                "Validation Failed: 1: [size] cannot be [0] in a scroll context;",
+            ),
+            (
+                "/s/_search?scroll=1m&request_cache=true",
+                json!({}),
+                "Validation Failed: 1: [request_cache] cannot be used in a scroll context;",
+            ),
+            (
+                "/s/_search?scroll=1m",
+                json!({"from": 1}),
+                "Validation Failed: 1: using [from] is not allowed in a scroll context;",
+            ),
+            (
+                "/s/_search?scroll=1m",
+                json!({"rescore": {"window_size": 5,
+                                   "query": {"rescore_query": {"match_all": {}}}}}),
+                "Validation Failed: 1: using [rescore] is not allowed in a scroll context;",
+            ),
+            (
+                "/s/_search?scroll=1m",
+                json!({"sort": ["n"], "search_after": [0]}),
+                "Validation Failed: 1: [search_after] cannot be used in a scroll context;",
+            ),
+            (
+                "/s/_search?scroll=1m&request_cache=true",
+                json!({"size": 0}),
+                "Validation Failed: 1: [size] cannot be [0] in a scroll context;\
+                 2: [request_cache] cannot be used in a scroll context;",
+            ),
+        ] {
+            let (status, resp) = send(&app, "POST", uri, body.clone()).await;
+            assert_eq!(status, StatusCode::BAD_REQUEST, "{uri} {body} -> {resp}");
+            assert_eq!(resp["error"]["type"], "action_request_validation_exception");
+            assert_eq!(resp["error"]["reason"], reason, "{uri} {body}");
+        }
+        assert!(
+            state.engine.scrolls.is_empty(),
+            "a refused scroll must not leave a context behind"
+        );
+    }
+
+    /// The same options stay legal without `scroll`, and a scroll with
+    /// `request_cache=false` or a `collapse` still opens a context.
+    #[tokio::test]
+    async fn the_same_options_without_scroll_still_answer() {
+        let (_state, app) = app_with_doc().await;
+        for (uri, body) in [
+            ("/s/_search?request_cache=true", json!({"size": 0})),
+            ("/s/_search", json!({"from": 1})),
+            ("/s/_search", json!({"collapse": {"field": "k"}})),
+            ("/s/_search", json!({"sort": ["n"], "search_after": [0]})),
+        ] {
+            let (status, resp) = send(&app, "POST", uri, body.clone()).await;
+            assert_eq!(status, StatusCode::OK, "{uri} {body} -> {resp}");
+        }
+        let (status, resp) = send(
+            &app,
+            "POST",
+            "/s/_search?scroll=1m&request_cache=false",
+            json!({"size": 1}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{resp}");
+        assert!(resp["_scroll_id"].is_string(), "{resp}");
+        let (status, resp) = send(
+            &app,
+            "POST",
+            "/s/_search?scroll=1m",
+            json!({"collapse": {"field": "k"}}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{resp}");
+        assert!(resp["_scroll_id"].is_string(), "{resp}");
+    }
+}
+
+/// What `SearchRequest#validate` refuses for a scroll search, in its order and
+/// with its messages. ES answers these with one 400
+/// `action_request_validation_exception` before any shard runs. XERJ ran the
+/// search instead: `size: 0` opened a context that could never page,
+/// `request_cache` was ignored, and `from` and `search_after` were overwritten
+/// by the scroll snapshot, so their pages silently differed from what the
+/// request asked for.
+///
+/// Two ES rejections are deliberately not mirrored. `track_total_hits: false`:
+/// XERJ forces exact totals for every scroll (see the snapshot setup in
+/// `search_impl`). `collapse`: XERJ supports collapsed scrolls and renders
+/// their continuation pages (#621-#624), where ES rejects the request.
+fn scroll_request_validation_errors(
+    body: &EsSearchBody,
+    params: &EsSearchQueryParams,
+) -> Vec<String> {
+    let mut errors = Vec::new();
+    if body.from > 0 {
+        errors.push("using [from] is not allowed in a scroll context".to_string());
+    }
+    if body.size == 0 {
+        errors.push("[size] cannot be [0] in a scroll context".to_string());
+    }
+    let has_rescore = match body.rescore.as_ref() {
+        Some(Value::Array(items)) => !items.is_empty(),
+        Some(Value::Object(_)) => true,
+        _ => false,
+    };
+    if has_rescore {
+        errors.push("using [rescore] is not allowed in a scroll context".to_string());
+    }
+    if body
+        .search_after
+        .as_ref()
+        .is_some_and(|v| v.as_array().is_some_and(|a| !a.is_empty()))
+    {
+        errors.push("[search_after] cannot be used in a scroll context".to_string());
+    }
+    if params.request_cache.as_deref() == Some("true") {
+        errors.push("[request_cache] cannot be used in a scroll context".to_string());
+    }
+    errors
+}
+
 /// The per-index request limits Elasticsearch checks before running a search,
 /// with its messages (`search/30_limits.yml`). Each was previously either
 /// unchecked (an HTTP 200) or refused deeper with a different message:
@@ -27134,6 +27823,10 @@ pub async fn search_with_scroll(
         let scroll_cap = state.config.search_context.max_open_scrolls;
         if state.engine.scrolls.len() >= scroll_cap {
             return too_many_scroll_contexts(scroll_cap);
+        }
+        if let Some(refused) = keep_alive_over_cluster_limit(&state, params.scroll.as_deref()).await
+        {
+            return refused;
         }
     }
 
@@ -27640,6 +28333,16 @@ async fn scroll_page_response(
     // context: ES answers 400 `Cannot parse scroll id`, not a 404 (item 4e).
     if Uuid::parse_str(&scroll_id).is_err() {
         return cannot_parse_scroll_id();
+    }
+    let live = state
+        .engine
+        .scrolls
+        .get(&scroll_id)
+        .is_some_and(|ctx| ctx.expires_at > Instant::now());
+    if live {
+        if let Some(refused) = keep_alive_over_cluster_limit(state, scroll_keep_alive).await {
+            return refused;
+        }
     }
 
     match state.engine.scrolls.get_mut(&scroll_id) {
@@ -31248,6 +31951,8 @@ struct SigTextAccumulator<'a> {
     chars_fetched: u64,
     extract_count: u64,
     collect_analyzed_count: u64,
+    extract_ns: u64,
+    collect_analyzed_ns: u64,
     // owning bucket key -> union of analyzed terms across its docs
     per_group: std::collections::HashMap<String, std::collections::HashSet<String>>,
 }
@@ -31260,16 +31965,21 @@ impl<'a> SigTextAccumulator<'a> {
             chars_fetched: 0,
             extract_count: 0,
             collect_analyzed_count: 0,
+            extract_ns: 0,
+            collect_analyzed_ns: 0,
             per_group: std::collections::HashMap::new(),
         }
     }
 
     fn fold_doc(&mut self, doc: &Value) {
+        let t_extract = Instant::now();
         let vals = extract_field_values_from_source(doc, &self.spec.field);
+        self.extract_ns += t_extract.elapsed().as_nanos() as u64;
         if vals.is_empty() {
             return;
         }
         self.extract_count += 1;
+        let t_collect = Instant::now();
         let mut doc_tokens: std::collections::HashSet<String> = std::collections::HashSet::new();
         for v in &vals {
             if let Some(s) = v.as_str() {
@@ -31296,6 +32006,7 @@ impl<'a> SigTextAccumulator<'a> {
             .entry(group_key)
             .or_default()
             .extend(doc_tokens);
+        self.collect_analyzed_ns += t_collect.elapsed().as_nanos() as u64;
     }
 
     fn finish(&self) -> Value {
@@ -31306,17 +32017,33 @@ impl<'a> SigTextAccumulator<'a> {
             "total_buckets": total_buckets,
             "values_fetched": self.values_fetched,
             "chars_fetched": self.chars_fetched,
-            "extract_ns": 1u64,
+            "extract_ns": self.extract_ns.max(1),
             "extract_count": self.extract_count,
-            "collect_analyzed_ns": 1u64,
+            "collect_analyzed_ns": self.collect_analyzed_ns.max(1),
             "collect_analyzed_count": self.collect_analyzed_count,
         })
     }
 }
 
+/// #3005: what the profile's numbers are. `query_ns` and `fetch_ns` are
+/// measured wall-clock phases of THIS request; XERJ has no Lucene-style
+/// sub-phase timers, so each non-zero breakdown timer repeats its enclosing
+/// phase's measured total (an upper bound, never a sub-phase measurement) and
+/// the `*_count` fields are not instrumented. Tools that read the ES-shaped
+/// profile get this disclosure next to the numbers instead of silent fakes.
+fn profile_timing_note(query_ns: u64, fetch_ns: u64) -> Value {
+    json!({
+        "query_phase_nanos": query_ns,
+        "fetch_phase_nanos": fetch_ns,
+        "measured": ["query_phase", "fetch_phase"],
+        "breakdown": "not_instrumented",
+        "warning": "XERJ measures the query and fetch phases only. Each non-zero breakdown or collector timer repeats its enclosing phase's measured total (an upper bound); zero-valued timers were not measured and the *_count fields are not instrumented.",
+    })
+}
+
 fn build_aggregation_profile_full(
     aggs: Option<&Value>,
-    took_ms: u64,
+    phase_ns: u64,
     collect_count: u64,
     results: Option<&Value>,
     terms_use_filter_path: bool,
@@ -31324,7 +32051,7 @@ fn build_aggregation_profile_full(
 ) -> Vec<Value> {
     build_aggregation_profile_full_at(
         aggs,
-        took_ms,
+        phase_ns,
         collect_count,
         results,
         terms_use_filter_path,
@@ -31335,7 +32062,7 @@ fn build_aggregation_profile_full(
 
 fn build_aggregation_profile_full_at(
     aggs: Option<&Value>,
-    took_ms: u64,
+    phase_ns: u64,
     collect_count: u64,
     results: Option<&Value>,
     terms_use_filter_path: bool,
@@ -31421,7 +32148,7 @@ fn build_aggregation_profile_full_at(
         };
         let children = build_aggregation_profile_full_at(
             children_spec,
-            took_ms,
+            phase_ns,
             child_collect_count,
             child_results.as_ref(),
             terms_use_filter_path,
@@ -31439,25 +32166,22 @@ fn build_aggregation_profile_full_at(
         let mut node = serde_json::Map::new();
         node.insert("type".to_string(), Value::String(class_name));
         node.insert("description".to_string(), Value::String(name.clone()));
-        node.insert("time_in_nanos".to_string(), json!(took_ms * 1_000_000u64));
-        // Breakdown numbers are in nanoseconds. Even a fast agg takes some
-        // wall-clock time to initialize; the `gt 0` assertions in the YAML
-        // tests reject a literal zero. Floor every phase at 1 ns so those
-        // assertions pass without claiming more work than we did.
-        let init_ns = took_ms.saturating_mul(1_000_000).max(1_000);
-        let collect_ns = took_ms.saturating_mul(1_000_000).max(1_000);
+        node.insert("time_in_nanos".to_string(), json!(phase_ns));
+        // #3005: aggregations run inside the query phase and XERJ has no
+        // per-aggregator timers, so every non-zero timer here is the measured
+        // query phase (an upper bound), as `profile.xerj_timing` says.
         node.insert(
             "breakdown".to_string(),
             json!({
-                "initialize": init_ns,
+                "initialize": phase_ns,
                 "initialize_count": 1u64,
-                "build_aggregation": 1u64,
+                "build_aggregation": phase_ns,
                 "build_aggregation_count": 1u64,
-                "build_leaf_collector": 1u64,
+                "build_leaf_collector": phase_ns,
                 "build_leaf_collector_count": 1u64,
-                "collect": collect_ns,
+                "collect": phase_ns,
                 "collect_count": collect_count,
-                "post_collection": 1u64,
+                "post_collection": phase_ns,
                 "post_collection_count": 1u64,
                 "reduce": 0u64,
                 "reduce_count": 0u64,
@@ -37368,20 +38092,191 @@ pub async fn delete_data_stream(
     }
 }
 
+#[derive(Debug, Deserialize, Default)]
+pub struct RolloverParams {
+    /// `_rollover?dry_run=true` — the query-parameter form ES also accepts.
+    #[serde(default)]
+    pub dry_run: Option<bool>,
+}
+
+/// `POST /{data_stream}/_rollover`.
+///
+/// The body used to be ignored entirely: `dry_run: true` created a backing
+/// index, `conditions` never blocked a rollover, and `old_index` reported the
+/// data-stream name instead of the current backing index. This handler now
+/// evaluates the conditions this build can support before calling the engine,
+/// reports the candidate old/new backing names even when it does not roll,
+/// and never mutates anything for a dry run. Conditions the build cannot
+/// evaluate (size-based) and body fields that belong to index-alias rollover
+/// (`new_index`, `settings`, `mappings`, `aliases`) are refused rather than
+/// silently ignored (issue #204).
 pub async fn rollover_data_stream(
     State(state): State<AppState>,
     Path(name): Path<String>,
+    Query(params): Query<RolloverParams>,
+    body: OptionalJson<Value>,
 ) -> impl IntoResponse {
+    let body = match body.0 {
+        None | Some(Value::Null) => json!({}),
+        Some(Value::Object(map)) => Value::Object(map),
+        Some(_) => {
+            return es_bad_request(
+                "illegal_argument_exception",
+                "rollover body must be an object",
+                None,
+            )
+        }
+    };
+    const ALLOWED: &[&str] = &["conditions", "dry_run"];
+    if let Some(object) = body.as_object() {
+        for key in object.keys() {
+            if !ALLOWED.contains(&key.as_str()) {
+                return es_bad_request(
+                    "illegal_argument_exception",
+                    &format!(
+                        "rollover field [{key}] is not supported for data streams by this XERJ version"
+                    ),
+                    None,
+                );
+            }
+        }
+    }
+    let body_dry_run = match body.get("dry_run") {
+        None => None,
+        Some(Value::Bool(value)) => Some(*value),
+        Some(_) => {
+            return es_bad_request(
+                "illegal_argument_exception",
+                "[dry_run] must be a boolean",
+                None,
+            )
+        }
+    };
+    let dry_run = body_dry_run.or(params.dry_run).unwrap_or(false);
+
+    // The write backing index and the next generated name. This is the same
+    // naming rule the engine uses, so a dry run reports the name a real
+    // rollover would create.
+    let (old_index, new_index, docs) = match state.engine.data_streams.get(&name) {
+        Some(ds) => {
+            let Some(old_index) = ds.backing_indices.last().cloned() else {
+                return ApiError::new(xerj_common::XerjError::internal(format!(
+                    "data stream [{name}] has no backing index"
+                )))
+                .into_response();
+            };
+            let new_index = format!(".ds-{}-{:06}", name, ds.generation + 1);
+            drop(ds);
+            let docs = state
+                .engine
+                .get_index(&old_index)
+                .map(|idx| idx.live_doc_count())
+                .unwrap_or(0);
+            (old_index, new_index, docs)
+        }
+        None => {
+            let e = xerj_common::XerjError::index_not_found(&name);
+            return ApiError::new(e).into_response();
+        }
+    };
+
+    // ES validates the target index even for a dry run; an existing candidate
+    // is a conflict, not a successful "would roll".
+    if state.engine.get_index(&new_index).is_ok() {
+        let e = xerj_common::XerjError::index_already_exists(&new_index);
+        return ApiError::new(e).into_response();
+    }
+
+    let conditions = body.get("conditions");
+    let mut condition_results = serde_json::Map::new();
+    let mut condition_met = conditions.is_none();
+    if let Some(conditions) = conditions {
+        let Some(conditions) = conditions.as_object() else {
+            return es_bad_request(
+                "illegal_argument_exception",
+                "[conditions] must be an object",
+                None,
+            );
+        };
+        if conditions.is_empty() {
+            condition_met = true;
+        }
+        for (condition, value) in conditions {
+            let met = match condition.as_str() {
+                "max_docs" => {
+                    let Some(max_docs) = value.as_u64() else {
+                        return es_bad_request(
+                            "illegal_argument_exception",
+                            &format!("[max_docs] must be a non-negative integer, got [{value}]"),
+                            None,
+                        );
+                    };
+                    let met = docs >= max_docs;
+                    condition_results.insert(format!("[max_docs: {max_docs}]"), Value::Bool(met));
+                    met
+                }
+                "max_age" => {
+                    let Some(raw) = value.as_str() else {
+                        return es_bad_request(
+                            "illegal_argument_exception",
+                            &format!("[max_age] must be a time value, got [{value}]"),
+                            None,
+                        );
+                    };
+                    let Some(threshold_ms) = parse_time_to_millis(raw) else {
+                        return es_bad_request(
+                            "illegal_argument_exception",
+                            &format!("failed to parse [max_age] value [{raw}]"),
+                            None,
+                        );
+                    };
+                    let created_ms = state
+                        .engine
+                        .index_created_at
+                        .get(&old_index)
+                        .map(|v| *v)
+                        .unwrap_or_else(|| Utc::now().timestamp_millis());
+                    let age_ms = (Utc::now().timestamp_millis() - created_ms).max(0) as u64;
+                    let met = age_ms >= threshold_ms;
+                    condition_results.insert(format!("[max_age: {raw}]"), Value::Bool(met));
+                    met
+                }
+                other => {
+                    return es_bad_request(
+                        "illegal_argument_exception",
+                        &format!(
+                            "rollover condition [{other}] is not supported by this XERJ version"
+                        ),
+                        None,
+                    )
+                }
+            };
+            condition_met |= met;
+        }
+    }
+
+    let mut response = json!({
+        "acknowledged": true,
+        "shards_acknowledged": true,
+        "old_index": old_index.clone(),
+        "new_index": new_index.clone(),
+        "rolled_over": false,
+        "dry_run": dry_run,
+    });
+    if conditions.is_some() {
+        response["conditions"] = Value::Object(condition_results);
+    }
+
+    if dry_run || !condition_met {
+        return Json(response).into_response();
+    }
+
     match state.engine.rollover_data_stream(&name) {
-        Ok(new_index) => Json(json!({
-            "acknowledged": true,
-            "shards_acknowledged": true,
-            "old_index": name,
-            "new_index": new_index,
-            "rolled_over": true,
-            "dry_run": false,
-        }))
-        .into_response(),
+        Ok(created) => {
+            response["new_index"] = json!(created);
+            response["rolled_over"] = json!(true);
+            Json(response).into_response()
+        }
         Err(e) => ApiError::new(xerj_common::XerjError::from(e)).into_response(),
     }
 }
@@ -42887,10 +43782,11 @@ const API_KEY_OWNER_REALM: &str = "native";
 const API_KEY_REALM: &str = "_es_api_key";
 
 /// 400 in ES's `action_request_validation_exception` shape — what ES's REST
-/// layer answers when `InvalidateApiKeyRequest#validate` rejects a request.
+/// layer answers when an `ActionRequest#validate` (e.g.
+/// `InvalidateApiKeyRequest`, `SearchRequest`) rejects a request.
 /// `errors` are joined as `Validation Failed: 1: a;2: b;`, matching
 /// `ActionRequestValidationException`'s message format.
-fn api_key_validation_error(errors: &[String]) -> Response {
+fn action_request_validation_error(errors: &[String]) -> Response {
     let numbered: String = errors
         .iter()
         .enumerate()
@@ -43176,7 +44072,7 @@ pub async fn security_invalidate_api_key(
         errors.push("only one of [api key id(s), api key name] can be specified".to_string());
     }
     if !errors.is_empty() {
-        return api_key_validation_error(&errors);
+        return action_request_validation_error(&errors);
     }
 
     // ── Resolve the selector to concrete key ids ──
@@ -43631,6 +44527,10 @@ pub async fn open_pit(
     Query(params): Query<PitQueryParams>,
     body: OptionalJson<Value>,
 ) -> impl IntoResponse {
+    if let Some(refused) = keep_alive_over_cluster_limit(&state, params.keep_alive.as_deref()).await
+    {
+        return refused;
+    }
     let pit_id = Uuid::new_v4().to_string();
     let body_val = body.0.unwrap_or(Value::Null);
     // Resolve keep_alive: parse `?keep_alive=5m` (ES syntax) or fall
@@ -44050,6 +44950,273 @@ fn strip_index_constraints(q: &mut Value, out: &mut Vec<String>) {
 /// Used by `_pit?keep_alive=5m` (and any other endpoint that accepts
 /// the same shape). Sub-second units round up to 1 second so
 /// `keep_alive=500ms` doesn't produce a zero-duration PIT.
+/// A time value in ES's syntax (`500ms`, `30s`, `1m`, `2h`, `1d`, also
+/// `micros`/`nanos`) as milliseconds. `None` for anything else, including a
+/// bare number, which ES refuses for a time setting.
+fn parse_time_value_millis(s: &str) -> Option<u64> {
+    let s = s.trim();
+    let (digits, per_unit_ns): (&str, u128) = [
+        ("nanos", 1u128),
+        ("micros", 1_000),
+        ("ms", 1_000_000),
+        ("s", 1_000_000_000),
+        ("m", 60_000_000_000),
+        ("h", 3_600_000_000_000),
+        ("d", 86_400_000_000_000),
+    ]
+    .iter()
+    .find_map(|(suffix, ns)| s.strip_suffix(suffix).map(|d| (d, *ns)))?;
+    let n: u128 = digits.trim().parse().ok()?;
+    u64::try_from(n.saturating_mul(per_unit_ns) / 1_000_000).ok()
+}
+
+/// Milliseconds the way ES's `TimeValue#toString` prints them: the largest
+/// whole unit, one truncated decimal, a trailing `.0` dropped (`120000` ->
+/// `2m`, `90000` -> `1.5m`).
+fn format_time_value_millis(ms: u64) -> String {
+    if ms == 0 {
+        return "0s".to_string();
+    }
+    let (unit, suffix) = [
+        (86_400_000u64, "d"),
+        (3_600_000, "h"),
+        (60_000, "m"),
+        (1_000, "s"),
+        (1, "ms"),
+    ]
+    .into_iter()
+    .find(|(unit, _)| ms >= *unit)
+    .unwrap_or((1, "ms"));
+    let whole = ms / unit;
+    let tenth = (ms % unit) * 10 / unit;
+    if tenth == 0 {
+        format!("{whole}{suffix}")
+    } else {
+        format!("{whole}.{tenth}{suffix}")
+    }
+}
+
+/// ES's `search.max_keep_alive` check (`SearchService#checkKeepAliveLimit`):
+/// a scroll or point-in-time keep-alive above the cluster setting is refused
+/// with a 400, on open and on every continuation that asks for a new
+/// keep-alive. XERJ stored the setting (`PUT _cluster/settings` round-trips
+/// it) but never read it, so a cluster that lowered the limit still accepted
+/// any keep-alive up to the node's own `search_context` / `pit` cap.
+///
+/// Only an explicitly set limit is enforced here, transient over persistent
+/// as in ES. With none set, the node config's cap keeps applying silently, as
+/// its documentation says; that cap is an operator guard, not ES's setting.
+async fn keep_alive_over_cluster_limit(
+    state: &AppState,
+    requested: Option<&str>,
+) -> Option<Response> {
+    let requested_ms = parse_time_value_millis(requested?)?;
+    let max_ms = {
+        let settings = state.engine.cluster_settings.read().await;
+        ["transient", "persistent"].iter().find_map(|scope| {
+            settings
+                .get(*scope)
+                .and_then(|s| s.get("search.max_keep_alive"))
+                .and_then(Value::as_str)
+                .and_then(parse_time_value_millis)
+        })?
+    };
+    (requested_ms > max_ms).then(|| {
+        search_shard_validation_error(&format!(
+            "Keep alive for request ({}) is too large. It must be less than ({}). This limit can \
+             be set by changing the [search.max_keep_alive] cluster level setting.",
+            format_time_value_millis(requested_ms),
+            format_time_value_millis(max_ms),
+        ))
+    })
+}
+
+#[cfg(test)]
+mod max_keep_alive_tests {
+    use super::*;
+    use axum::{body::Body, http::Request};
+    use tower::ServiceExt;
+    use xerj_common::{
+        config::{Config, WalSync},
+        metrics::Metrics,
+    };
+    use xerj_engine::Engine;
+
+    fn test_state() -> AppState {
+        let dir = tempfile::tempdir().expect("tempdir").keep();
+        let mut config = Config::default();
+        config.server.data_dir = dir.to_string_lossy().into_owned();
+        config.storage.wal_sync = WalSync::Async;
+        let metrics = Metrics::new().expect("metrics");
+        let engine = Engine::new(config.clone()).expect("engine");
+        AppState::new(config, engine, metrics)
+    }
+
+    async fn send(app: &axum::Router, method: &str, uri: &str, body: Value) -> (StatusCode, Value) {
+        let resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(method)
+                    .uri(uri)
+                    .header("content-type", "application/json")
+                    .body(Body::from(body.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let status = resp.status();
+        let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        (status, serde_json::from_slice(&bytes).unwrap())
+    }
+
+    async fn app_with_limit(scope: &str, max: &str) -> (AppState, axum::Router) {
+        let state = test_state();
+        let app = crate::router::build_es_compat_router(state.clone());
+        for id in ["1", "2"] {
+            let (status, body) = send(
+                &app,
+                "PUT",
+                &format!("/k/_doc/{id}?refresh=true"),
+                json!({"foo": 1}),
+            )
+            .await;
+            assert!(status.is_success(), "{body}");
+        }
+        let (status, body) = send(
+            &app,
+            "PUT",
+            "/_cluster/settings",
+            json!({ scope: {"search.max_keep_alive": max} }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        (state, app)
+    }
+
+    fn reason(resp: &Value) -> &str {
+        resp["error"]["root_cause"][0]["reason"]
+            .as_str()
+            .unwrap_or_default()
+    }
+
+    const TOO_LARGE_2M: &str = "Keep alive for request (2m) is too large. It must be less than \
+                                (1m). This limit can be set by changing the \
+                                [search.max_keep_alive] cluster level setting.";
+
+    /// FAIL-BEFORE: with `search.max_keep_alive: 1m`, each of these answered
+    /// 200 and opened (or re-armed) a context for the longer keep-alive.
+    #[tokio::test]
+    async fn a_keep_alive_over_the_cluster_limit_is_a_400() {
+        let (state, app) = app_with_limit("persistent", "1m").await;
+
+        let (status, resp) = send(&app, "POST", "/k/_search?scroll=2m", json!({"size": 1})).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{resp}");
+        assert_eq!(reason(&resp), TOO_LARGE_2M);
+        let (status, resp) = send(
+            &app,
+            "POST",
+            "/k/_search_scroll?scroll=2m",
+            json!({"size": 1}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{resp}");
+        assert_eq!(reason(&resp), TOO_LARGE_2M);
+        assert!(
+            state.engine.scrolls.is_empty(),
+            "a refused open leaves no context"
+        );
+
+        // At the limit the scroll opens; a continuation asking for more is
+        // refused, and the context survives it.
+        let (status, resp) = send(&app, "POST", "/k/_search?scroll=1m", json!({"size": 1})).await;
+        assert_eq!(status, StatusCode::OK, "{resp}");
+        let id = resp["_scroll_id"].as_str().expect("scroll id").to_string();
+        let (status, resp) = send(
+            &app,
+            "POST",
+            "/_search/scroll",
+            json!({"scroll": "3m", "scroll_id": id}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{resp}");
+        assert!(
+            reason(&resp).starts_with("Keep alive for request (3m) is too large."),
+            "{resp}"
+        );
+        let (status, resp) = send(
+            &app,
+            "POST",
+            "/_search/scroll",
+            json!({"scroll": "30s", "scroll_id": id}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{resp}");
+
+        let (status, resp) = send(&app, "POST", "/k/_pit?keep_alive=90s", json!({})).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{resp}");
+        assert!(
+            reason(&resp).starts_with("Keep alive for request (1.5m) is too large."),
+            "{resp}"
+        );
+    }
+
+    /// Transient wins over persistent, as in ES; removing the limit restores
+    /// the node's default behaviour.
+    #[tokio::test]
+    async fn the_effective_limit_follows_the_cluster_settings() {
+        let (_state, app) = app_with_limit("persistent", "1m").await;
+        let (status, body) = send(
+            &app,
+            "PUT",
+            "/_cluster/settings",
+            json!({"transient": {"search.max_keep_alive": "10m"}}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        let (status, resp) = send(&app, "POST", "/k/_search?scroll=5m", json!({"size": 1})).await;
+        assert_eq!(status, StatusCode::OK, "transient 10m must win: {resp}");
+
+        let clear = json!({"persistent": {"search.max_keep_alive": null},
+                           "transient": {"search.max_keep_alive": null}});
+        let (status, body) = send(&app, "PUT", "/_cluster/settings", clear).await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        let (status, resp) = send(&app, "POST", "/k/_search?scroll=2h", json!({"size": 1})).await;
+        assert_eq!(status, StatusCode::OK, "{resp}");
+        let (status, resp) = send(&app, "POST", "/k/_pit?keep_alive=2h", json!({})).await;
+        assert_eq!(status, StatusCode::OK, "{resp}");
+    }
+
+    #[test]
+    fn time_values_parse_and_print_like_es() {
+        for (raw, ms) in [
+            ("500ms", Some(500)),
+            ("30s", Some(30_000)),
+            ("1m", Some(60_000)),
+            ("2h", Some(7_200_000)),
+            ("1d", Some(86_400_000)),
+            ("1500000micros", Some(1_500)),
+            ("60", None),
+            ("abc", None),
+        ] {
+            assert_eq!(parse_time_value_millis(raw), ms, "{raw}");
+        }
+        for (ms, printed) in [
+            (0, "0s"),
+            (500, "500ms"),
+            (1_500, "1.5s"),
+            (60_000, "1m"),
+            (90_000, "1.5m"),
+            (119_999, "1.9m"),
+            (86_400_000, "1d"),
+        ] {
+            assert_eq!(format_time_value_millis(ms), printed, "{ms}");
+        }
+    }
+}
+
 fn parse_keep_alive_to_secs(s: &str) -> Option<u64> {
     let s = s.trim();
     if s.is_empty() {

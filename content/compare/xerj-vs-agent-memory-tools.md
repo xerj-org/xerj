@@ -7,7 +7,7 @@ cluster: "Comparison: agent memory"
 question: "Should I use Mem0, Zep, Letta, Cognee or XERJ for AI agent memory?"
 intent: "comparison"
 published: "2026-10-28"
-updated: "2026-10-30"
+updated: "2026-10-31"
 author: "XERJ documentation team"
 reviewer: "XERJ engineering team"
 schema_type: "Article"
@@ -43,6 +43,7 @@ commands:
   - cmd: "curl -s -XPOST 'http://127.0.0.1:9200/_memory/project/_recall' -H 'content-type: application/json' -d '{\"query\":\"Releases Fridays\",\"k\":3}'"
     note: "Recall with words present in the stored fact. Plain query recall is BM25, not paraphrase understanding."
 links_out:
+  - "/compare/ai-agent-memory-benchmark"
   - "compare/xerj-vs-mem0"
   - "compare/xerj-vs-claude-mem-and-mempalace"
   - "xerj-vs-vector-database"
@@ -75,7 +76,7 @@ faq:
 | Mem0 | fact extraction by default; raw inserts with infer=false | LLM extraction optional; embeddings still apply | Apache 2.0 |
 | Zep and Graphiti | Zep Cloud, plus the open Graphiti framework for temporal context graphs | Graphiti: you supply the LLM | Graphiti: Apache 2.0 |
 | Letta | harness for stateful agents with memory blocks and MemFS | runs your agent's model | Apache 2.0 |
-| Cognee | memory platform that builds a graph of entities and relationships | local extraction and embedding models; LLM optional | Apache 2.0 |
+| Cognee | memory platform that builds a graph of entities and relationships | local extraction model and embedder; LLM optional | Apache 2.0 |
 | XERJ | search engine for AI agents with a memory API | lexical by default; neural/proxy embedder optional | Apache 2.0 |
 
 Each row comes from the project's own README, linked in the sources.
@@ -96,7 +97,7 @@ Choose Zep Cloud when you want Zep to run it for you. Choose self-hosted Graphit
 
 ## When to choose Letta instead
 
-Choose Letta when you want the whole agent, not just a store. It puts memory blocks, a memory filesystem, skills and channels in one harness.
+Choose Letta when you want the whole agent and not only a store. It puts memory blocks, a memory filesystem, skills and channels in one harness.
 
 ## When to choose Cognee instead
 
@@ -116,4 +117,4 @@ XERJ is single-node: no replication and no failover. It does not extract facts o
 
 ## What was not measured
 
-No head-to-head was run. No accuracy, speed or cost numbers are claimed for any tool here. Competitor behavior is described from the linked project documentation, checked on 2026-10-29. These integrations were not executed in this review.
+This page compares design, not scores. Zep, Letta and Cognee were not run. For measured recall, update and speed numbers on mem0, MemPalace, ReMe, agentmemory, mcp-memory-service, memvid and XERJ, see the [AI agent memory benchmark](/compare/ai-agent-memory-benchmark). Competitor behavior is described from the linked project documentation, checked on 2026-10-29. These integrations were not executed in this review.

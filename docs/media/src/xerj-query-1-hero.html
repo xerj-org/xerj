@@ -1,0 +1,34 @@
+<!doctype html><html><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800;900&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0b0b0d;--ink:#f4f2ec;--mute:#a8a49d;--line:#3a3836;--accent:#ffc400;--cmp:#8fa3b9}
+*{box-sizing:border-box;margin:0;padding:0}
+body{width:1600px;height:800px;background:var(--bg);color:var(--ink);font-family:Inter,sans-serif;padding:64px 80px;display:flex;flex-direction:column;justify-content:space-between;
+background-image:radial-gradient(ellipse at 85% 0%,rgba(255,196,0,.10),transparent 55%)}
+.eyebrow{font-family:"JetBrains Mono",monospace;font-size:20px;letter-spacing:.14em;color:var(--accent);text-transform:uppercase}
+h1{font-family:"Big Shoulders Display",sans-serif;font-weight:900;font-size:112px;line-height:.92;letter-spacing:.01em;margin-top:18px;text-transform:uppercase}
+.pitch{font-size:30px;line-height:1.35;color:var(--ink);max-width:1240px;margin-top:22px}
+.pitch b{color:var(--accent);font-weight:600}
+.row{display:grid;grid-template-columns:repeat(3,1fr);gap:0;border-top:1px solid var(--line)}
+.cell{padding:28px 32px 0 0;border-right:1px solid var(--line);margin-right:32px}
+.cell:last-child{border-right:none;margin-right:0}
+.pair{font-family:"Big Shoulders Display",sans-serif;font-weight:800;font-size:58px;line-height:1;white-space:nowrap}
+.ours{color:var(--accent)} .vs{font-family:"JetBrains Mono",monospace;font-size:18px;color:var(--mute);margin:0 10px;vertical-align:middle}
+.theirs{color:var(--cmp)}
+.cap{font-family:"JetBrains Mono",monospace;font-size:16px;color:var(--mute);margin-top:12px;letter-spacing:.04em;text-transform:uppercase;line-height:1.45}
+.foot{display:flex;justify-content:space-between;font-family:"JetBrains Mono",monospace;font-size:16px;color:var(--mute);letter-spacing:.06em;margin-top:22px}
+</style></head><body>
+<div>
+<div class="eyebrow">XERJ · RC.101 · A NEW NEUROSYMBOLIC MODEL</div>
+<h1>XERJ Query-1</h1>
+<p class="pitch">It turns your question into a <b>small program over facts you have written</b>, and the engine runs it on CPU. No embeddings, no GPU. Lookups name the facts they used.</p>
+</div>
+<div>
+<div class="row">
+<div class="cell"><div class="pair"><span class="ours">1</span><span class="vs">VS</span><span class="theirs">9–15</span></div><div class="cap">wrong of 160 questions from our dev set<br>Query-1 given each question's records vs RAG on Opus 5.5</div></div>
+<div class="cell"><div class="pair"><span class="ours">$42</span><span class="vs">VS</span><span class="theirs">$13,400+</span></div><div class="cap">per million questions, CPU time<br>vs RAG on Opus 5.5, list prices, our 160-question test</div></div>
+<div class="cell"><div class="pair"><span class="ours">17 min</span><span class="vs">VS</span><span class="theirs">62–97 h</span></div><div class="cap">BM25 index of 10 GB of English Wikipedia<br>vs embedding it on CPU (estimated)</div></div>
+</div>
+<div class="foot"><span>xerj.org/xerj-query-1</span><span>Off by default · enable with --facts-model-dir</span><span>Engine Apache-2.0 · model crates proprietary</span></div>
+</div>
+</body></html>
