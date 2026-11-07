@@ -24,7 +24,7 @@ members = [
 ]
 
 [workspace.package]
-version = "1.0.0-rc.101"
+version = "1.0.0-rc.102"
 edition = "2021"
 license = "Apache-2.0"
 authors = ["xerj Contributors"]
