@@ -48278,14 +48278,25 @@ fn lookup_vector_quantization(schema: &Schema, field: &str) -> Option<String> {
 /// mapping options to honour.
 pub(crate) fn declared_field<'a>(schema: &'a Schema, field: &str) -> Option<&'a FieldConfig> {
     fn find<'a>(fields: &'a [FieldConfig], path: &[&str]) -> Option<&'a FieldConfig> {
-        let head = *path.first()?;
-        let tail = &path[1..];
-        for fc in fields {
-            if fc.name == head {
-                if tail.is_empty() {
-                    return Some(fc);
+        if path.is_empty() {
+            return None;
+        }
+        // Prefer the longest dotted-key match starting at this level, matching
+        // `get_field_value_parts` so literal dotted field names in `Schema::fields`
+        // (such as `files_manifest.json_recorded_at` or its `.keyword`
+        // multi-field) resolve instead of failing with `No mapping found`.
+        for take in (1..=path.len()).rev() {
+            let candidate = path[..take].join(".");
+            let tail = &path[take..];
+            for fc in fields {
+                if fc.name == candidate {
+                    if tail.is_empty() {
+                        return Some(fc);
+                    }
+                    if let Some(found) = find(&fc.fields, tail) {
+                        return Some(found);
+                    }
                 }
-                return find(&fc.fields, tail);
             }
         }
         None
@@ -68101,6 +68112,38 @@ mod log_match_operator_tests {
         assert!(
             !hit_ids(&plain.search(&phrase).await.unwrap()).contains(&"is-only".to_string()),
             "the english analyzer already drops is, on a non-log index too"
+        );
+    }
+
+    #[test]
+    fn declared_field_resolves_literal_dotted_field_names_and_multifields() {
+        use xerj_common::types::{FieldConfig, FieldOptions, FieldType, Schema};
+
+        let mut schema = Schema::empty();
+        schema.fields.push(FieldConfig {
+            name: "files_manifest.json_recorded_at".to_string(),
+            field_type: FieldType::Date,
+            options: FieldOptions::default(),
+            embedding: None,
+            fields: vec![FieldConfig {
+                name: "keyword".to_string(),
+                field_type: FieldType::Keyword,
+                options: FieldOptions::default(),
+                embedding: None,
+                fields: vec![],
+            }],
+        });
+
+        let found = declared_field(&schema, "files_manifest.json_recorded_at")
+            .expect("literal dotted field name in Schema::fields must resolve");
+        assert!(matches!(found.field_type, FieldType::Date));
+
+        let kw = declared_field(&schema, "files_manifest.json_recorded_at.keyword")
+            .expect("multi-field under literal dotted field name must resolve");
+        assert!(matches!(kw.field_type, FieldType::Keyword));
+        assert!(
+            declared_field(&schema, "files_manifest.json_missing").is_none(),
+            "undeclared dotted sibling must still return None"
         );
     }
 }
