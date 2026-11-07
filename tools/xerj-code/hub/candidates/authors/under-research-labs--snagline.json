@@ -1,9 +1,9 @@
 {
- "corpus": "cyrax321--snagline",
+ "corpus": "under-research-labs--snagline",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Python queries this for how Cyrax321/SNAGLINE implements it: Lightweight, dependency-free companion library that watches any agent's execution stream and flags loops and error cascades in real time (selected work: benchmarks, tests, src/snagline)",
+ "domain": "an agent working on Python queries this for how Under-Research-Labs/SNAGLINE implements it: Lightweight, dependency-free companion library that watches any agent's execution stream and flags loops and error cascades in real time (selected work: benchmarks, tests, src/snagline)",
  "repos": [
   {
    "repo": "SNAGLINE",

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "NET",
- "domain": "an agent working on c, dos-attack, networking queries this for how thekiran/nero implements it: SYNFood \u2013 A terminal-based network stress testing tool supporting both TCP and UDP (selected work: the project root, src/cli, tests)",
+ "domain": "an agent working on c, dos-attack, networking queries this for how thekiran/nero implements it: SYNFood \u2013 A cross-platform terminal-based network diagnostics and stress-testing tool for Linux, macOS, and Windows, featuring TCP/UDP capab (selected work: the project root, src/cli, tests)",
  "repos": [
   {
    "repo": "nero",

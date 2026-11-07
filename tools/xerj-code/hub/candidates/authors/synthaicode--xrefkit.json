@@ -1,0 +1,23 @@
+{
+ "corpus": "synthaicode--xrefkit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on developer-tools, dotnet, harness-engineering queries this for how synthaicode/XRefKit implements it: Designed to reduce the cognitive load of directing and reviewing AI work through reusable Skills, linked knowledge, progress records, and re (selected work: tests, xrefkit, work)",
+ "repos": [
+  {
+   "repo": "XRefKit",
+   "url": "https://github.com/synthaicode/XRefKit",
+   "sha": "fec23705524281b3fa8f873e74b80f9babdaaf85",
+   "licence": "MIT (LICENSE file at pin fec237055242, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T12:59Z",
+    "consent_receipt": "0349ec91a9cd",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T12:59Z (receipt 0349ec91a9cd); selected commit fec237055242: \"Compact saved Skill logs and release Core 0.7.3 (#169)\". LICENSE file at pin fec237055242 detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

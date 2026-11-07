@@ -1,0 +1,23 @@
+{
+ "corpus": "samwns--obsidian-fault-script",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on HTML queries this for how Samwns/Obsidian-Fault-Script implements it: A hybrid language (interpreted run flow + native compilation), statically typed, designed to help people learn programming with fast feedbac (selected work: ofs)",
+ "repos": [
+  {
+   "repo": "Obsidian-Fault-Script",
+   "url": "https://github.com/Samwns/Obsidian-Fault-Script",
+   "sha": "96c6f005e01b1af1e51dff799989be5791849da6",
+   "licence": "Apache-2.0 (LICENSE file at pin 96c6f005e01b, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T13:22Z",
+    "consent_receipt": "25bee3dd7687",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T13:22Z (receipt 25bee3dd7687); selected commit 96c6f005e01b: \"feat(android): motores dentro do app, OAL colorpicker/temas e stdlib \u2026\". LICENSE file at pin 96c6f005e01b detected as Apache-2.0 by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}
