@@ -17406,6 +17406,10 @@ async fn search_impl(
         .map(|record| (record, savings_page_bytes));
 
     let took_ms = started.elapsed().as_millis() as u64;
+    // #3005: the profile's query phase, measured in nanoseconds (request
+    // parse through the merged top-hits). `took_ms` is millisecond-rounded,
+    // so a fast search used to profile as 0 ns floored to 1.
+    let query_phase_ns = (started.elapsed().as_nanos() as u64).max(1);
     // RC4 W4 item 2: record the index-agnostic side of the completed search —
     // the global `queries_executed` counter plus BOTH latency histograms
     // (overall + by query type, which were previously never recorded).
@@ -20197,6 +20201,12 @@ async fn search_impl(
     // against the published names. We map the aggregation request shape
     // to the class name ES would pick for the same (field, config) pair.
     if search_req.profile {
+        // #3005: the fetch phase is everything after the query phase up to
+        // here (hit rendering, `_source`/`fields`/highlight, rerank, judge),
+        // measured before the profile-only work below starts.
+        let fetch_phase_ns = (started.elapsed().as_nanos() as u64)
+            .saturating_sub(query_phase_ns)
+            .max(1);
         // ES's `search.aggs.rewrite_to_filter_by_filter` persistent
         // cluster setting toggles whether keyword terms aggs rewrite to
         // `StringTermsAggregatorFromFilters` (the default / optimized
@@ -20277,18 +20287,19 @@ async fn search_impl(
                 .as_ref()
                 .or(body.aggs.as_ref())
                 .or(body.aggregations.as_ref()),
-            took_ms,
+            query_phase_ns,
             total_count,
             response_body.get("aggregations"),
             terms_use_filter_path,
             &sig_text_debug,
         );
-        // fetch profile: ES always emits a `fetch` phase when profile is on
-        // with time > 0. Tests assert `gt: 0` so floor at 1 ns. The default
+        // fetch profile: the measured fetch phase. XERJ has no per-sub-phase
+        // fetch timers, so every non-zero fetch timer below is this phase's
+        // measured total (an upper bound), as `profile.xerj_timing` says. The default
         // stored_fields debug entry is `["_id", "_routing", "_source"]`;
         // when the caller sets `stored_fields: "_none_"` (suppress_meta_fields)
         // the list is empty.
-        let fetch_ns = took_ms.saturating_mul(1_000_000).max(1);
+        let fetch_ns = fetch_phase_ns;
         let stored_fields_debug: Vec<Value> = if suppress_meta_fields {
             vec![]
         } else {
@@ -20381,7 +20392,7 @@ async fn search_impl(
                 "load_stored_fields_count": 1u64,
                 "load_source": fetch_ns,
                 "load_source_count": 1u64,
-                "next_reader": 1u64,
+                "next_reader": fetch_ns,
                 "next_reader_count": 1u64,
             }),
         );
@@ -20416,7 +20427,7 @@ async fn search_impl(
                     "query": [{
                         "type": "DocAndScoreQuery",
                         "description": format!("DocAndScore[{}]", knn_field),
-                        "time_in_nanos": (took_ms * 1_000_000).max(1),
+                        "time_in_nanos": query_phase_ns,
                         "breakdown": {
                             "set_min_competitive_score_count": 0u64,
                             "set_min_competitive_score": 0u64,
@@ -20425,24 +20436,24 @@ async fn search_impl(
                             "shallow_advance_count": 0u64,
                             "shallow_advance": 0u64,
                             "next_doc_count": total_hits.max(1),
-                            "next_doc": 1u64,
+                            "next_doc": query_phase_ns,
                             "score_count": total_hits.max(1),
-                            "score": 1u64,
+                            "score": query_phase_ns,
                             "compute_max_score_count": 0u64,
                             "compute_max_score": 0u64,
                             "advance_count": 0u64,
                             "advance": 0u64,
                             "build_scorer_count": 1u64,
-                            "build_scorer": 1u64,
+                            "build_scorer": query_phase_ns,
                             "create_weight_count": 1u64,
-                            "create_weight": 1u64,
+                            "create_weight": query_phase_ns,
                         },
                     }],
-                    "rewrite_time": 1u64,
+                    "rewrite_time": query_phase_ns,
                     "collector": [{
                         "name": "TopScoreDocCollector",
                         "reason": "search_top_hits",
-                        "time_in_nanos": 1u64,
+                        "time_in_nanos": query_phase_ns,
                     }],
                     "vector_operations_count": total_hits.max(1),
                 })]
@@ -20458,7 +20469,7 @@ async fn search_impl(
                     json!({
                         "type": "statistics",
                         "description": "collect term statistics",
-                        "time_in_nanos": 1u64,
+                        "time_in_nanos": query_phase_ns,
                         "breakdown": {
                             "collection_statistics": 0u64,
                             "collection_statistics_count": 0u64,
@@ -20511,13 +20522,13 @@ async fn search_impl(
                     "query": [{
                         "type": "MatchQuery",
                         "description": format!("{:?}", search_req.query).chars().take(80).collect::<String>(),
-                        "time_in_nanos": took_ms * 1_000_000u64,
+                        "time_in_nanos": query_phase_ns,
                         "breakdown": {
                             "initialize": 0u64,
                             "initialize_count": 0u64,
                             "rewrite": 0u64,
                             "rewrite_count": 0u64,
-                            "collect": took_ms.saturating_mul(100_000),
+                            "collect": query_phase_ns,
                             "collect_count": 1u64,
                             "build_scorer": 0u64,
                             "build_scorer_count": 0u64,
@@ -20542,7 +20553,7 @@ async fn search_impl(
                     "collector": [{
                         "name": "SimpleTopScoreDocCollector",
                         "reason": "search_top_hits",
-                        "time_in_nanos": took_ms * 1_000_000u64,
+                        "time_in_nanos": query_phase_ns,
                     }]
                 }],
                 "aggregations": aggs_profile.clone(),
@@ -20554,7 +20565,10 @@ async fn search_impl(
             }
             shard_profiles.push(shard_obj);
         }
-        response_body["profile"] = json!({ "shards": shard_profiles });
+        response_body["profile"] = json!({
+            "shards": shard_profiles,
+            "xerj_timing": profile_timing_note(query_phase_ns, fetch_phase_ns),
+        });
     }
 
     // ── Scroll context registration ─────────────────────────────────────────
@@ -31937,6 +31951,8 @@ struct SigTextAccumulator<'a> {
     chars_fetched: u64,
     extract_count: u64,
     collect_analyzed_count: u64,
+    extract_ns: u64,
+    collect_analyzed_ns: u64,
     // owning bucket key -> union of analyzed terms across its docs
     per_group: std::collections::HashMap<String, std::collections::HashSet<String>>,
 }
@@ -31949,16 +31965,21 @@ impl<'a> SigTextAccumulator<'a> {
             chars_fetched: 0,
             extract_count: 0,
             collect_analyzed_count: 0,
+            extract_ns: 0,
+            collect_analyzed_ns: 0,
             per_group: std::collections::HashMap::new(),
         }
     }
 
     fn fold_doc(&mut self, doc: &Value) {
+        let t_extract = Instant::now();
         let vals = extract_field_values_from_source(doc, &self.spec.field);
+        self.extract_ns += t_extract.elapsed().as_nanos() as u64;
         if vals.is_empty() {
             return;
         }
         self.extract_count += 1;
+        let t_collect = Instant::now();
         let mut doc_tokens: std::collections::HashSet<String> = std::collections::HashSet::new();
         for v in &vals {
             if let Some(s) = v.as_str() {
@@ -31985,6 +32006,7 @@ impl<'a> SigTextAccumulator<'a> {
             .entry(group_key)
             .or_default()
             .extend(doc_tokens);
+        self.collect_analyzed_ns += t_collect.elapsed().as_nanos() as u64;
     }
 
     fn finish(&self) -> Value {
@@ -31995,17 +32017,33 @@ impl<'a> SigTextAccumulator<'a> {
             "total_buckets": total_buckets,
             "values_fetched": self.values_fetched,
             "chars_fetched": self.chars_fetched,
-            "extract_ns": 1u64,
+            "extract_ns": self.extract_ns.max(1),
             "extract_count": self.extract_count,
-            "collect_analyzed_ns": 1u64,
+            "collect_analyzed_ns": self.collect_analyzed_ns.max(1),
             "collect_analyzed_count": self.collect_analyzed_count,
         })
     }
 }
 
+/// #3005: what the profile's numbers are. `query_ns` and `fetch_ns` are
+/// measured wall-clock phases of THIS request; XERJ has no Lucene-style
+/// sub-phase timers, so each non-zero breakdown timer repeats its enclosing
+/// phase's measured total (an upper bound, never a sub-phase measurement) and
+/// the `*_count` fields are not instrumented. Tools that read the ES-shaped
+/// profile get this disclosure next to the numbers instead of silent fakes.
+fn profile_timing_note(query_ns: u64, fetch_ns: u64) -> Value {
+    json!({
+        "query_phase_nanos": query_ns,
+        "fetch_phase_nanos": fetch_ns,
+        "measured": ["query_phase", "fetch_phase"],
+        "breakdown": "not_instrumented",
+        "warning": "XERJ measures the query and fetch phases only. Each non-zero breakdown or collector timer repeats its enclosing phase's measured total (an upper bound); zero-valued timers were not measured and the *_count fields are not instrumented.",
+    })
+}
+
 fn build_aggregation_profile_full(
     aggs: Option<&Value>,
-    took_ms: u64,
+    phase_ns: u64,
     collect_count: u64,
     results: Option<&Value>,
     terms_use_filter_path: bool,
@@ -32013,7 +32051,7 @@ fn build_aggregation_profile_full(
 ) -> Vec<Value> {
     build_aggregation_profile_full_at(
         aggs,
-        took_ms,
+        phase_ns,
         collect_count,
         results,
         terms_use_filter_path,
@@ -32024,7 +32062,7 @@ fn build_aggregation_profile_full(
 
 fn build_aggregation_profile_full_at(
     aggs: Option<&Value>,
-    took_ms: u64,
+    phase_ns: u64,
     collect_count: u64,
     results: Option<&Value>,
     terms_use_filter_path: bool,
@@ -32110,7 +32148,7 @@ fn build_aggregation_profile_full_at(
         };
         let children = build_aggregation_profile_full_at(
             children_spec,
-            took_ms,
+            phase_ns,
             child_collect_count,
             child_results.as_ref(),
             terms_use_filter_path,
@@ -32128,25 +32166,22 @@ fn build_aggregation_profile_full_at(
         let mut node = serde_json::Map::new();
         node.insert("type".to_string(), Value::String(class_name));
         node.insert("description".to_string(), Value::String(name.clone()));
-        node.insert("time_in_nanos".to_string(), json!(took_ms * 1_000_000u64));
-        // Breakdown numbers are in nanoseconds. Even a fast agg takes some
-        // wall-clock time to initialize; the `gt 0` assertions in the YAML
-        // tests reject a literal zero. Floor every phase at 1 ns so those
-        // assertions pass without claiming more work than we did.
-        let init_ns = took_ms.saturating_mul(1_000_000).max(1_000);
-        let collect_ns = took_ms.saturating_mul(1_000_000).max(1_000);
+        node.insert("time_in_nanos".to_string(), json!(phase_ns));
+        // #3005: aggregations run inside the query phase and XERJ has no
+        // per-aggregator timers, so every non-zero timer here is the measured
+        // query phase (an upper bound), as `profile.xerj_timing` says.
         node.insert(
             "breakdown".to_string(),
             json!({
-                "initialize": init_ns,
+                "initialize": phase_ns,
                 "initialize_count": 1u64,
-                "build_aggregation": 1u64,
+                "build_aggregation": phase_ns,
                 "build_aggregation_count": 1u64,
-                "build_leaf_collector": 1u64,
+                "build_leaf_collector": phase_ns,
                 "build_leaf_collector_count": 1u64,
-                "collect": collect_ns,
+                "collect": phase_ns,
                 "collect_count": collect_count,
-                "post_collection": 1u64,
+                "post_collection": phase_ns,
                 "post_collection_count": 1u64,
                 "reduce": 0u64,
                 "reduce_count": 0u64,
