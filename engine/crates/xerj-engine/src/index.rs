@@ -66999,6 +66999,14 @@ mod exact_scan_hydration_tests {
         }
         scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
         scored.truncate(k.max(1));
+        // #3017: the capped page is in score DESC, seq_no ASC, _id ASC order.
+        let seq_of = |id: &str| idx.lookup_seq_no(id).unwrap_or(u64::MAX);
+        scored.sort_by(|a, b| {
+            b.1.partial_cmp(&a.1)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| seq_of(&a.0).cmp(&seq_of(&b.0)))
+                .then_with(|| a.0.cmp(&b.0))
+        });
         scored
             .into_iter()
             .map(|(id, score, src, ordinal)| (id, score.to_bits(), ordinal, src))
