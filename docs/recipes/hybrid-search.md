@@ -236,6 +236,12 @@ below.
   order does not reorder an equal-weight request. Before
   [#940](https://github.com/xerj-org/xerj/issues/940) a tie followed
   hash-map iteration order, which changed from one process to the next.
+  Before [#3017](https://github.com/xerj-org/xerj/issues/3017) the same
+  held one level down: a `knn` leg served from the HNSW graph returned
+  equally similar neighbours in graph order, and the graph differs between
+  the indexing process, a restart and a second node, so RRF positions (and
+  the fused scores built from them) could change. Every kNN executor now
+  ranks its neighbours in the same score, `_seq_no`, `_id` order.
 - **Vector quality is your embeddings' job.** This recipe supplies
   vectors directly for a deterministic demo. For real semantic recall,
   generate `dense_vector` values with a production embedding model, or
