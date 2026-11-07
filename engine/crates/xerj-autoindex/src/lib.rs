@@ -8969,7 +8969,7 @@ fn run_index_report_inner(
     // nothing — autoindex is the onboarding verb, so the no-node case here
     // gets the same recipe `xerj def` already prints: start one, or aim at
     // an existing node. `xerj autoindex map` uses the same wording.
-    if let Err(e) = es.ping() {
+    if let Err(e) = es.ping_xerj() {
         anyhow::bail!("{}", node_ping_failure(&cfg.url, &e));
     }
     // #2077: the flood-stage write block used to surface only when the first
@@ -13592,13 +13592,16 @@ fn format_str(sn: Option<&Sniffed>) -> String {
 fn node_ping_failure(url: &str, err: &anyhow::Error) -> String {
     if esclient::Es::ping_failure_is_auth(err) {
         format!("the node at {url} answered, but authentication failed.\n{err:#}")
+    } else if err.is::<esclient::UnexpectedNode>() {
+        let endpoint = xerj_common::config::redact_url_userinfo(url);
+        format!("the endpoint at {endpoint} answered, but {err}. Check the port or pass --url for a running XERJ node.")
     } else {
         let loopback = loopback_retry_hint(url).unwrap_or_default();
         format!(
             "no XERJ node reachable at {url} ({err:#})\n\n\
              Start one, then re-run this command:\n  \
              xerj --insecure --data-dir ./.xerj-data &\n\n\
-             (or point at an existing node with --url / $XERJ_URL){loopback}"
+             (or point at an existing node with --url){loopback}"
         )
     }
 }
@@ -14117,7 +14120,7 @@ impl CatalogSummary {
 /// instead of inventing a number (the repo's honest-claims rule).
 pub fn fetch_catalog_summary(url: &str, api_key: Option<String>) -> Result<CatalogSummary> {
     let es = Es::new(url, api_key)?;
-    es.ping()?;
+    es.ping_xerj()?;
     let fetch = |query: Value, size: usize, sort: Option<Value>| -> Result<Vec<Value>> {
         let mut body = json!({"query": query, "size": size});
         if let Some(s) = sort {
@@ -17696,7 +17699,7 @@ mod legacy_rebuild_argv_tests {
 /// write succeeded: any bulk, document, or mapping request fails the test.
 #[cfg(test)]
 mod map_folder_preview {
-    use super::{cli, run_index};
+    use super::{cli, fetch_catalog_summary, run_index};
     use std::io::{BufRead, BufReader, Read, Write};
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::{Arc, Mutex};
@@ -17710,7 +17713,7 @@ mod map_folder_preview {
     }
 
     impl Node {
-        fn start() -> Self {
+        fn start(root_response: &'static str) -> Self {
             let listener = crate::test_loopback::bind();
             listener.set_nonblocking(true).unwrap();
             let url = format!("http://{}", listener.local_addr().unwrap());
@@ -17758,7 +17761,7 @@ mod map_folder_preview {
                                 .unwrap()
                                 .push((method.clone(), path.clone()));
                             let (status, body) = if method == "GET" && path == "/" {
-                                (200, r#"{"ok":true}"#)
+                                (200, root_response)
                             } else if method == "GET" && path.starts_with("/_cat/allocation") {
                                 (
                                     200,
@@ -17804,8 +17807,44 @@ mod map_folder_preview {
     }
 
     #[test]
+    fn a_wrong_endpoint_is_refused_before_catalog_io_or_local_state() {
+        for response in [
+            "<html>other service</html>",
+            r#"{"cluster_name":"elasticsearch","cluster_uuid":"another-cluster","version":{"number":"8.13.4"}}"#,
+        ] {
+            let node = Node::start(response);
+            let root = tempfile::tempdir().unwrap();
+            let state = root.path().join("state");
+            let cli::Cmd::Index(cfg) = cli::parse(vec![
+                root.path().display().to_string(),
+                "--url".into(),
+                node.url.clone(),
+                "--state-dir".into(),
+                state.display().to_string(),
+                "--quiet".into(),
+            ])
+            .unwrap() else {
+                panic!("expected an index command");
+            };
+
+            let error = run_index(*cfg).unwrap_err().to_string();
+            assert!(error.contains("without a XERJ node identity"), "{error}");
+            assert!(
+                error.contains(&node.url) && error.contains("--url"),
+                "{error}"
+            );
+            assert!(!state.exists(), "the preflight must not open local state");
+            assert!(matches!(
+                fetch_catalog_summary(&node.url, None),
+                Err(error) if error.is::<crate::esclient::UnexpectedNode>()
+            ));
+            assert_eq!(node.requests(), vec![("GET".to_owned(), "/".to_owned()); 2]);
+        }
+    }
+
+    #[test]
     fn map_folder_previews_an_unindexed_folder_and_writes_no_index() {
-        let node = Node::start();
+        let node = Node::start(crate::test_loopback::XERJ_ROOT);
         let root = tempfile::tempdir().unwrap();
         let state = tempfile::tempdir().unwrap();
         let marker = "map-preview-marker-2368";

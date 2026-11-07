@@ -146,6 +146,9 @@ fn handle(stream: TcpStream, docs: &Arc<Mutex<Docs>>, refreshes: &AtomicU64) {
     let method = parts.next().unwrap_or("");
     let path = parts.next().unwrap_or("").to_string();
 
+    if method == "GET" && path == "/" {
+        return respond(stream, 200, &crate::test_loopback::xerj_root());
+    }
     if method == "POST" && path.ends_with("/_refresh") {
         refreshes.fetch_add(1, Ordering::SeqCst);
     }
