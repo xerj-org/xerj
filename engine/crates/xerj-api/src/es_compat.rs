@@ -16097,6 +16097,23 @@ async fn search_impl(
     {
         return search_shard_validation_error(&reason);
     }
+    if let Some(query) = body.query.as_ref() {
+        if !allow_expensive_queries(&state).await {
+            let mappings: Vec<Value> = participating_indices
+                .iter()
+                .filter_map(|ix| {
+                    state
+                        .engine
+                        .index_mappings
+                        .get(ix.as_str())
+                        .map(|m| m.clone())
+                })
+                .collect();
+            if let Some(reason) = find_disallowed_expensive_query(query, &mappings) {
+                return search_shard_validation_error(&reason);
+            }
+        }
+    }
 
     // Enforce per-index `index.disable_sequence_numbers` setting:
     // reject queries/sorts that touch `_seq_no` with ES's specific
@@ -44728,6 +44745,285 @@ pub async fn close_pit(
         _ => 0,
     };
     Json(json!({ "succeeded": freed > 0, "num_freed": freed })).into_response()
+}
+
+/// The dynamic `search.allow_expensive_queries` cluster setting (ES
+/// `SearchService.ALLOW_EXPENSIVE_QUERIES`, default `true`). Transient wins
+/// over persistent, as for every cluster setting; `false` / `"false"` turns
+/// the expensive queries off.
+async fn allow_expensive_queries(state: &AppState) -> bool {
+    let settings = state.engine.cluster_settings.read().await;
+    let value = ["transient", "persistent"].iter().find_map(|scope| {
+        settings
+            .get(*scope)
+            .and_then(|s| s.get("search.allow_expensive_queries"))
+            .cloned()
+    });
+    match value {
+        Some(Value::Bool(b)) => b,
+        Some(Value::String(s)) => !s.eq_ignore_ascii_case("false"),
+        _ => true,
+    }
+}
+
+/// With `search.allow_expensive_queries: false`, ES refuses the queries whose
+/// cost grows with the term dictionary or the document count instead of
+/// running them: prefix / fuzzy / regexp / wildcard and range on text and
+/// keyword fields (`StringFieldType`, `TextFieldType`), joining queries
+/// (`nested`, `has_child`, `has_parent`, `parent_id`), `script` and
+/// `script_score`. XERJ stored the setting and ignored it, so a cluster an
+/// operator had locked down still ran every one of them.
+///
+/// The walk follows query positions only (compound clauses), so a field that
+/// happens to be named `prefix` or `range` is not mistaken for a clause. A
+/// field-dependent clause is refused only when the field has a gated type in
+/// every participating index, the rule the other shard-level checks here use;
+/// ES would answer a partial result otherwise. A text field with
+/// `index_prefixes` keeps its prefix queries, which ES serves from that
+/// field.
+fn find_disallowed_expensive_query(query: &Value, mappings: &[Value]) -> Option<String> {
+    const SUFFIX: &str =
+        "cannot be executed when 'search.allow_expensive_queries' is set to false.";
+    fn mapping_node<'a>(mapping: &'a Value, field: &str) -> Option<&'a Value> {
+        fn walk<'a>(props: &'a serde_json::Map<String, Value>, segs: &[&str]) -> Option<&'a Value> {
+            for split in (1..=segs.len()).rev() {
+                let Some(node) = props.get(&segs[..split].join(".")) else {
+                    continue;
+                };
+                let rest = &segs[split..];
+                if rest.is_empty() {
+                    return Some(node);
+                }
+                for child in ["properties", "fields"] {
+                    if let Some(found) = node
+                        .get(child)
+                        .and_then(Value::as_object)
+                        .and_then(|p| walk(p, rest))
+                    {
+                        return Some(found);
+                    }
+                }
+            }
+            None
+        }
+        let props = mapping
+            .pointer("/mappings/properties")
+            .or_else(|| mapping.pointer("/properties"))
+            .and_then(Value::as_object)?;
+        walk(props, &field.split('.').collect::<Vec<_>>())
+    }
+    // Is `field` mapped with one of `types` (and not exempted) in every index?
+    let gated_everywhere = |field: &str, types: &[&str], exempt: &dyn Fn(&Value) -> bool| {
+        !mappings.is_empty()
+            && mappings.iter().all(|m| {
+                mapping_node(m, field).is_some_and(|node| {
+                    let ty = node.get("type").and_then(Value::as_str).unwrap_or("object");
+                    types.contains(&ty) && !exempt(node)
+                })
+            })
+    };
+    let first_field = |clause: &Value| -> Option<String> {
+        clause
+            .as_object()?
+            .keys()
+            .find(|k| !matches!(k.as_str(), "boost" | "_name"))
+            .cloned()
+    };
+    let obj = query.as_object()?;
+    for (kind, clause) in obj {
+        let found = match kind.as_str() {
+            "bool" => ["must", "should", "filter", "must_not"]
+                .iter()
+                .filter_map(|occur| clause.get(*occur))
+                .flat_map(|v| match v {
+                    Value::Array(items) => items.iter().collect::<Vec<_>>(),
+                    other => vec![other],
+                })
+                .find_map(|q| find_disallowed_expensive_query(q, mappings)),
+            "constant_score" => clause
+                .get("filter")
+                .and_then(|q| find_disallowed_expensive_query(q, mappings)),
+            "dis_max" => clause
+                .get("queries")
+                .and_then(Value::as_array)
+                .and_then(|qs| {
+                    qs.iter()
+                        .find_map(|q| find_disallowed_expensive_query(q, mappings))
+                }),
+            "boosting" => ["positive", "negative"]
+                .iter()
+                .filter_map(|k| clause.get(*k))
+                .find_map(|q| find_disallowed_expensive_query(q, mappings)),
+            "function_score" => clause
+                .get("query")
+                .and_then(|q| find_disallowed_expensive_query(q, mappings)),
+            "nested" | "has_child" | "has_parent" | "parent_id" if !mappings.is_empty() => {
+                Some(format!("[joining] queries {SUFFIX}"))
+            }
+            "script" if !mappings.is_empty() => Some(format!("[script] queries {SUFFIX}")),
+            "script_score" if !mappings.is_empty() => {
+                Some(format!("[script score] queries {SUFFIX}"))
+            }
+            "prefix" => first_field(clause)
+                .filter(|f| {
+                    gated_everywhere(f, &["text", "keyword"], &|node| {
+                        node.get("index_prefixes").is_some()
+                    })
+                })
+                .map(|_| {
+                    format!(
+                        "[prefix] queries {SUFFIX} For optimised prefix queries on text fields \
+                         please enable [index_prefixes]."
+                    )
+                }),
+            "fuzzy" | "regexp" | "wildcard" => first_field(clause)
+                .filter(|f| gated_everywhere(f, &["text", "keyword"], &|_| false))
+                .map(|_| format!("[{kind}] queries {SUFFIX}")),
+            "range" => first_field(clause)
+                .filter(|f| gated_everywhere(f, &["text", "keyword"], &|_| false))
+                .map(|_| format!("[range] queries on [text] or [keyword] fields {SUFFIX}")),
+            _ => None,
+        };
+        if found.is_some() {
+            return found;
+        }
+    }
+    None
+}
+
+#[cfg(test)]
+mod allow_expensive_queries_tests {
+    use super::*;
+    use axum::{body::Body, http::Request};
+    use tower::ServiceExt;
+    use xerj_common::{
+        config::{Config, WalSync},
+        metrics::Metrics,
+    };
+    use xerj_engine::Engine;
+
+    fn test_state() -> AppState {
+        let dir = tempfile::tempdir().expect("tempdir").keep();
+        let mut config = Config::default();
+        config.server.data_dir = dir.to_string_lossy().into_owned();
+        config.storage.wal_sync = WalSync::Async;
+        let metrics = Metrics::new().expect("metrics");
+        let engine = Engine::new(config.clone()).expect("engine");
+        AppState::new(config, engine, metrics)
+    }
+
+    async fn send(app: &axum::Router, method: &str, uri: &str, body: Value) -> (StatusCode, Value) {
+        let resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(method)
+                    .uri(uri)
+                    .header("content-type", "application/json")
+                    .body(Body::from(body.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let status = resp.status();
+        let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        (status, serde_json::from_slice(&bytes).unwrap())
+    }
+
+    /// The 320_disallow_queries.yml index, plus a long and a text field with
+    /// `index_prefixes`.
+    async fn app() -> axum::Router {
+        let app = crate::router::build_es_compat_router(test_state());
+        let mapping = json!({"mappings": {"properties": {
+            "text": {"type": "text", "fields": {"raw": {"type": "keyword"}}},
+            "pre": {"type": "text", "index_prefixes": {}},
+            "n": {"type": "long"},
+            "nested1": {"type": "nested"}}}});
+        let (status, body) = send(&app, "PUT", "/test", mapping).await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        let doc = json!({"text": "Its cold outside", "pre": "outside", "n": 5,
+                         "nested1": [{"foo": "bar2"}]});
+        let (status, body) = send(&app, "PUT", "/test/_doc/1?refresh=true", doc).await;
+        assert!(status.is_success(), "{body}");
+        app
+    }
+
+    async fn set(app: &axum::Router, scope: &str, value: Value) {
+        let body = json!({ scope: { "search.allow_expensive_queries": value } });
+        let (status, resp) = send(app, "PUT", "/_cluster/settings", body).await;
+        assert_eq!(status, StatusCode::OK, "{resp}");
+    }
+
+    async fn search(app: &axum::Router, query: Value) -> (StatusCode, Value) {
+        send(app, "POST", "/test/_search", json!({ "query": query })).await
+    }
+
+    fn expensive() -> Vec<(Value, &'static str)> {
+        vec![
+            (json!({"prefix": {"text": {"value": "out"}}}),
+             "[prefix] queries cannot be executed when 'search.allow_expensive_queries' is set to false. For optimised prefix queries on text fields please enable [index_prefixes]."),
+            (json!({"fuzzy": {"text": {"value": "outwide"}}}),
+             "[fuzzy] queries cannot be executed when 'search.allow_expensive_queries' is set to false."),
+            (json!({"regexp": {"text": {"value": ".*ou.*id.*"}}}),
+             "[regexp] queries cannot be executed when 'search.allow_expensive_queries' is set to false."),
+            (json!({"wildcard": {"text": {"value": "out?ide"}}}),
+             "[wildcard] queries cannot be executed when 'search.allow_expensive_queries' is set to false."),
+            (json!({"range": {"text": {"gte": "theres"}}}),
+             "[range] queries on [text] or [keyword] fields cannot be executed when 'search.allow_expensive_queries' is set to false."),
+            (json!({"range": {"text.raw": {"gte": "Outside"}}}),
+             "[range] queries on [text] or [keyword] fields cannot be executed when 'search.allow_expensive_queries' is set to false."),
+            (json!({"nested": {"path": "nested1", "query": {"match": {"nested1.foo": "bar2"}}}}),
+             "[joining] queries cannot be executed when 'search.allow_expensive_queries' is set to false."),
+            (json!({"script": {"script": {"source": "true"}}}),
+             "[script] queries cannot be executed when 'search.allow_expensive_queries' is set to false."),
+            (json!({"bool": {"filter": [{"term": {"n": 5}}, {"prefix": {"text.raw": "Its"}}]}}),
+             "[prefix] queries cannot be executed when 'search.allow_expensive_queries' is set to false. For optimised prefix queries on text fields please enable [index_prefixes]."),
+        ]
+    }
+
+    /// FAIL-BEFORE: with the setting `false`, every one answered 200.
+    #[tokio::test]
+    async fn expensive_queries_are_refused_when_disallowed() {
+        let app = app().await;
+        set(&app, "persistent", json!("false")).await;
+        for (query, reason) in expensive() {
+            let (status, body) = search(&app, query.clone()).await;
+            assert_eq!(status, StatusCode::BAD_REQUEST, "{query} -> {body}");
+            assert_eq!(body["error"]["root_cause"][0]["reason"], reason, "{query}");
+        }
+        // A transient `false` wins over a persistent `true`.
+        set(&app, "persistent", json!(true)).await;
+        set(&app, "transient", json!(false)).await;
+        let (status, body) = search(&app, json!({"wildcard": {"text": "out*"}})).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    }
+
+    /// Cheap queries still run while the setting is `false`, and every query
+    /// runs again once it is reset.
+    #[tokio::test]
+    async fn other_queries_and_reset_settings_still_answer() {
+        let app = app().await;
+        set(&app, "persistent", json!("false")).await;
+        for query in [
+            json!({"range": {"n": {"gte": 1}}}),
+            json!({"prefix": {"unmapped": "x"}}),
+            json!({"prefix": {"pre": "out"}}),
+            json!({"term": {"prefix": "x"}}),
+            json!({"match": {"text": "cold"}}),
+        ] {
+            let (status, body) = search(&app, query.clone()).await;
+            assert_eq!(status, StatusCode::OK, "{query} -> {body}");
+        }
+        for value in [Value::Null, json!("true"), json!(true)] {
+            set(&app, "persistent", value.clone()).await;
+            for (query, _) in expensive() {
+                let (status, body) = search(&app, query.clone()).await;
+                assert_eq!(status, StatusCode::OK, "{value}: {query} -> {body}");
+            }
+        }
+    }
 }
 
 /// Minimal glob matcher for index-name wildcard expansion (* only).
