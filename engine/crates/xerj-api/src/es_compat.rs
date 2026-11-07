@@ -19640,7 +19640,7 @@ async fn search_impl(
     // sentinel `-1`). Otherwise we emit the usual {value, relation} object.
     let track_total_disabled = match body.track_total_hits.as_ref() {
         Some(Value::Bool(false)) => true,
-        Some(Value::Number(n)) => n.as_i64() == Some(0),
+        Some(Value::Number(n)) => matches!(n.as_i64(), Some(0) | Some(-1)),
         _ => false,
     };
 
@@ -30964,6 +30964,21 @@ async fn msearch_impl(
     let lines: Vec<&str> = text.lines().collect();
     let mut responses: Vec<Value> = Vec::new();
 
+    // ES parses every item body before it runs any of them, and a value
+    // `SearchSourceBuilder` refuses fails the whole request
+    // (`MultiSearchRequest#readMultiLineFormat` catches nothing).
+    for pair in lines.chunks(2) {
+        let [header, body] = pair else { break };
+        if header.trim().is_empty() {
+            continue;
+        }
+        if let Ok(item) = serde_json::from_str::<Value>(body.trim()) {
+            if let Some(reason) = xerj_query::track_total_hits_refusal(&item) {
+                return es_bad_request("illegal_argument_exception", &reason, None);
+            }
+        }
+    }
+
     let mut i = 0;
     while i + 1 < lines.len() {
         let header_line = lines[i].trim();
@@ -31371,6 +31386,12 @@ async fn msearch_impl(
             },
             "status": 200,
         });
+        if search_req.track_total_hits == xerj_query::ast::TrackTotalHits::False {
+            // `track_total_hits: false` (or `-1`): ES leaves `hits.total` out.
+            if let Some(hits) = resp["hits"].as_object_mut() {
+                hits.remove("total");
+            }
+        }
         if let Some(aggs) = merged_aggs {
             resp["aggregations"] = aggs;
         }
@@ -42322,6 +42343,13 @@ pub async fn search_template(
             "hits": hits,
         },
     });
+    if search_req.track_total_hits == xerj_query::ast::TrackTotalHits::False {
+        // `track_total_hits: false` (or `-1`): ES leaves `hits.total` out;
+        // the engine's count stops at `size`, so printing it as `eq` was wrong.
+        if let Some(hits) = resp["hits"].as_object_mut() {
+            hits.remove("total");
+        }
+    }
     if semantic_skips.skipped > 0 {
         let shard_total = handles.len().max(1) as u32;
         resp["_shards"] = json!({
@@ -42639,6 +42667,13 @@ async fn msearch_template_impl(
                 "hits": merged_hits,
             },
         });
+        if search_req.track_total_hits == xerj_query::ast::TrackTotalHits::False {
+            // `track_total_hits: false` (or `-1`): ES leaves `hits.total` out;
+            // the engine's count stops at `size`, so printing it as `eq` was wrong.
+            if let Some(hits) = item["hits"].as_object_mut() {
+                hits.remove("total");
+            }
+        }
         if semantic_skips.skipped > 0 {
             let total = index_names.len().max(1) as u32;
             item["_shards"] = json!({
