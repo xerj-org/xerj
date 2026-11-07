@@ -16092,9 +16092,14 @@ async fn search_impl(
     // A numeric metric on a keyword/ip/... field. Checked after the alias
     // rewrite above so an alias is judged by the type of the field it names.
     let metric_aggs = body.aggs.as_ref().or(body.aggregations.as_ref());
-    if let Some(reason) =
-        find_unsupported_metric_agg_field(metric_aggs, &state, &participating_indices)
-    {
+    if let Some(reason) = find_unsupported_metric_agg_field(
+        metric_aggs,
+        &state,
+        &participating_indices,
+    )
+    .or_else(|| {
+        find_regex_include_exclude_on_non_string_field(metric_aggs, &state, &participating_indices)
+    }) {
         return search_shard_validation_error(&reason);
     }
 
@@ -44728,6 +44733,265 @@ pub async fn close_pit(
         _ => 0,
     };
     Json(json!({ "succeeded": freed > 0, "num_freed": freed })).into_response()
+}
+
+/// `terms`, `rare_terms` and `significant_terms` take `include` / `exclude`
+/// as an array of exact values, a `{partition, num_partitions}` object, or a
+/// string, which is a regular expression. ES applies a regular expression to
+/// the terms as strings, so it refuses one on a field whose values are not
+/// (`IncludeExclude#isRegexBased` with a non-`RAW` values-source format: ip,
+/// numbers, dates, booleans) with `Aggregation [name] cannot support regular
+/// expression style include/exclude settings as they can only be applied to
+/// string fields. Use an array of values for include/exclude clauses`, a 400
+/// since 8.12. XERJ ran the pattern anyway: `terms` matched it against the
+/// rendered values and `rare_terms` / `significant_terms` ignored it, so the
+/// buckets came back filtered by accident or not at all.
+///
+/// The field is refused only when it has such a type in every target index,
+/// the rule [`find_unsupported_metric_agg_field`] uses; ES would answer a
+/// partial result otherwise. `significant_text` is not covered: it reads text.
+fn find_regex_include_exclude_on_non_string_field(
+    aggs: Option<&Value>,
+    state: &AppState,
+    indices: &[String],
+) -> Option<String> {
+    const KINDS: &[&str] = &["terms", "rare_terms", "significant_terms"];
+    const NON_STRING_TYPES: &[&str] = &[
+        "ip",
+        "long",
+        "integer",
+        "short",
+        "byte",
+        "double",
+        "float",
+        "half_float",
+        "scaled_float",
+        "unsigned_long",
+        "date",
+        "date_nanos",
+        "boolean",
+    ];
+    fn walk(aggs: &serde_json::Map<String, Value>, mappings: &[Value]) -> Option<String> {
+        for (name, def) in aggs {
+            let Some(obj) = def.as_object() else {
+                continue;
+            };
+            for (kind, params) in obj {
+                if !KINDS.contains(&kind.as_str()) {
+                    continue;
+                }
+                let regex = ["include", "exclude"]
+                    .iter()
+                    .any(|k| params.get(*k).is_some_and(Value::is_string));
+                let Some(field) = params.get("field").and_then(Value::as_str) else {
+                    continue;
+                };
+                let non_string = mappings.iter().all(|m| {
+                    mapped_field_type(m, field)
+                        .is_some_and(|t| NON_STRING_TYPES.contains(&t.as_str()))
+                });
+                if regex && non_string {
+                    return Some(format!(
+                        "Aggregation [{name}] cannot support regular expression style \
+                         include/exclude settings as they can only be applied to string \
+                         fields. Use an array of values for include/exclude clauses"
+                    ));
+                }
+            }
+            if let Some(found) = obj
+                .get("aggs")
+                .or_else(|| obj.get("aggregations"))
+                .and_then(Value::as_object)
+                .and_then(|sub| walk(sub, mappings))
+            {
+                return Some(found);
+            }
+        }
+        None
+    }
+    let aggs = aggs?.as_object()?;
+    let mappings: Vec<Value> = indices
+        .iter()
+        .map(|ix| {
+            state
+                .engine
+                .index_mappings
+                .get(ix.as_str())
+                .map(|m| m.clone())
+        })
+        .collect::<Option<_>>()?;
+    if mappings.is_empty() {
+        return None;
+    }
+    walk(aggs, &mappings)
+}
+
+#[cfg(test)]
+mod regex_include_exclude_tests {
+    use super::*;
+    use axum::{body::Body, http::Request};
+    use tower::ServiceExt;
+    use xerj_common::{
+        config::{Config, WalSync},
+        metrics::Metrics,
+    };
+    use xerj_engine::Engine;
+
+    fn test_state() -> AppState {
+        let dir = tempfile::tempdir().expect("tempdir").keep();
+        let mut config = Config::default();
+        config.server.data_dir = dir.to_string_lossy().into_owned();
+        config.storage.wal_sync = WalSync::Async;
+        let metrics = Metrics::new().expect("metrics");
+        let engine = Engine::new(config.clone()).expect("engine");
+        AppState::new(config, engine, metrics)
+    }
+
+    async fn send(app: &axum::Router, method: &str, uri: &str, body: Value) -> (StatusCode, Value) {
+        let resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(method)
+                    .uri(uri)
+                    .header("content-type", "application/json")
+                    .body(Body::from(body.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let status = resp.status();
+        let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        (status, serde_json::from_slice(&bytes).unwrap())
+    }
+
+    /// `t`: an ip, an integer, a date, a keyword and a text with a keyword
+    /// multi-field. `u` maps `s` as a long, so `/t,u` has one string target.
+    async fn app() -> axum::Router {
+        let app = crate::router::build_es_compat_router(test_state());
+        for (idx, props, doc) in [
+            (
+                "t",
+                json!({"ip": {"type": "ip"}, "n": {"type": "integer"}, "d": {"type": "date"},
+                       "s": {"type": "keyword"},
+                       "name": {"type": "text", "fields": {"raw": {"type": "keyword"}}}}),
+                json!({"ip": "127.0.0.1", "n": 1, "d": "2020-01-01", "s": "apple", "name": "apple"}),
+            ),
+            ("u", json!({"s": {"type": "long"}}), json!({"s": 5})),
+        ] {
+            let (status, body) = send(
+                &app,
+                "PUT",
+                &format!("/{idx}"),
+                json!({"mappings": {"properties": props}}),
+            )
+            .await;
+            assert_eq!(status, StatusCode::OK, "{body}");
+            let (status, body) =
+                send(&app, "PUT", &format!("/{idx}/_doc/1?refresh=true"), doc).await;
+            assert!(status.is_success(), "{body}");
+        }
+        app
+    }
+
+    fn agg(kind: &str, params: Value) -> Value {
+        json!({"size": 0, "aggs": {"ip_terms": {kind: params}}})
+    }
+
+    /// FAIL-BEFORE: every request answered 200.
+    #[tokio::test]
+    async fn regex_include_exclude_on_non_string_fields_is_a_400() {
+        let app = app().await;
+        let reason = "Aggregation [ip_terms] cannot support regular expression style \
+                      include/exclude settings as they can only be applied to string fields. \
+                      Use an array of values for include/exclude clauses";
+        for (kind, params) in [
+            ("terms", json!({"field": "ip", "exclude": "127.*"})),
+            ("rare_terms", json!({"field": "ip", "exclude": "127.*"})),
+            (
+                "significant_terms",
+                json!({"field": "ip", "exclude": "127.*"}),
+            ),
+            ("terms", json!({"field": "n", "include": "1.*"})),
+            ("terms", json!({"field": "d", "exclude": "2020.*"})),
+        ] {
+            let (status, body) = send(&app, "POST", "/t/_search", agg(kind, params.clone())).await;
+            assert_eq!(status, StatusCode::BAD_REQUEST, "{kind} {params} -> {body}");
+            assert_eq!(
+                body["error"]["type"], "search_phase_execution_exception",
+                "{kind}"
+            );
+            let root = &body["error"]["root_cause"][0];
+            assert_eq!(root["type"], "illegal_argument_exception", "{kind}");
+            assert_eq!(root["reason"], reason, "{kind} {params}");
+        }
+        // Inside a sub-aggregation, named by the sub-aggregation.
+        let body = json!({"size": 0, "aggs": {"by_s": {"terms": {"field": "s"},
+            "aggs": {"inner": {"terms": {"field": "ip", "include": "127.*"}}}}}});
+        let (status, resp) = send(&app, "POST", "/t/_search", body).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{resp}");
+        let got = resp["error"]["root_cause"][0]["reason"]
+            .as_str()
+            .unwrap_or_default();
+        assert!(
+            got.starts_with("Aggregation [inner] cannot support"),
+            "{got}"
+        );
+    }
+
+    /// Arrays and partitions on any type, regexes on string fields, unmapped
+    /// fields, mixed-type targets and `significant_text` still answer.
+    #[tokio::test]
+    async fn other_include_exclude_forms_still_answer() {
+        let app = app().await;
+        for (uri, kind, params) in [
+            (
+                "/t/_search",
+                "terms",
+                json!({"field": "ip", "exclude": ["127.0.0.1"]}),
+            ),
+            (
+                "/t/_search",
+                "rare_terms",
+                json!({"field": "ip", "include": ["127.0.0.1"]}),
+            ),
+            (
+                "/t/_search",
+                "terms",
+                json!({"field": "n", "include": {"partition": 0, "num_partitions": 2}}),
+            ),
+            (
+                "/t/_search",
+                "terms",
+                json!({"field": "s", "include": "app.*"}),
+            ),
+            (
+                "/t/_search",
+                "terms",
+                json!({"field": "name.raw", "exclude": "x.*"}),
+            ),
+            (
+                "/t/_search",
+                "terms",
+                json!({"field": "missing", "include": "x.*"}),
+            ),
+            (
+                "/t,u/_search",
+                "terms",
+                json!({"field": "s", "include": "app.*"}),
+            ),
+            (
+                "/t/_search",
+                "significant_text",
+                json!({"field": "name", "include": "app.*"}),
+            ),
+        ] {
+            let (status, body) = send(&app, "POST", uri, agg(kind, params.clone())).await;
+            assert_eq!(status, StatusCode::OK, "{uri} {kind} {params} -> {body}");
+        }
+    }
 }
 
 /// Minimal glob matcher for index-name wildcard expansion (* only).
