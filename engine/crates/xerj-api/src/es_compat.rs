@@ -6934,6 +6934,13 @@ fn merge_single_bucket_agg(old: &Value, new: &Value) -> Option<Value> {
 fn merge_metric_agg(old: &Value, new: &Value) -> Option<Value> {
     let old_obj = old.as_object()?;
     let new_obj = new.as_object()?;
+    // An embedded failure (`{"error", "__error_status__"}`) wins over another
+    // index's result: in ES one shard throwing fails the whole search.
+    for side in [old, new] {
+        if side.get("__error_status__").is_some() {
+            return Some(side.clone());
+        }
+    }
     // Only merge objects that look like a metric agg response (`value` key,
     // and no `buckets` — we leave bucketed aggs to the bucket-aware path).
     if old_obj.contains_key("buckets") || new_obj.contains_key("buckets") {
@@ -20091,7 +20098,10 @@ async fn search_impl(
     // result tree. ES surfaces these as a real HTTP 400
     // search_phase_execution_exception caused by too_many_buckets_exception
     // (verified against live ES 8.13.4); previously xerj leaked the raw
-    // marker object inline under HTTP 200.
+    // marker object inline under HTTP 200. Any other embedded reason (e.g.
+    // `weighted_avg`'s multi-valued weight) is a shard-level
+    // `illegal_argument_exception`, ES's answer for an aggregator that throws
+    // while collecting.
     if let Some(aggs) = merged_aggs.as_ref() {
         fn find_embedded_agg_error(v: &Value) -> Option<String> {
             match v {
@@ -20138,6 +20148,7 @@ async fn search_impl(
                 )
                     .into_response();
             }
+            return search_shard_validation_error(&reason);
         }
     }
 
@@ -44728,6 +44739,110 @@ pub async fn close_pit(
         _ => 0,
     };
     Json(json!({ "succeeded": freed > 0, "num_freed": freed })).into_response()
+}
+
+#[cfg(test)]
+mod weighted_avg_multi_weight_tests {
+    use super::*;
+    use axum::{body::Body, http::Request};
+    use tower::ServiceExt;
+    use xerj_common::{
+        config::{Config, WalSync},
+        metrics::Metrics,
+    };
+    use xerj_engine::Engine;
+
+    fn test_state() -> AppState {
+        let dir = tempfile::tempdir().expect("tempdir").keep();
+        let mut config = Config::default();
+        config.server.data_dir = dir.to_string_lossy().into_owned();
+        config.storage.wal_sync = WalSync::Async;
+        let metrics = Metrics::new().expect("metrics");
+        let engine = Engine::new(config.clone()).expect("engine");
+        AppState::new(config, engine, metrics)
+    }
+
+    async fn send(app: &axum::Router, method: &str, uri: &str, body: Value) -> (StatusCode, Value) {
+        let resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(method)
+                    .uri(uri)
+                    .header("content-type", "application/json")
+                    .body(Body::from(body.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let status = resp.status();
+        let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        (status, serde_json::from_slice(&bytes).unwrap())
+    }
+
+    /// `multi` holds one document with two weights; `single` has one weight.
+    async fn app() -> axum::Router {
+        let app = crate::router::build_es_compat_router(test_state());
+        let mapping = json!({"mappings": {"properties": {
+            "n": {"type": "integer"}, "w": {"type": "integer"}}}});
+        for (idx, doc) in [
+            ("multi", json!({"n": 10, "w": [1, 2]})),
+            ("single", json!({"n": 4, "w": 3})),
+        ] {
+            let (status, body) = send(&app, "PUT", &format!("/{idx}"), mapping.clone()).await;
+            assert_eq!(status, StatusCode::OK, "{body}");
+            let uri = format!("/{idx}/_doc/1?refresh=true");
+            let (status, body) = send(&app, "PUT", &uri, doc).await;
+            assert!(status.is_success(), "{body}");
+        }
+        app
+    }
+
+    fn wavg() -> Value {
+        json!({"size": 0, "aggs": {"a": {"weighted_avg": {
+            "value": {"field": "n"}, "weight": {"field": "w"}}}}})
+    }
+
+    /// FAIL-BEFORE: 200, with the multi-weight document silently skipped.
+    #[tokio::test]
+    async fn a_multi_valued_weight_fails_the_search() {
+        let app = app().await;
+        // Alone, and merged with an index whose result is fine, in both orders.
+        for uri in [
+            "/multi/_search",
+            "/multi,single/_search",
+            "/single,multi/_search",
+        ] {
+            let (status, body) = send(&app, "POST", uri, wavg()).await;
+            assert_eq!(status, StatusCode::BAD_REQUEST, "{uri} -> {body}");
+            assert_eq!(
+                body["error"]["type"], "search_phase_execution_exception",
+                "{uri}"
+            );
+            let root = &body["error"]["root_cause"][0];
+            assert_eq!(root["type"], "illegal_argument_exception", "{uri}");
+            assert_eq!(
+                root["reason"],
+                "Encountered more than one weight for a single document. Use a script \
+                 to combine multiple weights-per-doc into a single value.",
+                "{uri}"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn single_valued_weights_still_average() {
+        let app = app().await;
+        let (status, body) = send(&app, "POST", "/single/_search", wavg()).await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        assert_eq!(
+            body["aggregations"]["a"]["value"].as_f64(),
+            Some(4.0),
+            "{body}"
+        );
+    }
 }
 
 /// Minimal glob matcher for index-name wildcard expansion (* only).

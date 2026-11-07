@@ -6718,10 +6718,12 @@ fn run_avg<'d>(params: &Value, docs: &'d [Value], cache: &mut FieldCache<'d>) ->
 /// `sum(weights) == 0` and an empty bucket both yield `value: null`, as ES
 /// does.
 ///
-/// ES rejects a multi-valued *weight* field with a 400 ("Multi weight field
-/// not allowed"). The aggregation evaluator has no error channel, so such a
-/// document is skipped here; the case stays in
-/// `tests/es-compat-yaml/catch-lenient.txt` until that channel exists.
+/// A document with a value and more than one weight fails the aggregation,
+/// as ES's `WeightedAvgAggregator#collect` does: there is no single weight to
+/// pair the value with. The failure is embedded in this slot of the result
+/// (`{"error", "__error_status__"}`), which the API turns into the 400 ES
+/// answers. ES only reads the weights of a document that has a value, so a
+/// multi-weight document without one (and no `value.missing`) is skipped.
 /// The API layer still rejects a `weighted_avg` that has no `field`, a
 /// non-numeric `missing`, or a `script` (see `find_invalid_agg_params`).
 fn run_weighted_avg<'d>(params: &Value, cache: &mut FieldCache<'d>) -> Value {
@@ -6745,10 +6747,15 @@ fn run_weighted_avg<'d>(params: &Value, cache: &mut FieldCache<'d>) -> Value {
     let mut weighted_sum = 0.0f64;
     let mut weight_sum = 0.0f64;
     for (values, weights) in values_per_doc.iter().zip(weights_per_doc) {
-        // A multi-valued weight is an error in ES (see the doc comment); skip
-        // the document rather than pairing every value with every weight.
         if weights.len() > 1 {
-            continue;
+            if values.is_empty() && value_missing.is_none() {
+                continue;
+            }
+            return json!({
+                "error": "Encountered more than one weight for a single document. Use a \
+                          script to combine multiple weights-per-doc into a single value.",
+                "__error_status__": 400u32,
+            });
         }
         let value_placeholder: [f64; 1];
         let values: &[f64] = if values.is_empty() {
@@ -14544,6 +14551,34 @@ mod tests {
             &[],
         );
         assert_eq!(empty["w"]["value"], Value::Null, "{empty}");
+    }
+
+    /// FAIL-BEFORE: the document carrying several weights was skipped and
+    /// the aggregation answered 10 (from the one single-weight document).
+    #[test]
+    fn weighted_avg_refuses_a_multi_valued_weight() {
+        let wa = |value: Value, docs: &[Value]| {
+            run_aggs(
+                &json!({"w": {"weighted_avg": {"value": value, "weight": {"field": "w"}}}}),
+                docs,
+            )
+        };
+        let reason = "Encountered more than one weight for a single document. Use a script \
+                      to combine multiple weights-per-doc into a single value.";
+
+        let docs = [json!({"n": 1, "w": [1, 2]}), json!({"n": 10, "w": 3})];
+        let r = wa(json!({"field": "n"}), &docs);
+        assert_eq!(r["w"]["error"], reason, "{r}");
+        assert_eq!(r["w"]["__error_status__"], json!(400), "{r}");
+
+        // ES only reads the weights of a document that has a value, so one
+        // without a value is skipped as before ...
+        let docs = [json!({"w": [1, 2]}), json!({"n": 10, "w": 3})];
+        let r = wa(json!({"field": "n"}), &docs);
+        assert_eq!(r["w"]["value"].as_f64(), Some(10.0), "{r}");
+        // ... unless `value.missing` gives it one.
+        let r = wa(json!({"field": "n", "missing": 5}), &docs);
+        assert_eq!(r["w"]["error"], reason, "{r}");
     }
 
     #[test]
