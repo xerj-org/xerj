@@ -377,6 +377,18 @@ all 2,387 evaluation items. Without the flag a node is the node rc.100 was: no
   rollover. Size-based conditions and alias-rollover body fields are refused
   rather than silently ignored.
 
+- `_search` refuses the parameter values Elasticsearch 8 refuses, with its
+  reasons, instead of running the search: a negative `size` (URL or body) now
+  names itself, a negative `terminate_after` (URL or body) and a
+  `track_total_hits` below -1 are refused, and `track_total_hits: -1` turns
+  total tracking off as `false` does. `rest_total_hits_as_int=true` now counts
+  exactly when no limit is set (it reported 10000 for 10,001 matches) and
+  refuses a limit that would make the integer a lower bound.
+  `terminate_after` is still not applied. On a multi-node index the search
+  now takes `size` and `from` from the URL: the fan-out read only the body,
+  so `?size=1` returned every hit and `?size=-5` ran. A window over the
+  index's `index.max_result_window` now gets ES's "Result window is too
+  large" there too, in place of the fan-out's own refusal.
 - A hub catalogue already on disk is verified against its sibling signature
   before it is served, including a fresh cache and a `304 Not Modified`
   (#2904). Replacing `catalogue.json` used to be enough: `load_catalogue`
