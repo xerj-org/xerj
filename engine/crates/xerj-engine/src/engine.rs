@@ -1726,6 +1726,28 @@ impl Engine {
         self.create_index_exact(name, effective_schema, settings)
     }
 
+    /// Create an index from an explicit schema/settings without applying a
+    /// matching index template.
+    ///
+    /// Alias rollover promises to copy the current write index, not to build a
+    /// potentially different index from today's template. This public entry
+    /// keeps the normal visibility guard; the internal cluster applier uses
+    /// [`Engine::create_index_exact`] directly because the accepting node has
+    /// already resolved the schema.
+    pub fn create_index_exact_copy(
+        &self,
+        name: &str,
+        schema: Schema,
+        settings: serde_json::Value,
+    ) -> Result<()> {
+        if !crate::index_guard::visible(name) {
+            return Err(EngineError::Common(
+                xerj_common::XerjError::index_not_found(name),
+            ));
+        }
+        self.create_index_exact(name, schema, settings)
+    }
+
     /// Create `name` with `schema` exactly as given.
     ///
     /// Does not apply index templates and does not consult the per-request
@@ -2160,23 +2182,32 @@ impl Engine {
     }
 
     /// Serialize the current `aliases` map to `<data_dir>/aliases.json`
-    /// atomically (temp-file + rename), mirroring `flush_api_keys`. Every
-    /// alias mutation snapshots the full map; a write failure is logged but
-    /// non-fatal (the alias still works in-memory until the next restart).
-    fn flush_aliases(&self) {
+    /// atomically (temp-file + rename), returning a persistence error. A
+    /// zero-downtime handoff must not report success after this fails.
+    pub fn try_flush_aliases(&self) -> Result<()> {
         let snapshot: std::collections::HashMap<String, Vec<String>> = self
             .aliases
             .iter()
             .map(|e| (e.key().clone(), e.value().clone()))
             .collect();
-        let bytes = match serde_json::to_vec_pretty(&snapshot) {
-            Ok(b) => b,
-            Err(e) => {
-                warn!(error = %e, "failed to serialize aliases for persistence");
-                return;
-            }
-        };
-        if let Err(e) = crate::index::write_file_atomic(&self.aliases_path(), &bytes) {
+        let bytes = serde_json::to_vec_pretty(&snapshot).map_err(|e| {
+            EngineError::Common(xerj_common::XerjError::internal(format!(
+                "failed to serialize aliases for persistence: {e}"
+            )))
+        })?;
+        crate::index::write_file_atomic(&self.aliases_path(), &bytes).map_err(|e| {
+            EngineError::Common(xerj_common::XerjError::storage_io(
+                "failed to persist aliases.json",
+                e,
+            ))
+        })?;
+        Ok(())
+    }
+
+    /// Best-effort alias flush used by the ordinary mutation paths; the alias
+    /// still works in-memory until the next restart if this fails.
+    fn flush_aliases(&self) {
+        if let Err(e) = self.try_flush_aliases() {
             warn!(error = %e, "failed to persist aliases.json (aliases work until restart)");
         }
     }
@@ -2235,23 +2266,33 @@ impl Engine {
     }
 
     /// Serialize `index_alias_metadata` to disk atomically (temp-file +
-    /// rename), mirroring [`Engine::flush_aliases`]. Called after every
-    /// mutation of the map; a write failure is logged but non-fatal (the
-    /// filter still applies in-memory until the next restart).
-    pub fn flush_alias_metadata(&self) {
+    /// rename), returning a persistence error. The rollover handoff writes
+    /// both members first and calls this once; it must not answer success if
+    /// the single atomic snapshot did not land.
+    pub fn try_flush_alias_metadata(&self) -> Result<()> {
         let snapshot: std::collections::HashMap<String, serde_json::Value> = self
             .index_alias_metadata
             .iter()
             .map(|e| (e.key().clone(), e.value().clone()))
             .collect();
-        let bytes = match serde_json::to_vec_pretty(&snapshot) {
-            Ok(b) => b,
-            Err(e) => {
-                warn!(error = %e, "failed to serialize alias metadata for persistence");
-                return;
-            }
-        };
-        if let Err(e) = crate::index::write_file_atomic(&self.alias_metadata_path(), &bytes) {
+        let bytes = serde_json::to_vec_pretty(&snapshot).map_err(|e| {
+            EngineError::Common(xerj_common::XerjError::internal(format!(
+                "failed to serialize alias metadata for persistence: {e}"
+            )))
+        })?;
+        crate::index::write_file_atomic(&self.alias_metadata_path(), &bytes).map_err(|e| {
+            EngineError::Common(xerj_common::XerjError::storage_io(
+                "failed to persist alias_metadata.json",
+                e,
+            ))
+        })?;
+        Ok(())
+    }
+
+    /// Best-effort metadata flush used by ordinary alias mutations; the filter
+    /// still applies in-memory until the next restart if this fails.
+    pub fn flush_alias_metadata(&self) {
+        if let Err(e) = self.try_flush_alias_metadata() {
             warn!(error = %e, "failed to persist alias_metadata.json (alias filters work until restart)");
         }
     }

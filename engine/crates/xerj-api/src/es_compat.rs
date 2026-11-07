@@ -26692,7 +26692,9 @@ fn alias_action_meta(add: &AliasActionParams) -> Value {
 /// Replace (or clear, for empty metadata) one alias's metadata on one index
 /// and persist it. Clearing matters: re-adding an alias without a filter must
 /// not leave the previous filter enforced.
-fn store_alias_meta(state: &AppState, index: &str, alias: &str, meta: &Value) {
+/// Update one alias's metadata in memory without persisting it. The rollover
+/// handoff sets both members through this, then writes one snapshot.
+fn put_alias_meta(state: &AppState, index: &str, alias: &str, meta: &Value) {
     let mut existing = state
         .engine
         .index_alias_metadata
@@ -26713,7 +26715,27 @@ fn store_alias_meta(state: &AppState, index: &str, alias: &str, meta: &Value) {
         .engine
         .index_alias_metadata
         .insert(index.to_string(), existing);
+}
+
+fn store_alias_meta(state: &AppState, index: &str, alias: &str, meta: &Value) {
+    put_alias_meta(state, index, alias, meta);
     state.engine.flush_alias_metadata();
+}
+
+/// Restore one index's whole alias-metadata entry, used to undo a failed
+/// rollover handoff before its new index is deleted.
+fn restore_alias_metadata(state: &AppState, index: &str, snapshot: Option<Value>) {
+    match snapshot {
+        Some(snapshot) => {
+            state
+                .engine
+                .index_alias_metadata
+                .insert(index.to_string(), snapshot);
+        }
+        None => {
+            state.engine.index_alias_metadata.remove(index);
+        }
+    }
 }
 
 /// Drop one alias's stored metadata after the alias itself was removed.
@@ -38099,6 +38121,364 @@ pub struct RolloverParams {
     pub dry_run: Option<bool>,
 }
 
+fn rollover_dry_run(
+    body: &Value,
+    params: &RolloverParams,
+) -> std::result::Result<bool, axum::response::Response> {
+    let body_dry_run = match body.get("dry_run") {
+        None => None,
+        Some(Value::Bool(value)) => Some(*value),
+        Some(_) => {
+            return Err(es_bad_request(
+                "illegal_argument_exception",
+                "[dry_run] must be a boolean",
+                None,
+            ))
+        }
+    };
+    Ok(body_dry_run.or(params.dry_run).unwrap_or(false))
+}
+
+/// Evaluate the rollover conditions this build supports. Returns
+/// `(should_roll, conditions_response)`. Conditions are ORed, matching ES.
+fn evaluate_rollover_conditions(
+    state: &AppState,
+    old_index: &str,
+    conditions: Option<&Value>,
+) -> std::result::Result<(bool, Option<Value>), axum::response::Response> {
+    let Some(conditions) = conditions else {
+        return Ok((true, None));
+    };
+    let Some(conditions) = conditions.as_object() else {
+        return Err(es_bad_request(
+            "illegal_argument_exception",
+            "[conditions] must be an object",
+            None,
+        ));
+    };
+    let mut results = serde_json::Map::new();
+    let mut met = conditions.is_empty();
+    let docs = state
+        .engine
+        .get_index(old_index)
+        .map(|idx| idx.live_doc_count())
+        .unwrap_or(0);
+    let created_ms = state
+        .engine
+        .index_created_at
+        .get(old_index)
+        .map(|v| *v)
+        .unwrap_or_else(|| Utc::now().timestamp_millis());
+    for (condition, value) in conditions {
+        let hit = match condition.as_str() {
+            "max_docs" => {
+                let Some(max_docs) = value.as_u64() else {
+                    return Err(es_bad_request(
+                        "illegal_argument_exception",
+                        &format!("[max_docs] must be a non-negative integer, got [{value}]"),
+                        None,
+                    ));
+                };
+                let hit = docs >= max_docs;
+                results.insert(format!("[max_docs: {max_docs}]"), Value::Bool(hit));
+                hit
+            }
+            "max_age" => {
+                let Some(raw) = value.as_str() else {
+                    return Err(es_bad_request(
+                        "illegal_argument_exception",
+                        &format!("[max_age] must be a time value, got [{value}]"),
+                        None,
+                    ));
+                };
+                let Some(threshold_ms) = parse_time_to_millis(raw) else {
+                    return Err(es_bad_request(
+                        "illegal_argument_exception",
+                        &format!("failed to parse [max_age] value [{raw}]"),
+                        None,
+                    ));
+                };
+                let age_ms = (Utc::now().timestamp_millis() - created_ms).max(0) as u64;
+                let hit = age_ms >= threshold_ms;
+                results.insert(format!("[max_age: {raw}]"), Value::Bool(hit));
+                hit
+            }
+            other => {
+                return Err(es_bad_request(
+                    "illegal_argument_exception",
+                    &format!("rollover condition [{other}] is not supported by this XERJ version"),
+                    None,
+                ))
+            }
+        };
+        met |= hit;
+    }
+    Ok((met, Some(Value::Object(results))))
+}
+
+fn rollover_response(
+    old_index: &str,
+    new_index: &str,
+    rolled_over: bool,
+    dry_run: bool,
+    conditions: Option<Value>,
+) -> Value {
+    let mut response = json!({
+        "acknowledged": true,
+        "shards_acknowledged": true,
+        "old_index": old_index,
+        "new_index": new_index,
+        "rolled_over": rolled_over,
+        "dry_run": dry_run,
+    });
+    if let Some(conditions) = conditions {
+        response["conditions"] = conditions;
+    }
+    response
+}
+
+/// ES increments the trailing `-NNNNNN` counter and refuses an index name
+/// that does not match `^.*-\\d+$`.
+fn next_rollover_index_name(old_index: &str) -> std::result::Result<String, String> {
+    let Some(separator) = old_index.rfind('-') else {
+        return Err(format!(
+            "index name [{old_index}] does not match pattern '^.*-\\d+$'"
+        ));
+    };
+    let digits = &old_index[separator + 1..];
+    if digits.is_empty() || !digits.bytes().all(|b| b.is_ascii_digit()) {
+        return Err(format!(
+            "index name [{old_index}] does not match pattern '^.*-\\d+$'"
+        ));
+    }
+    let counter: u64 = digits
+        .parse()
+        .map_err(|_| format!("index name [{old_index}] counter is too large"))?;
+    let next = counter
+        .checked_add(1)
+        .ok_or_else(|| format!("index name [{old_index}] counter overflow"))?;
+    Ok(format!("{}-{:06}", &old_index[..separator], next))
+}
+
+async fn rollover_alias(
+    state: &AppState,
+    name: &str,
+    body: &Value,
+    params: &RolloverParams,
+) -> axum::response::Response {
+    const ALLOWED: &[&str] = &["conditions", "dry_run", "new_index"];
+    if let Some(object) = body.as_object() {
+        for key in object.keys() {
+            if !ALLOWED.contains(&key.as_str()) {
+                return es_bad_request(
+                    "illegal_argument_exception",
+                    &format!(
+                        "rollover field [{key}] is not supported for index aliases by this XERJ version"
+                    ),
+                    None,
+                );
+            }
+        }
+    }
+    let dry_run = match rollover_dry_run(body, params) {
+        Ok(value) => value,
+        Err(resp) => return resp,
+    };
+    let new_index_override = match body.get("new_index") {
+        None | Some(Value::Null) => None,
+        Some(Value::String(value)) if !value.is_empty() => {
+            if value.contains('<') || value.contains('{') {
+                return es_bad_request(
+                    "illegal_argument_exception",
+                    "date math in [new_index] is not supported by this XERJ version",
+                    None,
+                );
+            }
+            Some(value.clone())
+        }
+        Some(_) => {
+            return es_bad_request(
+                "illegal_argument_exception",
+                "[new_index] must be a non-empty string",
+                None,
+            )
+        }
+    };
+    let old_index = match state.engine.write_target(name) {
+        Ok(Some(index)) => index,
+        Ok(None) => {
+            let e = xerj_common::XerjError::index_not_found(name);
+            return ApiError::new(e).into_response();
+        }
+        Err(reason) => return es_bad_request("illegal_argument_exception", &reason, None),
+    };
+    let new_index = match new_index_override {
+        Some(index) => index,
+        None => match next_rollover_index_name(&old_index) {
+            Ok(index) => index,
+            Err(reason) => return es_bad_request("illegal_argument_exception", &reason, None),
+        },
+    };
+    if state.engine.get_index(&new_index).is_ok() {
+        let e = xerj_common::XerjError::index_already_exists(&new_index);
+        return ApiError::new(e).into_response();
+    }
+    let (condition_met, condition_results) =
+        match evaluate_rollover_conditions(state, &old_index, body.get("conditions")) {
+            Ok(result) => result,
+            Err(resp) => return resp,
+        };
+    let mut response = rollover_response(&old_index, &new_index, false, dry_run, condition_results);
+    if dry_run || !condition_met {
+        return Json(response).into_response();
+    }
+
+    let old_metadata_snapshot = state
+        .engine
+        .index_alias_metadata
+        .get(&old_index)
+        .map(|v| v.clone());
+    let new_metadata_snapshot = state
+        .engine
+        .index_alias_metadata
+        .get(&new_index)
+        .map(|v| v.clone());
+
+    let old_idx = match state.engine.get_index(&old_index) {
+        Ok(index) => index,
+        Err(e) => return ApiError::new(xerj_common::XerjError::from(e)).into_response(),
+    };
+    let schema = old_idx.schema().await;
+    let settings = state
+        .engine
+        .index_settings
+        .get(&old_index)
+        .map(|v| v.clone())
+        .unwrap_or(Value::Null);
+    // Copy the write index exactly. Applying a template here and then storing
+    // the old mapping blob would leave the live schema and GET /_mapping
+    // disagreeing; rollover's contract is the concrete source index.
+    if let Err(e) = state
+        .engine
+        .create_index_exact_copy(&new_index, schema, settings.clone())
+    {
+        return ApiError::new(xerj_common::XerjError::from(e)).into_response();
+    }
+    if let Some(mapping) = state
+        .engine
+        .index_mappings
+        .get(&old_index)
+        .map(|v| v.clone())
+    {
+        if let Err(e) = state.engine.put_index_mapping(&new_index, mapping) {
+            rollback_rollover_index(
+                state,
+                name,
+                &old_index,
+                &new_index,
+                &old_metadata_snapshot,
+                &new_metadata_snapshot,
+            )
+            .await;
+            return ApiError::new(xerj_common::XerjError::from(e)).into_response();
+        }
+    }
+
+    if let Err(e) = state.engine.add_alias(name, &new_index) {
+        rollback_rollover_index(
+            state,
+            name,
+            &old_index,
+            &new_index,
+            &old_metadata_snapshot,
+            &new_metadata_snapshot,
+        )
+        .await;
+        return ApiError::new(xerj_common::XerjError::from(e)).into_response();
+    }
+    // `add_alias` flushes membership internally, but that flush is best-effort.
+    // Make the handoff depend on a successful membership snapshot before the
+    // metadata switch.
+    if let Err(e) = state.engine.try_flush_aliases() {
+        rollback_rollover_index(
+            state,
+            name,
+            &old_index,
+            &new_index,
+            &old_metadata_snapshot,
+            &new_metadata_snapshot,
+        )
+        .await;
+        return ApiError::new(xerj_common::XerjError::from(e)).into_response();
+    }
+
+    let mut old_meta = alias_meta_for(state, &old_index, name);
+    let mut new_meta = old_meta.clone();
+    if let Some(obj) = new_meta.as_object_mut() {
+        obj.insert("is_write_index".to_string(), json!(true));
+    }
+    if let Some(obj) = old_meta.as_object_mut() {
+        obj.insert("is_write_index".to_string(), json!(false));
+    }
+    // Both flags in memory, then ONE atomic metadata snapshot. A crash before
+    // the rename leaves the old write flag in place; a crash after it leaves
+    // the new one. There is no persistent window with two write indices.
+    put_alias_meta(state, &old_index, name, &old_meta);
+    put_alias_meta(state, &new_index, name, &new_meta);
+    if let Err(e) = state.engine.try_flush_alias_metadata() {
+        rollback_rollover_index(
+            state,
+            name,
+            &old_index,
+            &new_index,
+            &old_metadata_snapshot,
+            &new_metadata_snapshot,
+        )
+        .await;
+        return ApiError::new(xerj_common::XerjError::from(e)).into_response();
+    }
+
+    if !settings.is_null() {
+        state
+            .engine
+            .index_settings
+            .insert(new_index.clone(), settings);
+    }
+    response["rolled_over"] = json!(true);
+    Json(response).into_response()
+}
+
+/// Undo the index this rollover request created and restore the metadata it
+/// may have changed. The alias membership and metadata snapshots are restored
+/// before the index is removed, so a failed handoff leaves the old write
+/// target writable (and a retry can start from a clean generated name).
+async fn rollback_rollover_index(
+    state: &AppState,
+    alias: &str,
+    old_index: &str,
+    new_index: &str,
+    old_snapshot: &Option<Value>,
+    new_snapshot: &Option<Value>,
+) {
+    if let Err(e) = state.engine.remove_alias(alias, new_index) {
+        tracing::warn!(
+            alias,
+            new_index,
+            error = %e,
+            "failed to remove the new alias member during rollover rollback"
+        );
+    }
+    if let Err(e) = state.engine.delete_index(new_index).await {
+        tracing::warn!(
+            new_index,
+            error = %e,
+            "failed to delete the new index during rollover rollback"
+        );
+    }
+    restore_alias_metadata(state, old_index, old_snapshot.clone());
+    restore_alias_metadata(state, new_index, new_snapshot.clone());
+}
+
 /// `POST /{data_stream}/_rollover`.
 ///
 /// The body used to be ignored entirely: `dry_run: true` created a backing
@@ -38127,6 +38507,12 @@ pub async fn rollover_data_stream(
             )
         }
     };
+    // The same route serves data-stream rollover and index-alias rollover. A
+    // data stream owns its backing names; an alias generates the next index
+    // name (or takes `new_index`) and copies the current write index.
+    if !state.engine.data_streams.contains_key(&name) && state.engine.aliases.contains_key(&name) {
+        return rollover_alias(&state, &name, &body, &params).await;
+    }
     const ALLOWED: &[&str] = &["conditions", "dry_run"];
     if let Some(object) = body.as_object() {
         for key in object.keys() {
@@ -38141,23 +38527,15 @@ pub async fn rollover_data_stream(
             }
         }
     }
-    let body_dry_run = match body.get("dry_run") {
-        None => None,
-        Some(Value::Bool(value)) => Some(*value),
-        Some(_) => {
-            return es_bad_request(
-                "illegal_argument_exception",
-                "[dry_run] must be a boolean",
-                None,
-            )
-        }
+    let dry_run = match rollover_dry_run(&body, &params) {
+        Ok(value) => value,
+        Err(resp) => return resp,
     };
-    let dry_run = body_dry_run.or(params.dry_run).unwrap_or(false);
 
     // The write backing index and the next generated name. This is the same
     // naming rule the engine uses, so a dry run reports the name a real
     // rollover would create.
-    let (old_index, new_index, docs) = match state.engine.data_streams.get(&name) {
+    let (old_index, new_index) = match state.engine.data_streams.get(&name) {
         Some(ds) => {
             let Some(old_index) = ds.backing_indices.last().cloned() else {
                 return ApiError::new(xerj_common::XerjError::internal(format!(
@@ -38167,12 +38545,7 @@ pub async fn rollover_data_stream(
             };
             let new_index = format!(".ds-{}-{:06}", name, ds.generation + 1);
             drop(ds);
-            let docs = state
-                .engine
-                .get_index(&old_index)
-                .map(|idx| idx.live_doc_count())
-                .unwrap_or(0);
-            (old_index, new_index, docs)
+            (old_index, new_index)
         }
         None => {
             let e = xerj_common::XerjError::index_not_found(&name);
@@ -38187,85 +38560,12 @@ pub async fn rollover_data_stream(
         return ApiError::new(e).into_response();
     }
 
-    let conditions = body.get("conditions");
-    let mut condition_results = serde_json::Map::new();
-    let mut condition_met = conditions.is_none();
-    if let Some(conditions) = conditions {
-        let Some(conditions) = conditions.as_object() else {
-            return es_bad_request(
-                "illegal_argument_exception",
-                "[conditions] must be an object",
-                None,
-            );
+    let (condition_met, condition_results) =
+        match evaluate_rollover_conditions(&state, &old_index, body.get("conditions")) {
+            Ok(result) => result,
+            Err(resp) => return resp,
         };
-        if conditions.is_empty() {
-            condition_met = true;
-        }
-        for (condition, value) in conditions {
-            let met = match condition.as_str() {
-                "max_docs" => {
-                    let Some(max_docs) = value.as_u64() else {
-                        return es_bad_request(
-                            "illegal_argument_exception",
-                            &format!("[max_docs] must be a non-negative integer, got [{value}]"),
-                            None,
-                        );
-                    };
-                    let met = docs >= max_docs;
-                    condition_results.insert(format!("[max_docs: {max_docs}]"), Value::Bool(met));
-                    met
-                }
-                "max_age" => {
-                    let Some(raw) = value.as_str() else {
-                        return es_bad_request(
-                            "illegal_argument_exception",
-                            &format!("[max_age] must be a time value, got [{value}]"),
-                            None,
-                        );
-                    };
-                    let Some(threshold_ms) = parse_time_to_millis(raw) else {
-                        return es_bad_request(
-                            "illegal_argument_exception",
-                            &format!("failed to parse [max_age] value [{raw}]"),
-                            None,
-                        );
-                    };
-                    let created_ms = state
-                        .engine
-                        .index_created_at
-                        .get(&old_index)
-                        .map(|v| *v)
-                        .unwrap_or_else(|| Utc::now().timestamp_millis());
-                    let age_ms = (Utc::now().timestamp_millis() - created_ms).max(0) as u64;
-                    let met = age_ms >= threshold_ms;
-                    condition_results.insert(format!("[max_age: {raw}]"), Value::Bool(met));
-                    met
-                }
-                other => {
-                    return es_bad_request(
-                        "illegal_argument_exception",
-                        &format!(
-                            "rollover condition [{other}] is not supported by this XERJ version"
-                        ),
-                        None,
-                    )
-                }
-            };
-            condition_met |= met;
-        }
-    }
-
-    let mut response = json!({
-        "acknowledged": true,
-        "shards_acknowledged": true,
-        "old_index": old_index.clone(),
-        "new_index": new_index.clone(),
-        "rolled_over": false,
-        "dry_run": dry_run,
-    });
-    if conditions.is_some() {
-        response["conditions"] = Value::Object(condition_results);
-    }
+    let mut response = rollover_response(&old_index, &new_index, false, dry_run, condition_results);
 
     if dry_run || !condition_met {
         return Json(response).into_response();
