@@ -8,15 +8,15 @@
   {
    "repo": "ReviewLens",
    "url": "https://github.com/ritesh0w0/ReviewLens",
-   "sha": "f76092997abb16bceb175a0db971d75e92606cfd",
-   "licence": "author's permission (LICENSE at pin f76092997abb: NONE; repository: none)",
+   "sha": "c0a2631c3ca22a3ff111095bd1bc53f79c69e929",
+   "licence": "author's permission (LICENSE at pin c0a2631c3ca2: NONE; repository: none)",
    "review": {
     "spdx": "NONE",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-06T06:16Z",
     "consent_receipt": "fe8ce1c5cb5a",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T06:16Z (receipt fe8ce1c5cb5a); pinned to the default-branch head. LICENSE at pin f76092997abb: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T06:16Z (receipt fe8ce1c5cb5a); pinned to the default-branch head. LICENSE at pin c0a2631c3ca2: NONE (repository: none); used with the author's permission, with attribution."
    }
   }
  ]

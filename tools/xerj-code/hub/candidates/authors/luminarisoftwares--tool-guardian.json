@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-tool, coding-assistant, context-management queries this for how LuminariSoftwares/tool-guardian implements it: 7 MCP servers for 1,084 tokens instead of 20,005. An MCP router that loads tool schemas on demand, for any MCP client",
+ "domain": "an agent working on ai-tool, coding-assistant, context-management queries this for how LuminariSoftwares/tool-guardian implements it: Too many MCP servers eating your context? tool-guardian sits in front of all of them and loads each tool's schema only when it's needed. A 7",
  "repos": [
   {
    "repo": "tool-guardian",
