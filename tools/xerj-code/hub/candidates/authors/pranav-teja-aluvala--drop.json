@@ -1,0 +1,23 @@
+{
+ "corpus": "pranav-teja-aluvala--drop",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on HTML queries this for how Pranav-Teja-Aluvala/Drop implements it: Send files, links and notes directly between your devices. Scan a QR code to pair up to three browsers. No account required (selected work: public, scripts, tests)",
+ "repos": [
+  {
+   "repo": "Drop",
+   "url": "https://github.com/Pranav-Teja-Aluvala/Drop",
+   "sha": "83c947fd1584740c8fc5770011c1eea25a397de5",
+   "licence": "MIT (LICENSE file at pin 83c947fd1584, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T20:47Z",
+    "consent_receipt": "66666e1c8f51",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T20:47Z (receipt 66666e1c8f51); selected commit 83c947fd1584: \"Replace error previews with real 404 and offline navigation states\". LICENSE file at pin 83c947fd1584 detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution. Pinned to head 83c947fd1584 (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

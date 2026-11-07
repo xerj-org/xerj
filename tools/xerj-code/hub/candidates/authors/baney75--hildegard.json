@@ -1,0 +1,30 @@
+{
+ "corpus": "baney75--hildegard",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-studio, ai-video, comfyui queries this for how baney75/hildegard implements it: Your own AI studio on your own GPU: AI video, voice, characters and 3D, local and private. A free, open source alternative to Higgsfield and (selected work: packages/craft, skills)",
+ "repos": [
+  {
+   "repo": "hildegard",
+   "url": "https://github.com/baney75/hildegard",
+   "sha": "36c5e4f93f37270f98e844f02220543ce991479c",
+   "licence": "author's permission (LICENSE at pin 36c5e4f93f37: NOASSERTION; repository: AGPL-3.0)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-07T20:58Z",
+    "consent_receipt": "07e6cdcccb8e",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T20:58Z (receipt 07e6cdcccb8e); selected commit 36c5e4f93f37: \"Prose lint: no catastrophic backtracking in paragraphs, triads, sente\u2026\". LICENSE at pin 36c5e4f93f37: NOASSERTION (repository: AGPL-3.0); used with the author's permission, with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "36c5e4f93f37270f98e844f02220543ce991479c",
+     "at": "2026-11-07T20:58Z",
+     "receipt": "07e6cdcccb8e"
+    }
+   }
+  }
+ ]
+}

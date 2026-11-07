@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on JavaScript queries this for how Phenzic/shiplogue implements it: Phenzic/shiplogue (JavaScript) (selected work: extension)",
+ "domain": "an agent working on TypeScript queries this for how Phenzic/shiplogue implements it: Phenzic/shiplogue (TypeScript) (selected work: extension)",
  "repos": [
   {
    "repo": "shiplogue",

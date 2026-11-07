@@ -8,15 +8,15 @@
   {
    "repo": "Mu-97k-Client-Source",
    "url": "https://github.com/EmanuelCatania/Mu-97k-Client-Source",
-   "sha": "b359df32576128405d188ab411d5f65f3c5db2e2",
-   "licence": "author's permission (LICENSE at pin b359df325761: NOASSERTION; repository: NOASSERTION)",
+   "sha": "2c6954208437cdb19e27f4bc2c3062ec76061e79",
+   "licence": "author's permission (LICENSE at pin 2c6954208437: NOASSERTION; repository: NOASSERTION)",
    "review": {
     "spdx": "NOASSERTION",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T05:51Z",
     "consent_receipt": "77866adafe7e",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:51Z (receipt 77866adafe7e); pinned to the default-branch head. LICENSE at pin b359df325761: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:51Z (receipt 77866adafe7e); pinned to the default-branch head. LICENSE at pin 2c6954208437: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
    }
   }
  ]

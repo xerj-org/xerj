@@ -1,0 +1,23 @@
+{
+ "corpus": "pakt-world--psilocli",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how pakt-world/psilocli implements it: Command-line client for the Pakt marketplace: escrowed jobs, invites, payments, reviews, and agent messaging (selected work: src/commands, src, test)",
+ "repos": [
+  {
+   "repo": "psilocli",
+   "url": "https://github.com/pakt-world/psilocli",
+   "sha": "bce07b7829fc258da1c703498052371a93dfab0e",
+   "licence": "BSD-3-Clause (LICENSE file at pin bce07b7829fc, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "BSD-3-Clause",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T21:15Z",
+    "consent_receipt": "9d0064e4e18f",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T21:15Z (receipt 9d0064e4e18f); selected commit bce07b7829fc: \"fix(cli): resumable create-job, idempotent complete-job, RPC timeouts\u2026\". LICENSE file at pin bce07b7829fc detected as BSD-3-Clause by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

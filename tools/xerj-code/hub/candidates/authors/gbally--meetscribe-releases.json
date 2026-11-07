@@ -1,0 +1,23 @@
+{
+ "corpus": "gbally--meetscribe-releases",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on local-ai, macos, meeting-notes queries this for how Gbally/MeetScribe-releases implements it: Meeting notes that stay on your Mac: local AI transcripts, speakers, summaries and to-dos for Teams, Zoom and Meet (selected work: eval)",
+ "repos": [
+  {
+   "repo": "MeetScribe-releases",
+   "url": "https://github.com/Gbally/MeetScribe-releases",
+   "sha": "eb8c585f51ba7d9250de1a4119e34034995b841b",
+   "licence": "MIT (LICENSE file at pin eb8c585f51ba, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T20:55Z",
+    "consent_receipt": "ed6936ed80ea",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T20:55Z (receipt ed6936ed80ea); selected commit eb8c585f51ba: \"AMI to-do adapter: training data from the summary links, QLoRA traini\u2026\". LICENSE file at pin eb8c585f51ba detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

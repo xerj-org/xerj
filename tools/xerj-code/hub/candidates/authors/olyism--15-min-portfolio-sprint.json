@@ -1,0 +1,23 @@
+{
+ "corpus": "olyism--15-min-portfolio-sprint",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on JavaScript queries this for how olyism/15-min-portfolio-sprint implements it: Go from zero to deployed portfolio in ~15 minutes. Copy, customize, ship \ud83d\ude80 (selected work: components, app, content)",
+ "repos": [
+  {
+   "repo": "15-min-portfolio-sprint",
+   "url": "https://github.com/olyism/15-min-portfolio-sprint",
+   "sha": "f55cb34f981f4bd2676f55bf01e7aaad8173f08c",
+   "licence": "MIT (LICENSE file at pin f55cb34f981f, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T22:00Z",
+    "consent_receipt": "b66e92a8a993",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T22:00Z (receipt b66e92a8a993); selected commit f55cb34f981f: \"Build a seven-project portfolio starter with independent design syste\u2026\". LICENSE file at pin f55cb34f981f detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

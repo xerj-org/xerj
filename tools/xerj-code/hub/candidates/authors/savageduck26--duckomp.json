@@ -8,15 +8,15 @@
   {
    "repo": "Duckomp",
    "url": "https://github.com/SavageDuck26/Duckomp",
-   "sha": "25fc73c20a8adb2a28f89252c260472d4c3dc443",
-   "licence": "GPL-3.0 (LICENSE file at pin 25fc73c20a8a, GitHub licence API 2026-10-24)",
+   "sha": "ae322555c9b1b829780c4a224d10266dd536dce1",
+   "licence": "GPL-3.0 (LICENSE file at pin ae322555c9b1, GitHub licence API 2026-11-07)",
    "review": {
     "spdx": "GPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-16T14:30Z",
     "consent_receipt": "c3067127df3d",
-    "note": "Inclusion consented by the commit author by email at 2026-10-16T14:30Z (receipt c3067127df3d); selected commit 25fc73c20a8a: \"Duckomp-v7 update.\". LICENSE file at pin 25fc73c20a8a detected as GPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Pinned to head 25fc73c20a8a (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-16T14:30Z (receipt c3067127df3d); selected commit ae322555c9b1: \"Duckomp-v7 update.\". LICENSE file at pin ae322555c9b1 detected as GPL-3.0 by the GitHub licence API on 2026-11-07; used under that licence with attribution. Pinned to head ae322555c9b1 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

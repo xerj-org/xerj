@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on TypeScript queries this for how ZachFara/galaxy-graph implements it: 3D force-directed galaxy graph for Obsidian (selected work: src, src/scene, src/utils)",
+ "domain": "an agent working on 3d, force-directed-graph, graph-visualization queries this for how ZachFara/galaxy-graph implements it: 3D force-directed galaxy graph for Obsidian (selected work: src, src/scene, src/utils)",
  "repos": [
   {
    "repo": "galaxy-graph",
