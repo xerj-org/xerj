@@ -20,6 +20,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   agreement (gold 366). The mapping is a per-row-change function
   (`facts_rows::RowFactMapper::map_change`) so streamed sources can reuse it.
 
+### Fixed
+
+- `xerj-sources` refuses a percent-encoded password in a source URL without
+  echoing it, and turns truncated `R`, `T` and `D` wire frames into errors
+  instead of panicking (#3013).
+
 ## [1.0.0-rc.101] - 2026-11-05
 
 <!-- notes-exempt: #2499 #2504 #2505 #2508 #2523 #2529 #2546 #2569 #2570 #2582 #2589 #2614 #2633 #2636 #2641 #2647 #2689 #2707 #2749 #2787 #2795 #2797 #2806 #2843 #2850 #2853 #2862 #2866 #2890 #2897 #2909 #2920 #2922 #2934 (CLA signatures) -->
