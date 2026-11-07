@@ -8,15 +8,15 @@
   {
    "repo": "tokage",
    "url": "https://github.com/iwpz/tokage",
-   "sha": "2234a280c61eca935225b9f854eeb1e8db12a316",
-   "licence": "MIT (LICENSE file at pin 2234a280c61e, GitHub licence API 2026-11-07)",
+   "sha": "2ac93c15bb3babe94112de7c6a3bf687ffbaf6d9",
+   "licence": "MIT (LICENSE file at pin 2ac93c15bb3b, GitHub licence API 2026-11-07)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-23T19:58Z",
     "consent_receipt": "25342d7f4b56",
-    "note": "Inclusion consented by the commit author by email at 2026-10-23T19:58Z (receipt 25342d7f4b56); selected commit 2234a280c61e: \"fix(ui): sh4c-ui3 preserve plan and pipeline layout with WebKit regre\u2026\". LICENSE file at pin 2234a280c61e detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution. Pinned to head 2234a280c61e (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-23T19:58Z (receipt 25342d7f4b56); selected commit 2ac93c15bb3b: \"fix(ui): sh4c-ui3 preserve plan and pipeline layout with WebKit regre\u2026\". LICENSE file at pin 2ac93c15bb3b detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution. Pinned to head 2ac93c15bb3b (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

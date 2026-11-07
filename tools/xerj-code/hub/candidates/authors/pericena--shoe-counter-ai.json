@@ -2,8 +2,8 @@
  "corpus": "pericena--shoe-counter-ai",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Jupyter Notebook queries this for how Pericena/shoe_counter_ai implements it: Pericena/shoe_counter_ai (Jupyter Notebook) (selected work: backend, web, entrenamiento)",
+ "shelf": "AI",
+ "domain": "an agent working on Jupyter Notebook queries this for how Pericena/shoe_counter_ai implements it: Luishi\u00f1o's work was selected for the XERJ Corpus Hub, the open reference memory AI coding agents search before they write code. When an agen (selected work: backend, web, entrenamiento)",
  "repos": [
   {
    "repo": "shoe_counter_ai",

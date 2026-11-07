@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on TypeScript queries this for how ThinkFlowLab/OpenDirector implements it: Build an easy-to-use workflow for the next generation of video creation with agent (selected work: tests, packages/core)",
+ "domain": "an agent working on agentic-workflow, video-generation, plugins queries this for how ThinkFlowLab/OpenDirector implements it: Build an easy-to-use workflow for the next generation of video creation with agent (selected work: tests, packages/core)",
  "repos": [
   {
    "repo": "OpenDirector",

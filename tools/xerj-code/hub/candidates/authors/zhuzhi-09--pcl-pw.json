@@ -1,0 +1,23 @@
+{
+ "corpus": "zhuzhi-09--pcl-pw",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on C queries this for how zhuzhi-09/PCL.PW implements it: PCL.PW\uff08PixelsWorld \u4fee\u6539\u7248\uff09\uff1a\u7b2c\u4e09\u65b9\u57fa\u4e8e PCL \u4e8c\u6b21\u521b\u4f5c\u7684\u8de8\u5e73\u53f0 Minecraft \u542f\u52a8\u5668\uff0cFlutter + Material Design 3 (selected work: lib/core, lib/pages, test)",
+ "repos": [
+  {
+   "repo": "PCL.PW",
+   "url": "https://github.com/zhuzhi-09/PCL.PW",
+   "sha": "f735abcbc5d629151e9a7fb6310226e34b66b47d",
+   "licence": "Apache-2.0 (LICENSE file at pin f735abcbc5d6, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T07:36Z",
+    "consent_receipt": "e6fded9798e6",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T07:36Z (receipt e6fded9798e6); selected commit f735abcbc5d6: \"feat: \u5de5\u5177\u9875\u5185\u7f6e\u6587\u6863\uff0c\u6539\u8fdb\u5b89\u5353 Java \u4e0b\u8f7d\u4e0e\u66f4\u65b0\u5b89\u88c5\". LICENSE file at pin f735abcbc5d6 detected as Apache-2.0 by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

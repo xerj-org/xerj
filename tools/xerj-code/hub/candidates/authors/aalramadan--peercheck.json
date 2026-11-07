@@ -2,8 +2,8 @@
  "corpus": "aalramadan--peercheck",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Python queries this for how aalramadan/PeerCheck implements it: Local checks of conference submissions and peer reviews for format, anonymity, hidden text, references, machine-written reviews, and conflic (selected work: src/peercheck, tests, the project root)",
+ "shelf": "AI",
+ "domain": "an agent working on academic-integrity, ai-detection, conference-management queries this for how aalramadan/PeerCheck implements it: Local checks of conference submissions and peer reviews for format, anonymity, hidden text, references, machine-written reviews, and conflic (selected work: src/peercheck, tests, the project root)",
  "repos": [
   {
    "repo": "PeerCheck",
