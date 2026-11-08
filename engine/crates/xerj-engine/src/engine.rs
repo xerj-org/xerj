@@ -3153,6 +3153,42 @@ impl Engine {
         Ok(())
     }
 
+    /// Insert into a persisted map only when `name` is free, and durably
+    /// record the result. `Ok(false)` means the name was taken and nothing
+    /// changed (the caller answers 400); an `Err` means the insert did not
+    /// reach disk and was undone.
+    ///
+    /// The check and the insert happen under the map's entry lock, so two
+    /// concurrent creates of one name cannot both succeed, which a lookup
+    /// followed by [`Self::persisted_insert`] would allow. The lock is released
+    /// before the flush, because the flush reads every map.
+    ///
+    /// The rollback shares [`Self::persisted_insert`]'s limit: if a plain PUT
+    /// replaces the value between this insert and a failed flush, the
+    /// `remove` drops that PUT's value from memory too. Closing it means
+    /// holding the cluster-state write lock across insert, flush and rollback
+    /// for both helpers, a change to the existing path that this one leaves
+    /// alone.
+    fn persisted_insert_new<V: Clone>(
+        &self,
+        map: &DashMap<String, V>,
+        name: String,
+        value: V,
+    ) -> Result<bool> {
+        self.ensure_cluster_state_writable()?;
+        match map.entry(name.clone()) {
+            dashmap::mapref::entry::Entry::Occupied(_) => return Ok(false),
+            dashmap::mapref::entry::Entry::Vacant(slot) => {
+                slot.insert(value);
+            }
+        }
+        if let Err(e) = self.flush_cluster_state() {
+            map.remove(&name);
+            return Err(e);
+        }
+        Ok(true)
+    }
+
     /// Remove from a persisted map and durably record the result. Returns
     /// `false` when there was nothing to remove (the caller answers 404);
     /// an `Err` means the removal did not reach disk and was undone.
@@ -3176,6 +3212,12 @@ impl Engine {
         self.persisted_insert(&self.templates, name, template)
     }
 
+    /// Create a v2 index template only when `name` is free
+    /// (`PUT /_index_template/{name}?create=true`); `false` when it is taken.
+    pub fn create_index_template(&self, name: String, template: IndexTemplate) -> Result<bool> {
+        self.persisted_insert_new(&self.templates, name, template)
+    }
+
     /// Delete a v2 index template; `false` when it did not exist.
     pub fn delete_index_template(&self, name: &str) -> Result<bool> {
         self.persisted_remove(&self.templates, name)
@@ -3186,6 +3228,12 @@ impl Engine {
         self.persisted_insert(&self.legacy_templates, name, body)
     }
 
+    /// Create a legacy v1 template only when `name` is free
+    /// (`PUT /_template/{name}?create=true`); `false` when it is taken.
+    pub fn create_legacy_template(&self, name: String, body: Value) -> Result<bool> {
+        self.persisted_insert_new(&self.legacy_templates, name, body)
+    }
+
     /// Delete a legacy v1 template; `false` when it did not exist.
     pub fn delete_legacy_template(&self, name: &str) -> Result<bool> {
         self.persisted_remove(&self.legacy_templates, name)
@@ -3194,6 +3242,13 @@ impl Engine {
     /// Create or replace a component template.
     pub fn put_component_template(&self, name: String, body: Value) -> Result<()> {
         self.persisted_insert(&self.component_templates, name, body)
+    }
+
+    /// Create a component template only when `name` is free
+    /// (`PUT /_component_template/{name}?create=true`); `false` when it is
+    /// taken.
+    pub fn create_component_template(&self, name: String, body: Value) -> Result<bool> {
+        self.persisted_insert_new(&self.component_templates, name, body)
     }
 
     /// Delete a component template; `false` when it did not exist.

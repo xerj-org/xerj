@@ -1,0 +1,47 @@
+# XERJ-authored: the vendored suite exercises `create` on the legacy
+# `PUT _template` only. These cases pin the same contract on the composable
+# `PUT _index_template`: ES 8.13 refuses a taken name with
+# "index template [<name>] already exists" and leaves the stored template alone.
+---
+"Put index template create refuses a taken name and keeps the first":
+  - do:
+      indices.put_index_template:
+        name: test_create
+        create: true
+        body:
+          index_patterns: ["first-*"]
+
+  - do:
+      catch: /index template \[test_create\] already exists/
+      indices.put_index_template:
+        name: test_create
+        create: true
+        body:
+          index_patterns: ["second-*"]
+
+  - do:
+      indices.get_index_template:
+        name: test_create
+
+  - match: {index_templates.0.index_template.index_patterns: ["first-*"]}
+
+---
+"Put index template without create still replaces":
+  - do:
+      indices.put_index_template:
+        name: test_replace
+        body:
+          index_patterns: ["first-*"]
+
+  - do:
+      indices.put_index_template:
+        name: test_replace
+        create: false
+        body:
+          index_patterns: ["second-*"]
+
+  - do:
+      indices.get_index_template:
+        name: test_replace
+
+  - match: {index_templates.0.index_template.index_patterns: ["second-*"]}

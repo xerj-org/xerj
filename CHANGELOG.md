@@ -552,6 +552,16 @@ all 2,387 evaluation items. Without the flag a node is the node rc.100 was: no
   bind fails with "this test starts a fake server on 127.0.0.1 and needs
   loopback networking" instead of hundreds of bare `PermissionDenied` panics.
 
+- `PUT /_template/{name}`, `PUT /_index_template/{name}` and
+  `PUT /_component_template/{name}` honour `?create=true`: a name that is
+  already taken is refused with a 400 `illegal_argument_exception` (ES's own
+  reasons, `index_template [n] already exists`, `index template [n] already
+  exists` and `component template [n] already exists`) and the stored template
+  is left alone. The flag used to be dropped, so the request answered 200 and
+  overwrote. The check and the insert are one step in the engine, so two
+  concurrent creates of one name cannot both win. A bare `?create` means true,
+  any value but `true` or `false` is a 400, and without the flag a PUT still
+  creates or replaces as before.
 - `/lead` rejects non-string email values with HTTP 400 before storage.
   Arrays no longer become accepted addresses through string coercion, and
   objects with a non-callable `toString` no longer cause HTTP 500.

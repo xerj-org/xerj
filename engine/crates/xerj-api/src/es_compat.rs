@@ -27279,11 +27279,43 @@ pub struct IndexTemplateInner {
     pub mappings: Option<Value>,
 }
 
+/// `?create` on the three template PUTs, read the way ES's
+/// `RestRequest#paramAsBoolean` reads it: absent is `false`, a bare `?create`
+/// is `true`, and any value but `true` or `false` is a 400 carrying
+/// `Booleans#parseBoolean`'s message.
+fn template_create_flag(qp: &HashMap<String, String>) -> Result<bool, Response> {
+    match qp.get("create").map(String::as_str) {
+        None | Some("false") => Ok(false),
+        Some("") | Some("true") => Ok(true),
+        Some(other) => Err(es_bad_request(
+            "illegal_argument_exception",
+            &format!("Failed to parse value [{other}] as only [true] or [false] are allowed."),
+            None,
+        )),
+    }
+}
+
+/// Answer a template PUT. `Ok(false)` is a `create=true` that found the name
+/// taken: ES refuses it with a 400 `illegal_argument_exception` and leaves the
+/// stored template alone. `taken` is ES's reason for that template kind.
+fn template_put_response(result: xerj_engine::Result<bool>, taken: String) -> Response {
+    match result {
+        Ok(true) => Json(json!({ "acknowledged": true })).into_response(),
+        Ok(false) => es_bad_request("illegal_argument_exception", &taken, None),
+        Err(e) => ApiError::new(xerj_common::XerjError::from(e)).into_response(),
+    }
+}
+
 pub async fn put_index_template(
     State(state): State<AppState>,
     Path(name): Path<String>,
+    Query(qp): Query<HashMap<String, String>>,
     Json(body): Json<IndexTemplateBody>,
 ) -> impl IntoResponse {
+    let create = match template_create_flag(&qp) {
+        Ok(create) => create,
+        Err(refusal) => return refusal,
+    };
     let settings = body
         .template
         .as_ref()
@@ -27303,10 +27335,13 @@ pub async fn put_index_template(
         mappings,
         priority: body.priority.unwrap_or(0),
     };
-    match state.engine.put_index_template(name, tmpl) {
-        Ok(()) => Json(json!({ "acknowledged": true })).into_response(),
-        Err(e) => ApiError::new(xerj_common::XerjError::from(e)).into_response(),
-    }
+    let taken = format!("index template [{name}] already exists");
+    let result = if create {
+        state.engine.create_index_template(name, tmpl)
+    } else {
+        state.engine.put_index_template(name, tmpl).map(|()| true)
+    };
+    template_put_response(result, taken)
 }
 
 pub async fn get_index_template(
@@ -38578,12 +38613,23 @@ pub async fn stop_ilm(State(state): State<AppState>) -> impl IntoResponse {
 pub async fn put_component_template(
     State(state): State<AppState>,
     Path(name): Path<String>,
+    Query(qp): Query<HashMap<String, String>>,
     Json(body): Json<Value>,
 ) -> impl IntoResponse {
-    match state.engine.put_component_template(name, body) {
-        Ok(()) => Json(json!({ "acknowledged": true })).into_response(),
-        Err(e) => ApiError::new(xerj_common::XerjError::from(e)).into_response(),
-    }
+    let create = match template_create_flag(&qp) {
+        Ok(create) => create,
+        Err(refusal) => return refusal,
+    };
+    let taken = format!("component template [{name}] already exists");
+    let result = if create {
+        state.engine.create_component_template(name, body)
+    } else {
+        state
+            .engine
+            .put_component_template(name, body)
+            .map(|()| true)
+    };
+    template_put_response(result, taken)
 }
 
 pub async fn get_component_template(
@@ -50473,8 +50519,13 @@ pub async fn delete_ccr_auto_follow(Path(_name): Path<String>) -> impl IntoRespo
 pub async fn put_legacy_template(
     State(state): State<AppState>,
     Path(name): Path<String>,
+    Query(qp): Query<HashMap<String, String>>,
     Json(mut body): Json<Value>,
 ) -> impl IntoResponse {
+    let create = match template_create_flag(&qp) {
+        Ok(create) => create,
+        Err(refusal) => return refusal,
+    };
     let has_patterns = match body.get("index_patterns") {
         Some(Value::String(s)) => !s.is_empty(),
         Some(Value::Array(a)) => !a.is_empty(),
@@ -50500,10 +50551,13 @@ pub async fn put_legacy_template(
     if let Some(settings) = body.get("settings").cloned() {
         body["settings"] = flatten_template_settings(&settings);
     }
-    match state.engine.put_legacy_template(name, body) {
-        Ok(()) => Json(json!({ "acknowledged": true })).into_response(),
-        Err(e) => ApiError::new(xerj_common::XerjError::from(e)).into_response(),
-    }
+    let taken = format!("index_template [{name}] already exists");
+    let result = if create {
+        state.engine.create_legacy_template(name, body)
+    } else {
+        state.engine.put_legacy_template(name, body).map(|()| true)
+    };
+    template_put_response(result, taken)
 }
 
 /// Normalize a template's `settings` block to ES's storage form: every
