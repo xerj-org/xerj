@@ -1,9 +1,9 @@
 {
- "corpus": "rossdevereux--team-organiser",
+ "corpus": "rossdevereux--subshuffle",
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on TypeScript queries this for how rossdevereux/team-organiser implements it: Work out sub rotation for a team (Football) (selected work: client)",
+ "domain": "an agent working on TypeScript queries this for how rossdevereux/subshuffle implements it: Work out sub rotation for a team (Football) (selected work: client)",
  "repos": [
   {
    "repo": "team-organiser",

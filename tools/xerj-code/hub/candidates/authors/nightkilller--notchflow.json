@@ -1,0 +1,23 @@
+{
+ "corpus": "nightkilller--notchflow",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Swift queries this for how Nightkilller/NotchFlow implements it: Nightkilller/NotchFlow (Swift) (selected work: NotchFlow)",
+ "repos": [
+  {
+   "repo": "NotchFlow",
+   "url": "https://github.com/Nightkilller/NotchFlow",
+   "sha": "73fca3f9ac17b1b63e7a044ed608fc38414b6de4",
+   "licence": "MIT (LICENSE file at pin 73fca3f9ac17, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T09:17Z",
+    "consent_receipt": "00e5cc8d3664",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T09:17Z (receipt 00e5cc8d3664); selected commit 73fca3f9ac17: \"feat: clean notch teleprompter design, auto-shrink, live edge resizin\u2026\". LICENSE file at pin 73fca3f9ac17 detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution. Pinned to head 73fca3f9ac17 (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

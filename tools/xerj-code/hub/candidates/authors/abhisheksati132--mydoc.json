@@ -8,15 +8,15 @@
   {
    "repo": "mydoc",
    "url": "https://github.com/abhisheksati132/mydoc",
-   "sha": "ba68d4c17c693b3e531cbd45cc4dbdd0c9c81ed4",
-   "licence": "AGPL-3.0 (LICENSE file at pin ba68d4c17c69, GitHub licence API 2026-11-07)",
+   "sha": "7357805cc0a5d42c1d60f874e02187d445720216",
+   "licence": "AGPL-3.0 (LICENSE file at pin 7357805cc0a5, GitHub licence API 2026-11-08)",
    "review": {
     "spdx": "AGPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-11-01T11:03Z",
     "consent_receipt": "7f384e5a87f1",
-    "note": "Inclusion consented by the commit author by email at 2026-11-01T11:03Z (receipt 7f384e5a87f1); selected commit ba68d4c17c69: \"perf(craft): 120Hz zero-allocation scroll, memory guard, OLED black c\u2026\". LICENSE file at pin ba68d4c17c69 detected as AGPL-3.0 by the GitHub licence API on 2026-11-07; used under that licence with attribution. Pinned to head ba68d4c17c69 (contains the selected commit): the LICENSE at the selected commit was NONE.",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T11:03Z (receipt 7f384e5a87f1); selected commit 7357805cc0a5: \"perf(craft): 120Hz zero-allocation scroll, memory guard, OLED black c\u2026\". LICENSE file at pin 7357805cc0a5 detected as AGPL-3.0 by the GitHub licence API on 2026-11-08; used under that licence with attribution. Pinned to head 7357805cc0a5 (contains the selected commit): the LICENSE at the selected commit was NONE.",
     "author_grant": {
      "terms": "MIT",
      "scope": "the author's own changes in the selected commit",

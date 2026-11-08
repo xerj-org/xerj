@@ -8,15 +8,15 @@
   {
    "repo": "hisab",
    "url": "https://github.com/RagedPanda/hisab",
-   "sha": "8b74cc9147408adf583a3a4f639c9d386457b473",
-   "licence": "MIT (LICENSE file at pin 8b74cc914740, GitHub licence API 2026-11-06)",
+   "sha": "8ff77924998c4b3de8c507cb25aa978c135e68b6",
+   "licence": "MIT (LICENSE file at pin 8ff77924998c, GitHub licence API 2026-11-08)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T04:48Z",
     "consent_receipt": "e41a6fb00d71",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T04:48Z (receipt e41a6fb00d71); pinned to the default-branch head. LICENSE file at pin 8b74cc914740 detected as MIT by the GitHub licence API on 2026-11-06; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T04:48Z (receipt e41a6fb00d71); pinned to the default-branch head. LICENSE file at pin 8ff77924998c detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution."
    }
   }
  ]

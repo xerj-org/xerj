@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on browser-extension, chrome-extension, firfox-extension queries this for how MagiMigi/frameseek implements it: Browser extension that adds a YouTube-style seek bar, frame stepping, skip shortcuts and playback speed to Instagram videos and Reels. Chrom (selected work: test, src/content, scripts)",
+ "domain": "an agent working on browser-extension, chrome-extension, instagram queries this for how MagiMigi/frameseek implements it: Browser extension that adds a YouTube-style seek bar, frame stepping, skip shortcuts and playback speed to Instagram videos and Reels. Chrom (selected work: test, src/content, scripts)",
  "repos": [
   {
    "repo": "frameseek",
