@@ -1,0 +1,13 @@
+# xerj
+
+> AI search engine and MCP server for bots and agents. One Rust binary indexes code, docs, logs, JSONL/CSV and PDFs for BM25 full-text, vector and hybrid search, code search without grep, agent memory and RAG. Elasticsearch-compatible API; Corpus Hub serves hundreds of reference memory corpora.
+
+## Core Resources
+
+- [GitHub Repository](https://github.com/xerj-org/xerj): Source code, documentation, and issue tracker.
+- [Website](https://xerj.org): Official website and documentation.
+
+## AI Agent & LLM Indexing
+
+- Structured following the standard /llms.txt specification for AI search engines and coding assistants.
+- Validated via [AccessGuard AI-Readiness Suite](https://ronanchnlps-bit.github.io/).
