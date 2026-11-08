@@ -247,6 +247,33 @@ pub fn build_es_compat_router(state: AppState) -> Router {
     build_es_compat_router_with_hub(state, hub)
 }
 
+/// A bare template path (`/_template`, `/_index_template`,
+/// `/_component_template`): GET lists the templates. Every other method
+/// reaches the `/:index` handler it reached before this route existed, so
+/// `PUT /_template` is still `invalid_index_name_exception` and `HEAD
+/// /_template` is still the index-exists probe, not axum's empty 405 or a
+/// HEAD of the listing.
+fn template_listing<H, T>(segment: &'static str, list: H) -> axum::routing::MethodRouter<AppState>
+where
+    H: axum::handler::Handler<T, AppState>,
+    T: 'static,
+{
+    let path = move || axum::extract::Path(segment.to_string());
+    get(list)
+        .put(
+            move |state: State<AppState>, body: crate::extract::OptionalJson<serde_json::Value>| {
+                es_compat::create_index(state, path(), body)
+            },
+        )
+        .delete(
+            move |state: State<AppState>,
+                  params: axum::extract::Query<es_compat::DeleteIndexParams>| {
+                es_compat::delete_index(state, path(), params)
+            },
+        )
+        .head(move |state: State<AppState>| es_compat::head_index(state, path()))
+}
+
 /// [`build_es_compat_router`] over a [`hub_api::HubShared`] the caller also
 /// hands to the gRPC `XerjHub` service, so the two surfaces count one client
 /// against ONE hub rate-limit budget (and share one query-slot pool and one
@@ -423,6 +450,12 @@ pub fn build_es_compat_router_with_hub(
             post(es_compat::post_aliases).get(es_compat::get_aliases),
         )
         // ── Index Templates ────────────────────────────────────────────────
+        // No name lists them all (ES `GET /_index_template`); without this
+        // route the path fell through to `GET /{index}`.
+        .route(
+            "/_index_template",
+            template_listing("_index_template", es_compat::get_all_index_templates),
+        )
         .route(
             "/_index_template/:name",
             put(es_compat::put_index_template)
@@ -570,6 +603,13 @@ pub fn build_es_compat_router_with_hub(
         )
         .route("/_plugins/_ism/explain", get(ism_api::list_managed_indices))
         // ── Component templates ────────────────────────────────────────────
+        .route(
+            "/_component_template",
+            template_listing(
+                "_component_template",
+                es_compat::get_all_component_templates,
+            ),
+        )
         .route(
             "/_component_template/:name",
             put(es_compat::put_component_template)
@@ -911,6 +951,10 @@ pub fn build_es_compat_router_with_hub(
         // only: it inherits the `/_xerj/*` rule in `authz.rs`.
         .route("/_xerj/rerank", get(crate::rerank_stage::rerank_status))
         // ── Legacy index templates (v1) ────────────────────────────────────────────
+        .route(
+            "/_template",
+            template_listing("_template", es_compat::get_all_legacy_templates),
+        )
         .route(
             "/_template/:name",
             put(es_compat::put_legacy_template)

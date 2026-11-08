@@ -1186,19 +1186,23 @@ fn resolve_action(action: &str, params: &serde_yaml::Mapping) -> (String, String
         }
         "indices.get_index_template" => {
             let name = get_param_str(params, "name").unwrap_or_default();
-            ("GET".into(), format!("/_index_template/{}", name), None)
+            ("GET".into(), template_path("/_index_template", &name), None)
         }
         "indices.delete_index_template" => {
             let name = get_param_str(params, "name").unwrap_or_default();
-            ("DELETE".into(), format!("/_index_template/{}", name), None)
+            (
+                "DELETE".into(),
+                template_path("/_index_template", &name),
+                None,
+            )
         }
         "indices.get_template" => {
             let name = get_param_str(params, "name").unwrap_or_default();
-            ("GET".into(), format!("/_template/{}", name), None)
+            ("GET".into(), template_path("/_template", &name), None)
         }
         "indices.delete_template" => {
             let name = get_param_str(params, "name").unwrap_or_default();
-            ("DELETE".into(), format!("/_template/{}", name), None)
+            ("DELETE".into(), template_path("/_template", &name), None)
         }
 
         // Document operations
@@ -1911,5 +1915,15 @@ fn values_match(actual: &Value, expected: &Value) -> bool {
             .iter()
             .all(|(k, v)| a.get(k).is_some_and(|av| values_match(av, v))),
         _ => actual == expected,
+    }
+}
+
+/// `{base}/{name}`, or just `{base}` when the case gave no name: the
+/// no-name GET is its own route (`GET /_template`), not `GET /_template/`.
+fn template_path(base: &str, name: &str) -> String {
+    if name.is_empty() {
+        base.to_string()
+    } else {
+        format!("{base}/{name}")
     }
 }
