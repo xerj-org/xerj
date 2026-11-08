@@ -805,6 +805,7 @@ mod hidden_skip_tests {
     /// it could not vet.
     #[cfg(unix)]
     #[test]
+    #[cfg(unix)]
     fn an_unresolvable_entry_is_refused_not_admitted() {
         use std::ffi::OsStr;
         use std::os::unix::ffi::OsStrExt;

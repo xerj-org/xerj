@@ -1812,6 +1812,7 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
+    #[cfg(unix)]
     fn worker_that_closes_its_pipes_but_keeps_running_still_times_out() {
         // #1394: the supervisor now sleeps on pipe EOF instead of a fixed
         // poll. A worker that closes stdout/stderr and then hangs must still
