@@ -1,0 +1,23 @@
+{
+ "corpus": "illhammf--friday-ai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-assistant, artificial-intelligence, gemini-api queries this for how illhammf/friday-ai implements it: An AI-powered personal WhatsApp assistant built with Node.js and Google Gemini. Friday supports intelligent conversations, persistent SQLite (selected work: src, src/application, test)",
+ "repos": [
+  {
+   "repo": "friday-ai",
+   "url": "https://github.com/illhammf/friday-ai",
+   "sha": "5259a7578402369304c7a6260775b1e79832e773",
+   "licence": "MIT (LICENSE file at pin 5259a7578402, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T03:43Z",
+    "consent_receipt": "610263f7a4cc",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T03:43Z (receipt 610263f7a4cc); selected commit 5259a7578402: \"SPRINT 1: MESSAGE LIFECYCLE CHARACTERIZATION & EXTRACTION\". LICENSE file at pin 5259a7578402 detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+   }
+  }
+ ]
+}

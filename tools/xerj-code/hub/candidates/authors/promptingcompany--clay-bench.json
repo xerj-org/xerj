@@ -2,8 +2,8 @@
  "corpus": "promptingcompany--clay-bench",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on JavaScript queries this for how promptingcompany/clay-bench implements it: promptingcompany/clay-bench (JavaScript) (selected work: tasks, the project root)",
+ "shelf": "AI",
+ "domain": "an agent working on JavaScript queries this for how promptingcompany/clay-bench implements it: A benchmark for AI coding agents on go-to-market data tasks with Clay (selected work: tasks, the project root)",
  "repos": [
   {
    "repo": "clay-bench",
