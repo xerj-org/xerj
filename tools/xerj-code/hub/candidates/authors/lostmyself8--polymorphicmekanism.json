@@ -8,15 +8,15 @@
   {
    "repo": "PolymorphicMekanism",
    "url": "https://github.com/lostmyself8/PolymorphicMekanism",
-   "sha": "aa4655a25e839ba54c3926f4771ce07370a2ee2a",
-   "licence": "MIT (LICENSE file at pin aa4655a25e83, GitHub licence API 2026-11-06)",
+   "sha": "51167d60d82ac459d3a7963444dc27c0158041e9",
+   "licence": "MIT (LICENSE file at pin 51167d60d82a, GitHub licence API 2026-11-08)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-06T07:01Z",
     "consent_receipt": "544dc832e4b3",
-    "note": "Inclusion consented by the commit author by email at 2026-11-06T07:01Z (receipt 544dc832e4b3); selected commit aa4655a25e83: \"Fix the issue where the button briefly stays for a period of time whe\u2026\". LICENSE file at pin aa4655a25e83 detected as MIT by the GitHub licence API on 2026-11-06; used under that licence with attribution. Pinned to head aa4655a25e83 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-11-06T07:01Z (receipt 544dc832e4b3); selected commit 51167d60d82a: \"Fix the issue where the button briefly stays for a period of time whe\u2026\". LICENSE file at pin 51167d60d82a detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution. Pinned to head 51167d60d82a (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

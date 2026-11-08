@@ -1,0 +1,23 @@
+{
+ "corpus": "vexify-org--wrtc-neo",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on JavaScript queries this for how vexify-org/wrtc-neo implements it: Node.js WebRTC \u5b9e\u73b0\uff1aICE/STUN/TURN\u3001UDP\u6253\u6d1e\u3001DTLS\u52a0\u5bc6\u3001\u865a\u62dfLAN\u3001DHT \u2014 \u96f6\u539f\u751f\u4f9d\u8d56 (selected work: test, lib, the project root)",
+ "repos": [
+  {
+   "repo": "wrtc-neo",
+   "url": "https://github.com/vexify-org/wrtc-neo",
+   "sha": "7f3928dd5c89ce3020d4ef78ccac5a2cf5d268d8",
+   "licence": "Apache-2.0 (LICENSE file at pin 7f3928dd5c89, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T05:47Z",
+    "consent_receipt": "d2226c69e1ac",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T05:47Z (receipt d2226c69e1ac); selected commit 7f3928dd5c89: \"fix: core module bugs + comprehensive test suite\". LICENSE file at pin 7f3928dd5c89 detected as Apache-2.0 by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+   }
+  }
+ ]
+}

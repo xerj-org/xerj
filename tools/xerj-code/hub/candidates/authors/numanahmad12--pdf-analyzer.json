@@ -1,0 +1,23 @@
+{
+ "corpus": "numanahmad12--pdf-analyzer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on faiss, llm, ollama queries this for how Numanahmad12/pdf_analyzer implements it: RAG-based PDF summarizer and Q&A with real embeddings, FAISS hybrid retrieval and groundedness guardrails (Streamlit + Ollama) (selected work: the project root, tests)",
+ "repos": [
+  {
+   "repo": "pdf_analyzer",
+   "url": "https://github.com/Numanahmad12/pdf_analyzer",
+   "sha": "c9e7fce79ef9ea11ef16794c0081f36bc48d5dd8",
+   "licence": "MIT (LICENSE file at pin c9e7fce79ef9, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T05:23Z",
+    "consent_receipt": "844cd155c63b",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T05:23Z (receipt 844cd155c63b); selected commit c9e7fce79ef9: \"Real RAG + guardrails: embeddings + FAISS hybrid retrieval, groundedn\u2026\". LICENSE file at pin c9e7fce79ef9 detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution. Pinned to head c9e7fce79ef9 (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}
