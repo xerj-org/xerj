@@ -1,9 +1,9 @@
 {
- "corpus": "sorrellabs--brgr",
+ "corpus": "justn-hyeok--brgr",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-agents, claude-code, codex queries this for how sorrellabs/brgr implements it: Run Claude Code, Codex, OpenCode, Cursor and more as parallel coding-agent workers in Herdr panes, orchestrated by your Codex or Claude Code (selected work: crates/brgr-core)",
+ "domain": "an agent working on ai-agents, claude-code, codex queries this for how justn-hyeok/brgr implements it: Run Claude Code, Codex, OpenCode, Cursor and more as parallel coding-agent workers in Herdr panes, orchestrated by your Codex or Claude Code (selected work: crates/brgr-core)",
  "repos": [
   {
    "repo": "brgr",

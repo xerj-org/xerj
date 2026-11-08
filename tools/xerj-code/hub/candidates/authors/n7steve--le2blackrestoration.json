@@ -1,0 +1,23 @@
+{
+ "corpus": "n7steve--le2blackrestoration",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on bioware, mass-effect, mass-effect-2 queries this for how N7Steve/LE2BlackRestoration implements it: Mass Effect 2 Legendary Edition black restoration mod (selected work: scripts, LE2 Black Restoration)",
+ "repos": [
+  {
+   "repo": "LE2BlackRestoration",
+   "url": "https://github.com/N7Steve/LE2BlackRestoration",
+   "sha": "a5928e85f372c2c644a6d32c636ecd386fea49ef",
+   "licence": "MIT (LICENSE file at pin a5928e85f372, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T14:26Z",
+    "consent_receipt": "3851410ee834",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T14:26Z (receipt 3851410ee834); selected commit a5928e85f372: \"Integrate optional vignette removal and Luma compatibility tooling\". LICENSE file at pin a5928e85f372 detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+   }
+  }
+ ]
+}

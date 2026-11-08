@@ -1,9 +1,9 @@
 {
- "corpus": "masumrpg--react-native-library",
+ "corpus": "masumrpg--nodejs-lib",
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on lib, library, react-native queries this for how masumrpg/react-native-library implements it: masumrpg/react-native-library (TypeScript) (selected work: apps/cli, packages/markforge)",
+ "domain": "an agent working on lib, library, react-native queries this for how masumrpg/nodejs-lib implements it: masumrpg/nodejs-lib (TypeScript) (selected work: apps/cli, packages/markforge)",
  "repos": [
   {
    "repo": "react-native-library",

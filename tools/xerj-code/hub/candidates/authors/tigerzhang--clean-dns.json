@@ -1,0 +1,23 @@
+{
+ "corpus": "tigerzhang--clean-dns",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on dns, dns-over-https queries this for how tigerzhang/clean-dns implements it: A high-performance DNS forwarder and router (selected work: src/plugins, tests, the project root)",
+ "repos": [
+  {
+   "repo": "clean-dns",
+   "url": "https://github.com/tigerzhang/clean-dns",
+   "sha": "235387eb8a3a54cc480cdcf69c71481e90ef51e4",
+   "licence": "MIT (LICENSE file at pin 235387eb8a3a, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T14:14Z",
+    "consent_receipt": "877e53777caa",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T14:14Z (receipt 877e53777caa); selected commit 235387eb8a3a: \"refactor: update fallback plugin to support ordered execution lists a\u2026\". LICENSE file at pin 235387eb8a3a detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+   }
+  }
+ ]
+}

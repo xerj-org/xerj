@@ -1,0 +1,23 @@
+{
+ "corpus": "goodboy008--r-shell",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on cross-platform, devops, ftp-client queries this for how GOODBOY008/r-shell implements it: Open-source SSH and remote desktop client for macOS, Windows, and Linux. Split terminals, SFTP/FTP/FTPS transfers, RDP/VNC, and server monit (selected work: src/__tests__, src/lib, src/components)",
+ "repos": [
+  {
+   "repo": "r-shell",
+   "url": "https://github.com/GOODBOY008/r-shell",
+   "sha": "137d8340405a9292eccfe5cdd162e08cbf50fbac",
+   "licence": "MIT (LICENSE file at pin 137d8340405a, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T14:29Z",
+    "consent_receipt": "79df5c43260b",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T14:29Z (receipt 79df5c43260b); selected commit 137d8340405a: \"feat(settings): optional passphrase-encrypted credentials in config e\u2026\". LICENSE file at pin 137d8340405a detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+   }
+  }
+ ]
+}
