@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Go queries this for how mrdimidium/hrc implements it: Hosted runner controller for github actions (selected work: cmd, pkg/worker)",
+ "domain": "an agent working on ci, github-actions, github-runner queries this for how mrdimidium/hrc implements it: Hosted runner controller for github actions (selected work: cmd, pkg/worker)",
  "repos": [
   {
    "repo": "hrc",

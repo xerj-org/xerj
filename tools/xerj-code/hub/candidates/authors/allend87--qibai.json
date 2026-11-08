@@ -8,15 +8,15 @@
   {
    "repo": "qibai",
    "url": "https://github.com/AllenD87/qibai",
-   "sha": "4430c15368cb5c505aa480c21f964c39e7488c72",
-   "licence": "MIT (LICENSE file at pin 4430c15368cb, GitHub licence API 2026-11-08)",
+   "sha": "d02dfec187f4ae15e14a3aac2031223fdd3728e9",
+   "licence": "MIT (LICENSE file at pin d02dfec187f4, GitHub licence API 2026-11-08)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-08T01:47Z",
     "consent_receipt": "bdd541cee20c",
-    "note": "Inclusion consented by the commit author by email at 2026-11-08T01:47Z (receipt bdd541cee20c); selected commit 4430c15368cb: \"feat(kb): \u77e5\u8bc6\u5e93\u8bed\u4e49\u68c0\u7d22\u2014\u2014\u672c\u5730 bge-small-zh-v1.5 + \u7eaf Rust \u63a8\u7406\uff0cBM25 \u6df7\u5408\u6392\u5e8f\". LICENSE file at pin 4430c15368cb detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution. Pinned to head 4430c15368cb (contains the selected commit): the LICENSE at the selected commit was NOASSERTION."
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T01:47Z (receipt bdd541cee20c); selected commit d02dfec187f4: \"feat(kb): \u77e5\u8bc6\u5e93\u8bed\u4e49\u68c0\u7d22\u2014\u2014\u672c\u5730 bge-small-zh-v1.5 + \u7eaf Rust \u63a8\u7406\uff0cBM25 \u6df7\u5408\u6392\u5e8f\". LICENSE file at pin d02dfec187f4 detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution. Pinned to head d02dfec187f4 (contains the selected commit): the LICENSE at the selected commit was NOASSERTION."
    }
   }
  ]

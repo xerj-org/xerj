@@ -8,15 +8,15 @@
   {
    "repo": "mansitra_APP",
    "url": "https://github.com/yashpatadiya1724-cmyk/mansitra_APP",
-   "sha": "ed2b311809db1eabb56a17ef95c0aa93f73d2229",
-   "licence": "MIT (LICENSE file at pin ed2b311809db, GitHub licence API 2026-11-06)",
+   "sha": "673181ffb16bd166279b665a30a2b2197331b5cc",
+   "licence": "MIT (LICENSE file at pin 673181ffb16b, GitHub licence API 2026-11-08)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-03T06:28Z",
     "consent_receipt": "8bd594187647",
-    "note": "Inclusion consented by the commit author by email at 2026-11-03T06:28Z (receipt 8bd594187647); selected commit ed2b311809db: \"feat(ai-memory): implement long-term vector memory RAG engine, cosine\u2026\". LICENSE file at pin ed2b311809db detected as MIT by the GitHub licence API on 2026-11-06; used under that licence with attribution. Pinned to head ed2b311809db (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T06:28Z (receipt 8bd594187647); selected commit 673181ffb16b: \"feat(ai-memory): implement long-term vector memory RAG engine, cosine\u2026\". LICENSE file at pin 673181ffb16b detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution. Pinned to head 673181ffb16b (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

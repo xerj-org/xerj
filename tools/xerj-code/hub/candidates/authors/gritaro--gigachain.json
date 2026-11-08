@@ -1,0 +1,23 @@
+{
+ "corpus": "gritaro--gigachain",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on gigachain, gigachat, gpt queries this for how gritaro/gigachain implements it: This custom component for Home Assistant allows you to generate text responses using GigaChain LLM framework (like GigaChat, YandexGPT, Chat (selected work: custom_components)",
+ "repos": [
+  {
+   "repo": "gigachain",
+   "url": "https://github.com/gritaro/gigachain",
+   "sha": "ec3e77024114fc7ee4f097da45c583db71710557",
+   "licence": "MIT (LICENSE file at pin ec3e77024114, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T06:53Z",
+    "consent_receipt": "6be16de812d0",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T06:53Z (receipt 6be16de812d0); selected commit ec3e77024114: \"rc-0.3.0: migrate to modern HA conversation API (ConversationEntity +\u2026\". LICENSE file at pin ec3e77024114 detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+   }
+  }
+ ]
+}
