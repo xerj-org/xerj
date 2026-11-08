@@ -227,7 +227,7 @@ pub fn build_native_router(state: AppState) -> Router {
 /// GET    /_cluster/health                   cluster_health
 /// GET    /_cat/indices                      cat_indices
 /// GET    /_cat/indices/:pattern             cat_indices_pattern
-/// POST   /_bulk                             global_bulk
+/// POST   /_bulk                             global_bulk (PUT too)
 /// PUT    /:index                            create_index
 /// DELETE /:index                            delete_index
 /// GET    /:index                            get_index
@@ -240,7 +240,7 @@ pub fn build_native_router(state: AppState) -> Router {
 /// DELETE /:index/_doc/:id                   delete_doc
 /// POST   /:index/_search                    search
 /// GET    /:index/_search                    search (GET with body)
-/// POST   /:index/_bulk                      bulk_ops
+/// POST   /:index/_bulk                      bulk_ops (PUT too)
 /// ```
 pub fn build_es_compat_router(state: AppState) -> Router {
     let hub = hub_api::HubShared::new(state.clone());
@@ -308,7 +308,11 @@ pub fn build_es_compat_router_with_hub(
         .route("/_cat/aliases", get(es_compat::cat_aliases))
         .route("/_cat/count/:index", get(es_compat::cat_count))
         .route("/_cat/shards", get(es_compat::cat_shards))
-        .route("/_bulk", post(es_compat::global_bulk))
+        // Elasticsearch takes POST and PUT here; the Python client sends PUT (#3036).
+        .route(
+            "/_bulk",
+            post(es_compat::global_bulk).put(es_compat::global_bulk),
+        )
         // The audit twin of /v1/systemone: same vote, named index, neighbours
         // and abstain instead of a wire-shaped error.
         .route("/_decide", post(systemone_api::decide))
@@ -416,7 +420,10 @@ pub fn build_es_compat_router_with_hub(
             post(es_compat::validate_query).get(es_compat::validate_query),
         )
         // ── Bulk ───────────────────────────────────────────────────────────
-        .route("/:index/_bulk", post(es_compat::bulk_ops))
+        .route(
+            "/:index/_bulk",
+            post(es_compat::bulk_ops).put(es_compat::bulk_ops),
+        )
         // ── Aliases ────────────────────────────────────────────────────────
         .route(
             "/_aliases",
