@@ -1,0 +1,30 @@
+{
+ "corpus": "narrafork--narrafork",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent, agent-framework, agents queries this for how NarraFork/NarraFork implements it: An efficient durable harness for collaboration across people, models, and devices (selected work: frontend, server, tests)",
+ "repos": [
+  {
+   "repo": "NarraFork",
+   "url": "https://github.com/NarraFork/NarraFork",
+   "sha": "3e7560c55366bb66fa7467974ab0595e9d17469e",
+   "licence": "MPL-2.0 (LICENSE file at pin 3e7560c55366, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "MPL-2.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-08T10:35Z",
+    "consent_receipt": "d732e57b95ca",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T10:35Z (receipt d732e57b95ca); selected commit 3e7560c55366: \"feat(file-viewer): \u5185\u7f6e\u67e5\u770b\u5668\u652f\u6301\u6d4f\u89c8 zip\u3001jar \u7b49\u538b\u7f29\u5305\". LICENSE file at pin 3e7560c55366 detected as MPL-2.0 by the GitHub licence API on 2026-11-08; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "3e7560c55366bb66fa7467974ab0595e9d17469e",
+     "at": "2026-11-08T10:35Z",
+     "receipt": "d732e57b95ca"
+    }
+   }
+  }
+ ]
+}
