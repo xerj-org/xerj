@@ -1,0 +1,23 @@
+{
+ "corpus": "billwang7599--hotrod",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how billwang7599/hotrod implements it: modular orchestrator to fit everyone's needs (selected work: packages/core)",
+ "repos": [
+  {
+   "repo": "hotrod",
+   "url": "https://github.com/billwang7599/hotrod",
+   "sha": "be58033823a5f8ce2b0318a8039901ab32efb1f3",
+   "licence": "MIT (LICENSE file at pin be58033823a5, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T23:31Z",
+    "consent_receipt": "1faa4e0b1b64",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T23:31Z (receipt 1faa4e0b1b64); selected commit be58033823a5: \"Give memory its zoom and date tools on the Hotrod MCP server\". LICENSE file at pin be58033823a5 detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+   }
+  }
+ ]
+}

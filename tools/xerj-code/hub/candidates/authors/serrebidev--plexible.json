@@ -8,15 +8,15 @@
   {
    "repo": "Plexible",
    "url": "https://github.com/serrebidev/Plexible",
-   "sha": "67723a6727353d7b517dc904657e6d6ca6a5b37a",
-   "licence": "author's permission (LICENSE at pin 67723a672735: NONE; repository: none)",
+   "sha": "0ecd101752674ee0a2a25618b442f3de121fec46",
+   "licence": "author's permission (LICENSE at pin 0ecd10175267: NONE; repository: none)",
    "review": {
     "spdx": "NONE",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T23:37Z",
     "consent_receipt": "f170b50fb24d",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T23:37Z (receipt f170b50fb24d); pinned to the default-branch head. LICENSE at pin 67723a672735: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T23:37Z (receipt f170b50fb24d); pinned to the default-branch head. LICENSE at pin 0ecd10175267: NONE (repository: none); used with the author's permission, with attribution."
    }
   }
  ]

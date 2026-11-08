@@ -2,21 +2,21 @@
  "corpus": "mairon31--novel-ai",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Python queries this for how Mairon31/novel_ai implements it: A reader of visual novels with language models, illustrations and connectible voices, where you control the protagonist and the world evolve",
+ "shelf": "AI",
+ "domain": "an agent working on ai-roleplay, ai-storytelling, branching-narratives queries this for how Mairon31/novel_ai implements it: Noble AI \u2014 A local-first AI visual novel and interactive storytelling studio. Create worlds, characters, and branching stories powered by LL",
  "repos": [
   {
    "repo": "novel_ai",
    "url": "https://github.com/Mairon31/novel_ai",
-   "sha": "0ddecc552a5478212e72746ac1aa82ebc1dfdeb3",
-   "licence": "author's permission (LICENSE at pin 0ddecc552a54: NONE; repository: none)",
+   "sha": "6b85939dddfd3e035a5771df9e73119990c99efc",
+   "licence": "author's permission (LICENSE at pin 6b85939dddfd: NONE; repository: none)",
    "review": {
     "spdx": "NONE",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-06T02:40Z",
     "consent_receipt": "dce7c42b9b64",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T02:40Z (receipt dce7c42b9b64); pinned to the default-branch head. LICENSE at pin 0ddecc552a54: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T02:40Z (receipt dce7c42b9b64); pinned to the default-branch head. LICENSE at pin 6b85939dddfd: NONE (repository: none); used with the author's permission, with attribution."
    }
   }
  ]

@@ -1,9 +1,9 @@
 {
- "corpus": "kraken-labz--octopus-media-card",
+ "corpus": "kobolab--octopus-media-card",
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on custom-integration, hacs, home-assistant queries this for how Kraken-Labz/octopus-media-card implements it: A cinematic Home Assistant media integration and card for Jellyfin, Radarr and Sonarr (selected work: tests, custom_components, frontend)",
+ "domain": "an agent working on custom-integration, hacs, home-assistant queries this for how KoboLab/octopus-media-card implements it: A cinematic Home Assistant media integration and card for Jellyfin, Radarr and Sonarr (selected work: tests, custom_components, frontend)",
  "repos": [
   {
    "repo": "octopus-media-card",

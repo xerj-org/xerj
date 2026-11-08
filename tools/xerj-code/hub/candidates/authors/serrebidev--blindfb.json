@@ -8,15 +8,15 @@
   {
    "repo": "BlindFB",
    "url": "https://github.com/serrebidev/BlindFB",
-   "sha": "f0483ddfa529399f9e744590ef85b60cb3b2f413",
-   "licence": "MIT (LICENSE file at pin f0483ddfa529, GitHub licence API 2026-11-07)",
+   "sha": "857b673c002c41655a2cfb82d350da7effe726ae",
+   "licence": "MIT (LICENSE file at pin 857b673c002c, GitHub licence API 2026-11-08)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T23:37Z",
     "consent_receipt": "72dbd26d7635",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T23:37Z (receipt 72dbd26d7635); pinned to the default-branch head. LICENSE file at pin f0483ddfa529 detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T23:37Z (receipt 72dbd26d7635); pinned to the default-branch head. LICENSE file at pin 857b673c002c detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution."
    }
   }
  ]

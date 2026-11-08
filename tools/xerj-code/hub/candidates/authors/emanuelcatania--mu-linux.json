@@ -1,9 +1,9 @@
 {
- "corpus": "emanuelcatania--mu-linux-0-97k",
+ "corpus": "emanuelcatania--mu-linux",
  "cloned_at": null,
  "status": "draft",
  "shelf": "OPS",
- "domain": "an agent working on C queries this for how EmanuelCatania/Mu-Linux-0.97k implements it: Servidor del mmorpg Mu Online 0.97k porteado a linux con soporte de docker basado en las sources de Kayito (selected work: Pterodactyl eggs, pterodactyl)",
+ "domain": "an agent working on C queries this for how EmanuelCatania/Mu-Linux implements it: Servidor (Linux nativo, Docker) y cliente de Mu Online 0.97k reconstruido desde el binario original. Server and client for Mu Online 0.97k (selected work: Pterodactyl eggs, pterodactyl)",
  "repos": [
   {
    "repo": "Mu-Linux-0.97k",
