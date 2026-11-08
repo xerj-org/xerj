@@ -1,0 +1,23 @@
+{
+ "corpus": "sebx771--documentador-api",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on docker, docker-compose, python queries this for how sebx771/documentador-api implements it: un breve proyecto para agilizar el proceso de documentar proyectos , utilizando el api de groq para el uso de modelos de inteligencia artifi (selected work: api, test)",
+ "repos": [
+  {
+   "repo": "documentador-api",
+   "url": "https://github.com/sebx771/documentador-api",
+   "sha": "8ae8096f5358541029be09a4c5a705459062f08e",
+   "licence": "MIT (LICENSE file at pin 8ae8096f5358, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T20:46Z",
+    "consent_receipt": "05baec5a5828",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T20:46Z (receipt 05baec5a5828); selected commit 8ae8096f5358: \"feat(ai): agregar soporte para consolidacion y optimizacion de prompt\u2026\". LICENSE file at pin 8ae8096f5358 detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+   }
+  }
+ ]
+}

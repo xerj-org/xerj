@@ -2,8 +2,8 @@
  "corpus": "ggiallo28--skye",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Python queries this for how ggiallo28/skye implements it: ggiallo28/skye (Python) (selected work: tests, src/nimbus, examples)",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how ggiallo28/skye implements it: Lightweight Python library for AI agents on serverless: zero core dependencies, REST adapters for the major LLM providers, a model router wi (selected work: tests, src/nimbus, examples)",
  "repos": [
   {
    "repo": "nimbus",

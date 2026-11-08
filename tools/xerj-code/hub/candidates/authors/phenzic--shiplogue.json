@@ -2,8 +2,8 @@
  "corpus": "phenzic--shiplogue",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on TypeScript queries this for how Phenzic/shiplogue implements it: Phenzic/shiplogue (TypeScript) (selected work: extension)",
+ "shelf": "AI",
+ "domain": "an agent working on ai, ai-agents, ai-engineering queries this for how Phenzic/shiplogue implements it: Shiplogue is an open-source, local-first developer tool that turns your coding activity into clear daily stand-ups. It captures work from yo (selected work: extension)",
  "repos": [
   {
    "repo": "shiplogue",

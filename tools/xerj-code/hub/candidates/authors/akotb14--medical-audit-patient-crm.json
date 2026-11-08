@@ -1,0 +1,23 @@
+{
+ "corpus": "akotb14--medical-audit-patient-crm",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "HEALTH",
+ "domain": "an agent working on Blade queries this for how akotb14/medical-audit-patient-crm implements it: akotb14/medical-audit-patient-crm (Blade) (selected work: resources, the project root, tests)",
+ "repos": [
+  {
+   "repo": "medical-audit-patient-crm",
+   "url": "https://github.com/akotb14/medical-audit-patient-crm",
+   "sha": "6c77311f74acbaa7f951acfe30de2d52753a5cb9",
+   "licence": "MIT (LICENSE file at pin 6c77311f74ac, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T22:01Z",
+    "consent_receipt": "624b2f47ceda",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T22:01Z (receipt 624b2f47ceda); selected commit 6c77311f74ac: \"Refactor sidebar layout and components for improved navigation\". LICENSE file at pin 6c77311f74ac detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+   }
+  }
+ ]
+}

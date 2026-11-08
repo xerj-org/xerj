@@ -9,14 +9,14 @@
    "repo": "ssg",
    "url": "https://github.com/spagu/ssg",
    "sha": "66711a0e0f1932d8a593e566156dc3fbe0974447",
-   "licence": "author's permission (LICENSE at pin 66711a0e0f19: NOASSERTION; repository: BSD-3-Clause)",
+   "licence": "author's permission (LICENSE at pin 66711a0e0f19: NOASSERTION; repository: NOASSERTION)",
    "review": {
     "spdx": "NOASSERTION",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-20T20:44Z",
     "consent_receipt": "1d09541d8245",
-    "note": "Inclusion consented by the commit author by email at 2026-10-20T20:44Z (receipt 1d09541d8245); selected commit 66711a0e0f19: \"fix: breadcrumbs name real pages; the 404 page stays out of the sitemap\". LICENSE at pin 66711a0e0f19: NOASSERTION (repository: BSD-3-Clause); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-10-20T20:44Z (receipt 1d09541d8245); selected commit 66711a0e0f19: \"fix: breadcrumbs name real pages; the 404 page stays out of the sitemap\". LICENSE at pin 66711a0e0f19: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
    }
   }
  ]

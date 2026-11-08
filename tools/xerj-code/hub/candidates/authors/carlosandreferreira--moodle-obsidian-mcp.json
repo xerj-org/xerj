@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on llm-security, mcp, mcp-server queries this for how CarlosAndreFerreira/moodle-obsidian-mcp implements it: MCP server for Moodle with server-side prompt-injection defenses, SSO login and Obsidian vault sync (selected work: moodle_mcp, tests, the project root)",
+ "domain": "an agent working on llm-security, mcp, mcp-server queries this for how CarlosAndreFerreira/moodle-obsidian-mcp implements it: MCP server for Moodle with SSO login, server-side prompt-injection defenses and Obsidian sync (selected work: moodle_mcp, tests, the project root)",
  "repos": [
   {
    "repo": "moodle-obsidian-mcp",

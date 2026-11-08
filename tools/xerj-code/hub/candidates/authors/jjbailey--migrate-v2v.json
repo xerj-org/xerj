@@ -2,8 +2,8 @@
  "corpus": "jjbailey--migrate-v2v",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Python queries this for how jjbailey/migrate-v2v implements it: jjbailey/migrate-v2v (Python)",
+ "shelf": "OPS",
+ "domain": "an agent working on infrastructure, virtualization queries this for how jjbailey/migrate-v2v implements it: Migrate a VMware VM to another cloud provider",
  "repos": [
   {
    "repo": "migrate-v2v",
