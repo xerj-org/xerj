@@ -2,21 +2,21 @@
  "corpus": "programador-jr--daily-newsletter",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on JavaScript queries this for how Programador-jr/daily-newsletter implements it: Daily news newsletter covering relevant stories in politics, economy, technology, Brazil, and the world",
+ "shelf": "OPS",
+ "domain": "an agent working on 12axes, finance-education, history queries this for how Programador-jr/daily-newsletter implements it: Daily news newsletter covering relevant stories in politics, economy, technology, Brazil, and the world",
  "repos": [
   {
    "repo": "daily-newsletter",
    "url": "https://github.com/Programador-jr/daily-newsletter",
-   "sha": "289508c21b83b134a1ad93158af4eba5fa837262",
-   "licence": "MIT (LICENSE file at pin 289508c21b83, GitHub licence API 2026-11-08)",
+   "sha": "cb35fecdc41d6beaf6636a73b07ff7a74fb4e0b5",
+   "licence": "MIT (LICENSE file at pin cb35fecdc41d, GitHub licence API 2026-11-08)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-03T20:54Z",
     "consent_receipt": "a730c4651b26",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-03T20:54Z (receipt a730c4651b26); pinned to the default-branch head. LICENSE file at pin 289508c21b83 detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-03T20:54Z (receipt a730c4651b26); pinned to the default-branch head. LICENSE file at pin cb35fecdc41d detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution."
    }
   }
  ]

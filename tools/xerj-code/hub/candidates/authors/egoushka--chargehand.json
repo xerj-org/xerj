@@ -8,15 +8,15 @@
   {
    "repo": "chargehand",
    "url": "https://github.com/Egoushka/chargehand",
-   "sha": "b9b6ec699f3430bd970f0959e2b34e882ae279b1",
-   "licence": "Apache-2.0 (LICENSE file at pin b9b6ec699f34, GitHub licence API 2026-11-08)",
+   "sha": "9f70527885f01461c419ed9023d3ca12742c6b7f",
+   "licence": "Apache-2.0 (LICENSE file at pin 9f70527885f0, GitHub licence API 2026-11-08)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-07T15:00Z",
     "consent_receipt": "60cf668be461",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-07T15:00Z (receipt 60cf668be461); pinned to the default-branch head. LICENSE file at pin b9b6ec699f34 detected as Apache-2.0 by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-07T15:00Z (receipt 60cf668be461); pinned to the default-branch head. LICENSE file at pin 9f70527885f0 detected as Apache-2.0 by the GitHub licence API on 2026-11-08; used under that licence with attribution."
    }
   }
  ]

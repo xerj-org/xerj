@@ -8,15 +8,15 @@
   {
    "repo": "viserys-agent",
    "url": "https://github.com/rizqinrr/viserys-agent",
-   "sha": "253ac33c8e8e458e8aa34087962b01b9e426b804",
-   "licence": "Apache-2.0 (LICENSE file at pin 253ac33c8e8e, GitHub licence API 2026-11-08)",
+   "sha": "d65836209b244823f2bdb92b693e99675e31ecf0",
+   "licence": "Apache-2.0 (LICENSE file at pin d65836209b24, GitHub licence API 2026-11-08)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-11T07:18Z",
     "consent_receipt": "a338fb2f8ea7",
-    "note": "Inclusion consented by the commit author by email at 2026-10-11T07:18Z (receipt a338fb2f8ea7); selected commit 253ac33c8e8e: \"feat: expand specialist persona workflows\". LICENSE file at pin 253ac33c8e8e detected as Apache-2.0 by the GitHub licence API on 2026-11-08; used under that licence with attribution. Pinned to head 253ac33c8e8e (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-11T07:18Z (receipt a338fb2f8ea7); selected commit d65836209b24: \"feat: expand specialist persona workflows\". LICENSE file at pin d65836209b24 detected as Apache-2.0 by the GitHub licence API on 2026-11-08; used under that licence with attribution. Pinned to head d65836209b24 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

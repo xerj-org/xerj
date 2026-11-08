@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agentic queries this for how Master-Norna/yan implements it: \u6e05\u7b80\u7eb8\u58a8\u98ce\u8f7b\u91cf\u5316\u667a\u80fd\u4f53 (selected work: test, src/14-chat-engine, src/01-store)",
+ "domain": "an agent working on agentic, ai-agent, browser-automation queries this for how Master-Norna/yan implements it: \u6e05\u7b80\u7eb8\u58a8\u98ce\u8f7b\u91cf\u5316\u667a\u80fd\u4f53 (selected work: test, src/14-chat-engine, src/01-store)",
  "repos": [
   {
    "repo": "yan",

@@ -2,8 +2,8 @@
  "corpus": "ray1073--h3-map-objects",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Python queries this for how Ray1073/h3-map-objects implements it: Parse Heroes III save files (.GM1) without the game running: mines, lighthouses, dwellings, garrisons, towns, shipyards. Pure stdlib Python (selected work: the project root)",
+ "shelf": "AI",
+ "domain": "an agent working on game-ai, game-data, heroes-of-might-and-magic-3 queries this for how Ray1073/h3-map-objects implements it: Pure-Python parser for Heroes of Might and Magic III saves (.GM1): object ownership, coordinates, troops, tile state, and town building bitm (selected work: the project root)",
  "repos": [
   {
    "repo": "h3-map-objects",

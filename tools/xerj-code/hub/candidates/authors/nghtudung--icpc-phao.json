@@ -1,0 +1,23 @@
+{
+ "corpus": "nghtudung--icpc-phao",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TeX queries this for how nghtudung/icpc-phao implements it: Phao ICPC c\u1ee7a HSGSBN.DjmNatBu 2026 (selected work: topics, the project root, code)",
+ "repos": [
+  {
+   "repo": "icpc-phao",
+   "url": "https://github.com/nghtudung/icpc-phao",
+   "sha": "8cae870eeb3dc1992b62aba37739e87c393b7882",
+   "licence": "Apache-2.0 (LICENSE file at pin 8cae870eeb3d, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T13:41Z",
+    "consent_receipt": "282755b524f8",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T13:41Z (receipt 282755b524f8); selected commit 8cae870eeb3d: \"th\u00eam m\u1ea5y c\u00e1i linh tinh\". LICENSE file at pin 8cae870eeb3d detected as Apache-2.0 by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "msolecki--developer-os",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-memory, ai-agents, claude-code queries this for how msolecki/developer-os implements it: Claude Code plugin: an Obsidian vault as the agent's long-term memory, plus engineering rules, skills, agents and safety hooks (selected work: plugin, tests)",
+ "repos": [
+  {
+   "repo": "developer-os",
+   "url": "https://github.com/msolecki/developer-os",
+   "sha": "11366154471f02ce884fc443779525879f9817d9",
+   "licence": "MIT (LICENSE file at pin 11366154471f, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T13:34Z",
+    "consent_receipt": "1c79ae1b3d0a",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T13:34Z (receipt 1c79ae1b3d0a); selected commit 11366154471f: \"fix(guard): close backslash, symlink and option-prefix gaps; capture-\u2026\". LICENSE file at pin 11366154471f detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+   }
+  }
+ ]
+}
