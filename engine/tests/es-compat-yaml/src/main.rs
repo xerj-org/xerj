@@ -1310,6 +1310,9 @@ fn resolve_action(action: &str, params: &serde_yaml::Mapping) -> (String, String
             if let Some(v) = get_param_str(params, "batched_reduce_size") {
                 qp.push(format!("batched_reduce_size={}", v));
             }
+            if let Some(v) = get_param_str(params, "terminate_after") {
+                qp.push(format!("terminate_after={}", v));
+            }
             if let Some(v) = get_param_str(params, "ccs_minimize_roundtrips") {
                 qp.push(format!("ccs_minimize_roundtrips={}", v));
             }
