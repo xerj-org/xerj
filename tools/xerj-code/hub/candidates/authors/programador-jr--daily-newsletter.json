@@ -8,15 +8,15 @@
   {
    "repo": "daily-newsletter",
    "url": "https://github.com/Programador-jr/daily-newsletter",
-   "sha": "e5655293d70e597007ddffc33d02ce67b57593f6",
-   "licence": "MIT (LICENSE file at pin e5655293d70e, GitHub licence API 2026-11-03)",
+   "sha": "3b4047681660ad14c3c990de256ba05d12a9304f",
+   "licence": "MIT (LICENSE file at pin 3b4047681660, GitHub licence API 2026-11-08)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-03T20:54Z",
     "consent_receipt": "a730c4651b26",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-03T20:54Z (receipt a730c4651b26); pinned to the default-branch head. LICENSE file at pin e5655293d70e detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-03T20:54Z (receipt a730c4651b26); pinned to the default-branch head. LICENSE file at pin 3b4047681660 detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution."
    }
   }
  ]

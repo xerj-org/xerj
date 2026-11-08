@@ -1,0 +1,23 @@
+{
+ "corpus": "dakotacookson--llama-rpc-farm",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on gpu, inference, llama-swap queries this for how dakotacookson/Llama-RPC-Farm implements it: Web UI to pool your home machines into one llama.cpp cluster: multi-machine RPC GPU pooling + on-demand multi-model serving via llama-swap (selected work: src, peer_agent, tests)",
+ "repos": [
+  {
+   "repo": "Llama-RPC-Farm",
+   "url": "https://github.com/dakotacookson/Llama-RPC-Farm",
+   "sha": "c40e12920afd59096563a331c1043f5db51d7315",
+   "licence": "Apache-2.0 (LICENSE file at pin c40e12920afd, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T01:30Z",
+    "consent_receipt": "53b908d4bc18",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T01:30Z (receipt 53b908d4bc18); selected commit c40e12920afd: \"Fully working setup through ssh using password (required VPN over wifi)\". LICENSE file at pin c40e12920afd detected as Apache-2.0 by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+   }
+  }
+ ]
+}

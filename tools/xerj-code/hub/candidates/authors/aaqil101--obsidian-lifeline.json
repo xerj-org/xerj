@@ -8,15 +8,15 @@
   {
    "repo": "obsidian-lifeline",
    "url": "https://github.com/Aaqil101/obsidian-lifeline",
-   "sha": "1ec16fad95ac877046e0ff07f87497a094ee0911",
-   "licence": "GPL-3.0 (LICENSE file at pin 1ec16fad95ac, GitHub licence API 2026-11-07)",
+   "sha": "6163d6544d893a0417f68f0e4198983ed6b58888",
+   "licence": "GPL-3.0 (LICENSE file at pin 6163d6544d89, GitHub licence API 2026-11-08)",
    "review": {
     "spdx": "GPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-11-01T02:14Z",
     "consent_receipt": "887b0c45b9ff",
-    "note": "Inclusion consented by the commit author by email at 2026-11-01T02:14Z (receipt 887b0c45b9ff); selected commit 1ec16fad95ac: \"Add playlist-owner avatars to video bullets\". LICENSE file at pin 1ec16fad95ac detected as GPL-3.0 by the GitHub licence API on 2026-11-07; used under that licence with attribution. Pinned to head 1ec16fad95ac (contains the selected commit): the LICENSE at the selected commit was 0BSD.",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T02:14Z (receipt 887b0c45b9ff); selected commit 6163d6544d89: \"Add playlist-owner avatars to video bullets\". LICENSE file at pin 6163d6544d89 detected as GPL-3.0 by the GitHub licence API on 2026-11-08; used under that licence with attribution. Pinned to head 6163d6544d89 (contains the selected commit): the LICENSE at the selected commit was 0BSD.",
     "author_grant": {
      "terms": "MIT",
      "scope": "the author's own changes in the selected commit",
