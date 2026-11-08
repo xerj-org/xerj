@@ -8,15 +8,15 @@
   {
    "repo": "termux-app-store",
    "url": "https://github.com/djunekz/termux-app-store",
-   "sha": "ebc08ec04fdeec9743d29632fb841a3895f357e6",
-   "licence": "MIT (LICENSE file at pin ebc08ec04fde, GitHub licence API 2026-11-08)",
+   "sha": "5c9b70223d50c97163db1e1d9ad9c2e59ec61cd9",
+   "licence": "MIT (LICENSE file at pin 5c9b70223d50, GitHub licence API 2026-11-08)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T04:34Z",
     "consent_receipt": "64f5a04a94a7",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T04:34Z (receipt 64f5a04a94a7); pinned to the default-branch head. LICENSE file at pin ebc08ec04fde detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T04:34Z (receipt 64f5a04a94a7); pinned to the default-branch head. LICENSE file at pin 5c9b70223d50 detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution."
    }
   }
  ]

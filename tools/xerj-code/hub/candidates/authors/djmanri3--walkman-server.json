@@ -1,0 +1,30 @@
+{
+ "corpus": "djmanri3--walkman-server",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how djmanri3/walkman-server implements it: Small music player for Emby Jellyfin and Plex with style Walkman app of Xpetia NXT series (selected work: js, tests, the project root)",
+ "repos": [
+  {
+   "repo": "walkman-server",
+   "url": "https://github.com/djmanri3/walkman-server",
+   "sha": "601bdefd40b8fce70047ae38ee5d28a9d1fed8d2",
+   "licence": "GPL-3.0 (LICENSE file at pin 601bdefd40b8, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-08T17:53Z",
+    "consent_receipt": "6500cb387ea7",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T17:53Z (receipt 6500cb387ea7); selected commit 601bdefd40b8: \"Harden metadata rendering, cover parsing and service worker caching\". LICENSE file at pin 601bdefd40b8 detected as GPL-3.0 by the GitHub licence API on 2026-11-08; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "601bdefd40b8fce70047ae38ee5d28a9d1fed8d2",
+     "at": "2026-11-08T17:53Z",
+     "receipt": "6500cb387ea7"
+    }
+   }
+  }
+ ]
+}

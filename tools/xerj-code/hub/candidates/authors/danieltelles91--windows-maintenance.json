@@ -1,0 +1,23 @@
+{
+ "corpus": "danieltelles91--windows-maintenance",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on C# queries this for how DanielTelles91/windows-maintenance implements it: A Windows system maintenance and integrity tool built in C# using Windows Forms. It provides a graphical interface for running SFC and DISM, (selected work: Manuten\u00e7\u00e3o Windows)",
+ "repos": [
+  {
+   "repo": "windows-maintenance",
+   "url": "https://github.com/DanielTelles91/windows-maintenance",
+   "sha": "0495276cfdb08ba931a9ac9b79217399838fe1af",
+   "licence": "MIT (LICENSE file at pin 0495276cfdb0, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T17:10Z",
+    "consent_receipt": "df452a8cc648",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T17:10Z (receipt df452a8cc648); selected commit 0495276cfdb0: \"Add system cleanup analysis with DISM component store reporting\". LICENSE file at pin 0495276cfdb0 detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+   }
+  }
+ ]
+}
