@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on changelog, conventional-commits, git-tag queries this for how LouisMazel/relizy implements it: Seamless and automated release management with elegant changelog generation based on Conventional Commits, supporting both monorepos and sin (selected work: src/core, src, the project root)",
+ "domain": "an agent working on changelog, conventional-commits, git-tag queries this for how LouisMazel/relizy implements it: Release automation for monorepos and single packages: versions, changelogs, git tags, npm publishing and GitHub/GitLab releases (selected work: src/core, src, the project root)",
  "repos": [
   {
    "repo": "relizy",

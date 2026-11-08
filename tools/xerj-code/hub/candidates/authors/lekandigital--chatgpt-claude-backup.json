@@ -1,9 +1,9 @@
 {
- "corpus": "lekandigital--claude-export-hub",
+ "corpus": "lekandigital--chatgpt-claude-backup",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on JavaScript queries this for how lekandigital/claude-export-hub implements it: Chrome extension for exporting Claude chats' thinking, transcripts, artifacts, and pasted content (selected work: the project root, scripts)",
+ "domain": "an agent working on JavaScript queries this for how lekandigital/chatgpt-claude-backup implements it: Chrome extension that backs up ChatGPT and Claude chats (one, a project, chosen or all) with thinking, pasted text, uploads, generated files (selected work: the project root, scripts)",
  "repos": [
   {
    "repo": "claude-export-hub",

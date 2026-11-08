@@ -1,0 +1,23 @@
+{
+ "corpus": "hasanromadon--openapi-mcp-gateway",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on ai-agents, banking, bi-snap queries this for how Hasanromadon/openapi-mcp-gateway implements it: Enterprise OpenAPI v3 & Swagger to Model Context Protocol (MCP) Gateway. Turn any REST API into AI Tools with BI-SNAP Security, FinOps Token (selected work: src, samples, tests)",
+ "repos": [
+  {
+   "repo": "openapi-mcp-gateway",
+   "url": "https://github.com/Hasanromadon/openapi-mcp-gateway",
+   "sha": "f607d4a4a141bbfae85cdd38b3aba5f8c0b5e13e",
+   "licence": "MIT (LICENSE file at pin f607d4a4a141, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T18:10Z",
+    "consent_receipt": "fdfcf2e1952c",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T18:10Z (receipt fdfcf2e1952c); selected commit f607d4a4a141: \"Prepare MCP gateway for Glama listing\". LICENSE file at pin f607d4a4a141 detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+   }
+  }
+ ]
+}

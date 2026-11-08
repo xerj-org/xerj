@@ -8,15 +8,15 @@
   {
    "repo": "Scribe",
    "url": "https://github.com/AIgrator/Scribe",
-   "sha": "4c1d3682f3417b9335329bfb0ad32c02cd70b542",
-   "licence": "MIT (LICENSE file at pin 4c1d3682f341, GitHub licence API 2026-11-08)",
+   "sha": "1a2b03dcc5add07257d3bc2dfd00f84b6ff239f9",
+   "licence": "MIT (LICENSE file at pin 1a2b03dcc5ad, GitHub licence API 2026-11-08)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-12T06:50Z",
     "consent_receipt": "4c7190e854b6",
-    "note": "Inclusion consented by the commit author by email at 2026-10-12T06:50Z (receipt 4c7190e854b6); selected commit 4c1d3682f341: \"Offline punctuation and capitalization for finals (RU neural, EN neur\u2026\". LICENSE file at pin 4c1d3682f341 detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution. Pinned to head 4c1d3682f341 (contains the selected commit): the LICENSE at the selected commit was GPL-3.0."
+    "note": "Inclusion consented by the commit author by email at 2026-10-12T06:50Z (receipt 4c7190e854b6); selected commit 1a2b03dcc5ad: \"Offline punctuation and capitalization for finals (RU neural, EN neur\u2026\". LICENSE file at pin 1a2b03dcc5ad detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution. Pinned to head 1a2b03dcc5ad (contains the selected commit): the LICENSE at the selected commit was GPL-3.0."
    }
   }
  ]
