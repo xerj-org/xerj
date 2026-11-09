@@ -6058,8 +6058,9 @@ fn mapped_field_type(mapping: &Value, field: &str) -> Option<String> {
 }
 
 /// A numeric metric aggregation (`avg`, `sum`, `min`, `max`, `stats`,
-/// `extended_stats`) on a field whose mapped type has no numeric values
-/// source. ES rejects these on every shard with `Field [f] of type [t] is
+/// `extended_stats`, and the percentile family: `percentiles`,
+/// `percentile_ranks`, `median_absolute_deviation`) on a field whose mapped
+/// type has no numeric values source. ES rejects these on every shard with `Field [f] of type [t] is
 /// not supported for aggregation [avg]` (`ValuesSourceRegistry#getAggregator`)
 /// and, when every shard fails, answers 400. XERJ answered 200 with a null
 /// value, so a typo'd field looked like an empty index.
@@ -6072,7 +6073,17 @@ fn find_unsupported_metric_agg_field(
     state: &AppState,
     indices: &[String],
 ) -> Option<String> {
-    const NUMERIC_METRICS: &[&str] = &["avg", "sum", "min", "max", "stats", "extended_stats"];
+    const NUMERIC_METRICS: &[&str] = &[
+        "avg",
+        "sum",
+        "min",
+        "max",
+        "stats",
+        "extended_stats",
+        "percentiles",
+        "percentile_ranks",
+        "median_absolute_deviation",
+    ];
     const NON_NUMERIC_TYPES: &[&str] = &[
         "keyword",
         "constant_keyword",
@@ -44763,6 +44774,176 @@ pub async fn close_pit(
         _ => 0,
     };
     Json(json!({ "succeeded": freed > 0, "num_freed": freed })).into_response()
+}
+
+#[cfg(test)]
+mod percentile_family_field_type_tests {
+    use super::*;
+    use axum::{body::Body, http::Request};
+    use tower::ServiceExt;
+    use xerj_common::{
+        config::{Config, WalSync},
+        metrics::Metrics,
+    };
+    use xerj_engine::Engine;
+
+    fn test_state() -> AppState {
+        let dir = tempfile::tempdir().expect("tempdir").keep();
+        let mut config = Config::default();
+        config.server.data_dir = dir.to_string_lossy().into_owned();
+        config.storage.wal_sync = WalSync::Async;
+        let metrics = Metrics::new().expect("metrics");
+        let engine = Engine::new(config.clone()).expect("engine");
+        AppState::new(config, engine, metrics)
+    }
+
+    async fn send(app: &axum::Router, method: &str, uri: &str, body: Value) -> (StatusCode, Value) {
+        let resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(method)
+                    .uri(uri)
+                    .header("content-type", "application/json")
+                    .body(Body::from(body.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let status = resp.status();
+        let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        (status, serde_json::from_slice(&bytes).unwrap())
+    }
+
+    /// The percentiles_hdr/tdigest_metric.yml fixture, plus a date, an ip and
+    /// an index (`other`) where `string_field` is numeric.
+    async fn app() -> axum::Router {
+        let app = crate::router::build_es_compat_router(test_state());
+        let mapping = json!({"mappings": {"properties": {
+            "int_field": {"type": "integer"},
+            "double_field": {"type": "double"},
+            "string_field": {"type": "keyword"},
+            "ip_field": {"type": "ip"},
+            "date_field": {"type": "date"}}}});
+        let (status, body) = send(&app, "PUT", "/test_1", mapping).await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        for (id, n) in [("1", 1), ("2", 51), ("3", 101), ("4", 151)] {
+            let doc = json!({"int_field": n, "double_field": n as f64, "string_field": "foo",
+                             "ip_field": "1.2.3.4", "date_field": "2020-01-01"});
+            let uri = format!("/test_1/_doc/{id}?refresh=true");
+            let (status, body) = send(&app, "PUT", &uri, doc).await;
+            assert!(status.is_success(), "{body}");
+        }
+        let other = json!({"mappings": {"properties": {"string_field": {"type": "long"}}}});
+        let (status, body) = send(&app, "PUT", "/other", other).await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        app
+    }
+
+    fn agg(kind: &str, params: Value) -> Value {
+        json!({"size": 0, "aggs": {"a": {kind: params}}})
+    }
+
+    /// Every step of both "Invalid params test" cases is a 400; the last one
+    /// in each (a keyword field) is the FAIL-BEFORE: it answered 200 with
+    /// null percentiles. The same holds for `percentile_ranks` and
+    /// `median_absolute_deviation`, with ES's reason.
+    #[tokio::test]
+    async fn invalid_percentile_requests_are_a_400() {
+        let app = app().await;
+        for params in [
+            json!({"field": "int_field", "hdr": {"number_of_significant_value_digits": -1}}),
+            json!({"field": "int_field", "hdr": {"number_of_significant_value_digits": 10}}),
+            json!({"field": "int_field", "hdr": {"number_of_significant_value_digits": null}}),
+            json!({"field": "int_field", "hdr": {}, "percents": []}),
+            json!({"field": "int_field", "hdr": {}, "percents": null}),
+            json!({"field": "int_field", "hdr": {}, "percents": ["foo"]}),
+            json!({"field": "int_field", "tdigest": {"compression": -1}}),
+            json!({"field": "int_field", "percents": []}),
+            json!({"field": "int_field", "percents": null}),
+            json!({"field": "int_field", "percents": ["foo"]}),
+            json!({"field": "string_field", "hdr": {}}),
+            json!({"field": "string_field"}),
+        ] {
+            let (status, body) = send(
+                &app,
+                "POST",
+                "/test_1/_search",
+                agg("percentiles", params.clone()),
+            )
+            .await;
+            assert_eq!(status, StatusCode::BAD_REQUEST, "{params} -> {body}");
+        }
+        for (kind, params, field) in [
+            (
+                "percentiles",
+                json!({"field": "string_field"}),
+                "string_field] of type [keyword",
+            ),
+            (
+                "percentiles",
+                json!({"field": "ip_field"}),
+                "ip_field] of type [ip",
+            ),
+            (
+                "percentile_ranks",
+                json!({"field": "string_field", "values": [1]}),
+                "string_field] of type [keyword",
+            ),
+            (
+                "median_absolute_deviation",
+                json!({"field": "string_field"}),
+                "string_field] of type [keyword",
+            ),
+        ] {
+            let (status, body) = send(&app, "POST", "/test_1/_search", agg(kind, params)).await;
+            assert_eq!(status, StatusCode::BAD_REQUEST, "{kind} -> {body}");
+            assert_eq!(
+                body["error"]["root_cause"][0]["reason"],
+                format!("Field [{field}] is not supported for aggregation [{kind}]"),
+                "{kind} -> {body}"
+            );
+        }
+    }
+
+    /// Numeric and date fields, and a search where another index maps the
+    /// field as a number, still answer.
+    #[tokio::test]
+    async fn numeric_percentile_requests_still_answer() {
+        let app = app().await;
+        for (uri, kind, params) in [
+            (
+                "/test_1/_search",
+                "percentiles",
+                json!({"field": "int_field", "percents": [50.0], "hdr": {}}),
+            ),
+            (
+                "/test_1/_search",
+                "percentiles",
+                json!({"field": "date_field"}),
+            ),
+            (
+                "/test_1/_search",
+                "percentile_ranks",
+                json!({"field": "double_field", "values": [51]}),
+            ),
+            (
+                "/test_1/_search",
+                "median_absolute_deviation",
+                json!({"field": "int_field"}),
+            ),
+            (
+                "/test_1,other/_search",
+                "percentiles",
+                json!({"field": "string_field"}),
+            ),
+        ] {
+            let (status, body) = send(&app, "POST", uri, agg(kind, params.clone())).await;
+            assert_eq!(status, StatusCode::OK, "{uri} {kind} {params} -> {body}");
+        }
+    }
 }
 
 /// Minimal glob matcher for index-name wildcard expansion (* only).
