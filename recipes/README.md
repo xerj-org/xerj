@@ -23,6 +23,7 @@ xerj --insecure --data-dir ./data &
 
 # 3. run any recipe
 python3 recipes/semantic_search.py
+node recipes/semantic_search.mjs        # Node.js zero-dependency version
 python3 recipes/all_way_search.py   # BM25 + semantic + vector + hybrid + filter
 python3 recipes/passage_search.py
 python3 recipes/rag_app.py
@@ -47,6 +48,7 @@ Every recipe honors `XERJ_URL` (default `http://localhost:9200`).
 | File | What it shows | Real workload |
 |---|---|---|
 | [`semantic_search.py`](semantic_search.py) | BM25 vs semantic vs hybrid (RRF) retrieval on one `semantic_text` field | `demo/data/ai_kb.ndjson` — 40 hand-written AI-engineering articles |
+| [`semantic_search.mjs`](semantic_search.mjs) | Node.js (v18+, zero npm dependencies) port of `semantic_search.py` | `demo/data/ai_kb.ndjson` — 40 hand-written AI-engineering articles |
 | [`all_way_search.py`](all_way_search.py) | **One corpus, five ways:** full-text (BM25), semantic, vector kNN (more-like-this), hybrid (RRF), and semantic-scoped-by-keyword-filter — all from one index | 16-article help-center KB (inline in the script) |
 | [`autoindex_semantic.sh`](autoindex_semantic.sh) | **Zero-config folder → neural semantic search:** `xerj autoindex` a mixed folder (MD/TXT/NDJSON/CSV), then search the discovered prose by meaning; structured files stay exactly filterable. Starts its own `--embed-mode neural` server | `demo/data/support-folder/` — 5 mixed-format files |
 | [`passage_search.py`](passage_search.py) | **Per-passage** retrieval on long docs: `semantic_text` auto-embeds every overlapping chunk, so a long document competes on any one of its sections (98% top-3 vs 32% for a single pooled vector) | Same 40 articles + a long "compendium" of all 40 |
