@@ -1,0 +1,23 @@
+{
+ "corpus": "egoushka--switchboard",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agentgateway, human-in-the-loop, mcp queries this for how Egoushka/switchboard implements it: One MCP front door to every tool behind your gateway: agents see five tools instead of hundreds, and every write waits for a tap on your pho",
+ "repos": [
+  {
+   "repo": "switchboard",
+   "url": "https://github.com/Egoushka/switchboard",
+   "sha": "5c3b8e60948e86c5a30b72879a15bcb72344e7ab",
+   "licence": "MIT (LICENSE file at pin 5c3b8e60948e, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T15:00Z",
+    "consent_receipt": "37cb0e92b163",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-07T15:00Z (receipt 37cb0e92b163); pinned to the default-branch head. LICENSE file at pin 5c3b8e60948e detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

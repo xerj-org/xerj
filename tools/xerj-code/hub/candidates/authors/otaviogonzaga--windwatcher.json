@@ -1,0 +1,23 @@
+{
+ "corpus": "otaviogonzaga--windwatcher",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how OtavioGonzaga/windwatcher implements it: Embeddable, self-hostable messaging engine written in Rust (selected work: crates/windwatcher, crates/windwatcher-server, the project root)",
+ "repos": [
+  {
+   "repo": "windwatcher",
+   "url": "https://github.com/OtavioGonzaga/windwatcher",
+   "sha": "ce1aef62b25ba3ad02a526fd14a3ff86886f8235",
+   "licence": "MIT (LICENSE file at pin ce1aef62b25b, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T13:04Z",
+    "consent_receipt": "e530495b532b",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T13:04Z (receipt e530495b532b); selected commit ce1aef62b25b: \"feat: add messages and read state\". LICENSE file at pin ce1aef62b25b detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

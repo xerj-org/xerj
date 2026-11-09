@@ -1,0 +1,30 @@
+{
+ "corpus": "nawww83--allpass",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how nawww83/AllPass implements it: Password manager (selected work: AppCore, packaging, the project root)",
+ "repos": [
+  {
+   "repo": "AllPass",
+   "url": "https://github.com/nawww83/AllPass",
+   "sha": "d246e0e6703da5063349c61ec360f4f89a624b95",
+   "licence": "GPL-3.0 (LICENSE file at pin d246e0e6703d, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-03T05:52Z",
+    "consent_receipt": "0ef08dd07185",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T05:52Z (receipt 0ef08dd07185); selected commit d246e0e6703d: \"\u0412\u0435\u0440\u0441\u0438\u044f 3.02: \u0438\u043a\u043e\u043d\u043a\u0430 \u043f\u0440\u0438\u043b\u043e\u0436\u0435\u043d\u0438\u044f, \u0441\u0431\u043e\u0440\u043a\u0430 \u043f\u043e\u0434 Linux, \u0430\u043a\u0442\u0443\u0430\u043b\u0438\u0437\u0430\u0446\u0438\u044f README\". LICENSE file at pin d246e0e6703d detected as GPL-3.0 by the GitHub licence API on 2026-11-03; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "d246e0e6703da5063349c61ec360f4f89a624b95",
+     "at": "2026-11-03T05:52Z",
+     "receipt": "0ef08dd07185"
+    }
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "danielkiing3--family-bottom-sheet",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Dart queries this for how danielkiing3/family_bottom_sheet implements it: danielkiing3/family_bottom_sheet (Dart) (selected work: example, tool, the project root)",
+ "repos": [
+  {
+   "repo": "family_bottom_sheet",
+   "url": "https://github.com/danielkiing3/family_bottom_sheet",
+   "sha": "c9fb0b97dd06ab457ffcf67511720dde190264f6",
+   "licence": "MIT (LICENSE file at pin c9fb0b97dd06, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T15:15Z",
+    "consent_receipt": "688223b8eb3b",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T15:15Z (receipt 688223b8eb3b); selected commit c9fb0b97dd06: \"feat: Added scripted README demo clips\". LICENSE file at pin c9fb0b97dd06 detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -16,7 +16,14 @@
     "by": "author-consent",
     "at": "2026-10-26T01:06Z",
     "consent_receipt": "a0f1e51f425f",
-    "note": "Inclusion consented by the commit author by email at 2026-10-26T01:06Z (receipt a0f1e51f425f); selected commit 2765b6e3bc58: \"Updated code to support Neopixel led\". LICENSE file at pin 2765b6e3bc58 detected as AGPL-3.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-10-26T01:06Z (receipt a0f1e51f425f); selected commit 2765b6e3bc58: \"Updated code to support Neopixel led\". LICENSE file at pin 2765b6e3bc58 detected as AGPL-3.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "2765b6e3bc58f3d9f978f84a5b60cf67090c4471",
+     "at": "2026-10-26T01:06Z",
+     "receipt": "a0f1e51f425f"
+    }
    }
   }
  ]

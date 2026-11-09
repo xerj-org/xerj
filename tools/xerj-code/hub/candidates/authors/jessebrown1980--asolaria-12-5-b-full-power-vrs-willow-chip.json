@@ -1,0 +1,23 @@
+{
+ "corpus": "jessebrown1980--asolaria-12-5-b-full-power-vrs-willow-chip",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how JesseBrown1980/Asolaria-12.5-B-full-power-vrs-Willow-Chip implements it: JesseBrown1980/Asolaria-12.5-B-full-power-vrs-Willow-Chip (Rust)",
+ "repos": [
+  {
+   "repo": "Asolaria-12.5-B-full-power-vrs-Willow-Chip",
+   "url": "https://github.com/JesseBrown1980/Asolaria-12.5-B-full-power-vrs-Willow-Chip",
+   "sha": "a5a6534cee2e584a85d36e502257cb3d89a01569",
+   "licence": "author's permission (LICENSE at pin a5a6534cee2e: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T14:53Z",
+    "consent_receipt": "70fcb4f6e946",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T14:53Z (receipt 70fcb4f6e946); pinned to the default-branch head. LICENSE at pin a5a6534cee2e: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

@@ -16,7 +16,14 @@
     "by": "author-consent",
     "at": "2026-11-02T13:00Z",
     "consent_receipt": "fae7c39db149",
-    "note": "Inclusion consented by the commit author by email at 2026-11-02T13:00Z (receipt fae7c39db149); selected commit 3fd7e7c19a4f: \"Add multi-timer UI and fix alarm scheduling\". LICENSE file at pin 3fd7e7c19a4f detected as GPL-3.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T13:00Z (receipt fae7c39db149); selected commit 3fd7e7c19a4f: \"Add multi-timer UI and fix alarm scheduling\". LICENSE file at pin 3fd7e7c19a4f detected as GPL-3.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "3fd7e7c19a4f58f9554a6079b24a2bb9a5b4c575",
+     "at": "2026-11-02T13:00Z",
+     "receipt": "fae7c39db149"
+    }
    }
   }
  ]

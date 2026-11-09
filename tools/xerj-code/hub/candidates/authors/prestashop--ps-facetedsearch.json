@@ -1,0 +1,23 @@
+{
+ "corpus": "prestashop--ps-facetedsearch",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on prestashop, prestashop-module, native-module queries this for how PrestaShop/ps_facetedsearch implements it: PrestaShop module that adds layered navigation filters (selected work: src/Filters, tests)",
+ "repos": [
+  {
+   "repo": "ps_facetedsearch",
+   "url": "https://github.com/PrestaShop/ps_facetedsearch",
+   "sha": "296d4909990c8a4a46c0ea3b17bc24cb344b4bc9",
+   "licence": "AFL-3.0 (LICENSE file at pin 296d4909990c, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "AFL-3.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T10:54Z",
+    "consent_receipt": "1ddf0dfa6c31",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T10:54Z (receipt 1ddf0dfa6c31); selected commit 296d4909990c: \"Count unselected attribute groups and features in one query\". LICENSE file at pin 296d4909990c detected as AFL-3.0 by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

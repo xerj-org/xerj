@@ -1,0 +1,23 @@
+{
+ "corpus": "907609732--lingtu-order-export",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how 907609732/lingtu-order-export implements it: \u7075\u5154AI-\u7535\u5546\u5e73\u53f0\u8d2d\u4e70\u8ba2\u5355\u5bfc\u51fa\u5de5\u5177-\u4e00\u952e\u5bfc\u51fa\u8d2d\u7269\u5e73\u53f0\u6dd8\u5b9d/\u5929\u732b,1688,\u62fc\u591a\u591a,\u4eac\u4e1c,\u95f2\u9c7c,\u5f97\u7269,\u5feb\u624b,\u997f\u4e86\u4e48,\u7f8e\u56e2\u7b49\u5e73\u53f0\u8d2d\u4e70\u8ba2\u5355\u5bfc\u51fa,\u652f\u6301\u6309\u6708\u5bfc\u51fa,\u652f\u6301\u6309\u81ea\u5df1\u9009\u62e9\u5bf9\u5e94\u7684\u65f6\u95f4\u5bfc\u51fa",
+ "repos": [
+  {
+   "repo": "lingtu-order-export",
+   "url": "https://github.com/907609732/lingtu-order-export",
+   "sha": "d67b3d5fa9be9c69aa6e9618b2f54f54e9eaa2c1",
+   "licence": "author's permission (LICENSE at pin d67b3d5fa9be: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T08:36Z",
+    "consent_receipt": "41e6049896e5",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T08:36Z (receipt 41e6049896e5); pinned to the default-branch head. LICENSE at pin d67b3d5fa9be: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

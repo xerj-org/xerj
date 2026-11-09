@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Jupyter Notebook queries this for how MasihMoafi/rag-mcp implements it: Local hybrid-search (BM25 + vector + reranking) MCP server \u2014 ask questions of any local codebase or document folder, fully offline (selected work: tests, rag)",
+ "domain": "an agent working on bm25, hybrid-search, local-first queries this for how MasihMoafi/rag-mcp implements it: Local hybrid-search (BM25 + vector + reranking) MCP server \u2014 ask questions of any local codebase or document folder, fully offline (selected work: tests, rag)",
  "repos": [
   {
    "repo": "rag-mcp",

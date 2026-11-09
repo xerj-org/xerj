@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Rust queries this for how TSA3000/capturecraft implements it: TSA3000/capturecraft (Rust) (selected work: crates/ui-egui, crates/engine, crates/compositor)",
+ "domain": "an agent working on Rust queries this for how TSA3000/capturecraft implements it: Open-source Rust screen capture and image editing app, a Snagit alternative (selected work: crates/ui-egui, crates/engine, crates/compositor)",
  "repos": [
   {
    "repo": "capturecraft",

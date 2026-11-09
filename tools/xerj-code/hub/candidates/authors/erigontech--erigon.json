@@ -16,7 +16,14 @@
     "by": "author-consent",
     "at": "2026-10-25T03:10Z",
     "consent_receipt": "8fd5dd2a5629",
-    "note": "Inclusion consented by the commit author by email at 2026-10-25T03:10Z (receipt 8fd5dd2a5629); selected commit fbee0540d60e: \"cl/merkle_tree, cl/cltypes/solid: round merkleize depth up for non-po\u2026\". LICENSE file at pin fbee0540d60e detected as LGPL-3.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-10-25T03:10Z (receipt 8fd5dd2a5629); selected commit fbee0540d60e: \"cl/merkle_tree, cl/cltypes/solid: round merkleize depth up for non-po\u2026\". LICENSE file at pin fbee0540d60e detected as LGPL-3.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "fbee0540d60ed2b32408c5d1944259e42f4a8d95",
+     "at": "2026-10-25T03:10Z",
+     "receipt": "8fd5dd2a5629"
+    }
    }
   }
  ]

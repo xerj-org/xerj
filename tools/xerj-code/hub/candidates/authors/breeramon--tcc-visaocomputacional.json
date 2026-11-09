@@ -16,7 +16,14 @@
     "by": "author-consent",
     "at": "2026-10-28T11:39Z",
     "consent_receipt": "e298039b3724",
-    "note": "Inclusion consented by the commit author by email at 2026-10-28T11:39Z (receipt e298039b3724); selected commit 433381dccf83: \"feat: aprimoramento do servi\u00e7o de TTS com toler\u00e2ncia a falhas e alert\u2026\". LICENSE file at pin 433381dccf83 detected as AGPL-3.0 by the GitHub licence API on 2026-10-28; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-10-28T11:39Z (receipt e298039b3724); selected commit 433381dccf83: \"feat: aprimoramento do servi\u00e7o de TTS com toler\u00e2ncia a falhas e alert\u2026\". LICENSE file at pin 433381dccf83 detected as AGPL-3.0 by the GitHub licence API on 2026-10-28; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "433381dccf83b0ff0eaf7a9ef5286f8d03d94010",
+     "at": "2026-10-28T11:39Z",
+     "receipt": "e298039b3724"
+    }
    }
   }
  ]

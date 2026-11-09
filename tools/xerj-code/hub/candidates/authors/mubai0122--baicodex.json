@@ -8,15 +8,22 @@
   {
    "repo": "baicodex",
    "url": "https://github.com/mubai0122/baicodex",
-   "sha": "6e92d6ac75082893e8cf3e82e5c5b75c9eee664c",
-   "licence": "GPL-3.0 (LICENSE file at pin 6e92d6ac7508, GitHub licence API 2026-10-26)",
+   "sha": "cce8c94baf0ac508d2883a72240156c4c5556b57",
+   "licence": "AGPL-3.0 (LICENSE file at pin cce8c94baf0a, GitHub licence API 2026-11-09)",
    "review": {
-    "spdx": "GPL-3.0",
+    "spdx": "AGPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-26T17:38Z",
     "consent_receipt": "9d54c63f7e07",
-    "note": "Inclusion consented by the commit author by email at 2026-10-26T17:38Z (receipt 9d54c63f7e07); selected commit 6e92d6ac7508: \"\u4e00\u952e\u6fc0\u6d3b\u65e0\u969c\u788d\uff1aShizuku/Root \u5199 secure \u8bbe\u7f6e\uff0c\u786e\u8ba4\u5f39\u7a97+\u8fdb\u5ea6+\u6210\u529f\u9875\uff0c\u53ef\u52fe\u9009\u6bcf\u6b21\u8fdb\u5165\u81ea\u52a8\u6fc0\u6d3b\uff0c\u5361\u7247\u4e0e\u5f15\u5bfc\u9875\u63a5\u5165\". LICENSE file at pin 6e92d6ac7508 detected as GPL-3.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-10-26T17:38Z (receipt 9d54c63f7e07); selected commit cce8c94baf0a: \"\u4e00\u952e\u6fc0\u6d3b\u65e0\u969c\u788d\uff1aShizuku/Root \u5199 secure \u8bbe\u7f6e\uff0c\u786e\u8ba4\u5f39\u7a97+\u8fdb\u5ea6+\u6210\u529f\u9875\uff0c\u53ef\u52fe\u9009\u6bcf\u6b21\u8fdb\u5165\u81ea\u52a8\u6fc0\u6d3b\uff0c\u5361\u7247\u4e0e\u5f15\u5bfc\u9875\u63a5\u5165\". LICENSE file at pin cce8c94baf0a detected as AGPL-3.0 by the GitHub licence API on 2026-11-09; used under that licence with attribution. Pinned to head cce8c94baf0a (contains the selected commit): the LICENSE at the selected commit was GPL-3.0.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "6e92d6ac75082893e8cf3e82e5c5b75c9eee664c",
+     "at": "2026-10-26T17:38Z",
+     "receipt": "9d54c63f7e07"
+    }
    }
   }
  ]

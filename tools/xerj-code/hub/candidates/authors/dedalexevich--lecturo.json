@@ -16,7 +16,14 @@
     "by": "author-consent",
     "at": "2026-10-27T17:52Z",
     "consent_receipt": "ca6780837758",
-    "note": "Inclusion consented by the commit author by email at 2026-10-27T17:52Z (receipt ca6780837758); selected commit 00dc7ef4be39: \"feat(frontend): \u0441\u043a\u0435\u043b\u0435\u0442 React+Vite, \u043a\u043b\u0438\u0435\u043d\u0442 API \u0438 \u0442\u0438\u043f\u044b \u0438\u0437 OpenAPI\". LICENSE file at pin 00dc7ef4be39 detected as AGPL-3.0 by the GitHub licence API on 2026-10-27; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-10-27T17:52Z (receipt ca6780837758); selected commit 00dc7ef4be39: \"feat(frontend): \u0441\u043a\u0435\u043b\u0435\u0442 React+Vite, \u043a\u043b\u0438\u0435\u043d\u0442 API \u0438 \u0442\u0438\u043f\u044b \u0438\u0437 OpenAPI\". LICENSE file at pin 00dc7ef4be39 detected as AGPL-3.0 by the GitHub licence API on 2026-10-27; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "00dc7ef4be390179f33903919f2036a7075cb4e7",
+     "at": "2026-10-27T17:52Z",
+     "receipt": "ca6780837758"
+    }
    }
   }
  ]

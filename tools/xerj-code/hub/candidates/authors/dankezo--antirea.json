@@ -2,8 +2,8 @@
  "corpus": "dankezo--antirea",
  "cloned_at": null,
  "status": "draft",
- "shelf": "WEB",
- "domain": "an agent working on ai-agents, anti-scraping, browser-automation queries this for how dankezo/antiRea implements it: Open-source toolkit for web app reverse engineering and scraping risk assessment, with server-first guidance and browser benchmarks (selected work: src/tier2-active, scripts, the project root)",
+ "shelf": "SEC",
+ "domain": "an agent working on ai-agents, anti-scraping, browser-automation queries this for how dankezo/antiRea implements it: Server-side TypeScript library that meters dataset access per identity and flags coordinated bot abuse - bulk extraction crews, scheduler-dr (selected work: src/tier2-active, scripts, the project root)",
  "repos": [
   {
    "repo": "antiRea",

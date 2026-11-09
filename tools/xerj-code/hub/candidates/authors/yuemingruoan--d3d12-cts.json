@@ -1,0 +1,23 @@
+{
+ "corpus": "yuemingruoan--d3d12-cts",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how yuemingruoan/d3d12-cts implements it: D3D12's CTS (selected work: webgpu-cts)",
+ "repos": [
+  {
+   "repo": "d3d12-cts",
+   "url": "https://github.com/yuemingruoan/d3d12-cts",
+   "sha": "baa806ee2788be87d8eb028ef6d54d0ace5eddb9",
+   "licence": "MIT (LICENSE file at pin baa806ee2788, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T13:52Z",
+    "consent_receipt": "72c374cfe085",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T13:52Z (receipt 72c374cfe085); selected commit baa806ee2788: \"feat(webgpu-cts): Add the Dawn WebGPU CTS recipe and runners\". LICENSE file at pin baa806ee2788 detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Python queries this for how motixo/cosmic-forge-shaders implements it: Shader packs for COSMIC Forge (selected work: examples, shaders, tests)",
+ "domain": "an agent working on GLSL queries this for how motixo/cosmic-forge-shaders implements it: Shader packs for COSMIC Forge (selected work: examples, shaders, tests)",
  "repos": [
   {
    "repo": "cosmic-forge-shaders",
@@ -16,7 +16,14 @@
     "by": "author-consent",
     "at": "2026-10-28T16:25Z",
     "consent_receipt": "37ae74b3db45",
-    "note": "Inclusion consented by the commit author by email at 2026-10-28T16:25Z (receipt 37ae74b3db45); selected commit d16c7cb0db08: \"Add the generic glass template and importable example\". LICENSE file at pin d16c7cb0db08 detected as GPL-3.0 by the GitHub licence API on 2026-10-28; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-10-28T16:25Z (receipt 37ae74b3db45); selected commit d16c7cb0db08: \"Add the generic glass template and importable example\". LICENSE file at pin d16c7cb0db08 detected as GPL-3.0 by the GitHub licence API on 2026-10-28; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "d16c7cb0db08e2d0f0571d2221704958e78ee88d",
+     "at": "2026-10-28T16:25Z",
+     "receipt": "37ae74b3db45"
+    }
    }
   }
  ]

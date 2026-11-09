@@ -2,8 +2,8 @@
  "corpus": "shivam7977--docquery",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Python queries this for how Shivam7977/DocQuery implements it: Shivam7977/DocQuery (Python) (selected work: app/services, app/api, evaluation)",
+ "shelf": "DB",
+ "domain": "an agent working on Python queries this for how Shivam7977/DocQuery implements it: DocQuery: chat with your PDFs and get answers with page-level citations. Hybrid search (BM25 + dense embeddings), cross-encoder reranking, s (selected work: app/services, app/api, evaluation)",
  "repos": [
   {
    "repo": "privatedoc",

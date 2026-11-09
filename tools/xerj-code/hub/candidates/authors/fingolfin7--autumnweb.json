@@ -1,0 +1,23 @@
+{
+ "corpus": "fingolfin7--autumnweb",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on django, productivity, project-management queries this for how Fingolfin7/AutumnWeb implements it: Time and project tracking with rich history, charts, and AI insights (selected work: frontend)",
+ "repos": [
+  {
+   "repo": "AutumnWeb",
+   "url": "https://github.com/Fingolfin7/AutumnWeb",
+   "sha": "7956639c39ee8a9143e17840386280da2346c227",
+   "licence": "MIT (LICENSE file at pin 7956639c39ee, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T14:29Z",
+    "consent_receipt": "a2756df1614e",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T14:29Z (receipt a2756df1614e); selected commit 7956639c39ee: \"Prevent offline timer loss on server errors, storage failures, and co\u2026\". LICENSE file at pin 7956639c39ee detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

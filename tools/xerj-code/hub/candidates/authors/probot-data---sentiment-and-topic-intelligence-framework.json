@@ -1,0 +1,23 @@
+{
+ "corpus": "probot-data---sentiment-and-topic-intelligence-framework",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how Probot-DATA/-Sentiment-And-Topic-Intelligence-Framework- implements it: Probot-DATA/-Sentiment-And-Topic-Intelligence-Framework- (Python) (selected work: deployed_version)",
+ "repos": [
+  {
+   "repo": "-Sentiment-And-Topic-Intelligence-Framework-",
+   "url": "https://github.com/Probot-DATA/-Sentiment-And-Topic-Intelligence-Framework-",
+   "sha": "6fbec0d724b149ae267174f8363cec6e9b135c77",
+   "licence": "MIT (LICENSE file at pin 6fbec0d724b1, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T05:47Z",
+    "consent_receipt": "4732fc8feecf",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T05:47Z (receipt 4732fc8feecf); selected commit 6fbec0d724b1: \"Add files via upload\". LICENSE file at pin 6fbec0d724b1 detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution. Pinned to head 6fbec0d724b1 (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

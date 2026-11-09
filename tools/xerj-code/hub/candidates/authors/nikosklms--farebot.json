@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "OPS",
- "domain": "an agent working on docker, flight-tracker, google-flights queries this for how nikosklms/FareBot implements it: nikosklms/FareBot (Python) (selected work: bot, tests, database)",
+ "domain": "an agent working on docker, flight-tracker, google-flights queries this for how nikosklms/FareBot implements it: A self-hosted Telegram bot that finds the cheapest flights, tracks fares, and alerts you when prices drop\u2014so you can spend less time searchi (selected work: bot, tests, database)",
  "repos": [
   {
    "repo": "FareBot",

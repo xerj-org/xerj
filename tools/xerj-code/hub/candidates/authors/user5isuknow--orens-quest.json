@@ -1,0 +1,23 @@
+{
+ "corpus": "user5isuknow--orens-quest",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on fun, function, game-development queries this for how user5isuknow/orens-quest implements it: a game that uses graphing functions to attack enemy's. a semi open world game that helps teach people about math. ran in the browser (selected work: src/pages, src, src/Components)",
+ "repos": [
+  {
+   "repo": "orens-quest",
+   "url": "https://github.com/user5isuknow/orens-quest",
+   "sha": "17135402ed3f3c2421cd6d39bfdcd77ae1c78698",
+   "licence": "Apache-2.0 (LICENSE file at pin 17135402ed3f, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T02:43Z",
+    "consent_receipt": "37fac94a7a47",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T02:43Z (receipt 37fac94a7a47); selected commit 17135402ed3f: \"Expand homepage content and animated banner\". LICENSE file at pin 17135402ed3f detected as Apache-2.0 by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

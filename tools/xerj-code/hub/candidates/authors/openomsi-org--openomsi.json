@@ -16,7 +16,14 @@
     "by": "author-consent",
     "at": "2026-10-26T04:10Z",
     "consent_receipt": "b9b02651f4ec",
-    "note": "Inclusion consented by the commit author by email at 2026-10-26T04:10Z (receipt b9b02651f4ec); selected commit 10ffd99813e2: \"Launcher: Update the .openomsi folder logic (#3243)\". LICENSE file at pin 10ffd99813e2 detected as AGPL-3.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-10-26T04:10Z (receipt b9b02651f4ec); selected commit 10ffd99813e2: \"Launcher: Update the .openomsi folder logic (#3243)\". LICENSE file at pin 10ffd99813e2 detected as AGPL-3.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "10ffd99813e261d7bf77ba476dc97bf556d1c42d",
+     "at": "2026-10-26T04:10Z",
+     "receipt": "b9b02651f4ec"
+    }
    }
   }
  ]

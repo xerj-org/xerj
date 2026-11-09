@@ -1,0 +1,23 @@
+{
+ "corpus": "aleixmt--windows-scripting",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Batchfile queries this for how AleixMT/Windows-Scripting implements it: Repository to store some minors scripts for automating some end user actions",
+ "repos": [
+  {
+   "repo": "Windows-Scripting",
+   "url": "https://github.com/AleixMT/Windows-Scripting",
+   "sha": "cf71b80741c56afdb825a9472a4027a32be70f23",
+   "licence": "GPL-3.0 (LICENSE file at pin cf71b80741c5, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-03T14:44Z",
+    "consent_receipt": "bb55f73f6383",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-03T14:44Z (receipt bb55f73f6383); pinned to the default-branch head. LICENSE file at pin cf71b80741c5 detected as GPL-3.0 by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

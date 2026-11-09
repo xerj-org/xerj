@@ -1,0 +1,23 @@
+{
+ "corpus": "yanou1976--browsing-agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how yanou1976/browsing-agent implements it: Automate browser actions",
+ "repos": [
+  {
+   "repo": "browsing-agent",
+   "url": "https://github.com/yanou1976/browsing-agent",
+   "sha": "a2c5af7315dc1e3e35dcc6ce5a784fc8edb7976b",
+   "licence": "author's permission (LICENSE at pin a2c5af7315dc: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T05:20Z",
+    "consent_receipt": "6434624bef54",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T05:20Z (receipt 6434624bef54); pinned to the default-branch head. LICENSE at pin a2c5af7315dc: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

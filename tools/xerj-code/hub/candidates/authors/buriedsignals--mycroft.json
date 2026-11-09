@@ -2,8 +2,8 @@
  "corpus": "buriedsignals--mycroft",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on HTML queries this for how buriedsignals/mycroft implements it: Goose Extension Pack for investigative journalists \u2014 open-weight, ZDR, local-capable (selected work: tests, scripts, tools)",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, investigations, journalism queries this for how buriedsignals/mycroft implements it: On-device investigator harness for journalists \u2014 Mycroft, Spotlight, Analyst and Watson agents in Osaurus, with Navigator, Scoutpost and an  (selected work: tests, scripts, tools)",
  "repos": [
   {
    "repo": "mycroft",

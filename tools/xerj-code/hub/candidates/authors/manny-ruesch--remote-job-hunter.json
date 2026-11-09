@@ -1,0 +1,23 @@
+{
+ "corpus": "manny-ruesch--remote-job-hunter",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ats, automation, fastapi queries this for how manny-ruesch/remote-job-hunter implements it: Open-source AI job search agent & local Command Center: scan 51+ ATS boards, score offers (API or Zero-API-Key manual mode), tailor 1-page A (selected work: rjh, tests, dashboard)",
+ "repos": [
+  {
+   "repo": "remote-job-hunter",
+   "url": "https://github.com/manny-ruesch/remote-job-hunter",
+   "sha": "dcd27483313ca524d0a698c4cdc8dd90e8cd5365",
+   "licence": "MIT (LICENSE file at pin dcd27483313c, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T00:28Z",
+    "consent_receipt": "135395213fcd",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T00:28Z (receipt 135395213fcd); selected commit dcd27483313c: \"feat(liveness): add anti-ghost job detector, SSRF-safe liveness check\u2026\". LICENSE file at pin dcd27483313c detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+   }
+  }
+ ]
+}

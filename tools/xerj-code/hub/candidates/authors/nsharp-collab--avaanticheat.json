@@ -1,0 +1,23 @@
+{
+ "corpus": "nsharp-collab--avaanticheat",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on minecraft, minecraft-antidupe, minecraft-bukkit-plugin queries this for how nsharp-collab/AvAAntiCheat implements it: this is an Anti-Cheat for Minecraft java edition on any server that uses Bukkit/Spigot API and 1.21.11 (selected work: src/main, the project root)",
+ "repos": [
+  {
+   "repo": "AvAAntiCheat",
+   "url": "https://github.com/nsharp-collab/AvAAntiCheat",
+   "sha": "4f375d784a9be2ba29d7eca348f691f58e0916b6",
+   "licence": "Apache-2.0 (LICENSE file at pin 4f375d784a9b, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T18:27Z",
+    "consent_receipt": "094a95e095e8",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T18:27Z (receipt 094a95e095e8); selected commit 4f375d784a9b: \"A lot of changes\". LICENSE file at pin 4f375d784a9b detected as Apache-2.0 by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

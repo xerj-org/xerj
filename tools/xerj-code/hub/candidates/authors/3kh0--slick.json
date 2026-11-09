@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on mod, plugins, slack queries this for how 3kh0/slick implements it: The most powerful and versatile Slack client mod (selected work: src/app, src/extension, src/shared)",
+ "domain": "an agent working on mod, plugins, slack queries this for how 3kh0/slick implements it: The coolest Slack mod. Fast, cross platform, themes and plugins included too! (selected work: src/app, src/extension, src/shared)",
  "repos": [
   {
    "repo": "slick",

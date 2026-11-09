@@ -1,0 +1,23 @@
+{
+ "corpus": "vahidaghazadeh--gphc",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Go queries this for how vahidaghazadeh/GPHC implements it: GPHC (pronounced \"githlth\") is a Command-Line Interface (CLI) tool written in Go that audits local Git repositories against established Open (selected work: internal/checkers, cmd/gphc)",
+ "repos": [
+  {
+   "repo": "GPHC",
+   "url": "https://github.com/vahidaghazadeh/GPHC",
+   "sha": "4a1db77984ab7f53999f3d4f608cbb7017369bab",
+   "licence": "MIT (LICENSE file at pin 4a1db77984ab, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T16:20Z",
+    "consent_receipt": "7ba40baca976",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T16:20Z (receipt 7ba40baca976); selected commit 4a1db77984ab: \"fix(security): report policy violations and allow ordinary JavaScript\". LICENSE file at pin 4a1db77984ab detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

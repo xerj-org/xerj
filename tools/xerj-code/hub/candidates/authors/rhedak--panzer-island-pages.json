@@ -8,15 +8,15 @@
   {
    "repo": "panzer_island_pages",
    "url": "https://github.com/rhedak/panzer_island_pages",
-   "sha": "f0bcf35b05239a9feb37a51b262f503c92f0ac19",
-   "licence": "Apache-2.0 (LICENSE file at pin f0bcf35b0523, GitHub licence API 2026-11-01)",
+   "sha": "247d252ea6bbcf2a0fda21da02ec8db1f5cb192e",
+   "licence": "Apache-2.0 (LICENSE file at pin 247d252ea6bb, GitHub licence API 2026-11-05)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-01T05:39Z",
     "consent_receipt": "21ba5067324b",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T05:39Z (receipt 21ba5067324b); pinned to the default-branch head. LICENSE file at pin f0bcf35b0523 detected as Apache-2.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T05:39Z (receipt 21ba5067324b); pinned to the default-branch head. LICENSE file at pin 247d252ea6bb detected as Apache-2.0 by the GitHub licence API on 2026-11-05; used under that licence with attribution."
    }
   }
  ]

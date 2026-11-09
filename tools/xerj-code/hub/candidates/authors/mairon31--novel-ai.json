@@ -1,0 +1,23 @@
+{
+ "corpus": "mairon31--novel-ai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-roleplay, ai-storytelling, branching-narratives queries this for how Mairon31/novel_ai implements it: Noble AI \u2014 A local-first AI visual novel and interactive storytelling studio. Create worlds, characters, and branching stories powered by LL",
+ "repos": [
+  {
+   "repo": "novel_ai",
+   "url": "https://github.com/Mairon31/novel_ai",
+   "sha": "67390301cb5ce9a98daca0060406ea48a4749d75",
+   "licence": "author's permission (LICENSE at pin 67390301cb5c: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T02:40Z",
+    "consent_receipt": "dce7c42b9b64",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T02:40Z (receipt dce7c42b9b64); pinned to the default-branch head. LICENSE at pin 67390301cb5c: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

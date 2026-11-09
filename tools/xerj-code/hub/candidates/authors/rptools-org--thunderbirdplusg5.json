@@ -1,0 +1,30 @@
+{
+ "corpus": "rptools-org--thunderbirdplusg5",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how RPTools-org/thunderbirdPlusG5 implements it: NVDA add-on for Thunderbird 115 (selected work: addon, the project root)",
+ "repos": [
+  {
+   "repo": "thunderbirdPlusG5",
+   "url": "https://github.com/RPTools-org/thunderbirdPlusG5",
+   "sha": "0a3fd61045fcda2cd172bc0b7a81ebe19d6edc33",
+   "licence": "GPL-2.0 (LICENSE file at pin 0a3fd61045fc, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-05T10:20Z",
+    "consent_receipt": "c9b8c71be677",
+    "note": "Inclusion consented by the commit author by email at 2026-11-05T10:20Z (receipt c9b8c71be677); selected commit 0a3fd61045fc: \"v2611.02.0: Skip separator in, write window, fixes for attachments   \u2026\". LICENSE file at pin 0a3fd61045fc detected as GPL-2.0 by the GitHub licence API on 2026-11-05; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "0a3fd61045fcda2cd172bc0b7a81ebe19d6edc33",
+     "at": "2026-11-05T10:20Z",
+     "receipt": "c9b8c71be677"
+    }
+   }
+  }
+ ]
+}

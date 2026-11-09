@@ -1,0 +1,30 @@
+{
+ "corpus": "kalel1500--kalion",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on PHP queries this for how kalel1500/kalion implements it: Utilidades para desarrollar en arquitectura hexagonal y DDD en laravel (selected work: src/Core, tests)",
+ "repos": [
+  {
+   "repo": "kalion",
+   "url": "https://github.com/kalel1500/kalion",
+   "sha": "fbbc48c4b5fd3c0a71c20a89a8d04ab22c5a5160",
+   "licence": "MPL-2.0 (LICENSE file at pin fbbc48c4b5fd, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "MPL-2.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-03T17:21Z",
+    "consent_receipt": "2582d5fd4a39",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T17:21Z (receipt 2582d5fd4a39); selected commit fbbc48c4b5fd: \"collections: tipos de retorno nativos, alineaci\u00f3n con Laravel en diff\u2026\". LICENSE file at pin fbbc48c4b5fd detected as MPL-2.0 by the GitHub licence API on 2026-11-03; used under that licence with attribution. Pinned to head fbbc48c4b5fd (contains the selected commit): the LICENSE at the selected commit was GPL-3.0.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "388f05b49f446ff15554211f4bc4bdb631f21458",
+     "at": "2026-11-03T17:21Z",
+     "receipt": "2582d5fd4a39"
+    }
+   }
+  }
+ ]
+}

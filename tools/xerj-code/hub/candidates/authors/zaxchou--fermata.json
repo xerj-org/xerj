@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on audio, bluetooth, keepalive queries this for how zaxchou/fermata implements it: zaxchou/fermata (Python) (selected work: app/core, tests, app)",
+ "domain": "an agent working on audio, bluetooth, keepalive queries this for how zaxchou/fermata implements it: Fermata is a small Windows tray application. It feeds your speaker, DAC, or Bluetooth receiver a continuous inaudible signal, so the device  (selected work: app/core, tests, app)",
  "repos": [
   {
    "repo": "fermata",

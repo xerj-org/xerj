@@ -1,0 +1,23 @@
+{
+ "corpus": "jessebrown1980--asolaria-os",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how JesseBrown1980/asolaria-os implements it: Asolaria OS \u2014 a real bare-metal OS in pure Rust. #![no_std] UEFI microkernel that boots your machine (no Windows/Linux underneath) + the ASI",
+ "repos": [
+  {
+   "repo": "asolaria-os",
+   "url": "https://github.com/JesseBrown1980/asolaria-os",
+   "sha": "2799c700639206aca92042ae7d956c5c78843b2a",
+   "licence": "MIT (LICENSE file at pin 2799c7006392, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T14:53Z",
+    "consent_receipt": "556d705bf7c0",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T14:53Z (receipt 556d705bf7c0); pinned to the default-branch head. LICENSE file at pin 2799c7006392 detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

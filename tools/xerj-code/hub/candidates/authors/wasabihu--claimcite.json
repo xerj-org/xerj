@@ -1,0 +1,23 @@
+{
+ "corpus": "wasabihu--claimcite",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on citation, crossref, doi queries this for how wasabihu/claimcite implements it: Check that every citation in a document is real, matches what the text says, and contains the quoted words. \u9010\u6761\u6838\u67e5\u5f15\u7528\uff1a\u6587\u732e\u662f\u5426\u5b58\u5728\u3001\u662f\u5426\u5bf9\u5f97\u4e0a\u3001\u5f15\u6587\u662f\u5426\u51fa\u81ea\u539f\u6587\u3002 (selected work: src/claimcite, tests)",
+ "repos": [
+  {
+   "repo": "claimcite",
+   "url": "https://github.com/wasabihu/claimcite",
+   "sha": "b81a5099321edb4f94b1c570fec26a688a4aa232",
+   "licence": "MIT (LICENSE file at pin b81a5099321e, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T02:08Z",
+    "consent_receipt": "d5839c7118cc",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T02:08Z (receipt d5839c7118cc); selected commit b81a5099321e: \"Verify web links: fetch the page and check quoted text (#1)\". LICENSE file at pin b81a5099321e detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "ztoooooo--print-tools",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how ztoooooo/print-tools implements it: \u7eaf\u672c\u5730\u8fd0\u884c\u7684\u7968\u636e\u6253\u5370\u5de5\u5177\u7f51\u9875\u7248 (selected work: src/utils, the project root, src/types)",
+ "repos": [
+  {
+   "repo": "print-tools",
+   "url": "https://github.com/ztoooooo/print-tools",
+   "sha": "2bdcccc8365de770636fadeedaf4555f53e5289c",
+   "licence": "MIT (LICENSE file at pin 2bdcccc8365d, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T08:45Z",
+    "consent_receipt": "6d199f7ce388",
+    "note": "Inclusion consented by the commit author by email at 2026-11-05T08:45Z (receipt 6d199f7ce388); selected commit 2bdcccc8365d: \"feat(dbx): \u6269\u5c55\u4e3a DBX \u63d2\u4ef6\uff0c\u652f\u6301 Web/\u6c99\u7bb1\u53cc\u6a21\u5f0f\u8fd0\u884c\". LICENSE file at pin 2bdcccc8365d detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

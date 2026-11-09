@@ -1,0 +1,23 @@
+{
+ "corpus": "witseko--rubrique",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on editor, egui, linux queries this for how witseko/rubrique implements it: A fast editor, agentic on demand (selected work: src/explorer, src/terminal, src)",
+ "repos": [
+  {
+   "repo": "rubrique",
+   "url": "https://github.com/witseko/rubrique",
+   "sha": "9444c38d6832b0eefd2762e33a51750d9f181122",
+   "licence": "MIT (LICENSE file at pin 9444c38d6832, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T20:35Z",
+    "consent_receipt": "29279c52a5f6",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T20:35Z (receipt 29279c52a5f6); selected commit 9444c38d6832: \"drag folders and terminals to reorder them\". LICENSE file at pin 9444c38d6832 detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+   }
+  }
+ ]
+}

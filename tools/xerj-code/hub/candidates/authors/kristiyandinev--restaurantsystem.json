@@ -2,8 +2,8 @@
  "corpus": "kristiyandinev--restaurantsystem",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on HTML queries this for how KristiyanDinev/RestaurantSystem implements it: Simple restaurant (selected work: Tests, Services, Utilities)",
+ "shelf": "DB",
+ "domain": "an agent working on HTML queries this for how KristiyanDinev/RestaurantSystem implements it: Restaurant System brings customer ordering, reservations, delivery tracking, and restaurant staff operations together in one application. It (selected work: Tests, Services, Utilities)",
  "repos": [
   {
    "repo": "RestaurantSystem",

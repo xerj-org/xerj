@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "NET",
- "domain": "an agent working on Rust queries this for how JesseBrown1980/GGUF-files-operating-as-trained-quantum-neural-network-models implements it: JesseBrown1980/GGUF-files-operating-as-trained-quantum-neural-network-models (Rust) (selected work: src, tests)",
+ "domain": "an agent working on Python queries this for how JesseBrown1980/GGUF-files-operating-as-trained-quantum-neural-network-models implements it: JesseBrown1980/GGUF-files-operating-as-trained-quantum-neural-network-models (Python) (selected work: src, tests)",
  "repos": [
   {
    "repo": "GGUF-files-operating-as-trained-quantum-neural-network-models",

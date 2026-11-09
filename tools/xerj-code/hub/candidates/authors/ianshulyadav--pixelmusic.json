@@ -16,7 +16,14 @@
     "by": "author-consent",
     "at": "2026-10-26T18:17Z",
     "consent_receipt": "c3e8deea0c63",
-    "note": "Inclusion consented by the commit author by email at 2026-10-26T18:17Z (receipt c3e8deea0c63); selected commit b2567cc7e8e6: \"feat: setup github pages, clean repo architecture, and configure dona\u2026\". LICENSE file at pin b2567cc7e8e6 detected as GPL-3.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-10-26T18:17Z (receipt c3e8deea0c63); selected commit b2567cc7e8e6: \"feat: setup github pages, clean repo architecture, and configure dona\u2026\". LICENSE file at pin b2567cc7e8e6 detected as GPL-3.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "b2567cc7e8e6e6ec6be5daeacb68dfe95535429f",
+     "at": "2026-10-26T18:17Z",
+     "receipt": "c3e8deea0c63"
+    }
    }
   }
  ]

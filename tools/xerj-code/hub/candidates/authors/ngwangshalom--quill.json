@@ -2,8 +2,8 @@
  "corpus": "ngwangshalom--quill",
  "cloned_at": null,
  "status": "draft",
- "shelf": "AI",
- "domain": "an agent working on Rust queries this for how Ngwangshalom/Quill implements it: A readable, safe programming language for backends and AI-powered apps (selected work: src, editors, book)",
+ "shelf": "API",
+ "domain": "an agent working on backend, compiler, education queries this for how Ngwangshalom/Quill implements it: A programming language where intent is clear, failures are explicit, and correctness is part of the code (selected work: src, editors, book)",
  "repos": [
   {
    "repo": "Quill",

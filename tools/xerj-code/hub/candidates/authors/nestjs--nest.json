@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "NET",
- "domain": "an agent working on nest, javascript, typescript queries this for how nestjs/nest implements it: A progressive Node.js framework for building efficient, scalable, and enterprise-grade server-side applications with TypeScript/JavaScript \ud83d\ude80 (selected work: integration, packages/platform-express, packages/platform-fastify)",
+ "domain": "an agent working on nest, javascript, typescript queries this for how nestjs/nest implements it: A progressive TypeScript framework for Node.js backends: from a small API in one file to efficient, scalable, enterprise-grade systems \ud83d\ude80 (selected work: integration, packages/platform-express, packages/platform-fastify)",
  "repos": [
   {
    "repo": "nest",

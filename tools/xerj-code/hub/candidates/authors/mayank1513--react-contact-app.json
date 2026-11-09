@@ -1,0 +1,23 @@
+{
+ "corpus": "mayank1513--react-contact-app",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how mayank1513/react-contact-app implements it: mayank1513/react-contact-app (TypeScript)",
+ "repos": [
+  {
+   "repo": "react-contact-app",
+   "url": "https://github.com/mayank1513/react-contact-app",
+   "sha": "a220038b0ec5ec641ecd58d60f0298ced05d673c",
+   "licence": "MIT (LICENSE file at pin a220038b0ec5, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T04:33Z",
+    "consent_receipt": "975ebc208452",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T04:33Z (receipt 975ebc208452); pinned to the default-branch head. LICENSE file at pin a220038b0ec5 detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

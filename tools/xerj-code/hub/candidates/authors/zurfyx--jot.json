@@ -1,0 +1,23 @@
+{
+ "corpus": "zurfyx--jot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how zurfyx/jot implements it: Live collaborative notes on Lexical + Yjs 14 (selected work: src/client, e2e)",
+ "repos": [
+  {
+   "repo": "jot",
+   "url": "https://github.com/zurfyx/jot",
+   "sha": "5b794c23105c5dc853261b0f591da8c5675f4603",
+   "licence": "MIT (LICENSE file at pin 5b794c23105c, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T14:06Z",
+    "consent_receipt": "37125baac775",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T14:06Z (receipt 37125baac775); selected commit 5b794c23105c: \"Ask AI in the dock with Chrome's built-in model, written by jot AI as\u2026\". LICENSE file at pin 5b794c23105c detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

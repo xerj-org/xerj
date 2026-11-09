@@ -1,0 +1,30 @@
+{
+ "corpus": "reol2022--gaitlogic-planner",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how Reol2022/GaitLogic-Planner implements it: Gaitlogic Planner \u662f\u4e00\u4e2a\u9762\u5411\u4e25\u8083\u8dd1\u8005\u7684\u8bad\u7ec3\u8ba1\u5212\u3001\u8bad\u7ec3\u65e5\u5fd7\u3001\u914d\u901f\u8ba1\u7b97\u4e0e AI \u8f85\u52a9\u590d\u76d8\u7cfb\u7edf\u3002 (selected work: server, tests, web)",
+ "repos": [
+  {
+   "repo": "GaitLogic-Planner",
+   "url": "https://github.com/Reol2022/GaitLogic-Planner",
+   "sha": "28b01da38c03296b4f897374af20faa5483fa5c0",
+   "licence": "AGPL-3.0 (LICENSE file at pin 28b01da38c03, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-09T08:53Z",
+    "consent_receipt": "d29d211de9d8",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T08:53Z (receipt d29d211de9d8); selected commit 28b01da38c03: \"feat(coach): enforce training fact consistency\". LICENSE file at pin 28b01da38c03 detected as AGPL-3.0 by the GitHub licence API on 2026-11-09; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "28b01da38c03296b4f897374af20faa5483fa5c0",
+     "at": "2026-11-09T08:53Z",
+     "receipt": "d29d211de9d8"
+    }
+   }
+  }
+ ]
+}

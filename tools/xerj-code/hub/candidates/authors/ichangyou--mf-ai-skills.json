@@ -1,0 +1,23 @@
+{
+ "corpus": "ichangyou--mf-ai-skills",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-skills, ai-skills, claude-code queries this for how ichangyou/mf-ai-skills implements it: A curated collection of 15 personal Claude Code / Codex skills: Chinese tech writing, WeChat publishing, weekly & monthly reports, and iOS e (selected work: tests, scripts, skills)",
+ "repos": [
+  {
+   "repo": "mf-ai-skills",
+   "url": "https://github.com/ichangyou/mf-ai-skills",
+   "sha": "68c592bd596a4dba603703c97f739561a07c5ce5",
+   "licence": "MIT (LICENSE file at pin 68c592bd596a, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T12:57Z",
+    "consent_receipt": "959acd99dc67",
+    "note": "Inclusion consented by the commit author by email at 2026-11-05T12:57Z (receipt 959acd99dc67); selected commit 68c592bd596a: \"feat(skills): support Codex and Claude Code\". LICENSE file at pin 68c592bd596a detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

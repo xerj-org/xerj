@@ -1,0 +1,23 @@
+{
+ "corpus": "msking18--agent-memory-mcp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, antigravity, claude-code queries this for how msking18/agent-memory-mcp implements it: Persistent per-project architectural memory, FTS5 search, file-anchored gotchas, and anti-loop dead-end tracking for AI coding agents via MC (selected work: src, test, the project root)",
+ "repos": [
+  {
+   "repo": "agent-memory-mcp",
+   "url": "https://github.com/msking18/agent-memory-mcp",
+   "sha": "ca772d9e5f45b4cd3c94ee9ebe809f52446f9446",
+   "licence": "MIT (LICENSE file at pin ca772d9e5f45, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T13:28Z",
+    "consent_receipt": "6c29a365a8cf",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T13:28Z (receipt 6c29a365a8cf); selected commit ca772d9e5f45: \"feat: upgrade agent-memory-mcp to v3.0.0 with SQLite FTS5, JIT migrat\u2026\". LICENSE file at pin ca772d9e5f45 detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

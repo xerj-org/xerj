@@ -8,15 +8,15 @@
   {
    "repo": "Axis",
    "url": "https://github.com/PR0Gorib/Axis",
-   "sha": "d6e0f30fb79ce387b594c3bcf1bb89982aef0316",
-   "licence": "MIT (LICENSE file at pin d6e0f30fb79c, GitHub licence API 2026-11-01)",
+   "sha": "fbf9c0e4f540e2c4a17cae87ceee75fd5ff0d148",
+   "licence": "MIT (LICENSE file at pin fbf9c0e4f540, GitHub licence API 2026-11-05)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-01T16:12Z",
     "consent_receipt": "743730e27766",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T16:12Z (receipt 743730e27766); pinned to the default-branch head. LICENSE file at pin d6e0f30fb79c detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T16:12Z (receipt 743730e27766); pinned to the default-branch head. LICENSE file at pin fbf9c0e4f540 detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
    }
   }
  ]

@@ -1,0 +1,23 @@
+{
+ "corpus": "open-mcp-ai--termcp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, go, mcp queries this for how open-mcp-ai/Termcp implements it: \u6700\u7ec8\u7684 MCP | Terminus MCP (selected work: internal/webui)",
+ "repos": [
+  {
+   "repo": "Termcp",
+   "url": "https://github.com/open-mcp-ai/Termcp",
+   "sha": "449c8cf96ebb55590aa8e55f1c0e67fee844a3dd",
+   "licence": "MIT (LICENSE file at pin 449c8cf96ebb, GitHub licence API 2026-11-06)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T14:44Z",
+    "consent_receipt": "11ebaabd9788",
+    "note": "Inclusion consented by the commit author by email at 2026-11-06T14:44Z (receipt 11ebaabd9788); selected commit 449c8cf96ebb: \"fix(webui): make terminal watch delivery cursor-atomic\". LICENSE file at pin 449c8cf96ebb detected as MIT by the GitHub licence API on 2026-11-06; used under that licence with attribution."
+   }
+  }
+ ]
+}

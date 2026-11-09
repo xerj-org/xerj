@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on laravel, cms, theme queries this for how ttimot24/horizont-cms implements it: Lightweight CMS built on Laravel 11, VueJs 2.6 and Bootstrap 5.3. An alternative platform to OctoberCMS (selected work: resources)",
+ "domain": "an agent working on laravel, cms, theme queries this for how ttimot24/horizont-cms implements it: Lightweight CMS built on Laravel 12, VueJs 2.7 and Bootstrap 5.3. An alternative platform to OctoberCMS (selected work: resources)",
  "repos": [
   {
    "repo": "horizont-cms",

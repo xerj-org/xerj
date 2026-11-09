@@ -2,8 +2,8 @@
  "corpus": "memexpert--umcub",
  "cloned_at": null,
  "status": "draft",
- "shelf": "NET",
- "domain": "an agent working on C queries this for how memExpert/umcub implements it: Portable MCUboot-based bootloader for STM32. A single config header selects the series, upgrade mode and transports (UART, USB CDC/DFU via t (selected work: tests, src/image)",
+ "shelf": "SEC",
+ "domain": "an agent working on C queries this for how memExpert/umcub implements it: Portable MCUboot-based bootloader for STM32 (F1, F4, H7), configured with Kconfig. Transports: UART, RS485 multi-drop link with secure sessi (selected work: tests, src/image)",
  "repos": [
   {
    "repo": "umcub",

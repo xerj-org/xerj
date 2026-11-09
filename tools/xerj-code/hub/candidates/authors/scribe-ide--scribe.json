@@ -1,0 +1,23 @@
+{
+ "corpus": "scribe-ide--scribe",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on jupyter, latex, latex-editor queries this for how Scribe-IDE/Scribe implements it: The LaTeX editor for working scientists. Paper, notebooks and figures in one project, compiled on your machine (selected work: src, the project root)",
+ "repos": [
+  {
+   "repo": "Scribe",
+   "url": "https://github.com/Scribe-IDE/Scribe",
+   "sha": "403df88bd89d2b0698d4f9acfc6d50ef381d5fad",
+   "licence": "MIT (LICENSE file at pin 403df88bd89d, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T11:25Z",
+    "consent_receipt": "28863b1ea04f",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T11:25Z (receipt 28863b1ea04f); selected commit 403df88bd89d: \"Track changes and comments in the source, with the changes package\". LICENSE file at pin 403df88bd89d detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+   }
+  }
+ ]
+}

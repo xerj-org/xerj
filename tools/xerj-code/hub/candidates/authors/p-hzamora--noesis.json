@@ -1,0 +1,23 @@
+{
+ "corpus": "p-hzamora--noesis",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on claude-code, cli, ddd queries this for how p-hzamora/noesis implements it: Capture finished agent work, curate what is worth keeping, and store it as notes (selected work: tests, src/noesis, the project root)",
+ "repos": [
+  {
+   "repo": "noesis",
+   "url": "https://github.com/p-hzamora/noesis",
+   "sha": "dd411001d2ee07e93bb88979aad6f95cbdc545f5",
+   "licence": "MIT (LICENSE file at pin dd411001d2ee, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T00:38Z",
+    "consent_receipt": "3c0dfdf15b93",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T00:38Z (receipt 3c0dfdf15b93); selected commit dd411001d2ee: \"feat(knowledge): search notes through the Obsidian MCP when configured\". LICENSE file at pin dd411001d2ee detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

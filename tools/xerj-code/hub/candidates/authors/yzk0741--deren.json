@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on C++ queries this for how YzK0741/deren implements it: A modular C++23 real-time renderer featuring PBR, anime-style toon shading, Slang shaders, and a backend-independent RHI with a Vulkan backe (selected work: scripts, source)",
+ "domain": "an agent working on C++ queries this for how YzK0741/deren implements it: A real-time renderer that chases the newest C++ and graphics API features (selected work: scripts, source)",
  "repos": [
   {
    "repo": "deren",

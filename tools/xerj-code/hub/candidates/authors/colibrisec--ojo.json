@@ -16,7 +16,14 @@
     "by": "author-consent",
     "at": "2026-10-25T17:43Z",
     "consent_receipt": "a5ff4cd8c7c9",
-    "note": "Inclusion consented by the commit author by email at 2026-10-25T17:43Z (receipt a5ff4cd8c7c9); selected commit fffe83333a8d: \"feat: license policy scanner\". LICENSE file at pin fffe83333a8d detected as GPL-2.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-10-25T17:43Z (receipt a5ff4cd8c7c9); selected commit fffe83333a8d: \"feat: license policy scanner\". LICENSE file at pin fffe83333a8d detected as GPL-2.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "fffe83333a8d6830edd324f4c4b65f73087cd4bc",
+     "at": "2026-10-25T17:43Z",
+     "receipt": "a5ff4cd8c7c9"
+    }
    }
   }
  ]

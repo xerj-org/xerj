@@ -1,0 +1,23 @@
+{
+ "corpus": "eddie772tw--fh6-horizontuner",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how eddie772tw/FH6-HorizonTuner implements it: \u4e00\u6b3e\u7acb\u5fd7\u6eff\u8db3\u8abf\u6821\u4ee5\u53ca\u63a8\u79d2\u9700\u6c42\u7684\u8cfd\u7528\u5100\u8868&\u8abf\u6821\u5de5\u5177\u7a0b\u5f0f (selected work: hud_overlay, frontend, backend-rust)",
+ "repos": [
+  {
+   "repo": "FH6-HorizonTuner",
+   "url": "https://github.com/eddie772tw/FH6-HorizonTuner",
+   "sha": "f028eeee5be195511e97fd69ca8a4ee954144d12",
+   "licence": "MIT (LICENSE file at pin f028eeee5be1, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T02:37Z",
+    "consent_receipt": "4154967408ee",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T02:37Z (receipt 4154967408ee); selected commit f028eeee5be1: \"feat(hud): expose controller telemetry card and defer other subsystems\". LICENSE file at pin f028eeee5be1 detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

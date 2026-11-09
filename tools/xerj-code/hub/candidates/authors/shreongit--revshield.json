@@ -2,8 +2,8 @@
  "corpus": "shreongit--revshield",
  "cloned_at": null,
  "status": "draft",
- "shelf": "WEB",
- "domain": "an agent working on TypeScript queries this for how Shreongit/RevShield implements it: Understand what happens behind every website. Free, transparent, and open-source website security, privacy, tracker, cookie, and threat inte (selected work: apps/api, apps/web, apps/extension)",
+ "shelf": "SEC",
+ "domain": "an agent working on cybersecurity, security, security-tools queries this for how Shreongit/RevShield implements it: Understand what happens behind every website. Free, transparent, and open-source website security, privacy, tracker, cookie, and threat inte (selected work: apps/api, apps/web, apps/extension)",
  "repos": [
   {
    "repo": "RevShield",

@@ -1,0 +1,23 @@
+{
+ "corpus": "poplarcrystal--basic-loco-lib",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on amp, beyondmimic, isaaclab queries this for how PoplarCrystal/basic_loco_lib implements it: A basic robot locomotion library built on Isaaclab. It includes **Velocity (velocity tracking), Mimic (beyond mimic, mimic-wm), and AMP (Adv (selected work: source)",
+ "repos": [
+  {
+   "repo": "basic_loco_lib",
+   "url": "https://github.com/PoplarCrystal/basic_loco_lib",
+   "sha": "11a968578c95cc17e54c4d5ec7aab6c080609ec2",
+   "licence": "Apache-2.0 (LICENSE file at pin 11a968578c95, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T16:54Z",
+    "consent_receipt": "3ac95773fb1d",
+    "note": "Inclusion consented by the commit author by email at 2026-11-05T16:54Z (receipt 3ac95773fb1d); selected commit 11a968578c95: \"fix: isolate AMP module dependencies\". LICENSE file at pin 11a968578c95 detected as Apache-2.0 by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

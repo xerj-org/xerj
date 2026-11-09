@@ -8,15 +8,15 @@
   {
    "repo": "boundary-check",
    "url": "https://github.com/rahmankhanjohn/boundary-check",
-   "sha": "88e7062ff193ac15bb50984a79077e54788e9e42",
-   "licence": "author's permission (LICENSE at pin 88e7062ff193: NONE; repository: none)",
+   "sha": "f03379b93522eeef54efb18f155ffb2bf35ed8ba",
+   "licence": "author's permission (LICENSE at pin f03379b93522: NONE; repository: none)",
    "review": {
     "spdx": "NONE",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-30T21:22Z",
     "consent_receipt": "74bc26ccb0ca",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T21:22Z (receipt 74bc26ccb0ca); pinned to the default-branch head. LICENSE at pin 88e7062ff193: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T21:22Z (receipt 74bc26ccb0ca); pinned to the default-branch head. LICENSE at pin f03379b93522: NONE (repository: none); used with the author's permission, with attribution."
    }
   }
  ]

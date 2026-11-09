@@ -1,0 +1,23 @@
+{
+ "corpus": "zuoqiuning--tauri-delta-updater",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on delta-updates, desktop-app, incremental-update queries this for how zuoqiuning/tauri-delta-updater implements it: A high-performance Rust library for delta (incremental) updates in Tauri v2 (selected work: src/platform, tests, src)",
+ "repos": [
+  {
+   "repo": "tauri-delta-updater",
+   "url": "https://github.com/zuoqiuning/tauri-delta-updater",
+   "sha": "aa2aff3154b08676a36822a6ce1264c1f9a527c0",
+   "licence": "MIT (LICENSE file at pin aa2aff3154b0, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T09:38Z",
+    "consent_receipt": "211ba1904359",
+    "note": "Inclusion consented by the commit author by email at 2026-11-05T09:38Z (receipt 211ba1904359); selected commit aa2aff3154b0: \"feat: \u5206\u9636\u6bb5\u63a5\u5165\u3001\u5e73\u53f0\u811a\u672c\u52a0\u56fa\u4e0e\u53d1\u5e03\u6d41\u7a0b\u4fee\u6b63\". LICENSE file at pin aa2aff3154b0 detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

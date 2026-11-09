@@ -1,0 +1,23 @@
+{
+ "corpus": "projectcapsule--capsule",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on kubernetes, multi-tenancy, operator queries this for how projectcapsule/capsule implements it: Multi-tenancy and policy-based framework for Kubernetes (selected work: internal/controllers, e2e)",
+ "repos": [
+  {
+   "repo": "capsule",
+   "url": "https://github.com/projectcapsule/capsule",
+   "sha": "9d1ba25904d16c0782aecec2dacf5ef0210736e2",
+   "licence": "Apache-2.0 (LICENSE file at pin 9d1ba25904d1, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T07:55Z",
+    "consent_receipt": "eb2363e6975b",
+    "note": "Inclusion consented by the commit author by email at 2026-11-05T07:55Z (receipt eb2363e6975b); selected commit 9d1ba25904d1: \"fix(admission): reuse webhook identities (#2277)\". LICENSE file at pin 9d1ba25904d1 detected as Apache-2.0 by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

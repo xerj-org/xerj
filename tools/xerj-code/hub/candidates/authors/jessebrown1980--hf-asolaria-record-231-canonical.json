@@ -1,0 +1,23 @@
+{
+ "corpus": "jessebrown1980--hf-asolaria-record-231-canonical",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on code queries this for how JesseBrown1980/hf-asolaria-record-231-canonical implements it: The photographic record of Jesse Daniel Brown in his own numbering - 231 photographs, canonical. Mirrored from Hugging Face as plain git blo",
+ "repos": [
+  {
+   "repo": "hf-asolaria-record-231-canonical",
+   "url": "https://github.com/JesseBrown1980/hf-asolaria-record-231-canonical",
+   "sha": "523034976789daf4daf427e32c8b57721eec0d7d",
+   "licence": "author's permission (LICENSE at pin 523034976789: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T14:53Z",
+    "consent_receipt": "75f8c3be01a5",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T14:53Z (receipt 75f8c3be01a5); pinned to the default-branch head. LICENSE at pin 523034976789: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

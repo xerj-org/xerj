@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on database-agent, mcp, mcp-server queries this for how suveshmoza/Qora implements it: Qora lets AI assistants like Cursor and Claude safely explore your database and answer questions about your data (selected work: src/query, src/tools)",
+ "domain": "an agent working on database-agent, mcp, mcp-server queries this for how suveshmoza/Qora implements it: Qora lets AI agents safely explore your database and answer questions about your data (selected work: src/query, src/tools)",
  "repos": [
   {
    "repo": "Qora",

@@ -1,0 +1,23 @@
+{
+ "corpus": "pythonbrad--algo-data-structure",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how pythonbrad/algo_data_structure implements it: Algorithm and data structure",
+ "repos": [
+  {
+   "repo": "algo_data_structure",
+   "url": "https://github.com/pythonbrad/algo_data_structure",
+   "sha": "d5148d39e7ef240c4c0d27ca77974edd7a774eb7",
+   "licence": "author's permission (LICENSE at pin d5148d39e7ef: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T06:32Z",
+    "consent_receipt": "373f9520fe4c",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-09T06:32Z (receipt 373f9520fe4c); pinned to the default-branch head. LICENSE at pin d5148d39e7ef: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

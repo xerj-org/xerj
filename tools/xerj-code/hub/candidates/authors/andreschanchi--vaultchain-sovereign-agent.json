@@ -1,0 +1,23 @@
+{
+ "corpus": "andreschanchi--vaultchain-sovereign-agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on account-abstraction, agentic-commerce, arbitrum-stylus queries this for how AndresChanchi/vaultchain-sovereign-agent implements it: Autonomous Sovereign Storage Protocol powered by Arbitrum Stylus (Rust) and Irys L1 Datachain. Features native Passkey authentication (secp2 (selected work: frontend)",
+ "repos": [
+  {
+   "repo": "vaultchain-sovereign-agent",
+   "url": "https://github.com/AndresChanchi/vaultchain-sovereign-agent",
+   "sha": "cb27f1092194c128519575e43ca1503978c8f1ee",
+   "licence": "author's permission (LICENSE at pin cb27f1092194: NOASSERTION; repository: Apache-2.0)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-04T00:58Z",
+    "consent_receipt": "304dadb89275",
+    "note": "Inclusion consented by the commit author by email at 2026-11-04T00:58Z (receipt 304dadb89275); selected commit cb27f1092194: \"feat(space): add upload review, progress and kept steps\". LICENSE at pin cb27f1092194: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

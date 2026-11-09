@@ -1,0 +1,23 @@
+{
+ "corpus": "viochris--wishbox-birthday-card",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on animation, birthday, birthday-card queries this for how viochris/wishbox-birthday-card implements it: A festive interactive birthday web card, vibe-coded in Google AI Studio with Gemini. Guides the recipient through making a wish (real mic ca",
+ "repos": [
+  {
+   "repo": "wishbox-birthday-card",
+   "url": "https://github.com/viochris/wishbox-birthday-card",
+   "sha": "626089f9827d0a9d94a9928c692587912a514d4b",
+   "licence": "author's permission (LICENSE at pin 626089f9827d: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T13:12Z",
+    "consent_receipt": "ae60233634d0",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T13:12Z (receipt ae60233634d0); pinned to the default-branch head. LICENSE at pin 626089f9827d: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

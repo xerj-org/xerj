@@ -1,0 +1,30 @@
+{
+ "corpus": "xc-xin-cheng--meteor-mikuxc",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Java queries this for how XC-Xin-Cheng/meteor-mikuXC implements it: \u4e3ahttps://github.com/mikumiku7/meteor-miku\u63d0\u4f9b26.1\u652f\u6301 (selected work: src/main, the project root)",
+ "repos": [
+  {
+   "repo": "meteor-mikuXC",
+   "url": "https://github.com/XC-Xin-Cheng/meteor-mikuXC",
+   "sha": "cc99c298507c6f1d489792d1c20d453b17a315a5",
+   "licence": "GPL-3.0 (LICENSE file at pin cc99c298507c, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-05T11:22Z",
+    "consent_receipt": "922203723084",
+    "note": "Inclusion consented by the commit author by email at 2026-11-05T11:22Z (receipt 922203723084); selected commit cc99c298507c: \"v1.3.0: \u540c\u6b65 1.3.0 \u6e90\u7801\uff08bug \u4fee\u590d\u4e0e\u6027\u80fd\u4f18\u5316\uff09\". LICENSE file at pin cc99c298507c detected as GPL-3.0 by the GitHub licence API on 2026-11-05; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "cc99c298507c6f1d489792d1c20d453b17a315a5",
+     "at": "2026-11-05T11:22Z",
+     "receipt": "922203723084"
+    }
+   }
+  }
+ ]
+}

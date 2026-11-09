@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "OPS",
- "domain": "an agent working on Go queries this for how nuelScript/skiff implements it: Effortless, one-command app deploys on your own server \u2014 a single Go binary (selected work: web)",
+ "domain": "an agent working on deployment, devops, docker queries this for how nuelScript/skiff implements it: A self-hosted deployment platform: build, deploy and manage apps on your own server, with automatic HTTPS, databases and backups. One Go bin (selected work: web)",
  "repos": [
   {
    "repo": "skiff",

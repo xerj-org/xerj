@@ -1,0 +1,23 @@
+{
+ "corpus": "hasheramin5-cyber--termtint",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on ansi, cli, developer-tools queries this for how hasheramin5-cyber/TermTint implements it: A lightweight, zero-dependency Python library for simple colored and styled terminal output (selected work: tests, src/termtint, the project root)",
+ "repos": [
+  {
+   "repo": "TermTint",
+   "url": "https://github.com/hasheramin5-cyber/TermTint",
+   "sha": "fd5b1a4e7afac587245a29b7cf2ec16573298520",
+   "licence": "MIT (LICENSE file at pin fd5b1a4e7afa, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T10:12Z",
+    "consent_receipt": "f869c8960274",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T10:12Z (receipt f869c8960274); selected commit fd5b1a4e7afa: \"feat: add background colors and ANSI utilities for v0.5.0\". LICENSE file at pin fd5b1a4e7afa detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+   }
+  }
+ ]
+}

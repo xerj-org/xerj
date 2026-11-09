@@ -1,0 +1,23 @@
+{
+ "corpus": "gelb2--heavymach",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on 2d-game, cpp, game-preservation queries this for how gelb2/HeavyMach implements it: HeavyMach rebuilt for iPhone, iPad, native Mac and Android \u2014 shared C++ core, touch and keyboard controls, auto-aim, and development notes (selected work: Resources, Desktop, Sources)",
+ "repos": [
+  {
+   "repo": "HeavyMach",
+   "url": "https://github.com/gelb2/HeavyMach",
+   "sha": "3729fd3510c52f284526da28c7748f63c1f88a5c",
+   "licence": "author's permission (LICENSE at pin 3729fd3510c5: NOASSERTION; repository: MIT)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T23:51Z",
+    "consent_receipt": "4adaabf8b85c",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T23:51Z (receipt 4adaabf8b85c); selected commit 3729fd3510c5: \"fix: package new units through common data and asset paths\". LICENSE at pin 3729fd3510c5: NOASSERTION (repository: MIT); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

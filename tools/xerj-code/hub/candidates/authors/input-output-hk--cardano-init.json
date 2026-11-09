@@ -1,0 +1,23 @@
+{
+ "corpus": "input-output-hk--cardano-init",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on blockchain, cardano, cardano-community queries this for how input-output-hk/cardano-init implements it: Go from zero to a running Cardano protocol in one command (selected work: templates, src/registry, registry)",
+ "repos": [
+  {
+   "repo": "cardano-init",
+   "url": "https://github.com/input-output-hk/cardano-init",
+   "sha": "f7893f93a0bdf9342aaf233a25e0e9e6939e47c0",
+   "licence": "Apache-2.0 (LICENSE file at pin f7893f93a0bd, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T16:47Z",
+    "consent_receipt": "2eb9e2d752e5",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T16:47Z (receipt 2eb9e2d752e5); selected commit f7893f93a0bd: \"feat: lucid evolution (#109)\". LICENSE file at pin f7893f93a0bd detected as Apache-2.0 by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

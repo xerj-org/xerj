@@ -1,0 +1,23 @@
+{
+ "corpus": "attnstack--codegraph",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on cli, code-analysis, code-search queries this for how attnstack/codegraph implements it: \u7528 AST \u56de\u7b54\u201c\u8c01\u8c03\u7528\u5b83\u3001\u6539\u5b83\u5f71\u54cd\u8c01\u201d\u2014\u2014\u6bcf\u6761\u7b54\u6848\u5e26\u8bc1\u636e\u94fe\uff0c\u4e0d\u9760\u8bed\u4e49\u731c\u3002",
+ "repos": [
+  {
+   "repo": "codegraph",
+   "url": "https://github.com/attnstack/codegraph",
+   "sha": "846fc346a8428b51c13351e760e2366853299c14",
+   "licence": "MIT (LICENSE file at pin 846fc346a842, GitHub licence API 2026-11-06)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T15:05Z",
+    "consent_receipt": "2706e27298e2",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T15:05Z (receipt 2706e27298e2); pinned to the default-branch head. LICENSE file at pin 846fc346a842 detected as MIT by the GitHub licence API on 2026-11-06; used under that licence with attribution."
+   }
+  }
+ ]
+}

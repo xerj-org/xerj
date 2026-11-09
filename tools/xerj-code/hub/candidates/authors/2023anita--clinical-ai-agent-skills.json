@@ -1,0 +1,23 @@
+{
+ "corpus": "2023anita--clinical-ai-agent-skills",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, claude-code, clinical-research queries this for how 2023Anita/clinical-ai-agent-skills implements it: Evidence-first AI agent rules for clinicians using Codex, Claude Code, Cursor, Copilot, and Obsidian",
+ "repos": [
+  {
+   "repo": "clinical-ai-agent-skills",
+   "url": "https://github.com/2023Anita/clinical-ai-agent-skills",
+   "sha": "11e6c7dba7c3088e7253d33ea30efc317ea1a400",
+   "licence": "MIT (LICENSE file at pin 11e6c7dba7c3, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T13:38Z",
+    "consent_receipt": "bbeeeb54dfc1",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T13:38Z (receipt bbeeeb54dfc1); pinned to the default-branch head. LICENSE file at pin 11e6c7dba7c3 detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

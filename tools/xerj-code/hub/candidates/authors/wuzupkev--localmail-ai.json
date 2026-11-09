@@ -1,0 +1,23 @@
+{
+ "corpus": "wuzupkev--localmail-ai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on C# queries this for how wuzupKev/localmail-ai implements it: wuzupKev/localmail-ai (C#) (selected work: backend, frontend)",
+ "repos": [
+  {
+   "repo": "localmail-ai",
+   "url": "https://github.com/wuzupKev/localmail-ai",
+   "sha": "793301db173ecf16a9a24d26075adf6facb14103",
+   "licence": "MIT (LICENSE file at pin 793301db173e, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T03:22Z",
+    "consent_receipt": "c2eb9457f56e",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T03:22Z (receipt c2eb9457f56e); selected commit 793301db173e: \"Implement thread summaries against a local model\". LICENSE file at pin 793301db173e detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution. Pinned to head 793301db173e (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "pikcui--walawe",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, api-gateway, golang queries this for how pikcui/Walawe implements it: Open-source wallet & API gateway for autonomous AI agents. Deterministic budgets, human approvals, x402 payments, and ERC-4337 smart account (selected work: apps/web, apps/gateway)",
+ "repos": [
+  {
+   "repo": "Walawe",
+   "url": "https://github.com/pikcui/Walawe",
+   "sha": "77281ac8b30dfdad34c22330038f087099493f20",
+   "licence": "Apache-2.0 (LICENSE file at pin 77281ac8b30d, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T12:51Z",
+    "consent_receipt": "b2b6ac2553b8",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T12:51Z (receipt b2b6ac2553b8); selected commit 77281ac8b30d: \"feat(v4): add policy engine UI and backend endpoints, move mobile nav\u2026\". LICENSE file at pin 77281ac8b30d detected as Apache-2.0 by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+   }
+  }
+ ]
+}

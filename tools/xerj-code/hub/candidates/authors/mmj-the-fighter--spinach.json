@@ -1,0 +1,23 @@
+{
+ "corpus": "mmj-the-fighter--spinach",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how mmj-the-fighter/Spinach implements it: Easy to use framework and utilities for software rasterization, image processing and other experiments (selected work: Spinach)",
+ "repos": [
+  {
+   "repo": "Spinach",
+   "url": "https://github.com/mmj-the-fighter/Spinach",
+   "sha": "42119736da067c86db355dbfc955ae50d52baa1a",
+   "licence": "MIT (LICENSE file at pin 42119736da06, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T00:28Z",
+    "consent_receipt": "a5c7eda8d714",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T00:28Z (receipt a5c7eda8d714); selected commit 42119736da06: \"Update spn::Vec2d with template\". LICENSE file at pin 42119736da06 detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

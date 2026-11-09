@@ -1,0 +1,23 @@
+{
+ "corpus": "nisavid--arch-strix-halo-pkgs",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how nisavid/arch-strix-halo-pkgs implements it: Arch Linux packaging for a Strix Halo\u2013optimized local AI inference stack",
+ "repos": [
+  {
+   "repo": "arch-strix-halo-pkgs",
+   "url": "https://github.com/nisavid/arch-strix-halo-pkgs",
+   "sha": "432dc45ea138bebf42c03ab7f4538e88fc14f251",
+   "licence": "MIT (LICENSE file at pin 432dc45ea138, GitHub licence API 2026-11-06)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T21:16Z",
+    "consent_receipt": "a946cc0f2b94",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T21:16Z (receipt a946cc0f2b94); pinned to the default-branch head. LICENSE file at pin 432dc45ea138 detected as MIT by the GitHub licence API on 2026-11-06; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on JavaScript queries this for how rizqinrr/viserys-agent implements it: rizqinrr/viserys-agent (JavaScript) (selected work: scripts, commands, the project root)",
+ "domain": "an agent working on agent-skills, ai-agents, software-engineering queries this for how rizqinrr/viserys-agent implements it: Engineering workflow pack for AI coding agents: PRD interviews, task breakdown, and bespoke design (selected work: scripts, commands, the project root)",
  "repos": [
   {
    "repo": "viserys-agent",
    "url": "https://github.com/rizqinrr/viserys-agent",
-   "sha": "513e89a1bd500a58ce31bce199a0bc2fd1f4f373",
-   "licence": "Apache-2.0 (LICENSE file at pin 513e89a1bd50, GitHub licence API 2026-10-28)",
+   "sha": "d65836209b244823f2bdb92b693e99675e31ecf0",
+   "licence": "Apache-2.0 (LICENSE file at pin d65836209b24, GitHub licence API 2026-11-08)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-11T07:18Z",
     "consent_receipt": "a338fb2f8ea7",
-    "note": "Inclusion consented by the commit author by email at 2026-10-11T07:18Z (receipt a338fb2f8ea7); selected commit 513e89a1bd50: \"feat: expand specialist persona workflows\". LICENSE file at pin 513e89a1bd50 detected as Apache-2.0 by the GitHub licence API on 2026-10-28; used under that licence with attribution. Pinned to head 513e89a1bd50 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-11T07:18Z (receipt a338fb2f8ea7); selected commit d65836209b24: \"feat: expand specialist persona workflows\". LICENSE file at pin d65836209b24 detected as Apache-2.0 by the GitHub licence API on 2026-11-08; used under that licence with attribution. Pinned to head d65836209b24 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

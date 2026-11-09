@@ -1,0 +1,30 @@
+{
+ "corpus": "entware--entware-oldpackages-ports",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on entware queries this for how Entware/entware-oldpackages-ports implements it: Adopted from old OpenWrt feeds (selected work: node-12x)",
+ "repos": [
+  {
+   "repo": "entware-oldpackages-ports",
+   "url": "https://github.com/Entware/entware-oldpackages-ports",
+   "sha": "fe25c833496fe317ff7f9665fb453d881f295e80",
+   "licence": "GPL-2.0 (LICENSE file at pin fe25c833496f, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-03T17:27Z",
+    "consent_receipt": "39e0024d04d3",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T17:27Z (receipt 39e0024d04d3); selected commit fe25c833496f: \"node-12x: Python 3.14 compatibility\". LICENSE file at pin fe25c833496f detected as GPL-2.0 by the GitHub licence API on 2026-11-03; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "fe25c833496fe317ff7f9665fb453d881f295e80",
+     "at": "2026-11-03T17:27Z",
+     "receipt": "39e0024d04d3"
+    }
+   }
+  }
+ ]
+}

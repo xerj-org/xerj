@@ -1,0 +1,23 @@
+{
+ "corpus": "pzyber--sidralune",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on amateur-astronomy, ascom, asteroids queries this for how pzyber/Sidralune implements it: Sidralune is a free astronomy suite for Windows. It brings planning, telescope control, image capture, image processing and amateur science  (selected work: Sidralune, Sidralune.Core, Sidralune.AppTests)",
+ "repos": [
+  {
+   "repo": "Sidralune",
+   "url": "https://github.com/pzyber/Sidralune",
+   "sha": "3529ee807f4db5d21a0b05abbfce46cfc21f8573",
+   "licence": "MIT (LICENSE file at pin 3529ee807f4d, GitHub licence API 2026-11-04)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-04T18:19Z",
+    "consent_receipt": "128e44b4dffd",
+    "note": "Inclusion consented by the commit author by email at 2026-11-04T18:19Z (receipt 128e44b4dffd); selected commit 3529ee807f4d: \"Added interface translations with Swedish\". LICENSE file at pin 3529ee807f4d detected as MIT by the GitHub licence API on 2026-11-04; used under that licence with attribution."
+   }
+  }
+ ]
+}

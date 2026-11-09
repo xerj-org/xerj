@@ -1,0 +1,23 @@
+{
+ "corpus": "ajakovski--growhub",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how Ajakovski/GrowHub implements it: Ajakovski/GrowHub (Python) (selected work: Firmware)",
+ "repos": [
+  {
+   "repo": "GrowHub",
+   "url": "https://github.com/Ajakovski/GrowHub",
+   "sha": "9ea9026689a9c5065c00813e6bb5ac593b19df24",
+   "licence": "MIT (LICENSE file at pin 9ea9026689a9, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T23:59Z",
+    "consent_receipt": "9518bf547699",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T23:59Z (receipt 9518bf547699); selected commit 9ea9026689a9: \"finished the scaffolding for the pcb firmware\". LICENSE file at pin 9ea9026689a9 detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

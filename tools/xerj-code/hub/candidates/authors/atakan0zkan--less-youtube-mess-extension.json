@@ -1,0 +1,23 @@
+{
+ "corpus": "atakan0zkan--less-youtube-mess-extension",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on extension, extension-chrome, youtube queries this for how Atakan0zkan/Less-Youtube-Mess-Extension implements it: Customize YouTube: Hide Shorts, Sidebar, Comments, Recommendations, and More! (selected work: tests, the project root)",
+ "repos": [
+  {
+   "repo": "Less-Youtube-Mess-Extension",
+   "url": "https://github.com/Atakan0zkan/Less-Youtube-Mess-Extension",
+   "sha": "29416f6123ef45313846afc7da13088db5194f8c",
+   "licence": "author's permission (LICENSE at pin 29416f6123ef: MIT; repository: AGPL-3.0)",
+   "review": {
+    "spdx": "MIT",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-08T08:44Z",
+    "consent_receipt": "3b711bed25f7",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T08:44Z (receipt 3b711bed25f7); selected commit 29416f6123ef: \"Add comprehensive release gate and Turkish badge regression fix\". LICENSE at pin 29416f6123ef: MIT (repository: AGPL-3.0); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

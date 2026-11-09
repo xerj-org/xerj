@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on herdr-plugin, claude-code, developer-tools queries this for how kryptamine/herdr-auto-title implements it: Automatically name Herdr tabs and panes from your current work, Git branch, terminal activity, and Claude Code sessions (selected work: internal/reads, internal/app, internal/state)",
+ "domain": "an agent working on herdr-plugin, claude-code, developer-tools queries this for how kryptamine/herdr-auto-title implements it: Automatically name Herdr tabs and panes from your current work: Git branch, running process, and Claude Code, Codex, Pi, Grok, Hermes and An (selected work: internal/reads, internal/app, internal/state)",
  "repos": [
   {
    "repo": "herdr-auto-title",

@@ -1,0 +1,23 @@
+{
+ "corpus": "teamzincs--kipphi",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how TeamZincs/Kipphi implements it: Parse your Phigros chart into an editor-friendly format. Built for KipphiApparatus (selected work: src, tests, src/operation)",
+ "repos": [
+  {
+   "repo": "Kipphi",
+   "url": "https://github.com/TeamZincs/Kipphi",
+   "sha": "d2cfb721d06a1beb96654b48b470a3c723be889b",
+   "licence": "MIT (LICENSE file at pin d2cfb721d06a, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T14:43Z",
+    "consent_receipt": "da155b8f7cd8",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T14:43Z (receipt da155b8f7cd8); selected commit d2cfb721d06a: \"feat(effect): \u652f\u6301 Phira \u7279\u6548\uff08\u5e8f\u5217 / uniform \u52a8\u753b\u53d8\u91cf / \u64cd\u4f5c / Phira \u4e92\u8f6c\uff09\". LICENSE file at pin d2cfb721d06a detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

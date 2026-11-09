@@ -1,0 +1,23 @@
+{
+ "corpus": "swarneil1905--localmind",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how Swarneil1905/LocalMind implements it: A local-first desktop AI agent that helps you remember, search, plan, write, and code across personal projects while keeping memory visible, (selected work: scripts, evaluation, apps/desktop)",
+ "repos": [
+  {
+   "repo": "LocalMind",
+   "url": "https://github.com/Swarneil1905/LocalMind",
+   "sha": "ed800461e34287d3d043daf43706b538ab28e23b",
+   "licence": "MIT (LICENSE file at pin ed800461e342, GitHub licence API 2026-11-06)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T18:15Z",
+    "consent_receipt": "f88efcfbc5bc",
+    "note": "Inclusion consented by the commit author by email at 2026-11-06T18:15Z (receipt f88efcfbc5bc); selected commit ed800461e342: \"Enhance chat diagnostics and model readiness features\". LICENSE file at pin ed800461e342 detected as MIT by the GitHub licence API on 2026-11-06; used under that licence with attribution."
+   }
+  }
+ ]
+}

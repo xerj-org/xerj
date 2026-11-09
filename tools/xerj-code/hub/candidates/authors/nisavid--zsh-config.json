@@ -1,0 +1,23 @@
+{
+ "corpus": "nisavid--zsh-config",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on zsh, zsh-config, zshrc queries this for how nisavid/zsh-config implements it: Zsh configuration",
+ "repos": [
+  {
+   "repo": "zsh-config",
+   "url": "https://github.com/nisavid/zsh-config",
+   "sha": "0a6578eedc20fda283408046b52722c95d830267",
+   "licence": "Unlicense (LICENSE file at pin 0a6578eedc20, GitHub licence API 2026-11-06)",
+   "review": {
+    "spdx": "Unlicense",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T21:16Z",
+    "consent_receipt": "e47782922cd6",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T21:16Z (receipt e47782922cd6); pinned to the default-branch head. LICENSE file at pin 0a6578eedc20 detected as Unlicense by the GitHub licence API on 2026-11-06; used under that licence with attribution."
+   }
+  }
+ ]
+}

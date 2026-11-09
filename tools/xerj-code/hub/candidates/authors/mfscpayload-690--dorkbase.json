@@ -1,0 +1,23 @@
+{
+ "corpus": "mfscpayload-690--dorkbase",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on npm-module, react, tailwind-css queries this for how mfscpayload-690/dorkbase implements it: An open-source OSINT query builder for security researchers and penetration testers. Built with React, Vite, and Tailwind CSS",
+ "repos": [
+  {
+   "repo": "dorkbase",
+   "url": "https://github.com/mfscpayload-690/dorkbase",
+   "sha": "3863365fe44af3bf64927f4f0b88e31363037caa",
+   "licence": "MIT (LICENSE file at pin 3863365fe44a, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T10:11Z",
+    "consent_receipt": "1eb464039f5d",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-03T10:11Z (receipt 1eb464039f5d); pinned to the default-branch head. LICENSE file at pin 3863365fe44a detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

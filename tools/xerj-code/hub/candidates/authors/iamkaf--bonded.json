@@ -1,0 +1,23 @@
+{
+ "corpus": "iamkaf--bonded",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Java queries this for how iamkaf/bonded implements it: A gear leveling mod for modern Minecraft (selected work: common, test, versions)",
+ "repos": [
+  {
+   "repo": "bonded",
+   "url": "https://github.com/iamkaf/bonded",
+   "sha": "55dc1a507fcf7bed173102de1d6d234635642802",
+   "licence": "MIT (LICENSE file at pin 55dc1a507fcf, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T01:06Z",
+    "consent_receipt": "de1bc261163c",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T01:06Z (receipt de1bc261163c); selected commit 55dc1a507fcf: \"Add Gear Rules for Weapons Expanded\". LICENSE file at pin 55dc1a507fcf detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

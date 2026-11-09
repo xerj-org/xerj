@@ -1,0 +1,23 @@
+{
+ "corpus": "fmatar--archlens",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on JavaScript queries this for how fmatar/archlens implements it: Clean Architecture Dynamic UML Workbench with interactive AST scanning, metrics, and refactoring agent support (selected work: backend, cli)",
+ "repos": [
+  {
+   "repo": "archlens",
+   "url": "https://github.com/fmatar/archlens",
+   "sha": "21f537ef1431b9cb5b22d2ef0a5b6a285e0e9087",
+   "licence": "Apache-2.0 (LICENSE file at pin 21f537ef1431, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T16:00Z",
+    "consent_receipt": "2f3d7a2f0565",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T16:00Z (receipt 2f3d7a2f0565); selected commit 21f537ef1431: \"feat(scanner): implement Milestone 3 v0.2.0 monorepo discovery, cross\u2026\". LICENSE file at pin 21f537ef1431 detected as Apache-2.0 by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+   }
+  }
+ ]
+}

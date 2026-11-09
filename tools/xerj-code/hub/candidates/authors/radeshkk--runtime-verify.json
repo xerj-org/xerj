@@ -1,0 +1,23 @@
+{
+ "corpus": "radeshkk--runtime-verify",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-security, agentic-ai, ai-agents queries this for how RadeshKK/Runtime-Verify implements it: Statistical runtime security for autonomous AI agents. Observe, verify, and enforce agent behavior with deterministic policies, semantic cla (selected work: tests, src/runtimeverify, experiments)",
+ "repos": [
+  {
+   "repo": "Runtime-Verify",
+   "url": "https://github.com/RadeshKK/Runtime-Verify",
+   "sha": "8d4a82ccdcfbee939f06fd0877b1760b865f9b85",
+   "licence": "MIT (LICENSE file at pin 8d4a82ccdcfb, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T07:52Z",
+    "consent_receipt": "4e3c4d77e80c",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T07:52Z (receipt 4e3c4d77e80c); selected commit 8d4a82ccdcfb: \"feat(security): implement cryptographic action binding for approval t\u2026\". LICENSE file at pin 8d4a82ccdcfb detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

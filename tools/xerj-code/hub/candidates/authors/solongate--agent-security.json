@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-agent-security, ai-agents, claude-code queries this for how solongate/agent-security implements it: Local-first, open-source security gateway for AI coding agents. Enforce tool-call policies, detect secrets, and audit actions on-device (selected work: packages/guard, packages/policy)",
+ "domain": "an agent working on ai-agent-security, ai-agents, agent-security queries this for how solongate/agent-security implements it: Local-first, open-source security gateway for AI coding agents. Enforce tool-call policies, detect secrets, and audit actions on-device (selected work: packages/guard, packages/policy)",
  "repos": [
   {
    "repo": "agent-security",

@@ -16,7 +16,14 @@
     "by": "author-consent",
     "at": "2026-10-28T09:50Z",
     "consent_receipt": "ef963d64dc2f",
-    "note": "Inclusion consented by the commit author by email at 2026-10-28T09:50Z (receipt ef963d64dc2f); selected commit 84bebf6ebeec: \"Retry interrupted SSH uploads using a fresh connection (#880)\". LICENSE file at pin 84bebf6ebeec detected as MPL-2.0 by the GitHub licence API on 2026-10-28; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-10-28T09:50Z (receipt ef963d64dc2f); selected commit 84bebf6ebeec: \"Retry interrupted SSH uploads using a fresh connection (#880)\". LICENSE file at pin 84bebf6ebeec detected as MPL-2.0 by the GitHub licence API on 2026-10-28; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "84bebf6ebeeccd8e283f562163020593fc87ba2e",
+     "at": "2026-10-28T09:50Z",
+     "receipt": "ef963d64dc2f"
+    }
    }
   }
  ]

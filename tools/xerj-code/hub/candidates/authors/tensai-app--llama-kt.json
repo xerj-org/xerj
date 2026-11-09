@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on android, edge-ai, gguf queries this for how tensai-app/llama.kt implements it: Kotlin/Android JNI binding for llama.cpp \u2014 GGUF on-device inference, extracted from llama.rn (selected work: patches, llama-kt, example)",
+ "domain": "an agent working on android, edge-ai, gguf queries this for how tensai-app/llama.kt implements it: Kotlin/Android JNI binding for llama.cpp: GGUF on-device inference, extracted from llama.rn (selected work: patches, llama-kt, example)",
  "repos": [
   {
    "repo": "llama.kt",

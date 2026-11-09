@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "NET",
- "domain": "an agent working on http-client, networking, swift queries this for how orthogonest/netskein implements it: Type-safe async HTTP client for Swift 6 built on SwiftNIO (selected work: Tests, Sources, the project root)",
+ "domain": "an agent working on http-client, networking, swift queries this for how orthogonest/netskein implements it: A fluent, Swift 6 HTTP client for servers and apps, built on AsyncHTTPClient: retries, caching, circuit breaker, streaming, and testing supp (selected work: Tests, Sources, the project root)",
  "repos": [
   {
    "repo": "netskein",

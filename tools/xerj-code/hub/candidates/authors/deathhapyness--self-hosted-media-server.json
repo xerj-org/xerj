@@ -8,15 +8,15 @@
   {
    "repo": "self-hosted-media-server",
    "url": "https://github.com/DeathHapyness/self-hosted-media-server",
-   "sha": "fb7e62c8b2646035c9f8dc096d826d3642235e2c",
-   "licence": "GPL-3.0 (LICENSE file at pin fb7e62c8b264, GitHub licence API 2026-11-02)",
+   "sha": "5854b2d136e25eab592e83428dbce95e6f330546",
+   "licence": "GPL-3.0 (LICENSE file at pin 5854b2d136e2, GitHub licence API 2026-11-08)",
    "review": {
     "spdx": "GPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-23T19:23Z",
     "consent_receipt": "58d5fc852422",
-    "note": "Inclusion consented by the commit author by email at 2026-10-23T19:23Z (receipt 58d5fc852422); selected commit fb7e62c8b264: \"feat:Criado interface web para configuracao do server atraves de um m\u2026\". LICENSE file at pin fb7e62c8b264 detected as GPL-3.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution. Pinned to head fb7e62c8b264 (contains the selected commit): the LICENSE at the selected commit was MIT."
+    "note": "Inclusion consented by the commit author by email at 2026-10-23T19:23Z (receipt 58d5fc852422); selected commit 5854b2d136e2: \"feat:Criado interface web para configuracao do server atraves de um m\u2026\". LICENSE file at pin 5854b2d136e2 detected as GPL-3.0 by the GitHub licence API on 2026-11-08; used under that licence with attribution. Pinned to head 5854b2d136e2 (contains the selected commit): the LICENSE at the selected commit was MIT."
    }
   }
  ]

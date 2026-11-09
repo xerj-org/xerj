@@ -1,0 +1,23 @@
+{
+ "corpus": "ventaxis--hexshard-messenger",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on android, chat, deno queries this for how Ventaxis/HexShard-messenger implements it: Privacy-first Android messenger. E2EE with hardware Keystore, SQLCipher, anonymous +999 virtual numbers, Supabase backend, zero Google servi (selected work: app/src, supabase)",
+ "repos": [
+  {
+   "repo": "HexShard-messenger",
+   "url": "https://github.com/Ventaxis/HexShard-messenger",
+   "sha": "f9c38bf0a2d7fa0a89feacc5789476f746543d21",
+   "licence": "MIT (LICENSE file at pin f9c38bf0a2d7, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T09:11Z",
+    "consent_receipt": "c4f56e7dde25",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T09:11Z (receipt c4f56e7dde25); selected commit f9c38bf0a2d7: \"feat: improve security, messaging, and storage logic\". LICENSE file at pin f9c38bf0a2d7 detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution. Pinned to head f9c38bf0a2d7 (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

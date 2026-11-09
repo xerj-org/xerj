@@ -1,0 +1,23 @@
+{
+ "corpus": "thedotmack--claude-mem",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, ai-agents, ai-memory queries this for how thedotmack/claude-mem implements it: Persistent Context Across Sessions for Every Agent \u2013 Captures everything your agent does during sessions, compresses it with AI, and injects (selected work: tests, src/launcher)",
+ "repos": [
+  {
+   "repo": "claude-mem",
+   "url": "https://github.com/thedotmack/claude-mem",
+   "sha": "8a502b1acb8abd792795236b314b9fea198f3825",
+   "licence": "Apache-2.0 (LICENSE file at pin 8a502b1acb8a, GitHub licence API 2026-11-04)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-04T07:21Z",
+    "consent_receipt": "be1e5314c9d0",
+    "note": "Inclusion consented by the commit author by email at 2026-11-04T07:21Z (receipt be1e5314c9d0); selected commit 8a502b1acb8a: \"fix(launcher): rebuild a launcher the OS killed instead of keeping it\u2026\". LICENSE file at pin 8a502b1acb8a detected as Apache-2.0 by the GitHub licence API on 2026-11-04; used under that licence with attribution."
+   }
+  }
+ ]
+}

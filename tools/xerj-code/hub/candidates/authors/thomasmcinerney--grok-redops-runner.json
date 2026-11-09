@@ -1,0 +1,23 @@
+{
+ "corpus": "thomasmcinerney--grok-redops-runner",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how thomasmcinerney/grok-redops-runner implements it: Supervised Grok CLI lanes for RedOps with complete command and report capture (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "grok-redops-runner",
+   "url": "https://github.com/thomasmcinerney/grok-redops-runner",
+   "sha": "9372b47cc1d1d0504e0ad846cfb82d408fa2ff16",
+   "licence": "Apache-2.0 (LICENSE file at pin 9372b47cc1d1, GitHub licence API 2026-11-06)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T14:42Z",
+    "consent_receipt": "0c81ca53aaf7",
+    "note": "Inclusion consented by the commit author by email at 2026-11-06T14:42Z (receipt 0c81ca53aaf7); selected commit 9372b47cc1d1: \"Add scoped browser chatbot capture lanes\". LICENSE file at pin 9372b47cc1d1 detected as Apache-2.0 by the GitHub licence API on 2026-11-06; used under that licence with attribution."
+   }
+  }
+ ]
+}

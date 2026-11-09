@@ -1,0 +1,23 @@
+{
+ "corpus": "atennebris--asra",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on ai-agents, autonomous-agents, bug-bounty queries this for how Atennebris/ASRA implements it: Autonomous Security Recon Agent - ASRA (selected work: agent, tests, desktop)",
+ "repos": [
+  {
+   "repo": "ASRA",
+   "url": "https://github.com/Atennebris/ASRA",
+   "sha": "c8937a2b15df277a85fbd551a78d89d6ab606bf6",
+   "licence": "MIT (LICENSE file at pin c8937a2b15df, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T14:38Z",
+    "consent_receipt": "9e124ca0d3fa",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T14:38Z (receipt 9e124ca0d3fa); selected commit c8937a2b15df: \"feat: Implement desktop update functionality with staging and install\u2026\". LICENSE file at pin c8937a2b15df detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+   }
+  }
+ ]
+}

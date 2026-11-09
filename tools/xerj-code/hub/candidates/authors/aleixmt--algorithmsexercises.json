@@ -1,0 +1,23 @@
+{
+ "corpus": "aleixmt--algorithmsexercises",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how AleixMT/AlgorithmsExercises implements it: Programming exercises in different programming languages",
+ "repos": [
+  {
+   "repo": "AlgorithmsExercises",
+   "url": "https://github.com/AleixMT/AlgorithmsExercises",
+   "sha": "d523b2a766aa2e13cfbf243e084efa69837f84d0",
+   "licence": "author's permission (LICENSE at pin d523b2a766aa: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T14:44Z",
+    "consent_receipt": "53e9d44c1805",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-03T14:44Z (receipt 53e9d44c1805); pinned to the default-branch head. LICENSE at pin d523b2a766aa: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

@@ -8,15 +8,15 @@
   {
    "repo": "wenyi",
    "url": "https://github.com/BigDawnGhost/wenyi",
-   "sha": "aa231b24e8c9dc3518cbf8859b880b21798f1f8f",
-   "licence": "MIT (LICENSE file at pin aa231b24e8c9, GitHub licence API 2026-10-24)",
+   "sha": "cc279e6c382d713a73af69def2ddba3f09fe50e4",
+   "licence": "GPL-3.0 (LICENSE file at pin cc279e6c382d, GitHub licence API 2026-11-09)",
    "review": {
-    "spdx": "MIT",
-    "use": "adapt-with-attribution",
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-06T11:19Z",
     "consent_receipt": "8eb2267fef13",
-    "note": "Inclusion consented by the commit author by email at 2026-10-06T11:19Z (receipt 8eb2267fef13); selected commit aa231b24e8c9: \"fix(types): align backend adapter contracts for static checks\". LICENSE file at pin aa231b24e8c9 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-10-06T11:19Z (receipt 8eb2267fef13); selected commit cc279e6c382d: \"fix(types): align backend adapter contracts for static checks\". LICENSE file at pin cc279e6c382d detected as GPL-3.0 by the GitHub licence API on 2026-11-09; used under that licence with attribution. Pinned to head cc279e6c382d (contains the selected commit): the LICENSE at the selected commit was MIT."
    }
   }
  ]

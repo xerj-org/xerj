@@ -1,0 +1,23 @@
+{
+ "corpus": "wickedceo--bugtrack",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how wickedceo/bugtrack implements it: A modern bug tracking and QA management application built with React and TypeScript (selected work: app/src, app)",
+ "repos": [
+  {
+   "repo": "bugtrack",
+   "url": "https://github.com/wickedceo/bugtrack",
+   "sha": "e85937ce842299a041b13c48d4e3417fd8fe1192",
+   "licence": "MIT (LICENSE file at pin e85937ce8422, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T12:49Z",
+    "consent_receipt": "a42b94fc8db2",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T12:49Z (receipt a42b94fc8db2); selected commit e85937ce8422: \"Build initial BugTrack dashboard\". LICENSE file at pin e85937ce8422 detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

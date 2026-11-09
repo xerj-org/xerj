@@ -1,0 +1,23 @@
+{
+ "corpus": "lupin4--wintermolt",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Zig queries this for how lupin4/wintermolt implements it: Open-source AI agent CLI built in Zig. A pure Zig rewrite of OpenClaw \u2014 one ~5MB binary, zero Node.js. Agentic loop, SSE streaming, tool dis (selected work: src/agent, src, the project root)",
+ "repos": [
+  {
+   "repo": "wintermolt",
+   "url": "https://github.com/lupin4/wintermolt",
+   "sha": "1f0408fb878312b2df56ff8b90d37f1e5c5ec0b8",
+   "licence": "MIT (LICENSE file at pin 1f0408fb8783, GitHub licence API 2026-11-06)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T14:45Z",
+    "consent_receipt": "04f7cbe68160",
+    "note": "Inclusion consented by the commit author by email at 2026-11-06T14:45Z (receipt 04f7cbe68160); selected commit 1f0408fb8783: \"wintermolt: WINTERMOLT_BACKEND is read in Config and built in AgentLo\u2026\". LICENSE file at pin 1f0408fb8783 detected as MIT by the GitHub licence API on 2026-11-06; used under that licence with attribution."
+   }
+  }
+ ]
+}

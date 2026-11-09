@@ -16,7 +16,14 @@
     "by": "author-consent",
     "at": "2026-11-02T05:14Z",
     "consent_receipt": "25afefb443ea",
-    "note": "Inclusion consented by the commit author by email at 2026-11-02T05:14Z (receipt 25afefb443ea); selected commit fb8a1ff24dc7: \"replaces requests with httpx; add pytests\". LICENSE file at pin fb8a1ff24dc7 detected as GPL-3.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T05:14Z (receipt 25afefb443ea); selected commit fb8a1ff24dc7: \"replaces requests with httpx; add pytests\". LICENSE file at pin fb8a1ff24dc7 detected as GPL-3.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "fb8a1ff24dc7c6a7df917806a84e37cbcb827be9",
+     "at": "2026-11-02T05:14Z",
+     "receipt": "25afefb443ea"
+    }
    }
   }
  ]

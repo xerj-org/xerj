@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-agents, automation, chromadb queries this for how G-Eskayo/marvin implements it: Memory, skills and a gated ticket pipeline for Claude Code: persistent context, 32 skills, background agents, a review dashboard and a self- (selected work: lib/tests, dashboard, lib)",
+ "domain": "an agent working on ai-agents, automation, chromadb queries this for how G-Eskayo/marvin implements it: Memory, skills and a gated ticket pipeline for Claude Code: persistent context, 33 skills, background agents, a review dashboard and a self- (selected work: lib/tests, dashboard, lib)",
  "repos": [
   {
    "repo": "marvin",

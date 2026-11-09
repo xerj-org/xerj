@@ -1,0 +1,23 @@
+{
+ "corpus": "acrabxie--lumeri-cli",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how Acrabxie/lumeri-cli implements it: Acrabxie/lumeri-cli (JavaScript) (selected work: test, src, the project root)",
+ "repos": [
+  {
+   "repo": "lumeri-cli",
+   "url": "https://github.com/Acrabxie/lumeri-cli",
+   "sha": "c2a08cb643918a43cbdb861bb40ae115da0d6cb2",
+   "licence": "MIT (LICENSE file at pin c2a08cb64391, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T11:06Z",
+    "consent_receipt": "71cfe16242da",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T11:06Z (receipt 71cfe16242da); selected commit c2a08cb64391: \"luc(w3h): support 1.1 Gateway lease discovery, /runtime/v1/health fal\u2026\". LICENSE file at pin c2a08cb64391 detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+   }
+  }
+ ]
+}

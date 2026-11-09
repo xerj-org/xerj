@@ -1,0 +1,23 @@
+{
+ "corpus": "enesovski--atmosdx12",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how enesovski/atmosdx12 implements it: A real-time atmospheric rendering project built with C++20, Direct3D 12, and HLSL (selected work: src/graphics, shaders)",
+ "repos": [
+  {
+   "repo": "atmosdx12",
+   "url": "https://github.com/enesovski/atmosdx12",
+   "sha": "4c5f0934f08130dfb5d8e30526cbda8373e33743",
+   "licence": "Unlicense (LICENSE file at pin 4c5f0934f081, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "Unlicense",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T21:24Z",
+    "consent_receipt": "b460cc11f6ac",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T21:24Z (receipt b460cc11f6ac); selected commit 4c5f0934f081: \"Add HDR render target and tonemapping\". LICENSE file at pin 4c5f0934f081 detected as Unlicense by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

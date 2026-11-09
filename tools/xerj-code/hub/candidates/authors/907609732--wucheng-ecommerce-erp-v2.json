@@ -1,0 +1,23 @@
+{
+ "corpus": "907609732--wucheng-ecommerce-erp-v2",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how 907609732/wucheng-ecommerce-erp-v2 implements it: \u7075\u5154\u7535\u5546\u5de5\u4f5c\u53f0-\u7edf\u8ba1\u91c7\u8d2d\u4fe1\u606f,\u5206\u5e97\u94fa\u7edf\u8ba1\u9500\u552e\u989d,\u81ea\u52a8\u751f\u6210\u5229\u6da6\u62a5\u8868",
+ "repos": [
+  {
+   "repo": "wucheng-ecommerce-erp-v2",
+   "url": "https://github.com/907609732/wucheng-ecommerce-erp-v2",
+   "sha": "1ae5aaa44befe4c55675bc71ce30b33e22104439",
+   "licence": "author's permission (LICENSE at pin 1ae5aaa44bef: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T08:36Z",
+    "consent_receipt": "3cd3f6632d26",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T08:36Z (receipt 3cd3f6632d26); pinned to the default-branch head. LICENSE at pin 1ae5aaa44bef: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

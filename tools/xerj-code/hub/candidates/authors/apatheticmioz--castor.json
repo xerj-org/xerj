@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agent-harness, ast-grep, cordis queries this for how ApatheticMioz/Castor implements it: The Universal 245K Agent Microkernel for Local LLMs (selected work: src/runner, benchmarks, src/tools)",
+ "domain": "an agent working on agent-harness, ast-grep, cordis queries this for how ApatheticMioz/Castor implements it: The local LLM solution to cutting cloud API bills, smartly (selected work: src/runner, benchmarks, src/tools)",
  "repos": [
   {
    "repo": "Castor",

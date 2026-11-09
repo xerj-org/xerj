@@ -1,0 +1,23 @@
+{
+ "corpus": "zhuanght-1201--buaa-boya-desktop",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on automation, bilingual, boya queries this for how ZhuangHT-1201/buaa-boya-desktop implements it: A bilingual Windows desktop controller for gap-aware BUAA Boya automation (selected work: boya_kit, tests, the project root)",
+ "repos": [
+  {
+   "repo": "buaa-boya-desktop",
+   "url": "https://github.com/ZhuangHT-1201/buaa-boya-desktop",
+   "sha": "6b6bdd9b4925c8bd0905eb9c107551392bfc7ab4",
+   "licence": "MIT (LICENSE file at pin 6b6bdd9b4925, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T08:13Z",
+    "consent_receipt": "48f44b257169",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T08:13Z (receipt 48f44b257169); selected commit 6b6bdd9b4925: \"Improve expired account recovery dashboard\". LICENSE file at pin 6b6bdd9b4925 detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+   }
+  }
+ ]
+}

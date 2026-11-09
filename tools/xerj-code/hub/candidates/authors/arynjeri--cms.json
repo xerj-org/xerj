@@ -1,0 +1,23 @@
+{
+ "corpus": "arynjeri--cms",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how arynjeri/cms implements it: arynjeri/cms (JavaScript) (selected work: backend, frontend)",
+ "repos": [
+  {
+   "repo": "cms",
+   "url": "https://github.com/arynjeri/cms",
+   "sha": "2f1049c22219bddce7ac8a2d67dfe531cec0c34c",
+   "licence": "MIT (LICENSE file at pin 2f1049c22219, GitHub licence API 2026-11-04)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-04T12:15Z",
+    "consent_receipt": "be2454fd13d6",
+    "note": "Inclusion consented by the commit author by email at 2026-11-04T12:15Z (receipt be2454fd13d6); selected commit 2f1049c22219: \"Add admin recoveryscript\". LICENSE file at pin 2f1049c22219 detected as MIT by the GitHub licence API on 2026-11-04; used under that licence with attribution."
+   }
+  }
+ ]
+}

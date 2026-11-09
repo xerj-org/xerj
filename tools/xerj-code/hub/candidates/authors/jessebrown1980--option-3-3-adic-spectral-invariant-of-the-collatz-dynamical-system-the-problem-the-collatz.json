@@ -1,0 +1,23 @@
+{
+ "corpus": "jessebrown1980--option-3-3-adic-spectral-invariant-of-the-collatz-dynamical-system-the-problem-the-collatz",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on 3-adic, asolaria, balanced-ternary queries this for how JesseBrown1980/Option-3-3-Adic-Spectral-Invariant-of-the-Collatz-Dynamical-System-The-Problem-The-Collatz implements it: Option 3: 3-Adic Spectral Invariant of the Collatz Dynamical System via Balanced Ternary and Euler-Hensel Carry Identities",
+ "repos": [
+  {
+   "repo": "Option-3-3-Adic-Spectral-Invariant-of-the-Collatz-Dynamical-System-The-Problem-The-Collatz",
+   "url": "https://github.com/JesseBrown1980/Option-3-3-Adic-Spectral-Invariant-of-the-Collatz-Dynamical-System-The-Problem-The-Collatz",
+   "sha": "e4838bb4e5af108bfa034a25e7ebd9d75f794a5d",
+   "licence": "MIT (LICENSE file at pin e4838bb4e5af, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T14:53Z",
+    "consent_receipt": "2b906351d4fc",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T14:53Z (receipt 2b906351d4fc); pinned to the default-branch head. LICENSE file at pin e4838bb4e5af detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

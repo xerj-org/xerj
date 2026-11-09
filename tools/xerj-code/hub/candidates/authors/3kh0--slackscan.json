@@ -1,0 +1,23 @@
+{
+ "corpus": "3kh0--slackscan",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on slack, slack-bot, tgscan queries this for how 3kh0/slackscan implements it: Inspired by the popular bot on Telegram, TgScan, SlackScan can index channels and their members to provide information about what channels a",
+ "repos": [
+  {
+   "repo": "slackscan",
+   "url": "https://github.com/3kh0/slackscan",
+   "sha": "45bde0f19d8c2da18761569e2112a00fcda2341c",
+   "licence": "author's permission (LICENSE at pin 45bde0f19d8c: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T15:10Z",
+    "consent_receipt": "242f5dba0958",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T15:10Z (receipt 242f5dba0958); pinned to the default-branch head. LICENSE at pin 45bde0f19d8c: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

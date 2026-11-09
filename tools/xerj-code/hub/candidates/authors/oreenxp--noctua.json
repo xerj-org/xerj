@@ -1,0 +1,30 @@
+{
+ "corpus": "oreenxp--noctua",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on Rust queries this for how OreenXP/Noctua- implements it: A Rust desktop PDF reader with dark mode, Spanish translation, reading progress, and planned OCR support (selected work: web, src, the project root)",
+ "repos": [
+  {
+   "repo": "Noctua-",
+   "url": "https://github.com/OreenXP/Noctua-",
+   "sha": "5c2b148953175611f37f68982f065c8b5ef70c05",
+   "licence": "GPL-3.0 (LICENSE file at pin 5c2b14895317, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-07T18:58Z",
+    "consent_receipt": "0b4ffc76a3f9",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T18:58Z (receipt 0b4ffc76a3f9); selected commit 5c2b14895317: \"feat: migrate desktop UI to Tauri web frontend\". LICENSE file at pin 5c2b14895317 detected as GPL-3.0 by the GitHub licence API on 2026-11-07; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "5c2b148953175611f37f68982f065c8b5ef70c05",
+     "at": "2026-11-07T18:58Z",
+     "receipt": "0b4ffc76a3f9"
+    }
+   }
+  }
+ ]
+}

@@ -1,0 +1,30 @@
+{
+ "corpus": "voltkraft--immich-folder-watch",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on immich, immich-api, automation queries this for how VoltKraft/immich-folder-watch implements it: A folder watcher for Immich that synchronizes media files via the Immich HTTP API (selected work: tools, packaging)",
+ "repos": [
+  {
+   "repo": "immich-folder-watch",
+   "url": "https://github.com/VoltKraft/immich-folder-watch",
+   "sha": "48e6be14ccf508385c4b1796842010c09e2d1fb4",
+   "licence": "AGPL-3.0 (LICENSE file at pin 48e6be14ccf5, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-07T22:04Z",
+    "consent_receipt": "776f9503b310",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T22:04Z (receipt 776f9503b310); selected commit 48e6be14ccf5: \"feat(flatpak): prepare signed GitHub Pages repository\". LICENSE file at pin 48e6be14ccf5 detected as AGPL-3.0 by the GitHub licence API on 2026-11-07; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "48e6be14ccf508385c4b1796842010c09e2d1fb4",
+     "at": "2026-11-07T22:04Z",
+     "receipt": "776f9503b310"
+    }
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "cmsrs--cmsrs-laravel",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on shop, cms, laravel queries this for how cmsrs/cmsrs-laravel implements it: Laravel backend and REST API for cmsRS - content management, galleries, products and more (selected work: tests, app/Http, app/Services)",
+ "repos": [
+  {
+   "repo": "cmsrs-laravel",
+   "url": "https://github.com/cmsrs/cmsrs-laravel",
+   "sha": "4c37dce1d8f103770cb4f526a955717fa3d12ea2",
+   "licence": "MIT (LICENSE file at pin 4c37dce1d8f1, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T12:44Z",
+    "consent_receipt": "cba8c68d52e7",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T12:44Z (receipt cba8c68d52e7); selected commit 4c37dce1d8f1: \"post add tags key for product and page\". LICENSE file at pin 4c37dce1d8f1 detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

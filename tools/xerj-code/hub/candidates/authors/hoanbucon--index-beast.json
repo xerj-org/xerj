@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on elden-ring, rag, rag-chatbot queries this for how HoanBuCon/Index-Beast implements it: Ohno Ring (selected work: backend, the project root)",
+ "domain": "an agent working on elden-ring, rag, chatbot queries this for how HoanBuCon/Index-Beast implements it: Ohno Ring (selected work: backend, the project root)",
  "repos": [
   {
    "repo": "Index-Beast",

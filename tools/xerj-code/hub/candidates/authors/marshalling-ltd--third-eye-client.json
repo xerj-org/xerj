@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Rust queries this for how marshalling-ltd/third-eye-client implements it: marshalling-ltd/third-eye-client (Rust) (selected work: src/bin, src, tests)",
+ "domain": "an agent working on Rust queries this for how marshalling-ltd/third-eye-client implements it: Cross-platform desktop client for underwater ROVs: live camera, photo and video capture, and a surface-GPS map. Built for BioProtect (selected work: src/bin, src, tests)",
  "repos": [
   {
    "repo": "third-eye-client",

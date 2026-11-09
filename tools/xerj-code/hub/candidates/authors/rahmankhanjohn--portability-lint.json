@@ -8,15 +8,15 @@
   {
    "repo": "portability-lint",
    "url": "https://github.com/rahmankhanjohn/portability-lint",
-   "sha": "3e0f3788d3d128491d6017325110ec4597ed8098",
-   "licence": "MIT (LICENSE file at pin 3e0f3788d3d1, GitHub licence API 2026-10-31)",
+   "sha": "9c2da68fee634296bb54027973bdba5e5f62a293",
+   "licence": "MIT (LICENSE file at pin 9c2da68fee63, GitHub licence API 2026-11-06)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-30T21:22Z",
     "consent_receipt": "0551896dd7f3",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T21:22Z (receipt 0551896dd7f3); pinned to the default-branch head. LICENSE file at pin 3e0f3788d3d1 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T21:22Z (receipt 0551896dd7f3); pinned to the default-branch head. LICENSE file at pin 9c2da68fee63 detected as MIT by the GitHub licence API on 2026-11-06; used under that licence with attribution."
    }
   }
  ]

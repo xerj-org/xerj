@@ -16,7 +16,14 @@
     "by": "author-consent",
     "at": "2026-11-02T20:13Z",
     "consent_receipt": "81d8eeefe61b",
-    "note": "Inclusion consented by the commit author by email at 2026-11-02T20:13Z (receipt 81d8eeefe61b); selected commit 8798a39c742f: \"Retain duplicate playback occurrences through playlist edits\". LICENSE file at pin 8798a39c742f detected as GPL-3.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T20:13Z (receipt 81d8eeefe61b); selected commit 8798a39c742f: \"Retain duplicate playback occurrences through playlist edits\". LICENSE file at pin 8798a39c742f detected as GPL-3.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "8798a39c742fe3e884c2ee7be1abadf86ce6e3bd",
+     "at": "2026-11-02T20:13Z",
+     "receipt": "81d8eeefe61b"
+    }
    }
   }
  ]

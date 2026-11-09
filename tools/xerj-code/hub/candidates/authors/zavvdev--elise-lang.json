@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on lexer, parser, programming-language queries this for how zavvdev/elise-lang implements it: A schema-driven data transformation language that compiles type-optimized bytecode from pipeline expressions over structured data. Write onc (selected work: frontend, ir, shared)",
+ "domain": "an agent working on lexer, parser, programming-language queries this for how zavvdev/elise-lang implements it: A domain-specific language for schema-driven data processing, with ahead-of-time compilation to type-optimized bytecode. Write once, run aga (selected work: frontend, ir, shared)",
  "repos": [
   {
    "repo": "elise-lang",

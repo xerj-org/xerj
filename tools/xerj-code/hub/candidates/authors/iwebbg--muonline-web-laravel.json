@@ -1,0 +1,23 @@
+{
+ "corpus": "iwebbg--muonline-web-laravel",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on PHP queries this for how iwebbg/muonline-web-laravel implements it: iwebbg/muonline-web-laravel (PHP) (selected work: database, tests, app/Models)",
+ "repos": [
+  {
+   "repo": "muonline-web-laravel",
+   "url": "https://github.com/iwebbg/muonline-web-laravel",
+   "sha": "b0b3c485da17166b7df7cb40f3edd0a825d34433",
+   "licence": "MIT (LICENSE file at pin b0b3c485da17, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T21:27Z",
+    "consent_receipt": "8761d8a7d73b",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T21:27Z (receipt 8761d8a7d73b); selected commit b0b3c485da17: \"feat(demo): add version-aware fixtures\". LICENSE file at pin b0b3c485da17 detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+   }
+  }
+ ]
+}

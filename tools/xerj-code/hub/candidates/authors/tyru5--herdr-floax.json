@@ -1,0 +1,23 @@
+{
+ "corpus": "tyru5--herdr-floax",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on herdr, herdr-plugin, rust queries this for how Tyru5/herdr-floax implements it: Floating scratch shell for herdr \u2014 a tmux-floax style toggleable popup, one per workspace, with persistent sessions (selected work: src, scripts, the project root)",
+ "repos": [
+  {
+   "repo": "herdr-floax",
+   "url": "https://github.com/Tyru5/herdr-floax",
+   "sha": "3f52b52755aa53830e4107e2f641e041d948ff8e",
+   "licence": "MIT (LICENSE file at pin 3f52b52755aa, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T00:20Z",
+    "consent_receipt": "f1e57dbe752f",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T00:20Z (receipt f1e57dbe752f); selected commit 3f52b52755aa: \"Nest tmux windows and child sessions under picker roots, bump to 0.4.0\". LICENSE file at pin 3f52b52755aa detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

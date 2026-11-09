@@ -1,0 +1,23 @@
+{
+ "corpus": "cleverfox--kicad-jlcpcb-parts",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how cleverfox/kicad_jlcpcb_parts implements it: cleverfox/kicad_jlcpcb_parts (Python) (selected work: tests, jlclib, the project root)",
+ "repos": [
+  {
+   "repo": "kicad_jlcpcb_parts",
+   "url": "https://github.com/cleverfox/kicad_jlcpcb_parts",
+   "sha": "0190a1d23a9e18f318010fbb63fd540e807dca61",
+   "licence": "MIT (LICENSE file at pin 0190a1d23a9e, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T05:36Z",
+    "consent_receipt": "ecc312fcbbae",
+    "note": "Inclusion consented by the commit author by email at 2026-11-05T05:36Z (receipt ecc312fcbbae); selected commit 0190a1d23a9e: \"HTTP import/edit for UI\". LICENSE file at pin 0190a1d23a9e detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

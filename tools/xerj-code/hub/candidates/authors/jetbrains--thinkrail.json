@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agent, agent-skills, agentic-ai queries this for how JetBrains/thinkrail implements it: Vibe code with pi in a lightweight, real IDE that customises itself around the way you work \u2014 The Vibe You Need (selected work: packages/server, apps/web, packages/contracts)",
+ "domain": "an agent working on agent, agent-skills, agentic-ai queries this for how JetBrains/thinkrail implements it: ThinkRail is the agentic IDE that gets better every time you use it (selected work: packages/server, apps/web, packages/contracts)",
  "repos": [
   {
    "repo": "thinkrail",

@@ -1,0 +1,23 @@
+{
+ "corpus": "byte-od--mixture-of-scars",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on apple-silicon, artificial-intelligence, deep-learning queries this for how byte-od/mixture-of-scars implements it: Breaking the barrier between LLMs and hardware. Mixture of Scars (MoS) static weight compression & SCache O(1) constant KV-cache replacement (selected work: scar_cache, examples, tests)",
+ "repos": [
+  {
+   "repo": "mixture-of-scars",
+   "url": "https://github.com/byte-od/mixture-of-scars",
+   "sha": "54f8743222337b4aae199b4d88aa27b0115abbf8",
+   "licence": "MIT (LICENSE file at pin 54f874322233, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T13:09Z",
+    "consent_receipt": "4a628edfbcf0",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T13:09Z (receipt 4a628edfbcf0); selected commit 54f874322233: \"feat(hf): transplant SCache into HuggingFace LLM (SmolLM2-135M) via S\u2026\". LICENSE file at pin 54f874322233 detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+   }
+  }
+ ]
+}

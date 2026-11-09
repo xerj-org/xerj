@@ -2,8 +2,8 @@
  "corpus": "incadawr--anycode",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on TypeScript queries this for how incadawr/anycode implements it: incadawr/anycode (TypeScript) (selected work: apps/desktop, packages/core)",
+ "shelf": "AI",
+ "domain": "an agent working on ai-coding, claude-code, codex queries this for how incadawr/anycode implements it: Open-source desktop workspace for AI coding agents. Run Claude Code, Codex, or AnyCode's own agent on GLM, Kimi, MiniMax, DeepSeek, OpenRout (selected work: apps/desktop, packages/core)",
  "repos": [
   {
    "repo": "anycode",

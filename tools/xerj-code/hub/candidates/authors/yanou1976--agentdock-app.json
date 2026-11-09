@@ -1,0 +1,23 @@
+{
+ "corpus": "yanou1976--agentdock-app",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how yanou1976/agentdock-app implements it: yanou1976/agentdock-app (TypeScript)",
+ "repos": [
+  {
+   "repo": "agentdock-app",
+   "url": "https://github.com/yanou1976/agentdock-app",
+   "sha": "c117296c6b8097f87b5d9b78bd9480bea54abf0c",
+   "licence": "MIT (LICENSE file at pin c117296c6b80, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T05:20Z",
+    "consent_receipt": "ded41cc5d445",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T05:20Z (receipt ded41cc5d445); pinned to the default-branch head. LICENSE file at pin c117296c6b80 detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

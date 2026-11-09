@@ -1,0 +1,23 @@
+{
+ "corpus": "dvictor357--blaze",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on go, http-server, ai-agents queries this for how dvictor357/blaze implements it: Write a Go function once, expose it safely to OpenAI, Anthropic and MCP (selected work: examples)",
+ "repos": [
+  {
+   "repo": "blaze",
+   "url": "https://github.com/dvictor357/blaze",
+   "sha": "88abe536feb889e587b3bf25fd6cc7926362dc23",
+   "licence": "MIT (LICENSE file at pin 88abe536feb8, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T02:25Z",
+    "consent_receipt": "05bea5fe9915",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T02:25Z (receipt 05bea5fe9915); selected commit 88abe536feb8: \"feat(examples): add inventory demo with HTTP, MCP and Claude Code\". LICENSE file at pin 88abe536feb8 detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

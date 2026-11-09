@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on art, compositing, compositing-software queries this for how storytold/effectcraft implements it: EffectCraft: An open-source motion graphics and compositing tool written by scratch in pure Rust (selected work: crates/engine, crates/ui-egui)",
+ "domain": "an agent working on art, compositing, compositing-software queries this for how storytold/effectcraft implements it: EffectCraft: An open-source motion graphics and compositing tool written from scratch in pure Rust (selected work: crates/engine, crates/ui-egui)",
  "repos": [
   {
    "repo": "effectcraft",

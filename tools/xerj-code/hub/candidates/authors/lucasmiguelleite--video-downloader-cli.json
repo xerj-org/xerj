@@ -1,0 +1,30 @@
+{
+ "corpus": "lucasmiguelleite--video-downloader-cli",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Go queries this for how lucasmiguelleite/video-downloader-cli implements it: A lightweight CLI to download YouTube videos, Kick and Twitch VODS, built with Go (selected work: internal/hls, internal/httpbody, internal/twitch)",
+ "repos": [
+  {
+   "repo": "video-downloader-cli",
+   "url": "https://github.com/lucasmiguelleite/video-downloader-cli",
+   "sha": "8dd0b3bd4a6be6e37ae5a0caa6f95360a84dcac1",
+   "licence": "MIT (LICENSE file at pin 8dd0b3bd4a6b, GitHub licence API 2026-11-04)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-04T18:00Z",
+    "consent_receipt": "317fb1b8421e",
+    "note": "Inclusion consented by the commit author by email at 2026-11-04T18:00Z (receipt 317fb1b8421e); selected commit 8dd0b3bd4a6b: \"refactor: stream HLS segments to disk\". LICENSE file at pin 8dd0b3bd4a6b detected as MIT by the GitHub licence API on 2026-11-04; used under that licence with attribution. Pinned to head 8dd0b3bd4a6b (contains the selected commit): the LICENSE at the selected commit was GPL-3.0.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "cacb45628608fa1957ceaf889647372625881124",
+     "at": "2026-11-04T18:00Z",
+     "receipt": "317fb1b8421e"
+    }
+   }
+  }
+ ]
+}

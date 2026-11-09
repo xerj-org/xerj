@@ -1,0 +1,23 @@
+{
+ "corpus": "bohdaq--hitop",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on api-testing, cli, collections queries this for how bohdaq/hitop implements it: HTTP API testing tool \u2014 send requests, manage collections, automate with JS scripts. Available as a CLI (Rust/crates.io), desktop app (Tauri",
+ "repos": [
+  {
+   "repo": "hitop",
+   "url": "https://github.com/bohdaq/hitop",
+   "sha": "008ec87bdde6fa3260a8bcdff7031888110efcdf",
+   "licence": "MIT (LICENSE file at pin 008ec87bdde6, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T09:37Z",
+    "consent_receipt": "04471601807d",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T09:37Z (receipt 04471601807d); pinned to the default-branch head. LICENSE file at pin 008ec87bdde6 detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

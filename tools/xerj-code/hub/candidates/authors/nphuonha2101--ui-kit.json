@@ -1,0 +1,23 @@
+{
+ "corpus": "nphuonha2101--ui-kit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how nphuonha2101/ui-kit implements it: nphuonha2101/ui-kit (TypeScript) (selected work: apps/demo)",
+ "repos": [
+  {
+   "repo": "ui-kit",
+   "url": "https://github.com/nphuonha2101/ui-kit",
+   "sha": "0abb604a48c1e9b305e5dfce74f3071c33393eaa",
+   "licence": "MIT (LICENSE file at pin 0abb604a48c1, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T11:45Z",
+    "consent_receipt": "496d913e3288",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T11:45Z (receipt 496d913e3288); selected commit 0abb604a48c1: \"feat: add GSAP animations and motion components for enhanced UI inter\u2026\". LICENSE file at pin 0abb604a48c1 detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,30 @@
+{
+ "corpus": "wlenhard--cnorm",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on percentile, psychometrics, biometrics queries this for how WLenhard/cNORM implements it: Continuous Norming with R (selected work: inst)",
+ "repos": [
+  {
+   "repo": "cNORM",
+   "url": "https://github.com/WLenhard/cNORM",
+   "sha": "3c74dbf03643cce3899c5ba6a09faa84f8f59d1b",
+   "licence": "AGPL-3.0 (LICENSE file at pin 3c74dbf03643, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-07T16:22Z",
+    "consent_receipt": "449ce78408ae",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T16:22Z (receipt 449ce78408ae); selected commit 3c74dbf03643: \"shiny app revision\". LICENSE file at pin 3c74dbf03643 detected as AGPL-3.0 by the GitHub licence API on 2026-11-07; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "3c74dbf03643cce3899c5ba6a09faa84f8f59d1b",
+     "at": "2026-11-07T16:22Z",
+     "receipt": "449ce78408ae"
+    }
+   }
+  }
+ ]
+}

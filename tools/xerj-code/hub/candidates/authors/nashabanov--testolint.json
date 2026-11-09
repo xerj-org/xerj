@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on golang, linter, testo queries this for how nashabanov/testolint implements it: Static analyzer and linter for Go tests using Testo, catching common mistakes and enforcing best practices (selected work: analyzer, cmd/testolint, plugin)",
+ "domain": "an agent working on golang, linter, testo queries this for how nashabanov/testolint implements it: Linter for Go tests using Testo, catching common mistakes and enforcing best practices (selected work: analyzer, cmd/testolint, plugin)",
  "repos": [
   {
    "repo": "testolint",

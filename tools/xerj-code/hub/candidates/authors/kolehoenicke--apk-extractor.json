@@ -1,0 +1,23 @@
+{
+ "corpus": "kolehoenicke--apk-extractor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, apk, apk-extractor queries this for how KoleHoenicke/apk-extractor implements it: A free, ad-free, open-source APK extraction utility for Android (selected work: app/src, app)",
+ "repos": [
+  {
+   "repo": "apk-extractor",
+   "url": "https://github.com/KoleHoenicke/apk-extractor",
+   "sha": "cd333a4386a55bedc22ec841772f164f8f091cea",
+   "licence": "Apache-2.0 (LICENSE file at pin cd333a4386a5, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T18:40Z",
+    "consent_receipt": "aa08bee97c83",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T18:40Z (receipt aa08bee97c83); selected commit cd333a4386a5: \"Fix short-window scrollbar crashes and serialize export completion\". LICENSE file at pin cd333a4386a5 detected as Apache-2.0 by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

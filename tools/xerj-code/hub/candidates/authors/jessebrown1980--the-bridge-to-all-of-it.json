@@ -1,0 +1,23 @@
+{
+ "corpus": "jessebrown1980--the-bridge-to-all-of-it",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on HTML queries this for how JesseBrown1980/the-bridge-to-all-of-it implements it: Every public thing on this account in one place, so none of it gets lost. MEASURED: 182 public repos, 25 open in one click, 137 were islands",
+ "repos": [
+  {
+   "repo": "the-bridge-to-all-of-it",
+   "url": "https://github.com/JesseBrown1980/the-bridge-to-all-of-it",
+   "sha": "499a0bc7fe0a98b38b25c073eeec001b3e5ff166",
+   "licence": "author's permission (LICENSE at pin 499a0bc7fe0a: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T14:53Z",
+    "consent_receipt": "08cded54053e",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T14:53Z (receipt 08cded54053e); pinned to the default-branch head. LICENSE at pin 499a0bc7fe0a: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

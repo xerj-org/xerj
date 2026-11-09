@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Go queries this for how FoxesRCool1/FoxTrack-Bridge implements it: A bridge to connect printers to FoxTrack (selected work: ai, the project root, web)",
+ "domain": "an agent working on Go queries this for how FoxesRCool1/FoxTrack-Bridge implements it: Self-hosted dashboard for Bambu Lab, Klipper, PrusaLink and OctoPrint printers: cameras, alerts, timelapses and print costs (selected work: ai, the project root, web)",
  "repos": [
   {
    "repo": "FoxTrack-Bridge",

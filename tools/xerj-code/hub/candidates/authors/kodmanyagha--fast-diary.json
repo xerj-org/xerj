@@ -1,0 +1,30 @@
+{
+ "corpus": "kodmanyagha--fast-diary",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how kodmanyagha/fast-diary implements it: kodmanyagha/fast-diary (Rust) (selected work: src/view)",
+ "repos": [
+  {
+   "repo": "fast-diary",
+   "url": "https://github.com/kodmanyagha/fast-diary",
+   "sha": "c20a45b66a0d3908a1db383de6f9be958d2c924d",
+   "licence": "GPL-3.0 (LICENSE file at pin c20a45b66a0d, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-09T07:18Z",
+    "consent_receipt": "af70bef8d321",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T07:18Z (receipt af70bef8d321); selected commit c20a45b66a0d: \"undo history\". LICENSE file at pin c20a45b66a0d detected as GPL-3.0 by the GitHub licence API on 2026-11-09; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "c20a45b66a0d3908a1db383de6f9be958d2c924d",
+     "at": "2026-11-09T07:18Z",
+     "receipt": "af70bef8d321"
+    }
+   }
+  }
+ ]
+}

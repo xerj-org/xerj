@@ -1,0 +1,23 @@
+{
+ "corpus": "linzichengcsu--my-blogger",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on elasticsearch, react, redis queries this for how linzichengcsu/My-Blogger implements it: \u884c\u541f\u535a\u5ba2 \u2014 \u57fa\u4e8e Spring Boot 4.1 + React 19 \u6784\u5efa\u7684\u8f7b\u91cf\u7ea7\u4e2a\u4eba\u535a\u5ba2\u7cfb\u7edf\uff0c\u652f\u6301 JWT \u8ba4\u8bc1\u3001Redis \u7f13\u5b58\u3001ElasticSearch \u5168\u6587\u68c0\u7d22\u3001Docker \u4e00\u952e\u90e8\u7f72\u3002 (selected work: frontend, the project root)",
+ "repos": [
+  {
+   "repo": "My-Blogger",
+   "url": "https://github.com/linzichengcsu/My-Blogger",
+   "sha": "9e084eea4f0bd2c6b37e6b5b0e59b188c3d057ef",
+   "licence": "MIT (LICENSE file at pin 9e084eea4f0b, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T04:31Z",
+    "consent_receipt": "bb01012b5834",
+    "note": "Inclusion consented by the commit author by email at 2026-11-05T04:31Z (receipt bb01012b5834); selected commit 9e084eea4f0b: \"test(frontend): introduce vitest and 64 unit tests for frontend, 1 bu\u2026\". LICENSE file at pin 9e084eea4f0b detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

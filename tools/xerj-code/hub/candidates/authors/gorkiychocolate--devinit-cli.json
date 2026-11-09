@@ -1,0 +1,23 @@
+{
+ "corpus": "gorkiychocolate--devinit-cli",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how GorkiyChocolate/DevInit-CLI implements it: GorkiyChocolate/DevInit-CLI (Rust) (selected work: src/downloader, src/cli, the project root)",
+ "repos": [
+  {
+   "repo": "DevInit-CLI",
+   "url": "https://github.com/GorkiyChocolate/DevInit-CLI",
+   "sha": "d51707c3fc0106cf2482e6d6297f36672a2f695f",
+   "licence": "Apache-2.0 (LICENSE file at pin d51707c3fc01, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T22:08Z",
+    "consent_receipt": "509b248f6ee2",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T22:08Z (receipt 509b248f6ee2); selected commit d51707c3fc01: \"feat: finalize v0.0.4 with resumable CLI downloads\". LICENSE file at pin d51707c3fc01 detected as Apache-2.0 by the GitHub licence API on 2026-11-08; used under that licence with attribution. Pinned to head d51707c3fc01 (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

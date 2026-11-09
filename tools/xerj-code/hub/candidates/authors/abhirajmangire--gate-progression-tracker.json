@@ -1,0 +1,23 @@
+{
+ "corpus": "abhirajmangire--gate-progression-tracker",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on HTML queries this for how abhirajmangire/Gate-progression-tracker implements it: abhirajmangire/Gate-progression-tracker (HTML)",
+ "repos": [
+  {
+   "repo": "Gate-progression-tracker",
+   "url": "https://github.com/abhirajmangire/Gate-progression-tracker",
+   "sha": "2f1aab8f451ec0e975a0a890ae23f3db3b9e64dc",
+   "licence": "author's permission (LICENSE at pin 2f1aab8f451e: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T14:15Z",
+    "consent_receipt": "054edcd53cbd",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T14:15Z (receipt 054edcd53cbd); pinned to the default-branch head. LICENSE at pin 2f1aab8f451e: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

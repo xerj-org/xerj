@@ -1,0 +1,23 @@
+{
+ "corpus": "danilchizhikov--termforge",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how DanilChizhikov/termforge implements it: DanilChizhikov/termforge (C#) (selected work: src/Tests, src/Api)",
+ "repos": [
+  {
+   "repo": "termforge",
+   "url": "https://github.com/DanilChizhikov/termforge",
+   "sha": "f868f789125ad66c0819b6413774cf516a1d9bc5",
+   "licence": "MIT (LICENSE file at pin f868f789125a, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T16:12Z",
+    "consent_receipt": "f6f7005e2a27",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T16:12Z (receipt f6f7005e2a27); selected commit f868f789125a: \"fixed exit races and shutdown admission\". LICENSE file at pin f868f789125a detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

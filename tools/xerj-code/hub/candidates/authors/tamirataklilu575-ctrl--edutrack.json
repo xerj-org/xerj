@@ -1,0 +1,23 @@
+{
+ "corpus": "tamirataklilu575-ctrl--edutrack",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on Python queries this for how tamirataklilu575-ctrl/edutrack implements it: Student management web app built with Flask and SQLite (selected work: tests, the project root, templates)",
+ "repos": [
+  {
+   "repo": "edutrack",
+   "url": "https://github.com/tamirataklilu575-ctrl/edutrack",
+   "sha": "a63e78d22a176c9da808680df5c5c01fd19ce33b",
+   "licence": "MIT (LICENSE file at pin a63e78d22a17, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T19:12Z",
+    "consent_receipt": "0a1bb29a9a4d",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T19:12Z (receipt 0a1bb29a9a4d); selected commit a63e78d22a17: \"feat: close public registration, add owner and admin-managed accounts\". LICENSE file at pin a63e78d22a17 detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+   }
+  }
+ ]
+}

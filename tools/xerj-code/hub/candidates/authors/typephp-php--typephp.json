@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on PHP queries this for how typephp-php/typephp implements it: Pure PHP Transparent Runtime Enforcement of PHPdoctype, with support for generics, type-arrays, (selected work: src/Internal, tests)",
+ "domain": "an agent working on PHP queries this for how typephp-php/typephp implements it: Pure PHP Transparent Runtime Enforcement of PHPdoctype, with support for generics, type-arrays, and scalar refiinements (selected work: src/Internal, tests)",
  "repos": [
   {
    "repo": "typephp",

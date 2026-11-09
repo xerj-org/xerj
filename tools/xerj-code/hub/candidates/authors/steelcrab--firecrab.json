@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Rust queries this for how SteelCrab/firecrab implements it: A self-hosted MicroVM platform for operations, hosting, and AI agents (selected work: firecrab-cli, firecrab-helper-protocol, firecrab-e2e)",
+ "domain": "an agent working on Rust queries this for how SteelCrab/firecrab implements it: An open-source microVM platform for apps and AI agents on your own server (selected work: firecrab-cli, firecrab-helper-protocol, firecrab-e2e)",
  "repos": [
   {
    "repo": "firecrab",

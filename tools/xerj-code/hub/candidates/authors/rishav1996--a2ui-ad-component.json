@@ -1,0 +1,23 @@
+{
+ "corpus": "rishav1996--a2ui-ad-component",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on a2ui, gemini, generative-ui queries this for how Rishav1996/a2ui-ad-component implements it: A production-grade Google ADK multi-agent framework implementing A2UI v0.9 Commercial UI Components (AdBanner & SponsoredCard) with real-tim (selected work: google_a2a_agent, tests)",
+ "repos": [
+  {
+   "repo": "a2ui-ad-component",
+   "url": "https://github.com/Rishav1996/a2ui-ad-component",
+   "sha": "859ac2d9fa114a9ff02fd125065200e4408fe1bd",
+   "licence": "Apache-2.0 (LICENSE file at pin 859ac2d9fa11, GitHub licence API 2026-11-06)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T11:03Z",
+    "consent_receipt": "c7b959878a33",
+    "note": "Inclusion consented by the commit author by email at 2026-11-06T11:03Z (receipt c7b959878a33); selected commit 859ac2d9fa11: \"feat(intent): eliminate hardcoded intent keywords in favor of dynamic\u2026\". LICENSE file at pin 859ac2d9fa11 detected as Apache-2.0 by the GitHub licence API on 2026-11-06; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "alountk--bloodbowl-project",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how Alountk/Bloodbowl_Project implements it: Alountk/Bloodbowl_Project (TypeScript) (selected work: features, e2e, app/leagues)",
+ "repos": [
+  {
+   "repo": "Bloodbowl_Project",
+   "url": "https://github.com/Alountk/Bloodbowl_Project",
+   "sha": "758e017ac4545622416e0ec62731f10744a39a9b",
+   "licence": "MIT (LICENSE file at pin 758e017ac454, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T14:45Z",
+    "consent_receipt": "81051cb5331d",
+    "note": "Inclusion consented by the commit author by email at 2026-11-05T14:45Z (receipt 81051cb5331d); selected commit 758e017ac454: \"feat(ui-refresh): add leagues V2 seam (refs #347)\". LICENSE file at pin 758e017ac454 detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

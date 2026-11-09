@@ -1,0 +1,23 @@
+{
+ "corpus": "jessebrown1980--finite-reversible-ternary-physics",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how JesseBrown1980/finite-reversible-ternary-physics implements it: JesseBrown1980/finite-reversible-ternary-physics (C++)",
+ "repos": [
+  {
+   "repo": "finite-reversible-ternary-physics",
+   "url": "https://github.com/JesseBrown1980/finite-reversible-ternary-physics",
+   "sha": "f3f192657f736749ebe8e2bbbd425d6b9019ef79",
+   "licence": "MIT (LICENSE file at pin f3f192657f73, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T14:53Z",
+    "consent_receipt": "c61f2b6ca423",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T14:53Z (receipt c61f2b6ca423); pinned to the default-branch head. LICENSE file at pin f3f192657f73 detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

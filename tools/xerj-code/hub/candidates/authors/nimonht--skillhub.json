@@ -1,0 +1,23 @@
+{
+ "corpus": "nimonht--skillhub",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-skills, ai-agents, claude-code queries this for how nimonht/skillhub implements it: One skills folder for every coding agent: native Qt 6 manager and CLI for Linux, macOS and Windows (selected work: src/core, tests, qml)",
+ "repos": [
+  {
+   "repo": "skillhub",
+   "url": "https://github.com/nimonht/skillhub",
+   "sha": "d26546c67d9df0a27b4a908a732deb00517a1fc5",
+   "licence": "MIT (LICENSE file at pin d26546c67d9d, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T05:21Z",
+    "consent_receipt": "106fc251a66f",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T05:21Z (receipt 106fc251a66f); selected commit d26546c67d9d: \"Know what a skill does before an agent follows it\". LICENSE file at pin d26546c67d9d detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}
