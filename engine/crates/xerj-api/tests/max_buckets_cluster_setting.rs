@@ -263,6 +263,61 @@ async fn a_composite_size_over_the_cluster_limit_is_refused() {
     answered(status, &body, 3);
 }
 
+/// Over two indices, ES trims the reduced `terms` and `composite` buckets to
+/// `size` before counting them, so `size: 3` at a limit of 3 answers even
+/// when each index holds three different keys. XERJ's cross-index merge
+/// keeps the union of the keys (trimming it is a separate fix), so this only
+/// checks that the count does not refuse the search.
+#[tokio::test]
+async fn a_multi_index_search_counts_at_most_size_buckets() {
+    let (app, _dir) = app().await;
+    for (index, keywords) in [("a", ["k1", "k2", "k3"]), ("b", ["k4", "k5", "k6"])] {
+        let (status, got) = send(
+            &app,
+            "PUT",
+            &format!("/{index}"),
+            "application/json",
+            json!({"mappings": {"properties": {"keyword": {"type": "keyword"}}}}).to_string(),
+        )
+        .await;
+        assert!(status.is_success(), "create {index}: {status} {got}");
+        let mut bulk = String::new();
+        for keyword in keywords {
+            bulk.push_str("{\"index\":{}}\n");
+            bulk.push_str(&format!("{{\"keyword\":\"{keyword}\"}}\n"));
+        }
+        let (status, got) = send(
+            &app,
+            "POST",
+            &format!("/{index}/_bulk?refresh=true"),
+            "application/x-ndjson",
+            bulk,
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{got}");
+        assert_eq!(got["errors"], false, "{got}");
+    }
+    put_settings(&app, json!({"persistent": {"search.max_buckets": 3}})).await;
+
+    for body in [
+        json!({"size": 0, "aggs": {"test": {"terms": {"field": "keyword", "size": 3}}}}),
+        json!({"size": 0, "aggs": {"test": {"composite": {
+            "size": 3,
+            "sources": [{"kw": {"terms": {"field": "keyword"}}}]
+        }}}}),
+    ] {
+        let (status, got) = send(
+            &app,
+            "POST",
+            "/a,b/_search",
+            "application/json",
+            body.to_string(),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{body} -> {got}");
+    }
+}
+
 /// In `_msearch` the item over the limit fails on its own, with the
 /// `_search` error, and the other items still answer.
 #[tokio::test]
