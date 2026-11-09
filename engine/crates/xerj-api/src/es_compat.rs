@@ -8301,7 +8301,8 @@ fn find_invalid_agg_order_path(aggs: Option<&Value>) -> Option<String> {
 ///   found duplicates: [..]`;
 /// * `missing_order` other than `default` without `missing_bucket: true` →
 ///   `missingOrder can only be set if missingBucket is true`;
-/// * `size` above `search.max_buckets` → ES's too-many-buckets message;
+/// * `size` (default 10) above `search.max_buckets` → ES's too-many-buckets
+///   message;
 /// * a parent other than `nested`, `reverse_nested` or `filter` (through any
 ///   chain of those) → `[composite] aggregation cannot be used with a parent
 ///   aggregation of type: [..AggregatorFactory]`.
@@ -8375,7 +8376,12 @@ fn find_invalid_composite_agg_with_cap(aggs: Option<&Value>, cap: u64) -> Option
                 duplicates.join(", ")
             ));
         }
-        if let Some(size) = params.get("size").and_then(Value::as_u64) {
+        // ES checks the `size` it will use, so a missing one is its default
+        // of 10, and a numeric string counts as its number.
+        let size = params.get("size").map_or(Some(10), |size| {
+            size.as_u64().or_else(|| size.as_str()?.trim().parse().ok())
+        });
+        if let Some(size) = size {
             if size > cap {
                 return Some(format!(
                     "Trying to create too many buckets. Must be less than or equal to: [{cap}] \
@@ -20134,6 +20140,15 @@ async fn search_impl(
                     .and_then(|s| s.split(']').next())
                     .and_then(|s| s.parse().ok())
                     .unwrap_or(65_536);
+                // A lower `search.max_buckets` is the limit the client set,
+                // so the error names it, as ES's would.
+                if max_buckets < max_b {
+                    return (
+                        StatusCode::BAD_REQUEST,
+                        Json(too_many_buckets_body(max_buckets)),
+                    )
+                        .into_response();
+                }
                 return (
                     StatusCode::BAD_REQUEST,
                     Json(json!({
@@ -31066,7 +31081,9 @@ async fn msearch_impl(
                 search_body_val
                     .get("aggs")
                     .or_else(|| search_body_val.get("aggregations")),
-                max_buckets,
+                // `_search` also checks the node's own cap while it builds
+                // the request; `_msearch` has only this check.
+                max_buckets.min(xerj_engine::aggs::max_buckets() as u64),
             )
             .or_else(|| {
                 find_invalid_agg_params(
@@ -31366,8 +31383,9 @@ async fn msearch_impl(
             continue;
         }
 
-        // Over `search.max_buckets`, this item fails as `_search` would; the
-        // rest of the batch still runs.
+        // Over `search.max_buckets`, this item fails with `_search`'s error;
+        // the rest of the batch still runs. Unlike `_search`, an error the
+        // engine left inside an aggregation result is not mapped here.
         if let (Some(aggs_req), Some(aggs)) = (
             search_body_val
                 .get("aggs")

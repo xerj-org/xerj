@@ -346,3 +346,93 @@ async fn an_msearch_item_over_the_limit_fails_alone() {
         "{body}"
     );
 }
+
+/// ES checks the composite `size` it will use: a missing one is its default
+/// of 10, and a numeric string counts as its number.
+#[tokio::test]
+async fn a_composite_without_size_is_checked_at_its_default_of_ten() {
+    let (app, _dir) = seeded().await;
+    let sources = json!([{"kw": {"terms": {"field": "keyword"}}}]);
+
+    put_settings(&app, json!({"persistent": {"search.max_buckets": 3}})).await;
+    let (status, body) = search(
+        &app,
+        json!({"size": 0, "aggs": {"test": {"composite": {"sources": sources}}}}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    assert!(
+        body.to_string()
+            .contains("Must be less than or equal to: [3] but was [10]"),
+        "{body}"
+    );
+    let (status, body) = search(
+        &app,
+        json!({"size": 0, "aggs": {"test": {"composite": {"size": "5", "sources": sources}}}}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    assert!(
+        body.to_string()
+            .contains("Must be less than or equal to: [3] but was [5]"),
+        "{body}"
+    );
+
+    put_settings(&app, json!({"persistent": {"search.max_buckets": 10}})).await;
+    let (status, body) = search(
+        &app,
+        json!({"size": 0, "aggs": {"test": {"composite": {"sources": sources}}}}),
+    )
+    .await;
+    answered(status, &body, 8);
+}
+
+/// Named `filters` buckets come back as an object, not an array; each one is
+/// still a bucket in the count.
+#[tokio::test]
+async fn keyed_buckets_are_counted() {
+    let (app, _dir) = seeded().await;
+    let named = json!({"size": 0, "aggs": {"test": {"filters": {"filters": {
+        "a": {"term": {"keyword": "foo"}},
+        "b": {"term": {"keyword": "bar"}},
+        "c": {"term": {"keyword": "baz"}}
+    }}}}});
+
+    put_settings(&app, json!({"persistent": {"search.max_buckets": 2}})).await;
+    let (status, body) = search(&app, named.clone()).await;
+    too_many_buckets(status, &body, 2);
+
+    put_settings(&app, json!({"persistent": {"search.max_buckets": 3}})).await;
+    let (status, body) = search(&app, named).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(
+        body["aggregations"]["test"]["buckets"]
+            .as_object()
+            .map(|b| b.len()),
+        Some(3),
+        "{body}"
+    );
+}
+
+/// A setting above the node's own cap does not raise that cap, in `_msearch`
+/// as in `_search`.
+#[tokio::test]
+async fn an_msearch_composite_over_the_node_cap_is_refused() {
+    let (app, _dir) = seeded().await;
+    put_settings(&app, json!({"persistent": {"search.max_buckets": 100000}})).await;
+    let header = json!({"index": "test"}).to_string();
+    let big = json!({"size": 0, "aggs": {"test": {"composite": {
+        "size": 70000,
+        "sources": [{"kw": {"terms": {"field": "keyword"}}}]
+    }}}});
+    let ndjson = format!("{header}\n{big}\n");
+    let (status, body) = send(&app, "POST", "/_msearch", "application/x-ndjson", ndjson).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let item = &body["responses"][0];
+    assert_eq!(item["status"], 400, "{body}");
+    assert!(
+        item.to_string()
+            .contains("Must be less than or equal to: [65536] but was [70000]"),
+        "{body}"
+    );
+}
