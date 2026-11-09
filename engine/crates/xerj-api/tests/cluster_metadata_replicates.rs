@@ -790,11 +790,19 @@ async fn a_quorum_of_copies_acks_when_one_of_two_replicas_does_not() {
         "{body}"
     );
 
+    // Neither replica confirmed a write the primary applied, so both left
+    // the in-sync set before the 503 returned.
+    wait_in_sync(&members, shard, &[]).await;
+
     members[replica_b]
         .handle
         .set_shard_handler(std::sync::Arc::new(ApiShardHandler::new(
             members[replica_b].state.clone(),
         )));
+    // Backfill copies the refused write onto replica_b and publishes it
+    // again. Until then the primary has no in-sync replica to make a quorum.
+    let live_id = members[replica_b].handle.node_id().to_string();
+    wait_in_sync(&members, shard, std::slice::from_ref(&live_id)).await;
 
     let (status, body) = put_json(
         &members[writer].app,
@@ -854,7 +862,6 @@ async fn a_quorum_of_copies_acks_when_one_of_two_replicas_does_not() {
         "the replica that did not confirm does not have the document: {on_stale:?}"
     );
 
-    let live_id = members[replica_b].handle.node_id().to_string();
     wait_in_sync(&members, shard, &[live_id]).await;
     assert_eq!(
         members[primary]
@@ -3494,4 +3501,142 @@ async fn cluster_disabled_native_doc_stays_on_the_node_that_received_it() {
     );
     let (status, _) = get(&es_a, "/local/_doc/1").await;
     assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
+/// With one replica, a write the replica does not confirm is refused, but the
+/// primary has already applied it. The replica must leave the in-sync set
+/// before the 503 returns, or it is never backfilled and a failover serves
+/// a copy that is missing those documents.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_replica_that_misses_a_refused_write_leaves_the_in_sync_set_and_is_backfilled() {
+    const DOCS: usize = 200;
+    let members = ring(true).await;
+    let _leader = wait_leader(&members, &[false, false, false]).await;
+
+    let (status, body) = put_json(
+        &members[0].app,
+        "/orders",
+        json!({ "settings": { "index": { "number_of_replicas": 1 } } }),
+    )
+    .await;
+    assert!(status.is_success(), "create: {status} {body}");
+    for member in &members {
+        wait_status(&member.app, "/orders", StatusCode::OK).await;
+    }
+
+    let mut target = None;
+    for n in 0..64 {
+        let id = format!("s{n}");
+        let Some(primary) = members
+            .iter()
+            .position(|member| member.engine.owns_shard("orders", &id))
+        else {
+            continue;
+        };
+        let (shard, _) = members[primary]
+            .engine
+            .primary_of("orders", &id)
+            .expect("placement");
+        let replicas = members[primary]
+            .engine
+            .placed_replica_nodes("orders", shard);
+        if replicas.len() != 1 {
+            continue;
+        }
+        target = Some((primary, position_of(&members, &replicas[0]), shard));
+        break;
+    }
+    let (primary, replica, shard) = target.expect("a shard with one replica");
+    let other = (0..3)
+        .find(|n| *n != primary && *n != replica)
+        .expect("a third member");
+    let replica_id = members[replica].handle.node_id().to_string();
+
+    let mut ids = Vec::new();
+    let mut n = 0;
+    while ids.len() < DOCS {
+        let id = format!("doc{n}");
+        n += 1;
+        if members[primary]
+            .engine
+            .primary_of("orders", &id)
+            .is_some_and(|(doc_shard, _)| doc_shard == shard)
+        {
+            ids.push(id);
+        }
+    }
+
+    members[replica].handle.clear_shard_handler();
+    for id in &ids {
+        let (status, body) = put_json(
+            &members[primary].app,
+            &format!("/orders/_doc/{id}"),
+            json!({ "title": id }),
+        )
+        .await;
+        assert_eq!(
+            status,
+            StatusCode::SERVICE_UNAVAILABLE,
+            "primary alone is not a quorum of two copies: {status} {body}"
+        );
+        assert_eq!(
+            body.pointer("/error/type").and_then(|v| v.as_str()),
+            Some("replica_not_acknowledged"),
+            "{body}"
+        );
+    }
+    assert_eq!(
+        primary_shard_sources(&members[primary], shard).await.len(),
+        DOCS,
+        "the primary applied every refused write"
+    );
+
+    for at in [primary, replica, other] {
+        let in_sync = members[at].engine.replica_nodes("orders", shard);
+        assert!(
+            !in_sync.iter().any(|id| id == &replica_id),
+            "member {at} still lists {replica_id} in sync for shard {shard} after it missed {DOCS} writes: {in_sync:?}"
+        );
+    }
+    assert!(
+        replica_sources(&members[replica], shard).await.len() < DOCS,
+        "the replica that refused copies does not have them"
+    );
+
+    restore_handler(&members[replica]);
+    wait_refilled(&members[primary], &members[replica], shard, &replica_id).await;
+    assert_eq!(
+        replica_sources(&members[replica], shard).await.len(),
+        DOCS,
+        "backfill copied every document the primary kept"
+    );
+    wait_in_sync(&members, shard, std::slice::from_ref(&replica_id)).await;
+
+    members[primary].handle.clear_shard_handler();
+    let (status, body) = post_json(
+        &members[other].app,
+        "/orders/_search",
+        json!({ "query": { "match_all": {} }, "size": 0 }),
+    )
+    .await;
+    assert!(
+        status.is_success(),
+        "search after the primary stops: {status} {body}"
+    );
+    assert_eq!(
+        body.pointer("/hits/total/value").and_then(|v| v.as_u64()),
+        Some(DOCS as u64),
+        "failover search total: {body}"
+    );
+    for id in &ids {
+        let (status, body) = get(&members[other].app, &format!("/orders/_doc/{id}")).await;
+        assert!(
+            status.is_success(),
+            "GET {id} after the primary stops: {status} {body}"
+        );
+    }
+
+    for member in &members {
+        let _ = member.shutdown.send(true);
+    }
 }
