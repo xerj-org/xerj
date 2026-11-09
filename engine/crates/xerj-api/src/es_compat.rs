@@ -14409,6 +14409,11 @@ async fn search_impl(
     // `?sort=` merge so a URL-provided sort counts toward the arity/field rules
     // exactly as ES does (URL sort + body search_after is valid; URL sort +
     // body rescore is rejected — both live-verified).
+    if let Some(reason) =
+        find_matrix_stats_script(&[body.aggs.as_ref(), body.aggregations.as_ref()])
+    {
+        return es_bad_request("parsing_exception", &reason, None);
+    }
     if let Some(err) = validate_search_after_rescore(&body) {
         return err;
     }
@@ -44763,6 +44768,177 @@ pub async fn close_pit(
         _ => 0,
     };
     Json(json!({ "succeeded": freed > 0, "num_freed": freed })).into_response()
+}
+
+/// `matrix_stats` reads several numeric fields at once through ES's
+/// array-values-source parser, which takes `fields`, `missing` and `mode`
+/// and has no `script`. A `script` is an unexpected token to that parser, so
+/// ES refuses the request before it runs: a 400 `parsing_exception`,
+/// `Unexpected token START_OBJECT [script] in [mfs].`. XERJ ignored the
+/// script and answered 200 with statistics over `fields`, which hides that
+/// the script never ran.
+fn find_matrix_stats_script(aggs: &[Option<&Value>]) -> Option<String> {
+    fn token(v: &Value) -> &'static str {
+        match v {
+            Value::Null => "VALUE_NULL",
+            Value::Bool(_) => "VALUE_BOOLEAN",
+            Value::Number(_) => "VALUE_NUMBER",
+            Value::String(_) => "VALUE_STRING",
+            Value::Array(_) => "START_ARRAY",
+            Value::Object(_) => "START_OBJECT",
+        }
+    }
+    fn walk(level: &serde_json::Map<String, Value>) -> Option<String> {
+        for (name, def) in level {
+            let Some(obj) = def.as_object() else {
+                continue;
+            };
+            if let Some(script) = obj.get("matrix_stats").and_then(|p| p.get("script")) {
+                return Some(format!(
+                    "Unexpected token {} [script] in [{name}].",
+                    token(script)
+                ));
+            }
+            if let Some(found) = obj
+                .get("aggs")
+                .or_else(|| obj.get("aggregations"))
+                .and_then(Value::as_object)
+                .and_then(walk)
+            {
+                return Some(found);
+            }
+        }
+        None
+    }
+    aggs.iter()
+        .flatten()
+        .filter_map(|a| a.as_object())
+        .find_map(walk)
+}
+
+#[cfg(test)]
+mod matrix_stats_script_tests {
+    use super::*;
+    use axum::{body::Body, http::Request};
+    use tower::ServiceExt;
+    use xerj_common::{
+        config::{Config, WalSync},
+        metrics::Metrics,
+    };
+    use xerj_engine::Engine;
+
+    fn test_state() -> AppState {
+        let dir = tempfile::tempdir().expect("tempdir").keep();
+        let mut config = Config::default();
+        config.server.data_dir = dir.to_string_lossy().into_owned();
+        config.storage.wal_sync = WalSync::Async;
+        let metrics = Metrics::new().expect("metrics");
+        let engine = Engine::new(config.clone()).expect("engine");
+        AppState::new(config, engine, metrics)
+    }
+
+    async fn send(app: &axum::Router, method: &str, uri: &str, body: Value) -> (StatusCode, Value) {
+        let resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(method)
+                    .uri(uri)
+                    .header("content-type", "application/json")
+                    .body(Body::from(body.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let status = resp.status();
+        let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        (status, serde_json::from_slice(&bytes).unwrap())
+    }
+
+    /// The matrix_stats YAML fixture: three doubles, a few documents.
+    async fn app() -> axum::Router {
+        let app = crate::router::build_es_compat_router(test_state());
+        let mapping = json!({"mappings": {"properties": {
+            "val1": {"type": "double"}, "val2": {"type": "double"}, "val3": {"type": "double"},
+            "k": {"type": "keyword"}}}});
+        let (status, body) = send(&app, "PUT", "/test", mapping).await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        for (id, a, b, c) in [
+            ("1", 1.0, 2.0, 3.0),
+            ("2", 2.0, 3.5, 1.0),
+            ("3", 4.0, 1.0, 2.5),
+        ] {
+            let doc = json!({"val1": a, "val2": b, "val3": c, "k": "x"});
+            let (status, body) =
+                send(&app, "PUT", &format!("/test/_doc/{id}?refresh=true"), doc).await;
+            assert!(status.is_success(), "{body}");
+        }
+        app
+    }
+
+    fn script() -> Value {
+        json!({"my_script": {"source": "1 + doc['val1'].value", "lang": "js"}})
+    }
+
+    /// FAIL-BEFORE: each answered 200 with statistics over `fields`.
+    #[tokio::test]
+    async fn a_script_on_matrix_stats_is_a_parsing_exception() {
+        let app = app().await;
+        let with_params = json!({"my_script": {"source": "my_var + doc['val1'].value",
+            "params": {"my_var": 1}, "lang": "js"}});
+        for (aggs, reason) in [
+            (
+                json!({"mfs": {"matrix_stats": {"fields": ["val1", "val2"], "script": script()}}}),
+                "Unexpected token START_OBJECT [script] in [mfs].",
+            ),
+            (
+                json!({"mfs": {"matrix_stats": {"fields": ["val1", "val2", "val3"], "script": with_params}}}),
+                "Unexpected token START_OBJECT [script] in [mfs].",
+            ),
+            (
+                json!({"mfs": {"matrix_stats": {"fields": ["val1"], "script": "doc['val1'].value"}}}),
+                "Unexpected token VALUE_STRING [script] in [mfs].",
+            ),
+            (
+                json!({"by_k": {"terms": {"field": "k"},
+                    "aggs": {"inner": {"matrix_stats": {"fields": ["val1"], "script": script()}}}}}),
+                "Unexpected token START_OBJECT [script] in [inner].",
+            ),
+        ] {
+            let body = json!({"size": 0, "aggs": aggs});
+            let (status, resp) = send(&app, "POST", "/test/_search", body.clone()).await;
+            assert_eq!(status, StatusCode::BAD_REQUEST, "{body} -> {resp}");
+            assert_eq!(resp["error"]["type"], "parsing_exception", "{body}");
+            assert_eq!(
+                resp["error"]["root_cause"][0]["type"], "parsing_exception",
+                "{body}"
+            );
+            assert_eq!(resp["error"]["reason"], reason, "{body}");
+        }
+    }
+
+    /// `matrix_stats` over fields (with `mode` and `missing`) and a script on
+    /// another aggregation keep answering.
+    #[tokio::test]
+    async fn matrix_stats_without_a_script_still_answers() {
+        let app = app().await;
+        for aggs in [
+            json!({"mfs": {"matrix_stats": {"fields": ["val1", "val2"]}}}),
+            json!({"mfs": {"matrix_stats": {"fields": ["val1", "val3"], "mode": "avg",
+                "missing": {"val3": 0}}}}),
+            json!({"m": {"max": {"field": "val1"}}}),
+        ] {
+            let body = json!({"size": 0, "aggs": aggs});
+            let (status, resp) = send(&app, "POST", "/test/_search", body.clone()).await;
+            assert_eq!(status, StatusCode::OK, "{body} -> {resp}");
+        }
+        let body =
+            json!({"size": 0, "aggs": {"mfs": {"matrix_stats": {"fields": ["val1", "val2"]}}}});
+        let (_, resp) = send(&app, "POST", "/test/_search", body).await;
+        assert_eq!(resp["aggregations"]["mfs"]["doc_count"], 3, "{resp}");
+    }
 }
 
 /// Minimal glob matcher for index-name wildcard expansion (* only).
