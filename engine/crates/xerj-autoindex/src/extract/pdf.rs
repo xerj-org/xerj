@@ -1451,15 +1451,39 @@ fn worker_gate() -> &'static WorkerGate {
 }
 
 fn normalize_legacy_symbol_glyphs(text: &str) -> String {
-    text.chars()
+    let mapped: String = text
+        .chars()
         .map(|ch| match ch {
             '\u{f0b7}' => '•',
             '\u{f02d}' => '-',
             '\u{f078}' | '\u{f0a8}' | '\u{f06f}' | '\u{f052}' | '\u{f0a3}' | '\u{f020}' => '□',
             '\u{f0d2}' | '\u{f0d4}' | '\u{f0be}' => ' ',
+            // Legacy Windows / Adobe Thai PUA shifted glyphs (U+F700..=U+F71A)
+            '\u{f700}' => '\u{0e10}',
+            '\u{f701}' => '\u{0e34}',
+            '\u{f702}' => '\u{0e35}',
+            '\u{f703}' => '\u{0e36}',
+            '\u{f704}' => '\u{0e37}',
+            '\u{f705}' | '\u{f70a}' | '\u{f713}' => '\u{0e48}',
+            '\u{f706}' | '\u{f70b}' | '\u{f714}' => '\u{0e49}',
+            '\u{f707}' | '\u{f70c}' | '\u{f715}' => '\u{0e4a}',
+            '\u{f708}' | '\u{f70d}' | '\u{f716}' => '\u{0e4b}',
+            '\u{f709}' | '\u{f70e}' | '\u{f717}' => '\u{0e4c}',
+            '\u{f70f}' => '\u{0e0d}',
+            '\u{f710}' => '\u{0e31}',
+            '\u{f711}' => '\u{0e4d}',
+            '\u{f712}' => '\u{0e47}',
+            '\u{f718}' => '\u{0e38}',
+            '\u{f719}' => '\u{0e39}',
+            '\u{f71a}' => '\u{0e3a}',
             other => other,
         })
-        .collect()
+        .collect();
+    if mapped.contains('\u{0e4d}') {
+        mapped.replace("\u{0e4d}\u{0e32}", "\u{0e33}")
+    } else {
+        mapped
+    }
 }
 
 fn validate_text_quality(text: &str) -> Result<()> {
@@ -1580,6 +1604,25 @@ mod tests {
         assert_eq!(normalized, "Yes □ No □\n• Revenue\nrisk-adjusted");
         validate_text_quality(&normalized).unwrap();
         assert!(validate_text_quality("Revenue \u{e123} remains unknown").is_err());
+    }
+
+    #[test]
+    fn legacy_thai_pua_glyphs_are_normalized_and_pass_quality_gate() {
+        let raw_thai_pua = "รายงานการวิเคราะห\u{f70e}ผ\u{f710}งเมืองและสิ\u{f70a}งแวดล\u{f70b}อม \
+            พ\u{f704}\u{f714}นท\u{f702}\u{f713}ส\u{f702}เข\u{f702}ยว \u{f700}านข\u{f70b}อม\u{f719}ล \
+            ส\u{f711}าน\u{f710}กงานใหญ\u{f705} เด\u{f712}ก \u{f70f}าติพ\u{f701}\u{f703}\u{f706}\u{f707}\u{f708}\u{f709}\u{f70c}\u{f70d}\u{f715}\u{f716}\u{f717}\u{f718}\u{f71a}";
+        assert!(validate_text_quality(raw_thai_pua).is_err());
+
+        let normalized = normalize_legacy_symbol_glyphs(raw_thai_pua);
+        assert!(
+            !normalized
+                .chars()
+                .any(|ch| ('\u{f700}'..='\u{f71a}').contains(&ch)),
+            "all legacy Thai PUA codepoints U+F700..=U+F71A must be mapped to canonical Thai"
+        );
+        assert!(normalized.contains("รายงานการวิเคราะห์ผังเมืองและสิ่งแวดล้อม"));
+        assert!(normalized.contains("พื้นที่สีเขียว ฐานข้อมูล สำนักงานใหญ่ เด็ก ญาติ"));
+        validate_text_quality(&normalized).unwrap();
     }
 
     #[test]
