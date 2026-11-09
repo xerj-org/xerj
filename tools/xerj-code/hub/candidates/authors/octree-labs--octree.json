@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai, latex queries this for how octree-labs/octree implements it: Octree - Open Source AI LaTeX Editor (selected work: tests, supabase, components)",
+ "domain": "an agent working on ai, latex queries this for how octree-labs/octree implements it: Open Source AI LaTeX Editor (selected work: tests, supabase, components)",
  "repos": [
   {
    "repo": "octree",

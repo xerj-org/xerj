@@ -8,15 +8,15 @@
   {
    "repo": "Downmatica",
    "url": "https://github.com/aji110905/Downmatica",
-   "sha": "4aa79b00975cd8e4d8656f20e3ced3f507b10f2b",
-   "licence": "MIT (LICENSE file at pin 4aa79b00975c, GitHub licence API 2026-11-09)",
+   "sha": "e4b12d7f8ede72f06b7553f0b7e374b1c3aad0f4",
+   "licence": "MIT (LICENSE file at pin e4b12d7f8ede, GitHub licence API 2026-11-09)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T21:27Z",
     "consent_receipt": "a3bbd2a2c9fb",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T21:27Z (receipt a3bbd2a2c9fb); pinned to the default-branch head. LICENSE file at pin 4aa79b00975c detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T21:27Z (receipt a3bbd2a2c9fb); pinned to the default-branch head. LICENSE file at pin e4b12d7f8ede detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
    }
   }
  ]

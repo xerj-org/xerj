@@ -8,15 +8,15 @@
   {
    "repo": "lit-material",
    "url": "https://github.com/bohdaq/lit-material",
-   "sha": "fdb10fe2c293ba49734e81b170ea4023f9b1eed6",
-   "licence": "MIT (LICENSE file at pin fdb10fe2c293, GitHub licence API 2026-11-08)",
+   "sha": "959797664f7c6e7cdda50a61fab5c190dcf9447a",
+   "licence": "MIT (LICENSE file at pin 959797664f7c, GitHub licence API 2026-11-09)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-06T09:37Z",
     "consent_receipt": "2b1aa49f172e",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T09:37Z (receipt 2b1aa49f172e); pinned to the default-branch head. LICENSE file at pin fdb10fe2c293 detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T09:37Z (receipt 2b1aa49f172e); pinned to the default-branch head. LICENSE file at pin 959797664f7c detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
    }
   }
  ]

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "OPS",
- "domain": "an agent working on Swift queries this for how mafianacho/nachocombo implements it: Menu bar organizer, system monitor and window snapping for macOS (selected work: Sources, Tests, scripts)",
+ "domain": "an agent working on macos, menu-bar, menubar-app queries this for how mafianacho/nachocombo implements it: Menu bar organizer, system monitor and window snapping for macOS (selected work: Sources, Tests, scripts)",
  "repos": [
   {
    "repo": "nachocombo",
