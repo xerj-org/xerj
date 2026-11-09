@@ -3,6 +3,7 @@
 <div align="center">
 
 [![XERJ Query-1](https://img.shields.io/badge/XERJ%20Query--1-new%20in%20rc.101-ffc400?style=flat-square)](https://xerj.org/xerj-query-1)
+[![MCP Security Audit](https://raw.githubusercontent.com/DSHCorrectover/mcp-security-scanner/main/badges/scanned.svg)](https://github.com/DSHCorrectover/mcp-security-scanner)
 [![CI](https://img.shields.io/github/actions/workflow/status/xerj-org/xerj/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/xerj-org/xerj/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/xerj-org/xerj?style=flat-square&label=release)](https://github.com/xerj-org/xerj/releases)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue?style=flat-square)](./LICENSE)
