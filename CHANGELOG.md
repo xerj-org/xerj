@@ -539,6 +539,25 @@ all 2,387 evaluation items. Without the flag a node is the node rc.100 was: no
   fresh. A `304` then re-touched the replacement. The cache is dropped and
   refetched when the sibling signature does not verify.
 
+- A negative `track_total_hits` in a search body now means what it means in
+  Elasticsearch 8; it used to be read as `true`. `-1` turns total tracking
+  off, as `false` does, and a value below `-1` is refused with a 400. In
+  `_msearch` the refusal is ES's `illegal_argument_exception` ("[track_total_hits]
+  parameter must be positive or equals to -1, got N") for the whole request,
+  before any item runs. An `_msearch`, `_search/template` or
+  `_msearch/template` item with tracking off now leaves `hits.total` out, as
+  `_search` does; `_msearch` used to print a total capped at `size`, and the
+  template paths labelled that capped count `eq`. The native and gRPC
+  surfaces read `-1` as tracking off too.
+
+- A search with `track_total_hits: true` no longer reports the capped total
+  of the same search run earlier with `track_total_hits: false`. The query
+  cache could not tell the two modes apart (both serialized as `null`), so
+  any search that sent both (`_search`, `_msearch`, `_async_search`, the
+  template paths, and the native and gRPC APIs) could answer the second one
+  with, for example, `{"value": 1, "relation": "gte"}` for 3 matches until the
+  next write.
+
 - `xerj mcp` no longer answers a JSON-RPC notification, and runs every
   `tools/call` off the stdio read loop (#2898). A `tools/call` with no `id`, or
   with `id: null`, used to be awaited on the read loop, so a stalled search held
