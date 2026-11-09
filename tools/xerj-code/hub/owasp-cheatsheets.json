@@ -1,12 +1,12 @@
 {
- "corpus": "owasp-cheatsheets",
+ "corpus": "owasp-cheatsheets","pin_date":"2026-11-09",
  "cloned_at": "2026-10-04T21:50:00Z",
  "repos": [
   {
    "repo": "CheatSheetSeries",
    "url": "https://github.com/OWASP/CheatSheetSeries",
    "licence": "CC-BY-SA-4.0",
-   "sha": "ca1bded7c6c009747d59a6f4dd2bcef16da3a208",
+   "sha": "121e76561a58a28790fd7fa927236eec8d63ea59",
    "files": 391,
    "bytes": 24165618,
    "review": {
