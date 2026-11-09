@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Incremental autoindex and watch passes accept an edited file that becomes
+  identical to another indexed file. The existing content group keeps its
+  identity and gains the path as an alias; the superseded group is retired
+  instead of failing with conflicting content and path identities.
+
 ## [1.0.0-rc.102] - 2026-11-06
 
 <!-- notes-exempt: #2971 #2972 #2976 #2978 #2980 #2990 #3032 #3034 (site, blog, donation and README/AGENTS pages only, no shipped-binary change) -->

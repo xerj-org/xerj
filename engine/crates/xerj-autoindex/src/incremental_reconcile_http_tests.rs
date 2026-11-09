@@ -5973,6 +5973,65 @@ impl Rng {
 }
 
 #[test]
+fn a_watch_edit_can_join_an_existing_content_group() {
+    watch_edit_joins_existing_content(false);
+}
+
+#[test]
+fn joining_an_existing_content_group_resumes_after_a_publish_failure() {
+    watch_edit_joins_existing_content(true);
+}
+
+fn watch_edit_joins_existing_content(fail_publish: bool) {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    let root = corpus.path().canonicalize().unwrap();
+    fs::write(root.join("a.csv"), "id,value\n1,alpha\n").unwrap();
+    fs::write(root.join("b.csv"), "id,value\n2,beta\n").unwrap();
+    let endpoint = HttpEndpoint::start();
+    let config = cfg(&root, state_dir.path(), &endpoint.url, false);
+    let mut carry = crate::watch::Carry::default();
+    crate::watch::one_pass(&config, &root, &mut carry, &crate::watch::ChangeSet::full())
+        .0
+        .unwrap();
+
+    fs::copy(root.join("b.csv"), root.join("a.csv")).unwrap();
+    endpoint.state.lock().unwrap().fail_next_data_bulk = fail_publish;
+    let burst = crate::watch::ChangeSet::from_paths(&[root.join("a.csv")]);
+    let (outcome, _) = crate::watch::one_pass(&config, &root, &mut carry, &burst);
+    if fail_publish {
+        assert!(
+            outcome.is_err(),
+            "the injected publish failure must be observed"
+        );
+        let mut restarted = crate::watch::Carry::default();
+        assert_eq!(
+            crate::watch::one_pass(
+                &config,
+                &root,
+                &mut restarted,
+                &crate::watch::ChangeSet::full(),
+            )
+            .0
+            .unwrap()
+            .0,
+            0
+        );
+    } else {
+        assert_eq!(outcome.unwrap().0, 0);
+    }
+    let docs = endpoint.data_docs();
+    assert_eq!(docs.len(), 1, "converged content must have one data record");
+    assert_eq!(docs[0]["value"], "beta");
+    assert_eq!(paths(&docs), vec!["a.csv"]);
+    assert_eq!(docs[0]["ax_paths"], serde_json::json!(["a.csv", "b.csv"]));
+    let (reference, _reference_state) = fresh_full_index(&root);
+    assert_eq!(published(&endpoint), published(&reference));
+    a_rerun_changes_nothing(&config, &endpoint, "edit joining existing content");
+}
+
+#[test]
 fn a_watch_pass_rehashes_only_what_changed_and_publishes_it() {
     let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
     let corpus = tempfile::tempdir().unwrap();
