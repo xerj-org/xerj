@@ -1,0 +1,23 @@
+{
+ "corpus": "kauanrzin--laudeceia",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how KauanRZin/laudeceia implements it: KauanRZin/laudeceia (TypeScript) (selected work: backend, frontend)",
+ "repos": [
+  {
+   "repo": "laudeceia",
+   "url": "https://github.com/KauanRZin/laudeceia",
+   "sha": "365e8e25314c6b1bdb6070804c54fd687ff14b02",
+   "licence": "MIT (LICENSE file at pin 365e8e25314c, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T03:46Z",
+    "consent_receipt": "ced3d7ba1f37",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T03:46Z (receipt ced3d7ba1f37); selected commit 365e8e25314c: \"feat: implement database backup restoration functionality\". LICENSE file at pin 365e8e25314c detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

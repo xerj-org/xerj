@@ -8,15 +8,15 @@
   {
    "repo": "slack-datamine",
    "url": "https://github.com/3kh0/slack-datamine",
-   "sha": "5ca298e1db99898c4439b7d6c5e5bc1e4167ef0c",
-   "licence": "GPL-3.0 (LICENSE file at pin 5ca298e1db99, GitHub licence API 2026-11-08)",
+   "sha": "031879b28cd2dc902cef5411f47f2e4908689229",
+   "licence": "GPL-3.0 (LICENSE file at pin 031879b28cd2, GitHub licence API 2026-11-09)",
    "review": {
     "spdx": "GPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-11-05T15:10Z",
     "consent_receipt": "1f52d98d5134",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T15:10Z (receipt 1f52d98d5134); pinned to the default-branch head. LICENSE file at pin 5ca298e1db99 detected as GPL-3.0 by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T15:10Z (receipt 1f52d98d5134); pinned to the default-branch head. LICENSE file at pin 031879b28cd2 detected as GPL-3.0 by the GitHub licence API on 2026-11-09; used under that licence with attribution."
    }
   }
  ]

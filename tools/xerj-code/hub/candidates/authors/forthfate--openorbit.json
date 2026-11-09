@@ -1,0 +1,23 @@
+{
+ "corpus": "forthfate--openorbit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how forthfate/openorbit implements it: Open control plane for recurring AI automations: runners, workflows, evidence, supervision, and approval gates (selected work: backend, templates)",
+ "repos": [
+  {
+   "repo": "openorbit",
+   "url": "https://github.com/forthfate/openorbit",
+   "sha": "bbdcc224d464b4aafafa78fb063ee01e13b3f815",
+   "licence": "MIT (LICENSE file at pin bbdcc224d464, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T02:46Z",
+    "consent_receipt": "796499ae26d5",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T02:46Z (receipt 796499ae26d5); selected commit bbdcc224d464: \"feat: split persona speech from action planning\". LICENSE file at pin bbdcc224d464 detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "kevin-tofu--scikit-topt",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on topology-optimization, scikit-fem, fem queries this for how kevin-tofu/scikit-topt implements it: Scikit Topology Optimization with Scipy Family (selected work: scikit-topt, benchmarks)",
+ "repos": [
+  {
+   "repo": "scikit-topt",
+   "url": "https://github.com/kevin-tofu/scikit-topt",
+   "sha": "2224c7ddfe6f6f727d36884be4f48b8d4a077166",
+   "licence": "Apache-2.0 (LICENSE file at pin 2224c7ddfe6f, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T04:09Z",
+    "consent_receipt": "2ae88c29efeb",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T04:09Z (receipt 2ae88c29efeb); selected commit 2224c7ddfe6f: \"Cache Helmholtz filter solves for MMA\". LICENSE file at pin 2224c7ddfe6f detected as Apache-2.0 by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

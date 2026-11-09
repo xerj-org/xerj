@@ -1,9 +1,9 @@
 {
- "corpus": "billwang7599--hotrod",
+ "corpus": "billwang7599--kothar",
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on TypeScript queries this for how billwang7599/hotrod implements it: modular orchestrator to fit everyone's needs (selected work: packages/core)",
+ "domain": "an agent working on TypeScript queries this for how billwang7599/kothar implements it: modular orchestrator to fit everyone's needs (selected work: packages/core)",
  "repos": [
   {
    "repo": "hotrod",
