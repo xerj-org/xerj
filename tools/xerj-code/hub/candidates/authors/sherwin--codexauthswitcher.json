@@ -8,15 +8,15 @@
   {
    "repo": "CodexAuthSwitcher",
    "url": "https://github.com/sherwin/CodexAuthSwitcher",
-   "sha": "8a60dfd75ee4977a2e5ab20020fea6cb9907390f",
-   "licence": "MIT (LICENSE file at pin 8a60dfd75ee4, GitHub licence API 2026-11-09)",
+   "sha": "fd04297bc8b9bac98d0fed49317851b86de0642a",
+   "licence": "MIT (LICENSE file at pin fd04297bc8b9, GitHub licence API 2026-11-09)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-02T12:01Z",
     "consent_receipt": "1896593852eb",
-    "note": "Inclusion consented by the commit author by email at 2026-11-02T12:01Z (receipt 1896593852eb); selected commit 8a60dfd75ee4: \"feat: configure DeepSeek proxy exit accounts in desktop and web\". LICENSE file at pin 8a60dfd75ee4 detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution. Pinned to head 8a60dfd75ee4 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T12:01Z (receipt 1896593852eb); selected commit fd04297bc8b9: \"feat: configure DeepSeek proxy exit accounts in desktop and web\". LICENSE file at pin fd04297bc8b9 detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution. Pinned to head fd04297bc8b9 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

@@ -1,0 +1,23 @@
+{
+ "corpus": "adamabutoamy--deskpages",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how AdamAbuToamy/DeskPages implements it: Icon pages for the original Windows 11 desktop (selected work: Tests, Interaction, Native)",
+ "repos": [
+  {
+   "repo": "DeskPages",
+   "url": "https://github.com/AdamAbuToamy/DeskPages",
+   "sha": "c6a9e99461861e2267b93689fc25165087befb32",
+   "licence": "MIT (LICENSE file at pin c6a9e9946186, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T05:22Z",
+    "consent_receipt": "7b40a9dd32e5",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T05:22Z (receipt 7b40a9dd32e5); selected commit c6a9e9946186: \"Repair drag helper lifetime in the existing 0.8.39 release\". LICENSE file at pin c6a9e9946186 detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

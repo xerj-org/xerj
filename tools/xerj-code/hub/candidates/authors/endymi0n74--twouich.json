@@ -8,15 +8,15 @@
   {
    "repo": "Twouich",
    "url": "https://github.com/Endymi0n74/Twouich",
-   "sha": "5d14f3c18bf7132421e93301ceb8c8986b845253",
-   "licence": "author's permission (LICENSE at pin 5d14f3c18bf7: NONE; repository: none)",
+   "sha": "7bea30e452158b0f78089ee70630b96e7c6f2035",
+   "licence": "author's permission (LICENSE at pin 7bea30e45215: NONE; repository: none)",
    "review": {
     "spdx": "NONE",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T18:20Z",
     "consent_receipt": "a537cc7313b8",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T18:20Z (receipt a537cc7313b8); pinned to the default-branch head. LICENSE at pin 5d14f3c18bf7: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T18:20Z (receipt a537cc7313b8); pinned to the default-branch head. LICENSE at pin 7bea30e45215: NONE (repository: none); used with the author's permission, with attribution."
    }
   }
  ]

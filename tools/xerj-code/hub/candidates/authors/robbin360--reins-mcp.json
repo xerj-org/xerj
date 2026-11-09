@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on TypeScript queries this for how Robbin360/reins-mcp implements it: MCP server that gives AI agents a governed wallet: spend limits, policy checks, human-in-the-loop approvals and immutable audit trails for a (selected work: src/tools, src, the project root)",
+ "domain": "an agent working on TypeScript queries this for how Robbin360/reins-mcp implements it: Runtime security gateway for MCP. Intercepts agent actions, evaluates blast radius + sensitivity + time-of-day policies, then blocks / auto- (selected work: src/tools, src, the project root)",
  "repos": [
   {
    "repo": "reins-mcp",

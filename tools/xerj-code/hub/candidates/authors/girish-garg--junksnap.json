@@ -1,0 +1,30 @@
+{
+ "corpus": "girish-garg--junksnap",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how Girish-Garg/JunkSnap implements it: Girish-Garg/JunkSnap (TypeScript) (selected work: frontend, config)",
+ "repos": [
+  {
+   "repo": "JunkSnap",
+   "url": "https://github.com/Girish-Garg/JunkSnap",
+   "sha": "1a1df9600f1ca361438b554b9e21035e9558e661",
+   "licence": "AGPL-3.0 (LICENSE file at pin 1a1df9600f1c, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-09T05:11Z",
+    "consent_receipt": "861d5fa0aad5",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T05:11Z (receipt 861d5fa0aad5); selected commit 1a1df9600f1c: \"Map: Places with reports, a way back to Jodhpur's reports, and a sear\u2026\". LICENSE file at pin 1a1df9600f1c detected as AGPL-3.0 by the GitHub licence API on 2026-11-09; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "1a1df9600f1ca361438b554b9e21035e9558e661",
+     "at": "2026-11-09T05:11Z",
+     "receipt": "861d5fa0aad5"
+    }
+   }
+  }
+ ]
+}
