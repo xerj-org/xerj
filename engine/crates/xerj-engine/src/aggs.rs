@@ -6662,7 +6662,7 @@ fn run_date_histogram(
 fn run_value_count<'d>(params: &Value, _docs: &'d [Value], cache: &mut FieldCache<'d>) -> Value {
     let field = match params.get("field").and_then(Value::as_str) {
         Some(f) => f,
-        None => return json!({"value": 0}),
+        None => return json!({"value": 0, "__xy_agg__": "value_count"}),
     };
 
     // Count the *number of values* (not docs): a multi-valued field with
@@ -6679,7 +6679,7 @@ fn run_value_count<'d>(params: &Value, _docs: &'d [Value], cache: &mut FieldCach
             count += v.len();
         }
     }
-    json!({ "value": count })
+    json!({ "value": count, "__xy_agg__": "value_count" })
 }
 
 fn get_missing_value(params: &Value) -> Option<f64> {
@@ -12105,11 +12105,12 @@ pub fn run_agg_fast_filtered(
 /// `extended_stats` — same as `stats` plus `std_deviation`, `variance`,
 /// `std_deviation_bounds` (upper/lower), and `sum_of_squares`.
 fn run_extended_stats<'d>(params: &Value, _docs: &'d [Value], cache: &mut FieldCache<'d>) -> Value {
+    let sigma = params.get("sigma").and_then(Value::as_f64).unwrap_or(2.0);
     let field = match params.get("field").and_then(Value::as_str) {
         Some(f) => f,
         None => {
             return json!({
-                "count": 0, "min": Value::Null, "max": Value::Null,
+                "__xy_sigma__": sigma, "count": 0, "min": Value::Null, "max": Value::Null,
                 "avg": Value::Null, "sum": 0.0, "sum_of_squares": 0.0,
                 "variance": Value::Null, "std_deviation": Value::Null,
                 "std_deviation_bounds": { "upper": Value::Null, "lower": Value::Null }
@@ -12128,7 +12129,7 @@ fn run_extended_stats<'d>(params: &Value, _docs: &'d [Value], cache: &mut FieldC
         // order moment as null when there are no values to compute it
         // from. Note: sum_of_squares is null, not 0, per ES.
         return json!({
-            "count": 0, "min": Value::Null, "max": Value::Null,
+            "__xy_sigma__": sigma, "count": 0, "min": Value::Null, "max": Value::Null,
             "avg": Value::Null, "sum": 0.0, "sum_of_squares": Value::Null,
             "variance": Value::Null, "variance_population": Value::Null,
             "variance_sampling": Value::Null,
@@ -12161,9 +12162,8 @@ fn run_extended_stats<'d>(params: &Value, _docs: &'d [Value], cache: &mut FieldC
     };
     let std_deviation = variance_pop.max(0.0).sqrt();
     let std_deviation_samp = variance_samp.max(0.0).sqrt();
-    let sigma = params.get("sigma").and_then(Value::as_f64).unwrap_or(2.0);
-
     json!({
+        "__xy_sigma__": sigma,
         "count": count,
         "min": min,
         "max": max,
@@ -15572,6 +15572,26 @@ mod tests {
         let buckets = result["t"]["buckets"].as_array().unwrap();
         assert_eq!(buckets.len(), 2);
         assert_eq!(result["t"]["sum_other_doc_count"], 6);
+    }
+
+    #[test]
+    fn multi_index_metric_primitives_survive_slow_execution() {
+        let docs = [json!({"n": 1.0}), json!({"n": 2.0})];
+        for docs in [&docs[..], &[][..]] {
+            let result = run_aggs(
+                &json!({
+                    "e": {"extended_stats": {"field": "n", "sigma": 3.0}},
+                    "v": {"value_count": {"field": "n"}},
+                    "missing": {"value_count": {"field": "absent"}}
+                }),
+                docs,
+            );
+            assert_eq!(result["e"]["__xy_sigma__"], 3.0);
+            assert_eq!(result["v"]["__xy_agg__"], "value_count");
+            assert_eq!(result["v"]["value"], docs.len());
+            assert_eq!(result["missing"]["__xy_agg__"], "value_count");
+            assert_eq!(result["missing"]["value"], 0);
+        }
     }
 
     // ── RC4-W2 item 7: composite key typing from the field mapping ──────

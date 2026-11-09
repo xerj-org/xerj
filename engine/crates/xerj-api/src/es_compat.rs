@@ -6939,6 +6939,89 @@ fn merge_metric_agg(old: &Value, new: &Value) -> Option<Value> {
     if old_obj.contains_key("buckets") || new_obj.contains_key("buckets") {
         return None;
     }
+    // Extended statistics need the additive raw moments and the request's
+    // sigma, carried internally by the per-index executor. Bounds cannot be
+    // merged by averaging bounds (nor can sigma be recovered at zero variance).
+    if old_obj.contains_key("sum_of_squares") && new_obj.contains_key("sum_of_squares") {
+        let count_a = old_obj.get("count")?.as_u64()?;
+        let count_b = new_obj.get("count")?.as_u64()?;
+        let count = count_a.checked_add(count_b)?;
+        let sigma = old_obj.get("__xy_sigma__")?.as_f64()?;
+        if new_obj.get("__xy_sigma__")?.as_f64()? != sigma {
+            return None;
+        }
+        let sum = old_obj.get("sum")?.as_f64()? + new_obj.get("sum")?.as_f64()?;
+        let squares = |o: &serde_json::Map<String, Value>, n: u64| {
+            if n == 0 {
+                Some(0.0)
+            } else {
+                o.get("sum_of_squares")?.as_f64()
+            }
+        };
+        let ss = squares(old_obj, count_a)? + squares(new_obj, count_b)?;
+        let extreme = |key: &str, min: bool| match (
+            old_obj.get(key).and_then(Value::as_f64),
+            new_obj.get(key).and_then(Value::as_f64),
+        ) {
+            (Some(a), Some(b)) => json!(if min { a.min(b) } else { a.max(b) }),
+            (Some(a), None) => json!(a),
+            (None, Some(b)) => json!(b),
+            _ => Value::Null,
+        };
+        let avg = if count == 0 { 0.0 } else { sum / count as f64 };
+        let variance = if count == 0 {
+            0.0
+        } else {
+            (ss / count as f64 - avg * avg).max(0.0)
+        };
+        let sample = if count > 1 {
+            variance * count as f64 / (count - 1) as f64
+        } else {
+            0.0
+        };
+        let sd = variance.sqrt();
+        let sample_sd = sample.sqrt();
+        let number = |v: f64| if count == 0 { Value::Null } else { json!(v) };
+        return Some(json!({"__xy_sigma__":sigma,"count":count,"sum":sum,
+          "min":extreme("min",true),"max":extreme("max",false),"avg":number(avg),
+          "sum_of_squares":number(ss),"variance":number(variance),"variance_population":number(variance),
+          "variance_sampling":number(sample),"std_deviation":number(sd),"std_deviation_population":number(sd),
+          "std_deviation_sampling":number(sample_sd),"std_deviation_bounds":{
+            "upper":number(avg+sigma*sd),"lower":number(avg-sigma*sd),
+            "upper_population":number(avg+sigma*sd),"lower_population":number(avg-sigma*sd),
+            "upper_sampling":number(avg+sigma*sample_sd),"lower_sampling":number(avg-sigma*sample_sd)}}));
+    }
+    // Basic stats are reducible from their count, sum and extrema. Extended
+    // stats need additional moments and bounds; never drop those by treating
+    // that shape as basic stats.
+    if !old_obj.contains_key("sum_of_squares") && !new_obj.contains_key("sum_of_squares") {
+        let primitives = |o: &serde_json::Map<String, Value>| {
+            // Other metric families also carry count/sum. Only the complete
+            // basic-stats shape is reduced by this branch.
+            o.get("min")?;
+            o.get("max")?;
+            o.get("avg")?;
+            Some((o.get("count")?.as_u64()?, o.get("sum")?.as_f64()?))
+        };
+        if let (Some((count_a, sum_a)), Some((count_b, sum_b))) =
+            (primitives(old_obj), primitives(new_obj))
+        {
+            let count = count_a.checked_add(count_b)?;
+            let sum = sum_a + sum_b;
+            let extreme = |key: &str, min: bool| match (
+                old_obj.get(key).and_then(Value::as_f64),
+                new_obj.get(key).and_then(Value::as_f64),
+            ) {
+                (Some(a), Some(b)) => json!(if min { a.min(b) } else { a.max(b) }),
+                (Some(a), None) => json!(a),
+                (None, Some(b)) => json!(b),
+                _ => Value::Null,
+            };
+            return Some(json!({"count":count,"sum":sum,
+                "min":extreme("min",true),"max":extreme("max",false),
+                "avg":if count == 0 { Value::Null } else { json!(sum / count as f64) }}));
+        }
+    }
     // Avg with internal tracking primitives.
     if let (Some(cnt_a), Some(sum_a), Some(cnt_b), Some(sum_b)) = (
         old_obj.get("__xy_count__").and_then(Value::as_u64),
@@ -7327,6 +7410,53 @@ mod merge_bucket_agg_keyed_tests {
     // summing across the same indices. Found live via a Kibana/OSD
     // Timelion panel's `filters` + `query_string` aggregation reporting
     // doc_count 0 on a multi-index (`_all`) search.
+    #[test]
+    fn stats_recombine_across_indices() {
+        let a = json!({"count":2,"sum":3.0,"min":1.0,"max":2.0,"avg":1.5});
+        let b = json!({"count":3,"sum":60.0,"min":10.0,"max":30.0,"avg":20.0});
+        let merged = merge_metric_agg(&a, &b).expect("stats must combine every index");
+        assert_eq!(merged["count"], 5);
+        assert_eq!(merged["sum"], 63.0);
+        assert_eq!(merged["min"], 1.0);
+        assert_eq!(merged["max"], 30.0);
+        assert_eq!(merged["avg"], 12.6);
+    }
+
+    #[test]
+    fn nested_bucket_stats_reduce_both_indices() {
+        let a = json!({"buckets":[{"key":"x","doc_count":2,"stats":{"count":2,"sum":3.0,"min":1.0,"max":2.0,"avg":1.5},"vc":{"value":2,"__xy_agg__":"value_count"}}]});
+        let b = json!({"buckets":[{"key":"x","doc_count":3,"stats":{"count":3,"sum":60.0,"min":10.0,"max":30.0,"avg":20.0},"vc":{"value":3,"__xy_agg__":"value_count"}}]});
+        let merged = merge_bucket_agg(&a, &b).unwrap();
+        let bucket = &merged["buckets"][0];
+        assert_eq!(bucket["doc_count"], 5);
+        assert_eq!(bucket["stats"]["count"], 5);
+        assert_eq!(bucket["stats"]["avg"], 12.6);
+        assert_eq!(bucket["vc"]["value"], 5.0);
+    }
+
+    #[test]
+    fn extended_stats_reduce_raw_moments_and_keep_custom_sigma() {
+        let a = json!({"count":2,"sum":3.0,"sum_of_squares":5.0,"min":1.0,"max":2.0,"__xy_sigma__":3.0});
+        let b = json!({"count":3,"sum":60.0,"sum_of_squares":1400.0,"min":10.0,"max":30.0,"__xy_sigma__":3.0});
+        let merged = merge_metric_agg(&a, &b).unwrap();
+        assert_eq!(merged["count"], 5);
+        assert_eq!(merged["sum_of_squares"], 1405.0);
+        assert!((merged["variance"].as_f64().unwrap() - 122.24).abs() < 1e-10);
+        assert!(
+            (merged["std_deviation_bounds"]["upper"].as_f64().unwrap()
+                - (12.6 + 3.0 * 122.24f64.sqrt()))
+            .abs()
+                < 1e-10
+        );
+        assert_eq!(Some(merged), merge_metric_agg(&b, &a));
+        let empty = json!({"count":0,"sum":0.0,"sum_of_squares":null,"min":null,"max":null,"__xy_sigma__":3.0});
+        assert_eq!(merge_metric_agg(&empty, &a).unwrap()["sum_of_squares"], 5.0);
+        assert_eq!(
+            merge_metric_agg(&empty, &empty).unwrap()["variance"],
+            Value::Null
+        );
+    }
+
     #[test]
     fn keyed_filters_agg_sums_doc_count_across_indices() {
         let from_index_a = json!({
