@@ -647,6 +647,53 @@ mod tests {
         }
     }
 
+    #[test]
+    fn quarantining_an_already_rejected_file_keeps_catalog_ids_unique() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("changing.json");
+        std::fs::write(&path, "{\"unmapped\": true}").unwrap();
+        let files = crate::walk::walk(directory.path(), false).unwrap();
+        let mut inventory = crate::content::resolve_reporting(files, &|_| {}).unwrap();
+        let key = inventory.keys[0].clone();
+        let mut plan = Plan {
+            junk_files: vec![JunkFile {
+                file_key: key.clone(),
+                rel: "changing.json".into(),
+                format: "json".into(),
+                status: "junk".into(),
+                reason: "unsupported dataset/schema evolution".into(),
+                bytes: inventory.files[0].size,
+            }],
+            ..Plan::default()
+        };
+
+        // Reconciliation already rejected this file. It then changes before
+        // sealing, which must replace its status rather than add a second row.
+        assert!(crate::quarantine_changed_source(
+            &mut plan,
+            &mut inventory,
+            &path,
+            "source bytes changed before sealing",
+        ));
+        assert!(inventory.files.is_empty());
+        let base = committed(manifest(0, "generation-0", Plan::default(), vec![]));
+        let desired = manifest(1, "generation-1", plan, vec![]);
+        let projection = project_generation(
+            &base,
+            &desired,
+            &metadata("generation-1"),
+            &BTreeMap::new(),
+            &BTreeMap::new(),
+            &BTreeSet::new(),
+        )
+        .expect("a changing rejected file must not wedge catalog publication");
+        assert_eq!(desired.plan.junk_files.len(), 1);
+        assert_eq!(projection.documents.len(), 2); // one file plus the run
+        let file = &projection.documents[&catalog::file_id("ax", &key)];
+        assert_eq!(file["status"], "skipped");
+        assert!(file["reason"].as_str().unwrap().contains("changed while"));
+    }
+
     /// #294 dropped every source file on this path — prepared as zero
     /// documents, then committed and reported as a success. The run document
     /// could not say so: `records_total` counts records, not families, so a
