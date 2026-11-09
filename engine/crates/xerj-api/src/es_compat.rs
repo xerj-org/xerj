@@ -45099,6 +45099,10 @@ async fn effective_max_buckets(state: &AppState) -> u64 {
 /// single-bucket aggregation (`filter`, `nested`, ...) is not counted itself,
 /// only what sits under it. The walk follows the request's definitions, so a
 /// `buckets` key inside, say, a `top_hits` `_source` is never counted.
+///
+/// ES trims `terms`-like and `composite` buckets to `size` before counting
+/// them. The cross-index merge keeps every index's keys, so only the first
+/// `size` buckets (the ones ES would keep) are counted.
 fn count_kept_buckets(request: &Value, result: &Value) -> u64 {
     let (Some(defs), Some(results)) = (request.as_object(), result.as_object()) else {
         return 0;
@@ -45135,12 +45139,24 @@ fn count_kept_buckets(request: &Value, result: &Value) -> u64 {
             | "geohash_grid"
             | "geotile_grid"
             | "ip_prefix" => {
-                let buckets: Vec<&Value> = match result.get("buckets") {
-                    Some(Value::Array(list)) => list.iter().collect(),
-                    Some(Value::Object(keyed)) => keyed.values().collect(),
-                    _ => Vec::new(),
+                let default_size = match kind.as_str() {
+                    "terms" | "significant_terms" | "significant_text" | "multi_terms"
+                    | "composite" => Some(10),
+                    "geohash_grid" | "geotile_grid" => Some(10_000),
+                    _ => None,
                 };
-                for bucket in buckets {
+                let kept = default_size.map_or(usize::MAX, |default| {
+                    let size = &def[kind.as_str()]["size"];
+                    size.as_u64()
+                        .or_else(|| size.as_str()?.trim().parse().ok())
+                        .unwrap_or(default) as usize
+                });
+                let buckets: Box<dyn Iterator<Item = &Value>> = match result.get("buckets") {
+                    Some(Value::Array(list)) => Box::new(list.iter()),
+                    Some(Value::Object(keyed)) => Box::new(keyed.values()),
+                    _ => Box::new(std::iter::empty()),
+                };
+                for bucket in buckets.take(kept) {
                     count += 1 + subs.map_or(0, |subs| count_kept_buckets(subs, bucket));
                 }
             }

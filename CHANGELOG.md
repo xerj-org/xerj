@@ -9,17 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- `search.max_buckets` set through `PUT _cluster/settings` now caps a
-  search's aggregation buckets, as in Elasticsearch 8. It was stored and
-  returned by `GET _cluster/settings` but never read, so `_search` kept
-  answering 200. The buckets the response keeps are counted across the whole
-  aggregation tree, nested buckets included, and a count over the limit is a
-  400 `too_many_buckets_exception` carrying `max_buckets`; transient wins over
+- `search.max_buckets` set through `PUT _cluster/settings` now caps the
+  aggregation buckets of `_search` and `_msearch`, as in Elasticsearch 8. It
+  was stored and returned by `GET _cluster/settings` but never read, so
+  `_search` kept answering 200. The buckets the response keeps (at most `size`
+  for `terms` and `composite`) are counted across the whole aggregation tree,
+  nested buckets included, and a count over the limit is a 400
+  `too_many_buckets_exception` carrying `max_buckets`; transient wins over
   persistent, and with neither set the node's `limits.max_buckets` (default
   65536) is the limit. A composite `size` over the limit is refused, and an
-  `_msearch` item over it fails on its own. With no setting, the default now
-  caps the total across the tree, as in Elasticsearch, where before it capped
-  each aggregation's keys.
+  `_msearch` item over it fails on its own. The node's per-aggregation cap
+  from `limits.max_buckets` still applies too, so a setting above it does not
+  raise that cap.
 
 ## [1.0.0-rc.102] - 2026-11-06
 
