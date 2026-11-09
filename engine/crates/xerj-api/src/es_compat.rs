@@ -22573,6 +22573,10 @@ fn es_properties_to_fields(properties: &Value) -> Result<Vec<FieldConfig>, Strin
         if let Some(sub_props) = field_def.get("properties") {
             fc.fields = es_properties_to_fields(sub_props)?;
         }
+        // Multi-fields (`title.keyword`) are declared under `fields`.
+        if let Some(multi_fields) = field_def.get("fields") {
+            fc.fields.extend(es_properties_to_fields(multi_fields)?);
+        }
 
         // `doc_values` — carry the DECLARED mapping intent onto the field.
         //
@@ -22777,6 +22781,18 @@ fn es_type_to_native(es_type: &str) -> FieldType {
 mod date_precision_mapping_tests {
     use super::*;
     use xerj_common::types::DatePrecision;
+
+    /// A multi-field declared under `fields` has to reach the schema, or a
+    /// sort on `title.keyword` fails with "No mapping found".
+    #[test]
+    fn declared_multi_fields_reach_the_schema() {
+        let fields = es_properties_to_fields(&json!({
+            "title": { "type": "text", "fields": { "keyword": { "type": "keyword" } } }
+        }))
+        .expect("valid mapping");
+        assert_eq!(fields[0].fields[0].name, "keyword");
+        assert_eq!(fields[0].fields[0].field_type, FieldType::Keyword);
+    }
 
     /// #790: `date` and `date_nanos` both collapse onto `FieldType::Date`, so
     /// the mapping is the only place the distinction can be recorded. Without
