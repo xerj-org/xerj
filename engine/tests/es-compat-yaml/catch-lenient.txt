@@ -49,7 +49,6 @@ scroll/11_clear.yml · Body params with array param override query string
 scroll/11_clear.yml · Body params with string param scroll id override query string
 scroll/11_clear.yml · Clear scroll
 search/110_field_collapsing.yml · field collapsing and scroll
-search/110_field_collapsing.yml · field collapsing and search_after with invalid sort
 search/110_field_collapsing.yml · Test collapse with inner_hits and missing name fails
 search/115_multiple_field_collapsing.yml · two levels fields collapsing
 search/120_batch_reduce_size.yml · batched_reduce_size lower limit
