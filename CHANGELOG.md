@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `xerj autoindex` and `xerj feedback` check the node identity before querying
+  the autoindex catalog, so an unrelated HTTP service on the default port
+  does not trigger catalog retries. Feedback still drafts a report when catalog
+  autofill is unavailable and now warns when its endpoint ignores `XERJ_URL`.
+  Use `--url` to select the node explicitly ([#2942](https://github.com/xerj-org/xerj/issues/2942)).
+
 ## [1.0.0-rc.102] - 2026-11-06
 
 <!-- notes-exempt: #2971 #2972 #2976 #2978 #2980 #2990 #3032 #3034 (site, blog, donation and README/AGENTS pages only, no shipped-binary change) -->

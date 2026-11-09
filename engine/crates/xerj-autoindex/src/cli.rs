@@ -363,7 +363,7 @@ pub fn help_text_with(feedback: bool) -> String {
          \x20\x20\x20\x20--redact-paths      omit file paths and skip reasons from the report\n\
          \n\
          OPTIONS:\n\
-         \x20\x20\x20\x20--url <U>            ES-compat endpoint (default http://localhost:9200)\n\
+         \x20\x20\x20\x20--url <U>            XERJ endpoint (default http://localhost:9200). XERJ_URL is ignored.\n\
          \x20\x20\x20\x20--api-key <K>        Authorization header (or env XERJ_API_KEY)\n\
          \x20\x20\x20\x20--workers <N>        workers for BOTH phases — content hashing/sniffing and\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20indexing (default: every core, reduced if the memory\n\
@@ -880,7 +880,11 @@ pub fn help_text_with(feedback: bool) -> String {
 /// here, on purpose, so a stale variable can't silently redirect a write. Silent
 /// is the trap though, so name the mismatch and how to act on it. `None` when
 /// `--url` was passed, or `XERJ_URL` is unset or empty.
-pub(crate) fn xerj_url_ignored_note(xerj_url: Option<&str>, url_explicit: bool) -> Option<String> {
+pub(crate) fn xerj_url_ignored_note(
+    command: &str,
+    xerj_url: Option<&str>,
+    url_explicit: bool,
+) -> Option<String> {
     if url_explicit {
         return None;
     }
@@ -888,9 +892,12 @@ pub(crate) fn xerj_url_ignored_note(xerj_url: Option<&str>, url_explicit: bool) 
     if value.is_empty() {
         return None;
     }
+    let value = value.split(['?', '#']).next().unwrap_or(value);
+    let value = xerj_common::config::redact_url_userinfo(value);
     Some(format!(
-        "XERJ_URL={value} is set but ignored here: autoindex takes its endpoint from --url only \
-         (default http://localhost:9200). Pass --url {value} to target it."
+        "XERJ_URL={} is set but ignored here: {command} takes its node endpoint from \
+         --url only (default http://localhost:9200). Pass --url explicitly to target it.",
+        value.escape_debug()
     ))
 }
 
@@ -1830,8 +1837,11 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
     // `--url` is the only endpoint source for every subcommand; XERJ_URL is
     // ignored on purpose (a stale var must not redirect a write). Computed once
     // so index, map, and status all surface the same mismatch note.
-    let xerj_url_note =
-        xerj_url_ignored_note(std::env::var("XERJ_URL").ok().as_deref(), url_explicit);
+    let xerj_url_note = xerj_url_ignored_note(
+        "autoindex",
+        std::env::var("XERJ_URL").ok().as_deref(),
+        url_explicit,
+    );
 
     // --- object-storage watch routing ------------------------------------
     //
@@ -2931,7 +2941,7 @@ mod tests {
     /// on that mismatch and nowhere else.
     #[test]
     fn xerj_url_ignored_note_fires_only_on_the_mismatch() {
-        use super::xerj_url_ignored_note as note;
+        let note = |url, explicit| super::xerj_url_ignored_note("autoindex", url, explicit);
 
         // XERJ_URL set, --url absent: warn, and say what and how.
         let n = note(Some("http://es.internal:9200"), false)
@@ -2951,6 +2961,12 @@ mod tests {
         assert!(
             note(Some("   "), false).is_none(),
             "blank XERJ_URL: no note"
+        );
+        let redacted = note(Some("http://user:password@host:9200?key=secret"), false).unwrap();
+        assert!(redacted.contains("http://***@host:9200"), "{redacted}");
+        assert!(
+            !redacted.contains("password") && !redacted.contains("secret"),
+            "{redacted}"
         );
     }
 

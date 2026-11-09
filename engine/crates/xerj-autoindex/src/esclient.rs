@@ -64,6 +64,22 @@ pub struct Es {
     notices: Arc<Mutex<Vec<String>>>,
 }
 
+/// A service answered the readiness request without identifying as XERJ.
+#[derive(Debug)]
+pub(crate) struct UnexpectedNode(reqwest::StatusCode);
+
+impl std::fmt::Display for UnexpectedNode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "GET / returned HTTP {} without a XERJ node identity",
+            self.0
+        )
+    }
+}
+
+impl std::error::Error for UnexpectedNode {}
+
 /// The message latched when the node stops accepting connections.
 struct NodeDownLatch {
     message: Mutex<Option<String>>,
@@ -1389,15 +1405,40 @@ impl Es {
     }
 
     pub fn ping(&self) -> Result<Value> {
+        Ok(self
+            .ping_response(Duration::from_secs(300))?
+            .json()
+            .unwrap_or(Value::Null))
+    }
+
+    /// One bounded readiness check before using XERJ's autoindex catalog.
+    /// Its root identity is independent of the advertised ES/OpenSearch version.
+    pub(crate) fn ping_xerj(&self) -> Result<()> {
+        let resp = self.ping_response(Duration::from_secs(5))?;
+        let status = resp.status();
+        if status.is_success()
+            && resp.json::<Value>().is_ok_and(|info| {
+                info["cluster_uuid"]
+                    .as_str()
+                    .is_some_and(|uuid| uuid.starts_with("xerj-cluster-"))
+            })
+        {
+            return Ok(());
+        }
+        Err(UnexpectedNode(status).into())
+    }
+
+    fn ping_response(&self, timeout: Duration) -> Result<reqwest::blocking::Response> {
         let resp = self
             .req(reqwest::Method::GET, "/")
+            .timeout(timeout)
             .send()
             .with_context(|| format!("endpoint unreachable: {}", self.base))?;
         let status = resp.status();
         if status.as_u16() == 401 || status.as_u16() == 403 {
             anyhow::bail!(self.auth_help(status.as_u16()));
         }
-        Ok(resp.json().unwrap_or(Value::Null))
+        Ok(resp)
     }
 
     /// The recovery message for a server that wants credentials we do not have.
