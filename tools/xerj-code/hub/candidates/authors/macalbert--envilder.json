@@ -2,8 +2,8 @@
  "corpus": "macalbert--envilder",
  "cloned_at": null,
  "status": "draft",
- "shelf": "OPS",
- "domain": "an agent working on automation, dotenv, secrets queries this for how macalbert/envilder implements it: One secret mapping for local dev, CI/CD, and runtime. Envilder resolves cloud secrets from your own vaults without SaaS middlemen, duplicate (selected work: tests, src/envilder, e2e)",
+ "shelf": "API",
+ "domain": "an agent working on automation, dotenv, secrets queries this for how macalbert/envilder implements it: One envilder.json maps env vars to secrets in AWS SSM or Azure Key Vault. The same contract works in local dev (CLI), CI/CD (GitHub Action)  (selected work: tests, src/envilder, e2e)",
  "repos": [
   {
    "repo": "envilder",

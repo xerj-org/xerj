@@ -1,0 +1,23 @@
+{
+ "corpus": "easehee--rhino-mcp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on archtecture queries this for how EaseHee/rhino-mcp implements it: MCP Server for Rhino and Grasshopper (selected work: src/rhino_mcp, tests, rhino_plugin)",
+ "repos": [
+  {
+   "repo": "rhino-mcp",
+   "url": "https://github.com/EaseHee/rhino-mcp",
+   "sha": "867ee52e0331d9fae24dd0df3ce0995203a9da9d",
+   "licence": "MIT (LICENSE file at pin 867ee52e0331, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T22:18Z",
+    "consent_receipt": "9445b8ae9146",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T22:18Z (receipt 9445b8ae9146); selected commit 867ee52e0331: \"feat: v0.7.0 \u2014 Rhino 9 support, rhino3dm 8.35, multi-client installer\u2026\". LICENSE file at pin 867ee52e0331 detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

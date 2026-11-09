@@ -2,8 +2,8 @@
  "corpus": "timsamoff--sidequest",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on HTML queries this for how timsamoff/Sidequest implements it: A lightweight project planner for juggling several projects (selected work: satchel, app, Sidequest-App)",
+ "shelf": "WRITE",
+ "domain": "an agent working on burndown-chart, gamification, github-pages queries this for how timsamoff/Sidequest implements it: A lightweight project planner for juggling several projects (selected work: satchel, app, Sidequest-App)",
  "repos": [
   {
    "repo": "Sidequest",

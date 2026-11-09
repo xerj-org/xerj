@@ -1,0 +1,23 @@
+{
+ "corpus": "pacificcommunity--geonode-mcp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on geonode, mcp-server queries this for how PacificCommunity/geonode-mcp implements it: MCP gateway for Geonode (selected work: the project root, mcp_geonode)",
+ "repos": [
+  {
+   "repo": "geonode-mcp",
+   "url": "https://github.com/PacificCommunity/geonode-mcp",
+   "sha": "fa44c646521bb32eee82e1351e1dc9487b1ded59",
+   "licence": "MIT (LICENSE file at pin fa44c646521b, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T22:33Z",
+    "consent_receipt": "81625dbeec46",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T22:33Z (receipt 81625dbeec46); selected commit fa44c646521b: \"Add download_asset tool; fix download_resource and test_server\". LICENSE file at pin fa44c646521b detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

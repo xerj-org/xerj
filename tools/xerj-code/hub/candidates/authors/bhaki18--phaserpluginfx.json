@@ -8,15 +8,15 @@
   {
    "repo": "phaserPlugInFx",
    "url": "https://github.com/bhaki18/phaserPlugInFx",
-   "sha": "ee04965dcd035b515a1075095646a81bf87f8b8e",
-   "licence": "author's permission (LICENSE at pin ee04965dcd03: NONE; repository: none)",
+   "sha": "f8f82deea640e588fbc453ab1231d0c73ef8e0f4",
+   "licence": "author's permission (LICENSE at pin f8f82deea640: NONE; repository: none)",
    "review": {
     "spdx": "NONE",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T20:28Z",
     "consent_receipt": "8f83ecb770fd",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T20:28Z (receipt 8f83ecb770fd); pinned to the default-branch head. LICENSE at pin ee04965dcd03: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T20:28Z (receipt 8f83ecb770fd); pinned to the default-branch head. LICENSE at pin f8f82deea640: NONE (repository: none); used with the author's permission, with attribution."
    }
   }
  ]
