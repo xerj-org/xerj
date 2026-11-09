@@ -1,0 +1,23 @@
+{
+ "corpus": "dekaruntime--deka",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on deka, rust, ui queries this for how dekaruntime/deka implements it: Rust UI Library (selected work: crates/deka_ui, crates/deka_ui_hot_reload, scripts)",
+ "repos": [
+  {
+   "repo": "deka",
+   "url": "https://github.com/dekaruntime/deka",
+   "sha": "65ecb82071339f108a40eb0d4f6bdedd7b056a71",
+   "licence": "Apache-2.0 (LICENSE file at pin 65ecb8207133, GitHub licence API 2026-10-24)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-15T00:26Z",
+    "consent_receipt": "5d69a47d915c",
+    "note": "Inclusion consented by the commit author by email at 2026-10-15T00:26Z (receipt 5d69a47d915c); selected commit 65ecb8207133: \"Add native Rust UI markup hot reload with Cargo restart fallback\". LICENSE file at pin 65ecb8207133 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
+   }
+  }
+ ]
+}

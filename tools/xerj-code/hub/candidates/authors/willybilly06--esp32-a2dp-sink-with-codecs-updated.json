@@ -8,15 +8,15 @@
   {
    "repo": "ESP32-A2DP-SINK-WITH-CODECS-UPDATED",
    "url": "https://github.com/WillyBilly06/ESP32-A2DP-SINK-WITH-CODECS-UPDATED",
-   "sha": "72089fca30c07cb86f2ad4bd40382b4b7839e684",
-   "licence": "author's permission (LICENSE at pin 72089fca30c0: NONE; repository: none)",
+   "sha": "8ac92e735698996b96a5d4f5a2d758264061636a",
+   "licence": "author's permission (LICENSE at pin 8ac92e735698: NONE; repository: none)",
    "review": {
     "spdx": "NONE",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-31T09:44Z",
     "consent_receipt": "6e577d91e626",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T09:44Z (receipt 6e577d91e626); pinned to the default-branch head. LICENSE at pin 72089fca30c0: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T09:44Z (receipt 6e577d91e626); pinned to the default-branch head. LICENSE at pin 8ac92e735698: NONE (repository: none); used with the author's permission, with attribution."
    }
   }
  ]

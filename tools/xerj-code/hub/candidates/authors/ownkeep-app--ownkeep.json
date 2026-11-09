@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "CRYPTO",
- "domain": "an agent working on encryption, launcher, local-first queries this for how ownkeep-app/ownkeep implements it: OwnKeep is an offline, keyboard-first vault for macOS. Passwords, commands, todos, subscriptions, finance, events and files \u2014 one encrypted  (selected work: src/modules, src/stores, src/lib)",
+ "domain": "an agent working on encryption, local-first, macos queries this for how ownkeep-app/ownkeep implements it: Your offline second brain for everything you can't afford to lose: passwords, IDs, contracts, finances and secret notes in one encrypted vau (selected work: src/modules, src/stores, src/lib)",
  "repos": [
   {
    "repo": "ownkeep",

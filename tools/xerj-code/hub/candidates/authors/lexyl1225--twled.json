@@ -1,0 +1,30 @@
+{
+ "corpus": "lexyl1225--twled",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how Lexyl1225/TWLED implements it: Lexyl1225/TWLED (C++) (selected work: twled00)",
+ "repos": [
+  {
+   "repo": "TWLED",
+   "url": "https://github.com/Lexyl1225/TWLED",
+   "sha": "42d0f1c64f54e5ebdf5444c634ec9adbc79945d4",
+   "licence": "EUPL-1.2 (LICENSE file at pin 42d0f1c64f54, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "EUPL-1.2",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-09T07:51Z",
+    "consent_receipt": "09ccc8a11432",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T07:51Z (receipt 09ccc8a11432); selected commit 42d0f1c64f54: \"Update UI\". LICENSE file at pin 42d0f1c64f54 detected as EUPL-1.2 by the GitHub licence API on 2026-11-09; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "42d0f1c64f54e5ebdf5444c634ec9adbc79945d4",
+     "at": "2026-11-09T07:51Z",
+     "receipt": "09ccc8a11432"
+    }
+   }
+  }
+ ]
+}

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "OPS",
- "domain": "an agent working on bootstrapper, pure-python, venv queries this for how uvsmtid/protoprimer implements it: :zap: prime your repo clone to run :arrow_forward: (selected work: src/proto_code, src/protoprimer)",
+ "domain": "an agent working on bootstrapper, pure-python, venv queries this for how uvsmtid/protoprimer implements it: :arrow_forward: prime your repo clone to run (selected work: src/proto_code, src/protoprimer)",
  "repos": [
   {
    "repo": "protoprimer",
