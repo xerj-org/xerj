@@ -387,6 +387,24 @@ async fn a_composite_without_size_is_checked_at_its_default_of_ten() {
     answered(status, &body, 8);
 }
 
+/// When one aggregation passes the node's own cap (65536) and the setting is
+/// lower, the error names the setting, the limit the client set.
+#[tokio::test]
+async fn an_engine_cap_error_names_a_lower_setting() {
+    let (app, _dir) = seeded().await;
+    put_settings(&app, json!({"persistent": {"search.max_buckets": 100}})).await;
+    // Seven years in 30 minute buckets is about 122,000, past the node's cap.
+    let (status, body) = search(
+        &app,
+        json!({"size": 0, "aggs": {"test": {"date_histogram": {
+            "field": "date",
+            "fixed_interval": "30m"
+        }}}}),
+    )
+    .await;
+    too_many_buckets(status, &body, 100);
+}
+
 /// Named `filters` buckets come back as an object, not an array; each one is
 /// still a bucket in the count.
 #[tokio::test]

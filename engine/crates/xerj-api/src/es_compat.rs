@@ -8376,6 +8376,14 @@ fn find_invalid_composite_agg_with_cap(aggs: Option<&Value>, cap: u64) -> Option
                 duplicates.join(", ")
             ));
         }
+        // ES refuses a blocking parent when it builds the aggregation, before
+        // it checks the size.
+        if let Some(parent) = blocking_parent {
+            return Some(format!(
+                "[composite] aggregation cannot be used with a parent aggregation of type: [{}]",
+                factory_name(parent)
+            ));
+        }
         // ES checks the `size` it will use, so a missing one is its default
         // of 10, and a numeric string counts as its number.
         let size = params.get("size").map_or(Some(10), |size| {
@@ -8389,12 +8397,6 @@ fn find_invalid_composite_agg_with_cap(aggs: Option<&Value>, cap: u64) -> Option
                      [search.max_buckets] cluster level setting."
                 ));
             }
-        }
-        if let Some(parent) = blocking_parent {
-            return Some(format!(
-                "[composite] aggregation cannot be used with a parent aggregation of type: [{}]",
-                factory_name(parent)
-            ));
         }
         None
     }

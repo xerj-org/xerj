@@ -28,8 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   persistent. A composite `size` over the limit (10 when not given) is
   refused, and an `_msearch` item over it fails on its own. The node's
   per-aggregation cap from `limits.max_buckets` still applies too, so a
-  setting above it does not raise that cap. `_async_search` does not read the
-  setting yet.
+  setting above it does not raise that cap. `_async_search`,
+  `_search/template` and `_msearch/template` do not read the setting yet.
 
 ## [1.0.0-rc.102] - 2026-11-06
 
