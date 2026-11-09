@@ -739,10 +739,9 @@ pub fn reconcile_groups(
             .map(|owner| owner.group_id.as_str())
             .collect();
         let group_id = if let Some(owner) = content_owner {
-            anyhow::ensure!(
-                path_owners.is_empty() || path_owners.contains(owner.group_id.as_str()),
-                "desired group has conflicting content and path identities"
-            );
+            // A changed file may now equal already indexed content. Preserve
+            // that content's group and let the operation planner retire its
+            // former group; path ownership must not veto this normal merge.
             owner.group_id.clone()
         } else if path_owners.len() == 1 {
             path_owners.pop_first().unwrap().to_string()
@@ -1828,6 +1827,45 @@ mod tests {
                 .unwrap()
                 .group_id,
             "logical"
+        );
+    }
+
+    #[test]
+    fn changed_file_can_join_surviving_content_group() {
+        let previous = vec![
+            group("retired", "old-content", path("61", false)),
+            group("survivor", "existing-content", path("62", false)),
+        ];
+        let result = reconcile_groups(
+            &previous,
+            vec![desired(
+                "existing-content",
+                vec![path("61", false), path("62", false)],
+            )],
+        )
+        .unwrap();
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].group_id, "survivor");
+        assert_eq!(result[0].canonical, path("61", false));
+        assert_eq!(result[0].aliases, vec![path("62", false)]);
+        let operations = plan_operations(&previous, &result);
+        assert_eq!(operations.len(), 2);
+        assert!(operations
+            .iter()
+            .any(|op| { op.group_id == "retired" && op.kind == SyncOperationKind::Delete }));
+        assert!(operations
+            .iter()
+            .any(|op| { op.group_id == "survivor" && op.kind == SyncOperationKind::Metadata }));
+        assert_eq!(
+            reconcile_groups(
+                &result,
+                vec![desired(
+                    "existing-content",
+                    vec![path("61", false), path("62", false)],
+                )]
+            )
+            .unwrap(),
+            result
         );
     }
 
