@@ -1,0 +1,23 @@
+{
+ "corpus": "carlosgarcia-tech--commons-marketplace-client",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how carlosgarcia-tech/commons-marketplace-client implements it: carlosgarcia-tech/commons-marketplace-client (TypeScript) (selected work: app/admin, app, components)",
+ "repos": [
+  {
+   "repo": "commons-marketplace-client",
+   "url": "https://github.com/carlosgarcia-tech/commons-marketplace-client",
+   "sha": "c570a91f7d49805a75f9a3c0cb17d0beb8792ec9",
+   "licence": "ISC (LICENSE file at pin c570a91f7d49, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "ISC",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T00:14Z",
+    "consent_receipt": "35ad4eaee1d2",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T00:14Z (receipt 35ad4eaee1d2); selected commit c570a91f7d49: \"feat(ui): dark liquid glass redesign; glass admin components, loading\u2026\". LICENSE file at pin c570a91f7d49 detected as ISC by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

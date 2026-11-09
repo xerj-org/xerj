@@ -2,21 +2,21 @@
  "corpus": "jaredchu--context-docs",
  "cloned_at": null,
  "status": "draft",
- "shelf": "WRITE",
- "domain": "an agent working on Python queries this for how jaredchu/context-docs implements it: A reusable agent skill and Markdown standard for consistent, current project context",
+ "shelf": "AI",
+ "domain": "an agent working on agent-skills, ai-coding, claude-code queries this for how jaredchu/context-docs implements it: Agent skills for Codex and Claude Code that preserve project context, decisions and next steps across AI sessions in plain Markdown",
  "repos": [
   {
    "repo": "context-docs",
    "url": "https://github.com/jaredchu/context-docs",
-   "sha": "23f1cc2bf1c29242d21801ba54dbd63f89a76887",
-   "licence": "MIT (LICENSE file at pin 23f1cc2bf1c2, GitHub licence API 2026-11-07)",
+   "sha": "865ccab393e28796d16848690ef38a69a1be4afe",
+   "licence": "MIT (LICENSE file at pin 865ccab393e2, GitHub licence API 2026-11-09)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-06T13:09Z",
     "consent_receipt": "38f94c54e49f",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T13:09Z (receipt 38f94c54e49f); pinned to the default-branch head. LICENSE file at pin 23f1cc2bf1c2 detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T13:09Z (receipt 38f94c54e49f); pinned to the default-branch head. LICENSE file at pin 865ccab393e2 detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
    }
   }
  ]

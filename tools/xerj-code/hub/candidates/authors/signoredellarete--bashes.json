@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Go queries this for how signoredellarete/bashes implements it: Bashes - Lightweight desktop application for managing remote servers (selected work: the project root, frontend)",
+ "domain": "an agent working on Go queries this for how signoredellarete/bashes implements it: Bashes - Lightweight multi-platform desktop application for managing remote servers (selected work: the project root, frontend)",
  "repos": [
   {
    "repo": "bashes",

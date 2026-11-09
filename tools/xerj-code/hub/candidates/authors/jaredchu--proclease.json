@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-agents, claude-code, cli queries this for how jaredchu/proclease implements it: Explicit lifetimes for AI-started development processes. Rust CLI and shared Codex/Claude Code skill (selected work: src, tests)",
+ "domain": "an agent working on ai-agents, claude-code, cli queries this for how jaredchu/proclease implements it: Rust CLI for coding agents: run development servers with explicit TTLs, bounded readiness checks and automatic cleanup. Includes Codex and C (selected work: src, tests)",
  "repos": [
   {
    "repo": "proclease",

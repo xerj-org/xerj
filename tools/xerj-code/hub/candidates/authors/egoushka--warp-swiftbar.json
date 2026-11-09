@@ -8,15 +8,15 @@
   {
    "repo": "warp-swiftbar",
    "url": "https://github.com/Egoushka/warp-swiftbar",
-   "sha": "52d7be67e060a8d94445090354b0a8f9ba01b108",
-   "licence": "MIT (LICENSE file at pin 52d7be67e060, GitHub licence API 2026-11-07)",
+   "sha": "0644916fa8e3b89cacc1e11f6489ab40428c58b9",
+   "licence": "MIT (LICENSE file at pin 0644916fa8e3, GitHub licence API 2026-11-09)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-07T15:00Z",
     "consent_receipt": "60fb30295c3e",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-07T15:00Z (receipt 60fb30295c3e); pinned to the default-branch head. LICENSE file at pin 52d7be67e060 detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-07T15:00Z (receipt 60fb30295c3e); pinned to the default-branch head. LICENSE file at pin 0644916fa8e3 detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
    }
   }
  ]

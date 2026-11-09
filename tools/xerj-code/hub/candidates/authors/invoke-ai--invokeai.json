@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-art, artificial-intelligence, generative-art queries this for how invoke-ai/InvokeAI implements it: Invoke is a leading creative engine for Stable Diffusion models, empowering professionals, artists, and enthusiasts to generate and create v (selected work: tests, invokeai)",
+ "domain": "an agent working on ai-art, artificial-intelligence, generative-art queries this for how invoke-ai/InvokeAI implements it: Invoke is a leading creative engine that uses image and video generation models to empower professionals, artists, and enthusiasts to genera (selected work: tests, invokeai)",
  "repos": [
   {
    "repo": "InvokeAI",

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WRITE",
- "domain": "an agent working on burndown-chart, gamification, github-pages queries this for how timsamoff/Sidequest implements it: A lightweight project planner for juggling several projects (selected work: satchel, app, Sidequest-App)",
+ "domain": "an agent working on burndown-chart, gamification, github-pages queries this for how timsamoff/sidequest implements it: A lightweight project planner for juggling several projects (selected work: satchel, app, Sidequest-App)",
  "repos": [
   {
    "repo": "Sidequest",

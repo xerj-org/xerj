@@ -2,8 +2,8 @@
  "corpus": "frodi-karlsson--onesie",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on cli, go, golang queries this for how frodi-karlsson/onesie implements it: An expressive Unix-pipeable CLI for System One models like Jev (selected work: hooks, internal/cli, internal/creds)",
+ "shelf": "AI",
+ "domain": "an agent working on cli, go, golang queries this for how frodi-karlsson/onesie implements it: Gate scripts and CI on fast, calibrated System One judgments like Jev: a score, a choice or an exit code from one Unix-pipeable command (selected work: hooks, internal/cli, internal/creds)",
  "repos": [
   {
    "repo": "onesie",
