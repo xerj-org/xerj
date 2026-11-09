@@ -1,0 +1,34 @@
+---
+"date_range bounds with now-based date math":
+  - do:
+      indices.create:
+        index: test_date_range_math
+        body:
+          mappings:
+            properties:
+              ts:
+                type: date
+
+  - do:
+      bulk:
+        index: test_date_range_math
+        refresh: true
+        body:
+          - {"index": {}}
+          - {"ts": "2000-01-01T00:00:00Z"}
+
+  - do:
+      search:
+        index: test_date_range_math
+        body:
+          size: 0
+          aggs:
+            d:
+              date_range:
+                field: ts
+                ranges:
+                  - {"to": "now-30d/d"}
+                  - {"from": "now-30d/d"}
+
+  - match: { aggregations.d.buckets.0.doc_count: 1 }
+  - match: { aggregations.d.buckets.1.doc_count: 0 }
