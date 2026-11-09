@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on kanban, nextjs, prisma queries this for how mono-is-byte/TaskHub implements it: Self-hosted, multi-user task tracker for small teams; Kanban board, inline-editable table, timeline, calendar with holidays, workload and re (selected work: scripts, src/lib, tests)",
+ "domain": "an agent working on kanban, nextjs, prisma queries this for how mono-is-byte/TaskHub implements it: Beta: Self-hosted, multi-user task tracker for small teams; Kanban board, inline-editable table, timeline, calendar with holidays, workload  (selected work: scripts, src/lib, tests)",
  "repos": [
   {
    "repo": "Task-Tracker",

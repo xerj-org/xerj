@@ -8,15 +8,15 @@
   {
    "repo": "Handrail",
    "url": "https://github.com/andreafunicelli/Handrail",
-   "sha": "83b932c262a8822769ab26d2706a9846cdaeecb0",
-   "licence": "Apache-2.0 (LICENSE file at pin 83b932c262a8, GitHub licence API 2026-11-08)",
+   "sha": "ea3202b110cc01c6f2b112a9596b1bcd33393e2b",
+   "licence": "Apache-2.0 (LICENSE file at pin ea3202b110cc, GitHub licence API 2026-11-09)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T11:20Z",
     "consent_receipt": "0b78d0d03a2a",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T11:20Z (receipt 0b78d0d03a2a); pinned to the default-branch head. LICENSE file at pin 83b932c262a8 detected as Apache-2.0 by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T11:20Z (receipt 0b78d0d03a2a); pinned to the default-branch head. LICENSE file at pin ea3202b110cc detected as Apache-2.0 by the GitHub licence API on 2026-11-09; used under that licence with attribution."
    }
   }
  ]

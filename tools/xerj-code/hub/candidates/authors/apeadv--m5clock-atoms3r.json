@@ -1,0 +1,23 @@
+{
+ "corpus": "apeadv--m5clock-atoms3r",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how Apeadv/M5Clock-AtomS3R implements it: Bilingual world clock for M5Stack AtomS3R + 3\u00d7 Chain Mono \u2014 Beijing time on 24\u00d78 LED matrices, UTC + six cities on the 128\u00d7128 LCD (selected work: firmware, pc, tools)",
+ "repos": [
+  {
+   "repo": "M5Clock-AtomS3R",
+   "url": "https://github.com/Apeadv/M5Clock-AtomS3R",
+   "sha": "df2c3547c655a143f3d6d2924b09fd531434d006",
+   "licence": "MIT (LICENSE file at pin df2c3547c655, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T09:40Z",
+    "consent_receipt": "5056167f4f49",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T09:40Z (receipt 5056167f4f49); selected commit df2c3547c655: \"Add files via upload\". LICENSE file at pin df2c3547c655 detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

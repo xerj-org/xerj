@@ -1,0 +1,23 @@
+{
+ "corpus": "skepsun--dsh-engram",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on deepseek-harness, dsh, dsh-plugin queries this for how skepsun/dsh-engram implements it: \u6781\u7b80\u00b7\u7701 token \u7684 DSH \u957f\u671f\u8bb0\u5fc6\u63d2\u4ef6\uff1a\u96f6 LLM \u81ea\u52a8\u6355\u83b7\u3001\u7b26\u53f7\u7d22\u5f15\u6e10\u8fdb\u62ab\u9732\u3001ESR \u8bc1\u636e\u95ed\u73af\u3002Minimalist token-saving memory for DeepSeek Harness: zero-LLM auto-capture, symbolic in (selected work: lib, client)",
+ "repos": [
+  {
+   "repo": "dsh-engram",
+   "url": "https://github.com/skepsun/dsh-engram",
+   "sha": "3257830588a986d6c485a20fb01f6f8a758c9ed0",
+   "licence": "MIT (LICENSE file at pin 3257830588a9, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T08:12Z",
+    "consent_receipt": "dc6ef6764032",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T08:12Z (receipt dc6ef6764032); selected commit 3257830588a9: \"Client i18n: route UI copy through a msgid catalog, add Russian\". LICENSE file at pin 3257830588a9 detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}
