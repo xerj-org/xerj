@@ -1,12 +1,12 @@
 {
- "corpus": "swift-book",
+ "corpus": "swift-book","pin_date":"2026-11-09",
  "cloned_at": "2026-10-19T22:32:25Z",
  "repos": [
   {
    "repo": "swift-book",
    "url": "https://github.com/swiftlang/swift-book",
    "licence": "Apache-2.0",
-   "sha": "1c0598430507e6c2b9a0f068b6dd7c618392fea6",
+   "sha": "16a2a4caa408c86fc85bde1e1dfff4745b6e454c",
    "files": 251,
    "bytes": 9070695,
    "review": {
