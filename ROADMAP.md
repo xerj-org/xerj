@@ -641,13 +641,180 @@ Built-in non-coding tool sets (Writing, Bio, Cyber), all native Rust in the xerj
   - advisory writing, `cyber.advisory` / `cyber.cve_context` ([#2776](https://github.com/xerj-org/xerj/issues/2776)).
 - **Docs, `xerj tools list`, site pages** ([#2768](https://github.com/xerj-org/xerj/issues/2768)).
 
+## Enterprise data sources beyond files
+
+**Planned; partly in review, nothing below is in a released binary unless it
+says so.** Status checked against `main` (`87bf7acf9`) and the open pull
+requests on 2026-11-05. Users running XERJ on their own hardware ask for the
+same thing: keep what `xerj autoindex` does for files, and put the same
+search on top of their databases, vector stores and exports. The full list
+of ways to get data in today is [docs/SOURCES.md](./docs/SOURCES.md)
+(`xerj sources` prints it).
+
+- **Archives — on `main`, not yet released.** `xerj autoindex <file.zip>`
+  indexes zip, tar, tar.gz and tar.zst archives (built for Google Takeout),
+  with bounded, path-safe extraction (PR
+  [#2982](https://github.com/xerj-org/xerj/pull/2982), merged after the
+  rc.101 tag). Nested archives and 7z/rar/xz are not opened.
+- **Live Postgres with connect-once real-time sync — in review.**
+  `xerj connect postgres://…` snapshots the chosen tables, then applies every
+  insert, update, delete and truncate through logical replication, resumes
+  from its acknowledged LSN after a restart, and reports state, LSN, lag
+  seconds and rows/s through `xerj sources`, `GET /_xerj/sources` and the
+  `xerj_sources` MCP tool (PR
+  [#2984](https://github.com/xerj-org/xerj/pull/2984), open). The PR's own
+  measurements: a 1,000,000-row snapshot at 54,776 rows/s, commit-to-readable
+  p50 16.9 ms / p95 26.6 ms at 991 commits/s, and `kill -9` recovery with 0
+  missing, extra, stale or duplicate rows. A poll mode
+  (`--watermark-column`) covers sources without replication rights, without
+  deletes. Not done: custom CA files and client certificates for Postgres TLS.
+- **Live MySQL (row-based binlog / GTID) — planned, no code yet.** Today
+  `mysql://` is refused and points at the dump-and-autoindex path; a SQL dump
+  file is indexed by `xerj autoindex`.
+- **Rows to facts for XERJ Query-1 — in review.**
+  `xerj autoindex <path> --facts <namespace>` writes rows from SQLite, SQL
+  dumps, CSV/TSV and XLSX as Query-1 facts, one subject per row, and re-runs
+  write only changed rows (PR
+  [#2988](https://github.com/xerj-org/xerj/pull/2988), open). The streamed
+  path (Postgres changes becoming facts) is an interface both PRs define and
+  neither wires yet. It needs a node started with `--facts-model-dir`.
+- **Vector-DB importers (Qdrant, Chroma, pgvector, Pinecone) — planned, no
+  code yet.** A `xerj import <vendor>` command that reads the vectors and
+  their payload and keeps the source's ids. Today: export the vectors and post
+  them through `_bulk` into a `dense_vector` mapping; kNN and hybrid queries
+  then work.
+
+## Clusters, scaling and sizing
+
+**Status: multi-node is not production-ready, and XERJ has no formal SLA.**
+Tracking issue [#1170](https://github.com/xerj-org/xerj/issues/1170) (open).
+Single-node sizing and every measured number, with hardware and date, are in
+[docs/SIZING_AND_SLA.md](./docs/SIZING_AND_SLA.md).
+
+**Measured on 2026-11-05** against `v1.0.0-rc.101` (`dfbab650d`), 3 and 4
+local processes on one 32-core x86_64 host shared with other builds, one
+replica per shard:
+
+- **Holds:** 1,000,000 docs ingested at 4,218 docs/s with 0 errors; after
+  `kill -9` of a node and of the leader, 0 of 1,404,558 acknowledged ids were
+  missing on primaries or replicas; a new leader was elected in 170–405 ms; with
+  one node dead, GET and search still returned every document.
+- **Does not hold:** one dead node blocked writes to 2 of 3 shards (40 of 60
+  writes got 503); `_count` returned 93/104/103 of 300 and `_mget` found 2 of 6
+  (local shard only); `_cluster/health` kept reporting 3 nodes and 0 unassigned
+  primaries with one node dead; leader churn of 5–22 changes with no faults and
+  3.5–9 s election storms after a node was lost; a 4th node never received
+  shards, and its 4-peer config made 17–25% of earlier acknowledged documents
+  return 404. No network partition was tested (it needs root).
+- **Single node, same day:** search about 110 qps per busy core (5 GB index,
+  8 cores: 747 qps at p99 20.4 ms with 8 clients); `kill -9` with 726 MB of WAL
+  recovered 200,000 of 200,000 docs in 24.0 s; bulk-load peak RSS 7.2 GB per
+  GB of raw text.
+
+**Being fixed now (open pull requests, not merged):**
+
+- Each index routed with its own shard count, so creating a wider index no
+  longer moves older documents (PR
+  [#2992](https://github.com/xerj-org/xerj/pull/2992); in-process repro 994 of
+  6,000 GETs missed before, 0 after).
+- A replica that misses a write the primary applied leaves the in-sync set and
+  is backfilled (PR [#2993](https://github.com/xerj-org/xerj/pull/2993); lab
+  gap of 26,802 docs before, 0 after). A primary killed between its own apply
+  and the copy can still leave docs only on the primary; resync on restart or
+  promotion is a separate item below.
+- A new leader appends a no-op so entries from the previous term commit (PR
+  [#2987](https://github.com/xerj-org/xerj/pull/2987)). It needs every member
+  upgraded before use, and the 60 ms-fsync election livelock remains.
+- `xerj index` retries memory-breaker rejections and exits 1 when documents
+  are lost (PR [#2991](https://github.com/xerj-org/xerj/pull/2991); rc.101
+  dropped 127,138 of 284,158 docs under a 2 GiB cap and exited 0).
+
+**Planned, in this order, no tracking issues filed yet:**
+
+1. *Write availability:* replica promotion with primary-term fencing, an
+   in-sync set that can shrink to the primary (`wait_for_active_shards=1`), and
+   primary–replica resync on restart. This is the prerequisite for any write
+   SLA.
+2. *Raft stability:* PreVote and CheckQuorum, dropping messages from
+   non-members before term handling, validated `tick_ms`, election and
+   heartbeat timeouts as config with jitter, a non-blocking send queue per
+   peer, and Raft on its own thread.
+3. *Correct reads:* `_count`, `_mget`, `_msearch` and `_cat/indices` fan out
+   across shards (or refuse with a 400); the cluster search total respects
+   `track_total_hits` instead of adding per-shard caps (30,000 reported vs
+   310,934 true); URL `size`/`from` honoured on the fan-out path.
+4. *Honest health:* `_cluster/health` and `_cat` computed from the plan, the
+   in-sync sets and live transport, with the leader and term exposed.
+5. *Scale-out:* membership change one server at a time
+   (`POST /v1/cluster/members`), shard relocation by backfill then plan switch.
+6. *Operations:* replica fallback for a hung peer (suspect after the first
+   timeout), retryable `shard_not_ready`, a graceful stop that closes the
+   listener first, WAL replay per index behind open listeners.
+7. *Memory and ingest:* a process memory cap that holds peak RSS (3.57 GB
+   measured under a 2 GB cap), parallel memtable flush in `xerj index` (about
+   2 cores used today; the final flush is 96.9 of 101.9 s), incremental
+   `_bulk` backpressure (p99 11.6 s), a cheaper force-merge (202 s and 8.2 GB
+   peak per GB).
+8. *Proof:* a CI job running a real 3-process cluster (create, bulk, count and
+   search from every node, `kill -9` of the leader, failover time, catch-up);
+   then a measured multi-node sizing and SLA run on an isolated ring, which
+   replaces the arithmetic in [docs/SIZING_AND_SLA.md](./docs/SIZING_AND_SLA.md).
+9. *Cleanup:* delete or feature-gate about 1,886 lines of unused cluster code
+   (`regions.rs`, `replication.rs`, `coordinator.rs`), and restate the
+   *Capacity planning* block on the operations docs page from measured
+   numbers.
+
+## Enterprise on-prem integrations: model providers
+
+Enterprise users running XERJ on their own hardware ask to use the model
+providers they already run next to it. Each integration is off by default: a
+stock node calls no external model. XERJ is not affiliated with any provider
+named here.
+
+**Supported today:**
+
+- **Embeddings:** the built-in lexical embedder (default, not neural), a
+  built-in neural BERT model, an experimental ONNX Runtime model, and any
+  OpenAI-compatible `/v1/embeddings` service through the proxy embedder
+  (hosted, or self-hosted on the user's own hardware).
+- **Reranking:** the `rerank` stage on `_search` with the `jev` provider
+  ([docs/RERANK.md](./docs/RERANK.md)), and the local lexical `judge`.
+
+**Cohere, requested by enterprise users for on-prem search:**
+
+- **Cohere Rerank — on `main`, not yet released.** `"rerank": {"provider":
+  "cohere"}` on `_search`, with a configurable endpoint so document text can
+  stay on a private Cohere deployment (PR
+  [#2985](https://github.com/xerj-org/xerj/pull/2985), merged after the
+  rc.101 tag). Tested against a stub of the documented API only; no live
+  quality, latency or cost claim. `min_score` waits for calibration.
+- **Cohere Embed — in review.** A proxy-embedder fix so responses without a
+  per-item `index` parse, and an example config on Cohere's
+  OpenAI-compatible route (PR
+  [#2983](https://github.com/xerj-org/xerj/pull/2983), open). Planned: a
+  native `/v2/embed` provider with `input_type`, for asymmetric
+  query/document vectors in hybrid search.
+- **Cohere Command and North tool use — in review / planned.** PR
+  [#2983](https://github.com/xerj-org/xerj/pull/2983) ships six XERJ tools in
+  the Chat v2 tool format and a Command RAG example whose citations resolve to
+  file and page. Planned: a Query-1 tool, so a Cohere agent can call both XERJ
+  search and XERJ Query-1, and a connector for North. The docs page and
+  on-prem worked example are PR
+  [#2990](https://github.com/xerj-org/xerj/pull/2990) (open). No Cohere key
+  has been used yet: every Cohere step so far ran against a mock, and the
+  first live run is pending.
+
+Other providers follow the same rule: one request path, off until an operator
+configures it, a stated data-egress row, and no quality claim before a
+measured run.
+
 ## Beyond 1.0 — themes
 
 - **AST language expansion** — 25 further tree-sitter grammars, tiered by demand, one PR per
   tier. [#295](https://github.com/xerj-org/xerj/issues/295) delivered the expansion to 34
   languages and is closed; the remaining tiers have no tracking issue yet, so this theme is
   a plan rather than a commitment until one exists. Tier 1 (Kotlin, Swift, Scala, Dart, Lua, Perl, R, Julia, Haskell, Elixir) may land earlier in an RC if the grammar/ABI checks prove out.
-- **Distributed clustering maturity** — embedded Raft handles cluster metadata today, but the default run is **single-node**; multi-node sharding/replication hardening is a post-GA track, and XERJ does not claim multi-node production readiness until it is measured.
+- **Distributed clustering maturity** — embedded Raft handles cluster metadata today, but the default run is **single-node**; multi-node sharding/replication hardening is a post-GA track, and XERJ does not claim multi-node production readiness until it is measured. The 2026-11-05 measurements and the ordered work list are in *Clusters, scaling and sizing* above.
 - **Neural embedder ergonomics** — one loaded model is already shared by every index with the same embedder configuration (each index holds its own `NeuralHandle`, and identical configurations resolve to one lazily loaded model — `shared_neural_cell` in `xerj-ai/src/embedder.rs`; corrected 2026-09-18, the previous wording said each index held its own model). Still open: optional pre-warm at startup (the first embed pays the model load) and a larger default model option. The two measured defects this theme used to carry — ingest throughput ([#938](https://github.com/xerj-org/xerj/issues/938)) and the multi-passage exact scan ([#939](https://github.com/xerj-org/xerj/issues/939)) — closed with fixes (PRs [#995](https://github.com/xerj-org/xerj/pull/995) and [#979](https://github.com/xerj-org/xerj/pull/979)) before the rc.77 tag.
 - **Log-analytics data path** — the dedicated `xerj-logs` columnar module is still not invoked from non-test engine/server code; log-shaped analytics run through ZBS2 + the generic aggregation suite. Wire it or remove it. The plan for wiring it is *a block index mode for logs* under *The zero-token direction* above.
 - **Broader aggregation families** — geo/IP/nested/join coverage beyond the current surface; the conformance suite is the measure.
