@@ -1,0 +1,23 @@
+{
+ "corpus": "bsekinaev--org-structure-api",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on alembic, docker, fastapi queries this for how bsekinaev/org-structure-api implements it: FastAPI \u0434\u043b\u044f \u043e\u0440\u0433\u0441\u0442\u0440\u0443\u043a\u0442\u0443\u0440\u044b: \u043f\u043e\u0434\u0440\u0430\u0437\u0434\u0435\u043b\u0435\u043d\u0438\u044f, \u0441\u043e\u0442\u0440\u0443\u0434\u043d\u0438\u043a\u0438, \u0438\u0435\u0440\u0430\u0440\u0445\u0438\u044f, PostgreSQL, SQLAlchemy, Alembic (selected work: tests, the project root, app)",
+ "repos": [
+  {
+   "repo": "org-structure-api",
+   "url": "https://github.com/bsekinaev/org-structure-api",
+   "sha": "be6a8e3345f273a90c0752750d7e6a94dbd6fb12",
+   "licence": "MIT (LICENSE file at pin be6a8e3345f2, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T11:30Z",
+    "consent_receipt": "f8921a06035a",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T11:30Z (receipt f8921a06035a); selected commit be6a8e3345f2: \"fix(gh-01): \u0441\u043e\u0432\u043c\u0435\u0441\u0442\u0438\u043c\u043e\u0441\u0442\u044c psycopg2, \u0437\u0430\u0449\u0438\u0442\u0430 \u0442\u0435\u0441\u0442\u043e\u0432\u043e\u0439 \u0411\u0414 \u0438 Docker CRUD \u2026\". LICENSE file at pin be6a8e3345f2 detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

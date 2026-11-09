@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "SEC",
- "domain": "an agent working on security, nextjs, ollama queries this for how sebin-gg/Aegis implements it: \ud83d\udee1\ufe0f Aegis - Next.js 15 & React 19 security analysis dashboard with live threat feeds and local Ollama AI threat evaluation",
+ "domain": "an agent working on nextjs, ollama, security-dashboard queries this for how sebin-gg/Aegis implements it: \ud83d\udee1\ufe0f Aegis - Next.js 15 & React 19 security analysis dashboard with live threat feeds and local Ollama AI threat evaluation",
  "repos": [
   {
    "repo": "Aegis",

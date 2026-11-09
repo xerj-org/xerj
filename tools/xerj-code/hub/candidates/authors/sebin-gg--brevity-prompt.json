@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on chatgpt, chrome-extension, claude queries this for how sebin-gg/brevity-prompt implements it: \u2702\ufe0f Chrome extension for AI prompt compression \u2014 reduce token usage on ChatGPT, Claude & Gemini by up to 80%",
+ "domain": "an agent working on chrome-extension, kerala, llm queries this for how sebin-gg/brevity-prompt implements it: \u2702\ufe0f Chrome extension for AI prompt compression \u2014 reduce token usage on ChatGPT, Claude & Gemini by up to 80%",
  "repos": [
   {
    "repo": "brevity-prompt",

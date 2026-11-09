@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on TypeScript queries this for how sebin-gg/sebin-gg-portfolio implements it: Sebin Mathew \u2014 personal portfolio (Next.js + TypeScript + Tailwind, static-first)",
+ "domain": "an agent working on college-of-engineering-chengannur, kerala, llms-txt queries this for how sebin-gg/sebin-gg-portfolio implements it: Sebin Mathew \u2014 personal portfolio (Next.js + TypeScript + Tailwind, static-first)",
  "repos": [
   {
    "repo": "sebin-gg-portfolio",
    "url": "https://github.com/sebin-gg/sebin-gg-portfolio",
-   "sha": "1e0c9675c88c84d785ae5f6847d6b15c47da9da0",
-   "licence": "MIT (LICENSE file at pin 1e0c9675c88c, GitHub licence API 2026-11-09)",
+   "sha": "2897dc8cc35abb4103078e11b6f7acab254cb599",
+   "licence": "MIT (LICENSE file at pin 2897dc8cc35a, GitHub licence API 2026-11-09)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-02T15:14Z",
     "consent_receipt": "a0919e3f55b2",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T15:14Z (receipt a0919e3f55b2); pinned to the default-branch head. LICENSE file at pin 1e0c9675c88c detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T15:14Z (receipt a0919e3f55b2); pinned to the default-branch head. LICENSE file at pin 2897dc8cc35a detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
    }
   }
  ]
