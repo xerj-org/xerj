@@ -1775,7 +1775,11 @@ impl<'a> EsSyncBackend<'a> {
                 })?;
             let time_bound = |order: &'static str| -> Result<Option<String>> {
                 match &dataset.time_field {
-                    Some(field) => self.extreme_time(&dataset.index, &filter, field, order),
+                    Some(field) => match self.extreme_time(&dataset.index, &filter, field, order) {
+                        Ok(bound) => Ok(bound),
+                        Err(err) if err.to_string().contains("in order to sort on") => Ok(None),
+                        Err(err) => Err(err),
+                    },
                     None => Ok(None),
                 }
             };
@@ -1829,7 +1833,7 @@ impl<'a> EsSyncBackend<'a> {
         let body = serde_json::json!({
             "size": 1,
             "query": {"bool": {"filter": filter}},
-            "sort": [{field: {"order": order}}],
+            "sort": [{field: {"order": order, "unmapped_type": "date"}}],
             "_source": [field]
         });
         let response = self.es.search(index, &body)?;
