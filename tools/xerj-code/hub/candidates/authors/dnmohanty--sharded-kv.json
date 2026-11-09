@@ -1,9 +1,9 @@
 {
- "corpus": "dnmohanty--distributed-kv",
+ "corpus": "dnmohanty--sharded-kv",
  "cloned_at": null,
  "status": "draft",
  "shelf": "DB",
- "domain": "an agent working on C++ queries this for how dnmohanty/distributed-kv implements it: dnmohanty/distributed-kv (C++) (selected work: src, the project root)",
+ "domain": "an agent working on C++ queries this for how dnmohanty/sharded-kv implements it: dnmohanty/sharded-kv (C++) (selected work: src, the project root)",
  "repos": [
   {
    "repo": "distributed-kv",

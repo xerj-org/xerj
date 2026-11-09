@@ -8,15 +8,15 @@
   {
    "repo": "SegregatedStorage",
    "url": "https://github.com/steffenskov/SegregatedStorage",
-   "sha": "a1c53c8c9e51e8d90e456428ea327db8b7f6613b",
-   "licence": "MIT (LICENSE file at pin a1c53c8c9e51, GitHub licence API 2026-11-02)",
+   "sha": "00340a2b22331b6b9fae8917c3f1ca655028b882",
+   "licence": "MIT (LICENSE file at pin 00340a2b2233, GitHub licence API 2026-11-09)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T19:41Z",
     "consent_receipt": "acb71098f998",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T19:41Z (receipt acb71098f998); pinned to the default-branch head. LICENSE file at pin a1c53c8c9e51 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T19:41Z (receipt acb71098f998); pinned to the default-branch head. LICENSE file at pin 00340a2b2233 detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
    }
   }
  ]

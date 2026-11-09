@@ -1,0 +1,23 @@
+{
+ "corpus": "kubilaycakmak--viewports",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how kubilaycakmak/viewports implements it: kubilaycakmak/viewports (JavaScript) (selected work: src/desktop, src, test)",
+ "repos": [
+  {
+   "repo": "viewports",
+   "url": "https://github.com/kubilaycakmak/viewports",
+   "sha": "80a4da69d3eb6aa8605a1ece33a2828d86bf5daa",
+   "licence": "MIT (LICENSE file at pin 80a4da69d3eb, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T15:55Z",
+    "consent_receipt": "bab01685bc3a",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T15:55Z (receipt bab01685bc3a); selected commit 80a4da69d3eb: \"Manage desktop devices through MCP sessions\". LICENSE file at pin 80a4da69d3eb detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

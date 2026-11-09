@@ -2,8 +2,8 @@
  "corpus": "franciscogfsm--mirlow",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on TypeScript queries this for how franciscogfsm/Mirlow implements it: franciscogfsm/Mirlow (TypeScript) (selected work: apps/desktop)",
+ "shelf": "WEB",
+ "domain": "an agent working on airplay, airplay-receiver, android queries this for how franciscogfsm/Mirlow implements it: Free, open-source screen mirroring for Windows. Mirror your iPhone (AirPlay) or Android to your PC over Wi-Fi, and control it with your mous (selected work: apps/desktop)",
  "repos": [
   {
    "repo": "Mirlow",

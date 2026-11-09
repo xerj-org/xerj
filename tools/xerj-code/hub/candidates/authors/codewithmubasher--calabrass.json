@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agentic-coding, ai-agents, ai-automation queries this for how CodewithMubasher/Calabrass implements it: Calabrass is a free, open-source personal AI assistant built to run locally on your Windows desktop. Chat with AI models, organize files in  (selected work: Frontend, Backend)",
+ "domain": "an agent working on agentic-coding, ai-agents, ai-automation queries this for how CodewithMubasher/Calabrass implements it: Calabrass is a free, open-source personal AI agent built to run locally Chat with AI models, organize files in your local folders, and conne (selected work: Frontend, Backend)",
  "repos": [
   {
    "repo": "Calabrass",

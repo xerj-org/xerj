@@ -8,15 +8,15 @@
   {
    "repo": "ANSImuz",
    "url": "https://github.com/greenbugx/ANSImuz",
-   "sha": "a5a9b2b2bbe92c30118254648059ef15d3ecf3fe",
-   "licence": "MIT (LICENSE file at pin a5a9b2b2bbe9, GitHub licence API 2026-11-09)",
+   "sha": "9bab4b0b83418d484759fff547b34d1f27cae1ab",
+   "licence": "MIT (LICENSE file at pin 9bab4b0b8341, GitHub licence API 2026-11-09)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-27T20:54Z",
     "consent_receipt": "8ecbd37e387c",
-    "note": "Inclusion consented by the commit author by email at 2026-10-27T20:54Z (receipt 8ecbd37e387c); selected commit a5a9b2b2bbe9: \"refactor: split application into modular components\". LICENSE file at pin a5a9b2b2bbe9 detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution. Pinned to head a5a9b2b2bbe9 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-27T20:54Z (receipt 8ecbd37e387c); selected commit 9bab4b0b8341: \"refactor: split application into modular components\". LICENSE file at pin 9bab4b0b8341 detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution. Pinned to head 9bab4b0b8341 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]
