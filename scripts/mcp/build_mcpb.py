@@ -19,12 +19,12 @@ Each archive is checked against its `.sha256` asset before use.
 
 Run manually; nothing here touches CI:
 
-    python3 scripts/mcp/build_mcpb.py --tag v1.0.0-rc.98 --out /tmp/mcpb
-    python3 scripts/mcp/build_mcpb.py --tag v1.0.0-rc.98 --out /tmp/mcpb --update-server-json
+    python3 scripts/mcp/build_mcpb.py --tag v1.0.0-rc.100 --out /tmp/mcpb
+    python3 scripts/mcp/build_mcpb.py --tag v1.0.0-rc.100 --out /tmp/mcpb --update-server-json
 
 Then attach the bundle to the release and publish:
 
-    gh release upload v1.0.0-rc.98 /tmp/mcpb/xerj-mcp-1.0.0-rc.98.mcpb
+    gh release upload v1.0.0-rc.100 /tmp/mcpb/xerj-mcp-1.0.0-rc.100.mcpb
     mcp-publisher login github && mcp-publisher publish
 
 `--update-server-json` rewrites the mcpb package entry in server.json
@@ -130,7 +130,7 @@ def zip_add(zf: zipfile.ZipFile, name: str, data: bytes, mode: int) -> None:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--tag", required=True, help="release tag, e.g. v1.0.0-rc.98")
+    ap.add_argument("--tag", required=True, help="release tag, e.g. v1.0.0-rc.100")
     ap.add_argument("--out", required=True, type=Path, help="output directory")
     ap.add_argument("--update-server-json", action="store_true",
                     help="point server.json's mcpb package at this bundle")
