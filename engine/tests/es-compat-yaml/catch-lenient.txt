@@ -43,7 +43,6 @@ aggregations/sig_terms.yml · Misspelled fields get "did you mean"
 aggregations/stats_metric_fail_formatting.yml · fail formatting
 aggregations/terms.yml · IP test
 aggregations/top_hits.yml · having
-aggregations/weighted_avg.yml · Multi weight field not allowed
 indices/indices.put_template/10_basic.yml · Put template create
 scroll/11_clear.yml · Body params with array param override query string
 scroll/11_clear.yml · Body params with string param scroll id override query string
