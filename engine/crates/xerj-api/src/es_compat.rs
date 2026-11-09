@@ -8306,6 +8306,12 @@ fn find_invalid_agg_order_path(aggs: Option<&Value>) -> Option<String> {
 ///   chain of those) → `[composite] aggregation cannot be used with a parent
 ///   aggregation of type: [..AggregatorFactory]`.
 fn find_invalid_composite_agg(aggs: Option<&Value>) -> Option<String> {
+    find_invalid_composite_agg_with_cap(aggs, xerj_engine::aggs::max_buckets() as u64)
+}
+
+/// [`find_invalid_composite_agg`] with the `size` cap given: `_search` passes
+/// the request's `search.max_buckets` from `_cluster/settings`.
+fn find_invalid_composite_agg_with_cap(aggs: Option<&Value>, cap: u64) -> Option<String> {
     fn sub_aggs(def: &Value) -> Option<&Value> {
         def.get("aggs").or_else(|| def.get("aggregations"))
     }
@@ -8331,7 +8337,7 @@ fn find_invalid_composite_agg(aggs: Option<&Value>) -> Option<String> {
             .collect();
         format!("{camel}AggregatorFactory")
     }
-    fn check(params: &Value, blocking_parent: Option<&str>) -> Option<String> {
+    fn check(params: &Value, blocking_parent: Option<&str>, cap: u64) -> Option<String> {
         let sources = match params.get("sources") {
             None => return Some("Required [sources]".to_string()),
             Some(Value::Array(a)) if !a.is_empty() => a,
@@ -8369,7 +8375,6 @@ fn find_invalid_composite_agg(aggs: Option<&Value>) -> Option<String> {
                 duplicates.join(", ")
             ));
         }
-        let cap = xerj_engine::aggs::max_buckets() as u64;
         if let Some(size) = params.get("size").and_then(Value::as_u64) {
             if size > cap {
                 return Some(format!(
@@ -8390,13 +8395,14 @@ fn find_invalid_composite_agg(aggs: Option<&Value>) -> Option<String> {
     fn walk(
         level: &serde_json::Map<String, Value>,
         blocking_parent: Option<&str>,
+        cap: u64,
     ) -> Option<String> {
         for def in level.values() {
             let Some((kind, params)) = kind_of(def) else {
                 continue;
             };
             if kind == "composite" {
-                if let Some(reason) = check(params, blocking_parent) {
+                if let Some(reason) = check(params, blocking_parent, cap) {
                     return Some(reason);
                 }
             }
@@ -8408,14 +8414,14 @@ fn find_invalid_composite_agg(aggs: Option<&Value>) -> Option<String> {
                 Some(kind)
             };
             if let Some(subs) = sub_aggs(def).and_then(Value::as_object) {
-                if let Some(reason) = walk(subs, below) {
+                if let Some(reason) = walk(subs, below, cap) {
                     return Some(reason);
                 }
             }
         }
         None
     }
-    walk(aggs?.as_object()?, None)
+    walk(aggs?.as_object()?, None, cap)
 }
 
 #[cfg(test)]
@@ -16451,6 +16457,13 @@ async fn search_impl(
         .filter(|n| !value_type_failed_indices.contains(*n))
         .collect();
 
+    // `search.max_buckets` from `_cluster/settings`, read once: it caps a
+    // composite `size` here and the merged bucket count after the search.
+    let max_buckets = effective_max_buckets(&state).await;
+    if let Some(msg) = find_invalid_composite_agg_with_cap(aggs_value.as_ref(), max_buckets) {
+        return ApiError::new(xerj_common::XerjError::invalid_query(msg)).into_response();
+    }
+
     let mut search_req = match build_search_request(&body, aggs_value) {
         Ok(mut r) => {
             // ES 7.16 leaf ordering for the implicit auto-@timestamp hint
@@ -20142,6 +20155,21 @@ async fn search_impl(
                 )
                     .into_response();
             }
+        }
+    }
+
+    // ES counts every bucket the final reduce keeps, across the whole tree,
+    // and refuses the search once the count is over `search.max_buckets`.
+    if let (Some(aggs_req), Some(aggs)) = (
+        body.aggs.as_ref().or(body.aggregations.as_ref()),
+        merged_aggs.as_ref(),
+    ) {
+        if count_kept_buckets(aggs_req, aggs) > max_buckets {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(too_many_buckets_body(max_buckets)),
+            )
+                .into_response();
         }
     }
 
@@ -30977,6 +31005,8 @@ async fn msearch_impl(
     // NDJSON: alternating header line + body line pairs.
     let lines: Vec<&str> = text.lines().collect();
     let mut responses: Vec<Value> = Vec::new();
+    // `search.max_buckets` from `_cluster/settings`, as `_search` reads it.
+    let max_buckets = effective_max_buckets(&state).await;
 
     let mut i = 0;
     while i + 1 < lines.len() {
@@ -31032,10 +31062,11 @@ async fn msearch_impl(
                 .or_else(|| search_body_val.get("aggregations")),
         )
         .or_else(|| {
-            find_invalid_composite_agg(
+            find_invalid_composite_agg_with_cap(
                 search_body_val
                     .get("aggs")
                     .or_else(|| search_body_val.get("aggregations")),
+                max_buckets,
             )
             .or_else(|| {
                 find_invalid_agg_params(
@@ -31333,6 +31364,20 @@ async fn msearch_impl(
         if let Some(err) = search_error {
             responses.push(ApiError::new(err).into_value());
             continue;
+        }
+
+        // Over `search.max_buckets`, this item fails as `_search` would; the
+        // rest of the batch still runs.
+        if let (Some(aggs_req), Some(aggs)) = (
+            search_body_val
+                .get("aggs")
+                .or_else(|| search_body_val.get("aggregations")),
+            merged_aggs.as_ref(),
+        ) {
+            if count_kept_buckets(aggs_req, aggs) > max_buckets {
+                responses.push(too_many_buckets_body(max_buckets));
+                continue;
+            }
         }
 
         let took_ms = started.elapsed().as_millis() as u64;
@@ -45028,6 +45073,117 @@ async fn keep_alive_over_cluster_limit(
             format_time_value_millis(requested_ms),
             format_time_value_millis(max_ms),
         ))
+    })
+}
+
+/// `search.max_buckets` for one request: transient over persistent, as a
+/// number or a numeric string (`PUT _cluster/settings` stores what it was
+/// sent). With neither set, the node config's `limits.max_buckets`, whose
+/// default is ES's 65536.
+async fn effective_max_buckets(state: &AppState) -> u64 {
+    let settings = state.engine.cluster_settings.read().await;
+    ["transient", "persistent"]
+        .iter()
+        .find_map(|scope| {
+            let value = settings.get(*scope)?.get("search.max_buckets")?;
+            value
+                .as_u64()
+                .or_else(|| value.as_str()?.trim().parse().ok())
+        })
+        .unwrap_or(state.config.limits.max_buckets as u64)
+}
+
+/// Counts the buckets a merged aggregation result keeps, the way ES's final
+/// reduce feeds `MultiBucketConsumer`: one per bucket of a multi-bucket
+/// aggregation, summed over the whole tree, nested buckets included. A
+/// single-bucket aggregation (`filter`, `nested`, ...) is not counted itself,
+/// only what sits under it. The walk follows the request's definitions, so a
+/// `buckets` key inside, say, a `top_hits` `_source` is never counted.
+fn count_kept_buckets(request: &Value, result: &Value) -> u64 {
+    let (Some(defs), Some(results)) = (request.as_object(), result.as_object()) else {
+        return 0;
+    };
+    let mut count = 0;
+    for (name, def) in defs {
+        let Some(result) = results.get(name) else {
+            continue;
+        };
+        let Some(kind) = def.as_object().and_then(|d| {
+            d.keys()
+                .find(|k| !matches!(k.as_str(), "aggs" | "aggregations" | "meta"))
+        }) else {
+            continue;
+        };
+        let subs = def.get("aggs").or_else(|| def.get("aggregations"));
+        match kind.as_str() {
+            "terms"
+            | "significant_terms"
+            | "significant_text"
+            | "rare_terms"
+            | "multi_terms"
+            | "histogram"
+            | "date_histogram"
+            | "auto_date_histogram"
+            | "variable_width_histogram"
+            | "range"
+            | "date_range"
+            | "ip_range"
+            | "geo_distance"
+            | "filters"
+            | "adjacency_matrix"
+            | "composite"
+            | "geohash_grid"
+            | "geotile_grid"
+            | "ip_prefix" => {
+                let buckets: Vec<&Value> = match result.get("buckets") {
+                    Some(Value::Array(list)) => list.iter().collect(),
+                    Some(Value::Object(keyed)) => keyed.values().collect(),
+                    _ => Vec::new(),
+                };
+                for bucket in buckets {
+                    count += 1 + subs.map_or(0, |subs| count_kept_buckets(subs, bucket));
+                }
+            }
+            "filter"
+            | "nested"
+            | "reverse_nested"
+            | "global"
+            | "missing"
+            | "sampler"
+            | "diversified_sampler"
+            | "random_sampler"
+            | "children"
+            | "parent" => {
+                count += subs.map_or(0, |subs| count_kept_buckets(subs, result));
+            }
+            _ => {}
+        }
+    }
+    count
+}
+
+/// ES's `too_many_buckets_exception` for a request whose aggregations keep
+/// more than `limit` buckets, as an error body and its status (400).
+fn too_many_buckets_body(limit: u64) -> Value {
+    json!({
+        "error": {
+            "root_cause": [],
+            "type": "search_phase_execution_exception",
+            "reason": "",
+            "phase": "fetch",
+            "grouped": true,
+            "failed_shards": [],
+            "caused_by": {
+                "type": "too_many_buckets_exception",
+                "reason": format!(
+                    "Trying to create too many buckets. Must be less than or equal to: \
+                     [{limit}] but this number of buckets was exceeded. This limit can be \
+                     set by changing the [search.max_buckets] cluster level setting."
+                ),
+                "max_buckets": limit
+            }
+        },
+        "status": 400
     })
 }
 
