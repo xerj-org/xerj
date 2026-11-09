@@ -1,12 +1,12 @@
 {
- "corpus": "go-vulndb",
+ "corpus": "go-vulndb","pin_date":"2026-11-09",
  "cloned_at": "2026-10-05T02:00:00Z",
  "repos": [
   {
    "repo": "corpus-go-vulndb-osv",
    "url": "https://github.com/golang/vulndb",
    "licence": "BSD-3-Clause",
-   "sha": "5cd8418cf9c867d344fda07a73ea844b0f34bca2",
+   "sha": "e22db6528018f9725b3230c4e6429c791f40bb15",
    "files": 4577,
    "bytes": 4249312,
    "paths": ["data/osv"],
