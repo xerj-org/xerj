@@ -977,6 +977,31 @@ mod catch_lenient {
     }
 }
 
+/// Java's regex reads `\<` and `\>` as the literal characters (ES YAML
+/// patterns escape `>` in paths like `the_terms\>x`); Rust's `regex` reads
+/// them as word-boundary assertions, so such a pattern could never match.
+/// Rewrite those two escapes to their literal; everything else passes
+/// through, an escaped backslash included.
+fn java_regex_to_rust(pat: &str) -> String {
+    let mut out = String::with_capacity(pat.len());
+    let mut chars = pat.chars();
+    while let Some(c) = chars.next() {
+        if c != '\\' {
+            out.push(c);
+            continue;
+        }
+        match chars.next() {
+            Some(n @ ('<' | '>')) => out.push(n),
+            Some(n) => {
+                out.push('\\');
+                out.push(n);
+            }
+            None => out.push('\\'),
+        }
+    }
+    out
+}
+
 /// Does a response satisfy a YAML `catch:` expectation? `None` when it does,
 /// otherwise the reason it does not. Semantics follow the ES REST test spec:
 /// a named catch pins the status code, `/regex/` requires an error status
@@ -1002,7 +1027,7 @@ fn catch_mismatch(catch: &str, code: u16, body: &str) -> Option<String> {
         return Some("expected an error status".into());
     }
     if let Some(pat) = catch.strip_prefix('/').and_then(|s| s.strip_suffix('/')) {
-        return match regex::Regex::new(&format!("(?s){}", pat.trim())) {
+        return match regex::Regex::new(&format!("(?s){}", java_regex_to_rust(pat.trim()))) {
             Ok(re) if re.is_match(body) => None,
             Ok(_) => Some("error body does not match".into()),
             Err(e) => Some(format!("bad catch regex: {e}")),
@@ -1911,5 +1936,21 @@ fn values_match(actual: &Value, expected: &Value) -> bool {
             .iter()
             .all(|(k, v)| a.get(k).is_some_and(|av| values_match(av, v))),
         _ => actual == expected,
+    }
+}
+
+#[cfg(test)]
+mod catch_regex_tests {
+    use super::*;
+
+    /// FAIL-BEFORE: `\>` compiled to an end-of-word assertion, so the
+    /// pipeline.yml "incorrect name" pattern never matched ES's message.
+    #[test]
+    fn java_escaped_angle_brackets_match_literally() {
+        let pat = r"/No aggregation \[unknown_aggregation\] found for path \[the_terms\>unknown_aggregation\]\;/";
+        let body = "Validation Failed: 1: No aggregation [unknown_aggregation] found for path \
+                    [the_terms>unknown_aggregation];";
+        assert_eq!(catch_mismatch(pat, 400, body), None);
+        assert_eq!(java_regex_to_rust(r"a\\>b \<c"), r"a\\>b <c");
     }
 }
