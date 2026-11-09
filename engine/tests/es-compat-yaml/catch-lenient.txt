@@ -26,7 +26,6 @@ aggregations/pipeline.yml · Max pipeline on percentiles tdigest agg without spe
 aggregations/pipeline.yml · Max pipeline on percentiles with incorrect name
 aggregations/pipeline.yml · Max pipeline on terms agg
 aggregations/pipeline.yml · Max pipeline through terms agg
-aggregations/rare_terms.yml · IP test
 aggregations/scripted_metric_allow_list.yml · allowed inline scripts do not affect allowed stored scripts
 aggregations/scripted_metric_allow_list.yml · allowed stored scripts do not affect allowed inline scripts
 aggregations/scripted_metric_allow_list.yml · disallow all for empty allow lists
@@ -38,10 +37,8 @@ aggregations/scripted_metric_allow_list.yml · stored combine_script must be all
 aggregations/scripted_metric_allow_list.yml · stored init_script must be allowed
 aggregations/scripted_metric_allow_list.yml · stored map_script must be allowed
 aggregations/scripted_metric_allow_list.yml · stored reduce_script must be allowed
-aggregations/sig_terms.yml · IP test
 aggregations/sig_terms.yml · Misspelled fields get "did you mean"
 aggregations/stats_metric_fail_formatting.yml · fail formatting
-aggregations/terms.yml · IP test
 aggregations/top_hits.yml · having
 aggregations/weighted_avg.yml · Multi weight field not allowed
 indices/indices.put_template/10_basic.yml · Put template create
