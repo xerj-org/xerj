@@ -318,6 +318,7 @@ pub fn run_code_query(
                             {
                                 *hits_arr = h.clone();
                             }
+                            set_fused_page_total(&mut r, h.len(), fetch);
                             rrf_scores = true;
                             note = Some(format!("BM25 file+symbol RRF(k={RRF_K})"));
                         }
@@ -676,6 +677,18 @@ pub(crate) fn hit_list(resp: &Value) -> Vec<Value> {
         .and_then(Value::as_array)
         .cloned()
         .unwrap_or_default()
+}
+
+/// The fused file+symbol list replaces the file leg's page, so its total
+/// must describe that list rather than the original file-only response.
+fn set_fused_page_total(response: &mut Value, fused_len: usize, fetch: usize) {
+    if let Some(hits) = response.get_mut("hits").and_then(Value::as_object_mut) {
+        let relation = if fused_len >= fetch { "gte" } else { "eq" };
+        hits.insert(
+            "total".into(),
+            serde_json::json!({ "value": fused_len, "relation": relation }),
+        );
+    }
 }
 
 /// Top-k diversity cap (#1137): at most this many records per source FILE in
@@ -2293,6 +2306,29 @@ mod tests {
             })
             .collect();
         assert_eq!(files, vec!["file1", "fileX"], "fileX's slot was not burned");
+    }
+
+    #[test]
+    fn fused_symbol_page_reports_its_own_total() {
+        let mut response = serde_json::json!({
+            "hits": {
+                "total": { "value": 17, "relation": "eq" },
+                "hits": [{ "_id": "file-a" }, { "_id": "symbol-b" }]
+            }
+        });
+
+        set_fused_page_total(&mut response, 2, 50);
+
+        assert_eq!(
+            response.pointer("/hits/total"),
+            Some(&serde_json::json!({ "value": 2, "relation": "eq" }))
+        );
+
+        set_fused_page_total(&mut response, 50, 50);
+        assert_eq!(
+            response.pointer("/hits/total"),
+            Some(&serde_json::json!({ "value": 50, "relation": "gte" }))
+        );
     }
 
     #[test]
