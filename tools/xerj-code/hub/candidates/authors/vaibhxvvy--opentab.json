@@ -1,0 +1,23 @@
+{
+ "corpus": "vaibhxvvy--opentab",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on TypeScript queries this for how vaibhxvvy/opentab implements it: FCUK PAYWALLS \u2014 an open index of no-signup, in-browser, open-source tools. No accounts. No emails. No walls (selected work: src/components, server, cloudflare-worker)",
+ "repos": [
+  {
+   "repo": "opentab",
+   "url": "https://github.com/vaibhxvvy/opentab",
+   "sha": "c620b30110fd901deaed47196fda50e4a4ed28a1",
+   "licence": "GPL-3.0 (LICENSE file at pin c620b30110fd, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-10T09:51Z",
+    "consent_receipt": "6de92e169e68",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T09:51Z (receipt 6de92e169e68); selected commit c620b30110fd: \"feat: rename project from FCUK PAYWALLS to OpenTab\". LICENSE file at pin c620b30110fd detected as GPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

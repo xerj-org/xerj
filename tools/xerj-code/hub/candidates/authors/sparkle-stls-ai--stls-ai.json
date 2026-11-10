@@ -1,0 +1,23 @@
+{
+ "corpus": "sparkle-stls-ai--stls-ai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how sparkle-stls-ai/stls-ai implements it: Symmetric Transport Layer Security for AI agents (selected work: samples)",
+ "repos": [
+  {
+   "repo": "stls-ai",
+   "url": "https://github.com/sparkle-stls-ai/stls-ai",
+   "sha": "3e60f8cbc1c201f6f6826510a2ddab01b00595b9",
+   "licence": "author's permission (LICENSE at pin 3e60f8cbc1c2: NOASSERTION; repository: AGPL-3.0)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-10T08:47Z",
+    "consent_receipt": "a5f9dd50ba77",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T08:47Z (receipt a5f9dd50ba77); selected commit 3e60f8cbc1c2: \"Add ADK and custom (no-LLM) financial agent samples\". LICENSE at pin 3e60f8cbc1c2: NOASSERTION (repository: AGPL-3.0); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

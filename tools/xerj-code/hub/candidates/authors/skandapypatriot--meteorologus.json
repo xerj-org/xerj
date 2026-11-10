@@ -1,0 +1,23 @@
+{
+ "corpus": "skandapypatriot--meteorologus",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how skandapypatriot/meteorologus implements it: A device that tames thae weather (selected work: android_app, firmware)",
+ "repos": [
+  {
+   "repo": "meteorologus",
+   "url": "https://github.com/skandapypatriot/meteorologus",
+   "sha": "706561b843a25b311cff1b5cc933f575984a1feb",
+   "licence": "GPL-3.0 (LICENSE file at pin 706561b843a2, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-10T09:38Z",
+    "consent_receipt": "aef7a6a6e0fb",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T09:38Z (receipt aef7a6a6e0fb); selected commit 706561b843a2: \"imporved documention and added unpair button\". LICENSE file at pin 706561b843a2 detected as GPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on gemini, gemini-ai, llm queries this for how wbasmayor/ai-lite implements it: Lightweight, dependency-free AI clients for Ruby. OpenAI + Gemini. Ruby 2.6+ (selected work: test, lib/ai_lite, the project root)",
+ "domain": "an agent working on gemini, gemini-ai, llm queries this for how wbasmayor/ai-lite implements it: Dependency-free Ruby client for OpenAI, Gemini & Claude. Ruby 2.6+ (selected work: test, lib/ai_lite, the project root)",
  "repos": [
   {
    "repo": "ai-lite",

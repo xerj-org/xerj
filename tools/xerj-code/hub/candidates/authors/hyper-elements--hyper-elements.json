@@ -1,0 +1,23 @@
+{
+ "corpus": "hyper-elements--hyper-elements",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on pdf-generation, react, component-library queries this for how hyper-elements/hyper-elements implements it: React components for email templates, web pages, documents, and images. Generate email-safe HTML, responsive web pages, print-ready PDFs, an (selected work: benchmark)",
+ "repos": [
+  {
+   "repo": "hyper-elements",
+   "url": "https://github.com/hyper-elements/hyper-elements",
+   "sha": "fa8f0eca0ffa6fb2b02c24725fa7a4a2d918b07a",
+   "licence": "MIT (LICENSE file at pin fa8f0eca0ffa, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T09:26Z",
+    "consent_receipt": "0ce8d8dd2a5d",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T09:26Z (receipt 0ce8d8dd2a5d); selected commit fa8f0eca0ffa: \"benchmark: a skill suite, evals of the agent guide (#136)\". LICENSE file at pin fa8f0eca0ffa detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

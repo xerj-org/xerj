@@ -1,0 +1,23 @@
+{
+ "corpus": "hermeticalabs--caelis-engine",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on astronomical-algorithms, astronomy, browser queries this for how HermeticaLabs/caelis-engine implements it: Caelis Engine, Deterministic astronomical computation engine for JavaScript. VSOP87B + ELP/MPP02-LLR. No server. No API key. No dependencies",
+ "repos": [
+  {
+   "repo": "caelis-engine",
+   "url": "https://github.com/HermeticaLabs/caelis-engine",
+   "sha": "05bb7b976eb26b98e214d40261d944f28b430c78",
+   "licence": "author's permission (LICENSE at pin 05bb7b976eb2: NOASSERTION; repository: AGPL-3.0)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-10T09:08Z",
+    "consent_receipt": "3480454f74c2",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T09:08Z (receipt 3480454f74c2); pinned to the default-branch head. LICENSE at pin 05bb7b976eb2: NOASSERTION (repository: AGPL-3.0); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

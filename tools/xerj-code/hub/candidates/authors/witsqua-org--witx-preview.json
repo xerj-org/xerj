@@ -1,9 +1,9 @@
 {
- "corpus": "folawy-py--witx-preview",
+ "corpus": "witsqua-org--witx-preview",
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Python queries this for how FoLAWy-py/WitX-Preview implements it: FoLAWy-py/WitX-Preview (Python) (selected work: tests, services, apps/web)",
+ "domain": "an agent working on Python queries this for how witsqua-org/WitX-Preview implements it: witsqua-org/WitX-Preview (Python) (selected work: tests, services, apps/web)",
  "repos": [
   {
    "repo": "WitX-Preview",

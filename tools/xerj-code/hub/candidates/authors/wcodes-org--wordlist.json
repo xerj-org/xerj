@@ -1,0 +1,23 @@
+{
+ "corpus": "wcodes-org--wordlist",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how wcodes-org/wordlist implements it: wcodes-org/wordlist (JavaScript) (selected work: the project root, v4, scripts)",
+ "repos": [
+  {
+   "repo": "wordlist",
+   "url": "https://github.com/wcodes-org/wordlist",
+   "sha": "18e27bf4e1b2808c6bbc01c0f9eb1210693dbdba",
+   "licence": "CC0-1.0 (LICENSE file at pin 18e27bf4e1b2, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "CC0-1.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T08:46Z",
+    "consent_receipt": "e7b4eceb5d27",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T08:46Z (receipt e7b4eceb5d27); selected commit 18e27bf4e1b2: \"feat: root wordlist.json is v4 with a version field; v3 moved to vers\u2026\". LICENSE file at pin 18e27bf4e1b2 detected as CC0-1.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

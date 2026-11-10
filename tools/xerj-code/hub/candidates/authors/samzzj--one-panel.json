@@ -1,0 +1,23 @@
+{
+ "corpus": "samzzj--one-panel",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on clash, panel, reality queries this for how Samzzj/one-panel implements it: \u96f6\u4f9d\u8d56\u7684 VLESS + REALITY \u9762\u677f\uff0c\u652f\u6301 Vision / XHTTP \u4e0e\u300c\u81ea\u5df1\u5077\u81ea\u5df1\u300d\u90e8\u7f72 (selected work: deploy, panel)",
+ "repos": [
+  {
+   "repo": "one-panel",
+   "url": "https://github.com/Samzzj/one-panel",
+   "sha": "031944ed2051181c3c35a2d6ebb554d853410320",
+   "licence": "MIT (LICENSE file at pin 031944ed2051, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T08:59Z",
+    "consent_receipt": "b88b616987ab",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T08:59Z (receipt b88b616987ab); selected commit 031944ed2051: \"feat: offline agent kit and custom Xray sources (v0.7.0)\". LICENSE file at pin 031944ed2051 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,9 +1,9 @@
 {
- "corpus": "arjunaghossan-ship-it--jawa-os",
+ "corpus": "arjunaghossan-ship-it--sambatos",
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on C queries this for how arjunaghossan-ship-it/Jawa-OS implements it: JawaOS - Sistem Operasi 32-bit buatan arek Bonang, Banten. Bootloader custom, CLI biru, dari nol tanpa Linux (selected work: Sumber, the project root)",
+ "domain": "an agent working on C queries this for how arjunaghossan-ship-it/SambatOS implements it: SambatOS - Sistem Operasi 32-bit buatan arek Bonang, Banten. Bootloader custom, CLI biru, dari nol tanpa Linux (selected work: Sumber, the project root)",
  "repos": [
   {
    "repo": "Jawa-OS",

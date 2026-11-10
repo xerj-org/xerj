@@ -1,0 +1,23 @@
+{
+ "corpus": "jamesfeng2009--maclean",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how jamesfeng2009/maclean implements it: jamesfeng2009/maclean (Rust) (selected work: crates/maclean-types, crates/maclean-cli, scripts)",
+ "repos": [
+  {
+   "repo": "maclean",
+   "url": "https://github.com/jamesfeng2009/maclean",
+   "sha": "46cdbe24b3db38667155437938f5231486b369be",
+   "licence": "Apache-2.0 (LICENSE file at pin 46cdbe24b3db, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T09:07Z",
+    "consent_receipt": "795e168d306e",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T09:07Z (receipt 795e168d306e); selected commit 46cdbe24b3db: \"fix(cli): --tab \u6536\u7d27\u4e3a\u679a\u4e3e + workspace \u7248\u672c\u53f7\u7edf\u4e00 0.4.2\". LICENSE file at pin 46cdbe24b3db detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}
