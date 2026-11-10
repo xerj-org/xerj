@@ -1,0 +1,23 @@
+{
+ "corpus": "mhmdsdqi87-cloud--teka-nexus",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on code-editor, coding-academy, developer-tools queries this for how mhmdsdqi87-cloud/TEKA-NEXUS implements it: TEKA NEXUS \u062a\u06a9\u0627 \u0646\u06a9\u0633\u0648\u0633 \u2014 Social network for developers + free 300-lesson coding academy + 12 coding-game modules \u00b7 \u0634\u0628\u06a9\u0647 \u0627\u062c\u062a\u0645\u0627\u0639\u06cc \u0628\u0631\u0646\u0627\u0645\u0647\u200c\u0646\u0648\u06cc\u0633\u200c\u0647\u0627 (selected work: src/app, src/lib)",
+ "repos": [
+  {
+   "repo": "TEKA-NEXUS",
+   "url": "https://github.com/mhmdsdqi87-cloud/TEKA-NEXUS",
+   "sha": "964825087c5674fedd8143195a77f390bcb2f95a",
+   "licence": "MIT (LICENSE file at pin 964825087c56, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T16:17Z",
+    "consent_receipt": "d101c8d2a9e3",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T16:17Z (receipt d101c8d2a9e3); selected commit 964825087c56: \"fix(ai): shared provider chain \u2014 50s window, URL guard, ru locale\". LICENSE file at pin 964825087c56 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-agent, desktop-app, voice-assistant queries this for how Dodaios/Dodaios implements it: Dodaios is an open-source agent OS for your desktop: it runs your coding agents, browser and apps by voice or chat, on your own machine. For (selected work: dodaios, tests)",
+ "domain": "an agent working on ai-agent, desktop-app, voice-assistant queries this for how Dodaios/Dodaios implements it: The open-source superagent for your desktop. One agent that runs all your other agents. Formerly Personal Jarvis (selected work: dodaios, tests)",
  "repos": [
   {
    "repo": "Dodaios",

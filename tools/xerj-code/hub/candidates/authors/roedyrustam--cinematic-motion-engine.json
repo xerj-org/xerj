@@ -8,15 +8,15 @@
   {
    "repo": "cinematic-motion-engine",
    "url": "https://github.com/roedyrustam/cinematic-motion-engine",
-   "sha": "a2ce2d9a62e7dedd99806f419c91bef19f9526ef",
-   "licence": "author's permission (LICENSE at pin a2ce2d9a62e7: NONE; repository: none)",
+   "sha": "c9aecbf91f372ae2ebe6dea5bea8c87819d2fe04",
+   "licence": "author's permission (LICENSE at pin c9aecbf91f37: NONE; repository: none)",
    "review": {
     "spdx": "NONE",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T00:09Z",
     "consent_receipt": "15e4951a3515",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T00:09Z (receipt 15e4951a3515); pinned to the default-branch head. LICENSE at pin a2ce2d9a62e7: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T00:09Z (receipt 15e4951a3515); pinned to the default-branch head. LICENSE at pin c9aecbf91f37: NONE (repository: none); used with the author's permission, with attribution."
    }
   }
  ]

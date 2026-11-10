@@ -1,0 +1,23 @@
+{
+ "corpus": "yakhyo--retinaface-pytorch",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on retinaface, retinaface-detector, retinaface-pytorch queries this for how yakhyo/retinaface-pytorch implements it: RetinaFace face detection in PyTorch - training, WIDER FACE evaluation, ONNX export and real-time inference with pretrained weights",
+ "repos": [
+  {
+   "repo": "retinaface-pytorch",
+   "url": "https://github.com/yakhyo/retinaface-pytorch",
+   "sha": "97a0b04622a90f6bc4b40c1305c206260ec90b5a",
+   "licence": "MIT (LICENSE file at pin 97a0b04622a9, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T17:49Z",
+    "consent_receipt": "1ac41be22376",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T17:49Z (receipt 1ac41be22376); pinned to the default-branch head. LICENSE file at pin 97a0b04622a9 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

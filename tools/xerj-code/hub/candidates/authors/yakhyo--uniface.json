@@ -1,0 +1,23 @@
+{
+ "corpus": "yakhyo--uniface",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on face-detection, face-recognition, face-analysis queries this for how yakhyo/uniface implements it: A Unified Face Analysis Library for Python | Detection, alignment, landmarks, face-mesh, recognition, parsing, gaze, attributes and anti-spo (selected work: uniface, tests)",
+ "repos": [
+  {
+   "repo": "uniface",
+   "url": "https://github.com/yakhyo/uniface",
+   "sha": "3612c4091bca6f319b547edc0f2967932ca1136c",
+   "licence": "MIT (LICENSE file at pin 3612c4091bca, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T17:49Z",
+    "consent_receipt": "68fd0792ca65",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T17:49Z (receipt 68fd0792ca65); selected commit 3612c4091bca: \"feat: Add PP-Matting portrait matting (#162)\". LICENSE file at pin 3612c4091bca detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "yakhyo--gaze-estimation",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on gaze-detection, gaze-estimation, gaze-tracking queries this for how yakhyo/gaze-estimation implements it: Real-time gaze estimation with ResNet, MobileNet and MobileOne - PyTorch training, ONNX Runtime inference, pretrained weights",
+ "repos": [
+  {
+   "repo": "gaze-estimation",
+   "url": "https://github.com/yakhyo/gaze-estimation",
+   "sha": "4125329cfb0dd0071bb91e4c6ca994013db5a26b",
+   "licence": "MIT (LICENSE file at pin 4125329cfb0d, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T17:49Z",
+    "consent_receipt": "9713623c5b64",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T17:49Z (receipt 9713623c5b64); pinned to the default-branch head. LICENSE file at pin 4125329cfb0d detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "ygreat--estate",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agentic-coding, ai-agents, claude-code queries this for how ygreat/estate implements it: Your workspace for building software together with AI agents: Claude Code, Codex, Gemini CLI and OpenCode, with a terminal, editor and git.  (selected work: src/modules, src/settings, src/app)",
+ "repos": [
+  {
+   "repo": "estate",
+   "url": "https://github.com/ygreat/estate",
+   "sha": "c4dc49e1b200207e8a6a62338c9591a17246164d",
+   "licence": "Apache-2.0 (LICENSE file at pin c4dc49e1b200, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T17:25Z",
+    "consent_receipt": "a3f6cc35bb76",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T17:25Z (receipt a3f6cc35bb76); selected commit c4dc49e1b200: \"fix: chat folder and status line, sidebar toggle side, busy reasons\". LICENSE file at pin c4dc49e1b200 detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "yakhyo--face-reidentification",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on face-detection, face-recognition, face-reidentification queries this for how yakhyo/face-reidentification implements it: Real-time face re-identification and face search with SCRFD detection, ArcFace embeddings and FAISS vector search on ONNX Runtime",
+ "repos": [
+  {
+   "repo": "face-reidentification",
+   "url": "https://github.com/yakhyo/face-reidentification",
+   "sha": "709b3903fc9503ddbec3436e712c08e4ce56ddbf",
+   "licence": "author's permission (LICENSE at pin 709b3903fc95: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T17:49Z",
+    "consent_receipt": "bdd7a8e9736b",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T17:49Z (receipt bdd7a8e9736b); pinned to the default-branch head. LICENSE at pin 709b3903fc95: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "aayush-as69--handover",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how aayush-as69/Handover implements it: aayush-as69/Handover (Python) (selected work: tests, scripts, app/ingest)",
+ "repos": [
+  {
+   "repo": "Handover",
+   "url": "https://github.com/aayush-as69/Handover",
+   "sha": "e0f3a2a4b05a1a5310908b35a2ae2e0485fbeede",
+   "licence": "MIT (LICENSE file at pin e0f3a2a4b05a, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T17:05Z",
+    "consent_receipt": "09c9ed8515eb",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T17:05Z (receipt 09c9ed8515eb); selected commit e0f3a2a4b05a: \"Failure tests, adversarial redaction, restore check, live LLM test, m\u2026\". LICENSE file at pin e0f3a2a4b05a detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

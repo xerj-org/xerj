@@ -1,0 +1,23 @@
+{
+ "corpus": "aspire488--pipo",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, android-app, compose-canvas queries this for how aspire488/Pipo implements it: Pipo - a little robot who lives inside your Android phone. Offline-first life simulation, drawn entirely in Compose Canvas. MIT (selected work: web, the project root)",
+ "repos": [
+  {
+   "repo": "Pipo",
+   "url": "https://github.com/aspire488/Pipo",
+   "sha": "e69a76deb03d5ef54752db6b7cf360771f65d9cb",
+   "licence": "MIT (LICENSE file at pin e69a76deb03d, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T17:07Z",
+    "consent_receipt": "ab011d27db12",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T17:07Z (receipt ab011d27db12); selected commit e69a76deb03d: \"feat: launch living 3D Pipo world at site root, archive classic demo \u2026\". LICENSE file at pin e69a76deb03d detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}
