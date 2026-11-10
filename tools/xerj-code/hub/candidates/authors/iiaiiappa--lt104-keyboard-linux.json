@@ -1,0 +1,23 @@
+{
+ "corpus": "iiaiiappa--lt104-keyboard-linux",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how iiaiiappa/lt104-keyboard-linux implements it: Native Linux driver, Web Console, GTK4 desktop app, CLI & GNOME extension for LangTu (\u72fc\u9014) LT-104 RGB keyboard with 160\u00d780 TFT LCD (USB 0c45: (selected work: packaging, gnome-extension, the project root)",
+ "repos": [
+  {
+   "repo": "lt104-keyboard-linux",
+   "url": "https://github.com/iiaiiappa/lt104-keyboard-linux",
+   "sha": "8edf0f32ad8865573670619a986423987d97825b",
+   "licence": "GPL-3.0 (LICENSE file at pin 8edf0f32ad88, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-07T17:29Z",
+    "consent_receipt": "9ae978b668ea",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T17:29Z (receipt 9ae978b668ea); selected commit 8edf0f32ad88: \"feat(gnome-ext & packaging): dynamic connection mode, BT battery, cab\u2026\". LICENSE file at pin 8edf0f32ad88 detected as GPL-3.0 by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

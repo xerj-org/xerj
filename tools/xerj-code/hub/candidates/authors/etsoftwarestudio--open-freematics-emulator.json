@@ -1,0 +1,23 @@
+{
+ "corpus": "etsoftwarestudio--open-freematics-emulator",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on automotive, effect-ts, electron queries this for how ETSoftwareStudio/open-freematics-emulator implements it: Freematics OBD-II Emulator MK2 Desktop GUI App: set PIDs, trouble codes, VIN and readiness, update firmware, and read it all back through an (selected work: apps/server, apps/web, packages/contracts)",
+ "repos": [
+  {
+   "repo": "open-freematics-emulator",
+   "url": "https://github.com/ETSoftwareStudio/open-freematics-emulator",
+   "sha": "0c32076824c453e88c1fefafaa113c49c77d2417",
+   "licence": "MIT (LICENSE file at pin 0c32076824c4, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T19:18Z",
+    "consent_receipt": "7a769bf42ae0",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T19:18Z (receipt 7a769bf42ae0); selected commit 0c32076824c4: \"fix(firmware): make library and wire-key imports consistent and non-b\u2026\". LICENSE file at pin 0c32076824c4 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Pinned to head 0c32076824c4 (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

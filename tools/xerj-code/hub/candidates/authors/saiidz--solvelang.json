@@ -2,8 +2,8 @@
  "corpus": "saiidz--solvelang",
  "cloned_at": null,
  "status": "draft",
- "shelf": "AI",
- "domain": "an agent working on TypeScript queries this for how saiidz/solvelang implements it: Open-source workflow intelligence for modeling, testing, and explaining AI-assisted business processes with a Rust runtime and local-first S (selected work: services)",
+ "shelf": "API",
+ "domain": "an agent working on api, devtools, merge-queue queries this for how saiidz/solvelang implements it: Open-source workflow language (Rust runtime, local-first Studio) for modeling and verifying business processes. Services: SolveLang API acce (selected work: services)",
  "repos": [
   {
    "repo": "solvelang",

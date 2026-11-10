@@ -2,8 +2,8 @@
  "corpus": "larsboes--sjel",
  "cloned_at": null,
  "status": "draft",
- "shelf": "AI",
- "domain": "an agent working on agent-skills, ai-agents, bazel queries this for how larsboes/Sjel implements it: Your life's data on your own devices, with one assistant that can act on it (selected work: capabilities, dashboard)",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how larsboes/Sjel implements it: Your life's data on your own devices, with one assistant that can act on it (selected work: capabilities, dashboard)",
  "repos": [
   {
    "repo": "Sjel",

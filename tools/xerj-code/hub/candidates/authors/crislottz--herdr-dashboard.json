@@ -1,0 +1,23 @@
+{
+ "corpus": "crislottz--herdr-dashboard",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on herdr, python, system-monitor queries this for how CrisLottz/herdr-dashboard implements it: Live sidebar for Herdr: agents' CPU/RAM, dev ports, git worktrees and system stats (CPU, GPU, VRAM, temps). Windows and Linux (selected work: hdash, the project root, tests)",
+ "repos": [
+  {
+   "repo": "herdr-dashboard",
+   "url": "https://github.com/CrisLottz/herdr-dashboard",
+   "sha": "4c286eb303665947f06978aeb18e6070e10a8e71",
+   "licence": "MIT (LICENSE file at pin 4c286eb30366, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T18:45Z",
+    "consent_receipt": "7232bd69d32b",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T18:45Z (receipt 7232bd69d32b); selected commit 4c286eb30366: \"Turn pcmon into herdr-dashboard: agents, ports and worktrees sidebar,\u2026\". LICENSE file at pin 4c286eb30366 detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

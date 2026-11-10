@@ -1,0 +1,23 @@
+{
+ "corpus": "jamese345--threat-intelligence-enrichment-engine",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on ai-soc, cybersecurity, incident-response queries this for how jamese345/threat-intelligence-enrichment-engine implements it: A Python-based threat intelligence enrichment engine that analyzes IOCs, adds global threat context, and generates SOC analyst recommendatio (selected work: tests, src, scripts)",
+ "repos": [
+  {
+   "repo": "threat-intelligence-enrichment-engine",
+   "url": "https://github.com/jamese345/threat-intelligence-enrichment-engine",
+   "sha": "a23df8aa8bf45ce48d772a466abfa8682e8b11fb",
+   "licence": "MIT (LICENSE file at pin a23df8aa8bf4, GitHub licence API 2026-11-04)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-04T19:37Z",
+    "consent_receipt": "ee79f03d6cd3",
+    "note": "Inclusion consented by the commit author by email at 2026-11-04T19:37Z (receipt ee79f03d6cd3); selected commit a23df8aa8bf4: \"Complete threat intelligence enrichment engine v1.0.0\". LICENSE file at pin a23df8aa8bf4 detected as MIT by the GitHub licence API on 2026-11-04; used under that licence with attribution."
+   }
+  }
+ ]
+}

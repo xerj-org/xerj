@@ -1,0 +1,23 @@
+{
+ "corpus": "dotbots--pydotbot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how DotBots/PyDotBot implements it: A complete environment for controlling and tracking DotBots (selected work: dotbot)",
+ "repos": [
+  {
+   "repo": "PyDotBot",
+   "url": "https://github.com/DotBots/PyDotBot",
+   "sha": "7b341037180e9639a0a6e9072ef9a3be91a49c75",
+   "licence": "BSD-3-Clause (LICENSE file at pin 7b341037180e, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "BSD-3-Clause",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T12:40Z",
+    "consent_receipt": "e4fb937aa23d",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T12:40Z (receipt e4fb937aa23d); selected commit 7b341037180e: \"dotbot/calibration: take corner captures from the robot's button only\". LICENSE file at pin 7b341037180e detected as BSD-3-Clause by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

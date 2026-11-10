@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-agents, claude-code, codex queries this for how 777genius/universal-agent-plugins implements it: Multi-agent CLI to install, update, repair, and remove Agent Plugins 1.0 and Agent Skills 1.0 across Codex/ChatGPT, Claude, Cursor, Gemini,  (selected work: install, cli, repotests)",
+ "domain": "an agent working on ai-agents, claude-code, codex queries this for how 777genius/universal-agent-plugins implements it: Multi-agent CLI to install, update, repair, and remove Agent Plugins 1.0 and Agent Skills across Codex/ChatGPT, Claude, Cursor, Gemini, Copi (selected work: install, cli, repotests)",
  "repos": [
   {
    "repo": "universal-agent-plugins",

@@ -1,0 +1,23 @@
+{
+ "corpus": "vacuum-im--vacuum-im",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on jabber, qt, c-plus-plus queries this for how vacuum-im/vacuum-im implements it: Cross-platform XMPP client (selected work: src/plugins, src/utils, src/definitions)",
+ "repos": [
+  {
+   "repo": "vacuum-im",
+   "url": "https://github.com/vacuum-im/vacuum-im",
+   "sha": "5b89a9ced7cc678639fb442a84d591abf0afce2e",
+   "licence": "GPL-3.0 (LICENSE file at pin 5b89a9ced7cc, GitHub licence API 2026-11-04)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-04T10:25Z",
+    "consent_receipt": "9629942f92cd",
+    "note": "Inclusion consented by the commit author by email at 2026-11-04T10:25Z (receipt 9629942f92cd); selected commit 5b89a9ced7cc: \"Add shortcuts to focus roster and open notified contact, and PgUp/PgD\u2026\". LICENSE file at pin 5b89a9ced7cc detected as GPL-3.0 by the GitHub licence API on 2026-11-04; used under that licence with attribution."
+   }
+  }
+ ]
+}

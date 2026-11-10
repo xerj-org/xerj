@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on browser-game, force-feedback, formula-1 queries this for how KhazP/librecorsa implements it: Open-source racing sim that runs in your browser: 500 Hz vehicle physics, thermal tyres, open-wheelers and a GT3, AI races, ghosts, P2P mult (selected work: scripts, the project root)",
+ "domain": "an agent working on browser-game, force-feedback, motorsport queries this for how KhazP/librecorsa implements it: Open-source racing sim that runs in your browser: 500 Hz vehicle physics, thermal tyres, open-wheelers and a GT3, AI races, ghosts, P2P mult (selected work: scripts, the project root)",
  "repos": [
   {
    "repo": "rwanda-f1-2026-sim",

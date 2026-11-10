@@ -1,0 +1,23 @@
+{
+ "corpus": "optimus1o1--selfhealing-ui",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Python queries this for how Optimus1o1/selfhealing-ui implements it: Deterministic self-healing UI automation framework for Playwright Python (selected work: src/selfheal, tests, scripts)",
+ "repos": [
+  {
+   "repo": "selfhealing-ui",
+   "url": "https://github.com/Optimus1o1/selfhealing-ui",
+   "sha": "eeff1f1e1bb93713874e5a72b7459c0eb7199b12",
+   "licence": "MIT (LICENSE file at pin eeff1f1e1bb9, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T11:04Z",
+    "consent_receipt": "af8bd03a1ef4",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T11:04Z (receipt af8bd03a1ef4); selected commit eeff1f1e1bb9: \"feat(dashboard): transform audit dashboard into 9-section engineering\u2026\". LICENSE file at pin eeff1f1e1bb9 detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

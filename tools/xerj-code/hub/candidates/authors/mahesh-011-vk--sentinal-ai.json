@@ -8,15 +8,15 @@
   {
    "repo": "SENTINAL-AI",
    "url": "https://github.com/Mahesh-011-vk/SENTINAL-AI",
-   "sha": "346c4703b2adc4f7a4fd7353c2a4a10ee82bede9",
-   "licence": "MIT (LICENSE file at pin 346c4703b2ad, GitHub licence API 2026-10-26)",
+   "sha": "430b8187277e6a873dc5e6ff0433c330d5148198",
+   "licence": "MIT (LICENSE file at pin 430b8187277e, GitHub licence API 2026-11-03)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-24T18:41Z",
     "consent_receipt": "e9f8f7865e1d",
-    "note": "Inclusion consented by the commit author by email at 2026-10-24T18:41Z (receipt e9f8f7865e1d); selected commit 346c4703b2ad: \"feat(assets): add application registration modal in UI, CLI asset man\u2026\". LICENSE file at pin 346c4703b2ad detected as MIT by the GitHub licence API on 2026-10-26; used under that licence with attribution. Pinned to head 346c4703b2ad (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-24T18:41Z (receipt e9f8f7865e1d); selected commit 430b8187277e: \"feat(assets): add application registration modal in UI, CLI asset man\u2026\". LICENSE file at pin 430b8187277e detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution. Pinned to head 430b8187277e (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

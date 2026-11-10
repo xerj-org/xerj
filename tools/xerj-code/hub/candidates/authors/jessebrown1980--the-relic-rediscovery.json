@@ -1,0 +1,23 @@
+{
+ "corpus": "jessebrown1980--the-relic-rediscovery",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on Python queries this for how JesseBrown1980/THE-RELIC-REDISCOVERY implements it: Human-AI rediscovery of an unbounded ternary wave structure with an invariant free center",
+ "repos": [
+  {
+   "repo": "THE-RELIC-REDISCOVERY",
+   "url": "https://github.com/JesseBrown1980/THE-RELIC-REDISCOVERY",
+   "sha": "1ea1ad48969380b25d8fc485ba74c1f405106ef2",
+   "licence": "MIT (LICENSE file at pin 1ea1ad489693, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T14:53Z",
+    "consent_receipt": "e6c16dc2501f",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T14:53Z (receipt e6c16dc2501f); pinned to the default-branch head. LICENSE file at pin 1ea1ad489693 detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

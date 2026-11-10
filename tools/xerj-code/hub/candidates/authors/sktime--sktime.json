@@ -1,0 +1,23 @@
+{
+ "corpus": "sktime--sktime",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on time-series, machine-learning, scikit-learn queries this for how sktime/sktime implements it: A unified framework for machine learning with time series (selected work: sktime)",
+ "repos": [
+  {
+   "repo": "sktime",
+   "url": "https://github.com/sktime/sktime",
+   "sha": "d0a1caf7113bbd682a09585647b5169078e18b12",
+   "licence": "BSD-3-Clause (LICENSE file at pin d0a1caf7113b, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "BSD-3-Clause",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T08:26Z",
+    "consent_receipt": "6051d1fe80b7",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T08:26Z (receipt 6051d1fe80b7); selected commit d0a1caf7113b: \"[ENH] class-based `convert_dict` registry, migrate Hierarchical and P\u2026\". LICENSE file at pin d0a1caf7113b detected as BSD-3-Clause by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

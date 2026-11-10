@@ -1,0 +1,23 @@
+{
+ "corpus": "wrojasa--skill-sql-to-dbml",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on code queries this for how wrojasa/skill-sql-to-dbml implements it: Claude skill that converts ANSI SQL CREATE TABLE scripts into DBML for the DBML ER Diagrams Obsidian plugin (selected work: examples)",
+ "repos": [
+  {
+   "repo": "skill-sql-to-dbml",
+   "url": "https://github.com/wrojasa/skill-sql-to-dbml",
+   "sha": "05cf30339b0ee13d00a4ea0ac784171123b57c9c",
+   "licence": "MIT (LICENSE file at pin 05cf30339b0e, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T15:53Z",
+    "consent_receipt": "fa0a10fcfc94",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-09T15:53Z (receipt fa0a10fcfc94); selected commit 05cf30339b0e: \"Add incremental changes to database models and SQL scripts\". LICENSE file at pin 05cf30339b0e detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

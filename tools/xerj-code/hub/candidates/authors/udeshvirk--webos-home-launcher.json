@@ -1,0 +1,23 @@
+{
+ "corpus": "udeshvirk--webos-home-launcher",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Python queries this for how udeshvirk/webos-home-launcher implements it: A practical LG webOS setup guide, copyable AI prompt, and lightweight ES5 home launcher reference (selected work: app, tests, scripts)",
+ "repos": [
+  {
+   "repo": "webos-home-launcher",
+   "url": "https://github.com/udeshvirk/webos-home-launcher",
+   "sha": "51294413192e88cf6efe59714d9d7aefb390616c",
+   "licence": "MIT (LICENSE file at pin 51294413192e, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T03:07Z",
+    "consent_receipt": "f3b5dd249c46",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T03:07Z (receipt f3b5dd249c46); selected commit 51294413192e: \"Refresh classic launcher layout and static typography\". LICENSE file at pin 51294413192e detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

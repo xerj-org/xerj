@@ -1,0 +1,23 @@
+{
+ "corpus": "pentoshi007--easyscp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on cli, cross-platform, devops queries this for how pentoshi007/easySCP implements it: Send, receive and copy files over SSH by picking them, not typing paths. Server-to-server copy, resume, two-pane browser. macOS, Linux, Wind",
+ "repos": [
+  {
+   "repo": "easySCP",
+   "url": "https://github.com/pentoshi007/easySCP",
+   "sha": "4f918fee5867137c20e6c7dae3d1ea1f6432d948",
+   "licence": "MIT (LICENSE file at pin 4f918fee5867, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T08:12Z",
+    "consent_receipt": "f023f2b3a017",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-08T08:12Z (receipt f023f2b3a017); pinned to the default-branch head. LICENSE file at pin 4f918fee5867 detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+   }
+  }
+ ]
+}

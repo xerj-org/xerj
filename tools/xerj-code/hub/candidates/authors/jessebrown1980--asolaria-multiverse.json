@@ -1,0 +1,23 @@
+{
+ "corpus": "jessebrown1980--asolaria-multiverse",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on HTML queries this for how JesseBrown1980/asolaria-multiverse implements it: Asolaria Multiverse - every machine runs its own universe kernel; this is the axis they share. One button, and the start-up rules",
+ "repos": [
+  {
+   "repo": "asolaria-multiverse",
+   "url": "https://github.com/JesseBrown1980/asolaria-multiverse",
+   "sha": "48714356d47ae59d63ddf90eed0d88047b0735cf",
+   "licence": "author's permission (LICENSE at pin 48714356d47a: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T14:53Z",
+    "consent_receipt": "5f4e1f359bc2",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T14:53Z (receipt 5f4e1f359bc2); pinned to the default-branch head. LICENSE at pin 48714356d47a: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

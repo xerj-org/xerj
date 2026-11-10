@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Rust queries this for how LexLowLevel/SydonOS implements it: SydonOS is a multikernel (selected work: kernel, jobs, tools)",
+ "domain": "an agent working on Rust queries this for how LexLowLevel/SydonOS implements it: LexLowLevel/SydonOS (Rust) (selected work: kernel, jobs, tools)",
  "repos": [
   {
    "repo": "SydonOS",

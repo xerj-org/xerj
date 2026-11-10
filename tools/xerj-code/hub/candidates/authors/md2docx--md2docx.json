@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai, converter, docx queries this for how md2docx/md2docx implements it: The modular document compiler ecosystem to transform Markdown and ASTs into high-fidelity DOCX documents (selected work: packages/list, packages/table, packages/remark-docx)",
+ "domain": "an agent working on docx, nodejs, remark queries this for how md2docx/md2docx implements it: The modular document compiler ecosystem to transform Markdown and ASTs into high-fidelity DOCX documents (selected work: packages/list, packages/table, packages/remark-docx)",
  "repos": [
   {
    "repo": "md2docx",

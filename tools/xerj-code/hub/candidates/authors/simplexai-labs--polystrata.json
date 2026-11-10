@@ -1,0 +1,23 @@
+{
+ "corpus": "simplexai-labs--polystrata",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on anthropic-api, cuda, gemma queries this for how simplexai-labs/PolyStrata implements it: Run large AI models on your own PC: Qwen3.8-Flash-Next on Strata's engine, and GLM 5.3 Flash, DeepSeek V4 Flash, LFM2.5, Qwen3.6, Ornith 1.5 (selected work: the project root, include, src/poly)",
+ "repos": [
+  {
+   "repo": "PolyStrata",
+   "url": "https://github.com/VecSzn/PolyStrata",
+   "sha": "44b58c6ad11e7fef7c75e1d73353ee95210641d0",
+   "licence": "MIT (LICENSE file at pin 44b58c6ad11e, GitHub licence API 2026-10-28)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-16T17:35Z",
+    "consent_receipt": "4fe966301c2f",
+    "note": "Inclusion consented by the commit author by email at 2026-10-16T17:35Z (receipt 4fe966301c2f); selected commit 44b58c6ad11e: \"poly: run strata-poly on AMD cards through the HIP backend\". LICENSE file at pin 44b58c6ad11e detected as MIT by the GitHub licence API on 2026-10-28; used under that licence with attribution."
+   }
+  }
+ ]
+}

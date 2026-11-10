@@ -1,0 +1,23 @@
+{
+ "corpus": "secludedly--fusionbot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on discord, discord-bot, pkhex queries this for how Secludedly/FusionBot implements it: SysBot.NET w/ a gorgeous UI, the most features possible, and constant updates (selected work: SysBot.Pokemon, SysBot.Pokemon.Discord)",
+ "repos": [
+  {
+   "repo": "FusionBot",
+   "url": "https://github.com/Secludedly/FusionBot",
+   "sha": "b1a05c85ec7290b7faa1f835a6145ffbf8c17b28",
+   "licence": "AGPL-3.0 (LICENSE file at pin b1a05c85ec72, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-03T16:32Z",
+    "consent_receipt": "a4c32e457c1b",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T16:32Z (receipt a4c32e457c1b); selected commit b1a05c85ec72: \"Updated ZA IV Logic w/ New PKHeX Dependencies.\". LICENSE file at pin b1a05c85ec72 detected as AGPL-3.0 by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "home-space-app--home-space",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how home-space-app/home-space implements it: Home space is a file storage service, which can be self hosted (selected work: clients, server, shared)",
+ "repos": [
+  {
+   "repo": "home-space",
+   "url": "https://github.com/home-space-app/home-space",
+   "sha": "065bd1fbea56d78df7bab4a03978d2d4421f7436",
+   "licence": "AGPL-3.0 (LICENSE file at pin 065bd1fbea56, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-09T10:17Z",
+    "consent_receipt": "467ebc710045",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T10:17Z (receipt 467ebc710045); selected commit 065bd1fbea56: \"feat(web): settings and admin screens\". LICENSE file at pin 065bd1fbea56 detected as AGPL-3.0 by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

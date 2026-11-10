@@ -1,0 +1,23 @@
+{
+ "corpus": "2023anita--workflow-eval-lab",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how 2023Anita/workflow-eval-lab implements it: Evidence-aware workflow evaluation: a Codex Skill with six-dimension scoring, improvement cards, and controlled version comparisons",
+ "repos": [
+  {
+   "repo": "workflow-eval-lab",
+   "url": "https://github.com/2023Anita/workflow-eval-lab",
+   "sha": "950995ff2bac72c12f1ac79713f54b33c15b6af8",
+   "licence": "MIT (LICENSE file at pin 950995ff2bac, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T13:38Z",
+    "consent_receipt": "b594aa87f8ea",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T13:38Z (receipt b594aa87f8ea); pinned to the default-branch head. LICENSE file at pin 950995ff2bac detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

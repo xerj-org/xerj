@@ -1,0 +1,23 @@
+{
+ "corpus": "jonahgcarpenter--oswald-ai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, assistant, multi-user queries this for how jonahgcarpenter/oswald-ai implements it: A multi-user, fully local, uncensored AI agent harness built for Discord, iMessage and Home Assistant (selected work: internal/transport, internal/agent, internal/broker)",
+ "repos": [
+  {
+   "repo": "oswald-ai",
+   "url": "https://github.com/jonahgcarpenter/oswald-ai",
+   "sha": "a7a1c1f4eaeceefb9085a3e5bdb0cc0b2d70ba90",
+   "licence": "MIT (LICENSE file at pin a7a1c1f4eaec, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T00:59Z",
+    "consent_receipt": "608f3df15c04",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T00:59Z (receipt 608f3df15c04); selected commit a7a1c1f4eaec: \"feat: reply-to-self invocation and media-aware steering (#256)\". LICENSE file at pin a7a1c1f4eaec detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

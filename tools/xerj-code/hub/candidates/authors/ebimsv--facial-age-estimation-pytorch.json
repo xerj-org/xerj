@@ -1,0 +1,23 @@
+{
+ "corpus": "ebimsv--facial-age-estimation-pytorch",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on eda, efficientnet-pytorch, resnet queries this for how Ebimsv/Facial_Age_estimation_PyTorch implements it: Age Estimation with PyTorch: Deep Learning for Predicting Age (selected work: tests, src/configs, scripts)",
+ "repos": [
+  {
+   "repo": "Facial_Age_estimation_PyTorch",
+   "url": "https://github.com/Ebimsv/Facial_Age_estimation_PyTorch",
+   "sha": "4354d21952071c8dcef88b1324892936f67d57d6",
+   "licence": "MIT (LICENSE file at pin 4354d2195207, GitHub licence API 2026-11-06)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T18:13Z",
+    "consent_receipt": "f9ace460fe5b",
+    "note": "Inclusion consented by the commit author by email at 2026-11-06T18:13Z (receipt f9ace460fe5b); selected commit 4354d2195207: \"fix: make package builds and installed CLI self-contained\". LICENSE file at pin 4354d2195207 detected as MIT by the GitHub licence API on 2026-11-06; used under that licence with attribution."
+   }
+  }
+ ]
+}

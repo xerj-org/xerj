@@ -1,0 +1,23 @@
+{
+ "corpus": "gorwayne--dsh-gor-tasks",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on dsh-plugin, deepseek-harness, dsh queries this for how gorwayne/dsh-gor-tasks implements it: \u628a\u300c\u5f85\u529e\u300d\u653e\u8fdb DeepSeek Harness\uff1a\u5de6\u4fa7\u5165\u53e3\u3001\u9879\u76ee\u5206\u7c7b\u3001\u5bf9\u8bdd\u91cc\u589e\u5220\u3001\u56de\u7b54\u4e00\u952e\u62c6\u6210\u4efb\u52a1\u3002 (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "dsh-gor-tasks",
+   "url": "https://github.com/gorwayne/dsh-gor-tasks",
+   "sha": "f80d285bcd9b1f31a85f94220ec59a9b4f4d244b",
+   "licence": "MIT (LICENSE file at pin f80d285bcd9b, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T11:51Z",
+    "consent_receipt": "1e0b9731eaa1",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T11:51Z (receipt 1e0b9731eaa1); selected commit f80d285bcd9b: \"feat: v1.3 \u6253\u78e8\u7248\u2014\u2014\u6279\u91cf\u64cd\u4f5c\u3001\u64a4\u9500\u3001\u667a\u80fd\u5217\u8868\u3001\u81ea\u5b9a\u4e49\u6392\u5e8f\u4e0e\u5b58\u50a8\u4e00\u81f4\u6027\". LICENSE file at pin f80d285bcd9b detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+   }
+  }
+ ]
+}

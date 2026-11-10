@@ -1,0 +1,23 @@
+{
+ "corpus": "strawberrymusicplayer--strawberry",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on strawberry, strawberry-music-player, audio queries this for how strawberrymusicplayer/strawberry implements it: :strawberry: Strawberry Music Player (selected work: tests, src/engine)",
+ "repos": [
+  {
+   "repo": "strawberry",
+   "url": "https://github.com/strawberrymusicplayer/strawberry",
+   "sha": "a782d5df60380fed07288cb18a7ba7afceacb170",
+   "licence": "GPL-3.0 (LICENSE file at pin a782d5df6038, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-08T07:31Z",
+    "consent_receipt": "3c1df69f0d54",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T07:31Z (receipt 3c1df69f0d54); selected commit a782d5df6038: \"Parse JSON metadata and accumulate partial stream metadata\". LICENSE file at pin a782d5df6038 detected as GPL-3.0 by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+   }
+  }
+ ]
+}

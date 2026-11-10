@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-agents, coala, llm-agents queries this for how dionyziuz/proof_harness implements it: Neuro-symbolic agent harness elevating local & frontier LLMs into rigorous theorem provers: zero-trust deterministic kernel (SymPy/Z3), CoAL (selected work: scripts, core_engine, the project root)",
+ "domain": "an agent working on ai-agents, coala, llm-agents queries this for how dionyziuz/proof_harness implements it: Neuro-symbolic agent harness that multiplies reasoning: Qwen 27B 12.7%\u219226.7%, Muse 22%\u219246.3%, Flash 33.7%\u219255.3% on 300 research-level TCS pr (selected work: scripts, core_engine, the project root)",
  "repos": [
   {
    "repo": "proof_harness",

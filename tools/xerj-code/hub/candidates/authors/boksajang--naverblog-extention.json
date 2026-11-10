@@ -1,0 +1,23 @@
+{
+ "corpus": "boksajang--naverblog-extention",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on JavaScript queries this for how boksajang/naverblog-extention implements it: \uc77c\ubc18 Chrome \ud655\uc7a5 \uae30\ubc18 \ub124\uc774\ubc84\u00b7\ud2f0\uc2a4\ud1a0\ub9ac \ube14\ub85c\uadf8 \uc790\ub3d9\ud654 \uc571 (selected work: src/lib, src/renderer, src)",
+ "repos": [
+  {
+   "repo": "naverblog-extention",
+   "url": "https://github.com/boksajang/naverblog-extention",
+   "sha": "dc59b9e9c74c3aff063c921a03f2178a73c3d5d9",
+   "licence": "MIT (LICENSE file at pin dc59b9e9c74c, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T14:54Z",
+    "consent_receipt": "2a95f7f5653f",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T14:54Z (receipt 2a95f7f5653f); selected commit dc59b9e9c74c: \"Prepare v0.2.5-rc.1 with cross-platform and token usage fixes\". LICENSE file at pin dc59b9e9c74c detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution. Pinned to head dc59b9e9c74c (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

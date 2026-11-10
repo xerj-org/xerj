@@ -1,0 +1,23 @@
+{
+ "corpus": "satya-prakash3--twogether",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how Satya-prakash3/Twogether implements it: Twogether is a free, open-source co-watching platform built for couples and friends who live miles apart \u2014 a place to share moments, stream  (selected work: backend)",
+ "repos": [
+  {
+   "repo": "Twogether",
+   "url": "https://github.com/Satya-prakash3/Twogether",
+   "sha": "6cc7db67150297f49b6c3e57d90f1bc4aeb1358f",
+   "licence": "MIT (LICENSE file at pin 6cc7db671502, GitHub licence API 2026-11-06)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T04:46Z",
+    "consent_receipt": "f0ae71a5256a",
+    "note": "Inclusion consented by the commit author by email at 2026-11-06T04:46Z (receipt f0ae71a5256a); selected commit 6cc7db671502: \"Update: Configured Database\". LICENSE file at pin 6cc7db671502 detected as MIT by the GitHub licence API on 2026-11-06; used under that licence with attribution."
+   }
+  }
+ ]
+}

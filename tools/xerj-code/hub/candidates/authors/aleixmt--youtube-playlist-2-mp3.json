@@ -1,0 +1,23 @@
+{
+ "corpus": "aleixmt--youtube-playlist-2-mp3",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Shell queries this for how AleixMT/Youtube-PlayList-2-MP3 implements it: Software to download a Youtube playlist as MP3",
+ "repos": [
+  {
+   "repo": "Youtube-PlayList-2-MP3",
+   "url": "https://github.com/AleixMT/Youtube-PlayList-2-MP3",
+   "sha": "b17d86b7034cfc39097acef8f8b7f7eeaa297d17",
+   "licence": "MIT (LICENSE file at pin b17d86b7034c, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T14:44Z",
+    "consent_receipt": "7aa339b3010a",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-03T14:44Z (receipt 7aa339b3010a); pinned to the default-branch head. LICENSE file at pin b17d86b7034c detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

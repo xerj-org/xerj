@@ -1,0 +1,23 @@
+{
+ "corpus": "roleoroleo--yi-hack-mstar",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on yi, custom, firmware queries this for how roleoroleo/yi-hack-MStar implements it: Custom firmware for Yi 1080p camera based on MStar platform (selected work: src/rRTSPServer)",
+ "repos": [
+  {
+   "repo": "yi-hack-MStar",
+   "url": "https://github.com/roleoroleo/yi-hack-MStar",
+   "sha": "3711a0b127c8d042106983a870b8e2c4dd5ccd30",
+   "licence": "GPL-3.0 (LICENSE file at pin 3711a0b127c8, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-07T11:54Z",
+    "consent_receipt": "5c04bb9b15a8",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T11:54Z (receipt 5c04bb9b15a8); selected commit 3711a0b127c8: \"Make fifo non blocking\". LICENSE file at pin 3711a0b127c8 detected as GPL-3.0 by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

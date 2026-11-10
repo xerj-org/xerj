@@ -1,0 +1,23 @@
+{
+ "corpus": "emanuelchirico--shoego",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on PHP queries this for how EmanuelChirico/ShoeGo implements it: Repository (selected work: public, HTML, php)",
+ "repos": [
+  {
+   "repo": "ShoeGo",
+   "url": "https://github.com/EmanuelChirico/ShoeGo",
+   "sha": "1f31aae30975c4ee7df2df4c881714033e784c55",
+   "licence": "GPL-3.0 (LICENSE file at pin 1f31aae30975, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-08T12:18Z",
+    "consent_receipt": "281eea04300a",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T12:18Z (receipt 281eea04300a); selected commit 1f31aae30975: \"refactor repo\". LICENSE file at pin 1f31aae30975 detected as GPL-3.0 by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+   }
+  }
+ ]
+}

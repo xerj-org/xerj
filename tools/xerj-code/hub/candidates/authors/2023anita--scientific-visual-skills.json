@@ -1,0 +1,23 @@
+{
+ "corpus": "2023anita--scientific-visual-skills",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on academic-writing, chatgpt, codex-skills queries this for how 2023Anita/scientific-visual-skills implements it: Codex skills for scientific infographics, research cover visuals, and publication-grade paper figures using ChatGPT image generation",
+ "repos": [
+  {
+   "repo": "scientific-visual-skills",
+   "url": "https://github.com/2023Anita/scientific-visual-skills",
+   "sha": "830325856a06d75e20306bf3302fd9668c785c0f",
+   "licence": "MIT (LICENSE file at pin 830325856a06, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T13:38Z",
+    "consent_receipt": "621d38e7a9c2",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T13:38Z (receipt 621d38e7a9c2); pinned to the default-branch head. LICENSE file at pin 830325856a06 detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

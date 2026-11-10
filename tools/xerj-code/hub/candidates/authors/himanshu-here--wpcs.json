@@ -1,0 +1,23 @@
+{
+ "corpus": "himanshu-here--wpcs",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on code queries this for how himanshu-here/wpcs implements it: himanshu-here/wpcs (code)",
+ "repos": [
+  {
+   "repo": "wpcs",
+   "url": "https://github.com/himanshu-here/wpcs",
+   "sha": "a07251827e55d1b331d3805149af9199c05b38b2",
+   "licence": "author's permission (LICENSE at pin a07251827e55: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T04:39Z",
+    "consent_receipt": "ac4447c5ebe0",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T04:39Z (receipt ac4447c5ebe0); pinned to the default-branch head. LICENSE at pin a07251827e55: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

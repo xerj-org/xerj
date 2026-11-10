@@ -1,0 +1,23 @@
+{
+ "corpus": "mobs3288--cardbridge",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how mobs3288/CardBridge implements it: CardBridge: Koikatsu character cards to rigged PMX models, offline, with a viewer that runs the game's shaders. Alpha. [KKPMX Alternative] (selected work: src/export, viewer, cli)",
+ "repos": [
+  {
+   "repo": "CardBridge",
+   "url": "https://github.com/mobs3288/CardBridge",
+   "sha": "7f6d2ac11e89d95fa014e5b7b9265323eb05569f",
+   "licence": "MIT (LICENSE file at pin 7f6d2ac11e89, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T06:45Z",
+    "consent_receipt": "a547809c1511",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T06:45Z (receipt a547809c1511); selected commit 7f6d2ac11e89: \"Prefer the discrete GPU and skin poses on the GPU compute shader\". LICENSE file at pin 7f6d2ac11e89 detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+   }
+  }
+ ]
+}

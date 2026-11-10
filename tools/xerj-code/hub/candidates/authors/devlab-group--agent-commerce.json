@@ -8,15 +8,15 @@
   {
    "repo": "agent-commerce",
    "url": "https://github.com/devlab-group/agent-commerce",
-   "sha": "b1fd31fb39d6199b8fae9bef5652eff713089b6e",
-   "licence": "Apache-2.0 (LICENSE file at pin b1fd31fb39d6, GitHub licence API 2026-11-03)",
+   "sha": "04ec37466588a19dcd391ee460a1df7d380fbd5d",
+   "licence": "Apache-2.0 (LICENSE file at pin 04ec37466588, GitHub licence API 2026-11-08)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-12T08:15Z",
     "consent_receipt": "00b97bb965e2",
-    "note": "Inclusion consented by the commit author by email at 2026-10-12T08:15Z (receipt 00b97bb965e2); selected commit b1fd31fb39d6: \"fix(a2a): describe the call on the Agent Card and close A2A 1.0.1 gaps\". LICENSE file at pin b1fd31fb39d6 detected as Apache-2.0 by the GitHub licence API on 2026-11-03; used under that licence with attribution. Pinned to head b1fd31fb39d6 (contains the selected commit): the LICENSE at the selected commit was NOASSERTION."
+    "note": "Inclusion consented by the commit author by email at 2026-10-12T08:15Z (receipt 00b97bb965e2); selected commit 04ec37466588: \"fix(a2a): describe the call on the Agent Card and close A2A 1.0.1 gaps\". LICENSE file at pin 04ec37466588 detected as Apache-2.0 by the GitHub licence API on 2026-11-08; used under that licence with attribution. Pinned to head 04ec37466588 (contains the selected commit): the LICENSE at the selected commit was NOASSERTION."
    }
   }
  ]

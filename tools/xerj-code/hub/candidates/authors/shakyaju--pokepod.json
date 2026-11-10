@@ -1,0 +1,23 @@
+{
+ "corpus": "shakyaju--pokepod",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on dart, flutter, flutter-app queries this for how ShakyaJU/pokepod implements it: A feature-rich Flutter Pok\u00e9dex and Pok\u00e9mon research companion featuring interactive exploration, collection tracking, team building, evoluti (selected work: lib/features, test, android)",
+ "repos": [
+  {
+   "repo": "pokepod",
+   "url": "https://github.com/ShakyaJU/pokepod",
+   "sha": "fbccf13421dc92e92329f73a46231585e57b8f69",
+   "licence": "MIT (LICENSE file at pin fbccf13421dc, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T12:46Z",
+    "consent_receipt": "a9ffd8ad9994",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T12:46Z (receipt a9ffd8ad9994); selected commit fbccf13421dc: \"first-launch onboarding implementation, defense profile added and imp\u2026\". LICENSE file at pin fbccf13421dc detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

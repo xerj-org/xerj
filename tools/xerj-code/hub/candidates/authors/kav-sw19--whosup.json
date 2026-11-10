@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Rust queries this for how kav-sw19/whosup implements it: Live TUI for coding-agent sessions (pi, Claude Code, Codex, \u2026) in terminals and editors, their sub-agents and open terminals (selected work: src)",
+ "domain": "an agent working on ai-agents, claude-code, cli queries this for how kav-sw19/whosup implements it: Live TUI for coding-agent sessions (pi, Claude Code, Codex, \u2026) in terminals and editors, their sub-agents and open terminals (selected work: src)",
  "repos": [
   {
    "repo": "whosup",

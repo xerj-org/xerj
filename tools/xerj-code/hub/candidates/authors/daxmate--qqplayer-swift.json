@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on Swift queries this for how daxmate/qqplayer-swift implements it: QQPlayer iOS \u539f\u751f\u7248\uff08\u57fa\u4e8e Cosmos Music Player \u7684 GPL-3.0 fork\uff09\uff1a\u8ddf\u5531/AB\u5faa\u73af/\u500d\u901f/\u5c40\u57df\u7f51\u4e3b\u673a\u540c\u6b65 (selected work: QQPlayerTests, QQPlayer, scripts)",
+ "domain": "an agent working on Swift queries this for how daxmate/qqplayer-swift implements it: QQPlayer \u2014 iOS + macOS \u53cc\u5e73\u53f0\u9ad8\u54c1\u8d28\u97f3\u4e50\u64ad\u653e\u5668 \uff0c\u4e13\u4e3a\u53d1\u70e7\u53cb\u4e0e\u5916\u8bed\u5b66\u4e60\u8005\u6253\u9020\u3002FLAC / WAV / MP3 / M4A / Opus / OGG / DSD / DSF \u5168\u683c\u5f0f\u652f\u6301\uff0c\u56fe\u5f62\u5747\u8861\u5668\u3001ReplayGain \u97f3\u91cf\u5f52\u4e00\u5316\u3001\u53cc\u6e90\u6b4c\u8bcd\uff08\u7f51\u6613\u4e91 + LR (selected work: QQPlayerTests, QQPlayer, scripts)",
  "repos": [
   {
    "repo": "qqplayer-swift",

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on TypeScript queries this for how kkokotero/html-box implements it: Small, typed utilities for everyday DOM work (selected work: src/reactive, src/view-transition, test)",
+ "domain": "an agent working on dom, dom-query, events queries this for how kkokotero/html-box implements it: Small, typed utilities for everyday DOM work (selected work: src/reactive, src/view-transition, test)",
  "repos": [
   {
    "repo": "html-box",

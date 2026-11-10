@@ -2,8 +2,8 @@
  "corpus": "zhan017--dastar",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on TypeScript queries this for how Zhan017/dastar implements it: Zhan017/dastar (TypeScript) (selected work: packages/db)",
+ "shelf": "DB",
+ "domain": "an agent working on booking-engine, concurrency, exclusion-constraint queries this for how Zhan017/dastar implements it: A reservation engine with double-booking protection enforced by Postgres (selected work: packages/db)",
  "repos": [
   {
    "repo": "dastar",

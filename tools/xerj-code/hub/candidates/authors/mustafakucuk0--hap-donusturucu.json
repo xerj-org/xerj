@@ -1,0 +1,23 @@
+{
+ "corpus": "mustafakucuk0--hap-donusturucu",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on HTML queries this for how mustafakucuk0/HAP_Donusturucu implements it: Videolar\u0131 HAP, HAP Alpha ve HAP Q (.mov) bi\u00e7imlerine toplu \u00e7eviren yerel ara\u00e7 (Mac & Windows) (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "HAP_Donusturucu",
+   "url": "https://github.com/mustafakucuk0/HAP_Donusturucu",
+   "sha": "daf59b18b9ad20c4b42ceab13cc98f9bc0dd3de0",
+   "licence": "MIT (LICENSE file at pin daf59b18b9ad, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T18:09Z",
+    "consent_receipt": "12b4743d504c",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T18:09Z (receipt 12b4743d504c); selected commit daf59b18b9ad: \"G\u00fcncelleme denetimi eklendi: yeni s\u00fcr\u00fcm ve ffmpeg\". LICENSE file at pin daf59b18b9ad detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on TypeScript queries this for how Temirtator/react-input-mask-format implements it: This library is fork of https://github.com/sanniassin/react-input-mask. Since the project has not been updated for a long time, I decided to (selected work: tests, src/core, e2e)",
+ "domain": "an agent working on credit-card, date-input, input-mask queries this for how Temirtator/react-input-mask-format implements it: Input masks for React: phones, dates, cards, numbers, time and CIS country presets with validators. Maintained fork of react-input-mask (selected work: tests, src/core, e2e)",
  "repos": [
   {
    "repo": "react-input-mask-format",

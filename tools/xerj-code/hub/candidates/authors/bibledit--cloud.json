@@ -1,0 +1,23 @@
+{
+ "corpus": "bibledit--cloud",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on C queries this for how bibledit/cloud implements it: Source code for Bibledit core library and Cloud binary (selected work: executable, database)",
+ "repos": [
+  {
+   "repo": "cloud",
+   "url": "https://github.com/bibledit/cloud",
+   "sha": "7bdb76d0aea5304632519ae807110b2c6286a630",
+   "licence": "GPL-3.0 (LICENSE file at pin 7bdb76d0aea5, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-08T12:04Z",
+    "consent_receipt": "1a485482c84e",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T12:04Z (receipt 1a485482c84e); selected commit 7bdb76d0aea5: \"The ./generate can export books info to JSON\". LICENSE file at pin 7bdb76d0aea5 detected as GPL-3.0 by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+   }
+  }
+ ]
+}

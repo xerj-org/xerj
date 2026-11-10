@@ -1,0 +1,23 @@
+{
+ "corpus": "atsukio--penguin-idle",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on browser-game, idle-game, incremental-game queries this for how Atsukio/penguin-idle implements it: A cozy penguin idle game for the browser. No build step, hosted on GitHub Pages (selected work: src, the project root, tools)",
+ "repos": [
+  {
+   "repo": "penguin-idle",
+   "url": "https://github.com/Atsukio/penguin-idle",
+   "sha": "93a8f9b7ee5968516be669471cfe162f596df937",
+   "licence": "MIT (LICENSE file at pin 93a8f9b7ee59, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T12:31Z",
+    "consent_receipt": "714f4abbd8f4",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T12:31Z (receipt 714f4abbd8f4); selected commit 93a8f9b7ee59: \"Gameplay progression expansion: kettle, diving relics, expanded heirl\u2026\". LICENSE file at pin 93a8f9b7ee59 detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

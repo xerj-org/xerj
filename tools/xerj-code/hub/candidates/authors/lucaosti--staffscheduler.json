@@ -1,0 +1,23 @@
+{
+ "corpus": "lucaosti--staffscheduler",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how lucaosti/StaffScheduler implements it: Employee scheduling system with role-based coverage and rest rules (selected work: frontend, backend)",
+ "repos": [
+  {
+   "repo": "StaffScheduler",
+   "url": "https://github.com/lucaosti/StaffScheduler",
+   "sha": "8664af1dcc0a43cc612d9bf61f18b17787472a9b",
+   "licence": "MIT (LICENSE file at pin 8664af1dcc0a, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T04:35Z",
+    "consent_receipt": "ea03ed1e06c0",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T04:35Z (receipt ea03ed1e06c0); selected commit 8664af1dcc0a: \"feat(delegations): offer only unit-delegable codes for a scoped deleg\u2026\". LICENSE file at pin 8664af1dcc0a detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on deepseek-harness, dsh, dsh-plugin queries this for how zuwenyin/dsh-plugin-upgrader implements it: One-click upgrades, version history and rollback for plugins on the DeepSeek Harness Plugins page (selected work: src, src/client, src/host)",
+ "domain": "an agent working on deepseek-harness, dsh, dsh-plugin queries this for how zuwenyin/dsh-plugin-upgrader implements it: DSH plugin for DeepSeek Harness: upgrade plugins from the Plugins page, version history, rollback, live pnpm progress (selected work: src, src/client, src/host)",
  "repos": [
   {
    "repo": "dsh-plugin-upgrader",

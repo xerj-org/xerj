@@ -1,0 +1,23 @@
+{
+ "corpus": "owasp--www-project-webshield-library",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on JavaScript queries this for how OWASP/www-project-webshield-library implements it: OWASP Foundation web repository (selected work: scripts)",
+ "repos": [
+  {
+   "repo": "www-project-webshield-library",
+   "url": "https://github.com/OWASP/www-project-webshield-library",
+   "sha": "eb0594e4f586abe169c8c0a56c99a2743fa011b1",
+   "licence": "Apache-2.0 (LICENSE file at pin eb0594e4f586, GitHub licence API 2026-11-04)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-04T03:38Z",
+    "consent_receipt": "92c1a25dd161",
+    "note": "Inclusion consented by the commit author by email at 2026-11-04T03:38Z (receipt 92c1a25dd161); selected commit eb0594e4f586: \"Update package versioning\". LICENSE file at pin eb0594e4f586 detected as Apache-2.0 by the GitHub licence API on 2026-11-04; used under that licence with attribution."
+   }
+  }
+ ]
+}

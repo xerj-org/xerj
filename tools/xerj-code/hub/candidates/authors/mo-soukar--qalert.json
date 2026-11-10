@@ -1,0 +1,23 @@
+{
+ "corpus": "mo-soukar--qalert",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on PHP queries this for how mo-soukar/qalert implements it: mo-soukar/qalert (PHP) (selected work: src/Services, src/Channels, src/Facades)",
+ "repos": [
+  {
+   "repo": "qalert",
+   "url": "https://github.com/mo-soukar/qalert",
+   "sha": "9eb2f1bc6bfbe8cc95090fed0a6e600d98fc98b4",
+   "licence": "MIT (LICENSE file at pin 9eb2f1bc6bfb, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T13:47Z",
+    "consent_receipt": "7fbbf28a39e2",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T13:47Z (receipt 7fbbf28a39e2); selected commit 9eb2f1bc6bfb: \"feat(telegram): add rate limiting throttling, 429 retry backoff, infi\u2026\". LICENSE file at pin 9eb2f1bc6bfb detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+   }
+  }
+ ]
+}

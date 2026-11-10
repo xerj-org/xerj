@@ -1,0 +1,23 @@
+{
+ "corpus": "venkatpandey--tuneflow",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Kotlin queries this for how Venkatpandey/TuneFlow implements it: A beautiful Android TV client for Navidrome (selected work: core/design, feature, app/src)",
+ "repos": [
+  {
+   "repo": "TuneFlow",
+   "url": "https://github.com/Venkatpandey/TuneFlow",
+   "sha": "4f9946fb604559c5375a6a6bf4d26ab65ce43664",
+   "licence": "MIT (LICENSE file at pin 4f9946fb6045, GitHub licence API 2026-11-06)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T06:42Z",
+    "consent_receipt": "889619af32bb",
+    "note": "Inclusion consented by the commit author by email at 2026-11-06T06:42Z (receipt 889619af32bb); selected commit 4f9946fb6045: \"fix(ui): replace animated GIF indicator with native Compose equalizer\u2026\". LICENSE file at pin 4f9946fb6045 detected as MIT by the GitHub licence API on 2026-11-06; used under that licence with attribution."
+   }
+  }
+ ]
+}

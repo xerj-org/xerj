@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on audio-engineering, claude-code, digico queries this for how michaelkeithlewis/show-file-skills implements it: Read and write live audio show files and studio sessions (dLive, DiGiCo, Pro Tools, Logic, LiveTrax, LiveProfessor, VENUE) without the vendo (selected work: digico, logic)",
+ "domain": "an agent working on audio-engineering, claude-code, digico queries this for how michaelkeithlewis/show-file-skills implements it: Read and write live audio show files and studio sessions (dLive, DiGiCo, Yamaha, VENUE, Pro Tools, Logic, LiveTrax, LiveProfessor) without t (selected work: digico, logic)",
  "repos": [
   {
    "repo": "show-file-skills",

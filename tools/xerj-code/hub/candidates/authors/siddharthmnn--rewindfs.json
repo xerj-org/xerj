@@ -1,0 +1,23 @@
+{
+ "corpus": "siddharthmnn--rewindfs",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on Go queries this for how siddharthmnn/rewindfs implements it: A Git-inspired virtual file system with snapshot-based versioning, rollback, deleted file recovery, diff tracking, and storage optimization  (selected work: internal/api, internal/snapshot, internal/storage)",
+ "repos": [
+  {
+   "repo": "rewindfs",
+   "url": "https://github.com/siddharthmnn/rewindfs",
+   "sha": "bd2f1d80e882e8007368c458e10c664fe176307a",
+   "licence": "MIT (LICENSE file at pin bd2f1d80e882, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T16:26Z",
+    "consent_receipt": "75f6bfa58b05",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T16:26Z (receipt 75f6bfa58b05); selected commit bd2f1d80e882: \"refactor: centralize snapshot lifecycle management\". LICENSE file at pin bd2f1d80e882 detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

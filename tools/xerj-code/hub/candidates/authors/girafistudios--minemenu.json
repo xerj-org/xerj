@@ -1,0 +1,23 @@
+{
+ "corpus": "girafistudios--minemenu",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Java queries this for how GirafiStudios/MineMenu implements it: GirafiStudios/MineMenu (Java) (selected work: common, neoforge, fabric)",
+ "repos": [
+  {
+   "repo": "MineMenu",
+   "url": "https://github.com/GirafiStudios/MineMenu",
+   "sha": "8d55983bdb6f844b9f9cf5ce17ac3f33ad8b9a01",
+   "licence": "MIT (LICENSE file at pin 8d55983bdb6f, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T00:38Z",
+    "consent_receipt": "29ba97e8b96d",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T00:38Z (receipt 29ba97e8b96d); selected commit 8d55983bdb6f: \"Added Controllable support. Mine Menu's radial menu can be opened wit\u2026\". LICENSE file at pin 8d55983bdb6f detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

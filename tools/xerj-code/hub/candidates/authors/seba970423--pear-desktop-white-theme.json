@@ -1,0 +1,23 @@
+{
+ "corpus": "seba970423--pear-desktop-white-theme",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on CSS queries this for how seba970423/pear-desktop-white-theme implements it: This is a proper white theme for the pear-desktop project",
+ "repos": [
+  {
+   "repo": "pear-desktop-white-theme",
+   "url": "https://github.com/seba970423/pear-desktop-white-theme",
+   "sha": "e8dc8060106cf7d84c88aa437687cad4515bbfdb",
+   "licence": "MIT (LICENSE file at pin e8dc8060106c, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T17:35Z",
+    "consent_receipt": "a684201e1f57",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T17:35Z (receipt a684201e1f57); pinned to the default-branch head. LICENSE file at pin e8dc8060106c detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

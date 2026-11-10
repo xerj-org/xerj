@@ -1,0 +1,23 @@
+{
+ "corpus": "felsyn--felhaven",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how Felsyn/felhaven implements it: Felhaven Operating Environment (FOE) a local-first personal dashboard built on the Metis Toolbox (portable public snapshot) (selected work: metis_toolbox)",
+ "repos": [
+  {
+   "repo": "felhaven",
+   "url": "https://github.com/Felsyn/felhaven",
+   "sha": "fee61944ebdd29f702ac638f209373e387553909",
+   "licence": "MIT (LICENSE file at pin fee61944ebdd, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T23:02Z",
+    "consent_receipt": "3a6c7296dc40",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T23:02Z (receipt 3a6c7296dc40); selected commit fee61944ebdd: \"Publish: stable 2026-11-09 - Virgil hover tooltips, a scrolling sideb\u2026\". LICENSE file at pin fee61944ebdd detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

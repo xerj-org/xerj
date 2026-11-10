@@ -1,0 +1,23 @@
+{
+ "corpus": "opennodesaas--remotepilot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how OpenNodeSaas/RemotePilot implements it: OpenNodeSaas/RemotePilot (C#) (selected work: src/RemotePilot, tests, the project root)",
+ "repos": [
+  {
+   "repo": "RemotePilot",
+   "url": "https://github.com/OpenNodeSaas/RemotePilot",
+   "sha": "c3f085b7023766fb7a45eac9cad9db56009bcb1a",
+   "licence": "Apache-2.0 (LICENSE file at pin c3f085b70237, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T10:17Z",
+    "consent_receipt": "7f8310efc4cd",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T10:17Z (receipt 7f8310efc4cd); selected commit c3f085b70237: \"feat: asset UX improvements from v2.0 operations feedback\". LICENSE file at pin c3f085b70237 detected as Apache-2.0 by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

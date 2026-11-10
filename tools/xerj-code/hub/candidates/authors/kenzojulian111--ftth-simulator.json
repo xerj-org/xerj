@@ -1,0 +1,23 @@
+{
+ "corpus": "kenzojulian111--ftth-simulator",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on TypeScript queries this for how kenzojulian111/FTTH-Simulator implements it: A web-based FTTH network planning and simulation platform for designing, visualizing, and validating Fiber-to-the-Home (FTTH) infrastructure (selected work: backend, the project root)",
+ "repos": [
+  {
+   "repo": "FTTH-Simulator",
+   "url": "https://github.com/kenzojulian111/FTTH-Simulator",
+   "sha": "2bf82320bc13bb8d4d21060db9ee0ab3f4829ae9",
+   "licence": "GPL-3.0 (LICENSE file at pin 2bf82320bc13, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-09T15:11Z",
+    "consent_receipt": "85057b3a75d5",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T15:11Z (receipt 85057b3a75d5); selected commit 2bf82320bc13: \"feat: improve FTTH planning, optical analysis, and RAB reporting\". LICENSE file at pin 2bf82320bc13 detected as GPL-3.0 by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

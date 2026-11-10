@@ -2,8 +2,8 @@
  "corpus": "amiaoapp--piclite",
  "cloned_at": null,
  "status": "draft",
- "shelf": "WEB",
- "domain": "an agent working on TypeScript queries this for how amiaoapp/PicLite implements it: PicLite \u56fe\u8f7b / PicLite \u2014 privacy-first image and GIF compression for Web, Windows, macOS and Linux (selected work: app, src-tauri, tests)",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how amiaoapp/PicLite implements it: PicLite \u56fe\u8f7b \u2014 \u672c\u5730\u4f18\u5148\u7684\u8de8\u5e73\u53f0\u56fe\u7247\u4e0e GIF \u538b\u7f29\u5de5\u5177\uff0c\u652f\u6301\u60ac\u6d6e\u7a97\u3001\u5c01\u9762\u5236\u4f5c\u548c MCP / AI \u63a5\u5165\u3002Privacy-first image & GIF compression for Web, Windows, macOS and Linux, with floa (selected work: app, src-tauri, tests)",
  "repos": [
   {
    "repo": "PicLite",

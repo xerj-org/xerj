@@ -1,0 +1,23 @@
+{
+ "corpus": "fadhlaouir--create-express-node-starter",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on authentication, boilerplate, express queries this for how fadhlaouir/create-express-node-starter implements it: Create a secure Express 5 + MongoDB REST API in one command: npx create-express-node-starter. Auth, uploads, Swagger docs, tests, Docker and (selected work: lib/project-files, scripts)",
+ "repos": [
+  {
+   "repo": "create-express-node-starter",
+   "url": "https://github.com/fadhlaouir/create-express-node-starter",
+   "sha": "025ac006b0bd021d64e46525768b13be7d5454ce",
+   "licence": "MIT (LICENSE file at pin 025ac006b0bd, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T05:23Z",
+    "consent_receipt": "371077ce9a9f",
+    "note": "Inclusion consented by the commit author by email at 2026-11-05T05:23Z (receipt 371077ce9a9f); selected commit 025ac006b0bd: \"feat(templates): bring in express-node-starter 2.2's security fixes\". LICENSE file at pin 025ac006b0bd detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

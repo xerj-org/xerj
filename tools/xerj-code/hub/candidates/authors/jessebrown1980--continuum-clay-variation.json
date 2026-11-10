@@ -1,0 +1,23 @@
+{
+ "corpus": "jessebrown1980--continuum-clay-variation",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how JesseBrown1980/continuum-Clay-variation implements it: JesseBrown1980/continuum-Clay-variation (Rust)",
+ "repos": [
+  {
+   "repo": "continuum-Clay-variation",
+   "url": "https://github.com/JesseBrown1980/continuum-Clay-variation",
+   "sha": "7cba1987527996f3f289175f9bedafd2408ee4ee",
+   "licence": "author's permission (LICENSE at pin 7cba19875279: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T14:53Z",
+    "consent_receipt": "54a1e5bf66b8",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T14:53Z (receipt 54a1e5bf66b8); pinned to the default-branch head. LICENSE at pin 7cba19875279: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

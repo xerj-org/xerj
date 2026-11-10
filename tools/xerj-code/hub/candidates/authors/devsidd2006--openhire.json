@@ -2,8 +2,8 @@
  "corpus": "devsidd2006--openhire",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Python queries this for how DevSidd2006/openhire implements it: URL (selected work: pages, tests, services)",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how DevSidd2006/openhire implements it: Multi Agent Hiring Platform (selected work: pages, tests, services)",
  "repos": [
   {
    "repo": "openhire",

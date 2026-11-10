@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on event, task, tracker queries this for how sebin-gg/Event-Tracker implements it: \ud83d\udcc5 Event Tracker - FOCES task submission for event management",
+ "domain": "an agent working on fastapi, react, event-management queries this for how sebin-gg/Event-Tracker implements it: \ud83d\udcc5 Event Tracker - FOCES task submission for event management",
  "repos": [
   {
    "repo": "Event-Tracker",

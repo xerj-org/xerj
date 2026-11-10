@@ -1,0 +1,23 @@
+{
+ "corpus": "inhotel-io--govisit-toolkit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-skills, claude-code, codex queries this for how inhotel-io/govisit-toolkit implements it: Portable GoVisit Agent Skills for Claude Code, Codex, GitHub Copilot, Cursor and compatible assistants, with native plugins and travel integ (selected work: tools)",
+ "repos": [
+  {
+   "repo": "govisit-toolkit",
+   "url": "https://github.com/inhotel-io/govisit-toolkit",
+   "sha": "cd15be8051fcd93e0fefa72cd1e44f775b8aae2a",
+   "licence": "MIT (LICENSE file at pin cd15be8051fc, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T23:40Z",
+    "consent_receipt": "837a22751205",
+    "note": "Inclusion consented by the commit author by email at 2026-11-06T23:40Z (receipt 837a22751205); selected commit cd15be8051fc: \"Refine Floating Chat layout, branding, and Send state (#17)\". LICENSE file at pin cd15be8051fc detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

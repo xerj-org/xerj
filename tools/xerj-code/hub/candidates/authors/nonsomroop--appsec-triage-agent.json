@@ -1,0 +1,23 @@
+{
+ "corpus": "nonsomroop--appsec-triage-agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how nonsomroop/appsec-triage-agent implements it: nonsomroop/appsec-triage-agent (Python) (selected work: src/appsec_triage, tests, the project root)",
+ "repos": [
+  {
+   "repo": "appsec-triage-agent",
+   "url": "https://github.com/nonsomroop/appsec-triage-agent",
+   "sha": "4877d6a094494cb0d459911cb8fb5c7bf674dc98",
+   "licence": "MIT (LICENSE file at pin 4877d6a09449, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T16:23Z",
+    "consent_receipt": "a1094cbbdb3a",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T16:23Z (receipt a1094cbbdb3a); selected commit 4877d6a09449: \"Add Trivy dependency scanning, Docker setup, and persistent project h\u2026\". LICENSE file at pin 4877d6a09449 detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

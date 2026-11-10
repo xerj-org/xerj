@@ -1,0 +1,23 @@
+{
+ "corpus": "kaursome10--tinytapeout-basics-capstone-mnist-nn",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how Kaursome10/TinyTapeout-bASICs-Capstone-MNIST-NN implements it: Kaursome10/TinyTapeout-bASICs-Capstone-MNIST-NN (Python) (selected work: src/weights, src, tools)",
+ "repos": [
+  {
+   "repo": "TinyTapeout-bASICs-Capstone-MNIST-NN",
+   "url": "https://github.com/Kaursome10/TinyTapeout-bASICs-Capstone-MNIST-NN",
+   "sha": "2bae95f89b523bbcc42db3680639da3b02799d67",
+   "licence": "Apache-2.0 (LICENSE file at pin 2bae95f89b52, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T02:48Z",
+    "consent_receipt": "2ca0aed10bd1",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T02:48Z (receipt 2ca0aed10bd1); selected commit 2bae95f89b52: \"Stream quantized NN inference in compact RTL\". LICENSE file at pin 2bae95f89b52 detected as Apache-2.0 by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on astro, ci, cli queries this for how druedaro/seo-lint implements it: Static HTML SEO & GEO linter \u2014 fails your CI build when hreflang, JSON-LD or meta tags are broken (selected work: packages/core, packages/cli, the project root)",
+ "domain": "an agent working on astro, ci, cli queries this for how druedaro/seo-lint implements it: ast, zero-browser technical SEO and GEO linter for static HTML builds (Astro, Next.js, Nuxt) (selected work: packages/core, packages/cli, the project root)",
  "repos": [
   {
    "repo": "seo-lint",

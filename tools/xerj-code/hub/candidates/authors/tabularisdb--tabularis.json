@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "DB",
- "domain": "an agent working on ai-agent, cross-platform, database-client queries this for how TabularisDB/tabularis implements it: Open-source desktop SQL workspace with 3 built-in database drivers and 26 shipped driver plugins, including SQL Server, DuckDB, ClickHouse a (selected work: tests, src/utils, src/components)",
+ "domain": "an agent working on ai-agent, cross-platform, database-client queries this for how TabularisDB/tabularis implements it: Open-source desktop SQL workspace with 3 built-in database drivers and 29 shipped driver plugins, including SQL Server, DuckDB, ClickHouse a (selected work: tests, src/utils, src/components)",
  "repos": [
   {
    "repo": "tabularis",

@@ -8,15 +8,15 @@
   {
    "repo": "xdfdet",
    "url": "https://github.com/mertkayacs/xdfdet",
-   "sha": "eba8795a4292482628cf29a82909fdbde147fc95",
-   "licence": "MIT (LICENSE file at pin eba8795a4292, GitHub licence API 2026-10-24)",
+   "sha": "911f375ebb67b4ea8e870451a35d754a30f423b1",
+   "licence": "MIT (LICENSE file at pin 911f375ebb67, GitHub licence API 2026-11-07)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-10T08:10Z",
     "consent_receipt": "e9082e463488",
-    "note": "Inclusion consented by the commit author by email at 2026-10-10T08:10Z (receipt e9082e463488); selected commit eba8795a4292: \"Rebuild as a package with CLI, tests and released models\". LICENSE file at pin eba8795a4292 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Pinned to head eba8795a4292 (contains the selected commit): the LICENSE at the selected commit was GPL-3.0."
+    "note": "Inclusion consented by the commit author by email at 2026-10-10T08:10Z (receipt e9082e463488); selected commit 911f375ebb67: \"Rebuild as a package with CLI, tests and released models\". LICENSE file at pin 911f375ebb67 detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution. Pinned to head 911f375ebb67 (contains the selected commit): the LICENSE at the selected commit was GPL-3.0."
    }
   }
  ]

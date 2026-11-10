@@ -1,0 +1,23 @@
+{
+ "corpus": "gravion-ux--gravion-harness",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on JavaScript queries this for how gravion-ux/gravion-harness implements it: Sandboxed LLM command-execution harness with scope/deny lists, risk-tiered audit chain, and zero runtime dependencies",
+ "repos": [
+  {
+   "repo": "gravion-harness",
+   "url": "https://github.com/gravion-ux/gravion-harness",
+   "sha": "b14d1301174cbc558455b4a331fff70b2cbe279b",
+   "licence": "MIT (LICENSE file at pin b14d1301174c, GitHub licence API 2026-11-04)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-04T08:03Z",
+    "consent_receipt": "d511b963c6ea",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-04T08:03Z (receipt d511b963c6ea); pinned to the default-branch head. LICENSE file at pin b14d1301174c detected as MIT by the GitHub licence API on 2026-11-04; used under that licence with attribution."
+   }
+  }
+ ]
+}

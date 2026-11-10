@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "LAW",
- "domain": "an agent working on access-control, fine-grained-access-control, authorization queries this for how teramoby/speedle-plus implements it: Speedle+ is an open source project for access management. It is based on Speedle open source project and maintained by previous Speedle main (selected work: pkg/store, testutil, pkg/svcs)",
+ "domain": "an agent working on access-control, fine-grained-access-control, authorization queries this for how teramoby/speedle-plus implements it: Speedle: open source access management. Based on the Speedle open source project and maintained by previous Speedle maintainers (selected work: pkg/store, testutil, pkg/svcs)",
  "repos": [
   {
    "repo": "speedle-plus",

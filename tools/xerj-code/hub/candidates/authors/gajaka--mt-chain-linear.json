@@ -1,0 +1,23 @@
+{
+ "corpus": "gajaka--mt-chain-linear",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Lean queries this for how gajaka/mt-chain-linear implements it: Formal analysis of a finite MT resampling chain: linear expected cost and restricted drift-certificate separations (selected work: library)",
+ "repos": [
+  {
+   "repo": "mt-chain-linear",
+   "url": "https://github.com/gajaka/mt-chain-linear",
+   "sha": "bb903c9b301a01e136842d7b72719d97d0625745",
+   "licence": "MIT (LICENSE file at pin bb903c9b301a, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T08:54Z",
+    "consent_receipt": "b88006b6b1fc",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T08:54Z (receipt b88006b6b1fc); selected commit bb903c9b301a: \"Use a standalone MT module layout for the probabilistic theory\". LICENSE file at pin bb903c9b301a detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution. Pinned to head bb903c9b301a (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

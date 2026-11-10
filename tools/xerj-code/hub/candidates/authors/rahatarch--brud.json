@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-coding-assistant, brud, code-editor queries this for how rahatarch/brud implements it: Full AI-assisted coding platform for manual paste-and-apply workflows \u2014 no API keys, no subscriptions, no setup (selected work: packages/kernel, packages/core, packages/adapters)",
+ "domain": "an agent working on typescript, ai-agents, nodejs queries this for how rahatarch/brud implements it: An operating system for AI agents (selected work: packages/kernel, packages/core, packages/adapters)",
  "repos": [
   {
    "repo": "brud",

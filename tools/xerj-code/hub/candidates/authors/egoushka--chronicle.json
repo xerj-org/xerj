@@ -1,0 +1,23 @@
+{
+ "corpus": "egoushka--chronicle",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on lifelog, mcp, model-context-protocol queries this for how Egoushka/chronicle implements it: Self-hosted memory for one person's chat archive and activity streams, indexed by conversation instead of by message and served to AI assist",
+ "repos": [
+  {
+   "repo": "chronicle",
+   "url": "https://github.com/Egoushka/chronicle",
+   "sha": "6fdbc34ac356d938ec6b7453cd2d9f10f967e6ba",
+   "licence": "Apache-2.0 (LICENSE file at pin 6fdbc34ac356, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T15:00Z",
+    "consent_receipt": "7b3501c79dfb",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-07T15:00Z (receipt 7b3501c79dfb); pinned to the default-branch head. LICENSE file at pin 6fdbc34ac356 detected as Apache-2.0 by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

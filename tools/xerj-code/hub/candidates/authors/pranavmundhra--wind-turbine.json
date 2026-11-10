@@ -1,0 +1,23 @@
+{
+ "corpus": "pranavmundhra--wind-turbine",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on benchmarking, energy, fedavg queries this for how PranavMundhra/Wind-Turbine implements it: Federated learning baseline for wind turbine fault detection on CARE to Compare: leak-free clients, FedAvg/FedProx/FedPer, CARE score, repro (selected work: src/windturbine, tests, configs)",
+ "repos": [
+  {
+   "repo": "Wind-Turbine",
+   "url": "https://github.com/PranavMundhra/Wind-Turbine",
+   "sha": "9866bc8083624fe9b1d44339114110bcd2cccab1",
+   "licence": "MIT (LICENSE file at pin 9866bc808362, GitHub licence API 2026-11-04)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-04T07:26Z",
+    "consent_receipt": "67d0aeff1a8a",
+    "note": "Inclusion consented by the commit author by email at 2026-11-04T07:26Z (receipt 67d0aeff1a8a); selected commit 9866bc808362: \"Add TensorFlow autoencoder implementation and comprehensive tests for\u2026\". LICENSE file at pin 9866bc808362 detected as MIT by the GitHub licence API on 2026-11-04; used under that licence with attribution. Pinned to head 9866bc808362 (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

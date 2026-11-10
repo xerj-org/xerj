@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Python queries this for how USC-NSL/OnlineTE implements it: USC-NSL/OnlineTE (Python) (selected work: tests, te, old_impl)",
+ "domain": "an agent working on admm, distributed-computing, linear-programming queries this for how USC-NSL/OnlineTE implements it: Fast and scalable Traffic Engineering LP solver with optimality guarantees (selected work: tests, te, old_impl)",
  "repos": [
   {
    "repo": "OnlineTE",

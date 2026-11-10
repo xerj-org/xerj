@@ -9,14 +9,14 @@
    "repo": "kristo-intelligence-6",
    "url": "https://github.com/hristovdimitri2-hub/kristo-intelligence-6",
    "sha": "7abb25c6d9c133474468f04e0590d765b047080d",
-   "licence": "MIT (LICENSE file at pin 7abb25c6d9c1, GitHub licence API 2026-10-24)",
+   "licence": "author's permission (LICENSE at pin 7abb25c6d9c1: MIT; repository: NOASSERTION)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-19T05:21Z",
     "consent_receipt": "83dbb66a095f",
-    "note": "Inclusion consented by the commit author by email at 2026-10-19T05:21Z (receipt 83dbb66a095f); selected commit 7abb25c6d9c1: \"feat(radar): email delivery for RADAR-DIGEST (Gmail SMTP, dry-run def\u2026\". LICENSE file at pin 7abb25c6d9c1 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-10-19T05:21Z (receipt 83dbb66a095f); selected commit 7abb25c6d9c1: \"feat(radar): email delivery for RADAR-DIGEST (Gmail SMTP, dry-run def\u2026\". LICENSE at pin 7abb25c6d9c1: MIT (repository: NOASSERTION); used with the author's permission, with attribution."
    }
   }
  ]

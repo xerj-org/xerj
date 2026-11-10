@@ -1,0 +1,23 @@
+{
+ "corpus": "aalramadan--peercheck",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on academic-integrity, ai-detection, conference-management queries this for how aalramadan/PeerCheck implements it: Local checks of conference submissions and peer reviews for format, anonymity, hidden text, references, machine-written reviews, and conflic (selected work: src/peercheck, tests, the project root)",
+ "repos": [
+  {
+   "repo": "PeerCheck",
+   "url": "https://github.com/aalramadan/PeerCheck",
+   "sha": "ed98feb6ba596383c3046786bca5032bd001acb8",
+   "licence": "GPL-3.0 (LICENSE file at pin ed98feb6ba59, GitHub licence API 2026-11-04)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-04T09:57Z",
+    "consent_receipt": "5c08e5c87912",
+    "note": "Inclusion consented by the commit author by email at 2026-11-04T09:57Z (receipt 5c08e5c87912); selected commit ed98feb6ba59: \"Add EditLens (Open Pangram) as an optional review detector and a cana\u2026\". LICENSE file at pin ed98feb6ba59 detected as GPL-3.0 by the GitHub licence API on 2026-11-04; used under that licence with attribution."
+   }
+  }
+ ]
+}

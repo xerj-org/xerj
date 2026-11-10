@@ -1,0 +1,23 @@
+{
+ "corpus": "unilitix-hq--unilitix-flutter",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on africa, analytics, flutter queries this for how Unilitix-hq/unilitix-flutter implements it: Official Flutter SDK for Unilitix \u2014 African-first mobile UX analytics (selected work: lib/src, test, android)",
+ "repos": [
+  {
+   "repo": "unilitix-flutter",
+   "url": "https://github.com/Unilitix-hq/unilitix-flutter",
+   "sha": "5255699961ffc842c5a65b933d6a87e483aff751",
+   "licence": "MIT (LICENSE file at pin 5255699961ff, GitHub licence API 2026-11-06)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T09:52Z",
+    "consent_receipt": "d438ec2c95ec",
+    "note": "Inclusion consented by the commit author by email at 2026-11-06T09:52Z (receipt d438ec2c95ec); selected commit 5255699961ff: \"fix: jvm crash fingerprints, platform view masking, obfuscation-safe \u2026\". LICENSE file at pin 5255699961ff detected as MIT by the GitHub licence API on 2026-11-06; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "907609732--ngr-assetpilot-app",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on electron, image-search, local-ai queries this for how 907609732/NGR-AssetPilot-App implements it: NGR AssetPilot Windows \u684c\u9762\u5e94\u7528\uff1aAI \u8d44\u6e90\u547d\u540d\u3001\u672c\u5730\u76f8\u4f3c\u56fe\u641c\u7d22\u3001\u89c4\u8303\u68c0\u6d4b\u4e0e\u6279\u91cf\u5bfc\u51fa\u3002",
+ "repos": [
+  {
+   "repo": "NGR-AssetPilot-App",
+   "url": "https://github.com/907609732/NGR-AssetPilot-App",
+   "sha": "035798daea61d9c9283ec198509a8c73e3b72507",
+   "licence": "MIT (LICENSE file at pin 035798daea61, GitHub licence API 2026-11-06)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T08:36Z",
+    "consent_receipt": "9be2c43c341f",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T08:36Z (receipt 9be2c43c341f); pinned to the default-branch head. LICENSE file at pin 035798daea61 detected as MIT by the GitHub licence API on 2026-11-06; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "thegodkodda--littletecstudio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on electron, hid, keyboard queries this for how thegodKoDDa/littletecstudio implements it: LittleTec Studio \u2014 configurador Web e Desktop Windows para teclado macro 12 teclas + 2 girat\u00f3rios WCH CH57x (USB HID 1189:8842). Perfis, ilu",
+ "repos": [
+  {
+   "repo": "littletecstudio",
+   "url": "https://github.com/thegodKoDDa/littletecstudio",
+   "sha": "bf742972bb221062ccf5199226f33296576fbc0a",
+   "licence": "ISC (LICENSE file at pin bf742972bb22, GitHub licence API 2026-11-06)",
+   "review": {
+    "spdx": "ISC",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T01:18Z",
+    "consent_receipt": "eb6061318b00",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T01:18Z (receipt eb6061318b00); pinned to the default-branch head. LICENSE file at pin bf742972bb22 detected as ISC by the GitHub licence API on 2026-11-06; used under that licence with attribution."
+   }
+  }
+ ]
+}

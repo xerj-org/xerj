@@ -1,0 +1,23 @@
+{
+ "corpus": "lumenrise--lumenrise-launch",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how lumenRise/lumenrise-launch implements it: lumenRise/lumenrise-launch (TypeScript) (selected work: src/services, src, the project root)",
+ "repos": [
+  {
+   "repo": "lumenrise-launch",
+   "url": "https://github.com/lumenRise/lumenrise-launch",
+   "sha": "0b394ef2b83e2773e372f4ee5689f597edb47131",
+   "licence": "MIT (LICENSE file at pin 0b394ef2b83e, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T23:41Z",
+    "consent_receipt": "f001d2207361",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T23:41Z (receipt f001d2207361); selected commit 0b394ef2b83e: \"feat: index testnet and public launches with independent workers\". LICENSE file at pin 0b394ef2b83e detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

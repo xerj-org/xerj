@@ -2,7 +2,7 @@
  "corpus": "lawkitt--mdoc",
  "cloned_at": null,
  "status": "draft",
- "shelf": "WRITE",
+ "shelf": "WEB",
  "domain": "an agent working on desktop-app, gpui, legal queries this for how lawkitt/mdoc implements it: Local app that converts PDFs, scans and Word files to Markdown and replaces client names with aliases before you paste into ChatGPT or Claud (selected work: src, crates/mdoc-editor)",
  "repos": [
   {

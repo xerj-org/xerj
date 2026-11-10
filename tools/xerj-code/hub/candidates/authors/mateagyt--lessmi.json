@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "SEC",
- "domain": "an agent working on discord, grabber, grabber-password queries this for how MateAGYT/LessMi implements it: An advanced, open-source Windows RAT written in Python, controlled entirely through Discord \u2014 with a one-click panel, simple commands, and p (selected work: the project root)",
+ "domain": "an agent working on discord, grabber, grabber-password queries this for how MateAGYT/LessMi implements it: An advanced, open-source Windows RAT written in Python, controlled through Discord and a self-hosted browser panel \u2014 simple commands, painle (selected work: the project root)",
  "repos": [
   {
    "repo": "LessMi",

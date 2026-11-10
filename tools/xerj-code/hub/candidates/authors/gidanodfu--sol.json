@@ -1,0 +1,23 @@
+{
+ "corpus": "gidanodfu--sol",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on codeigniter4, docker-compose, employment-platform queries this for how gidanodfu/SOL implements it: Plataforma web de la Municipalidad Distrital de Jos\u00e9 Leonardo Ortiz para conectar postulantes y empresas, gestionar oportunidades laborales  (selected work: tests, backend, frontend)",
+ "repos": [
+  {
+   "repo": "SOL",
+   "url": "https://github.com/gidanodfu/SOL",
+   "sha": "493b43572cd019a43eae94515e76cf26a219440f",
+   "licence": "MIT (LICENSE file at pin 493b43572cd0, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T17:05Z",
+    "consent_receipt": "f72c361f8e74",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T17:05Z (receipt f72c361f8e74); selected commit 493b43572cd0: \"fix(postulaciones): restringir activaci\u00f3n a candidatos seleccionados\". LICENSE file at pin 493b43572cd0 detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

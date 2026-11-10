@@ -1,0 +1,23 @@
+{
+ "corpus": "tam-ds--signaldesk-acquisition-intelligence",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on sdr, agentic-ai, ai-governance queries this for how TAM-DS/SignalDesk-Acquisition-Intelligence implements it: B2B sales-development research and review application. OpenAI powers optional live company research and evidence-assisted drafting. The appl (selected work: app/salesforce, tests)",
+ "repos": [
+  {
+   "repo": "SignalDesk-Acquisition-Intelligence",
+   "url": "https://github.com/TAM-DS/SignalDesk-Acquisition-Intelligence",
+   "sha": "282afef95868437a58e82205f0d5106835508bd9",
+   "licence": "MIT (LICENSE file at pin 282afef95868, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T20:23Z",
+    "consent_receipt": "6a311d9745dd",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T20:23Z (receipt 6a311d9745dd); selected commit 282afef95868: \"feat: Salesforce GET-only preview with bounded validation and fail-cl\u2026\". LICENSE file at pin 282afef95868 detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "ibfavas--flick",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, android-app, dtw queries this for how ibfavas/Flick implements it: Flick: draw a gesture to launch apps, links, and phone actions (selected work: tools, app/src, app)",
+ "repos": [
+  {
+   "repo": "Flick",
+   "url": "https://github.com/ibfavas/Flick",
+   "sha": "0700e49be54b424a3acc9372a8c4d6e9ac28c6ef",
+   "licence": "Apache-2.0 (LICENSE file at pin 0700e49be54b, GitHub licence API 2026-11-06)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T07:09Z",
+    "consent_receipt": "66c66893d391",
+    "note": "Inclusion consented by the commit author by email at 2026-11-06T07:09Z (receipt 66c66893d391); selected commit 0700e49be54b: \"Flick v1.3.0: recognition tuning, LIVE 87% to 89% single and 90% multi\". LICENSE file at pin 0700e49be54b detected as Apache-2.0 by the GitHub licence API on 2026-11-06; used under that licence with attribution."
+   }
+  }
+ ]
+}

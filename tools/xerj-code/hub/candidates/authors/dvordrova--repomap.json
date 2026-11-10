@@ -1,0 +1,23 @@
+{
+ "corpus": "dvordrova--repomap",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Go queries this for how dvordrova/repomap implements it: dvordrova/repomap (Go) (selected work: internal/jstsproject, internal/programindex)",
+ "repos": [
+  {
+   "repo": "repomap",
+   "url": "https://github.com/dvordrova/repomap",
+   "sha": "9aa956112c27366d4e2d147349c078ecea67054c",
+   "licence": "MIT (LICENSE file at pin 9aa956112c27, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T12:26Z",
+    "consent_receipt": "ff8e3d05da48",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T12:26Z (receipt ff8e3d05da48); selected commit 9aa956112c27: \"orca's JS/TS target gets past materialization; the JS helper reads it\u2026\". LICENSE file at pin 9aa956112c27 detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

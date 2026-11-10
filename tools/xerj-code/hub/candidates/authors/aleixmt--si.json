@@ -1,0 +1,23 @@
+{
+ "corpus": "aleixmt--si",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how AleixMT/SI implements it: Yes!",
+ "repos": [
+  {
+   "repo": "SI",
+   "url": "https://github.com/AleixMT/SI",
+   "sha": "f7abee2995b1532ebab09bda49832cc35c0fc2a7",
+   "licence": "author's permission (LICENSE at pin f7abee2995b1: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T14:44Z",
+    "consent_receipt": "9153e077b761",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-03T14:44Z (receipt 9153e077b761); pinned to the default-branch head. LICENSE at pin f7abee2995b1: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

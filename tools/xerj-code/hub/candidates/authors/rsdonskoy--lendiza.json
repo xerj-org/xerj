@@ -1,0 +1,23 @@
+{
+ "corpus": "rsdonskoy--lendiza",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on disassembler, binary-analysis queries this for how rsdonskoy/lendiza implements it: A fast x86/x86_64 length disassembler \u2014 usable from user space and kernel (selected work: bench, the project root)",
+ "repos": [
+  {
+   "repo": "lendiza",
+   "url": "https://github.com/rsdonskoy/lendiza",
+   "sha": "33054b54ab6118012fc7e9f29dedd5be5c0f1824",
+   "licence": "Apache-2.0 (LICENSE file at pin 33054b54ab61, GitHub licence API 2026-11-04)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-04T01:32Z",
+    "consent_receipt": "81be679526c3",
+    "note": "Inclusion consented by the commit author by email at 2026-11-04T01:32Z (receipt 81be679526c3); selected commit 33054b54ab61: \"bench: self-contained decode benchmark with differential dump mode\". LICENSE file at pin 33054b54ab61 detected as Apache-2.0 by the GitHub licence API on 2026-11-04; used under that licence with attribution."
+   }
+  }
+ ]
+}

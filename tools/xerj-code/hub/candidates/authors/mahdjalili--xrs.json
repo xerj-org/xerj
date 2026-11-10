@@ -1,0 +1,23 @@
+{
+ "corpus": "mahdjalili--xrs",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on rust, xray, xray-app queries this for how mahdjalili/xrs implements it: a CLI first ultra fast lightweight Xray client (selected work: src, src/ui, the project root)",
+ "repos": [
+  {
+   "repo": "xrs",
+   "url": "https://github.com/mahdjalili/xrs",
+   "sha": "b56252e3e6b5a859179ae56099a168c4cb8f5010",
+   "licence": "MIT (LICENSE file at pin b56252e3e6b5, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T14:12Z",
+    "consent_receipt": "7aa027e54268",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T14:12Z (receipt 7aa027e54268); selected commit b56252e3e6b5: \"Add remote and direct DNS settings for v0.12.0\". LICENSE file at pin b56252e3e6b5 detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+   }
+  }
+ ]
+}

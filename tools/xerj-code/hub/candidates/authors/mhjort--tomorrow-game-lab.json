@@ -1,0 +1,23 @@
+{
+ "corpus": "mhjort--tomorrow-game-lab",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how mhjort/tomorrow-game-lab implements it: mhjort/tomorrow-game-lab (TypeScript) (selected work: examples, skills, the project root)",
+ "repos": [
+  {
+   "repo": "tomorrow-game-lab",
+   "url": "https://github.com/mhjort/tomorrow-game-lab",
+   "sha": "fcf8208a18f4b0d38f98a1107a1f795bf279bd4c",
+   "licence": "Apache-2.0 (LICENSE file at pin fcf8208a18f4, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T18:23Z",
+    "consent_receipt": "66ae0c72a1c8",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T18:23Z (receipt 66ae0c72a1c8); selected commit fcf8208a18f4: \"Add Blossom Swing (video-first example) and lessons from its 10 judge\u2026\". LICENSE file at pin fcf8208a18f4 detected as Apache-2.0 by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

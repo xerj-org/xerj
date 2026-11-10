@@ -1,0 +1,23 @@
+{
+ "corpus": "neizvestnyj--docksight",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on devops, diagnostics, docker queries this for how Neizvestnyj/DockSight implements it: Generative UI platform for AI-powered Docker troubleshooting. Evidence-linked diagnostic cards and user-confirmed actions for containers, Co (selected work: backend, frontend, examples)",
+ "repos": [
+  {
+   "repo": "DockSight",
+   "url": "https://github.com/Neizvestnyj/DockSight",
+   "sha": "3c69d1ac9d2316bf84582ec230c5290779967cf7",
+   "licence": "Apache-2.0 (LICENSE file at pin 3c69d1ac9d23, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T09:58Z",
+    "consent_receipt": "894e6a513daf",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T09:58Z (receipt 894e6a513daf); selected commit 3c69d1ac9d23: \"feat: add host-wide diagnostics and improve public MVP reliability (#6)\". LICENSE file at pin 3c69d1ac9d23 detected as Apache-2.0 by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

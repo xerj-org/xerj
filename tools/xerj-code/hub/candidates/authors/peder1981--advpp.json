@@ -1,0 +1,23 @@
+{
+ "corpus": "peder1981--advpp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on advpl, angular, compilation queries this for how peder1981/AdvPP implements it: AdvPP - AdvPL/TLPP Compiler and IDE with complete language support (selected work: pkg/rpo, tools, tests)",
+ "repos": [
+  {
+   "repo": "AdvPP",
+   "url": "https://github.com/peder1981/AdvPP",
+   "sha": "ad90d954d35e273bd337247ad26529bed45d0d09",
+   "licence": "Apache-2.0 (LICENSE file at pin ad90d954d35e, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T09:22Z",
+    "consent_receipt": "dbd01d8c5adf",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T09:22Z (receipt dbd01d8c5adf); selected commit ad90d954d35e: \"feat(rpo): injetor de bytecode RPO, parser APO e scripts de captura\". LICENSE file at pin ad90d954d35e detected as Apache-2.0 by the GitHub licence API on 2026-11-09; used under that licence with attribution. Pinned to head ad90d954d35e (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

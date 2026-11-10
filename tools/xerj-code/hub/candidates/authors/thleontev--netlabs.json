@@ -1,0 +1,23 @@
+{
+ "corpus": "thleontev--netlabs",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on bgp, cisco, huawei queries this for how thleontev/netlabs implements it: Network labs (selected work: eve-ng)",
+ "repos": [
+  {
+   "repo": "netlabs",
+   "url": "https://github.com/thleontev/netlabs",
+   "sha": "108684e4fdb0fbed28c866385b04d8e5ef94aa1d",
+   "licence": "Apache-2.0 (LICENSE file at pin 108684e4fdb0, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T03:31Z",
+    "consent_receipt": "e748c7195099",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T03:31Z (receipt e748c7195099); selected commit 108684e4fdb0: \"new labs\". LICENSE file at pin 108684e4fdb0 detected as Apache-2.0 by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

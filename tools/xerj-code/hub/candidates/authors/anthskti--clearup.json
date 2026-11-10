@@ -1,0 +1,23 @@
+{
+ "corpus": "anthskti--clearup",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how anthskti/Clearup implements it: A skincare builder for users to create their own routine from a vast majority of products (selected work: frontend)",
+ "repos": [
+  {
+   "repo": "Clearup",
+   "url": "https://github.com/anthskti/Clearup",
+   "sha": "5a825291f82659e8ee95848d955e54ea692f24f2",
+   "licence": "MIT (LICENSE file at pin 5a825291f826, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T22:41Z",
+    "consent_receipt": "ecb9096a1171",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T22:41Z (receipt ecb9096a1171); selected commit 5a825291f826: \"fix: png -> webp and changing loading states and skeletons\". LICENSE file at pin 5a825291f826 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

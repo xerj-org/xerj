@@ -1,0 +1,23 @@
+{
+ "corpus": "spacholski1225--anki-connect-mcp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how spacholski1225/anki-connect-mcp implements it: A custom Model Context Protocol (MCP) implementation for Anki Web, enabling structured model interactions and improved context-aware note cr (selected work: src, src/tools, src/methods)",
+ "repos": [
+  {
+   "repo": "anki-connect-mcp",
+   "url": "https://github.com/spacholski1225/anki-connect-mcp",
+   "sha": "e704bb1c7023ce6b7fff9cd6285406184e72b47a",
+   "licence": "MIT (LICENSE file at pin e704bb1c7023, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T09:06Z",
+    "consent_receipt": "ea0ac235d36e",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T09:06Z (receipt ea0ac235d36e); selected commit e704bb1c7023: \"Rework tools into declarative, annotated definitions\". LICENSE file at pin e704bb1c7023 detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

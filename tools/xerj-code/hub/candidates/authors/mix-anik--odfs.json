@@ -1,0 +1,23 @@
+{
+ "corpus": "mix-anik--odfs",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on C queries this for how Mix-Anik/oDFs implements it: Opensource DeFRaG server runtime (selected work: code)",
+ "repos": [
+  {
+   "repo": "oDFs",
+   "url": "https://github.com/Mix-Anik/oDFs",
+   "sha": "9a1a633cb6e99c8f5a4d87038173fb32f04832e8",
+   "licence": "GPL-2.0 (LICENSE file at pin 9a1a633cb6e9, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-07T19:41Z",
+    "consent_receipt": "1da1a594373b",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T19:41Z (receipt 1da1a594373b); selected commit 9a1a633cb6e9: \"added snapshot & ghost syscalls\". LICENSE file at pin 9a1a633cb6e9 detected as GPL-2.0 by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

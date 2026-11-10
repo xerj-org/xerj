@@ -1,0 +1,23 @@
+{
+ "corpus": "guo6x--mini-games",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how guo6x/mini-games implements it: more games (selected work: tests, the project root)",
+ "repos": [
+  {
+   "repo": "mini-games",
+   "url": "https://github.com/guo6x/mini-games",
+   "sha": "050b07011c131374469f22d5d0b946548db91a7f",
+   "licence": "MIT (LICENSE file at pin 050b07011c13, GitHub licence API 2026-11-04)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-04T06:23Z",
+    "consent_receipt": "15a8c4f996c6",
+    "note": "Inclusion consented by the commit author by email at 2026-11-04T06:23Z (receipt 15a8c4f996c6); selected commit 050b07011c13: \"fix: audit and verify VECTOR RUN 3D full campaign playability\". LICENSE file at pin 050b07011c13 detected as MIT by the GitHub licence API on 2026-11-04; used under that licence with attribution."
+   }
+  }
+ ]
+}

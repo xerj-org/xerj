@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on android, android-app, docx queries this for how PremPoddar/OAF implements it: Open All Files. One Android app that opens and edits almost any file: PDF, Word, Excel, slides, books, archives and media. No account, no ad (selected work: app/src)",
+ "domain": "an agent working on android, android-app, docx queries this for how PremPoddar/OAF implements it: Open Any File. One Android app that opens any file: PDF, Word, Excel, slides, books, archives and media, and edits most of them. No account, (selected work: app/src)",
  "repos": [
   {
    "repo": "OAF",

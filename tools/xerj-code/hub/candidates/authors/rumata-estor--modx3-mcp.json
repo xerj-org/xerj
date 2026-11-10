@@ -1,0 +1,23 @@
+{
+ "corpus": "rumata-estor--modx3-mcp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, automation, developer-tools-ai-agent queries this for how rumata-estor/modx3-mcp implements it: MCP server and MODX Revolution 2.8.x / 3.x component for safe AI-agent management, with a shared modular runtime, backups, audit hooks, and  (selected work: core/components, _build, client)",
+ "repos": [
+  {
+   "repo": "modx3-mcp",
+   "url": "https://github.com/rumata-estor/modx3-mcp",
+   "sha": "77f51662b35908fbdd32182d0228dd878a08df4c",
+   "licence": "MIT (LICENSE file at pin 77f51662b359, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T06:18Z",
+    "consent_receipt": "c064e9d5bc95",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T06:18Z (receipt c064e9d5bc95); selected commit 77f51662b359: \"feat: manage modCategory lifecycle and element assignments on MODX 2/3\". LICENSE file at pin 77f51662b359 detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

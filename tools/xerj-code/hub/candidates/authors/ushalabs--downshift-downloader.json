@@ -1,0 +1,23 @@
+{
+ "corpus": "ushalabs--downshift-downloader",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on C++ queries this for how ushalabs/Downshift-Downloader implements it: A free, open-source download manager for fast, reliable downloads, torrent support, and browser integration (selected work: tests, extension, scripts)",
+ "repos": [
+  {
+   "repo": "Downshift-Downloader",
+   "url": "https://github.com/ushalabs/Downshift-Downloader",
+   "sha": "77957369c8b4b05604b2580050fb396c22ef1b75",
+   "licence": "MIT (LICENSE file at pin 77957369c8b4, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T10:17Z",
+    "consent_receipt": "fc65083cce07",
+    "note": "Inclusion consented by the commit author by email at 2026-11-05T10:17Z (receipt fc65083cce07); selected commit 77957369c8b4: \"Fix Loom and LinkedIn video capture and YouTube thumbnail controls\". LICENSE file at pin 77957369c8b4 detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

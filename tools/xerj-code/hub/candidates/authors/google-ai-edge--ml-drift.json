@@ -1,0 +1,23 @@
+{
+ "corpus": "google-ai-edge--ml-drift",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on C++ queries this for how google-ai-edge/ml-drift implements it: GPU-Accelerated AI/ML Inference (selected work: ml_drift)",
+ "repos": [
+  {
+   "repo": "ml-drift",
+   "url": "https://github.com/google-ai-edge/ml-drift",
+   "sha": "94b7846ce72a6ca14fe29e7496df79feac4e612c",
+   "licence": "Apache-2.0 (LICENSE file at pin 94b7846ce72a, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T08:05Z",
+    "consent_receipt": "46f274e42bfc",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T08:05Z (receipt 46f274e42bfc); selected commit 94b7846ce72a: \"Added ConvWaveMatrixMaliF16.\". LICENSE file at pin 94b7846ce72a detected as Apache-2.0 by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

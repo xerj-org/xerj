@@ -1,0 +1,23 @@
+{
+ "corpus": "wrojasa--obsidian-dbml-erd",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how wrojasa/obsidian-dbml-erd implements it: Plugin de Obsidian que renderiza bloques dbml como diagramas ER estilo dbdiagram.io",
+ "repos": [
+  {
+   "repo": "obsidian-dbml-erd",
+   "url": "https://github.com/wrojasa/obsidian-dbml-erd",
+   "sha": "53164d837ab6597860084868fb7ce71ca4951b46",
+   "licence": "MIT (LICENSE file at pin 53164d837ab6, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T15:53Z",
+    "consent_receipt": "7cf9eb4386f0",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-09T15:53Z (receipt 7cf9eb4386f0); pinned to the default-branch head. LICENSE file at pin 53164d837ab6 detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "mazulo--leis-mcp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-assistant, anthropic, brasil queries this for how mazulo/leis-mcp implements it: Servidor MCP para buscar e citar a legisla\u00e7\u00e3o brasileira no Claude e em qualquer assistente de IA: texto exato de 1,2 milh\u00e3o de normas (CF,  (selected work: src/leis_mcp, tests)",
+ "repos": [
+  {
+   "repo": "leis-mcp",
+   "url": "https://github.com/mazulo/leis-mcp",
+   "sha": "b016973f238dc64a017028cbd06c5bf0d125a1a5",
+   "licence": "MIT (LICENSE file at pin b016973f238d, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T01:33Z",
+    "consent_receipt": "257a651f6f4b",
+    "note": "Inclusion consented by the commit author by email at 2026-11-05T01:33Z (receipt 257a651f6f4b); selected commit b016973f238d: \"feat: download a prebuilt index and start before it is ready\". LICENSE file at pin b016973f238d detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

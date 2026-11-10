@@ -2,8 +2,8 @@
  "corpus": "mammadow--mangala",
  "cloned_at": null,
  "status": "draft",
- "shelf": "WEB",
- "domain": "an agent working on Python queries this for how mammadow/mangala implements it: Authentic Turkish Mangala (mancala) game with tournament-grade AI, modern web UI, CLI, and desktop GUI (selected work: tests, tools, src/mangala)",
+ "shelf": "AI",
+ "domain": "an agent working on alpha-beta-pruning, board-game, game-ai queries this for how mammadow/mangala implements it: Authentic Turkish Mangala (mancala) game with tournament-grade AI, modern web UI, CLI, and desktop GUI (selected work: tests, tools, src/mangala)",
  "repos": [
   {
    "repo": "mangala",

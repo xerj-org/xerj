@@ -1,0 +1,23 @@
+{
+ "corpus": "dragonking026--piigate",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on claude-code, mcp, phi queries this for how DragonKing026/piigate implements it: Keeps personal data (PII/PHI) out of Claude Code's context: gate, output filter, pseudonyms, MCP tools. Polish + English (selected work: lib/piigate, tests)",
+ "repos": [
+  {
+   "repo": "piigate",
+   "url": "https://github.com/DragonKing026/piigate",
+   "sha": "ee4b1db58775ce462d5b9900011ef87fda5a1c70",
+   "licence": "MIT (LICENSE file at pin ee4b1db58775, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T12:35Z",
+    "consent_receipt": "602b19eab92a",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T12:35Z (receipt 602b19eab92a); selected commit ee4b1db58775: \"round 6: arrays and += as sets, operators on known values, PWD as eve\u2026\". LICENSE file at pin ee4b1db58775 detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

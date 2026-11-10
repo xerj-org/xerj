@@ -1,0 +1,23 @@
+{
+ "corpus": "hansiashara--campushub",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how HansiAshara/campushub implements it: Smart academic resource sharing platform for university students , built with React, TypeScript, Spring Boot & AI (selected work: backend)",
+ "repos": [
+  {
+   "repo": "campushub",
+   "url": "https://github.com/HansiAshara/campushub",
+   "sha": "feb0e32bba9a858cc3204b6599e2cd8a239fac77",
+   "licence": "MIT (LICENSE file at pin feb0e32bba9a, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T13:31Z",
+    "consent_receipt": "e00bb0a5812f",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T13:31Z (receipt e00bb0a5812f); selected commit feb0e32bba9a: \"feat(add): Implement the text extraction from resources for develop A\u2026\". LICENSE file at pin feb0e32bba9a detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

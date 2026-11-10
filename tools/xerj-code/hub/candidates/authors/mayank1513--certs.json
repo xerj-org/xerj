@@ -1,0 +1,23 @@
+{
+ "corpus": "mayank1513--certs",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on code queries this for how mayank1513/certs implements it: mayank1513/certs (code)",
+ "repos": [
+  {
+   "repo": "certs",
+   "url": "https://github.com/mayank1513/certs",
+   "sha": "6490bfc8600f3c783e5423baccf9a676e256f498",
+   "licence": "author's permission (LICENSE at pin 6490bfc8600f: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T04:33Z",
+    "consent_receipt": "5aae6f9ab604",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T04:33Z (receipt 5aae6f9ab604); pinned to the default-branch head. LICENSE at pin 6490bfc8600f: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

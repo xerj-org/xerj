@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on Python queries this for how VikasShah8218/Shah-NVR implements it: Scalable multi-server NVR: one control plane, many media nodes. ONVIF discovery, PTZ, live RTSP/WebRTC/LL-HLS, zero-copy HLS playback, autom (selected work: nvr_desktop)",
+ "domain": "an agent working on cctv, distributed-systems, h265-hevc queries this for how VikasShah8218/Shah-NVR implements it: Scalable multi-server NVR: one control plane, many media nodes. ONVIF discovery, PTZ, live RTSP/WebRTC/LL-HLS, zero-copy HLS playback, autom (selected work: nvr_desktop)",
  "repos": [
   {
    "repo": "Shah-NVR",

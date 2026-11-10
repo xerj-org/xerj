@@ -2,8 +2,8 @@
  "corpus": "weilr--zotero-scholium",
  "cloned_at": null,
  "status": "draft",
- "shelf": "WRITE",
- "domain": "an agent working on Python queries this for how weilr/zotero-scholium implements it: Write reading results back into Zotero as native, editable annotations: highlights with translation comments, margin notes, and reading note (selected work: tests, plugin)",
+ "shelf": "AI",
+ "domain": "an agent working on agent-skills, claude-code, codex queries this for how weilr/zotero-scholium implements it: Let Claude Code or Codex read a paper in Zotero, annotate it and answer your questions about it (selected work: tests, plugin)",
  "repos": [
   {
    "repo": "zotero-scholium",

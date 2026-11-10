@@ -1,0 +1,23 @@
+{
+ "corpus": "akshatinnovate-png--mercury",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on asl, computer-vision, machine-learning queries this for how akshatinnovate-png/Mercury implements it: On-device ASL fingerspelling interpreter. 21-landmark tracking, a 20k-parameter handshape model trained from scratch and run in ONNX, a thre",
+ "repos": [
+  {
+   "repo": "Mercury",
+   "url": "https://github.com/akshatinnovate-png/Mercury",
+   "sha": "a1c5dd2754f1fcad62262331bd3a6c2ef604ebae",
+   "licence": "MIT (LICENSE file at pin a1c5dd2754f1, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T09:00Z",
+    "consent_receipt": "6a2f2525dee8",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-03T09:00Z (receipt 6a2f2525dee8); pinned to the default-branch head. LICENSE file at pin a1c5dd2754f1 detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

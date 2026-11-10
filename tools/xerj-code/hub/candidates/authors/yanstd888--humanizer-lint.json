@@ -8,15 +8,15 @@
   {
    "repo": "humanizer-lint",
    "url": "https://github.com/yanstd888/humanizer-lint",
-   "sha": "66bbc64245a7d639fb32b445634feeeb88839e30",
-   "licence": "MIT (LICENSE file at pin 66bbc64245a7, GitHub licence API 2026-11-02)",
+   "sha": "c6b964114caa2e97535742b2f98ae37661c57033",
+   "licence": "MIT (LICENSE file at pin c6b964114caa, GitHub licence API 2026-11-07)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-31T03:00Z",
     "consent_receipt": "e9ad79bf123a",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T03:00Z (receipt e9ad79bf123a); pinned to the default-branch head. LICENSE file at pin 66bbc64245a7 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T03:00Z (receipt e9ad79bf123a); pinned to the default-branch head. LICENSE file at pin c6b964114caa detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
    }
   }
  ]

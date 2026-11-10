@@ -1,0 +1,23 @@
+{
+ "corpus": "jessebrown1980--asolaria-asi-os",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how JesseBrown1980/asolaria-asi-os implements it: Asolaria ASI OS \u2014 pure-Rust-std OS front-end (0 crates, ~400 lines). Build + mint your own local secret key, run your node on :4600, become ",
+ "repos": [
+  {
+   "repo": "asolaria-asi-os",
+   "url": "https://github.com/JesseBrown1980/asolaria-asi-os",
+   "sha": "07f5363ec70a9e2f1a8d26085ce16ab1ab392864",
+   "licence": "MIT (LICENSE file at pin 07f5363ec70a, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T14:53Z",
+    "consent_receipt": "0db6dbc76118",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T14:53Z (receipt 0db6dbc76118); pinned to the default-branch head. LICENSE file at pin 07f5363ec70a detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

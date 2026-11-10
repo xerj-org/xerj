@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agentic-ai, langchain, langgraph queries this for how sumitjadhav1703/Multi_agent_research_system implements it: A multi-agent AI research system that autonomously searches the web, extracts information, generates structured research reports, and critiq (selected work: the project root, tests)",
+ "domain": "an agent working on agentic-ai, langgraph, multi-agent queries this for how sumitjadhav1703/Multi_agent_research_system implements it: Multi-agent research system: FastAPI + LangGraph + LiteLLM free allowlist, Neon Postgres, React console, and Cloudflare MCP. Searches the we (selected work: the project root, tests)",
  "repos": [
   {
    "repo": "Multi_agent_research_system",

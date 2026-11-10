@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "SEC",
- "domain": "an agent working on attack-surface, bug-bounty, bug-reporting queries this for how l3tchupkt/JSEye implements it: Fully Autonomous Bug Hunting & Attack Surface Engine",
+ "domain": "an agent working on attack-surface, bug-bounty, bug-reporting queries this for how l3tchupkt/JSEye implements it: Advanced JavaScript Intelligence, Recursive Reconnaissance & Attack Surface Discovery Engine",
  "repos": [
   {
    "repo": "JSEye",
    "url": "https://github.com/l3tchupkt/JSEye",
-   "sha": "2851172a2d1d38d5d3c55d76f78e1ea1ed5de3a0",
-   "licence": "MIT (LICENSE file at pin 2851172a2d1d, GitHub licence API 2026-10-28)",
+   "sha": "26f650412c19bbb9df6bb0aaa61bd153b6a320e0",
+   "licence": "MIT (LICENSE file at pin 26f650412c19, GitHub licence API 2026-11-06)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T18:12Z",
     "consent_receipt": "720badaaf3ec",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T18:12Z (receipt 720badaaf3ec); pinned to the default-branch head. LICENSE file at pin 2851172a2d1d detected as MIT by the GitHub licence API on 2026-10-28; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T18:12Z (receipt 720badaaf3ec); pinned to the default-branch head. LICENSE file at pin 26f650412c19 detected as MIT by the GitHub licence API on 2026-11-06; used under that licence with attribution."
    }
   }
  ]

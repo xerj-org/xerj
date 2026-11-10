@@ -1,0 +1,23 @@
+{
+ "corpus": "anshk1234--meducid",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "HEALTH",
+ "domain": "an agent working on api, cloudflare-d1, extract queries this for how anshk1234/MEDUCID implements it: MEDUCID is a web application that takes medical laboratory reports , presents them in clear, readable language. It displays the original doc (selected work: src/lib, tests, src/components)",
+ "repos": [
+  {
+   "repo": "MEDUCID",
+   "url": "https://github.com/anshk1234/MEDUCID",
+   "sha": "6321da1c7a8cbb1c0abe192cae571efe44b035fc",
+   "licence": "MIT (LICENSE file at pin 6321da1c7a8c, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T09:19Z",
+    "consent_receipt": "6f7037abf9eb",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T09:19Z (receipt 6f7037abf9eb); selected commit 6321da1c7a8c: \"feat: add medical document intelligence gatekeeper and support unicod\u2026\". LICENSE file at pin 6321da1c7a8c detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

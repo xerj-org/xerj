@@ -1,0 +1,23 @@
+{
+ "corpus": "anguoyang--inferdoctor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, ai-debugging, ai-reliability queries this for how anguoyang/inferdoctor implements it: Find where AI apps break first \u2014 and block regressions before they ship",
+ "repos": [
+  {
+   "repo": "inferdoctor",
+   "url": "https://github.com/anguoyang/inferdoctor",
+   "sha": "9ce753197a8686d40c03ce8cb1d1b48152c825a2",
+   "licence": "Apache-2.0 (LICENSE file at pin 9ce753197a86, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T23:23Z",
+    "consent_receipt": "8362e22a9886",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-07T23:23Z (receipt 8362e22a9886); pinned to the default-branch head. LICENSE file at pin 9ce753197a86 detected as Apache-2.0 by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "btalal--ttalk",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, encrypted-messaging, end-to-end-encryption queries this for how btalal/TTalk implements it: Messagerie chiffr\u00e9e de bout en bout pour Windows, Android, iPhone, macOS et Linux, avec relais auto-h\u00e9bergeable (selected work: linux, scripts, lib/ui)",
+ "repos": [
+  {
+   "repo": "TTalk",
+   "url": "https://github.com/btalal/TTalk",
+   "sha": "de116be8a35a730d8f947a0a2651277ba67659e2",
+   "licence": "Apache-2.0 (LICENSE file at pin de116be8a35a, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T19:22Z",
+    "consent_receipt": "a9dc865fbd35",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T19:22Z (receipt a9dc865fbd35); selected commit de116be8a35a: \"Add Linux 0.6.1 desktop, DEB/RPM packaging and native keyring validation\". LICENSE file at pin de116be8a35a detected as Apache-2.0 by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+   }
+  }
+ ]
+}

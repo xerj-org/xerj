@@ -1,0 +1,23 @@
+{
+ "corpus": "aryan-sk6--maker-lab",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how Aryan-sk6/Maker-Lab implements it: An MCP server with interactive widgets for ChatGPT and Claude, built on the open MCP Apps standard (selected work: shared, widgets, server)",
+ "repos": [
+  {
+   "repo": "Maker-Lab",
+   "url": "https://github.com/Aryan-sk6/Maker-Lab",
+   "sha": "8f15d0b19b64941537c1b292c0bd20773fb7bdb5",
+   "licence": "MIT (LICENSE file at pin 8f15d0b19b64, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T16:46Z",
+    "consent_receipt": "61c7ed1f8c03",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T16:46Z (receipt 61c7ed1f8c03); selected commit 8f15d0b19b64: \"Add working mechanisms to render_3d_model (v0.4.0)\". LICENSE file at pin 8f15d0b19b64 detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

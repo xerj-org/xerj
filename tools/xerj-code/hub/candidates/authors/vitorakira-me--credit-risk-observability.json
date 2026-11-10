@@ -1,0 +1,23 @@
+{
+ "corpus": "vitorakira-me--credit-risk-observability",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on HTML queries this for how VitorAkira-me/credit-risk-observability implements it: VitorAkira-me/credit-risk-observability (HTML) (selected work: scripts, src/credit_risk_observability, tests)",
+ "repos": [
+  {
+   "repo": "credit-risk-observability",
+   "url": "https://github.com/VitorAkira-me/credit-risk-observability",
+   "sha": "b87b3ab2ce0a2c149b73e46d13ce62f0c224b2c2",
+   "licence": "MIT (LICENSE file at pin b87b3ab2ce0a, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T22:08Z",
+    "consent_receipt": "7981dfb43bda",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T22:08Z (receipt 7981dfb43bda); selected commit b87b3ab2ce0a: \"feat(monitoring): registra semanas no MLflow com r\u00e9guas de alerta cal\u2026\". LICENSE file at pin b87b3ab2ce0a detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

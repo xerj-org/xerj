@@ -1,0 +1,23 @@
+{
+ "corpus": "gluxggg--openthesis",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on academic, cli, document-generator queries this for how Gluxggg/OpenThesis implements it: AI-powered Document Template Engine \u2014 parse any .docx template, export submission-ready DOCX. Thesis + Journal + \u516c\u6587 (selected work: packages/template-parser, tests, packages/docx-renderer)",
+ "repos": [
+  {
+   "repo": "OpenThesis",
+   "url": "https://github.com/Gluxggg/OpenThesis",
+   "sha": "f371152e77da78f883cef47586b219c907067a5f",
+   "licence": "MIT (LICENSE file at pin f371152e77da, GitHub licence API 2026-11-06)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T06:57Z",
+    "consent_receipt": "33931e32e055",
+    "note": "Inclusion consented by the commit author by email at 2026-11-06T06:57Z (receipt 33931e32e055); selected commit f371152e77da: \"feat: read and check the requirements a journal template states\". LICENSE file at pin f371152e77da detected as MIT by the GitHub licence API on 2026-11-06; used under that licence with attribution."
+   }
+  }
+ ]
+}

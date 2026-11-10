@@ -1,0 +1,23 @@
+{
+ "corpus": "tongyawa--wechat-diary-skill",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how Tongyawa/wechat-diary-skill implements it: Auto-recover daily WeChat output (via WeFlow) into structured diary / DoneList / inspirations / extra notes (selected work: wechat_diary_core, tests, scripts)",
+ "repos": [
+  {
+   "repo": "wechat-diary-skill",
+   "url": "https://github.com/Tongyawa/wechat-diary-skill",
+   "sha": "7a8656cc80dc34cbec15dee3324966f8c0c5d50f",
+   "licence": "MIT (LICENSE file at pin 7a8656cc80dc, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T08:46Z",
+    "consent_receipt": "c148152e0fd3",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T08:46Z (receipt c148152e0fd3); selected commit 7a8656cc80dc: \"feat: \u6309\u9700\u5bfc\u51fa\u652f\u6301\u7701\u7565\u65e5\u671f\u53ca\u53ef\u9009\u6587\u4ef6\u9644\u4ef6\". LICENSE file at pin 7a8656cc80dc detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

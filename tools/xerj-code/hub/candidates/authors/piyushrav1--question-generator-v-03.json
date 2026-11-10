@@ -1,0 +1,23 @@
+{
+ "corpus": "piyushrav1--question-generator-v-03",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how piyushrav1/question-generator-v.03 implements it: piyushrav1/question-generator-v.03 (TypeScript) (selected work: services, apps/api, packages/shared)",
+ "repos": [
+  {
+   "repo": "question-generator-v.03",
+   "url": "https://github.com/piyushrav1/question-generator-v.03",
+   "sha": "5b86f04b1c2fbfec91f64fbe1cebc67c7987aa6b",
+   "licence": "MIT (LICENSE file at pin 5b86f04b1c2f, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T19:37Z",
+    "consent_receipt": "483f3f9a30ad",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T19:37Z (receipt 483f3f9a30ad); selected commit 5b86f04b1c2f: \"feat(api): add paginated search and category filtering to question re\u2026\". LICENSE file at pin 5b86f04b1c2f detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

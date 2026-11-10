@@ -1,0 +1,23 @@
+{
+ "corpus": "samaraliwarsi--obsidian-portals",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on obsidian-md, obsidian-plugin queries this for how samaraliwarsi/obsidian-portals implements it: Obsidian plugin to create pinned folder trees for easier navigation (selected work: src/modals, src/styles, the project root)",
+ "repos": [
+  {
+   "repo": "obsidian-portals",
+   "url": "https://github.com/samaraliwarsi/obsidian-portals",
+   "sha": "1fcc649e9b84a1446c51ee8c1b47f100e48566bf",
+   "licence": "MIT (LICENSE file at pin 1fcc649e9b84, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T02:19Z",
+    "consent_receipt": "8ea417b1a913",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T02:19Z (receipt 8ea417b1a913); selected commit 1fcc649e9b84: \"Reminders update to startup notification types from boolean to dropdo\u2026\". LICENSE file at pin 1fcc649e9b84 detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

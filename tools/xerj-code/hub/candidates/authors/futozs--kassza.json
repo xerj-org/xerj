@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on TypeScript queries this for how futozs/kassza implements it: Sz\u00e1ml\u00e1zz.hu, TypeScriptben, egyszer\u0171bben. Nem hivatalos TypeScript wrapper a Sz\u00e1ml\u00e1zz.hu Sz\u00e1mla Agenthez. Mind a 11 Agent m\u0171velet, 0 f\u00fcgg\u0151s\u00e9 (selected work: readme, web, tests)",
+ "domain": "an agent working on TypeScript queries this for how futozs/kassza implements it: Sz\u00e1ml\u00e1zz.hu, TypeScriptben, egyszer\u0171bben. Hivatalos TypeScript wrapper a Sz\u00e1ml\u00e1zz.hu Sz\u00e1mla Agenthez. Mind a 11 Agent m\u0171velet, 0 f\u00fcgg\u0151s\u00e9g, n (selected work: readme, web, tests)",
  "repos": [
   {
    "repo": "kassza",

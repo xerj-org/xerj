@@ -8,15 +8,15 @@
   {
    "repo": "icycache",
    "url": "https://github.com/MlkBlk-IT/icycache",
-   "sha": "82455f2824ac489d3d9b7f5f4dba5bf399c23a84",
-   "licence": "MIT (LICENSE file at pin 82455f2824ac, GitHub licence API 2026-11-02)",
+   "sha": "a07a901b6c770b2400945d15cd23109f01bbe639",
+   "licence": "MIT (LICENSE file at pin a07a901b6c77, GitHub licence API 2026-11-03)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-01T04:52Z",
     "consent_receipt": "0eb7925b1f80",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T04:52Z (receipt 0eb7925b1f80); pinned to the default-branch head. LICENSE file at pin 82455f2824ac detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T04:52Z (receipt 0eb7925b1f80); pinned to the default-branch head. LICENSE file at pin a07a901b6c77 detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
    }
   }
  ]

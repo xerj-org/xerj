@@ -1,0 +1,23 @@
+{
+ "corpus": "berttoli--mermdraw",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on mermaid, mermaid-diagram, mermaid-diagrams queries this for how berttoli/mermdraw implements it: A tiny, local, drag-and-drop editor for the mermaid diagrams that live inside your markdown (selected work: src, tests, web)",
+ "repos": [
+  {
+   "repo": "mermdraw",
+   "url": "https://github.com/berttoli/mermdraw",
+   "sha": "7875e9c5bbd57cfec512ecd71b4d6e700016bb4b",
+   "licence": "MIT (LICENSE file at pin 7875e9c5bbd5, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T20:01Z",
+    "consent_receipt": "5109dcface94",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T20:01Z (receipt 5109dcface94); selected commit 7875e9c5bbd5: \"Harden editor writes and placement; add daily stability CI\". LICENSE file at pin 7875e9c5bbd5 detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

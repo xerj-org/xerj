@@ -2,7 +2,7 @@
  "corpus": "dummy3ye--blackholegl",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
+ "shelf": "OPS",
  "domain": "an agent working on cpp, glsl, opengl queries this for how dummy3ye/blackholegl implements it: a simulation of blackhole Gargantua in C++ and OpenGL (selected work: src, include, shaders)",
  "repos": [
   {

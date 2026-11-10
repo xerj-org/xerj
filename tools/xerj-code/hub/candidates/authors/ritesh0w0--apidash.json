@@ -1,0 +1,23 @@
+{
+ "corpus": "ritesh0w0--apidash",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how ritesh0w0/APIDash implements it: ritesh0w0/APIDash (JavaScript)",
+ "repos": [
+  {
+   "repo": "APIDash",
+   "url": "https://github.com/ritesh0w0/APIDash",
+   "sha": "af7bcc118d95230d433d48acb9da3cfe1f71defe",
+   "licence": "MIT (LICENSE file at pin af7bcc118d95, GitHub licence API 2026-11-06)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T06:16Z",
+    "consent_receipt": "1cdaee5d1cba",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T06:16Z (receipt 1cdaee5d1cba); pinned to the default-branch head. LICENSE file at pin af7bcc118d95 detected as MIT by the GitHub licence API on 2026-11-06; used under that licence with attribution."
+   }
+  }
+ ]
+}

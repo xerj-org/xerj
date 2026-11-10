@@ -1,0 +1,23 @@
+{
+ "corpus": "alakbarr--monika",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on algorithmic-trading, fastapi, financial-markets queries this for how alakbarr/Monika implements it: Experimental multi-agent trading research harness for MetaTrader 5. Combines LLM market analysis with deterministic Python risk management.  (selected work: src/monika, tests, config)",
+ "repos": [
+  {
+   "repo": "Monika",
+   "url": "https://github.com/alakbarr/Monika",
+   "sha": "6dc59d7e75ffc8a67fca4804a366237de2949bed",
+   "licence": "MIT (LICENSE file at pin 6dc59d7e75ff, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T20:02Z",
+    "consent_receipt": "32eb663c00a5",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T20:02Z (receipt 32eb663c00a5); selected commit 6dc59d7e75ff: \"feat(analysis): integrate agentic architecture across pipeline and de\u2026\". LICENSE file at pin 6dc59d7e75ff detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on context-engineering, local-first, mcp queries this for how MlkBlk-IT/mcp-loom-mcp implements it: Portable MCP context server for local and cloud LLM workflows: SQLite + FTS5, 17 tools, CPU-first and provider-flexible (selected work: src/loom, the project root, bin)",
+ "domain": "an agent working on context-engineering, local-first, mcp queries this for how MlkBlk-IT/mcp-loom-mcp implements it: Portable MCP context server for local and cloud LLM workflows: SQLite + FTS5, 17 tools. Early (v0.1.x), not production-ready (selected work: src/loom, the project root, bin)",
  "repos": [
   {
    "repo": "mcp-loom-mcp",

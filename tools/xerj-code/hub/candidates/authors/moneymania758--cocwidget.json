@@ -1,0 +1,23 @@
+{
+ "corpus": "moneymania758--cocwidget",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Kotlin queries this for how Moneymania758/CocWidget implements it: Android home-screen widget for Clash of Clans builder, lab and pet timers, from the in-game village export (selected work: app/src)",
+ "repos": [
+  {
+   "repo": "CocWidget",
+   "url": "https://github.com/Moneymania758/CocWidget",
+   "sha": "1a8c7bd82d2ac4f61c1b0e9cd9d27948b08f000e",
+   "licence": "GPL-3.0 (LICENSE file at pin 1a8c7bd82d2a, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-03T14:00Z",
+    "consent_receipt": "aaf98daa0310",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T14:00Z (receipt aaf98daa0310); selected commit 1a8c7bd82d2a: \"Handle Research Potion and Study Soup, add a TH18 export to the tests\". LICENSE file at pin 1a8c7bd82d2a detected as GPL-3.0 by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

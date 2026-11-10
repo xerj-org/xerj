@@ -1,0 +1,23 @@
+{
+ "corpus": "vivek5200--sama",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on apache2, calibration, decision-engine queries this for how vivek5200/sama implements it: Calibrated decision engine \u2014 when it says 95% confident, it's right 95% of the time (selected work: spaces, sama)",
+ "repos": [
+  {
+   "repo": "sama",
+   "url": "https://github.com/vivek5200/sama",
+   "sha": "fa37a9b9effe048370cfd1dcbd5e111fed8b7c64",
+   "licence": "Apache-2.0 (LICENSE file at pin fa37a9b9effe, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T00:04Z",
+    "consent_receipt": "55f930dbdd0f",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T00:04Z (receipt 55f930dbdd0f); selected commit fa37a9b9effe: \"feat: bundle and evaluate custom ITSM classifiers\". LICENSE file at pin fa37a9b9effe detected as Apache-2.0 by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

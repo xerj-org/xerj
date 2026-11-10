@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on herdr, herdr-plugin, agent-orchestration queries this for how AltanS/collie implements it: Herdr mobile client for iPhone and Android. A self-hosted PWA to drive Claude Code, Pi, Codex and OpenCode in Herdr, tmux or zellij from you (selected work: web)",
+ "domain": "an agent working on herdr, herdr-plugin, agent-orchestration queries this for how AltanS/collie implements it: Herdr mobile app for iPhone and Android. A self-hosted PWA to drive Claude Code, Pi, Codex and OpenCode in Herdr, tmux or zellij from your p (selected work: web)",
  "repos": [
   {
    "repo": "collie",

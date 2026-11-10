@@ -1,0 +1,23 @@
+{
+ "corpus": "brandonducar--breakshift",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how BrandonDucar/breakshift implements it: Simulated robotic-workcell repair, uncertainty challenges and replayable evidence. Meta hackathon entry (selected work: the project root, public, demo)",
+ "repos": [
+  {
+   "repo": "breakshift",
+   "url": "https://github.com/BrandonDucar/breakshift",
+   "sha": "eb3eaeb616f613c1ecc4e9c64d59b9b56b34cb17",
+   "licence": "Apache-2.0 (LICENSE file at pin eb3eaeb616f6, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T00:23Z",
+    "consent_receipt": "339b3a841308",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T00:23Z (receipt 339b3a841308); selected commit eb3eaeb616f6: \"Finish mobile readability and bounded camera capture closeout\". LICENSE file at pin eb3eaeb616f6 detected as Apache-2.0 by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

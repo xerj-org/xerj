@@ -1,0 +1,23 @@
+{
+ "corpus": "saadshabir--ztap",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on container-networking, ebpf, golang queries this for how saadshabir/ZTAP implements it: Experimental Linux node agent for Kubernetes NetworkPolicy enforcement using per-container eBPF, with offline policy validation and live flo (selected work: tools, the project root)",
+ "repos": [
+  {
+   "repo": "ZTAP",
+   "url": "https://github.com/saadshabir/ZTAP",
+   "sha": "a1590e779834db7588d29e684905bcec56ba661d",
+   "licence": "MIT (LICENSE file at pin a1590e779834, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T03:15Z",
+    "consent_receipt": "5305b2a1123e",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T03:15Z (receipt 5305b2a1123e); selected commit a1590e779834: \"test: add multi-node policy churn and TCP continuity gate\". LICENSE file at pin a1590e779834 detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

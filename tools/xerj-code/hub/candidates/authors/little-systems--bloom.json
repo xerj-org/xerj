@@ -1,0 +1,23 @@
+{
+ "corpus": "little-systems--bloom",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on bloom, customization, desktop-customization queries this for how little-systems/bloom implements it: Bloom is a desktop companion that reimagines how you interact with Windows. It moves away from static, rigid interfaces and introduces a wor (selected work: src-tauri, src, scripts)",
+ "repos": [
+  {
+   "repo": "bloom",
+   "url": "https://github.com/SehajveerSingh2005/bloom",
+   "sha": "5792ce3ba477ddd024f1af9913d73796794eda8e",
+   "licence": "GPL-3.0 (LICENSE file at pin 5792ce3ba477, GitHub licence API 2026-10-25)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-12T06:37Z",
+    "consent_receipt": "9b4fd8760847",
+    "note": "Inclusion consented by the commit author by email at 2026-10-12T06:37Z (receipt 9b4fd8760847); selected commit 5792ce3ba477: \"feat: keep background tray apps in the dock and add notch panel arrow\u2026\". LICENSE file at pin 5792ce3ba477 detected as GPL-3.0 by the GitHub licence API on 2026-10-25; used under that licence with attribution."
+   }
+  }
+ ]
+}

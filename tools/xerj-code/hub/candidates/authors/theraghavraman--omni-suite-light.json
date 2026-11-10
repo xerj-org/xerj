@@ -2,8 +2,8 @@
  "corpus": "theraghavraman--omni-suite-light",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on JavaScript queries this for how theraghavraman/omni_suite_light implements it: theraghavraman/omni_suite_light (JavaScript) (selected work: the project root, social-resolver, omni-cloud-engine)",
+ "shelf": "WEB",
+ "domain": "an agent working on data-engineering, electron, file-converter queries this for how theraghavraman/omni_suite_light implements it: Private, offline-capable file and data toolkit: PDF, OCR, media and data-format conversion in the browser, with an optional Python local eng (selected work: the project root, social-resolver, omni-cloud-engine)",
  "repos": [
   {
    "repo": "omni_suite_light",

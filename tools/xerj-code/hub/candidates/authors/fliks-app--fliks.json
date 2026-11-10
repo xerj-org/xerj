@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on media, nodejs, video queries this for how fliks-app/fliks implements it: Your self-hosted movie & TV library, streamable anywhere (selected work: server, client)",
+ "domain": "an agent working on media, video, ebook queries this for how fliks-app/fliks implements it: Fliks is an open-source, self-hosted media server and library manager. It organizes and streams movies, TV shows, music, books and comics (selected work: server, client)",
  "repos": [
   {
    "repo": "fliks",

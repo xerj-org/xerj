@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agentic-ai, ai-agent, ai-coding-assistant queries this for how gemron/Termexo implements it: Windows workbench for Claude Code, Codex, OpenCode, Antigravity & Grok Build. See which agent needs you, resume sessions, and reconnect from (selected work: apps/desktop-ui)",
+ "domain": "an agent working on agentic-ai, ai-agent, ai-coding-assistant queries this for how gemron/Termexo implements it: Local-first workbench for Claude Code, Codex, OpenCode, Pi Agent, Grok Build and Antigravity on Windows, macOS and Linux. Control terminals  (selected work: apps/desktop-ui)",
  "repos": [
   {
    "repo": "Termexo",

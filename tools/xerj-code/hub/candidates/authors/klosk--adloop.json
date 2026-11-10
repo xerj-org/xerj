@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai, cursor, ga4 queries this for how kLOsk/adloop implements it: The AI command center for Google Ads, Analytics and Search Console (selected work: src/adloop)",
+ "domain": "an agent working on ai, cursor, ga4 queries this for how kLOsk/adloop implements it: Google Ads MCP server for Claude, ChatGPT and Cursor, with Reddit Ads, GA4 and Tag Manager. Every change is previewed first (selected work: src/adloop)",
  "repos": [
   {
    "repo": "adloop",

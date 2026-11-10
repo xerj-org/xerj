@@ -1,0 +1,23 @@
+{
+ "corpus": "isaddiq--ifcusd",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on bim, building, ifc queries this for how isaddiq/ifcusd implements it: OpeBIM to OpenUSD: A python package to convert ifc to usd with semantics (selected work: src/ifcusd, tests)",
+ "repos": [
+  {
+   "repo": "ifcusd",
+   "url": "https://github.com/isaddiq/ifcusd",
+   "sha": "547274c64e4541d4faf27d1f1f187c1182ec4259",
+   "licence": "MIT (LICENSE file at pin 547274c64e45, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T13:27Z",
+    "consent_receipt": "dfa2c5be958c",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T13:27Z (receipt dfa2c5be958c); selected commit 547274c64e45: \"feat: Enhance material handling and reporting in USD to IFC conversion\". LICENSE file at pin 547274c64e45 detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

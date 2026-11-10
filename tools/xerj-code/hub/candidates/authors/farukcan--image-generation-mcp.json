@@ -1,0 +1,23 @@
+{
+ "corpus": "farukcan--image-generation-mcp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how farukcan/image-generation-mcp implements it: Minimal MCP server that generates images with Gemini or OpenAI - for claude code like system without image generation (selected work: tests, src/image_generation_mcp, the project root)",
+ "repos": [
+  {
+   "repo": "image-generation-mcp",
+   "url": "https://github.com/farukcan/image-generation-mcp",
+   "sha": "ea0df91347cd1abc5e0123674a79c1a1ce214f7e",
+   "licence": "MIT (LICENSE file at pin ea0df91347cd, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T16:09Z",
+    "consent_receipt": "643233c4d4d5",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T16:09Z (receipt 643233c4d4d5); selected commit ea0df91347cd: \"feat: add Vercel AI Gateway support for image generation\". LICENSE file at pin ea0df91347cd detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "hub-proteses-3d--hub-proteses-3d",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on JavaScript queries this for how hub-proteses-3d/hub-proteses-3d implements it: Plataforma que conecta a demanda de pr\u00f3teses 3D da AACD \u00e0 capacidade ociosa de impress\u00e3o (selected work: test, server, the project root)",
+ "repos": [
+  {
+   "repo": "hub-proteses-3d",
+   "url": "https://github.com/hub-proteses-3d/hub-proteses-3d",
+   "sha": "806c7771248af5d231547fd2ba49e6d18c16459a",
+   "licence": "MIT (LICENSE file at pin 806c7771248a, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T23:58Z",
+    "consent_receipt": "16ab2e1b8aa4",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T23:58Z (receipt 16ab2e1b8aa4); selected commit 806c7771248a: \"testes automatizados com node test e validacoes do pedido separadas\". LICENSE file at pin 806c7771248a detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "fulalas--aufs-ng",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how fulalas/aufs-ng implements it: fulalas/aufs-ng (C) (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "aufs-ng",
+   "url": "https://github.com/fulalas/aufs-ng",
+   "sha": "d11e8f5a190f94bfc6056ac6ae111fa2be205d68",
+   "licence": "author's permission (LICENSE at pin d11e8f5a190f: NOASSERTION; repository: GPL-3.0)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-08T12:13Z",
+    "consent_receipt": "1e6a98d0dc57",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T12:13Z (receipt 1e6a98d0dc57); selected commit d11e8f5a190f: \"License changed to GPL 2 or later\". LICENSE at pin d11e8f5a190f: NOASSERTION (repository: GPL-3.0); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

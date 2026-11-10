@@ -1,0 +1,23 @@
+{
+ "corpus": "endokelp--endoplexity",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agent, browser-automation, cdp queries this for how Endokelp/Endoplexity implements it: Agentic browser control driven by your own Claude / Cursor subscriptions (selected work: bench, scripts)",
+ "repos": [
+  {
+   "repo": "Endoplexity",
+   "url": "https://github.com/Endokelp/Endoplexity",
+   "sha": "a09f44df0b825e14bc64f3321d77389834e7f098",
+   "licence": "Apache-2.0 (LICENSE file at pin a09f44df0b82, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T19:03Z",
+    "consent_receipt": "b8cdd2236785",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T19:03Z (receipt b8cdd2236785); selected commit a09f44df0b82: \"test: publish Phase 23's numbers against Claude in Chrome and three e\u2026\". LICENSE file at pin a09f44df0b82 detected as Apache-2.0 by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

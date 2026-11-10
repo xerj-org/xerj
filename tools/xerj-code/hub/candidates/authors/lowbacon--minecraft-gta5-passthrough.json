@@ -1,0 +1,23 @@
+{
+ "corpus": "lowbacon--minecraft-gta5-passthrough",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how LowBacon/minecraft-gta5-passthrough implements it: Minecraft \u00d7 GTA V Passthrough integrates Minecraft Java Edition into GTA V Enhanced with 3D rendering, Steve, interactive blocks, mobs, sync (selected work: mc, gta, host)",
+ "repos": [
+  {
+   "repo": "minecraft-gta5-passthrough",
+   "url": "https://github.com/LowBacon/minecraft-gta5-passthrough",
+   "sha": "4261c7a0b54ca87c16f7bf15faad786ed06d205e",
+   "licence": "MIT (LICENSE file at pin 4261c7a0b54c, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T16:35Z",
+    "consent_receipt": "789aaf462603",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T16:35Z (receipt 789aaf462603); selected commit 4261c7a0b54c: \"Add GPU frames, native blocks, and avatar layers\". LICENSE file at pin 4261c7a0b54c detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "rtykulsker--winlinkmessagemapper",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Java queries this for how RTykulsker/WinlinkMessageMapper implements it: RTykulsker/WinlinkMessageMapper (Java) (selected work: src/main)",
+ "repos": [
+  {
+   "repo": "WinlinkMessageMapper",
+   "url": "https://github.com/RTykulsker/WinlinkMessageMapper",
+   "sha": "25547fc72ccc9de7f2bda2833959884954ad9f28",
+   "licence": "MIT (LICENSE file at pin 25547fc72ccc, GitHub licence API 2026-11-04)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-04T03:29Z",
+    "consent_receipt": "476a1b1d410c",
+    "note": "Inclusion consented by the commit author by email at 2026-11-04T03:29Z (receipt 476a1b1d410c); selected commit 25547fc72ccc: \"add 2027-01-21, based soley on last year; no reference to instructions\". LICENSE file at pin 25547fc72ccc detected as MIT by the GitHub licence API on 2026-11-04; used under that licence with attribution."
+   }
+  }
+ ]
+}

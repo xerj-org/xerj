@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Python queries this for how rmouahid/intern-radar implements it: Watches the career pages of top AI/tech companies for internships, triages them with an LLM, notifies on Telegram and writes cover letters o (selected work: tests, intern_radar, config)",
+ "domain": "an agent working on automation, job-search, llm queries this for how rmouahid/intern-radar implements it: Watches 119 company career pages for internships, triages each offer with rules and an LLM, notifies on Telegram and drafts cover letters. R (selected work: tests, intern_radar, config)",
  "repos": [
   {
    "repo": "intern-radar",

@@ -1,0 +1,23 @@
+{
+ "corpus": "dashsalter--ctk-kit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how DashSalter/ctk-kit implements it: \u4e00\u79cd\u56fa\u5b9a\u98ce\u683c\u7684tk\u6837\u65f6\u6a21\u5757 (selected work: ctk_kit)",
+ "repos": [
+  {
+   "repo": "ctk-kit",
+   "url": "https://github.com/DashSalter/ctk-kit",
+   "sha": "9b3a595751237ef3c40332939e2b4a9fc95136b6",
+   "licence": "MIT (LICENSE file at pin 9b3a59575123, GitHub licence API 2026-11-04)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-04T04:25Z",
+    "consent_receipt": "c755333e83e0",
+    "note": "Inclusion consented by the commit author by email at 2026-11-04T04:25Z (receipt c755333e83e0); selected commit 9b3a59575123: \"0.9.2\uff1aDialog \u6539 Canvas \u81ea\u7ed8\uff0c\u6d6e\u5c42\u6bdb\u73bb\u7483\". LICENSE file at pin 9b3a59575123 detected as MIT by the GitHub licence API on 2026-11-04; used under that licence with attribution."
+   }
+  }
+ ]
+}

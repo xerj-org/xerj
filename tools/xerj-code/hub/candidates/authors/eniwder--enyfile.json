@@ -1,0 +1,23 @@
+{
+ "corpus": "eniwder--enyfile",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agent, desktop-application, file-explorer queries this for how Eniwder/enyFile implements it: Simple, Stylish, Safe Filer (selected work: app/src, app)",
+ "repos": [
+  {
+   "repo": "enyFile",
+   "url": "https://github.com/Eniwder/enyFile",
+   "sha": "dedc8206b3e5bb364bad62e5182e68f5663332c7",
+   "licence": "author's permission (LICENSE at pin dedc8206b3e5: NOASSERTION; repository: MIT)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T05:36Z",
+    "consent_receipt": "1dce1ee5f167",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T05:36Z (receipt 1dce1ee5f167); selected commit dedc8206b3e5: \"Harden navigation, paste validation and agent input handling\". LICENSE at pin dedc8206b3e5: NOASSERTION (repository: MIT); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

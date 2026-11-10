@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on asr, attention, conformer queries this for how chiendb97/oasr implements it: A high-performance inference and serving framework for Automatic Speech Recognition (selected work: include, tests, oasr)",
+ "domain": "an agent working on asr, conformer, ctc queries this for how chiendb97/oasr implements it: High-performance speech-to-text (ASR) inference and serving engine for NVIDIA GPUs: Whisper, Conformer, Zipformer, RNN-T, Paraformer, Qwen2- (selected work: include, tests, oasr)",
  "repos": [
   {
    "repo": "oasr",

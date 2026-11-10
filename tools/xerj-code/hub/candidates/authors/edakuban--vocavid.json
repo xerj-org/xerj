@@ -1,0 +1,23 @@
+{
+ "corpus": "edakuban--vocavid",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how Edakuban/VocaVid implements it: Turn your songs into AI music videos starring you (selected work: VocaVid, tests)",
+ "repos": [
+  {
+   "repo": "VocaVid",
+   "url": "https://github.com/Edakuban/VocaVid",
+   "sha": "fa62f02b371af1575678ae01edddefadf83fd3c7",
+   "licence": "AGPL-3.0 (LICENSE file at pin fa62f02b371a, GitHub licence API 2026-11-04)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-04T17:22Z",
+    "consent_receipt": "ad63d686ddb5",
+    "note": "Inclusion consented by the commit author by email at 2026-11-04T17:22Z (receipt ad63d686ddb5); selected commit fa62f02b371a: \"Add Spotify Canvas editor and generation workflow\". LICENSE file at pin fa62f02b371a detected as AGPL-3.0 by the GitHub licence API on 2026-11-04; used under that licence with attribution."
+   }
+  }
+ ]
+}

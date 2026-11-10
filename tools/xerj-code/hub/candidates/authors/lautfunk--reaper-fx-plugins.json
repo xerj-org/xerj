@@ -1,0 +1,23 @@
+{
+ "corpus": "lautfunk--reaper-fx-plugins",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on daw, daw-plugins, podcasting queries this for how lautfunk/Reaper-FX-Plugins implements it: Kostenlose Open-Source-Audio-Plugins f\u00fcr REAPER und VST3-Hosts: Playlist Player, Soundboard, Stimmeneffekte, Glitch, Synthesizer und Audiobe (selected work: LautFunk_Playlist_Player)",
+ "repos": [
+  {
+   "repo": "Reaper-FX-Plugins",
+   "url": "https://github.com/lautfunk/Reaper-FX-Plugins",
+   "sha": "415e6e815e93c9a0ecccf938dcb512aa920deccf",
+   "licence": "MIT (LICENSE file at pin 415e6e815e93, GitHub licence API 2026-11-04)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T22:21Z",
+    "consent_receipt": "4c0d96f1de2f",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T22:21Z (receipt 4c0d96f1de2f); selected commit 415e6e815e93: \"Add Playlist Player v1.0 Windows and macOS\". LICENSE file at pin 415e6e815e93 detected as MIT by the GitHub licence API on 2026-11-04; used under that licence with attribution. Pinned to head 415e6e815e93 (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

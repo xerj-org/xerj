@@ -1,0 +1,23 @@
+{
+ "corpus": "sebastienduruz--window-switcher",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on avalonia, desktop, eve-online queries this for how SebastienDuruz/Window-Switcher implements it: A simple application to switch between windows with clickable thumbnails (selected work: src/WindowSwitcher.Lib, src/WindowSwitcher.Tests, src/WindowSwitcher)",
+ "repos": [
+  {
+   "repo": "Window-Switcher",
+   "url": "https://github.com/SebastienDuruz/Window-Switcher",
+   "sha": "d1dae9a5631782b6c7f9bff10d1da34949508146",
+   "licence": "GPL-3.0 (LICENSE file at pin d1dae9a56317, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-03T06:57Z",
+    "consent_receipt": "eae1fc0f22c8",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T06:57Z (receipt eae1fc0f22c8); selected commit d1dae9a56317: \"feat: Logs now use Serilog and Sentry catch consistantly most of the \u2026\". LICENSE file at pin d1dae9a56317 detected as GPL-3.0 by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

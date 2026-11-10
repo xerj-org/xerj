@@ -1,0 +1,23 @@
+{
+ "corpus": "lotoos0--memex-sim",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how lotoos0/memex-sim implements it: DEX trading simulator built with React + TypeScript. Features chart with random OHLC candles, pump/dump events, order panel, PnL calculation (selected work: src/qa, src/tokens)",
+ "repos": [
+  {
+   "repo": "memex-sim",
+   "url": "https://github.com/lotoos0/memex-sim",
+   "sha": "dbd6820d05e3d9d386ba4e8b23d45c872f71e101",
+   "licence": "MIT (LICENSE file at pin dbd6820d05e3, GitHub licence API 2026-11-06)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T12:27Z",
+    "consent_receipt": "683227ed81fa",
+    "note": "Inclusion consented by the commit author by email at 2026-11-06T12:27Z (receipt 683227ed81fa); selected commit dbd6820d05e3: \"fix(sim): preserve execution timestamp ordering (#46)\". LICENSE file at pin dbd6820d05e3 detected as MIT by the GitHub licence API on 2026-11-06; used under that licence with attribution."
+   }
+  }
+ ]
+}

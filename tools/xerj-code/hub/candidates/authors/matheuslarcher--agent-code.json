@@ -1,0 +1,23 @@
+{
+ "corpus": "matheuslarcher--agent-code",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how MatheusLarcher/agent-code implements it: MatheusLarcher/agent-code (TypeScript) (selected work: src/main, src/renderer, src/shared)",
+ "repos": [
+  {
+   "repo": "agent-code",
+   "url": "https://github.com/MatheusLarcher/agent-code",
+   "sha": "0fffe4385e229b951d52ea76b745acc52a381ef8",
+   "licence": "MIT (LICENSE file at pin 0fffe4385e22, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T12:34Z",
+    "consent_receipt": "44244231389d",
+    "note": "Inclusion consented by the commit author by email at 2026-11-05T12:34Z (receipt 44244231389d); selected commit 0fffe4385e22: \"feat(kimi): Kimi K3.1 Pro por assinatura (chave oficial do Kimi Code)\". LICENSE file at pin 0fffe4385e22 detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

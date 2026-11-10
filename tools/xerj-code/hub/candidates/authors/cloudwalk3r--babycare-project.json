@@ -1,0 +1,23 @@
+{
+ "corpus": "cloudwalk3r--babycare-project",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on CSS queries this for how CloudWalk3r/Babycare-Project implements it: A project to develop a software for midwives to inform new parents when to take their children for vaccination and to make people aware of w (selected work: the project root, assets)",
+ "repos": [
+  {
+   "repo": "Babycare-Project",
+   "url": "https://github.com/CloudWalk3r/Babycare-Project",
+   "sha": "6f79576d3cb70f2e2a24dc49b09bc69d6782bcfc",
+   "licence": "GPL-3.0 (LICENSE file at pin 6f79576d3cb7, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-08T10:36Z",
+    "consent_receipt": "3b29ae5f7a04",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T10:36Z (receipt 3b29ae5f7a04); selected commit 6f79576d3cb7: \"repo revamp and cleanup\". LICENSE file at pin 6f79576d3cb7 detected as GPL-3.0 by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+   }
+  }
+ ]
+}

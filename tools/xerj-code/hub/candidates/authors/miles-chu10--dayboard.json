@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on TypeScript queries this for how miles-chu10/dayboard implements it: Google Tasks, Apple Reminders, Gmail, and Google Calendar in one macOS agenda (selected work: tests, renderer)",
+ "domain": "an agent working on TypeScript queries this for how miles-chu10/DayBoard implements it: Google Tasks, Apple Reminders, Gmail, and Google Calendar in one macOS agenda (selected work: tests, renderer)",
  "repos": [
   {
    "repo": "dayboard",

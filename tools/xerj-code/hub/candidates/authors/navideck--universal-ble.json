@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on android, ble, bluetooth queries this for how Navideck/universal_ble implements it: A cross-platform Android/iOS/macOS/Windows/Linux/Web Bluetooth Low Energy (BLE) plugin for Flutter (selected work: hil, windows)",
+ "domain": "an agent working on android, ble, bluetooth queries this for how Navideck/universal_ble implements it: Cross-platform Android/iOS/macOS/Windows/Linux/Web Bluetooth Low Energy (BLE) for Flutter (selected work: hil, windows)",
  "repos": [
   {
    "repo": "universal_ble",

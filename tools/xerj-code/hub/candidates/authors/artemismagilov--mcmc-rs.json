@@ -1,0 +1,23 @@
+{
+ "corpus": "artemismagilov--mcmc-rs",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on Rust queries this for how ArtemIsmagilov/mcmc-rs implements it: Minimal rust client for memcached (selected work: src, examples, benches)",
+ "repos": [
+  {
+   "repo": "mcmc-rs",
+   "url": "https://github.com/ArtemIsmagilov/mcmc-rs",
+   "sha": "8c09fc2f6744d28dfc74a2d0c429dbee43f21eed",
+   "licence": "MIT (LICENSE file at pin 8c09fc2f6744, GitHub licence API 2026-11-04)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-04T02:46Z",
+    "consent_receipt": "bbf6f7e6e49f",
+    "note": "Inclusion consented by the commit author by email at 2026-11-04T02:46Z (receipt bbf6f7e6e49f); selected commit 8c09fc2f6744: \"refac types\". LICENSE file at pin 8c09fc2f6744 detected as MIT by the GitHub licence API on 2026-11-04; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "rohithmeti--ros2-agv-apriltag",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how rohithmeti/ros2_agv_apriltag implements it: rohithmeti/ros2_agv_apriltag (Python) (selected work: src/agv_tag_nav, src/my_bot_description, the project root)",
+ "repos": [
+  {
+   "repo": "ros2_agv_apriltag",
+   "url": "https://github.com/rohithmeti/ros2_agv_apriltag",
+   "sha": "5c2db0b1bf38568b103bb659c0e21b9d776a9028",
+   "licence": "Apache-2.0 (LICENSE file at pin 5c2db0b1bf38, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T16:40Z",
+    "consent_receipt": "cb6b488cb3af",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T16:40Z (receipt cb6b488cb3af); selected commit 5c2db0b1bf38: \"AprilTag AGV navigation: tag graph, camera TF localisation, safety st\u2026\". LICENSE file at pin 5c2db0b1bf38 detected as Apache-2.0 by the GitHub licence API on 2026-11-09; used under that licence with attribution. Pinned to head 5c2db0b1bf38 (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "armin-syntax--drf-clean-architecture",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how armin-syntax/drf-clean-architecture implements it: A modular Django REST API built with Clean Architecture principles. Features JWT Auth, Post/User management, and Swagger UI documentation (selected work: src/users, the project root, src)",
+ "repos": [
+  {
+   "repo": "drf-clean-architecture",
+   "url": "https://github.com/armin-syntax/drf-clean-architecture",
+   "sha": "34f59b45aaa6b85e4c0ce28b902de038c7c166e4",
+   "licence": "MIT (LICENSE file at pin 34f59b45aaa6, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T12:33Z",
+    "consent_receipt": "910a6339eba6",
+    "note": "Inclusion consented by the commit author by email at 2026-11-05T12:33Z (receipt 910a6339eba6); selected commit 34f59b45aaa6: \"feat: add external database sync and Docker configuration\". LICENSE file at pin 34f59b45aaa6 detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

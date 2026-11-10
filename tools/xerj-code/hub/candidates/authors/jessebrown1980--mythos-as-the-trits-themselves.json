@@ -1,0 +1,23 @@
+{
+ "corpus": "jessebrown1980--mythos-as-the-trits-themselves",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how JesseBrown1980/mythos-as-the-trits-themselves implements it: JesseBrown1980/mythos-as-the-trits-themselves (Rust)",
+ "repos": [
+  {
+   "repo": "mythos-as-the-trits-themselves",
+   "url": "https://github.com/JesseBrown1980/mythos-as-the-trits-themselves",
+   "sha": "53c492e51a4d3e62ab67db4658adae8704e74b07",
+   "licence": "MIT (LICENSE file at pin 53c492e51a4d, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T14:53Z",
+    "consent_receipt": "320a5312e31b",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T14:53Z (receipt 320a5312e31b); pinned to the default-branch head. LICENSE file at pin 53c492e51a4d detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

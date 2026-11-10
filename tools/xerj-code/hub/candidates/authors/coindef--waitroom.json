@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on calibration, claude-code, claude-code-plugin queries this for how coindef/waitroom implements it: Claude Code plugins for the dead time while your coding agent works: review diffs hunk by hunk, forecast turns, draft ship artifacts, breath (selected work: wait-scope)",
+ "domain": "an agent working on claude-code, claude-code-plugin, developer-tools queries this for how coindef/waitroom implements it: Claude is cooking. You call the turn. A Claude Code plugin that scores your gut on how each turn lands (selected work: wait-scope)",
  "repos": [
   {
    "repo": "waitroom",

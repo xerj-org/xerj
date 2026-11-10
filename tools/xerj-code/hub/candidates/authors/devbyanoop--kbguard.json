@@ -2,8 +2,8 @@
  "corpus": "devbyanoop--kbguard",
  "cloned_at": null,
  "status": "draft",
- "shelf": "DB",
- "domain": "an agent working on Python queries this for how devbyanoop/kbguard implements it: Knowledge-base QA and evals for RAG systems, across any vector database (selected work: tests, src/kbguard, the project root)",
+ "shelf": "AI",
+ "domain": "an agent working on ai-testing, chromadb, cli queries this for how devbyanoop/kbguard implements it: Knowledge-base QA and evals for RAG systems, across any vector database (selected work: tests, src/kbguard, the project root)",
  "repos": [
   {
    "repo": "kbguard",

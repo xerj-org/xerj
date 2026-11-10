@@ -1,0 +1,23 @@
+{
+ "corpus": "overpassconnect--mcp-krb-server",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on freeipa, kerberos, kerberos-authentication queries this for how overpassconnect/mcp-krb-server implements it: Kerberos/SPNEGO single sign-on for MCP servers in FreeIPA environments. Provisioning framework for Windows (via WSL), Linux and macOS develo (selected work: tests, client, jenkins)",
+ "repos": [
+  {
+   "repo": "mcp-krb-server",
+   "url": "https://github.com/overpassconnect/mcp-krb-server",
+   "sha": "e4b188bbc54a81e51d25ed98084c620fb7c7298b",
+   "licence": "Apache-2.0 (LICENSE file at pin e4b188bbc54a, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T16:12Z",
+    "consent_receipt": "d8d48bf9951e",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T16:12Z (receipt d8d48bf9951e); selected commit e4b188bbc54a: \"krb-put: send a file or folder into a WebDAV folder over Kerberos\". LICENSE file at pin e4b188bbc54a detected as Apache-2.0 by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

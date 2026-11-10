@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Python queries this for how dianewhiddon/silent-type-desktop implements it: Windows camera-only silent typing, powered by Auto-AVSR. Inspired by Lipflow (selected work: silent_type, tests, the project root)",
+ "domain": "an agent working on lip-reading, python, silent-speech queries this for how dianewhiddon/silent-type-desktop implements it: Windows camera-only silent typing, powered by Auto-AVSR. Inspired by Lipflow (selected work: silent_type, tests, the project root)",
  "repos": [
   {
    "repo": "silent-type-desktop",

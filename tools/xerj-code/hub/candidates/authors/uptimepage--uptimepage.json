@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "OPS",
- "domain": "an agent working on devops, monitoring, observability queries this for how uptimepage/uptimepage implements it: Uptime monitoring, public status pages and on-call in one. Checks as often as every 30 seconds from multiple regions, 8 check types includin (selected work: src/storage, tests, src/api)",
+ "domain": "an agent working on devops, monitoring, observability queries this for how uptimepage/uptimepage implements it: Uptime monitoring, status pages and on-call in one. One flat price per plan, seats included. Checks as often as every 30 seconds from multip (selected work: src/storage, tests, src/api)",
  "repos": [
   {
    "repo": "uptimepage",

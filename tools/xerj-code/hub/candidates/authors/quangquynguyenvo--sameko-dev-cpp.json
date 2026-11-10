@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on c-plus-plus, code-editor, competitive-programming queries this for how QuangquyNguyenvo/Sameko-Dev-CPP implements it: Sameko Dev C++ IDE - A lightweight, fast, and beautiful C++ IDE for competitive programming. Bundled with MinGW-w64 GCC 16, clangd IntelliSe (selected work: src/renderer, app/services, src/features)",
+ "domain": "an agent working on c-plus-plus, code-editor, competitive-programming queries this for how QuangquyNguyenvo/Sameko-Dev-CPP implements it: Sameko Dev C++: free C++ IDE, download at sameko.dev. GCC 16, clangd and GDB bundled, made for learning and competitive programming. (\u2267\u25e1\u2266) (selected work: src/renderer, app/services, src/features)",
  "repos": [
   {
    "repo": "Sameko-Dev-CPP",

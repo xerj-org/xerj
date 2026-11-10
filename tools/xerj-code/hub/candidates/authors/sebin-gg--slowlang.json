@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on ascii-art, fun, programming-language queries this for how sebin-gg/slowlang implements it: \ud83d\udc22 TortoiseLang - A programming language that enforces slow typing. Type too fast and get angry turtle ASCII feedback!",
+ "domain": "an agent working on interpreter, programming-language, college-of-engineering-chengannur queries this for how sebin-gg/slowlang implements it: \ud83d\udc22 TortoiseLang - A programming language that enforces slow typing. Type too fast and get angry turtle ASCII feedback!",
  "repos": [
   {
    "repo": "slowlang",
    "url": "https://github.com/sebin-gg/slowlang",
-   "sha": "09e91756a155890943455717439f710f82d82c11",
-   "licence": "MIT (LICENSE file at pin 09e91756a155, GitHub licence API 2026-11-02)",
+   "sha": "6c14e78105376d3ddace7365aded1d0550d6ef0f",
+   "licence": "MIT (LICENSE file at pin 6c14e7810537, GitHub licence API 2026-11-09)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-02T15:14Z",
     "consent_receipt": "fdede3a10338",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T15:14Z (receipt fdede3a10338); pinned to the default-branch head. LICENSE file at pin 09e91756a155 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T15:14Z (receipt fdede3a10338); pinned to the default-branch head. LICENSE file at pin 6c14e7810537 detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
    }
   }
  ]

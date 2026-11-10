@@ -1,0 +1,23 @@
+{
+ "corpus": "jessebrown1980--hf-3i-atlas-infinite-play",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on HTML queries this for how JesseBrown1980/hf-3I-ATLAS-infinite-play implements it: 3I/ATLAS infinite play - static player, starts from zero from what was measured, no timer. Mirrored from Hugging Face",
+ "repos": [
+  {
+   "repo": "hf-3I-ATLAS-infinite-play",
+   "url": "https://github.com/JesseBrown1980/hf-3I-ATLAS-infinite-play",
+   "sha": "63da3123c52ab2b8e1bd731f24c6e321112bc0e5",
+   "licence": "author's permission (LICENSE at pin 63da3123c52a: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T14:53Z",
+    "consent_receipt": "bff82b5f3e86",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T14:53Z (receipt bff82b5f3e86); pinned to the default-branch head. LICENSE at pin 63da3123c52a: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

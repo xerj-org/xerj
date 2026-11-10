@@ -1,0 +1,23 @@
+{
+ "corpus": "vumb-vibecoder--ai-anti-overrefusal-skills",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent, agent-skill, agent-skills queries this for how Vumb-VibeCoder/ai-anti-overrefusal-skills implements it: Vumb-VibeCoder/ai-anti-overrefusal-skills (Python)",
+ "repos": [
+  {
+   "repo": "ai-anti-overrefusal-skills",
+   "url": "https://github.com/Vumb-VibeCoder/ai-anti-overrefusal-skills",
+   "sha": "af5ff8cc5f6576e499368849c6d776232f3a7b80",
+   "licence": "MIT (LICENSE file at pin af5ff8cc5f65, GitHub licence API 2026-11-04)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-04T17:16Z",
+    "consent_receipt": "a905dd052e38",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-04T17:16Z (receipt a905dd052e38); pinned to the default-branch head. LICENSE file at pin af5ff8cc5f65 detected as MIT by the GitHub licence API on 2026-11-04; used under that licence with attribution."
+   }
+  }
+ ]
+}

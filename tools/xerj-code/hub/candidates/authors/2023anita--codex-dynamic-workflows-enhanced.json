@@ -1,0 +1,23 @@
+{
+ "corpus": "2023anita--codex-dynamic-workflows-enhanced",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how 2023Anita/codex-dynamic-workflows-enhanced implements it: Beginner-friendly dynamic workflow skill for Codex-style AI agents, with packets, approval gates, verification, and real-world examples",
+ "repos": [
+  {
+   "repo": "codex-dynamic-workflows-enhanced",
+   "url": "https://github.com/2023Anita/codex-dynamic-workflows-enhanced",
+   "sha": "c1135bb506036182a8cce6812bd902bd4f544604",
+   "licence": "MIT (LICENSE file at pin c1135bb50603, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T13:38Z",
+    "consent_receipt": "5eb7d4f64a7e",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T13:38Z (receipt 5eb7d4f64a7e); pinned to the default-branch head. LICENSE file at pin c1135bb50603 detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

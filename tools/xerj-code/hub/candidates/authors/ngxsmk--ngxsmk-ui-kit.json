@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on angular, a11y, accessibility queries this for how NGXSMK/ngxsmk-ui-kit implements it: Enterprise grade Angular UI library with 200+ standalone components, Signals, SSR, hydration, zoneless support, accessibility, design tokens (selected work: apps/demo, packages/core, packages/theme)",
+ "domain": "an agent working on angular, a11y, accessibility queries this for how NGXSMK/ngxsmk-ui-kit implements it: Signals-native Angular UI kit for Angular 17.3\u201322: 176+ standalone components, zoneless & SSR-ready, design tokens, dark mode, a11y, AI chat (selected work: apps/demo, packages/core, packages/theme)",
  "repos": [
   {
    "repo": "ngxsmk-ui-kit",
