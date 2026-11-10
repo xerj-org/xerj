@@ -575,9 +575,11 @@ def seo_desc(f):
     head = f"{f['short']}: {f['desc'].rstrip('.…')}." if f["desc"] else f"{f['w']['repo']} on the XERJ Corpus Hub."
     tp = f" for {', '.join(f['topics'][:2])}" if f["topics"] else ""
     named = f" Work by {f['name']}."
+    # every tail names the person: several contributors share a repository (2026-11-10, co-contributors), and a
+    # name-less tail gave their pages the same description
     tails = [f" A {lang}corpus AI agents search{tp}, with work by {f['name']}.",
              f" A {lang}corpus AI agents search, with work by {f['name']}.",
-             named, f" A {lang}corpus for AI agents.", " For AI agents."]
+             named]
     for t in tails:
         if len(head + t) <= 160:
             d = head + t
@@ -585,7 +587,7 @@ def seo_desc(f):
     else:
         # Keep the name when the head is too long. Two people on one repository
         # would otherwise share the generic tail and the same description.
-        tail = named if len(named) <= 80 else tails[-1]
+        tail = named if len(named) <= 80 else f" Work by @{f['login']}."
         d = _fit(head, 160 - len(tail)).rstrip(".") + tail
     if len(d) < 110:
         d += " Agents get it back as cited worked examples."
