@@ -217,11 +217,16 @@ def prefix_of(name):
     return p or "repo"
 
 
-def clone_prompt(repo, url, sha, page_url, spdx="", use=""):
-    """The prompt for a repo not yet in the hub: clone at the pin, then autoindex it."""
+def clone_prompt(repo, url, sha, page_url, spdx="", use="", paths=None):
+    """The prompt for a repo not yet in the hub: clone at the pin, then autoindex it. With `paths` (a commit-scoped
+    corpus, 2026-11-10) only those directories are checked out, the same sparse checkout the hub uses."""
     name = url.rstrip("/").split("/")[-1]
     p = prefix_of(name)
     pin = f" && git -C {name} checkout {sha}" if sha else ""
+    if paths:
+        pats = " ".join(f"/{x.strip('/')}/" for x in paths)
+        pin = (f" --filter=blob:none --no-checkout && git -C {name} sparse-checkout set --no-cone {pats}"
+               f" && git -C {name} checkout {sha or 'HEAD'}")
     lic = f"Licence: {spdx}." if spdx and spdx not in ("?", "NOASSERTION", "NONE") else "Licence: check the LICENSE file."
     use_line = (" Read it for the approach only, do not copy code." if use == "approach-only"
                 else " Keep the copyright notice and credit the authors.")

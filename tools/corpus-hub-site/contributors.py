@@ -183,6 +183,12 @@ def load(hub_dir, registry=None):
                 "committed_at": k.get("committed_at") or "", "suggested_use": lic.get("suggested_use") or "",
                 "pin": (r.get("pin") or {}).get("sha") or "",
                 "channel": (r.get("consent") or {}).get("channel") or "",
+                # 2026-11-10 (owner): a commit author who does not own the repo is credited for the commit only;
+                # the repository stays its maintainer's, and the corpus covers only the commit's directories
+                "owns": c.get("owns_repo", True) is not False or "sign-in" in ((r.get("consent") or {}).get("channel") or ""),
+                "maintainer": (r.get("scope") or {}).get("maintainer") or r.get("repo", "").split("/")[0],
+                "whole_repo": (r.get("scope") or {}).get("whole_repo", True),
+                "paths": (r.get("scope") or {}).get("paths") or [],
             })
             if r["corpus"] not in w["corpora"]:
                 w["corpora"].append(r["corpus"])
@@ -216,6 +222,7 @@ def load(hub_dir, registry=None):
                 "title": title.strip(), "files": None, "lines": None, "langs": [], "areas": [], "topics": [],
                 "shelf": "", "spdx": spdx.strip(), "reviewed": _reviewed(review), "agreed": date, "corpora": [],
                 "committed_at": "", "suggested_use": review.get("use", "") if _reviewed(review) else "", "pin": "",
+                "owns": login.lower() == repo.split("/")[0].lower(), "maintainer": repo.split("/")[0], "whole_repo": True, "paths": [],
             })
             if corpus not in w["corpora"]:
                 w["corpora"].append(corpus)
@@ -235,7 +242,7 @@ def volume(pp, live_slugs=()):
     work = list(pp["work"].values())
     stars_by_repo = {}
     for w in work:
-        if isinstance(w.get("repo_stars"), int):
+        if isinstance(w.get("repo_stars"), int) and w.get("owns", True):   # a commit author is not credited with the repo's stars
             stars_by_repo[w["repo_url"].lower()] = w["repo_stars"]
     return {
         "commits": sum(1 for w in work if w["commit"]),
@@ -248,6 +255,7 @@ def volume(pp, live_slugs=()):
         "since": min(pp["agreed"]) if pp["agreed"] else "",
         # every repo added by the owner on /add (GitHub sign-in), none by email reply
         "web_only": bool(work) and all("sign-in" in (w.get("channel") or "") for w in work),
+        "commit_only": bool(work) and not any(w.get("owns", True) for w in work),
     }
 
 
@@ -340,7 +348,9 @@ def person_body(pp, esc, live_slugs, pages=(), agent="", xposts="", gh=None):
     v = volume(pp, live_slugs)
     url = f"{SITE}/contributors/{login}"
     repos = ", ".join(w["repo"] for w in work[:2])
-    tweet = f"My work in {repos} was selected for the XERJ Corpus Hub: AI coding agents retrieve it as a worked reference instead of guessing. {url}"
+    tweet = (f"My commit to {repos} was selected for the XERJ Corpus Hub: AI coding agents retrieve it as a worked reference instead of guessing. {url}"
+             if volume(pp, live_slugs)["commit_only"] else
+             f"My work in {repos} was selected for the XERJ Corpus Hub: AI coding agents retrieve it as a worked reference instead of guessing. {url}")
     cards = []
     for w in work:
         live = [c for c in w["corpora"] if c in live_slugs]
@@ -366,12 +376,22 @@ def person_body(pp, esc, live_slugs, pages=(), agent="", xposts="", gh=None):
         chips = "".join(f'<span class="chip">{esc(t)}</span>' for t in w["topics"][:6])
         corp = "".join(f'<a class="chip" href="../corpus/{esc(c)}">corpus {esc(c)}</a>' if c in pages
                        else f'<span class="chip">corpus {esc(c)}</span>' for c in w["corpora"])
-        ghs = f'<span class="stars" title="GitHub stars on the repository">GitHub ★ {_n(w.get("repo_stars"))}</span>' if isinstance(w.get("repo_stars"), int) else ""
-        facts = repo_facts_html((gh or {}).get(repo_pages.key(w["repo_url"])) or {}, esc)
+        owns = w.get("owns", True)
+        ghs = (f'<span class="stars" title="GitHub stars on the repository">GitHub ★ {_n(w.get("repo_stars"))}</span>'
+               if owns and isinstance(w.get("repo_stars"), int) else "")
+        facts = repo_facts_html((gh or {}).get(repo_pages.key(w["repo_url"])) or {}, esc) if owns else ""
+        mnt = esc(w.get("maintainer") or w["repo"].split("/")[0])
+        head = (f'<h3><a href="{esc(w["repo_url"])}">{esc(w["repo"])}</a></h3>' if owns else
+                f'<h3>Commit to <a href="{esc(w["repo_url"])}">{esc(w["repo"])}</a></h3>'
+                f'<div class="commit">maintained by <a href="https://github.com/{mnt}">@{mnt}</a></div>')
+        scope = ("The corpus is the whole repository at the pinned commit, not only the files of the selected commit." if owns else
+                 ("The corpus covers only the directories this commit changed (" + esc(", ".join(w["paths"])[:200]) + "). "
+                  f"The repository is @{mnt}'s; this page credits @{esc(login)} for this commit only." if not w.get("whole_repo", True) else
+                  f"The repository is @{mnt}'s and is in the hub with its owner's agreement; this page credits @{esc(login)} for this commit only."))
         cards.append(f"""<div class="contrib">{ghs}
-<h3><a href="{esc(w["repo_url"])}">{esc(w["repo"])}</a></h3>{facts}{commit}
+{head}{facts}{commit}
 <div class="commit">{"selected commit: " + esc(size) if size else ""}{" · " + esc(", ".join(w["areas"])[:120]) if w["areas"] else ""}</div>
-<p class="note">The corpus is the whole repository at the pinned commit, not only the files of the selected commit.</p>
+<p class="note">{scope}</p>
 <div class="chips">{status}{corp}{f'<span class="chip">{esc(w["shelf"])}</span>' if w["shelf"] else ""}<span class="chip">{esc(w["spdx"])}</span>{chips}
 <span class="chip">agreed {esc(w["agreed"][:10])}</span></div>{pending}</div>""")
     other = sorted(c for c in pp["corpora"] if not any(c in w["corpora"] for w in work))
@@ -395,7 +415,7 @@ def person_body(pp, esc, live_slugs, pages=(), agent="", xposts="", gh=None):
 <p>{esc(name)}'s work was selected for the XERJ Corpus Hub, the open reference memory AI coding agents search before they write code.
 When an agent meets the same problem, it gets this implementation back as a worked example, with the author and the repository attached.</p>
 <div class="kpis">{kpis}</div>
-<p class="note">Totals across every corpus @{esc(login)} appears in; a commit selected for two corpora counts once. Files and lines count the selected commits; each corpus indexes the whole repository at its pinned commit.</p>
+<p class="note">{f"Totals count @{esc(login)}'s own selected commits. The repositories belong to their maintainers; their stars are not counted here." if v["commit_only"] else f"Totals across every corpus @{esc(login)} appears in; a commit selected for two corpora counts once. Files and lines count the selected commits; each corpus indexes the whole repository at its pinned commit."}</p>
 <div class="share"><a href="https://twitter.com/intent/tweet?text={urllib.parse.quote(tweet)}" target="_blank" rel="noopener">Share on X</a>
 <a href="https://www.linkedin.com/sharing/share-offsite/?url={urllib.parse.quote(url)}" target="_blank" rel="noopener">Share on LinkedIn</a>
 <a href="https://news.ycombinator.com/submitlink?u={urllib.parse.quote(url)}&t={urllib.parse.quote(name + ' on the XERJ Corpus Hub')}" target="_blank" rel="noopener">Hacker News</a>
@@ -513,7 +533,7 @@ def seo_facts(pp, live_slugs, reg, descs, cats, by_cat):
     thin = len(uses) < 2 or not (len(desc) >= 20 or topics or usecase)
     return dict(login=login, name=name, who=who, w=w, slug=slug, short=short, shelf=shelf, domain=domain,
                 desc=desc, topics=topics, langs=langs, title=title, uses=uses, qs=qs, rel=rel, thin=thin,
-                live=slug in live_slugs)
+                live=slug in live_slugs, commit_only=not w.get("owns", True))
 
 
 def plain_cap(s):
@@ -524,6 +544,15 @@ def plain_cap(s):
 def seo_title(f):
     """Keeps the person's name: drops "corpus for AI agents" and the suffix first."""
     who, short, login, name = f["who"], f["short"], f["login"], f["name"]
+    if f.get("commit_only"):   # credited for a commit, not the repository (2026-11-10)
+        repo = f["w"]["repo"]
+        # "<repo> commit": always ends on "commit", never on a repo name that reads as a dangling word ("within")
+        opts = [f"{who}: {repo} commit | XERJ Hub", f"{who}: {short} commit | XERJ Hub", f"{name}: {short} commit | XERJ Hub",
+                f"{name}: {short} commit", f"@{login}: {short} commit", f"{name} (@{login}) | XERJ Hub", f"@{login} | XERJ Hub"]
+        for o in opts:
+            if len(o) <= 62:
+                return o
+        return opts[-1][:62]
     opts = [f"{who}: {short} corpus for AI agents | XERJ Hub",
             f"{who}: {short} corpus | XERJ Hub",
             f"{who}: {short} | XERJ Hub",
@@ -576,7 +605,8 @@ def agent_section(f, esc, pages):
         w = f["w"]
         cmd = repo_pages.clone_prompt(w["repo"], w["repo_url"], w.get("pin") or w.get("commit") or "",
                                       f"{SITE}/corpus/{slug}" if slug in pages else f"{SITE}/contributors/{login}",
-                                      w.get("spdx") or "", w.get("suggested_use") or "")
+                                      w.get("spdx") or "", w.get("suggested_use") or "",
+                                      paths=w.get("paths") if not w.get("whole_repo", True) else None)
         when = "Paste it into your AI agent. It clones the repo at the pinned commit and indexes it on your machine."
     desc = (f'<p class="rdesc"><a href="{esc(f["w"]["repo_url"])}">{esc(f["w"]["repo"])}</a>: {esc(f["desc"])}</p>'
             if f["desc"] else "")
@@ -590,7 +620,9 @@ def agent_section(f, esc, pages):
     rel = ", ".join(f'<a href="../corpus/{esc(c["slug"])}">{esc(c.get("label") or c["slug"])}</a>' for c in f["rel"])
     x = XERJ_LINKS.get(f["shelf"])
     more = f'<a href="{x[0]}">{esc(x[1])}</a> · ' if x else ""
-    return f"""<section class="agentuse"><h2>What an agent can do with the {esc(short)} corpus</h2>{desc}
+    h2 = (f"What an agent can do with @{esc(login)}'s commit to {esc(short)}" if f.get("commit_only")
+          else f"What an agent can do with the {esc(short)} corpus")
+    return f"""<section class="agentuse"><h2>{h2}</h2>{desc}
 <ul>{uses}</ul>
 {f'<b>Example questions</b><ul>{qs}</ul>' if qs else ''}
 <div class="askhead"><span class="note">{esc(when)}</span><button data-copy="ask-{esc(login)}">{repo_pages.CTA}</button></div>
@@ -1172,11 +1204,11 @@ def corpus_section(logins, esc, people, upstream=(), curator=False, aggregate=0,
     parts = []
     if logins:
         tiles = "".join(_person_tile(l, people[l]["name"] or l, "@" + l, esc, rel) for l in logins)
-        parts.append(f'<h3>Contributors ({len(logins)})</h3><p class="note">People whose work this corpus selects or pins, each with their permission.</p>'
+        parts.append(f'<h3>Contributors ({len(logins)})</h3><p class="note">People whose work this corpus selects or pins, each with their permission. A contributor who does not own the repository is credited for their commit only.</p>'
                      f'<div class="wall">{tiles}</div>')
     if upstream:
-        tiles = "".join(_person_tile(l, l, "@" + l + " · upstream", esc, rel) for l in upstream)
-        parts.append(f'<h3>Upstream authors ({len(upstream)})</h3><p class="note">Owners of the pinned repositories, credited under each '
+        tiles = "".join(_person_tile(l, l, "@" + l + " · maintainer", esc, rel) for l in upstream)
+        parts.append(f'<h3>Maintained by</h3><p class="note">Owners of the pinned repositories, credited under each '
                      f'repository\'s licence. They have not signed up here; their pages are attribution.</p><div class="wall">{tiles}</div>')
     if aggregate:
         parts.append(f'<p class="note">This corpus pins repositories from {aggregate:,} upstream authors; each one is credited with its '

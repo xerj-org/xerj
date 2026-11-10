@@ -459,6 +459,30 @@ class ContributorVolumeTest(unittest.TestCase):
             "| [cat/three](https://github.com/cat/three) | @cat | [cccccccccc](u) only here | GPL-3.0 | 2026-10-06 |\n")
         return hub
 
+    def test_commit_author_is_credited_for_the_commit_not_the_repo(self):
+        # 2026-11-10 (owner): a commit author who does not own the repo gets a commit-only page, no repo stars,
+        # "maintained by @owner", and a clone prompt that checks out only the commit's directories
+        import contributors
+        with tempfile.TemporaryDirectory() as d:
+            hub = pathlib.Path(d); (hub / "candidates" / "authors").mkdir(parents=True)
+            row = {"corpus": "big--repo", "repo": "big/repo", "repo_url": "https://github.com/big/repo", "repo_stars": 85000,
+                   "contributor": {"login": "jay", "name": "Jay", "owns_repo": False}, "consent": {"at": "2026-10-14T10:00Z"},
+                   "contribution": {"commit": "c" * 40, "commit_url": "u", "title": "bound image context", "files": 4, "lines": 213},
+                   "licence": {"spdx": "MIT", "reviewed": True},
+                   "scope": {"maintainer": "big", "whole_repo": False, "paths": ["backend/agents", "backend/tools"]}}
+            (hub / "candidates" / "authors" / "CONTRIBUTORS.jsonl").write_text(json.dumps(row) + "\n")
+            people = contributors.load(hub, [])
+        v = contributors.volume(people["jay"])
+        self.assertTrue(v["commit_only"]); self.assertEqual(v["gh_stars"], 0)
+        html = contributors.person_body(people["jay"], gen.esc, set())
+        self.assertIn("Commit to", html); self.assertIn("maintained by", html); self.assertIn("backend/agents", html)
+        self.assertNotIn("85,000", html); self.assertNotIn("whole repository at the pinned commit", html)
+        f = {"who": "Jay (@jay)", "short": "repo", "login": "jay", "name": "Jay", "commit_only": True, "w": people["jay"]["work"]["c" * 40]}
+        self.assertEqual(contributors.seo_title(f), "Jay (@jay): big/repo commit | XERJ Hub")
+        import repo_pages
+        p = repo_pages.clone_prompt("big/repo", "https://github.com/big/repo", "c" * 40, "x", paths=["backend/agents"])
+        self.assertIn("sparse-checkout set --no-cone /backend/agents/", p)
+
     def test_one_person_per_login_across_corpora(self):
         import contributors
         with tempfile.TemporaryDirectory() as d:
