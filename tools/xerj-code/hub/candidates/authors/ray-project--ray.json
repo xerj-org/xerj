@@ -16,8 +16,33 @@
     "by": "author-consent",
     "at": "2026-10-17T07:51Z",
     "consent_receipt": "d750b90200cb",
-    "note": "Inclusion consented by the commit author by email at 2026-10-17T07:51Z (receipt d750b90200cb); selected commit 48894b0b6249: \"[Feat][Core/Auth] Enable token authentication for local clusters by d\u2026\". LICENSE file at pin 48894b0b6249 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-17T07:51Z (receipt d750b90200cb); selected commit 48894b0b6249: \"[Feat][Core/Auth] Enable token authentication for local clusters by d\u2026\". LICENSE file at pin 48894b0b6249 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @ray-project, who has not added it."
+   },
+   "paths": [
+    "cpp",
+    "doc/source/ray-security",
+    "python/ray/_common/tests",
+    "python/ray/_private",
+    "python/ray/air/tests",
+    "python/ray/autoscaler/v2/tests",
+    "python/ray/dag/tests",
+    "python/ray/dashboard/modules/data/tests",
+    "python/ray/dashboard/modules/event/tests",
+    "python/ray/dashboard/modules/job/tests",
+    "python/ray/dashboard/modules/node/tests",
+    "python/ray/dashboard/modules/reporter/tests",
+    "python/ray/dashboard/modules/serve/tests",
+    "python/ray/dashboard/modules/tests",
+    "python/ray/dashboard/tests",
+    "python/ray/llm/tests/serve/cpu/deployments",
+    "python/ray/scripts",
+    "python/ray/serve/_private",
+    "python/ray/serve/tests",
+    "python/ray/tests",
+    "python/ray/train/tests",
+    "python/ray/tune/tests",
+    "src/ray/rpc/authentication"
+   ]
   }
  ]
 }

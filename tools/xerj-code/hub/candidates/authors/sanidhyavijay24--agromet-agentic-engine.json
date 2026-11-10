@@ -1,0 +1,23 @@
+{
+ "corpus": "sanidhyavijay24--agromet-agentic-engine",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how Sanidhyavijay24/Agromet-Agentic-Engine implements it: Physics-guided 1km\u00b2 microclimate downscaling framework & autonomous Agentic AI agrometeorological reasoning system powered by Google Gemini  (selected work: frontend)",
+ "repos": [
+  {
+   "repo": "Agromet-Agentic-Engine",
+   "url": "https://github.com/Sanidhyavijay24/Agromet-Agentic-Engine",
+   "sha": "cf7354b39c4aa77cf7015cd16103f52783dcae35",
+   "licence": "MIT (LICENSE file at pin cf7354b39c4a, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-11T20:10Z",
+    "consent_receipt": "41487d4970c6",
+    "note": "Inclusion consented by the commit author by email at 2026-10-11T20:10Z (receipt 41487d4970c6); selected commit cf7354b39c4a: \"feat: Phase 1 design tokens, typography, and clean page shell\". LICENSE file at pin cf7354b39c4a detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

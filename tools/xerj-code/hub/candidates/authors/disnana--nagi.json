@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-10-26T21:47Z",
     "consent_receipt": "48adb9049459",
-    "note": "Inclusion consented by the commit author by email at 2026-10-26T21:47Z (receipt 48adb9049459); selected commit 02362c67ce02: \"JetBrains: \u9759\u304b\u306a\u89e3\u6790\u5931\u6557\u30fb\u7d44\u8fbc\u88dc\u5b8c\u30fb\u975e\u540c\u671fRun\u3092\u63a5\u7d9a\". LICENSE file at pin 02362c67ce02 detected as MIT by the GitHub licence API on 2026-10-26; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-26T21:47Z (receipt 48adb9049459); selected commit 02362c67ce02: \"JetBrains: \u9759\u304b\u306a\u89e3\u6790\u5931\u6557\u30fb\u7d44\u8fbc\u88dc\u5b8c\u30fb\u975e\u540c\u671fRun\u3092\u63a5\u7d9a\". LICENSE file at pin 02362c67ce02 detected as MIT by the GitHub licence API on 2026-10-26; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @disnana, who has not added it."
+   },
+   "paths": [
+    "compiler/src",
+    "compiler/tests",
+    "editors/jetbrains-nagi"
+   ]
   }
  ]
 }

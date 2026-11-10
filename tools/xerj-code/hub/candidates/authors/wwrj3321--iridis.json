@@ -16,8 +16,17 @@
     "by": "author-consent",
     "at": "2026-10-25T01:16Z",
     "consent_receipt": "7fe212132f70",
-    "note": "Inclusion consented by the commit author by email at 2026-10-25T01:16Z (receipt 7fe212132f70); selected commit 2549e9eed473: \"fix(engine): SM8750 \u4e0a MNN nativeLoad \u5d29\u6e83\u4e0d\u518d\u628a\u542f\u52a8\u5361\u6b7b\". LICENSE file at pin 2549e9eed473 detected as Apache-2.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-25T01:16Z (receipt 7fe212132f70); selected commit 2549e9eed473: \"fix(engine): SM8750 \u4e0a MNN nativeLoad \u5d29\u6e83\u4e0d\u518d\u628a\u542f\u52a8\u5361\u6b7b\". LICENSE file at pin 2549e9eed473 detected as Apache-2.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @WWRJ3321, who has not added it."
+   },
+   "paths": [
+    "app/src/full/java/com/iris/localai/engine/mnn",
+    "app/src/main/cpp/mnn",
+    "app/src/main/java/com/iris/localai/engine",
+    "app/src/main/java/com/iris/localai/ui/chat",
+    "app/src/main/java/com/iris/localai/util/diagnostics",
+    "app/src/test/java/com/iris/localai/engine",
+    "app/src/test/java/com/iris/localai/v1102"
+   ]
   }
  ]
 }

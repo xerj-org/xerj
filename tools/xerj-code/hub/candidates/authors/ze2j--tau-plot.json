@@ -16,8 +16,12 @@
     "by": "author-consent",
     "at": "2026-10-24T17:58Z",
     "consent_receipt": "62e858810f52",
-    "note": "Inclusion consented by the commit author by email at 2026-10-24T17:58Z (receipt 62e858810f52); selected commit 718fff4d66d3: \"Draw major grid lines for categorical x axes (#60)\". LICENSE file at pin 718fff4d66d3 detected as BSD-3-Clause by the GitHub licence API on 2026-10-26; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-24T17:58Z (receipt 62e858810f52); selected commit 718fff4d66d3: \"Draw major grid lines for categorical x axes (#60)\". LICENSE file at pin 718fff4d66d3 detected as BSD-3-Clause by the GitHub licence API on 2026-10-26; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @ze2j, who has not added it."
+   },
+   "paths": [
+    "addons/tau-plot/plot/xy",
+    "addons/tau-plot/tests/plot/grid_lines"
+   ]
   }
  ]
 }

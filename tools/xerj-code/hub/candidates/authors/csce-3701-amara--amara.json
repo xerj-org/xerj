@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-10-31T22:56Z",
     "consent_receipt": "8b09e52f4bde",
-    "note": "Inclusion consented by the commit author by email at 2026-10-31T22:56Z (receipt 8b09e52f4bde); selected commit 624f9ab4306f: \"AMARA-1299: Implement postgres services and transactions (#32)\". LICENSE file at pin 624f9ab4306f detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T22:56Z (receipt 8b09e52f4bde); selected commit 624f9ab4306f: \"AMARA-1299: Implement postgres services and transactions (#32)\". LICENSE file at pin 624f9ab4306f detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @CSCE-3701-Amara, who has not added it."
+   },
+   "paths": [
+    "cmd/api",
+    "cmd/worker",
+    "internal"
+   ]
   }
  ]
 }

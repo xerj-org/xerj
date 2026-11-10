@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-10-27T09:13Z",
     "consent_receipt": "bda39fa750c2",
-    "note": "Inclusion consented by the commit author by email at 2026-10-27T09:13Z (receipt bda39fa750c2); selected commit fa06a1bf396b: \"fix(files): honor PKHeX plaintext convention and safely normalize imp\u2026\". LICENSE file at pin fa06a1bf396b detected as AGPL-3.0 by the GitHub licence API on 2026-10-27; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-27T09:13Z (receipt bda39fa750c2); selected commit fa06a1bf396b: \"fix(files): honor PKHeX plaintext convention and safely normalize imp\u2026\". LICENSE file at pin fa06a1bf396b detected as AGPL-3.0 by the GitHub licence API on 2026-10-27; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @kiasta, who has not added it."
+   },
+   "paths": [
+    "src/Trainer",
+    "src/UI",
+    "tools"
+   ]
   }
  ]
 }

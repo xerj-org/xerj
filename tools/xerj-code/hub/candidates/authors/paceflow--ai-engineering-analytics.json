@@ -16,8 +16,17 @@
     "by": "author-consent",
     "at": "2026-10-13T19:57Z",
     "consent_receipt": "436b2e55610f",
-    "note": "Inclusion consented by the commit author by email at 2026-10-13T19:57Z (receipt 436b2e55610f); selected commit 2b6a9ade6461: \"Split VCA and Paceflow into separately published crates (#27)\". LICENSE file at pin 2b6a9ade6461 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-13T19:57Z (receipt 436b2e55610f); selected commit 2b6a9ade6461: \"Split VCA and Paceflow into separately published crates (#27)\". LICENSE file at pin 2b6a9ade6461 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @PaceFlow, who has not added it."
+   },
+   "paths": [
+    ".github/workflows",
+    "crates/paceflow",
+    "crates/vca",
+    "docs",
+    "packaging",
+    "src",
+    "tests"
+   ]
   }
  ]
 }

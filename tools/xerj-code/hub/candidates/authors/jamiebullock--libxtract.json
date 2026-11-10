@@ -1,0 +1,23 @@
+{
+ "corpus": "jamiebullock--libxtract",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on C queries this for how jamiebullock/LibXtract implements it: A portable C99 library of feature extraction functions for time series and other numeric data (selected work: tests, src, include)",
+ "repos": [
+  {
+   "repo": "LibXtract",
+   "url": "https://github.com/jamiebullock/LibXtract",
+   "sha": "a57daf96e92880991c44f56742c11c861401de12",
+   "licence": "Zlib (LICENSE file at pin a57daf96e928, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Zlib",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-17T08:01Z",
+    "consent_receipt": "ff262b2f22c9",
+    "note": "Inclusion consented by the commit author by email at 2026-10-17T08:01Z (receipt ff262b2f22c9); selected commit a57daf96e928: \"fix: index HPS harmonics by the spectrum's bin layout, then score in \u2026\". LICENSE file at pin a57daf96e928 detected as Zlib by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

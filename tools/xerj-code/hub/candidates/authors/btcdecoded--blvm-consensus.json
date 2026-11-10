@@ -16,8 +16,12 @@
     "by": "author-consent",
     "at": "2026-10-18T15:49Z",
     "consent_receipt": "ed4cce2bb1e7",
-    "note": "Inclusion consented by the commit author by email at 2026-10-18T15:49Z (receipt ed4cce2bb1e7); selected commit bea14b3591fb: \"fix(consensus): reject a non-push P2SH scriptSig and an uncompressed \u2026\". LICENSE file at pin bea14b3591fb detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-18T15:49Z (receipt ed4cce2bb1e7); selected commit bea14b3591fb: \"fix(consensus): reject a non-push P2SH scriptSig and an uncompressed \u2026\". LICENSE file at pin bea14b3591fb detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @BTCDecoded, who has not added it."
+   },
+   "paths": [
+    "src",
+    "tests"
+   ]
   }
  ]
 }

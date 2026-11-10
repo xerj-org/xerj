@@ -16,8 +16,12 @@
     "by": "author-consent",
     "at": "2026-10-22T19:50Z",
     "consent_receipt": "6beeea26bdcf",
-    "note": "Inclusion consented by the commit author by email at 2026-10-22T19:50Z (receipt 6beeea26bdcf); selected commit fc80a9abe283: \"[#297] Add [web]download to gate model downloads in the web console\". LICENSE file at pin fc80a9abe283 detected as GPL-3.0 by the GitHub licence API on 2026-10-25; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-22T19:50Z (receipt 6beeea26bdcf); selected commit fc80a9abe283: \"[#297] Add [web]download to gate model downloads in the web console\". LICENSE file at pin fc80a9abe283 detected as GPL-3.0 by the GitHub licence API on 2026-10-25; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @mnemosyne-systems, who has not added it."
+   },
+   "paths": [
+    "doc",
+    "src/bin/orangu-server"
+   ]
   }
  ]
 }

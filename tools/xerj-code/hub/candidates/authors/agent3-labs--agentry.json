@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-10-27T22:16Z",
     "consent_receipt": "e81e01884f16",
-    "note": "Inclusion consented by the commit author by email at 2026-10-27T22:16Z (receipt e81e01884f16); selected commit 3733890dfb2d: \"build(desktop): make desktop packages the app for Linux and Windows i\u2026\". LICENSE file at pin 3733890dfb2d detected as Apache-2.0 by the GitHub licence API on 2026-10-27; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-27T22:16Z (receipt e81e01884f16); selected commit 3733890dfb2d: \"build(desktop): make desktop packages the app for Linux and Windows i\u2026\". LICENSE file at pin 3733890dfb2d detected as Apache-2.0 by the GitHub licence API on 2026-10-27; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @agent3-labs, who has not added it."
+   },
+   "paths": [
+    "docs",
+    "packaging",
+    "spec/non-functional"
+   ]
   }
  ]
 }

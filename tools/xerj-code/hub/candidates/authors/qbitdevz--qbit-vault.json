@@ -16,8 +16,15 @@
     "by": "author-consent",
     "at": "2026-11-10T10:45Z",
     "consent_receipt": "9dd4236fbfd5",
-    "note": "Inclusion consented by the commit author by email at 2026-11-10T10:45Z (receipt 9dd4236fbfd5); selected commit 4071677bc0a7: \"fix(sync): revoked devices rejoin, confirmation-code prompt, last see\u2026\". LICENSE file at pin 4071677bc0a7 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T10:45Z (receipt 9dd4236fbfd5); selected commit 4071677bc0a7: \"fix(sync): revoked devices rejoin, confirmation-code prompt, last see\u2026\". LICENSE file at pin 4071677bc0a7 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @qbitdevz, who has not added it."
+   },
+   "paths": [
+    "docs",
+    "internal/cli",
+    "internal/prompt",
+    "internal/vault",
+    "odd/tasks"
+   ]
   }
  ]
 }

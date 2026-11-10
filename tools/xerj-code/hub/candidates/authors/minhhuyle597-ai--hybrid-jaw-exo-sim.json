@@ -16,8 +16,14 @@
     "by": "author-consent",
     "at": "2026-10-27T23:26Z",
     "consent_receipt": "edc2be5f3e8d",
-    "note": "Inclusion consented by the commit author by email at 2026-10-27T23:26Z (receipt edc2be5f3e8d); selected commit d3bb5b33fc26: \"Add evidence-linked textbook navigation and verified pages\". LICENSE file at pin d3bb5b33fc26 detected as Apache-2.0 by the GitHub licence API on 2026-10-28; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-27T23:26Z (receipt edc2be5f3e8d); selected commit d3bb5b33fc26: \"Add evidence-linked textbook navigation and verified pages\". LICENSE file at pin d3bb5b33fc26 detected as Apache-2.0 by the GitHub licence API on 2026-10-28; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @minhhuyle597-ai, who has not added it."
+   },
+   "paths": [
+    "docs",
+    "public/data",
+    "src",
+    "tests"
+   ]
   }
  ]
 }

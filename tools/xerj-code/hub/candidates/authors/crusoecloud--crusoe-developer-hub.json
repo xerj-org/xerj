@@ -16,8 +16,11 @@
     "by": "author-consent",
     "at": "2026-10-13T03:46Z",
     "consent_receipt": "b57c7085ce59",
-    "note": "Inclusion consented by the commit author by email at 2026-10-13T03:46Z (receipt b57c7085ce59); selected commit 9bf31c571373: \"updated the gpu engg code for vector add\". LICENSE file at pin 9bf31c571373 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-13T03:46Z (receipt b57c7085ce59); selected commit 9bf31c571373: \"updated the gpu engg code for vector add\". LICENSE file at pin 9bf31c571373 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @crusoecloud, who has not added it."
+   },
+   "paths": [
+    "foundations/gpu-engineering"
+   ]
   }
  ]
 }

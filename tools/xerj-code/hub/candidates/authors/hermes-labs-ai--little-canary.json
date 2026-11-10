@@ -16,8 +16,12 @@
     "by": "author-consent",
     "at": "2026-10-24T21:19Z",
     "consent_receipt": "c52b9cebfdc4",
-    "note": "Inclusion consented by the commit author by email at 2026-10-24T21:19Z (receipt c52b9cebfdc4); selected commit 6038b1011bef: \"Add FastAPI and LangChain integration examples\". LICENSE file at pin 6038b1011bef detected as Apache-2.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-24T21:19Z (receipt c52b9cebfdc4); selected commit 6038b1011bef: \"Add FastAPI and LangChain integration examples\". LICENSE file at pin 6038b1011bef detected as Apache-2.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @hermes-labs-ai, who has not added it."
+   },
+   "paths": [
+    "examples",
+    "tests"
+   ]
   }
  ]
 }

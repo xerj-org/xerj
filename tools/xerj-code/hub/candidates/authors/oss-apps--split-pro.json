@@ -1,0 +1,33 @@
+{
+ "corpus": "oss-apps--split-pro",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on expense-manager, expense-tracker, split queries this for how oss-apps/split-pro implements it: Open source alternative to Splitwise (selected work: src/tests, src/components, src/pages)",
+ "repos": [
+  {
+   "repo": "split-pro",
+   "url": "https://github.com/oss-apps/split-pro",
+   "sha": "16b08ccc86234508b22cfaf5a18e983e3e9b7c45",
+   "licence": "MIT (LICENSE file at pin 16b08ccc8623, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-14T08:45Z",
+    "consent_receipt": "4c8d31103b6c",
+    "note": "Inclusion consented by the commit author by email at 2026-10-14T08:45Z (receipt 4c8d31103b6c); selected commit 16b08ccc8623: \"Enable ICU interpolation while preserving Weblate catalogs (#457)\". LICENSE file at pin 16b08ccc8623 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @oss-apps, who has not added it."
+   },
+   "paths": [
+    "docs",
+    "prisma",
+    "public/locales",
+    "src/components",
+    "src/dummies",
+    "src/pages",
+    "src/tests",
+    "src/utils"
+   ]
+  }
+ ]
+}

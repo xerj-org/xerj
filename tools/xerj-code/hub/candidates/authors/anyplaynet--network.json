@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-10-28T03:51Z",
     "consent_receipt": "a82e6a61bb0a",
-    "note": "Inclusion consented by the commit author by email at 2026-10-28T03:51Z (receipt a82e6a61bb0a); selected commit 73ffcafde730: \"feat(net): cap payload accepted before bridge hello (#111)\". LICENSE at pin 73ffcafde730: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-28T03:51Z (receipt a82e6a61bb0a); selected commit 73ffcafde730: \"feat(net): cap payload accepted before bridge hello (#111)\". LICENSE at pin 73ffcafde730: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @anyplaynet, who has not added it."
+   },
+   "paths": [
+    "crates/bridge-protocol/src",
+    "crates/net/src",
+    "spec"
+   ]
   }
  ]
 }

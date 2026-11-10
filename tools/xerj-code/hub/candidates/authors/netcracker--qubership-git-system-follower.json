@@ -16,8 +16,17 @@
     "by": "author-consent",
     "at": "2026-10-12T09:12Z",
     "consent_receipt": "d82477f19bca",
-    "note": "Inclusion consented by the commit author by email at 2026-10-12T09:12Z (receipt d82477f19bca); selected commit 7776954d27b6: \"feat: template cli, static files (#99)\". LICENSE file at pin 7776954d27b6 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-12T09:12Z (receipt d82477f19bca); selected commit 7776954d27b6: \"feat: template cli, static files (#99)\". LICENSE file at pin 7776954d27b6 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Netcracker, who has not added it."
+   },
+   "paths": [
+    "docs/api_reference/develop_interface",
+    "docs/cli_reference",
+    "docs/concepts",
+    "docs/how_to",
+    "docs/lifecycle",
+    "git_system_follower",
+    "tests/unit"
+   ]
   }
  ]
 }

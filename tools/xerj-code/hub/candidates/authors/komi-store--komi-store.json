@@ -16,8 +16,28 @@
     "by": "author-consent",
     "at": "2026-10-10T02:38Z",
     "consent_receipt": "79653f9e7fdd",
-    "note": "Inclusion consented by the commit author by email at 2026-10-10T02:38Z (receipt 79653f9e7fdd); selected commit a628f6bfa01e: \"feat(details): open on a release this device can install, show every \u2026\". LICENSE file at pin a628f6bfa01e detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-10T02:38Z (receipt 79653f9e7fdd); selected commit a628f6bfa01e: \"feat(details): open on a release this device can install, show every \u2026\". LICENSE file at pin a628f6bfa01e detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @komi-store, who has not added it."
+   },
+   "paths": [
+    "composeApp/src/commonMain/kotlin/zed/rainxch/githubstore/app/navigation",
+    "core/domain/src/commonMain/kotlin/zed/rainxch/core/domain/utils",
+    "core/domain/src/commonTest/kotlin/zed/rainxch/core/domain/utils",
+    "core/presentation/src/commonMain/composeResources/values",
+    "core/presentation/src/commonMain/composeResources/values-ar",
+    "core/presentation/src/commonMain/composeResources/values-bn",
+    "core/presentation/src/commonMain/composeResources/values-es",
+    "core/presentation/src/commonMain/composeResources/values-fr",
+    "core/presentation/src/commonMain/composeResources/values-hi",
+    "core/presentation/src/commonMain/composeResources/values-it",
+    "core/presentation/src/commonMain/composeResources/values-ja",
+    "core/presentation/src/commonMain/composeResources/values-ko",
+    "core/presentation/src/commonMain/composeResources/values-pl",
+    "core/presentation/src/commonMain/composeResources/values-ru",
+    "core/presentation/src/commonMain/composeResources/values-tr",
+    "core/presentation/src/commonMain/composeResources/values-zh-rCN",
+    "core/presentation/src/commonMain/composeResources/values-zh-rTW",
+    "feature/details"
+   ]
   }
  ]
 }

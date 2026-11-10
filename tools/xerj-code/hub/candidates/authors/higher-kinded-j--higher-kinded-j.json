@@ -16,8 +16,38 @@
     "by": "author-consent",
     "at": "2026-10-23T23:30Z",
     "consent_receipt": "71215fc8143c",
-    "note": "Inclusion consented by the commit author by email at 2026-10-23T23:30Z (receipt 71215fc8143c); selected commit ac422824b77e: \"Give a field a navigator wherever its Focus method focuses on a record\". LICENSE file at pin ac422824b77e detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-23T23:30Z (receipt 71215fc8143c); selected commit ac422824b77e: \"Give a field a navigator wherever its Focus method focuses on a record\". LICENSE file at pin ac422824b77e detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @higher-kinded-j, who has not added it."
+   },
+   "paths": [
+    ".claude/skills/book-authoring/reference",
+    ".claude/skills/hkj-optics",
+    "hkj-annotations/src/main/java/org/higherkindedj/optics/annotations",
+    "hkj-book/src/glossary",
+    "hkj-book/src/optics",
+    "hkj-book/src/release-history",
+    "hkj-book/src/tutorials/optics",
+    "hkj-book/theme",
+    "hkj-examples/src/main/java/org/higherkindedj/example/book/optics/capstone",
+    "hkj-examples/src/main/java/org/higherkindedj/example/book/optics/comingfrom",
+    "hkj-examples/src/main/java/org/higherkindedj/example/book/optics/cookbook",
+    "hkj-examples/src/main/java/org/higherkindedj/example/book/optics/fluent",
+    "hkj-examples/src/main/java/org/higherkindedj/example/book/optics/focus",
+    "hkj-examples/src/main/java/org/higherkindedj/example/book/optics/groups",
+    "hkj-examples/src/main/java/org/higherkindedj/example/book/optics/intro",
+    "hkj-examples/src/main/java/org/higherkindedj/example/book/optics/navigation",
+    "hkj-examples/src/main/java/org/higherkindedj/example/book/optics/parts",
+    "hkj-examples/src/main/java/org/higherkindedj/example/book/optics/quickstart",
+    "hkj-examples/src/main/java/org/higherkindedj/example/book/optics/selfcheck",
+    "hkj-examples/src/test/java/org/higherkindedj/example/book/optics/comingfrom",
+    "hkj-examples/src/test/java/org/higherkindedj/example/book/optics/focus",
+    "hkj-examples/src/test/java/org/higherkindedj/example/book/optics/navigation",
+    "hkj-examples/src/test/java/org/higherkindedj/tutorial/optics",
+    "hkj-examples/src/test/java/org/higherkindedj/tutorial/solutions/optics",
+    "hkj-examples/src/test/resources/fixtures",
+    "hkj-processor/src/main/java/org/higherkindedj/optics/processing",
+    "hkj-processor/src/nullnessTest/java/org/higherkindedj/optics/processing",
+    "hkj-processor/src/test/java/org/higherkindedj/optics/processing"
+   ]
   }
  ]
 }

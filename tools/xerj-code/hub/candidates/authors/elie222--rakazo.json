@@ -16,8 +16,29 @@
     "by": "author-consent",
     "at": "2026-10-12T05:54Z",
     "consent_receipt": "95bb7b192736",
-    "note": "Inclusion consented by the commit author by email at 2026-10-12T05:54Z (receipt 95bb7b192736); selected commit 45a52aab4714: \"feat(web): add Compact and Comfortable sidebar density (#1327)\". LICENSE file at pin 45a52aab4714 detected as Apache-2.0 by the GitHub licence API on 2026-10-28; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-12T05:54Z (receipt 95bb7b192736); selected commit 45a52aab4714: \"feat(web): add Compact and Comfortable sidebar density (#1327)\". LICENSE file at pin 45a52aab4714 detected as Apache-2.0 by the GitHub licence API on 2026-10-28; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @elie222, who has not added it."
+   },
+   "paths": [
+    "apps/api/src",
+    "apps/mobile/lib",
+    "apps/web/e2e",
+    "apps/web/src/lib",
+    "apps/web/src/locales/de",
+    "apps/web/src/locales/en",
+    "apps/web/src/locales/es",
+    "apps/web/src/locales/fr",
+    "apps/web/src/locales/hi",
+    "apps/web/src/locales/ko",
+    "apps/web/src/locales/pt-BR",
+    "apps/web/src/locales/ru",
+    "apps/web/src/locales/tr",
+    "apps/web/src/locales/zh-CN",
+    "apps/web/src/pages",
+    "apps/www/e2e",
+    "apps/www/src/components",
+    "packages/contracts/src",
+    "packages/db/src"
+   ]
   }
  ]
 }

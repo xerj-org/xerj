@@ -16,8 +16,11 @@
     "by": "author-consent",
     "at": "2026-10-23T06:48Z",
     "consent_receipt": "9364e1ce968d",
-    "note": "Inclusion consented by the commit author by email at 2026-10-23T06:48Z (receipt 9364e1ce968d); selected commit d0b2b404e07a: \"feat (frontend): add tests\". LICENSE file at pin d0b2b404e07a detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-23T06:48Z (receipt 9364e1ce968d); selected commit d0b2b404e07a: \"feat (frontend): add tests\". LICENSE file at pin d0b2b404e07a detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @codeurjc-students, who has not added it."
+   },
+   "paths": [
+    "frontend"
+   ]
   }
  ]
 }

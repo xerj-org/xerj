@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-10-15T09:04Z",
     "consent_receipt": "53c85ccfdcf8",
-    "note": "Inclusion consented by the commit author by email at 2026-10-15T09:04Z (receipt 53c85ccfdcf8); selected commit 53e4b340f9ce: \"[engine] add a CI Benchmark that measures base and head Go Race side \u2026\". LICENSE file at pin 53e4b340f9ce detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-15T09:04Z (receipt 53c85ccfdcf8); selected commit 53e4b340f9ce: \"[engine] add a CI Benchmark that measures base and head Go Race side \u2026\". LICENSE file at pin 53e4b340f9ce detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @tetral-ai, who has not added it."
+   },
+   "paths": [
+    ".github/workflows",
+    "docs",
+    "internal/testinfra"
+   ]
   }
  ]
 }

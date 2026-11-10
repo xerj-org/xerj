@@ -16,8 +16,17 @@
     "by": "author-consent",
     "at": "2026-10-16T22:45Z",
     "consent_receipt": "22aea3644a54",
-    "note": "Inclusion consented by the commit author by email at 2026-10-16T22:45Z (receipt 22aea3644a54); selected commit d5918b3773a2: \"feat: notebooks, a Jupyter kernel and the %%telvax magic (#100)\". LICENSE at pin d5918b3773a2: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-16T22:45Z (receipt 22aea3644a54); selected commit d5918b3773a2: \"feat: notebooks, a Jupyter kernel and the %%telvax magic (#100)\". LICENSE at pin d5918b3773a2: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @telvax, who has not added it."
+   },
+   "paths": [
+    ".github/workflows",
+    "docs/design",
+    "python",
+    "runtime/src",
+    "runtime/tests",
+    "tools/repl/src",
+    "tools/repl/tests"
+   ]
   }
  ]
 }

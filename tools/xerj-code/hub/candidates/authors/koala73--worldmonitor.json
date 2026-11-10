@@ -16,8 +16,17 @@
     "by": "author-consent",
     "at": "2026-10-18T08:00Z",
     "consent_receipt": "4cfdcf64a295",
-    "note": "Inclusion consented by the commit author by email at 2026-10-18T08:00Z (receipt 4cfdcf64a295); selected commit f32e4dff321d: \"feat(markets): SEC Material Events panel \u2014 first dashboard surface fo\u2026\". LICENSE file at pin f32e4dff321d detected as AGPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-18T08:00Z (receipt 4cfdcf64a295); selected commit f32e4dff321d: \"feat(markets): SEC Material Events panel \u2014 first dashboard surface fo\u2026\". LICENSE file at pin f32e4dff321d detected as AGPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @koala73, who has not added it."
+   },
+   "paths": [
+    "api",
+    "pro-test/src/generated",
+    "public",
+    "scripts/shared",
+    "shared",
+    "src",
+    "tests"
+   ]
   }
  ]
 }

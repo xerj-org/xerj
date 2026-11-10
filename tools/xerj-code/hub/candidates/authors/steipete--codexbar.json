@@ -16,8 +16,18 @@
     "by": "author-consent",
     "at": "2026-10-24T02:22Z",
     "consent_receipt": "ba9385af8e98",
-    "note": "Inclusion consented by the commit author by email at 2026-10-24T02:22Z (receipt ba9385af8e98); selected commit 0703a0c015ff: \"feat(providers): add Trae CN usage (#4682)\". LICENSE file at pin 0703a0c015ff detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-24T02:22Z (receipt ba9385af8e98); selected commit 0703a0c015ff: \"feat(providers): add Trae CN usage (#4682)\". LICENSE file at pin 0703a0c015ff detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @steipete, who has not added it."
+   },
+   "paths": [
+    "Sources/CodexBar",
+    "Sources/CodexBarCLI",
+    "Sources/CodexBarCore/Providers",
+    "Sources/CodexBarCore/Resources",
+    "Sources/CodexBarCore/Sync",
+    "Sources/CodexBarWidget",
+    "Tests/CodexBarTests",
+    "docs"
+   ]
   }
  ]
 }

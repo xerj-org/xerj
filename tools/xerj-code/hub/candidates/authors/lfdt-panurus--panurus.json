@@ -16,8 +16,20 @@
     "by": "author-consent",
     "at": "2026-10-14T10:03Z",
     "consent_receipt": "93bc667b5d9d",
-    "note": "Inclusion consented by the commit author by email at 2026-10-14T10:03Z (receipt 93bc667b5d9d); selected commit 23b63ff8a836: \"perf(storage): index tokens.amount and offer a bounded spendable query\". LICENSE file at pin 23b63ff8a836 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-14T10:03Z (receipt 93bc667b5d9d); selected commit 23b63ff8a836: \"perf(storage): index tokens.amount and offer a bounded spendable query\". LICENSE file at pin 23b63ff8a836 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @LFDT-Panurus, who has not added it."
+   },
+   "paths": [
+    "docs",
+    "token/core/fabtoken/v1/driver",
+    "token/core/zkatdlog/nogh/v1",
+    "token/services/metricsdoc",
+    "token/services/observability",
+    "token/services/storage/db/dbtest",
+    "token/services/storage/db/driver",
+    "token/services/storage/db/sql/common",
+    "token/services/storage/db/sql/postgres",
+    "token/services/tokens/mock"
+   ]
   }
  ]
 }

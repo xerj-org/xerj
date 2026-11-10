@@ -16,8 +16,27 @@
     "by": "author-consent",
     "at": "2026-10-19T14:15Z",
     "consent_receipt": "0fbe8aa7f45f",
-    "note": "Inclusion consented by the commit author by email at 2026-10-19T14:15Z (receipt 0fbe8aa7f45f); selected commit 08a46276ddac: \"fix(review): trusted-association gate for review markers; case-fold w\u2026\". LICENSE file at pin 08a46276ddac detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-19T14:15Z (receipt 0fbe8aa7f45f); selected commit 08a46276ddac: \"fix(review): trusted-association gate for review markers; case-fold w\u2026\". LICENSE file at pin 08a46276ddac detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @NexaDuo, who has not added it."
+   },
+   "paths": [
+    ".github/workflows",
+    "core/agents",
+    "core/scripts",
+    "core/skills/tech-lead",
+    "harnesses/antigravity/marc/scripts",
+    "harnesses/antigravity/marc/skills/review",
+    "harnesses/antigravity/marc/skills/security",
+    "harnesses/antigravity/marc/skills/tech-lead",
+    "harnesses/claude-code/marc/agents",
+    "harnesses/claude-code/marc/scripts",
+    "harnesses/claude-code/marc/skills/tech-lead",
+    "harnesses/codex/marc/agents",
+    "harnesses/codex/marc/scripts",
+    "harnesses/codex/marc/skills/tech-lead",
+    "harnesses/copilot/marc/agents",
+    "harnesses/copilot/marc/scripts",
+    "harnesses/copilot/marc/skills/tech-lead"
+   ]
   }
  ]
 }

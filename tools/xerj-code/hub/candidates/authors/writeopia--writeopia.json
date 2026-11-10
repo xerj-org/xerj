@@ -16,8 +16,31 @@
     "by": "author-consent",
     "at": "2026-10-11T13:29Z",
     "consent_receipt": "8e12f07c0152",
-    "note": "Inclusion consented by the commit author by email at 2026-10-11T13:29Z (receipt 8e12f07c0152); selected commit 1bc865ca3071: \"Showing presentations in search (#883)\". LICENSE file at pin 1bc865ca3071 detected as AGPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-11T13:29Z (receipt 8e12f07c0152); selected commit 1bc865ca3071: \"Showing presentations in search (#883)\". LICENSE file at pin 1bc865ca3071 detected as AGPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Writeopia, who has not added it."
+   },
+   "paths": [
+    "application/common_flows/wide_screen_common/src/commonMain/kotlin/io/writeopia/notes/desktop/components",
+    "application/core/navigation/src/commonMain/kotlin/io/writeopia/navigation",
+    "application/core/persistence_sqldelight/src/commonMain/sqldelight/io/writeopia/app/sql",
+    "application/features/editor/src/commonMain/kotlin/io/writeopia/editor/features/editor/viewmodel",
+    "application/features/editor/src/commonMain/kotlin/io/writeopia/editor/features/presentation/repository",
+    "application/features/editor/src/commonMain/kotlin/io/writeopia/editor/features/presentation/viewmodel",
+    "application/features/editor/src/commonMain/kotlin/io/writeopia/editor/navigation",
+    "application/features/editor/src/jvmTest/kotlin/io/writeopia/editor/features/presentation",
+    "application/features/search/src/commonMain/kotlin/io/writeopia/features/search",
+    "backend/core/database/src/main/sqldelight/io/writeopia/sql",
+    "backend/documents/documents/src/main/java/io/writeopia/api/documents/documents/repository",
+    "backend/documents/documents/src/main/java/io/writeopia/api/documents/routing",
+    "backend/documents/documents/src/test/kotlin/io/writeopia/api/documents/documents/repository",
+    "backend/gateway/src/test/kotlin/io/writeopia/api/gateway",
+    "iosAppNat/Packages/Core/Sources/WrData",
+    "iosAppNat/Packages/Core/Sources/WrModels",
+    "iosAppNat/Packages/Core/Sources/WrSession",
+    "iosAppNat/Packages/Core/Tests/WrDataTests",
+    "iosAppNat/Packages/Features/Sources/DocumentsFeature",
+    "iosAppNat/Packages/Features/Sources/SearchFeature",
+    "plugins/writeopia_serialization/src/commonMain/kotlin/io/writeopia/sdk/serialization/response"
+   ]
   }
  ]
 }

@@ -16,8 +16,12 @@
     "by": "author-consent",
     "at": "2026-10-22T13:37Z",
     "consent_receipt": "8e636f4d3b44",
-    "note": "Inclusion consented by the commit author by email at 2026-10-22T13:37Z (receipt 8e636f4d3b44); selected commit d9057bfd38f1: \"feat: draw mermaid diagrams in markdown files\". LICENSE file at pin d9057bfd38f1 detected as MIT by the GitHub licence API on 2026-10-28; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-22T13:37Z (receipt 8e636f4d3b44); selected commit d9057bfd38f1: \"feat: draw mermaid diagrams in markdown files\". LICENSE file at pin d9057bfd38f1 detected as MIT by the GitHub licence API on 2026-10-28; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @DeepanshuMishraa, who has not added it."
+   },
+   "paths": [
+    "src",
+    "vendor/pele"
+   ]
   }
  ]
 }

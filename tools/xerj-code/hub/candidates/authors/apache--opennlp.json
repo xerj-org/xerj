@@ -16,8 +16,23 @@
     "by": "author-consent",
     "at": "2026-10-10T09:33Z",
     "consent_receipt": "6ca41985eaa1",
-    "note": "Inclusion consented by the commit author by email at 2026-10-10T09:33Z (receipt 6ca41985eaa1); selected commit deb80bae8a07: \"OPENNLP-547: Add a transition-based dependency parser component (#1236)\". LICENSE file at pin deb80bae8a07 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-10T09:33Z (receipt 6ca41985eaa1); selected commit deb80bae8a07: \"OPENNLP-547: Add a transition-based dependency parser component (#1236)\". LICENSE file at pin deb80bae8a07 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @apache, who has not added it."
+   },
+   "paths": [
+    "opennlp-api/src/main/java/opennlp/tools/depparse",
+    "opennlp-api/src/main/java/opennlp/tools/util",
+    "opennlp-api/src/test/java/opennlp/tools/depparse",
+    "opennlp-api/src/test/java/opennlp/tools/util",
+    "opennlp-core/opennlp-cli/src/main/java/opennlp/tools/cmdline",
+    "opennlp-core/opennlp-cli/src/test/java/opennlp/tools/cmdline/depparse",
+    "opennlp-core/opennlp-formats/src/main/java/opennlp/tools/cmdline",
+    "opennlp-core/opennlp-formats/src/main/java/opennlp/tools/formats/conllu",
+    "opennlp-core/opennlp-formats/src/test/java/opennlp/tools/formats/conllu",
+    "opennlp-core/opennlp-runtime/src/main/java/opennlp/tools/depparse",
+    "opennlp-core/opennlp-runtime/src/test/java/opennlp/tools/depparse",
+    "opennlp-docs/src/docbkx",
+    "opennlp-eval-tests/src/test/java/opennlp/tools/eval"
+   ]
   }
  ]
 }

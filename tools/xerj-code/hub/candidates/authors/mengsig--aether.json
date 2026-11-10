@@ -16,8 +16,27 @@
     "by": "author-consent",
     "at": "2026-10-16T19:50Z",
     "consent_receipt": "d006f9d56bb3",
-    "note": "Inclusion consented by the commit author by email at 2026-10-16T19:50Z (receipt d006f9d56bb3); selected commit 0df602a26ba8: \"feat(providers): expose per-provider quota headroom with reset times \u2026\". LICENSE file at pin 0df602a26ba8 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-16T19:50Z (receipt d006f9d56bb3); selected commit 0df602a26ba8: \"feat(providers): expose per-provider quota headroom with reset times \u2026\". LICENSE file at pin 0df602a26ba8 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @mengsig, who has not added it."
+   },
+   "paths": [
+    "clients",
+    "crates/aether-core/src",
+    "crates/aether-daemon/src/connection",
+    "crates/aether-engine/src/claude_code/tests",
+    "crates/aether-engine/src/codex_app/tests",
+    "crates/aether-engine/tests/fixtures",
+    "crates/aether-model/src",
+    "crates/aether-protocol/src",
+    "crates/aether-runtime/src",
+    "crates/aether-runtime/tests",
+    "crates/aether-tools/src",
+    "crates/aether-tui/src/app/board",
+    "crates/aether-tui/src/app/tests",
+    "crates/aether-tui/src/app/transcript",
+    "crates/aether-tui/src/ui/views",
+    "crates/aether/src/cli",
+    "docs"
+   ]
   }
  ]
 }

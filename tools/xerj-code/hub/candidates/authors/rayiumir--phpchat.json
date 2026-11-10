@@ -1,0 +1,23 @@
+{
+ "corpus": "rayiumir--phpchat",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on chat, chat-app, chat-application queries this for how Rayiumir/phpchat implements it: A simple chat application written in PHP (selected work: js, css, the project root)",
+ "repos": [
+  {
+   "repo": "phpchat",
+   "url": "https://github.com/Rayiumir/phpchat",
+   "sha": "8e7e8af7c751127593201770a86770e36c3824c9",
+   "licence": "MIT (LICENSE file at pin 8e7e8af7c751, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-17T00:07Z",
+    "consent_receipt": "5070e774ca06",
+    "note": "Inclusion consented by the commit author by email at 2026-10-17T00:07Z (receipt 5070e774ca06); selected commit 8e7e8af7c751: \"Add reply to messages and @mention users with notifications\". LICENSE file at pin 8e7e8af7c751 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -16,8 +16,12 @@
     "by": "author-consent",
     "at": "2026-10-19T22:01Z",
     "consent_receipt": "9f569e75fceb",
-    "note": "Inclusion consented by the commit author by email at 2026-10-19T22:01Z (receipt 9f569e75fceb); selected commit 4b868aa1aed4: \"Serialize concurrent writes to the same map\". LICENSE file at pin 4b868aa1aed4 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-19T22:01Z (receipt 9f569e75fceb); selected commit 4b868aa1aed4: \"Serialize concurrent writes to the same map\". LICENSE file at pin 4b868aa1aed4 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @mab-go, who has not added it."
+   },
+   "paths": [
+    "internal/server/handler",
+    "internal/xmind"
+   ]
   }
  ]
 }

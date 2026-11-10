@@ -1,0 +1,26 @@
+{
+ "corpus": "davitekk--classeviva-ha",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on classeviva, classeviva-api, hacs queries this for how Davitekk/classeviva-ha implements it: Classeviva per Home Assistant (selected work: custom_components)",
+ "repos": [
+  {
+   "repo": "classeviva-ha",
+   "url": "https://github.com/Davitekk/classeviva-ha",
+   "sha": "13ca8f58b5345d041bbbc4e7b73505de99cc4bc2",
+   "licence": "MIT (LICENSE file at pin 13ca8f58b534, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-15T08:16Z",
+    "consent_receipt": "7b8a1cdbad03",
+    "note": "Inclusion consented by the commit author by email at 2026-10-15T08:16Z (receipt 7b8a1cdbad03); selected commit 13ca8f58b534: \"Expose year-scoped data to Lovelace card\". LICENSE file at pin 13ca8f58b534 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Davitekk, who has not added it."
+   },
+   "paths": [
+    "custom_components/classeviva"
+   ]
+  }
+ ]
+}

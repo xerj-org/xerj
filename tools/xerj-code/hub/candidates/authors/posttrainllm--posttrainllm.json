@@ -16,8 +16,11 @@
     "by": "author-consent",
     "at": "2026-10-10T12:10Z",
     "consent_receipt": "f572ac6b5c75",
-    "note": "Inclusion consented by the commit author by email at 2026-10-10T12:10Z (receipt f572ac6b5c75); selected commit de502abc9d10: \"refactor static Astro qualification guards\". LICENSE file at pin de502abc9d10 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-10T12:10Z (receipt f572ac6b5c75); selected commit de502abc9d10: \"refactor static Astro qualification guards\". LICENSE file at pin de502abc9d10 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @PostTrainLLM, who has not added it."
+   },
+   "paths": [
+    "scripts/quality"
+   ]
   }
  ]
 }

@@ -16,8 +16,24 @@
     "by": "author-consent",
     "at": "2026-10-15T06:25Z",
     "consent_receipt": "b396901807f0",
-    "note": "Inclusion consented by the commit author by email at 2026-10-15T06:25Z (receipt b396901807f0); selected commit e4eb6ebcd9de: \"fix: center card previews, preload Pok\u00e9dex cards and start Elo at 100\u2026\". LICENSE file at pin e4eb6ebcd9de detected as MIT by the GitHub licence API on 2026-10-28; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-15T06:25Z (receipt b396901807f0); selected commit e4eb6ebcd9de: \"fix: center card previews, preload Pok\u00e9dex cards and start Elo at 100\u2026\". LICENSE file at pin e4eb6ebcd9de detected as MIT by the GitHub licence API on 2026-10-28; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Westerbay, who has not added it."
+   },
+   "paths": [
+    "apps/api/prisma",
+    "apps/api/src/scripts",
+    "apps/api/tests/pvp",
+    "apps/web/messages",
+    "apps/web/src/features/dashboard/components",
+    "apps/web/src/features/leaderboard/hooks",
+    "apps/web/src/features/leaderboard/lib",
+    "apps/web/src/features/pokedex/components",
+    "apps/web/src/features/pokedex/hooks",
+    "apps/web/src/features/pokedex/lib",
+    "apps/web/src/lib/queries",
+    "apps/web/src/styles",
+    "docs",
+    "packages/shared/src"
+   ]
   }
  ]
 }

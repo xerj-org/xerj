@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-10-25T01:08Z",
     "consent_receipt": "13e0dc522180",
-    "note": "Inclusion consented by the commit author by email at 2026-10-25T01:08Z (receipt 13e0dc522180); selected commit a86f96e6f4c4: \"fix(settings): stabilize subpage switching and recap interaction\". LICENSE file at pin a86f96e6f4c4 detected as AGPL-3.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-25T01:08Z (receipt 13e0dc522180); selected commit a86f96e6f4c4: \"fix(settings): stabilize subpage switching and recap interaction\". LICENSE file at pin a86f96e6f4c4 detected as AGPL-3.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @rullerzhou-afk, who has not added it."
+   },
+   "paths": [
+    "docs/project",
+    "src",
+    "test"
+   ]
   }
  ]
 }

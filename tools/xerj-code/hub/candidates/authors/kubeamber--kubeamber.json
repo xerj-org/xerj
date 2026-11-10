@@ -1,0 +1,31 @@
+{
+ "corpus": "kubeamber--kubeamber",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on admission-webhook, ai-agents, human-in-the-loop queries this for how kubeamber/kubeamber implements it: Traffic lights for AI agents on Kubernetes: risk-scored, human-approved changes at the API server (selected work: internal/notify, cmd/kubeamber, charts)",
+ "repos": [
+  {
+   "repo": "kubeamber",
+   "url": "https://github.com/kubeamber/kubeamber",
+   "sha": "3a1d06141d4676dfac04d8ee50cf1d8e1e106137",
+   "licence": "Apache-2.0 (LICENSE file at pin 3a1d06141d46, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-22T18:24Z",
+    "consent_receipt": "e62d843cd80b",
+    "note": "Inclusion consented by the commit author by email at 2026-10-22T18:24Z (receipt e62d843cd80b); selected commit 3a1d06141d46: \"feat: kubeamber notify, for Slack, Teams and webhook messages\". LICENSE file at pin 3a1d06141d46 detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @kubeamber, who has not added it."
+   },
+   "paths": [
+    "charts/kubeamber",
+    "cmd/kubeamber",
+    "deploy/notify",
+    "docs",
+    "hack",
+    "internal/notify"
+   ]
+  }
+ ]
+}

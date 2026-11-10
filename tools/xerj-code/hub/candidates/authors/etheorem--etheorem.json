@@ -16,8 +16,12 @@
     "by": "author-consent",
     "at": "2026-10-11T21:39Z",
     "consent_receipt": "da348d52dfae",
-    "note": "Inclusion consented by the commit author by email at 2026-10-11T21:39Z (receipt da348d52dfae); selected commit a7bd1718a241: \"feat(heze-focil): characterize FOCIL reads and add LawfulFcMap (#102)\". LICENSE file at pin a7bd1718a241 detected as LGPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-11T21:39Z (receipt da348d52dfae); selected commit a7bd1718a241: \"feat(heze-focil): characterize FOCIL reads and add LawfulFcMap (#102)\". LICENSE file at pin a7bd1718a241 detected as LGPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @etheorem, who has not added it."
+   },
+   "paths": [
+    "packages/EthCLLib/EthCLLib",
+    "packages/EthCLSpecs"
+   ]
   }
  ]
 }

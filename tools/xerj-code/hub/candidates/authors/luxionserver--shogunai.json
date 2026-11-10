@@ -16,8 +16,27 @@
     "by": "author-consent",
     "at": "2026-10-17T14:01Z",
     "consent_receipt": "313fff2e3efd",
-    "note": "Inclusion consented by the commit author by email at 2026-10-17T14:01Z (receipt 313fff2e3efd); selected commit 62198fb6fe22: \"Show and clean up Xcode DerivedData per worktree with the Xcode provider\". LICENSE file at pin 62198fb6fe22 detected as Apache-2.0 by the GitHub licence API on 2026-11-08; used under that licence with attribution. Pinned to head 62198fb6fe22 (contains the selected commit): the LICENSE at the selected commit was GPL-3.0."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-17T14:01Z (receipt 313fff2e3efd); selected commit 62198fb6fe22: \"Show and clean up Xcode DerivedData per worktree with the Xcode provider\". LICENSE file at pin 62198fb6fe22 detected as Apache-2.0 by the GitHub licence API on 2026-11-08; used under that licence with attribution. Pinned to head 62198fb6fe22 (contains the selected commit): the LICENSE at the selected commit was GPL-3.0. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @LuxionServer, who has not added it."
+   },
+   "paths": [
+    "cli/src/main/kotlin/app/luxion/shogunai/cli",
+    "cli/src/test/kotlin/app/luxion/shogunai/cli",
+    "core/src/main/kotlin/app/luxion/shogunai/domain/io",
+    "core/src/main/kotlin/app/luxion/shogunai/domain/model",
+    "core/src/main/kotlin/app/luxion/shogunai/domain/usecase",
+    "core/src/main/kotlin/app/luxion/shogunai/infrastructure",
+    "core/src/test/kotlin/app/luxion/shogunai/domain/usecase",
+    "core/src/test/kotlin/app/luxion/shogunai/infrastructure",
+    "core/src/testFixtures/kotlin/app/luxion/shogunai/domain",
+    "desktopApp/src/main/kotlin/app/luxion/shogunai",
+    "desktopApp/src/test/kotlin/app/luxion/shogunai/ui/worktree",
+    "docs",
+    "openspec/changes/archive/2026-10-17-xcode-provider",
+    "openspec/specs/command-line-tool",
+    "openspec/specs/repository-provisioning",
+    "openspec/specs/worktree-cleanup",
+    "openspec/specs/xcode-provider"
+   ]
   }
  ]
 }

@@ -16,8 +16,23 @@
     "by": "author-consent",
     "at": "2026-10-20T06:36Z",
     "consent_receipt": "1375a7849c11",
-    "note": "Inclusion consented by the commit author by email at 2026-10-20T06:36Z (receipt 1375a7849c11); selected commit a2e98e93d6b6: \"feat: add the threat-model and dev-agents pieces (#99)\". LICENSE file at pin a2e98e93d6b6 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-20T06:36Z (receipt 1375a7849c11); selected commit a2e98e93d6b6: \"feat: add the threat-model and dev-agents pieces (#99)\". LICENSE file at pin a2e98e93d6b6 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @noru-tech, who has not added it."
+   },
+   "paths": [
+    ".agents/plugins",
+    ".claude-plugin",
+    ".github/ISSUE_TEMPLATE",
+    ".github/actions",
+    ".github/plugin",
+    "actions/enforce",
+    "contract",
+    "docs",
+    "plugins/dev-agents",
+    "plugins/noru",
+    "plugins/threat-model",
+    "scripts",
+    "tests/fixture-repo"
+   ]
   }
  ]
 }

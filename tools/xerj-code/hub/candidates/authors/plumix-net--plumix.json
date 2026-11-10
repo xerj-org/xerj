@@ -16,8 +16,16 @@
     "by": "author-consent",
     "at": "2026-10-22T18:12Z",
     "consent_receipt": "144275c509bc",
-    "note": "Inclusion consented by the commit author by email at 2026-10-22T18:12Z (receipt 144275c509bc); selected commit 8d9c90d7339c: \"- Breaking: Nested paragraph selection and ICU/Intl word boundaries f\u2026\". LICENSE file at pin 8d9c90d7339c detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-22T18:12Z (receipt 144275c509bc); selected commit 8d9c90d7339c: \"- Breaking: Nested paragraph selection and ICU/Intl word boundaries f\u2026\". LICENSE file at pin 8d9c90d7339c detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Plumix-Net, who has not added it."
+   },
+   "paths": [
+    "dart_sample/lib/demos/material",
+    "docs/ai",
+    "src/Plumix",
+    "src/Plumix.Tests",
+    "src/Sample/Plumix.Browser",
+    "src/Sample/Plumix.Sample/Demos/Material"
+   ]
   }
  ]
 }

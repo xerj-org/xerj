@@ -16,8 +16,17 @@
     "by": "author-consent",
     "at": "2026-10-23T19:41Z",
     "consent_receipt": "c74477b8b29f",
-    "note": "Inclusion consented by the commit author by email at 2026-10-23T19:41Z (receipt c74477b8b29f); selected commit f57818721e75: \"TPT567: Surface agent-detection diagnostics; add probe:agent-detect\". LICENSE file at pin f57818721e75 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-23T19:41Z (receipt c74477b8b29f); selected commit f57818721e75: \"TPT567: Surface agent-detection diagnostics; add probe:agent-detect\". LICENSE file at pin f57818721e75 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Tipatask, who has not added it."
+   },
+   "paths": [
+    "assets",
+    "build",
+    "main",
+    "scripts",
+    "src/cli",
+    "src/client",
+    "src/server"
+   ]
   }
  ]
 }

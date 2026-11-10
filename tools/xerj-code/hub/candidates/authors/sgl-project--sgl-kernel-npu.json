@@ -16,8 +16,16 @@
     "by": "author-consent",
     "at": "2026-10-31T00:04Z",
     "consent_receipt": "2262f59cc0d7",
-    "note": "Inclusion consented by the commit author by email at 2026-10-31T00:04Z (receipt 2262f59cc0d7); selected commit 19be32b9cc4f: \"[Refactor] Add standalone CANN/ACLNN build and migrate apply_token_bi\u2026\". LICENSE file at pin 19be32b9cc4f detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T00:04Z (receipt 2262f59cc0d7); selected commit 19be32b9cc4f: \"[Refactor] Add standalone CANN/ACLNN build and migrate apply_token_bi\u2026\". LICENSE file at pin 19be32b9cc4f detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @sgl-project, who has not added it."
+   },
+   "paths": [
+    "cmake",
+    "csrc",
+    "docs/api/en",
+    "docs/api/zh",
+    "python/sgl_kernel_npu",
+    "tests/python/operators/sampler"
+   ]
   }
  ]
 }

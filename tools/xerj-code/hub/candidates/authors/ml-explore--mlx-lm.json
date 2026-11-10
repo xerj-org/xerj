@@ -16,8 +16,12 @@
     "by": "author-consent",
     "at": "2026-10-19T00:10Z",
     "consent_receipt": "4ca0a692a9a9",
-    "note": "Inclusion consented by the commit author by email at 2026-10-19T00:10Z (receipt 4ca0a692a9a9); selected commit c39139d70f07: \"Support PLaMo3 instruction-tuned models with YaRN (#1931)\". LICENSE file at pin c39139d70f07 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-19T00:10Z (receipt 4ca0a692a9a9); selected commit c39139d70f07: \"Support PLaMo3 instruction-tuned models with YaRN (#1931)\". LICENSE file at pin c39139d70f07 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @ml-explore, who has not added it."
+   },
+   "paths": [
+    "mlx_lm/models",
+    "tests"
+   ]
   }
  ]
 }

@@ -16,8 +16,20 @@
     "by": "author-consent",
     "at": "2026-10-15T13:06Z",
     "consent_receipt": "260349e861ee",
-    "note": "Inclusion consented by the commit author by email at 2026-10-15T13:06Z (receipt 260349e861ee); selected commit 49ce01ed8b9e: \"fix(web-saas): reject partial account schema during init (#571)\". LICENSE file at pin 49ce01ed8b9e detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-15T13:06Z (receipt 260349e861ee); selected commit 49ce01ed8b9e: \"fix(web-saas): reject partial account schema during init (#571)\". LICENSE file at pin 49ce01ed8b9e detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @ai-workspace-infra, who has not added it."
+   },
+   "paths": [
+    ".github/workflows",
+    "roles/vhosts/accounts_service/templates",
+    "roles/web_saas_data_backup",
+    "roles/web_saas_data_migration",
+    "roles/web_saas_data_preflight",
+    "roles/web_saas_data_restore_verify",
+    "roles/web_saas_release_upgrade",
+    "roles/web_saas_supabase_checkpoint_restore",
+    "scripts/data_operations/selfhost",
+    "tests"
+   ]
   }
  ]
 }

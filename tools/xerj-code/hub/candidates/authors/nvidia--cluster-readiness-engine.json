@@ -16,8 +16,19 @@
     "by": "author-consent",
     "at": "2026-10-12T03:18Z",
     "consent_receipt": "c3d97adb8536",
-    "note": "Inclusion consented by the commit author by email at 2026-10-12T03:18Z (receipt c3d97adb8536); selected commit f66427ea7f43: \"Record NCCL network transport on BandwidthMeasurement (#444)\". LICENSE file at pin f66427ea7f43 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-12T03:18Z (receipt c3d97adb8536); selected commit f66427ea7f43: \"Record NCCL network transport on BandwidthMeasurement (#444)\". LICENSE file at pin f66427ea7f43 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @NVIDIA, who has not added it."
+   },
+   "paths": [
+    "api/v1alpha1",
+    "cmd/integration/testdata/reconcile",
+    "docs/api-reference",
+    "docs/concepts",
+    "helm/cluster-readiness-engine/crds",
+    "helm/cluster-readiness-engine/templates",
+    "pkg/controller",
+    "pkg/nccl",
+    "pkg/report"
+   ]
   }
  ]
 }

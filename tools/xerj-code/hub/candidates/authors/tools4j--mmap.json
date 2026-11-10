@@ -1,0 +1,31 @@
+{
+ "corpus": "tools4j--mmap",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Java queries this for how tools4j/mmap implements it: Memory mapped files used to implement off-heap low latency utilities such as queues (selected work: mmap-region, mmap-queue)",
+ "repos": [
+  {
+   "repo": "mmap",
+   "url": "https://github.com/tools4j/mmap",
+   "sha": "3822a9eb830c5cf76d5d90d3017454598b5a5b7e",
+   "licence": "MIT (LICENSE file at pin 3822a9eb830c, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-14T10:13Z",
+    "consent_receipt": "61ca0a4d7fec",
+    "note": "Inclusion consented by the commit author by email at 2026-10-14T10:13Z (receipt 61ca0a4d7fec); selected commit 3822a9eb830c: \"tighten error handling and return values\". LICENSE file at pin 3822a9eb830c detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @tools4j, who has not added it."
+   },
+   "paths": [
+    "mmap-queue/src/main/java/org/tools4j/mmap/queue/api",
+    "mmap-queue/src/main/java/org/tools4j/mmap/queue/impl",
+    "mmap-queue/src/test/java/org/tools4j/mmap/queue/impl",
+    "mmap-region/src/main/java/org/tools4j/mmap/region/api",
+    "mmap-region/src/main/java/org/tools4j/mmap/region/unsafe",
+    "mmap-region/src/test/java/org/tools4j/mmap/region/impl"
+   ]
+  }
+ ]
+}

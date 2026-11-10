@@ -16,8 +16,26 @@
     "by": "author-consent",
     "at": "2026-10-13T06:36Z",
     "consent_receipt": "f01a0485f365",
-    "note": "Inclusion consented by the commit author by email at 2026-10-13T06:36Z (receipt f01a0485f365); selected commit 83329c3bec5b: \"fix: dialog animation errors, template preview layouts, and formatting\". LICENSE file at pin 83329c3bec5b detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-13T06:36Z (receipt f01a0485f365); selected commit 83329c3bec5b: \"fix: dialog animation errors, template preview layouts, and formatting\". LICENSE file at pin 83329c3bec5b detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @NGXSMK, who has not added it."
+   },
+   "paths": [
+    ".agents/skills/find-skills",
+    ".claude-plugin",
+    "apps/demo/src",
+    "docs",
+    "packages/cli/src/ng-add",
+    "packages/core/animation",
+    "packages/core/citation-viewer",
+    "packages/core/data-table",
+    "packages/core/dialog",
+    "packages/core/icon",
+    "packages/core/lightbox",
+    "packages/core/src",
+    "packages/core/table",
+    "packages/mcp/src",
+    "packages/theme",
+    "plugins/ngxsmk/.claude-plugin"
+   ]
   }
  ]
 }

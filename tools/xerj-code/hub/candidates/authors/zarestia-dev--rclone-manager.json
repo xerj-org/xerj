@@ -16,8 +16,25 @@
     "by": "author-consent",
     "at": "2026-10-11T13:26Z",
     "consent_receipt": "6d87771af15a",
-    "note": "Inclusion consented by the commit author by email at 2026-10-11T13:26Z (receipt 6d87771af15a); selected commit 39e91f4f7585: \"refactor: adopt EscapeCloseDirective across modals and add quick-run \u2026\". LICENSE file at pin 39e91f4f7585 detected as GPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-11T13:26Z (receipt 6d87771af15a); selected commit 39e91f4f7585: \"refactor: adopt EscapeCloseDirective across modals and add quick-run \u2026\". LICENSE file at pin 39e91f4f7585 detected as GPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Zarestia-Dev, who has not added it."
+   },
+   "paths": [
+    "assets",
+    "resources/i18n/en-US",
+    "resources/i18n/es-ES",
+    "resources/i18n/fr-FR",
+    "resources/i18n/ja-JP",
+    "resources/i18n/pt-BR",
+    "resources/i18n/ru-RU",
+    "resources/i18n/tr-TR",
+    "resources/i18n/uk-UA",
+    "resources/i18n/zh-CN",
+    "resources/i18n/zh-TW",
+    "src",
+    "src-tauri/src/core",
+    "src-tauri/src/rclone/commands",
+    "src-tauri/src/utils/types"
+   ]
   }
  ]
 }

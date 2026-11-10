@@ -1,0 +1,27 @@
+{
+ "corpus": "frihet-io--frihet-mcp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, erp, invoicing queries this for how Frihet-io/frihet-mcp implements it: Official MCP server for Frihet ERP \u2014 156 operations for AI-powered invoicing, tax & e-invoicing compliance (VeriFactu, TicketBAI, Facturae), (selected work: src/tools, src/__tests__)",
+ "repos": [
+  {
+   "repo": "frihet-mcp",
+   "url": "https://github.com/Frihet-io/frihet-mcp",
+   "sha": "6f140223bdd887aa185864f270f1dc3bf7914bb3",
+   "licence": "MIT (LICENSE file at pin 6f140223bdd8, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-18T14:58Z",
+    "consent_receipt": "ef03b5815889",
+    "note": "Inclusion consented by the commit author by email at 2026-10-18T14:58Z (receipt ef03b5815889); selected commit 6f140223bdd8: \"fix(tools): enforce conservative search refusal, duplicate_invoice it\u2026\". LICENSE file at pin 6f140223bdd8 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Frihet-io, who has not added it."
+   },
+   "paths": [
+    "src/__tests__",
+    "src/tools"
+   ]
+  }
+ ]
+}

@@ -16,8 +16,27 @@
     "by": "author-consent",
     "at": "2026-10-13T02:48Z",
     "consent_receipt": "d707a35a9dda",
-    "note": "Inclusion consented by the commit author by email at 2026-10-13T02:48Z (receipt d707a35a9dda); selected commit d877b42aa75a: \"NUTCH-3215 Remove trailing whitespace reported by Yetus blanks on mas\u2026\". LICENSE file at pin d877b42aa75a detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-13T02:48Z (receipt d707a35a9dda); selected commit d877b42aa75a: \"NUTCH-3215 Remove trailing whitespace reported by Yetus blanks on mas\u2026\". LICENSE file at pin d877b42aa75a detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @apache, who has not added it."
+   },
+   "paths": [
+    ".yetus",
+    "conf",
+    "ivy",
+    "licenses-binary",
+    "src/java/org/apache/nutch/crawl",
+    "src/java/org/apache/nutch/fetcher",
+    "src/java/org/apache/nutch/indexer",
+    "src/java/org/apache/nutch/metadata",
+    "src/java/org/apache/nutch/parse",
+    "src/java/org/apache/nutch/protocol",
+    "src/java/org/apache/nutch/publisher",
+    "src/java/org/apache/nutch/scoring/webgraph",
+    "src/java/org/apache/nutch/segment",
+    "src/java/org/apache/nutch/tools",
+    "src/java/org/apache/nutch/util",
+    "src/plugin",
+    "src/test/org/apache/nutch/parse"
+   ]
   }
  ]
 }

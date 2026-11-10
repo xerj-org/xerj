@@ -1,0 +1,23 @@
+{
+ "corpus": "rroblf01--jirrabit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how rroblf01/jirrabit implements it: rroblf01/jirrabit (Python) (selected work: jirrabit, tests, issues)",
+ "repos": [
+  {
+   "repo": "jirrabit",
+   "url": "https://github.com/rroblf01/jirrabit",
+   "sha": "a9f54a70fd71c20dd5382312b88903734d3ae81d",
+   "licence": "MIT (LICENSE file at pin a9f54a70fd71, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-14T06:12Z",
+    "consent_receipt": "b7b5ea57410d",
+    "note": "Inclusion consented by the commit author by email at 2026-10-14T06:12Z (receipt b7b5ea57410d); selected commit a9f54a70fd71: \"Add API tests for user profile patching and issue template modifications\". LICENSE file at pin a9f54a70fd71 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

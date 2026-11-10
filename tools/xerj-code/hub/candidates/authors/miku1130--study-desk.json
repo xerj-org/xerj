@@ -1,0 +1,23 @@
+{
+ "corpus": "miku1130--study-desk",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how miku1130/study-desk implements it: \u7528\u6765\u8f85\u52a9\u5b66\u4e60\u7684\u5de5\u5177\uff0c\u5012\u6570\u65e5\uff0c\u756a\u8304\u949f\uff0c\u8bfe\u7a0b\u8868\uff0c\u5907\u5fd8\u5f55\uff0c\u4e66\u67b6\u7684\u96c6\u5927\u6210\u4e4b\u4f5c (selected work: src/renderer, test, src/main)",
+ "repos": [
+  {
+   "repo": "study-desk",
+   "url": "https://github.com/miku1130/study-desk",
+   "sha": "3a5508a4329f06585da82ecc2a0d6485e8dd1444",
+   "licence": "MIT (LICENSE file at pin 3a5508a4329f, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-19T04:41Z",
+    "consent_receipt": "882f85b7ac6d",
+    "note": "Inclusion consented by the commit author by email at 2026-10-19T04:41Z (receipt 882f85b7ac6d); selected commit 3a5508a4329f: \"feat: add forgetting curve review calendar\". LICENSE file at pin 3a5508a4329f detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

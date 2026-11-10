@@ -16,8 +16,16 @@
     "by": "author-consent",
     "at": "2026-10-22T04:03Z",
     "consent_receipt": "ad28868b2c88",
-    "note": "Inclusion consented by the commit author by email at 2026-10-22T04:03Z (receipt ad28868b2c88); selected commit 47babdfcddc3: \"fix(events): anchor all-day occurrences with Postgres tzdata\". LICENSE file at pin 47babdfcddc3 detected as GPL-3.0 by the GitHub licence API on 2026-10-28; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-22T04:03Z (receipt ad28868b2c88); selected commit 47babdfcddc3: \"fix(events): anchor all-day occurrences with Postgres tzdata\". LICENSE file at pin 47babdfcddc3 detected as GPL-3.0 by the GitHub licence API on 2026-10-28; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Togather-Foundation, who has not added it."
+   },
+   "paths": [
+    "docs/contributors",
+    "docs/design",
+    "internal/api/handlers",
+    "internal/domain/events",
+    "internal/storage/postgres",
+    "tests"
+   ]
   }
  ]
 }

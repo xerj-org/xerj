@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-10-28T02:11Z",
     "consent_receipt": "af5cf766bc2f",
-    "note": "Inclusion consented by the commit author by email at 2026-10-28T02:11Z (receipt af5cf766bc2f); selected commit 44e0c236a3eb: \"feat: preserve embedded prompt resources and attachment bytes (#315)\". LICENSE file at pin 44e0c236a3eb detected as Apache-2.0 by the GitHub licence API on 2026-10-28; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-28T02:11Z (receipt af5cf766bc2f); selected commit 44e0c236a3eb: \"feat: preserve embedded prompt resources and attachment bytes (#315)\". LICENSE file at pin 44e0c236a3eb detected as Apache-2.0 by the GitHub licence API on 2026-10-28; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @william0wang, who has not added it."
+   },
+   "paths": [
+    "docs",
+    "src",
+    "tests"
+   ]
   }
  ]
 }

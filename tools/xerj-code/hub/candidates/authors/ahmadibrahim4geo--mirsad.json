@@ -1,0 +1,23 @@
+{
+ "corpus": "ahmadibrahim4geo--mirsad",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on arcgis-desktop, arcgis-pro, arcmap queries this for how ahmadibrahim4geo/MIRSAD implements it: MIRSAD: Meteorological Integrated Reanalysis Spatial Atlas Database. An ArcGIS Desktop Python Toolbox for automated climate data fetching (N (selected work: the project root, Documents, scripts)",
+ "repos": [
+  {
+   "repo": "MIRSAD",
+   "url": "https://github.com/ahmadibrahim4geo/MIRSAD",
+   "sha": "d66f181546dd705489ef83e55fb957b7c1482b3c",
+   "licence": "MIT (LICENSE file at pin d66f181546dd, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-23T05:34Z",
+    "consent_receipt": "7cfa4a9e19cd",
+    "note": "Inclusion consented by the commit author by email at 2026-10-23T05:34Z (receipt 7cfa4a9e19cd); selected commit d66f181546dd: \"Prepare contributor workflow, isolated checks and documented reposito\u2026\". LICENSE file at pin d66f181546dd detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

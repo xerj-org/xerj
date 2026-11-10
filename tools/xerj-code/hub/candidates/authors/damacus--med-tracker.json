@@ -1,0 +1,23 @@
+{
+ "corpus": "damacus--med-tracker",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how damacus/med-tracker implements it: Open-source, self-hosted medication tracker for individuals, families, and carers \u2014 currently in beta (selected work: src/models, tests, src/controllers)",
+ "repos": [
+  {
+   "repo": "med-tracker",
+   "url": "https://github.com/damacus/med-tracker",
+   "sha": "63d4f1bca4a52482812ceb69e6916869185d817d",
+   "licence": "MIT (LICENSE file at pin 63d4f1bca4a5, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-12T06:48Z",
+    "consent_receipt": "2f9d23ec56e3",
+    "note": "Inclusion consented by the commit author by email at 2026-10-12T06:48Z (receipt 2f9d23ec56e3); selected commit 63d4f1bca4a5: \"feat(scanner): add scan and stock journeys (#2525)\". LICENSE file at pin 63d4f1bca4a5 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

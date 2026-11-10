@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-10-17T14:03Z",
     "consent_receipt": "c57c799a0cfc",
-    "note": "Inclusion consented by the commit author by email at 2026-10-17T14:03Z (receipt c57c799a0cfc); selected commit f0d84b62e13b: \"feat(schedule): \u81ea\u52a8\u6392\u671f\u652f\u6301\u70ed\u5ea6\u52a0\u6743\u968f\u673a (#625)\". LICENSE file at pin f0d84b62e13b detected as GPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-17T14:03Z (receipt c57c799a0cfc); selected commit f0d84b62e13b: \"feat(schedule): \u81ea\u52a8\u6392\u671f\u652f\u6301\u70ed\u5ea6\u52a0\u6743\u968f\u673a (#625)\". LICENSE file at pin f0d84b62e13b detected as GPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @laoshuikaixue, who has not added it."
+   },
+   "paths": [
+    "app/components/Admin",
+    "app/utils",
+    "tests/frontend"
+   ]
   }
  ]
 }

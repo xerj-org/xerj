@@ -16,8 +16,16 @@
     "by": "author-consent",
     "at": "2026-10-06T00:56Z",
     "consent_receipt": "b097527a11d4",
-    "note": "Inclusion consented by the commit author by email at 2026-10-06T00:56Z (receipt b097527a11d4); selected commit f93ff155ddac: \"fix(extensions): generate provider catalogs from Go registry (#1212)\". LICENSE file at pin f93ff155ddac detected as Apache-2.0 by the GitHub licence API on 2026-10-25; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-06T00:56Z (receipt b097527a11d4); selected commit f93ff155ddac: \"fix(extensions): generate provider catalogs from Go registry (#1212)\". LICENSE file at pin f93ff155ddac detected as Apache-2.0 by the GitHub licence API on 2026-10-25; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @alibaba, who has not added it."
+   },
+   "paths": [
+    ".github/workflows",
+    "extensions/frontend/src/shared",
+    "extensions/frontend/src/webview/views",
+    "extensions/idea/src/main/kotlin/com/alibaba/opencodereview/idea/services",
+    "extensions/idea/src/test/kotlin/com/alibaba/opencodereview/idea/services",
+    "internal/llm"
+   ]
   }
  ]
 }

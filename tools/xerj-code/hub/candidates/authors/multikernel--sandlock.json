@@ -1,0 +1,26 @@
+{
+ "corpus": "multikernel--sandlock",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on sandboxing, landlock, ai-agents queries this for how multikernel/sandlock implements it: The lightest sandbox. A process-based sandbox for Linux, no container, no VM, no privilege, no prompt injection (selected work: crates/sandlock-core)",
+ "repos": [
+  {
+   "repo": "sandlock",
+   "url": "https://github.com/multikernel/sandlock",
+   "sha": "10c8e904348b843802d4d967a5677454f858cb5c",
+   "licence": "Apache-2.0 (LICENSE file at pin 10c8e904348b, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-20T01:12Z",
+    "consent_receipt": "c7b547dcddaa",
+    "note": "Inclusion consented by the commit author by email at 2026-10-20T01:12Z (receipt c7b547dcddaa); selected commit 10c8e904348b: \"chroot: run a script's #! interpreter from the image\". LICENSE file at pin 10c8e904348b detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @multikernel, who has not added it."
+   },
+   "paths": [
+    "crates/sandlock-core"
+   ]
+  }
+ ]
+}

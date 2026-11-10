@@ -16,8 +16,14 @@
     "by": "author-consent",
     "at": "2026-11-01T14:56Z",
     "consent_receipt": "d073414e40c0",
-    "note": "Inclusion consented by the commit author by email at 2026-11-01T14:56Z (receipt d073414e40c0); selected commit c3f10395a767: \"HandoverLab\". LICENSE file at pin c3f10395a767 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T14:56Z (receipt d073414e40c0); selected commit c3f10395a767: \"HandoverLab\". LICENSE file at pin c3f10395a767 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @aiori-hackathon, who has not added it."
+   },
+   "paths": [
+    "backend",
+    "docs",
+    "frontend",
+    "scripts"
+   ]
   }
  ]
 }

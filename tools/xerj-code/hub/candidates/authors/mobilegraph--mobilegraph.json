@@ -16,8 +16,17 @@
     "by": "author-consent",
     "at": "2026-10-10T12:24Z",
     "consent_receipt": "1c68ddb92241",
-    "note": "Inclusion consented by the commit author by email at 2026-10-10T12:24Z (receipt 1c68ddb92241); selected commit d31eec5a72a9: \"A2A protocol support v1.0 added. Automatic protocol version fallback \u2026\". LICENSE file at pin d31eec5a72a9 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-10T12:24Z (receipt 1c68ddb92241); selected commit d31eec5a72a9: \"A2A protocol support v1.0 added. Automatic protocol version fallback \u2026\". LICENSE file at pin d31eec5a72a9 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @MobileGraph, who has not added it."
+   },
+   "paths": [
+    "androidApp",
+    "docs",
+    "foundation/mobilegraph-core/src/commonMain/kotlin/io/mobilegraph/core/events",
+    "foundation/mobilegraph-core/src/commonMain/kotlin/io/mobilegraph/core/facade",
+    "intelligence/mobilegraph-a2a",
+    "intelligence/mobilegraph-graph/src/commonMain/kotlin/io/mobilegraph/graph",
+    "intelligence/mobilegraph-mcp/src/commonTest/kotlin/io/mobilegraph/mcp/facade"
+   ]
   }
  ]
 }

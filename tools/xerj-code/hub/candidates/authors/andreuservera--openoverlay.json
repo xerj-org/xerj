@@ -1,0 +1,27 @@
+{
+ "corpus": "andreuservera--openoverlay",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how andreuservera/OpenOverlay implements it: An open source software for displaying IRacing overlays. Quit those subscriptions! (selected work: IRacingOverlay.App, IRacingOverlay.App.Tests)",
+ "repos": [
+  {
+   "repo": "OpenOverlay",
+   "url": "https://github.com/andreuservera/OpenOverlay",
+   "sha": "c95e371bdf5ac04e7994c07deefd0ebd59d330da",
+   "licence": "MIT (LICENSE file at pin c95e371bdf5a, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-14T17:18Z",
+    "consent_receipt": "36581e66c3b3",
+    "note": "Inclusion consented by the commit author by email at 2026-10-14T17:18Z (receipt 36581e66c3b3); selected commit c95e371bdf5a: \"Refactor widget panels to use WidgetFrame for consistent styling and \u2026\". LICENSE file at pin c95e371bdf5a detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @andreuservera, who has not added it."
+   },
+   "paths": [
+    "IRacingOverlay.App",
+    "IRacingOverlay.App.Tests"
+   ]
+  }
+ ]
+}

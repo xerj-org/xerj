@@ -16,8 +16,12 @@
     "by": "author-consent",
     "at": "2026-10-28T04:56Z",
     "consent_receipt": "779b57829161",
-    "note": "Inclusion consented by the commit author by email at 2026-10-28T04:56Z (receipt 779b57829161); selected commit 59c1da771385: \"feat(templates): publish the text size of each template as a slider\". LICENSE file at pin 59c1da771385 detected as MIT by the GitHub licence API on 2026-10-28; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-28T04:56Z (receipt 779b57829161); selected commit 59c1da771385: \"feat(templates): publish the text size of each template as a slider\". LICENSE file at pin 59c1da771385 detected as MIT by the GitHub licence API on 2026-10-28; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @GajananPalepwad, who has not added it."
+   },
+   "paths": [
+    "public/templates",
+    "src/editor/core/templates"
+   ]
   }
  ]
 }

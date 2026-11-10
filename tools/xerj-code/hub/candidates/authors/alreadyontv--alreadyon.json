@@ -16,8 +16,22 @@
     "by": "author-consent",
     "at": "2026-10-13T17:55Z",
     "consent_receipt": "e0a349f1218e",
-    "note": "Inclusion consented by the commit author by email at 2026-10-13T17:55Z (receipt e0a349f1218e); selected commit 1ea8fdb2dbb2: \"Minimize release APKs and runtime container contents\". LICENSE file at pin 1ea8fdb2dbb2 detected as GPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-13T17:55Z (receipt e0a349f1218e); selected commit 1ea8fdb2dbb2: \"Minimize release APKs and runtime container contents\". LICENSE file at pin 1ea8fdb2dbb2 detected as GPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @AlreadyOnApp, who has not added it."
+   },
+   "paths": [
+    "apps/android",
+    "deploy",
+    "docs",
+    "server/cmd/access-key",
+    "server/cmd/clear-browser-sessions",
+    "server/cmd/reset-password",
+    "server/cmd/server",
+    "server/cmd/tls",
+    "server/internal/admincli/accesskey",
+    "server/internal/admincli/clearsessions",
+    "server/internal/admincli/resetpassword",
+    "server/internal/admincli/tlscli"
+   ]
   }
  ]
 }

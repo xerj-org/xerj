@@ -16,8 +16,14 @@
     "by": "author-consent",
     "at": "2026-10-19T23:13Z",
     "consent_receipt": "2b99c79919b1",
-    "note": "Inclusion consented by the commit author by email at 2026-10-19T23:13Z (receipt 2b99c79919b1); selected commit eb672b12f175: \"updating v2.7.9\". LICENSE file at pin eb672b12f175 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-19T23:13Z (receipt 2b99c79919b1); selected commit eb672b12f175: \"updating v2.7.9\". LICENSE file at pin eb672b12f175 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @lifetechOCMS, who has not added it."
+   },
+   "paths": [
+    "includes",
+    "packages/modules/MdLt/Export",
+    "packages/modules/MdLt/Services",
+    "packages/themes/ThemeStarter"
+   ]
   }
  ]
 }

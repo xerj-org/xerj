@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-10-11T05:24Z",
     "consent_receipt": "b93d09bf8609",
-    "note": "Inclusion consented by the commit author by email at 2026-10-11T05:24Z (receipt b93d09bf8609); selected commit 3dfff96e0a54: \"feat(cli): add compose selectors command\". LICENSE file at pin 3dfff96e0a54 detected as MIT by the GitHub licence API on 2026-10-25; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-11T05:24Z (receipt b93d09bf8609); selected commit 3dfff96e0a54: \"feat(cli): add compose selectors command\". LICENSE file at pin 3dfff96e0a54 detected as MIT by the GitHub licence API on 2026-10-25; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Perfect-Abstractions, who has not added it."
+   },
+   "paths": [
+    ".changeset",
+    "cli/src",
+    "cli/test"
+   ]
   }
  ]
 }

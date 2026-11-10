@@ -1,0 +1,23 @@
+{
+ "corpus": "abhishek-gali--mcp-bridge",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agentic-ai, api-compiler, codegen queries this for how Abhishek-Gali/MCP-Bridge implements it: Local-first, offline-capable Documentation-to-MCP compiler (DocForge MCP). Compiles OpenAPI 3.0, Markdown, HTML, and PDF REST API manuals in (selected work: scripts, packages/core, packages/runtime)",
+ "repos": [
+  {
+   "repo": "MCP-Bridge",
+   "url": "https://github.com/Abhishek-Gali/MCP-Bridge",
+   "sha": "235277d94f7488462b488fcf9dca453d6d7c2783",
+   "licence": "Apache-2.0 (LICENSE file at pin 235277d94f74, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-18T06:10Z",
+    "consent_receipt": "2c76653228de",
+    "note": "Inclusion consented by the commit author by email at 2026-10-18T06:10Z (receipt 2c76653228de); selected commit 235277d94f74: \"Rewrite README and add reproducible FDE integration & failure recover\u2026\". LICENSE file at pin 235277d94f74 detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution. Pinned to head 235277d94f74 (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

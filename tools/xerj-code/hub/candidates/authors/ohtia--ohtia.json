@@ -16,8 +16,17 @@
     "by": "author-consent",
     "at": "2026-10-25T18:21Z",
     "consent_receipt": "714f6ae056f1",
-    "note": "Inclusion consented by the commit author by email at 2026-10-25T18:21Z (receipt 714f6ae056f1); selected commit 7f20fb979e86: \"feat(desktop): define bounded foundation application port (#17)\". LICENSE file at pin 7f20fb979e86 detected as MIT by the GitHub licence API on 2026-10-26; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-25T18:21Z (receipt 714f6ae056f1); selected commit 7f20fb979e86: \"feat(desktop): define bounded foundation application port (#17)\". LICENSE file at pin 7f20fb979e86 detected as MIT by the GitHub licence API on 2026-10-26; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @ohtia, who has not added it."
+   },
+   "paths": [
+    "docs",
+    "packages/contracts",
+    "packages/domain/src",
+    "packages/main/src",
+    "packages/preload/src",
+    "tests",
+    "tooling"
+   ]
   }
  ]
 }

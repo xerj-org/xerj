@@ -16,8 +16,12 @@
     "by": "author-consent",
     "at": "2026-10-08T06:22Z",
     "consent_receipt": "b042fd9df6cb",
-    "note": "Inclusion consented by the commit author by email at 2026-10-08T06:22Z (receipt b042fd9df6cb); selected commit 260844504688: \"fix(frontend): \uc5f0\uacb0 \ub04a\uae40\uc73c\ub85c \ubabb \ubcf4\ub0b8 \uba54\uc2dc\uc9c0\ub97c \uc804\uc1a1 \uc2e4\ud328\ub85c \uc774\ub825\uc5d0 \ub0a8\uae34\ub2e4 (#226) (#314)\". LICENSE file at pin 260844504688 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-08T06:22Z (receipt b042fd9df6cb); selected commit 260844504688: \"fix(frontend): \uc5f0\uacb0 \ub04a\uae40\uc73c\ub85c \ubabb \ubcf4\ub0b8 \uba54\uc2dc\uc9c0\ub97c \uc804\uc1a1 \uc2e4\ud328\ub85c \uc774\ub825\uc5d0 \ub0a8\uae34\ub2e4 (#226) (#314)\". LICENSE file at pin 260844504688 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @SUNJOOSOFT, who has not added it."
+   },
+   "paths": [
+    "frontend/components",
+    "frontend/lib/store"
+   ]
   }
  ]
 }

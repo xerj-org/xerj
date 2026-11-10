@@ -16,8 +16,20 @@
     "by": "author-consent",
     "at": "2026-10-17T04:07Z",
     "consent_receipt": "495c2fe31504",
-    "note": "Inclusion consented by the commit author by email at 2026-10-17T04:07Z (receipt 495c2fe31504); selected commit fd5113ea91c2: \"feat(ephemeral): create and store ephemeral agents, not yet launchabl\u2026\". LICENSE file at pin fd5113ea91c2 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-17T04:07Z (receipt 495c2fe31504); selected commit fd5113ea91c2: \"feat(ephemeral): create and store ephemeral agents, not yet launchabl\u2026\". LICENSE file at pin fd5113ea91c2 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @awslabs, who has not added it."
+   },
+   "paths": [
+    "docs",
+    "src/cli_agent_orchestrator/api",
+    "src/cli_agent_orchestrator/mcp_server",
+    "src/cli_agent_orchestrator/models",
+    "src/cli_agent_orchestrator/services",
+    "src/cli_agent_orchestrator/utils",
+    "test/agent_plugins",
+    "test/mcp_server",
+    "test/providers",
+    "test/services"
+   ]
   }
  ]
 }

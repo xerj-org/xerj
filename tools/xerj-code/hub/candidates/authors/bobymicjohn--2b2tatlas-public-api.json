@@ -1,0 +1,23 @@
+{
+ "corpus": "bobymicjohn--2b2tatlas-public-api",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on 2b2t, api-examples, fabricmc queries this for how bobymicjohn/2b2tAtlas-Public-API implements it: HTTP API, OpenAPI and MCP reference for 2b2t Atlas locations, maps, world downloads and saved data (selected work: examples)",
+ "repos": [
+  {
+   "repo": "2b2tAtlas-Public-API",
+   "url": "https://github.com/bobymicjohn/2b2tAtlas-Public-API",
+   "sha": "95b3cbdc6501c460c0ed4346410d033fa03764eb",
+   "licence": "Unlicense (LICENSE file at pin 95b3cbdc6501, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Unlicense",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-19T03:14Z",
+    "consent_receipt": "c54d66be7a85",
+    "note": "Inclusion consented by the commit author by email at 2026-10-19T03:14Z (receipt c54d66be7a85); selected commit 95b3cbdc6501: \"Finish BlueMap controls and clean up public examples\". LICENSE file at pin 95b3cbdc6501 detected as Unlicense by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

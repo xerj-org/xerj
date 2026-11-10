@@ -16,8 +16,11 @@
     "by": "author-consent",
     "at": "2026-11-02T03:19Z",
     "consent_receipt": "92ff35c6717f",
-    "note": "Inclusion consented by the commit author by email at 2026-11-02T03:19Z (receipt 92ff35c6717f); selected commit 3e411fb5a639: \"fix: otelsql stable db semconv (#244)\". LICENSE file at pin 3e411fb5a639 detected as Apache-2.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T03:19Z (receipt 92ff35c6717f); selected commit 3e411fb5a639: \"fix: otelsql stable db semconv (#244)\". LICENSE file at pin 3e411fb5a639 detected as Apache-2.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @colibriproject-dev, who has not added it."
+   },
+   "paths": [
+    "pkg/base/monitoring/colibri-otel"
+   ]
   }
  ]
 }

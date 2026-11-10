@@ -1,0 +1,23 @@
+{
+ "corpus": "ibarrasamuel--motoml",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Mojo queries this for how IbarraSamuel/motoml implements it: TOML reader for mojo (selected work: src/types, tests, src)",
+ "repos": [
+  {
+   "repo": "motoml",
+   "url": "https://github.com/IbarraSamuel/motoml",
+   "sha": "e5319deab2bccadb8e18a7c753625a2990a5905a",
+   "licence": "Apache-2.0 (LICENSE file at pin e5319deab2bc, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-19T14:18Z",
+    "consent_receipt": "f87e218491bf",
+    "note": "Inclusion consented by the commit author by email at 2026-10-19T14:18Z (receipt f87e218491bf); selected commit e5319deab2bc: \"updated logic to use enums, adding common traits, helper functions\". LICENSE file at pin e5319deab2bc detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

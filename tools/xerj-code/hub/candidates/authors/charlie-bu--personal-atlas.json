@@ -1,0 +1,23 @@
+{
+ "corpus": "charlie-bu--personal-atlas",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-skill, ai-agents, knowledge-graph queries this for how Charlie-BU/Personal-Atlas implements it: A Git-backed personal knowledge atlas for AI agents \u2014 traceable memories, guided interviews, and offline interactive graphs (selected work: assets, scripts)",
+ "repos": [
+  {
+   "repo": "Personal-Atlas",
+   "url": "https://github.com/Charlie-BU/Personal-Atlas",
+   "sha": "6967af65f13d8429b6465c567e7179dc437cb062",
+   "licence": "MIT (LICENSE file at pin 6967af65f13d, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-19T12:13Z",
+    "consent_receipt": "9e80c9709668",
+    "note": "Inclusion consented by the commit author by email at 2026-10-19T12:13Z (receipt 9e80c9709668); selected commit 6967af65f13d: \"Add polished Atlas graph exports with light and dark themes\". LICENSE file at pin 6967af65f13d detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Pinned to head 6967af65f13d (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

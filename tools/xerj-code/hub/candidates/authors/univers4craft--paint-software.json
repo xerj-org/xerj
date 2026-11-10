@@ -16,8 +16,12 @@
     "by": "author-consent",
     "at": "2026-10-27T02:40Z",
     "consent_receipt": "2092fd728dd8",
-    "note": "Inclusion consented by the commit author by email at 2026-10-27T02:40Z (receipt 2092fd728dd8); selected commit 0fefa0516123: \"Added Live Preview to Remaining Adjustment Dialogs\". LICENSE file at pin 0fefa0516123 detected as MIT by the GitHub licence API on 2026-10-27; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-27T02:40Z (receipt 2092fd728dd8); selected commit 0fefa0516123: \"Added Live Preview to Remaining Adjustment Dialogs\". LICENSE file at pin 0fefa0516123 detected as MIT by the GitHub licence API on 2026-10-27; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Univers4craft, who has not added it."
+   },
+   "paths": [
+    "src",
+    "tests"
+   ]
   }
  ]
 }

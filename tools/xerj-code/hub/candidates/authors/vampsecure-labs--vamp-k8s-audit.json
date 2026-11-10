@@ -16,8 +16,11 @@
     "by": "author-consent",
     "at": "2026-10-22T08:37Z",
     "consent_receipt": "a448e16b9e05",
-    "note": "Inclusion consented by the commit author by email at 2026-10-22T08:37Z (receipt a448e16b9e05); selected commit c8c77671f6b7: \"feat: motor YAML extensible v3.0.0 \u2014 26 checks CIS K8s + kube-bench w\u2026\". LICENSE file at pin c8c77671f6b7 detected as AGPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-22T08:37Z (receipt a448e16b9e05); selected commit c8c77671f6b7: \"feat: motor YAML extensible v3.0.0 \u2014 26 checks CIS K8s + kube-bench w\u2026\". LICENSE file at pin c8c77671f6b7 detected as AGPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Vampsecure-Labs, who has not added it."
+   },
+   "paths": [
+    "vamp_k8s_audit"
+   ]
   }
  ]
 }

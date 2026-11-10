@@ -16,8 +16,15 @@
     "by": "author-consent",
     "at": "2026-10-20T12:13Z",
     "consent_receipt": "2eb0fd2a4df9",
-    "note": "Inclusion consented by the commit author by email at 2026-10-20T12:13Z (receipt 2eb0fd2a4df9); selected commit d7317c8f4b23: \"Restore compatible untracked features (#1635)\". LICENSE file at pin d7317c8f4b23 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-20T12:13Z (receipt 2eb0fd2a4df9); selected commit d7317c8f4b23: \"Restore compatible untracked features (#1635)\". LICENSE file at pin d7317c8f4b23 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Community-Access, who has not added it."
+   },
+   "paths": [
+    "docs/planning",
+    "quill/core/radio",
+    "quill/platform/windows",
+    "tests/unit/core/radio",
+    "tests/unit/platform"
+   ]
   }
  ]
 }

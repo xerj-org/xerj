@@ -16,8 +16,11 @@
     "by": "author-consent",
     "at": "2026-10-17T01:37Z",
     "consent_receipt": "9fe832be163a",
-    "note": "Inclusion consented by the commit author by email at 2026-10-17T01:37Z (receipt 9fe832be163a); selected commit 2dc3543d49c4: \"feat: added host_info module\". LICENSE file at pin 2dc3543d49c4 detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-17T01:37Z (receipt 9fe832be163a); selected commit 2dc3543d49c4: \"feat: added host_info module\". LICENSE file at pin 2dc3543d49c4 detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @khangvum-com, who has not added it."
+   },
+   "paths": [
+    "plugins/modules"
+   ]
   }
  ]
 }

@@ -16,8 +16,25 @@
     "by": "author-consent",
     "at": "2026-10-29T22:53Z",
     "consent_receipt": "f841ae486550",
-    "note": "Inclusion consented by the commit author by email at 2026-10-29T22:53Z (receipt f841ae486550); selected commit c68f9c894fc0: \"Add MySQL policy storage, complete nightly regression and bilingual s\u2026\". LICENSE at pin c68f9c894fc0: NOASSERTION (repository: UPL-1.0); used with the author's permission, with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T22:53Z (receipt f841ae486550); selected commit c68f9c894fc0: \"Add MySQL policy storage, complete nightly regression and bilingual s\u2026\". LICENSE at pin c68f9c894fc0: NOASSERTION (repository: UPL-1.0); used with the author's permission, with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @teramoby, who has not added it."
+   },
+   "paths": [
+    ".github/workflows",
+    "api/pms",
+    "cmd/spctl",
+    "cmd/speedle-ads",
+    "cmd/speedle-pms",
+    "docs",
+    "pkg/cmd",
+    "pkg/eval",
+    "pkg/store",
+    "pkg/svcs",
+    "scripts/ci",
+    "scripts/tests",
+    "testutil",
+    "website/playground-engine",
+    "website/tests"
+   ]
   }
  ]
 }

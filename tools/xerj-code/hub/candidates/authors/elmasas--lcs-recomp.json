@@ -16,8 +16,11 @@
     "by": "author-consent",
     "at": "2026-10-19T08:23Z",
     "consent_receipt": "0668a7fc7baf",
-    "note": "Inclusion consented by the commit author by email at 2026-10-19T08:23Z (receipt 0668a7fc7baf); selected commit 73ef859799a0: \"Add support for building/running the windows binary on linux\". LICENSE file at pin 73ef859799a0 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-19T08:23Z (receipt 0668a7fc7baf); selected commit 73ef859799a0: \"Add support for building/running the windows binary on linux\". LICENSE file at pin 73ef859799a0 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @elmasas, who has not added it."
+   },
+   "paths": [
+    "docker"
+   ]
   }
  ]
 }

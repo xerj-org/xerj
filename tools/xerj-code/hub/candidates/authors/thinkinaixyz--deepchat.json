@@ -16,8 +16,36 @@
     "by": "author-consent",
     "at": "2026-10-11T03:04Z",
     "consent_receipt": "384283ee1238",
-    "note": "Inclusion consented by the commit author by email at 2026-10-11T03:04Z (receipt 384283ee1238); selected commit 746544aa7cfc: \"feat(settings): redesign scheduled tasks UI (#2364)\". LICENSE file at pin 746544aa7cfc detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-11T03:04Z (receipt 384283ee1238); selected commit 746544aa7cfc: \"feat(settings): redesign scheduled tasks UI (#2364)\". LICENSE file at pin 746544aa7cfc detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @ThinkInAIXYZ, who has not added it."
+   },
+   "paths": [
+    "src/renderer/settings/components",
+    "src/renderer/src/i18n/bo-CN",
+    "src/renderer/src/i18n/da-DK",
+    "src/renderer/src/i18n/de-DE",
+    "src/renderer/src/i18n/en-US",
+    "src/renderer/src/i18n/es-ES",
+    "src/renderer/src/i18n/fa-IR",
+    "src/renderer/src/i18n/fr-FR",
+    "src/renderer/src/i18n/he-IL",
+    "src/renderer/src/i18n/id-ID",
+    "src/renderer/src/i18n/it-IT",
+    "src/renderer/src/i18n/ja-JP",
+    "src/renderer/src/i18n/ko-KR",
+    "src/renderer/src/i18n/mn-Mong-CN",
+    "src/renderer/src/i18n/ms-MY",
+    "src/renderer/src/i18n/pl-PL",
+    "src/renderer/src/i18n/pt-BR",
+    "src/renderer/src/i18n/ru-RU",
+    "src/renderer/src/i18n/tr-TR",
+    "src/renderer/src/i18n/ug-CN",
+    "src/renderer/src/i18n/vi-VN",
+    "src/renderer/src/i18n/zh-CN",
+    "src/renderer/src/i18n/zh-HK",
+    "src/renderer/src/i18n/zh-TW",
+    "src/renderer/src/lib/icons",
+    "test/renderer/components"
+   ]
   }
  ]
 }

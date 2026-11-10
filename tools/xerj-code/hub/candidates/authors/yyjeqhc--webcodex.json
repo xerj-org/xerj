@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-10-04T10:52Z",
     "consent_receipt": "b136c44a6bbd",
-    "note": "Inclusion consented by the commit author by email at 2026-10-04T10:52Z (receipt b136c44a6bbd); selected commit f6bd366ef7de: \"fix(browser): avoid admitting disabled and readonly controls (#894)\". LICENSE file at pin f6bd366ef7de detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-04T10:52Z (receipt b136c44a6bbd); selected commit f6bd366ef7de: \"fix(browser): avoid admitting disabled and readonly controls (#894)\". LICENSE file at pin f6bd366ef7de detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @yyjeqhc, who has not added it."
+   },
+   "paths": [
+    "apps/desktop/src-tauri/src",
+    "crates/webcodex-browser/src",
+    "docs"
+   ]
   }
  ]
 }

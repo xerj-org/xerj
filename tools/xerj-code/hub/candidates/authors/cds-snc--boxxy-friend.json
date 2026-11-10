@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-10-22T13:37Z",
     "consent_receipt": "e820f7b1615f",
-    "note": "Inclusion consented by the commit author by email at 2026-10-22T13:37Z (receipt e820f7b1615f); selected commit be2c8ed04788: \"* add mlx model support\". LICENSE file at pin be2c8ed04788 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-22T13:37Z (receipt e820f7b1615f); selected commit be2c8ed04788: \"* add mlx model support\". LICENSE file at pin be2c8ed04788 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @cds-snc, who has not added it."
+   },
+   "paths": [
+    "docs",
+    "modules",
+    "tests"
+   ]
   }
  ]
 }

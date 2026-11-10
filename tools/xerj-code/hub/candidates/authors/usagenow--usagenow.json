@@ -16,8 +16,19 @@
     "by": "author-consent",
     "at": "2026-10-13T03:09Z",
     "consent_receipt": "522c9db22c92",
-    "note": "Inclusion consented by the commit author by email at 2026-10-13T03:09Z (receipt 522c9db22c92); selected commit 9b01ae612ab5: \"Add Qwen Code, Cline, and Grok Build\". LICENSE file at pin 9b01ae612ab5 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-13T03:09Z (receipt 522c9db22c92); selected commit 9b01ae612ab5: \"Add Qwen Code, Cline, and Grok Build\". LICENSE file at pin 9b01ae612ab5 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @usagenow, who has not added it."
+   },
+   "paths": [
+    "Shared/Domain",
+    "Shared/Resources/Assets.xcassets/ProviderLogos/ClineLogo.imageset",
+    "Shared/Resources/Assets.xcassets/ProviderLogos/GrokLogo.imageset",
+    "UsageNow/App",
+    "UsageNow/Providers/Cline",
+    "UsageNow/Providers/GrokBuild",
+    "UsageNow/Providers/QwenCode",
+    "UsageNow/Providers/Shared",
+    "UsageNowTests"
+   ]
   }
  ]
 }

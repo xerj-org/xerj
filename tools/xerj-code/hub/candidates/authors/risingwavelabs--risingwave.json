@@ -16,8 +16,23 @@
     "by": "author-consent",
     "at": "2026-10-14T05:27Z",
     "consent_receipt": "0b2dbcaaeea3",
-    "note": "Inclusion consented by the commit author by email at 2026-10-14T05:27Z (receipt 0b2dbcaaeea3); selected commit ee952a6eb0d1: \"feat: add mssql_query table function support (#26843)\". LICENSE file at pin ee952a6eb0d1 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-14T05:27Z (receipt 0b2dbcaaeea3); selected commit ee952a6eb0d1: \"feat: add mssql_query table function support (#26843)\". LICENSE file at pin ee952a6eb0d1 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @risingwavelabs, who has not added it."
+   },
+   "paths": [
+    "e2e_test/source_inline/cdc/sql_server",
+    "e2e_test/source_inline/tvf",
+    "proto",
+    "src/batch/executors/src",
+    "src/cmd_all",
+    "src/connector/src/connector_common",
+    "src/connector/src/parser",
+    "src/connector/src/sink",
+    "src/connector/src/source/cdc/external",
+    "src/frontend/src/binder/expr/function",
+    "src/frontend/src/binder/relation",
+    "src/frontend/src/expr",
+    "src/frontend/src/optimizer"
+   ]
   }
  ]
 }

@@ -1,0 +1,23 @@
+{
+ "corpus": "tgomilar--gitkeen",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on commit-graph, desktop-app, git queries this for how tgomilar/gitkeen implements it: A visual Git client that works next to any editor: the full commit graph, line-by-line staging, safe history editing, and Undo. For macOS, W (selected work: server, src/lib)",
+ "repos": [
+  {
+   "repo": "gitkeen",
+   "url": "https://github.com/tgomilar/gitkeen",
+   "sha": "3feb299ab85c866ef9b717be80dcf15050962c16",
+   "licence": "MIT (LICENSE file at pin 3feb299ab85c, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-18T06:57Z",
+    "consent_receipt": "fc615370a872",
+    "note": "Inclusion consented by the commit author by email at 2026-10-18T06:57Z (receipt fc615370a872); selected commit 3feb299ab85c: \"feat: set up Ollama and LM Studio from Settings\". LICENSE file at pin 3feb299ab85c detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

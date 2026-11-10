@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-10-17T07:38Z",
     "consent_receipt": "cef4242048bc",
-    "note": "Inclusion consented by the commit author by email at 2026-10-17T07:38Z (receipt cef4242048bc); selected commit bbd553fd22b5: \"Fix input-claim bugs and add missing interaction affordances\". LICENSE file at pin bbd553fd22b5 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-17T07:38Z (receipt cef4242048bc); selected commit bbd553fd22b5: \"Fix input-claim bugs and add missing interaction affordances\". LICENSE file at pin bbd553fd22b5 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @vshvedov, who has not added it."
+   },
+   "paths": [
+    "docs",
+    "src",
+    "tests"
+   ]
   }
  ]
 }

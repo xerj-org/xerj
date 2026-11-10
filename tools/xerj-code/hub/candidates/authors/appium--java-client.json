@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-11-09T16:43Z",
     "consent_receipt": "591b5b38e585",
-    "note": "Inclusion consented by the commit author by email at 2026-11-09T16:43Z (receipt 591b5b38e585); selected commit 918f901e25e2: \"fix: try later ALL_POSSIBLE widget roots when a nested lookup misses \u2026\". LICENSE file at pin 918f901e25e2 detected as Apache-2.0 by the GitHub licence API on 2026-11-09; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T16:43Z (receipt 591b5b38e585); selected commit 918f901e25e2: \"fix: try later ALL_POSSIBLE widget roots when a nested lookup misses \u2026\". LICENSE file at pin 918f901e25e2 detected as Apache-2.0 by the GitHub licence API on 2026-11-09; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @appium, who has not added it."
+   },
+   "paths": [
+    "src/main/java/io/appium/java_client/pagefactory",
+    "src/main/java/io/appium/java_client/support/pagefactory",
+    "src/test/java/io/appium/java_client/pagefactory_tests"
+   ]
   }
  ]
 }

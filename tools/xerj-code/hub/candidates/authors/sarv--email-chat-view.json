@@ -16,8 +16,11 @@
     "by": "author-consent",
     "at": "2026-10-21T04:28Z",
     "consent_receipt": "fcc4668a8eee",
-    "note": "Inclusion consented by the commit author by email at 2026-10-21T04:28Z (receipt fcc4668a8eee); selected commit a5262ac74c14: \"feat(android): add the EmailChatView Android library\". LICENSE file at pin a5262ac74c14 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-21T04:28Z (receipt fcc4668a8eee); selected commit a5262ac74c14: \"feat(android): add the EmailChatView Android library\". LICENSE file at pin a5262ac74c14 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Sarv, who has not added it."
+   },
+   "paths": [
+    "mobile/android"
+   ]
   }
  ]
 }

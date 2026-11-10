@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-11-10T06:02Z",
     "consent_receipt": "9b21b71b8e42",
-    "note": "Inclusion consented by the commit author by email at 2026-11-10T06:02Z (receipt 9b21b71b8e42); selected commit f64ef0700e33: \"\ud83d\udc1b fix(occt): generate usable in-memory stream bindings\". LICENSE file at pin f64ef0700e33 detected as LGPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T06:02Z (receipt 9b21b71b8e42); selected commit f64ef0700e33: \"\ud83d\udc1b fix(occt): generate usable in-memory stream bindings\". LICENSE file at pin f64ef0700e33 detected as LGPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @TedToolkit, who has not added it."
+   },
+   "paths": [
+    "src/providers/occt/TedToolkit.CppBindings.Occt.Generator",
+    "src/shared/TedToolkit.CppBindings.Generator/Semantics/Emission",
+    "tests/TedToolkit.CppBindings.Occt.Generator.Tests/Services/RecordModelManagerTests"
+   ]
   }
  ]
 }

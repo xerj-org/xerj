@@ -16,8 +16,17 @@
     "by": "author-consent",
     "at": "2026-11-09T22:47Z",
     "consent_receipt": "88423230e47c",
-    "note": "Inclusion consented by the commit author by email at 2026-11-09T22:47Z (receipt 88423230e47c); selected commit ad8348fd4551: \"feat(tasks): add task relationship graph and create-time linking (#5115)\". LICENSE file at pin ad8348fd4551 detected as AGPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T22:47Z (receipt 88423230e47c); selected commit ad8348fd4551: \"feat(tasks): add task relationship graph and create-time linking (#5115)\". LICENSE file at pin ad8348fd4551 detected as AGPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @kdlbs, who has not added it."
+   },
+   "paths": [
+    "apps",
+    "docs/decisions",
+    "docs/plans/task-create-relationships",
+    "docs/plans/task-relationship-graph",
+    "docs/public",
+    "docs/specs/tasks/requirements",
+    "docs/specs/tasks/system-design"
+   ]
   }
  ]
 }

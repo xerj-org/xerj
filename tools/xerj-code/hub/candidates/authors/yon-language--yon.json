@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-10-14T07:16Z",
     "consent_receipt": "c99e806f3d7e",
-    "note": "Inclusion consented by the commit author by email at 2026-10-14T07:16Z (receipt c99e806f3d7e); selected commit 932fc5e70bc1: \"A1: a world is a region of its names, released in one piece (fonte: T\u2026\". LICENSE file at pin 932fc5e70bc1 detected as AGPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-14T07:16Z (receipt c99e806f3d7e); selected commit 932fc5e70bc1: \"A1: a world is a region of its names, released in one piece (fonte: T\u2026\". LICENSE file at pin 932fc5e70bc1 detected as AGPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @yon-language, who has not added it."
+   },
+   "paths": [
+    "regression",
+    "runtime",
+    "website/docs/book"
+   ]
   }
  ]
 }

@@ -16,8 +16,16 @@
     "by": "author-consent",
     "at": "2026-10-26T17:40Z",
     "consent_receipt": "6ad343e2c297",
-    "note": "Inclusion consented by the commit author by email at 2026-10-26T17:40Z (receipt 6ad343e2c297); selected commit 59358c50f1f7: \"pscat sheet: labelled review sheets with mixed cell sizes (#693) (#696)\". LICENSE at pin 59358c50f1f7: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-26T17:40Z (receipt 6ad343e2c297); selected commit 59358c50f1f7: \"pscat sheet: labelled review sheets with mixed cell sizes (#693) (#696)\". LICENSE at pin 59358c50f1f7: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @PSCatLabs, who has not added it."
+   },
+   "paths": [
+    "docs/dev",
+    "docs/guides",
+    "notes",
+    "plugin/skills/pscat",
+    "src",
+    "tests"
+   ]
   }
  ]
 }

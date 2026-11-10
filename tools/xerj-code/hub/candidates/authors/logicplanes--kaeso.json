@@ -16,8 +16,14 @@
     "by": "author-consent",
     "at": "2026-10-17T02:14Z",
     "consent_receipt": "4975e5ce0c5e",
-    "note": "Inclusion consented by the commit author by email at 2026-10-17T02:14Z (receipt 4975e5ce0c5e); selected commit cfa3a376c401: \"Make both sites crawlable, previewable and searchable on phones (#28)\". LICENSE file at pin cfa3a376c401 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-17T02:14Z (receipt 4975e5ce0c5e); selected commit cfa3a376c401: \"Make both sites crawlable, previewable and searchable on phones (#28)\". LICENSE file at pin cfa3a376c401 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @logicplanes, who has not added it."
+   },
+   "paths": [
+    "apps/docs",
+    "apps/showcase",
+    "packages/ui/src/components/app-frame",
+    "scripts"
+   ]
   }
  ]
 }

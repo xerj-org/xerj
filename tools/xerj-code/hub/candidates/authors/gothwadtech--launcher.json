@@ -1,0 +1,23 @@
+{
+ "corpus": "gothwadtech--launcher",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Kotlin queries this for how GothwadTech/launcher implements it: Gothwad TV Launcher is made for Android TVs and Tablets SImple looking but advance feature luncher notification recents apps ads free suitab (selected work: app/src)",
+ "repos": [
+  {
+   "repo": "launcher",
+   "url": "https://github.com/GothwadTech/launcher",
+   "sha": "952c82c1c38cf2278ce34d8403141f2e7e80c6b3",
+   "licence": "Apache-2.0 (LICENSE file at pin 952c82c1c38c, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-20T02:56Z",
+    "consent_receipt": "33a57a7fb6eb",
+    "note": "Inclusion consented by the commit author by email at 2026-10-20T02:56Z (receipt 33a57a7fb6eb); selected commit 952c82c1c38c: \"100-feature customization wave 1: themes, layouts, icons, focus FX, c\u2026\". LICENSE file at pin 952c82c1c38c detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

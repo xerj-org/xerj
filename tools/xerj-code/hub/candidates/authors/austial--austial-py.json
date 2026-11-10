@@ -16,8 +16,18 @@
     "by": "author-consent",
     "at": "2026-11-10T02:17Z",
     "consent_receipt": "a15349d3f87c",
-    "note": "Inclusion consented by the commit author by email at 2026-11-10T02:17Z (receipt a15349d3f87c); selected commit afec12f7763a: \"Add edge-case tests, Claude Code workflow, CI and review automation\". LICENSE file at pin afec12f7763a detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T02:17Z (receipt a15349d3f87c); selected commit afec12f7763a: \"Add edge-case tests, Claude Code workflow, CI and review automation\". LICENSE file at pin afec12f7763a detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @austial, who has not added it."
+   },
+   "paths": [
+    ".claude",
+    ".github",
+    "docs",
+    "packages/common/src/austial/common/pipes",
+    "packages/common/test",
+    "packages/core/src/austial/core",
+    "packages/core/test",
+    "scripts"
+   ]
   }
  ]
 }

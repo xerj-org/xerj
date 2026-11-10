@@ -16,8 +16,17 @@
     "by": "author-consent",
     "at": "2026-10-13T05:11Z",
     "consent_receipt": "ddc3ef9d3fe9",
-    "note": "Inclusion consented by the commit author by email at 2026-10-13T05:11Z (receipt ddc3ef9d3fe9); selected commit 1398ebcf2782: \"fix: safely retire settled stale Cursor reviews\". LICENSE file at pin 1398ebcf2782 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-13T05:11Z (receipt ddc3ef9d3fe9); selected commit 1398ebcf2782: \"fix: safely retire settled stale Cursor reviews\". LICENSE file at pin 1398ebcf2782 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @echopath-labs, who has not added it."
+   },
+   "paths": [
+    "docs",
+    "packages/adapter-codex-cursor/src",
+    "packages/cli/src",
+    "packages/core/src",
+    "packages/host-codex/src",
+    "skills/relaypact/references",
+    "test"
+   ]
   }
  ]
 }

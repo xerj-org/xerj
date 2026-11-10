@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-11-07T15:22Z",
     "consent_receipt": "6ddee422e1a3",
-    "note": "Inclusion consented by the commit author by email at 2026-11-07T15:22Z (receipt 6ddee422e1a3); selected commit d64eb41bc96f: \"Update all dependencies to their latest versions\". LICENSE at pin d64eb41bc96f: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T15:22Z (receipt 6ddee422e1a3); selected commit d64eb41bc96f: \"Update all dependencies to their latest versions\". LICENSE at pin d64eb41bc96f: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @SareProject, who has not added it."
+   },
+   "paths": [
+    "sare-cli",
+    "sare-core",
+    "sare-lib"
+   ]
   }
  ]
 }

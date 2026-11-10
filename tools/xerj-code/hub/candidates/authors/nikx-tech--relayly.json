@@ -16,8 +16,14 @@
     "by": "author-consent",
     "at": "2026-10-15T12:02Z",
     "consent_receipt": "defa7bd09597",
-    "note": "Inclusion consented by the commit author by email at 2026-10-15T12:02Z (receipt defa7bd09597); selected commit f2892af12d9e: \"feat(relay): add a device-initiated unpair capability (#142)\". LICENSE file at pin f2892af12d9e detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-15T12:02Z (receipt defa7bd09597); selected commit f2892af12d9e: \"feat(relay): add a device-initiated unpair capability (#142)\". LICENSE file at pin f2892af12d9e detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @NIKX-Tech, who has not added it."
+   },
+   "paths": [
+    "docs",
+    "internal/database",
+    "internal/relay",
+    "sdk/ts/src"
+   ]
   }
  ]
 }

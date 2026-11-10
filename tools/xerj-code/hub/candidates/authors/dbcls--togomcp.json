@@ -16,8 +16,12 @@
     "by": "author-consent",
     "at": "2026-11-03T01:52Z",
     "consent_receipt": "841cd771dec2",
-    "note": "Inclusion consented by the commit author by email at 2026-11-03T01:52Z (receipt 841cd771dec2); selected commit b7e6232282cb: \"Redact NCBI api_key from tool errors and tool-call logs\". LICENSE file at pin b7e6232282cb detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T01:52Z (receipt 841cd771dec2); selected commit b7e6232282cb: \"Redact NCBI api_key from tool errors and tool-call logs\". LICENSE file at pin b7e6232282cb detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @dbcls, who has not added it."
+   },
+   "paths": [
+    "tests",
+    "togo_mcp"
+   ]
   }
  ]
 }

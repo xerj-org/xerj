@@ -16,8 +16,20 @@
     "by": "author-consent",
     "at": "2026-10-15T21:18Z",
     "consent_receipt": "86f86f5f5f31",
-    "note": "Inclusion consented by the commit author by email at 2026-10-15T21:18Z (receipt 86f86f5f5f31); selected commit 1ab58af68732: \"Record Plasma AI's resolution of Problem 408's first two questions\". LICENSE at pin 1ab58af68732: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-15T21:18Z (receipt 86f86f5f5f31); selected commit 1ab58af68732: \"Record Plasma AI's resolution of Problem 408's first two questions\". LICENSE at pin 1ab58af68732: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @plasma-ai, who has not added it."
+   },
+   "paths": [
+    "library/.wiki",
+    "library/arithmetic_functions",
+    "library/integer_sequences/ford_2010_prime_chains_pratt_trees",
+    "library/primes/openai_2026_quasi_riemann_hypothesis_zero_free_half_plane_7_8",
+    "wiki/problems/arithmetic_functions/E0408",
+    "wiki/problems/arithmetic_functions/E0410",
+    "wiki/problems/arithmetic_functions/E0412",
+    "wiki/problems/arithmetic_functions/E0417",
+    "wiki/problems/arithmetic_functions/E0955",
+    "wiki/research/methods"
+   ]
   }
  ]
 }

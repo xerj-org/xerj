@@ -1,0 +1,30 @@
+{
+ "corpus": "shuishuipingan--qoder2api-hub",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on aliyun, api-gateway, claude-code queries this for how shuishuipingan/qoder2api-hub implements it: Qoder\u56fd\u9645\u56fd\u5185\u591a\u8d26\u53f7\u53cd\u4ee3\u7f51\u5173\uff0cQoder \u56fd\u9645\u56fd\u5185\u53cc\u533a\u591a\u8d26\u53f7 OpenAI \u517c\u5bb9\u7f51\u5173\u4e2d\u67a2 \u2014 COSY \u7b7e\u540d\u63a8\u7406\u3001\u7a33\u5b9a\u8bbe\u5907\u6307\u7eb9\u9632\u98ce\u63a7\u3001OAuth \u8bbe\u5907\u6388\u6743\u514d\u5ba2\u6237\u7aef\u767b\u5f55\u3001\u6bcf\u65e5\u7b7e\u5230\u4e0e Pro \u798f\u5229\u3001\u540e\u53f0\u5b9a\u65f6\u8c03\u5ea6\u5668\u3001Web \u76d1\u63a7\u770b\u677f\uff0c\u652f\u6301 Codex / Claude Code \u4e0e (selected work: the project root, tests)",
+ "repos": [
+  {
+   "repo": "qoder2api-hub",
+   "url": "https://github.com/shuishuipingan/qoder2api-hub",
+   "sha": "df9e1a117d20b1d50ace613139d08efb750dd57b",
+   "licence": "MIT (LICENSE file at pin df9e1a117d20, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T07:23Z",
+    "consent_receipt": "e45982614753",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T07:23Z (receipt e45982614753); selected commit df9e1a117d20: \"feat(i18n): plug-and-play i18n via JSON JSON file in i18n/, missing text\". LICENSE file at pin df9e1a117d20 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @shuishuipingan, who has not added it."
+   },
+   "paths": [
+    ".github/workflows",
+    "accounts",
+    "docs",
+    "i18n",
+    "tests"
+   ]
+  }
+ ]
+}

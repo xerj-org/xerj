@@ -16,8 +16,17 @@
     "by": "author-consent",
     "at": "2026-11-08T20:03Z",
     "consent_receipt": "5cd761468abf",
-    "note": "Inclusion consented by the commit author by email at 2026-11-08T20:03Z (receipt 5cd761468abf); selected commit 1fc6e25241c8: \"Add sidecarContainers to MaxScale\". LICENSE file at pin 1fc6e25241c8 detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T20:03Z (receipt 5cd761468abf); selected commit 1fc6e25241c8: \"Add sidecarContainers to MaxScale\". LICENSE file at pin 1fc6e25241c8 detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @mariadb-operator, who has not added it."
+   },
+   "paths": [
+    "api/v1alpha1",
+    "config/crd/bases",
+    "deploy/charts/mariadb-operator-crds/templates",
+    "deploy/crds",
+    "docs",
+    "examples/manifests",
+    "pkg/builder"
+   ]
   }
  ]
 }

@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-10-14T09:36Z",
     "consent_receipt": "b30ebe977c10",
-    "note": "Inclusion consented by the commit author by email at 2026-10-14T09:36Z (receipt b30ebe977c10); selected commit a99bfc0b6b3b: \"fix: look up AWS resources by name instead of listing them\". LICENSE file at pin a99bfc0b6b3b detected as GPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-14T09:36Z (receipt b30ebe977c10); selected commit a99bfc0b6b3b: \"fix: look up AWS resources by name instead of listing them\". LICENSE file at pin a99bfc0b6b3b detected as GPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @discindo, who has not added it."
+   },
+   "paths": [
+    "R",
+    "man",
+    "tests/testthat"
+   ]
   }
  ]
 }

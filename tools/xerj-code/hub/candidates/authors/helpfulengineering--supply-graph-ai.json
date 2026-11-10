@@ -16,8 +16,17 @@
     "by": "author-consent",
     "at": "2026-10-25T02:22Z",
     "consent_receipt": "dd7476932725",
-    "note": "Inclusion consented by the commit author by email at 2026-10-25T02:22Z (receipt dd7476932725); selected commit 19940c01260b: \"feat(storage): standalone guarded ohm storage wipe (#553)\". LICENSE file at pin 19940c01260b detected as GPL-3.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-25T02:22Z (receipt dd7476932725); selected commit 19940c01260b: \"feat(storage): standalone guarded ohm storage wipe (#553)\". LICENSE file at pin 19940c01260b detected as GPL-3.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @helpfulengineering, who has not added it."
+   },
+   "paths": [
+    "changelog.d",
+    "docs-site/docs/guides",
+    "docs/ops",
+    "src/cli",
+    "src/core/services",
+    "tests/integration",
+    "tests/unit"
+   ]
   }
  ]
 }

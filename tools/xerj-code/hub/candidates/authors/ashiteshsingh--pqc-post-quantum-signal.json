@@ -1,0 +1,23 @@
+{
+ "corpus": "ashiteshsingh--pqc-post-quantum-signal",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on double-ratchet, e2ee, end-to-end-encryption queries this for how AshiteshSingh/PQC-post-quantum-signal- implements it: Production & research-grade Post-Quantum KEM Double Ratchet protocol (FIPS 203 ML-KEM-768 + FIPS 204 ML-DSA-65). Resilient against Harvest-N (selected work: web_builder, tests, pq_ratchet)",
+ "repos": [
+  {
+   "repo": "PQC-post-quantum-signal-",
+   "url": "https://github.com/AshiteshSingh/PQC-post-quantum-signal-",
+   "sha": "ce5dd8118ad5d9231625749c7735ae2a631b9646",
+   "licence": "Apache-2.0 (LICENSE file at pin ce5dd8118ad5, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-16T00:40Z",
+    "consent_receipt": "77d4282c723f",
+    "note": "Inclusion consented by the commit author by email at 2026-10-16T00:40Z (receipt 77d4282c723f); selected commit ce5dd8118ad5: \"fix(pqc): enforce NIST SP 800-227 \u00a74.6.3 CCA-preserving hybrid KEM co\u2026\". LICENSE file at pin ce5dd8118ad5 detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

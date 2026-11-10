@@ -16,8 +16,15 @@
     "by": "author-consent",
     "at": "2026-10-10T20:10Z",
     "consent_receipt": "af5dd0876f36",
-    "note": "Inclusion consented by the commit author by email at 2026-10-10T20:10Z (receipt af5dd0876f36); selected commit f111d3e55528: \"DEP-262 sidecar: ssh.relay turns a listener into a terminating bastio\u2026\". LICENSE file at pin f111d3e55528 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-10T20:10Z (receipt af5dd0876f36); selected commit f111d3e55528: \"DEP-262 sidecar: ssh.relay turns a listener into a terminating bastio\u2026\". LICENSE file at pin f111d3e55528 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @hoophq, who has not added it."
+   },
+   "paths": [
+    "agent",
+    "client",
+    "deploy/docker-compose/ssh-bastion-stack",
+    "deploy/docker-compose/ssh-stack",
+    "sidecar"
+   ]
   }
  ]
 }

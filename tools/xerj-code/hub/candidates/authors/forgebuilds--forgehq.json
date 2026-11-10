@@ -16,8 +16,14 @@
     "by": "author-consent",
     "at": "2026-10-18T02:30Z",
     "consent_receipt": "48d5821b3eb1",
-    "note": "Inclusion consented by the commit author by email at 2026-10-18T02:30Z (receipt 48d5821b3eb1); selected commit c8b27951ac3e: \"Changes : changes to the legal papers\". LICENSE file at pin c8b27951ac3e detected as MIT by the GitHub licence API on 2026-10-25; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-18T02:30Z (receipt 48d5821b3eb1); selected commit c8b27951ac3e: \"Changes : changes to the legal papers\". LICENSE file at pin c8b27951ac3e detected as MIT by the GitHub licence API on 2026-10-25; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @ForgeBuilds, who has not added it."
+   },
+   "paths": [
+    "components",
+    "public",
+    "src/assets",
+    "src/lib"
+   ]
   }
  ]
 }

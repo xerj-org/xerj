@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-10-24T18:05Z",
     "consent_receipt": "81e3731dd03d",
-    "note": "Inclusion consented by the commit author by email at 2026-10-24T18:05Z (receipt 81e3731dd03d); selected commit 5017cb8b8d1b: \"feat(converter): publish an actor model catalog\". LICENSE file at pin 5017cb8b8d1b detected as GPL-3.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-24T18:05Z (receipt 81e3731dd03d); selected commit 5017cb8b8d1b: \"feat(converter): publish an actor model catalog\". LICENSE file at pin 5017cb8b8d1b detected as GPL-3.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Mudcrab-Team, who has not added it."
+   },
+   "paths": [
+    "crates/converter/src",
+    "crates/converter/tests",
+    "docs/specs/converters"
+   ]
   }
  ]
 }

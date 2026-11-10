@@ -1,0 +1,29 @@
+{
+ "corpus": "cinqic-research--juniper-app",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, ai-agents, android queries this for how Cinqic-Research/Juniper-App implements it: Open-source, local-first AI workspace for choosing, managing, and using your models with visible controls and privacy by default (selected work: src-tauri, tests, config)",
+ "repos": [
+  {
+   "repo": "Juniper-App",
+   "url": "https://github.com/Cinqic-Research/Juniper-App",
+   "sha": "9e48ae8e7114541b8b77b2da9f0c2caf31618541",
+   "licence": "Apache-2.0 (LICENSE file at pin 9e48ae8e7114, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-15T04:50Z",
+    "consent_receipt": "2d3fb864297e",
+    "note": "Inclusion consented by the commit author by email at 2026-10-15T04:50Z (receipt 2d3fb864297e); selected commit 9e48ae8e7114: \"Juniper 1 native token-ID backend in the desktop runtime (A-02)\". LICENSE file at pin 9e48ae8e7114 detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Cinqic-Research, who has not added it."
+   },
+   "paths": [
+    "config/backends",
+    "scripts",
+    "src-tauri",
+    "tests/juniper1"
+   ]
+  }
+ ]
+}

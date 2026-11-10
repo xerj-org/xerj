@@ -1,0 +1,27 @@
+{
+ "corpus": "modularmclib--dataenergistics",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Java queries this for how ModularMCLib/DataEnergistics implements it: ModularMCLib/DataEnergistics (Java) (selected work: src/main)",
+ "repos": [
+  {
+   "repo": "DataEnergistics",
+   "url": "https://github.com/ModularMCLib/DataEnergistics",
+   "sha": "a419001f836d3a251d47da1898fa1075f672d9db",
+   "licence": "author's permission (LICENSE at pin a419001f836d: NOASSERTION; repository: AGPL-3.0)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-13T17:25Z",
+    "consent_receipt": "60b39203f979",
+    "note": "Inclusion consented by the commit author by email at 2026-10-13T17:25Z (receipt 60b39203f979); selected commit a419001f836d: \"\u6062\u590d\u661f\u80fd\u6ce8\u5165\u5668\u5c01\u5305\u96c6\u6210\u4e0e\u539f\u751f\u4ea7\u7269\u56de\u6536 (#381)\". LICENSE at pin a419001f836d: NOASSERTION (repository: AGPL-3.0); used with the author's permission, with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @ModularMCLib, who has not added it."
+   },
+   "paths": [
+    "src/main/java/com/fish_dan_/data_energistics",
+    "src/main/resources"
+   ]
+  }
+ ]
+}

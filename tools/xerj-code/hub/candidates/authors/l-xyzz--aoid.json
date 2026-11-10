@@ -16,8 +16,12 @@
     "by": "author-consent",
     "at": "2026-11-02T13:31Z",
     "consent_receipt": "16f1e13c18d0",
-    "note": "Inclusion consented by the commit author by email at 2026-11-02T13:31Z (receipt 16f1e13c18d0); selected commit 8f7694ce3e6c: \"fix: \u4fee\u590d Android 10 \u53ca\u90e8\u5206\u673a\u578b\u7684\u8fde\u63a5/\u6587\u4ef6\u7ba1\u7406\u95ee\u9898\uff0c\u65b0\u589e\u62d6\u62fd\u4f20\u6587\u4ef6\". LICENSE file at pin 8f7694ce3e6c detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T13:31Z (receipt 16f1e13c18d0); selected commit 8f7694ce3e6c: \"fix: \u4fee\u590d Android 10 \u53ca\u90e8\u5206\u673a\u578b\u7684\u8fde\u63a5/\u6587\u4ef6\u7ba1\u7406\u95ee\u9898\uff0c\u65b0\u589e\u62d6\u62fd\u4f20\u6587\u4ef6\". LICENSE file at pin 8f7694ce3e6c detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @l-xyzz, who has not added it."
+   },
+   "paths": [
+    "src/main",
+    "src/renderer"
+   ]
   }
  ]
 }

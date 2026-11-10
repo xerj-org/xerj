@@ -16,8 +16,12 @@
     "by": "author-consent",
     "at": "2026-10-23T17:35Z",
     "consent_receipt": "d52a26c68442",
-    "note": "Inclusion consented by the commit author by email at 2026-10-23T17:35Z (receipt d52a26c68442); selected commit 9d9de116c630: \"feat(ai): add column-level lineage provenance to SQL result inspector\u2026\". LICENSE file at pin 9d9de116c630 detected as BSD-3-Clause by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-23T17:35Z (receipt d52a26c68442); selected commit 9d9de116c630: \"feat(ai): add column-level lineage provenance to SQL result inspector\u2026\". LICENSE file at pin 9d9de116c630 detected as BSD-3-Clause by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @holoviz, who has not added it."
+   },
+   "paths": [
+    "lumen/ai",
+    "lumen/tests/ai"
+   ]
   }
  ]
 }

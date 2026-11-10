@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-10-09T16:18Z",
     "consent_receipt": "5745e4aa2a27",
-    "note": "Inclusion consented by the commit author by email at 2026-10-09T16:18Z (receipt 5745e4aa2a27); selected commit b32e5ca149be: \"feat: add ActionTime to read the client clock\". LICENSE file at pin b32e5ca149be detected as Apache-2.0 by the GitHub licence API on 2026-10-28; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-09T16:18Z (receipt 5745e4aa2a27); selected commit b32e5ca149be: \"feat: add ActionTime to read the client clock\". LICENSE file at pin b32e5ca149be detected as Apache-2.0 by the GitHub licence API on 2026-10-28; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @doors-dev, who has not added it."
+   },
+   "paths": [
+    "internal/client",
+    "internal/front/actions",
+    "internal/test/attr"
+   ]
   }
  ]
 }

@@ -16,8 +16,14 @@
     "by": "author-consent",
     "at": "2026-10-16T17:35Z",
     "consent_receipt": "25950f368472",
-    "note": "Inclusion consented by the commit author by email at 2026-10-16T17:35Z (receipt 25950f368472); selected commit 1f5d4e9d4273: \"Move frontend deps from bower to npm, upgrade to gulp 5\". LICENSE file at pin 1f5d4e9d4273 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-16T17:35Z (receipt 25950f368472); selected commit 1f5d4e9d4273: \"Move frontend deps from bower to npm, upgrade to gulp 5\". LICENSE file at pin 1f5d4e9d4273 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @URN, who has not added it."
+   },
+   "paths": [
+    "_coffee/app",
+    "_coffee/index",
+    "_coffee/scripts",
+    "_sass"
+   ]
   }
  ]
 }

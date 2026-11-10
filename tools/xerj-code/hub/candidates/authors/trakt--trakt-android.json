@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-10-18T02:55Z",
     "consent_receipt": "a8539cfd7dad",
-    "note": "Inclusion consented by the commit author by email at 2026-10-18T02:55Z (receipt a8539cfd7dad); selected commit b4b91ac7a559: \"feat(app): offer watched until here when a check skips episodes (#360)\". LICENSE file at pin b4b91ac7a559 detected as GPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-18T02:55Z (receipt a8539cfd7dad); selected commit b4b91ac7a559: \"feat(app): offer watched until here when a check skips episodes (#360)\". LICENSE file at pin b4b91ac7a559 detected as GPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @trakt, who has not added it."
+   },
+   "paths": [
+    "app/src/main/java/tv/trakt/trakt/core/summary/episodes/di",
+    "app/src/main/java/tv/trakt/trakt/core/summary/episodes/features/season",
+    "app/src/main/java/tv/trakt/trakt/core/summary/shows/features/seasons"
+   ]
   }
  ]
 }

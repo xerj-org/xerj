@@ -1,0 +1,23 @@
+{
+ "corpus": "yury--cidre",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how yury/cidre implements it: Apple frameworks bindings for rust (selected work: cidre)",
+ "repos": [
+  {
+   "repo": "cidre",
+   "url": "https://github.com/yury/cidre",
+   "sha": "5437df67727e1ecf7b82d743c9879f2772a54612",
+   "licence": "MIT (LICENSE file at pin 5437df67727e, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-10T11:48Z",
+    "consent_receipt": "9ecc7559a31d",
+    "note": "Inclusion consented by the commit author by email at 2026-10-10T11:48Z (receipt 9ecc7559a31d); selected commit 5437df67727e: \"more webkit, uikit and core animation api\". LICENSE file at pin 5437df67727e detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

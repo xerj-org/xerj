@@ -16,8 +16,12 @@
     "by": "author-consent",
     "at": "2026-10-19T05:33Z",
     "consent_receipt": "c16a9706812f",
-    "note": "Inclusion consented by the commit author by email at 2026-10-19T05:33Z (receipt c16a9706812f); selected commit 892509646cb3: \"fix(memguard): on Linux the guard read only the resident set the cgro\u2026\". LICENSE file at pin 892509646cb3 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-19T05:33Z (receipt c16a9706812f); selected commit 892509646cb3: \"fix(memguard): on Linux the guard read only the resident set the cgro\u2026\". LICENSE file at pin 892509646cb3 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @redhat-et, who has not added it."
+   },
+   "paths": [
+    "src",
+    "test"
+   ]
   }
  ]
 }

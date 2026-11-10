@@ -16,8 +16,14 @@
     "by": "author-consent",
     "at": "2026-10-27T00:21Z",
     "consent_receipt": "3b0850c1c04d",
-    "note": "Inclusion consented by the commit author by email at 2026-10-27T00:21Z (receipt 3b0850c1c04d); selected commit f50e07043693: \"enhance IronClad tournament organiser card\". LICENSE file at pin f50e07043693 detected as GPL-3.0 by the GitHub licence API on 2026-10-27; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-27T00:21Z (receipt 3b0850c1c04d); selected commit f50e07043693: \"enhance IronClad tournament organiser card\". LICENSE file at pin f50e07043693 detected as GPL-3.0 by the GitHub licence API on 2026-10-27; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @cohstats, who has not added it."
+   },
+   "paths": [
+    "__tests__/screens/tournaments",
+    "public/locales/en",
+    "screens/tournaments/components",
+    "src/tournaments"
+   ]
   }
  ]
 }

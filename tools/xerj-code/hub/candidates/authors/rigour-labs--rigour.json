@@ -16,8 +16,14 @@
     "by": "author-consent",
     "at": "2026-10-05T14:28Z",
     "consent_receipt": "838a0fab3eab",
-    "note": "Inclusion consented by the commit author by email at 2026-10-05T14:28Z (receipt 838a0fab3eab); selected commit 3c514cf1ca86: \"fix: Rigour as the whole quality boundary \u2014 stop, push and review (#37)\". LICENSE file at pin 3c514cf1ca86 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-05T14:28Z (receipt 838a0fab3eab); selected commit 3c514cf1ca86: \"fix: Rigour as the whole quality boundary \u2014 stop, push and review (#37)\". LICENSE file at pin 3c514cf1ca86 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @rigour-labs, who has not added it."
+   },
+   "paths": [
+    "docs",
+    "packages/rigour-cli",
+    "packages/rigour-core",
+    "packages/rigour-mcp"
+   ]
   }
  ]
 }

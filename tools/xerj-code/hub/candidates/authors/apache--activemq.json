@@ -16,8 +16,12 @@
     "by": "author-consent",
     "at": "2026-10-13T00:00Z",
     "consent_receipt": "942fddff662e",
-    "note": "Inclusion consented by the commit author by email at 2026-10-13T00:00Z (receipt 942fddff662e); selected commit 6fdd6ad561c5: \"Add support for PageFile free page truncation (#2233)\". LICENSE file at pin 6fdd6ad561c5 detected as Apache-2.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-13T00:00Z (receipt 942fddff662e); selected commit 6fdd6ad561c5: \"Add support for PageFile free page truncation (#2233)\". LICENSE file at pin 6fdd6ad561c5 detected as Apache-2.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @apache, who has not added it."
+   },
+   "paths": [
+    "activemq-kahadb-store/src/main/java/org/apache/activemq/store/kahadb",
+    "activemq-kahadb-store/src/test/java/org/apache/activemq/store/kahadb"
+   ]
   }
  ]
 }

@@ -16,8 +16,12 @@
     "by": "author-consent",
     "at": "2026-10-15T06:30Z",
     "consent_receipt": "15d830fe3400",
-    "note": "Inclusion consented by the commit author by email at 2026-10-15T06:30Z (receipt 15d830fe3400); selected commit 45d546cd6c55: \"derive per-operation security from `auth` guards and `can` abilities,\u2026\". LICENSE file at pin 45d546cd6c55 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-15T06:30Z (receipt 15d830fe3400); selected commit 45d546cd6c55: \"derive per-operation security from `auth` guards and `can` abilities,\u2026\". LICENSE file at pin 45d546cd6c55 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @421C, who has not added it."
+   },
+   "paths": [
+    "src",
+    "tests"
+   ]
   }
  ]
 }

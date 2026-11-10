@@ -16,8 +16,15 @@
     "by": "author-consent",
     "at": "2026-10-14T15:05Z",
     "consent_receipt": "394aeeee4a3c",
-    "note": "Inclusion consented by the commit author by email at 2026-10-14T15:05Z (receipt 394aeeee4a3c); selected commit f16912e9f20f: \"use multi-turn communication for almost all flows, file inlining impr\u2026\". LICENSE file at pin f16912e9f20f detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-14T15:05Z (receipt 394aeeee4a3c); selected commit f16912e9f20f: \"use multi-turn communication for almost all flows, file inlining impr\u2026\". LICENSE file at pin f16912e9f20f detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @lamia-lang, who has not added it."
+   },
+   "paths": [
+    "lamia",
+    "tests/engine/managers/llm",
+    "tests/facade",
+    "tests/interpreter",
+    "tests/tools"
+   ]
   }
  ]
 }

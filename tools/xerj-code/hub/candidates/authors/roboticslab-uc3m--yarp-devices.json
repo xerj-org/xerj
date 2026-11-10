@@ -16,8 +16,19 @@
     "by": "author-consent",
     "at": "2026-10-11T03:59Z",
     "consent_receipt": "e7684e7f45b6",
-    "note": "Inclusion consented by the commit author by email at 2026-10-11T03:59Z (receipt e7684e7f45b6); selected commit 9a9a938e4b0e: \"Prepare for YARP 4.1\". LICENSE file at pin 9a9a938e4b0e detected as LGPL-2.1 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-11T03:59Z (receipt e7684e7f45b6); selected commit 9a9a938e4b0e: \"Prepare for YARP 4.1\". LICENSE file at pin 9a9a938e4b0e detected as LGPL-2.1 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @roboticslab-uc3m, who has not added it."
+   },
+   "paths": [
+    ".github/workflows",
+    "examples/cpp/exampleJr3Pci",
+    "examples/cpp/exampleRemoteJr3",
+    "libraries/YarpDeviceMapperLib",
+    "libraries/YarpPlugins/CanBusBroker",
+    "libraries/YarpPlugins/Jr3Mbed",
+    "libraries/YarpPlugins/Jr3Pci",
+    "libraries/YarpPlugins/PhidgetSpatial",
+    "tests"
+   ]
   }
  ]
 }

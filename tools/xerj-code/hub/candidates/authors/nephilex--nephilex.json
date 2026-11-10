@@ -16,8 +16,15 @@
     "by": "author-consent",
     "at": "2026-10-24T20:06Z",
     "consent_receipt": "971239b64570",
-    "note": "Inclusion consented by the commit author by email at 2026-10-24T20:06Z (receipt 971239b64570); selected commit 96b374a46375: \"refactor(git): run every git call through one hardened runner\". LICENSE file at pin 96b374a46375 detected as Apache-2.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-24T20:06Z (receipt 971239b64570); selected commit 96b374a46375: \"refactor(git): run every git call through one hardened runner\". LICENSE file at pin 96b374a46375 detected as Apache-2.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Argus-CodeSecurity, who has not added it."
+   },
+   "paths": [
+    "src/argus/core",
+    "src/argus/inventory",
+    "src/argus/remediation",
+    "src/argus/scanners",
+    "tests"
+   ]
   }
  ]
 }

@@ -1,0 +1,23 @@
+{
+ "corpus": "dreliq9--fcp-mcp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how dreliq9/fcp-mcp implements it: The most capable Final Cut Pro MCP server \u2014 88 tools: FCPXML engine + live FCP control + media analysis + parametric puppets (selected work: tests, src/fcp_mcp)",
+ "repos": [
+  {
+   "repo": "fcp-mcp",
+   "url": "https://github.com/dreliq9/fcp-mcp",
+   "sha": "67410aa44ff9002c27dd91b09cec7c47fd32a911",
+   "licence": "MIT (LICENSE file at pin 67410aa44ff9, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-12T14:31Z",
+    "consent_receipt": "bb0b71605caf",
+    "note": "Inclusion consented by the commit author by email at 2026-10-12T14:31Z (receipt bb0b71605caf); selected commit 67410aa44ff9: \"fix: restore MCP compatibility and FCPXML titles [skip ci]\". LICENSE file at pin 67410aa44ff9 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -16,8 +16,28 @@
     "by": "author-consent",
     "at": "2026-10-18T21:25Z",
     "consent_receipt": "f4da82bdffe7",
-    "note": "Inclusion consented by the commit author by email at 2026-10-18T21:25Z (receipt f4da82bdffe7); selected commit 8dc80cadee0b: \"feat(billing): annual + semester plans, AI edit credit packs, retire \u2026\". LICENSE file at pin 8dc80cadee0b detected as LGPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-18T21:25Z (receipt f4da82bdffe7); selected commit 8dc80cadee0b: \"feat(billing): annual + semester plans, AI edit credit packs, retire \u2026\". LICENSE file at pin 8dc80cadee0b detected as LGPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @octree-labs, who has not added it."
+   },
+   "paths": [
+    "app/api/checkout-session",
+    "app/api/octra-agent",
+    "app/api/subscription-status",
+    "app/api/track-edit",
+    "app/api/webhooks/stripe",
+    "app/buy",
+    "app/onboarding",
+    "app/success",
+    "components/chat",
+    "components/generate",
+    "components/subscription",
+    "data",
+    "lib",
+    "scripts",
+    "stores",
+    "supabase/migrations",
+    "supabase/tests",
+    "tests/unit"
+   ]
   }
  ]
 }

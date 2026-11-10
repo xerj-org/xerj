@@ -16,8 +16,11 @@
     "by": "author-consent",
     "at": "2026-10-27T22:41Z",
     "consent_receipt": "515739ea9b8d",
-    "note": "Inclusion consented by the commit author by email at 2026-10-27T22:41Z (receipt 515739ea9b8d); selected commit 1270309a9b1c: \"PC-8801: mount one disk of a multi-disk D88 (#1378)\". LICENSE file at pin 1270309a9b1c detected as GPL-3.0 by the GitHub licence API on 2026-10-27; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-27T22:41Z (receipt 515739ea9b8d); selected commit 1270309a9b1c: \"PC-8801: mount one disk of a multi-disk D88 (#1378)\". LICENSE file at pin 1270309a9b1c detected as GPL-3.0 by the GitHub licence API on 2026-10-27; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @MiSTer-devel, who has not added it."
+   },
+   "paths": [
+    "support/pc88"
+   ]
   }
  ]
 }

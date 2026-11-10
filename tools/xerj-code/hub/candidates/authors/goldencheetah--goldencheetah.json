@@ -16,8 +16,12 @@
     "by": "author-consent",
     "at": "2026-10-30T05:57Z",
     "consent_receipt": "c3bba93241a4",
-    "note": "Inclusion consented by the commit author by email at 2026-10-30T05:57Z (receipt c3bba93241a4); selected commit 988e7b9cdb8d: \"Add VideoHtml Train chart (video under HTML overlay) (#4929)\". LICENSE file at pin 988e7b9cdb8d detected as GPL-3.0 by the GitHub licence API on 2026-11-09; used under that licence with attribution. Pinned to head 988e7b9cdb8d (contains the selected commit): the LICENSE at the selected commit was GPL-2.0."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T05:57Z (receipt c3bba93241a4); selected commit 988e7b9cdb8d: \"Add VideoHtml Train chart (video under HTML overlay) (#4929)\". LICENSE file at pin 988e7b9cdb8d detected as GPL-3.0 by the GitHub licence API on 2026-11-09; used under that licence with attribution. Pinned to head 988e7b9cdb8d (contains the selected commit): the LICENSE at the selected commit was GPL-2.0. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @GoldenCheetah, who has not added it."
+   },
+   "paths": [
+    "src",
+    "test/charts"
+   ]
   }
  ]
 }

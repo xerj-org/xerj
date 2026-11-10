@@ -16,8 +16,12 @@
     "by": "author-consent",
     "at": "2026-10-18T08:09Z",
     "consent_receipt": "b904c080fcbf",
-    "note": "Inclusion consented by the commit author by email at 2026-10-18T08:09Z (receipt b904c080fcbf); selected commit 274c58d4e367: \"feat: change the frontend web application color with community and au\u2026\". LICENSE file at pin 274c58d4e367 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-18T08:09Z (receipt b904c080fcbf); selected commit 274c58d4e367: \"feat: change the frontend web application color with community and au\u2026\". LICENSE file at pin 274c58d4e367 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @CodesAngel, who has not added it."
+   },
+   "paths": [
+    "frontend-web/src/app",
+    "frontend-web/src/components"
+   ]
   }
  ]
 }

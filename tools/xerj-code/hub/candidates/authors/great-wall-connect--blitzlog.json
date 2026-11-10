@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-10-13T01:20Z",
     "consent_receipt": "15734614507c",
-    "note": "Inclusion consented by the commit author by email at 2026-10-13T01:20Z (receipt 15734614507c); selected commit 8d7c5720d82f: \"feat(auth): make gh/git installation-token lifetime configurable, def\u2026\". LICENSE file at pin 8d7c5720d82f detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-13T01:20Z (receipt 15734614507c); selected commit 8d7c5720d82f: \"feat(auth): make gh/git installation-token lifetime configurable, def\u2026\". LICENSE file at pin 8d7c5720d82f detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @great-wall-connect, who has not added it."
+   },
+   "paths": [
+    "infra/modules/core",
+    "lambda",
+    "tests"
+   ]
   }
  ]
 }

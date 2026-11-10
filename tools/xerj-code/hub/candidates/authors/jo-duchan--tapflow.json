@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-10-12T17:32Z",
     "consent_receipt": "f25e209094b8",
-    "note": "Inclusion consented by the commit author by email at 2026-10-12T17:32Z (receipt f25e209094b8); selected commit 4fc0e29c9942: \"fix(mcp-server,flow-runner): settle in-flight boot on session rebound\u2026\". LICENSE file at pin 4fc0e29c9942 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-12T17:32Z (receipt f25e209094b8); selected commit 4fc0e29c9942: \"fix(mcp-server,flow-runner): settle in-flight boot on session rebound\u2026\". LICENSE file at pin 4fc0e29c9942 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @jo-duchan, who has not added it."
+   },
+   "paths": [
+    ".changeset",
+    "packages/flow-runner/src",
+    "packages/mcp-server/src"
+   ]
   }
  ]
 }

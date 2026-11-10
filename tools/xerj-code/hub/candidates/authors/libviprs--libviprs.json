@@ -16,8 +16,14 @@
     "by": "author-consent",
     "at": "2026-10-11T06:31Z",
     "consent_receipt": "6a719bf3beb8",
-    "note": "Inclusion consented by the commit author by email at 2026-10-11T06:31Z (receipt 6a719bf3beb8); selected commit 6ec9570039a3: \"Bring page sizing and MSRV 1.99 onto main on the registry pdfium-rend\u2026\". LICENSE file at pin 6ec9570039a3 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-11T06:31Z (receipt 6a719bf3beb8); selected commit 6ec9570039a3: \"Bring page sizing and MSRV 1.99 onto main on the registry pdfium-rend\u2026\". LICENSE file at pin 6ec9570039a3 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @libviprs, who has not added it."
+   },
+   "paths": [
+    ".github/workflows",
+    "src",
+    "tests",
+    "tools"
+   ]
   }
  ]
 }

@@ -1,0 +1,36 @@
+{
+ "corpus": "sidebandstudio--eternalmonitor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on apple-pencil, extended-display, ipad queries this for how sidebandstudio/EternalMonitor implements it: Use your iPad as a second screen for Windows. Mirror or extend over Wi-Fi or USB, with touch, keyboard, Apple Pencil and PC audio (selected work: host, ios, scripts)",
+ "repos": [
+  {
+   "repo": "EternalMonitor",
+   "url": "https://github.com/sidebandstudio/EternalMonitor",
+   "sha": "3b1ac7ae368f783c9943348270c62e9ddee13880",
+   "licence": "MIT (LICENSE file at pin 3b1ac7ae368f, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-12T16:34Z",
+    "consent_receipt": "dca3a922ca77",
+    "note": "Inclusion consented by the commit author by email at 2026-10-12T16:34Z (receipt dca3a922ca77); selected commit 3b1ac7ae368f: \"Add native Apple Pencil drawing support for Windows\". LICENSE file at pin 3b1ac7ae368f detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @sidebandstudio, who has not added it."
+   },
+   "paths": [
+    "docs",
+    "host",
+    "installer",
+    "ios/EternalMonitor/App",
+    "ios/EternalMonitor/Input",
+    "ios/EternalMonitor/Network",
+    "ios/EternalMonitorTests",
+    "proto/src/v2",
+    "proto/testdata",
+    "proto/tests",
+    "scripts"
+   ]
+  }
+ ]
+}

@@ -16,8 +16,15 @@
     "by": "author-consent",
     "at": "2026-10-14T02:35Z",
     "consent_receipt": "b4c6fe56d369",
-    "note": "Inclusion consented by the commit author by email at 2026-10-14T02:35Z (receipt b4c6fe56d369); selected commit 1995f8ffa0b9: \"v1.0.1 \u2014 Refor\u00e7o de seguran\u00e7a no fluxo OAuth e corre\u00e7\u00f5es de ciclo de \u2026\". LICENSE file at pin 1995f8ffa0b9 detected as MIT by the GitHub licence API on 2026-10-25; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-14T02:35Z (receipt b4c6fe56d369); selected commit 1995f8ffa0b9: \"v1.0.1 \u2014 Refor\u00e7o de seguran\u00e7a no fluxo OAuth e corre\u00e7\u00f5es de ciclo de \u2026\". LICENSE file at pin 1995f8ffa0b9 detected as MIT by the GitHub licence API on 2026-10-25; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @cereja-project, who has not added it."
+   },
+   "paths": [
+    "docs",
+    "govbr_auth",
+    "tests/contract",
+    "tests/integration",
+    "tests/unit"
+   ]
   }
  ]
 }

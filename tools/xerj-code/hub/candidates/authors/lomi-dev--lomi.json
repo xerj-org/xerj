@@ -16,8 +16,19 @@
     "by": "author-consent",
     "at": "2026-10-05T15:47Z",
     "consent_receipt": "62e1db33c3dd",
-    "note": "Inclusion consented by the commit author by email at 2026-10-05T15:47Z (receipt 62e1db33c3dd); selected commit 7b6c48a81bcb: \"feat(chat): add custom api connections and platform checks\". LICENSE file at pin 7b6c48a81bcb detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-05T15:47Z (receipt 62e1db33c3dd); selected commit 7b6c48a81bcb: \"feat(chat): add custom api connections and platform checks\". LICENSE file at pin 7b6c48a81bcb detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @lomi-dev, who has not added it."
+   },
+   "paths": [
+    ".github/workflows",
+    "docs",
+    "packages/ai-runtime/src",
+    "packages/ai-runtime/tests",
+    "scripts",
+    "src-tauri/src",
+    "src/chat",
+    "tests/native",
+    "tests/ui"
+   ]
   }
  ]
 }

@@ -16,8 +16,19 @@
     "by": "author-consent",
     "at": "2026-11-06T23:15Z",
     "consent_receipt": "a42fe7b7691b",
-    "note": "Inclusion consented by the commit author by email at 2026-11-06T23:15Z (receipt a42fe7b7691b); selected commit 18cef1d4faf7: \"V0.1.0 - feat: new sensors section, waiting on my H5179s, healthcheck\u2026\". LICENSE file at pin 18cef1d4faf7 detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution. Pinned to head 18cef1d4faf7 (contains the selected commit): the LICENSE at the selected commit was GPL-3.0."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-11-06T23:15Z (receipt a42fe7b7691b); selected commit 18cef1d4faf7: \"V0.1.0 - feat: new sensors section, waiting on my H5179s, healthcheck\u2026\". LICENSE file at pin 18cef1d4faf7 detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution. Pinned to head 18cef1d4faf7 (contains the selected commit): the LICENSE at the selected commit was GPL-3.0. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @mmfpsolutions, who has not added it."
+   },
+   "paths": [
+    "cmd/mmfp-govee",
+    "internal/activity",
+    "internal/config",
+    "internal/govee",
+    "internal/handlers/v1",
+    "internal/hooks",
+    "internal/logger",
+    "internal/router",
+    "internal/web"
+   ]
   }
  ]
 }

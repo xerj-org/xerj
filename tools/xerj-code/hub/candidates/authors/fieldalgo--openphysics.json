@@ -16,8 +16,19 @@
     "by": "author-consent",
     "at": "2026-10-27T23:45Z",
     "consent_receipt": "97680bdf4122",
-    "note": "Inclusion consented by the commit author by email at 2026-10-27T23:45Z (receipt 97680bdf4122); selected commit 7b29a26f94eb: \"Add slab verification, thermoelastic controls and reproducible run gu\u2026\". LICENSE file at pin 7b29a26f94eb detected as Apache-2.0 by the GitHub licence API on 2026-10-28; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-27T23:45Z (receipt 97680bdf4122); selected commit 7b29a26f94eb: \"Add slab verification, thermoelastic controls and reproducible run gu\u2026\". LICENSE file at pin 7b29a26f94eb detected as Apache-2.0 by the GitHub licence API on 2026-10-28; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @fieldalgo, who has not added it."
+   },
+   "paths": [
+    "docs/guide",
+    "docs/locales/ko/pages/guide",
+    "docs/locales/ko/pages/results",
+    "docs/locales/ko/pages/validation",
+    "docs/results",
+    "docs/validation",
+    "examples/galerkin",
+    "examples/simcase",
+    "tools/tests"
+   ]
   }
  ]
 }

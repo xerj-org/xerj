@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-10-25T21:08Z",
     "consent_receipt": "e84e02463f91",
-    "note": "Inclusion consented by the commit author by email at 2026-10-25T21:08Z (receipt e84e02463f91); selected commit 23149c180dd0: \"feat: shared ask_question MCP tool for Claude and Codex\". LICENSE file at pin 23149c180dd0 detected as MIT by the GitHub licence API on 2026-10-26; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-25T21:08Z (receipt e84e02463f91); selected commit 23149c180dd0: \"feat: shared ask_question MCP tool for Claude and Codex\". LICENSE file at pin 23149c180dd0 detected as MIT by the GitHub licence API on 2026-10-26; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @tyclab, who has not added it."
+   },
+   "paths": [
+    "files/config",
+    "files/scripts",
+    "nix"
+   ]
   }
  ]
 }

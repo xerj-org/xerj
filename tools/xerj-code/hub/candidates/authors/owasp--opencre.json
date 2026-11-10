@@ -16,8 +16,14 @@
     "by": "author-consent",
     "at": "2026-11-09T17:19Z",
     "consent_receipt": "e1749c32ba7d",
-    "note": "Inclusion consented by the commit author by email at 2026-11-09T17:19Z (receipt e1749c32ba7d); selected commit 0682e6bd8f93: \"feat: add cheatsheet_knowledge_queue_item adapter and Librarian dry-r\u2026\". LICENSE file at pin 0682e6bd8f93 detected as CC0-1.0 by the GitHub licence API on 2026-11-09; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T17:19Z (receipt e1749c32ba7d); selected commit 0682e6bd8f93: \"feat: add cheatsheet_knowledge_queue_item adapter and Librarian dry-r\u2026\". LICENSE file at pin 0682e6bd8f93 detected as CC0-1.0 by the GitHub licence API on 2026-11-09; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @OWASP, who has not added it."
+   },
+   "paths": [
+    ".github/workflows",
+    "application/tests",
+    "application/utils/external_project_parsers/parsers",
+    "scripts"
+   ]
   }
  ]
 }

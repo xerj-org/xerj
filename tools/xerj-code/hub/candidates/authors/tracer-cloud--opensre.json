@@ -16,8 +16,19 @@
     "by": "author-consent",
     "at": "2026-10-12T18:55Z",
     "consent_receipt": "755b8d3e0416",
-    "note": "Inclusion consented by the commit author by email at 2026-10-12T18:55Z (receipt 755b8d3e0416); selected commit 2d47937f5193: \"fix(sessions): add arrow-key navigation and resume to /sessions (#6477)\". LICENSE file at pin 2d47937f5193 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-12T18:55Z (receipt 755b8d3e0416); selected commit 2d47937f5193: \"fix(sessions): add arrow-key navigation and resume to /sessions (#6477)\". LICENSE file at pin 2d47937f5193 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Tracer-Cloud, who has not added it."
+   },
+   "paths": [
+    "docs/getting-started",
+    "docs/platform",
+    "surfaces/interactive_shell/command_registry",
+    "surfaces/interactive_shell/ui",
+    "tests/interactive_shell/command_registry",
+    "tests/interactive_shell/sessions",
+    "tests/interactive_shell/ui",
+    "tests/tools/interactive_shell",
+    "tools/interactive_shell/actions"
+   ]
   }
  ]
 }

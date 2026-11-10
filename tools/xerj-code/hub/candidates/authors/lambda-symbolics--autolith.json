@@ -1,0 +1,28 @@
+{
+ "corpus": "lambda-symbolics--autolith",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent, bsd, coding-agent queries this for how lambda-symbolics/autolith implements it: Autolith is a self-modifiable general purpose Lisp AI agent (selected work: tests, src/application)",
+ "repos": [
+  {
+   "repo": "autolith",
+   "url": "https://github.com/lambda-symbolics/autolith",
+   "sha": "c7e629381cdfbf67f46c2b30e4be36384fe600db",
+   "licence": "ISC (LICENSE file at pin c7e629381cdf, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "ISC",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-19T05:03Z",
+    "consent_receipt": "f7a97cbcbc31",
+    "note": "Inclusion consented by the commit author by email at 2026-10-19T05:03Z (receipt f7a97cbcbc31); selected commit c7e629381cdf: \"Preserve native S-expressions in local Lisp results\". LICENSE file at pin c7e629381cdf detected as ISC by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @lambda-symbolics, who has not added it."
+   },
+   "paths": [
+    "docs",
+    "src/application",
+    "tests"
+   ]
+  }
+ ]
+}

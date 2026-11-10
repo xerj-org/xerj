@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-10-20T01:25Z",
     "consent_receipt": "cc9b9a9077cc",
-    "note": "Inclusion consented by the commit author by email at 2026-10-20T01:25Z (receipt cc9b9a9077cc); selected commit e77309421b00: \"feat(serve): prepare the structured-output vocabulary before serving \u2026\". LICENSE file at pin e77309421b00 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-20T01:25Z (receipt cc9b9a9077cc); selected commit e77309421b00: \"feat(serve): prepare the structured-output vocabulary before serving \u2026\". LICENSE file at pin e77309421b00 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @gufo-org, who has not added it."
+   },
+   "paths": [
+    "docs",
+    "src/cli/serve",
+    "tests/cli"
+   ]
   }
  ]
 }

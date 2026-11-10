@@ -1,0 +1,23 @@
+{
+ "corpus": "tort1k558--camouflow",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on antidetect-browser, browser-automation, camoufox queries this for how Tort1k558/Camouflow implements it: Local-first anti-detect browser workspace: isolated profiles, AI agents, visual automation, Record & Replay, proxies and team workflows. Pow (selected work: app/qml, tests, app/ui)",
+ "repos": [
+  {
+   "repo": "Camouflow",
+   "url": "https://github.com/Tort1k558/Camouflow",
+   "sha": "37207b9951d0378585bd27ad3047ba7a32eb5cc9",
+   "licence": "MIT (LICENSE file at pin 37207b9951d0, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-20T05:18Z",
+    "consent_receipt": "7613d0f740e4",
+    "note": "Inclusion consented by the commit author by email at 2026-10-20T05:18Z (receipt 7613d0f740e4); selected commit 37207b9951d0: \"Improve AI workspace, add parameterized task batches and fix browser \u2026\". LICENSE file at pin 37207b9951d0 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

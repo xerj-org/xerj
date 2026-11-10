@@ -16,8 +16,16 @@
     "by": "author-consent",
     "at": "2026-10-14T13:08Z",
     "consent_receipt": "cd0cb673d8f3",
-    "note": "Inclusion consented by the commit author by email at 2026-10-14T13:08Z (receipt cd0cb673d8f3); selected commit bde8d4a025dc: \"feat(relations): add protected native identity references\". LICENSE at pin bde8d4a025dc: MIT (repository: NOASSERTION); used with the author's permission, with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-14T13:08Z (receipt cd0cb673d8f3); selected commit bde8d4a025dc: \"feat(relations): add protected native identity references\". LICENSE at pin bde8d4a025dc: MIT (repository: NOASSERTION); used with the author's permission, with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Yunsoft-Software, who has not added it."
+   },
+   "paths": [
+    "docs",
+    "packages/api/src/routes",
+    "packages/core/src",
+    "packages/core/test",
+    "scripts",
+    "test/integration"
+   ]
   }
  ]
 }

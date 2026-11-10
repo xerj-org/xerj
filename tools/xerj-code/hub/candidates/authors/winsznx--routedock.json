@@ -16,8 +16,18 @@
     "by": "author-consent",
     "at": "2026-10-17T02:17Z",
     "consent_receipt": "e6e5c973d0a3",
-    "note": "Inclusion consented by the commit author by email at 2026-10-17T02:17Z (receipt e6e5c973d0a3); selected commit 98fc671b25d8: \"fix(nulth): verify auth entry matches payment context before signing\". LICENSE file at pin 98fc671b25d8 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-17T02:17Z (receipt e6e5c973d0a3); selected commit 98fc671b25d8: \"fix(nulth): verify auth entry matches payment context before signing\". LICENSE file at pin 98fc671b25d8 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @winsznx, who has not added it."
+   },
+   "paths": [
+    ".changeset",
+    "apps/provider-b/src",
+    "contracts/agent-vault/src",
+    "contracts/agent-vault/test_snapshots/tests",
+    "contracts/agent-vault/testdata",
+    "packages/nulth-sdk/src",
+    "packages/sdk/src/client",
+    "packages/sdk/src/provider"
+   ]
   }
  ]
 }

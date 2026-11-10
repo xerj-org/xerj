@@ -16,8 +16,19 @@
     "by": "author-consent",
     "at": "2026-11-09T20:53Z",
     "consent_receipt": "d117d7e90db5",
-    "note": "Inclusion consented by the commit author by email at 2026-11-09T20:53Z (receipt d117d7e90db5); selected commit 0066b8be86bd: \"kueue-operator: move disconnected e2e to the AWS workflow (#86965)\". LICENSE file at pin 0066b8be86bd detected as Apache-2.0 by the GitHub licence API on 2026-11-09; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T20:53Z (receipt d117d7e90db5); selected commit 0066b8be86bd: \"kueue-operator: move disconnected e2e to the AWS workflow (#86965)\". LICENSE file at pin 0066b8be86bd detected as Apache-2.0 by the GitHub licence API on 2026-11-09; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @openshift, who has not added it."
+   },
+   "paths": [
+    "ci-operator/config/opendatahub-io/trainer-operator",
+    "ci-operator/config/openshift/kueue-operator",
+    "ci-operator/config/openshift/redhat-opentelemetry-collector",
+    "ci-operator/jobs/opendatahub-io/trainer-operator",
+    "ci-operator/jobs/openshift/kueue-operator",
+    "ci-operator/jobs/openshift/redhat-opentelemetry-collector",
+    "ci-operator/step-registry/kueue-operator/disconnected",
+    "core-services/prow/02_config/opendatahub-io/trainer-operator",
+    "core-services/prow/02_config/openshift/redhat-opentelemetry-collector"
+   ]
   }
  ]
 }

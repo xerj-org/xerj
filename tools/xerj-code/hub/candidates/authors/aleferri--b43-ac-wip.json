@@ -16,8 +16,15 @@
     "by": "author-consent",
     "at": "2026-11-04T10:28Z",
     "consent_receipt": "13657bedb384",
-    "note": "Inclusion consented by the commit author by email at 2026-11-04T10:28Z (receipt 13657bedb384); selected commit 8b9c9a930bb3: \"b43: AC-PHY: arm the radar detector and match radar types\". LICENSE file at pin 8b9c9a930bb3 detected as GPL-3.0 by the GitHub licence API on 2026-11-04; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-11-04T10:28Z (receipt 13657bedb384); selected commit 8b9c9a930bb3: \"b43: AC-PHY: arm the radar detector and match radar types\". LICENSE file at pin 8b9c9a930bb3 detected as GPL-3.0 by the GitHub licence API on 2026-11-04; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @aleferri, who has not added it."
+   },
+   "paths": [
+    "b43",
+    "docs",
+    "test/integration",
+    "test/radar",
+    "test/unit"
+   ]
   }
  ]
 }

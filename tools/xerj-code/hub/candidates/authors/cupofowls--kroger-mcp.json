@@ -1,0 +1,23 @@
+{
+ "corpus": "cupofowls--kroger-mcp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how CupOfOwls/kroger-mcp implements it: A FastMCP server that provides AI assistants like Claude with access to Kroger's grocery shopping functionality through the Model Context Pr (selected work: src/kroger_mcp, tests, the project root)",
+ "repos": [
+  {
+   "repo": "kroger-mcp",
+   "url": "https://github.com/CupOfOwls/kroger-mcp",
+   "sha": "97ee2e44c6cd2b37195201e29a01e013c9eb4ed9",
+   "licence": "MIT (LICENSE file at pin 97ee2e44c6cd, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-23T21:19Z",
+    "consent_receipt": "6a871386f171",
+    "note": "Inclusion consented by the commit author by email at 2026-10-23T21:19Z (receipt 6a871386f171); selected commit 97ee2e44c6cd: \"Run tools in worker threads; request the profile scope\". LICENSE file at pin 97ee2e44c6cd detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

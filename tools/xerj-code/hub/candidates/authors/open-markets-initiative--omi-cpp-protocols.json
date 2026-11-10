@@ -16,8 +16,19 @@
     "by": "author-consent",
     "at": "2026-10-14T20:13Z",
     "consent_receipt": "86faf9a39cdc",
-    "note": "Inclusion consented by the commit author by email at 2026-10-14T20:13Z (receipt 86faf9a39cdc); selected commit 0d5e44bf1590: \"Add flex and regenerate\". LICENSE file at pin 0d5e44bf1590 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-14T20:13Z (receipt 86faf9a39cdc); selected commit 0d5e44bf1590: \"Add flex and regenerate\". LICENSE file at pin 0d5e44bf1590 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Open-Markets-Initiative, who has not added it."
+   },
+   "paths": [
+    "checks",
+    "cpp/advanced",
+    "cpp/classes",
+    "cpp/modern",
+    "executables/dump",
+    "executables/extractor",
+    "executables/statistics",
+    "executables/verify",
+    "tests"
+   ]
   }
  ]
 }

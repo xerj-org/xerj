@@ -16,8 +16,11 @@
     "by": "author-consent",
     "at": "2026-10-19T11:52Z",
     "consent_receipt": "7941b84f81c5",
-    "note": "Inclusion consented by the commit author by email at 2026-10-19T11:52Z (receipt 7941b84f81c5); selected commit b9b9b50e18ce: \"Add a REST demo with JWT login and an endpoint client screen.\". LICENSE file at pin b9b9b50e18ce detected as LGPL-2.1 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-19T11:52Z (receipt 7941b84f81c5); selected commit b9b9b50e18ce: \"Add a REST demo with JWT login and an endpoint client screen.\". LICENSE file at pin b9b9b50e18ce detected as LGPL-2.1 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @d2bridge, who has not added it."
+   },
+   "paths": [
+    "Beta/Demos/REST"
+   ]
   }
  ]
 }

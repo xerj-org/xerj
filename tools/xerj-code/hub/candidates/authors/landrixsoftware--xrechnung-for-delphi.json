@@ -16,8 +16,14 @@
     "by": "author-consent",
     "at": "2026-10-12T04:36Z",
     "consent_receipt": "6c70dacc3260",
-    "note": "Inclusion consented by the commit author by email at 2026-10-12T04:36Z (receipt 6c70dacc3260); selected commit a42e334f01ff: \"F\u00fcge Lieferscheinangaben je Position f\u00fcr Sammelrechnungen hinzu (nur \u2026\". LICENSE file at pin a42e334f01ff detected as GPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-12T04:36Z (receipt 6c70dacc3260); selected commit a42e334f01ff: \"F\u00fcge Lieferscheinangaben je Position f\u00fcr Sammelrechnungen hinzu (nur \u2026\". LICENSE file at pin a42e334f01ff detected as GPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @LandrixSoftware, who has not added it."
+   },
+   "paths": [
+    "Delphi6",
+    "Samples",
+    "Tests/FreePascal",
+    "ValidXMLExamples"
+   ]
   }
  ]
 }

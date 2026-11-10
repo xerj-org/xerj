@@ -16,8 +16,12 @@
     "by": "author-consent",
     "at": "2026-11-03T18:32Z",
     "consent_receipt": "f5d6edd9aef6",
-    "note": "Inclusion consented by the commit author by email at 2026-11-03T18:32Z (receipt f5d6edd9aef6); selected commit 4b68224ff454: \"Use the assigned filament's settings in the PA Line calibration test \u2026\". LICENSE file at pin 4b68224ff454 detected as AGPL-3.0 by the GitHub licence API on 2026-11-03; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T18:32Z (receipt f5d6edd9aef6); selected commit 4b68224ff454: \"Use the assigned filament's settings in the PA Line calibration test \u2026\". LICENSE file at pin 4b68224ff454 detected as AGPL-3.0 by the GitHub licence API on 2026-11-03; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @OrcaSlicer, who has not added it."
+   },
+   "paths": [
+    "src/libslic3r",
+    "tests/fff_print"
+   ]
   }
  ]
 }

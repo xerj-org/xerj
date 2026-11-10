@@ -16,8 +16,15 @@
     "by": "author-consent",
     "at": "2026-11-10T14:06Z",
     "consent_receipt": "04375908cac8",
-    "note": "Inclusion consented by the commit author by email at 2026-11-10T14:06Z (receipt 04375908cac8); selected commit 3030d88a1fd9: \"fix(bookings): trim whitespace in BLACKLISTED_GUEST_EMAILS (#30461)\". LICENSE file at pin 3030d88a1fd9 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T14:06Z (receipt 04375908cac8); selected commit 3030d88a1fd9: \"fix(bookings): trim whitespace in BLACKLISTED_GUEST_EMAILS (#30461)\". LICENSE file at pin 3030d88a1fd9 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @calcom, who has not added it."
+   },
+   "paths": [
+    "packages/features/bookings/lib/handleNewBooking",
+    "packages/features/bookings/lib/service",
+    "packages/lib",
+    "packages/trpc/server/routers/publicViewer",
+    "packages/trpc/server/routers/viewer/bookings"
+   ]
   }
  ]
 }

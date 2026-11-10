@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-11-03T05:45Z",
     "consent_receipt": "cc4f8647a8b0",
-    "note": "Inclusion consented by the commit author by email at 2026-11-03T05:45Z (receipt cc4f8647a8b0); selected commit e7bb8603d295: \"build: verify slim resource bundle and install tool databases on demand\". LICENSE file at pin e7bb8603d295 detected as GPL-3.0 by the GitHub licence API on 2026-11-03; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T05:45Z (receipt cc4f8647a8b0); selected commit e7bb8603d295: \"build: verify slim resource bundle and install tool databases on demand\". LICENSE file at pin e7bb8603d295 detected as GPL-3.0 by the GitHub licence API on 2026-11-03; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @hongzhonglu, who has not added it."
+   },
+   "paths": [
+    "docs",
+    "scripts",
+    "tests"
+   ]
   }
  ]
 }

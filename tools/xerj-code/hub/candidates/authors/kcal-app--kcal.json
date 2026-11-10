@@ -16,8 +16,17 @@
     "by": "author-consent",
     "at": "2026-10-30T21:27Z",
     "consent_receipt": "276d28dc8294",
-    "note": "Inclusion consented by the commit author by email at 2026-10-30T21:27Z (receipt 276d28dc8294); selected commit 94a9f06709a4: \"feat: install Laravel Boost for dev environment\". LICENSE file at pin 94a9f06709a4 detected as MPL-2.0 by the GitHub licence API on 2026-10-30; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T21:27Z (receipt 276d28dc8294); selected commit 94a9f06709a4: \"feat: install Laravel Boost for dev environment\". LICENSE file at pin 94a9f06709a4 detected as MPL-2.0 by the GitHub licence API on 2026-10-30; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @kcal-app, who has not added it."
+   },
+   "paths": [
+    ".github/skills/deploying-to-cloud",
+    ".github/skills/infer-conventions",
+    ".github/skills/laravel-best-practices",
+    ".github/skills/scout-development",
+    ".github/skills/tailwindcss-development",
+    ".github/skills/testing-best-practices",
+    ".vscode"
+   ]
   }
  ]
 }

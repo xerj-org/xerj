@@ -16,8 +16,15 @@
     "by": "author-consent",
     "at": "2026-10-26T04:46Z",
     "consent_receipt": "6b9c548e0216",
-    "note": "Inclusion consented by the commit author by email at 2026-10-26T04:46Z (receipt 6b9c548e0216); selected commit 92ebb6d3ccfb: \"Add guarantees page and cookbook; kill tests must kill with uploads i\u2026\". LICENSE file at pin 92ebb6d3ccfb detected as MIT by the GitHub licence API on 2026-10-26; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-26T04:46Z (receipt 6b9c548e0216); selected commit 92ebb6d3ccfb: \"Add guarantees page and cookbook; kill tests must kill with uploads i\u2026\". LICENSE file at pin 92ebb6d3ccfb detected as MIT by the GitHub licence API on 2026-10-26; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @boffincoders, who has not added it."
+   },
+   "paths": [
+    ".github/workflows",
+    "docs",
+    "examples/cookbook",
+    "examples/durable_queue_demo",
+    "packages/durable_queue"
+   ]
   }
  ]
 }

@@ -16,8 +16,12 @@
     "by": "author-consent",
     "at": "2026-10-10T19:15Z",
     "consent_receipt": "3e0c941f3e7b",
-    "note": "Inclusion consented by the commit author by email at 2026-10-10T19:15Z (receipt 3e0c941f3e7b); selected commit fda186661304: \"CUDA: fix norm family kernels when ne[2]/ne[3] exceed grid dim limits\u2026\". LICENSE file at pin fda186661304 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-10T19:15Z (receipt 3e0c941f3e7b); selected commit fda186661304: \"CUDA: fix norm family kernels when ne[2]/ne[3] exceed grid dim limits\u2026\". LICENSE file at pin fda186661304 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @ggml-org, who has not added it."
+   },
+   "paths": [
+    "ggml/src/ggml-cuda",
+    "tests"
+   ]
   }
  ]
 }

@@ -16,8 +16,15 @@
     "by": "author-consent",
     "at": "2026-10-22T23:36Z",
     "consent_receipt": "59f77201d2b2",
-    "note": "Inclusion consented by the commit author by email at 2026-10-22T23:36Z (receipt 59f77201d2b2); selected commit 01845ed043f3: \"A running deployment says whether it is alive, whether it can work an\u2026\". LICENSE file at pin 01845ed043f3 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-22T23:36Z (receipt 59f77201d2b2); selected commit 01845ed043f3: \"A running deployment says whether it is alive, whether it can work an\u2026\". LICENSE file at pin 01845ed043f3 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Open-Factory-Digital, who has not added it."
+   },
+   "paths": [
+    "changes",
+    "docs/reference",
+    "openfactory",
+    "tests",
+    "tools/mutations"
+   ]
   }
  ]
 }

@@ -16,8 +16,14 @@
     "by": "author-consent",
     "at": "2026-10-18T17:39Z",
     "consent_receipt": "6fb7e03c6338",
-    "note": "Inclusion consented by the commit author by email at 2026-10-18T17:39Z (receipt 6fb7e03c6338); selected commit 42de6a21c061: \"feat: add customizable rounded UI corners\". LICENSE file at pin 42de6a21c061 detected as GPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-18T17:39Z (receipt 6fb7e03c6338); selected commit 42de6a21c061: \"feat: add customizable rounded UI corners\". LICENSE file at pin 42de6a21c061 detected as GPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @klyx-dev, who has not added it."
+   },
+   "paths": [
+    "app/src",
+    "runtime/src/settings",
+    "runtime/src/workspace",
+    "runtime/test/workspace"
+   ]
   }
  ]
 }

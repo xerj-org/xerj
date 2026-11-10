@@ -1,0 +1,23 @@
+{
+ "corpus": "pbr-ret--pbr-decomp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how pbr-ret/pbr-decomp implements it: A matching decompilation project for Pok\u00e9mon Battle Revolution (selected work: src/gs, include, libs)",
+ "repos": [
+  {
+   "repo": "pbr-dtk",
+   "url": "https://github.com/bgsamm/pbr-dtk",
+   "sha": "7d169f9e7ea390a181904b1b0bb6d7aa622ea4d0",
+   "licence": "CC0-1.0 (LICENSE file at pin 7d169f9e7ea3, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "CC0-1.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-11T19:50Z",
+    "consent_receipt": "c358da2b0b6d",
+    "note": "Inclusion consented by the commit author by email at 2026-10-11T19:50Z (receipt c358da2b0b6d); selected commit 7d169f9e7ea3: \"More scene-related TU progress\". LICENSE file at pin 7d169f9e7ea3 detected as CC0-1.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

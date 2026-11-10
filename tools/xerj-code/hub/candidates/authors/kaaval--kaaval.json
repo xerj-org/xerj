@@ -16,8 +16,16 @@
     "by": "author-consent",
     "at": "2026-10-18T19:29Z",
     "consent_receipt": "a976421b944e",
-    "note": "Inclusion consented by the commit author by email at 2026-10-18T19:29Z (receipt a976421b944e); selected commit 75e76c4ffbfd: \"feat: expose image report ingestion and reconcile maintenance backlog\". LICENSE file at pin 75e76c4ffbfd detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-18T19:29Z (receipt a976421b944e); selected commit 75e76c4ffbfd: \"feat: expose image report ingestion and reconcile maintenance backlog\". LICENSE file at pin 75e76c4ffbfd detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @kaaval, who has not added it."
+   },
+   "paths": [
+    ".github/actions/kaaval-scan",
+    ".github/workflows",
+    "control-plane",
+    "dashboard",
+    "docs",
+    "examples/image-ingest"
+   ]
   }
  ]
 }

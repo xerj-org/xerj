@@ -16,8 +16,11 @@
     "by": "author-consent",
     "at": "2026-10-24T18:56Z",
     "consent_receipt": "4961be99b17f",
-    "note": "Inclusion consented by the commit author by email at 2026-10-24T18:56Z (receipt 4961be99b17f); selected commit 19e1e4ddbfc6: \"updating qwen2.5_vl_3b\". LICENSE file at pin 19e1e4ddbfc6 detected as MIT by the GitHub licence API on 2026-10-26; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-24T18:56Z (receipt 4961be99b17f); selected commit 19e1e4ddbfc6: \"updating qwen2.5_vl_3b\". LICENSE file at pin 19e1e4ddbfc6 detected as MIT by the GitHub licence API on 2026-10-26; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @apex-compute, who has not added it."
+   },
+   "paths": [
+    "models/qwen2.5_vl_3b"
+   ]
   }
  ]
 }

@@ -16,8 +16,15 @@
     "by": "author-consent",
     "at": "2026-10-13T07:48Z",
     "consent_receipt": "19714a8efb0b",
-    "note": "Inclusion consented by the commit author by email at 2026-10-13T07:48Z (receipt 19714a8efb0b); selected commit d19e4b7273b7: \"Handle unavailable WebGL and add MIT license\". LICENSE file at pin d19e4b7273b7 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-13T07:48Z (receipt 19714a8efb0b); selected commit d19e4b7273b7: \"Handle unavailable WebGL and add MIT license\". LICENSE file at pin d19e4b7273b7 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @reporoad, who has not added it."
+   },
+   "paths": [
+    "app",
+    "components",
+    "docs",
+    "lib",
+    "tests"
+   ]
   }
  ]
 }

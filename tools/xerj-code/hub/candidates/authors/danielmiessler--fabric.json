@@ -16,8 +16,25 @@
     "by": "author-consent",
     "at": "2026-10-05T22:31Z",
     "consent_receipt": "82a795046a5e",
-    "note": "Inclusion consented by the commit author by email at 2026-10-05T22:31Z (receipt 82a795046a5e); selected commit aa3e1727b7df: \"fix: correct SSE streaming behavior and restore native Azure routing\". LICENSE file at pin aa3e1727b7df detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-05T22:31Z (receipt 82a795046a5e); selected commit aa3e1727b7df: \"fix: correct SSE streaming behavior and restore native Azure routing\". LICENSE file at pin aa3e1727b7df detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @danielmiessler, who has not added it."
+   },
+   "paths": [
+    "cmd/generate_changelog/incoming",
+    "docs",
+    "internal/cli",
+    "internal/core",
+    "internal/i18n/locales",
+    "internal/plugins/ai/azure",
+    "internal/plugins/ai/azure_entra",
+    "internal/plugins/ai/azurecommon",
+    "internal/plugins/ai/claudecode",
+    "internal/plugins/ai/codex",
+    "internal/plugins/ai/copilot",
+    "internal/plugins/ai/exolab",
+    "internal/plugins/ai/openai",
+    "internal/server",
+    "nix/pkgs/fabric"
+   ]
   }
  ]
 }

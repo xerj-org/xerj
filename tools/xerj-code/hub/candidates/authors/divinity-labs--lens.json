@@ -16,8 +16,16 @@
     "by": "author-consent",
     "at": "2026-10-25T20:41Z",
     "consent_receipt": "b1a48d373919",
-    "note": "Inclusion consented by the commit author by email at 2026-10-25T20:41Z (receipt b1a48d373919); selected commit 76cbcdb21e6b: \"Fix snippet generator: group all GET routes, add spec examples\". LICENSE file at pin 76cbcdb21e6b detected as MIT by the GitHub licence API on 2026-10-26; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-25T20:41Z (receipt b1a48d373919); selected commit 76cbcdb21e6b: \"Fix snippet generator: group all GET routes, add spec examples\". LICENSE file at pin 76cbcdb21e6b detected as MIT by the GitHub licence API on 2026-10-26; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Divinity-Labs, who has not added it."
+   },
+   "paths": [
+    "docs",
+    "scripts",
+    "snippets/python",
+    "snippets/typescript",
+    "src/routes",
+    "tests"
+   ]
   }
  ]
 }

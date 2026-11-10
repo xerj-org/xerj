@@ -16,8 +16,21 @@
     "by": "author-consent",
     "at": "2026-10-12T09:46Z",
     "consent_receipt": "06b13ae5002d",
-    "note": "Inclusion consented by the commit author by email at 2026-10-12T09:46Z (receipt 06b13ae5002d); selected commit 36aa8425e6fc: \"fix(safety): scan Oracle alternative-quoted strings in all safety sca\u2026\". LICENSE file at pin 36aa8425e6fc detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-12T09:46Z (receipt 06b13ae5002d); selected commit 36aa8425e6fc: \"fix(safety): scan Oracle alternative-quoted strings in all safety sca\u2026\". LICENSE file at pin 36aa8425e6fc detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @t8y2, who has not added it."
+   },
+   "paths": [
+    "apps/desktop/src/components/diff/__tests__",
+    "apps/desktop/src/composables",
+    "apps/desktop/src/i18n/locales",
+    "apps/desktop/src/lib/__tests__/sql",
+    "apps/desktop/src/lib/database",
+    "apps/desktop/src/lib/schema",
+    "apps/desktop/src/lib/sql",
+    "apps/desktop/src/types",
+    "crates/dbx-core/src/safety",
+    "crates/dbx-sql-core/src",
+    "crates/dbx-sql-schema/src"
+   ]
   }
  ]
 }

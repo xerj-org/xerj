@@ -16,8 +16,12 @@
     "by": "author-consent",
     "at": "2026-10-05T17:22Z",
     "consent_receipt": "ec1cb8595239",
-    "note": "Inclusion consented by the commit author by email at 2026-10-05T17:22Z (receipt ec1cb8595239); selected commit 3dd97d0c1262: \"make every keybinding work the same in every terminal and OS\". LICENSE file at pin 3dd97d0c1262 detected as GPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-05T17:22Z (receipt ec1cb8595239); selected commit 3dd97d0c1262: \"make every keybinding work the same in every terminal and OS\". LICENSE file at pin 3dd97d0c1262 detected as GPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @apms-org, who has not added it."
+   },
+   "paths": [
+    "internal/tty",
+    "tests"
+   ]
   }
  ]
 }

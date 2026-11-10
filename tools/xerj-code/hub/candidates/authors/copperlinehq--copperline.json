@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-10-18T07:25Z",
     "consent_receipt": "3533074ee6e7",
-    "note": "Inclusion consented by the commit author by email at 2026-10-18T07:25Z (receipt 3533074ee6e7); selected commit 02178639b877: \"input: pace host mouse motion and let warp yield to held input\". LICENSE file at pin 02178639b877 detected as GPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-18T07:25Z (receipt 3533074ee6e7); selected commit 02178639b877: \"input: pace host mouse motion and let warp yield to held input\". LICENSE file at pin 02178639b877 detected as GPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @CopperlineHQ, who has not added it."
+   },
+   "paths": [
+    "docs/guide",
+    "docs/internals",
+    "src"
+   ]
   }
  ]
 }

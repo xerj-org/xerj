@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-10-10T11:20Z",
     "consent_receipt": "32082ab3cc93",
-    "note": "Inclusion consented by the commit author by email at 2026-10-10T11:20Z (receipt 32082ab3cc93); selected commit a271c77863e0: \"fix(cost): move cost helpers to lib and disclose floor averages\". LICENSE file at pin a271c77863e0 detected as Apache-2.0 by the GitHub licence API on 2026-10-25; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-10T11:20Z (receipt 32082ab3cc93); selected commit a271c77863e0: \"fix(cost): move cost helpers to lib and disclose floor averages\". LICENSE file at pin a271c77863e0 detected as Apache-2.0 by the GitHub licence API on 2026-10-25; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @myk-org, who has not added it."
+   },
+   "paths": [
+    "frontend/src/components/shared",
+    "frontend/src/lib",
+    "frontend/src/pages"
+   ]
   }
  ]
 }

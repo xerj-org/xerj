@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-11-03T21:16Z",
     "consent_receipt": "6aa6afa87508",
-    "note": "Inclusion consented by the commit author by email at 2026-11-03T21:16Z (receipt 6aa6afa87508); selected commit a9b7fbbf90ea: \"feat(aspnetcore)!: report argument errors as validation problems and \u2026\". LICENSE file at pin a9b7fbbf90ea detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T21:16Z (receipt 6aa6afa87508); selected commit a9b7fbbf90ea: \"feat(aspnetcore)!: report argument errors as validation problems and \u2026\". LICENSE file at pin a9b7fbbf90ea detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @datapoint-software, who has not added it."
+   },
+   "paths": [
+    "docs/hosts",
+    "src/Datapoint.Mediator.AspNetCore",
+    "tests/Datapoint.Mediator.AspNetCore.Tests"
+   ]
   }
  ]
 }

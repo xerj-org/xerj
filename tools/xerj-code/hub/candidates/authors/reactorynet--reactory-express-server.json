@@ -16,8 +16,16 @@
     "by": "author-consent",
     "at": "2026-10-14T11:15Z",
     "consent_receipt": "92857438fbd4",
-    "note": "Inclusion consented by the commit author by email at 2026-10-14T11:15Z (receipt 92857438fbd4); selected commit 6c4dc65ed361: \"fix(i18n): render server-authored strings in the request language (#50)\". LICENSE file at pin 6c4dc65ed361 detected as MIT by the GitHub licence API on 2026-10-28; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-14T11:15Z (receipt 92857438fbd4); selected commit 6c4dc65ed361: \"fix(i18n): render server-authored strings in the request language (#50)\". LICENSE file at pin 6c4dc65ed361 detected as MIT by the GitHub licence API on 2026-10-28; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @reactorynet, who has not added it."
+   },
+   "paths": [
+    "src/context",
+    "src/express",
+    "src/modules/reactory-core/graph/types/System",
+    "src/modules/reactory-core/resolvers/System",
+    "src/modules/reactory-core/services",
+    "src/modules/reactory-core/types"
+   ]
   }
  ]
 }

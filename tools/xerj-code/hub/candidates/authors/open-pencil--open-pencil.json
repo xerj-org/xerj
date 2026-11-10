@@ -16,8 +16,21 @@
     "by": "author-consent",
     "at": "2026-10-25T02:59Z",
     "consent_receipt": "adb417d3e660",
-    "note": "Inclusion consented by the commit author by email at 2026-10-25T02:59Z (receipt adb417d3e660); selected commit 31bed1afab03: \"feat(figma-api): create shapes with text and set their kind and label\u2026\". LICENSE file at pin 31bed1afab03 detected as MIT by the GitHub licence API on 2026-10-26; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-25T02:59Z (receipt adb417d3e660); selected commit 31bed1afab03: \"feat(figma-api): create shapes with text and set their kind and label\u2026\". LICENSE file at pin 31bed1afab03 detected as MIT by the GitHub licence API on 2026-10-26; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @open-pencil, who has not added it."
+   },
+   "paths": [
+    "changes/1325",
+    "packages/core/src/editor/shapes",
+    "packages/core/src/figma-api",
+    "packages/core/tests/design-jsx",
+    "packages/core/tests/figma-api",
+    "packages/core/tests/layout/generated",
+    "packages/design-jsx/src/reference",
+    "packages/docs/reference",
+    "packages/scene-graph/src/generated",
+    "packages/vue/src/shared/input",
+    "skills/open-pencil/references"
+   ]
   }
  ]
 }

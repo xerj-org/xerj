@@ -16,8 +16,12 @@
     "by": "author-consent",
     "at": "2026-11-10T00:02Z",
     "consent_receipt": "da24566f1b70",
-    "note": "Inclusion consented by the commit author by email at 2026-11-10T00:02Z (receipt da24566f1b70); selected commit a1518c555f0b: \"fix: require confirmed Scent Tech timer writes\". LICENSE file at pin a1518c555f0b detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T00:02Z (receipt da24566f1b70); selected commit a1518c555f0b: \"fix: require confirmed Scent Tech timer writes\". LICENSE file at pin a1518c555f0b detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @mr-sparks, who has not added it."
+   },
+   "paths": [
+    "custom_components/scent_assistant",
+    "tests"
+   ]
   }
  ]
 }

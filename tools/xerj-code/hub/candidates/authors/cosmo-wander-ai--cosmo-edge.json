@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-11-03T08:32Z",
     "consent_receipt": "e34bc352c443",
-    "note": "Inclusion consented by the commit author by email at 2026-11-03T08:32Z (receipt e34bc352c443); selected commit 0278fb86ab2f: \"fix: keep idle ONVIF sources online after preview release\". LICENSE file at pin 0278fb86ab2f detected as Apache-2.0 by the GitHub licence API on 2026-11-03; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T08:32Z (receipt e34bc352c443); selected commit 0278fb86ab2f: \"fix: keep idle ONVIF sources online after preview release\". LICENSE file at pin 0278fb86ab2f detected as Apache-2.0 by the GitHub licence API on 2026-11-03; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @cosmo-wander-ai, who has not added it."
+   },
+   "paths": [
+    "src/service/camera/impl",
+    "src/service/media/impl",
+    "test"
+   ]
   }
  ]
 }

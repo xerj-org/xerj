@@ -16,8 +16,16 @@
     "by": "author-consent",
     "at": "2026-10-18T10:56Z",
     "consent_receipt": "278fb57af44e",
-    "note": "Inclusion consented by the commit author by email at 2026-10-18T10:56Z (receipt 278fb57af44e); selected commit 424070d738a5: \"fix(proctoring): prevent disqualified students from rejoining exams a\u2026\". LICENSE file at pin 424070d738a5 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-18T10:56Z (receipt 278fb57af44e); selected commit 424070d738a5: \"fix(proctoring): prevent disqualified students from rejoining exams a\u2026\". LICENSE file at pin 424070d738a5 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @ujjaldas-11, who has not added it."
+   },
+   "paths": [
+    "admin",
+    "assets/js",
+    "components",
+    "services",
+    "student",
+    "tests"
+   ]
   }
  ]
 }

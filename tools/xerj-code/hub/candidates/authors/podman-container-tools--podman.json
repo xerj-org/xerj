@@ -16,8 +16,11 @@
     "by": "author-consent",
     "at": "2026-10-13T20:52Z",
     "consent_receipt": "d7208abdd217",
-    "note": "Inclusion consented by the commit author by email at 2026-10-13T20:52Z (receipt d7208abdd217); selected commit a55d383fc7d2: \"events/journald: omit timestamp from log output\". LICENSE file at pin a55d383fc7d2 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-13T20:52Z (receipt d7208abdd217); selected commit a55d383fc7d2: \"events/journald: omit timestamp from log output\". LICENSE file at pin a55d383fc7d2 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @podman-container-tools, who has not added it."
+   },
+   "paths": [
+    "libpod/events"
+   ]
   }
  ]
 }

@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-10-24T06:49Z",
     "consent_receipt": "44d7feb71f41",
-    "note": "Inclusion consented by the commit author by email at 2026-10-24T06:49Z (receipt 44d7feb71f41); selected commit 655cb27e57fd: \"Add gps.lua\". LICENSE file at pin 655cb27e57fd detected as AGPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-24T06:49Z (receipt 44d7feb71f41); selected commit 655cb27e57fd: \"Add gps.lua\". LICENSE file at pin 655cb27e57fd detected as AGPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @bullet-physics-playground, who has not added it."
+   },
+   "paths": [
+    "demo/WyomingWill",
+    "demo/koppi",
+    "src"
+   ]
   }
  ]
 }

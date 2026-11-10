@@ -16,8 +16,14 @@
     "by": "author-consent",
     "at": "2026-10-25T22:47Z",
     "consent_receipt": "80a09db0cfa3",
-    "note": "Inclusion consented by the commit author by email at 2026-10-25T22:47Z (receipt 80a09db0cfa3); selected commit a1791625b224: \"feat: report GitHub API usage per run and per org (#525) (#537)\". LICENSE file at pin a1791625b224 detected as Apache-2.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-25T22:47Z (receipt 80a09db0cfa3); selected commit a1791625b224: \"feat: report GitHub API usage per run and per org (#525) (#537)\". LICENSE file at pin a1791625b224 detected as Apache-2.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @hiero-hackers, who has not added it."
+   },
+   "paths": [
+    ".github/workflows",
+    "docs",
+    "src/hiero_analytics",
+    "tests"
+   ]
   }
  ]
 }

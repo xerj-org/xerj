@@ -16,8 +16,16 @@
     "by": "author-consent",
     "at": "2026-10-10T20:26Z",
     "consent_receipt": "8157ab0d1e44",
-    "note": "Inclusion consented by the commit author by email at 2026-10-10T20:26Z (receipt 8157ab0d1e44); selected commit cc3f6e0288d9: \"updated code\". LICENSE file at pin cc3f6e0288d9 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-10T20:26Z (receipt 8157ab0d1e44); selected commit cc3f6e0288d9: \"updated code\". LICENSE file at pin cc3f6e0288d9 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @2FastLabs, who has not added it."
+   },
+   "paths": [
+    "docs/src/content/docs/classifiers/built-in",
+    "python/src/agent_squad/classifiers",
+    "python/src/tests/classifiers",
+    "typescript/src/classifiers",
+    "typescript/src/types",
+    "typescript/tests/classifiers"
+   ]
   }
  ]
 }

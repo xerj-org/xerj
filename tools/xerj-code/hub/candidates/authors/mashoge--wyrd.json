@@ -1,0 +1,23 @@
+{
+ "corpus": "mashoge--wyrd",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how Mashoge/Wyrd implements it: Wyrd: the game master that can't cheat. An AI dungeon master powered by Meta's Muse Spark (selected work: web)",
+ "repos": [
+  {
+   "repo": "Wyrd",
+   "url": "https://github.com/Mashoge/Wyrd",
+   "sha": "c34414f564c0c561bb6a80c4719e749807a71310",
+   "licence": "MIT (LICENSE file at pin c34414f564c0, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T20:13Z",
+    "consent_receipt": "c21b1535cb74",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T20:13Z (receipt c21b1535cb74); selected commit c34414f564c0: \"Post-deadline: encounter cut-in, sound effects, absolute OG URLs\". LICENSE file at pin c34414f564c0 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

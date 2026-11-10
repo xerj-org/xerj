@@ -16,8 +16,12 @@
     "by": "author-consent",
     "at": "2026-10-15T10:35Z",
     "consent_receipt": "fdbb59742b49",
-    "note": "Inclusion consented by the commit author by email at 2026-10-15T10:35Z (receipt fdbb59742b49); selected commit 28b7ed5728f6: \"Rewrite des pages du mainmenu (#1510)\". LICENSE file at pin 28b7ed5728f6 detected as GPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-15T10:35Z (receipt fdbb59742b49); selected commit 28b7ed5728f6: \"Rewrite des pages du mainmenu (#1510)\". LICENSE file at pin 28b7ed5728f6 detected as GPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @ServerOpenMC, who has not added it."
+   },
+   "paths": [
+    "src/main/java/fr/openmc/api/packetmenulib",
+    "src/main/java/fr/openmc/core/features/mainmenu"
+   ]
   }
  ]
 }

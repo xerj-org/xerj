@@ -16,8 +16,12 @@
     "by": "author-consent",
     "at": "2026-10-22T05:55Z",
     "consent_receipt": "092384697340",
-    "note": "Inclusion consented by the commit author by email at 2026-10-22T05:55Z (receipt 092384697340); selected commit fd896d171788: \"fix(tool/internal/instrument): only strip ignore build constraints in\u2026\". LICENSE file at pin fd896d171788 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-22T05:55Z (receipt 092384697340); selected commit fd896d171788: \"fix(tool/internal/instrument): only strip ignore build constraints in\u2026\". LICENSE file at pin fd896d171788 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @open-telemetry, who has not added it."
+   },
+   "paths": [
+    "test/integration",
+    "tool/internal/instrument"
+   ]
   }
  ]
 }

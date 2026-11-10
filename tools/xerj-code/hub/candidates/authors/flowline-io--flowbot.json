@@ -16,8 +16,24 @@
     "by": "author-consent",
     "at": "2026-10-15T13:24Z",
     "consent_receipt": "abdb24cc372e",
-    "note": "Inclusion consented by the commit author by email at 2026-10-15T13:24Z (receipt abdb24cc372e); selected commit 1aeb68c38ab8: \"Implement MCP server and client features\". LICENSE file at pin 1aeb68c38ab8 detected as GPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-15T13:24Z (receipt abdb24cc372e); selected commit 1aeb68c38ab8: \"Implement MCP server and client features\". LICENSE file at pin 1aeb68c38ab8 detected as GPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @flowline-io, who has not added it."
+   },
+   "paths": [
+    ".agents/notes/implemented/feature",
+    "docs/agent",
+    "docs/api",
+    "docs/reference",
+    "docs/testing",
+    "docs/user-guide",
+    "internal/server",
+    "pkg/agent/approval",
+    "pkg/agent/dcg",
+    "pkg/agent/permission",
+    "pkg/config",
+    "pkg/i18n/locales",
+    "pkg/mcp",
+    "tests/specs"
+   ]
   }
  ]
 }

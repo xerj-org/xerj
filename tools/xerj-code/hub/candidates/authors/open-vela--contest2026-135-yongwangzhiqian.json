@@ -16,8 +16,14 @@
     "by": "author-consent",
     "at": "2026-10-27T01:03Z",
     "consent_receipt": "08fa87f70a3b",
-    "note": "Inclusion consented by the commit author by email at 2026-10-27T01:03Z (receipt 08fa87f70a3b); selected commit 2e6caad11cda: \"feat(voice): persist answer length and permit validated direct answers\". LICENSE file at pin 2e6caad11cda detected as Apache-2.0 by the GitHub licence API on 2026-10-27; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-27T01:03Z (receipt 08fa87f70a3b); selected commit 2e6caad11cda: \"feat(voice): persist answer length and permit validated direct answers\". LICENSE file at pin 2e6caad11cda detected as Apache-2.0 by the GitHub licence API on 2026-10-27; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @open-vela, who has not added it."
+   },
+   "paths": [
+    "android/shaniu-companion/app/src/main/java/com/shaniu/companion",
+    "android/shaniu-companion/app/src/test/java/com/shaniu/companion/provision",
+    "app/bk7258",
+    "tests/host/bk7258"
+   ]
   }
  ]
 }

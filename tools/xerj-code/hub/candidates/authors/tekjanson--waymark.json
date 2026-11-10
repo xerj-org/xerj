@@ -1,0 +1,23 @@
+{
+ "corpus": "tekjanson--waymark",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how tekjanson/Waymark implements it: WayMark reads your Google Sheets and renders them as the interactive tools they were always *meant* to be \u2014 checklists, trackers, schedules, (selected work: public, tests)",
+ "repos": [
+  {
+   "repo": "Waymark",
+   "url": "https://github.com/tekjanson/Waymark",
+   "sha": "3c1c55061838af8f46a3628eb93c0f385f7e5bd6",
+   "licence": "GPL-3.0 (LICENSE file at pin 3c1c55061838, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-19T09:28Z",
+    "consent_receipt": "5b760d21d17a",
+    "note": "Inclusion consented by the commit author by email at 2026-10-19T09:28Z (receipt 5b760d21d17a); selected commit 3c1c55061838: \"patching weight tool (#185)\". LICENSE file at pin 3c1c55061838 detected as GPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

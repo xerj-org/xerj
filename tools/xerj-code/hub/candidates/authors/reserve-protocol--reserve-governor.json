@@ -16,8 +16,16 @@
     "by": "author-consent",
     "at": "2026-10-22T16:06Z",
     "consent_receipt": "3530918e2dfe",
-    "note": "Inclusion consented by the commit author by email at 2026-10-22T16:06Z (receipt 3530918e2dfe); selected commit 246fc582da72: \"fix: normalize proposal eligibility by average supply (#62)\". LICENSE file at pin 246fc582da72 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-22T16:06Z (receipt 3530918e2dfe); selected commit 246fc582da72: \"fix: normalize proposal eligibility by average supply (#62)\". LICENSE file at pin 246fc582da72 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @reserve-protocol, who has not added it."
+   },
+   "paths": [
+    "contracts/artifacts",
+    "contracts/governance/lib",
+    "contracts/interfaces",
+    "contracts/staking",
+    "docs",
+    "test"
+   ]
   }
  ]
 }

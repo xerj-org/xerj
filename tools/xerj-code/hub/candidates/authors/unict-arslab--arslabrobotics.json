@@ -16,8 +16,19 @@
     "by": "author-consent",
     "at": "2026-11-03T16:37Z",
     "consent_receipt": "06fef8235456",
-    "note": "Inclusion consented by the commit author by email at 2026-11-03T16:37Z (receipt 06fef8235456); selected commit 9483354035c8: \"added\". LICENSE file at pin 9483354035c8 detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T16:37Z (receipt 06fef8235456); selected commit 9483354035c8: \"added\". LICENSE file at pin 9483354035c8 detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @UniCT-ARSLab, who has not added it."
+   },
+   "paths": [
+    "examples/LQR",
+    "examples/MPC",
+    "examples/cart",
+    "examples/cart2D",
+    "examples/constrained_optimization",
+    "examples/identification",
+    "examples/inverted_pendulum",
+    "godot/cart-1d-no-physics",
+    "godot/cart2D_no_physics"
+   ]
   }
  ]
 }

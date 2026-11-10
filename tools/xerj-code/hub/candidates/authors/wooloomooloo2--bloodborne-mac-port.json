@@ -16,8 +16,16 @@
     "by": "author-consent",
     "at": "2026-10-21T21:17Z",
     "consent_receipt": "641640bf8921",
-    "note": "Inclusion consented by the commit author by email at 2026-10-21T21:17Z (receipt 641640bf8921); selected commit d0dc255611a5: \"Fix disappearing geometry from large Metal index offsets\". LICENSE file at pin d0dc255611a5 detected as GPL-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-21T21:17Z (receipt 641640bf8921); selected commit d0dc255611a5: \"Fix disappearing geometry from large Metal index offsets\". LICENSE file at pin d0dc255611a5 detected as GPL-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Wooloomooloo2, who has not added it."
+   },
+   "paths": [
+    "docs",
+    "gpu",
+    "launcher/App",
+    "launcher/Model",
+    "launcher/Tests",
+    "tests"
+   ]
   }
  ]
 }

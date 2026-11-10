@@ -16,8 +16,17 @@
     "by": "author-consent",
     "at": "2026-10-23T08:38Z",
     "consent_receipt": "03e5ceaa3aa7",
-    "note": "Inclusion consented by the commit author by email at 2026-10-23T08:38Z (receipt 03e5ceaa3aa7); selected commit 625b71cb662d: \"fix(cleanup): close job races and scope lists to accessible libraries\u2026\". LICENSE file at pin 625b71cb662d detected as AGPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-23T08:38Z (receipt 03e5ceaa3aa7); selected commit 625b71cb662d: \"fix(cleanup): close job races and scope lists to accessible libraries\u2026\". LICENSE file at pin 625b71cb662d detected as AGPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @fliks-app, who has not added it."
+   },
+   "paths": [
+    "client/src/app/features/settings/cleanup",
+    "server/crates/server/src/cleanup",
+    "server/crates/server/src/http",
+    "server/crates/server/src/media/write",
+    "server/crates/server/src/requests",
+    "server/crates/server/tests/it",
+    "server/docs/spec"
+   ]
   }
  ]
 }

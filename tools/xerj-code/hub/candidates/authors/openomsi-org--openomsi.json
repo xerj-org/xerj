@@ -16,8 +16,27 @@
     "by": "author-consent",
     "at": "2026-10-26T04:10Z",
     "consent_receipt": "b9b02651f4ec",
-    "note": "Inclusion consented by the commit author by email at 2026-10-26T04:10Z (receipt b9b02651f4ec); selected commit 10ffd99813e2: \"Launcher: Update the .openomsi folder logic (#3243)\". LICENSE file at pin 10ffd99813e2 detected as AGPL-3.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-26T04:10Z (receipt b9b02651f4ec); selected commit 10ffd99813e2: \"Launcher: Update the .openomsi folder logic (#3243)\". LICENSE file at pin 10ffd99813e2 detected as AGPL-3.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @openOMSI-org, who has not added it."
+   },
+   "paths": [
+    "crates/omsi-app/locales",
+    "crates/omsi-app/src",
+    "crates/omsi-career/src",
+    "crates/omsi-cfg/src",
+    "crates/omsi-lan/src",
+    "crates/omsi-launcher-api/src",
+    "crates/omsi-launcher-core/src",
+    "crates/omsi-map/src",
+    "crates/omsi-mt/src",
+    "crates/omsi-net/src",
+    "crates/omsi-platform/src",
+    "crates/omsi-render/src",
+    "crates/omsi-scene/src",
+    "crates/omsi-soundscape/src",
+    "crates/omsi-texture/src",
+    "launcher/src-tauri",
+    "launcher/ui/js"
+   ]
   }
  ]
 }

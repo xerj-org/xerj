@@ -1,0 +1,23 @@
+{
+ "corpus": "abdullahselek--pyreth",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on C++ queries this for how abdullahselek/pyreth implements it: High throughput, low latency AI inference engine built in C++20 and Python with zero copy tensors, lock free work stealing, and dynamic batc (selected work: python, tests, src/core)",
+ "repos": [
+  {
+   "repo": "pyreth",
+   "url": "https://github.com/abdullahselek/pyreth",
+   "sha": "cdfb9ba0bc1cd59482758394a6abfbaa271f2b30",
+   "licence": "Apache-2.0 (LICENSE file at pin cdfb9ba0bc1c, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-23T20:03Z",
+    "consent_receipt": "178206faadc3",
+    "note": "Inclusion consented by the commit author by email at 2026-10-23T20:03Z (receipt 178206faadc3); selected commit cdfb9ba0bc1c: \"Updates on inference session and runtime.\". LICENSE file at pin cdfb9ba0bc1c detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

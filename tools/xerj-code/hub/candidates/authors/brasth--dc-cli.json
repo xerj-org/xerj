@@ -16,8 +16,15 @@
     "by": "author-consent",
     "at": "2026-10-11T00:42Z",
     "consent_receipt": "f4f71fef0127",
-    "note": "Inclusion consented by the commit author by email at 2026-10-11T00:42Z (receipt f4f71fef0127); selected commit 9966066c3e3b: \"feat(tui): ship Phosphor Console redesign in v0.23.0\". LICENSE file at pin 9966066c3e3b detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-11T00:42Z (receipt f4f71fef0127); selected commit 9966066c3e3b: \"feat(tui): ship Phosphor Console redesign in v0.23.0\". LICENSE file at pin 9966066c3e3b detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Brasth, who has not added it."
+   },
+   "paths": [
+    ".github/workflows",
+    "cmd/dc-tui",
+    "docs",
+    "scripts",
+    "site/public/images"
+   ]
   }
  ]
 }

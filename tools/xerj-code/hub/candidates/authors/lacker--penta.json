@@ -16,8 +16,17 @@
     "by": "author-consent",
     "at": "2026-10-16T23:01Z",
     "consent_receipt": "6cb8c47a4b20",
-    "note": "Inclusion consented by the commit author by email at 2026-10-16T23:01Z (receipt 6cb8c47a4b20); selected commit 269b3be6dec1: \"Make WOE-HOB Standard a playable format (#328)\". LICENSE file at pin 269b3be6dec1 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-16T23:01Z (receipt 6cb8c47a4b20); selected commit 269b3be6dec1: \"Make WOE-HOB Standard a playable format (#328)\". LICENSE file at pin 269b3be6dec1 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @lacker, who has not added it."
+   },
+   "paths": [
+    "decks",
+    "docs",
+    "src/decks",
+    "src/formats",
+    "src/protocol",
+    "web/app",
+    "web/tests"
+   ]
   }
  ]
 }

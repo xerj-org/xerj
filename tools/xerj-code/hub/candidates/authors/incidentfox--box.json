@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-10-15T06:07Z",
     "consent_receipt": "c7ddbbf41761",
-    "note": "Inclusion consented by the commit author by email at 2026-10-15T06:07Z (receipt c7ddbbf41761); selected commit 62a7e7d40524: \"box: show Claude settings dialogs and navigation controls (#311)\". LICENSE file at pin 62a7e7d40524 detected as GPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-15T06:07Z (receipt c7ddbbf41761); selected commit 62a7e7d40524: \"box: show Claude settings dialogs and navigation controls (#311)\". LICENSE file at pin 62a7e7d40524 detected as GPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @incidentfox, who has not added it."
+   },
+   "paths": [
+    "public",
+    "scripts",
+    "server"
+   ]
   }
  ]
 }

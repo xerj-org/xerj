@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-10-18T08:29Z",
     "consent_receipt": "74aa5ceeec97",
-    "note": "Inclusion consented by the commit author by email at 2026-10-18T08:29Z (receipt 74aa5ceeec97); selected commit 75da3c55214e: \"0.1.0: alle Endpunkte der API v1, typisierte Modelle aus der Spec\". LICENSE file at pin 75da3c55214e detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-18T08:29Z (receipt 74aa5ceeec97); selected commit 75da3c55214e: \"0.1.0: alle Endpunkte der API v1, typisierte Modelle aus der Spec\". LICENSE file at pin 75da3c55214e detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @ESGO-Logistics, who has not added it."
+   },
+   "paths": [
+    "scripts",
+    "src/esgo",
+    "tests"
+   ]
   }
  ]
 }

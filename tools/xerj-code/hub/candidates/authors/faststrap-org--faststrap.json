@@ -16,8 +16,21 @@
     "by": "author-consent",
     "at": "2026-10-18T12:42Z",
     "consent_receipt": "94a79dffe85b",
-    "note": "Inclusion consented by the commit author by email at 2026-10-18T12:42Z (receipt 94a79dffe85b); selected commit adb985ff29d0: \"feat: ship v0.10.0 visual and compatibility improvements\". LICENSE file at pin adb985ff29d0 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-18T12:42Z (receipt 94a79dffe85b); selected commit adb985ff29d0: \"feat: ship v0.10.0 visual and compatibility improvements\". LICENSE file at pin adb985ff29d0 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Faststrap-org, who has not added it."
+   },
+   "paths": [
+    "docs",
+    "scripts",
+    "src/faststrap/components/display",
+    "src/faststrap/components/feedback",
+    "src/faststrap/components/forms",
+    "src/faststrap/components/navigation",
+    "src/faststrap/core",
+    "src/faststrap/static/css",
+    "src/faststrap/static/js",
+    "tests/test_components",
+    "tests/test_core"
+   ]
   }
  ]
 }

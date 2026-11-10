@@ -16,8 +16,18 @@
     "by": "author-consent",
     "at": "2026-10-10T14:38Z",
     "consent_receipt": "eece24df6adf",
-    "note": "Inclusion consented by the commit author by email at 2026-10-10T14:38Z (receipt eece24df6adf); selected commit b537658be9a2: \"fix(templates): restore built-in snapshots into organization drafts\". LICENSE file at pin b537658be9a2 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-10T14:38Z (receipt eece24df6adf); selected commit b537658be9a2: \"fix(templates): restore built-in snapshots into organization drafts\". LICENSE file at pin b537658be9a2 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @aai-labs, who has not added it."
+   },
+   "paths": [
+    "api/domains/templates",
+    "api/tests/integration",
+    "docs/adr",
+    "docs/features",
+    "ui/src/features/templates/components",
+    "ui/src/features/templates/hooks",
+    "ui/tests/e2e",
+    "ui/tests/pages"
+   ]
   }
  ]
 }

@@ -1,0 +1,23 @@
+{
+ "corpus": "hfmsio--dbxlite",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on ai-assistant, bigquery, browser-based queries this for how hfmsio/dbxlite implements it: Open-source SQL workbench powered by DuckDB. Query local files, BigQuery, and Snowflake right in your browser. Drop-in UI for duckdb -ui. AI (selected work: apps/web-client)",
+ "repos": [
+  {
+   "repo": "dbxlite",
+   "url": "https://github.com/hfmsio/dbxlite",
+   "sha": "dfad973fe06dcb12855b21a181f80836b7c62378",
+   "licence": "MIT (LICENSE file at pin dfad973fe06d, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-13T06:20Z",
+    "consent_receipt": "c7dc1bf40809",
+    "note": "Inclusion consented by the commit author by email at 2026-10-13T06:20Z (receipt c7dc1bf40809); selected commit dfad973fe06d: \"fix(files): use the file pickers only where they can actually be called\". LICENSE file at pin dfad973fe06d detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

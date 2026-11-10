@@ -16,8 +16,18 @@
     "by": "author-consent",
     "at": "2026-11-08T20:31Z",
     "consent_receipt": "c1bf4497ffe1",
-    "note": "Inclusion consented by the commit author by email at 2026-11-08T20:31Z (receipt c1bf4497ffe1); selected commit 5b22b810da47: \"Set up the office colleague from Admin \u2192 Offices and mark it in the c\u2026\". LICENSE file at pin 5b22b810da47 detected as AGPL-3.0 by the GitHub licence API on 2026-11-08; used under that licence with attribution. Pinned to head 5b22b810da47 (contains the selected commit): the LICENSE at the selected commit was NOASSERTION."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T20:31Z (receipt c1bf4497ffe1); selected commit 5b22b810da47: \"Set up the office colleague from Admin \u2192 Offices and mark it in the c\u2026\". LICENSE file at pin 5b22b810da47 detected as AGPL-3.0 by the GitHub licence API on 2026-11-08; used under that licence with attribution. Pinned to head 5b22b810da47 (contains the selected commit): the LICENSE at the selected commit was NOASSERTION. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @rylos, who has not added it."
+   },
+   "paths": [
+    "apps/server/src/telegram",
+    "apps/web/src/features/chat",
+    "apps/web/src/features/offices",
+    "apps/web/src/features/palette",
+    "apps/web/src/features/workspace",
+    "apps/web/src/i18n/locales",
+    "apps/web/src/lib",
+    "apps/web/src/pages"
+   ]
   }
  ]
 }

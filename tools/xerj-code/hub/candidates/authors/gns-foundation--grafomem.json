@@ -16,8 +16,15 @@
     "by": "author-consent",
     "at": "2026-10-18T07:08Z",
     "consent_receipt": "ec9b1262ffa9",
-    "note": "Inclusion consented by the commit author by email at 2026-10-18T07:08Z (receipt ec9b1262ffa9); selected commit 02e95546d647: \"fix(server): scope store audit to tenant\". LICENSE file at pin 02e95546d647 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-18T07:08Z (receipt ec9b1262ffa9); selected commit 02e95546d647: \"fix(server): scope store audit to tenant\". LICENSE file at pin 02e95546d647 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @GNS-Foundation, who has not added it."
+   },
+   "paths": [
+    "src/aml/backends",
+    "src/aml/cgr",
+    "src/aml/cloud",
+    "src/aml/server",
+    "tests"
+   ]
   }
  ]
 }

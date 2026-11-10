@@ -1,0 +1,29 @@
+{
+ "corpus": "udv-group--tachikoma",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Rust queries this for how udv-group/tachikoma implements it: web application for stands control (selected work: tests, src/web, src/db)",
+ "repos": [
+  {
+   "repo": "tachikoma",
+   "url": "https://github.com/udv-group/tachikoma",
+   "sha": "a4f390f848c85c43cfc7fa2cac6555d4e5992c41",
+   "licence": "MIT (LICENSE file at pin a4f390f848c8, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T05:22Z",
+    "consent_receipt": "a2910dee3af1",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T05:22Z (receipt a2910dee3af1); selected commit a4f390f848c8: \"Added group field in /hosts/leased method response\". LICENSE file at pin a4f390f848c8 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @udv-group, who has not added it."
+   },
+   "paths": [
+    "src/db",
+    "src/logic",
+    "src/web",
+    "tests"
+   ]
+  }
+ ]
+}

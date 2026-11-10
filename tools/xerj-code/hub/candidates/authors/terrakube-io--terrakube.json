@@ -16,8 +16,21 @@
     "by": "author-consent",
     "at": "2026-10-20T01:45Z",
     "consent_receipt": "26292dec5ed2",
-    "note": "Inclusion consented by the commit author by email at 2026-10-20T01:45Z (receipt 26292dec5ed2); selected commit f20d14cf8f10: \"fix(api,executor): order structured-output context writes and stop st\u2026\". LICENSE file at pin f20d14cf8f10 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-20T01:45Z (receipt 26292dec5ed2); selected commit f20d14cf8f10: \"fix(api,executor): order structured-output context writes and stop st\u2026\". LICENSE file at pin f20d14cf8f10 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @terrakube-io, who has not added it."
+   },
+   "paths": [
+    "api/src/main/java/io/terrakube/api/plugin/context",
+    "api/src/main/java/io/terrakube/api/plugin/scheduler/job/tcl/executor",
+    "api/src/test/java/io/terrakube/api",
+    "executor/src/main/java/io/terrakube/executor/service/executor",
+    "executor/src/main/java/io/terrakube/executor/service/mode",
+    "executor/src/main/java/io/terrakube/executor/service/opa",
+    "executor/src/main/java/io/terrakube/executor/service/terraform",
+    "executor/src/test/java/io/terrakube/executor/service/executor",
+    "executor/src/test/java/io/terrakube/executor/service/mode",
+    "executor/src/test/java/io/terrakube/executor/service/opa",
+    "executor/src/test/java/io/terrakube/executor/service/terraform"
+   ]
   }
  ]
 }

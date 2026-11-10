@@ -16,8 +16,12 @@
     "by": "author-consent",
     "at": "2026-10-26T17:56Z",
     "consent_receipt": "da9b8f938f44",
-    "note": "Inclusion consented by the commit author by email at 2026-10-26T17:56Z (receipt da9b8f938f44); selected commit f92345078a48: \"Kursplanlegging (#137)\". LICENSE file at pin f92345078a48 detected as MIT by the GitHub licence API on 2026-10-26; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-26T17:56Z (receipt da9b8f938f44); selected commit f92345078a48: \"Kursplanlegging (#137)\". LICENSE file at pin f92345078a48 detected as MIT by the GitHub licence API on 2026-10-26; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @bardarswingclub, who has not added it."
+   },
+   "paths": [
+    "src/MemberService",
+    "tests/MemberService.Tests/Kursplanlegging"
+   ]
   }
  ]
 }

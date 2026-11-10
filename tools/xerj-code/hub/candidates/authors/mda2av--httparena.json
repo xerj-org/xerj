@@ -16,8 +16,32 @@
     "by": "author-consent",
     "at": "2026-10-15T21:00Z",
     "consent_receipt": "fb2f53b47074",
-    "note": "Inclusion consented by the commit author by email at 2026-10-15T21:00Z (receipt fb2f53b47074); selected commit 73a3a8ce0aa6: \"Add Aegon (C++26) framework entry (#1491)\". LICENSE file at pin 73a3a8ce0aa6 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-15T21:00Z (receipt fb2f53b47074); selected commit 73a3a8ce0aa6: \"Add Aegon (C++26) framework entry (#1491)\". LICENSE file at pin 73a3a8ce0aa6 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @MDA2AV, who has not added it."
+   },
+   "paths": [
+    "frameworks/aegon",
+    "site/data",
+    "site/static/logs/8gbit",
+    "site/static/logs/async",
+    "site/static/logs/baseline",
+    "site/static/logs/baseline-h2",
+    "site/static/logs/baseline-h2c",
+    "site/static/logs/baseline-h3",
+    "site/static/logs/echo-ws",
+    "site/static/logs/echo-ws-limited",
+    "site/static/logs/echo-ws-pipeline",
+    "site/static/logs/json-comp",
+    "site/static/logs/json-h2c",
+    "site/static/logs/json-tls",
+    "site/static/logs/latency-10k",
+    "site/static/logs/latency-1m",
+    "site/static/logs/latency-500k-8cpu",
+    "site/static/logs/limited-conn",
+    "site/static/logs/pipelined",
+    "site/static/logs/static-h2",
+    "site/static/logs/static-h3",
+    "site/static/logs/static-tls"
+   ]
   }
  ]
 }

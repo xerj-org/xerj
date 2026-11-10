@@ -16,8 +16,24 @@
     "by": "author-consent",
     "at": "2026-10-16T09:17Z",
     "consent_receipt": "19268268696e",
-    "note": "Inclusion consented by the commit author by email at 2026-10-16T09:17Z (receipt 19268268696e); selected commit 5f6558a986aa: \"refactor: simplify exporter test setup and ensure shutdown (#1253)\". LICENSE file at pin 5f6558a986aa detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-16T09:17Z (receipt 19268268696e); selected commit 5f6558a986aa: \"refactor: simplify exporter test setup and ensure shutdown (#1253)\". LICENSE file at pin 5f6558a986aa detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @open-telemetry, who has not added it."
+   },
+   "paths": [
+    "exporters-otlp/src/commonTest/kotlin/io/opentelemetry/kotlin/export",
+    "exporters-otlp/src/commonTest/kotlin/io/opentelemetry/kotlin/logging/export",
+    "exporters-otlp/src/commonTest/kotlin/io/opentelemetry/kotlin/tracing/export",
+    "implementation/api/jvm",
+    "implementation/src/androidMain/kotlin/io/opentelemetry/kotlin/resource",
+    "implementation/src/appleMain/kotlin/io/opentelemetry/kotlin/resource",
+    "implementation/src/appleTest/kotlin/io/opentelemetry/kotlin/resource",
+    "implementation/src/commonMain/kotlin/io/opentelemetry/kotlin/resource",
+    "implementation/src/commonTest/kotlin/io/opentelemetry/kotlin/resource",
+    "implementation/src/jsMain/kotlin/io/opentelemetry/kotlin/resource",
+    "implementation/src/jsTest/kotlin/io/opentelemetry/kotlin/resource",
+    "implementation/src/jvmMain/kotlin/io/opentelemetry/kotlin/resource",
+    "implementation/src/jvmTest/kotlin/io/opentelemetry/kotlin/resource",
+    "smoke-test/src/commonTest/kotlin/io/opentelemetry/kotlin/smoketest"
+   ]
   }
  ]
 }

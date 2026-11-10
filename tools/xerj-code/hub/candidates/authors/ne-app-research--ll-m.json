@@ -16,8 +16,20 @@
     "by": "author-consent",
     "at": "2026-10-06T05:12Z",
     "consent_receipt": "a3b2ec23f669",
-    "note": "Inclusion consented by the commit author by email at 2026-10-06T05:12Z (receipt a3b2ec23f669); selected commit 4db100446e4c: \"FEAT: src: Ne.app Little Learner. FOSS ML.\". LICENSE at pin 4db100446e4c: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-06T05:12Z (receipt a3b2ec23f669); selected commit 4db100446e4c: \"FEAT: src: Ne.app Little Learner. FOSS ML.\". LICENSE at pin 4db100446e4c: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @publications-and-more, who has not added it."
+   },
+   "paths": [
+    "doc",
+    "lil/content/src/LittleLearnerKit/include/sdk",
+    "lil/content/src/LittleLearnerKit/src",
+    "private/research/lil/content",
+    "private/research/preprints",
+    "private/scripts",
+    "private/src",
+    "private/tests",
+    "private/training",
+    "public"
+   ]
   }
  ]
 }

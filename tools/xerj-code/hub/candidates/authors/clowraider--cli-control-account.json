@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-10-18T00:51Z",
     "consent_receipt": "cfac51e0a036",
-    "note": "Inclusion consented by the commit author by email at 2026-10-18T00:51Z (receipt cfac51e0a036); selected commit 27e1b6f318e5: \"feat(ego): show approximate TPS per model in Top Models\". LICENSE file at pin 27e1b6f318e5 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-18T00:51Z (receipt cfac51e0a036); selected commit 27e1b6f318e5: \"feat(ego): show approximate TPS per model in Top Models\". LICENSE file at pin 27e1b6f318e5 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Clowraider, who has not added it."
+   },
+   "paths": [
+    "internal/ego",
+    "internal/web/assets",
+    "internal/web/testdata"
+   ]
   }
  ]
 }

@@ -16,8 +16,14 @@
     "by": "author-consent",
     "at": "2026-10-26T03:04Z",
     "consent_receipt": "c2674ffb4e82",
-    "note": "Inclusion consented by the commit author by email at 2026-10-26T03:04Z (receipt c2674ffb4e82); selected commit e4f72d08228c: \"feat(code): Mini Agent v2 \u4e0e v3\uff0c\u4ece\u5355\u5faa\u73af\u5230\u53ef\u4e0a\u7ebf\u5e73\u53f0\". LICENSE file at pin e4f72d08228c detected as MIT by the GitHub licence API on 2026-10-26; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-26T03:04Z (receipt c2674ffb4e82); selected commit e4f72d08228c: \"feat(code): Mini Agent v2 \u4e0e v3\uff0c\u4ece\u5355\u5faa\u73af\u5230\u53ef\u4e0a\u7ebf\u5e73\u53f0\". LICENSE file at pin e4f72d08228c detected as MIT by the GitHub licence API on 2026-10-26; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @hyper-open, who has not added it."
+   },
+   "paths": [
+    "examples/mini_agent",
+    "examples/mini_agent_v2",
+    "examples/mini_agent_v3",
+    "tests"
+   ]
   }
  ]
 }

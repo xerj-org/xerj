@@ -16,8 +16,19 @@
     "by": "author-consent",
     "at": "2026-10-15T04:24Z",
     "consent_receipt": "c4644be97d3b",
-    "note": "Inclusion consented by the commit author by email at 2026-10-15T04:24Z (receipt c4644be97d3b); selected commit a9fbdeb7a887: \"fix(chrome, cards): the brand becomes an intertitle, and a card's typ\u2026\". LICENSE file at pin a9fbdeb7a887 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-15T04:24Z (receipt c4644be97d3b); selected commit a9fbdeb7a887: \"fix(chrome, cards): the brand becomes an intertitle, and a card's typ\u2026\". LICENSE file at pin a9fbdeb7a887 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @previously-lab, who has not added it."
+   },
+   "paths": [
+    "src/app",
+    "src/components/layout",
+    "src/components/shell",
+    "src/components/timeline-3d",
+    "src/hooks",
+    "src/lib/layout",
+    "src/lib/timeline3d",
+    "tests/lib/layout",
+    "tests/lib/timeline3d"
+   ]
   }
  ]
 }

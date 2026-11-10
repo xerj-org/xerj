@@ -1,0 +1,30 @@
+{
+ "corpus": "wind-development--windspigot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on minecraft, multithreading, optimization queries this for how Wind-Development/WindSpigot implements it: A performant, multithreaded Minecraft server software for version 1.8.8 (selected work: WindSpigot-Server)",
+ "repos": [
+  {
+   "repo": "WindSpigot",
+   "url": "https://github.com/Wind-Development/WindSpigot",
+   "sha": "088e94bee7889d204a044e0d6b4906c1f0df2078",
+   "licence": "GPL-3.0 (LICENSE file at pin 088e94bee788, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-14T12:02Z",
+    "consent_receipt": "36c840d45041",
+    "note": "Inclusion consented by the commit author by email at 2026-10-14T12:02Z (receipt 36c840d45041); selected commit 088e94bee788: \"feat: major improvements to packet queueing (#174)\". LICENSE file at pin 088e94bee788 detected as GPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Wind-Development, who has not added it."
+   },
+   "paths": [
+    "WindSpigot-Server/src/main/java/com/falchus/spigot/optimizations",
+    "WindSpigot-Server/src/main/java/com/windpvp/windspigot",
+    "WindSpigot-Server/src/main/java/me/suicidalkids/ion/visuals",
+    "WindSpigot-Server/src/main/java/net/minecraft/server",
+    "WindSpigot-Server/src/main/java/org/bukkit/craftbukkit/entity"
+   ]
+  }
+ ]
+}
