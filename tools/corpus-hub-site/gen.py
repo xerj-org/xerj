@@ -36,6 +36,33 @@ import zlib
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 HUB = ROOT / "tools" / "xerj-code" / "hub"
+
+
+def added_today(people, now=None):
+    """(n, date): contributors on the hub now who were not in the contributor ledger at 00:00 UTC today, read from
+    the corpus-hub history (the ledger at the last commit before midnight). (None, date) without git history."""
+    import subprocess
+    now = now or dt.datetime.now(dt.timezone.utc)
+    day = now.strftime("%Y-%m-%d")
+    git = lambda *a: subprocess.run(["git", "-C", str(ROOT), *a], capture_output=True, text=True)
+    base = git("rev-list", "-1", f"--before={day}T00:00:00Z", "HEAD").stdout.strip()
+    if not base:
+        return None, day
+    def logins(ref):
+        out = set()
+        for f in git("ls-tree", "--name-only", f"{ref}:tools/xerj-code/hub/candidates/authors/").stdout.split():
+            if f.startswith("CONTRIBUTORS") and f.endswith(".jsonl"):
+                for line in git("show", f"{ref}:tools/xerj-code/hub/candidates/authors/{f}").stdout.splitlines():
+                    try:
+                        out.add(((json.loads(line).get("contributor") or {}).get("login") or "").lower())
+                    except ValueError:
+                        pass
+        return out
+    old, cur = logins(base), logins("HEAD")
+    if not old:
+        return None, day
+    # only ledger people: the themed table's few authors are not added by the pipeline and would count every day
+    return sum(1 for login in people if login.lower() in cur and login.lower() not in old), day
 PACKS = ROOT / "tools" / "packs"
 OUT = pathlib.Path(__file__).resolve().parent / "out"
 BRAND = pathlib.Path(__file__).resolve().parent / "brand"
@@ -663,6 +690,7 @@ gap:1px;background:var(--z-line);border:1px solid var(--z-line)}
 .stat{background:var(--z-bg);padding:var(--sp-4) var(--sp-5);min-height:88px;
 display:flex;flex-direction:column;justify-content:center;gap:4px}
 .stat.wide{grid-column:1 / -1}
+.stat span.today{color:var(--z-accent);font-weight:700}
 .stat a{display:flex;flex-direction:column;gap:4px;text-decoration:none;color:inherit}.stat a:hover b{color:var(--z-accent)}
 .stat b{font-family:var(--font-display);font-weight:800;white-space:nowrap;
 font-size:var(--fs-32);line-height:1;color:var(--z-ink)}
@@ -1542,6 +1570,10 @@ def render_index(corpora, g7, graded, impact, prov, people=None):
     # owner, 2026-10-29: "contributed repositories" next to "contributors" read as the same number twice; show the
     # lines of the consented commits instead (contributors.volume, as on each profile; the repo count is in the tooltip)
     n_lines = sum(contributors.volume(pp)["lines"] for pp in (people or {}).values())
+    # owner, 2026-11-10: "how many added TODAY" on the contributors card
+    today_n, today_d = added_today(people or {})
+    today = (f'<span class="today" title="contributors added to the hub since 00:00 UTC on {today_d}">+{today_n:,} today</span>'
+             if today_n is not None else "")
     body = f'''<main>
 <div class="kicker"><span class="accent">HUB.XERJ.ORG</span><span class="dash">·</span><span>REFERENCE MEMORY HUB FOR AI AGENTS</span></div>
 <div class="herorow">
@@ -1555,7 +1587,7 @@ that loads one works like a domain expert.</p>
 <div class="statgrid">
 {stars_stat}
 <div class="stat" title="lines in the commits contributors agreed to share, summed over every contributor (a commit counts once), across {n_repos:,} repositories"><a href="contributors/"><b>{n_lines:,}</b><span>lines of contributed code</span></a></div>
-<div class="stat"><a href="contributors/"><b>{len(people or {}):,}</b><span>contributors</span></a></div>
+<div class="stat"><a href="contributors/"><b>{len(people or {}):,}</b><span>contributors</span>{today}</a></div>
 <div class="stat" title="{human_bytes(total_bytes)} of text in these files, each pinned at an exact commit"><b>{total_files:,}</b><span>pinned files</span></div>
 </div>
 <a class="cta" href="contribute">Add your corpus &rarr;</a>
