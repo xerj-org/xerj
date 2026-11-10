@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Deterministic `cyber.blackbox` attack-surface mapper and test planner in
+  `xerj_common::cyber_blackbox` (Refs #2772, #2767, #2769): maps observed
+  endpoints into surface tags and prioritized test cases backed by corpus
+  patterns (`pin_sha`, `fetched_at`, CWE and OWASP category), refuses missing,
+  untrusted, expired or out-of-scope targets through `ScopeGuard`, abstains on
+  unmatched endpoints, and echoes the work order and authorization statement in
+  an RFC 8785 SHA-256 report. Sending traffic is out of scope.
+
 ## [1.0.0-rc.102] - 2026-11-06
 
 <!-- notes-exempt: #2971 #2972 #2976 #2978 #2980 #2990 #3032 #3034 (site, blog, donation and README/AGENTS pages only, no shipped-binary change) -->
