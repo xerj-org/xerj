@@ -1,0 +1,23 @@
+{
+ "corpus": "hisernberg--spanguard",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, baseten, gateway queries this for how Hisernberg/spanguard implements it: Span-level prompt-injection guard for AI agent tool traffic: strip the attack, keep the data. Built for Meta Global AI Hackathon 2026 \u2014 fine (selected work: training, src/spanguard)",
+ "repos": [
+  {
+   "repo": "spanguard",
+   "url": "https://github.com/Hisernberg/spanguard",
+   "sha": "9092aecc02f25bd3aec485cd8b9996c2c2590d54",
+   "licence": "Apache-2.0 (LICENSE file at pin 9092aecc02f2, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T18:56Z",
+    "consent_receipt": "1ce0abaaa8cc",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T18:56Z (receipt 1ce0abaaa8cc); selected commit 9092aecc02f2: \"feat(baselines): per-set scoring kernel; llm self-detect sidecar runn\u2026\". LICENSE file at pin 9092aecc02f2 detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

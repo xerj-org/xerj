@@ -1,0 +1,23 @@
+{
+ "corpus": "qvesera--fewer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how qvesera/fewer implements it: Transform complex file systems into clear, interactive graphs. Explore, search, customize, and export with ease. No data is ever uploaded, y (selected work: src/lib, the project root)",
+ "repos": [
+  {
+   "repo": "fewer",
+   "url": "https://github.com/qvesera/fewer",
+   "sha": "2e3ed497a3d9c4e3c8758cd47b4bed36981c919a",
+   "licence": "AGPL-3.0 (LICENSE file at pin 2e3ed497a3d9, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-10T19:34Z",
+    "consent_receipt": "d9d3a2acd6da",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T19:34Z (receipt d9d3a2acd6da); selected commit 2e3ed497a3d9: \"perf(fewer): measurement harness with CI regression gates (T-241)\". LICENSE file at pin 2e3ed497a3d9 detected as AGPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

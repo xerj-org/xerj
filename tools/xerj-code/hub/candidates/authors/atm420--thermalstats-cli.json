@@ -1,0 +1,23 @@
+{
+ "corpus": "atm420--thermalstats-cli",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how atm420/thermalstats-cli implements it: Cross-platform CLI tool that stress tests your CPU/GPU, reads real hardware temperatures, and submits results to ThermalStats for community  (selected work: src, the project root)",
+ "repos": [
+  {
+   "repo": "thermalstats-cli",
+   "url": "https://github.com/atm420/thermalstats-cli",
+   "sha": "4b1399b8ed5aada97f1a6f2a5dab780b2f31b49c",
+   "licence": "MIT (LICENSE file at pin 4b1399b8ed5a, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-19T15:43Z",
+    "consent_receipt": "1386db1328c0",
+    "note": "Inclusion consented by the commit author by email at 2026-10-19T15:43Z (receipt 1386db1328c0); selected commit 4b1399b8ed5a: \"CLI tool 2.4\". LICENSE file at pin 4b1399b8ed5a detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

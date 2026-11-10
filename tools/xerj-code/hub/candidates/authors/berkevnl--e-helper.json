@@ -1,0 +1,23 @@
+{
+ "corpus": "berkevnl--e-helper",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on casper-excalibur, control-center, excalibur queries this for how berkevnl/e-helper implements it: Lightweight Control Center alternative for Casper Excalibur gaming laptops (selected work: src/EHelper)",
+ "repos": [
+  {
+   "repo": "e-helper",
+   "url": "https://github.com/berkevnl/e-helper",
+   "sha": "e3ca2150479f2e05ad06a12591e44320f704790b",
+   "licence": "GPL-3.0 (LICENSE file at pin e3ca2150479f, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-10T18:54Z",
+    "consent_receipt": "8453345a32c2",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T18:54Z (receipt 8453345a32c2); selected commit e3ca2150479f: \"feat: Release v1.2.0 - Add Cycle mode, dynamic 3-tier speed slider, U\u2026\". LICENSE file at pin e3ca2150479f detected as GPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

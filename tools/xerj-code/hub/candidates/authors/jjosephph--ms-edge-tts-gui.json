@@ -1,0 +1,23 @@
+{
+ "corpus": "jjosephph--ms-edge-tts-gui",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on customtkinter, edge-tts, open-source queries this for how JJosephph/ms-edge-tts-gui implements it: \u514d\u8d39\u5f00\u6e90 Windows Edge TTS GUI\uff1a\u6587\u5b57\u8f6c MP3\u3001\u5b9e\u65f6\u8fdb\u5ea6\u3001\u7f51\u7edc\u8bca\u65ad\u3001\u4e2d\u82f1\u6587\u754c\u9762\u4e0e\u767d\u591c\u4e3b\u9898 | \u5b98\u7f51 edgettsgui.ainav.site | Free open-source Windows Edge TTS GUI (selected work: the project root, tests, installer)",
+ "repos": [
+  {
+   "repo": "ms-edge-tts-gui",
+   "url": "https://github.com/JJosephph/ms-edge-tts-gui",
+   "sha": "38441d50256a0cbd0c4891327035451632e54fd6",
+   "licence": "GPL-3.0 (LICENSE file at pin 38441d50256a, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-14T01:25Z",
+    "consent_receipt": "f42ccdb47571",
+    "note": "Inclusion consented by the commit author by email at 2026-10-14T01:25Z (receipt f42ccdb47571); selected commit 38441d50256a: \"fix: \u9002\u914d\u65b0\u8bed\u97f3\u7aef\u70b9\u5e76\u589e\u52a0\u66f4\u65b0\u68c0\u6d4b\uff0c\u53d1\u5e03 v1.5.3\". LICENSE file at pin 38441d50256a detected as GPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution. Pinned to head 38441d50256a (contains the selected commit): the LICENSE at the selected commit was MIT."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "fefewko--addate",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how fefewko/Addate implements it: Dating prog for alcoholicks and narko (selected work: src/lib, src/screens, supabase)",
+ "repos": [
+  {
+   "repo": "Addate",
+   "url": "https://github.com/fefewko/Addate",
+   "sha": "4ccaf4498e03e30ba7f78b66d2549f70a18ba3f3",
+   "licence": "MIT (LICENSE file at pin 4ccaf4498e03, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T19:03Z",
+    "consent_receipt": "07af8138557a",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T19:03Z (receipt 07af8138557a); selected commit 4ccaf4498e03: \"E2EE: end-to-end \u0448\u0438\u0444\u0440\u043e\u0432\u0430\u043d\u0438\u0435 \u0447\u0430\u0442\u0430 \u0447\u0435\u0440\u0435\u0437 libsodium (crypto_box X25519)\". LICENSE file at pin 4ccaf4498e03 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "youssifmahmoud507--unicore",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how youssifmahmoud507/UniCore implements it: youssifmahmoud507/UniCore (C#) (selected work: UniCore.Application, UniCore.IntegrationTests, UniCore.Infrastructure)",
+ "repos": [
+  {
+   "repo": "UniCore",
+   "url": "https://github.com/youssifmahmoud507/UniCore",
+   "sha": "eeca02719561825f1c0e56e9463828ada3acdf6e",
+   "licence": "MIT (LICENSE file at pin eeca02719561, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-20T12:10Z",
+    "consent_receipt": "3d1e241409fd",
+    "note": "Inclusion consented by the commit author by email at 2026-10-20T12:10Z (receipt 3d1e241409fd); selected commit eeca02719561: \"Add Service Charges\". LICENSE file at pin eeca02719561 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

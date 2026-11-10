@@ -1,0 +1,23 @@
+{
+ "corpus": "roycoding8--agentswitch",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Rust queries this for how RoyCoding8/AgentSwitch implements it: A fast, native GUI for managing and toggling configurations, skills, and rules across multiple AI coding agents (Claude, Gemini, Codex, etc) (selected work: src, src/ui, the project root)",
+ "repos": [
+  {
+   "repo": "AgentSwitch",
+   "url": "https://github.com/RoyCoding8/AgentSwitch",
+   "sha": "19a21cbc143b9206534205fbe18260c1b703ddf0",
+   "licence": "Apache-2.0 (LICENSE file at pin 19a21cbc143b, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-13T22:51Z",
+    "consent_receipt": "ce79120b488a",
+    "note": "Inclusion consented by the commit author by email at 2026-10-13T22:51Z (receipt ce79120b488a); selected commit 19a21cbc143b: \"Fix JSONC, MCP envelope, chat conversion, and docs\". LICENSE file at pin 19a21cbc143b detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

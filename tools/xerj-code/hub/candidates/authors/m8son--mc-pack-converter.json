@@ -1,0 +1,23 @@
+{
+ "corpus": "m8son--mc-pack-converter",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on converter, minecraft, optifine queries this for how M8SON/mc-pack-converter implements it: Convert Minecraft Java 1.8.9 resource packs to modern versions (selected work: tests, web, tools)",
+ "repos": [
+  {
+   "repo": "mc-pack-converter",
+   "url": "https://github.com/M8SON/mc-pack-converter",
+   "sha": "ad4eb34e61ee4033b1518b99b1de51d3144820cf",
+   "licence": "MIT (LICENSE file at pin ad4eb34e61ee, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T19:19Z",
+    "consent_receipt": "5081c84a1112",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T19:19Z (receipt 5081c84a1112); selected commit ad4eb34e61ee: \"Cache browser converter offline with verified content-based updates\". LICENSE file at pin ad4eb34e61ee detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

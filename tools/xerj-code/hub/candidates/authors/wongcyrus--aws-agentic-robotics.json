@@ -1,0 +1,23 @@
+{
+ "corpus": "wongcyrus--aws-agentic-robotics",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how wongcyrus/aws-agentic-robotics implements it: Robotics with AWS IoT, and AWS Bedrock AgentCore (selected work: speech_control_agentcore)",
+ "repos": [
+  {
+   "repo": "aws-agentic-robotics",
+   "url": "https://github.com/wongcyrus/aws-agentic-robotics",
+   "sha": "7d9ecf399a0e96c57dc0bfc6cf39d273025d2524",
+   "licence": "MIT (LICENSE file at pin 7d9ecf399a0e, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-20T08:17Z",
+    "consent_receipt": "145206aeeb07",
+    "note": "Inclusion consented by the commit author by email at 2026-10-20T08:17Z (receipt 145206aeeb07); selected commit 7d9ecf399a0e: \"Enhance robot command assistant with multilingual support and event p\u2026\". LICENSE file at pin 7d9ecf399a0e detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

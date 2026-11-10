@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on TypeScript queries this for how 1molehayo/wedding-website-builder implements it: A whitelabel wedding website builder (selected work: scripts, the project root)",
+ "domain": "an agent working on TypeScript queries this for how 1molehayo/wedding-website-builder implements it: A whitelabel wedding website builder. User guide: https://1molehayo.github.io/wedding-website-builder/ (selected work: scripts, the project root)",
  "repos": [
   {
    "repo": "wedding-website-builder",

@@ -1,0 +1,23 @@
+{
+ "corpus": "nganeemmanuel--a3shield",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "LAW",
+ "domain": "an agent working on Java queries this for how NganeEmmanuel/A3Shield implements it: Plug-and-play policy-driven access control system with first-class support for RBAC, PBAC, and ABAC (selected work: a3-spring-boot-starter, the project root)",
+ "repos": [
+  {
+   "repo": "A3Shield",
+   "url": "https://github.com/NganeEmmanuel/A3Shield",
+   "sha": "e2de1f6b3ba9efebaf5c3e69584cba320a16700c",
+   "licence": "MIT (LICENSE file at pin e2de1f6b3ba9, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-22T06:37Z",
+    "consent_receipt": "710e9a85cf50",
+    "note": "Inclusion consented by the commit author by email at 2026-10-22T06:37Z (receipt 710e9a85cf50); selected commit e2de1f6b3ba9: \"M1: stabilize the starter - aspect fixes, RequestCheck SPI, real auto\u2026\". LICENSE file at pin e2de1f6b3ba9 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

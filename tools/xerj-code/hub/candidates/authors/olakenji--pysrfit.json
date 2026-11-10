@@ -1,0 +1,23 @@
+{
+ "corpus": "olakenji--pysrfit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how OlaKenji/pysrfit implements it: OlaKenji/pysrfit (Python) (selected work: pysrfit, tests)",
+ "repos": [
+  {
+   "repo": "pysrfit",
+   "url": "https://github.com/OlaKenji/pysrfit",
+   "sha": "777b5dfe99a1165a796e754155a74d660c655826",
+   "licence": "MIT (LICENSE file at pin 777b5dfe99a1, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T18:32Z",
+    "consent_receipt": "d526802afd55",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T18:32Z (receipt d526802afd55); selected commit 777b5dfe99a1: \"readme\". LICENSE file at pin 777b5dfe99a1 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

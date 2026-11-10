@@ -1,0 +1,23 @@
+{
+ "corpus": "mmdanny89--pdf-signer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on erpnext, frappe-framework queries this for how mmdanny89/pdf-signer implements it: Simple application for signing PDF files with Electronic Certificates in Frappe and Erpnext (selected work: pdf_signer)",
+ "repos": [
+  {
+   "repo": "pdf-signer",
+   "url": "https://github.com/mmdanny89/pdf-signer",
+   "sha": "58d7bdc06e4aa8e37de3e0a7ba294a10537d14da",
+   "licence": "MIT (LICENSE file at pin 58d7bdc06e4a, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T18:38Z",
+    "consent_receipt": "ec9c0ba28612",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T18:38Z (receipt ec9c0ba28612); selected commit 58d7bdc06e4a: \"Show the certificate and the state of its chain in the container form\". LICENSE file at pin 58d7bdc06e4a detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

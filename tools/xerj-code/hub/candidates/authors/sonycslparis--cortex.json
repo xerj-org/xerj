@@ -1,0 +1,23 @@
+{
+ "corpus": "sonycslparis--cortex",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Shell queries this for how SonyCSLParis/cortex implements it: A durable, file-based framework for long-running LLM-assisted work, with persistent context, project continuity, and coordinated specialized (selected work: scripts, roles, the project root)",
+ "repos": [
+  {
+   "repo": "cortex",
+   "url": "https://github.com/SonyCSLParis/cortex",
+   "sha": "145c65e122b6f45673006a0bd3dd2ab09d6572a4",
+   "licence": "MIT (LICENSE file at pin 145c65e122b6, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-19T02:15Z",
+    "consent_receipt": "cfe9cab9e080",
+    "note": "Inclusion consented by the commit author by email at 2026-10-19T02:15Z (receipt cfe9cab9e080); selected commit 145c65e122b6: \"cortex: refresh worker models and lifecycle, isolate credentials, and\u2026\". LICENSE file at pin 145c65e122b6 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

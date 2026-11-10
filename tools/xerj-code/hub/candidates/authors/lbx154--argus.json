@@ -1,0 +1,23 @@
+{
+ "corpus": "lbx154--argus",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how lbx154/Argus implements it: A self-evolving multi-agent system for autonomous research, operating 24/7 to explore, learn, and improve (selected work: frontend, desktop-tauri)",
+ "repos": [
+  {
+   "repo": "Argus",
+   "url": "https://github.com/lbx154/Argus",
+   "sha": "0429f66953777e2168d90ed35ad7ace06a462a97",
+   "licence": "MIT (LICENSE file at pin 0429f6695377, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-13T04:44Z",
+    "consent_receipt": "8ca5c130a31b",
+    "note": "Inclusion consented by the commit author by email at 2026-10-13T04:44Z (receipt 8ca5c130a31b); selected commit 0429f6695377: \"fix(web): isolate session drafts and bind desktop notifications\". LICENSE file at pin 0429f6695377 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

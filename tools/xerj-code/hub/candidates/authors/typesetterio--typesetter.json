@@ -1,0 +1,23 @@
+{
+ "corpus": "typesetterio--typesetter",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on PHP queries this for how TypesetterIO/typesetter implements it: Typesetter Service (selected work: tests, src, stubs)",
+ "repos": [
+  {
+   "repo": "typesetter",
+   "url": "https://github.com/TypesetterIO/typesetter",
+   "sha": "7934a56dc21eb3bc3c8eefaaee4d1718ad14c07d",
+   "licence": "MIT (LICENSE file at pin 7934a56dc21e, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-12T22:34Z",
+    "consent_receipt": "e68aadd102d9",
+    "note": "Inclusion consented by the commit author by email at 2026-10-12T22:34Z (receipt e68aadd102d9); selected commit 7934a56dc21e: \"handling adding two new config options\". LICENSE file at pin 7934a56dc21e detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

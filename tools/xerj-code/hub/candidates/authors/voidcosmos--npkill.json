@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on npm, typescript, cli queries this for how voidcosmos/npkill implements it: List any node_modules \ud83d\udce6 dir in your system and how heavy they are. You can then select which ones you want to erase to free up space \ud83e\uddf9 (selected work: tests, src/core)",
+ "domain": "an agent working on cli, javascript, build-artifacts queries this for how voidcosmos/npkill implements it: Easily find and remove old and heavy node_modules \ud83d\udce6, artifacts, caches and dev leftovers \ud83e\uddf9 (selected work: tests, src/core)",
  "repos": [
   {
    "repo": "npkill",

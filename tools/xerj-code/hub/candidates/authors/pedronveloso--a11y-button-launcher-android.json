@@ -1,0 +1,23 @@
+{
+ "corpus": "pedronveloso--a11y-button-launcher-android",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Kotlin queries this for how pedronveloso/a11y-button-launcher-android implements it: A11Y Button Launcher is an Android app that allows you to quickly open any app via the Android OS exposed Accessibility button (selected work: app/src, the project root)",
+ "repos": [
+  {
+   "repo": "a11y-button-launcher-android",
+   "url": "https://github.com/pedronveloso/a11y-button-launcher-android",
+   "sha": "b4b38b47514cd61fe1f7e409c05d9a39170bb930",
+   "licence": "Apache-2.0 (LICENSE file at pin b4b38b47514c, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T18:15Z",
+    "consent_receipt": "6cf474e211a0",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T18:15Z (receipt 6cf474e211a0); selected commit b4b38b47514c: \"feat: images and other UX improvements to onboarding\". LICENSE file at pin b4b38b47514c detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}
