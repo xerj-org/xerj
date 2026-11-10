@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on codebase-intelligence, context-server, hybrid-search queries this for how ManSio/mscodebase-intelligence implements it: Intelligent codebase search & indexing for Zed. Async MCP server featuring LanceDB/BM25 hybrid search, multi-bucket RAG, and autonomous self (selected work: tools, experiments, scripts)",
+ "domain": "an agent working on codebase-intelligence, context-server, hybrid-search queries this for how ManSio/mscodebase-intelligence implements it: Intelligent codebase search & indexing . Async MCP server featuring LanceDB/BM25 hybrid search, multi-bucket RAG, and autonomous self-healin (selected work: tools, experiments, scripts)",
  "repos": [
   {
    "repo": "mscodebase-intelligence",

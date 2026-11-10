@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "OPS",
- "domain": "an agent working on docker, docker-compose, portainer queries this for how bauerpawel/DOCKYARD implements it: Dockyard \u2014 a browsable gallery of 600+ Portainer app templates, built from YAML and kept fresh automatically (selected work: the project root, tests, stacks)",
+ "domain": "an agent working on docker, docker-compose, portainer queries this for how bauerpawel/DOCKYARD implements it: Dockyard \u2014 a browsable gallery of 700+ Portainer app templates, built from YAML and kept fresh automatically (selected work: the project root, tests, stacks)",
  "repos": [
   {
    "repo": "DOCKYARD",

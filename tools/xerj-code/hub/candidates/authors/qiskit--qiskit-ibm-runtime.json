@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on qiskit queries this for how Qiskit/qiskit-ibm-runtime implements it: Client for IBM Quantum Compute (formerly known as Qiskit Runtime) (selected work: test, qiskit_ibm_runtime)",
+ "domain": "an agent working on qiskit, ibm-quantum queries this for how Qiskit/qiskit-ibm-runtime implements it: Client for IBM Quantum Compute (formerly known as Qiskit Runtime) (selected work: test, qiskit_ibm_runtime)",
  "repos": [
   {
    "repo": "qiskit-ibm-runtime",

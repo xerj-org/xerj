@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on Python queries this for how raiken-mf/robrowser_docker implements it: Complete Docker & Kubernetes orchestration for Ragnarok Online. Features rAthena, roBrowser (HTML5 Web Client), wsProxy, and MariaDB Operato (selected work: deploy, scripts)",
+ "domain": "an agent working on Shell queries this for how raiken-mf/robrowser_docker implements it: Complete Docker & Kubernetes orchestration for Ragnarok Online. Features rAthena, roBrowser (HTML5 Web Client), wsProxy, and MariaDB Operato (selected work: deploy, scripts)",
  "repos": [
   {
    "repo": "robrowser_docker",

@@ -1,0 +1,23 @@
+{
+ "corpus": "shriram-shekade--binsight",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how Shriram-Shekade/BinSight implements it: trash finder (selected work: reports, the project root, src/binsight)",
+ "repos": [
+  {
+   "repo": "BinSight",
+   "url": "https://github.com/Shriram-Shekade/BinSight",
+   "sha": "e133a82107c3e4b2ad9b819451aee119f5924f2b",
+   "licence": "MIT (LICENSE file at pin e133a82107c3, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T08:53Z",
+    "consent_receipt": "6db40c78f971",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T08:53Z (receipt 6db40c78f971); selected commit e133a82107c3: \"Retrain with TrashBusters: a fifth dataset with real-world household \u2026\". LICENSE file at pin e133a82107c3 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

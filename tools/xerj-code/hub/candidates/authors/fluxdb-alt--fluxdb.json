@@ -8,15 +8,15 @@
   {
    "repo": "fluxDB",
    "url": "https://github.com/fluxdb-alt/fluxDB",
-   "sha": "2fca745b2cdccfc5b3f14925165d2b36af87e80c",
-   "licence": "GPL-3.0 (LICENSE file at pin 2fca745b2cdc, GitHub licence API 2026-11-09)",
+   "sha": "ce99322e142fe234baaac65966a862e2721626c4",
+   "licence": "GPL-3.0 (LICENSE file at pin ce99322e142f, GitHub licence API 2026-11-10)",
    "review": {
     "spdx": "GPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-22T05:13Z",
     "consent_receipt": "38bdd5deb032",
-    "note": "Inclusion consented by the commit author by email at 2026-10-22T05:13Z (receipt 38bdd5deb032); selected commit 2fca745b2cdc: \"feat(ai): \u5199\u5165\u81ea\u52a8\u653e\u884c\u6539\u4e3a\u89c4\u5219\u5206\u4e0e\u8bc4\u5ba1\u98ce\u9669\u5206\u52a0\u6743\". LICENSE file at pin 2fca745b2cdc detected as GPL-3.0 by the GitHub licence API on 2026-11-09; used under that licence with attribution. Pinned to head 2fca745b2cdc (contains the selected commit): the LICENSE at the selected commit was NOASSERTION."
+    "note": "Inclusion consented by the commit author by email at 2026-10-22T05:13Z (receipt 38bdd5deb032); selected commit ce99322e142f: \"feat(ai): \u5199\u5165\u81ea\u52a8\u653e\u884c\u6539\u4e3a\u89c4\u5219\u5206\u4e0e\u8bc4\u5ba1\u98ce\u9669\u5206\u52a0\u6743\". LICENSE file at pin ce99322e142f detected as GPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution. Pinned to head ce99322e142f (contains the selected commit): the LICENSE at the selected commit was NOASSERTION."
    }
   }
  ]
