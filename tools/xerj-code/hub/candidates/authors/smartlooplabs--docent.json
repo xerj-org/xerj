@@ -1,9 +1,9 @@
 {
- "corpus": "smartloop-ai--docent",
+ "corpus": "smartlooplabs--docent",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-agents, ratatui, rust queries this for how smartloop-ai/docent implements it: Docent: the private coding agent for your terminal. Writes and edits code, runs your commands, checks its work with your build and language  (selected work: src, the project root)",
+ "domain": "an agent working on ai-agents, ratatui, rust queries this for how smartlooplabs/docent implements it: Docent: the private coding agent for your terminal. Writes and edits code, runs your commands, checks its work with your build and language  (selected work: src, the project root)",
  "repos": [
   {
    "repo": "docent",

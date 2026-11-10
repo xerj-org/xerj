@@ -1,0 +1,23 @@
+{
+ "corpus": "roufaida-as--promine",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how Roufaida-As/PROMINE implements it: PROMINE (PROMpt evolution mINEing) (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "PROMINE",
+   "url": "https://github.com/Roufaida-As/PROMINE",
+   "sha": "c9458e52af045e27d1b6642caac1df740ab6f61c",
+   "licence": "MIT (LICENSE file at pin c9458e52af04, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T17:23Z",
+    "consent_receipt": "668c5ec20f66",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T17:23Z (receipt 668c5ec20f66); selected commit c9458e52af04: \"Update .gitignore and add step2b script for enhanced processing of pr\u2026\". LICENSE file at pin c9458e52af04 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Pinned to head c9458e52af04 (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "frameview--crystal",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how FrameView/Crystal implements it: Software to centralize my daily activities inside a single hub. It's designed for Linux with X11 (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "Crystal",
+   "url": "https://github.com/FrameView/Crystal",
+   "sha": "f82dff76be0bd20e71bf57a13ed33d1e2617bee0",
+   "licence": "MIT (LICENSE file at pin f82dff76be0b, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T18:04Z",
+    "consent_receipt": "9a01ee67d3de",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T18:04Z (receipt 9a01ee67d3de); selected commit f82dff76be0b: \"Add CPU and Nvidia GPU stats\". LICENSE file at pin f82dff76be0b detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

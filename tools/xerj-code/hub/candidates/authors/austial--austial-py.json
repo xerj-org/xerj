@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Python queries this for how austial/austial-py implements it: austial/austial-py (Python) (selected work: packages/core, packages/common, scripts)",
+ "domain": "an agent working on Python queries this for how austial/austial-py implements it: NestJS for Python: modules, controllers, dependency injection, guards, pipes and interceptors on FastAPI (selected work: packages/core, packages/common, scripts)",
  "repos": [
   {
    "repo": "austial-py",

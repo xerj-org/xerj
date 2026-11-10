@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WRITE",
- "domain": "an agent working on Rust queries this for how NowLoadY/XRTranslate implements it: A modular, local-first real-time speech recognition and translation system with support for desktop overlays, video subtitling, meeting note (selected work: apps/xrtranslate-backend, crates/xrtranslate-prompt)",
+ "domain": "an agent working on real-time, speech-recognition, subtitles queries this for how NowLoadY/XRTranslate implements it: A modular, local-first real-time speech recognition and translation system with support for desktop overlays, video subtitling, meeting note (selected work: apps/xrtranslate-backend, crates/xrtranslate-prompt)",
  "repos": [
   {
    "repo": "XRTranslate",

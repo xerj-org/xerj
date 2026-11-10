@@ -1,0 +1,23 @@
+{
+ "corpus": "indkhan--fieldnote",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Rust queries this for how indkhan/Fieldnote implements it: A free, open-source desktop notebook for interviews and conversations. Record audio, write answers, and hand it all to Claude Code or Codex (selected work: src-tauri, src, the project root)",
+ "repos": [
+  {
+   "repo": "Fieldnote",
+   "url": "https://github.com/indkhan/Fieldnote",
+   "sha": "c0def35bc28717f042368abdeac88ce376a28e6e",
+   "licence": "MIT (LICENSE file at pin c0def35bc287, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T17:36Z",
+    "consent_receipt": "df4ceb5e476e",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T17:36Z (receipt df4ceb5e476e); selected commit c0def35bc287: \"feat: add timestamped recording markers and project settings\". LICENSE file at pin c0def35bc287 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}
