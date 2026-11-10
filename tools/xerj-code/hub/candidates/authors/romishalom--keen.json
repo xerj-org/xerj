@@ -1,0 +1,23 @@
+{
+ "corpus": "romishalom--keen",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on c-language, compiler, programming-language queries this for how romishalom/keen implements it: A programming language with a Rust-syntax front end for C: transpiler, build tool, test runner and formatter in one binary (selected work: src/whet, tests, scripts)",
+ "repos": [
+  {
+   "repo": "keen",
+   "url": "https://github.com/romishalom/keen",
+   "sha": "0156df63667b3f8d04c2ed7306e9be6c934a702c",
+   "licence": "MIT (LICENSE file at pin 0156df63667b, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T06:02Z",
+    "consent_receipt": "4968910f6513",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T06:02Z (receipt 4968910f6513); selected commit 0156df63667b: \"Whet and installation\". LICENSE file at pin 0156df63667b detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

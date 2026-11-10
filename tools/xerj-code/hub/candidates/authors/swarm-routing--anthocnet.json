@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "NET",
- "domain": "an agent working on aco, ant-colony-optimization, manet queries this for how swarm-routing/AntHocNet implements it: Paper-faithful AntHocNet (ant-colony ad-hoc routing): a simulator-independent C++ core, an ns-3 module, and reproducible 20-seed benchmarks  (selected work: ns3, tools, the project root)",
+ "domain": "an agent working on aco, ant-colony-optimization, manet queries this for how swarm-routing/AntHocNet implements it: AntHocNet (Di Caro, Ducatelle & Gambardella), the hybrid ant-colony routing protocol for MANETs, as a paper-faithful reference: a simulator- (selected work: ns3, tools, the project root)",
  "repos": [
   {
    "repo": "AntHocNet",

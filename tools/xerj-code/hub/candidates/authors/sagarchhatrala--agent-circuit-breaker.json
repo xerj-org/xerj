@@ -1,0 +1,23 @@
+{
+ "corpus": "sagarchhatrala--agent-circuit-breaker",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how sagarchhatrala/agent-circuit-breaker implements it: Deterministic safety layer for AI coding agents (selected work: agent_circuit_breaker, scripts, tests)",
+ "repos": [
+  {
+   "repo": "agent-circuit-breaker",
+   "url": "https://github.com/sagarchhatrala/agent-circuit-breaker",
+   "sha": "2cbbe99e7cdb634762ff71a44b4ef69f8686ec08",
+   "licence": "MIT (LICENSE file at pin 2cbbe99e7cdb, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T04:15Z",
+    "consent_receipt": "515291c8070f",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T04:15Z (receipt 515291c8070f); selected commit 2cbbe99e7cdb: \"Add owner-mediated operations and effect budgets for v1.7.2\". LICENSE file at pin 2cbbe99e7cdb detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

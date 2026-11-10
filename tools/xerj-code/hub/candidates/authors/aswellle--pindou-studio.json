@@ -2,8 +2,8 @@
  "corpus": "aswellle--pindou-studio",
  "cloned_at": null,
  "status": "draft",
- "shelf": "WEB",
- "domain": "an agent working on bead-pattern, ciede2000, color-matching queries this for how Aswellle/Pindou-Studio implements it: \u514d\u8d39\u5728\u7ebf\u62fc\u8c46\u56fe\u7eb8\u751f\u6210\u4e0e\u50cf\u7d20\u753b\u521b\u4f5c\u5de5\u5177\u3002\u5c06\u7167\u7247\u4e00\u952e\u8f6c\u6362\u4e3a\u4e13\u4e1a\u7ea7\u62fc\u8c46\u56fe\u7eb8\uff0c\u5728\u7f51\u683c\u753b\u5e03\u81ea\u7531\u521b\u4f5c\uff0c\u652f\u6301 Perler\u3001Hama\u3001Artkal\u3001COCO\u3001MARD \u7b49\u54c1\u724c\u8272\u5361\u5339\u914d\uff0c\u5e76\u5bfc\u51fa PNG/SVG \u9ad8\u6e05\u62fc\u8c46\u56fe\u7eb8\u3002 (selected work: src/components, supabase)",
+ "shelf": "API",
+ "domain": "an agent working on bead-pattern, ciede2000, color-matching queries this for how Aswellle/Pindou-Studio implements it: \u514d\u8d39\u5728\u7ebf\u62fc\u8c46\u56fe\u7eb8\u751f\u6210\u4e0e\u50cf\u7d20\u753b\u521b\u4f5c\u5de5\u5177\uff1a\u7167\u7247\u4e00\u952e\u8f6c\u6362\u4e3a\u4e13\u4e1a\u7ea7\u62fc\u8c46\u56fe\u7eb8\uff0c\u7f51\u683c\u753b\u5e03\u81ea\u7531\u521b\u4f5c\uff0c\u652f\u6301 Perler\u3001Hama\u3001Artkal\u3001COCO\u3001MARD \u7b49\u54c1\u724c\u8272\u5361\u5339\u914d\uff0c\u5bfc\u51fa PNG/SVG \u9ad8\u6e05\u56fe\u7eb8\u3002Perler/Hama/fuse bead pattern generator,  (selected work: src/components, supabase)",
  "repos": [
   {
    "repo": "Pindou-Studio",

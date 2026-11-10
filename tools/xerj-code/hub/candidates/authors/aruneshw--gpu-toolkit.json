@@ -1,0 +1,23 @@
+{
+ "corpus": "aruneshw--gpu-toolkit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Go queries this for how Aruneshw/gpu_toolkit implements it: Conservative Go toolkit for authenticated single-node LLM inference across separate devices (llama.cpp, mTLS, no RPC claims) (selected work: internal/agent, internal/tunnel, internal/cli)",
+ "repos": [
+  {
+   "repo": "gpu_toolkit",
+   "url": "https://github.com/Aruneshw/gpu_toolkit",
+   "sha": "2f4053c16f7c27216d52ef1889f41d6a3046a537",
+   "licence": "Apache-2.0 (LICENSE file at pin 2f4053c16f7c, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T04:22Z",
+    "consent_receipt": "a7797bdd797c",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T04:22Z (receipt a7797bdd797c); selected commit 2f4053c16f7c: \"Implement creator-hosted group relay and worker connections\". LICENSE file at pin 2f4053c16f7c detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

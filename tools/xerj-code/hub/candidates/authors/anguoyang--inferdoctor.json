@@ -8,15 +8,15 @@
   {
    "repo": "inferdoctor",
    "url": "https://github.com/anguoyang/inferdoctor",
-   "sha": "9ce753197a8686d40c03ce8cb1d1b48152c825a2",
-   "licence": "Apache-2.0 (LICENSE file at pin 9ce753197a86, GitHub licence API 2026-11-09)",
+   "sha": "adfe79e0de5936f8771baecc38759fcce43e3cd0",
+   "licence": "Apache-2.0 (LICENSE file at pin adfe79e0de59, GitHub licence API 2026-11-10)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-07T23:23Z",
     "consent_receipt": "8362e22a9886",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-07T23:23Z (receipt 8362e22a9886); pinned to the default-branch head. LICENSE file at pin 9ce753197a86 detected as Apache-2.0 by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-07T23:23Z (receipt 8362e22a9886); pinned to the default-branch head. LICENSE file at pin adfe79e0de59 detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
    }
   }
  ]

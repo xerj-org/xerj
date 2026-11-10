@@ -1,0 +1,23 @@
+{
+ "corpus": "csells--freecell-verified",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Lean queries this for how csells/freecell-verified implements it: A Lean 4 FreeCell solver proved sound, complete and terminating, with checkable certificates (selected work: FreeCell, specs, Examples)",
+ "repos": [
+  {
+   "repo": "freecell-verified",
+   "url": "https://github.com/csells/freecell-verified",
+   "sha": "69b7e113d457724cef3b940a17a039a91f42da83",
+   "licence": "MIT (LICENSE file at pin 69b7e113d457, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T05:24Z",
+    "consent_receipt": "84e522acb3dd",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T05:24Z (receipt 84e522acb3dd); selected commit 69b7e113d457: \"Settle all 32,000 Microsoft deals and prove safe auto-play harmless\". LICENSE file at pin 69b7e113d457 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

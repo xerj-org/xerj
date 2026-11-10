@@ -1,0 +1,23 @@
+{
+ "corpus": "bulatruslanovich--caimack",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on music-library, typescript, rust queries this for how BulatRuslanovich/caimack implements it: Self-hosted music streaming with personal radio, recommendations, synced lyrics, and offline listening. Web and native Android clients. Your (selected work: tests, the project root, backend)",
+ "repos": [
+  {
+   "repo": "caimack",
+   "url": "https://github.com/BulatRuslanovich/caimack",
+   "sha": "53b80be1403041c61c9a4c61a7c561d4ad9c92cc",
+   "licence": "AGPL-3.0 (LICENSE file at pin 53b80be14030, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-10T05:46Z",
+    "consent_receipt": "13555febb78b",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T05:46Z (receipt 13555febb78b); selected commit 53b80be14030: \"Add AMD ROCm support and GPU autodetection for MERT\". LICENSE file at pin 53b80be14030 detected as AGPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

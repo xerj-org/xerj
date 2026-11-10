@@ -1,0 +1,23 @@
+{
+ "corpus": "alvaro667--atividade-008-jogo-web-com-excalibur",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how Alvaro667/Atividade-008-Jogo-Web-com-Excalibur implements it: Alvaro667/Atividade-008-Jogo-Web-com-Excalibur (TypeScript) (selected work: src/scenes, src/systems, src/actors)",
+ "repos": [
+  {
+   "repo": "Atividade-008-Jogo-Web-com-Excalibur",
+   "url": "https://github.com/Alvaro667/Atividade-008-Jogo-Web-com-Excalibur",
+   "sha": "68e7c6371089ca701d87cc59a15cfee456f65a5a",
+   "licence": "BSD-2-Clause (LICENSE file at pin 68e7c6371089, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "BSD-2-Clause",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T05:27Z",
+    "consent_receipt": "c04a39082e0d",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T05:27Z (receipt c04a39082e0d); selected commit 68e7c6371089: \"feat: pathfinding A* implementado\". LICENSE file at pin 68e7c6371089 detected as BSD-2-Clause by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}
