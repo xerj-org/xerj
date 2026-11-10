@@ -1,0 +1,23 @@
+{
+ "corpus": "anakotai--harnix",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how anakotai/harnix implements it: Open source scanner that audits repos and orgs for harness readiness (selected work: tests, src, schema)",
+ "repos": [
+  {
+   "repo": "harnix",
+   "url": "https://github.com/anakotai/harnix",
+   "sha": "4d755cde295d641280c7838a0eb7ec904abd1ec4",
+   "licence": "Apache-2.0 (LICENSE file at pin 4d755cde295d, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T11:58Z",
+    "consent_receipt": "1cc3933f021d",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T11:58Z (receipt 1cc3933f021d); selected commit 4d755cde295d: \"feat(report): add versioned JSON assessment reports\". LICENSE file at pin 4d755cde295d detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

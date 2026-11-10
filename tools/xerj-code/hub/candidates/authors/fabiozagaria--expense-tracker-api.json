@@ -8,15 +8,15 @@
   {
    "repo": "expense-tracker-api",
    "url": "https://github.com/fabiozagaria/expense-tracker-api",
-   "sha": "d1ae0d2d53c5495129b9fe18a57609b61ff487b0",
-   "licence": "MIT (LICENSE file at pin d1ae0d2d53c5, GitHub licence API 2026-11-10)",
+   "sha": "52961088bae1fc75bee277516d5d026cd45c3606",
+   "licence": "MIT (LICENSE file at pin 52961088bae1, GitHub licence API 2026-11-10)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-05T18:35Z",
     "consent_receipt": "75cd03297d4c",
-    "note": "Inclusion consented by the commit author by email at 2026-11-05T18:35Z (receipt 75cd03297d4c); selected commit d1ae0d2d53c5: \"Add MapStruct mappers for expenses and incomes\". LICENSE file at pin d1ae0d2d53c5 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Pinned to head d1ae0d2d53c5 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-11-05T18:35Z (receipt 75cd03297d4c); selected commit 52961088bae1: \"Add MapStruct mappers for expenses and incomes\". LICENSE file at pin 52961088bae1 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Pinned to head 52961088bae1 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

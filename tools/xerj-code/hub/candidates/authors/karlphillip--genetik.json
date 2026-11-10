@@ -1,0 +1,23 @@
+{
+ "corpus": "karlphillip--genetik",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on genetic-algorithm, algorithm, cpp queries this for how karlphillip/Genetik implements it: A framework for rapid prototyping Genetic Algorithms in C++ (selected work: tests, genetik, examples)",
+ "repos": [
+  {
+   "repo": "Genetik",
+   "url": "https://github.com/karlphillip/Genetik",
+   "sha": "a9f28f6898c9ec83bb9d98a6ddf9369405153f18",
+   "licence": "MIT (LICENSE file at pin a9f28f6898c9, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-21T22:07Z",
+    "consent_receipt": "3b890863e543",
+    "note": "Inclusion consented by the commit author by email at 2026-10-21T22:07Z (receipt 3b890863e543); selected commit a9f28f6898c9: \"Add opt-in generic candidate execution with bounded CPU workers\". LICENSE file at pin a9f28f6898c9 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

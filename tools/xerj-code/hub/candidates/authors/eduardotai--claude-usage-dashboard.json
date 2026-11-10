@@ -2,8 +2,8 @@
  "corpus": "eduardotai--claude-usage-dashboard",
  "cloned_at": null,
  "status": "draft",
- "shelf": "WEB",
- "domain": "an agent working on chartjs, claude, claude-code queries this for how eduardotai/claude-usage-dashboard implements it: A beautiful, private, local-first dashboard for visualizing your Claude Code token usage. FastAPI + SvelteKit + Chart.js (selected work: test, src/adapters, src/pricing)",
+ "shelf": "AI",
+ "domain": "an agent working on chartjs, claude-code, dashboard queries this for how eduardotai/claude-usage-dashboard implements it: Burnboard: local-first dashboard of token usage and API-equivalent cost across AI coding agents (Claude Code, Codex CLI, Cursor, Grok Build, (selected work: test, src/adapters, src/pricing)",
  "repos": [
   {
    "repo": "claude-usage-dashboard",

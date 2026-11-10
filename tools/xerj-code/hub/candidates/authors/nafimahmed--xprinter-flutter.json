@@ -1,0 +1,23 @@
+{
+ "corpus": "nafimahmed--xprinter-flutter",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Dart queries this for how NafimAhmed/xprinter-flutter implements it: NafimAhmed/xprinter-flutter (Dart)",
+ "repos": [
+  {
+   "repo": "xprinter-flutter",
+   "url": "https://github.com/NafimAhmed/xprinter-flutter",
+   "sha": "1828ed435bae6d9fb0479586510f6a919e7ac3af",
+   "licence": "author's permission (LICENSE at pin 1828ed435bae: NOASSERTION; repository: NOASSERTION)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T11:54Z",
+    "consent_receipt": "bdb0d901f696",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T11:54Z (receipt bdb0d901f696); pinned to the default-branch head. LICENSE at pin 1828ed435bae: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

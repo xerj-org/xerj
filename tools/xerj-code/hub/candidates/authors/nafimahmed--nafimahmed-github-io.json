@@ -1,0 +1,23 @@
+{
+ "corpus": "nafimahmed--nafimahmed-github-io",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Dart queries this for how NafimAhmed/NafimAhmed.github.io implements it: Personal portfolio website of Nafim Ahmed \u2014 Software Engineer, Flutter Developer, ERP Developer, AI Engineer and IoT Enthusiast",
+ "repos": [
+  {
+   "repo": "NafimAhmed.github.io",
+   "url": "https://github.com/NafimAhmed/NafimAhmed.github.io",
+   "sha": "8a9c384f54ff14490f0aea081aae0fe23755b949",
+   "licence": "author's permission (LICENSE at pin 8a9c384f54ff: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T11:54Z",
+    "consent_receipt": "f91cd8f9b426",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T11:54Z (receipt f91cd8f9b426); pinned to the default-branch head. LICENSE at pin 8a9c384f54ff: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

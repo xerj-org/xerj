@@ -1,0 +1,23 @@
+{
+ "corpus": "mountain--gassim",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how mountain/gassim implements it: Gas simulation",
+ "repos": [
+  {
+   "repo": "gassim",
+   "url": "https://github.com/mountain/gassim",
+   "sha": "00dc1c8f932182c6f5097641873b067fb93d9fce",
+   "licence": "MIT (LICENSE file at pin 00dc1c8f9321, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T11:31Z",
+    "consent_receipt": "4e2516533c56",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T11:31Z (receipt 4e2516533c56); pinned to the default-branch head. LICENSE file at pin 00dc1c8f9321 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

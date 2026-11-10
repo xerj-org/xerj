@@ -1,0 +1,23 @@
+{
+ "corpus": "mountain--qingdai2",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how mountain/qingdai2 implements it: mountain/qingdai2 (Python)",
+ "repos": [
+  {
+   "repo": "qingdai2",
+   "url": "https://github.com/mountain/qingdai2",
+   "sha": "def3b79ee855720c3efce168cb618c546f61eb0f",
+   "licence": "MIT (LICENSE file at pin def3b79ee855, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T11:31Z",
+    "consent_receipt": "e2f8d0765295",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T11:31Z (receipt e2f8d0765295); pinned to the default-branch head. LICENSE file at pin def3b79ee855 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

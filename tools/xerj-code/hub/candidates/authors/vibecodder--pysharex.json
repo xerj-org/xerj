@@ -1,0 +1,23 @@
+{
+ "corpus": "vibecodder--pysharex",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on cross-platform, productivity, python queries this for how VibeCodder/PyShareX implements it: PyShareX - A feature-rich Python alternative to ShareX for Linux and Windows users (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "PyShareX",
+   "url": "https://github.com/VibeCodder/PyShareX",
+   "sha": "2ee21c72fd945c74ee884cd19b15adc2c932a964",
+   "licence": "Apache-2.0 (LICENSE file at pin 2ee21c72fd94, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T12:03Z",
+    "consent_receipt": "1e1f633009b0",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T12:03Z (receipt 1e1f633009b0); selected commit 2ee21c72fd94: \"Add files via upload\". LICENSE file at pin 2ee21c72fd94 detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

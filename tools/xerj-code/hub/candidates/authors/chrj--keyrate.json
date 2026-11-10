@@ -8,15 +8,15 @@
   {
    "repo": "keyrate",
    "url": "https://github.com/chrj/keyrate",
-   "sha": "291f139068510a2820870f210e8986d750164d57",
-   "licence": "MIT (LICENSE file at pin 291f13906851, GitHub licence API 2026-10-30)",
+   "sha": "f99ff30da53550d02e39c9471d12ef968dd9ff67",
+   "licence": "MIT (LICENSE file at pin f99ff30da535, GitHub licence API 2026-11-10)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-30T22:51Z",
     "consent_receipt": "a97c22df9513",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T22:51Z (receipt a97c22df9513); pinned to the default-branch head. LICENSE file at pin 291f13906851 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T22:51Z (receipt a97c22df9513); pinned to the default-branch head. LICENSE file at pin f99ff30da535 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
    }
   }
  ]

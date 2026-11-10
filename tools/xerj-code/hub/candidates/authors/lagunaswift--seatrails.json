@@ -8,15 +8,15 @@
   {
    "repo": "SeaTrails",
    "url": "https://github.com/Lagunaswift/SeaTrails",
-   "sha": "64321397418f43b573eee81c330595cd7e3a0862",
-   "licence": "MIT (LICENSE file at pin 64321397418f, GitHub licence API 2026-11-10)",
+   "sha": "9c4098f80258b7c6a9475a9536c8ab9e5de24982",
+   "licence": "Apache-2.0 (LICENSE file at pin 9c4098f80258, GitHub licence API 2026-11-10)",
    "review": {
-    "spdx": "MIT",
+    "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-09T23:29Z",
     "consent_receipt": "15a116c91df6",
-    "note": "Inclusion consented by the commit author by email at 2026-11-09T23:29Z (receipt 15a116c91df6); selected commit 64321397418f: \"Add contextual website readiness coverage to existing audit lenses\". LICENSE file at pin 64321397418f detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T23:29Z (receipt 15a116c91df6); selected commit 9c4098f80258: \"Add contextual website readiness coverage to existing audit lenses\". LICENSE file at pin 9c4098f80258 detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution. Pinned to head 9c4098f80258 (contains the selected commit): the LICENSE at the selected commit was MIT."
    }
   }
  ]

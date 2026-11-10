@@ -1,0 +1,23 @@
+{
+ "corpus": "quarkiverse--quarkus-mcp-server",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on quarkus-extension queries this for how quarkiverse/quarkus-mcp-server implements it: This extension enables developers to implement the MCP server features easily (selected work: transports, core/runtime, schema-validator)",
+ "repos": [
+  {
+   "repo": "quarkus-mcp-server",
+   "url": "https://github.com/quarkiverse/quarkus-mcp-server",
+   "sha": "94057957eb0d32f4b7e85adce3a83e69ebdff619",
+   "licence": "Apache-2.0 (LICENSE file at pin 94057957eb0d, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T11:34Z",
+    "consent_receipt": "17aea2828b34",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T11:34Z (receipt 17aea2828b34); selected commit 94057957eb0d: \"core: cache generated tool schemas, add ToolInfo#inputSchema()/output\u2026\". LICENSE file at pin 94057957eb0d detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -8,15 +8,15 @@
   {
    "repo": "obsidian-dbml-erd",
    "url": "https://github.com/wrojasa/obsidian-dbml-erd",
-   "sha": "9578a294f17f8c84af61d70f33e81bca1f8ca04a",
-   "licence": "MIT (LICENSE file at pin 9578a294f17f, GitHub licence API 2026-11-10)",
+   "sha": "4dc091bbcbef44f55a5d09dc93d36ddd033c3a90",
+   "licence": "MIT (LICENSE file at pin 4dc091bbcbef, GitHub licence API 2026-11-10)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-09T15:53Z",
     "consent_receipt": "7cf9eb4386f0",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-09T15:53Z (receipt 7cf9eb4386f0); pinned to the default-branch head. LICENSE file at pin 9578a294f17f detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-09T15:53Z (receipt 7cf9eb4386f0); pinned to the default-branch head. LICENSE file at pin 4dc091bbcbef detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
    }
   }
  ]
