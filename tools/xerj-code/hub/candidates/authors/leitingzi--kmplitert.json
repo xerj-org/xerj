@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on Kotlin queries this for how leitingzi/kmplitert implements it: An unofficial Kotlin Multiplatform library for Google LiteRT, providing a unified, type-safe API for on-device ML inference across Android,  (selected work: core/src, core/karma.config.d, core)",
+ "domain": "an agent working on Kotlin queries this for how leitingzi/kmplitert implements it: An Kotlin Multiplatform library for Google LiteRT, providing a unified, type-safe API for on-device ML inference across Android, iOS, JVM, N (selected work: core/src, core/karma.config.d, core)",
  "repos": [
   {
    "repo": "kmplitert",

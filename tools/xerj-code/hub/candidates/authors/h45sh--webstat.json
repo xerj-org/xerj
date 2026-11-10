@@ -1,0 +1,23 @@
+{
+ "corpus": "h45sh--webstat",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on cli, desktop-widget, hyprland queries this for how h45sh/webstat implements it: Fast website status checker, recovery watcher, and desktop reminder for Linux and Omarchy (selected work: src/webstat, tests, the project root)",
+ "repos": [
+  {
+   "repo": "webstat",
+   "url": "https://github.com/h45sh/webstat",
+   "sha": "c05936b65e9af3bc440778a140f27c16e8440d82",
+   "licence": "MIT (LICENSE file at pin c05936b65e9a, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T01:15Z",
+    "consent_receipt": "bbddc8ac07c5",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T01:15Z (receipt bbddc8ac07c5); selected commit c05936b65e9a: \"fix(security): eliminate complete URL and credential leakage in brows\u2026\". LICENSE file at pin c05936b65e9a detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

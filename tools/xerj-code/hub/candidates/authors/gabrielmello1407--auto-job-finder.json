@@ -1,0 +1,23 @@
+{
+ "corpus": "gabrielmello1407--auto-job-finder",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agent, ats, claude queries this for how GabrielMello1407/auto-job-finder implements it: Agente de IA para candidaturas em qualquer \u00e1rea: monta o perfil (curr\u00edculo, LinkedIn, portf\u00f3lio), busca vagas, adapta o curr\u00edculo ATS, cover (selected work: src/writers, src/ui, tests)",
+ "repos": [
+  {
+   "repo": "auto-job-finder",
+   "url": "https://github.com/GabrielMello1407/auto-job-finder",
+   "sha": "83b68f2287289e344d3e293689ed620ff04b6e92",
+   "licence": "MIT (LICENSE file at pin 83b68f228728, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T02:41Z",
+    "consent_receipt": "4b908ef26c50",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T02:41Z (receipt 4b908ef26c50); selected commit 83b68f228728: \"feat: ficha de candidatura, e-mail com o curr\u00edculo anexado e canal da\u2026\". LICENSE file at pin 83b68f228728 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

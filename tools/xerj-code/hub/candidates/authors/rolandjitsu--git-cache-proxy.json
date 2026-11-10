@@ -1,0 +1,23 @@
+{
+ "corpus": "rolandjitsu--git-cache-proxy",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on cache, git, git-cache queries this for how rolandjitsu/git-cache-proxy implements it: A simple read-only proxy cache for git (selected work: src/auth, src)",
+ "repos": [
+  {
+   "repo": "git-cache-proxy",
+   "url": "https://github.com/rolandjitsu/git-cache-proxy",
+   "sha": "f2f0b3486ed3db92c88aa9a27860763f06968101",
+   "licence": "Apache-2.0 (LICENSE file at pin f2f0b3486ed3, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T02:38Z",
+    "consent_receipt": "3ba76fe50a05",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T02:38Z (receipt 3ba76fe50a05); selected commit f2f0b3486ed3: \"feat(lfs): seal the client credential into grants\". LICENSE file at pin f2f0b3486ed3 detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "phbui--gestalt-core",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-memory, beir, bm25 queries this for how phbui/gestalt-core implements it: Local search over your Markdown notes for Claude Code and Cursor, with re-runnable BEIR benchmarks (selected work: tools, tests)",
+ "repos": [
+  {
+   "repo": "gestalt-core",
+   "url": "https://github.com/phbui/gestalt-core",
+   "sha": "e909458b6f2cd3565f706d8ee228e5fcc6ea2dd8",
+   "licence": "Apache-2.0 (LICENSE file at pin e909458b6f2c, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T00:43Z",
+    "consent_receipt": "fb2c4643b83a",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T00:43Z (receipt fb2c4643b83a); selected commit e909458b6f2c: \"gestalt-core sync from 31a0e39\". LICENSE file at pin e909458b6f2c detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

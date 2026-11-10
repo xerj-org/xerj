@@ -1,0 +1,23 @@
+{
+ "corpus": "kentsimon07--willitrun",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, benchmark, cli queries this for how KentSimon07/willitrun implements it: Check which AI models your PC can actually run, and how fast. Auto-detects your GPU, VRAM & RAM. 100% offline (selected work: data, the project root, tests)",
+ "repos": [
+  {
+   "repo": "willitrun",
+   "url": "https://github.com/KentSimon07/willitrun",
+   "sha": "e3618e95f5484a590c0a5580394c98af7ba80fd9",
+   "licence": "MIT (LICENSE file at pin e3618e95f548, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T01:19Z",
+    "consent_receipt": "ff20f1888076",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T01:19Z (receipt ff20f1888076); selected commit e3618e95f548: \"Add GPU database, estimator and main CLI\". LICENSE file at pin e3618e95f548 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on hacktoberfest queries this for how lporras/bibleql-reader implements it: Desktop Bible Reader for BibleQL API (selected work: src/components, src/lib, src/state)",
+ "domain": "an agent working on TypeScript queries this for how lporras/bibleql-reader implements it: Desktop Bible Reader for BibleQL API (selected work: src/components, src/lib, src/state)",
  "repos": [
   {
    "repo": "bibleql-reader",

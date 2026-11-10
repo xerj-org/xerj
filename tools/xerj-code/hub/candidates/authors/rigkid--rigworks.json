@@ -2,8 +2,8 @@
  "corpus": "rigkid--rigworks",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on creative-coding, ecs, interchange queries this for how rigkid/RigWorks implements it: Shared JSON scene vocabulary for creative apps. The same .rig file draws in more than one host. Schemas, nothing to link (selected work: schemas, examples, tools)",
+ "shelf": "AI",
+ "domain": "an agent working on creative-coding, ecs, interchange queries this for how rigkid/RigWorks implements it: A shared grammar for real work. Entity/component POD schemas \u2014 one document shape, nothing to link. MCP-ready for agents (selected work: schemas, examples, tools)",
  "repos": [
   {
    "repo": "RigWorks",

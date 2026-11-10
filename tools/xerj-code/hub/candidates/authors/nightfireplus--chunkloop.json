@@ -8,15 +8,15 @@
   {
    "repo": "ruanwen-agent",
    "url": "https://github.com/NightfirePlus/ruanwen-agent",
-   "sha": "8c71da3fe3f9242fc996792c364aa64fc3079822",
-   "licence": "Apache-2.0 (LICENSE file at pin 8c71da3fe3f9, GitHub licence API 2026-10-24)",
+   "sha": "5ab2047a0c12339a668462fb911c5148494fac58",
+   "licence": "Apache-2.0 (LICENSE file at pin 5ab2047a0c12, GitHub licence API 2026-11-10)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-24T04:40Z",
     "consent_receipt": "a67c187b3e38",
-    "note": "Inclusion consented by the commit author by email at 2026-10-24T04:40Z (receipt a67c187b3e38); selected commit 8c71da3fe3f9: \"feat: implement chunked multi-model content pipeline\". LICENSE file at pin 8c71da3fe3f9 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Pinned to head 8c71da3fe3f9 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-24T04:40Z (receipt a67c187b3e38); selected commit 5ab2047a0c12: \"feat: implement chunked multi-model content pipeline\". LICENSE file at pin 5ab2047a0c12 detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution. Pinned to head 5ab2047a0c12 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

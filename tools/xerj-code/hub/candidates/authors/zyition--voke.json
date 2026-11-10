@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Go queries this for how zyition/voke implements it: Voke \u2014 Windows \u542f\u52a8\u5668 (selected work: voke-sys, voke-app, voke-core)",
+ "domain": "an agent working on Go queries this for how zyition/voke implements it: zyition/voke (Go) (selected work: voke-sys, voke-app, voke-core)",
  "repos": [
   {
    "repo": "voke",

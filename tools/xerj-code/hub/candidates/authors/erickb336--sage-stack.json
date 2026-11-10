@@ -1,9 +1,9 @@
 {
- "corpus": "erickb336--sage",
+ "corpus": "erickb336--sage-stack",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agent-orchestration, ai-agents, claude-code queries this for how erickb336/sage implements it: sage: a plugin for Claude Code (Codex support in progress) that turns a session into your chief of staff. A team of specialist agents design (selected work: packages/sage-codex, plugins)",
+ "domain": "an agent working on agent-orchestration, ai-agents, claude-code queries this for how erickb336/sage-stack implements it: sage-stack: a multi-agent development stack for Claude Code and Codex. Your session becomes a chief of staff, and a team of agents designs,  (selected work: packages/sage-codex, plugins)",
  "repos": [
   {
    "repo": "sage",

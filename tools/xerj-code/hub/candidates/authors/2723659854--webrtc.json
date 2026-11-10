@@ -8,15 +8,15 @@
   {
    "repo": "webrtc",
    "url": "https://github.com/2723659854/webrtc",
-   "sha": "993f97a11854ee5b818b484cda3b7571bf2ced4a",
-   "licence": "Apache-2.0 (LICENSE file at pin 993f97a11854, GitHub licence API 2026-11-09)",
+   "sha": "5413a60f1333d358b2aec458d70c8dd2b283fddd",
+   "licence": "Apache-2.0 (LICENSE file at pin 5413a60f1333, GitHub licence API 2026-11-10)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-30T02:12Z",
     "consent_receipt": "1eb207f14935",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T02:12Z (receipt 1eb207f14935); pinned to the default-branch head. LICENSE file at pin 993f97a11854 detected as Apache-2.0 by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T02:12Z (receipt 1eb207f14935); pinned to the default-branch head. LICENSE file at pin 5413a60f1333 detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
    }
   }
  ]

@@ -1,0 +1,23 @@
+{
+ "corpus": "libai6666--lxmusic-android",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how libai6666/lxmusic-android implements it: \u843d\u96ea\u97f3\u4e50\u79fb\u52a8\u7aef\u7684\u7248\u672c (selected work: src/utils, publish, the project root)",
+ "repos": [
+  {
+   "repo": "lxmusic-android",
+   "url": "https://github.com/libai6666/lxmusic-android",
+   "sha": "07fd6019eaea90f0a0e645e39211a6ef05a1fcbb",
+   "licence": "Apache-2.0 (LICENSE file at pin 07fd6019eaea, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T01:40Z",
+    "consent_receipt": "e70339ebf6d3",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T01:40Z (receipt e70339ebf6d3); selected commit 07fd6019eaea: \"feat: self-hosted auto update via lxmusic-android-updates with CN mir\u2026\". LICENSE file at pin 07fd6019eaea detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}
