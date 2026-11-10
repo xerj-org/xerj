@@ -1,0 +1,23 @@
+{
+ "corpus": "yoursigh--nyvemi",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how YourSigh/nyvemi implements it: YourSigh/nyvemi (TypeScript) (selected work: tests, src/ui, src/memory)",
+ "repos": [
+  {
+   "repo": "nyvemi",
+   "url": "https://github.com/YourSigh/nyvemi",
+   "sha": "4357dbe994018b525bd52feb99ad57567350c2a4",
+   "licence": "AGPL-3.0 (LICENSE file at pin 4357dbe99401, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-22T08:52Z",
+    "consent_receipt": "888d6029621c",
+    "note": "Inclusion consented by the commit author by email at 2026-10-22T08:52Z (receipt 888d6029621c); selected commit 4357dbe99401: \"feat: \u5b8c\u5584\u7c89\u767d\u754c\u9762\u6545\u969c\u6062\u590d\u548c\u5b8c\u6574\u95ed\u73af\u9a8c\u6536\". LICENSE file at pin 4357dbe99401 detected as AGPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

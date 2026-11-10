@@ -1,0 +1,23 @@
+{
+ "corpus": "joshhuang123--shadow-ebook",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how Joshhuang123/shadow-ebook implements it: \u82f1\u8bed\u7535\u5b50\u4e66\u9605\u8bfb + \u8ddf\u8bfb\u5b66\u4e60\u7cfb\u7edf (selected work: web, extensions, tests)",
+ "repos": [
+  {
+   "repo": "shadow-ebook",
+   "url": "https://github.com/Joshhuang123/shadow-ebook",
+   "sha": "2059f715363ebccf48416146970569c18b493b47",
+   "licence": "MIT (LICENSE file at pin 2059f715363e, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-21T06:37Z",
+    "consent_receipt": "7503cb530178",
+    "note": "Inclusion consented by the commit author by email at 2026-10-21T06:37Z (receipt 7503cb530178); selected commit 2059f715363e: \"\u6717\u8bfb\u5f15\u64ce\u53ef\u5207\u6362 + \u9605\u8bfb\u5668\u4e0e\u5217\u8868\u9875\u91cd\u505a\". LICENSE file at pin 2059f715363e detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

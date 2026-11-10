@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on artificial-intelligence, cli, cli-tool queries this for how Everhard/crawlmind implements it: MCP server + CLI for AI-native SEO audits: broken links, internal link suggestions, speed by template, crawl diffs (selected work: packages/crawlmind, the project root, scripts)",
+ "domain": "an agent working on artificial-intelligence, cli, cli-tool queries this for how Everhard/crawlmind implements it: MCP server + CLI for AI-native SEO audits: broken links, internal link suggestions, crawl diffs, optional local embeddings (selected work: packages/crawlmind, the project root, scripts)",
  "repos": [
   {
    "repo": "crawlmind",

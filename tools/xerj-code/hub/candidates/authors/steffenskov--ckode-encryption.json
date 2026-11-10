@@ -8,15 +8,15 @@
   {
    "repo": "Ckode.Encryption",
    "url": "https://github.com/steffenskov/Ckode.Encryption",
-   "sha": "9c5c13c6b4c90131a2f9b8e90e75572500ad89fd",
-   "licence": "MIT (LICENSE file at pin 9c5c13c6b4c9, GitHub licence API 2026-10-29)",
+   "sha": "f3a25b4e8fc5dece0ddfbd453eeb1095f0b0874c",
+   "licence": "MIT (LICENSE file at pin f3a25b4e8fc5, GitHub licence API 2026-11-10)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T19:41Z",
     "consent_receipt": "7ee5c2535349",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T19:41Z (receipt 7ee5c2535349); pinned to the default-branch head. LICENSE file at pin 9c5c13c6b4c9 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T19:41Z (receipt 7ee5c2535349); pinned to the default-branch head. LICENSE file at pin f3a25b4e8fc5 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
    }
   }
  ]

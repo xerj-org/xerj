@@ -1,0 +1,23 @@
+{
+ "corpus": "oxfrancesco--openfit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how OxFrancesco/OpenFit implements it: OxFrancesco/OpenFit (TypeScript) (selected work: src/lib, src/components, src/app)",
+ "repos": [
+  {
+   "repo": "OpenFit",
+   "url": "https://github.com/OxFrancesco/OpenFit",
+   "sha": "328083aaf49597c11c1353f1a3d3a6b8d9d67b33",
+   "licence": "MIT (LICENSE file at pin 328083aaf495, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-10T18:08Z",
+    "consent_receipt": "88e434c105f5",
+    "note": "Inclusion consented by the commit author by email at 2026-10-10T18:08Z (receipt 88e434c105f5); selected commit 328083aaf495: \"feat(workouts): add reusable day templates and fix schedule logging\". LICENSE file at pin 328083aaf495 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

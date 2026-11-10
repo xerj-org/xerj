@@ -1,0 +1,23 @@
+{
+ "corpus": "thesafdarawan--fused-nvim",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Lua queries this for how theSafdarAwan/fused.nvim implements it: A colorscheme fused between different color schemes (selected work: lua, colors, after)",
+ "repos": [
+  {
+   "repo": "fused.nvim",
+   "url": "https://github.com/theSafdarAwan/fused.nvim",
+   "sha": "cea1af9dde5854ca692948186e9820d58d58ae3b",
+   "licence": "GPL-3.0 (LICENSE file at pin cea1af9dde58, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-20T03:05Z",
+    "consent_receipt": "ac790746ce96",
+    "note": "Inclusion consented by the commit author by email at 2026-10-20T03:05Z (receipt ac790746ce96); selected commit cea1af9dde58: \"fix(setup): make :colorscheme use the options given to setup()\". LICENSE file at pin cea1af9dde58 detected as GPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

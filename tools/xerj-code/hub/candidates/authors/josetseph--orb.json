@@ -1,0 +1,23 @@
+{
+ "corpus": "josetseph--orb",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how josetseph/Orb implements it: Orb (\u30c1) is a multimodal, graph-based knowledge system. It ingests notes, audio, images, and PDFs, understands their semantic meaning, and cr (selected work: frontend, backend, desktop)",
+ "repos": [
+  {
+   "repo": "Orb",
+   "url": "https://github.com/josetseph/Orb",
+   "sha": "fc9bc31f1c0e5d042d93a49406d56bbdc1ac9391",
+   "licence": "MIT (LICENSE file at pin fc9bc31f1c0e, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-15T23:19Z",
+    "consent_receipt": "9b003427bf62",
+    "note": "Inclusion consented by the commit author by email at 2026-10-15T23:19Z (receipt 9b003427bf62); selected commit fc9bc31f1c0e: \"In-app updates, Obsidian-style layout, retrieval study port, 12B extr\u2026\". LICENSE file at pin fc9bc31f1c0e detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "jfarid27--hyperfin-terminal",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on defi, ethereum, polymarket queries this for how jfarid27/hyperfin-terminal implements it: A CLI based Data Aggregation tool for everyday retail traders that want higher quality research in Ethereum financial markets (selected work: src/cli, src/services)",
+ "repos": [
+  {
+   "repo": "hyperfin-terminal",
+   "url": "https://github.com/jfarid27/hyperfin-terminal",
+   "sha": "58564c9e3cb7d20709df7c15398292479fcd7514",
+   "licence": "LGPL-3.0 (LICENSE file at pin 58564c9e3cb7, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "LGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-22T18:55Z",
+    "consent_receipt": "7a325246bff5",
+    "note": "Inclusion consented by the commit author by email at 2026-10-22T18:55Z (receipt 7a325246bff5); selected commit 58564c9e3cb7: \"fix(forex): report the reason a forex command failed (#143)\". LICENSE file at pin 58564c9e3cb7 detected as LGPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

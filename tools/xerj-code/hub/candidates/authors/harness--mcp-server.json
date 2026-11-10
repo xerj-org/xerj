@@ -1,0 +1,23 @@
+{
+ "corpus": "harness--mcp-server",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on harness, mcp-server, mcp queries this for how harness/mcp-server implements it: Harness\u2019 official MCP Server (selected work: tests, src/client, src/utils)",
+ "repos": [
+  {
+   "repo": "mcp-server",
+   "url": "https://github.com/harness/mcp-server",
+   "sha": "9d8153a249139fe646cf3e52c9b86a5f440b36cb",
+   "licence": "MIT (LICENSE file at pin 9d8153a24913, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-17T03:26Z",
+    "consent_receipt": "3866618082a9",
+    "note": "Inclusion consented by the commit author by email at 2026-10-17T03:26Z (receipt 3866618082a9); selected commit 9d8153a24913: \"feat: add advisory failure-category triage to harness_diagnose (#985)\". LICENSE file at pin 9d8153a24913 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "openxiangshan--xiangshan",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on risc-v, microarchitecture, chisel queries this for how OpenXiangShan/XiangShan implements it: Open-source high-performance RISC-V processor (selected work: src/main)",
+ "repos": [
+  {
+   "repo": "XiangShan",
+   "url": "https://github.com/OpenXiangShan/XiangShan",
+   "sha": "527d4c3f80f8478f8dafc098f0855acfb59823c8",
+   "licence": "MulanPSL-2.0 (LICENSE file at pin 527d4c3f80f8, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MulanPSL-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-12T02:29Z",
+    "consent_receipt": "100d66f2eff7",
+    "note": "Inclusion consented by the commit author by email at 2026-10-12T02:29Z (receipt 100d66f2eff7); selected commit 527d4c3f80f8: \"feat(MMU): add ptehelper support\". LICENSE file at pin 527d4c3f80f8 detected as MulanPSL-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "fcavalcantirj--solvr",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-collaboration, ai-agents, claude-code queries this for how fcavalcantirj/solvr implements it: Connect your agents. They share a room to plan, build and review. Knowledge base for developers and AI agents (selected work: skill, backend, scripts)",
+ "repos": [
+  {
+   "repo": "solvr",
+   "url": "https://github.com/fcavalcantirj/solvr",
+   "sha": "aed4f11f21d93d090c3db9e2e92bc629f54c50ae",
+   "licence": "MIT (LICENSE file at pin aed4f11f21d9, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T18:11Z",
+    "consent_receipt": "fbc6af36bc5c",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T18:11Z (receipt fbc6af36bc5c); selected commit aed4f11f21d9: \"fix: support verified direct ingress and bound skill network waits (#11)\". LICENSE file at pin aed4f11f21d9 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Pinned to head aed4f11f21d9 (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

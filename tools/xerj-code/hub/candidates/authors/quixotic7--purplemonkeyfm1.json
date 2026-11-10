@@ -1,0 +1,23 @@
+{
+ "corpus": "quixotic7--purplemonkeyfm1",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how Quixotic7/PurpleMonkeyFM1 implements it: MVave FM-1 Firmware for kids (selected work: assets, tools, firmware)",
+ "repos": [
+  {
+   "repo": "PurpleMonkeyFM1",
+   "url": "https://github.com/Quixotic7/PurpleMonkeyFM1",
+   "sha": "bef4e2d801338569923513b8ffc704d5776e38c0",
+   "licence": "GPL-3.0 (LICENSE file at pin bef4e2d80133, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-17T04:52Z",
+    "consent_receipt": "19c74b8562eb",
+    "note": "Inclusion consented by the commit author by email at 2026-10-17T04:52Z (receipt 19c74b8562eb); selected commit bef4e2d80133: \"Updated Pet Animator\". LICENSE file at pin bef4e2d80133 detected as GPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

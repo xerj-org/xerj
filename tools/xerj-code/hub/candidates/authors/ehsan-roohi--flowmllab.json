@@ -1,0 +1,23 @@
+{
+ "corpus": "ehsan-roohi--flowmllab",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Jupyter Notebook queries this for how Ehsan-Roohi/FlowMLLab implements it: Reproducible CFD-to-scientific-machine-learning experiments (selected work: results, qa, flowmllab)",
+ "repos": [
+  {
+   "repo": "FlowMLLab",
+   "url": "https://github.com/Ehsan-Roohi/FlowMLLab",
+   "sha": "15c08c06441de9562916d9ba456a954ddaa13084",
+   "licence": "MIT (LICENSE file at pin 15c08c06441d, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-19T01:52Z",
+    "consent_receipt": "7a6f0eb0491a",
+    "note": "Inclusion consented by the commit author by email at 2026-10-19T01:52Z (receipt 7a6f0eb0491a); selected commit 15c08c06441d: \"Add experimental Re400 and Re1000 cavity study with guided notebook\". LICENSE file at pin 15c08c06441d detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

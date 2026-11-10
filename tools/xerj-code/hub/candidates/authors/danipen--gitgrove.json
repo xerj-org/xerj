@@ -1,0 +1,23 @@
+{
+ "corpus": "danipen--gitgrove",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how danipen/gitgrove implements it: A modern desktop Git client focused on speed, clarity, and UX (selected work: src/renderer)",
+ "repos": [
+  {
+   "repo": "gitgrove",
+   "url": "https://github.com/danipen/gitgrove",
+   "sha": "720439760f5d3612ef6f68a815516331c03f539e",
+   "licence": "MIT (LICENSE file at pin 720439760f5d, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-15T05:53Z",
+    "consent_receipt": "a91a9cd9d539",
+    "note": "Inclusion consented by the commit author by email at 2026-10-15T05:53Z (receipt a91a9cd9d539); selected commit 720439760f5d: \"Add the command palette (Cmd/Ctrl+K)\". LICENSE file at pin 720439760f5d detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

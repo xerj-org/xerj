@@ -1,0 +1,23 @@
+{
+ "corpus": "edeesonopina--rankmiso",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how EdeesonOpina/rankmiso implements it: RankMiso is a free, open-source, privacy-first SEO browser extension powered by Rust and WebAssembly. Analyze, audit, and optimize websites  (selected work: crates/rankmiso-mcp, apps/extension, scripts)",
+ "repos": [
+  {
+   "repo": "rankmiso",
+   "url": "https://github.com/EdeesonOpina/rankmiso",
+   "sha": "41b47aa11287340eb1bbc15642d4f9dca94ade09",
+   "licence": "MIT (LICENSE file at pin 41b47aa11287, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T06:53Z",
+    "consent_receipt": "3e7e3cb77ab9",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T06:53Z (receipt 3e7e3cb77ab9); selected commit 41b47aa11287: \"Staging (#30)\". LICENSE file at pin 41b47aa11287 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -14,9 +14,9 @@
     "spdx": "CC0-1.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
-    "at": "2026-11-10T11:31Z",
-    "consent_receipt": "0ba5ca723132",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T11:31Z (receipt 0ba5ca723132); selected commit 2659481408b1: \"Integrate finite-type and ported AES research with reviewed proofs\". LICENSE file at pin 2659481408b1 detected as CC0-1.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+    "at": "2026-10-12T05:30Z",
+    "consent_receipt": "33bf0509bc4e",
+    "note": "Inclusion consented by the commit author by email at 2026-10-12T05:30Z (receipt 33bf0509bc4e); selected commit 2659481408b1: \"Integrate finite-type and ported AES research with reviewed proofs\". LICENSE file at pin 2659481408b1 detected as CC0-1.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
    }
   }
  ]

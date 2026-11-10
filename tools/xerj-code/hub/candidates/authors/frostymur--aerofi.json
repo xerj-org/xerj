@@ -1,0 +1,23 @@
+{
+ "corpus": "frostymur--aerofi",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on alfred-alternative, app-launcher, application-launcher queries this for how frostymur/aerofi implements it: A fast, GPU-accelerated modal launcher for macOS. Built with Rust & GPUI (selected work: src/core, src/ui, src)",
+ "repos": [
+  {
+   "repo": "aerofi",
+   "url": "https://github.com/frostymur/aerofi",
+   "sha": "9f58177fb22338e6a046e0798d761ce99a1bfcaa",
+   "licence": "MIT (LICENSE file at pin 9f58177fb223, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-12T02:20Z",
+    "consent_receipt": "bc9daa1c91e2",
+    "note": "Inclusion consented by the commit author by email at 2026-10-12T02:20Z (receipt bc9daa1c91e2); selected commit 9f58177fb223: \"feat(core): watch application and plugin dirs, generalize fs watcher\". LICENSE file at pin 9f58177fb223 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

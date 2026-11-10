@@ -1,0 +1,23 @@
+{
+ "corpus": "escama-code--jacarev3",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on bluetooth, education, ev3 queries this for how Escama-Code/jacarEV3 implements it: Lib em portugu\u00eas pra controlar o LEGO EV3 via Bluetooth/USB \u2014 protocolo Direct Commands do zero, sem depend\u00eancias (selected work: src/jacarev3, tests, the project root)",
+ "repos": [
+  {
+   "repo": "jacarEV3",
+   "url": "https://github.com/i-barbosa/jacarEV3",
+   "sha": "ec0fcd61d47c8e40ec9b9d38bde34268659fba53",
+   "licence": "MIT (LICENSE file at pin ec0fcd61d47c, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-22T17:16Z",
+    "consent_receipt": "acd452ba70f6",
+    "note": "Inclusion consented by the commit author by email at 2026-10-22T17:16Z (receipt acd452ba70f6); selected commit ec0fcd61d47c: \"feat: transporte USB, rob\u00f4 de mentira, type hints completos, docs ped\u2026\". LICENSE file at pin ec0fcd61d47c detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "manuaudio--macos-cli",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Swift queries this for how manuaudio/macos-cli implements it: macOS native CLI for Reminders, Calendar, and Contacts \u2014 built for AI agents (selected work: Sources, Tests)",
+ "repos": [
+  {
+   "repo": "macos-cli",
+   "url": "https://github.com/manuaudio/macos-cli",
+   "sha": "35c76ef73b48ccd1e86239beca1f2ba4d800aeb5",
+   "licence": "MIT (LICENSE file at pin 35c76ef73b48, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-22T01:27Z",
+    "consent_receipt": "33ca6d4eb165",
+    "note": "Inclusion consented by the commit author by email at 2026-10-22T01:27Z (receipt 33ca6d4eb165); selected commit 35c76ef73b48: \"Fix Notes body decoding with validated protobuf field path\". LICENSE file at pin 35c76ef73b48 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}
