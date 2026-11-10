@@ -1,0 +1,23 @@
+{
+ "corpus": "nicemank--bootforge",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on bootable-usb, gtk4, iso-burner queries this for how NiceMank/BootForge implements it: Studio de cr\u00e9ation de cl\u00e9s USB bootables (Rufus) et multi-boot (Ventoy) \u2014 Linux & Windows (selected work: engine, bootforge_ui, bootforge_win)",
+ "repos": [
+  {
+   "repo": "BootForge",
+   "url": "https://github.com/NiceMank/BootForge",
+   "sha": "df2eef61dd4c72737eb0dfcdcb8b50491e7dad2d",
+   "licence": "GPL-3.0 (LICENSE file at pin df2eef61dd4c, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-10T16:06Z",
+    "consent_receipt": "dae89dd86788",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T16:06Z (receipt dae89dd86788); selected commit df2eef61dd4c: \"feat: add bilingual English and French support with live language swi\u2026\". LICENSE file at pin df2eef61dd4c detected as GPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "t-systems-on-site-services-gmbh--geocore",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on HTML queries this for how t-systems-on-site-services-gmbh/geoCore implements it: geoCore - QGIS plugin to construct a graphical representation of petrographic drilling profiles (selected work: geoCore, the project root)",
+ "repos": [
+  {
+   "repo": "geoCore",
+   "url": "https://github.com/t-systems-on-site-services-gmbh/geoCore",
+   "sha": "551d2450fd2b4f31054d669ac8bce13774edca39",
+   "licence": "GPL-3.0 (LICENSE file at pin 551d2450fd2b, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-10T14:41Z",
+    "consent_receipt": "cf877c6ccd52",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T14:41Z (receipt cf877c6ccd52); selected commit 551d2450fd2b: \"o formatting\". LICENSE file at pin 551d2450fd2b detected as GPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

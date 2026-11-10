@@ -1,0 +1,23 @@
+{
+ "corpus": "h0ffmann--picasso",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on dotfiles, nixos, claude-code queries this for how h0ffmann/picasso implements it: deterministic toolchains with just + nix + rust",
+ "repos": [
+  {
+   "repo": "picasso",
+   "url": "https://github.com/h0ffmann/picasso",
+   "sha": "5da5237ba6f3fc51de0a10bc746a1ce0ad89e33e",
+   "licence": "AGPL-3.0 (LICENSE file at pin 5da5237ba6f3, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-10T15:11Z",
+    "consent_receipt": "716bb9f4f7f2",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T15:11Z (receipt 716bb9f4f7f2); pinned to the default-branch head. LICENSE file at pin 5da5237ba6f3 detected as AGPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

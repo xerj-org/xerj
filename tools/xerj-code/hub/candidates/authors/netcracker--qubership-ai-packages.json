@@ -1,0 +1,23 @@
+{
+ "corpus": "netcracker--qubership-ai-packages",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on qubership-generic queries this for how Netcracker/qubership-ai-packages implements it: Netcracker/qubership-ai-packages (Python) (selected work: research, agent-packages, the project root)",
+ "repos": [
+  {
+   "repo": "qubership-ai-packages",
+   "url": "https://github.com/Netcracker/qubership-ai-packages",
+   "sha": "5a0ca36c0a0dbfef066aee9a35d87844cdde7a04",
+   "licence": "Apache-2.0 (LICENSE file at pin 5a0ca36c0a0d, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T14:14Z",
+    "consent_receipt": "7a8573c887b6",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T14:14Z (receipt 7a8573c887b6); selected commit 5a0ca36c0a0d: \"feat(change-description-authoring): name the Implements and Defers tr\u2026\". LICENSE file at pin 5a0ca36c0a0d detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

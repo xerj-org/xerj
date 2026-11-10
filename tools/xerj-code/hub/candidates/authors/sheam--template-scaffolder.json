@@ -1,0 +1,23 @@
+{
+ "corpus": "sheam--template-scaffolder",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how sheam/template-scaffolder implements it: Scaffolding for all types of projects (selected work: src/core, test, src/cli)",
+ "repos": [
+  {
+   "repo": "template-scaffolder",
+   "url": "https://github.com/sheam/template-scaffolder",
+   "sha": "e9054d3b92ae3acf40fef3375347d0f7fd570bdb",
+   "licence": "MIT (LICENSE file at pin e9054d3b92ae, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T14:38Z",
+    "consent_receipt": "b287e42cc6c0",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T14:38Z (receipt b287e42cc6c0); selected commit e9054d3b92ae: \"Add 3.0 improvements: unknown-variable warnings, CLI answers, init an\u2026\". LICENSE file at pin e9054d3b92ae detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

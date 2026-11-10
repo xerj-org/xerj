@@ -2,7 +2,7 @@
  "corpus": "dakotacookson--llama-rpc-farm",
  "cloned_at": null,
  "status": "draft",
- "shelf": "NET",
+ "shelf": "AI",
  "domain": "an agent working on gpu, inference, llama-swap queries this for how dakotacookson/Llama-RPC-Farm implements it: Web UI to pool your home machines into one llama.cpp cluster: multi-machine RPC GPU pooling + on-demand multi-model serving via llama-swap (selected work: src, peer_agent, tests)",
  "repos": [
   {

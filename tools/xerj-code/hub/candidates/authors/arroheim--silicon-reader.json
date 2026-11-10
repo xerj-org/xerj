@@ -1,0 +1,23 @@
+{
+ "corpus": "arroheim--silicon-reader",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Swift queries this for how Arroheim/silicon_reader implements it: Fast keyboard-driven PDF and DjVu reader for macOS on Apple Silicon, in the spirit of SumatraPDF (selected work: Sources, Tests)",
+ "repos": [
+  {
+   "repo": "silicon_reader",
+   "url": "https://github.com/Arroheim/silicon_reader",
+   "sha": "b66e3d1a859eb14a7ef69695596756eac282f463",
+   "licence": "AGPL-3.0 (LICENSE file at pin b66e3d1a859e, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-10T14:43Z",
+    "consent_receipt": "c5851821c019",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T14:43Z (receipt c5851821c019); selected commit b66e3d1a859e: \"feat(annotations): highlight, underline, strike-out, notes and freeha\u2026\". LICENSE file at pin b66e3d1a859e detected as AGPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

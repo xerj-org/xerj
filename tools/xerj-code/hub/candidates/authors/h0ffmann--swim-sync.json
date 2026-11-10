@@ -1,0 +1,23 @@
+{
+ "corpus": "h0ffmann--swim-sync",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on garmin, garmin-connect, swimming queries this for how h0ffmann/swim-sync implements it: swim training app",
+ "repos": [
+  {
+   "repo": "swim-sync",
+   "url": "https://github.com/h0ffmann/swim-sync",
+   "sha": "42687ea6d0c9e8f90211eb02bc421ac588946ebf",
+   "licence": "author's permission (LICENSE at pin 42687ea6d0c9: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T15:11Z",
+    "consent_receipt": "8dbba137692b",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T15:11Z (receipt 8dbba137692b); pinned to the default-branch head. LICENSE at pin 42687ea6d0c9: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

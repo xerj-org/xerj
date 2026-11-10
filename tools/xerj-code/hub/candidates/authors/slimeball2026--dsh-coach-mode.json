@@ -1,0 +1,23 @@
+{
+ "corpus": "slimeball2026--dsh-coach-mode",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agent, anti-copilot, coach-mode queries this for how slimeball2026/DSH-Coach-mode implements it: A reverse-agentic AI agent that forces YOU to do anything\u2014\u2014anything\uff1f (selected work: coach-mode-bundle)",
+ "repos": [
+  {
+   "repo": "DSH-Coach-mode",
+   "url": "https://github.com/slimeball2026/DSH-Coach-mode",
+   "sha": "a58fc7c958c3d47a02270c5fe5e94e850bff20aa",
+   "licence": "MIT (LICENSE file at pin a58fc7c958c3, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T15:29Z",
+    "consent_receipt": "60ed4e334a59",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T15:29Z (receipt 60ed4e334a59); selected commit a58fc7c958c3: \"\u4fee\u590d\u6211\u7684\u611a\u8822\u9519\u8bef\". LICENSE file at pin a58fc7c958c3 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

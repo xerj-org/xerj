@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Python queries this for how tema-juck/obelisk-player implements it: Minimal Spotify terminal controller built with Python and Textual (selected work: src/obelisk_music, tests)",
+ "domain": "an agent working on apotify-api, music-player, open-source queries this for how tema-juck/obelisk-player implements it: A keyboard-first terminal music player built with Python and Textual. Control Spotify directly from your terminal (selected work: src/obelisk_music, tests)",
  "repos": [
   {
    "repo": "obelisk-music",

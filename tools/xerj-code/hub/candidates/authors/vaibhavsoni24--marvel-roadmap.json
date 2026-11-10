@@ -8,15 +8,15 @@
   {
    "repo": "Marvel-Roadmap",
    "url": "https://github.com/VaibhavSoni24/Marvel-Roadmap",
-   "sha": "da8e58cce0bde92655aded9db7111a4e7457b072",
-   "licence": "MIT (LICENSE file at pin da8e58cce0bd, GitHub licence API 2026-11-10)",
+   "sha": "7a1136e5b2d4386cf18011538adc8edaab7bd5dd",
+   "licence": "MIT (LICENSE file at pin 7a1136e5b2d4, GitHub licence API 2026-11-10)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-02T06:56Z",
     "consent_receipt": "b0f9f5853e7d",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T06:56Z (receipt b0f9f5853e7d); pinned to the default-branch head. LICENSE file at pin da8e58cce0bd detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T06:56Z (receipt b0f9f5853e7d); pinned to the default-branch head. LICENSE file at pin 7a1136e5b2d4 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
    }
   }
  ]

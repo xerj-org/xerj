@@ -1,0 +1,23 @@
+{
+ "corpus": "h0ffmann--astrbot-dw-ext-br-south-waterq",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on Python queries this for how h0ffmann/astrbot_dw_ext_br_south_waterq implements it: \ud83c\udde7\ud83c\uddf7 Bathing water quality alerts for the South of Brazil (RS, SC, PR). An extension for astrbot_plugin_disaster_warning",
+ "repos": [
+  {
+   "repo": "astrbot_dw_ext_br_south_waterq",
+   "url": "https://github.com/h0ffmann/astrbot_dw_ext_br_south_waterq",
+   "sha": "12b71ac048ad29b83bfc6aaa0149e011c66886ce",
+   "licence": "MPL-2.0 (LICENSE file at pin 12b71ac048ad, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MPL-2.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-10T15:11Z",
+    "consent_receipt": "e6edabea7014",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T15:11Z (receipt e6edabea7014); pinned to the default-branch head. LICENSE file at pin 12b71ac048ad detected as MPL-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

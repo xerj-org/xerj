@@ -1,0 +1,23 @@
+{
+ "corpus": "yusing--mekugi",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Go queries this for how yusing/mekugi implements it: The harness that provides better Agent and User Experiences (selected work: internal/router, internal/vcsguard, cmd/mekugi)",
+ "repos": [
+  {
+   "repo": "mekugi",
+   "url": "https://github.com/yusing/mekugi",
+   "sha": "9e403b7917e61792ddd8743a2c624523ed109404",
+   "licence": "MIT (LICENSE file at pin 9e403b7917e6, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T14:32Z",
+    "consent_receipt": "730e11e5bd36",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T14:32Z (receipt 730e11e5bd36); selected commit 9e403b7917e6: \"perf(exec): run guard instrumentation through native MCP hooks\". LICENSE file at pin 9e403b7917e6 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "crosspoint-reader--crosspoint-simulator",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how crosspoint-reader/crosspoint-simulator implements it: Simulate Crosspoint firmware without flashing onto your device (selected work: src, tests, the project root)",
+ "repos": [
+  {
+   "repo": "crosspoint-simulator",
+   "url": "https://github.com/crosspoint-reader/crosspoint-simulator",
+   "sha": "84c3421da6f707d6ebe919b3fafca7387ff06464",
+   "licence": "MIT (LICENSE file at pin 84c3421da6f7, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T14:27Z",
+    "consent_receipt": "f5de93764734",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T14:27Z (receipt f5de93764734); selected commit 84c3421da6f7: \"feat: add Metalio E-Ink 4 Plus simulator profile (#63)\". LICENSE file at pin 84c3421da6f7 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

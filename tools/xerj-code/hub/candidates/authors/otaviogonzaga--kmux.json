@@ -8,15 +8,15 @@
   {
    "repo": "kmux",
    "url": "https://github.com/OtavioGonzaga/kmux",
-   "sha": "e6cdd396eb469322460e0d294eb05ac60c0a0788",
-   "licence": "MIT (LICENSE file at pin e6cdd396eb46, GitHub licence API 2026-11-03)",
+   "sha": "064f84182a4d3df3e9dd52cfc477612ec75b0d5c",
+   "licence": "MIT (LICENSE file at pin 064f84182a4d, GitHub licence API 2026-11-10)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-03T13:29Z",
     "consent_receipt": "dcbbc0731b11",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-03T13:29Z (receipt dcbbc0731b11); pinned to the default-branch head. LICENSE file at pin e6cdd396eb46 detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-03T13:29Z (receipt dcbbc0731b11); pinned to the default-branch head. LICENSE file at pin 064f84182a4d detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
    }
   }
  ]

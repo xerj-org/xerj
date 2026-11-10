@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on JavaScript queries this for how aryan-dani/Portfolio implements it: my portolfio website",
+ "domain": "an agent working on portfolio, portfolio-website, web-development queries this for how aryan-dani/Portfolio implements it: Official Portfolio & Freelance Case Studies of Aryan Dani : AI Engineer & Full-Stack Developer",
  "repos": [
   {
    "repo": "Portfolio",
    "url": "https://github.com/aryan-dani/Portfolio",
-   "sha": "85db41a4cfe491b2ab58ebce23885a335502fbbb",
-   "licence": "MIT (LICENSE file at pin 85db41a4cfe4, GitHub licence API 2026-11-05)",
+   "sha": "957f15e8d9fdb3b07da3fdc48568e4179d8ee692",
+   "licence": "MIT (LICENSE file at pin 957f15e8d9fd, GitHub licence API 2026-11-10)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T06:46Z",
     "consent_receipt": "ed8186b63e89",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T06:46Z (receipt ed8186b63e89); pinned to the default-branch head. LICENSE file at pin 85db41a4cfe4 detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T06:46Z (receipt ed8186b63e89); pinned to the default-branch head. LICENSE file at pin 957f15e8d9fd detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
    }
   }
  ]

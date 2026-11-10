@@ -1,9 +1,9 @@
 {
- "corpus": "manuelarguelles--enrutador-contenido",
+ "corpus": "manuel-arguelles-ai--enrutador-contenido",
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on JavaScript queries this for how manuelarguelles/enrutador-contenido implements it: Enrutador portable de contenido con b\u00fasqueda h\u00edbrida BM25 + multilingual E5 + RRF (selected work: src, tests, schemas)",
+ "domain": "an agent working on JavaScript queries this for how manuel-arguelles-ai/enrutador-contenido implements it: Enrutador portable de contenido con b\u00fasqueda h\u00edbrida BM25 + multilingual E5 + RRF (selected work: src, tests, schemas)",
  "repos": [
   {
    "repo": "enrutador-contenido",

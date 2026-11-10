@@ -1,0 +1,23 @@
+{
+ "corpus": "songconmaisaix31-design--blockchain-anything",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on foundry, ai-agents, blockchain queries this for how songconmaisaix31-design/blockchain-anything implements it: Blockchain tools for AI agents via CLI, MCP & TypeScript. Built on official SDKs and CLIs. Anything Universe \u00b7 \u94fe\u4e0a\u5de5\u5177\u5165\u53e3\u3002 (selected work: src/trading, src/workstations, src/mcp)",
+ "repos": [
+  {
+   "repo": "blockchain-anything",
+   "url": "https://github.com/songconmaisaix31-design/blockchain-anything",
+   "sha": "ecf87a3aa4ca24dfb138b52af2d5217c430ec39f",
+   "licence": "MIT (LICENSE file at pin ecf87a3aa4ca, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T16:01Z",
+    "consent_receipt": "df8854309593",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T16:01Z (receipt df8854309593); selected commit ecf87a3aa4ca: \"feat(quant): \u6210\u672c/\u4fe1\u4efb\u6807\u6ce8\u3001\u91cf\u5316\u80fd\u529b\u7f3a\u53e3\u58f0\u660e\u4e0e CCXT \u542b\u6210\u672c\u56de\u6d4b\u8f93\u5165 (#19)\". LICENSE file at pin ecf87a3aa4ca detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}
