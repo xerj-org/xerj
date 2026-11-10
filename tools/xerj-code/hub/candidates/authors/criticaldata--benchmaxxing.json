@@ -16,8 +16,12 @@
     "by": "author-consent",
     "at": "2026-10-18T20:15Z",
     "consent_receipt": "09b3c150f167",
-    "note": "Inclusion consented by the commit author by email at 2026-10-18T20:15Z (receipt 09b3c150f167); selected commit 9a71bbcb92b6: \"Multi-round cascade at n=120 on nemotron, beside the n=40 arm, as the\u2026\". LICENSE file at pin 9a71bbcb92b6 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-18T20:15Z (receipt 09b3c150f167); selected commit 9a71bbcb92b6: \"Multi-round cascade at n=120 on nemotron, beside the n=40 arm, as the\u2026\". LICENSE file at pin 9a71bbcb92b6 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @criticaldata, who has not added it."
+   },
+   "paths": [
+    "experiments/cascade/results",
+    "tests"
+   ]
   }
  ]
 }

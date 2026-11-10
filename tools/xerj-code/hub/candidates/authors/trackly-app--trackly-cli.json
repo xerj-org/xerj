@@ -16,8 +16,15 @@
     "by": "author-consent",
     "at": "2026-10-20T18:40Z",
     "consent_receipt": "7696135f40bd",
-    "note": "Inclusion consented by the commit author by email at 2026-10-20T18:40Z (receipt 7696135f40bd); selected commit caf4816cb0ca: \"feat(apply): release universal skill 4.9.0\". LICENSE file at pin caf4816cb0ca detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-20T18:40Z (receipt 7696135f40bd); selected commit caf4816cb0ca: \"feat(apply): release universal skill 4.9.0\". LICENSE file at pin caf4816cb0ca detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @trackly-app, who has not added it."
+   },
+   "paths": [
+    "lib",
+    "mcp",
+    "plugins/trackly",
+    "skills/trackly-apply",
+    "test"
+   ]
   }
  ]
 }

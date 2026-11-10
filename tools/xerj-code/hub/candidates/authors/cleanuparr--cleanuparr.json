@@ -16,8 +16,23 @@
     "by": "author-consent",
     "at": "2026-10-14T15:13Z",
     "consent_receipt": "efa29af50281",
-    "note": "Inclusion consented by the commit author by email at 2026-10-14T15:13Z (receipt efa29af50281); selected commit 520dde2c16ea: \"Remove MassTransit (#828)\". LICENSE file at pin 520dde2c16ea detected as GPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-14T15:13Z (receipt efa29af50281); selected commit 520dde2c16ea: \"Remove MassTransit (#828)\". LICENSE file at pin 520dde2c16ea detected as GPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Cleanuparr, who has not added it."
+   },
+   "paths": [
+    "code/backend/Cleanuparr.Api",
+    "code/backend/Cleanuparr.Api.Tests/Json",
+    "code/backend/Cleanuparr.Domain/Entities/Arr",
+    "code/backend/Cleanuparr.Infrastructure",
+    "code/backend/Cleanuparr.Infrastructure.Tests/Features/DownloadRemover/Consumers",
+    "code/backend/Cleanuparr.Infrastructure.Tests/Features/Jobs",
+    "code/backend/Cleanuparr.Infrastructure.Tests/Features/Messaging",
+    "code/backend/Cleanuparr.Infrastructure.Tests/Features/Notifications",
+    "code/backend/Cleanuparr.Infrastructure.Tests/TestHelpers",
+    "e2e/tests/download-cleaner",
+    "e2e/tests/helpers/api",
+    "e2e/tests/helpers/mocks",
+    "e2e/tests/malware-blocker"
+   ]
   }
  ]
 }

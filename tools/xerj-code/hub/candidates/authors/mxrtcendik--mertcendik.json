@@ -1,0 +1,23 @@
+{
+ "corpus": "mxrtcendik--mertcendik",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on mdx, nextjs, personal queries this for how mxrtcendik/mertcendik implements it: My personal website built with Next.js, TypeScript, and MDX (selected work: components, lib, the project root)",
+ "repos": [
+  {
+   "repo": "mertcendik",
+   "url": "https://github.com/mxrtcendik/mertcendik",
+   "sha": "81d5d0d30374285219f79a325f34a2f3ce6e239d",
+   "licence": "MIT (LICENSE file at pin 81d5d0d30374, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T20:46Z",
+    "consent_receipt": "7ce94620b5f3",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T20:46Z (receipt 7ce94620b5f3); selected commit 81d5d0d30374: \"Added two new blog posts, and a new project to project's list.\". LICENSE file at pin 81d5d0d30374 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

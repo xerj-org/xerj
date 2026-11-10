@@ -1,0 +1,23 @@
+{
+ "corpus": "peterlee0127--dns-security-pro-macos",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on Swift queries this for how peterlee0127/DNS-Security-Pro-macOS implements it: DNS-Security-Pro-macOS (selected work: DNSSecurityProMac, Tests, DNSSecurityProMac.xcodeproj)",
+ "repos": [
+  {
+   "repo": "DNS-Security-Pro-macOS",
+   "url": "https://github.com/peterlee0127/DNS-Security-Pro-macOS",
+   "sha": "47917e5167c9d6ef780a6e98237ea1e46b410921",
+   "licence": "MIT (LICENSE file at pin 47917e5167c9, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T01:09Z",
+    "consent_receipt": "6f436501dd89",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T01:09Z (receipt 6f436501dd89); selected commit 47917e5167c9: \"Add actual DNS usage diagnostics to dashboard\". LICENSE file at pin 47917e5167c9 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

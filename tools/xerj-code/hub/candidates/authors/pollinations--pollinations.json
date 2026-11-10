@@ -16,8 +16,18 @@
     "by": "author-consent",
     "at": "2026-10-11T00:25Z",
     "consent_receipt": "0b7a02528f5b",
-    "note": "Inclusion consented by the commit author by email at 2026-10-11T00:25Z (receipt 0b7a02528f5b); selected commit 82c495c01d98: \"feat(polli): add Codex and Claude Code router harnesses (#15289)\". LICENSE file at pin 82c495c01d98 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-11T00:25Z (receipt 0b7a02528f5b); selected commit 82c495c01d98: \"feat(polli): add Codex and Claude Code router harnesses (#15289)\". LICENSE file at pin 82c495c01d98 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @pollinations, who has not added it."
+   },
+   "paths": [
+    "apps/polli",
+    "enter.pollinations.ai/frontend/public/brand-logos",
+    "enter.pollinations.ai/frontend/src/components/models",
+    "enter.pollinations.ai/test/__snapshots__",
+    "gen.pollinations.ai/src/image",
+    "gen.pollinations.ai/test",
+    "packages/polli-cli/src/harnesses",
+    "shared/registry"
+   ]
   }
  ]
 }

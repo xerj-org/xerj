@@ -16,8 +16,14 @@
     "by": "author-consent",
     "at": "2026-11-02T09:15Z",
     "consent_receipt": "afb73924b9c2",
-    "note": "Inclusion consented by the commit author by email at 2026-11-02T09:15Z (receipt afb73924b9c2); selected commit 0300ca5ea601: \"fix: what rebuilding a real site with the CLI turned up\". LICENSE file at pin 0300ca5ea601 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T09:15Z (receipt afb73924b9c2); selected commit 0300ca5ea601: \"fix: what rebuilding a real site with the CLI turned up\". LICENSE file at pin 0300ca5ea601 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @anja-codes, who has not added it."
+   },
+   "paths": [
+    "create/template/app/assets/css",
+    "examples/scaffolded/app/assets/css",
+    "src",
+    "test"
+   ]
   }
  ]
 }

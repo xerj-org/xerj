@@ -1,0 +1,23 @@
+{
+ "corpus": "snakefoot--snaketail-net",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on tail, windows-eventlog, c-sharp queries this for how snakefoot/snaketail-net implements it: Tail utility for monitoring text log files and Windows EventLog (selected work: SnakeTail)",
+ "repos": [
+  {
+   "repo": "snaketail-net",
+   "url": "https://github.com/snakefoot/snaketail-net",
+   "sha": "a0536fcd9a4e5b6d139f2608ca8837e8e72faa62",
+   "licence": "GPL-3.0 (LICENSE file at pin a0536fcd9a4e, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-10T21:58Z",
+    "consent_receipt": "b18c399de5ca",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T21:58Z (receipt b18c399de5ca); selected commit a0536fcd9a4e: \"Added support for Restore Session on Startup via default session file\". LICENSE file at pin a0536fcd9a4e detected as GPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

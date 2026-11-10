@@ -1,0 +1,23 @@
+{
+ "corpus": "zhaoyi2018--magpie-remote",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on magpie-plugin queries this for how zhaoyi2018/magpie-remote implements it: \u89e3\u51b3\u8fdc\u7a0b\u5f00\u53d1\u95ee\u9898 (selected work: src, tests, page)",
+ "repos": [
+  {
+   "repo": "magpie-remote",
+   "url": "https://github.com/zhaoyi2018/magpie-remote",
+   "sha": "e42ba69bdaf3dbd302fd7292f6d2d560c484c3f7",
+   "licence": "MIT (LICENSE file at pin e42ba69bdaf3, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-23T23:20Z",
+    "consent_receipt": "61468b2a448c",
+    "note": "Inclusion consented by the commit author by email at 2026-10-23T23:20Z (receipt 61468b2a448c); selected commit e42ba69bdaf3: \"feat: \u652f\u6301\u52a0\u5bc6\u4fdd\u5b58 SSH \u5bc6\u7801\u5e76\u5b8c\u5584\u63d2\u4ef6\u56fe\u6807\". LICENSE file at pin e42ba69bdaf3 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

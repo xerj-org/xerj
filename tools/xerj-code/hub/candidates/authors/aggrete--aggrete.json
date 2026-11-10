@@ -16,8 +16,14 @@
     "by": "author-consent",
     "at": "2026-10-16T14:31Z",
     "consent_receipt": "78cd8bff6ecf",
-    "note": "Inclusion consented by the commit author by email at 2026-10-16T14:31Z (receipt 78cd8bff6ecf); selected commit e7e05ce8febe: \"feat: aggrete scan, harden an existing MCP setup\". LICENSE file at pin e7e05ce8febe detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-16T14:31Z (receipt 78cd8bff6ecf); selected commit e7e05ce8febe: \"feat: aggrete scan, harden an existing MCP setup\". LICENSE file at pin e7e05ce8febe detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @aggrete, who has not added it."
+   },
+   "paths": [
+    "aggrete",
+    "docs",
+    "skills/aggrete",
+    "tests"
+   ]
   }
  ]
 }

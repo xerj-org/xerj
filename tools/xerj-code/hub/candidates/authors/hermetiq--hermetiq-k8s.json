@@ -1,0 +1,32 @@
+{
+ "corpus": "hermetiq--hermetiq-k8s",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on bazel, buildbarn, helm queries this for how Hermetiq/hermetiq-k8s implements it: Production Buildbarn Helm chart (remote cache, CAS, RBE) for Bazel on Kubernetes (selected work: charts, custom-values)",
+ "repos": [
+  {
+   "repo": "hermetiq-k8s",
+   "url": "https://github.com/Hermetiq/hermetiq-k8s",
+   "sha": "2777e6167cd7c96243632239f96ff14b003d31dc",
+   "licence": "Apache-2.0 (LICENSE file at pin 2777e6167cd7, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-14T15:58Z",
+    "consent_receipt": "ddf98a961073",
+    "note": "Inclusion consented by the commit author by email at 2026-10-14T15:58Z (receipt ddf98a961073); selected commit 2777e6167cd7: \"Simplify Helm installation, namespace RBAC, and worker management (#32)\". LICENSE file at pin 2777e6167cd7 detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Hermetiq, who has not added it."
+   },
+   "paths": [
+    ".buildkite",
+    "charts/bb-worker-operator",
+    "charts/buildbarn",
+    "charts/hermetiq",
+    "custom-values",
+    "docs",
+    "examples"
+   ]
+  }
+ ]
+}

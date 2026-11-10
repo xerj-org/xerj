@@ -1,0 +1,23 @@
+{
+ "corpus": "paradoxe35--encre",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Go queries this for how paradoxe35/encre implements it: A simple tool that fixes, translates and types your text with AI, anywhere on your computer (selected work: ui, internal/stt, rust-ffi)",
+ "repos": [
+  {
+   "repo": "encre",
+   "url": "https://github.com/paradoxe35/encre",
+   "sha": "699b52d4add22226fde57678790b99799c3a6c98",
+   "licence": "MIT (LICENSE file at pin 699b52d4add2, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-27T02:35Z",
+    "consent_receipt": "da2bffb1b6a9",
+    "note": "Inclusion consented by the commit author by email at 2026-10-27T02:35Z (receipt da2bffb1b6a9); selected commit 699b52d4add2: \"Stabilize app (#13)\". LICENSE file at pin 699b52d4add2 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

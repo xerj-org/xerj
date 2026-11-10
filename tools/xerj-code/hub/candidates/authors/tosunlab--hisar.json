@@ -1,0 +1,35 @@
+{
+ "corpus": "tosunlab--hisar",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on Go queries this for how tosunlab/hisar implements it: End-to-end encrypted password, SSH-key and secrets manager for developers (selected work: mobile, core/importer, core/app)",
+ "repos": [
+  {
+   "repo": "hisar",
+   "url": "https://github.com/tosunlab/hisar",
+   "sha": "ec8351037c39788e20704d15fccea03b9e8f7aa0",
+   "licence": "GPL-3.0 (LICENSE file at pin ec8351037c39, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-24T15:07Z",
+    "consent_receipt": "924bd7e8136c",
+    "note": "Inclusion consented by the commit author by email at 2026-10-24T15:07Z (receipt 924bd7e8136c); selected commit ec8351037c39: \"feat: import passkeys through Credential Exchange on the iPhone (#80)\". LICENSE file at pin ec8351037c39 detected as GPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution. Pinned to head ec8351037c39 (contains the selected commit): the LICENSE at the selected commit was NONE. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @tosunlab, who has not added it."
+   },
+   "paths": [
+    "cli",
+    "core/app",
+    "core/importer",
+    "core/item",
+    "core/passkey",
+    "desktop/frontend/bindings/github.com/tryhisar/hisar/core/app",
+    "desktop/frontend/src",
+    "docs",
+    "mobile/hisarkit",
+    "mobile/ios"
+   ]
+  }
+ ]
+}

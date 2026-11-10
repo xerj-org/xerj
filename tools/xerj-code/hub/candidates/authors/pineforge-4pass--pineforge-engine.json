@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-10-06T23:20Z",
     "consent_receipt": "54f070c0d32d",
-    "note": "Inclusion consented by the commit author by email at 2026-10-06T23:20Z (receipt 54f070c0d32d); selected commit 288f189cc5da: \"Exact tick-built bar volume and a genuine-tick equivalence harness (#\u2026\". LICENSE file at pin 288f189cc5da detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-06T23:20Z (receipt 54f070c0d32d); selected commit 288f189cc5da: \"Exact tick-built bar volume and a genuine-tick equivalence harness (#\u2026\". LICENSE file at pin 288f189cc5da detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @pineforge-4pass, who has not added it."
+   },
+   "paths": [
+    "docs",
+    "src",
+    "tests"
+   ]
   }
  ]
 }

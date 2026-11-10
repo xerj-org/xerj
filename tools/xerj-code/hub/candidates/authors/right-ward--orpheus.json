@@ -1,0 +1,23 @@
+{
+ "corpus": "right-ward--orpheus",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, backup, backup-utility queries this for how right-ward/orpheus implements it: Preserve your Android environment through destructive system changes (selected work: app/src, app)",
+ "repos": [
+  {
+   "repo": "orpheus",
+   "url": "https://github.com/right-ward/orpheus",
+   "sha": "eeaee79a1e0cfba7f85ccdc1e5e118bb96e2a443",
+   "licence": "Apache-2.0 (LICENSE file at pin eeaee79a1e0c, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-26T20:54Z",
+    "consent_receipt": "4757c686d105",
+    "note": "Inclusion consented by the commit author by email at 2026-10-26T20:54Z (receipt 4757c686d105); selected commit eeaee79a1e0c: \"feat: add opt-in contacts export (#8)\". LICENSE file at pin eeaee79a1e0c detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

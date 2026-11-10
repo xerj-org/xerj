@@ -1,0 +1,23 @@
+{
+ "corpus": "ehsan-roohi--roohi-fokker-planck-dnn",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how Ehsan-Roohi/roohi-fokker-planck-dnn implements it: Fokker-Planck and neural collision-model experiments",
+ "repos": [
+  {
+   "repo": "roohi-fokker-planck-dnn",
+   "url": "https://github.com/Ehsan-Roohi/roohi-fokker-planck-dnn",
+   "sha": "aa63b054b99f270016d8c3483c4ebc7b6922e472",
+   "licence": "MIT (LICENSE file at pin aa63b054b99f, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T21:31Z",
+    "consent_receipt": "c942891e0e0b",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T21:31Z (receipt c942891e0e0b); pinned to the default-branch head. LICENSE file at pin aa63b054b99f detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

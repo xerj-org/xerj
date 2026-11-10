@@ -16,8 +16,14 @@
     "by": "author-consent",
     "at": "2026-10-22T07:49Z",
     "consent_receipt": "1fc51115d602",
-    "note": "Inclusion consented by the commit author by email at 2026-10-22T07:49Z (receipt 1fc51115d602); selected commit 0f7e203a6922: \"feat(copy-button): NbCopyButton copies text and confirms with a check\u2026\". LICENSE file at pin 0f7e203a6922 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-22T07:49Z (receipt 1fc51115d602); selected commit 0f7e203a6922: \"feat(copy-button): NbCopyButton copies text and confirms with a check\u2026\". LICENSE file at pin 0f7e203a6922 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @nubisco, who has not added it."
+   },
+   "paths": [
+    "docs/.vitepress",
+    "docs/components",
+    "src",
+    "tests"
+   ]
   }
  ]
 }

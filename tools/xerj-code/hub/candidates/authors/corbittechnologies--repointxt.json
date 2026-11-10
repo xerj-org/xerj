@@ -1,0 +1,27 @@
+{
+ "corpus": "corbittechnologies--repointxt",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how CorbitTechnologies/repointxt implements it: 100% in-browser, privacy-first codebase prompt packer for Claude, ChatGPT, and Gemini. Stream repositories in-memory without server uploads (selected work: public, src/components, src/hooks)",
+ "repos": [
+  {
+   "repo": "repointxt",
+   "url": "https://github.com/CorbitTechnologies/repointxt",
+   "sha": "c504128faf8df022c612c1aed03088357e9f12f0",
+   "licence": "MIT (LICENSE file at pin c504128faf8d, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T18:39Z",
+    "consent_receipt": "fa9c293d4952",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T18:39Z (receipt fa9c293d4952); selected commit c504128faf8d: \"Implement targeted SEO and GEO improvements for enhanced visibility (\u2026\". LICENSE file at pin c504128faf8d detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @CorbitTechnologies, who has not added it."
+   },
+   "paths": [
+    "public",
+    "src"
+   ]
+  }
+ ]
+}

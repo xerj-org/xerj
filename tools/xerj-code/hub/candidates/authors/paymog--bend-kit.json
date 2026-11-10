@@ -1,0 +1,23 @@
+{
+ "corpus": "paymog--bend-kit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on bend-lang queries this for how paymog/bend-kit implements it: A general-purpose library for Bend 2. Each package is proved against its own laws (selected work: cache)",
+ "repos": [
+  {
+   "repo": "bend-kit",
+   "url": "https://github.com/paymog/bend-kit",
+   "sha": "079bd4ed5205ef8a6c907d37925cc4a4ed86c4f9",
+   "licence": "Apache-2.0 (LICENSE file at pin 079bd4ed5205, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-12T18:02Z",
+    "consent_receipt": "82375d10e2e9",
+    "note": "Inclusion consented by the commit author by email at 2026-10-12T18:02Z (receipt 82375d10e2e9); selected commit 079bd4ed5205: \"cache 0.1.0.0: cache validity with proven generation-safe completion \u2026\". LICENSE file at pin 079bd4ed5205 detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

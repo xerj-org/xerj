@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-11-10T19:21Z",
     "consent_receipt": "943d1618d70c",
-    "note": "Inclusion consented by the commit author by email at 2026-11-10T19:21Z (receipt 943d1618d70c); selected commit 300084e181a7: \"feat: add nono token broker mode (#15)\". LICENSE file at pin 300084e181a7 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T19:21Z (receipt 943d1618d70c); selected commit 300084e181a7: \"feat: add nono token broker mode (#15)\". LICENSE file at pin 300084e181a7 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @PickNikRobotics, who has not added it."
+   },
+   "paths": [
+    "skills/github-app-workflow",
+    "src/hermes_github_app_plugin",
+    "tests"
+   ]
   }
  ]
 }

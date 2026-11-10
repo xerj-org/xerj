@@ -1,0 +1,28 @@
+{
+ "corpus": "escola-nova-era--babytracker",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Kotlin queries this for how Escola-Nova-Era/BabyTracker implements it: Escola-Nova-Era/BabyTracker (Kotlin) (selected work: android)",
+ "repos": [
+  {
+   "repo": "BabyTracker",
+   "url": "https://github.com/Escola-Nova-Era/BabyTracker",
+   "sha": "c3c64714d1a2ba426a4895840ab43b1a0d1bb89e",
+   "licence": "MIT (LICENSE file at pin c3c64714d1a2, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-04T13:41Z",
+    "consent_receipt": "74eac3cde324",
+    "note": "Inclusion consented by the commit author by email at 2026-11-04T13:41Z (receipt 74eac3cde324); selected commit c3c64714d1a2: \" feat(android): ajusta layout do formul\u00e1rio de perfil e adiciona nave\u2026\". LICENSE file at pin c3c64714d1a2 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Escola-Nova-Era, who has not added it."
+   },
+   "paths": [
+    "android/app/src/main/java/com/escolanovaeratech/babytracker/navigation",
+    "android/app/src/main/java/com/escolanovaeratech/babytracker/onboarding/ui",
+    "android/app/src/main/res/values"
+   ]
+  }
+ ]
+}

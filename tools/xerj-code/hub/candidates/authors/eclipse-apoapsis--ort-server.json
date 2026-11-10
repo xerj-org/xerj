@@ -16,8 +16,11 @@
     "by": "author-consent",
     "at": "2026-10-19T07:31Z",
     "consent_receipt": "4be13505c802",
-    "note": "Inclusion consented by the commit author by email at 2026-10-19T07:31Z (receipt 4be13505c802); selected commit 8ecb6de156d7: \"refactor(ui): Subscribe form field groups to the values they watch\". LICENSE file at pin 8ecb6de156d7 detected as Apache-2.0 by the GitHub licence API on 2026-10-28; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-19T07:31Z (receipt 4be13505c802); selected commit 8ecb6de156d7: \"refactor(ui): Subscribe form field groups to the values they watch\". LICENSE file at pin 8ecb6de156d7 detected as Apache-2.0 by the GitHub licence API on 2026-10-28; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @eclipse-apoapsis, who has not added it."
+   },
+   "paths": [
+    "ui"
+   ]
   }
  ]
 }

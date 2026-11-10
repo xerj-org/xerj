@@ -1,0 +1,23 @@
+{
+ "corpus": "bibryam--universal-skill-finder",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how bibryam/universal-skill-finder implements it: Find the right agent skill across registries and GitHub, from Claude Code, Codex, or your terminal (selected work: skills, tests, scripts)",
+ "repos": [
+  {
+   "repo": "universal-skill-finder",
+   "url": "https://github.com/bibryam/universal-skill-finder",
+   "sha": "4bf0c9b23710c71d5a63ef23b0443b9919cb7f9d",
+   "licence": "MIT (LICENSE file at pin 4bf0c9b23710, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-13T07:45Z",
+    "consent_receipt": "2fe10d37963d",
+    "note": "Inclusion consented by the commit author by email at 2026-10-13T07:45Z (receipt 2fe10d37963d); selected commit 4bf0c9b23710: \"Make skill search discovery first (#8)\". LICENSE file at pin 4bf0c9b23710 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

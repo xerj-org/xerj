@@ -16,8 +16,14 @@
     "by": "author-consent",
     "at": "2026-10-28T10:47Z",
     "consent_receipt": "b02a3d59e1ed",
-    "note": "Inclusion consented by the commit author by email at 2026-10-28T10:47Z (receipt b02a3d59e1ed); selected commit d98be20c7f26: \"feature: error dumps\". LICENSE file at pin d98be20c7f26 detected as MIT by the GitHub licence API on 2026-10-28; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-28T10:47Z (receipt b02a3d59e1ed); selected commit d98be20c7f26: \"feature: error dumps\". LICENSE file at pin d98be20c7f26 detected as MIT by the GitHub licence API on 2026-10-28; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @brokenicedev, who has not added it."
+   },
+   "paths": [
+    "Packages/DumpKit",
+    "laradeck",
+    "laradeck.xcodeproj",
+    "scripts"
+   ]
   }
  ]
 }

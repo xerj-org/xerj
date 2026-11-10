@@ -1,0 +1,23 @@
+{
+ "corpus": "mchalain--fastvideo",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how mchalain/fastvideo implements it: Camera library to transfer the images on screen, gpu, file, encoder (selected work: src)",
+ "repos": [
+  {
+   "repo": "fastvideo",
+   "url": "https://github.com/mchalain/fastvideo",
+   "sha": "11d6ddd90267b678da0bc2886d8a52f305e9626b",
+   "licence": "MIT (LICENSE file at pin 11d6ddd90267, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T19:44Z",
+    "consent_receipt": "8d554adfc289",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T19:44Z (receipt 8d554adfc289); selected commit 11d6ddd90267: \"sproto: merge proto configuration for sfile and smpegts\". LICENSE file at pin 11d6ddd90267 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

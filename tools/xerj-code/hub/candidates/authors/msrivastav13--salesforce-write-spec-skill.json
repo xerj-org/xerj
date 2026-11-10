@@ -1,0 +1,23 @@
+{
+ "corpus": "msrivastav13--salesforce-write-spec-skill",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how msrivastav13/salesforce-write-spec-skill implements it: msrivastav13/salesforce-write-spec-skill (Python) (selected work: evals)",
+ "repos": [
+  {
+   "repo": "salesforce-write-spec-skill",
+   "url": "https://github.com/msrivastav13/salesforce-write-spec-skill",
+   "sha": "00b733413f9671de75ed846b17bb86205facc207",
+   "licence": "Apache-2.0 (LICENSE file at pin 00b733413f96, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-23T19:42Z",
+    "consent_receipt": "67bb839f3343",
+    "note": "Inclusion consented by the commit author by email at 2026-10-23T19:42Z (receipt 67bb839f3343); selected commit 00b733413f96: \"Finish eval backlog on v38.2 and apply v38.3 skill fixes\". LICENSE file at pin 00b733413f96 detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

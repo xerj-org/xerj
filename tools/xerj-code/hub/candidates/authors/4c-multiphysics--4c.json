@@ -16,8 +16,12 @@
     "by": "author-consent",
     "at": "2026-10-16T09:03Z",
     "consent_receipt": "298fa844d434",
-    "note": "Inclusion consented by the commit author by email at 2026-10-16T09:03Z (receipt 298fa844d434); selected commit 78b530a231c6: \"Modify material output in MAT_ConstraintMixture\". LICENSE file at pin 78b530a231c6 detected as LGPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-16T09:03Z (receipt 298fa844d434); selected commit 78b530a231c6: \"Modify material output in MAT_ConstraintMixture\". LICENSE file at pin 78b530a231c6 detected as LGPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @4C-multiphysics, who has not added it."
+   },
+   "paths": [
+    "src/mat",
+    "tests"
+   ]
   }
  ]
 }

@@ -16,8 +16,14 @@
     "by": "author-consent",
     "at": "2026-10-17T14:08Z",
     "consent_receipt": "3b320efb1940",
-    "note": "Inclusion consented by the commit author by email at 2026-10-17T14:08Z (receipt 3b320efb1940); selected commit 259de666ccaf: \"refactor(eslint): align all rules with domain repositories\". LICENSE file at pin 259de666ccaf detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-17T14:08Z (receipt 3b320efb1940); selected commit 259de666ccaf: \"refactor(eslint): align all rules with domain repositories\". LICENSE file at pin 259de666ccaf detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @lumitech-co, who has not added it."
+   },
+   "paths": [
+    ".claude/agents/pr-review",
+    ".claude/commands",
+    "scripts/eslint-rules",
+    "test/unit/architecture"
+   ]
   }
  ]
 }

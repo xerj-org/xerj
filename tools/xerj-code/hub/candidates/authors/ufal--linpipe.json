@@ -16,8 +16,12 @@
     "by": "author-consent",
     "at": "2026-10-10T07:11Z",
     "consent_receipt": "0f6fe1fd4886",
-    "note": "Inclusion consented by the commit author by email at 2026-10-10T07:11Z (receipt 0f6fe1fd4886); selected commit 57154d10e716: \"Add SHA-256 class (#4)\". LICENSE file at pin 57154d10e716 detected as MPL-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-10T07:11Z (receipt 0f6fe1fd4886); selected commit 57154d10e716: \"Add SHA-256 class (#4)\". LICENSE file at pin 57154d10e716 detected as MPL-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @ufal, who has not added it."
+   },
+   "paths": [
+    "src/lib",
+    "src/models"
+   ]
   }
  ]
 }

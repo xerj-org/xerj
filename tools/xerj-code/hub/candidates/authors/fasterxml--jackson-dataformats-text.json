@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-11-06T17:36Z",
     "consent_receipt": "e557e6618dc3",
-    "note": "Inclusion consented by the commit author by email at 2026-11-06T17:36Z (receipt e557e6618dc3); selected commit bedf505b61ce: \"Fix #758: `TomlGenerator` root-level Object/array/scalar (#770)\". LICENSE file at pin bedf505b61ce detected as Apache-2.0 by the GitHub licence API on 2026-11-06; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-11-06T17:36Z (receipt e557e6618dc3); selected commit bedf505b61ce: \"Fix #758: `TomlGenerator` root-level Object/array/scalar (#770)\". LICENSE file at pin bedf505b61ce detected as Apache-2.0 by the GitHub licence API on 2026-11-06; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @FasterXML, who has not added it."
+   },
+   "paths": [
+    "release-notes",
+    "toml/src/main/java/tools/jackson/dataformat/toml",
+    "toml/src/test/java/tools/jackson/dataformat/toml"
+   ]
   }
  ]
 }

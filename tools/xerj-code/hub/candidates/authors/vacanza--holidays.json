@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-10-15T18:25Z",
     "consent_receipt": "8331b1f3371a",
-    "note": "Inclusion consented by the commit author by email at 2026-10-15T18:25Z (receipt 8331b1f3371a); selected commit b7a2da6e03ae: \"Add Saudi Exchange (Tadawul) holidays (#3921)\". LICENSE file at pin b7a2da6e03ae detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-15T18:25Z (receipt 8331b1f3371a); selected commit b7a2da6e03ae: \"Add Saudi Exchange (Tadawul) holidays (#3921)\". LICENSE file at pin b7a2da6e03ae detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @vacanza, who has not added it."
+   },
+   "paths": [
+    "holidays",
+    "snapshots/financial",
+    "tests/financial"
+   ]
   }
  ]
 }

@@ -16,8 +16,20 @@
     "by": "author-consent",
     "at": "2026-10-18T05:27Z",
     "consent_receipt": "ed6624fbffa5",
-    "note": "Inclusion consented by the commit author by email at 2026-10-18T05:27Z (receipt ed6624fbffa5); selected commit 938b301adf18: \"refactor(core,vue,react): call the status entry statusHandle\". LICENSE file at pin 938b301adf18 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-18T05:27Z (receipt ed6624fbffa5); selected commit 938b301adf18: \"refactor(core,vue,react): call the status entry statusHandle\". LICENSE file at pin 938b301adf18 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @makoojs, who has not added it."
+   },
+   "paths": [
+    "docs/architecture",
+    "packages/core/src/adapter",
+    "packages/core/src/component",
+    "packages/core/src/core",
+    "packages/core/src/listener",
+    "packages/core/test",
+    "packages/react/src",
+    "packages/react/test",
+    "packages/vue/src",
+    "packages/vue/test"
+   ]
   }
  ]
 }

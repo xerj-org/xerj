@@ -1,0 +1,23 @@
+{
+ "corpus": "mwkloh--aegis",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how mwkloh/aegis implements it: Local-first, guarded cognitive system. A personal AI assistant whose tool execution is correct by architecture, not by model capability \u2014 bu (selected work: tests, runtime)",
+ "repos": [
+  {
+   "repo": "aegis",
+   "url": "https://github.com/mwkloh/aegis",
+   "sha": "6b046f840c80b6357ae284161c902d24d1661622",
+   "licence": "MIT (LICENSE file at pin 6b046f840c80, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-28T00:35Z",
+    "consent_receipt": "7ab275a94077",
+    "note": "Inclusion consented by the commit author by email at 2026-10-28T00:35Z (receipt 7ab275a94077); selected commit 6b046f840c80: \"fix(eval): classify intent on the local model under test\". LICENSE file at pin 6b046f840c80 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

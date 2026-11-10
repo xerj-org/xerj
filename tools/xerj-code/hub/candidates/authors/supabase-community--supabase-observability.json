@@ -1,0 +1,29 @@
+{
+ "corpus": "supabase-community--supabase-observability",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on loki, observability, opentelemetry queries this for how supabase-community/supabase-observability implements it: Community-maintained observability for self-hosted Supabase: logs, metrics, and traces (selected work: config, overrides, the project root)",
+ "repos": [
+  {
+   "repo": "supabase-observability",
+   "url": "https://github.com/supabase-community/supabase-observability",
+   "sha": "e2b489dee374a70a1cef4ae92fee4e63cd90fb79",
+   "licence": "Apache-2.0 (LICENSE file at pin e2b489dee374, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-25T15:43Z",
+    "consent_receipt": "5a85499743e2",
+    "note": "Inclusion consented by the commit author by email at 2026-10-25T15:43Z (receipt 5a85499743e2); selected commit e2b489dee374: \"feat(metrics): OTel Collector pipeline for VictoriaMetrics backend\". LICENSE file at pin e2b489dee374 detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @supabase-community, who has not added it."
+   },
+   "paths": [
+    "backends/otel-collector",
+    "config/otel-collector",
+    "overrides",
+    "scripts"
+   ]
+  }
+ ]
+}

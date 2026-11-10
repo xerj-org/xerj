@@ -16,8 +16,12 @@
     "by": "author-consent",
     "at": "2026-11-02T05:27Z",
     "consent_receipt": "20d65516a09a",
-    "note": "Inclusion consented by the commit author by email at 2026-11-02T05:27Z (receipt 20d65516a09a); selected commit c357e12ee342: \"feat(ui): revamp hero section and add cultural landmarks & pre-footer\u2026\". LICENSE file at pin c357e12ee342 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T05:27Z (receipt 20d65516a09a); selected commit c357e12ee342: \"feat(ui): revamp hero section and add cultural landmarks & pre-footer\u2026\". LICENSE file at pin c357e12ee342 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @SapiensCampus, who has not added it."
+   },
+   "paths": [
+    "public/assets/images",
+    "src"
+   ]
   }
  ]
 }

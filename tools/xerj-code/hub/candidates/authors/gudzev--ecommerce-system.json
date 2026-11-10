@@ -1,0 +1,23 @@
+{
+ "corpus": "gudzev--ecommerce-system",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how gudzev/ecommerce-system implements it: gudzev/ecommerce-system (C#) (selected work: desktop-app, back-end, front-end)",
+ "repos": [
+  {
+   "repo": "ecommerce-system",
+   "url": "https://github.com/gudzev/ecommerce-system",
+   "sha": "8ebb13e3d5a2c6d0e6911498bdb5cbd26b2d2e3f",
+   "licence": "MIT (LICENSE file at pin 8ebb13e3d5a2, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-27T22:53Z",
+    "consent_receipt": "d0a343df31f1",
+    "note": "Inclusion consented by the commit author by email at 2026-10-27T22:53Z (receipt d0a343df31f1); selected commit 8ebb13e3d5a2: \"WPF App users can now partially manage product images\". LICENSE file at pin 8ebb13e3d5a2 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

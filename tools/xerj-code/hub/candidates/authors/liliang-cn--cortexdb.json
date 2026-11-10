@@ -16,8 +16,12 @@
     "by": "author-consent",
     "at": "2026-10-25T10:15Z",
     "consent_receipt": "c83003c6228d",
-    "note": "Inclusion consented by the commit author by email at 2026-10-25T10:15Z (receipt c83003c6228d); selected commit e0ee5fd3b30d: \"feat(authz): a scope may list several values per field (#71)\". LICENSE file at pin e0ee5fd3b30d detected as MIT by the GitHub licence API on 2026-10-26; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-25T10:15Z (receipt c83003c6228d); selected commit e0ee5fd3b30d: \"feat(authz): a scope may list several values per field (#71)\". LICENSE file at pin e0ee5fd3b30d detected as MIT by the GitHub licence API on 2026-10-26; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @liliang-cn, who has not added it."
+   },
+   "paths": [
+    "pkg/authz",
+    "pkg/rpcserver"
+   ]
   }
  ]
 }

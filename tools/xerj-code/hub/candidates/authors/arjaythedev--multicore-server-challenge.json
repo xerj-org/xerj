@@ -16,8 +16,11 @@
     "by": "author-consent",
     "at": "2026-10-22T06:10Z",
     "consent_receipt": "4ef75e0afea3",
-    "note": "Inclusion consented by the commit author by email at 2026-10-22T06:10Z (receipt 4ef75e0afea3); selected commit 39d19c8667ed: \"Add Elixir submission using raw TCP and Postgrex: 32,000 users (#12)\". LICENSE file at pin 39d19c8667ed detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-22T06:10Z (receipt 4ef75e0afea3); selected commit 39d19c8667ed: \"Add Elixir submission using raw TCP and Postgrex: 32,000 users (#12)\". LICENSE file at pin 39d19c8667ed detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @arjaythedev, who has not added it."
+   },
+   "paths": [
+    "submissions/elixir-raw-foovoo"
+   ]
   }
  ]
 }

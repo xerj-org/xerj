@@ -1,0 +1,23 @@
+{
+ "corpus": "kyongsik-yoon--cc-desktop-mod",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-coding, anthropic, claude queries this for how KyongSik-Yoon/cc-desktop-mod implements it: Claude Code plugin (mod) that makes the Claude Code terminal UI look like the Claude desktop app: prompt bubbles, markdown tables, mermaid d (selected work: desk-look)",
+ "repos": [
+  {
+   "repo": "cc-desktop-mod",
+   "url": "https://github.com/KyongSik-Yoon/cc-desktop-mod",
+   "sha": "646cb8f4660d591f24cda60e92305102425dcd69",
+   "licence": "MIT (LICENSE file at pin 646cb8f4660d, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-27T22:05Z",
+    "consent_receipt": "4d9463fa7632",
+    "note": "Inclusion consented by the commit author by email at 2026-10-27T22:05Z (receipt 4d9463fa7632); selected commit 646cb8f4660d: \"desk-look 0.62.0: /desk-context \uac00 \ucee8\ud14d\uc2a4\ud2b8\uc5d0 \uc2e4\ub9b0 \uac83, \uc138\uc158 \ub3d9\uc548 \ucc2c \ud750\ub984, \ud134\ub9c8\ub2e4 \uce90\uc2dc\u00b7\ube44\uc6a9\uc744 \u2026\". LICENSE file at pin 646cb8f4660d detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,33 @@
+{
+ "corpus": "fjaeckel--seriesoftubes",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on bgp, educational, game queries this for how fjaeckel/seriesoftubes implements it: A free cartoon browser game about how the internet really works: lay fiber and subsea cables, peer at IXPs, bill on the 95th percentile and  (selected work: tests, src/game)",
+ "repos": [
+  {
+   "repo": "seriesoftubes",
+   "url": "https://github.com/fjaeckel/seriesoftubes",
+   "sha": "ac5928d41d157e6a20b6359a0ac3a7a30815461a",
+   "licence": "MIT (LICENSE file at pin ac5928d41d15, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T09:45Z",
+    "consent_receipt": "414fc3319ece",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T09:45Z (receipt 414fc3319ece); selected commit ac5928d41d15: \"A carrier's own transit port takes its traffic, with a Carry here swi\u2026\". LICENSE file at pin ac5928d41d15 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @fjaeckel, who has not added it."
+   },
+   "paths": [
+    "docs",
+    "site/i18n",
+    "src/game/60-features",
+    "src/game/80-simulation",
+    "src/game/90-actions",
+    "src/game/93-ui",
+    "src/i18n",
+    "tests"
+   ]
+  }
+ ]
+}

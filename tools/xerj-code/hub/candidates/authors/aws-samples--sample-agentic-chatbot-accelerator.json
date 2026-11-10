@@ -1,0 +1,28 @@
+{
+ "corpus": "aws-samples--sample-agentic-chatbot-accelerator",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agentcore, agentic-ai, aws queries this for how aws-samples/sample-agentic-chatbot-accelerator implements it: A full-stack agentic harness on AWS \u2014 spin up multi-agent chatbots, voice-to-voice AI, RAG, and an Agent Factory on Bedrock AgentCore. From  (selected work: src/user-interface)",
+ "repos": [
+  {
+   "repo": "sample-agentic-chatbot-accelerator",
+   "url": "https://github.com/aws-samples/sample-agentic-chatbot-accelerator",
+   "sha": "36c28f062d0dfbb8d5dc3597abaa1c675f70e4de",
+   "licence": "MIT-0 (LICENSE file at pin 36c28f062d0d, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT-0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-13T13:34Z",
+    "consent_receipt": "424329086bd0",
+    "note": "Inclusion consented by the commit author by email at 2026-10-13T13:34Z (receipt 424329086bd0); selected commit 36c28f062d0d: \"\u267b\ufe0f (ui): consolidate duplicated admin, wizard and helper code\". LICENSE file at pin 36c28f062d0d detected as MIT-0 by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @aws-samples, who has not added it."
+   },
+   "paths": [
+    "src/user-interface/react-app/src/common",
+    "src/user-interface/react-app/src/components",
+    "src/user-interface/react-app/src/pages/admin"
+   ]
+  }
+ ]
+}

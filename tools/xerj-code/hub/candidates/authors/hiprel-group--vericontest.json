@@ -16,8 +16,12 @@
     "by": "author-consent",
     "at": "2026-10-11T18:37Z",
     "consent_receipt": "16fb58db6f76",
-    "note": "Inclusion consented by the commit author by email at 2026-10-11T18:37Z (receipt 16fb58db6f76); selected commit 2578227514cd: \"fix code issues with lc377 and lc643\". LICENSE at pin 2578227514cd: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-11T18:37Z (receipt 16fb58db6f76); selected commit 2578227514cd: \"fix code issues with lc377 and lc643\". LICENSE at pin 2578227514cd: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @HIPREL-Group, who has not added it."
+   },
+   "paths": [
+    "benchmark/leetcode/lc377",
+    "benchmark/leetcode/lc643"
+   ]
   }
  ]
 }

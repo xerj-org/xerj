@@ -16,8 +16,15 @@
     "by": "author-consent",
     "at": "2026-10-08T16:34Z",
     "consent_receipt": "355f30b41e7d",
-    "note": "Inclusion consented by the commit author by email at 2026-10-08T16:34Z (receipt 355f30b41e7d); selected commit bebb929add98: \"windows daemon management through the library (#100)\". LICENSE file at pin bebb929add98 detected as GPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution. Pinned to head bebb929add98 (contains the selected commit): the LICENSE at the selected commit was MIT."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-08T16:34Z (receipt 355f30b41e7d); selected commit bebb929add98: \"windows daemon management through the library (#100)\". LICENSE file at pin bebb929add98 detected as GPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution. Pinned to head bebb929add98 (contains the selected commit): the LICENSE at the selected commit was MIT. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @muslimtify-org, who has not added it."
+   },
+   "paths": [
+    "include",
+    "src/cli",
+    "src/lib",
+    "src/platform/windows",
+    "tests"
+   ]
   }
  ]
 }

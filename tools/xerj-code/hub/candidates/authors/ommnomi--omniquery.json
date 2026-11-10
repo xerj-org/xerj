@@ -16,8 +16,20 @@
     "by": "author-consent",
     "at": "2026-10-20T08:16Z",
     "consent_receipt": "b496c56b76af",
-    "note": "Inclusion consented by the commit author by email at 2026-10-20T08:16Z (receipt b496c56b76af); selected commit b207e313a444: \"feat(ui): redesign light frappe cards, multi-draft support, response \u2026\". LICENSE file at pin b207e313a444 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-20T08:16Z (receipt b496c56b76af); selected commit b207e313a444: \"feat(ui): redesign light frappe cards, multi-draft support, response \u2026\". LICENSE file at pin b207e313a444 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @OmmNoMi, who has not added it."
+   },
+   "paths": [
+    "omniquery/api",
+    "omniquery/desktop_icon",
+    "omniquery/omniquery/doctype/omniquery_template",
+    "omniquery/public/dist",
+    "omniquery/public/pwa",
+    "omniquery/services",
+    "omniquery/tests",
+    "omniquery/workspace_sidebar",
+    "omniquery/www",
+    "src"
+   ]
   }
  ]
 }

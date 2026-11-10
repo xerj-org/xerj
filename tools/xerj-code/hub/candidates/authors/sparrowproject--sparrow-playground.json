@@ -16,8 +16,16 @@
     "by": "author-consent",
     "at": "2026-10-20T15:11Z",
     "consent_receipt": "b263a7713ade",
-    "note": "Inclusion consented by the commit author by email at 2026-10-20T15:11Z (receipt b263a7713ade); selected commit 6fa8ca4b8913: \"simplify and improve tab system animations\". LICENSE file at pin 6fa8ca4b8913 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-20T15:11Z (receipt b263a7713ade); selected commit 6fa8ca4b8913: \"simplify and improve tab system animations\". LICENSE file at pin 6fa8ca4b8913 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @sparrowproject, who has not added it."
+   },
+   "paths": [
+    "SparrowBrowser/Sources/SparrowProfiles",
+    "SparrowBrowser/Sources/SparrowTabs",
+    "SparrowBrowser/Sources/SparrowTabsUI/TopTabs",
+    "SparrowBrowser/Sources/SparrowWindow",
+    "SparrowBrowser/Sources/SparrowWindowManager",
+    "SparrowUI/Sources/SparrowUICore"
+   ]
   }
  ]
 }

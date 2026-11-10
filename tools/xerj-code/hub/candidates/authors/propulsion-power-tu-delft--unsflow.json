@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-10-31T09:17Z",
     "consent_receipt": "084b379ec601",
-    "note": "Inclusion consented by the commit author by email at 2026-10-31T09:17Z (receipt 084b379ec601); selected commit 9fda83baae99: \"added senoo from gemini\". LICENSE file at pin 9fda83baae99 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T09:17Z (receipt 084b379ec601); selected commit 9fda83baae99: \"added senoo from gemini\". LICENSE file at pin 9fda83baae99 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Propulsion-Power-TU-Delft, who has not added it."
+   },
+   "paths": [
+    "docs",
+    "src/unsflow/senoo",
+    "testcases/senoo"
+   ]
   }
  ]
 }

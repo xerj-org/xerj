@@ -16,8 +16,11 @@
     "by": "author-consent",
     "at": "2026-10-19T10:44Z",
     "consent_receipt": "4f10dbf12c31",
-    "note": "Inclusion consented by the commit author by email at 2026-10-19T10:44Z (receipt 4f10dbf12c31); selected commit 452dec253284: \"feat(playlsits, queue(just started))\". LICENSE at pin 452dec253284: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-19T10:44Z (receipt 4f10dbf12c31); selected commit 452dec253284: \"feat(playlsits, queue(just started))\". LICENSE at pin 452dec253284: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @AvalonixPlayer, who has not added it."
+   },
+   "paths": [
+    "src"
+   ]
   }
  ]
 }

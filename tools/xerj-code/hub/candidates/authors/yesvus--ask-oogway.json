@@ -1,0 +1,23 @@
+{
+ "corpus": "yesvus--ask-oogway",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, cli, coding-agents queries this for how yesvus/ask-oogway implements it: Get a second opinion from stronger models in coding-agent workflows (selected work: tests, src/ask_oogway)",
+ "repos": [
+  {
+   "repo": "ask-oogway",
+   "url": "https://github.com/yesvus/ask-oogway",
+   "sha": "83054d6c12ada5c1e8288cc9acb25febba854e08",
+   "licence": "MIT (LICENSE file at pin 83054d6c12ad, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-14T19:28Z",
+    "consent_receipt": "6da3b81bca14",
+    "note": "Inclusion consented by the commit author by email at 2026-10-14T19:28Z (receipt 6da3b81bca14); selected commit 83054d6c12ad: \"Add an OpenAI-compatible provider\". LICENSE file at pin 83054d6c12ad detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

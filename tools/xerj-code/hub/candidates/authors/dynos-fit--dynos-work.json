@@ -1,0 +1,30 @@
+{
+ "corpus": "dynos-fit--dynos-work",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-coding, autofix, claude queries this for how dynos-fit/dynos-work implements it: A Claude Code plugin that checks its own work, learns from mistakes, and fixes your code while you sleep (selected work: tests, hooks, the project root)",
+ "repos": [
+  {
+   "repo": "dynos-work",
+   "url": "https://github.com/dynos-fit/dynos-work",
+   "sha": "afa2c701861c2af95f10b39e7b269bae9e7a10e6",
+   "licence": "MIT (LICENSE file at pin afa2c701861c, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-19T05:44Z",
+    "consent_receipt": "1b8cd367bc49",
+    "note": "Inclusion consented by the commit author by email at 2026-10-19T05:44Z (receipt 1b8cd367bc49); selected commit afa2c701861c: \"Make the research validator host-aware so Codex is not blocked foreve\u2026\". LICENSE file at pin afa2c701861c detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @dynos-fit, who has not added it."
+   },
+   "paths": [
+    ".claude-plugin",
+    ".codex-plugin",
+    "docs",
+    "hooks",
+    "tests"
+   ]
+  }
+ ]
+}

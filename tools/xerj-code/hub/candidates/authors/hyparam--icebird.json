@@ -1,0 +1,27 @@
+{
+ "corpus": "hyparam--icebird",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on hyparquet, iceberg, javascript queries this for how hyparam/icebird implements it: Icebird: JavaScript Iceberg Client (selected work: src/write, test, src)",
+ "repos": [
+  {
+   "repo": "icebird",
+   "url": "https://github.com/hyparam/icebird",
+   "sha": "7984fe34ccc1a396c0267fa64c286b530b769d7d",
+   "licence": "MIT (LICENSE file at pin 7984fe34ccc1, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-20T09:29Z",
+    "consent_receipt": "9e48e3580ec6",
+    "note": "Inclusion consented by the commit author by email at 2026-10-20T09:29Z (receipt 9e48e3580ec6); selected commit 7984fe34ccc1: \"Add icebergUpsert (#60)\". LICENSE file at pin 7984fe34ccc1 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @hyparam, who has not added it."
+   },
+   "paths": [
+    "src",
+    "test/write"
+   ]
+  }
+ ]
+}

@@ -16,8 +16,21 @@
     "by": "author-consent",
     "at": "2026-10-09T16:30Z",
     "consent_receipt": "34eeea4b6388",
-    "note": "Inclusion consented by the commit author by email at 2026-10-09T16:30Z (receipt 34eeea4b6388); selected commit 15910e3b4026: \"fix: literal colon in path \u2014 Google AIP-136 custom methods (#21) (#22)\". LICENSE file at pin 15910e3b4026 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-09T16:30Z (receipt 34eeea4b6388); selected commit 15910e3b4026: \"fix: literal colon in path \u2014 Google AIP-136 custom methods (#21) (#22)\". LICENSE file at pin 15910e3b4026 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @coregx, who has not added it."
+   },
+   "paths": [
+    "examples/06-opentelemetry",
+    "examples/07-sse-notifications",
+    "examples/08-websocket-chat",
+    "examples/09-rest-api-with-db",
+    "examples/validation/01-basic",
+    "examples/validation/02-rest-api-crud",
+    "examples/validation/03-custom-validator",
+    "examples/validation/04-nested-structs",
+    "examples/validation/05-custom-messages",
+    "examples/validation/06-production",
+    "internal/radix"
+   ]
   }
  ]
 }

@@ -8,16 +8,24 @@
   {
    "repo": "woocommerce-gateway-stripe",
    "url": "https://github.com/woocommerce/woocommerce-gateway-stripe",
-   "sha": "2c94ad160298e64b773493e924addcbfb95ef50c",
-   "licence": "GPL-3.0 (LICENSE file at pin 2c94ad160298, GitHub licence API 2026-11-10)",
+   "sha": "47d463272585918673b4affebca35434df2f52f6",
+   "licence": "GPL-3.0 (LICENSE file at pin 47d463272585, GitHub licence API 2026-11-10)",
    "review": {
     "spdx": "GPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-22T10:05Z",
     "consent_receipt": "75dccb62dc2d",
-    "note": "Inclusion consented by the commit author by email at 2026-10-22T10:05Z (receipt 75dccb62dc2d); selected commit 2c94ad160298: \"Avoid overwriting Agentic Commerce add-on toggles after a failed sett\u2026\". LICENSE file at pin 2c94ad160298 detected as GPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution. Pinned to head 2c94ad160298 (contains the selected commit): the LICENSE at the selected commit was NONE."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-22T10:05Z (receipt 75dccb62dc2d); selected commit 47d463272585: \"Avoid overwriting Agentic Commerce add-on toggles after a failed sett\u2026\". LICENSE file at pin 47d463272585 detected as GPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution. Pinned to head 47d463272585 (contains the selected commit): the LICENSE at the selected commit was NONE. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @woocommerce, who has not added it."
+   },
+   "paths": [
+    "client/blocks/express-checkout",
+    "client/express-checkout/utils",
+    "client/settings/agentic-commerce",
+    "client/settings/save-settings-section",
+    "client/settings/settings-manager",
+    "tests/e2e/utils"
+   ]
   }
  ]
 }

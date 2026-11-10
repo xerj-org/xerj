@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-10-11T12:07Z",
     "consent_receipt": "806188360ff6",
-    "note": "Inclusion consented by the commit author by email at 2026-10-11T12:07Z (receipt 806188360ff6); selected commit f990b3a1b08e: \"feat(install): reinstall renders fresh, counts removals, names the fix\". LICENSE file at pin f990b3a1b08e detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-11T12:07Z (receipt 806188360ff6); selected commit f990b3a1b08e: \"feat(install): reinstall renders fresh, counts removals, names the fix\". LICENSE file at pin f990b3a1b08e detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @rubakas, who has not added it."
+   },
+   "paths": [
+    "agent_notes/commands",
+    "agent_notes/services",
+    "tests/functional/commands"
+   ]
   }
  ]
 }

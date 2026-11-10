@@ -1,0 +1,23 @@
+{
+ "corpus": "ehsan-roohi--historical-aircraft-llm",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TeX queries this for how Ehsan-Roohi/historical-aircraft-llm implements it: Versioned historical-constraint aircraft design study: model proposals, geometry audits, and conditional flight-mechanics calculations. Rese",
+ "repos": [
+  {
+   "repo": "historical-aircraft-llm",
+   "url": "https://github.com/Ehsan-Roohi/historical-aircraft-llm",
+   "sha": "1aef239d5cf21b993745f6ca81a1a35e338b0b65",
+   "licence": "author's permission (LICENSE at pin 1aef239d5cf2: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T21:31Z",
+    "consent_receipt": "fc8b8c0ddf1b",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T21:31Z (receipt fc8b8c0ddf1b); pinned to the default-branch head. LICENSE at pin 1aef239d5cf2: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

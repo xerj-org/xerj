@@ -16,8 +16,23 @@
     "by": "author-consent",
     "at": "2026-10-31T03:02Z",
     "consent_receipt": "1e0a6090de72",
-    "note": "Inclusion consented by the commit author by email at 2026-10-31T03:02Z (receipt 1e0a6090de72); selected commit 1791fc190a8e: \"Fix select * is not supported for associated query (#39131)\". LICENSE file at pin 1791fc190a8e detected as Apache-2.0 by the GitHub licence API on 2026-10-31; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T03:02Z (receipt 1e0a6090de72); selected commit 1791fc190a8e: \"Fix select * is not supported for associated query (#39131)\". LICENSE file at pin 1791fc190a8e detected as Apache-2.0 by the GitHub licence API on 2026-10-31; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @apache, who has not added it."
+   },
+   "paths": [
+    "infra/binder/core/src/main/java/org/apache/shardingsphere/infra/binder/context/segment/select/projection",
+    "jdbc/src/main/java/org/apache/shardingsphere/driver/jdbc/core/resultset",
+    "jdbc/src/test/java/org/apache/shardingsphere/driver",
+    "proxy/backend/core/src/main/java/org/apache/shardingsphere/proxy/backend/connector",
+    "proxy/backend/core/src/main/java/org/apache/shardingsphere/proxy/backend/response/header/query",
+    "proxy/backend/core/src/test/java/org/apache/shardingsphere/proxy/backend/response/header/query",
+    "proxy/frontend/dialect/firebird/src/main/java/org/apache/shardingsphere/proxy/frontend/firebird/command/query/statement/prepare",
+    "proxy/frontend/dialect/firebird/src/test/java/org/apache/shardingsphere/proxy/frontend/firebird/command/query/statement/prepare",
+    "proxy/frontend/dialect/mysql/src/main/java/org/apache/shardingsphere/proxy/frontend/mysql/command/query/binary/prepare",
+    "proxy/frontend/dialect/mysql/src/test/java/org/apache/shardingsphere/proxy/frontend/mysql/command/query/binary/prepare",
+    "proxy/frontend/dialect/postgresql/src/main/java/org/apache/shardingsphere/proxy/frontend/postgresql/command/query/extended/describe",
+    "proxy/frontend/dialect/postgresql/src/test/java/org/apache/shardingsphere/proxy/frontend/postgresql/command/query/extended/describe",
+    "test/e2e/sql/src/test/resources/cases/dql"
+   ]
   }
  ]
 }

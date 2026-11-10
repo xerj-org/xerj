@@ -16,8 +16,14 @@
     "by": "author-consent",
     "at": "2026-10-30T23:16Z",
     "consent_receipt": "b76b0a489a94",
-    "note": "Inclusion consented by the commit author by email at 2026-10-30T23:16Z (receipt b76b0a489a94); selected commit 56dfd12516c4: \"feat: integrate Sarvam AI speech-to-text service and update voice rep\u2026\". LICENSE file at pin 56dfd12516c4 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T23:16Z (receipt b76b0a489a94); selected commit 56dfd12516c4: \"feat: integrate Sarvam AI speech-to-text service and update voice rep\u2026\". LICENSE file at pin 56dfd12516c4 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @zeniqen, who has not added it."
+   },
+   "paths": [
+    "docs",
+    "src/app/api/speech-to-text",
+    "src/components/farmer",
+    "src/lib"
+   ]
   }
  ]
 }

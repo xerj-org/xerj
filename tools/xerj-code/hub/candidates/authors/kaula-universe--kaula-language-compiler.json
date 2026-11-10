@@ -1,0 +1,32 @@
+{
+ "corpus": "kaula-universe--kaula-language-compiler",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Go queries this for how kaula-universe/Kaula_language_compiler implements it: Kaula\u8bed\u8a00\u662f\u4e00\u6b3e\u4ee5C\u4e3a\u57fa\u7840\u5f00\u53d1\u7684\u73b0\u4ee3\u7f16\u7a0b\u8bed\u8a00 (selected work: compiler, test)",
+ "repos": [
+  {
+   "repo": "Kaula_language_compiler",
+   "url": "https://github.com/kaula-universe/Kaula_language_compiler",
+   "sha": "ee4eba4312309833d7741155e36fe28e8f15238e",
+   "licence": "Apache-2.0 (LICENSE file at pin ee4eba431230, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-22T22:28Z",
+    "consent_receipt": "f6e194d0318d",
+    "note": "Inclusion consented by the commit author by email at 2026-10-22T22:28Z (receipt f6e194d0318d); selected commit ee4eba431230: \"feat(prefix): \u53d8\u53c2 $( $x ),* \u5339\u914d\u4e0e\u91cd\u590d\u5c55\u5f00\uff08Task #3\uff09\". LICENSE file at pin ee4eba431230 detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @kaula-universe, who has not added it."
+   },
+   "paths": [
+    "compiler/internal/ast",
+    "compiler/internal/astutil",
+    "compiler/internal/codegen",
+    "compiler/internal/parser",
+    "compiler/internal/sema",
+    "docs/tutorials",
+    "test"
+   ]
+  }
+ ]
+}

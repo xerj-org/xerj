@@ -1,0 +1,27 @@
+{
+ "corpus": "windows-gpu-unlock--windows-gpu-unlock",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how windows-GPU-UNLOCK/Windows-GPU-UNLOCK implements it: Windows GPU UNLOCK: RTX3090 UEFI port, Korean no-reset Windows boot guide, verified source and benchmark evidence (selected work: research)",
+ "repos": [
+  {
+   "repo": "Windows-GPU-UNLOCK",
+   "url": "https://github.com/windows-GPU-UNLOCK/Windows-GPU-UNLOCK",
+   "sha": "aba2690d86dca5136c8785a0971b7e78d3f74bf3",
+   "licence": "GPL-2.0 (LICENSE file at pin aba2690d86dc, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-10T21:50Z",
+    "consent_receipt": "70ad3051124f",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T21:50Z (receipt 70ad3051124f); selected commit aba2690d86dc: \"feat(evidence): package offline capture checks and reported outcomes\". LICENSE file at pin aba2690d86dc detected as GPL-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @windows-GPU-UNLOCK, who has not added it."
+   },
+   "paths": [
+    "docs",
+    "research/profile"
+   ]
+  }
+ ]
+}

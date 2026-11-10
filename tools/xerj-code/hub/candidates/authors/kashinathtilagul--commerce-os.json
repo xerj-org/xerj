@@ -1,0 +1,23 @@
+{
+ "corpus": "kashinathtilagul--commerce-os",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how KashinathTilagul/commerce-os implements it: KashinathTilagul/commerce-os (TypeScript) (selected work: the project root, apps/frontend, scripts)",
+ "repos": [
+  {
+   "repo": "commerce-os",
+   "url": "https://github.com/KashinathTilagul/commerce-os",
+   "sha": "b0ffb4ca22116c68f6fb1de56dba2ba47ab19509",
+   "licence": "MIT (LICENSE file at pin b0ffb4ca2211, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T14:43Z",
+    "consent_receipt": "b84412846ed2",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T14:43Z (receipt b84412846ed2); selected commit b0ffb4ca2211: \"fix: prepare Commerce OS for open-source Hostinger & Docker self-hosting\". LICENSE file at pin b0ffb4ca2211 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

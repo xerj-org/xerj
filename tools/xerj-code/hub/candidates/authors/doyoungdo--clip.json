@@ -1,0 +1,23 @@
+{
+ "corpus": "doyoungdo--clip",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on clipborad, copy, group queries this for how DoYoungDo/clip implements it: A small and beautiful tool for clipboard history (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "clip",
+   "url": "https://github.com/DoYoungDo/clip",
+   "sha": "6fb31b1b7e1fc4b378a0c4a966dc405e2c5d0f54",
+   "licence": "GPL-3.0 (LICENSE file at pin 6fb31b1b7e1f, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-13T02:31Z",
+    "consent_receipt": "a70d252b2b14",
+    "note": "Inclusion consented by the commit author by email at 2026-10-13T02:31Z (receipt a70d252b2b14); selected commit 6fb31b1b7e1f: \"fix: \u6d88\u9664\u56fe\u7247\u54c8\u5e0c\u91cd\u590d\u8ba1\u7b97\u5bfc\u81f4\u7684\u76d1\u542c\u5ef6\u8fdf\". LICENSE file at pin 6fb31b1b7e1f detected as GPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

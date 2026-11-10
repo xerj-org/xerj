@@ -1,0 +1,23 @@
+{
+ "corpus": "ehsan-roohi--pinns-dvm",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how Ehsan-Roohi/PINNs-DVM implements it: Field-data-free neural kinetic shock solvers: BGK and Shakhov PINNs, characteristic corrections, DVM evaluation and reproducible saved resul",
+ "repos": [
+  {
+   "repo": "PINNs-DVM",
+   "url": "https://github.com/Ehsan-Roohi/PINNs-DVM",
+   "sha": "d5687b928c1ee5abe789f6227b51849ed33f88ab",
+   "licence": "author's permission (LICENSE at pin d5687b928c1e: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T21:31Z",
+    "consent_receipt": "91ec805730af",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T21:31Z (receipt 91ec805730af); pinned to the default-branch head. LICENSE at pin d5687b928c1e: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

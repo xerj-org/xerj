@@ -1,0 +1,23 @@
+{
+ "corpus": "mjmajlesi--medino",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on css, django-rest-framework, graphify queries this for how mjmajlesi/Medino implements it: Medino is a Persian medical education application with lesson browsing, resource uploads, moderation, and student accounts (selected work: frontend)",
+ "repos": [
+  {
+   "repo": "Medino",
+   "url": "https://github.com/mjmajlesi/Medino",
+   "sha": "0119bc54feefc0f824d36a70736296141dc19739",
+   "licence": "MIT (LICENSE file at pin 0119bc54feef, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-26T00:44Z",
+    "consent_receipt": "c8bc40ee11d8",
+    "note": "Inclusion consented by the commit author by email at 2026-10-26T00:44Z (receipt c8bc40ee11d8); selected commit 0119bc54feef: \"feat(frontend): staff user management page, contract docs (TASK-23)\". LICENSE file at pin 0119bc54feef detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

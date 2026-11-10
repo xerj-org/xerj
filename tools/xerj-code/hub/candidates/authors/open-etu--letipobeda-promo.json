@@ -16,8 +16,16 @@
     "by": "author-consent",
     "at": "2026-10-26T19:49Z",
     "consent_receipt": "c1e6558cf339",
-    "note": "Inclusion consented by the commit author by email at 2026-10-26T19:49Z (receipt c1e6558cf339); selected commit 686775a6a855: \"Speed up initial rendering and refresh news in Cloud Functions\". LICENSE file at pin 686775a6a855 detected as MIT by the GitHub licence API on 2026-10-26; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-26T19:49Z (receipt c1e6558cf339); selected commit 686775a6a855: \"Speed up initial rendering and refresh news in Cloud Functions\". LICENSE file at pin 686775a6a855 detected as MIT by the GitHub licence API on 2026-10-26; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Open-ETU, who has not added it."
+   },
+   "paths": [
+    ".github/workflows",
+    "docs",
+    "frontend",
+    "functions/news",
+    "infra/terraform",
+    "scripts"
+   ]
   }
  ]
 }

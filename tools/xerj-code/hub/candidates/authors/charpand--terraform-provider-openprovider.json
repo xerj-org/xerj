@@ -16,8 +16,16 @@
     "by": "author-consent",
     "at": "2026-10-16T06:19Z",
     "consent_receipt": "ccff0fb0c3f3",
-    "note": "Inclusion consented by the commit author by email at 2026-10-16T06:19Z (receipt ccff0fb0c3f3); selected commit 3de952c79ff4: \"feat: create, import and manage contacts\". LICENSE file at pin 3de952c79ff4 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-16T06:19Z (receipt ccff0fb0c3f3); selected commit 3de952c79ff4: \"feat: create, import and manage contacts\". LICENSE file at pin 3de952c79ff4 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @charpand, who has not added it."
+   },
+   "paths": [
+    "docs/data-sources",
+    "docs/resources",
+    "examples/resources/openprovider_contact",
+    "internal/client/contacts",
+    "internal/provider",
+    "templates/docs/resources"
+   ]
   }
  ]
 }

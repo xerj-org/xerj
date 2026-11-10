@@ -16,8 +16,20 @@
     "by": "author-consent",
     "at": "2026-10-18T08:06Z",
     "consent_receipt": "20296f304cf2",
-    "note": "Inclusion consented by the commit author by email at 2026-10-18T08:06Z (receipt 20296f304cf2); selected commit ffe8daff2b22: \"feat(publishing): schedule bilingual drafts with verified server support\". LICENSE file at pin ffe8daff2b22 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-18T08:06Z (receipt 20296f304cf2); selected commit ffe8daff2b22: \"feat(publishing): schedule bilingual drafts with verified server support\". LICENSE file at pin ffe8daff2b22 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @KeyFlow-me, who has not added it."
+   },
+   "paths": [
+    "dist/commands",
+    "dist/guide",
+    "dist/keyflow-api",
+    "dist/post",
+    "specifications/features",
+    "src/commands",
+    "src/guide",
+    "src/keyflow-api",
+    "src/post",
+    "tests"
+   ]
   }
  ]
 }

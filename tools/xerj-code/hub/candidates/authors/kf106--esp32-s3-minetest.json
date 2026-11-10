@@ -1,0 +1,23 @@
+{
+ "corpus": "kf106--esp32-s3-minetest",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how kf106/esp32-s3-minetest implements it: A simple Luanti-compatible server running on an ESP32 S3 Waveshare development board (selected work: src)",
+ "repos": [
+  {
+   "repo": "esp32-s3-minetest",
+   "url": "https://github.com/kf106/esp32-s3-minetest",
+   "sha": "a8fb3b4c1494112298491fad37fd5f69e1d9dd2a",
+   "licence": "MIT (LICENSE file at pin a8fb3b4c1494, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-24T07:40Z",
+    "consent_receipt": "195f6e6268e0",
+    "note": "Inclusion consented by the commit author by email at 2026-10-24T07:40Z (receipt 195f6e6268e0); selected commit a8fb3b4c1494: \"Ores and tools, falling nodes, ground blocks, flowers, dyes and wool\". LICENSE file at pin a8fb3b4c1494 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

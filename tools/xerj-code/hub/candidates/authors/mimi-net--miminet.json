@@ -1,0 +1,29 @@
+{
+ "corpus": "mimi-net--miminet",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on arp, course, education queries this for how mimi-net/miminet implements it: \u23e9 \u041f\u0435\u0440\u0435\u0435\u0445\u0430\u043b\u0438: https://sourcecraft.dev/miminet/miminet (selected work: front)",
+ "repos": [
+  {
+   "repo": "miminet",
+   "url": "https://github.com/mimi-net/miminet",
+   "sha": "436660fd3ff28ec4e75a1ea24d4e2e36f3f8534f",
+   "licence": "Apache-2.0 (LICENSE file at pin 436660fd3ff2, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-14T18:55Z",
+    "consent_receipt": "f2be99b65f90",
+    "note": "Inclusion consented by the commit author by email at 2026-10-14T18:55Z (receipt f2be99b65f90); selected commit 436660fd3ff2: \"fix(quiz): grade theory answers by answer id so browser translation d\u2026\". LICENSE file at pin 436660fd3ff2 detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @mimi-net, who has not added it."
+   },
+   "paths": [
+    "front/src/quiz/service",
+    "front/src/quiz/util",
+    "front/src/static/quiz",
+    "front/tests"
+   ]
+  }
+ ]
+}

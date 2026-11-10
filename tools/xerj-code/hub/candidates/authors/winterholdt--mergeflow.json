@@ -1,0 +1,23 @@
+{
+ "corpus": "winterholdt--mergeflow",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how Winterholdt/MergeFlow implements it: Winterholdt/MergeFlow (Python) (selected work: core)",
+ "repos": [
+  {
+   "repo": "MergeFlow",
+   "url": "https://github.com/Winterholdt/MergeFlow",
+   "sha": "57ba6b43721afa278c2065164e8a55221ee4e269",
+   "licence": "MIT (LICENSE file at pin 57ba6b43721a, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T10:52Z",
+    "consent_receipt": "913c1f72f02d",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T10:52Z (receipt 913c1f72f02d); selected commit 57ba6b43721a: \"feat(skills): integrate skills placeholder and prompt generators acro\u2026\". LICENSE file at pin 57ba6b43721a detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

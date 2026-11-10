@@ -16,8 +16,11 @@
     "by": "author-consent",
     "at": "2026-11-10T09:42Z",
     "consent_receipt": "4f50ee4a715f",
-    "note": "Inclusion consented by the commit author by email at 2026-11-10T09:42Z (receipt 4f50ee4a715f); selected commit 57849bb48caa: \"feat: add FSRS-7 visualization support\". LICENSE file at pin 57849bb48caa detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T09:42Z (receipt 4f50ee4a715f); selected commit 57849bb48caa: \"feat: add FSRS-7 visualization support\". LICENSE file at pin 57849bb48caa detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @open-spaced-repetition, who has not added it."
+   },
+   "paths": [
+    "src"
+   ]
   }
  ]
 }

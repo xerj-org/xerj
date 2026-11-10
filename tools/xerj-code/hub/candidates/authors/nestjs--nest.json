@@ -16,8 +16,15 @@
     "by": "author-consent",
     "at": "2026-10-17T12:51Z",
     "consent_receipt": "616558ebb4b7",
-    "note": "Inclusion consented by the commit author by email at 2026-10-17T12:51Z (receipt 616558ebb4b7); selected commit c8923bd7c9a0: \"fix(express,fastify): parse quoted media type version parameters (#18\u2026\". LICENSE file at pin c8923bd7c9a0 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-17T12:51Z (receipt 616558ebb4b7); selected commit c8923bd7c9a0: \"fix(express,fastify): parse quoted media type version parameters (#18\u2026\". LICENSE file at pin c8923bd7c9a0 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @nestjs, who has not added it."
+   },
+   "paths": [
+    "integration/versioning/e2e",
+    "packages/platform-express/adapters/utils",
+    "packages/platform-express/test/adapters/utils",
+    "packages/platform-fastify/adapters/utils",
+    "packages/platform-fastify/test/adapters/utils"
+   ]
   }
  ]
 }

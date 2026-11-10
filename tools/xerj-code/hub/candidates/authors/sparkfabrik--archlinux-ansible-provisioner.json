@@ -16,8 +16,14 @@
     "by": "author-consent",
     "at": "2026-11-09T21:54Z",
     "consent_receipt": "f16f9ac5fb20",
-    "note": "Inclusion consented by the commit author by email at 2026-11-09T21:54Z (receipt f16f9ac5fb20); selected commit db02f227f785: \"fix(sf-toolbox): install the node.js runtime per distribution (#279)\". LICENSE file at pin db02f227f785 detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T21:54Z (receipt f16f9ac5fb20); selected commit db02f227f785: \"fix(sf-toolbox): install the node.js runtime per distribution (#279)\". LICENSE file at pin db02f227f785 detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @sparkfabrik, who has not added it."
+   },
+   "paths": [
+    ".github/workflows",
+    "bin",
+    "playbooks",
+    "tests"
+   ]
   }
  ]
 }

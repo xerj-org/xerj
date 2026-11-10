@@ -1,0 +1,23 @@
+{
+ "corpus": "yudopr11--ayodance-texture-tools",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how yudopr11/ayodance-texture-tools implements it: Tools to unpack, upscale, and repack AyoDance ACV textures, with \u2502 verified texture reuse and an experimental Direct3D 9 renderer \u2502 shim (selected work: tests, acv_tools)",
+ "repos": [
+  {
+   "repo": "ayodance-texture-tools",
+   "url": "https://github.com/yudopr11/ayodance-texture-tools",
+   "sha": "55bbc390b3ce487fdec42dac9fa09a38174f3023",
+   "licence": "MIT (LICENSE file at pin 55bbc390b3ce, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T02:48Z",
+    "consent_receipt": "6cbf94d5ed98",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T02:48Z (receipt 6cbf94d5ed98); selected commit 55bbc390b3ce: \"Add verified texture reuse and streamline public documentation\". LICENSE file at pin 55bbc390b3ce detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Pinned to head 55bbc390b3ce (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

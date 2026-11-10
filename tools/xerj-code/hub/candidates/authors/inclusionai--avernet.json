@@ -16,8 +16,23 @@
     "by": "author-consent",
     "at": "2026-10-11T09:07Z",
     "consent_receipt": "d8d8f866b877",
-    "note": "Inclusion consented by the commit author by email at 2026-10-11T09:07Z (receipt d8d8f866b877); selected commit 5d2e0fff9e76: \"feat(backend): auto-approve new bot editor requests by owner policy (\u2026\". LICENSE file at pin 5d2e0fff9e76 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-11T09:07Z (receipt d8d8f866b877); selected commit 5d2e0fff9e76: \"feat(backend): auto-approve new bot editor requests by owner policy (\u2026\". LICENSE file at pin 5d2e0fff9e76 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @inclusionAI, who has not added it."
+   },
+   "paths": [
+    "apps/backend/src/agentclaw/community/adapters/http/bot_management",
+    "apps/backend/src/agentclaw/community/adapters/http/openapi_v1",
+    "apps/backend/src/agentclaw/community/core/repository/implementations/work_orders",
+    "apps/backend/src/agentclaw/community/core/repository/protocols",
+    "apps/backend/src/agentclaw/community/core/work_orders",
+    "apps/backend/tests/community/adapters/http/openapi_v1",
+    "apps/backend/tests/community/api/bot_management",
+    "apps/backend/tests/community/core/repository/implementations",
+    "apps/backend/tests/community/core/work_orders",
+    "apps/backend/tests/community/endpoints",
+    "scripts/k8s-tests/avernet",
+    "src/baas/src/secbaas/community/plugins/sandbox/arca/local_k8s",
+    "src/baas/tests/unit/plugins/sandbox/arca/local_k8s"
+   ]
   }
  ]
 }

@@ -1,0 +1,23 @@
+{
+ "corpus": "eaoui--semantta",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how eaoui/semantta implements it: An Ontology-Based Linked Data Management System (selected work: backend, frontend)",
+ "repos": [
+  {
+   "repo": "semantta",
+   "url": "https://github.com/eaoui/semantta",
+   "sha": "d6f870e9f1d01d52960f7a4a30df4a8dbadc28ca",
+   "licence": "GPL-3.0 (LICENSE file at pin d6f870e9f1d0, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-25T15:03Z",
+    "consent_receipt": "aec7f825359d",
+    "note": "Inclusion consented by the commit author by email at 2026-10-25T15:03Z (receipt aec7f825359d); selected commit d6f870e9f1d0: \"Generate display prefixes for unmapped ontology namespaces\". LICENSE file at pin d6f870e9f1d0 detected as GPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

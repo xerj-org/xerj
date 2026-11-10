@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-10-14T01:34Z",
     "consent_receipt": "e3052cd70092",
-    "note": "Inclusion consented by the commit author by email at 2026-10-14T01:34Z (receipt e3052cd70092); selected commit 178e4d2fdb4e: \"[Feature][MRV2] Align spec-decode draft LM head with lmhead TP (#15079)\". LICENSE file at pin 178e4d2fdb4e detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-14T01:34Z (receipt e3052cd70092); selected commit 178e4d2fdb4e: \"[Feature][MRV2] Align spec-decode draft LM head with lmhead TP (#15079)\". LICENSE file at pin 178e4d2fdb4e detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @vllm-project, who has not added it."
+   },
+   "paths": [
+    "tests/ut/spec_decode",
+    "tests/ut/worker",
+    "vllm_ascend"
+   ]
   }
  ]
 }

@@ -16,8 +16,16 @@
     "by": "author-consent",
     "at": "2026-11-03T21:21Z",
     "consent_receipt": "7147df8de65b",
-    "note": "Inclusion consented by the commit author by email at 2026-11-03T21:21Z (receipt 7147df8de65b); selected commit 624485095a9b: \"feat(argon2id): add async native Argon2id KDF for wallet Envelope 3\". LICENSE file at pin 624485095a9b detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T21:21Z (receipt 7147df8de65b); selected commit 624485095a9b: \"feat(argon2id): add async native Argon2id KDF for wallet Envelope 3\". LICENSE file at pin 624485095a9b detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @ConcealNetwork, who has not added it."
+   },
+   "paths": [
+    "android",
+    "cpp",
+    "doc",
+    "nitrogen/generated/shared/c++",
+    "src/specs",
+    "test"
+   ]
   }
  ]
 }

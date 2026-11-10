@@ -1,0 +1,23 @@
+{
+ "corpus": "teacherevan--shapekeeper",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how TeacherEvan/ShapeKeeper implements it: TeacherEvan/ShapeKeeper (JavaScript) (selected work: convex, src/ui, convex-client)",
+ "repos": [
+  {
+   "repo": "ShapeKeeper",
+   "url": "https://github.com/TeacherEvan/ShapeKeeper",
+   "sha": "8a4e0a9cbb3e94f15889e32bc63e906b419fe7b7",
+   "licence": "MIT (LICENSE file at pin 8a4e0a9cbb3e, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-19T11:04Z",
+    "consent_receipt": "b48ed9f9266f",
+    "note": "Inclusion consented by the commit author by email at 2026-10-19T11:04Z (receipt b48ed9f9266f); selected commit 8a4e0a9cbb3e: \"fix(lobby): resolve create, join, subscription and host auth lobby de\u2026\". LICENSE file at pin 8a4e0a9cbb3e detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

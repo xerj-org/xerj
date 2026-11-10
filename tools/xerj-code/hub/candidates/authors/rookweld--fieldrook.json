@@ -16,8 +16,17 @@
     "by": "author-consent",
     "at": "2026-10-30T22:12Z",
     "consent_receipt": "018006e6a4cf",
-    "note": "Inclusion consented by the commit author by email at 2026-10-30T22:12Z (receipt 018006e6a4cf); selected commit 842e4dca3a7e: \"feat(fieldrook): milestone 009 technician memory\". LICENSE file at pin 842e4dca3a7e detected as Apache-2.0 by the GitHub licence API on 2026-10-30; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T22:12Z (receipt 018006e6a4cf); selected commit 842e4dca3a7e: \"feat(fieldrook): milestone 009 technician memory\". LICENSE file at pin 842e4dca3a7e detected as Apache-2.0 by the GitHub licence API on 2026-10-30; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Rookweld, who has not added it."
+   },
+   "paths": [
+    "backend/app",
+    "backend/eval",
+    "backend/tests",
+    "docs/assets",
+    "docs/demo",
+    "frontend/src",
+    "frontend/tests/e2e"
+   ]
   }
  ]
 }

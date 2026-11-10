@@ -1,0 +1,23 @@
+{
+ "corpus": "heptau--typolima",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on typography, html, hugo queries this for how heptau/typolima implements it: \u2712\ufe0f\u2728Conservative typographic fixer for HTML, PHP, Markdown and text. Supports 30+ languages (CS, SK, PL, EN, FR, DE, VI, TR...) with smart qu (selected work: typolima, tests, the project root)",
+ "repos": [
+  {
+   "repo": "typolima",
+   "url": "https://github.com/heptau/typolima",
+   "sha": "fbc3aca31244035f13457f00849015e41a59d53e",
+   "licence": "MIT (LICENSE file at pin fbc3aca31244, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T19:24Z",
+    "consent_receipt": "533a80bf7a6f",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T19:24Z (receipt 533a80bf7a6f); selected commit fbc3aca31244: \"fix: do not break dotted titles, ISO dates, and identifiers (v1.3.1)\". LICENSE file at pin fbc3aca31244 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

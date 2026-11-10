@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-10-22T07:45Z",
     "consent_receipt": "dec8a85bd694",
-    "note": "Inclusion consented by the commit author by email at 2026-10-22T07:45Z (receipt dec8a85bd694); selected commit 164fdad740a7: \"website_mass_mailing_double_opt_in_nitrokey: add tests, remove dead o\u2026\". LICENSE file at pin 164fdad740a7 detected as AGPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-22T07:45Z (receipt dec8a85bd694); selected commit 164fdad740a7: \"website_mass_mailing_double_opt_in_nitrokey: add tests, remove dead o\u2026\". LICENSE file at pin 164fdad740a7 detected as AGPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Nitrokey, who has not added it."
+   },
+   "paths": [
+    "website_mass_mailing_double_opt_in_nitrokey/controllers",
+    "website_mass_mailing_double_opt_in_nitrokey/models",
+    "website_mass_mailing_double_opt_in_nitrokey/tests"
+   ]
   }
  ]
 }

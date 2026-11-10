@@ -1,0 +1,28 @@
+{
+ "corpus": "swappcloud--lilo",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on desktop-app, react, realtime-voice queries this for how swappcloud/lilo implements it: LILO \u2014 Listen In. Listen Out. A free, independent desktop interface for realtime voice services. Use your own provider accounts, run local c (selected work: app/src)",
+ "repos": [
+  {
+   "repo": "lilo",
+   "url": "https://github.com/swappcloud/lilo",
+   "sha": "3229a59925f6ac9f636729561ffe9c841fc48b77",
+   "licence": "GPL-3.0 (LICENSE file at pin 3229a59925f6, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-20T08:14Z",
+    "consent_receipt": "e5ab4c3d6b90",
+    "note": "Inclusion consented by the commit author by email at 2026-10-20T08:14Z (receipt e5ab4c3d6b90); selected commit 3229a59925f6: \"fix(chatgpt): stabilize reconnects and spoken captions\". LICENSE file at pin 3229a59925f6 detected as GPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @swappcloud, who has not added it."
+   },
+   "paths": [
+    "app/src/features/companion",
+    "app/src/providers/chatgpt",
+    "app/src/store"
+   ]
+  }
+ ]
+}

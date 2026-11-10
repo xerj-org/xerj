@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-11-06T13:34Z",
     "consent_receipt": "bafa393186ff",
-    "note": "Inclusion consented by the commit author by email at 2026-11-06T13:34Z (receipt bafa393186ff); selected commit 819e3b7db79e: \"INFERENG-11793: host pre-commit lint templates and package\". LICENSE file at pin 819e3b7db79e detected as Apache-2.0 by the GitHub licence API on 2026-11-06; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-11-06T13:34Z (receipt bafa393186ff); selected commit 819e3b7db79e: \"INFERENG-11793: host pre-commit lint templates and package\". LICENSE file at pin 819e3b7db79e detected as Apache-2.0 by the GitHub licence API on 2026-11-06; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @opendatahub-io, who has not added it."
+   },
+   "paths": [
+    "lint",
+    "script",
+    "templates"
+   ]
   }
  ]
 }

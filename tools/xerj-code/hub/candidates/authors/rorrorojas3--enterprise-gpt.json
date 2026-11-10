@@ -1,0 +1,23 @@
+{
+ "corpus": "rorrorojas3--enterprise-gpt",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on anthropic, azure, csharp queries this for how RorroRojas3/enterprise-gpt implements it: A full-stack AI chat application built with .NET 10 Web API backend and Angular 21 frontend. The application supports multiple AI service pr (selected work: enterprise-gpt-ui)",
+ "repos": [
+  {
+   "repo": "enterprise-gpt",
+   "url": "https://github.com/RorroRojas3/enterprise-gpt",
+   "sha": "be42e617172a89a2e960ce710ffe8ca9ecc6461e",
+   "licence": "MIT (LICENSE file at pin be42e617172a, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T04:03Z",
+    "consent_receipt": "039505e7509e",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T04:03Z (receipt 039505e7509e); selected commit be42e617172a: \"feat(ui): concurrent conversations and Andes accessibility fixes (#147)\". LICENSE file at pin be42e617172a detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

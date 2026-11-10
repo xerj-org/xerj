@@ -16,8 +16,15 @@
     "by": "author-consent",
     "at": "2026-10-18T19:07Z",
     "consent_receipt": "5d879c7368d0",
-    "note": "Inclusion consented by the commit author by email at 2026-10-18T19:07Z (receipt 5d879c7368d0); selected commit b02b8563bbd3: \"Finalize summary generation, MCQ logic, and Admin UI routes\". LICENSE file at pin b02b8563bbd3 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Pinned to head b02b8563bbd3 (contains the selected commit): the LICENSE at the selected commit was NONE."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-18T19:07Z (receipt 5d879c7368d0); selected commit b02b8563bbd3: \"Finalize summary generation, MCQ logic, and Admin UI routes\". LICENSE file at pin b02b8563bbd3 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Pinned to head b02b8563bbd3 (contains the selected commit): the LICENSE at the selected commit was NONE. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @springboardmentor4132x, who has not added it."
+   },
+   "paths": [
+    "backend/alembic/versions",
+    "backend/app/routers",
+    "backend/app/schemas",
+    "backend/app/services",
+    "frontend/src"
+   ]
   }
  ]
 }

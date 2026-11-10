@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-10-25T18:48Z",
     "consent_receipt": "5f8bdb70293b",
-    "note": "Inclusion consented by the commit author by email at 2026-10-25T18:48Z (receipt 5f8bdb70293b); selected commit 1d8e93baa1c0: \"feat: share OpenAI Codex's local memories with pi; release 0.4.0\". LICENSE file at pin 1d8e93baa1c0 detected as MIT by the GitHub licence API on 2026-10-26; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-25T18:48Z (receipt 5f8bdb70293b); selected commit 1d8e93baa1c0: \"feat: share OpenAI Codex's local memories with pi; release 0.4.0\". LICENSE file at pin 1d8e93baa1c0 detected as MIT by the GitHub licence API on 2026-10-26; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Sqowe, who has not added it."
+   },
+   "paths": [
+    "pi-extensions/codex-memory",
+    "src",
+    "webview-ui"
+   ]
   }
  ]
 }

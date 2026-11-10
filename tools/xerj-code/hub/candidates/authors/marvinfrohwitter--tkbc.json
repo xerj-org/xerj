@@ -1,0 +1,23 @@
+{
+ "corpus": "marvinfrohwitter--tkbc",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how MarvinFrohwitter/tkbc implements it: Team Kite Ballett Choreographer (selected work: src/choreographer, metaprogramming, the project root)",
+ "repos": [
+  {
+   "repo": "tkbc",
+   "url": "https://github.com/MarvinFrohwitter/tkbc",
+   "sha": "80d486255e27f372e88ab5c18f1b1c56809689f7",
+   "licence": "MIT (LICENSE file at pin 80d486255e27, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-26T19:27Z",
+    "consent_receipt": "e28ff8918c22",
+    "note": "Inclusion consented by the commit author by email at 2026-10-26T19:27Z (receipt e28ff8918c22); selected commit 80d486255e27: \"feat: Added script API header file as string to tcc compilation.\". LICENSE file at pin 80d486255e27 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

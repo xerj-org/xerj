@@ -16,8 +16,16 @@
     "by": "author-consent",
     "at": "2026-10-18T12:04Z",
     "consent_receipt": "c524cc0ad699",
-    "note": "Inclusion consented by the commit author by email at 2026-10-18T12:04Z (receipt c524cc0ad699); selected commit 9ddd318d2473: \"Update version to 0.1.15 and enhance project documentation\". LICENSE file at pin 9ddd318d2473 detected as MIT by the GitHub licence API on 2026-10-28; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-18T12:04Z (receipt c524cc0ad699); selected commit 9ddd318d2473: \"Update version to 0.1.15 and enhance project documentation\". LICENSE file at pin 9ddd318d2473 detected as MIT by the GitHub licence API on 2026-10-28; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @DevStackBox, who has not added it."
+   },
+   "paths": [
+    "docs",
+    "scripts",
+    "src",
+    "src-tauri",
+    "tools/mkcert",
+    "www"
+   ]
   }
  ]
 }

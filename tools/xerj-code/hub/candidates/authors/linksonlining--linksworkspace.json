@@ -1,0 +1,23 @@
+{
+ "corpus": "linksonlining--linksworkspace",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how LinksOnlining/LinksWorkspace implements it: LinksOnlining/LinksWorkspace (TypeScript) (selected work: tests, src-tauri, src/core)",
+ "repos": [
+  {
+   "repo": "LinksWorkspace",
+   "url": "https://github.com/LinksOnlining/LinksWorkspace",
+   "sha": "4e28219765f8b9709fe982f66cad6358539a8f4a",
+   "licence": "MIT (LICENSE file at pin 4e28219765f8, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-17T01:23Z",
+    "consent_receipt": "24b69c122dcf",
+    "note": "Inclusion consented by the commit author by email at 2026-10-17T01:23Z (receipt 24b69c122dcf); selected commit 4e28219765f8: \"fix: make period indexes authoritative for course times\". LICENSE file at pin 4e28219765f8 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

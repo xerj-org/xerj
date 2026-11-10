@@ -1,0 +1,23 @@
+{
+ "corpus": "dynooob--forensicspp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on browser-workbench, ctf, encoding queries this for how DyNooob/ForensicsPP implements it: Browser-local digital forensics workbench \u00b7 \u6d4f\u89c8\u5668\u53d6\u8bc1\u5de5\u4f5c\u53f0\uff0c\u652f\u6301\u5b8c\u6574\u79bb\u7ebf\u5206\u53d1 (selected work: src/components, src/tools, src/styles)",
+ "repos": [
+  {
+   "repo": "ForensicsPP",
+   "url": "https://github.com/DyNooob/ForensicsPP",
+   "sha": "f390e28eaecc9817de5b53bb86df888b2b539c0f",
+   "licence": "MIT (LICENSE file at pin f390e28eaecc, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-18T00:25Z",
+    "consent_receipt": "0f93f88ade03",
+    "note": "Inclusion consented by the commit author by email at 2026-10-18T00:25Z (receipt 0f93f88ade03); selected commit f390e28eaecc: \"feat: add clipboard imports and improve workbench usability\". LICENSE file at pin f390e28eaecc detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

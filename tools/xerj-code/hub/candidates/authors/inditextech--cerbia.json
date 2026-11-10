@@ -1,0 +1,26 @@
+{
+ "corpus": "inditextech--cerbia",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, ai-guardrails, ai-safety queries this for how InditexTech/cerbia implements it: A modular threat detection library for AI and LLM pipelines. It provides language-agnostic guardrails through a configurable pipeline of loa (selected work: examples, the project root)",
+ "repos": [
+  {
+   "repo": "cerbia",
+   "url": "https://github.com/InditexTech/cerbia",
+   "sha": "3283dceae55d6ac056ea27d45d2a6e099244c7fd",
+   "licence": "Apache-2.0 (LICENSE file at pin 3283dceae55d, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-17T08:20Z",
+    "consent_receipt": "3fd368ea4f8d",
+    "note": "Inclusion consented by the commit author by email at 2026-10-17T08:20Z (receipt 3fd368ea4f8d); selected commit 3283dceae55d: \"feat(examples): add langchain agent guardrail callback and example (#26)\". LICENSE file at pin 3283dceae55d detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @InditexTech, who has not added it."
+   },
+   "paths": [
+    "examples"
+   ]
+  }
+ ]
+}

@@ -16,8 +16,11 @@
     "by": "author-consent",
     "at": "2026-10-04T11:14Z",
     "consent_receipt": "c0448d3d87c9",
-    "note": "Inclusion consented by the commit author by email at 2026-10-04T11:14Z (receipt c0448d3d87c9); selected commit b1712de0e0e0: \"fix(ledger): correct certificate CBOR encoding and decoding (#2642)\". LICENSE file at pin b1712de0e0e0 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-04T11:14Z (receipt c0448d3d87c9); selected commit b1712de0e0e0: \"fix(ledger): correct certificate CBOR encoding and decoding (#2642)\". LICENSE file at pin b1712de0e0e0 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @blinklabs-io, who has not added it."
+   },
+   "paths": [
+    "ledger/common"
+   ]
   }
  ]
 }

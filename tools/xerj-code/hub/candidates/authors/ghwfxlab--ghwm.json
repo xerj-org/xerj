@@ -1,0 +1,30 @@
+{
+ "corpus": "ghwfxlab--ghwm",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on ci-cd, cli, github-actions queries this for how ghwfxlab/ghwm implements it: Install GitHub workflow files from a workflow marketplace (selected work: tests, src/ghwm, the project root)",
+ "repos": [
+  {
+   "repo": "ghwm",
+   "url": "https://github.com/ghwfxlab/ghwm",
+   "sha": "968992843492201c937e96ed2476f16acb5ea379",
+   "licence": "MIT (LICENSE file at pin 968992843492, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-13T19:19Z",
+    "consent_receipt": "a2b950250377",
+    "note": "Inclusion consented by the commit author by email at 2026-10-13T19:19Z (receipt a2b950250377); selected commit 968992843492: \"feat: include workflow metadata in telemetry payload (#58)\". LICENSE file at pin 968992843492 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @ghwfxlab, who has not added it."
+   },
+   "paths": [
+    ".github/linters",
+    ".github/workflows",
+    "docs",
+    "src/ghwm",
+    "tests"
+   ]
+  }
+ ]
+}

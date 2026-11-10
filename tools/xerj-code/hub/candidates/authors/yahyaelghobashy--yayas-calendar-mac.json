@@ -1,0 +1,23 @@
+{
+ "corpus": "yahyaelghobashy--yayas-calendar-mac",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on calendar, gmail, google-calendar queries this for how YahyaElghobashy/yayas-calendar-mac implements it: All your Google calendars and inboxes on interactive macOS desktop widgets. Free, open source, no server (selected work: Sources, Tests, Resources)",
+ "repos": [
+  {
+   "repo": "yayas-calendar-mac",
+   "url": "https://github.com/YahyaElghobashy/yayas-calendar-mac",
+   "sha": "2134016dd47c0aa1916587fecdb21897c25a5565",
+   "licence": "MIT (LICENSE file at pin 2134016dd47c, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T18:30Z",
+    "consent_receipt": "4da159f4748c",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T18:30Z (receipt 4da159f4748c); selected commit 2134016dd47c: \"Draft with AI takes a voice note: record, pause, stop, listen back an\u2026\". LICENSE file at pin 2134016dd47c detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

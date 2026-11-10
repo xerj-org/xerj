@@ -16,8 +16,21 @@
     "by": "author-consent",
     "at": "2026-10-26T09:42Z",
     "consent_receipt": "09f31b71ed7e",
-    "note": "Inclusion consented by the commit author by email at 2026-10-26T09:42Z (receipt 09f31b71ed7e); selected commit cec9f26bfbc9: \"feat(substrate): implement relay passport slice b3 (#309)\". LICENSE file at pin cec9f26bfbc9 detected as MPL-2.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-26T09:42Z (receipt 09f31b71ed7e); selected commit cec9f26bfbc9: \"feat(substrate): implement relay passport slice b3 (#309)\". LICENSE file at pin cec9f26bfbc9 detected as MPL-2.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @syneroym, who has not added it."
+   },
+   "paths": [
+    "apps/roymctl/src",
+    "apps/roymctl/tests",
+    "crates/control_plane/src",
+    "crates/coordinator_iroh/src",
+    "crates/passport/src",
+    "crates/router/src",
+    "crates/sdk/src/client",
+    "crates/substrate",
+    "crates/wit_interfaces/wit/control-plane",
+    "docs",
+    "xtask/src"
+   ]
   }
  ]
 }

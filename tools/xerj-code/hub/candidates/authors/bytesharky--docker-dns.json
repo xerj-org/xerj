@@ -1,0 +1,23 @@
+{
+ "corpus": "bytesharky--docker-dns",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on c, container-networking, dns queries this for how bytesharky/docker-dns implements it: Docker DNS Forwarder is a lightweight tool that enables the host machine to resolve Docker container names to their IPs via domains in the f (selected work: src, include)",
+ "repos": [
+  {
+   "repo": "docker-dns",
+   "url": "https://github.com/bytesharky/docker-dns",
+   "sha": "47e110ca2451e4243b182d52ed30727669a647ce",
+   "licence": "MIT (LICENSE file at pin 47e110ca2451, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T02:35Z",
+    "consent_receipt": "a65b3492fe52",
+    "note": "Inclusion consented by the commit author by email at 2026-11-06T02:35Z (receipt a65b3492fe52); selected commit 47e110ca2451: \"\u65b0\u589e\u672c\u5730 hosts \u6587\u4ef6\u652f\u6301\uff0c\u4f5c\u4e3a DNS \u89e3\u6790\u6700\u9ad8\u4f18\u5148\u7ea7\u8986\u76d6\". LICENSE file at pin 47e110ca2451 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

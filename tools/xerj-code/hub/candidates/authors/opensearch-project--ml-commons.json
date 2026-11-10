@@ -16,8 +16,15 @@
     "by": "author-consent",
     "at": "2026-10-12T12:43Z",
     "consent_receipt": "de7af37160d5",
-    "note": "Inclusion consented by the commit author by email at 2026-10-12T12:43Z (receipt de7af37160d5); selected commit 42107fa7127b: \"Fix google_cloud/Vertex AI trusted endpoints, grpc surface, and the b\u2026\". LICENSE file at pin 42107fa7127b detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-12T12:43Z (receipt de7af37160d5); selected commit 42107fa7127b: \"Fix google_cloud/Vertex AI trusted endpoints, grpc surface, and the b\u2026\". LICENSE file at pin 42107fa7127b detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @opensearch-project, who has not added it."
+   },
+   "paths": [
+    "common/src/main/java/org/opensearch/ml/common/settings",
+    "common/src/test/java/org/opensearch/ml/common/settings",
+    "docs/remote_inference_blueprints",
+    "ml-algorithms",
+    "plugin"
+   ]
   }
  ]
 }

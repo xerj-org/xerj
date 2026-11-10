@@ -16,8 +16,16 @@
     "by": "author-consent",
     "at": "2026-11-05T21:40Z",
     "consent_receipt": "cdb11c94a191",
-    "note": "Inclusion consented by the commit author by email at 2026-11-05T21:40Z (receipt cdb11c94a191); selected commit 8cb3883edc56: \"\u4fee\u590d\u4e00\u4e9b\u5df2\u77e5\u95ee\u9898 (#23)\". LICENSE file at pin 8cb3883edc56 detected as AGPL-3.0 by the GitHub licence API on 2026-11-05; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-11-05T21:40Z (receipt cdb11c94a191); selected commit 8cb3883edc56: \"\u4fee\u590d\u4e00\u4e9b\u5df2\u77e5\u95ee\u9898 (#23)\". LICENSE file at pin 8cb3883edc56 detected as AGPL-3.0 by the GitHub licence API on 2026-11-05; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @eternalfuture-e38299, who has not added it."
+   },
+   "paths": [
+    ".github/workflows",
+    ".idea",
+    "include/patchlib",
+    "src",
+    "tefloader/android-java",
+    "tefloader/net"
+   ]
   }
  ]
 }

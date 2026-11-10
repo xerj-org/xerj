@@ -1,0 +1,29 @@
+{
+ "corpus": "masterpet22--kinetra",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on 2d-animation, animation-editor, game-development queries this for how Masterpet22/kinetra implements it: Editor web para crear, articular y animar personajes 2D con sprites, rigging e IK (selected work: src/studio, tests, scripts)",
+ "repos": [
+  {
+   "repo": "kinetra",
+   "url": "https://github.com/Masterpet22/kinetra",
+   "sha": "10cd3f82906027259b725a14c44a06f4d779f715",
+   "licence": "author's permission (LICENSE at pin 10cd3f829060: MIT; repository: NOASSERTION)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-18T21:28Z",
+    "consent_receipt": "11de76a81dae",
+    "note": "Inclusion consented by the commit author by email at 2026-10-18T21:28Z (receipt 11de76a81dae); selected commit 10cd3f829060: \"fix: reforzar autorreparaci\u00f3n del navegador\". LICENSE at pin 10cd3f829060: MIT (repository: NOASSERTION); used with the author's permission, with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Masterpet22, who has not added it."
+   },
+   "paths": [
+    "docs",
+    "scripts",
+    "src/studio",
+    "tests"
+   ]
+  }
+ ]
+}

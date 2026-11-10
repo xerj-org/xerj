@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-10-16T22:03Z",
     "consent_receipt": "fed8248547be",
-    "note": "Inclusion consented by the commit author by email at 2026-10-16T22:03Z (receipt fed8248547be); selected commit f8711a871089: \"feat(relay): one-time toolkit account login for the shared Relay (off\u2026\". LICENSE file at pin f8711a871089 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-16T22:03Z (receipt fed8248547be); selected commit f8711a871089: \"feat(relay): one-time toolkit account login for the shared Relay (off\u2026\". LICENSE file at pin f8711a871089 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @x2v-co, who has not added it."
+   },
+   "paths": [
+    "docs",
+    "server",
+    "src"
+   ]
   }
  ]
 }

@@ -16,8 +16,14 @@
     "by": "author-consent",
     "at": "2026-10-11T08:59Z",
     "consent_receipt": "41d696521339",
-    "note": "Inclusion consented by the commit author by email at 2026-10-11T08:59Z (receipt 41d696521339); selected commit 84b026d41a07: \"[docs] Show a call of every function and method, and say which argume\u2026\". LICENSE file at pin 84b026d41a07 detected as MIT by the GitHub licence API on 2026-10-28; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-11T08:59Z (receipt 41d696521339); selected commit 84b026d41a07: \"[docs] Show a call of every function and method, and say which argume\u2026\". LICENSE file at pin 84b026d41a07 detected as MIT by the GitHub licence API on 2026-10-28; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @tinyplex, who has not added it."
+   },
+   "paths": [
+    "docs",
+    "scripts",
+    "site/guides",
+    "src/@types"
+   ]
   }
  ]
 }

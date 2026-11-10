@@ -16,8 +16,12 @@
     "by": "author-consent",
     "at": "2026-10-25T04:52Z",
     "consent_receipt": "b6ff932c7d80",
-    "note": "Inclusion consented by the commit author by email at 2026-10-25T04:52Z (receipt b6ff932c7d80); selected commit 89d053b57f36: \"Clarify DDPM derivations and empirical-score interpolation\". LICENSE file at pin 89d053b57f36 detected as CC0-1.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-25T04:52Z (receipt b6ff932c7d80); selected commit 89d053b57f36: \"Clarify DDPM derivations and empirical-score interpolation\". LICENSE file at pin 89d053b57f36 detected as CC0-1.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @acads-iit-jammu, who has not added it."
+   },
+   "paths": [
+    "scripts",
+    "tutorials"
+   ]
   }
  ]
 }

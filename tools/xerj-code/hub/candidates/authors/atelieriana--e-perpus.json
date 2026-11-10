@@ -1,0 +1,23 @@
+{
+ "corpus": "atelieriana--e-perpus",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how atelieriana/e-perpus implements it: Capstone project Tim 1 Universitas Terbuka (selected work: resources, app/Http, app/Services)",
+ "repos": [
+  {
+   "repo": "e-perpus",
+   "url": "https://github.com/atelieriana/e-perpus",
+   "sha": "f8226fb4557591b0624756dd22aef3bfb76fed61",
+   "licence": "Apache-2.0 (LICENSE file at pin f8226fb45575, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-18T08:46Z",
+    "consent_receipt": "e55c7cc8c75f",
+    "note": "Inclusion consented by the commit author by email at 2026-10-18T08:46Z (receipt e55c7cc8c75f); selected commit f8226fb45575: \"feat: udpate kejuruan\". LICENSE file at pin f8226fb45575 detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

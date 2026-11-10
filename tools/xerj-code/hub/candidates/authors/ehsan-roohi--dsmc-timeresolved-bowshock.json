@@ -1,0 +1,23 @@
+{
+ "corpus": "ehsan-roohi--dsmc-timeresolved-bowshock",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how Ehsan-Roohi/DSMC_TimeResolved_BowShock implements it: Time-resolved DSMC analysis of collective displacement dynamics in rarefied hypersonic bow-shock layers",
+ "repos": [
+  {
+   "repo": "DSMC_TimeResolved_BowShock",
+   "url": "https://github.com/Ehsan-Roohi/DSMC_TimeResolved_BowShock",
+   "sha": "63606c263d871eea6eb2d46d4818c961dc20175a",
+   "licence": "MIT (LICENSE file at pin 63606c263d87, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T21:31Z",
+    "consent_receipt": "b5b1f0d0ad53",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T21:31Z (receipt b5b1f0d0ad53); pinned to the default-branch head. LICENSE file at pin 63606c263d87 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

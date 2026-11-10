@@ -1,0 +1,23 @@
+{
+ "corpus": "ehsan-roohi--roohi-parallel-dsmc-mpi",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how Ehsan-Roohi/roohi-parallel-dsmc-mpi implements it: Legacy MPI-parallel Direct Simulation Monte Carlo solver",
+ "repos": [
+  {
+   "repo": "roohi-parallel-dsmc-mpi",
+   "url": "https://github.com/Ehsan-Roohi/roohi-parallel-dsmc-mpi",
+   "sha": "ad324e4f69ca9717eb7d770fcea94e49937923c8",
+   "licence": "MIT (LICENSE file at pin ad324e4f69ca, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T21:31Z",
+    "consent_receipt": "8116149ec4f1",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T21:31Z (receipt 8116149ec4f1); pinned to the default-branch head. LICENSE file at pin ad324e4f69ca detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

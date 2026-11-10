@@ -16,8 +16,16 @@
     "by": "author-consent",
     "at": "2026-10-14T07:53Z",
     "consent_receipt": "94e673342f94",
-    "note": "Inclusion consented by the commit author by email at 2026-10-14T07:53Z (receipt 94e673342f94); selected commit ff5370e556f1: \"Fix LinuxKPI GPU mapping and fence races\". LICENSE file at pin ff5370e556f1 detected as GPL-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-14T07:53Z (receipt 94e673342f94); selected commit ff5370e556f1: \"Fix LinuxKPI GPU mapping and fence races\". LICENSE file at pin ff5370e556f1 detected as GPL-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Hidotu-Labs, who has not added it."
+   },
+   "paths": [
+    "kernel/linker-scripts",
+    "kernel/linuxkpi/include/asm",
+    "kernel/linuxkpi/include/linux",
+    "kernel/linuxkpi/src",
+    "kernel/src",
+    "scripts/tests"
+   ]
   }
  ]
 }

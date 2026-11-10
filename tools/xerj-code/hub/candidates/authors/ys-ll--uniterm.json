@@ -16,8 +16,12 @@
     "by": "author-consent",
     "at": "2026-10-12T22:45Z",
     "consent_receipt": "28d4d198b30a",
-    "note": "Inclusion consented by the commit author by email at 2026-10-12T22:45Z (receipt 28d4d198b30a); selected commit 9a9c134c7456: \"feat(importer): add mRemoteNG connection import\". LICENSE file at pin 9a9c134c7456 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-12T22:45Z (receipt 28d4d198b30a); selected commit 9a9c134c7456: \"feat(importer): add mRemoteNG connection import\". LICENSE file at pin 9a9c134c7456 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @ys-ll, who has not added it."
+   },
+   "paths": [
+    "backend/importer",
+    "frontend/src/components"
+   ]
   }
  ]
 }

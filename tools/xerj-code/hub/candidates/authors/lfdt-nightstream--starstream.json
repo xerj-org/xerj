@@ -16,8 +16,16 @@
     "by": "author-consent",
     "at": "2026-10-10T15:19Z",
     "consent_receipt": "4e978ed92289",
-    "note": "Inclusion consented by the commit author by email at 2026-10-10T15:19Z (receipt 4e978ed92289); selected commit 804588b256cc: \"Multi-file web sandbox on a VS Code workbench (#244)\". LICENSE at pin 804588b256cc: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-10T15:19Z (receipt 4e978ed92289); selected commit 804588b256cc: \"Multi-file web sandbox on a VS Code workbench (#244)\". LICENSE at pin 804588b256cc: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @LFDT-Nightstream, who has not added it."
+   },
+   "paths": [
+    "starstream-compiler/src",
+    "starstream-language-server",
+    "starstream-sandbox-web",
+    "starstream-types/src",
+    "vscode-starstream/src",
+    "website"
+   ]
   }
  ]
 }

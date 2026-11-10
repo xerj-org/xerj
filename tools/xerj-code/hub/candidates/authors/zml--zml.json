@@ -16,8 +16,31 @@
     "by": "author-consent",
     "at": "2026-10-12T08:00Z",
     "consent_receipt": "ed5706743cce",
-    "note": "Inclusion consented by the commit author by email at 2026-10-12T08:00Z (receipt ed5706743cce); selected commit 5a1875736849: \"zig 0.17 (#693)\". LICENSE file at pin 5a1875736849 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-12T08:00Z (receipt ed5706743cce); selected commit 5a1875736849: \"zig 0.17 (#693)\". LICENSE file at pin 5a1875736849 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @zml, who has not added it."
+   },
+   "paths": [
+    ".github/workflows",
+    "bazel",
+    "bin/zml-smi",
+    "kernels/common",
+    "kernels/cuda_tile",
+    "kernels/cute",
+    "kernels/fly",
+    "kernels/mosaic_tpu",
+    "kernels/triton",
+    "mlir",
+    "pjrt",
+    "platforms",
+    "stdx",
+    "third_party/arocc",
+    "third_party/libvaxis",
+    "third_party/translate-c",
+    "third_party/uucode",
+    "third_party/zigimg",
+    "third_party/zio",
+    "vfs",
+    "zml"
+   ]
   }
  ]
 }

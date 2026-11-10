@@ -1,0 +1,23 @@
+{
+ "corpus": "galhack--subahibi-ios",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on C queries this for how galhack/Subahibi_iOS implements it: Native iPhone / iPad / Apple TV / Vision Pro port of Subarashiki Hibi (selected work: engine, the project root, tools)",
+ "repos": [
+  {
+   "repo": "Subahibi_iOS",
+   "url": "https://github.com/galhack/Subahibi_iOS",
+   "sha": "3efb4799a44da0f41fdef242598462a37ba0c17a",
+   "licence": "GPL-2.0 (LICENSE file at pin 3efb4799a44d, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-28T06:20Z",
+    "consent_receipt": "4152a0ed4383",
+    "note": "Inclusion consented by the commit author by email at 2026-10-28T06:20Z (receipt 4152a0ed4383); selected commit 3efb4799a44d: \"Fix HD image loading overflow on Apple platforms\". LICENSE file at pin 3efb4799a44d detected as GPL-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

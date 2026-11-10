@@ -16,8 +16,15 @@
     "by": "author-consent",
     "at": "2026-10-28T08:59Z",
     "consent_receipt": "1523e7b5f9c5",
-    "note": "Inclusion consented by the commit author by email at 2026-10-28T08:59Z (receipt 1523e7b5f9c5); selected commit b4779c31cb74: \"feat(android): pick a dominant face in verifyWorker (#110)\". LICENSE file at pin b4779c31cb74 detected as Apache-2.0 by the GitHub licence API on 2026-10-28; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-28T08:59Z (receipt 1523e7b5f9c5); selected commit b4779c31cb74: \"feat(android): pick a dominant face in verifyWorker (#110)\". LICENSE file at pin b4779c31cb74 detected as Apache-2.0 by the GitHub licence API on 2026-10-28; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Ergane-Foundation, who has not added it."
+   },
+   "paths": [
+    "android/src/main/java/com/faceproof",
+    "android/src/test/java/com/faceproof",
+    "docs",
+    "ml_prep",
+    "src"
+   ]
   }
  ]
 }

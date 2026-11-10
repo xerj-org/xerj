@@ -16,8 +16,12 @@
     "by": "author-consent",
     "at": "2026-10-27T11:20Z",
     "consent_receipt": "fcaabc22d20e",
-    "note": "Inclusion consented by the commit author by email at 2026-10-27T11:20Z (receipt fcaabc22d20e); selected commit 0c5698a123a5: \"feat(admin): manage account roles and suspension with actor checks\". LICENSE file at pin 0c5698a123a5 detected as AGPL-3.0 by the GitHub licence API on 2026-10-27; used under that licence with attribution. Pinned to head 0c5698a123a5 (contains the selected commit): the LICENSE at the selected commit was NONE."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-27T11:20Z (receipt fcaabc22d20e); selected commit 0c5698a123a5: \"feat(admin): manage account roles and suspension with actor checks\". LICENSE file at pin 0c5698a123a5 detected as AGPL-3.0 by the GitHub licence API on 2026-10-27; used under that licence with attribution. Pinned to head 0c5698a123a5 (contains the selected commit): the LICENSE at the selected commit was NONE. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @ziyangliu-666, who has not added it."
+   },
+   "paths": [
+    "apps/server/src",
+    "apps/web/src/pages/admin"
+   ]
   }
  ]
 }

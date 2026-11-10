@@ -1,0 +1,28 @@
+{
+ "corpus": "containerd--nri",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Go queries this for how containerd/nri implements it: Node Resource Interface (selected work: pkg/adaptation, pkg/runtime-tools, pkg/api)",
+ "repos": [
+  {
+   "repo": "nri",
+   "url": "https://github.com/containerd/nri",
+   "sha": "30b2c75420666e0d40fe40d64f3aeadfa7815d32",
+   "licence": "Apache-2.0 (LICENSE file at pin 30b2c7542066, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T17:23Z",
+    "consent_receipt": "7bbe1c3b56b1",
+    "note": "Inclusion consented by the commit author by email at 2026-11-06T17:23Z (receipt 7bbe1c3b56b1); selected commit 30b2c7542066: \"runtime-tools: merge adjusted rlimits by type\". LICENSE file at pin 30b2c7542066 detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @containerd, who has not added it."
+   },
+   "paths": [
+    "pkg/adaptation",
+    "pkg/api",
+    "pkg/runtime-tools/generate"
+   ]
+  }
+ ]
+}

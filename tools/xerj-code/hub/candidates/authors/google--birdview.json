@@ -16,8 +16,21 @@
     "by": "author-consent",
     "at": "2026-11-09T23:50Z",
     "consent_receipt": "cf8091f4321b",
-    "note": "Inclusion consented by the commit author by email at 2026-11-09T23:50Z (receipt cf8091f4321b); selected commit 6288e56af829: \"Offer Open sea as Open ocean and Sea near shore, derived from distanc\u2026\". LICENSE file at pin 6288e56af829 detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T23:50Z (receipt cf8091f4321b); selected commit 6288e56af829: \"Offer Open sea as Open ocean and Sea near shore, derived from distanc\u2026\". LICENSE file at pin 6288e56af829 detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @google, who has not added it."
+   },
+   "paths": [
+    "cmd/birdview",
+    "cmd/birdview-boundaries",
+    "cmd/birdview-ingest",
+    "cmd/birdview-sea",
+    "data",
+    "docs",
+    "internal/geo",
+    "internal/shapefile",
+    "internal/trait",
+    "river",
+    "web/static"
+   ]
   }
  ]
 }

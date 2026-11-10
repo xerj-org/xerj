@@ -1,0 +1,23 @@
+{
+ "corpus": "theoderoy--deboogey",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Swift queries this for how theoderoy/Deboogey implements it: theoderoy/Deboogey (Swift) (selected work: DeboogeyClient, Deboogey.xcodeproj)",
+ "repos": [
+  {
+   "repo": "Deboogey",
+   "url": "https://github.com/theoderoy/Deboogey",
+   "sha": "4bb313ad8005b19c6564fc28ae69639b53b77fa6",
+   "licence": "AGPL-3.0 (LICENSE file at pin 4bb313ad8005, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-15T09:54Z",
+    "consent_receipt": "55e1c6ff6aa1",
+    "note": "Inclusion consented by the commit author by email at 2026-10-15T09:54Z (receipt 55e1c6ff6aa1); selected commit 4bb313ad8005: \"feat: Introduce iPhone Duo support, Diffsplitter for iOS\". LICENSE file at pin 4bb313ad8005 detected as AGPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution. Pinned to head 4bb313ad8005 (contains the selected commit): the LICENSE at the selected commit was MIT."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "bcsanches--dcclite",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on cpp, model-railroad-arduino, model-railroad queries this for how bcsanches/DCCLite implements it: A solution for controlling model railroad accessories with Arduino (selected work: src/Embedded, src/Tests, src/BrokerExec)",
+ "repos": [
+  {
+   "repo": "DCCLite",
+   "url": "https://github.com/bcsanches/DCCLite",
+   "sha": "9bad0cd01a480fa534d67b1fcdc053fbfd92029c",
+   "licence": "MPL-2.0 (LICENSE file at pin 9bad0cd01a48, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MPL-2.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-02T22:16Z",
+    "consent_receipt": "90a9869b007e",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T22:16Z (receipt 90a9869b007e); selected commit 9bad0cd01a48: \"Added unit tests\". LICENSE file at pin 9bad0cd01a48 detected as MPL-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

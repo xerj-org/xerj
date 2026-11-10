@@ -16,8 +16,16 @@
     "by": "author-consent",
     "at": "2026-10-12T17:29Z",
     "consent_receipt": "392ae6c160d5",
-    "note": "Inclusion consented by the commit author by email at 2026-10-12T17:29Z (receipt 392ae6c160d5); selected commit 5b272c34f9a2: \"feat(setup)!: add version/verbose flags and query mode\". LICENSE at pin 5b272c34f9a2: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-12T17:29Z (receipt 392ae6c160d5); selected commit 5b272c34f9a2: \"feat(setup)!: add version/verbose flags and query mode\". LICENSE at pin 5b272c34f9a2: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @mingling-rs, who has not added it."
+   },
+   "paths": [
+    "docs",
+    "examples/example-help/src",
+    "examples/example-version",
+    "mingling/src",
+    "mingling_core/src",
+    "mingling_macros/src"
+   ]
   }
  ]
 }

@@ -16,8 +16,12 @@
     "by": "author-consent",
     "at": "2026-10-22T14:05Z",
     "consent_receipt": "cac911779665",
-    "note": "Inclusion consented by the commit author by email at 2026-10-22T14:05Z (receipt cac911779665); selected commit 2d68f38f7bcd: \"games/NXDoom: Add an option to read the keys from a serial terminal.\". LICENSE file at pin 2d68f38f7bcd detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-22T14:05Z (receipt cac911779665); selected commit 2d68f38f7bcd: \"games/NXDoom: Add an option to read the keys from a serial terminal.\". LICENSE file at pin 2d68f38f7bcd detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @apache, who has not added it."
+   },
+   "paths": [
+    "examples/tinygl",
+    "games/NXDoom"
+   ]
   }
  ]
 }

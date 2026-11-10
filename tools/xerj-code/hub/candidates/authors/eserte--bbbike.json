@@ -1,0 +1,23 @@
+{
+ "corpus": "eserte--bbbike",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on perl, bicycling, routing queries this for how eserte/bbbike implements it: BBBike (selected work: data)",
+ "repos": [
+  {
+   "repo": "bbbike",
+   "url": "https://github.com/eserte/bbbike",
+   "sha": "a9cfdae3a22bd733c0f62ab519ad03f091421e71",
+   "licence": "GPL-2.0 (LICENSE file at pin a9cfdae3a22b, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-25T09:43Z",
+    "consent_receipt": "1b64c3dd1c33",
+    "note": "Inclusion consented by the commit author by email at 2026-10-25T09:43Z (receipt 1b64c3dd1c33); selected commit a9cfdae3a22b: \"data update\". LICENSE file at pin a9cfdae3a22b detected as GPL-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

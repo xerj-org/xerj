@@ -1,0 +1,23 @@
+{
+ "corpus": "amatiri--elucidative-chinese-ime",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on input-method, radicals, double-pinyin queries this for how Amatiri/Elucidative-Chinese-IME implements it: \u89e3\u4e66\u97f3\u5f62--\u97f3\u5f62\u7ed3\u5408\uff0c\u96f6\u91cd\u7801\uff0c\u5e26\u8c03\u53cc\u62fc\uff0c\u90e8\u9996\u4f53\u7cfb\uff0c\u6302\u8868\u5373\u7528\u3002 (selected work: agent_workspace, migrate_to_rime)",
+ "repos": [
+  {
+   "repo": "Elucidative-Chinese-IME",
+   "url": "https://github.com/Amatiri/Elucidative-Chinese-IME",
+   "sha": "ee10e61c166241989e937a374d345bd1dee8bc5f",
+   "licence": "MIT (LICENSE file at pin ee10e61c1662, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-25T00:54Z",
+    "consent_receipt": "381eeb55b842",
+    "note": "Inclusion consented by the commit author by email at 2026-10-25T00:54Z (receipt 381eeb55b842); selected commit ee10e61c1662: \"v0.6.7-beta.42, 8507+2455\". LICENSE file at pin ee10e61c1662 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -16,8 +16,22 @@
     "by": "author-consent",
     "at": "2026-10-25T21:31Z",
     "consent_receipt": "f5d88033de81",
-    "note": "Inclusion consented by the commit author by email at 2026-10-25T21:31Z (receipt f5d88033de81); selected commit b3d7d1247cef: \"Support Dia and discover compatible browser cookie stores (#4092)\". LICENSE file at pin b3d7d1247cef detected as MIT by the GitHub licence API on 2026-10-26; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-25T21:31Z (receipt f5d88033de81); selected commit b3d7d1247cef: \"Support Dia and discover compatible browser cookie stores (#4092)\". LICENSE file at pin b3d7d1247cef detected as MIT by the GitHub licence API on 2026-10-26; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @get-bb, who has not added it."
+   },
+   "paths": [
+    "apps/app/src/components/settings",
+    "apps/cli/src/__tests__/command-output",
+    "apps/desktop/src",
+    "apps/desktop/test",
+    "docs",
+    "packages/domain/src",
+    "packages/host-daemon-contract/src",
+    "packages/host-daemon-contract/test",
+    "packages/plugin-api-map/src",
+    "packages/plugin-sdk",
+    "packages/templates/src/templates",
+    "plugins/bb-guide/skills/bb-cli"
+   ]
   }
  ]
 }

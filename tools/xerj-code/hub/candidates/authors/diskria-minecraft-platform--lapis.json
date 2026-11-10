@@ -16,8 +16,15 @@
     "by": "author-consent",
     "at": "2026-10-10T06:58Z",
     "consent_receipt": "d42ab856d27c",
-    "note": "Inclusion consented by the commit author by email at 2026-10-10T06:58Z (receipt d42ab856d27c); selected commit f481377f18c5: \"feat(core): support named type parameter binding and validation\". LICENSE file at pin f481377f18c5 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-10T06:58Z (receipt d42ab856d27c); selected commit f481377f18c5: \"feat(core): support named type parameter binding and validation\". LICENSE file at pin f481377f18c5 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @diskria-minecraft-platform, who has not added it."
+   },
+   "paths": [
+    "lapis-annotations/src/main/kotlin/io/github/diskria/lapis/annotations",
+    "lapis-core/src/main/kotlin/io/github/diskria/lapis/core/lowering",
+    "lapis-core/src/main/kotlin/io/github/diskria/lapis/core/parser/models",
+    "lapis-core/src/main/kotlin/io/github/diskria/lapis/core/validator",
+    "lapis-ksp/src/main/kotlin/io/github/diskria/lapis/ksp/parser"
+   ]
   }
  ]
 }

@@ -16,8 +16,18 @@
     "by": "author-consent",
     "at": "2026-10-17T17:48Z",
     "consent_receipt": "0c85b6c4d820",
-    "note": "Inclusion consented by the commit author by email at 2026-10-17T17:48Z (receipt 0c85b6c4d820); selected commit eb338925fcb6: \"Add Resource, bracketCase, bracketE, sequence, traverse, productR, de\u2026\". LICENSE file at pin eb338925fcb6 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-17T17:48Z (receipt 0c85b6c4d820); selected commit eb338925fcb6: \"Add Resource, bracketCase, bracketE, sequence, traverse, productR, de\u2026\". LICENSE file at pin eb338925fcb6 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @phunkie, who has not added it."
+   },
+   "paths": [
+    "docs",
+    "src/Concurrent",
+    "src/Functions",
+    "src/IO",
+    "src/Ops/IO",
+    "tests/Unit/Concurrent",
+    "tests/Unit/Functions",
+    "tests/Unit/IO"
+   ]
   }
  ]
 }

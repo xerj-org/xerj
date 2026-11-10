@@ -1,0 +1,27 @@
+{
+ "corpus": "dudko-dev--agent-web",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how dudko-dev/agent-web implements it: Headless, universal, configurable in-browser LLM agent built on the Vercel AI SDK (selected work: tests, src/webmcp, the project root)",
+ "repos": [
+  {
+   "repo": "agent-web",
+   "url": "https://github.com/dudko-dev/agent-web",
+   "sha": "9f04887c5c0cbf1a2941366e2dc5e816545c1f3c",
+   "licence": "MIT (LICENSE file at pin 9f04887c5c0c, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T21:57Z",
+    "consent_receipt": "2df257c63af9",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T21:57Z (receipt 2df257c63af9); selected commit 9f04887c5c0c: \"Add ./webmcp: publish a ToolSet through WebMCP, and use a page's WebM\u2026\". LICENSE file at pin 9f04887c5c0c detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @dudko-dev, who has not added it."
+   },
+   "paths": [
+    "src/webmcp",
+    "tests"
+   ]
+  }
+ ]
+}

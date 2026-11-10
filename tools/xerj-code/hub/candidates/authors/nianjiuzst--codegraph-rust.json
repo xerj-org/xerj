@@ -16,8 +16,16 @@
     "by": "author-consent",
     "at": "2026-11-02T14:38Z",
     "consent_receipt": "03afcea5889a",
-    "note": "Inclusion consented by the commit author by email at 2026-11-02T14:38Z (receipt 03afcea5889a); selected commit 249dd48142fd: \"fix: propagate TypeScript factory return annotations\". LICENSE file at pin 249dd48142fd detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T14:38Z (receipt 03afcea5889a); selected commit 249dd48142fd: \"fix: propagate TypeScript factory return annotations\". LICENSE file at pin 249dd48142fd detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @NianJiuZst, who has not added it."
+   },
+   "paths": [
+    "crates/cg-core/src",
+    "crates/cg-extract/src/facts",
+    "crates/cg-extract/tests",
+    "crates/cg-resolve/src",
+    "crates/cg-resolve/tests",
+    "crates/cg-sync/tests"
+   ]
   }
  ]
 }

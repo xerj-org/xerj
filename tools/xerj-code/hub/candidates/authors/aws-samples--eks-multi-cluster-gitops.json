@@ -16,8 +16,20 @@
     "by": "author-consent",
     "at": "2026-10-15T09:04Z",
     "consent_receipt": "743065ced4b2",
-    "note": "Inclusion consented by the commit author by email at 2026-10-15T09:04Z (receipt 743065ced4b2); selected commit 834566c43c60: \"Upgrade component versions across the GitOps solution\". LICENSE file at pin 834566c43c60 detected as MIT-0 by the GitHub licence API on 2026-10-25; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-15T09:04Z (receipt 743065ced4b2); selected commit 834566c43c60: \"Upgrade component versions across the GitOps solution\". LICENSE file at pin 834566c43c60 detected as MIT-0 by the GitHub licence API on 2026-10-25; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @aws-samples, who has not added it."
+   },
+   "paths": [
+    ".kiro/specs/component-version-upgrade",
+    "bin",
+    "clean-up",
+    "initial-setup",
+    "repos/apps-manifests/product-catalog-fe-manifests/kubernetes",
+    "repos/apps/product-catalog-api/v1",
+    "repos/apps/product-catalog-api/v2",
+    "repos/apps/product-catalog-fe",
+    "repos/gitops-system",
+    "verify/checks"
+   ]
   }
  ]
 }

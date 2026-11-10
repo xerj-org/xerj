@@ -1,0 +1,23 @@
+{
+ "corpus": "kareem411--tricache",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on cache, disk-cache, encryption queries this for how Kareem411/TriCache implements it: The ultra-performance, unified caching engine for Node.js.\u26a1Zero-JSON binary cache for Node.js. \ud83d\udee1\ufe0f Hard multi-tenant isolation, deterministic (selected work: src, tests, src/edge)",
+ "repos": [
+  {
+   "repo": "TriCache",
+   "url": "https://github.com/Kareem411/TriCache",
+   "sha": "f3364c7bcb3483ae3338b5b3c83cc796d5ca4b28",
+   "licence": "MIT (LICENSE file at pin f3364c7bcb34, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-22T01:20Z",
+    "consent_receipt": "7d13c189b4b6",
+    "note": "Inclusion consented by the commit author by email at 2026-10-22T01:20Z (receipt 7d13c189b4b6); selected commit f3364c7bcb34: \"feat(core): integrate tag hierarchy, zstd default compression, and mg\u2026\". LICENSE file at pin f3364c7bcb34 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,37 @@
+{
+ "corpus": "opentabular--nampy",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on additive-models, distributional-regression, gamlss queries this for how OpenTabular/NAMpy implements it: Interpretable additive models for tabular data: classical GAMs (with REML smoothness selection, inference, shape constraints & diagnostics)  (selected work: tests, examples, nampy)",
+ "repos": [
+  {
+   "repo": "NAMpy",
+   "url": "https://github.com/OpenTabular/NAMpy",
+   "sha": "638ae3d3aeb991c46a6e144904357977c9c7fcac",
+   "licence": "MIT (LICENSE file at pin 638ae3d3aeb9, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-27T13:38Z",
+    "consent_receipt": "41bfe5be2498",
+    "note": "Inclusion consented by the commit author by email at 2026-10-27T13:38Z (receipt 41bfe5be2498); selected commit 638ae3d3aeb9: \"Correct documentation contracts, validation claims, and quantile metrics\". LICENSE file at pin 638ae3d3aeb9 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @OpenTabular, who has not added it."
+   },
+   "paths": [
+    "docs/_ext",
+    "docs/_static",
+    "docs/concepts",
+    "docs/development",
+    "docs/examples",
+    "docs/in_depth",
+    "docs/models",
+    "docs/user_guide",
+    "examples",
+    "nampy/models",
+    "tests/docs",
+    "tests/neural"
+   ]
+  }
+ ]
+}

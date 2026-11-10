@@ -1,0 +1,23 @@
+{
+ "corpus": "neoyagami--opengc570d",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Pawn queries this for how neoyagami/OpenGC570D implements it: An unofficial, experimental Linux driver for the AVerMedia Live Gamer DUO GC570D, supporting dual HDMI capture, audio, passthrough, and RGB  (selected work: packaging, scripts, the project root)",
+ "repos": [
+  {
+   "repo": "OpenGC570D",
+   "url": "https://github.com/neoyagami/OpenGC570D",
+   "sha": "3c66adb5fc2b43abf9faf859679f29155a158f7f",
+   "licence": "GPL-2.0 (LICENSE file at pin 3c66adb5fc2b, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-27T03:50Z",
+    "consent_receipt": "067cc04be536",
+    "note": "Inclusion consented by the commit author by email at 2026-10-27T03:50Z (receipt 067cc04be536); selected commit 3c66adb5fc2b: \"Add Fedora AKMOD packaging and distribution profile\". LICENSE file at pin 3c66adb5fc2b detected as GPL-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

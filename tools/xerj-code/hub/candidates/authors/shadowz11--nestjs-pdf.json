@@ -1,0 +1,23 @@
+{
+ "corpus": "shadowz11--nestjs-pdf",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how ShadowZ11/nestjs-pdf implements it: A nest library to generate pdf (selected work: src/renderers, src/puppeteer, src/helpers)",
+ "repos": [
+  {
+   "repo": "nestjs-pdf",
+   "url": "https://github.com/ShadowZ11/nestjs-pdf",
+   "sha": "ec4cba664581c5c50da0bc65638a17426431848a",
+   "licence": "MIT (LICENSE file at pin ec4cba664581, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T18:27Z",
+    "consent_receipt": "5573451fca20",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T18:27Z (receipt 5573451fca20); selected commit ec4cba664581: \"fix: decouple public types from puppeteer\". LICENSE file at pin ec4cba664581 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -16,8 +16,15 @@
     "by": "author-consent",
     "at": "2026-11-08T02:48Z",
     "consent_receipt": "2ca0aed10bd1",
-    "note": "Inclusion consented by the commit author by email at 2026-11-08T02:48Z (receipt 2ca0aed10bd1); selected commit 2bae95f89b52: \"Stream quantized NN inference in compact RTL\". LICENSE file at pin 2bae95f89b52 detected as Apache-2.0 by the GitHub licence API on 2026-11-08; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T02:48Z (receipt 2ca0aed10bd1); selected commit 2bae95f89b52: \"Stream quantized NN inference in compact RTL\". LICENSE file at pin 2bae95f89b52 detected as Apache-2.0 by the GitHub licence API on 2026-11-08; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Kaursome10, who has not added it."
+   },
+   "paths": [
+    ".devcontainer",
+    "docs",
+    "src",
+    "test",
+    "tools"
+   ]
   }
  ]
 }

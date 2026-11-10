@@ -1,0 +1,23 @@
+{
+ "corpus": "fmarzochi--egc",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, persistent-memory, mcp queries this for how Fmarzochi/EGC implements it: EGC gives every AI coding agent the same brain. Shared memory, skills, and live context across Cursor, Claude Code, Copilot, Aider, and 29 A (selected work: tests, scripts)",
+ "repos": [
+  {
+   "repo": "EGC",
+   "url": "https://github.com/Fmarzochi/EGC",
+   "sha": "70b0d91352db2bdfa593921823518051fa1442bc",
+   "licence": "Apache-2.0 (LICENSE file at pin 70b0d91352db, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-18T05:16Z",
+    "consent_receipt": "f72c0e0b0cf4",
+    "note": "Inclusion consented by the commit author by email at 2026-10-18T05:16Z (receipt f72c0e0b0cf4); selected commit 70b0d91352db: \"fix(guardian): Codex file edits go through the write validator, and G\u2026\". LICENSE file at pin 70b0d91352db detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

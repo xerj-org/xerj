@@ -16,8 +16,12 @@
     "by": "author-consent",
     "at": "2026-10-10T14:35Z",
     "consent_receipt": "65c716f92628",
-    "note": "Inclusion consented by the commit author by email at 2026-10-10T14:35Z (receipt 65c716f92628); selected commit 485a72e1d34f: \"add mev protect support\". LICENSE file at pin 485a72e1d34f detected as MIT by the GitHub licence API on 2026-10-28; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-10T14:35Z (receipt 65c716f92628); selected commit 485a72e1d34f: \"add mev protect support\". LICENSE file at pin 485a72e1d34f detected as MIT by the GitHub licence API on 2026-10-28; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @helius-labs, who has not added it."
+   },
+   "paths": [
+    "src",
+    "tests"
+   ]
   }
  ]
 }

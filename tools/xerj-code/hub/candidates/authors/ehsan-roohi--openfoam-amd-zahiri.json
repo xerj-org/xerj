@@ -1,0 +1,23 @@
+{
+ "corpus": "ehsan-roohi--openfoam-amd-zahiri",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how Ehsan-Roohi/openfoam-amd-zahiri implements it: Archival GPL release of the Zahiri/Roohi AMD subgrid-scale model for OpenFOAM",
+ "repos": [
+  {
+   "repo": "openfoam-amd-zahiri",
+   "url": "https://github.com/Ehsan-Roohi/openfoam-amd-zahiri",
+   "sha": "76c9f2ef5c63bfb483eceac153f615b91a8f2f86",
+   "licence": "author's permission (LICENSE at pin 76c9f2ef5c63: NOASSERTION; repository: NOASSERTION)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T21:31Z",
+    "consent_receipt": "90af41857218",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T21:31Z (receipt 90af41857218); pinned to the default-branch head. LICENSE at pin 76c9f2ef5c63: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

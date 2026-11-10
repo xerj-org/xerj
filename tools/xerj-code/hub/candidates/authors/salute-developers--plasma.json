@@ -1,0 +1,30 @@
+{
+ "corpus": "salute-developers--plasma",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how salute-developers/plasma implements it: Salute Design System (selected work: packages/plasma-new-hope)",
+ "repos": [
+  {
+   "repo": "plasma",
+   "url": "https://github.com/salute-developers/plasma",
+   "sha": "fe399bad3bfa7ffe4eea233c258d944c866e9815",
+   "licence": "MIT (LICENSE file at pin fe399bad3bfa, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T18:10Z",
+    "consent_receipt": "04833750660a",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T18:10Z (receipt 04833750660a); selected commit fe399bad3bfa: \"feat: make open Dropdowns with clicking on TextField's input\". LICENSE file at pin fe399bad3bfa detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @salute-developers, who has not added it."
+   },
+   "paths": [
+    "packages/plasma-new-hope/src/components/Combobox",
+    "packages/plasma-new-hope/src/components/DatePicker",
+    "packages/plasma-new-hope/src/components/Range",
+    "packages/plasma-new-hope/src/components/Select",
+    "packages/plasma-new-hope/src/components/TextField"
+   ]
+  }
+ ]
+}

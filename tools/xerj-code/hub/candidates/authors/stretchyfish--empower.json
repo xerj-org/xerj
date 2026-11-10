@@ -1,0 +1,23 @@
+{
+ "corpus": "stretchyfish--empower",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how Stretchyfish/empower implements it: Empower is an engine for visual no code programming, which aims to make complex programming intuitive and easy to understand for both advanc (selected work: empower-studio, empower-engine)",
+ "repos": [
+  {
+   "repo": "empower",
+   "url": "https://github.com/Stretchyfish/empower",
+   "sha": "c24f9b9ff41a84729057196f8d79bc619166cb3d",
+   "licence": "Apache-2.0 (LICENSE file at pin c24f9b9ff41a, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T06:12Z",
+    "consent_receipt": "6c5f8dd132ab",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T06:12Z (receipt 6c5f8dd132ab); selected commit c24f9b9ff41a: \"initial work on compile instructions\". LICENSE file at pin c24f9b9ff41a detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

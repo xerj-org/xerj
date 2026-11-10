@@ -1,0 +1,23 @@
+{
+ "corpus": "needyamin--pdf-reader",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on pdf-reader queries this for how needyamin/pdf-reader implements it: A professional, fast, native, cross-platform PDF reader written in Rust with an egui/wgpu interface and a PDFium rendering engine (selected work: crates/pdf, crates/app, crates/ui)",
+ "repos": [
+  {
+   "repo": "pdf-reader",
+   "url": "https://github.com/needyamin/pdf-reader",
+   "sha": "64b248183c4148cabc5a30356890a976189c299b",
+   "licence": "MIT (LICENSE file at pin 64b248183c41, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-26T16:01Z",
+    "consent_receipt": "ada582463e05",
+    "note": "Inclusion consented by the commit author by email at 2026-10-26T16:01Z (receipt ada582463e05); selected commit 64b248183c41: \"latest\". LICENSE file at pin 64b248183c41 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,28 @@
+{
+ "corpus": "wct-lab--dsh-docchain",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on dsh-plugin queries this for how wct-lab/dsh-docchain implements it: DeepSeek Harness Plugin of DocChain (selected work: test, lib/tools, the project root)",
+ "repos": [
+  {
+   "repo": "dsh-docchain",
+   "url": "https://github.com/wct-lab/dsh-docchain",
+   "sha": "41335cce2010d08129296f3a3d863e87c52a55c8",
+   "licence": "MIT (LICENSE file at pin 41335cce2010, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T10:09Z",
+    "consent_receipt": "d0943141d321",
+    "note": "Inclusion consented by the commit author by email at 2026-11-06T10:09Z (receipt d0943141d321); selected commit 41335cce2010: \"feat(image_describe): let the user pick the vision model instead of t\u2026\". LICENSE file at pin 41335cce2010 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @wct-lab, who has not added it."
+   },
+   "paths": [
+    "lib/tools",
+    "skills/docchain-image-describe",
+    "test"
+   ]
+  }
+ ]
+}

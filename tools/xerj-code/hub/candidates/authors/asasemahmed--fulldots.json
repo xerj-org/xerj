@@ -16,8 +16,14 @@
     "by": "author-consent",
     "at": "2026-10-21T13:59Z",
     "consent_receipt": "651403def1f0",
-    "note": "Inclusion consented by the commit author by email at 2026-10-21T13:59Z (receipt 651403def1f0); selected commit 779477263e30: \"Export a conversation as Markdown from the sidebar menu (#37)\". LICENSE file at pin 779477263e30 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-21T13:59Z (receipt 651403def1f0); selected commit 779477263e30: \"Export a conversation as Markdown from the sidebar menu (#37)\". LICENSE file at pin 779477263e30 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @asasemahmed, who has not added it."
+   },
+   "paths": [
+    "src/client",
+    "src/server",
+    "src/shared",
+    "tests"
+   ]
   }
  ]
 }

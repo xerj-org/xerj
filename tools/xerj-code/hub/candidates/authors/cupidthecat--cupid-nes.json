@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-10-13T22:10Z",
     "consent_receipt": "ccbe868d0479",
-    "note": "Inclusion consented by the commit author by email at 2026-10-13T22:10Z (receipt ccbe868d0479); selected commit 0016d4c5a891: \"Route GTK keyboard shortcuts through the active input profile\". LICENSE file at pin 0016d4c5a891 detected as GPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-13T22:10Z (receipt ccbe868d0479); selected commit 0016d4c5a891: \"Route GTK keyboard shortcuts through the active input profile\". LICENSE file at pin 0016d4c5a891 detected as GPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @cupidthecat, who has not added it."
+   },
+   "paths": [
+    "docs",
+    "src/tests",
+    "src/ui"
+   ]
   }
  ]
 }

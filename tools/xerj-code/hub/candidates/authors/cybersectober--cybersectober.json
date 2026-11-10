@@ -16,8 +16,11 @@
     "by": "author-consent",
     "at": "2026-10-19T05:51Z",
     "consent_receipt": "c0ee74c50200",
-    "note": "Inclusion consented by the commit author by email at 2026-10-19T05:51Z (receipt c0ee74c50200); selected commit c395729f744a: \"feat(ai-security): add LogPilot AI authentication log analyzer (#123)\". LICENSE at pin c395729f744a: NOASSERTION (repository: MIT); used with the author's permission, with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-19T05:51Z (receipt c0ee74c50200); selected commit c395729f744a: \"feat(ai-security): add LogPilot AI authentication log analyzer (#123)\". LICENSE at pin c395729f744a: NOASSERTION (repository: MIT); used with the author's permission, with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @CyberSecTober, who has not added it."
+   },
+   "paths": [
+    "ai-security/tools/priyanshi17112007-logpilot-ai"
+   ]
   }
  ]
 }

@@ -1,0 +1,23 @@
+{
+ "corpus": "kaziomarsh24--laravel-atomic-cache",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on atomic-lock, cache, cache-stampede queries this for how kaziomarsh24/laravel-atomic-cache implements it: Zero-headache, stampede-proof, and auto-invalidating caching for Laravel. Cache database queries in 2 lines without managing keys or observe (selected work: src/Commands, src, tests)",
+ "repos": [
+  {
+   "repo": "laravel-atomic-cache",
+   "url": "https://github.com/kaziomarsh24/laravel-atomic-cache",
+   "sha": "5d1aaf077859aa25b40434244e6420ebc6c7e242",
+   "licence": "MIT (LICENSE file at pin 5d1aaf077859, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-26T02:47Z",
+    "consent_receipt": "ae36a55d1ecd",
+    "note": "Inclusion consented by the commit author by email at 2026-10-26T02:47Z (receipt ae36a55d1ecd); selected commit 5d1aaf077859: \"feat(v1.3.0): eloquent query macros (atomicCache/atomicCacheFirst), t\u2026\". LICENSE file at pin 5d1aaf077859 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

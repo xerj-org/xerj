@@ -1,0 +1,29 @@
+{
+ "corpus": "opentas64--opentas64",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on external-tool, external-tools, gaming queries this for how OpenTAS64/OpenTAS64 implements it: Open-source TAS editor for Nintendo 64 emulators featuring a piano roll, frame advance, input editing, RAM tools, and Lua scripting (selected work: src/core, src/network, plugins)",
+ "repos": [
+  {
+   "repo": "OpenTAS64",
+   "url": "https://github.com/OpenTAS64/OpenTAS64",
+   "sha": "a2e8015b82abdc8cd06d2da12a51aa993a0ba4b0",
+   "licence": "MIT (LICENSE file at pin a2e8015b82ab, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T20:53Z",
+    "consent_receipt": "9ad2f5c661ce",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T20:53Z (receipt 9ad2f5c661ce); selected commit a2e8015b82ab: \"feat: add lockstep frame input protocol v2\". LICENSE file at pin a2e8015b82ab detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @OpenTAS64, who has not added it."
+   },
+   "paths": [
+    "docs",
+    "plugins/mupen64plus-input",
+    "src/core",
+    "src/network"
+   ]
+  }
+ ]
+}

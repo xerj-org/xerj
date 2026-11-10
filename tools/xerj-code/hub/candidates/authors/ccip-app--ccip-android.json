@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-10-12T19:53Z",
     "consent_receipt": "6ba8a944f5b0",
-    "note": "Inclusion consented by the commit author by email at 2026-10-12T19:53Z (receipt 6ba8a944f5b0); selected commit 2ee5d94840de: \"feat(push): integrate FCM subscriptions and notification routing\". LICENSE file at pin 2ee5d94840de detected as GPL-3.0 by the GitHub licence API on 2026-10-28; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-12T19:53Z (receipt 6ba8a944f5b0); selected commit 2ee5d94840de: \"feat(push): integrate FCM subscriptions and notification routing\". LICENSE file at pin 2ee5d94840de detected as GPL-3.0 by the GitHub licence API on 2026-10-28; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @CCIP-App, who has not added it."
+   },
+   "paths": [
+    "app",
+    "docs",
+    "gradle"
+   ]
   }
  ]
 }

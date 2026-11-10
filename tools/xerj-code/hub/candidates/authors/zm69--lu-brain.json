@@ -1,0 +1,23 @@
+{
+ "corpus": "zm69--lu-brain",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Odin queries this for how zm69/lu_brain implements it: Experimental neural memory in Odin (selected work: samples, tests, src)",
+ "repos": [
+  {
+   "repo": "lu_brain",
+   "url": "https://github.com/zm69/lu_brain",
+   "sha": "775a1988935155b78b50eb1a19515c497b2d24d0",
+   "licence": "Zlib (LICENSE file at pin 775a19889351, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Zlib",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-18T17:26Z",
+    "consent_receipt": "a94adb7dd2f8",
+    "note": "Inclusion consented by the commit author by email at 2026-10-18T17:26Z (receipt a94adb7dd2f8); selected commit 775a19889351: \"More experiments\". LICENSE file at pin 775a19889351 detected as Zlib by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

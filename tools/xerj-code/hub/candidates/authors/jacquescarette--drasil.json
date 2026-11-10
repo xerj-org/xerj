@@ -16,8 +16,12 @@
     "by": "author-consent",
     "at": "2026-10-20T17:28Z",
     "consent_receipt": "4a2efca3ab83",
-    "note": "Inclusion consented by the commit author by email at 2026-10-20T17:28Z (receipt 4a2efca3ab83); selected commit 58b7571516e6: \"Move generic NounPhrase code into drasil-natural-language\". LICENSE file at pin 58b7571516e6 detected as BSD-2-Clause by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-20T17:28Z (receipt 4a2efca3ab83); selected commit 58b7571516e6: \"Move generic NounPhrase code into drasil-natural-language\". LICENSE file at pin 58b7571516e6 detected as BSD-2-Clause by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @JacquesCarette, who has not added it."
+   },
+   "paths": [
+    "code/drasil-lang/lib/Language/Drasil/NaturalLanguage/English",
+    "code/drasil-natural-language"
+   ]
   }
  ]
 }

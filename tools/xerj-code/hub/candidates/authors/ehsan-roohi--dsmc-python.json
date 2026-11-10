@@ -1,0 +1,23 @@
+{
+ "corpus": "ehsan-roohi--dsmc-python",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Jupyter Notebook queries this for how Ehsan-Roohi/DSMC_Python implements it: DSMC Codes written by Python",
+ "repos": [
+  {
+   "repo": "DSMC_Python",
+   "url": "https://github.com/Ehsan-Roohi/DSMC_Python",
+   "sha": "d1fddd0eaabe46e45986ece81b725b836efcd25e",
+   "licence": "author's permission (LICENSE at pin d1fddd0eaabe: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T21:31Z",
+    "consent_receipt": "f63517f3145f",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T21:31Z (receipt f63517f3145f); pinned to the default-branch head. LICENSE at pin d1fddd0eaabe: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

@@ -16,8 +16,18 @@
     "by": "author-consent",
     "at": "2026-10-14T05:42Z",
     "consent_receipt": "9dfda46a85e1",
-    "note": "Inclusion consented by the commit author by email at 2026-10-14T05:42Z (receipt 9dfda46a85e1); selected commit f2ec75c2cddf: \"feat(wui, SPL-1684): an AI agents switch on the channel's Settings tab\". LICENSE file at pin f2ec75c2cddf detected as AGPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-14T05:42Z (receipt 9dfda46a85e1); selected commit f2ec75c2cddf: \"feat(wui, SPL-1684): an AI agents switch on the channel's Settings tab\". LICENSE file at pin f2ec75c2cddf detected as AGPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @csitea, who has not added it."
+   },
+   "paths": [
+    "csi-spl-doc/doc/help",
+    "csi-spl-wui/i18n/locales",
+    "csi-spl-wui/src/components",
+    "csi-spl-wui/src/public/help-md",
+    "csi-spl-wui/src/types",
+    "csi-spl-wui/src/utils",
+    "csi-spl-wui/tests/e2e",
+    "csi-spl-wui/tests/unit"
+   ]
   }
  ]
 }

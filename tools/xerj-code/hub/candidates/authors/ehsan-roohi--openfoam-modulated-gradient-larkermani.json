@@ -1,0 +1,23 @@
+{
+ "corpus": "ehsan-roohi--openfoam-modulated-gradient-larkermani",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how Ehsan-Roohi/openfoam-modulated-gradient-larkermani implements it: Archival GPL release of the LarKermani/Roohi modulated-gradient model for OpenFOAM",
+ "repos": [
+  {
+   "repo": "openfoam-modulated-gradient-larkermani",
+   "url": "https://github.com/Ehsan-Roohi/openfoam-modulated-gradient-larkermani",
+   "sha": "a91fa4e70ea3318f8e5c7f7bd5a8862381e653ab",
+   "licence": "author's permission (LICENSE at pin a91fa4e70ea3: NOASSERTION; repository: NOASSERTION)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T21:31Z",
+    "consent_receipt": "2c9b0ed088bf",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T21:31Z (receipt 2c9b0ed088bf); pinned to the default-branch head. LICENSE at pin a91fa4e70ea3: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

@@ -16,8 +16,14 @@
     "by": "author-consent",
     "at": "2026-10-31T20:17Z",
     "consent_receipt": "f34d4b6f595d",
-    "note": "Inclusion consented by the commit author by email at 2026-10-31T20:17Z (receipt f34d4b6f595d); selected commit 31d48487a0dd: \"feat(saved): add saved add, update, complete, reopen and remove (#436\u2026\". LICENSE file at pin 31d48487a0dd detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T20:17Z (receipt f34d4b6f595d); selected commit 31d48487a0dd: \"feat(saved): add saved add, update, complete, reopen and remove (#436\u2026\". LICENSE file at pin 31d48487a0dd detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @shaharia-lab, who has not added it."
+   },
+   "paths": [
+    "docs/development",
+    "docs/user-guide",
+    "plugins/slackcli/skills/slackcli/references",
+    "src"
+   ]
   }
  ]
 }

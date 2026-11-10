@@ -1,0 +1,32 @@
+{
+ "corpus": "linux-test-project--lcov",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Shell queries this for how linux-test-project/lcov implements it: LCOV (selected work: tests, bin, example)",
+ "repos": [
+  {
+   "repo": "lcov",
+   "url": "https://github.com/linux-test-project/lcov",
+   "sha": "a2dd061ddb7d1d8c6ce5fbc75dd2bed3a3809310",
+   "licence": "GPL-2.0 (LICENSE file at pin a2dd061ddb7d, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-10T20:46Z",
+    "consent_receipt": "5cc7afdbac5f",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T20:46Z (receipt 5cc7afdbac5f); selected commit a2dd061ddb7d: \"JaCoCo to LCOV coverage data translator.\". LICENSE file at pin a2dd061ddb7d detected as GPL-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @linux-test-project, who has not added it."
+   },
+   "paths": [
+    ".github/workflows",
+    "bin",
+    "docs",
+    "example",
+    "lib",
+    "scripts",
+    "tests"
+   ]
+  }
+ ]
+}

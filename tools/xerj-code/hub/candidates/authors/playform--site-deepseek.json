@@ -16,8 +16,16 @@
     "by": "author-consent",
     "at": "2026-10-18T03:52Z",
     "consent_receipt": "ac042bfe0333",
-    "note": "Inclusion consented by the commit author by email at 2026-10-18T03:52Z (receipt ac042bfe0333); selected commit 0fdb5742d9f2: \"fix(site): Close the raw-marker __normalize token in the exemption pr\u2026\". LICENSE file at pin 0fdb5742d9f2 detected as CC0-1.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-18T03:52Z (receipt ac042bfe0333); selected commit 0fdb5742d9f2: \"fix(site): Close the raw-marker __normalize token in the exemption pr\u2026\". LICENSE file at pin 0fdb5742d9f2 detected as CC0-1.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @PlayForm, who has not added it."
+   },
+   "paths": [
+    ".astro",
+    "Scripts",
+    "Source/Library",
+    "Source/Stylesheet",
+    "Source/pages/plugins",
+    "Target"
+   ]
   }
  ]
 }

@@ -16,8 +16,22 @@
     "by": "author-consent",
     "at": "2026-10-14T06:07Z",
     "consent_receipt": "1992e19f7f94",
-    "note": "Inclusion consented by the commit author by email at 2026-10-14T06:07Z (receipt 1992e19f7f94); selected commit 4362af71250e: \"feat(requests): add voting and builder counters\". LICENSE file at pin 4362af71250e detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-14T06:07Z (receipt 1992e19f7f94); selected commit 4362af71250e: \"feat(requests): add voting and builder counters\". LICENSE file at pin 4362af71250e detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @replicraft, who has not added it."
+   },
+   "paths": [
+    ".github/workflows",
+    "apps/backend/remade-api",
+    "apps/frontend/remade-wiki/src/components/catalog",
+    "apps/frontend/remade-wiki/src/components/pages",
+    "apps/frontend/remade-wiki/src/components/requests",
+    "apps/frontend/remade-wiki/src/lib",
+    "apps/frontend/remade-wiki/src/pages",
+    "apps/frontend/remade-wiki/src/stores",
+    "apps/frontend/remade-wiki/tests/auth",
+    "apps/frontend/remade-wiki/tests/react",
+    "apps/frontend/remade-wiki/tests/unit",
+    "docs"
+   ]
   }
  ]
 }

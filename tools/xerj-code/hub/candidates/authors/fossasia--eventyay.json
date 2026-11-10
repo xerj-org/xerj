@@ -16,8 +16,24 @@
     "by": "author-consent",
     "at": "2026-10-17T17:50Z",
     "consent_receipt": "905929c9e63d",
-    "note": "Inclusion consented by the commit author by email at 2026-10-17T17:50Z (receipt 905929c9e63d); selected commit 6bff6b018a58: \"feat(submission): track speaker invitations and report email delivery\u2026\". LICENSE file at pin 6bff6b018a58 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-17T17:50Z (receipt 905929c9e63d); selected commit 6bff6b018a58: \"feat(submission): track speaker invitations and report email delivery\u2026\". LICENSE file at pin 6bff6b018a58 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @fossasia, who has not added it."
+   },
+   "paths": [
+    "app/eventyay/base",
+    "app/eventyay/cfp",
+    "app/eventyay/common",
+    "app/eventyay/control/views",
+    "app/eventyay/orga",
+    "app/eventyay/person/forms",
+    "app/eventyay/static/orga/css",
+    "app/eventyay/static/orga/js",
+    "app/eventyay/submission/forms",
+    "app/tests/stable",
+    "app/tests/talk/orga/views",
+    "app/tests/tickets/base",
+    "app/tests/tickets/control",
+    "app/tests/tickets/presale"
+   ]
   }
  ]
 }

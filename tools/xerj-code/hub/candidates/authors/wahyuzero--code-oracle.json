@@ -1,0 +1,23 @@
+{
+ "corpus": "wahyuzero--code-oracle",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, ast, code-verification queries this for how wahyuzero/code-oracle implements it: Sub-50ms Neuro-Symbolic Verification Oracle for AI Coding Agents (selected work: src/code_oracle, tests, tools)",
+ "repos": [
+  {
+   "repo": "code-oracle",
+   "url": "https://github.com/wahyuzero/code-oracle",
+   "sha": "f37713495a715a53e60fbb01941f485931f57495",
+   "licence": "Apache-2.0 (LICENSE file at pin f37713495a71, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-24T16:01Z",
+    "consent_receipt": "eb47ae784b6b",
+    "note": "Inclusion consented by the commit author by email at 2026-10-24T16:01Z (receipt eb47ae784b6b); selected commit f37713495a71: \"feat(onnx): add ONNX export, dynamic INT8 quantization, and ORT infer\u2026\". LICENSE file at pin f37713495a71 detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

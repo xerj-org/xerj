@@ -1,0 +1,23 @@
+{
+ "corpus": "edge-explorer--tracepass",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Python queries this for how Edge-Explorer/Tracepass implements it: Tracepass is a hierarchical multi-agent framework that lets you extract any data from any website using natural language instructions (selected work: core/handlers, tests)",
+ "repos": [
+  {
+   "repo": "Tracepass",
+   "url": "https://github.com/Edge-Explorer/Tracepass",
+   "sha": "96fdba48e3c481d89380e26122f2ebfae6ee7d41",
+   "licence": "MIT (LICENSE file at pin 96fdba48e3c4, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-18T07:28Z",
+    "consent_receipt": "c99d415c59a1",
+    "note": "Inclusion consented by the commit author by email at 2026-10-18T07:28Z (receipt c99d415c59a1); selected commit 96fdba48e3c4: \"feat(handlers): implement OTP-primary interactive prompt and passkey \u2026\". LICENSE file at pin 96fdba48e3c4 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

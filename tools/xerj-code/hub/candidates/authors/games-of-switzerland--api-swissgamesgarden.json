@@ -1,0 +1,35 @@
+{
+ "corpus": "games-of-switzerland--api-swissgamesgarden",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on drupal, drupal-8, rest-api queries this for how Games-of-Switzerland/api.swissgamesgarden implements it: \ud83d\udc7e \ud83c\udde8\ud83c\udded Games of Switzerland - Drupal Backend Application (selected work: web, the project root)",
+ "repos": [
+  {
+   "repo": "api.swissgamesgarden",
+   "url": "https://github.com/Games-of-Switzerland/api.swissgamesgarden",
+   "sha": "e9ed9573b1ce173ef23c5788fc9fd8ea133229dd",
+   "licence": "GPL-2.0 (LICENSE file at pin e9ed9573b1ce, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-16T11:34Z",
+    "consent_receipt": "2599b0d81d31",
+    "note": "Inclusion consented by the commit author by email at 2026-10-16T11:34Z (receipt 2599b0d81d31); selected commit e9ed9573b1ce: \"fix: modernize codebase following psalm 6 & latests rector\". LICENSE file at pin e9ed9573b1ce detected as GPL-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Games-of-Switzerland, who has not added it."
+   },
+   "paths": [
+    "tools/php-cs-fixer",
+    "web/modules/custom/gos_default_content/src/EventSubscriber",
+    "web/modules/custom/gos_elasticsearch/src/Plugin/Normalizer",
+    "web/modules/custom/gos_elasticsearch/src/Plugin/rest/resource",
+    "web/modules/custom/gos_game/src",
+    "web/modules/custom/gos_game/tests/src/Functional",
+    "web/modules/custom/gos_game/tests/src/Kernel",
+    "web/modules/custom/gos_game/tests/src/Unit",
+    "web/modules/custom/gos_migrate/src/Plugin/migrate/process",
+    "web/modules/custom/gos_site/src"
+   ]
+  }
+ ]
+}

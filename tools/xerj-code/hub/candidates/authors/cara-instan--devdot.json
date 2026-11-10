@@ -16,8 +16,12 @@
     "by": "author-consent",
     "at": "2026-10-22T04:44Z",
     "consent_receipt": "1c0e3098be11",
-    "note": "Inclusion consented by the commit author by email at 2026-10-22T04:44Z (receipt 1c0e3098be11); selected commit ea0d2beefecc: \"feat(resilience): harden localStorage hydration, add tool-level error\u2026\". LICENSE file at pin ea0d2beefecc detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-22T04:44Z (receipt 1c0e3098be11); selected commit ea0d2beefecc: \"feat(resilience): harden localStorage hydration, add tool-level error\u2026\". LICENSE file at pin ea0d2beefecc detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Cara-Instan, who has not added it."
+   },
+   "paths": [
+    "scripts",
+    "src"
+   ]
   }
  ]
 }

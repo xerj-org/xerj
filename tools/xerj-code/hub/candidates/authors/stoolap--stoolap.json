@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-10-18T12:28Z",
     "consent_receipt": "d0fc1fcc662c",
-    "note": "Inclusion consented by the commit author by email at 2026-10-18T12:28Z (receipt d0fc1fcc662c); selected commit b520f895f31f: \"Give aggregate modifiers one owner and one admission rule (#463)\". LICENSE file at pin b520f895f31f detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-18T12:28Z (receipt d0fc1fcc662c); selected commit b520f895f31f: \"Give aggregate modifiers one owner and one admission rule (#463)\". LICENSE file at pin b520f895f31f detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @stoolap, who has not added it."
+   },
+   "paths": [
+    "src/executor",
+    "src/functions",
+    "tests"
+   ]
   }
  ]
 }

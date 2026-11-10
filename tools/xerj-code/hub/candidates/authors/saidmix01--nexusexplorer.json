@@ -1,0 +1,23 @@
+{
+ "corpus": "saidmix01--nexusexplorer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how saidmix01/NexusExplorer implements it: Explorer For windows (selected work: src/NexusExplorer.App)",
+ "repos": [
+  {
+   "repo": "NexusExplorer",
+   "url": "https://github.com/saidmix01/NexusExplorer",
+   "sha": "25eaae744b9045f8296c91fd59ba86414814f70f",
+   "licence": "GPL-3.0 (LICENSE file at pin 25eaae744b90, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-25T17:59Z",
+    "consent_receipt": "e04ccab348b9",
+    "note": "Inclusion consented by the commit author by email at 2026-10-25T17:59Z (receipt e04ccab348b9); selected commit 25eaae744b90: \"upgrade performance\". LICENSE file at pin 25eaae744b90 detected as GPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

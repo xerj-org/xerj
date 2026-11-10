@@ -16,8 +16,15 @@
     "by": "author-consent",
     "at": "2026-10-15T12:45Z",
     "consent_receipt": "26d789783138",
-    "note": "Inclusion consented by the commit author by email at 2026-10-15T12:45Z (receipt 26d789783138); selected commit 19ed4b42c854: \"fix(trusty-mpm): pm-guard denies tmux verbs aimed at the Architect pa\u2026\". LICENSE file at pin 19ed4b42c854 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-15T12:45Z (receipt 26d789783138); selected commit 19ed4b42c854: \"fix(trusty-mpm): pm-guard denies tmux verbs aimed at the Architect pa\u2026\". LICENSE file at pin 19ed4b42c854 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @bobmatnyc, who has not added it."
+   },
+   "paths": [
+    "crates/trusty-mpm/changelog.d",
+    "crates/trusty-mpm/src/bin/tm/commands",
+    "crates/trusty-mpm/src/core",
+    "crates/trusty-mpm/tests",
+    "scripts"
+   ]
   }
  ]
 }

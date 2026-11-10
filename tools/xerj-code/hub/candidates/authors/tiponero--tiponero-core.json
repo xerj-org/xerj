@@ -16,8 +16,18 @@
     "by": "author-consent",
     "at": "2026-11-08T21:53Z",
     "consent_receipt": "32b8b3df2e2e",
-    "note": "Inclusion consented by the commit author by email at 2026-11-08T21:53Z (receipt 32b8b3df2e2e); selected commit 344dfdfdfd16: \"feat: better transaction amount tracking, improved resilency\". LICENSE file at pin 344dfdfdfd16 detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T21:53Z (receipt 32b8b3df2e2e); selected commit 344dfdfdfd16: \"feat: better transaction amount tracking, improved resilency\". LICENSE file at pin 344dfdfdfd16 detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @tiponero, who has not added it."
+   },
+   "paths": [
+    "docs",
+    "internal/database",
+    "internal/handlers",
+    "internal/monero",
+    "internal/services",
+    "internal/views/admin",
+    "internal/views/components",
+    "internal/views/widget"
+   ]
   }
  ]
 }

@@ -16,8 +16,12 @@
     "by": "author-consent",
     "at": "2026-10-20T00:05Z",
     "consent_receipt": "a53c3e85eb3c",
-    "note": "Inclusion consented by the commit author by email at 2026-10-20T00:05Z (receipt a53c3e85eb3c); selected commit 7292c21cf84c: \"perf(acp): cancel keeps agent processes warm; probe CLIs off the main\u2026\". LICENSE file at pin 7292c21cf84c detected as MIT by the GitHub licence API on 2026-10-28; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-20T00:05Z (receipt a53c3e85eb3c); selected commit 7292c21cf84c: \"perf(acp): cancel keeps agent processes warm; probe CLIs off the main\u2026\". LICENSE file at pin 7292c21cf84c detected as MIT by the GitHub licence API on 2026-10-28; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @recailai, who has not added it."
+   },
+   "paths": [
+    "docs",
+    "src-tauri/src"
+   ]
   }
  ]
 }

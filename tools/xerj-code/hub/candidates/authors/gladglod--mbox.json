@@ -1,0 +1,23 @@
+{
+ "corpus": "gladglod--mbox",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Java queries this for how Gladglod/MBox implements it: \u4e00\u6b3e\u9002\u914d\u7ad6\u5c4f\u624b\u673a\u7248\u7684tvbox (selected work: app/src)",
+ "repos": [
+  {
+   "repo": "MBox",
+   "url": "https://github.com/Gladglod/MBox",
+   "sha": "42b5c0467df5595a89cb9260c42eda828cc81c44",
+   "licence": "AGPL-3.0 (LICENSE file at pin 42b5c0467df5, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-28T02:51Z",
+    "consent_receipt": "f6bbcb7dbb6f",
+    "note": "Inclusion consented by the commit author by email at 2026-10-28T02:51Z (receipt f6bbcb7dbb6f); selected commit 42b5c0467df5: \"\u4fee\u6539\u64ad\u653e\u5668\u754c\u9762\". LICENSE file at pin 42b5c0467df5 detected as AGPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

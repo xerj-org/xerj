@@ -1,0 +1,23 @@
+{
+ "corpus": "senguk520--dsh-multitask",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-preset, context-engineering, context-management queries this for how Senguk520/dsh-multitask implements it: A Multitask \"shock absorber\" plugin & agent preset for DeepSeek Harness (DSH): the main chat only plans, briefs subagents and summarizes res (selected work: presets, lib, the project root)",
+ "repos": [
+  {
+   "repo": "dsh-multitask",
+   "url": "https://github.com/Senguk520/dsh-multitask",
+   "sha": "f0b4a9b68ffe7257cc0d9e20fe257e8e205dc29c",
+   "licence": "MIT (LICENSE file at pin f0b4a9b68ffe, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-19T06:04Z",
+    "consent_receipt": "1c6738bdb4e9",
+    "note": "Inclusion consented by the commit author by email at 2026-10-19T06:04Z (receipt 1c6738bdb4e9); selected commit f0b4a9b68ffe: \"fix(multitask): use providers as worker markers\". LICENSE file at pin f0b4a9b68ffe detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

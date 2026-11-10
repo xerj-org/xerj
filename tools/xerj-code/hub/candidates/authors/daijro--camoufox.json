@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-10-14T22:59Z",
     "consent_receipt": "33df5df58224",
-    "note": "Inclusion consented by the commit author by email at 2026-10-14T22:59Z (receipt 33df5df58224); selected commit d9fa53e96bac: \"fix: ensuring documentation matches behavior for pinning\". LICENSE file at pin d9fa53e96bac detected as MPL-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-14T22:59Z (receipt 33df5df58224); selected commit d9fa53e96bac: \"fix: ensuring documentation matches behavior for pinning\". LICENSE file at pin d9fa53e96bac detected as MPL-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @daijro, who has not added it."
+   },
+   "paths": [
+    "browser/tests/playwright/patches",
+    "python",
+    "typescript"
+   ]
   }
  ]
 }

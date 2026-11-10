@@ -1,0 +1,23 @@
+{
+ "corpus": "harshitarudraprakashc--paymentcutoversimulator",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on distributed-systems, double-entry-ledger, fintech queries this for how HarshitaRudraprakashC/PaymentCutoverSimulator implements it: Simulates a live card-processor migration in Java/Spring Boot: staged rollout gated by reconciliation, instant rollback, and no double charg (selected work: src/main, src/test, the project root)",
+ "repos": [
+  {
+   "repo": "PaymentCutoverSimulator",
+   "url": "https://github.com/HarshitaRudraprakashC/PaymentCutoverSimulator",
+   "sha": "c92bea7c9f6267daef41b402a8d457b00338cae7",
+   "licence": "MIT (LICENSE file at pin c92bea7c9f62, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-16T07:43Z",
+    "consent_receipt": "6be64fe645be",
+    "note": "Inclusion consented by the commit author by email at 2026-10-16T07:43Z (receipt 6be64fe645be); selected commit c92bea7c9f62: \"Step 9: safe vs naive simulation, HTTP contract tests, real README nu\u2026\". LICENSE file at pin c92bea7c9f62 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

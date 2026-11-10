@@ -1,0 +1,23 @@
+{
+ "corpus": "kaguramatsuri--mt-aigis",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on aigis, game-client, macos queries this for how KaguraMatsuri/MT-Aigis implements it: Millennium War Aigis client for macOS (\u5343\u5e74\u6226\u4e89\u30a2\u30a4\u30ae\u30b9 / \u5343\u5e74\u6218\u4e89 Aigis) (selected work: test, lib, the project root)",
+ "repos": [
+  {
+   "repo": "MT-Aigis",
+   "url": "https://github.com/KaguraMatsuri/MT-Aigis",
+   "sha": "b7f89f5d9a60621b93a4f973e8e7872bd9c01d71",
+   "licence": "MIT (LICENSE file at pin b7f89f5d9a60, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-27T02:26Z",
+    "consent_receipt": "a9766b536d57",
+    "note": "Inclusion consented by the commit author by email at 2026-10-27T02:26Z (receipt a9766b536d57); selected commit b7f89f5d9a60: \"fix: keep nested game frames loading in the background\". LICENSE file at pin b7f89f5d9a60 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

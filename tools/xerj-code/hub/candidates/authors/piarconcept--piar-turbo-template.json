@@ -16,8 +16,28 @@
     "by": "author-consent",
     "at": "2026-11-02T19:08Z",
     "consent_receipt": "baf19bbd59fd",
-    "note": "Inclusion consented by the commit author by email at 2026-11-02T19:08Z (receipt baf19bbd59fd); selected commit c52d0915907d: \"fix(security): harden template baseline\". LICENSE file at pin c52d0915907d detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T19:08Z (receipt baf19bbd59fd); selected commit c52d0915907d: \"fix(security): harden template baseline\". LICENSE file at pin c52d0915907d detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @piarconcept, who has not added it."
+   },
+   "paths": [
+    "apps/api/backoffice-bff",
+    "apps/api/web-bff",
+    "apps/client/backoffice",
+    "apps/client/web",
+    "docs",
+    "packages/features/accounts/api",
+    "packages/features/auth/api",
+    "packages/features/auth/configuration",
+    "packages/features/auth/infra",
+    "packages/features/comingSoon",
+    "packages/features/contact/api",
+    "packages/features/dynamic-page/api",
+    "packages/infra/backend/common",
+    "packages/infra/backend/repositories",
+    "packages/infra/client/common",
+    "packages/infra/client/dynamic-form",
+    "packages/ui/layout",
+    "scripts"
+   ]
   }
  ]
 }

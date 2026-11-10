@@ -16,8 +16,12 @@
     "by": "author-consent",
     "at": "2026-10-16T03:47Z",
     "consent_receipt": "aa810aa05855",
-    "note": "Inclusion consented by the commit author by email at 2026-10-16T03:47Z (receipt aa810aa05855); selected commit 4202caf69ad7: \"Replace duplicate Asteroids with Tennis\". LICENSE file at pin 4202caf69ad7 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-16T03:47Z (receipt aa810aa05855); selected commit 4202caf69ad7: \"Replace duplicate Asteroids with Tennis\". LICENSE file at pin 4202caf69ad7 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Dragon-Gaming-Platforms, who has not added it."
+   },
+   "paths": [
+    "games/asteroids",
+    "games/tennis"
+   ]
   }
  ]
 }

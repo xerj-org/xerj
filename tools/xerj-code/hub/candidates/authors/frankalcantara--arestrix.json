@@ -1,0 +1,23 @@
+{
+ "corpus": "frankalcantara--arestrix",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on C++ queries this for how frankalcantara/Arestrix implements it: interface gr\u00e1fica para cria\u00e7\u00e3o de ambientes agentivos usando o Taskflow (selected work: CppCore, scripts, src/ui)",
+ "repos": [
+  {
+   "repo": "Arestrix",
+   "url": "https://github.com/frankalcantara/Arestrix",
+   "sha": "7f02e1da8813425f8fb66ee1d9ad079b5e2ffdab",
+   "licence": "MIT (LICENSE file at pin 7f02e1da8813, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-21T21:12Z",
+    "consent_receipt": "0788030eaeae",
+    "note": "Inclusion consented by the commit author by email at 2026-10-21T21:12Z (receipt 0788030eaeae); selected commit 7f02e1da8813: \"feat(memory): record episodes, hits and task outcomes\". LICENSE file at pin 7f02e1da8813 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

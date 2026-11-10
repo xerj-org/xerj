@@ -16,8 +16,12 @@
     "by": "author-consent",
     "at": "2026-10-15T19:41Z",
     "consent_receipt": "dd063314a0fc",
-    "note": "Inclusion consented by the commit author by email at 2026-10-15T19:41Z (receipt dd063314a0fc); selected commit 895de434a637: \"[fix] Rejected existing users in batch user imports\". LICENSE file at pin 895de434a637 detected as GPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-15T19:41Z (receipt dd063314a0fc); selected commit 895de434a637: \"[fix] Rejected existing users in batch user imports\". LICENSE file at pin 895de434a637 detected as GPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @openwisp, who has not added it."
+   },
+   "paths": [
+    "docs/user",
+    "openwisp_radius"
+   ]
   }
  ]
 }

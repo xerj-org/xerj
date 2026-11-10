@@ -1,0 +1,23 @@
+{
+ "corpus": "simoltos--cenere",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how simoltos/cenere implements it: A minimal, terminal based, offline installer for Arch and Arch based distros (selected work: the project root, tests)",
+ "repos": [
+  {
+   "repo": "cenere",
+   "url": "https://github.com/simoltos/cenere",
+   "sha": "aaa5a6417593d778a9aabb7c335c72a76b2153df",
+   "licence": "MIT (LICENSE file at pin aaa5a6417593, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-25T20:40Z",
+    "consent_receipt": "cabb0c6113ea",
+    "note": "Inclusion consented by the commit author by email at 2026-10-25T20:40Z (receipt cabb0c6113ea); selected commit aaa5a6417593: \"Unify keyboard setup on a single page\". LICENSE file at pin aaa5a6417593 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "chulopp--coinweton",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-assistants, crypto-tracking-toolkit, cryptocurrency queries this for how chulopp/CoinWeton implements it: Smart crypto market tracker and RAG AI terminal featuring real-time analytics, automated smart contract security audits, and personalized wa (selected work: src/app, src/utils, src)",
+ "repos": [
+  {
+   "repo": "CoinWeton",
+   "url": "https://github.com/chulopp/CoinWeton",
+   "sha": "279dece3e18f14204316249b8d78d95d42d412af",
+   "licence": "MIT (LICENSE file at pin 279dece3e18f, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-18T03:42Z",
+    "consent_receipt": "31ef06862506",
+    "note": "Inclusion consented by the commit author by email at 2026-10-18T03:42Z (receipt 31ef06862506); selected commit 279dece3e18f: \"feat: migrate database to Neon and authentication to Auth.js v5\". LICENSE file at pin 279dece3e18f detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

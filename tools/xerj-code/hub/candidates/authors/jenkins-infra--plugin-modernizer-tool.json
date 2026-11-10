@@ -1,0 +1,33 @@
+{
+ "corpus": "jenkins-infra--plugin-modernizer-tool",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Java queries this for how jenkins-infra/plugin-modernizer-tool implements it: jenkins-infra/plugin-modernizer-tool (Java) (selected work: plugin-modernizer-core, plugin-modernizer-cli)",
+ "repos": [
+  {
+   "repo": "plugin-modernizer-tool",
+   "url": "https://github.com/jenkins-infra/plugin-modernizer-tool",
+   "sha": "078af31b31b5e4c069ebe75b4a63bc221afc1ac2",
+   "licence": "MIT (LICENSE file at pin 078af31b31b5, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-16T09:52Z",
+    "consent_receipt": "f4dba01fee57",
+    "note": "Inclusion consented by the commit author by email at 2026-10-16T09:52Z (receipt f4dba01fee57); selected commit 078af31b31b5: \"Fix AddCodeOwner for excluded plugins and multi-module team names (#1\u2026\". LICENSE file at pin 078af31b31b5 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @jenkins-infra, who has not added it."
+   },
+   "paths": [
+    "plugin-modernizer-cli/src/test/java/io/jenkins/tools/pluginmodernizer/cli",
+    "plugin-modernizer-core/src/main/java/io/jenkins/tools/pluginmodernizer/core/impl",
+    "plugin-modernizer-core/src/main/java/io/jenkins/tools/pluginmodernizer/core/model",
+    "plugin-modernizer-core/src/main/java/io/jenkins/tools/pluginmodernizer/core/recipes",
+    "plugin-modernizer-core/src/main/resources/META-INF/rewrite",
+    "plugin-modernizer-core/src/test/java/io/jenkins/tools/pluginmodernizer/core/impl",
+    "plugin-modernizer-core/src/test/java/io/jenkins/tools/pluginmodernizer/core/model",
+    "plugin-modernizer-core/src/test/java/io/jenkins/tools/pluginmodernizer/core/recipes"
+   ]
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "r0073d-l053r--proxmate",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on dashboard, homelab, kvm queries this for how r0073d-l053r/ProxMate implements it: A lightweight, invite-only cloud dashboard built on Proxmox VE (selected work: frontend)",
+ "repos": [
+  {
+   "repo": "ProxMate",
+   "url": "https://github.com/r0073d-l053r/ProxMate",
+   "sha": "8531c3304605b01c21f9ff969b97b03f208a7dc3",
+   "licence": "author's permission (LICENSE at pin 8531c3304605: NOASSERTION; repository: AGPL-3.0)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-24T01:02Z",
+    "consent_receipt": "07cb5e6b1e99",
+    "note": "Inclusion consented by the commit author by email at 2026-10-24T01:02Z (receipt 07cb5e6b1e99); selected commit 8531c3304605: \"Number fields can be cleared and retyped; roadmap corrections (#135)\". LICENSE at pin 8531c3304605: NOASSERTION (repository: AGPL-3.0); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

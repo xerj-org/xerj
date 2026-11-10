@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-10-10T21:44Z",
     "consent_receipt": "ab646008018b",
-    "note": "Inclusion consented by the commit author by email at 2026-10-10T21:44Z (receipt ab646008018b); selected commit 098372bf6518: \"feat(proxy): distinct, non-templated copy per block outcome (#84)\". LICENSE file at pin 098372bf6518 detected as AGPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-10T21:44Z (receipt ab646008018b); selected commit 098372bf6518: \"feat(proxy): distinct, non-templated copy per block outcome (#84)\". LICENSE file at pin 098372bf6518 detected as AGPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @FortressCommunity, who has not added it."
+   },
+   "paths": [
+    "anti-slop",
+    "rust",
+    "skills/fortresswaf-rust-backend"
+   ]
   }
  ]
 }

@@ -1,0 +1,23 @@
+{
+ "corpus": "zeroyong--gezi-quark-downloader-main",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how zeroyong/gezi-quark-downloader-main implements it: \u9e3d\u5b50\u4e0b\u8f7d -\u81ea\u7528\u66f4\u65b0\u7248 (selected work: src/GeZi, tools)",
+ "repos": [
+  {
+   "repo": "gezi-quark-downloader-main",
+   "url": "https://github.com/zeroyong/gezi-quark-downloader-main",
+   "sha": "c705644586092622fcc9d68a65129b5a3e228f1a",
+   "licence": "GPL-3.0 (LICENSE file at pin c70564458609, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-23T05:10Z",
+    "consent_receipt": "a01ddbdb5051",
+    "note": "Inclusion consented by the commit author by email at 2026-10-23T05:10Z (receipt a01ddbdb5051); selected commit c70564458609: \"[fixed\ud83d\udc4f] \u6570\u636e\u76ee\u5f55\u7edf\u4e00\u5230 %LOCALAPPDATA%\uff1a\u89e3\u51b3\"\u6362\u76ee\u5f55\u542f\u52a8\u4efb\u52a1\u4e0d\u89c1\u4e86\"\". LICENSE file at pin c70564458609 detected as GPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

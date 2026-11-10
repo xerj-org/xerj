@@ -16,8 +16,14 @@
     "by": "author-consent",
     "at": "2026-10-31T18:02Z",
     "consent_receipt": "927f94728736",
-    "note": "Inclusion consented by the commit author by email at 2026-10-31T18:02Z (receipt 927f94728736); selected commit 16777ec3d8e9: \"feat: authenticate with a Formstep API key, the default for new nodes\". LICENSE file at pin 16777ec3d8e9 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T18:02Z (receipt 927f94728736); selected commit 16777ec3d8e9: \"feat: authenticate with a Formstep API key, the default for new nodes\". LICENSE file at pin 16777ec3d8e9 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @formstep, who has not added it."
+   },
+   "paths": [
+    "credentials",
+    "examples",
+    "nodes/Formstep",
+    "test"
+   ]
   }
  ]
 }

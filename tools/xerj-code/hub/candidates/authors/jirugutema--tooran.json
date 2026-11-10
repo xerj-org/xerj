@@ -1,0 +1,23 @@
+{
+ "corpus": "jirugutema--tooran",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on task-manager, tasks queries this for how JiruGutema/Tooran implements it: Tooran allows you to manage tasks within categories. Create categories, add tasks, and manage them efficiently (selected work: lib/widgets, test, lib/utils)",
+ "repos": [
+  {
+   "repo": "Tooran",
+   "url": "https://github.com/JiruGutema/Tooran",
+   "sha": "3e6cecf376c72d37354c66f392ff4dce4adf79b8",
+   "licence": "MIT (LICENSE file at pin 3e6cecf376c7, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-11T21:27Z",
+    "consent_receipt": "a947a37ff5c6",
+    "note": "Inclusion consented by the commit author by email at 2026-10-11T21:27Z (receipt a947a37ff5c6); selected commit 3e6cecf376c7: \"feat: enhance scrolling view\". LICENSE file at pin 3e6cecf376c7 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

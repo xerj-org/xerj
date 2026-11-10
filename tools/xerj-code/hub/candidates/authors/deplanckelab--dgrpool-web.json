@@ -16,8 +16,20 @@
     "by": "author-consent",
     "at": "2026-11-05T10:42Z",
     "consent_receipt": "47e158b8fc0b",
-    "note": "Inclusion consented by the commit author by email at 2026-11-05T10:42Z (receipt 47e158b8fc0b); selected commit 7fdc8d1c5093: \"add releases\". LICENSE file at pin 7fdc8d1c5093 detected as GPL-3.0 by the GitHub licence API on 2026-11-05; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-11-05T10:42Z (receipt 47e158b8fc0b); selected commit 7fdc8d1c5093: \"add releases\". LICENSE file at pin 7fdc8d1c5093 detected as GPL-3.0 by the GitHub licence API on 2026-11-05; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @DeplanckeLab, who has not added it."
+   },
+   "paths": [
+    "src/app/assets/stylesheets",
+    "src/app/controllers",
+    "src/app/helpers",
+    "src/app/models",
+    "src/app/views/downloads",
+    "src/app/views/home",
+    "src/app/views/releases",
+    "src/app/views/shared",
+    "src/config",
+    "src/db"
+   ]
   }
  ]
 }

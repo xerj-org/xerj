@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-11-04T03:01Z",
     "consent_receipt": "25c6d146d10f",
-    "note": "Inclusion consented by the commit author by email at 2026-11-04T03:01Z (receipt 25c6d146d10f); selected commit a13791a4f48b: \"fix(models): validate automatic route names before persistence\". LICENSE file at pin a13791a4f48b detected as Apache-2.0 by the GitHub licence API on 2026-11-04; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-11-04T03:01Z (receipt 25c6d146d10f); selected commit a13791a4f48b: \"fix(models): validate automatic route names before persistence\". LICENSE file at pin a13791a4f48b detected as Apache-2.0 by the GitHub licence API on 2026-11-04; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @gpustack, who has not added it."
+   },
+   "paths": [
+    "gpustack/schemas",
+    "tests/routes",
+    "tests/schemas"
+   ]
   }
  ]
 }

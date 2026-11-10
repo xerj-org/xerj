@@ -16,8 +16,15 @@
     "by": "author-consent",
     "at": "2026-10-10T22:28Z",
     "consent_receipt": "6ae82719f1d3",
-    "note": "Inclusion consented by the commit author by email at 2026-10-10T22:28Z (receipt 6ae82719f1d3); selected commit c5b38a97f4d8: \"feat(tui): mux board-pane ring edges \u2014 continuous columns\u21c4items\u21c4chips\u2026\". LICENSE file at pin c5b38a97f4d8 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-10T22:28Z (receipt 6ae82719f1d3); selected commit c5b38a97f4d8: \"feat(tui): mux board-pane ring edges \u2014 continuous columns\u21c4items\u21c4chips\u2026\". LICENSE file at pin c5b38a97f4d8 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @sengac, who has not added it."
+   },
+   "paths": [
+    "rust/fspec-tui/src/app",
+    "rust/fspec-tui/src/store",
+    "rust/fspec-tui/src/views/multiplex",
+    "rust/fspec-tui/tests",
+    "spec"
+   ]
   }
  ]
 }

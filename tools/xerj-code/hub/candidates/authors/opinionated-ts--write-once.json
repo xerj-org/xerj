@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-10-18T13:09Z",
     "consent_receipt": "b2aafdda50ee",
-    "note": "Inclusion consented by the commit author by email at 2026-10-18T13:09Z (receipt b2aafdda50ee); selected commit 0f12bdbe098b: \"feat(hooks): chain pre-write transformations\". LICENSE file at pin 0f12bdbe098b detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-18T13:09Z (receipt b2aafdda50ee); selected commit 0f12bdbe098b: \"feat(hooks): chain pre-write transformations\". LICENSE file at pin 0f12bdbe098b detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @opinionated-ts, who has not added it."
+   },
+   "paths": [
+    "docs",
+    "src",
+    "tests"
+   ]
   }
  ]
 }

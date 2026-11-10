@@ -1,0 +1,27 @@
+{
+ "corpus": "raccoon-office--box-agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how Raccoon-Office/Box-Agent implements it: AI agent framework with Jupyter sandbox, data analysis, MCP tools, ACP protocol, multi-provider LLM, and standalone runtime packaging (selected work: tests, box_agent, the project root)",
+ "repos": [
+  {
+   "repo": "Box-Agent",
+   "url": "https://github.com/Raccoon-Office/Box-Agent",
+   "sha": "8f5f20c475ea1398f9eedfa776a1d4262b3c50c6",
+   "licence": "MIT (LICENSE file at pin 8f5f20c475ea, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T01:31Z",
+    "consent_receipt": "003370c57014",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T01:31Z (receipt 003370c57014); selected commit 8f5f20c475ea: \"fix(brower): \u7edf\u4e00\u6d4f\u89c8\u5668\u4e0e\u7f51\u9875\u8bfb\u53d6\u7b56\u7565\uff0c\u4fee\u590d\u89c4\u5219\u6ce8\u5165\u548c\u7ee7\u627f\u95ee\u9898\". LICENSE file at pin 8f5f20c475ea detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Raccoon-Office, who has not added it."
+   },
+   "paths": [
+    "box_agent",
+    "tests"
+   ]
+  }
+ ]
+}

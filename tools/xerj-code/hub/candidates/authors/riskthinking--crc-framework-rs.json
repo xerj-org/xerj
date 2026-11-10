@@ -1,0 +1,29 @@
+{
+ "corpus": "riskthinking--crc-framework-rs",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how RiskThinking/crc-framework-rs implements it: RiskThinking/crc-framework-rs (Rust) (selected work: python, src, crates/core)",
+ "repos": [
+  {
+   "repo": "crc-framework-rs",
+   "url": "https://github.com/RiskThinking/crc-framework-rs",
+   "sha": "e1dc0768570ce240823b8cfdc90fecb462d449e9",
+   "licence": "AGPL-3.0 (LICENSE file at pin e1dc0768570c, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-10T21:30Z",
+    "consent_receipt": "a5fb517a752f",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T21:30Z (receipt a5fb517a752f); selected commit e1dc0768570c: \"Implement initial SDK integration library\". LICENSE file at pin e1dc0768570c detected as AGPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @RiskThinking, who has not added it."
+   },
+   "paths": [
+    "crates/core/src",
+    "python/crc_framework",
+    "src",
+    "tests"
+   ]
+  }
+ ]
+}

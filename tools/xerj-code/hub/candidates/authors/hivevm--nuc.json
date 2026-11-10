@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-11-08T15:43Z",
     "consent_receipt": "da88f613dc31",
-    "note": "Inclusion consented by the commit author by email at 2026-11-08T15:43Z (receipt da88f613dc31); selected commit 251a9c63efd6: \"feat(rules): with --require the plain-rules sensor fails on a project\u2026\". LICENSE file at pin 251a9c63efd6 detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T15:43Z (receipt da88f613dc31); selected commit 251a9c63efd6: \"feat(rules): with --require the plain-rules sensor fails on a project\u2026\". LICENSE file at pin 251a9c63efd6 detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @hivevm, who has not added it."
+   },
+   "paths": [
+    ".github/workflows",
+    "docs",
+    "scripts"
+   ]
   }
  ]
 }

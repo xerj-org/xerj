@@ -1,0 +1,27 @@
+{
+ "corpus": "sysborg--sorla-db",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on JavaScript queries this for how sysborg/sorla-db implements it: A simple and temporary database focused to use in browser environment that will bring capabilities for other tools that will be launched as  (selected work: src/query_language, test)",
+ "repos": [
+  {
+   "repo": "sorla-db",
+   "url": "https://github.com/sysborg/sorla-db",
+   "sha": "2784507dffe07ef003e33538da2237471022e09d",
+   "licence": "MIT (LICENSE file at pin 2784507dffe0, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T22:39Z",
+    "consent_receipt": "34da20fcc03e",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T22:39Z (receipt 34da20fcc03e); selected commit 2784507dffe0: \"fix(query): support nested logical operators and multiple operators p\u2026\". LICENSE file at pin 2784507dffe0 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @sysborg, who has not added it."
+   },
+   "paths": [
+    "src/query_language",
+    "test"
+   ]
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "xiex16070-jpg--dsh-learn",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on cordis, deepseek-harness, dsh queries this for how xiex16070-jpg/dsh-learn implements it: Persistent learning for DeepSeek Harness: turn a session's corrections, failures and fixes into ordinary DSH skills. Zero extra model calls (selected work: lib, scripts, the project root)",
+ "repos": [
+  {
+   "repo": "dsh-learn",
+   "url": "https://github.com/xiex16070-jpg/dsh-learn",
+   "sha": "ab4d9cf6acf31d6753fc11bd4f891d1615a85f66",
+   "licence": "MIT (LICENSE file at pin ab4d9cf6acf3, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-21T05:50Z",
+    "consent_receipt": "34967d043caf",
+    "note": "Inclusion consented by the commit author by email at 2026-10-21T05:50Z (receipt 34967d043caf); selected commit ab4d9cf6acf3: \"v0.3.13: host-semantics recheck \u2014 cache, guards, and failure recovery\". LICENSE file at pin ab4d9cf6acf3 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

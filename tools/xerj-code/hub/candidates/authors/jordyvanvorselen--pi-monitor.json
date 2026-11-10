@@ -1,0 +1,23 @@
+{
+ "corpus": "jordyvanvorselen--pi-monitor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on TypeScript queries this for how jordyvanvorselen/pi-monitor implements it: Watch long-running processes like GitHub Actions runs in the background. Pi wakes only when something worth knowing happens (selected work: tests, src/herdr, scripts)",
+ "repos": [
+  {
+   "repo": "pi-monitor",
+   "url": "https://github.com/jordyvanvorselen/pi-monitor",
+   "sha": "d2d39f58f8995ae9544a323e3f06d5cabda8c077",
+   "licence": "MIT (LICENSE file at pin d2d39f58f899, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T05:03Z",
+    "consent_receipt": "a9c329a99b85",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T05:03Z (receipt a9c329a99b85); selected commit d2d39f58f899: \"feat: fit Herdr's sidebar, toast failed jobs and offer the blocked ma\u2026\". LICENSE file at pin d2d39f58f899 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "devjorgerafael--flux-balance",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how DevJorgeRafael/flux-balance implements it: DevJorgeRafael/flux-balance (TypeScript) (selected work: src/components, src/core, src/app)",
+ "repos": [
+  {
+   "repo": "flux-balance",
+   "url": "https://github.com/DevJorgeRafael/flux-balance",
+   "sha": "f5bdbfa066a004debb17ef3e1af7cd3ee702227c",
+   "licence": "MIT (LICENSE file at pin f5bdbfa066a0, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-21T20:18Z",
+    "consent_receipt": "6d6e6b8ef028",
+    "note": "Inclusion consented by the commit author by email at 2026-10-21T20:18Z (receipt 6d6e6b8ef028); selected commit f5bdbfa066a0: \"feat(projections): add account projection features and calculations f\u2026\". LICENSE file at pin f5bdbfa066a0 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

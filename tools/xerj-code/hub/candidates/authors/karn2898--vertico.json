@@ -1,0 +1,23 @@
+{
+ "corpus": "karn2898--vertico",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how Karn2898/vertico implements it: AI coding assistant to be used in IDE (selected work: packages/shared, apps/api, packages/db)",
+ "repos": [
+  {
+   "repo": "vertico",
+   "url": "https://github.com/Karn2898/vertico",
+   "sha": "4960b6f49c9d5819739649e7c6eae0f3cf60ae9b",
+   "licence": "Apache-2.0 (LICENSE file at pin 4960b6f49c9d, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T20:02Z",
+    "consent_receipt": "b2f598fe4e31",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T20:02Z (receipt b2f598fe4e31); selected commit 4960b6f49c9d: \"fix: various fixes and updates\". LICENSE file at pin 4960b6f49c9d detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

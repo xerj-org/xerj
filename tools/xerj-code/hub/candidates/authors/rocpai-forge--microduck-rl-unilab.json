@@ -1,0 +1,31 @@
+{
+ "corpus": "rocpai-forge--microduck-rl-unilab",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how rocPAI-Forge/microduck_rl_unilab implements it: rocPAI-Forge/microduck_rl_unilab (Python) (selected work: scripts, src/microduck_rl_unilab, examples)",
+ "repos": [
+  {
+   "repo": "microduck_rl_unilab",
+   "url": "https://github.com/rocPAI-Forge/microduck_rl_unilab",
+   "sha": "289f01cee48f2321dfa264e007e1bd4d4bea1039",
+   "licence": "Apache-2.0 (LICENSE file at pin 289f01cee48f, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T05:59Z",
+    "consent_receipt": "736b9718a866",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T05:59Z (receipt 736b9718a866); selected commit 289f01cee48f: \"feat: add a 1.15 m/s long-horizon straight sprint\". LICENSE file at pin 289f01cee48f detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @rocPAI-Forge, who has not added it."
+   },
+   "paths": [
+    "examples/sprint_straight_fast",
+    "scripts",
+    "src/microduck_rl_unilab/conf/ppo/task/microduck_sprint_straighthold_flat",
+    "src/microduck_rl_unilab/conf/ppo/task/microduck_sprint_straightspeed_flat",
+    "src/microduck_rl_unilab/tasks/microduck",
+    "tests"
+   ]
+  }
+ ]
+}

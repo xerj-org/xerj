@@ -16,8 +16,16 @@
     "by": "author-consent",
     "at": "2026-10-16T12:06Z",
     "consent_receipt": "e0dd7946fccf",
-    "note": "Inclusion consented by the commit author by email at 2026-10-16T12:06Z (receipt e0dd7946fccf); selected commit a22d9d1e3300: \"fix(parser): read Codex rollouts compressed to .jsonl.zst (#2274)\". LICENSE file at pin a22d9d1e3300 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-16T12:06Z (receipt e0dd7946fccf); selected commit a22d9d1e3300: \"fix(parser): read Codex rollouts compressed to .jsonl.zst (#2274)\". LICENSE file at pin a22d9d1e3300 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @kenn-io, who has not added it."
+   },
+   "paths": [
+    "docs/agents",
+    "docs/internal",
+    "internal/parser",
+    "internal/rawderive",
+    "internal/rawwatch",
+    "internal/sync"
+   ]
   }
  ]
 }

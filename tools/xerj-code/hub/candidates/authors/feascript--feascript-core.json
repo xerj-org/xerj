@@ -16,8 +16,31 @@
     "by": "author-consent",
     "at": "2026-10-30T04:53Z",
     "consent_receipt": "09f2a2671fe2",
-    "note": "Inclusion consented by the commit author by email at 2026-10-30T04:53Z (receipt 09f2a2671fe2); selected commit 5356a4d15b9b: \"Feature/triangular elements support (#97)\". LICENSE file at pin 5356a4d15b9b detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T04:53Z (receipt 09f2a2671fe2); selected commit 5356a4d15b9b: \"Feature/triangular elements support (#97)\". LICENSE file at pin 5356a4d15b9b detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @FEAScript, who has not added it."
+   },
+   "paths": [
+    ".github/workflows",
+    "dist",
+    "examples/creepingFlowScript/lidDrivenCavity2DCreepingFlow",
+    "examples/eulerBernoulliBeamScript/clampedSpringSupportedBeam1D",
+    "examples/frontPropagationScript/solidificationFront2D",
+    "examples/generalFormPDEScript/advectionDiffusion1D",
+    "examples/generalFormPDEScript/nonlinearReactionDiffusion1D",
+    "examples/heatConductionScript/heatConduction1DWall",
+    "examples/heatConductionScript/heatConduction2DFin",
+    "src",
+    "tests/meshes",
+    "tests/regression/AdvectionDiffusion1D",
+    "tests/regression/EulerBernoulliBeam",
+    "tests/regression/HeatConduction1DWall",
+    "tests/regression/HeatConduction2DFin",
+    "tests/regression/LidDrivenCavity2DCreepingFlow",
+    "tests/regression/NonlinearReactionDiffusion1D",
+    "tests/regression/SolidificationFront2D",
+    "tests/unit",
+    "tests/verification/analytical",
+    "tests/verification/benchmark"
+   ]
   }
  ]
 }

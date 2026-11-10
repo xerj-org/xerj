@@ -16,8 +16,29 @@
     "by": "author-consent",
     "at": "2026-10-24T08:19Z",
     "consent_receipt": "91ba05c88530",
-    "note": "Inclusion consented by the commit author by email at 2026-10-24T08:19Z (receipt 91ba05c88530); selected commit 614fe5f04982: \"Security audit: fix critical signing bug and harden the wallet\". LICENSE file at pin 614fe5f04982 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-24T08:19Z (receipt 91ba05c88530); selected commit 614fe5f04982: \"Security audit: fix critical signing bug and harden the wallet\". LICENSE file at pin 614fe5f04982 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Veilpayapp, who has not added it."
+   },
+   "paths": [
+    "docs",
+    "public/icons",
+    "scripts",
+    "src/background",
+    "src/core/chains",
+    "src/core/messaging",
+    "src/core/privacy",
+    "src/core/security",
+    "src/core/vap",
+    "src/core/vault",
+    "src/core/x402",
+    "src/popup",
+    "src/sidepanel",
+    "src/ui/assets/icons",
+    "src/ui/components",
+    "src/ui/lib",
+    "src/ui/store",
+    "src/ui/theme",
+    "tests/unit"
+   ]
   }
  ]
 }

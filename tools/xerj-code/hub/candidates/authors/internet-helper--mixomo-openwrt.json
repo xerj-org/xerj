@@ -1,0 +1,23 @@
+{
+ "corpus": "internet-helper--mixomo-openwrt",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how Internet-Helper/mixomo-openwrt implements it: Script for installing Mihomo with hev-socks5-tunnel, MagiTrickle, and the LuCI interface (selected work: src/ui, src/components, src/assets)",
+ "repos": [
+  {
+   "repo": "mixomo-openwrt",
+   "url": "https://github.com/Internet-Helper/mixomo-openwrt",
+   "sha": "6d107e503f114e6ec2d0c4bdad0dc5b57007c1fe",
+   "licence": "Apache-2.0 (LICENSE file at pin 6d107e503f11, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-14T16:59Z",
+    "consent_receipt": "2ed0c707d37b",
+    "note": "Inclusion consented by the commit author by email at 2026-10-14T16:59Z (receipt 2ed0c707d37b); selected commit 6d107e503f11: \"v0.3.3\". LICENSE file at pin 6d107e503f11 detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -16,8 +16,30 @@
     "by": "author-consent",
     "at": "2026-10-24T10:33Z",
     "consent_receipt": "f1b4b1ef3aca",
-    "note": "Inclusion consented by the commit author by email at 2026-10-24T10:33Z (receipt f1b4b1ef3aca); selected commit b1e0e790e9f4: \"IGNITE-29050 Introduce snapshot deletion command (#13577)\". LICENSE file at pin b1e0e790e9f4 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-24T10:33Z (receipt f1b4b1ef3aca); selected commit b1e0e790e9f4: \"IGNITE-29050 Introduce snapshot deletion command (#13577)\". LICENSE file at pin b1e0e790e9f4 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @apache, who has not added it."
+   },
+   "paths": [
+    "docs/_docs/snapshots",
+    "modules/binary/api/src/main/java/org/apache/ignite/internal/binary",
+    "modules/binary/api/src/main/java/org/apache/ignite/internal/processors/odbc",
+    "modules/binary/impl/src/main/java/org/apache/ignite/internal/binary",
+    "modules/calcite",
+    "modules/control-utility/src/test/java/org/apache/ignite/internal/commandline",
+    "modules/control-utility/src/test/java/org/apache/ignite/testsuites",
+    "modules/control-utility/src/test/java/org/apache/ignite/util",
+    "modules/core/src/main/java/org/apache/ignite/internal",
+    "modules/core/src/test/java/org/apache/ignite/internal/binary",
+    "modules/core/src/test/java/org/apache/ignite/internal/processors/cache/persistence/snapshot",
+    "modules/core/src/test/java/org/apache/ignite/testframework/junits",
+    "modules/core/src/test/java/org/apache/ignite/testsuites",
+    "modules/core/src/test/resources/org.apache.ignite.util",
+    "modules/ducktests/src/main/java/org/apache/ignite/internal/ducktest/tests",
+    "modules/tools/src/main/java/org/apache/ignite/tools/junit",
+    "modules/tools/src/main/java/org/apache/ignite/tools/surefire/testsuites",
+    "modules/wire-compatibility-check/wire/enums",
+    "modules/wire-compatibility-check/wire/messages",
+    "parent"
+   ]
   }
  ]
 }

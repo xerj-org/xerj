@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-10-15T02:01Z",
     "consent_receipt": "570ddcd71b3e",
-    "note": "Inclusion consented by the commit author by email at 2026-10-15T02:01Z (receipt 570ddcd71b3e); selected commit 0426cb4f1661: \"feat: EIP-5792 batch hashes\". LICENSE file at pin 0426cb4f1661 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-15T02:01Z (receipt 570ddcd71b3e); selected commit 0426cb4f1661: \"feat: EIP-5792 batch hashes\". LICENSE file at pin 0426cb4f1661 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @TuwaIO, who has not added it."
+   },
+   "paths": [
+    "apps/docs/src/content/packages/quasar-sdk",
+    "packages/quasar-sdk",
+    "scripts"
+   ]
   }
  ]
 }

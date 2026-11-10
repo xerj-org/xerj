@@ -16,8 +16,14 @@
     "by": "author-consent",
     "at": "2026-10-28T07:01Z",
     "consent_receipt": "f4f34a6e240d",
-    "note": "Inclusion consented by the commit author by email at 2026-10-28T07:01Z (receipt f4f34a6e240d); selected commit c1e53e8dfc73: \"Use SuperMimic pelvis failure rules and full-motion XY primary metric\". LICENSE file at pin c1e53e8dfc73 detected as Apache-2.0 by the GitHub licence API on 2026-10-28; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-28T07:01Z (receipt f4f34a6e240d); selected commit c1e53e8dfc73: \"Use SuperMimic pelvis failure rules and full-motion XY primary metric\". LICENSE file at pin c1e53e8dfc73 detected as Apache-2.0 by the GitHub licence API on 2026-10-28; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @MotionChallenge-Project, who has not added it."
+   },
+   "paths": [
+    "docs",
+    "src/motion_challenge",
+    "suites/lafan",
+    "tests"
+   ]
   }
  ]
 }

@@ -16,8 +16,15 @@
     "by": "author-consent",
     "at": "2026-10-26T15:13Z",
     "consent_receipt": "1aa78ce601ed",
-    "note": "Inclusion consented by the commit author by email at 2026-10-26T15:13Z (receipt 1aa78ce601ed); selected commit 861b1f63c2c0: \"Final app: local Gemma via Ollama, banner UI, cleaned code, sample la\u2026\". LICENSE file at pin 861b1f63c2c0 detected as MIT by the GitHub licence API on 2026-10-26; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-26T15:13Z (receipt 1aa78ce601ed); selected commit 861b1f63c2c0: \"Final app: local Gemma via Ollama, banner UI, cleaned code, sample la\u2026\". LICENSE file at pin 861b1f63c2c0 detected as MIT by the GitHub licence API on 2026-10-26; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @PrinceVerma44, who has not added it."
+   },
+   "paths": [
+    "backend",
+    "data",
+    "kisanlabel",
+    "samples",
+    "tests"
+   ]
   }
  ]
 }

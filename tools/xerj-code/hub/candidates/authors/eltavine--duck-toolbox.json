@@ -1,0 +1,28 @@
+{
+ "corpus": "eltavine--duck-toolbox",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how eltavine/Duck-ToolBox implements it: KernelSU Module (selected work: components)",
+ "repos": [
+  {
+   "repo": "Duck-ToolBox",
+   "url": "https://github.com/eltavine/Duck-ToolBox",
+   "sha": "947bad2d67b339bcd6d8b378cb7214f28b1c262b",
+   "licence": "MIT (LICENSE file at pin 947bad2d67b3, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T13:03Z",
+    "consent_receipt": "80b69ebd06bb",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T13:03Z (receipt 80b69ebd06bb); selected commit 947bad2d67b3: \"fix: resolve Device Faker activation through root companion (#54)\". LICENSE file at pin 947bad2d67b3 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @eltavine, who has not added it."
+   },
+   "paths": [
+    "components/device-faker/engine/src",
+    "components/device-faker/manager/src",
+    "docs"
+   ]
+  }
+ ]
+}

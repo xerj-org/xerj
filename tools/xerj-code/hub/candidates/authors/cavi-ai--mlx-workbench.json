@@ -1,0 +1,30 @@
+{
+ "corpus": "cavi-ai--mlx-workbench",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on mlx, llm, local-first queries this for how cavi-ai/mlx-workbench implements it: Prepare, check and serve local models on Apple Silicon from a native macOS app powered by MLX Agent (selected work: mlx-mac)",
+ "repos": [
+  {
+   "repo": "mlx-workbench",
+   "url": "https://github.com/cavi-ai/mlx-workbench",
+   "sha": "fa600a19e34e9ae8367d26c5c86c9bd15c45240d",
+   "licence": "MIT (LICENSE file at pin fa600a19e34e, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-19T13:11Z",
+    "consent_receipt": "a37441799aa2",
+    "note": "Inclusion consented by the commit author by email at 2026-10-19T13:11Z (receipt a37441799aa2); selected commit fa600a19e34e: \"feat: add library empty-state actions (#256)\". LICENSE file at pin fa600a19e34e detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @cavi-ai, who has not added it."
+   },
+   "paths": [
+    "docs/mlx-workbench/source/pages/workflows",
+    "mlx-mac/mlx-mac/Services",
+    "mlx-mac/mlx-mac/UI/Views",
+    "mlx-mac/mlx-macTests",
+    "mlx-mac/mlx-macUITests"
+   ]
+  }
+ ]
+}

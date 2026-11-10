@@ -1,0 +1,23 @@
+{
+ "corpus": "mlpoffff--vk-album-downloader",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on vk, vk-api, vkontakte queries this for how mlpoffff/vk-album-downloader implements it: \u041f\u0440\u0438\u043b\u043e\u0436\u0435\u043d\u0438\u0435 \u0434\u043b\u044f \u0441\u043a\u0430\u0447\u0438\u0432\u0430\u043d\u0438\u044f \u0430\u043b\u044c\u0431\u043e\u043c\u043e\u0432 \u0444\u043e\u0442\u043e\u0433\u0440\u0430\u0444\u0438\u0439 \u0438\u0437 \u0412\u043a\u043e\u043d\u0442\u0430\u043a\u0442\u0435. \u0421\u0434\u0435\u043b\u0430\u043d \u043d\u0430 Nuxt \u0438 Tauri (selected work: app/components, app/stores, src-tauri)",
+ "repos": [
+  {
+   "repo": "vk-album-downloader",
+   "url": "https://github.com/mlpoffff/vk-album-downloader",
+   "sha": "67bc0d76468228b201e54c44450c0219635f1333",
+   "licence": "MIT (LICENSE file at pin 67bc0d764682, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T11:46Z",
+    "consent_receipt": "4f35fd65012a",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T11:46Z (receipt 4f35fd65012a); selected commit 67bc0d764682: \"FEAT: \u043f\u0435\u0440\u0435\u0445\u043e\u0434 \u0441 electron \u043d\u0430 tauri\". LICENSE file at pin 67bc0d764682 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

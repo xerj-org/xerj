@@ -16,8 +16,17 @@
     "by": "author-consent",
     "at": "2026-10-24T06:10Z",
     "consent_receipt": "f95bacc49454",
-    "note": "Inclusion consented by the commit author by email at 2026-10-24T06:10Z (receipt f95bacc49454); selected commit 0384b9278638: \"Add native Canvas transition scenes and rendering\". LICENSE file at pin 0384b9278638 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-24T06:10Z (receipt f95bacc49454); selected commit 0384b9278638: \"Add native Canvas transition scenes and rendering\". LICENSE file at pin 0384b9278638 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @ggaction, who has not added it."
+   },
+   "paths": [
+    "agent_docs",
+    "docs",
+    "scripts",
+    "src",
+    "test/contracts",
+    "test/unit",
+    "types"
+   ]
   }
  ]
 }

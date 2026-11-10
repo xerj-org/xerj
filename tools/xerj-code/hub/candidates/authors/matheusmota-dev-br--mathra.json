@@ -1,0 +1,23 @@
+{
+ "corpus": "matheusmota-dev-br--mathra",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on accessibility, cli, equations queries this for how matheusmota-dev-br/mathra implements it: Math LaTeX to accessible SVG, without a TeX install. Speech for screen readers in 16 languages, numbered and tested rules, tolerant of broke (selected work: crates/core, crates/wasm, crates/python)",
+ "repos": [
+  {
+   "repo": "mathra",
+   "url": "https://github.com/matheusmota-dev-br/mathra",
+   "sha": "a7bcf53fcf8fac2b2971a16920aad61c3da4b779",
+   "licence": "author's permission (LICENSE at pin a7bcf53fcf8f: NOASSERTION; repository: Apache-2.0)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T21:16Z",
+    "consent_receipt": "ccc107eb840f",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T21:16Z (receipt ccc107eb840f); selected commit a7bcf53fcf8f: \"feat: add animation and reference\". LICENSE at pin a7bcf53fcf8f: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

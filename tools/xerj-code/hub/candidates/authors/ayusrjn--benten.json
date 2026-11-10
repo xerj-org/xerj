@@ -16,8 +16,15 @@
     "by": "author-consent",
     "at": "2026-10-25T16:17Z",
     "consent_receipt": "d8837f2a336b",
-    "note": "Inclusion consented by the commit author by email at 2026-10-25T16:17Z (receipt d8837f2a336b); selected commit 4882945aa13c: \"fix: replace sample dashboard metrics with real data\". LICENSE file at pin 4882945aa13c detected as MIT by the GitHub licence API on 2026-10-26; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-25T16:17Z (receipt d8837f2a336b); selected commit 4882945aa13c: \"fix: replace sample dashboard metrics with real data\". LICENSE file at pin 4882945aa13c detected as MIT by the GitHub licence API on 2026-10-26; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @ayusrjn, who has not added it."
+   },
+   "paths": [
+    "backend/app/api",
+    "backend/app/schemas",
+    "backend/tests",
+    "docs",
+    "frontend-benten/src/pages/dashboard"
+   ]
   }
  ]
 }

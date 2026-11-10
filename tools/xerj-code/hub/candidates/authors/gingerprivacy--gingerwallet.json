@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-10-18T12:32Z",
     "consent_receipt": "ed314c8f4ae6",
-    "note": "Inclusion consented by the commit author by email at 2026-10-18T12:32Z (receipt ed314c8f4ae6); selected commit 3938ae43746b: \"Unify single and multiple recipient send editing\". LICENSE file at pin 3938ae43746b detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-18T12:32Z (receipt ed314c8f4ae6); selected commit 3938ae43746b: \"Unify single and multiple recipient send editing\". LICENSE file at pin 3938ae43746b detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @GingerPrivacy, who has not added it."
+   },
+   "paths": [
+    "WalletWasabi.Fluent/HomeScreen/Send/ViewModels",
+    "WalletWasabi.Fluent/HomeScreen/Send/Views",
+    "WalletWasabi.Tests/UnitTests/UserInterfaceTest"
+   ]
   }
  ]
 }

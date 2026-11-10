@@ -1,0 +1,23 @@
+{
+ "corpus": "moonwho101--dungeonstompthreejs",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on dungeon-crawler, game-development, javascript queries this for how moonwho101/DungeonStompThreejs implements it: Dungeon Stomp Three.js (selected work: verification)",
+ "repos": [
+  {
+   "repo": "DungeonStompThreejs",
+   "url": "https://github.com/moonwho101/DungeonStompThreejs",
+   "sha": "79ff3063c0a918a29963edf870995bdd7ee0397e",
+   "licence": "MIT (LICENSE file at pin 79ff3063c0a9, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T16:01Z",
+    "consent_receipt": "01bab0455ca2",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T16:01Z (receipt 01bab0455ca2); selected commit 79ff3063c0a9: \"Dungeon Stomp Three.js\". LICENSE file at pin 79ff3063c0a9 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Pinned to head 79ff3063c0a9 (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

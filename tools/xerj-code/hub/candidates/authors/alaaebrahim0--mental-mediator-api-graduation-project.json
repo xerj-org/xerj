@@ -1,0 +1,23 @@
+{
+ "corpus": "alaaebrahim0--mental-mediator-api-graduation-project",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on api-rest, asp-net-core, aspnetcore queries this for how AlaaEbrahim0/mental-mediator-api-graduation-project implements it: The backend repository for my graduation project \"Nexus\" (selected work: Infrastructure, Application, API)",
+ "repos": [
+  {
+   "repo": "mental-mediator-api-graduation-project",
+   "url": "https://github.com/AlaaEbrahim0/mental-mediator-api-graduation-project",
+   "sha": "fa6c1e8ea77aca2c43213dd571acba2f0fb29750",
+   "licence": "MIT (LICENSE file at pin fa6c1e8ea77a, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-27T12:52Z",
+    "consent_receipt": "ef9b0f7260bf",
+    "note": "Inclusion consented by the commit author by email at 2026-10-27T12:52Z (receipt ef9b0f7260bf); selected commit fa6c1e8ea77a: \"refactor(security,config): harden security, add config template, and \u2026\". LICENSE file at pin fa6c1e8ea77a detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

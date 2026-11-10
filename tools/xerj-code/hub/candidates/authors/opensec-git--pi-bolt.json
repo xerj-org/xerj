@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-10-23T21:15Z",
     "consent_receipt": "4f3d233c394c",
-    "note": "Inclusion consented by the commit author by email at 2026-10-23T21:15Z (receipt 4f3d233c394c); selected commit 219f6ee9013c: \"feat(coding-agent): add /usage command\". LICENSE file at pin 219f6ee9013c detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-23T21:15Z (receipt 4f3d233c394c); selected commit 219f6ee9013c: \"feat(coding-agent): add /usage command\". LICENSE file at pin 219f6ee9013c detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @opensec-git, who has not added it."
+   },
+   "paths": [
+    "packages/coding-agent/src/core",
+    "packages/coding-agent/src/modes/interactive",
+    "packages/coding-agent/test"
+   ]
   }
  ]
 }

@@ -16,8 +16,11 @@
     "by": "author-consent",
     "at": "2026-11-10T05:17Z",
     "consent_receipt": "ab10ad5cb8a8",
-    "note": "Inclusion consented by the commit author by email at 2026-11-10T05:17Z (receipt ab10ad5cb8a8); selected commit 9917ae73b175: \"Add an Android library entry point for ViveNotes, bump v1.1.0\". LICENSE file at pin 9917ae73b175 detected as GPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T05:17Z (receipt ab10ad5cb8a8); selected commit 9917ae73b175: \"Add an Android library entry point for ViveNotes, bump v1.1.0\". LICENSE file at pin 9917ae73b175 detected as GPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @CrownByte0b, who has not added it."
+   },
+   "paths": [
+    "src"
+   ]
   }
  ]
 }

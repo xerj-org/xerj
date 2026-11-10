@@ -1,0 +1,23 @@
+{
+ "corpus": "isozone--social-sdk-parent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Java queries this for how isozone/social-sdk-parent implements it: \u63d0\u4f9b\u95f2\u9c7c\u64cd\u4f5c\u7684\u57fa\u4e8e java \u7684 sdk \u5305 (selected work: social-sdk-xianyu-manager-web, social-sdk-xianyu-manager, social-sdk-cdp-auth)",
+ "repos": [
+  {
+   "repo": "social-sdk-parent",
+   "url": "https://github.com/isozone/social-sdk-parent",
+   "sha": "7983ae0c962fa60038a2d0f54b810d6d111b55b8",
+   "licence": "MIT (LICENSE file at pin 7983ae0c962f, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T12:53Z",
+    "consent_receipt": "d75fa9374ab7",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T12:53Z (receipt d75fa9374ab7); selected commit 7983ae0c962f: \"feat: \u767b\u5f55\u7eed\u671f\u6839\u56e0\u4fee\u590d\u3001Chrome \u5185\u626b\u7801\u95ed\u73af\u4e0e\u79d1\u6280\u611f\u5927\u5c4f UI\". LICENSE file at pin 7983ae0c962f detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

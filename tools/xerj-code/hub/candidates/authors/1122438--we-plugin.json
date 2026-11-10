@@ -1,0 +1,23 @@
+{
+ "corpus": "1122438--we-plugin",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on character-card, deepseek-harness, dsh-plugin queries this for how 1122438/We-Plugin implements it: DeepSeek Harness \u7684\u4f1a\u8bdd\u7ea7\u89d2\u8272\u626e\u6f14\u63d2\u4ef6 (selected work: dsh-cosplay-script)",
+ "repos": [
+  {
+   "repo": "We-Plugin",
+   "url": "https://github.com/1122438/We-Plugin",
+   "sha": "0c85d2d78cce736e0e4b9c6c04f6b59cb6f8fab1",
+   "licence": "MIT (LICENSE file at pin 0c85d2d78cce, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T17:29Z",
+    "consent_receipt": "ed3b417b7158",
+    "note": "Inclusion consented by the commit author by email at 2026-11-05T17:29Z (receipt ed3b417b7158); selected commit 0c85d2d78cce: \"dsh-cosplay-script-1.0\". LICENSE file at pin 0c85d2d78cce detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Pinned to head 0c85d2d78cce (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

@@ -16,8 +16,11 @@
     "by": "author-consent",
     "at": "2026-10-27T22:33Z",
     "consent_receipt": "1d766c17b33d",
-    "note": "Inclusion consented by the commit author by email at 2026-10-27T22:33Z (receipt 1d766c17b33d); selected commit 836eb056c553: \"feat: import files from disk through a file dialog in the assets bar \u2026\". LICENSE file at pin 836eb056c553 detected as GPL-2.0 by the GitHub licence API on 2026-10-27; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-27T22:33Z (receipt 1d766c17b33d); selected commit 836eb056c553: \"feat: import files from disk through a file dialog in the assets bar \u2026\". LICENSE file at pin 836eb056c553 detected as GPL-2.0 by the GitHub licence API on 2026-10-27; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Orrin-Team, who has not added it."
+   },
+   "paths": [
+    "crates/core"
+   ]
   }
  ]
 }

@@ -16,8 +16,14 @@
     "by": "author-consent",
     "at": "2026-10-26T07:22Z",
     "consent_receipt": "714ca1dbdcbb",
-    "note": "Inclusion consented by the commit author by email at 2026-10-26T07:22Z (receipt 714ca1dbdcbb); selected commit 3bc84b295f24: \"Remove elements of transpiler module deprecated since 0.43 (#3381)\". LICENSE file at pin 3bc84b295f24 detected as Apache-2.0 by the GitHub licence API on 2026-10-28; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-26T07:22Z (receipt 714ca1dbdcbb); selected commit 3bc84b295f24: \"Remove elements of transpiler module deprecated since 0.43 (#3381)\". LICENSE file at pin 3bc84b295f24 detected as Apache-2.0 by the GitHub licence API on 2026-10-28; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Qiskit, who has not added it."
+   },
+   "paths": [
+    "qiskit_ibm_runtime/transpiler/passes/scheduling",
+    "release-notes/unreleased",
+    "test/unit/transpiler/passes/basis",
+    "test/unit/transpiler/passes/scheduling"
+   ]
   }
  ]
 }

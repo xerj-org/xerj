@@ -16,8 +16,22 @@
     "by": "author-consent",
     "at": "2026-10-13T01:34Z",
     "consent_receipt": "9f8c71ead02d",
-    "note": "Inclusion consented by the commit author by email at 2026-10-13T01:34Z (receipt 9f8c71ead02d); selected commit 6633564e8f5e: \"Clean up Conversation authorship and schema state (#161)\". LICENSE file at pin 6633564e8f5e detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-13T01:34Z (receipt 9f8c71ead02d); selected commit 6633564e8f5e: \"Clean up Conversation authorship and schema state (#161)\". LICENSE file at pin 6633564e8f5e detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @open-cluster, who has not added it."
+   },
+   "paths": [
+    "api",
+    "docs/api",
+    "docs/concepts",
+    "docs/self-hosting",
+    "internal/conversation",
+    "internal/investigation",
+    "internal/postmortem",
+    "internal/store/postgres",
+    "internal/webhooks",
+    "test/architecture",
+    "test/controlplane",
+    "test/postgres"
+   ]
   }
  ]
 }

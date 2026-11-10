@@ -16,8 +16,15 @@
     "by": "author-consent",
     "at": "2026-10-17T09:36Z",
     "consent_receipt": "c66b714124e3",
-    "note": "Inclusion consented by the commit author by email at 2026-10-17T09:36Z (receipt c66b714124e3); selected commit f9e30c86bd9d: \"Ratchet baselines are judged against the base branch; skips fail on CI\". LICENSE file at pin f9e30c86bd9d detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-17T09:36Z (receipt c66b714124e3); selected commit f9e30c86bd9d: \"Ratchet baselines are judged against the base branch; skips fail on CI\". LICENSE file at pin f9e30c86bd9d detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @sutradharhq, who has not added it."
+   },
+   "paths": [
+    "action",
+    "docs",
+    "plugin/guards",
+    "python/sutradhar_guards",
+    "python/tests"
+   ]
   }
  ]
 }

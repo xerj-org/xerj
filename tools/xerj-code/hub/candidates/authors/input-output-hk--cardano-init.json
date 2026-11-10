@@ -16,8 +16,18 @@
     "by": "author-consent",
     "at": "2026-11-03T16:47Z",
     "consent_receipt": "2eb9e2d752e5",
-    "note": "Inclusion consented by the commit author by email at 2026-11-03T16:47Z (receipt 2eb9e2d752e5); selected commit f7893f93a0bd: \"feat: lucid evolution (#109)\". LICENSE file at pin f7893f93a0bd detected as Apache-2.0 by the GitHub licence API on 2026-11-03; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T16:47Z (receipt 2eb9e2d752e5); selected commit f7893f93a0bd: \"feat: lucid evolution (#109)\". LICENSE file at pin f7893f93a0bd detected as Apache-2.0 by the GitHub licence API on 2026-11-03; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @input-output-hk, who has not added it."
+   },
+   "paths": [
+    ".github/workflows",
+    "docs/contributing",
+    "docs/user-guide",
+    "registry/tools",
+    "src/doctor",
+    "src/registry",
+    "src/scaffold",
+    "templates/lucid-evolution/off-chain"
+   ]
   }
  ]
 }

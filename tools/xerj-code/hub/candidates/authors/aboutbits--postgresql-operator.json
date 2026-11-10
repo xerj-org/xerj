@@ -16,8 +16,19 @@
     "by": "author-consent",
     "at": "2026-10-30T09:16Z",
     "consent_receipt": "ec150cc8e1aa",
-    "note": "Inclusion consented by the commit author by email at 2026-10-30T09:16Z (receipt ec150cc8e1aa); selected commit 0ba784e76f70: \"Reconcile `Role` resources with a non-superuser admin such as the mas\u2026\". LICENSE file at pin 0ba784e76f70 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T09:16Z (receipt ec150cc8e1aa); selected commit 0ba784e76f70: \"Reconcile `Role` resources with a non-superuser admin such as the mas\u2026\". LICENSE file at pin 0ba784e76f70 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @aboutbits, who has not added it."
+   },
+   "paths": [
+    "docs",
+    "generated",
+    "operator/src/main/java/it/aboutbits/postgresql/core",
+    "operator/src/main/java/it/aboutbits/postgresql/crd/role",
+    "operator/src/main/resources",
+    "operator/src/test/java/it/aboutbits/postgresql/_support",
+    "operator/src/test/java/it/aboutbits/postgresql/core",
+    "operator/src/test/java/it/aboutbits/postgresql/crd/role",
+    "operator/src/test/java/it/aboutbits/postgresql/helm"
+   ]
   }
  ]
 }

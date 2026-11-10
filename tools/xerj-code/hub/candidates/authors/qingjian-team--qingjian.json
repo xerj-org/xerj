@@ -16,8 +16,23 @@
     "by": "author-consent",
     "at": "2026-10-15T19:11Z",
     "consent_receipt": "216a9bd38f79",
-    "note": "Inclusion consented by the commit author by email at 2026-10-15T19:11Z (receipt 216a9bd38f79); selected commit cc08b48c3caa: \"feat(windows): \u6309\u9700\u4e91\u8054\u60f3\u5feb\u6377\u952e\u4e0e\u81ea\u52a8\u8054\u60f3\u5f00\u5173 (#564)\". LICENSE file at pin cc08b48c3caa detected as GPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-15T19:11Z (receipt 216a9bd38f79); selected commit cc08b48c3caa: \"feat(windows): \u6309\u9700\u4e91\u8054\u60f3\u5feb\u6377\u952e\u4e0e\u81ea\u52a8\u8054\u60f3\u5f00\u5173 (#564)\". LICENSE file at pin cc08b48c3caa detected as GPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @qingjian-team, who has not added it."
+   },
+   "paths": [
+    "apps/settings/src",
+    "apps/windows/server/src/dispatch",
+    "apps/windows/server/tests/engine_loop",
+    "apps/windows/settings/src/panel",
+    "apps/windows/tsf/src/com/key",
+    "apps/windows/tsf/src/com/service",
+    "crates/qingjian-platform/src/config",
+    "crates/qingjian-platform/src/protocol",
+    "docs/design",
+    "docs/notes",
+    "docs/plan",
+    "docs/user/cloud",
+    "docs/user/getting-started"
+   ]
   }
  ]
 }

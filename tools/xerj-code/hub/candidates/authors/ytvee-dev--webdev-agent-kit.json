@@ -16,8 +16,16 @@
     "by": "author-consent",
     "at": "2026-10-29T21:10Z",
     "consent_receipt": "e73f52b46254",
-    "note": "Inclusion consented by the commit author by email at 2026-10-29T21:10Z (receipt e73f52b46254); selected commit be15a9f58d6c: \"fix: reconcile STEM learning with scoped onboarding and project memory\". LICENSE file at pin be15a9f58d6c detected as Apache-2.0 by the GitHub licence API on 2026-10-29; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T21:10Z (receipt e73f52b46254); selected commit be15a9f58d6c: \"fix: reconcile STEM learning with scoped onboarding and project memory\". LICENSE file at pin be15a9f58d6c detected as Apache-2.0 by the GitHub licence API on 2026-10-29; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @ytvee-dev, who has not added it."
+   },
+   "paths": [
+    "common",
+    "docs/install",
+    "docs/release",
+    "evals",
+    "skills/agent-self-improvement",
+    "skills/project-onboarding-adapter"
+   ]
   }
  ]
 }

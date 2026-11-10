@@ -1,0 +1,23 @@
+{
+ "corpus": "xztsummer--chatgpt-proxy-manager",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on chatgpt, clash, csharp queries this for how xztsummer/chatgpt-proxy-manager implements it: \u8ba9 ChatGPT \u684c\u9762\u7248\u8d70\u672c\u5730\u4ee3\u7406\u542f\u52a8\uff0c\u65e0\u9700\u5f00\u542f\u7cfb\u7edf\u4ee3\u7406\u6216 TUN \u6a21\u5f0f | Launch the ChatGPT desktop app through a local proxy without enabling the Windows system proxy or TU (selected work: macos)",
+ "repos": [
+  {
+   "repo": "chatgpt-proxy-manager",
+   "url": "https://github.com/xztsummer/chatgpt-proxy-manager",
+   "sha": "2e7520da58c27c6ee54356220d33c376f3a6938e",
+   "licence": "MIT (LICENSE file at pin 2e7520da58c2, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-16T01:15Z",
+    "consent_receipt": "7377c672800d",
+    "note": "Inclusion consented by the commit author by email at 2026-10-16T01:15Z (receipt 7377c672800d); selected commit 2e7520da58c2: \"feat: \u65b0\u589e macOS \u7248\uff08SwiftUI \u539f\u751f\u5e94\u7528\uff0copen --args --proxy-server \u65b9\u6848\uff09\". LICENSE file at pin 2e7520da58c2 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

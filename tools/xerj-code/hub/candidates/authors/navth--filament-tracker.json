@@ -1,0 +1,23 @@
+{
+ "corpus": "navth--filament-tracker",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on 3d-printing, bambu-lab, flask queries this for how Navth/filament-tracker implements it: Track filament usage per spool on your Bambu Lab printer \u2014 auto-syncs grams per print from Bambu Cloud (selected work: agent, scripts, the project root)",
+ "repos": [
+  {
+   "repo": "filament-tracker",
+   "url": "https://github.com/Navth/filament-tracker",
+   "sha": "983d6014a40e9ed1420c5123438409ac9667b429",
+   "licence": "MIT (LICENSE file at pin 983d6014a40e, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-18T19:50Z",
+    "consent_receipt": "b6109b3324eb",
+    "note": "Inclusion consented by the commit author by email at 2026-10-18T19:50Z (receipt b6109b3324eb); selected commit 983d6014a40e: \"local run\". LICENSE file at pin 983d6014a40e detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

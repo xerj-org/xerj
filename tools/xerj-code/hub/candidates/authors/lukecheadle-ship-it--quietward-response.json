@@ -1,0 +1,23 @@
+{
+ "corpus": "lukecheadle-ship-it--quietward-response",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how LUKEcheadle-ship-it/quietward-response implements it: Event-driven incident investigation and response coordination platform (selected work: backend, scripts, frontend)",
+ "repos": [
+  {
+   "repo": "quietward-response",
+   "url": "https://github.com/LUKEcheadle-ship-it/quietward-response",
+   "sha": "972bac1be241f2701d362b6a2e471423f66f8517",
+   "licence": "Apache-2.0 (LICENSE file at pin 972bac1be241, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-16T14:57Z",
+    "consent_receipt": "7395d8766c0f",
+    "note": "Inclusion consented by the commit author by email at 2026-10-16T14:57Z (receipt 7395d8766c0f); selected commit 972bac1be241: \"Harden private agent-state writes and clarify development capability \u2026\". LICENSE file at pin 972bac1be241 detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

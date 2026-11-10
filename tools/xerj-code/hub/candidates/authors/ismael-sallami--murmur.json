@@ -1,0 +1,23 @@
+{
+ "corpus": "ismael-sallami--murmur",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on portfolio queries this for how Ismael-Sallami/murmur implements it: Ismael-Sallami/murmur (Python) (selected work: web, the project root, murmur)",
+ "repos": [
+  {
+   "repo": "murmur",
+   "url": "https://github.com/Ismael-Sallami/murmur",
+   "sha": "672e05614613301f152e1b9ef90c4cbdf2648272",
+   "licence": "MIT (LICENSE file at pin 672e05614613, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-25T13:26Z",
+    "consent_receipt": "7dbdce12ddc8",
+    "note": "Inclusion consented by the commit author by email at 2026-10-25T13:26Z (receipt 7dbdce12ddc8); selected commit 672e05614613: \"feat: implementar animaciones de scroll parallax y pipeline din\u00e1mico \u2026\". LICENSE file at pin 672e05614613 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

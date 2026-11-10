@@ -16,8 +16,19 @@
     "by": "author-consent",
     "at": "2026-10-10T20:50Z",
     "consent_receipt": "e2469cc7a5ac",
-    "note": "Inclusion consented by the commit author by email at 2026-10-10T20:50Z (receipt e2469cc7a5ac); selected commit b5b7dc1749d0: \"feat(memory): implement context budgeting and continuation (#202)\". LICENSE file at pin b5b7dc1749d0 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-10T20:50Z (receipt e2469cc7a5ac); selected commit b5b7dc1749d0: \"feat(memory): implement context budgeting and continuation (#202)\". LICENSE file at pin b5b7dc1749d0 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @runiq-net, who has not added it."
+   },
+   "paths": [
+    "docs",
+    "src/Runiq.AI.Agents",
+    "src/Runiq.AI.Core/AI/Chat",
+    "src/Runiq.AI.Memory",
+    "tests/Runiq.AI.Agents.Tests/Agents",
+    "tests/Runiq.AI.Agents.Tests/Providers",
+    "tests/Runiq.AI.Agents.Tests/Runtime",
+    "tests/Runiq.AI.Memory.PostgreSql.Tests/Persistence",
+    "tests/Runiq.AI.Memory.Tests"
+   ]
   }
  ]
 }

@@ -16,8 +16,16 @@
     "by": "author-consent",
     "at": "2026-10-15T13:29Z",
     "consent_receipt": "35c9e0f22b0c",
-    "note": "Inclusion consented by the commit author by email at 2026-10-15T13:29Z (receipt 35c9e0f22b0c); selected commit 6d7c43200026: \"support feature workspaces above 2 GiB and reduce encoder reallocatio\u2026\". LICENSE file at pin 6d7c43200026 detected as Apache-2.0 by the GitHub licence API on 2026-10-25; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-15T13:29Z (receipt 35c9e0f22b0c); selected commit 6d7c43200026: \"support feature workspaces above 2 GiB and reduce encoder reallocatio\u2026\". LICENSE file at pin 6d7c43200026 detected as Apache-2.0 by the GitHub licence API on 2026-10-25; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @SoundsGoodAI, who has not added it."
+   },
+   "paths": [
+    "src/fast_gpu_asr/encoder",
+    "src/fast_gpu_asr/export",
+    "src/fast_gpu_asr/tensorrt_plugins",
+    "tests/export",
+    "tests/plugins",
+    "tests/runtime"
+   ]
   }
  ]
 }

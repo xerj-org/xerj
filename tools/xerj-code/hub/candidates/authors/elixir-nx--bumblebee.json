@@ -16,8 +16,11 @@
     "by": "author-consent",
     "at": "2026-10-12T22:08Z",
     "consent_receipt": "07dd9a1ad43a",
-    "note": "Inclusion consented by the commit author by email at 2026-10-12T22:08Z (receipt 07dd9a1ad43a); selected commit 10e131e2dc72: \"Unify RoPE scaling strategy handling across models\". LICENSE file at pin 10e131e2dc72 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-12T22:08Z (receipt 07dd9a1ad43a); selected commit 10e131e2dc72: \"Unify RoPE scaling strategy handling across models\". LICENSE file at pin 10e131e2dc72 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @elixir-nx, who has not added it."
+   },
+   "paths": [
+    "lib/bumblebee"
+   ]
   }
  ]
 }

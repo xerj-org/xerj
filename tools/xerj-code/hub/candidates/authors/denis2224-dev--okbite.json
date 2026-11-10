@@ -1,0 +1,26 @@
+{
+ "corpus": "denis2224-dev--okbite",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how denis2224-dev/OkBite implements it: denis2224-dev/OkBite (TypeScript) (selected work: apps/mobile)",
+ "repos": [
+  {
+   "repo": "OkBite",
+   "url": "https://github.com/denis2224-dev/OkBite",
+   "sha": "d84d395acb20bdc867f8d72c4402f252435536c6",
+   "licence": "MIT (LICENSE file at pin d84d395acb20, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T21:05Z",
+    "consent_receipt": "b27e7f71fe92",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T21:05Z (receipt b27e7f71fe92); selected commit d84d395acb20: \"feat(scan): add lazy ZXing barcode fallback for web scanning (R5-W1) \u2026\". LICENSE file at pin d84d395acb20 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @denis2224-dev, who has not added it."
+   },
+   "paths": [
+    "apps/mobile"
+   ]
+  }
+ ]
+}

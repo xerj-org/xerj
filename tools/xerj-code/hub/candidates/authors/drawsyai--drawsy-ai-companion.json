@@ -16,8 +16,11 @@
     "by": "author-consent",
     "at": "2026-10-27T20:10Z",
     "consent_receipt": "8219efec8102",
-    "note": "Inclusion consented by the commit author by email at 2026-10-27T20:10Z (receipt 8219efec8102); selected commit daaa251e95dd: \"feat: add safe OpenCode skills and network controls\". LICENSE file at pin daaa251e95dd detected as MIT by the GitHub licence API on 2026-10-27; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-27T20:10Z (receipt 8219efec8102); selected commit daaa251e95dd: \"feat: add safe OpenCode skills and network controls\". LICENSE file at pin daaa251e95dd detected as MIT by the GitHub licence API on 2026-10-27; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @DrawsyAI, who has not added it."
+   },
+   "paths": [
+    "src/drawsy"
+   ]
   }
  ]
 }

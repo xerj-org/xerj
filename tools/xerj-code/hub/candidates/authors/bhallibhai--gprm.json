@@ -1,0 +1,23 @@
+{
+ "corpus": "bhallibhai--gprm",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on git, github, github-api queries this for how BhalliBhai/gprm implements it: Github Profile Readme Generator (selected work: src/app, the project root, src/components)",
+ "repos": [
+  {
+   "repo": "gprm",
+   "url": "https://github.com/BhalliBhai/gprm",
+   "sha": "faacf171b1307ff868d15ef993489cd86a4d7613",
+   "licence": "MIT (LICENSE file at pin faacf171b130, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T15:10Z",
+    "consent_receipt": "fc9e19839efe",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T15:10Z (receipt fc9e19839efe); selected commit faacf171b130: \"feat: integrate Cloudflare deployment and optimize blog components\". LICENSE file at pin faacf171b130 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

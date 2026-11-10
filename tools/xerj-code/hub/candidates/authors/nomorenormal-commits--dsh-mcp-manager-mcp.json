@@ -1,0 +1,23 @@
+{
+ "corpus": "nomorenormal-commits--dsh-mcp-manager-mcp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on JavaScript queries this for how nomorenormal-commits/dsh-mcp-manager-MCP implements it: \u5728 DSH \u5185\u7f6e\u9762\u677f\u6dfb\u52a0\u3001\u542f\u505c\u3001\u914d\u7f6e MCP \u670d\u52a1\uff0c\u81ea\u52a8\u68c0\u6d4b MCP \u670d\u52a1\u662f\u5426\u6389\u7ebf\u3001\u65e5\u5fd7\u67e5\u770b\uff0c\u4e00\u952e\u5bfc\u5165 / \u5bfc\u51fa MCP \u914d\u7f6e\u3002 (selected work: the project root, lib, test)",
+ "repos": [
+  {
+   "repo": "dsh-mcp-manager-MCP",
+   "url": "https://github.com/nomorenormal-commits/dsh-mcp-manager-MCP",
+   "sha": "6aa799e4469d157d175eeced25b586f40d8ced8c",
+   "licence": "MIT (LICENSE file at pin 6aa799e4469d, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T11:47Z",
+    "consent_receipt": "3d54f091b8e5",
+    "note": "Inclusion consented by the commit author by email at 2026-11-06T11:47Z (receipt 3d54f091b8e5); selected commit 6aa799e4469d: \"feat: DSH MCP \u670d\u52a1\u7ba1\u7406\u5668\". LICENSE file at pin 6aa799e4469d detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

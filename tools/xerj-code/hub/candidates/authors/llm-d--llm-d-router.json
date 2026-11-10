@@ -16,8 +16,28 @@
     "by": "author-consent",
     "at": "2026-10-12T04:34Z",
     "consent_receipt": "31e40a87d87a",
-    "note": "Inclusion consented by the commit author by email at 2026-10-12T04:34Z (receipt 31e40a87d87a); selected commit 6d1959a8e28a: \"feat(datalayer): confine per-request attribute access to declarations\u2026\". LICENSE file at pin 6d1959a8e28a detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-12T04:34Z (receipt 31e40a87d87a); selected commit 6d1959a8e28a: \"feat(datalayer): confine per-request attribute access to declarations\u2026\". LICENSE file at pin 6d1959a8e28a detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @llm-d, who has not added it."
+   },
+   "paths": [
+    "cmd/epp/runner",
+    "pkg/epp/datalayer",
+    "pkg/epp/framework/interface/scheduling",
+    "pkg/epp/framework/plugins/flowcontrol/fairness/program-aware",
+    "pkg/epp/framework/plugins/requestcontrol/dataproducer/inflightload",
+    "pkg/epp/framework/plugins/requestcontrol/dataproducer/p2psource",
+    "pkg/epp/framework/plugins/requestcontrol/requestheader/outlenbucket",
+    "pkg/epp/framework/plugins/scheduling/filter/sessionaffinity",
+    "pkg/epp/framework/plugins/scheduling/filter/topologyaffinity",
+    "pkg/epp/framework/plugins/scheduling/profilehandler/disagg",
+    "pkg/epp/framework/plugins/scheduling/scorer/contextlengthaware",
+    "pkg/epp/framework/plugins/scheduling/scorer/sessionaffinity",
+    "pkg/epp/framework/plugins/scheduling/scorer/topologyaffinity",
+    "pkg/epp/framework/plugins/scheduling/util/sessionaffinity",
+    "pkg/epp/framework/plugins/scheduling/util/topology",
+    "pkg/epp/metrics",
+    "pkg/epp/requestcontrol",
+    "pkg/epp/scheduling"
+   ]
   }
  ]
 }

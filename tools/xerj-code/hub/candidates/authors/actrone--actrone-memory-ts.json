@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-10-16T11:39Z",
     "consent_receipt": "318507e38978",
-    "note": "Inclusion consented by the commit author by email at 2026-10-16T11:39Z (receipt 318507e38978); selected commit 885915f8ff38: \"feat: add use-case examples for personal assistant, coding assistant,\u2026\". LICENSE file at pin 885915f8ff38 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-16T11:39Z (receipt 318507e38978); selected commit 885915f8ff38: \"feat: add use-case examples for personal assistant, coding assistant,\u2026\". LICENSE file at pin 885915f8ff38 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @actrone, who has not added it."
+   },
+   "paths": [
+    "examples",
+    "scripts",
+    "test"
+   ]
   }
  ]
 }

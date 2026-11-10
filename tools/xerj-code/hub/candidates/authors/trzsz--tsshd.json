@@ -16,8 +16,11 @@
     "by": "author-consent",
     "at": "2026-10-16T20:15Z",
     "consent_receipt": "b3dd5fd37171",
-    "note": "Inclusion consented by the commit author by email at 2026-10-16T20:15Z (receipt b3dd5fd37171); selected commit 2a2d435e754e: \"fix session output loss caused by cmd.Wait closing pipe readers #45\". LICENSE file at pin 2a2d435e754e detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-16T20:15Z (receipt b3dd5fd37171); selected commit 2a2d435e754e: \"fix session output loss caused by cmd.Wait closing pipe readers #45\". LICENSE file at pin 2a2d435e754e detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @trzsz, who has not added it."
+   },
+   "paths": [
+    "tsshd"
+   ]
   }
  ]
 }

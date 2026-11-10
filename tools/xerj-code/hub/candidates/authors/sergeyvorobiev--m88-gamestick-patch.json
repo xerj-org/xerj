@@ -1,0 +1,23 @@
+{
+ "corpus": "sergeyvorobiev--m88-gamestick-patch",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on m88-controller-map, m88-firmware, m88-fix queries this for how SergeyVorobiev/M88-GameStick-Patch implements it: Patched M88 game stick broken features: cores, shaders, upscale, controller mapping, menu options (selected work: android, src/db)",
+ "repos": [
+  {
+   "repo": "M88-GameStick-Patch",
+   "url": "https://github.com/SergeyVorobiev/M88-GameStick-Patch",
+   "sha": "ff45d608a2b53f178670532bb3a79dc5a936ade5",
+   "licence": "MIT (LICENSE file at pin ff45d608a2b5, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T17:55Z",
+    "consent_receipt": "8a6d32ad3046",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T17:55Z (receipt 8a6d32ad3046); selected commit ff45d608a2b5: \"Update Apps and README\". LICENSE file at pin ff45d608a2b5 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

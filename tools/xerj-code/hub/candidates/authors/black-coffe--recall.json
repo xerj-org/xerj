@@ -1,0 +1,23 @@
+{
+ "corpus": "black-coffe--recall",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on claude, diarization, faster-whisper queries this for how Black-coffe/recall implements it: Local RAG archive of your calls: faster-whisper transcription, pyannote diarization, entity graph and tasks, hybrid vector search with an \"a (selected work: static, app/core, app/blueprints)",
+ "repos": [
+  {
+   "repo": "recall",
+   "url": "https://github.com/Black-coffe/recall",
+   "sha": "d36c262888364e018a0855ee34ad681fc9042b0c",
+   "licence": "MIT (LICENSE file at pin d36c26288836, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-18T17:36Z",
+    "consent_receipt": "028946128e9f",
+    "note": "Inclusion consented by the commit author by email at 2026-10-18T17:36Z (receipt 028946128e9f); selected commit d36c26288836: \"Recall 4.16.1 \u2014 UI in Ukrainian and English (4.16.0), English public \u2026\". LICENSE file at pin d36c26288836 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

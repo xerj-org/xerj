@@ -1,0 +1,23 @@
+{
+ "corpus": "quentin-ld--updatronix",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on automatic-updates, updates-manager, wordpress queries this for how quentin-ld/updatronix implements it: Update WordPress without fear. Monitor every change, take precise control over all updates, schedule on your terms (selected work: tests, assets, bin)",
+ "repos": [
+  {
+   "repo": "updatronix",
+   "url": "https://github.com/quentin-ld/updatronix",
+   "sha": "7c71f4be64acc850f1dcd3fa5403ff73244a5135",
+   "licence": "GPL-2.0 (LICENSE file at pin 7c71f4be64ac, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-07T08:06Z",
+    "consent_receipt": "bf3101564983",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T08:06Z (receipt bf3101564983); selected commit 7c71f4be64ac: \"fix(ui): preserve native update-row markup\". LICENSE file at pin 7c71f4be64ac detected as GPL-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

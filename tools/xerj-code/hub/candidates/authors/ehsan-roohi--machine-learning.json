@@ -1,0 +1,23 @@
+{
+ "corpus": "ehsan-roohi--machine-learning",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Jupyter Notebook queries this for how Ehsan-Roohi/Machine_Learning implements it: Ehsan-Roohi/Machine_Learning (Jupyter Notebook)",
+ "repos": [
+  {
+   "repo": "Machine_Learning",
+   "url": "https://github.com/Ehsan-Roohi/Machine_Learning",
+   "sha": "f6345888c30c2f6c16622420de725f99a42555d6",
+   "licence": "author's permission (LICENSE at pin f6345888c30c: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T21:31Z",
+    "consent_receipt": "c92db3f2a7d7",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T21:31Z (receipt c92db3f2a7d7); pinned to the default-branch head. LICENSE at pin f6345888c30c: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

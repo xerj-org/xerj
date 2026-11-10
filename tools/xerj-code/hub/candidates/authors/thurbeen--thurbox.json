@@ -16,8 +16,17 @@
     "by": "author-consent",
     "at": "2026-10-05T19:04Z",
     "consent_receipt": "e3d5463ef254",
-    "note": "Inclusion consented by the commit author by email at 2026-10-05T19:04Z (receipt e3d5463ef254); selected commit 6660d1064f07: \"perf(core): skip snapshot reloads for telemetry and repeated hooks (#\u2026\". LICENSE file at pin 6660d1064f07 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-05T19:04Z (receipt e3d5463ef254); selected commit 6660d1064f07: \"perf(core): skip snapshot reloads for telemetry and repeated hooks (#\u2026\". LICENSE file at pin 6660d1064f07 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Thurbeen, who has not added it."
+   },
+   "paths": [
+    ".agents/skills/thurbox-performance",
+    "docs",
+    "src/bin",
+    "src/coordinator",
+    "src/kernel",
+    "src/storage",
+    "tests"
+   ]
   }
  ]
 }

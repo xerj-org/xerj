@@ -1,0 +1,23 @@
+{
+ "corpus": "mauro-moreno--quesynth",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Odin queries this for how mauro-moreno/quesynth implements it: Software Synth (selected work: src/engine, tests, src/dsp)",
+ "repos": [
+  {
+   "repo": "quesynth",
+   "url": "https://github.com/mauro-moreno/quesynth",
+   "sha": "0211f87a867ed1ee260dd89f738e61763c2d2b89",
+   "licence": "MIT (LICENSE file at pin 0211f87a867e, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-26T22:07Z",
+    "consent_receipt": "6e156a741186",
+    "note": "Inclusion consented by the commit author by email at 2026-10-26T22:07Z (receipt 6e156a741186); selected commit 0211f87a867e: \"Address review of the pad's silence and cache work\". LICENSE file at pin 0211f87a867e detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

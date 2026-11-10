@@ -1,0 +1,23 @@
+{
+ "corpus": "angelrmatoz--jobfinder-ai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Python queries this for how Angelrmatoz/JobFinder-AI implements it: JobFinder AI es una aplicaci\u00f3n web Full-Stack dise\u00f1ada para eliminar la b\u00fasqueda manual de empleo. Subes tu curr\u00edculum en formato PDF desde  (selected work: backend, frontend)",
+ "repos": [
+  {
+   "repo": "JobFinder-AI",
+   "url": "https://github.com/Angelrmatoz/JobFinder-AI",
+   "sha": "506a2e64f3da9db0557264635b5154ed1f3f1d6a",
+   "licence": "MIT (LICENSE file at pin 506a2e64f3da, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T18:35Z",
+    "consent_receipt": "3037f29a5efe",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T18:35Z (receipt 3037f29a5efe); selected commit 506a2e64f3da: \"feat: implement retry logic with exponential backoff in Gemini servic\u2026\". LICENSE file at pin 506a2e64f3da detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

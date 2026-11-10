@@ -1,0 +1,34 @@
+{
+ "corpus": "mflux-community--mflux",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, apple-silicon, diffusers queries this for how mflux-community/mflux implements it: Apple MLX native implementations of state-of-the-art generative image & video models (selected work: tests, src/mflux, scripts)",
+ "repos": [
+  {
+   "repo": "mflux",
+   "url": "https://github.com/mflux-community/mflux",
+   "sha": "02bbe7bc36b2e32edca8f255a1ec494878c77fcc",
+   "licence": "MIT (LICENSE file at pin 02bbe7bc36b2, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-15T19:48Z",
+    "consent_receipt": "fd93c69690f0",
+    "note": "Inclusion consented by the commit author by email at 2026-10-15T19:48Z (receipt fd93c69690f0); selected commit 02bbe7bc36b2: \"Run Qwen-Image-Edit-2511 as itself, with zero_cond_t (#844)\". LICENSE file at pin 02bbe7bc36b2 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @mflux-community, who has not added it."
+   },
+   "paths": [
+    "scripts",
+    "src/mflux/cli/defaults",
+    "src/mflux/models/common/cli",
+    "src/mflux/models/common/config",
+    "src/mflux/models/qwen",
+    "tests/cli",
+    "tests/image_generation",
+    "tests/resolution",
+    "tests/resources"
+   ]
+  }
+ ]
+}

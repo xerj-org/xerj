@@ -16,8 +16,15 @@
     "by": "author-consent",
     "at": "2026-10-23T05:31Z",
     "consent_receipt": "e5833d4e681e",
-    "note": "Inclusion consented by the commit author by email at 2026-10-23T05:31Z (receipt e5833d4e681e); selected commit 3ed53947fa9f: \"feat(v0.8.2 A4): add opt-in Claude Code qualification build\". LICENSE file at pin 3ed53947fa9f detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-23T05:31Z (receipt e5833d4e681e); selected commit 3ed53947fa9f: \"feat(v0.8.2 A4): add opt-in Claude Code qualification build\". LICENSE file at pin 3ed53947fa9f detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @infimount, who has not added it."
+   },
+   "paths": [
+    ".github/workflows",
+    "apps/desktop/src-tauri",
+    "apps/desktop/src/components",
+    "apps/desktop/src/lib",
+    "docs"
+   ]
   }
  ]
 }

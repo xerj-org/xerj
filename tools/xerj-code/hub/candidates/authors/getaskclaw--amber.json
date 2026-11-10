@@ -16,8 +16,12 @@
     "by": "author-consent",
     "at": "2026-10-15T02:20Z",
     "consent_receipt": "4593b8a08d97",
-    "note": "Inclusion consented by the commit author by email at 2026-10-15T02:20Z (receipt 4593b8a08d97); selected commit ae4e48f95fe4: \"schemas: add manifest JSON Schema, validator, and SHRE->AMBER mapping\". LICENSE file at pin ae4e48f95fe4 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-15T02:20Z (receipt 4593b8a08d97); selected commit ae4e48f95fe4: \"schemas: add manifest JSON Schema, validator, and SHRE->AMBER mapping\". LICENSE file at pin ae4e48f95fe4 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @getaskclaw, who has not added it."
+   },
+   "paths": [
+    "schemas",
+    "tools"
+   ]
   }
  ]
 }

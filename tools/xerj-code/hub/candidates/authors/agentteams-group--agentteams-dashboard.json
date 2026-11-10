@@ -16,8 +16,16 @@
     "by": "author-consent",
     "at": "2026-10-15T22:25Z",
     "consent_receipt": "04b5ad984aa5",
-    "note": "Inclusion consented by the commit author by email at 2026-10-15T22:25Z (receipt 04b5ad984aa5); selected commit b502f978630a: \"fix(dashboard): \u8865\u9f50 #146 \u7f3a\u53e3 2/3\uff08\u7f16\u7801\u6267\u884c\u8bb0\u5f55 + LLM \u8c03\u4f18\uff09 (#148)\". LICENSE file at pin b502f978630a detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-15T22:25Z (receipt 04b5ad984aa5); selected commit b502f978630a: \"fix(dashboard): \u8865\u9f50 #146 \u7f3a\u53e3 2/3\uff08\u7f16\u7801\u6267\u884c\u8bb0\u5f55 + LLM \u8c03\u4f18\uff09 (#148)\". LICENSE file at pin b502f978630a detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @agentteams-group, who has not added it."
+   },
+   "paths": [
+    ".monkeycode",
+    "docs",
+    "src/app/api/agentteams/coding-runs",
+    "src/components/dashboard",
+    "src/hooks",
+    "src/lib"
+   ]
   }
  ]
 }

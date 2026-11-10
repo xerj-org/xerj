@@ -16,8 +16,12 @@
     "by": "author-consent",
     "at": "2026-10-26T11:40Z",
     "consent_receipt": "d9ba5910d73d",
-    "note": "Inclusion consented by the commit author by email at 2026-10-26T11:40Z (receipt d9ba5910d73d); selected commit f5f8746b5597: \"Local models: judge local by where the address goes and what answers \u2026\". LICENSE file at pin f5f8746b5597 detected as MIT by the GitHub licence API on 2026-10-26; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-26T11:40Z (receipt d9ba5910d73d); selected commit f5f8746b5597: \"Local models: judge local by where the address goes and what answers \u2026\". LICENSE file at pin f5f8746b5597 detected as MIT by the GitHub licence API on 2026-10-26; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @HackersHostel, who has not added it."
+   },
+   "paths": [
+    "agentwebui_lite",
+    "tests"
+   ]
   }
  ]
 }

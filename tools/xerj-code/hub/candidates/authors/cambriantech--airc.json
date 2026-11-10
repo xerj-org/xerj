@@ -1,0 +1,28 @@
+{
+ "corpus": "cambriantech--airc",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on chat-application, file-sharing, hermes-skill queries this for how CambrianTech/airc implements it: Seamless workspaces for AI agents \u2014 across tabs, machines, even across accounts. Open Claude Code (or your favorite agent), type /join, your (selected work: crates/airc-cli, crates/airc-lib)",
+ "repos": [
+  {
+   "repo": "airc",
+   "url": "https://github.com/CambrianTech/airc",
+   "sha": "2ee6f2d6e8beeaccd058712a98bc41af8a2b2419",
+   "licence": "MIT (LICENSE file at pin 2ee6f2d6e8be, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T19:22Z",
+    "consent_receipt": "c05107252679",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T19:22Z (receipt c05107252679); selected commit 2ee6f2d6e8be: \"Test addressed IPC owner recreation and preserve refusal provenance (\u2026\". LICENSE file at pin 2ee6f2d6e8be detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Pinned to head 2ee6f2d6e8be (contains the selected commit): the LICENSE at the selected commit was NONE. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @CambrianTech, who has not added it."
+   },
+   "paths": [
+    "crates/airc-cli/src",
+    "crates/airc-cli/tests",
+    "crates/airc-lib/src/addressed"
+   ]
+  }
+ ]
+}

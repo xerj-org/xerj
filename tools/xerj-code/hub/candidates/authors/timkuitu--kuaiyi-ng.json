@@ -1,0 +1,23 @@
+{
+ "corpus": "timkuitu--kuaiyi-ng",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Nim queries this for how TimKuitu/kuaiyi-ng implements it: \u5feb\u8bd1NG \u2014 \u8f7b\u91cf\u4e2d\u82f1\u4e92\u8bd1\uff1aC \u6838\u5fc3 + Nim/wNim \u539f\u751f\u754c\u9762\uff0c\u5fc5\u5e94\u514d\u8d39\u7ffb\u8bd1\u63a5\u53e3\uff0c\u79c1\u6709\u5185\u5b58\u7ea6 4MB (selected work: core, ui)",
+ "repos": [
+  {
+   "repo": "kuaiyi-ng",
+   "url": "https://github.com/TimKuitu/kuaiyi-ng",
+   "sha": "90e029ac788328c18188a6a48358dfccc880b7bb",
+   "licence": "MIT (LICENSE file at pin 90e029ac7883, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-26T05:04Z",
+    "consent_receipt": "81b90f55d960",
+    "note": "Inclusion consented by the commit author by email at 2026-10-26T05:04Z (receipt 81b90f55d960); selected commit 90e029ac7883: \"v1.1 \u589e\u52a0\u767e\u5ea6\u7ffb\u8bd1 API\uff08\u53ef\u9009\uff09\uff0c\u4e09\u7ea7\u56de\u9000\u94fe AI\u2192\u767e\u5ea6\u2192\u5fc5\u5e94\". LICENSE file at pin 90e029ac7883 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

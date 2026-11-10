@@ -1,0 +1,23 @@
+{
+ "corpus": "dipin-parmar-001--analystgpt",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how Dipin-Parmar-001/AnalystGPT implements it: Dipin-Parmar-001/AnalystGPT (Python) (selected work: frontend, agents, observability_dashboard)",
+ "repos": [
+  {
+   "repo": "AnalystGPT",
+   "url": "https://github.com/Dipin-Parmar-001/AnalystGPT",
+   "sha": "c8f0f5d8a29a6d06bcd423139c1a4538ea4873a8",
+   "licence": "MIT (LICENSE file at pin c8f0f5d8a29a, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T12:23Z",
+    "consent_receipt": "28945b40dce2",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T12:23Z (receipt 28945b40dce2); selected commit c8f0f5d8a29a: \"Introducing AnalystGPT\". LICENSE file at pin c8f0f5d8a29a detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Pinned to head c8f0f5d8a29a (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

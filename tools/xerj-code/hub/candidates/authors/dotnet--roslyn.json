@@ -1,0 +1,28 @@
+{
+ "corpus": "dotnet--roslyn",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on roslyn, visual-basic, visual-studio queries this for how dotnet/roslyn implements it: The Roslyn .NET compiler provides C# and Visual Basic languages with rich code analysis APIs (selected work: src/Analyzers)",
+ "repos": [
+  {
+   "repo": "roslyn",
+   "url": "https://github.com/dotnet/roslyn",
+   "sha": "a1bbcb8c7337ff9c51e642bdb9564577a3d928b9",
+   "licence": "MIT (LICENSE file at pin a1bbcb8c7337, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-15T14:56Z",
+    "consent_receipt": "c60c97fdf005",
+    "note": "Inclusion consented by the commit author by email at 2026-10-15T14:56Z (receipt c60c97fdf005); selected commit a1bbcb8c7337: \"Unsafe evolution: use safety documentation for unnecessary unsafe (#8\u2026\". LICENSE file at pin a1bbcb8c7337 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @dotnet, who has not added it."
+   },
+   "paths": [
+    "src/Analyzers/CSharp/Analyzers/RemoveUnnecessaryUnsafeModifier",
+    "src/Analyzers/CSharp/CodeFixes",
+    "src/Analyzers/CSharp/Tests/RemoveUnnecessaryUnsafeModifier"
+   ]
+  }
+ ]
+}

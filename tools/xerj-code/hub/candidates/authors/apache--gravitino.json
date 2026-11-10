@@ -16,8 +16,29 @@
     "by": "author-consent",
     "at": "2026-10-12T05:26Z",
     "consent_receipt": "2811528e889a",
-    "note": "Inclusion consented by the commit author by email at 2026-10-12T05:26Z (receipt 2811528e889a); selected commit c732bfa5de7c: \"[#12594] feat(server): Authorize Semantic Model REST and validate sou\u2026\". LICENSE file at pin c732bfa5de7c detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-12T05:26Z (receipt 2811528e889a); selected commit c732bfa5de7c: \"[#12594] feat(server): Authorize Semantic Model REST and validate sou\u2026\". LICENSE file at pin c732bfa5de7c detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @apache, who has not added it."
+   },
+   "paths": [
+    ".github/workflows",
+    "api/src/main/java/org/apache/gravitino/rel/indexes",
+    "catalogs-contrib/catalog-jdbc-clickhouse/src/main/java/org/apache/gravitino/catalog/clickhouse",
+    "catalogs-contrib/catalog-jdbc-clickhouse/src/test/java/org/apache/gravitino/catalog/clickhouse/integration/test",
+    "catalogs-contrib/catalog-jdbc-clickhouse/src/test/java/org/apache/gravitino/catalog/clickhouse/operations",
+    "clients/client-python/gravitino/api/rel/indexes",
+    "clients/client-python/gravitino/dto/rel/indexes",
+    "clients/client-python/tests/unittests",
+    "common/src/test/java/org/apache/gravitino/json",
+    "core/src/main/java/org/apache/gravitino/catalog",
+    "docs",
+    "integration-test-common/src/test/java/org/apache/gravitino/integration/test/container",
+    "integration-test-common/src/test/resources",
+    "plugins/tms/src/main/java/org/apache/gravitino/maintenance/scheduler/job/commit",
+    "plugins/tms/src/main/java/org/apache/gravitino/maintenance/storage",
+    "plugins/tms/src/test/java/org/apache/gravitino/maintenance/scheduler/job/commit",
+    "server/src/main/java/org/apache/gravitino/server",
+    "server/src/test/java/org/apache/gravitino/server/web/filter",
+    "server/src/test/java/org/apache/gravitino/server/web/rest"
+   ]
   }
  ]
 }

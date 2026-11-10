@@ -16,8 +16,12 @@
     "by": "author-consent",
     "at": "2026-10-18T14:33Z",
     "consent_receipt": "f1856e6ff1e2",
-    "note": "Inclusion consented by the commit author by email at 2026-10-18T14:33Z (receipt f1856e6ff1e2); selected commit ff759f4eb899: \"Fix release pipeline so Flutter publishes and re-runs don't collide (\u2026\". LICENSE file at pin ff759f4eb899 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-18T14:33Z (receipt f1856e6ff1e2); selected commit ff759f4eb899: \"Fix release pipeline so Flutter publishes and re-runs don't collide (\u2026\". LICENSE file at pin ff759f4eb899 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @quiltt, who has not added it."
+   },
+   "paths": [
+    ".github/workflows",
+    "scripts"
+   ]
   }
  ]
 }

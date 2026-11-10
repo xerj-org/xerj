@@ -16,8 +16,19 @@
     "by": "author-consent",
     "at": "2026-10-16T17:34Z",
     "consent_receipt": "5c7e5266d77a",
-    "note": "Inclusion consented by the commit author by email at 2026-10-16T17:34Z (receipt 5c7e5266d77a); selected commit 25158b27da6d: \"fix: Menu, Context Menu and Menubar Issues.\". LICENSE file at pin 25158b27da6d detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-16T17:34Z (receipt 5c7e5266d77a); selected commit 25158b27da6d: \"fix: Menu, Context Menu and Menubar Issues.\". LICENSE file at pin 25158b27da6d detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @igris-labs, who has not added it."
+   },
+   "paths": [
+    "docs/content/3.components",
+    "packages/akaza-ui/src/components/context-menu",
+    "packages/akaza-ui/src/components/menu",
+    "packages/akaza-ui/src/components/menubar",
+    "packages/akaza-ui/src/utils",
+    "packages/akaza-ui/tests/browser",
+    "packages/akaza-ui/tests/components/menu",
+    "packages/akaza-ui/tests/components/menubar",
+    "packages/akaza-ui/tests/utils"
+   ]
   }
  ]
 }

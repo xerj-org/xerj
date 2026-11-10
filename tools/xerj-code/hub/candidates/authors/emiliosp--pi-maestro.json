@@ -1,0 +1,23 @@
+{
+ "corpus": "emiliosp--pi-maestro",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how emilioSp/pi-maestro implements it: Pi extension to manage a spec driven multiagent development workflow (selected work: src/tools, extensions, src/workflow)",
+ "repos": [
+  {
+   "repo": "pi-maestro",
+   "url": "https://github.com/emilioSp/pi-maestro",
+   "sha": "c353dc4ec21a3d192c8d43c3b3bd39a105bc601b",
+   "licence": "MIT (LICENSE file at pin c353dc4ec21a, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-18T17:21Z",
+    "consent_receipt": "66bb22486f60",
+    "note": "Inclusion consented by the commit author by email at 2026-10-18T17:21Z (receipt 66bb22486f60); selected commit c353dc4ec21a: \"feat: add a dedicated simplifier after verification (#40)\". LICENSE file at pin c353dc4ec21a detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

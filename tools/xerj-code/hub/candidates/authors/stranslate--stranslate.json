@@ -16,8 +16,14 @@
     "by": "author-consent",
     "at": "2026-10-13T05:10Z",
     "consent_receipt": "c6a8c3447620",
-    "note": "Inclusion consented by the commit author by email at 2026-10-13T05:10Z (receipt c6a8c3447620); selected commit 9eed5222d877: \"fix: animate the main window directly and preserve foreground visibility\". LICENSE file at pin 9eed5222d877 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-13T05:10Z (receipt c6a8c3447620); selected commit 9eed5222d877: \"fix: animate the main window directly and preserve foreground visibility\". LICENSE file at pin 9eed5222d877 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @STranslate, who has not added it."
+   },
+   "paths": [
+    "src/STranslate/Helpers",
+    "src/STranslate/Views",
+    "src/Tests/STranslate.Tests",
+    "src/docs"
+   ]
   }
  ]
 }

@@ -16,8 +16,11 @@
     "by": "author-consent",
     "at": "2026-10-09T15:53Z",
     "consent_receipt": "b971305b5618",
-    "note": "Inclusion consented by the commit author by email at 2026-10-09T15:53Z (receipt b971305b5618); selected commit 7c79a954172e: \"fix(windows): budget remaining job memory\". LICENSE file at pin 7c79a954172e detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-09T15:53Z (receipt b971305b5618); selected commit 7c79a954172e: \"fix(windows): budget remaining job memory\". LICENSE file at pin 7c79a954172e detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @kryptic-sh, who has not added it."
+   },
+   "paths": [
+    "crates/infr-plat"
+   ]
   }
  ]
 }

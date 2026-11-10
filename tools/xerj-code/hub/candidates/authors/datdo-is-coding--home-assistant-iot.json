@@ -1,0 +1,23 @@
+{
+ "corpus": "datdo-is-coding--home-assistant-iot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how datdo-is-coding/Home-Assistant-IoT- implements it: datdo-is-coding/Home-Assistant-IoT- (C) (selected work: Firmware)",
+ "repos": [
+  {
+   "repo": "Home-Assistant-IoT-",
+   "url": "https://github.com/datdo-is-coding/Home-Assistant-IoT-",
+   "sha": "f3f4d23922271b109049b0f15cc098d1e15de526",
+   "licence": "MIT (LICENSE file at pin f3f4d2392227, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-26T08:00Z",
+    "consent_receipt": "9aca18d73199",
+    "note": "Inclusion consented by the commit author by email at 2026-10-26T08:00Z (receipt 9aca18d73199); selected commit f3f4d2392227: \"Quantized Model\". LICENSE file at pin f3f4d2392227 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

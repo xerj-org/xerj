@@ -1,0 +1,23 @@
+{
+ "corpus": "nit-tin--oz",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Zig queries this for how niT-Tin/oz implements it: A personal text editor, built as a subset of Vim with additional plugin enhancements (selected work: test, the project root, scripts)",
+ "repos": [
+  {
+   "repo": "oz",
+   "url": "https://github.com/niT-Tin/oz",
+   "sha": "3685c3e248257bb22bb8de59f350e6c0b585f723",
+   "licence": "MIT (LICENSE file at pin 3685c3e24825, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-25T03:57Z",
+    "consent_receipt": "ca3a4b2d04e2",
+    "note": "Inclusion consented by the commit author by email at 2026-10-25T03:57Z (receipt ca3a4b2d04e2); selected commit 3685c3e24825: \"build: migrate to Zig 0.17\". LICENSE file at pin 3685c3e24825 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

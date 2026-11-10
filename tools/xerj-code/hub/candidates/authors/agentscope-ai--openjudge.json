@@ -1,0 +1,27 @@
+{
+ "corpus": "agentscope-ai--openjudge",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on alignment, reward, reward-model queries this for how agentscope-ai/OpenJudge implements it: OpenJudge: A Unified Framework for Holistic Evaluation and Quality Rewards (selected work: tests, ui)",
+ "repos": [
+  {
+   "repo": "OpenJudge",
+   "url": "https://github.com/agentscope-ai/OpenJudge",
+   "sha": "b83f446b09821257da9c2070ca405fa71cc22690",
+   "licence": "Apache-2.0 (LICENSE file at pin b83f446b0982, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T15:08Z",
+    "consent_receipt": "965f3ee84746",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T15:08Z (receipt 965f3ee84746); selected commit b83f446b0982: \"fix(auto_arena): stop persisting API keys in saved configs (#212)\". LICENSE file at pin b83f446b0982 detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @agentscope-ai, who has not added it."
+   },
+   "paths": [
+    "tests/ui",
+    "ui/features/auto_arena"
+   ]
+  }
+ ]
+}

@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-10-13T09:21Z",
     "consent_receipt": "9e52183c3ed5",
-    "note": "Inclusion consented by the commit author by email at 2026-10-13T09:21Z (receipt 9e52183c3ed5); selected commit b47bff3d9f4f: \"fix(resolver): !include_dir_* reads the files HA reads, merged the wa\u2026\". LICENSE file at pin b47bff3d9f4f detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Pinned to head b47bff3d9f4f (contains the selected commit): the LICENSE at the selected commit was NONE."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-13T09:21Z (receipt 9e52183c3ed5); selected commit b47bff3d9f4f: \"fix(resolver): !include_dir_* reads the files HA reads, merged the wa\u2026\". LICENSE file at pin b47bff3d9f4f detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Pinned to head b47bff3d9f4f (contains the selected commit): the LICENSE at the selected commit was NONE. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @hemm-ems, who has not added it."
+   },
+   "paths": [
+    "docs",
+    "src/companion",
+    "tests"
+   ]
   }
  ]
 }

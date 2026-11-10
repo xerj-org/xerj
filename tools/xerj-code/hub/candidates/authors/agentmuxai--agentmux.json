@@ -16,8 +16,15 @@
     "by": "author-consent",
     "at": "2026-10-11T03:14Z",
     "consent_receipt": "24d06ddfd5a1",
-    "note": "Inclusion consented by the commit author by email at 2026-10-11T03:14Z (receipt 24d06ddfd5a1); selected commit 69702a43f6ee: \"feat(agent): right-click Paste in the Shell drawer + context-menu reg\u2026\". LICENSE file at pin 69702a43f6ee detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-11T03:14Z (receipt 24d06ddfd5a1); selected commit 69702a43f6ee: \"feat(agent): right-click Paste in the Shell drawer + context-menu reg\u2026\". LICENSE file at pin 69702a43f6ee detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @agentmuxai, who has not added it."
+   },
+   "paths": [
+    ".changesets",
+    "docs/specs",
+    "frontend/app/block",
+    "frontend/app/view/agent",
+    "frontend/app/view/term"
+   ]
   }
  ]
 }

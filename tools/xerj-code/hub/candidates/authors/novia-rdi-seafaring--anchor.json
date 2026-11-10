@@ -16,8 +16,11 @@
     "by": "author-consent",
     "at": "2026-10-15T08:56Z",
     "consent_receipt": "1ffab01d06b8",
-    "note": "Inclusion consented by the commit author by email at 2026-10-15T08:56Z (receipt 1ffab01d06b8); selected commit 127fbbe3e8d9: \"fix(canvas): consume one pending armed placement gesture (#506)\". LICENSE file at pin 127fbbe3e8d9 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-15T08:56Z (receipt 1ffab01d06b8); selected commit 127fbbe3e8d9: \"fix(canvas): consume one pending armed placement gesture (#506)\". LICENSE file at pin 127fbbe3e8d9 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Novia-RDI-Seafaring, who has not added it."
+   },
+   "paths": [
+    "web/src/canvas"
+   ]
   }
  ]
 }

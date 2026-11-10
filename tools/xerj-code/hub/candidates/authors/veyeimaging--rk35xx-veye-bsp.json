@@ -16,8 +16,12 @@
     "by": "author-consent",
     "at": "2026-10-15T02:03Z",
     "consent_receipt": "72fc23d71608",
-    "note": "Inclusion consented by the commit author by email at 2026-10-15T02:03Z (receipt 72fc23d71608); selected commit e4516077e1fe: \"support roi mode for gxcam\". LICENSE file at pin e4516077e1fe detected as GPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-15T02:03Z (receipt 72fc23d71608); selected commit e4516077e1fe: \"support roi mode for gxcam\". LICENSE file at pin e4516077e1fe detected as GPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @veyeimaging, who has not added it."
+   },
+   "paths": [
+    "linux/drivers/kernel_v5.10",
+    "linux/drivers/kernel_v6.1"
+   ]
   }
  ]
 }

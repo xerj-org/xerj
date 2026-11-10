@@ -1,0 +1,32 @@
+{
+ "corpus": "almalinux--cloud-images",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on HCL queries this for how AlmaLinux/cloud-images implements it: Packer templates and other tools for building AlmaLinux images for various cloud platforms (selected work: the project root, ansible, tpl)",
+ "repos": [
+  {
+   "repo": "cloud-images",
+   "url": "https://github.com/AlmaLinux/cloud-images",
+   "sha": "9eb2982c5700fb7fec5ad5c1e181e999410833af",
+   "licence": "MIT (LICENSE file at pin 9eb2982c5700, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-20T10:29Z",
+    "consent_receipt": "32ec9e2ab43e",
+    "note": "Inclusion consented by the commit author by email at 2026-10-20T10:29Z (receipt 32ec9e2ab43e); selected commit 9eb2982c5700: \"feat(vagrant): build the VirtualBox aarch64 box under QEMU, the Paral\u2026\". LICENSE file at pin 9eb2982c5700 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @AlmaLinux, who has not added it."
+   },
+   "paths": [
+    ".github/actions/shared-steps",
+    ".github/scripts",
+    ".github/workflows",
+    "ansible",
+    "http",
+    "tools",
+    "tpl/vagrant/virtualbox"
+   ]
+  }
+ ]
+}

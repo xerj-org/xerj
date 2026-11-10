@@ -16,8 +16,16 @@
     "by": "author-consent",
     "at": "2026-10-11T16:51Z",
     "consent_receipt": "e7965805065a",
-    "note": "Inclusion consented by the commit author by email at 2026-10-11T16:51Z (receipt e7965805065a); selected commit 480525b6fc5c: \"Discover declared preference keys without guessing application scope\". LICENSE file at pin 480525b6fc5c detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-11T16:51Z (receipt e7965805065a); selected commit 480525b6fc5c: \"Discover declared preference keys without guessing application scope\". LICENSE file at pin 480525b6fc5c detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @memengine, who has not added it."
+   },
+   "paths": [
+    "api",
+    "docs",
+    "sdk/python",
+    "sdk/typescript",
+    "tests/integration",
+    "tests/unit"
+   ]
   }
  ]
 }

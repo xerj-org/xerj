@@ -16,8 +16,11 @@
     "by": "author-consent",
     "at": "2026-10-26T07:02Z",
     "consent_receipt": "001089dd7d01",
-    "note": "Inclusion consented by the commit author by email at 2026-10-26T07:02Z (receipt 001089dd7d01); selected commit 1263470373f8: \"feat(excel-lab): survive a host outage and the machine's sleep\". LICENSE file at pin 1263470373f8 detected as MIT by the GitHub licence API on 2026-10-26; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-26T07:02Z (receipt 001089dd7d01); selected commit 1263470373f8: \"feat(excel-lab): survive a host outage and the machine's sleep\". LICENSE file at pin 1263470373f8 detected as MIT by the GitHub licence API on 2026-10-26; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @sezzlee, who has not added it."
+   },
+   "paths": [
+    "packages/lab/excel-lab"
+   ]
   }
  ]
 }

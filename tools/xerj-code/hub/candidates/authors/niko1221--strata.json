@@ -16,8 +16,12 @@
     "by": "author-consent",
     "at": "2026-10-22T09:15Z",
     "consent_receipt": "c091eb6d22e1",
-    "note": "Inclusion consented by the commit author by email at 2026-10-22T09:15Z (receipt c091eb6d22e1); selected commit e155b07b9e05: \"kernels: faster grouped and per-hit Q2_0 expert kernels, bitwise iden\u2026\". LICENSE file at pin e155b07b9e05 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-22T09:15Z (receipt c091eb6d22e1); selected commit e155b07b9e05: \"kernels: faster grouped and per-hit Q2_0 expert kernels, bitwise iden\u2026\". LICENSE file at pin e155b07b9e05 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Niko1221, who has not added it."
+   },
+   "paths": [
+    "include/strata/kernels",
+    "src/kernels"
+   ]
   }
  ]
 }

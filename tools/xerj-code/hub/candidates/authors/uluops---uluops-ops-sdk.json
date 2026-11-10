@@ -1,0 +1,27 @@
+{
+ "corpus": "uluops---uluops-ops-sdk",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how Uluops/-uluops-ops-sdk implements it: SDK for the UluOps validation tracker API (selected work: test, src/types, src/operations)",
+ "repos": [
+  {
+   "repo": "-uluops-ops-sdk",
+   "url": "https://github.com/Uluops/-uluops-ops-sdk",
+   "sha": "8e4d3d1210c09f29306c9b665ee0a9d5bf0ea6a6",
+   "licence": "MIT (LICENSE file at pin 8e4d3d1210c0, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-14T21:11Z",
+    "consent_receipt": "12b6546de3c0",
+    "note": "Inclusion consented by the commit author by email at 2026-10-14T21:11Z (receipt 12b6546de3c0); selected commit 8e4d3d1210c0: \"feat: validate analytics metrics and negotiate list pages\". LICENSE file at pin 8e4d3d1210c0 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Uluops, who has not added it."
+   },
+   "paths": [
+    "src",
+    "test/operations"
+   ]
+  }
+ ]
+}

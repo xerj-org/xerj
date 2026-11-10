@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-10-24T00:36Z",
     "consent_receipt": "8c3a3d2a4a69",
-    "note": "Inclusion consented by the commit author by email at 2026-10-24T00:36Z (receipt 8c3a3d2a4a69); selected commit fe66a2fe8a63: \"feat: add /auto, supervised hands-off mode (#90)\". LICENSE file at pin fe66a2fe8a63 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-24T00:36Z (receipt 8c3a3d2a4a69); selected commit fe66a2fe8a63: \"feat: add /auto, supervised hands-off mode (#90)\". LICENSE file at pin fe66a2fe8a63 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @nuudge, who has not added it."
+   },
+   "paths": [
+    "docs",
+    "src/coding",
+    "src/core"
+   ]
   }
  ]
 }

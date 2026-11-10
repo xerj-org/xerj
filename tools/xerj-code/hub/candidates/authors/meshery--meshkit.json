@@ -1,0 +1,27 @@
+{
+ "corpus": "meshery--meshkit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on meshkit, hacktoberfest, golang queries this for how meshery/meshkit implements it: Common microservices framework for Meshery components (selected work: utils, models)",
+ "repos": [
+  {
+   "repo": "meshkit",
+   "url": "https://github.com/meshery/meshkit",
+   "sha": "18ccad26958c8e0c9719e854d0be459ef9415b85",
+   "licence": "Apache-2.0 (LICENSE file at pin 18ccad26958c, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T09:28Z",
+    "consent_receipt": "ac25ba600dd0",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T09:28Z (receipt ac25ba600dd0); selected commit 18ccad26958c: \"fix(meshmodel): bound the release lock table, report a deployed relea\u2026\". LICENSE file at pin 18ccad26958c detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @meshery, who has not added it."
+   },
+   "paths": [
+    "models/meshmodel/core/v1beta1",
+    "utils/kubernetes"
+   ]
+  }
+ ]
+}

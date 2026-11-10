@@ -16,8 +16,29 @@
     "by": "author-consent",
     "at": "2026-10-16T15:46Z",
     "consent_receipt": "94bab6d8285e",
-    "note": "Inclusion consented by the commit author by email at 2026-10-16T15:46Z (receipt 94bab6d8285e); selected commit 8b207c81e4e0: \"Apply gofmt and goimports across the tree (no code changes)\". LICENSE file at pin 8b207c81e4e0 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-16T15:46Z (receipt 94bab6d8285e); selected commit 8b207c81e4e0: \"Apply gofmt and goimports across the tree (no code changes)\". LICENSE file at pin 8b207c81e4e0 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @axiom-studio, who has not added it."
+   },
+   "paths": [
+    "cmd/memora-cli",
+    "cmd/memora-core",
+    "internal/autolink",
+    "internal/cli",
+    "internal/config",
+    "internal/embed/queue",
+    "internal/federation",
+    "internal/ledger/file",
+    "internal/ledger/sqlite",
+    "internal/mcp",
+    "internal/orphangc",
+    "internal/server/http",
+    "internal/store/postgres",
+    "internal/store/s3",
+    "internal/store/sqlite",
+    "internal/ui",
+    "pkg/adapter",
+    "pkg/identity",
+    "pkg/types"
+   ]
   }
  ]
 }

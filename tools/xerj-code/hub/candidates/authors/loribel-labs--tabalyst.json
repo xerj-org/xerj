@@ -16,8 +16,20 @@
     "by": "author-consent",
     "at": "2026-10-19T04:46Z",
     "consent_receipt": "19585262792e",
-    "note": "Inclusion consented by the commit author by email at 2026-10-19T04:46Z (receipt 19585262792e); selected commit 043ba73fd130: \"fix(report): libell\u00e9s des findings et des signaux, th\u00e8me, d\u00e9mos r\u00e9g\u00e9n\u2026\". LICENSE file at pin 043ba73fd130 detected as MPL-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-19T04:46Z (receipt 19585262792e); selected commit 043ba73fd130: \"fix(report): libell\u00e9s des findings et des signaux, th\u00e8me, d\u00e9mos r\u00e9g\u00e9n\u2026\". LICENSE file at pin 043ba73fd130 detected as MPL-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @loribel-labs, who has not added it."
+   },
+   "paths": [
+    "docs/dev/report",
+    "docs/en/report",
+    "examples/showcase/basic",
+    "examples/showcase/insurance-customers",
+    "examples/showcase/insurance-customers-scan",
+    "examples/showcase/orders",
+    "examples/showcase/sales",
+    "examples/showcase/web-events",
+    "src/tabalyst",
+    "tests/scan"
+   ]
   }
  ]
 }

@@ -16,8 +16,16 @@
     "by": "author-consent",
     "at": "2026-11-02T00:08Z",
     "consent_receipt": "7b3c82a2140a",
-    "note": "Inclusion consented by the commit author by email at 2026-11-02T00:08Z (receipt 7b3c82a2140a); selected commit da20a975723c: \" Add command to debug exposed routes\". LICENSE file at pin da20a975723c detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T00:08Z (receipt 7b3c82a2140a); selected commit da20a975723c: \" Add command to debug exposed routes\". LICENSE file at pin da20a975723c detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @vagabit-dev, who has not added it."
+   },
+   "paths": [
+    "src/Command",
+    "src/DependencyInjection",
+    "src/Service",
+    "tests/Command",
+    "tests/DependencyInjection",
+    "tests/Functional"
+   ]
   }
  ]
 }

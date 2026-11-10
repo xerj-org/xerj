@@ -1,0 +1,23 @@
+{
+ "corpus": "luskinha01-cyber--barbershop",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how Luskinha01-cyber/BarberShop implements it: Sistema de agendamento de uma barbearia simulada (selected work: BarberShop, whatsapp-service, the project root)",
+ "repos": [
+  {
+   "repo": "BarberShop",
+   "url": "https://github.com/Luskinha01-cyber/BarberShop",
+   "sha": "b150e12370b5647879e3372b69c49ede44db0706",
+   "licence": "MIT (LICENSE file at pin b150e12370b5, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-27T20:36Z",
+    "consent_receipt": "a4bce331bc75",
+    "note": "Inclusion consented by the commit author by email at 2026-10-27T20:36Z (receipt a4bce331bc75); selected commit b150e12370b5: \"feat: suporte a SQLite e integracao com Evolution API\". LICENSE file at pin b150e12370b5 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

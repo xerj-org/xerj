@@ -16,8 +16,14 @@
     "by": "author-consent",
     "at": "2026-11-10T10:56Z",
     "consent_receipt": "946277825dd2",
-    "note": "Inclusion consented by the commit author by email at 2026-11-10T10:56Z (receipt 946277825dd2); selected commit bc9b1dbf2267: \"Stateless token preferred_username fallback enables identity rebindin\u2026\". LICENSE file at pin bc9b1dbf2267 detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T10:56Z (receipt 946277825dd2); selected commit bc9b1dbf2267: \"Stateless token preferred_username fallback enables identity rebindin\u2026\". LICENSE file at pin bc9b1dbf2267 detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @keycloak, who has not added it."
+   },
+   "paths": [
+    "services/src/main/java/org/keycloak/authorization/authorization",
+    "services/src/main/java/org/keycloak/authorization/common",
+    "services/src/main/java/org/keycloak/protocol/oidc",
+    "tests/base/src/test/java/org/keycloak/tests/oauth"
+   ]
   }
  ]
 }

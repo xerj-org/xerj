@@ -1,0 +1,23 @@
+{
+ "corpus": "peacemakerbill--premisave-auth-service",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on HTML queries this for how peacemakerbill/premisave_auth_service implements it: Spring Auth Microservice for Real Estate System(Premisave) (selected work: src/main, the project root)",
+ "repos": [
+  {
+   "repo": "premisave_auth_service",
+   "url": "https://github.com/peacemakerbill/premisave_auth_service",
+   "sha": "43e230225426304b4e410a249b5885d41acaea13",
+   "licence": "MIT (LICENSE file at pin 43e230225426, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-23T21:34Z",
+    "consent_receipt": "a6c3e34b686d",
+    "note": "Inclusion consented by the commit author by email at 2026-10-23T21:34Z (receipt a6c3e34b686d); selected commit 43e230225426: \"Add ADMIN1 to ADMIN3 provisioning, replace Google Drive with local or\u2026\". LICENSE file at pin 43e230225426 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

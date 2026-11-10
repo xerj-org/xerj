@@ -16,8 +16,15 @@
     "by": "author-consent",
     "at": "2026-10-28T09:49Z",
     "consent_receipt": "411ef8b67c2c",
-    "note": "Inclusion consented by the commit author by email at 2026-10-28T09:49Z (receipt 411ef8b67c2c); selected commit ca10ac143594: \"Recuperaci\u00f3n de contrase\u00f1a por correo con enlace de un solo uso y pru\u2026\". LICENSE file at pin ca10ac143594 detected as Apache-2.0 by the GitHub licence API on 2026-10-28; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-28T09:49Z (receipt 411ef8b67c2c); selected commit ca10ac143594: \"Recuperaci\u00f3n de contrase\u00f1a por correo con enlace de un solo uso y pru\u2026\". LICENSE file at pin ca10ac143594 detected as Apache-2.0 by the GitHub licence API on 2026-10-28; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @jesusJoana, who has not added it."
+   },
+   "paths": [
+    "docs",
+    "migrations",
+    "src",
+    "tests",
+    "views"
+   ]
   }
  ]
 }

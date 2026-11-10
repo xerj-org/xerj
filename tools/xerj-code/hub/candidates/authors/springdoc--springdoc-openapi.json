@@ -16,8 +16,24 @@
     "by": "author-consent",
     "at": "2026-10-23T22:50Z",
     "consent_receipt": "c7250c82cd7e",
-    "note": "Inclusion consented by the commit author by email at 2026-10-23T22:50Z (receipt c7250c82cd7e); selected commit 50830e5f874b: \"Document the default API version only for the operations that serve it\". LICENSE at pin 50830e5f874b: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-23T22:50Z (receipt c7250c82cd7e); selected commit 50830e5f874b: \"Document the default API version only for the operations that serve it\". LICENSE at pin 50830e5f874b: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @springdoc, who has not added it."
+   },
+   "paths": [
+    "springdoc-openapi-starter-common/src/main/java/org/springdoc/api",
+    "springdoc-openapi-starter-common/src/main/java/org/springdoc/core/models",
+    "springdoc-openapi-starter-common/src/main/java/org/springdoc/core/service",
+    "springdoc-openapi-starter-common/src/main/java/org/springdoc/core/versions",
+    "springdoc-openapi-starter-webflux-api/src/test/java/test/org/springdoc/api/v30/app205",
+    "springdoc-openapi-starter-webflux-api/src/test/java/test/org/springdoc/api/v31/app205",
+    "springdoc-openapi-starter-webflux-api/src/test/resources/results/3.0.1",
+    "springdoc-openapi-starter-webflux-api/src/test/resources/results/3.1.0",
+    "springdoc-openapi-starter-webmvc-api/src/test/java/test/org/springdoc/api/v30/app274",
+    "springdoc-openapi-starter-webmvc-api/src/test/java/test/org/springdoc/api/v30/app3354/config",
+    "springdoc-openapi-starter-webmvc-api/src/test/java/test/org/springdoc/api/v31/app274",
+    "springdoc-openapi-starter-webmvc-api/src/test/java/test/org/springdoc/api/v31/app3354/config",
+    "springdoc-openapi-starter-webmvc-api/src/test/resources/results/3.0.1",
+    "springdoc-openapi-starter-webmvc-api/src/test/resources/results/3.1.0"
+   ]
   }
  ]
 }

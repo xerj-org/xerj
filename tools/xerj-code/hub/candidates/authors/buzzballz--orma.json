@@ -16,8 +16,12 @@
     "by": "author-consent",
     "at": "2026-11-09T15:07Z",
     "consent_receipt": "9f3139d7ece7",
-    "note": "Inclusion consented by the commit author by email at 2026-11-09T15:07Z (receipt 9f3139d7ece7); selected commit 1033421502dc: \"feat(demo): add the /demo lab where both sides sign on Devnet\". LICENSE file at pin 1033421502dc detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T15:07Z (receipt 9f3139d7ece7); selected commit 1033421502dc: \"feat(demo): add the /demo lab where both sides sign on Devnet\". LICENSE file at pin 1033421502dc detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @BuzzBallz, who has not added it."
+   },
+   "paths": [
+    "app/src",
+    "app/tools"
+   ]
   }
  ]
 }

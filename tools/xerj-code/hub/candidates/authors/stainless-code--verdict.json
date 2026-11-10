@@ -16,8 +16,15 @@
     "by": "author-consent",
     "at": "2026-10-31T20:45Z",
     "consent_receipt": "b000e5d8b433",
-    "note": "Inclusion consented by the commit author by email at 2026-10-31T20:45Z (receipt b000e5d8b433); selected commit 561e316ad824: \"feat: structured local knowledge base (learn verb, kb recall, flip-ti\u2026\". LICENSE file at pin 561e316ad824 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T20:45Z (receipt b000e5d8b433); selected commit 561e316ad824: \"feat: structured local knowledge base (learn verb, kb recall, flip-ti\u2026\". LICENSE file at pin 561e316ad824 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @stainless-code, who has not added it."
+   },
+   "paths": [
+    ".changeset",
+    "docs",
+    "evals",
+    "prompts",
+    "scripts"
+   ]
   }
  ]
 }

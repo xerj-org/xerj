@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-10-16T08:28Z",
     "consent_receipt": "d60a7ad1c41c",
-    "note": "Inclusion consented by the commit author by email at 2026-10-16T08:28Z (receipt d60a7ad1c41c); selected commit b4f1b9dd63e3: \"refactor(followup): one escalation key helper, open escalations read \u2026\". LICENSE file at pin b4f1b9dd63e3 detected as AGPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-16T08:28Z (receipt d60a7ad1c41c); selected commit b4f1b9dd63e3: \"refactor(followup): one escalation key helper, open escalations read \u2026\". LICENSE file at pin b4f1b9dd63e3 detected as AGPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @invergent-ai, who has not added it."
+   },
+   "paths": [
+    "surogates/followup",
+    "surogates/tools/builtin",
+    "tests"
+   ]
   }
  ]
 }

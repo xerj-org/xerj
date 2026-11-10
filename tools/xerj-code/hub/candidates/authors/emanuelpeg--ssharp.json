@@ -1,0 +1,23 @@
+{
+ "corpus": "emanuelpeg--ssharp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how emanuelpeg/SSharp implements it: SSharp \u2014 Functional Programming for the CLR (selected work: SSharp.Compiler, Sample, SSharp.Runtime)",
+ "repos": [
+  {
+   "repo": "SSharp",
+   "url": "https://github.com/emanuelpeg/SSharp",
+   "sha": "a23ac485c3d8a5da74a0c926db412b2d50021bb4",
+   "licence": "MIT (LICENSE file at pin a23ac485c3d8, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T01:33Z",
+    "consent_receipt": "7dd4ac428678",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T01:33Z (receipt 7dd4ac428678); selected commit a23ac485c3d8: \"def type\". LICENSE file at pin a23ac485c3d8 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

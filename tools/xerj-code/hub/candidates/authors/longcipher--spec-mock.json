@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-10-15T22:40Z",
     "consent_receipt": "b6c02ca36cd7",
-    "note": "Inclusion consented by the commit author by email at 2026-10-15T22:40Z (receipt b6c02ca36cd7); selected commit 99445fa3166f: \"feat(grpc): drive protobuf methods from the same scenario model\". LICENSE file at pin 99445fa3166f detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-15T22:40Z (receipt b6c02ca36cd7); selected commit 99445fa3166f: \"feat(grpc): drive protobuf methods from the same scenario model\". LICENSE file at pin 99445fa3166f detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @longcipher, who has not added it."
+   },
+   "paths": [
+    "crates/specmock-core/src",
+    "crates/specmock-runtime",
+    "specs"
+   ]
   }
  ]
 }

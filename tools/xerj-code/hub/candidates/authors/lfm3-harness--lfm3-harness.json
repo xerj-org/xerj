@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-11-03T18:23Z",
     "consent_receipt": "795bf0e1f0ca",
-    "note": "Inclusion consented by the commit author by email at 2026-11-03T18:23Z (receipt 795bf0e1f0ca); selected commit 8020c1af9950: \"Ship the llama.cpp runtime without bundling model weights\". LICENSE file at pin 8020c1af9950 detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution. Pinned to head 8020c1af9950 (contains the selected commit): the LICENSE at the selected commit was NONE."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T18:23Z (receipt 795bf0e1f0ca); selected commit 8020c1af9950: \"Ship the llama.cpp runtime without bundling model weights\". LICENSE file at pin 8020c1af9950 detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution. Pinned to head 8020c1af9950 (contains the selected commit): the LICENSE at the selected commit was NONE. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @LFM3-Harness, who has not added it."
+   },
+   "paths": [
+    "apps/desktop/src-tauri",
+    "apps/ui/src",
+    "scripts"
+   ]
   }
  ]
 }

@@ -16,8 +16,12 @@
     "by": "author-consent",
     "at": "2026-10-14T12:09Z",
     "consent_receipt": "1ba272520ebe",
-    "note": "Inclusion consented by the commit author by email at 2026-10-14T12:09Z (receipt 1ba272520ebe); selected commit 27ea6914a202: \"fix(plugins): stop mixed-version installs and stale sibling modules\". LICENSE file at pin 27ea6914a202 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-14T12:09Z (receipt 1ba272520ebe); selected commit 27ea6914a202: \"fix(plugins): stop mixed-version installs and stale sibling modules\". LICENSE file at pin 27ea6914a202 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @takora-dev, who has not added it."
+   },
+   "paths": [
+    "src-tauri/src/plugin",
+    "src/src/plugin"
+   ]
   }
  ]
 }

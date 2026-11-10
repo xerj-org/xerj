@@ -1,0 +1,23 @@
+{
+ "corpus": "ehsan-roohi--roohi-cfd-cavity-pinn",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how Ehsan-Roohi/roohi-cfd-cavity-pinn implements it: Lid-driven and trapezoidal cavity CFD/PINN research codes",
+ "repos": [
+  {
+   "repo": "roohi-cfd-cavity-pinn",
+   "url": "https://github.com/Ehsan-Roohi/roohi-cfd-cavity-pinn",
+   "sha": "845aa9222269c121de17ea9f3a99d12e791bc6e7",
+   "licence": "MIT (LICENSE file at pin 845aa9222269, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T21:31Z",
+    "consent_receipt": "4e2f60cfb8a1",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T21:31Z (receipt 4e2f60cfb8a1); pinned to the default-branch head. LICENSE file at pin 845aa9222269 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

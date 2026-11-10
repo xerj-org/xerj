@@ -16,8 +16,15 @@
     "by": "author-consent",
     "at": "2026-10-25T19:01Z",
     "consent_receipt": "0789668b02db",
-    "note": "Inclusion consented by the commit author by email at 2026-10-25T19:01Z (receipt 0789668b02db); selected commit fc8ab8f677b3: \"Complete release consolidation for 0.6.0.\". LICENSE file at pin fc8ab8f677b3 detected as Apache-2.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-25T19:01Z (receipt 0789668b02db); selected commit fc8ab8f677b3: \"Complete release consolidation for 0.6.0.\". LICENSE file at pin fc8ab8f677b3 detected as Apache-2.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @asara-io, who has not added it."
+   },
+   "paths": [
+    ".github/workflows",
+    "adapters",
+    "bench/ocaml",
+    "dev",
+    "lib"
+   ]
   }
  ]
 }

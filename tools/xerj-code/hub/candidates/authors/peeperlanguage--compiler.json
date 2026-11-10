@@ -16,8 +16,25 @@
     "by": "author-consent",
     "at": "2026-10-12T05:44Z",
     "consent_receipt": "570d72e175ea",
-    "note": "Inclusion consented by the commit author by email at 2026-10-12T05:44Z (receipt 570d72e175ea); selected commit a145d6465443: \"Fix qualified range and literal recovery\". LICENSE file at pin a145d6465443 detected as GPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-12T05:44Z (receipt 570d72e175ea); selected commit a145d6465443: \"Fix qualified range and literal recovery\". LICENSE file at pin a145d6465443 detected as GPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @PeeperLanguage, who has not added it."
+   },
+   "paths": [
+    ".agents/skills/gstack-investigate",
+    ".agents/skills/gstack-plan-eng-review",
+    "docs/architecture",
+    "internal/frontend/parser",
+    "internal/pipeline",
+    "internal/semantics/resolver",
+    "internal/semantics/typechecker",
+    "x_test/for_qualified_range_endpoints",
+    "x_test/negative_enum_constructors/src",
+    "x_test/negative_literal_recovery",
+    "x_test/negative_qualified_range_return",
+    "x_test/negative_struct_literal_old_spelling",
+    "x_test/negative_struct_literal_syntax",
+    "x_test/negative_variant_literal_control_header",
+    "x_test/runtime_struct_literal_dot/src"
+   ]
   }
  ]
 }

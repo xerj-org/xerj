@@ -16,8 +16,15 @@
     "by": "author-consent",
     "at": "2026-10-16T06:29Z",
     "consent_receipt": "ae5ffa1e2dc5",
-    "note": "Inclusion consented by the commit author by email at 2026-10-16T06:29Z (receipt ae5ffa1e2dc5); selected commit 166e0aba55c4: \"feat(1482): support dynamic export headers (#2101)\". LICENSE file at pin 166e0aba55c4 detected as Apache-2.0 by the GitHub licence API on 2026-10-25; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-16T06:29Z (receipt ae5ffa1e2dc5); selected commit 166e0aba55c4: \"feat(1482): support dynamic export headers (#2101)\". LICENSE file at pin 166e0aba55c4 detected as Apache-2.0 by the GitHub licence API on 2026-10-25; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @open-telemetry, who has not added it."
+   },
+   "paths": [
+    "android-agent/api",
+    "android-agent/src/main/kotlin/io/opentelemetry/android/agent/connectivity",
+    "android-agent/src/main/kotlin/io/opentelemetry/android/agent/dsl",
+    "android-agent/src/test/kotlin/io/opentelemetry/android/agent/connectivity",
+    "android-agent/src/test/kotlin/io/opentelemetry/android/agent/dsl"
+   ]
   }
  ]
 }

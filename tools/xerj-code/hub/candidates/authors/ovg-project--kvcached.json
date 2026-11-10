@@ -16,8 +16,15 @@
     "by": "author-consent",
     "at": "2026-10-13T17:52Z",
     "consent_receipt": "c9e513afcf4e",
-    "note": "Inclusion consented by the commit author by email at 2026-10-13T17:52Z (receipt c9e513afcf4e); selected commit dc0d860e6016: \"fix: release the prefix cache when the KV memory limit is lowered (#552)\". LICENSE file at pin dc0d860e6016 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-13T17:52Z (receipt c9e513afcf4e); selected commit dc0d860e6016: \"fix: release the prefix cache when the KV memory limit is lowered (#552)\". LICENSE file at pin dc0d860e6016 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @ovg-project, who has not added it."
+   },
+   "paths": [
+    "examples/02_memory_control",
+    "examples/09_prefix_caching",
+    "kvcached",
+    "tests",
+    "tools/ci"
+   ]
   }
  ]
 }

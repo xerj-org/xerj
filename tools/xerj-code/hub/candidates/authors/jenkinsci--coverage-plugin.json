@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-10-06T19:21Z",
     "consent_receipt": "3015e738e4d1",
-    "note": "Inclusion consented by the commit author by email at 2026-10-06T19:21Z (receipt 3015e738e4d1); selected commit 85342398afd6: \"Replace O(n\u00b2) CSS hover highlighting with O(n) JS in source view\". LICENSE file at pin 85342398afd6 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-06T19:21Z (receipt 3015e738e4d1); selected commit 85342398afd6: \"Replace O(n\u00b2) CSS hover highlighting with O(n) JS in source view\". LICENSE file at pin 85342398afd6 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @jenkinsci, who has not added it."
+   },
+   "paths": [
+    "plugin/src/main/resources/coverage",
+    "plugin/src/main/resources/io/jenkins/plugins/coverage/metrics/source/SourceViewModel",
+    "plugin/src/main/webapp/css"
+   ]
   }
  ]
 }

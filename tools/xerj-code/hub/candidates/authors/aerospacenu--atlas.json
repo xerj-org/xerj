@@ -16,8 +16,12 @@
     "by": "author-consent",
     "at": "2026-11-07T16:15Z",
     "consent_receipt": "3e1a92c3ab68",
-    "note": "Inclusion consented by the commit author by email at 2026-11-07T16:15Z (receipt 3e1a92c3ab68); selected commit ca3e5929347e: \"ATLAS-30: Context Compaction (#60)\". LICENSE file at pin ca3e5929347e detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T16:15Z (receipt 3e1a92c3ab68); selected commit ca3e5929347e: \"ATLAS-30: Context Compaction (#60)\". LICENSE file at pin ca3e5929347e detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @AerospaceNU, who has not added it."
+   },
+   "paths": [
+    "src/atlas/agent",
+    "tests"
+   ]
   }
  ]
 }

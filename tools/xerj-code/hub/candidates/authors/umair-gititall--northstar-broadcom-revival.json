@@ -1,0 +1,23 @@
+{
+ "corpus": "umair-gititall--northstar-broadcom-revival",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on bcm4331, bcm4360, bcm53xx queries this for how umair-gititall/northstar-broadcom-revival implements it: Drop-in OpenWrt 25.12 (Linux 6.12) APK packages bringing full-speed 802.11ac/n Wi-Fi (BCM4360 & BCM4331) and LuCI support to Broadcom Norths (selected work: iwinfo, files)",
+ "repos": [
+  {
+   "repo": "northstar-broadcom-revival",
+   "url": "https://github.com/umair-gititall/northstar-broadcom-revival",
+   "sha": "861ad43ccb70731b765e029228061947ab2890e8",
+   "licence": "MIT (LICENSE file at pin 861ad43ccb70, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-25T20:13Z",
+    "consent_receipt": "5c79e7ce4b61",
+    "note": "Inclusion consented by the commit author by email at 2026-10-25T20:13Z (receipt 5c79e7ce4b61); selected commit 861ad43ccb70: \"iwinfo: fix wl probe and 5GHz scan (polling/cache/timings), add suppo\u2026\". LICENSE file at pin 861ad43ccb70 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

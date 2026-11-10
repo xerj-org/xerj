@@ -16,8 +16,15 @@
     "by": "author-consent",
     "at": "2026-10-15T12:33Z",
     "consent_receipt": "4f9f1f44793c",
-    "note": "Inclusion consented by the commit author by email at 2026-10-15T12:33Z (receipt 4f9f1f44793c); selected commit af1e6e56d009: \"fix(telegram): el markdown se muestra con formato, no con asteriscos \u2026\". LICENSE file at pin af1e6e56d009 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-15T12:33Z (receipt 4f9f1f44793c); selected commit af1e6e56d009: \"fix(telegram): el markdown se muestra con formato, no con asteriscos \u2026\". LICENSE file at pin af1e6e56d009 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @agentprojectcontext, who has not added it."
+   },
+   "paths": [
+    "docs/src/content/docs/capabilities",
+    "docs/src/content/docs/es/capabilities",
+    "src/core/channels/telegram",
+    "src/host/daemon/plugins/telegram",
+    "tests"
+   ]
   }
  ]
 }

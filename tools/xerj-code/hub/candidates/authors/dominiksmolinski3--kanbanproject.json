@@ -1,0 +1,23 @@
+{
+ "corpus": "dominiksmolinski3--kanbanproject",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on azure, azure-container-apps, ci-cd queries this for how dominiksmolinski3/KanbanProject implements it: Kanban board (Spring Boot 4.1 + React 19) Stack - Azure: Terraform IaC, Docker image published to GHCR, GitHub Actions CI/CD (selected work: backend, frontend)",
+ "repos": [
+  {
+   "repo": "KanbanProject",
+   "url": "https://github.com/dominiksmolinski3/KanbanProject",
+   "sha": "5b846862b038c800cc3e00e67a89bc47196629e0",
+   "licence": "MIT (LICENSE file at pin 5b846862b038, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-16T07:44Z",
+    "consent_receipt": "1ad9a46a3020",
+    "note": "Inclusion consented by the commit author by email at 2026-10-16T07:44Z (receipt 1ad9a46a3020); selected commit 5b846862b038: \"refactor(auth)!: serve the device routes from /api/devices\". LICENSE file at pin 5b846862b038 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

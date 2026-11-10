@@ -16,8 +16,18 @@
     "by": "author-consent",
     "at": "2026-11-07T11:39Z",
     "consent_receipt": "08ab1bce4026",
-    "note": "Inclusion consented by the commit author by email at 2026-11-07T11:39Z (receipt 08ab1bce4026); selected commit 8d327f6f3219: \"Fix review findings in commit probes and string newline layout\". LICENSE file at pin 8d327f6f3219 detected as GPL-3.0 by the GitHub licence API on 2026-11-07; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T11:39Z (receipt 08ab1bce4026); selected commit 8d327f6f3219: \"Fix review findings in commit probes and string newline layout\". LICENSE file at pin 8d327f6f3219 detected as GPL-3.0 by the GitHub licence API on 2026-11-07; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @eval-exec, who has not added it."
+   },
+   "paths": [
+    "crates/neomacs-gui-tests/fixtures",
+    "crates/neomacs-gui-tests/tests",
+    "crates/neomacs-layout-engine/src/buffer_source",
+    "crates/neomacs-layout-engine/src/display_row",
+    "crates/neomacs-layout-engine/src/engine",
+    "crates/neomacs-layout-engine/src/row_layout",
+    "crates/neomacs-layout-engine/src/tests",
+    "crates/neovm-core/src/emacs_core/runtime/eval"
+   ]
   }
  ]
 }

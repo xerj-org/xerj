@@ -1,0 +1,23 @@
+{
+ "corpus": "ehsan-roohi--openfoam-generalised-bernoulli-trials",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how Ehsan-Roohi/openfoam-generalised-bernoulli-trials implements it: GPL archival OpenFOAM DSMC generalised Bernoulli trials implementation with OpenCFD and Stefan attribution",
+ "repos": [
+  {
+   "repo": "openfoam-generalised-bernoulli-trials",
+   "url": "https://github.com/Ehsan-Roohi/openfoam-generalised-bernoulli-trials",
+   "sha": "2217a8b800ac7822559f0f6e5d57f0d7a3f058e5",
+   "licence": "author's permission (LICENSE at pin 2217a8b800ac: NOASSERTION; repository: NOASSERTION)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T21:31Z",
+    "consent_receipt": "2e8ffd63cfce",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T21:31Z (receipt 2e8ffd63cfce); pinned to the default-branch head. LICENSE at pin 2217a8b800ac: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

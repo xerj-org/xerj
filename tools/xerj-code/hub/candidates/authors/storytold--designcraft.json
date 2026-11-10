@@ -16,8 +16,11 @@
     "by": "author-consent",
     "at": "2026-11-02T11:49Z",
     "consent_receipt": "885703f462fd",
-    "note": "Inclusion consented by the commit author by email at 2026-11-02T11:49Z (receipt 885703f462fd); selected commit 96b498ca7086: \"Import: a shared string and a footnote are not copied per reference (\u2026\". LICENSE at pin 96b498ca7086: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T11:49Z (receipt 885703f462fd); selected commit 96b498ca7086: \"Import: a shared string and a footnote are not copied per reference (\u2026\". LICENSE at pin 96b498ca7086: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @storytold, who has not added it."
+   },
+   "paths": [
+    "crates/textimport/src"
+   ]
   }
  ]
 }

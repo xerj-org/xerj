@@ -16,8 +16,24 @@
     "by": "author-consent",
     "at": "2026-10-28T01:47Z",
     "consent_receipt": "e4b474d4db0c",
-    "note": "Inclusion consented by the commit author by email at 2026-10-28T01:47Z (receipt e4b474d4db0c); selected commit d95abf185b7f: \"feat: \u5b8c\u5584\u6d41\u7a0b\u7f16\u6392\u4e0e\u4e0a\u4e0b\u6587\u6cbb\u7406\u5e76\u8865\u9f50\u5168\u91cf\u9a8c\u8bc1\". LICENSE file at pin d95abf185b7f detected as Apache-2.0 by the GitHub licence API on 2026-10-28; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-28T01:47Z (receipt e4b474d4db0c); selected commit d95abf185b7f: \"feat: \u5b8c\u5584\u6d41\u7a0b\u7f16\u6392\u4e0e\u4e0a\u4e0b\u6587\u6cbb\u7406\u5e76\u8865\u9f50\u5168\u91cf\u9a8c\u8bc1\". LICENSE file at pin d95abf185b7f detected as Apache-2.0 by the GitHub licence API on 2026-10-28; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @kart-io, who has not added it."
+   },
+   "paths": [
+    "builder",
+    "core",
+    "docs",
+    "evaluation/agentbench",
+    "evaluation/einocompare",
+    "examples/rag/grounded",
+    "examples/workflow",
+    "integration",
+    "llm",
+    "multiagent",
+    "retrieval",
+    "store/postgres",
+    "tools/practical",
+    "workflow"
+   ]
   }
  ]
 }

@@ -16,8 +16,27 @@
     "by": "author-consent",
     "at": "2026-10-05T04:53Z",
     "consent_receipt": "eaff75fd6a1b",
-    "note": "Inclusion consented by the commit author by email at 2026-10-05T04:53Z (receipt eaff75fd6a1b); selected commit a9db6681525b: \"feat: add fully differential ideal comparator (#1754)\". LICENSE file at pin a9db6681525b detected as AGPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-05T04:53Z (receipt eaff75fd6a1b); selected commit a9db6681525b: \"feat: add fully differential ideal comparator (#1754)\". LICENSE file at pin a9db6681525b detected as AGPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @cascode-ai, who has not added it."
+   },
+   "paths": [
+    "apps/editor/e2e",
+    "apps/editor/src/canvas",
+    "apps/editor/src/features/component-insert",
+    "apps/editor/src/features/editor-shell",
+    "apps/editor/src/features/netlist-export",
+    "apps/editor/src/features/properties",
+    "apps/mcp-server/src",
+    "docs/agent",
+    "docs/specs",
+    "packages/agent-adapter/src",
+    "packages/components",
+    "packages/derived/src",
+    "packages/devices/src",
+    "packages/netlist/src",
+    "packages/rnl/src",
+    "packages/symbols/src",
+    "scripts"
+   ]
   }
  ]
 }

@@ -1,0 +1,23 @@
+{
+ "corpus": "starlordz12--inav-mcp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on claude, fixed-wing, flight-controller queries this for how starlordz12/inav-mcp implements it: MCP server for setting up, diagnosing, and tuning iNAV fixed-wing flight controllers over USB \u2014 driven conversationally through Claude (selected work: inav_mcp, tests)",
+ "repos": [
+  {
+   "repo": "inav-mcp",
+   "url": "https://github.com/starlordz12/inav-mcp",
+   "sha": "f85e4d1dc9dd6152adc60adabb8f775a5fc908b6",
+   "licence": "MIT (LICENSE file at pin f85e4d1dc9dd, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-28T22:27Z",
+    "consent_receipt": "e187238c9b5f",
+    "note": "Inclusion consented by the commit author by email at 2026-10-28T22:27Z (receipt e187238c9b5f); selected commit f85e4d1dc9dd: \"fix(cli): validate command text and enum arguments before any serial I/O\". LICENSE file at pin f85e4d1dc9dd detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

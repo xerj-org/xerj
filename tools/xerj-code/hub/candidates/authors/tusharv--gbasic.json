@@ -16,8 +16,15 @@
     "by": "author-consent",
     "at": "2026-11-01T03:38Z",
     "consent_receipt": "5972df9e9cd7",
-    "note": "Inclusion consented by the commit author by email at 2026-11-01T03:38Z (receipt 5972df9e9cd7); selected commit a3711fb08e88: \"feat: remember Ollama keys and show inline validation status\". LICENSE file at pin a3711fb08e88 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T03:38Z (receipt 5972df9e9cd7); selected commit a3711fb08e88: \"feat: remember Ollama keys and show inline validation status\". LICENSE file at pin a3711fb08e88 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @tusharv, who has not added it."
+   },
+   "paths": [
+    "docs",
+    "site",
+    "src/ghost_basic",
+    "tests",
+    "tools"
+   ]
   }
  ]
 }

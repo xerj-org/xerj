@@ -16,8 +16,18 @@
     "by": "author-consent",
     "at": "2026-10-15T12:19Z",
     "consent_receipt": "f7dd76de85cc",
-    "note": "Inclusion consented by the commit author by email at 2026-10-15T12:19Z (receipt f7dd76de85cc); selected commit 628d3e72a97d: \"\ud83d\udc1b Bugfix: sandbox-tool-bridge thread leak (#3934)\". LICENSE file at pin 628d3e72a97d detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-15T12:19Z (receipt f7dd76de85cc); selected commit 628d3e72a97d: \"\ud83d\udc1b Bugfix: sandbox-tool-bridge thread leak (#3934)\". LICENSE file at pin 628d3e72a97d detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @ModelEngine-Group, who has not added it."
+   },
+   "paths": [
+    "backend/agents",
+    "backend/management/services/agent",
+    "backend/services",
+    "sdk/nexent/core/agents",
+    "sdk/nexent/core/concurrency",
+    "test/backend/agents",
+    "test/backend/services",
+    "test/sdk/core/agents"
+   ]
   }
  ]
 }

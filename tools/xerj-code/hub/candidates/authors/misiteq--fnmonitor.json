@@ -1,0 +1,23 @@
+{
+ "corpus": "misiteq--fnmonitor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Python queries this for how MisiteQ/fnmonitor implements it: \u5168\u7a0bAI\u6ca1\u6709\u624b\u5de5\u7684\u98de\u725b\u7cfb\u7edf\u76d1\u63a7\u8f6f\u4ef6 (selected work: app/www, app, the project root)",
+ "repos": [
+  {
+   "repo": "fnmonitor",
+   "url": "https://github.com/MisiteQ/fnmonitor",
+   "sha": "79e699cf7a2ddeca12f1c412129ffac0238ee16c",
+   "licence": "MIT (LICENSE file at pin 79e699cf7a2d, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-17T11:46Z",
+    "consent_receipt": "e6f0de38bd02",
+    "note": "Inclusion consented by the commit author by email at 2026-10-17T11:46Z (receipt e6f0de38bd02); selected commit 79e699cf7a2d: \"v2.17.0 \u767b\u5f55\u53e3\u4ee4\u529f\u80fd + \u9762\u677f\u62d6\u62fd\u4ec5\u6807\u9898\u680f + cmd manifest \u540c\u6b65\". LICENSE file at pin 79e699cf7a2d detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Pinned to head 79e699cf7a2d (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

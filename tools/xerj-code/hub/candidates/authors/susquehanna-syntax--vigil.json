@@ -16,8 +16,15 @@
     "by": "author-consent",
     "at": "2026-10-15T03:00Z",
     "consent_receipt": "e1ea56f3b33c",
-    "note": "Inclusion consented by the commit author by email at 2026-10-15T03:00Z (receipt e1ea56f3b33c); selected commit 53e03c00d608: \"fix(ai): suggestions a model can actually write, a repair pass, and a\u2026\". LICENSE file at pin 53e03c00d608 detected as AGPL-3.0 by the GitHub licence API on 2026-10-28; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-15T03:00Z (receipt e1ea56f3b33c); selected commit 53e03c00d608: \"fix(ai): suggestions a model can actually write, a repair pass, and a\u2026\". LICENSE file at pin 53e03c00d608 detected as AGPL-3.0 by the GitHub licence API on 2026-10-28; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Susquehanna-Syntax, who has not added it."
+   },
+   "paths": [
+    "server/apps/aisuggest",
+    "server/apps/tasks",
+    "server/static/css",
+    "server/static/js",
+    "server/templates/pages"
+   ]
   }
  ]
 }

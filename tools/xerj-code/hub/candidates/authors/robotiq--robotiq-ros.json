@@ -1,0 +1,26 @@
+{
+ "corpus": "robotiq--robotiq-ros",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on gripper, jazzy, robotiq queries this for how robotiq/robotiq-ros implements it: ROS packages for Robotiq hardware (selected work: grippers)",
+ "repos": [
+  {
+   "repo": "robotiq-ros",
+   "url": "https://github.com/robotiq/robotiq-ros",
+   "sha": "cc7b4c1d32c11576d1e9f04ae3d7ee07a9b73ffb",
+   "licence": "BSD-3-Clause (LICENSE file at pin cc7b4c1d32c1, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "BSD-3-Clause",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T17:57Z",
+    "consent_receipt": "f7ba5223567d",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T17:57Z (receipt f7ba5223567d); selected commit cc7b4c1d32c1: \"feat(robotiq_description): add a Hand-E C10 description without contr\u2026\". LICENSE file at pin cc7b4c1d32c1 detected as BSD-3-Clause by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @robotiq, who has not added it."
+   },
+   "paths": [
+    "grippers/robotiq_description"
+   ]
+  }
+ ]
+}

@@ -16,8 +16,17 @@
     "by": "author-consent",
     "at": "2026-10-26T07:49Z",
     "consent_receipt": "9ea45bb1b9fa",
-    "note": "Inclusion consented by the commit author by email at 2026-10-26T07:49Z (receipt 9ea45bb1b9fa); selected commit da89cd62ce47: \"board_audio_codec: the board's own codec by name, and sound drives an\u2026\". LICENSE file at pin da89cd62ce47 detected as Apache-2.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-26T07:49Z (receipt 9ea45bb1b9fa); selected commit da89cd62ce47: \"board_audio_codec: the board's own codec by name, and sound drives an\u2026\". LICENSE file at pin da89cd62ce47 detected as Apache-2.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @espressif, who has not added it."
+   },
+   "paths": [
+    "code_blocks/drivers/board_audio_codec",
+    "code_blocks/drivers/fuel_gauge_bq27220",
+    "code_blocks/drivers/imu_bmi270",
+    "code_blocks/drivers/magnetometer_bmm150",
+    "engine/src",
+    "engine/tests",
+    "product_configurations/mosaico-board-sound"
+   ]
   }
  ]
 }

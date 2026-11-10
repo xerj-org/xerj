@@ -1,0 +1,28 @@
+{
+ "corpus": "tacit-os--tacit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on QML queries this for how tacit-os/tacit implements it: A free operating system with its own desktop, apps, browser, typefaces and icons (selected work: the project root, scripts, session)",
+ "repos": [
+  {
+   "repo": "tacit",
+   "url": "https://github.com/ciscobugger/tacit",
+   "sha": "aa59dea657046eb1ae850ef2bafb439f2e84c85b",
+   "licence": "GPL-3.0 (LICENSE file at pin aa59dea65704, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-02T16:44Z",
+    "consent_receipt": "d4aa876cfce7",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T16:44Z (receipt d4aa876cfce7); selected commit aa59dea65704: \"input: Touchpad and Mouse sections pick each class's acceleration\". LICENSE file at pin aa59dea65704 detected as GPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @ciscobugger, who has not added it."
+   },
+   "paths": [
+    "modules/common",
+    "scripts/hyprland",
+    "session/hypr/tacit"
+   ]
+  }
+ ]
+}

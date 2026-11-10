@@ -1,0 +1,27 @@
+{
+ "corpus": "veropapp--isft151-pp3",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on JavaScript queries this for how VeroPapp/isft151-pp3 implements it: Proyecto final de Pr\u00e1cticas Profesionalizantes III (ISFT151 - 2026) : Plataforma web para la gesti\u00f3n y difusi\u00f3n de clubes barriales y espaci (selected work: backend, frontend, the project root)",
+ "repos": [
+  {
+   "repo": "isft151-pp3",
+   "url": "https://github.com/VeroPapp/isft151-pp3",
+   "sha": "1259d3f264d9d1e9fe6fa6f70e8199e2b81021bb",
+   "licence": "GPL-3.0 (LICENSE file at pin 1259d3f264d9, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-10T21:14Z",
+    "consent_receipt": "b7204c6ca381",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T21:14Z (receipt b7204c6ca381); selected commit 1259d3f264d9: \"feat: update files\". LICENSE file at pin 1259d3f264d9 detected as GPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @VeroPapp, who has not added it."
+   },
+   "paths": [
+    "backend",
+    "frontend"
+   ]
+  }
+ ]
+}

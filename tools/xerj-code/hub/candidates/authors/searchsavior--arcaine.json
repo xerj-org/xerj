@@ -1,0 +1,29 @@
+{
+ "corpus": "searchsavior--arcaine",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on C++ queries this for how SearchSavior/Arcaine implements it: Inference engine for Intel GPUs based on SYCL (selected work: scripts, src/utils, src/bench)",
+ "repos": [
+  {
+   "repo": "Arcaine",
+   "url": "https://github.com/SearchSavior/Arcaine",
+   "sha": "82a6f09efccbf0873cbbb209a9e009b900a43110",
+   "licence": "MIT (LICENSE file at pin 82a6f09efccb, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-17T16:12Z",
+    "consent_receipt": "c0237670f06c",
+    "note": "Inclusion consented by the commit author by email at 2026-10-17T16:12Z (receipt c0237670f06c); selected commit 82a6f09efccb: \"Port SystemOne backend and decision lab onto main\". LICENSE file at pin 82a6f09efccb detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @SearchSavior, who has not added it."
+   },
+   "paths": [
+    "docs",
+    "scripts",
+    "src",
+    "third_party/web"
+   ]
+  }
+ ]
+}

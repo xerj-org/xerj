@@ -1,0 +1,23 @@
+{
+ "corpus": "elregann--chatme",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, dart, descentralized queries this for how elregann/Chatme implements it: Decentralized end-to-end encrypted messenger with voice calls, built with Flutter on Nostr (selected work: lib/core, lib, android)",
+ "repos": [
+  {
+   "repo": "Chatme",
+   "url": "https://github.com/elregann/Chatme",
+   "sha": "6fac0846d353b4e9d1c5bc61944e18841e103fc1",
+   "licence": "MIT (LICENSE file at pin 6fac0846d353, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-19T08:58Z",
+    "consent_receipt": "0f915213ee98",
+    "note": "Inclusion consented by the commit author by email at 2026-10-19T08:58Z (receipt 0f915213ee98); selected commit 6fac0846d353: \"Chatme v1.12.0-beta: Add Reply and Mark as Read actions to background\u2026\". LICENSE file at pin 6fac0846d353 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

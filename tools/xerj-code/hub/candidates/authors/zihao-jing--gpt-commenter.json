@@ -16,8 +16,12 @@
     "by": "author-consent",
     "at": "2026-10-24T15:16Z",
     "consent_receipt": "890a00ba5bc1",
-    "note": "Inclusion consented by the commit author by email at 2026-10-24T15:16Z (receipt 890a00ba5bc1); selected commit dd824bab59d2: \"\u5b8c\u5584 MarkAtlas \u7f16\u8f91\u3001\u5bfc\u822a\u3001\u641c\u7d22\u4e0e\u6279\u6ce8\u4f53\u9a8c\". LICENSE file at pin dd824bab59d2 detected as MIT by the GitHub licence API on 2026-10-26; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-24T15:16Z (receipt 890a00ba5bc1); selected commit dd824bab59d2: \"\u5b8c\u5584 MarkAtlas \u7f16\u8f91\u3001\u5bfc\u822a\u3001\u641c\u7d22\u4e0e\u6279\u6ce8\u4f53\u9a8c\". LICENSE file at pin dd824bab59d2 detected as MIT by the GitHub licence API on 2026-10-26; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @zihao-jing, who has not added it."
+   },
+   "paths": [
+    "docs",
+    "plugin"
+   ]
   }
  ]
 }

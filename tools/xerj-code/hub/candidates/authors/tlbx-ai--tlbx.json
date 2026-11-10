@@ -16,8 +16,14 @@
     "by": "author-consent",
     "at": "2026-10-12T00:34Z",
     "consent_receipt": "7c68c14520e3",
-    "note": "Inclusion consented by the commit author by email at 2026-10-12T00:34Z (receipt 7c68c14520e3); selected commit ec11a919d91d: \"Add opt-in Codex terminal typing preview\". LICENSE file at pin ec11a919d91d detected as AGPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-12T00:34Z (receipt 7c68c14520e3); selected commit ec11a919d91d: \"Add opt-in Codex terminal typing preview\". LICENSE file at pin ec11a919d91d detected as AGPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @tlbx-ai, who has not added it."
+   },
+   "paths": [
+    "src/Ai.Tlbx.MidTerm/Settings",
+    "src/Ai.Tlbx.MidTerm/openapi",
+    "src/Ai.Tlbx.MidTerm/src/static",
+    "src/Ai.Tlbx.MidTerm/src/ts"
+   ]
   }
  ]
 }

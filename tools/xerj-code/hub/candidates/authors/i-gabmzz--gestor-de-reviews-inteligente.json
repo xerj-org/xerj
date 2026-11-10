@@ -16,8 +16,16 @@
     "by": "author-consent",
     "at": "2026-10-26T02:02Z",
     "consent_receipt": "014ac6fa6cad",
-    "note": "Inclusion consented by the commit author by email at 2026-10-26T02:02Z (receipt 014ac6fa6cad); selected commit 32e434cea50a: \"feat(HU-13): exponer clasificacion con autorizacion multi-tenant T5\". LICENSE file at pin 32e434cea50a detected as MIT by the GitHub licence API on 2026-10-26; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-26T02:02Z (receipt 014ac6fa6cad); selected commit 32e434cea50a: \"feat(HU-13): exponer clasificacion con autorizacion multi-tenant T5\". LICENSE file at pin 32e434cea50a detected as MIT by the GitHub licence API on 2026-10-26; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @I-Gabmzz, who has not added it."
+   },
+   "paths": [
+    "backend/app/api/routers",
+    "backend/app/schemas",
+    "backend/scripts",
+    "backend/tests",
+    "docs/hu-13",
+    "docs/ia"
+   ]
   }
  ]
 }

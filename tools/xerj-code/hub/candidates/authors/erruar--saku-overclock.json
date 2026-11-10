@@ -1,0 +1,23 @@
+{
+ "corpus": "erruar--saku-overclock",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on cpu, information, overclock queries this for how Erruar/Saku-Overclock implements it: An awesome ryzen laptop overclock utility for those who want real performance! (selected work: Saku Overclock.Service)",
+ "repos": [
+  {
+   "repo": "Saku-Overclock",
+   "url": "https://github.com/Erruar/Saku-Overclock",
+   "sha": "ed6cfe4ff2584324083ef7964937136fe09a442e",
+   "licence": "GPL-3.0 (LICENSE file at pin ed6cfe4ff258, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-10T20:20Z",
+    "consent_receipt": "8427748a7281",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T20:20Z (receipt 8427748a7281); selected commit ed6cfe4ff258: \"[Add] Updated app activation for overlay app\". LICENSE file at pin ed6cfe4ff258 detected as GPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

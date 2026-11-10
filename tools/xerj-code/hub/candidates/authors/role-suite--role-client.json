@@ -16,8 +16,16 @@
     "by": "author-consent",
     "at": "2026-10-18T12:31Z",
     "consent_receipt": "940ebef4fab5",
-    "note": "Inclusion consented by the commit author by email at 2026-10-18T12:31Z (receipt 940ebef4fab5); selected commit 8e72506d2398: \"feat(updates): add in-app release check with opt-in auto check\". LICENSE file at pin 8e72506d2398 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-18T12:31Z (receipt 940ebef4fab5); selected commit 8e72506d2398: \"feat(updates): add in-app release check with opt-in auto check\". LICENSE file at pin 8e72506d2398 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @role-suite, who has not added it."
+   },
+   "paths": [
+    "docs",
+    "lib/core",
+    "lib/state",
+    "lib/ui/shell",
+    "test/core/updates",
+    "test/state"
+   ]
   }
  ]
 }

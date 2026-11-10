@@ -1,0 +1,23 @@
+{
+ "corpus": "sineld--codecatcher",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on 2fa, clipboard, i18n queries this for how sineld/CodeCatcher implements it: Free macOS menu bar app that catches one-time SMS verification codes forwarded from your iPhone and copies them to the clipboard. Smart code (selected work: scripts, Resources)",
+ "repos": [
+  {
+   "repo": "CodeCatcher",
+   "url": "https://github.com/sineld/CodeCatcher",
+   "sha": "19081788793c5abb97e3a50e5950d4fddd33e815",
+   "licence": "MIT (LICENSE file at pin 19081788793c, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T20:39Z",
+    "consent_receipt": "a4dffe2c6696",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T20:39Z (receipt a4dffe2c6696); selected commit 19081788793c: \"Sign and notarize releases and ship a styled DMG\". LICENSE file at pin 19081788793c detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

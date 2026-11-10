@@ -1,0 +1,23 @@
+{
+ "corpus": "fore-site--pycurb",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how fore-site/pycurb implements it: A python rate limit library (selected work: src/pycurb, tests)",
+ "repos": [
+  {
+   "repo": "pycurb",
+   "url": "https://github.com/fore-site/pycurb",
+   "sha": "506781f17ca735a635a8bd782c6aaf8ed562de43",
+   "licence": "Apache-2.0 (LICENSE file at pin 506781f17ca7, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T18:39Z",
+    "consent_receipt": "85854fe54c38",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T18:39Z (receipt 85854fe54c38); selected commit 506781f17ca7: \"fix: harden framework rate limit adapters\". LICENSE file at pin 506781f17ca7 detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

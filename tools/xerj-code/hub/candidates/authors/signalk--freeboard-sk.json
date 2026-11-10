@@ -1,0 +1,27 @@
+{
+ "corpus": "signalk--freeboard-sk",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on freeboard, chart, chartplotter queries this for how SignalK/freeboard-sk implements it: Chartplotter implementation for Signal K servers (selected work: src/app)",
+ "repos": [
+  {
+   "repo": "freeboard-sk",
+   "url": "https://github.com/SignalK/freeboard-sk",
+   "sha": "f4f9d2a0aef4b8aea55b25290ecf3103cfdeb205",
+   "licence": "Apache-2.0 (LICENSE file at pin f4f9d2a0aef4, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T21:27Z",
+    "consent_receipt": "6a279cd12531",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T21:27Z (receipt 6a279cd12531); selected commit f4f9d2a0aef4: \"feat(waypoints): enter a waypoint position in DD, DDM, DMS or UTM (#1\u2026\". LICENSE file at pin f4f9d2a0aef4 detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @SignalK, who has not added it."
+   },
+   "paths": [
+    "src/app/lib",
+    "src/app/modules/skresources/components/waypoints"
+   ]
+  }
+ ]
+}

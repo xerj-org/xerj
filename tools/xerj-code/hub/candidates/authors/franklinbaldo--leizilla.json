@@ -1,0 +1,23 @@
+{
+ "corpus": "franklinbaldo--leizilla",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Python queries this for how franklinbaldo/leizilla implements it: Automated legal monitoring and alert system for legislation and precedents (selected work: tests, src/leizilla)",
+ "repos": [
+  {
+   "repo": "leizilla",
+   "url": "https://github.com/franklinbaldo/leizilla",
+   "sha": "1d4f6a9ee6f3b1e2089f6f77b323ef6958528e4a",
+   "licence": "MIT (LICENSE file at pin 1d4f6a9ee6f3, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-22T10:20Z",
+    "consent_receipt": "e473df5cd088",
+    "note": "Inclusion consented by the commit author by email at 2026-10-22T10:20Z (receipt e473df5cd088); selected commit 1d4f6a9ee6f3: \"fix(parse): make skip-existing fail closed and idempotent (#336)\". LICENSE file at pin 1d4f6a9ee6f3 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

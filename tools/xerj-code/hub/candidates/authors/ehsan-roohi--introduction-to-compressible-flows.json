@@ -1,0 +1,23 @@
+{
+ "corpus": "ehsan-roohi--introduction-to-compressible-flows",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Jupyter Notebook queries this for how Ehsan-Roohi/Introduction-to-Compressible-Flows implements it: Computational companion to Introduction to Compressible Flows: chapter-linked Python notebooks for gas dynamics",
+ "repos": [
+  {
+   "repo": "Introduction-to-Compressible-Flows",
+   "url": "https://github.com/Ehsan-Roohi/Introduction-to-Compressible-Flows",
+   "sha": "fc14721ae80f48da63e55955c1caf096d8448f7b",
+   "licence": "MIT (LICENSE file at pin fc14721ae80f, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T21:31Z",
+    "consent_receipt": "03a0e1ed9243",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T21:31Z (receipt 03a0e1ed9243); pinned to the default-branch head. LICENSE file at pin fc14721ae80f detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

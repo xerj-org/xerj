@@ -16,8 +16,18 @@
     "by": "author-consent",
     "at": "2026-11-06T13:44Z",
     "consent_receipt": "b6aeee5cb787",
-    "note": "Inclusion consented by the commit author by email at 2026-11-06T13:44Z (receipt b6aeee5cb787); selected commit e4d0a77aa24b: \"feat(bench): integrate SkillsBench harness and multi-engine support (\u2026\". LICENSE file at pin e4d0a77aa24b detected as MIT by the GitHub licence API on 2026-11-06; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-11-06T13:44Z (receipt b6aeee5cb787); selected commit e4d0a77aa24b: \"feat(bench): integrate SkillsBench harness and multi-engine support (\u2026\". LICENSE file at pin e4d0a77aa24b detected as MIT by the GitHub licence API on 2026-11-06; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @mareasw, who has not added it."
+   },
+   "paths": [
+    "benchmark",
+    "cli/lib",
+    "docs/superpowers/specs",
+    "mcp",
+    "site/src/components/benchmark",
+    "site/src/content/docs/docs",
+    "site/src/content/docs/zh/docs",
+    "site/src/pages"
+   ]
   }
  ]
 }

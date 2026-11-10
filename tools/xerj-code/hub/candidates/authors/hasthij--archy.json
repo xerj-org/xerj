@@ -1,0 +1,23 @@
+{
+ "corpus": "hasthij--archy",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how hasthij/Archy implements it: Archy is a open-source project designed similar to medal, but focused optimization and is fully localized (selected work: crates/archy-audio, crates/archy-ui, crates/archy)",
+ "repos": [
+  {
+   "repo": "Archy",
+   "url": "https://github.com/hasthij/Archy",
+   "sha": "851b5d48b19335cb2d713a678b84e0a80dc796be",
+   "licence": "GPL-3.0 (LICENSE file at pin 851b5d48b193, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-25T03:18Z",
+    "consent_receipt": "cce17225458e",
+    "note": "Inclusion consented by the commit author by email at 2026-10-25T03:18Z (receipt cce17225458e); selected commit 851b5d48b193: \"0.5.2: mic noise suppression + gate with listen-to-yourself test, tra\u2026\". LICENSE file at pin 851b5d48b193 detected as GPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

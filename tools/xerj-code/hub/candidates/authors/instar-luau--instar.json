@@ -1,0 +1,26 @@
+{
+ "corpus": "instar-luau--instar",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how instar-luau/instar implements it: A Luau toolkit for type checking, formatting, linting, and language-server support (selected work: crates/cli, the project root)",
+ "repos": [
+  {
+   "repo": "instar",
+   "url": "https://github.com/instar-luau/instar",
+   "sha": "9b5895d2a81ff6e91a0079f3a80cad52628a3a26",
+   "licence": "MIT (LICENSE file at pin 9b5895d2a81f, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T01:39Z",
+    "consent_receipt": "32fe4c7dc9dd",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T01:39Z (receipt 32fe4c7dc9dd); selected commit 9b5895d2a81f: \"feat(cli): highlight source snippets and preview changes\". LICENSE file at pin 9b5895d2a81f detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @instar-luau, who has not added it."
+   },
+   "paths": [
+    "crates/cli"
+   ]
+  }
+ ]
+}

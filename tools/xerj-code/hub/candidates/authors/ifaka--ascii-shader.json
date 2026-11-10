@@ -1,0 +1,23 @@
+{
+ "corpus": "ifaka--ascii-shader",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on 3d-renderer, ascii-art, graphics queries this for how IFAKA/ascii-shader implements it: Terminal 3D renderer that draws with lines and marks, not brightness ramps, and stays calm when the camera moves (selected work: src)",
+ "repos": [
+  {
+   "repo": "ascii-shader",
+   "url": "https://github.com/IFAKA/ascii-shader",
+   "sha": "8097a1ef8651471279ace821e526c2577caff885",
+   "licence": "MIT (LICENSE file at pin 8097a1ef8651, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T16:41Z",
+    "consent_receipt": "d63bedf87cb6",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T16:41Z (receipt d63bedf87cb6); selected commit 8097a1ef8651: \"Replace 3D tube fighters with hand-posed 2D cel fighters (key poses, \u2026\". LICENSE file at pin 8097a1ef8651 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

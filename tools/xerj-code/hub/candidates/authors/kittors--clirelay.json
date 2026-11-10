@@ -16,8 +16,11 @@
     "by": "author-consent",
     "at": "2026-10-16T01:11Z",
     "consent_receipt": "6a9f629b7709",
-    "note": "Inclusion consented by the commit author by email at 2026-10-16T01:11Z (receipt 6a9f629b7709); selected commit 516835904145: \"fix(antigravity): re-request when Gemini ends a turn with MALFORMED_F\u2026\". LICENSE file at pin 516835904145 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-16T01:11Z (receipt 6a9f629b7709); selected commit 516835904145: \"fix(antigravity): re-request when Gemini ends a turn with MALFORMED_F\u2026\". LICENSE file at pin 516835904145 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @kittors, who has not added it."
+   },
+   "paths": [
+    "internal/runtime/executor"
+   ]
   }
  ]
 }

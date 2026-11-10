@@ -1,0 +1,28 @@
+{
+ "corpus": "vsm-stm--stm32-cmake-base",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how vsm-stm/stm32_cmake_base implements it: vsm-stm/stm32_cmake_base (C) (selected work: cmake, no_system_files, the project root)",
+ "repos": [
+  {
+   "repo": "stm32_cmake_base",
+   "url": "https://github.com/vsm-stm/stm32_cmake_base",
+   "sha": "7ae7a3b9aec6cd7990c6d82b0f472e74bec4ace9",
+   "licence": "MIT (LICENSE file at pin 7ae7a3b9aec6, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-25T10:40Z",
+    "consent_receipt": "c98745a4834f",
+    "note": "Inclusion consented by the commit author by email at 2026-10-25T10:40Z (receipt c98745a4834f); selected commit 7ae7a3b9aec6: \"fix some issues\". LICENSE file at pin 7ae7a3b9aec6 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @vsm-stm, who has not added it."
+   },
+   "paths": [
+    ".vscode",
+    "cmake",
+    "no_system_files"
+   ]
+  }
+ ]
+}

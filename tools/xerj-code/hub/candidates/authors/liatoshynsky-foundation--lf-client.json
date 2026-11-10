@@ -1,0 +1,27 @@
+{
+ "corpus": "liatoshynsky-foundation--lf-client",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how Liatoshynsky-Foundation/lf-client implements it: Liatoshynsky-Foundation/lf-client (TypeScript) (selected work: app/[lang], app/validators, app/lib)",
+ "repos": [
+  {
+   "repo": "lf-client",
+   "url": "https://github.com/Liatoshynsky-Foundation/lf-client",
+   "sha": "069bf70ad7a40974031611b242c2010c5a0d96a2",
+   "licence": "MIT (LICENSE file at pin 069bf70ad7a4, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-19T09:51Z",
+    "consent_receipt": "4366f7c7bc10",
+    "note": "Inclusion consented by the commit author by email at 2026-10-19T09:51Z (receipt 4366f7c7bc10); selected commit 069bf70ad7a4: \"feat: load CMS SEO metadata and support fallbacks for main pages\". LICENSE file at pin 069bf70ad7a4 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Liatoshynsky-Foundation, who has not added it."
+   },
+   "paths": [
+    "app/lib/utils",
+    "app/validators"
+   ]
+  }
+ ]
+}

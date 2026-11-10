@@ -16,8 +16,15 @@
     "by": "author-consent",
     "at": "2026-10-14T20:16Z",
     "consent_receipt": "592d9c08bb2c",
-    "note": "Inclusion consented by the commit author by email at 2026-10-14T20:16Z (receipt 592d9c08bb2c); selected commit 681ef89d029d: \":sparkles: nova aba Support com depuracao, log no pedido e envio de c\u2026\". LICENSE file at pin 681ef89d029d detected as GPL-3.0 by the GitHub licence API on 2026-10-28; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-14T20:16Z (receipt 592d9c08bb2c); selected commit 681ef89d029d: \":sparkles: nova aba Support com depuracao, log no pedido e envio de c\u2026\". LICENSE file at pin 681ef89d029d detected as GPL-3.0 by the GitHub licence API on 2026-10-28; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @LinkNacional, who has not added it."
+   },
+   "paths": [
+    "Admin/css",
+    "Admin/js",
+    "Admin/partials",
+    "Includes",
+    "languages"
+   ]
   }
  ]
 }

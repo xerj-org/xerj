@@ -16,8 +16,12 @@
     "by": "author-consent",
     "at": "2026-10-12T13:08Z",
     "consent_receipt": "bf0fffdacdb0",
-    "note": "Inclusion consented by the commit author by email at 2026-10-12T13:08Z (receipt bf0fffdacdb0); selected commit 62bbe91e9d82: \"feat: add USB tablet absolute positioning via HID report protocol\". LICENSE file at pin 62bbe91e9d82 detected as GPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-12T13:08Z (receipt bf0fffdacdb0); selected commit 62bbe91e9d82: \"feat: add USB tablet absolute positioning via HID report protocol\". LICENSE file at pin 62bbe91e9d82 detected as GPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Lebirun, who has not added it."
+   },
+   "paths": [
+    "kernel/arch/x86_64",
+    "kernel/include/lebirun"
+   ]
   }
  ]
 }

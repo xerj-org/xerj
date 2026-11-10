@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-10-19T10:31Z",
     "consent_receipt": "6bf884e1e2ec",
-    "note": "Inclusion consented by the commit author by email at 2026-10-19T10:31Z (receipt 6bf884e1e2ec); selected commit 563850ce4e9b: \"refactor: Dataset viewer\". LICENSE file at pin 563850ce4e9b detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-19T10:31Z (receipt 6bf884e1e2ec); selected commit 563850ce4e9b: \"refactor: Dataset viewer\". LICENSE file at pin 563850ce4e9b detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Noctillio-Ai, who has not added it."
+   },
+   "paths": [
+    "src",
+    "src-tauri/src",
+    "tests"
+   ]
   }
  ]
 }

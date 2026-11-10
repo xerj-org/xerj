@@ -1,0 +1,23 @@
+{
+ "corpus": "aconymouse--typesirkel",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how aconymouse/typesirkel implements it: aconymouse/typesirkel (TypeScript) (selected work: src/landing)",
+ "repos": [
+  {
+   "repo": "typesirkel",
+   "url": "https://github.com/aconymouse/typesirkel",
+   "sha": "24343b7f819b47633f84ecec06235556489e8c01",
+   "licence": "MIT (LICENSE file at pin 24343b7f819b, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T19:21Z",
+    "consent_receipt": "9c6551a85357",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T19:21Z (receipt 9c6551a85357); selected commit 24343b7f819b: \"Localize demo notes, rename the rewrite prompt\". LICENSE file at pin 24343b7f819b detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

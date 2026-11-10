@@ -16,8 +16,17 @@
     "by": "author-consent",
     "at": "2026-10-12T06:09Z",
     "consent_receipt": "1501915ad9d1",
-    "note": "Inclusion consented by the commit author by email at 2026-10-12T06:09Z (receipt 1501915ad9d1); selected commit 393b612fdde2: \"feat(query-history): filter by outcome and time range (#943)\". LICENSE file at pin 393b612fdde2 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-12T06:09Z (receipt 1501915ad9d1); selected commit 393b612fdde2: \"feat(query-history): filter by outcome and time range (#943)\". LICENSE file at pin 393b612fdde2 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @TabularisDB, who has not added it."
+   },
+   "paths": [
+    "packages/web-ui/src/components/layout",
+    "packages/web-ui/src/i18n/locales",
+    "packages/web-ui/tests/components/layout/sidebar",
+    "src/components/layout/sidebar",
+    "src/i18n/locales",
+    "src/utils",
+    "tests/utils"
+   ]
   }
  ]
 }

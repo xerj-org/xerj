@@ -16,8 +16,11 @@
     "by": "author-consent",
     "at": "2026-11-09T23:41Z",
     "consent_receipt": "f001d2207361",
-    "note": "Inclusion consented by the commit author by email at 2026-11-09T23:41Z (receipt f001d2207361); selected commit 0b394ef2b83e: \"feat: index testnet and public launches with independent workers\". LICENSE file at pin 0b394ef2b83e detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T23:41Z (receipt f001d2207361); selected commit 0b394ef2b83e: \"feat: index testnet and public launches with independent workers\". LICENSE file at pin 0b394ef2b83e detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @lumenRise, who has not added it."
+   },
+   "paths": [
+    "src"
+   ]
   }
  ]
 }

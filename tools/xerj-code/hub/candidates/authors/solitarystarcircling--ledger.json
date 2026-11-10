@@ -1,0 +1,23 @@
+{
+ "corpus": "solitarystarcircling--ledger",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on accounting, android, bookkeeping queries this for how SolitaryStarCircling/Ledger implements it: Tauri v2 \u6253\u9020\u7684\u79bb\u7ebf\u4f18\u5148\u4e2a\u4eba\u8bb0\u8d26\u672c \u00b7 3 \u79d2\u8bb0\u4e00\u7b14 \u00b7 \u6570\u636e\u53ea\u5b58\u672c\u673a SQLite \u00b7 Android / Windows (selected work: src, src-tauri, the project root)",
+ "repos": [
+  {
+   "repo": "Ledger",
+   "url": "https://github.com/SolitaryStarCircling/Ledger",
+   "sha": "a5f93c329a096d156a1440c33bb89b01a1a83990",
+   "licence": "MIT (LICENSE file at pin a5f93c329a09, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-19T03:32Z",
+    "consent_receipt": "17153a340fb6",
+    "note": "Inclusion consented by the commit author by email at 2026-10-19T03:32Z (receipt 17153a340fb6); selected commit a5f93c329a09: \"feat: bill import and an AI report view, plus several lost-entry and \u2026\". LICENSE file at pin a5f93c329a09 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "omerfaruk-berber--cards-tamplate",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on C# queries this for how omerfaruk-berber/Cards-Tamplate implements it: A ready-made template for a card game made for mobile or iOS using Unity (selected work: Cards Template)",
+ "repos": [
+  {
+   "repo": "Cards-Tamplate",
+   "url": "https://github.com/omerfaruk-berber/Cards-Tamplate",
+   "sha": "a7802c7418fdd7d3c94cd80a8447ca22c8b0df6e",
+   "licence": "MIT (LICENSE file at pin a7802c7418fd, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-18T14:04Z",
+    "consent_receipt": "8d16c004b62d",
+    "note": "Inclusion consented by the commit author by email at 2026-10-18T14:04Z (receipt 8d16c004b62d); selected commit a7802c7418fd: \"Add ResetSettings, improve drag & notifications\". LICENSE file at pin a7802c7418fd detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -16,8 +16,15 @@
     "by": "author-consent",
     "at": "2026-10-15T13:50Z",
     "consent_receipt": "ce19e47ca9aa",
-    "note": "Inclusion consented by the commit author by email at 2026-10-15T13:50Z (receipt ce19e47ca9aa); selected commit e898ec43b4cf: \"KCL: Move cache out of static, into owned struct (#14540)\". LICENSE file at pin e898ec43b4cf detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-15T13:50Z (receipt ce19e47ca9aa); selected commit e898ec43b4cf: \"KCL: Move cache out of static, into owned struct (#14540)\". LICENSE file at pin e898ec43b4cf detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @KittyCAD, who has not added it."
+   },
+   "paths": [
+    "e2e/playwright/snapshot-tests.spec.ts-snapshots",
+    "rust/kcl-language-server/src",
+    "rust/kcl-lib/e2e/executor",
+    "rust/kcl-lib/src",
+    "rust/kcl-wasm-lib/src"
+   ]
   }
  ]
 }

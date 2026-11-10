@@ -16,8 +16,15 @@
     "by": "author-consent",
     "at": "2026-10-20T20:27Z",
     "consent_receipt": "a6c1e58fa71b",
-    "note": "Inclusion consented by the commit author by email at 2026-10-20T20:27Z (receipt a6c1e58fa71b); selected commit 80d0562377ab: \"Fix model labels and help text (MIG-01 to MIG-16)\". LICENSE file at pin 80d0562377ab detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-20T20:27Z (receipt a6c1e58fa71b); selected commit 80d0562377ab: \"Fix model labels and help text (MIG-01 to MIG-16)\". LICENSE file at pin 80d0562377ab detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @mprov-ng, who has not added it."
+   },
+   "paths": [
+    "disklayouts",
+    "jobqueue",
+    "networks",
+    "osmanagement",
+    "systems"
+   ]
   }
  ]
 }

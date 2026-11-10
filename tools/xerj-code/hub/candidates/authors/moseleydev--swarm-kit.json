@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-10-12T05:39Z",
     "consent_receipt": "56c903e00aff",
-    "note": "Inclusion consented by the commit author by email at 2026-10-12T05:39Z (receipt 56c903e00aff); selected commit 82d0237584a7: \"feat: add human-in-the-loop approval for sensitive tools (#28)\". LICENSE file at pin 82d0237584a7 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-12T05:39Z (receipt 56c903e00aff); selected commit 82d0237584a7: \"feat: add human-in-the-loop approval for sensitive tools (#28)\". LICENSE file at pin 82d0237584a7 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @moseleydev, who has not added it."
+   },
+   "paths": [
+    "docs",
+    "src/swarm_kit",
+    "tests"
+   ]
   }
  ]
 }

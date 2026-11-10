@@ -16,8 +16,12 @@
     "by": "author-consent",
     "at": "2026-10-13T17:47Z",
     "consent_receipt": "bac559bce06e",
-    "note": "Inclusion consented by the commit author by email at 2026-10-13T17:47Z (receipt bac559bce06e); selected commit ecb6e31f0f1b: \"fix(omvs): by-name wrappers accept a body-only call (ISSUE-135) (#445)\". LICENSE file at pin ecb6e31f0f1b detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-13T17:47Z (receipt bac559bce06e); selected commit ecb6e31f0f1b: \"fix(omvs): by-name wrappers accept a body-only call (ISSUE-135) (#445)\". LICENSE file at pin ecb6e31f0f1b detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @odpi, who has not added it."
+   },
+   "paths": [
+    "pyegeria/omvs",
+    "tests/micro-tests"
+   ]
   }
  ]
 }

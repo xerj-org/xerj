@@ -1,0 +1,23 @@
+{
+ "corpus": "jorshimayor--ai-engineering-flow-research",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Jupyter Notebook queries this for how jorshimayor/AI-Engineering-Flow_Research implements it: jorshimayor/AI-Engineering-Flow_Research (Jupyter Notebook) (selected work: submissions, results, src)",
+ "repos": [
+  {
+   "repo": "AI-Engineering-Flow_Research",
+   "url": "https://github.com/jorshimayor/AI-Engineering-Flow_Research",
+   "sha": "24f9a4a66d3cf49fe9145896af9379df5513ed71",
+   "licence": "author's permission (LICENSE at pin 24f9a4a66d3c: NOASSERTION; repository: MIT)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T16:14Z",
+    "consent_receipt": "a387ed532c1d",
+    "note": "Inclusion consented by the commit author by email at 2026-11-06T16:14Z (receipt a387ed532c1d); selected commit 24f9a4a66d3c: \"feat(week6): results against H1/H2, failure breakdown, figures, artic\u2026\". LICENSE at pin 24f9a4a66d3c: NOASSERTION (repository: MIT); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

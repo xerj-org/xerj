@@ -1,0 +1,30 @@
+{
+ "corpus": "wavey-ai--web-services",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on Rust queries this for how wavey-ai/web-services implements it: High-perf, low-latency request and response primitives for every protocol (selected work: upload-response, tls, scripts)",
+ "repos": [
+  {
+   "repo": "web-services",
+   "url": "https://github.com/wavey-ai/web-services",
+   "sha": "1b6d7c20c17480f425940e7d0f06e449ed0b1ded",
+   "licence": "MIT (LICENSE file at pin 1b6d7c20c174, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-27T16:06Z",
+    "consent_receipt": "c3638b79c4dc",
+    "note": "Inclusion consented by the commit author by email at 2026-10-27T16:06Z (receipt c3638b79c4dc); selected commit 1b6d7c20c174: \"Enforce response leases, add worker waits, and generate local TLS\". LICENSE file at pin 1b6d7c20c174 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @wavey-ai, who has not added it."
+   },
+   "paths": [
+    "examples/obs-rist-llhls",
+    "scripts",
+    "tls/local.wavey.ai",
+    "upload-response",
+    "web-service/src"
+   ]
+  }
+ ]
+}

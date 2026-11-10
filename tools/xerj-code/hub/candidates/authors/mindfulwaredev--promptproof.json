@@ -16,8 +16,19 @@
     "by": "author-consent",
     "at": "2026-10-18T23:56Z",
     "consent_receipt": "4362744b8bc6",
-    "note": "Inclusion consented by the commit author by email at 2026-10-18T23:56Z (receipt 4362744b8bc6); selected commit a7d085af70da: \"Improve prompt evidence guidance, local tooling and review documentation\". LICENSE file at pin a7d085af70da detected as GPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-18T23:56Z (receipt 4362744b8bc6); selected commit a7d085af70da: \"Improve prompt evidence guidance, local tooling and review documentation\". LICENSE file at pin a7d085af70da detected as GPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @MindfulwareDev, who has not added it."
+   },
+   "paths": [
+    "benchmarks",
+    "docs",
+    "guards/output",
+    "guards/quality",
+    "guards/rag",
+    "guards/safety",
+    "guards/transparency",
+    "tests",
+    "tools"
+   ]
   }
  ]
 }

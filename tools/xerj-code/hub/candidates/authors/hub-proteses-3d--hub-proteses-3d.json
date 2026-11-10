@@ -16,8 +16,12 @@
     "by": "author-consent",
     "at": "2026-11-09T23:58Z",
     "consent_receipt": "16ab2e1b8aa4",
-    "note": "Inclusion consented by the commit author by email at 2026-11-09T23:58Z (receipt 16ab2e1b8aa4); selected commit 806c7771248a: \"testes automatizados com node test e validacoes do pedido separadas\". LICENSE file at pin 806c7771248a detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T23:58Z (receipt 16ab2e1b8aa4); selected commit 806c7771248a: \"testes automatizados com node test e validacoes do pedido separadas\". LICENSE file at pin 806c7771248a detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @hub-proteses-3d, who has not added it."
+   },
+   "paths": [
+    "server",
+    "test"
+   ]
   }
  ]
 }

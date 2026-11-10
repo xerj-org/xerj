@@ -16,8 +16,21 @@
     "by": "author-consent",
     "at": "2026-10-23T12:32Z",
     "consent_receipt": "bf9d5908165a",
-    "note": "Inclusion consented by the commit author by email at 2026-10-23T12:32Z (receipt bf9d5908165a); selected commit c90448d61b31: \"fix(selection): keep Ctrl/Cmd+A on the displayed page\". LICENSE file at pin c90448d61b31 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-23T12:32Z (receipt bf9d5908165a); selected commit c90448d61b31: \"fix(selection): keep Ctrl/Cmd+A on the displayed page\". LICENSE file at pin c90448d61b31 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Yayaw-SAS, who has not added it."
+   },
+   "paths": [
+    ".changeset",
+    "docs",
+    "e2e",
+    "packages/yayaw-table-vue/public/r",
+    "packages/yayaw-table-vue/src",
+    "public/r",
+    "registry/default/ui/yayaw-table/components",
+    "registry/default/ui/yayaw-table/utils",
+    "src/components/ui/yayaw-table/components",
+    "src/components/ui/yayaw-table/utils",
+    "tests"
+   ]
   }
  ]
 }

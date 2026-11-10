@@ -16,8 +16,15 @@
     "by": "author-consent",
     "at": "2026-11-09T18:30Z",
     "consent_receipt": "6691160cfcef",
-    "note": "Inclusion consented by the commit author by email at 2026-11-09T18:30Z (receipt 6691160cfcef); selected commit 6dffb7b8cf06: \"Update all apps with single approved batch installation.\". LICENSE at pin 6dffb7b8cf06: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T18:30Z (receipt 6691160cfcef); selected commit 6dffb7b8cf06: \"Update all apps with single approved batch installation.\". LICENSE at pin 6dffb7b8cf06: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @storytold, who has not added it."
+   },
+   "paths": [
+    "apps/artcraft-launcher/src",
+    "crates/core/src",
+    "crates/native",
+    "crates/ui-egui/src",
+    "docs"
+   ]
   }
  ]
 }

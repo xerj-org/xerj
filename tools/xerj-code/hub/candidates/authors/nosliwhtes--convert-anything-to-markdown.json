@@ -1,0 +1,23 @@
+{
+ "corpus": "nosliwhtes--convert-anything-to-markdown",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on Python queries this for how nosliwhtes/convert-anything-to-markdown implements it: Convert PDFs, Office files, OpenDocument files, images, and web pages to clean Markdown. Routes each format to the best extractor with autom (selected work: src/tests, src/convert_anything_md)",
+ "repos": [
+  {
+   "repo": "convert-anything-to-markdown",
+   "url": "https://github.com/nosliwhtes/convert-anything-to-markdown",
+   "sha": "47354fbb30318510d9239b2b35b02bae8aa3117b",
+   "licence": "MIT (LICENSE file at pin 47354fbb3031, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T22:05Z",
+    "consent_receipt": "76e53a251aa1",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T22:05Z (receipt 76e53a251aa1); selected commit 47354fbb3031: \"Protect output writes and plaintext code fences (#10)\". LICENSE file at pin 47354fbb3031 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

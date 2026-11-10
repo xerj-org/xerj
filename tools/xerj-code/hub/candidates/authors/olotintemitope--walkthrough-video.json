@@ -1,0 +1,23 @@
+{
+ "corpus": "olotintemitope--walkthrough-video",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how olotintemitope/walkthrough-video implements it: Record narrated product walkthrough videos by driving your own app \u2014 title cards, captions, a following camera and TTS narration, straight t (selected work: scripts)",
+ "repos": [
+  {
+   "repo": "walkthrough-video",
+   "url": "https://github.com/olotintemitope/walkthrough-video",
+   "sha": "31598f844ad534d132fab8c3dc351d332a6fd1d6",
+   "licence": "MIT (LICENSE file at pin 31598f844ad5, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T17:55Z",
+    "consent_receipt": "7de2ce33c2bb",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T17:55Z (receipt 7de2ce33c2bb); selected commit 31598f844ad5: \"Fix camera pointer alignment and improve recording quality\". LICENSE file at pin 31598f844ad5 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

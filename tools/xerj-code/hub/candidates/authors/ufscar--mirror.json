@@ -16,8 +16,12 @@
     "by": "author-consent",
     "at": "2026-10-14T02:10Z",
     "consent_receipt": "9694e80463c3",
-    "note": "Inclusion consented by the commit author by email at 2026-10-14T02:10Z (receipt 9694e80463c3); selected commit ade41afabba5: \"Executa implanta\u00e7\u00e3o e rollback em transa\u00e7\u00e3o independente do SSH\". LICENSE file at pin ade41afabba5 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-14T02:10Z (receipt 9694e80463c3); selected commit ade41afabba5: \"Executa implanta\u00e7\u00e3o e rollback em transa\u00e7\u00e3o independente do SSH\". LICENSE file at pin ade41afabba5 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @ufscar, who has not added it."
+   },
+   "paths": [
+    ".github/workflows",
+    "scripts"
+   ]
   }
  ]
 }

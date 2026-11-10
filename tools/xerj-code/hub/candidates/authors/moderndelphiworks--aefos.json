@@ -1,0 +1,30 @@
+{
+ "corpus": "moderndelphiworks--aefos",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Pascal queries this for how ModernDelphiWorks/Aefos implements it: Aefos - Agent Execution Flow Orchestration System (selected work: source)",
+ "repos": [
+  {
+   "repo": "Aefos",
+   "url": "https://github.com/ModernDelphiWorks/Aefos",
+   "sha": "03577ddc2b836c607d137d924f935b09ccdc915d",
+   "licence": "GPL-3.0 (LICENSE file at pin 03577ddc2b83, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-10T20:33Z",
+    "consent_receipt": "cab6ad043bda",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T20:33Z (receipt cab6ad043bda); selected commit 03577ddc2b83: \"fix(ui): polish splash branding icons, ACP registry catalog and AI fl\u2026\". LICENSE file at pin 03577ddc2b83 detected as GPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @ModernDelphiWorks, who has not added it."
+   },
+   "paths": [
+    "packages/Delphi",
+    "source/acp",
+    "source/chat",
+    "source/mcp/OTA",
+    "source/terminal/UI"
+   ]
+  }
+ ]
+}

@@ -16,8 +16,17 @@
     "by": "author-consent",
     "at": "2026-10-17T00:40Z",
     "consent_receipt": "a0e27da6b91c",
-    "note": "Inclusion consented by the commit author by email at 2026-10-17T00:40Z (receipt a0e27da6b91c); selected commit 6e1b70ac4e08: \"fix(sec): make financial fact persistence batches configurable (#4622)\". LICENSE file at pin 6e1b70ac4e08 detected as AGPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-17T00:40Z (receipt a0e27da6b91c); selected commit 6e1b70ac4e08: \"fix(sec): make financial fact persistence batches configurable (#4622)\". LICENSE file at pin 6e1b70ac4e08 detected as AGPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @daniel3303, who has not added it."
+   },
+   "paths": [
+    "docs/technical",
+    "src/Equibles.Sec.FinancialFacts.HostedService/Configuration",
+    "src/Equibles.Sec.FinancialFacts.HostedService/Services",
+    "src/Equibles.Worker.Host",
+    "tests/Equibles.IntegrationTests/Helpers",
+    "tests/Equibles.IntegrationTests/Sec",
+    "tests/Equibles.UnitTests/Sec"
+   ]
   }
  ]
 }

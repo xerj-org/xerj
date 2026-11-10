@@ -1,0 +1,23 @@
+{
+ "corpus": "werdoxdev--huginn",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how WerdoxDev/Huginn implements it: Huginn monorepo (selected work: packages/huginn-app)",
+ "repos": [
+  {
+   "repo": "Huginn",
+   "url": "https://github.com/WerdoxDev/Huginn",
+   "sha": "13c22f6db9ca95e0217b3f79e13c46fef681e414",
+   "licence": "GPL-3.0 (LICENSE file at pin 13c22f6db9ca, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-18T19:56Z",
+    "consent_receipt": "7d1edcacea96",
+    "note": "Inclusion consented by the commit author by email at 2026-10-18T19:56Z (receipt 7d1edcacea96); selected commit 13c22f6db9ca: \"feat(app): move all authentication into a security tab in settings\". LICENSE file at pin 13c22f6db9ca detected as GPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

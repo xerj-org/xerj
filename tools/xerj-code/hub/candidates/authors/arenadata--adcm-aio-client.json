@@ -16,8 +16,16 @@
     "by": "author-consent",
     "at": "2026-10-19T12:36Z",
     "consent_receipt": "0407856bce1e",
-    "note": "Inclusion consented by the commit author by email at 2026-10-19T12:36Z (receipt 0407856bce1e); selected commit d0d2ede576f1: \"ADCM-6490 Update doc format\". LICENSE file at pin d0d2ede576f1 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-19T12:36Z (receipt 0407856bce1e); selected commit d0d2ede576f1: \"ADCM-6490 Update doc format\". LICENSE file at pin d0d2ede576f1 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @arenadata, who has not added it."
+   },
+   "paths": [
+    ".github/workflows",
+    "adcm_aio_client/actions",
+    "adcm_aio_client/config",
+    "adcm_aio_client/host_groups",
+    "adcm_aio_client/objects",
+    "custom-templates"
+   ]
   }
  ]
 }

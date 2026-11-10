@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-10-26T09:05Z",
     "consent_receipt": "442293cad9ea",
-    "note": "Inclusion consented by the commit author by email at 2026-10-26T09:05Z (receipt 442293cad9ea); selected commit 3ad840b2e646: \"feat(lock): support incremental lockfiles from previous image layers\". LICENSE file at pin 3ad840b2e646 detected as Apache-2.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-26T09:05Z (receipt 442293cad9ea); selected commit 3ad840b2e646: \"feat(lock): support incremental lockfiles from previous image layers\". LICENSE file at pin 3ad840b2e646 detected as Apache-2.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @bookingcom, who has not added it."
+   },
+   "paths": [
+    "dnf",
+    "e2e",
+    "microdnf/private"
+   ]
   }
  ]
 }

@@ -16,8 +16,12 @@
     "by": "author-consent",
     "at": "2026-10-12T04:10Z",
     "consent_receipt": "bdbff4ce976f",
-    "note": "Inclusion consented by the commit author by email at 2026-10-12T04:10Z (receipt bdbff4ce976f); selected commit 127812a91bd9: \"Disprove conjectures 1255 and 1457 with verified Lean projects\". LICENSE file at pin 127812a91bd9 detected as GPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-12T04:10Z (receipt bdbff4ce976f); selected commit 127812a91bd9: \"Disprove conjectures 1255 and 1457 with verified Lean projects\". LICENSE file at pin 127812a91bd9 detected as GPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @The-Last-Math-Competition, who has not added it."
+   },
+   "paths": [
+    "solutions/00000001255/GodBlf_submission_20261008144337",
+    "solutions/00000001457/GodBlf_submission_20261008144337"
+   ]
   }
  ]
 }

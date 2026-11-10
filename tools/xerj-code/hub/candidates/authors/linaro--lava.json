@@ -16,8 +16,22 @@
     "by": "author-consent",
     "at": "2026-10-13T07:50Z",
     "consent_receipt": "d872686fb72e",
-    "note": "Inclusion consented by the commit author by email at 2026-10-13T07:50Z (receipt d872686fb72e); selected commit 79a9aa280c89: \"security: make state-changing endpoints POST-only\". LICENSE file at pin 79a9aa280c89 detected as GPL-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-13T07:50Z (receipt d872686fb72e); selected commit 79a9aa280c89: \"security: make state-changing endpoints POST-only\". LICENSE file at pin 79a9aa280c89 detected as GPL-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Linaro, who has not added it."
+   },
+   "paths": [
+    "doc/v2",
+    "lava_rest_app/v02",
+    "lava_results_app/static/lava_results_app/js",
+    "lava_results_app/templates/lava_results_app",
+    "lava_results_app/views/chart",
+    "lava_results_app/views/query",
+    "lava_scheduler_app",
+    "lava_server",
+    "tests/lava_rest_app",
+    "tests/lava_results_app",
+    "tests/lava_scheduler_app",
+    "tests/lava_server"
+   ]
   }
  ]
 }

@@ -16,8 +16,18 @@
     "by": "author-consent",
     "at": "2026-10-27T07:14Z",
     "consent_receipt": "e020eda5c1cb",
-    "note": "Inclusion consented by the commit author by email at 2026-10-27T07:14Z (receipt e020eda5c1cb); selected commit fd46791d6acb: \"fix(backend): store admin password as argon2id hash\". LICENSE file at pin fd46791d6acb detected as MIT by the GitHub licence API on 2026-10-27; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-27T07:14Z (receipt e020eda5c1cb); selected commit fd46791d6acb: \"fix(backend): store admin password as argon2id hash\". LICENSE file at pin fd46791d6acb detected as MIT by the GitHub licence API on 2026-10-27; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @vibes-group, who has not added it."
+   },
+   "paths": [
+    ".github/workflows",
+    "backend/cmd/hashpass",
+    "backend/cmd/loadtest",
+    "backend/cmd/server",
+    "backend/internal/auth",
+    "backend/internal/config",
+    "backend/internal/handler",
+    "backend/internal/middleware"
+   ]
   }
  ]
 }

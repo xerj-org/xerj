@@ -16,8 +16,12 @@
     "by": "author-consent",
     "at": "2026-10-14T21:12Z",
     "consent_receipt": "14add2253a93",
-    "note": "Inclusion consented by the commit author by email at 2026-10-14T21:12Z (receipt 14add2253a93); selected commit 7f51b0baa854: \"fix(generator): enforce one fail-closed discovery gate in all checks\". LICENSE file at pin 7f51b0baa854 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-14T21:12Z (receipt 14add2253a93); selected commit 7f51b0baa854: \"fix(generator): enforce one fail-closed discovery gate in all checks\". LICENSE file at pin 7f51b0baa854 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @vellira-dev, who has not added it."
+   },
+   "paths": [
+    "scripts/generators/component",
+    "scripts/seo"
+   ]
   }
  ]
 }

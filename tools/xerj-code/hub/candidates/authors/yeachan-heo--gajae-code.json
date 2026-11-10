@@ -16,8 +16,16 @@
     "by": "author-consent",
     "at": "2026-10-16T15:35Z",
     "consent_receipt": "d283fc8a67e1",
-    "note": "Inclusion consented by the commit author by email at 2026-10-16T15:35Z (receipt d283fc8a67e1); selected commit 28083402829f: \"fix(session): generate the automatic title for busy and startup first\u2026\". LICENSE file at pin 28083402829f detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-16T15:35Z (receipt d283fc8a67e1); selected commit 28083402829f: \"fix(session): generate the automatic title for busy and startup first\u2026\". LICENSE file at pin 28083402829f detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Yeachan-Heo, who has not added it."
+   },
+   "paths": [
+    ".github/workflows",
+    "packages/coding-agent/changelog.d",
+    "packages/coding-agent/scripts",
+    "packages/coding-agent/src",
+    "packages/coding-agent/test",
+    "scripts"
+   ]
   }
  ]
 }

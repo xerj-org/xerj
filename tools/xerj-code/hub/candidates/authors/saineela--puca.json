@@ -1,0 +1,23 @@
+{
+ "corpus": "saineela--puca",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, ai-assistant-offline, ai-assistants queries this for how saineela/puca implements it: NIX PUCA is a local AI companion pipeline built so anyone can self-host a secure personal assistant on their own hardware in a single day. B (selected work: nix_core)",
+ "repos": [
+  {
+   "repo": "puca",
+   "url": "https://github.com/saineela/puca",
+   "sha": "6f195dd7302c0b3471404e53d018941da410310c",
+   "licence": "Apache-2.0 (LICENSE file at pin 6f195dd7302c, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-18T23:17Z",
+    "consent_receipt": "e6ac8213df8f",
+    "note": "Inclusion consented by the commit author by email at 2026-10-18T23:17Z (receipt e6ac8213df8f); selected commit 6f195dd7302c: \"Leave a track the provider refuses alone, and do not blame it for a p\u2026\". LICENSE file at pin 6f195dd7302c detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -16,8 +16,18 @@
     "by": "author-consent",
     "at": "2026-11-04T02:00Z",
     "consent_receipt": "51b91aafcb01",
-    "note": "Inclusion consented by the commit author by email at 2026-11-04T02:00Z (receipt 51b91aafcb01); selected commit dfc63adfbf38: \"Add an opt-in deterministic execution policy (#8917)\". LICENSE file at pin dfc63adfbf38 detected as Apache-2.0 by the GitHub licence API on 2026-11-04; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-11-04T02:00Z (receipt 51b91aafcb01); selected commit dfc63adfbf38: \"Add an opt-in deterministic execution policy (#8917)\". LICENSE file at pin dfc63adfbf38 detected as Apache-2.0 by the GitHub licence API on 2026-11-04; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @deepspeedai, who has not added it."
+   },
+   "paths": [
+    "deepspeed/ops/transformer",
+    "deepspeed/ops/triton_ops",
+    "deepspeed/runtime",
+    "deepspeed/sequence",
+    "docs/_pages",
+    "docs/_tutorials",
+    "tests/unit/runtime",
+    "tests/unit/v1/ops/triton_ops"
+   ]
   }
  ]
 }

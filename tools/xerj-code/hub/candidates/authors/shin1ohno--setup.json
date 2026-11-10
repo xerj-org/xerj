@@ -1,0 +1,23 @@
+{
+ "corpus": "shin1ohno--setup",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Ruby queries this for how shin1ohno/setup implements it: shin1ohno/setup (Ruby) (selected work: cookbooks)",
+ "repos": [
+  {
+   "repo": "setup",
+   "url": "https://github.com/shin1ohno/setup",
+   "sha": "72e06140273fe32052ee6c7f2bce9168264542cc",
+   "licence": "CC0-1.0 (LICENSE file at pin 72e06140273f, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "CC0-1.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T11:48Z",
+    "consent_receipt": "32cac4d8d653",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T11:48Z (receipt 32cac4d8d653); selected commit 72e06140273f: \"session-search: Codex \u5c65\u6b74\u306e\u53ce\u96c6\u30fb\u691c\u7d22\u30fb\u5fa9\u5143\u3068\u5171\u6709\u30b9\u30ad\u30eb\u3092\u8ffd\u52a0 (#1102)\". LICENSE file at pin 72e06140273f detected as CC0-1.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

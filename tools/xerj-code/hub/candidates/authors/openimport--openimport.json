@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-10-24T20:07Z",
     "consent_receipt": "b340bf3e3e83",
-    "note": "Inclusion consented by the commit author by email at 2026-10-24T20:07Z (receipt b340bf3e3e83); selected commit 5a446a950770: \"feat: implement support for plain JSON Schema in importer\". LICENSE file at pin 5a446a950770 detected as MIT by the GitHub licence API on 2026-10-26; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-24T20:07Z (receipt b340bf3e3e83); selected commit 5a446a950770: \"feat: implement support for plain JSON Schema in importer\". LICENSE file at pin 5a446a950770 detected as MIT by the GitHub licence API on 2026-10-26; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @openimport, who has not added it."
+   },
+   "paths": [
+    ".changeset",
+    "docs",
+    "packages/core"
+   ]
   }
  ]
 }

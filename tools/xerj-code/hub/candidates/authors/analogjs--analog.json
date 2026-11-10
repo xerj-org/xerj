@@ -16,8 +16,11 @@
     "by": "author-consent",
     "at": "2026-10-16T07:46Z",
     "consent_receipt": "c460c4ab1064",
-    "note": "Inclusion consented by the commit author by email at 2026-10-16T07:46Z (receipt c460c4ab1064); selected commit 4f3fd7659293: \"fix(vite-plugin-angular): emit unary operators by operator and positi\u2026\". LICENSE file at pin 4f3fd7659293 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-16T07:46Z (receipt c460c4ab1064); selected commit 4f3fd7659293: \"fix(vite-plugin-angular): emit unary operators by operator and positi\u2026\". LICENSE file at pin 4f3fd7659293 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @analogjs, who has not added it."
+   },
+   "paths": [
+    "packages/vite-plugin-angular/src/lib/compiler"
+   ]
   }
  ]
 }

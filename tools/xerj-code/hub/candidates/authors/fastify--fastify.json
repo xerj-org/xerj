@@ -1,0 +1,28 @@
+{
+ "corpus": "fastify--fastify",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on webframework, performance, speed queries this for how fastify/fastify implements it: Fast and low overhead web framework, for Node.js (selected work: test, the project root, types)",
+ "repos": [
+  {
+   "repo": "fastify",
+   "url": "https://github.com/fastify/fastify",
+   "sha": "5d4c23352d90c2474bfaf1a0d530c86b699cb795",
+   "licence": "MIT (LICENSE file at pin 5d4c23352d90, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-25T18:31Z",
+    "consent_receipt": "73ac1afb51fd",
+    "note": "Inclusion consented by the commit author by email at 2026-10-25T18:31Z (receipt 73ac1afb51fd); selected commit 5d4c23352d90: \"feat(hooks): support disposables in onClose hook (#7121)\". LICENSE file at pin 5d4c23352d90 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @fastify, who has not added it."
+   },
+   "paths": [
+    "docs/Reference",
+    "test",
+    "types"
+   ]
+  }
+ ]
+}

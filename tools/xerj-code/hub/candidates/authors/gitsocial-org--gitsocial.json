@@ -16,8 +16,18 @@
     "by": "author-consent",
     "at": "2026-10-10T12:59Z",
     "consent_receipt": "8ce835a9abd3",
-    "note": "Inclusion consented by the commit author by email at 2026-10-10T12:59Z (receipt 8ce835a9abd3); selected commit d2fd2e6d8485: \"Timeline: show the actions taken on items\". LICENSE file at pin d2fd2e6d8485 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-10T12:59Z (receipt 8ce835a9abd3); selected commit d2fd2e6d8485: \"Timeline: show the actions taken on items\". LICENSE file at pin d2fd2e6d8485 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @gitsocial-org, who has not added it."
+   },
+   "paths": [
+    "documentation",
+    "library/core/cache",
+    "library/core/site/assets",
+    "library/core/site/sitetest",
+    "library/extensions/pm",
+    "library/extensions/social",
+    "library/tui/test/testdata",
+    "library/tui/tuisocial"
+   ]
   }
  ]
 }

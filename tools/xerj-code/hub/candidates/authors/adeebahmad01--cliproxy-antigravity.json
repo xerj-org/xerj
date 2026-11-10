@@ -1,0 +1,23 @@
+{
+ "corpus": "adeebahmad01--cliproxy-antigravity",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on Go queries this for how adeebahmad01/cliproxy-antigravity implements it: adeebahmad01/cliproxy-antigravity (Go) (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "cliproxy-antigravity",
+   "url": "https://github.com/adeebahmad01/cliproxy-antigravity",
+   "sha": "66ae8c022ab33be1e0247918b8deecf0ae0de01e",
+   "licence": "MIT (LICENSE file at pin 66ae8c022ab3, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-28T08:22Z",
+    "consent_receipt": "bb1c13cbebcd",
+    "note": "Inclusion consented by the commit author by email at 2026-10-28T08:22Z (receipt bb1c13cbebcd); selected commit 66ae8c022ab3: \"feat: add Windows amd64 support and process isolation sandboxing (v0.\u2026\". LICENSE file at pin 66ae8c022ab3 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

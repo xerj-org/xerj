@@ -16,8 +16,12 @@
     "by": "author-consent",
     "at": "2026-11-07T06:53Z",
     "consent_receipt": "7b213b44d492",
-    "note": "Inclusion consented by the commit author by email at 2026-11-07T06:53Z (receipt 7b213b44d492); selected commit 9c160e6492b0: \"fix: \u4f9d\u8d56\u4e0d\u6ee1\u8db3\u65f6\u6309\u751f\u6548\u503c\u88c1\u526a\u914d\u7f6e\uff0c\u83dc\u5355\u7ed3\u6784\u9519\u8bef\u663e\u5f0f\u62a5\u9519\". LICENSE file at pin 9c160e6492b0 detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T06:53Z (receipt 7b213b44d492); selected commit 9c160e6492b0: \"fix: \u4f9d\u8d56\u4e0d\u6ee1\u8db3\u65f6\u6309\u751f\u6548\u503c\u88c1\u526a\u914d\u7f6e\uff0c\u83dc\u5355\u7ed3\u6784\u9519\u8bef\u663e\u5f0f\u62a5\u9519\". LICENSE file at pin 9c160e6492b0 detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @RainSTR-Studio, who has not added it."
+   },
+   "paths": [
+    "builder/src",
+    "cargo-anaxa/src"
+   ]
   }
  ]
 }

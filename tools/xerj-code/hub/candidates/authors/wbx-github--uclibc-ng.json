@@ -16,8 +16,11 @@
     "by": "author-consent",
     "at": "2026-10-17T13:09Z",
     "consent_receipt": "561b260b7e8e",
-    "note": "Inclusion consented by the commit author by email at 2026-10-17T13:09Z (receipt 561b260b7e8e); selected commit c9f21e9a04f3: \"libm: a real tgamma\". LICENSE file at pin c9f21e9a04f3 detected as LGPL-2.1 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-17T13:09Z (receipt 561b260b7e8e); selected commit c9f21e9a04f3: \"libm: a real tgamma\". LICENSE file at pin c9f21e9a04f3 detected as LGPL-2.1 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @wbx-github, who has not added it."
+   },
+   "paths": [
+    "libm"
+   ]
   }
  ]
 }

@@ -1,0 +1,23 @@
+{
+ "corpus": "kgbcupcake--nourished",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "HEALTH",
+ "domain": "an agent working on datapack, food, hud queries this for how kgbcupcake/nourished implements it: \ud83c\udf3f Nourished: a lightweight nutrition system for NeoForge 1.21.1. What's in this release: Six food group tracking system (Fruits, Vegetables, (selected work: src/main)",
+ "repos": [
+  {
+   "repo": "nourished",
+   "url": "https://github.com/kgbcupcake/nourished",
+   "sha": "20d3bb14c50090ca809f2e618c4f06803ab2c884",
+   "licence": "MIT (LICENSE file at pin 20d3bb14c500, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-23T23:52Z",
+    "consent_receipt": "e020da9f6d40",
+    "note": "Inclusion consented by the commit author by email at 2026-10-23T23:52Z (receipt e020da9f6d40); selected commit 20d3bb14c500: \"Enhance item editor and nutritional settings\". LICENSE file at pin 20d3bb14c500 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

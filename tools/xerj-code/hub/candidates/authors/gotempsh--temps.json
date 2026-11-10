@@ -16,8 +16,30 @@
     "by": "author-consent",
     "at": "2026-10-15T04:22Z",
     "consent_receipt": "63ad40a06aa7",
-    "note": "Inclusion consented by the commit author by email at 2026-10-15T04:22Z (receipt 63ad40a06aa7); selected commit 93996692ddf7: \"feat(git): optionally clone only the project root directory (#1067)\". LICENSE at pin 93996692ddf7: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-15T04:22Z (receipt 63ad40a06aa7); selected commit 93996692ddf7: \"feat(git): optionally clone only the project root directory (#1067)\". LICENSE at pin 93996692ddf7: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @gotempsh, who has not added it."
+   },
+   "paths": [
+    "crates/temps-agents/src/services",
+    "crates/temps-ai-chat/src",
+    "crates/temps-analytics-performance/src/handlers",
+    "crates/temps-analytics/src/ingest_keys",
+    "crates/temps-deployments/src/jobs",
+    "crates/temps-deployments/src/services",
+    "crates/temps-entities/src",
+    "crates/temps-git/src/handlers",
+    "crates/temps-git/src/services",
+    "crates/temps-migrations/src/migration",
+    "crates/temps-monitoring/src",
+    "crates/temps-notifications/src",
+    "crates/temps-projects/src/handlers",
+    "crates/temps-projects/src/services",
+    "crates/temps-providers/src",
+    "crates/temps-sandbox/src/services",
+    "docs/concepts/deployments",
+    "docs/deploy/monorepos",
+    "web/src/api/client",
+    "web/src/components/project/settings"
+   ]
   }
  ]
 }

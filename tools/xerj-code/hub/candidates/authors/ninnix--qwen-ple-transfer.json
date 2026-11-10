@@ -1,0 +1,23 @@
+{
+ "corpus": "ninnix--qwen-ple-transfer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on kaggle, llm, modal queries this for how Ninnix/qwen-ple-transfer implements it: Target-side reader adaptation: frozen n-gram PLE transfer (35B Modal + 0.8B, 2B and 4B Kaggle tracks) (selected work: qwen35-2b, qwen35-08b)",
+ "repos": [
+  {
+   "repo": "qwen-ple-transfer",
+   "url": "https://github.com/Ninnix/qwen-ple-transfer",
+   "sha": "0c1c76f641240fcadf12cf3c0e0032cc3bcbedaa",
+   "licence": "MIT (LICENSE file at pin 0c1c76f64124, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-15T21:18Z",
+    "consent_receipt": "e2f6e6bb56c7",
+    "note": "Inclusion consented by the commit author by email at 2026-10-15T21:18Z (receipt e2f6e6bb56c7); selected commit 0c1c76f64124: \"Publish Q6_K retention and runtime checks for Qwengram models\". LICENSE file at pin 0c1c76f64124 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

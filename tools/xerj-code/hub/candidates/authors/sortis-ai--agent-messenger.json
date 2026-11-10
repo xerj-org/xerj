@@ -16,8 +16,16 @@
     "by": "author-consent",
     "at": "2026-11-07T22:50Z",
     "consent_receipt": "12a40478e8bf",
-    "note": "Inclusion consented by the commit author by email at 2026-11-07T22:50Z (receipt 12a40478e8bf); selected commit 1406593157c5: \"v0.4.0 \u2014 client interop: DM relay list, NIP-04, ids/threading, listen\u2026\". LICENSE file at pin 1406593157c5 detected as GPL-3.0 by the GitHub licence API on 2026-11-08; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T22:50Z (receipt 12a40478e8bf); selected commit 1406593157c5: \"v0.4.0 \u2014 client interop: DM relay list, NIP-04, ids/threading, listen\u2026\". LICENSE file at pin 1406593157c5 detected as GPL-3.0 by the GitHub licence API on 2026-11-08; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Sortis-AI, who has not added it."
+   },
+   "paths": [
+    "crates/am-agent/src",
+    "crates/am-cli/src/commands",
+    "crates/am-cli/tests",
+    "crates/am-core/src",
+    "crates/am-ingest/src",
+    "skills/agent-messenger"
+   ]
   }
  ]
 }

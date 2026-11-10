@@ -1,0 +1,23 @@
+{
+ "corpus": "jcs130--minecraft-ai-friend",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agent, cortico, dsh queries this for how jcs130/minecraft-ai-friend implements it: \u5343\u706f\u7eaa\uff1aAgent \u53cb\u597d\u7684 Minecraft \u957f\u671f\u751f\u6d3b\u4e0e\u5192\u9669\u4e16\u754c\u3002Paper\u3001\u57fa\u5ca9\u4e0e Mineflayer\uff0c\u652f\u6301 N.E.K.O\u3001DSH\u3001Cortico\uff1b\u542b\u7f51\u7ad9\u3001MCP/SDK \u4e0e\u81ea\u90e8\u7f72\u6307\u5f15\u3002 (selected work: paper)",
+ "repos": [
+  {
+   "repo": "minecraft-ai-friend",
+   "url": "https://github.com/jcs130/minecraft-ai-friend",
+   "sha": "0745171143ef4f0193794765b0abf260cca47fe1",
+   "licence": "MIT (LICENSE file at pin 0745171143ef, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-26T04:54Z",
+    "consent_receipt": "a9caf5d567a2",
+    "note": "Inclusion consented by the commit author by email at 2026-10-26T04:54Z (receipt a9caf5d567a2); selected commit 0745171143ef: \"feat(portal): publish durable world trails, diaries and shared specta\u2026\". LICENSE file at pin 0745171143ef detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

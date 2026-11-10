@@ -1,0 +1,33 @@
+{
+ "corpus": "fastvm--minivm",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Lua queries this for how FastVM/minivm implements it: A VM That is Dynamic and Fast (selected work: src/lua, src/value, src/ir)",
+ "repos": [
+  {
+   "repo": "minivm",
+   "url": "https://github.com/FastVM/minivm",
+   "sha": "527f0b81ff237b5c85b8b28f454f2b11cef76f24",
+   "licence": "MIT (LICENSE file at pin 527f0b81ff23, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T20:25Z",
+    "consent_receipt": "163fe74a2039",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T20:25Z (receipt 163fe74a2039); selected commit 527f0b81ff23: \"clean style\". LICENSE file at pin 527f0b81ff23 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @FastVM, who has not added it."
+   },
+   "paths": [
+    "src/cli",
+    "src/ir",
+    "src/lua/front",
+    "src/lua/rt",
+    "src/run",
+    "src/value",
+    "src/version",
+    "src/vm"
+   ]
+  }
+ ]
+}

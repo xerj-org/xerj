@@ -16,8 +16,13 @@
     "by": "author-consent",
     "at": "2026-10-12T06:53Z",
     "consent_receipt": "9c1d288ce268",
-    "note": "Inclusion consented by the commit author by email at 2026-10-12T06:53Z (receipt 9c1d288ce268); selected commit d247d3d60c6a: \"shader: complete signed 64-bit integer comparisons\". LICENSE file at pin d247d3d60c6a detected as GPL-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
-   }
+    "note": "Inclusion consented by the commit author by email at 2026-10-12T06:53Z (receipt 9c1d288ce268); selected commit d247d3d60c6a: \"shader: complete signed 64-bit integer comparisons\". LICENSE file at pin d247d3d60c6a detected as GPL-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @KytyPS5, who has not added it."
+   },
+   "paths": [
+    "src/graphics/shader/recompiler/frontend/decode",
+    "src/graphics/shader/recompiler/frontend/translate",
+    "tests"
+   ]
   }
  ]
 }

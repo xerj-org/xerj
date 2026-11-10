@@ -1,0 +1,23 @@
+{
+ "corpus": "kdpkke--castor-android",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Go queries this for how kdpkke/castor-android implements it: Community Android client for Castor, with native on-device casting and validated upstream core release integration (selected work: android)",
+ "repos": [
+  {
+   "repo": "castor-android",
+   "url": "https://github.com/kdpkke/castor-android",
+   "sha": "ed2f6af57502c8f0b939ed87090798ad4e3cce2f",
+   "licence": "MIT (LICENSE file at pin ed2f6af57502, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-22T07:04Z",
+    "consent_receipt": "7630d0fee063",
+    "note": "Inclusion consented by the commit author by email at 2026-10-22T07:04Z (receipt 7630d0fee063); selected commit ed2f6af57502: \"Recover active casts and refresh saved receivers\". LICENSE file at pin ed2f6af57502 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}
