@@ -1,0 +1,23 @@
+{
+ "corpus": "mrdenlol--xor-112",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on alu, circuit-simulator, desktop-app queries this for how MrDenlol/XOR-112 implements it: Binary logic circuit editor in Rust with fully editable 32-bit and 64-bit ALUs (selected work: src, examples, the project root)",
+ "repos": [
+  {
+   "repo": "XOR-112",
+   "url": "https://github.com/MrDenlol/XOR-112",
+   "sha": "889296598591b910ed04b61d6a356e39eb4a1b84",
+   "licence": "MIT (LICENSE file at pin 889296598591, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T06:28Z",
+    "consent_receipt": "864aa4121ea8",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T06:28Z (receipt 864aa4121ea8); selected commit 889296598591: \"Publish XOR-112 0.1.0: editable binary circuits, 32/64-bit ALUs and d\u2026\". LICENSE file at pin 889296598591 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "aishiktokdar--british-airways-forage-virtual-internship",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on british-airways, data-science, forage queries this for how AishikTokdar/British-Airways-Forage-Virtual-Internship implements it: British Airways Data Science Virtual Internship through Forage!",
+ "repos": [
+  {
+   "repo": "British-Airways-Forage-Virtual-Internship",
+   "url": "https://github.com/AishikTokdar/British-Airways-Forage-Virtual-Internship",
+   "sha": "db5e7a8feceb10dea08bcd850d3f3039cdd3efd1",
+   "licence": "MIT (LICENSE file at pin db5e7a8feceb, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T07:43Z",
+    "consent_receipt": "edc05d199e98",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T07:43Z (receipt edc05d199e98); pinned to the default-branch head. LICENSE file at pin db5e7a8feceb detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

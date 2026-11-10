@@ -1,0 +1,23 @@
+{
+ "corpus": "aishiktokdar--documentrag",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how AishikTokdar/DocumentRAG implements it: DocumentRAG is a state-of-the-art, open-source Retrieval-Augmented Generation (RAG) platform designed for multi-document indexing, intellige",
+ "repos": [
+  {
+   "repo": "DocumentRAG",
+   "url": "https://github.com/AishikTokdar/DocumentRAG",
+   "sha": "d5d5ca97e37f236cac69a660b8db649135860ece",
+   "licence": "author's permission (LICENSE at pin d5d5ca97e37f: NOASSERTION; repository: NOASSERTION)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T07:43Z",
+    "consent_receipt": "875113620a4f",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T07:43Z (receipt 875113620a4f); pinned to the default-branch head. LICENSE at pin d5d5ca97e37f: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

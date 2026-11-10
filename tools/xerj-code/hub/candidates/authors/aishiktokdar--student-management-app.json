@@ -1,0 +1,23 @@
+{
+ "corpus": "aishiktokdar--student-management-app",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how AishikTokdar/Student-Management-App implements it: Student Management Web App for managing student data using AWS DynamoDB. It supports CRUD operations (Create, Read, Update, Delete) via a RE",
+ "repos": [
+  {
+   "repo": "Student-Management-App",
+   "url": "https://github.com/AishikTokdar/Student-Management-App",
+   "sha": "67740c1e7deb212afd943aa747bf9a284b6802dc",
+   "licence": "GPL-3.0 (LICENSE file at pin 67740c1e7deb, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-10T07:43Z",
+    "consent_receipt": "3b72ff66efcf",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T07:43Z (receipt 3b72ff66efcf); pinned to the default-branch head. LICENSE file at pin 67740c1e7deb detected as GPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

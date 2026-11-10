@@ -1,0 +1,23 @@
+{
+ "corpus": "mo-farooq--nexustwin",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how mo-farooq/NexusTwin implements it: NexusTwin: 3D Digital Twin for Warehouse Automation Decisions (selected work: src/components, api, the project root)",
+ "repos": [
+  {
+   "repo": "NexusTwin",
+   "url": "https://github.com/mo-farooq/NexusTwin",
+   "sha": "975f984fcc91d7855d3762eea3c8e37254ea4c59",
+   "licence": "MIT (LICENSE file at pin 975f984fcc91, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T07:46Z",
+    "consent_receipt": "247ed96b890d",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T07:46Z (receipt 247ed96b890d); selected commit 975f984fcc91: \"feat(copilot): integrate Gemini 2.0 Flash serverless function with gr\u2026\". LICENSE file at pin 975f984fcc91 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

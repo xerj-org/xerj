@@ -1,0 +1,23 @@
+{
+ "corpus": "aishiktokdar--siliconpulse",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how AishikTokdar/SiliconPulse implements it: Developed ML model (Random Forest) to predict circuit delay/power from design parameters achieving R\u00b2 > 0.95 on Nangate 45nm library, enabli",
+ "repos": [
+  {
+   "repo": "SiliconPulse",
+   "url": "https://github.com/AishikTokdar/SiliconPulse",
+   "sha": "828a2981677216dfc03f2acab973dc8d5bd6a9a9",
+   "licence": "MIT (LICENSE file at pin 828a29816772, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T07:43Z",
+    "consent_receipt": "2fc86fd2debe",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T07:43Z (receipt 2fc86fd2debe); pinned to the default-branch head. LICENSE file at pin 828a29816772 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

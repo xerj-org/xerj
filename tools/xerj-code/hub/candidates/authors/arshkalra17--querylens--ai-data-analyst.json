@@ -1,0 +1,23 @@
+{
+ "corpus": "arshkalra17--querylens--ai-data-analyst",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how arshkalra17/QueryLens--AI-Data-Analyst implements it: AI-powered CSV data analyst using RAG \u2014 retrieves schema context, generates SQL, executes deterministically via DuckDB, and explains results (selected work: benchmarks, backend)",
+ "repos": [
+  {
+   "repo": "QueryLens--AI-Data-Analyst",
+   "url": "https://github.com/arshkalra17/QueryLens--AI-Data-Analyst",
+   "sha": "6db3da47d9eed819b1902b6f55a2845e63a6da92",
+   "licence": "MIT (LICENSE file at pin 6db3da47d9ee, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T06:29Z",
+    "consent_receipt": "9a91134b850d",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T06:29Z (receipt 9a91134b850d); selected commit 6db3da47d9ee: \"fix(engine): raise rule-engine SQL accuracy from 45% to 98.8%\". LICENSE file at pin 6db3da47d9ee detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Pinned to head 6db3da47d9ee (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

@@ -8,15 +8,15 @@
   {
    "repo": "fdroid-repo",
    "url": "https://github.com/muthumanikandanb2005-ux/fdroid-repo",
-   "sha": "d86f7b190528b842552322669abc9c594780c891",
-   "licence": "author's permission (LICENSE at pin d86f7b190528: NONE; repository: none)",
+   "sha": "29501de1c0d9d9e82b2c9528a9931b35a7542ea9",
+   "licence": "author's permission (LICENSE at pin 29501de1c0d9: NONE; repository: none)",
    "review": {
     "spdx": "NONE",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T02:25Z",
     "consent_receipt": "2d66617c5d9d",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T02:25Z (receipt 2d66617c5d9d); pinned to the default-branch head. LICENSE at pin d86f7b190528: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T02:25Z (receipt 2d66617c5d9d); pinned to the default-branch head. LICENSE at pin 29501de1c0d9: NONE (repository: none); used with the author's permission, with attribution."
    }
   }
  ]

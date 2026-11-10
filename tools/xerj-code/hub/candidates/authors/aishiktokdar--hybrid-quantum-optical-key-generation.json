@@ -1,0 +1,23 @@
+{
+ "corpus": "aishiktokdar--hybrid-quantum-optical-key-generation",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on Python queries this for how AishikTokdar/Hybrid-Quantum-Optical-Key-Generation implements it: A research implementation combining Quantum Key Distribution (BB84 protocol via Qiskit) with Optical Physical Layer Key Generation (PLKG) to",
+ "repos": [
+  {
+   "repo": "Hybrid-Quantum-Optical-Key-Generation",
+   "url": "https://github.com/AishikTokdar/Hybrid-Quantum-Optical-Key-Generation",
+   "sha": "8db2fa4602ba5180ffe322ba37df8ea61d9a1415",
+   "licence": "MIT (LICENSE file at pin 8db2fa4602ba, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T07:43Z",
+    "consent_receipt": "e3c30fe6b0d7",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T07:43Z (receipt e3c30fe6b0d7); pinned to the default-branch head. LICENSE file at pin 8db2fa4602ba detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

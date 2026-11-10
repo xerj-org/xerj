@@ -1,0 +1,23 @@
+{
+ "corpus": "aishiktokdar--audio-signal-processing-and-filtering-using-matlab",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on audio-filtering, audio-processing, signal-processing queries this for how AishikTokdar/Audio-Signal-Processing-and-Filtering-using-MATLAB implements it: The Audio Signal Processing and Filtering project demonstrates the implementation and effects of a range of filters, including low-pass, hig",
+ "repos": [
+  {
+   "repo": "Audio-Signal-Processing-and-Filtering-using-MATLAB",
+   "url": "https://github.com/AishikTokdar/Audio-Signal-Processing-and-Filtering-using-MATLAB",
+   "sha": "cb28ae4de807706652e60dedfa7b9f063ab22b88",
+   "licence": "MIT (LICENSE file at pin cb28ae4de807, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T07:43Z",
+    "consent_receipt": "4cee18ebd7a3",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T07:43Z (receipt 4cee18ebd7a3); pinned to the default-branch head. LICENSE file at pin cb28ae4de807 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

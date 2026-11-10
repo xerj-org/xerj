@@ -1,0 +1,23 @@
+{
+ "corpus": "aishiktokdar--abstractive-text-summarizer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Jupyter Notebook queries this for how AishikTokdar/Abstractive-Text-Summarizer implements it: Transformer-based abstractive text summarizer fine-tuned on CNN/DailyMail and XSUM datasets using BART, with pretrained models available on ",
+ "repos": [
+  {
+   "repo": "Abstractive-Text-Summarizer",
+   "url": "https://github.com/AishikTokdar/Abstractive-Text-Summarizer",
+   "sha": "c855d2bb56ac1312bcb37c6007b54ba43ac7da66",
+   "licence": "MIT (LICENSE file at pin c855d2bb56ac, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T07:43Z",
+    "consent_receipt": "be1426600c9f",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T07:43Z (receipt be1426600c9f); pinned to the default-branch head. LICENSE file at pin c855d2bb56ac detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

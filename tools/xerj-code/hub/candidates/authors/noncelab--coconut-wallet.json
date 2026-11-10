@@ -8,15 +8,15 @@
   {
    "repo": "coconut_wallet",
    "url": "https://github.com/noncelab/coconut_wallet",
-   "sha": "afbe808cb13163dcc15e56e23b4c959a14a9d530",
-   "licence": "MIT (LICENSE file at pin afbe808cb131, GitHub licence API 2026-10-28)",
+   "sha": "bbc0bc34135645e7d174747f8b7f8615b192307b",
+   "licence": "MIT (LICENSE file at pin bbc0bc341356, GitHub licence API 2026-11-10)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-27T08:24Z",
     "consent_receipt": "f73d3acf74e1",
-    "note": "Inclusion consented by the commit author by email at 2026-10-27T08:24Z (receipt f73d3acf74e1); selected commit afbe808cb131: \"feat(\uc22b\uc790\ud615\uc2dd): \uc22b\uc790 \ud615\uc2dd(\uc18c\uc218\uc810 \uad6c\ubd84\uc790, \ucc9c\ub2e8\uc704 \uad6c\ubd84\uc790) \uc120\ud0dd \uc635\uc158 \ucd94\uac00\". LICENSE file at pin afbe808cb131 detected as MIT by the GitHub licence API on 2026-10-28; used under that licence with attribution. Pinned to head afbe808cb131 (contains the selected commit): the LICENSE at the selected commit was NOASSERTION."
+    "note": "Inclusion consented by the commit author by email at 2026-10-27T08:24Z (receipt f73d3acf74e1); selected commit bbc0bc341356: \"feat(\uc22b\uc790\ud615\uc2dd): \uc22b\uc790 \ud615\uc2dd(\uc18c\uc218\uc810 \uad6c\ubd84\uc790, \ucc9c\ub2e8\uc704 \uad6c\ubd84\uc790) \uc120\ud0dd \uc635\uc158 \ucd94\uac00\". LICENSE file at pin bbc0bc341356 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Pinned to head bbc0bc341356 (contains the selected commit): the LICENSE at the selected commit was NOASSERTION."
    }
   }
  ]
