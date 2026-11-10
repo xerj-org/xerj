@@ -1936,6 +1936,7 @@ mod tests {
     /// directory to PATH is process-global but harmless here: it is restored on
     /// drop (panic included). Tests that also stub `gh` take [`GH_LOCK`].
     #[test]
+    #[cfg(unix)]
     fn open_pr_refuses_in_a_foreign_repository_before_touching_the_tree() {
         let _lock = GH_LOCK.lock().unwrap_or_else(|err| err.into_inner());
         let dir = seeded_repo();
