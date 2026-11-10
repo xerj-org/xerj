@@ -9,14 +9,14 @@
    "repo": "erd-designer",
    "url": "https://github.com/kajitiluna/erd-designer",
    "sha": "edc43dcc1fbcef32e7e81611cc4f2a1f1bfc3c21",
-   "licence": "Apache-2.0 (LICENSE file at pin edc43dcc1fbc, GitHub licence API 2026-10-24)",
+   "licence": "author's permission (LICENSE at pin edc43dcc1fbc: Apache-2.0; repository: NOASSERTION)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-11T09:53Z",
     "consent_receipt": "4fad0143f85d",
-    "note": "Inclusion consented by the commit author by email at 2026-10-11T09:53Z (receipt 4fad0143f85d); selected commit edc43dcc1fbc: \"Add relation summary card.\". LICENSE file at pin edc43dcc1fbc detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-10-11T09:53Z (receipt 4fad0143f85d); selected commit edc43dcc1fbc: \"Add relation summary card.\". LICENSE at pin edc43dcc1fbc: Apache-2.0 (repository: NOASSERTION); used with the author's permission, with attribution."
    }
   }
  ]

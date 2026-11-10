@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on HTML queries this for how orvn/toronto-trees implements it: Mapping public tree data in Toronto (selected work: src/scripts, src/components, src)",
+ "domain": "an agent working on Astro queries this for how orvn/toronto-trees implements it: Mapping public tree data in Toronto (selected work: src/scripts, src/components, src)",
  "repos": [
   {
    "repo": "toronto-trees",

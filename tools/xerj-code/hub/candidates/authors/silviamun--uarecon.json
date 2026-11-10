@@ -1,0 +1,23 @@
+{
+ "corpus": "silviamun--uarecon",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on Python queries this for how SilviaMun/UARecon implements it: OPC UA reconnaissance and security assessment toolkit (selected work: uarecon, the project root)",
+ "repos": [
+  {
+   "repo": "UARecon",
+   "url": "https://github.com/SilviaMun/UARecon",
+   "sha": "d4c895b59aeae2d0d2bdf199a06ffc59096cd508",
+   "licence": "MIT (LICENSE file at pin d4c895b59aea, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T23:16Z",
+    "consent_receipt": "4ee84cf0acef",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T23:16Z (receipt 4ee84cf0acef); selected commit d4c895b59aea: \"Modularize OPC UA checks and reduce false positives\". LICENSE file at pin d4c895b59aea detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

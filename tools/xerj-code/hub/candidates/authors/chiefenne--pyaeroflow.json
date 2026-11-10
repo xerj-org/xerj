@@ -1,0 +1,23 @@
+{
+ "corpus": "chiefenne--pyaeroflow",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how chiefenne/pyaeroflow implements it: 2D unstructured finite-volume Navier\u2013Stokes solver in Python/JAX (companion to PyAero) (selected work: src/pyaeroflow, tests)",
+ "repos": [
+  {
+   "repo": "pyaeroflow",
+   "url": "https://github.com/chiefenne/pyaeroflow",
+   "sha": "91fa198664c05ac3eed274f79839e0aadacba447",
+   "licence": "MIT (LICENSE file at pin 91fa198664c0, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T20:06Z",
+    "consent_receipt": "c8c1fe4daa6d",
+    "note": "Inclusion consented by the commit author by email at 2026-11-05T20:06Z (receipt c8c1fe4daa6d); selected commit 91fa198664c0: \"LM: optional smooth switch derivatives in the Newton-Krylov Jacobian \u2026\". LICENSE file at pin 91fa198664c0 detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "corvelis--irodori-tts-coreml",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how Corvelis/irodori-tts-coreml implements it: Community Core ML runtime, Swift SDK, and iOS/macOS samples for Irodori TTS v4.1 Small MF (selected work: Conversion, Sources, Scripts)",
+ "repos": [
+  {
+   "repo": "irodori-tts-coreml",
+   "url": "https://github.com/Corvelis/irodori-tts-coreml",
+   "sha": "f0980a46e9651a87efcced50051c2e0db2e0d3a4",
+   "licence": "Apache-2.0 (LICENSE file at pin f0980a46e965, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T06:41Z",
+    "consent_receipt": "f2b5bb235a81",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T06:41Z (receipt f2b5bb235a81); selected commit f0980a46e965: \"Support shared decoder weights in Core ML model bundles\". LICENSE file at pin f0980a46e965 detected as Apache-2.0 by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

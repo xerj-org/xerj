@@ -1,0 +1,23 @@
+{
+ "corpus": "viochris--autovista-car-dealership",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on automotive, car-dealership, color-palette queries this for how viochris/autovista-car-dealership implements it: A multipage car dealership website showcasing 24 real car models across 6 categories, vibe coded in Google AI Studio with Gemini as a fronte",
+ "repos": [
+  {
+   "repo": "autovista-car-dealership",
+   "url": "https://github.com/viochris/autovista-car-dealership",
+   "sha": "9f903d5046480275b4d1295916e711133af979d3",
+   "licence": "author's permission (LICENSE at pin 9f903d504648: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T13:12Z",
+    "consent_receipt": "d1fa7e7c30ed",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T13:12Z (receipt d1fa7e7c30ed); pinned to the default-branch head. LICENSE at pin 9f903d504648: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

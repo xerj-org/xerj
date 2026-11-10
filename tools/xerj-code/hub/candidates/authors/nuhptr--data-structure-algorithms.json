@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on TypeScript queries this for how nuhptr/data-structure-algorithms implements it: Data structure and Algorithms using typescript (selected work: stack-and-queue)",
+ "domain": "an agent working on algorithms, data-structures, typescript queries this for how nuhptr/data-structure-algorithms implements it: Data structure and Algorithms using typescript (selected work: stack-and-queue)",
  "repos": [
   {
    "repo": "data-structure-algorithms",

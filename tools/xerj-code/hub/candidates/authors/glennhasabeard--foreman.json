@@ -1,0 +1,23 @@
+{
+ "corpus": "glennhasabeard--foreman",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on grok, grok-bot, read-only queries this for how GlennHasABeard/foreman implements it: Read-only X bots for Grok Bot. Install the whole crew with Foreman or pick single bots (selected work: demo, tests, shoutout-picker)",
+ "repos": [
+  {
+   "repo": "foreman",
+   "url": "https://github.com/GlennHasABeard/foreman",
+   "sha": "6be1fd2ca9e30cda5720cbbec0de010f666e33e0",
+   "licence": "MIT (LICENSE file at pin 6be1fd2ca9e3, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T22:34Z",
+    "consent_receipt": "716a64779771",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T22:34Z (receipt 716a64779771); selected commit 6be1fd2ca9e3: \"Foreman v1.2.0: port live QoL into templates\". LICENSE file at pin 6be1fd2ca9e3 detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

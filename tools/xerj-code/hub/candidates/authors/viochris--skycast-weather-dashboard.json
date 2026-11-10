@@ -1,0 +1,23 @@
+{
+ "corpus": "viochris--skycast-weather-dashboard",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on air-quality, gemini, google-ai-studio queries this for how viochris/skycast-weather-dashboard implements it: A weather dashboard that adapts to the sky. Hourly and 7 day forecasts, air quality, rule based alerts and outfit tips, live rain radar, cit",
+ "repos": [
+  {
+   "repo": "skycast-weather-dashboard",
+   "url": "https://github.com/viochris/skycast-weather-dashboard",
+   "sha": "546cc5d0ff56a5e39f4e79d60f3d56767bec038d",
+   "licence": "author's permission (LICENSE at pin 546cc5d0ff56: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T13:12Z",
+    "consent_receipt": "e1f6a157c5ce",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T13:12Z (receipt e1f6a157c5ce); pinned to the default-branch head. LICENSE at pin 546cc5d0ff56: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

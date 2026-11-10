@@ -1,0 +1,23 @@
+{
+ "corpus": "bkuwu--snapres",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how bkuwu/SnapRes implements it: Instant Stretched Res Switching For Valorant (selected work: app/assets, native, app)",
+ "repos": [
+  {
+   "repo": "SnapRes",
+   "url": "https://github.com/bkuwu/SnapRes",
+   "sha": "fddbfefe106980d653afd43fee37faefcfa539dd",
+   "licence": "MIT (LICENSE file at pin fddbfefe1069, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T17:27Z",
+    "consent_receipt": "5b35e8573af9",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T17:27Z (receipt 5b35e8573af9); selected commit fddbfefe1069: \"snapres v2.1.0\". LICENSE file at pin fddbfefe1069 detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "ulaas--gitem",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on code-editor, desktop-app, diff queries this for how ulaas/gitem implements it: A fast, native Git client with a commit graph, a repo-aware editor, and its own diff and merge tools (selected work: crates/gitem)",
+ "repos": [
+  {
+   "repo": "gitem",
+   "url": "https://github.com/ulaas/gitem",
+   "sha": "523109c254ccc4300a105d8127f665214b1e9ad7",
+   "licence": "MIT (LICENSE file at pin 523109c254cc, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T18:40Z",
+    "consent_receipt": "012ea6baf1d3",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T18:40Z (receipt 012ea6baf1d3); selected commit 523109c254cc: \"Home as cards, with git's global settings\". LICENSE file at pin 523109c254cc detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

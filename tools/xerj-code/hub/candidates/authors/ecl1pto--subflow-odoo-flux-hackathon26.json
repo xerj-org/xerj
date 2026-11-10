@@ -1,0 +1,23 @@
+{
+ "corpus": "ecl1pto--subflow-odoo-flux-hackathon26",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how ECL1PTO/SubFlow-Odoo-FLUX-Hackathon26 implements it: Odoo Subscription Management System - Track plans, subscriptions, auto-renew, billing for Odoo x FLUX Hackathon '26 (selected work: subscription_management, the project root)",
+ "repos": [
+  {
+   "repo": "SubFlow-Odoo-FLUX-Hackathon26",
+   "url": "https://github.com/ECL1PTO/SubFlow-Odoo-FLUX-Hackathon26",
+   "sha": "d9be06b65f79b84175db4cabbc7acf9bfa3e6d0f",
+   "licence": "MIT (LICENSE file at pin d9be06b65f79, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-04T23:15Z",
+    "consent_receipt": "031d772871a3",
+    "note": "Inclusion consented by the commit author by email at 2026-11-04T23:15Z (receipt 031d772871a3); selected commit d9be06b65f79: \"Add portal controller and templates for customer subscriptions page\". LICENSE file at pin d9be06b65f79 detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

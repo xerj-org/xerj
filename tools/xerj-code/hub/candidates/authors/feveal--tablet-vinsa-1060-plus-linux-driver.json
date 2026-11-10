@@ -1,0 +1,23 @@
+{
+ "corpus": "feveal--tablet-vinsa-1060-plus-linux-driver",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on digitizer, driver, graphics-tablet queries this for how feveal/Tablet-VINSA-1060-Plus-Linux-Driver implements it: Driver Linux for Tablet VINSA 1600 Plus, Chipset 08f2:6811. With Mouse/Tablet mode and fully functional side buttons, as well as a top multi (selected work: driver, the project root)",
+ "repos": [
+  {
+   "repo": "Tablet-VINSA-1060-Plus-Linux-Driver",
+   "url": "https://github.com/feveal/Tablet-VINSA-1060-Plus-Linux-Driver",
+   "sha": "9cdbcb17808938c79400d68cddcdfc2da5170284",
+   "licence": "GPL-3.0 (LICENSE file at pin 9cdbcb178089, GitHub licence API 2026-11-04)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-04T21:13Z",
+    "consent_receipt": "35ab50993495",
+    "note": "Inclusion consented by the commit author by email at 2026-11-04T21:13Z (receipt 35ab50993495); selected commit 9cdbcb178089: \"Migraci\u00f3n a Wayland V5: soporte multi-idioma xkbcommon, soluci\u00f3n curs\u2026\". LICENSE file at pin 9cdbcb178089 detected as GPL-3.0 by the GitHub licence API on 2026-11-04; used under that licence with attribution."
+   }
+  }
+ ]
+}

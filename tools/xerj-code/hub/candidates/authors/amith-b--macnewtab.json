@@ -1,0 +1,23 @@
+{
+ "corpus": "amith-b--macnewtab",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on chrome, chrome-extension, css queries this for how Amith-B/macnewtab implements it: Extension for MacOS-inspired new tab experience (selected work: src/components, src/static, src/context)",
+ "repos": [
+  {
+   "repo": "macnewtab",
+   "url": "https://github.com/Amith-B/macnewtab",
+   "sha": "7e3924889be00466f0705604add7aaacfd4c3f24",
+   "licence": "GPL-3.0 (LICENSE file at pin 7e3924889be0, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-08T06:18Z",
+    "consent_receipt": "f1a64ffcef41",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T06:18Z (receipt f1a64ffcef41); selected commit 7e3924889be0: \"feat: add social media section in app store\". LICENSE file at pin 7e3924889be0 detected as GPL-3.0 by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+   }
+  }
+ ]
+}

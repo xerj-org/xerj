@@ -8,15 +8,15 @@
   {
    "repo": "trustprune",
    "url": "https://github.com/adamdecaf/trustprune",
-   "sha": "6eaa532fb2387a90fe39dba7741c18048986efe5",
-   "licence": "Apache-2.0 (LICENSE file at pin 6eaa532fb238, GitHub licence API 2026-11-02)",
+   "sha": "0b4a2cd20592842ae76f4077a089fff391d4e34a",
+   "licence": "Apache-2.0 (LICENSE file at pin 0b4a2cd20592, GitHub licence API 2026-11-10)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T03:40Z",
     "consent_receipt": "ee54b79b14ec",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T03:40Z (receipt ee54b79b14ec); pinned to the default-branch head. LICENSE file at pin 6eaa532fb238 detected as Apache-2.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T03:40Z (receipt ee54b79b14ec); pinned to the default-branch head. LICENSE file at pin 0b4a2cd20592 detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
    }
   }
  ]

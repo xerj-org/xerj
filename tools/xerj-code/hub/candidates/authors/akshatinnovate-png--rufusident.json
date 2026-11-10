@@ -1,0 +1,23 @@
+{
+ "corpus": "akshatinnovate-png--rufusident",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how akshatinnovate-png/RufusIdent implements it: akshatinnovate-png/RufusIdent (Python)",
+ "repos": [
+  {
+   "repo": "RufusIdent",
+   "url": "https://github.com/akshatinnovate-png/RufusIdent",
+   "sha": "cbde7543ab9013a1ed9aac2e0b75f9f21eeea141",
+   "licence": "MIT (LICENSE file at pin cbde7543ab90, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T09:00Z",
+    "consent_receipt": "e898ffb70be3",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-03T09:00Z (receipt e898ffb70be3); pinned to the default-branch head. LICENSE file at pin cbde7543ab90 detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

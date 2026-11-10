@@ -8,15 +8,15 @@
   {
    "repo": "pflog",
    "url": "https://github.com/chrj/pflog",
-   "sha": "032d919c9ac2a2e0d02d6b0c35bd9c424bfefd01",
-   "licence": "MIT (LICENSE file at pin 032d919c9ac2, GitHub licence API 2026-10-30)",
+   "sha": "6c8c49abbc6f6910147203c919ab7a42c40c986b",
+   "licence": "MIT (LICENSE file at pin 6c8c49abbc6f, GitHub licence API 2026-11-09)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-30T22:51Z",
     "consent_receipt": "4c1f94e9d426",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T22:51Z (receipt 4c1f94e9d426); pinned to the default-branch head. LICENSE file at pin 032d919c9ac2 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T22:51Z (receipt 4c1f94e9d426); pinned to the default-branch head. LICENSE file at pin 6c8c49abbc6f detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
    }
   }
  ]

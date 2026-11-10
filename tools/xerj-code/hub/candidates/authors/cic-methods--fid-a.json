@@ -1,0 +1,23 @@
+{
+ "corpus": "cic-methods--fid-a",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on MATLAB queries this for how CIC-methods/FID-A implements it: Toolbox for simulation and processing of in-vivo magnetic resonance spectroscopy (MRS) data (selected work: processingTools, inputOutput)",
+ "repos": [
+  {
+   "repo": "FID-A",
+   "url": "https://github.com/CIC-methods/FID-A",
+   "sha": "586b706c33ad2b59ebea28c69fed93701cdfa132",
+   "licence": "BSD-3-Clause (LICENSE file at pin 586b706c33ad, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "BSD-3-Clause",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T18:13Z",
+    "consent_receipt": "8c7c5c242773",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T18:13Z (receipt 8c7c5c242773); selected commit 586b706c33ad: \"Adding new functions for reading Siemens .dsv files ('io_readdsv.m' a\u2026\". LICENSE file at pin 586b706c33ad detected as BSD-3-Clause by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

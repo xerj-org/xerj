@@ -1,0 +1,23 @@
+{
+ "corpus": "mayank1513--app-installer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Kotlin queries this for how mayank1513/app-installer implements it: mayank1513/app-installer (Kotlin)",
+ "repos": [
+  {
+   "repo": "app-installer",
+   "url": "https://github.com/mayank1513/app-installer",
+   "sha": "6a06786452666bcd45c4132cf5e5b5e373c11345",
+   "licence": "author's permission (LICENSE at pin 6a0678645266: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T04:33Z",
+    "consent_receipt": "f9bc24bf3ef9",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T04:33Z (receipt f9bc24bf3ef9); pinned to the default-branch head. LICENSE at pin 6a0678645266: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

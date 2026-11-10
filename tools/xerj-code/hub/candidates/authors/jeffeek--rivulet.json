@@ -1,0 +1,23 @@
+{
+ "corpus": "jeffeek--rivulet",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how Jeffeek/Rivulet implements it: Safe, async-first parallel operators with bounded concurrency, retries, and backpressure for I/O-heavy workloads (selected work: tests, src/Rivulet.Csv, samples)",
+ "repos": [
+  {
+   "repo": "Rivulet",
+   "url": "https://github.com/Jeffeek/Rivulet",
+   "sha": "eb025f78fda360a20d2191c7703ec7b9dd80affe",
+   "licence": "MIT (LICENSE file at pin eb025f78fda3, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T03:32Z",
+    "consent_receipt": "7f98a6de7465",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T03:32Z (receipt 7f98a6de7465); selected commit eb025f78fda3: \"feat(csv): migrate to CsvHelper 34 and add within-file parallelism\". LICENSE file at pin eb025f78fda3 detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+   }
+  }
+ ]
+}

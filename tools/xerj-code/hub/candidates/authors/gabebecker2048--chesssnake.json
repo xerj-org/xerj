@@ -1,0 +1,23 @@
+{
+ "corpus": "gabebecker2048--chesssnake",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on board-games, chess, chess-engine queries this for how GabeBecker2048/chesssnake implements it: Play, render and persist chess games in Python: a pure-Python engine, board images, and a REST api-endpoint backed by SQLite or PostgreSQL (selected work: src/chesssnake, tests, the project root)",
+ "repos": [
+  {
+   "repo": "chesssnake",
+   "url": "https://github.com/GabeBecker2048/chesssnake",
+   "sha": "92346301e83703ef0be8638ac49541b992e83e4e",
+   "licence": "MIT (LICENSE file at pin 92346301e837, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T17:04Z",
+    "consent_receipt": "73cbc443cbda",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T17:04Z (receipt 73cbc443cbda); selected commit 92346301e837: \"0.14.2: mark colours as user settings; arrows survive leaving the board\". LICENSE file at pin 92346301e837 detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

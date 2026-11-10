@@ -1,0 +1,23 @@
+{
+ "corpus": "andromedvn--hat",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Kotlin queries this for how andromedvn/HAT implements it: A local, privacy-first time-tracking diary that maps offline gaps from OS screen-time. Built to passively log what you do away from your pho (selected work: app/src)",
+ "repos": [
+  {
+   "repo": "HAT",
+   "url": "https://github.com/andromedvn/HAT",
+   "sha": "a3402d02d353996f4bfb230db4cc862b520b02bc",
+   "licence": "AGPL-3.0 (LICENSE file at pin a3402d02d353, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-09T23:55Z",
+    "consent_receipt": "74790d4130ef",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T23:55Z (receipt 74790d4130ef); selected commit a3402d02d353: \"r12p: four HAT-Pro ports (owner pick 1, 4, 5, 6)\". LICENSE file at pin a3402d02d353 detected as AGPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

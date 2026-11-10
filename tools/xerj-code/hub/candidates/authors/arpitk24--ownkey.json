@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-agent, cli queries this for how ArpitK24/OwnKey implements it: Local-first AI coding agent CLI for codebase analysis and intelligent suggestions (selected work: src/core, src/commands, tests)",
+ "domain": "an agent working on ai-agent, cli, code-review queries this for how ArpitK24/OwnKey implements it: Code Reviewer (selected work: src/core, src/commands, tests)",
  "repos": [
   {
    "repo": "OwnKey",

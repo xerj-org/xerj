@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on Python queries this for how Irfanwani/mac-storage-dashboard implements it: Manage mac storage from browser (selected work: mac_storage_dashboard, the project root, packaging)",
+ "domain": "an agent working on macos, macos-app, storage-management queries this for how Irfanwani/mac-storage-dashboard implements it: Manage mac storage from browser (selected work: mac_storage_dashboard, the project root, packaging)",
  "repos": [
   {
    "repo": "mac-storage-dashboard",

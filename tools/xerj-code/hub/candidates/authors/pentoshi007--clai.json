@@ -1,0 +1,23 @@
+{
+ "corpus": "pentoshi007--clai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on clai, claude-code, codex queries this for how pentoshi007/clai implements it: Free AI coding & pentesting agent for your terminal (selected work: test, src/ui-core, src/tui-v2)",
+ "repos": [
+  {
+   "repo": "clai",
+   "url": "https://github.com/pentoshi007/clai",
+   "sha": "1de6be79f242a6a13dc1085e074beb00d025e438",
+   "licence": "MIT (LICENSE file at pin 1de6be79f242, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T08:12Z",
+    "consent_receipt": "bc2dba9c4bda",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-08T08:12Z (receipt bc2dba9c4bda); selected commit 1de6be79f242: \"Restore readable continuous subagent transcripts\". LICENSE file at pin 1de6be79f242 detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "vinzify--agent-session-hub",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on cli, codex, codex-cli queries this for how vinzify/Agent-Session-Hub implements it: Find, preview, and resume your AI coding sessions from the terminal (selected work: src, tests, scripts)",
+ "repos": [
+  {
+   "repo": "Agent-Session-Hub",
+   "url": "https://github.com/vinzify/Agent-Session-Hub",
+   "sha": "9b009912324fbae0f78dd944c9fbfcf67dd1918d",
+   "licence": "MIT (LICENSE file at pin 9b009912324f, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T11:38Z",
+    "consent_receipt": "bfcedbf5f615",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T11:38Z (receipt bfcedbf5f615); selected commit 9b009912324f: \"feat: add Antigravity CLI support and release v0.5.0\". LICENSE file at pin 9b009912324f detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

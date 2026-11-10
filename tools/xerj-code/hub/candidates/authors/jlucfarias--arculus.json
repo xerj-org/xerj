@@ -1,0 +1,23 @@
+{
+ "corpus": "jlucfarias--arculus",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Dart queries this for how jlucfarias/arculus implements it: jlucfarias/arculus (Dart) (selected work: lib/screens, lib/utils, lib/widgets)",
+ "repos": [
+  {
+   "repo": "arculus",
+   "url": "https://github.com/jlucfarias/arculus",
+   "sha": "06c5ab9c2021142267306a0014125c832736dd62",
+   "licence": "MIT (LICENSE file at pin 06c5ab9c2021, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T23:49Z",
+    "consent_receipt": "fc95b5fd05a3",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T23:49Z (receipt fc95b5fd05a3); selected commit 06c5ab9c2021: \"Allow to use a custom icon for account\". LICENSE file at pin 06c5ab9c2021 detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

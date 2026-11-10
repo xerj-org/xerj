@@ -1,0 +1,23 @@
+{
+ "corpus": "cubeyu--donatepage",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on blueprint, donate, donation-page queries this for how cubeyu/DonatePage implements it: \u84dd\u56fe\u56fe\u7eb8\u98ce\u683c\u7684\u4e2a\u4eba\u5f00\u6e90\u6350\u8d60\u9875 | \u5fae\u4fe1/\u652f\u4ed8\u5b9d\u6536\u6b3e \u00b7 GitHub \u8d21\u732e\u70ed\u529b\u56fe \u00b7 \u663c\u591c\u53cc\u4e3b\u9898 | Blueprint-style donation page (selected work: assets, the project root)",
+ "repos": [
+  {
+   "repo": "DonatePage",
+   "url": "https://github.com/cubeyu/DonatePage",
+   "sha": "aa2cf216f460a6e5ce4efaf5f717fbef5b2fe1ae",
+   "licence": "GPL-3.0 (LICENSE file at pin aa2cf216f460, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-05T13:56Z",
+    "consent_receipt": "237753e85890",
+    "note": "Inclusion consented by the commit author by email at 2026-11-05T13:56Z (receipt 237753e85890); selected commit aa2cf216f460: \"fix\". LICENSE file at pin aa2cf216f460 detected as GPL-3.0 by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

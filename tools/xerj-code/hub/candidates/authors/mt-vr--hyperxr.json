@@ -8,15 +8,15 @@
   {
    "repo": "HyperXR",
    "url": "https://github.com/mt-VR/HyperXR",
-   "sha": "74e032fdc4ce9d7167f29d97b0984690da24a58a",
-   "licence": "GPL-3.0 (LICENSE file at pin 74e032fdc4ce, GitHub licence API 2026-11-01)",
+   "sha": "f96071c921aa3a7baa212721297f18f16db4bb24",
+   "licence": "GPL-3.0 (LICENSE file at pin f96071c921aa, GitHub licence API 2026-11-05)",
    "review": {
     "spdx": "GPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-25T20:31Z",
     "consent_receipt": "f8ad57c249db",
-    "note": "Inclusion consented by the commit author by email at 2026-10-25T20:31Z (receipt f8ad57c249db); selected commit 74e032fdc4ce: \"Escalada: novo jogo de escalar com as m\u00e3os ou com o controle\". LICENSE file at pin 74e032fdc4ce detected as GPL-3.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution. Pinned to head 74e032fdc4ce (contains the selected commit): the LICENSE at the selected commit was MIT."
+    "note": "Inclusion consented by the commit author by email at 2026-10-25T20:31Z (receipt f8ad57c249db); selected commit f96071c921aa: \"Escalada: novo jogo de escalar com as m\u00e3os ou com o controle\". LICENSE file at pin f96071c921aa detected as GPL-3.0 by the GitHub licence API on 2026-11-05; used under that licence with attribution. Pinned to head f96071c921aa (contains the selected commit): the LICENSE at the selected commit was MIT."
    }
   }
  ]

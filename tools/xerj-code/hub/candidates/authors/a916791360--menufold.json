@@ -1,0 +1,23 @@
+{
+ "corpus": "a916791360--menufold",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on appkit, bartender-alternative, hidden-bar queries this for how a916791360/MenuFold implements it: MacBook \u5218\u6d77\u5c4f\u8d85\u8f7b\u91cf\u83dc\u5355\u680f\u6298\u53e0\u4e0e\u6c14\u6ce1\u62bd\u5c49\u5de5\u5177 / An ultra-lightweight macOS menu bar folding & app drawer utility for notch screens. Zero permissions, pure nati (selected work: MenuFold, MenuFold.xcodeproj, scripts)",
+ "repos": [
+  {
+   "repo": "MenuFold",
+   "url": "https://github.com/a916791360/MenuFold",
+   "sha": "9069add085817aef9ede934c226dd0c19ab2ea70",
+   "licence": "MIT (LICENSE file at pin 9069add08581, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T01:11Z",
+    "consent_receipt": "80ce80bef6b4",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T01:11Z (receipt 80ce80bef6b4); selected commit 9069add08581: \"feat: v1.1.0 - \u65b0\u589e\u5e38\u9a7b\u5e94\u7528\u6c14\u6ce1\u62bd\u5c49\uff0c\u89e3\u51b3\u83dc\u5355\u680f\u56fe\u6807\u8fc7\u591a\u4e0e\u5218\u6d77\u906e\u6321\". LICENSE file at pin 9069add08581 detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

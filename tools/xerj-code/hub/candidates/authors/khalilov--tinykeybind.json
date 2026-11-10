@@ -1,0 +1,23 @@
+{
+ "corpus": "khalilov--tinykeybind",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how khalilov/tinykeybind implements it: khalilov/tinykeybind (TypeScript)",
+ "repos": [
+  {
+   "repo": "tinykeybind",
+   "url": "https://github.com/khalilov/tinykeybind",
+   "sha": "12c393675fb9559b4fe52978561c97ccaa9d5145",
+   "licence": "ISC (LICENSE file at pin 12c393675fb9, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "ISC",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T21:26Z",
+    "consent_receipt": "46abd2d6f8bc",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-09T21:26Z (receipt 46abd2d6f8bc); pinned to the default-branch head. LICENSE file at pin 12c393675fb9 detected as ISC by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

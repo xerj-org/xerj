@@ -1,0 +1,23 @@
+{
+ "corpus": "mayank1513--object-removal-from-image",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on code queries this for how mayank1513/Object-Removal-from-Image implements it: Just a quick basic preview",
+ "repos": [
+  {
+   "repo": "Object-Removal-from-Image",
+   "url": "https://github.com/mayank1513/Object-Removal-from-Image",
+   "sha": "7b4f04b465286ac18b17390088d4ae1937fffc9e",
+   "licence": "author's permission (LICENSE at pin 7b4f04b46528: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T04:33Z",
+    "consent_receipt": "10c6874179c7",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T04:33Z (receipt 10c6874179c7); pinned to the default-branch head. LICENSE at pin 7b4f04b46528: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "attnstack--zh-skills",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-skills, ai-agents, bm25 queries this for how attnstack/zh-skills implements it: \u9762\u5411\u4e2d\u6587\u573a\u666f\u7684 Agent Skills \u5305 + \u5b89\u88c5 CLI\uff1a\u4e00\u6761\u547d\u4ee4\u88c5\u8fdb Claude Code / Cursor\uff0c\u96f6\u6a21\u578b\u4f9d\u8d56\u7684\u672c\u5730\u6280\u80fd\u8def\u7531",
+ "repos": [
+  {
+   "repo": "zh-skills",
+   "url": "https://github.com/attnstack/zh-skills",
+   "sha": "db1f6c6d4b02af021f451982154a9328dd96fa24",
+   "licence": "MIT (LICENSE file at pin db1f6c6d4b02, GitHub licence API 2026-11-06)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T15:05Z",
+    "consent_receipt": "13a804b6208c",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T15:05Z (receipt 13a804b6208c); pinned to the default-branch head. LICENSE file at pin db1f6c6d4b02 detected as MIT by the GitHub licence API on 2026-11-06; used under that licence with attribution."
+   }
+  }
+ ]
+}

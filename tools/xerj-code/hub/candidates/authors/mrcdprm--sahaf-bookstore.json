@@ -8,15 +8,15 @@
   {
    "repo": "sahaf-bookstore",
    "url": "https://github.com/MrcDprm/sahaf-bookstore",
-   "sha": "3099baa774c31f2791779de43a840fa50d025649",
-   "licence": "MIT (LICENSE file at pin 3099baa774c3, GitHub licence API 2026-11-02)",
+   "sha": "458965536f68f70a4d1ea127837777edff20a43c",
+   "licence": "MIT (LICENSE file at pin 458965536f68, GitHub licence API 2026-11-04)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-13T22:37Z",
     "consent_receipt": "270c824a08a2",
-    "note": "Inclusion consented by the commit author by email at 2026-10-13T22:37Z (receipt 270c824a08a2); selected commit 3099baa774c3: \"feat(admin): add order management with shipping and refunds, and user\u2026\". LICENSE file at pin 3099baa774c3 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution. Pinned to head 3099baa774c3 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-13T22:37Z (receipt 270c824a08a2); selected commit 458965536f68: \"feat(admin): add order management with shipping and refunds, and user\u2026\". LICENSE file at pin 458965536f68 detected as MIT by the GitHub licence API on 2026-11-04; used under that licence with attribution. Pinned to head 458965536f68 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

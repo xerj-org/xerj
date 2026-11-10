@@ -1,0 +1,23 @@
+{
+ "corpus": "arefla--cachemanager-redis",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on C# queries this for how arefLA/CacheManager.Redis implements it: .net core redis generic cache manager (selected work: test, src/CacheManager.Redis)",
+ "repos": [
+  {
+   "repo": "CacheManager.Redis",
+   "url": "https://github.com/arefLA/CacheManager.Redis",
+   "sha": "44b2aa9890b1d8eb22a71afa50367ecbe846f3e3",
+   "licence": "MIT (LICENSE file at pin 44b2aa9890b1, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T16:54Z",
+    "consent_receipt": "5ac2616f4103",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T16:54Z (receipt 5ac2616f4103); selected commit 44b2aa9890b1: \"feat: add GetOrSetAsync and MIT package license\". LICENSE file at pin 44b2aa9890b1 detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

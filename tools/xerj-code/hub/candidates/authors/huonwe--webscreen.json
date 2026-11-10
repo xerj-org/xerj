@@ -1,0 +1,23 @@
+{
+ "corpus": "huonwe--webscreen",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, mirroring, streaming queries this for how huonwe/webscreen implements it: Stream your device in your browser via WebRTC (selected work: sdriver, webservice, streamAgent)",
+ "repos": [
+  {
+   "repo": "webscreen",
+   "url": "https://github.com/huonwe/webscreen",
+   "sha": "6d10fc67bce9d6db15a4934833a355797fb92b5d",
+   "licence": "AGPL-3.0 (LICENSE file at pin 6d10fc67bce9, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-07T04:48Z",
+    "consent_receipt": "50ea0686d7cd",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T04:48Z (receipt 50ea0686d7cd); selected commit 6d10fc67bce9: \"rk3588-hdmirx support\". LICENSE file at pin 6d10fc67bce9 detected as AGPL-3.0 by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

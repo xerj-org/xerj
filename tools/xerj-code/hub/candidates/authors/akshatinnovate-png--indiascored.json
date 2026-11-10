@@ -1,0 +1,23 @@
+{
+ "corpus": "akshatinnovate-png--indiascored",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on fastapi, lgbmclassifier, lightgbm queries this for how akshatinnovate-png/IndiaScored implements it: AI credit risk scoring for India's unbanked \u2014 scores creditworthiness from alternative data (phone recharge patterns, bill payments, SIM ten",
+ "repos": [
+  {
+   "repo": "IndiaScored",
+   "url": "https://github.com/akshatinnovate-png/IndiaScored",
+   "sha": "3a4d6372cbb7ba07ea4cb9d434f588270c057e0e",
+   "licence": "author's permission (LICENSE at pin 3a4d6372cbb7: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T09:00Z",
+    "consent_receipt": "cb717e942e74",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-03T09:00Z (receipt cb717e942e74); pinned to the default-branch head. LICENSE at pin 3a4d6372cbb7: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

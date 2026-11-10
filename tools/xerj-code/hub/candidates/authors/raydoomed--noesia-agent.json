@@ -1,0 +1,23 @@
+{
+ "corpus": "raydoomed--noesia-agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-companion, desktop-agent, desktop-companion queries this for how raydoomed/Noesia-Agent implements it: \u684c\u9762\u5973\u53cb Agent\uff1a\u4f4f\u5728\u684c\u9762\u4e0a\u7684 AI \u4f34\u4fa3\uff0c\u770b\u5979\u3001\u8ddf\u5979\u8bf4\u8bdd\u3001\u8ba9\u5979\u5e72\u6d3b\u3002 (selected work: src/app, src/engine, src/backends)",
+ "repos": [
+  {
+   "repo": "Noesia-Agent",
+   "url": "https://github.com/raydoomed/Noesia-Agent",
+   "sha": "6f6b1162722af4b0984c6648bf4870398ee2a02b",
+   "licence": "MIT (LICENSE file at pin 6f6b1162722a, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T11:31Z",
+    "consent_receipt": "e1e57b66730a",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T11:31Z (receipt e1e57b66730a); selected commit 6f6b1162722a: \"\u6a21\u578b\u6e05\u5355\u8ddf\u7740\u4e0a\u6e38\u81ea\u52a8\u66f4\u65b0 + \u804a\u5929\u7a97\u5237\u65b0 + \u6ce8\u518c\u8868\u5916\u4f9b\u5e94\u5546\u80fd\u5b58 Key\". LICENSE file at pin 6f6b1162722a detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

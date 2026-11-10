@@ -1,0 +1,23 @@
+{
+ "corpus": "alienzed--webcap",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Python queries this for how alienzed/webcap implements it: Media Dataset Prep with basic tools and advanced selection and captioning workflow (selected work: tests, tool)",
+ "repos": [
+  {
+   "repo": "webcap",
+   "url": "https://github.com/alienzed/webcap",
+   "sha": "9bd7a8b4f450fe0e5429b8c3d51a3f3895d02c72",
+   "licence": "MIT (LICENSE file at pin 9bd7a8b4f450, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T02:05Z",
+    "consent_receipt": "d88d62270006",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T02:05Z (receipt d88d62270006); selected commit 9bd7a8b4f450: \"Align Studio Director suggestions and reviews around creative units\". LICENSE file at pin 9bd7a8b4f450 detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+   }
+  }
+ ]
+}

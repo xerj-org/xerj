@@ -1,0 +1,23 @@
+{
+ "corpus": "jessebrown1980--solved-navier-stokes-global-regularity-finite-time-singularity-invariant-solved",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how JesseBrown1980/Solved-Navier-Stokes-Global-Regularity-Finite-Time-Singularity-Invariant-Solved implements it: JesseBrown1980/Solved-Navier-Stokes-Global-Regularity-Finite-Time-Singularity-Invariant-Solved (Rust)",
+ "repos": [
+  {
+   "repo": "Solved-Navier-Stokes-Global-Regularity-Finite-Time-Singularity-Invariant-Solved",
+   "url": "https://github.com/JesseBrown1980/Solved-Navier-Stokes-Global-Regularity-Finite-Time-Singularity-Invariant-Solved",
+   "sha": "5147e98b7539b079c3af23b6ea1fda5ce78bc89f",
+   "licence": "author's permission (LICENSE at pin 5147e98b7539: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T14:53Z",
+    "consent_receipt": "24d4656d6a96",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T14:53Z (receipt 24d4656d6a96); pinned to the default-branch head. LICENSE at pin 5147e98b7539: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

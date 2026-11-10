@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on cad, computer-vision, robotics queries this for how jfonseca32/RoboPack implements it: Code for TrailMate: The backpack that follows you (selected work: src, tests, the project root)",
+ "domain": "an agent working on cad, computer-vision, robotics queries this for how jfonseca32/RoboPack implements it: Code for TrailMate: a backpack that follows you. Still a work in progress. Releases coming after first stable prototype (selected work: src, tests, the project root)",
  "repos": [
   {
    "repo": "RoboPack",

@@ -1,0 +1,23 @@
+{
+ "corpus": "marciobulla--mqtt-trust-gateway",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on JavaScript queries this for how MarcioBulla/MQTT-Trust-Gateway implements it: A lightweight, self-hosted MQTT gateway with mTLS device identities, a local certificate authority, and a Vue 3 admin console (selected work: scripts, admin-web, the project root)",
+ "repos": [
+  {
+   "repo": "MQTT-Trust-Gateway",
+   "url": "https://github.com/MarcioBulla/MQTT-Trust-Gateway",
+   "sha": "d1a994d3ea25b8aaaa780a0034210c3220cb0698",
+   "licence": "author's permission (LICENSE at pin d1a994d3ea25: NOASSERTION; repository: Apache-2.0)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T13:14Z",
+    "consent_receipt": "72d80648b22d",
+    "note": "Inclusion consented by the commit author by email at 2026-11-05T13:14Z (receipt 72d80648b22d); selected commit d1a994d3ea25: \"feat(updates): add signed rootless installation and rollback for 1.1.0\". LICENSE at pin d1a994d3ea25: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

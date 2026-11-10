@@ -1,0 +1,23 @@
+{
+ "corpus": "srodi--kubectl-datapath",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on cni, ebpf, go queries this for how SRodi/kubectl-datapath implements it: Educational kubectl plugin for exploring how traffic moves through Kubernetes Pods, Services, and nodes using observable eBPF evidence (selected work: internal/tui)",
+ "repos": [
+  {
+   "repo": "kubectl-datapath",
+   "url": "https://github.com/SRodi/kubectl-datapath",
+   "sha": "5914da23d71a8440fe68f33703207d4193696185",
+   "licence": "Apache-2.0 (LICENSE file at pin 5914da23d71a, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T23:02Z",
+    "consent_receipt": "ec4f3daf2263",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T23:02Z (receipt ec4f3daf2263); selected commit 5914da23d71a: \"feat: redesign TUI as a single evidence strip\". LICENSE file at pin 5914da23d71a detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

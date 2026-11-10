@@ -2,8 +2,8 @@
  "corpus": "kwerensel--school-district-home-search",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Python queries this for how kwerensel/school-district-home-search implements it: kwerensel/school-district-home-search (Python) (selected work: pipeline, sql)",
+ "shelf": "WEB",
+ "domain": "an agent working on data-engineering, decision-support, geospatial queries this for how kwerensel/school-district-home-search implements it: Groundtruth helps you compare home affordability, environmental context, and school-district geography, then explore homes in your shortlist (selected work: pipeline, sql)",
  "repos": [
   {
    "repo": "school-district-home-search",

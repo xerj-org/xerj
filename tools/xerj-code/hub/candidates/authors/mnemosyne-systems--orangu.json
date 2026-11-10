@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-coding, cli, code-editor queries this for how mnemosyne-systems/orangu implements it: Advanced code editor using local AI (selected work: src/bin)",
+ "domain": "an agent working on ai-coding, cli, code-editor queries this for how mnemosyne-systems/orangu implements it: Advanced AI platform (selected work: src/bin)",
  "repos": [
   {
    "repo": "orangu",

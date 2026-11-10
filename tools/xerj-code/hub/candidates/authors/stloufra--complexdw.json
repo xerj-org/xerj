@@ -1,0 +1,23 @@
+{
+ "corpus": "stloufra--complexdw",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how stloufra/CompleXDW implements it: Header-only C++20 library for complex double-word arithmetic (float-float, double-double) on CPUs, SIMD and CUDA/HIP GPUs, with proven error (selected work: test, the project root, src)",
+ "repos": [
+  {
+   "repo": "CompleXDW",
+   "url": "https://github.com/stloufra/CompleXDW",
+   "sha": "fa6ad7f03ee50113eb399cbb5da4b5cee574ef06",
+   "licence": "MIT (LICENSE file at pin fa6ad7f03ee5, GitHub licence API 2026-11-06)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T13:04Z",
+    "consent_receipt": "c8ec92a3be3c",
+    "note": "Inclusion consented by the commit author by email at 2026-11-06T13:04Z (receipt c8ec92a3be3c); selected commit fa6ad7f03ee5: \"Add clang-format\". LICENSE file at pin fa6ad7f03ee5 detected as MIT by the GitHub licence API on 2026-11-06; used under that licence with attribution."
+   }
+  }
+ ]
+}

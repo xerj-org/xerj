@@ -1,0 +1,23 @@
+{
+ "corpus": "picturecube--country-simulator",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how picturecube/country-simulator implements it: picturecube/country-simulator (TypeScript) (selected work: src, the project root)",
+ "repos": [
+  {
+   "repo": "country-simulator",
+   "url": "https://github.com/picturecube/country-simulator",
+   "sha": "9bec3256778c75c3c60eb1616a699de09459faa3",
+   "licence": "MIT (LICENSE file at pin 9bec3256778c, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T20:03Z",
+    "consent_receipt": "5f065dc19c09",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T20:03Z (receipt 5f065dc19c09); selected commit 9bec3256778c: \"added more farms and reduced cities and suburbs to be more realistic \u2026\". LICENSE file at pin 9bec3256778c detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+   }
+  }
+ ]
+}

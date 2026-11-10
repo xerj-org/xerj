@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "OPS",
- "domain": "an agent working on debian, kde-plasma, linux queries this for how Sparky-OS/sparky-stereo-os implements it: Create and explore in 3D on the screen you already have, any current 2D or 3D device: a 3D TV, monitor or projector, a headset, any monitor  (selected work: tools)",
+ "domain": "an agent working on debian, kde-plasma, linux queries this for how Sparky-OS/sparky-stereo-os implements it: Create and explore in 3D on the screen you already have: 3D TVs and projectors, VR headsets, glasses-free 3D displays, any monitor with red- (selected work: tools)",
  "repos": [
   {
    "repo": "sparky-stereo-os",

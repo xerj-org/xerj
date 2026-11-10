@@ -1,0 +1,23 @@
+{
+ "corpus": "eternalfuture-e38299--tefkernel",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on c, multiplatform queries this for how eternalfuture-e38299/TEFKernel implements it: A Cross-Platform Framework for Terraria Modding (selected work: src/android, src/terraria, src)",
+ "repos": [
+  {
+   "repo": "TEFKernel",
+   "url": "https://github.com/eternalfuture-e38299/TEFKernel",
+   "sha": "8cb3883edc56437c95cd90673ad890dd6acdcf9a",
+   "licence": "AGPL-3.0 (LICENSE file at pin 8cb3883edc56, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-05T21:40Z",
+    "consent_receipt": "cdb11c94a191",
+    "note": "Inclusion consented by the commit author by email at 2026-11-05T21:40Z (receipt cdb11c94a191); selected commit 8cb3883edc56: \"\u4fee\u590d\u4e00\u4e9b\u5df2\u77e5\u95ee\u9898 (#23)\". LICENSE file at pin 8cb3883edc56 detected as AGPL-3.0 by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

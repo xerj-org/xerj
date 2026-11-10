@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on HTML queries this for how tixyq/opencode-android implements it: Unofficial port of OpenCode for Android (selected work: tools, app/native, app/java)",
+ "domain": "an agent working on android, android-app, android-application queries this for how tixyq/opencode-android implements it: Unofficial port of OpenCode for Android (selected work: tools, app/native, app/java)",
  "repos": [
   {
    "repo": "opencode-android",

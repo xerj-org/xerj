@@ -8,15 +8,15 @@
   {
    "repo": "muslimtify",
    "url": "https://github.com/muslimtify-org/muslimtify",
-   "sha": "5c26bf44364122ab47d1093a6afdd228617b95ef",
-   "licence": "MIT (LICENSE file at pin 5c26bf443641, GitHub licence API 2026-10-24)",
+   "sha": "24169e6e57399ef582df5124ae7dabc7065676b7",
+   "licence": "GPL-3.0 (LICENSE file at pin 24169e6e5739, GitHub licence API 2026-11-04)",
    "review": {
-    "spdx": "MIT",
-    "use": "adapt-with-attribution",
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-08T16:34Z",
     "consent_receipt": "355f30b41e7d",
-    "note": "Inclusion consented by the commit author by email at 2026-10-08T16:34Z (receipt 355f30b41e7d); selected commit 5c26bf443641: \"windows daemon management through the library (#100)\". LICENSE file at pin 5c26bf443641 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-10-08T16:34Z (receipt 355f30b41e7d); selected commit 24169e6e5739: \"windows daemon management through the library (#100)\". LICENSE file at pin 24169e6e5739 detected as GPL-3.0 by the GitHub licence API on 2026-11-04; used under that licence with attribution. Pinned to head 24169e6e5739 (contains the selected commit): the LICENSE at the selected commit was MIT."
    }
   }
  ]

@@ -1,0 +1,23 @@
+{
+ "corpus": "silvio777-hub--agentic-html5-parser",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agentic-ai, agentic-ai-autonomous-agents, agentic-ai-cli queries this for how Silvio777-hub/Agentic-HTML5-Parser implements it: A trustworthy 7-agent AI assembly line for autonomous, verifiable, and self-healing HTML5 parsing. Evaluated against 1,441 W3C tests and a 3 (selected work: tests, thesis, src)",
+ "repos": [
+  {
+   "repo": "Agentic-HTML5-Parser",
+   "url": "https://github.com/Silvio777-hub/Agentic-HTML5-Parser",
+   "sha": "e283ab406a80a738ccca779e53f056667b0fbf5c",
+   "licence": "MIT (LICENSE file at pin e283ab406a80, GitHub licence API 2026-11-04)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-04T17:40Z",
+    "consent_receipt": "e23246fed52b",
+    "note": "Inclusion consented by the commit author by email at 2026-11-04T17:40Z (receipt e23246fed52b); selected commit e283ab406a80: \"feat: expand thesis chapters, add defense slides, bib, CI matrix, uni\u2026\". LICENSE file at pin e283ab406a80 detected as MIT by the GitHub licence API on 2026-11-04; used under that licence with attribution."
+   }
+  }
+ ]
+}

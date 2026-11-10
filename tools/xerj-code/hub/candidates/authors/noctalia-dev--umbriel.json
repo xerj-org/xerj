@@ -1,0 +1,23 @@
+{
+ "corpus": "noctalia-dev--umbriel",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how noctalia-dev/umbriel implements it: A Wayland compositor designed for daily use, with scrolling, dwindle, master, and stacking layouts, per-output workspaces, window rules, blu (selected work: tests, src/view, src/workspace)",
+ "repos": [
+  {
+   "repo": "umbriel",
+   "url": "https://github.com/noctalia-dev/umbriel",
+   "sha": "f16178af51267b9feb0ad91d7387c70fc0541036",
+   "licence": "MIT (LICENSE file at pin f16178af5126, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T03:04Z",
+    "consent_receipt": "7518e23a3f83",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T03:04Z (receipt 7518e23a3f83); selected commit f16178af5126: \"fix(animation): keep focus chrome frozen with a held reflow (#712)\". LICENSE file at pin f16178af5126 detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

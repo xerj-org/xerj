@@ -1,0 +1,23 @@
+{
+ "corpus": "anguoyang--rk-bench",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on benchmark, edge-ai, model-zoo queries this for how anguoyang/rk-bench implements it: Measured RKNN model leaderboard for Rockchip boards (RK3588): latency p50/p95, CPU-fallback verdicts, memory \u2014 one frozen protocol, real har",
+ "repos": [
+  {
+   "repo": "rk-bench",
+   "url": "https://github.com/anguoyang/rk-bench",
+   "sha": "4cb5ae2b30ad6a092ef3b1249bbb656c346505c1",
+   "licence": "Apache-2.0 (LICENSE file at pin 4cb5ae2b30ad, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T11:45Z",
+    "consent_receipt": "e71b805e27b9",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T11:45Z (receipt e71b805e27b9); pinned to the default-branch head. LICENSE file at pin 4cb5ae2b30ad detected as Apache-2.0 by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+   }
+  }
+ ]
+}

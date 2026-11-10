@@ -1,0 +1,23 @@
+{
+ "corpus": "yonsm--televe",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Java queries this for how Yonsm/Televe implements it: Televe IPTV Player for Android (selected work: app/src, library)",
+ "repos": [
+  {
+   "repo": "Televe",
+   "url": "https://github.com/Yonsm/Televe",
+   "sha": "a251761e7dcdd4475f8b197c94d0d7e2eef75163",
+   "licence": "GPL-3.0 (LICENSE file at pin a251761e7dcd, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-07T06:51Z",
+    "consent_receipt": "a3965cefb141",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T06:51Z (receipt a3965cefb141); selected commit a251761e7dcd: \"\u529f\u80fd\uff1a\u7edf\u4e00\u534a\u900f\u660e\u53cc\u4fa7\u62bd\u5c49\u4e0e\u9065\u63a7\u624b\u52bf\u5bfc\u822a\". LICENSE file at pin a251761e7dcd detected as GPL-3.0 by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

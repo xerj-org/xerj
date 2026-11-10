@@ -1,0 +1,23 @@
+{
+ "corpus": "aldok10--zara-agent-opc",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-orchestration, ai-agent, ai-assistant queries this for how aldok10/zara-agent-opc implements it: Empathetic AI engineering partner with cognitive memory, multi-agent orchestration (10 agents), 132-signal skill routing, and self-improving (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "zara-agent-opc",
+   "url": "https://github.com/aldok10/zara-agent-opc",
+   "sha": "5f42ef5065617dc5dde98fc1158488eb2571d974",
+   "licence": "MIT (LICENSE file at pin 5f42ef506561, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T15:10Z",
+    "consent_receipt": "27a2c760c467",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T15:10Z (receipt 27a2c760c467); selected commit 5f42ef506561: \"feat: install harness engineering and Harness2 recursion loop\". LICENSE file at pin 5f42ef506561 detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

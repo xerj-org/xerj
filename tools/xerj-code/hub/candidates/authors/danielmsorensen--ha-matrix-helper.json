@@ -1,0 +1,23 @@
+{
+ "corpus": "danielmsorensen--ha-matrix-helper",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on custom-component, helper, home-assistant queries this for how danielmsorensen/ha-matrix-helper implements it: Home Assistant helper: a UI-editable 2D table (rows x columns) of numbers in one entity, for automations and scripts (selected work: frontend, custom_components)",
+ "repos": [
+  {
+   "repo": "ha-matrix-helper",
+   "url": "https://github.com/danielmsorensen/ha-matrix-helper",
+   "sha": "7be60e593732b71a2ddf34f2edc52bfcb6c7c1dc",
+   "licence": "MIT (LICENSE file at pin 7be60e593732, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T11:09Z",
+    "consent_receipt": "3d96993a7397",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T11:09Z (receipt 3d96993a7397); selected commit 7be60e593732: \"Extract the card's cell edit logic and test it\". LICENSE file at pin 7be60e593732 detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

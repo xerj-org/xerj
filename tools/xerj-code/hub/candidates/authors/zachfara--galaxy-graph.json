@@ -1,0 +1,23 @@
+{
+ "corpus": "zachfara--galaxy-graph",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on 3d, force-directed-graph, graph-visualization queries this for how ZachFara/galaxy-graph implements it: 3D force-directed galaxy graph for Obsidian (selected work: src, src/scene, src/utils)",
+ "repos": [
+  {
+   "repo": "galaxy-graph",
+   "url": "https://github.com/ZachFara/galaxy-graph",
+   "sha": "bf8c460a427f1c9e1cd85be36b23d22056f90c58",
+   "licence": "MIT (LICENSE file at pin bf8c460a427f, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T22:51Z",
+    "consent_receipt": "798dbb4db6f0",
+    "note": "Inclusion consented by the commit author by email at 2026-11-06T22:51Z (receipt 798dbb4db6f0); selected commit bf8c460a427f: \"Reapply \"feat(canvas): legible close-ups: flat discs, toned hues, cam\u2026\". LICENSE file at pin bf8c460a427f detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "shayanmohd--kamapathy",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on ai-agents, browser, browser-automation queries this for how shayanmohd/kamapathy implements it: A calm desktop browser you share with your agents. Sign in once, let agents work in spaces of their own with your sign-ins, and take over an (selected work: tests, electron, scripts)",
+ "repos": [
+  {
+   "repo": "kamapathy",
+   "url": "https://github.com/shayanmohd/kamapathy",
+   "sha": "200b6df3a453f3bdd7ef963e8d062453e1270949",
+   "licence": "MIT (LICENSE file at pin 200b6df3a453, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T08:26Z",
+    "consent_receipt": "fc8a4a92dd3a",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T08:26Z (receipt fc8a4a92dd3a); selected commit 200b6df3a453: \"Answer a navigate on a tab with no view yet once its page commits\". LICENSE file at pin 200b6df3a453 detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "cosmoquester--esma",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on evolution-strategies, llm, metacognition queries this for how cosmoquester/ESMA implements it: ESMA is a method to improve metacognition of LLMs (selected work: scripts)",
+ "repos": [
+  {
+   "repo": "ESMA",
+   "url": "https://github.com/cosmoquester/ESMA",
+   "sha": "7445cdf4086e6f006bbc9fd1404ba42d7539dfb5",
+   "licence": "MIT (LICENSE file at pin 7445cdf4086e, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T17:19Z",
+    "consent_receipt": "e4b4f2884ffd",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T17:19Z (receipt e4b4f2884ffd); selected commit 7445cdf4086e: \"feat: add rl training scripts\". LICENSE file at pin 7445cdf4086e detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

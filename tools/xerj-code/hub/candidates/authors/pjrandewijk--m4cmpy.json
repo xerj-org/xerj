@@ -1,0 +1,23 @@
+{
+ "corpus": "pjrandewijk--m4cmpy",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on circuit-diagrams, script-automation, m4-language queries this for how pjrandewijk/m4cmpy implements it: M4 Cicuit Macros Python automation script to create standalone PDF, JPG and PNG pictures with ease (selected work: src/m4cmpy)",
+ "repos": [
+  {
+   "repo": "m4cmpy",
+   "url": "https://github.com/pjrandewijk/m4cmpy",
+   "sha": "bde3c3f4b47114b2f3a925148a45dce8c7512c0d",
+   "licence": "GPL-3.0 (LICENSE file at pin bde3c3f4b471, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-03T10:41Z",
+    "consent_receipt": "4964560678b4",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T10:41Z (receipt 4964560678b4); selected commit bde3c3f4b471: \"Add initial implementation of m4cmpy with main script and default LaT\u2026\". LICENSE file at pin bde3c3f4b471 detected as GPL-3.0 by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

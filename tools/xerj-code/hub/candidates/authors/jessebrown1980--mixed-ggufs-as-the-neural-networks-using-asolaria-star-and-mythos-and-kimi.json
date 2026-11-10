@@ -1,0 +1,23 @@
+{
+ "corpus": "jessebrown1980--mixed-ggufs-as-the-neural-networks-using-asolaria-star-and-mythos-and-kimi",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on Rust queries this for how JesseBrown1980/Mixed-GGUFs-as-the-neural-networks-using-asolaria-star-and-mythos-and-kimi implements it: JesseBrown1980/Mixed-GGUFs-as-the-neural-networks-using-asolaria-star-and-mythos-and-kimi (Rust)",
+ "repos": [
+  {
+   "repo": "Mixed-GGUFs-as-the-neural-networks-using-asolaria-star-and-mythos-and-kimi",
+   "url": "https://github.com/JesseBrown1980/Mixed-GGUFs-as-the-neural-networks-using-asolaria-star-and-mythos-and-kimi",
+   "sha": "06951ae9f059f6d6eb039a97fdc995cf35668ea6",
+   "licence": "MIT (LICENSE file at pin 06951ae9f059, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T14:53Z",
+    "consent_receipt": "91c72bdf6e5f",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T14:53Z (receipt 91c72bdf6e5f); pinned to the default-branch head. LICENSE file at pin 06951ae9f059 detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

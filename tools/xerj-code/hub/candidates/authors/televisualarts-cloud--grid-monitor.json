@@ -1,0 +1,23 @@
+{
+ "corpus": "televisualarts-cloud--grid-monitor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on electricity, electricity-bill, electricity-consumption queries this for how televisualarts-cloud/grid-monitor implements it: A dashboard for monitoring the UK electricity grid and gas infrastructure statuses in real-time. Octopus Energy customers can also input the (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "grid-monitor",
+   "url": "https://github.com/televisualarts-cloud/grid-monitor",
+   "sha": "470f138ef96f1a3bdf66851ced390208dccba120",
+   "licence": "MIT (LICENSE file at pin 470f138ef96f, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T21:07Z",
+    "consent_receipt": "765861280305",
+    "note": "Inclusion consented by the commit author by email at 2026-11-05T21:07Z (receipt 765861280305); selected commit 470f138ef96f: \"Transmission wall; gas alarm ladder; power-cut feed and position fixes\". LICENSE file at pin 470f138ef96f detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

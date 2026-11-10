@@ -2,8 +2,8 @@
  "corpus": "snark-s--snarkroute",
  "cloned_at": null,
  "status": "draft",
- "shelf": "CRYPTO",
- "domain": "an agent working on TypeScript queries this for how Snark-s/snarkroute implements it: Local-first visual editor and executor for Open Route Protocol (selected work: scripts, apps/server)",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how Snark-s/snarkroute implements it: Local-first AI orchestration platform for models, agents, tools, and compute resources, with portable visual workflows and autonomous execut (selected work: scripts, apps/server)",
  "repos": [
   {
    "repo": "snarkroute",

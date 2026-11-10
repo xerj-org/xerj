@@ -1,0 +1,23 @@
+{
+ "corpus": "diarraibrahimamohamed-ops--snake-eyes",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on africa, celery, cybersecurity queries this for how diarraibrahimamohamed-ops/snake_eyes implements it: Open-source defensive cybersecurity platform for SOC operations, threat intelligence, OSINT, incident and vulnerability management, and mult (selected work: apps/api, apps/web, the project root)",
+ "repos": [
+  {
+   "repo": "snake_eyes",
+   "url": "https://github.com/diarraibrahimamohamed-ops/snake_eyes",
+   "sha": "0dba01a293e3e1abc0900be6d8238d08a1f381c9",
+   "licence": "GPL-2.0 (LICENSE file at pin 0dba01a293e3, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-08T22:51Z",
+    "consent_receipt": "8c0c01dc5df8",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T22:51Z (receipt 8c0c01dc5df8); selected commit 0dba01a293e3: \"feat: pivot AfricaWatch to defensive report ingestion\". LICENSE file at pin 0dba01a293e3 detected as GPL-2.0 by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

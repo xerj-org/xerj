@@ -1,0 +1,23 @@
+{
+ "corpus": "907609732--lost-unity3d-fpsgame",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on code queries this for how 907609732/lost-Unity3D-FPSgame implements it: \u300a\u8ff7\u5931\u300b\u6e38\u620f\u8bbe\u8ba1\u65b9\u6848 \u6d59\u6c5f\u519c\u5546\u8d38\u5b66\u9662 \u6570\u5b57\u5a92\u4f53\u827a\u672f2024\u6bd5\u4e1a\u8bbe\u8ba1",
+ "repos": [
+  {
+   "repo": "lost-Unity3D-FPSgame",
+   "url": "https://github.com/907609732/lost-Unity3D-FPSgame",
+   "sha": "1fdaf8057fcfc7b9c7bd4d27ac07ca0e50e3f47a",
+   "licence": "author's permission (LICENSE at pin 1fdaf8057fcf: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T08:36Z",
+    "consent_receipt": "1922cdcfd22d",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T08:36Z (receipt 1922cdcfd22d); pinned to the default-branch head. LICENSE at pin 1fdaf8057fcf: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

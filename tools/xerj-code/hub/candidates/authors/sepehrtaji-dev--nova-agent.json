@@ -1,0 +1,23 @@
+{
+ "corpus": "sepehrtaji-dev--nova-agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how sepehrtaji-dev/Nova-agent implements it: A local AI agent powered by Ollama \u2014 real tool use, file access, OS control, git operations, web search, and verified task execution (selected work: ui, the project root, tests)",
+ "repos": [
+  {
+   "repo": "Nova-agent",
+   "url": "https://github.com/sepehrtaji-dev/Nova-agent",
+   "sha": "48e6686b80bf835b15a8bee52e097b896e382b47",
+   "licence": "MIT (LICENSE file at pin 48e6686b80bf, GitHub licence API 2026-11-06)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T09:08Z",
+    "consent_receipt": "9a23206a2014",
+    "note": "Inclusion consented by the commit author by email at 2026-11-06T09:08Z (receipt 9a23206a2014); selected commit 48e6686b80bf: \"Rebuild desktop UI to match Nova Figma design\". LICENSE file at pin 48e6686b80bf detected as MIT by the GitHub licence API on 2026-11-06; used under that licence with attribution."
+   }
+  }
+ ]
+}

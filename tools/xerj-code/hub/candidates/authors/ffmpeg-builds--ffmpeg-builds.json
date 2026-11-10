@@ -1,0 +1,23 @@
+{
+ "corpus": "ffmpeg-builds--ffmpeg-builds",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Shell queries this for how FFmpeg-Builds/FFmpeg-Builds implements it: FFmpeg-Builds/FFmpeg-Builds (Shell) (selected work: images)",
+ "repos": [
+  {
+   "repo": "FFmpeg-Builds",
+   "url": "https://github.com/BtbN/FFmpeg-Builds",
+   "sha": "bd26828f0e965c2c657553584b09caf5d57eee52",
+   "licence": "MIT (LICENSE file at pin bd26828f0e96, GitHub licence API 2026-10-24)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-12T02:56Z",
+    "consent_receipt": "cef4c12d6bc4",
+    "note": "Inclusion consented by the commit author by email at 2026-10-12T02:56Z (receipt cef4c12d6bc4); selected commit bd26828f0e96: \"images: add base-linuxloongarch64 target\". LICENSE file at pin bd26828f0e96 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "mayank1513--onboarding-portal",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how mayank1513/onboarding-portal implements it: mayank1513/onboarding-portal (TypeScript)",
+ "repos": [
+  {
+   "repo": "onboarding-portal",
+   "url": "https://github.com/mayank1513/onboarding-portal",
+   "sha": "b5c284732aebe9010f5dd2895a180c73ba8b6d01",
+   "licence": "MPL-2.0 (LICENSE file at pin b5c284732aeb, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "MPL-2.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-05T04:33Z",
+    "consent_receipt": "bebd52c839b5",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T04:33Z (receipt bebd52c839b5); pinned to the default-branch head. LICENSE file at pin b5c284732aeb detected as MPL-2.0 by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "egoushka--switchknife",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on csharp, docker, dotnet queries this for how Egoushka/switchknife implements it: Reusable .NET libraries: durable step journal, Docker and forge clients, MCP hosting, service defaults, test kit. Native AOT compatible",
+ "repos": [
+  {
+   "repo": "switchknife",
+   "url": "https://github.com/Egoushka/switchknife",
+   "sha": "6a95b0e31c821b3cec891ae73895ba074700c019",
+   "licence": "MIT (LICENSE file at pin 6a95b0e31c82, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T15:00Z",
+    "consent_receipt": "f921b440b9c2",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-07T15:00Z (receipt f921b440b9c2); pinned to the default-branch head. LICENSE file at pin 6a95b0e31c82 detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

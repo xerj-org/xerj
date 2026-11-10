@@ -1,0 +1,23 @@
+{
+ "corpus": "paul-passeron--rockrlang",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how Paul-Passeron/rockrlang implements it: WIP Proof of concept query-based compiler for a high-level systems programming language (selected work: src/typecheck, src)",
+ "repos": [
+  {
+   "repo": "rockrlang",
+   "url": "https://github.com/Paul-Passeron/rockrlang",
+   "sha": "9664e7a3702343c46955a2255e177f002317b55b",
+   "licence": "GPL-3.0 (LICENSE file at pin 9664e7a37023, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-09T22:39Z",
+    "consent_receipt": "c27e85ca8139",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T22:39Z (receipt c27e85ca8139); selected commit 9664e7a37023: \"Implement Try for ConstraintSolveResult\". LICENSE file at pin 9664e7a37023 detected as GPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

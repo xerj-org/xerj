@@ -2,8 +2,8 @@
  "corpus": "walters-labs--scotus-v-public",
  "cloned_at": null,
  "status": "draft",
- "shelf": "AI",
- "domain": "an agent working on supreme-court, supreme-court-cases, opinion-polls queries this for how walters-labs/scotus-v-public implements it: Plots SCOTUS vs. public opinion polarity over time given keywords (selected work: data, scvpublic, scripts)",
+ "shelf": "API",
+ "domain": "an agent working on supreme-court, supreme-court-cases, sentiment-polarity queries this for how walters-labs/scotus-v-public implements it: Plots SCOTUS vs. public opinion polarity over time given keywords (selected work: data, scvpublic, scripts)",
  "repos": [
   {
    "repo": "scotus-v-public",

@@ -1,0 +1,23 @@
+{
+ "corpus": "emrahnazif--mayaku",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on apple-silicon, computer-vision, convnext queries this for how emrahnazif/mayaku implements it: Mayaku is a real-time object detection, segmentation and keypoint library. SOTA for fine-tuning and exports (selected work: src/mayaku, tests)",
+ "repos": [
+  {
+   "repo": "mayaku",
+   "url": "https://github.com/emrahnazif/mayaku",
+   "sha": "580b09b678435aa0216f326a450a27acb97b90a3",
+   "licence": "Apache-2.0 (LICENSE file at pin 580b09b67843, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T18:34Z",
+    "consent_receipt": "85432e4710af",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T18:34Z (receipt 85432e4710af); selected commit 580b09b67843: \"Add image classification\". LICENSE file at pin 580b09b67843 detected as Apache-2.0 by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "cmxau--discord-quest-completer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on discord, discord-quests, discord-rich-presence queries this for how cmxau/discord-quest-completer implements it: Windows desktop app that completes Discord Quests and shows Rich Presence for games without installing them. A tiny stand-in exe runs where  (selected work: src/pages, src/composables, src/components)",
+ "repos": [
+  {
+   "repo": "discord-quest-completer",
+   "url": "https://github.com/cmxau/discord-quest-completer",
+   "sha": "c6afc7df10a53fa943235f88fcca9acafab508ed",
+   "licence": "MIT (LICENSE file at pin c6afc7df10a5, GitHub licence API 2026-11-04)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-04T21:33Z",
+    "consent_receipt": "08127575ec6b",
+    "note": "Inclusion consented by the commit author by email at 2026-11-04T21:33Z (receipt 08127575ec6b); selected commit c6afc7df10a5: \"feat(activity): custom Rich Presence status\". LICENSE file at pin c6afc7df10a5 detected as MIT by the GitHub licence API on 2026-11-04; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -8,15 +8,15 @@
   {
    "repo": "Anima",
    "url": "https://github.com/Siddarthb07/Anima",
-   "sha": "9cface8e1a495af278cda5573ff7b9ea0d915823",
-   "licence": "MIT (LICENSE file at pin 9cface8e1a49, GitHub licence API 2026-10-29)",
+   "sha": "700cbccca8759a8a0bfc813ee6be1b8aaff7dc58",
+   "licence": "MIT (LICENSE file at pin 700cbccca875, GitHub licence API 2026-11-06)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T05:46Z",
     "consent_receipt": "dae49a9148e8",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:46Z (receipt dae49a9148e8); pinned to the default-branch head. LICENSE file at pin 9cface8e1a49 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:46Z (receipt dae49a9148e8); pinned to the default-branch head. LICENSE file at pin 700cbccca875 detected as MIT by the GitHub licence API on 2026-11-06; used under that licence with attribution."
    }
   }
  ]

@@ -1,0 +1,23 @@
+{
+ "corpus": "edzard9--opsdeck",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on dashboard, devops, homelab queries this for how Edzard9/OpsDeck implements it: Self-hosted VPS monitoring dashboard: real-time CPU, RAM, disk and network telemetry, live process list, and system logs with a plain-langua (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "OpsDeck",
+   "url": "https://github.com/Edzard9/OpsDeck",
+   "sha": "90a12b7fdcb1dd7c54e7229c623dbec3f357d8cb",
+   "licence": "MIT (LICENSE file at pin 90a12b7fdcb1, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T16:09Z",
+    "consent_receipt": "2187282670a5",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T16:09Z (receipt 2187282670a5); selected commit 90a12b7fdcb1: \"OpsDeck:\". LICENSE file at pin 90a12b7fdcb1 detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

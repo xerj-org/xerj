@@ -1,0 +1,23 @@
+{
+ "corpus": "zafarali110--acme-dms",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agentic-engineering, aspire, bun queries this for how ZafarAli110/acme-dms implements it: Acme DMS: the dealer management system for the agentic and harness engineering (AI-DLC) workshop (selected work: backend)",
+ "repos": [
+  {
+   "repo": "acme-dms",
+   "url": "https://github.com/ZafarAli110/acme-dms",
+   "sha": "0398605fd1bca74037bd7aff91f42b775dd306c6",
+   "licence": "MIT (LICENSE file at pin 0398605fd1bc, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T21:45Z",
+    "consent_receipt": "4baaba305a5f",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T21:45Z (receipt 4baaba305a5f); selected commit 0398605fd1bc: \"document-api: dead letters watched and replayable; a document nobody \u2026\". LICENSE file at pin 0398605fd1bc detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

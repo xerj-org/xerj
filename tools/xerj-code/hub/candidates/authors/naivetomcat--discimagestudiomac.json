@@ -1,0 +1,23 @@
+{
+ "corpus": "naivetomcat--discimagestudiomac",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on bluray, cd, dvd queries this for how NaiveTomcat/DiscImageStudioMac implements it: \u628a\u56fe\u7247\u7f16\u7801\u8fdb CD / DVD / \u84dd\u5149\u7684\u76d8\u9762\u7269\u7406\u5c42 \u2014\u2014 macOS \u539f\u751f SwiftUI \u79fb\u690d\u7248\uff08GPL-3.0-or-later\uff09 (selected work: Sources, Tests)",
+ "repos": [
+  {
+   "repo": "DiscImageStudioMac",
+   "url": "https://github.com/NaiveTomcat/DiscImageStudioMac",
+   "sha": "bc1dd40c5c6efa62131bf67313e88d0b2ca07c2e",
+   "licence": "author's permission (LICENSE at pin bc1dd40c5c6e: NOASSERTION; repository: GPL-3.0)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-03T06:17Z",
+    "consent_receipt": "08fa24cddbdc",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T06:17Z (receipt 08fa24cddbdc); selected commit bc1dd40c5c6e: \"fix(ui): zoom/pan on calibration canvases, background fit with cancel\u2026\". LICENSE at pin bc1dd40c5c6e: NOASSERTION (repository: GPL-3.0); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

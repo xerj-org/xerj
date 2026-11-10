@@ -1,0 +1,23 @@
+{
+ "corpus": "binaricat--netcatty",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on electron, electron-app, radix-ui queries this for how binaricat/Netcatty implements it: SSH workspace, SFTP, and terminals in one (selected work: components, electron, scripts)",
+ "repos": [
+  {
+   "repo": "Netcatty",
+   "url": "https://github.com/binaricat/Netcatty",
+   "sha": "51d9f715da0ebc56fbb627a817eac6f32674f414",
+   "licence": "GPL-3.0 (LICENSE file at pin 51d9f715da0e, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-07T12:36Z",
+    "consent_receipt": "3b65a8ff5975",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T12:36Z (receipt 3b65a8ff5975); selected commit 51d9f715da0e: \"feat(autocomplete): localize common commands and polish terminal hint\u2026\". LICENSE file at pin 51d9f715da0e detected as GPL-3.0 by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

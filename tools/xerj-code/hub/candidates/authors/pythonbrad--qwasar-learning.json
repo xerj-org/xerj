@@ -1,0 +1,23 @@
+{
+ "corpus": "pythonbrad--qwasar-learning",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on qwasar-silicon-valley queries this for how pythonbrad/qwasar-learning implements it: My solutions for the QWASAR training platform",
+ "repos": [
+  {
+   "repo": "qwasar-learning",
+   "url": "https://github.com/pythonbrad/qwasar-learning",
+   "sha": "a95d235d3d3b2f4ff2767bf58d67be510b08e0c0",
+   "licence": "MIT-0 (LICENSE file at pin a95d235d3d3b, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "MIT-0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T06:30Z",
+    "consent_receipt": "9fd651f377ff",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-09T06:30Z (receipt 9fd651f377ff); pinned to the default-branch head. LICENSE file at pin a95d235d3d3b detected as MIT-0 by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

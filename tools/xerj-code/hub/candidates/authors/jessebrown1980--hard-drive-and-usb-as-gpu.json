@@ -1,0 +1,23 @@
+{
+ "corpus": "jessebrown1980--hard-drive-and-usb-as-gpu",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on code queries this for how JesseBrown1980/Hard-drive-and-USB-as-GPU implements it: JesseBrown1980/Hard-drive-and-USB-as-GPU (code)",
+ "repos": [
+  {
+   "repo": "Hard-drive-and-USB-as-GPU",
+   "url": "https://github.com/JesseBrown1980/Hard-drive-and-USB-as-GPU",
+   "sha": "0fd36db1dc7086ef511aae66ea7f4b960d9ba33e",
+   "licence": "author's permission (LICENSE at pin 0fd36db1dc70: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T14:53Z",
+    "consent_receipt": "5d50d1c8524a",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T14:53Z (receipt 5d50d1c8524a); pinned to the default-branch head. LICENSE at pin 0fd36db1dc70: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

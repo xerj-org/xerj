@@ -8,15 +8,15 @@
   {
    "repo": "jadivcalc-template",
    "url": "https://github.com/jan-tdy/jadivcalc-template",
-   "sha": "48ea594044d4eb92dd462838e38de095a1350e1f",
-   "licence": "MIT (LICENSE file at pin 48ea594044d4, GitHub licence API 2026-10-28)",
+   "sha": "999b4d2d6db2bb3eb5cda08cf60d9617fe388197",
+   "licence": "MIT (LICENSE file at pin 999b4d2d6db2, GitHub licence API 2026-11-04)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T19:53Z",
     "consent_receipt": "c36171b6c6cc",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T19:53Z (receipt c36171b6c6cc); pinned to the default-branch head. LICENSE file at pin 48ea594044d4 detected as MIT by the GitHub licence API on 2026-10-28; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T19:53Z (receipt c36171b6c6cc); pinned to the default-branch head. LICENSE file at pin 999b4d2d6db2 detected as MIT by the GitHub licence API on 2026-11-04; used under that licence with attribution."
    }
   }
  ]

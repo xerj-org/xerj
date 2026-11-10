@@ -1,0 +1,23 @@
+{
+ "corpus": "haterandrew--chess-prediction",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on chess, cloudflare-workers, forecasting queries this for how HaterAndrew/chess-prediction implements it: Forecasts final entry counts for CCA chess tournaments. Nightly scrape and model rerun publish point estimates with 80% confidence intervals (selected work: tests, fees, the project root)",
+ "repos": [
+  {
+   "repo": "chess-prediction",
+   "url": "https://github.com/HaterAndrew/chess-prediction",
+   "sha": "4882bfefc55baf0f4d7674fbd8584a15c722f020",
+   "licence": "MIT (LICENSE file at pin 4882bfefc55b, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T21:14Z",
+    "consent_receipt": "e40811954ec2",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T21:14Z (receipt e40811954ec2); selected commit 4882bfefc55b: \"fix: repair enrichment and harden dependency maintenance (#255)\". LICENSE file at pin 4882bfefc55b detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

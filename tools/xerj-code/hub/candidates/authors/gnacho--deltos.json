@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "DB",
- "domain": "an agent working on TypeScript queries this for how gnacho/deltos implements it: Self-hosted Kanban PWA for projects, tasks, shared expenses and passive gamification. Live updates over SSE, comments, attachments, natural- (selected work: server, landing, the project root)",
+ "domain": "an agent working on agpl, expenses, family queries this for how gnacho/deltos implements it: Self-hosted Kanban PWA for tasks, shared expenses and decisions: live over SSE, comments, attachments, natural-language due dates, recurrenc (selected work: server, landing, the project root)",
  "repos": [
   {
    "repo": "deltos",

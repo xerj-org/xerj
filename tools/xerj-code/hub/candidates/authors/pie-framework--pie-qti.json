@@ -8,15 +8,15 @@
   {
    "repo": "pie-qti",
    "url": "https://github.com/pie-framework/pie-qti",
-   "sha": "e5fdc16d6e9f87492bf3341587be4f7c11ef6f92",
-   "licence": "MIT (LICENSE file at pin e5fdc16d6e9f, GitHub licence API 2026-10-26)",
+   "sha": "afac17f5852f86adf3860fc9e73cc48f243b3575",
+   "licence": "MIT (LICENSE file at pin afac17f5852f, GitHub licence API 2026-11-04)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-17T18:29Z",
     "consent_receipt": "4a4b497c3521",
-    "note": "Inclusion consented by the commit author by email at 2026-10-17T18:29Z (receipt 4a4b497c3521); selected commit e5fdc16d6e9f: \"feat(pie-to-qti2): add a QTI 3.0 export\". LICENSE file at pin e5fdc16d6e9f detected as MIT by the GitHub licence API on 2026-10-26; used under that licence with attribution. Pinned to head e5fdc16d6e9f (contains the selected commit): the LICENSE at the selected commit was ISC."
+    "note": "Inclusion consented by the commit author by email at 2026-10-17T18:29Z (receipt 4a4b497c3521); selected commit afac17f5852f: \"feat(pie-to-qti2): add a QTI 3.0 export\". LICENSE file at pin afac17f5852f detected as MIT by the GitHub licence API on 2026-11-04; used under that licence with attribution. Pinned to head afac17f5852f (contains the selected commit): the LICENSE at the selected commit was ISC."
    }
   }
  ]

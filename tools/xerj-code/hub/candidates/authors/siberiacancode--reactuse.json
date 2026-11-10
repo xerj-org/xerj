@@ -1,0 +1,23 @@
+{
+ "corpus": "siberiacancode--reactuse",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on hooks, react, react-hooks queries this for how siberiacancode/reactuse implements it: \ud83c\udf0c reactuse the largest and most useful hook library (selected work: packages/core)",
+ "repos": [
+  {
+   "repo": "reactuse",
+   "url": "https://github.com/siberiacancode/reactuse",
+   "sha": "fff9230cdaa868a7c2574bd8778348f8a073f1b6",
+   "licence": "MIT (LICENSE file at pin fff9230cdaa8, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T09:13Z",
+    "consent_receipt": "2c4a35d766c8",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T09:13Z (receipt 2c4a35d766c8); selected commit fff9230cdaa8: \"main \ud83e\uddca v1.0.18\". LICENSE file at pin fff9230cdaa8 detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "SEC",
- "domain": "an agent working on Go queries this for how b070nd/cvewatch implements it: Monitor your project relevant CVE exposure (selected work: app/src)",
+ "domain": "an agent working on cli, cve, epss queries this for how b070nd/cvewatch implements it: Know which of your projects and environments are still exposed to which CVE, who owns the fix, and what happened so far (selected work: app/src)",
  "repos": [
   {
    "repo": "cvewatch",

@@ -1,0 +1,23 @@
+{
+ "corpus": "technehub-labs--dea-catalog-business-processes",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on architecture, business-process, business-process-analysis queries this for how technehub-labs/dea-catalog-business-processes implements it: Process catalog: DEA L1 catalog repository for business processes, classified by intent (operational/support/management) and audience (ECF d (selected work: reconciliation, entities, scripts)",
+ "repos": [
+  {
+   "repo": "dea-catalog-business-processes",
+   "url": "https://github.com/technehub-labs/dea-catalog-business-processes",
+   "sha": "9bc363d02b5f1eeb62e33fd43b20f18839afe0dc",
+   "licence": "Apache-2.0 (LICENSE file at pin 9bc363d02b5f, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T07:00Z",
+    "consent_receipt": "313b11de8275",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T07:00Z (receipt 313b11de8275); selected commit 9bc363d02b5f: \"feat(catalog): CR-BP-236 Wave D \u2014 L1/L0 plain-language authoring (98 \u2026\". LICENSE file at pin 9bc363d02b5f detected as Apache-2.0 by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+   }
+  }
+ ]
+}

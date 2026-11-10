@@ -2,8 +2,8 @@
  "corpus": "aliahsan9--businessos",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on api-rest, backend, business-analytics queries this for how aliahsan9/BusinessOS implements it: AI powered BusinessOS for SMEs (selected work: BusinessOS.Infrastructure, BusinessOS.UnitTests, BusinessOS.Application)",
+ "shelf": "AI",
+ "domain": "an agent working on business-analytics, business-intelligence, dotnet queries this for how aliahsan9/BusinessOS implements it: A multi-tenant AI-powered ERP platform built with .NET 10, Angular, SQL Server, RAG, and intelligent business automation (selected work: BusinessOS.Infrastructure, BusinessOS.UnitTests, BusinessOS.Application)",
  "repos": [
   {
    "repo": "BusinessOS",

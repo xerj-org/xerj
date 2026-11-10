@@ -1,0 +1,23 @@
+{
+ "corpus": "egoushka--recipes",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on C# queries this for how Egoushka/recipes implements it: Cooking journal: recipes, techniques, own creations and configs (oven dial) as a shell integration and MCP service",
+ "repos": [
+  {
+   "repo": "recipes",
+   "url": "https://github.com/Egoushka/recipes",
+   "sha": "c649a2dc56082e11b2dd476ad97d87292b2be4bd",
+   "licence": "MIT (LICENSE file at pin c649a2dc5608, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T15:00Z",
+    "consent_receipt": "f4a3e0f3fead",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-07T15:00Z (receipt f4a3e0f3fead); pinned to the default-branch head. LICENSE file at pin c649a2dc5608 detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

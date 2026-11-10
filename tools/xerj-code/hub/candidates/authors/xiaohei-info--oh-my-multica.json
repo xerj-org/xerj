@@ -1,0 +1,23 @@
+{
+ "corpus": "xiaohei-info--oh-my-multica",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-orchestration, agentic-ai, ai-agents queries this for how xiaohei-info/oh-my-multica implements it: Production-grade software delivery for coding-agent teams on Multica \u2014 dynamic planning, deterministic execution, verifiable delivery (selected work: tests, src/omac)",
+ "repos": [
+  {
+   "repo": "oh-my-multica",
+   "url": "https://github.com/xiaohei-info/oh-my-multica",
+   "sha": "2c25ec6e9c9133ba5239eca1ec0ca1112044ac26",
+   "licence": "MIT (LICENSE file at pin 2c25ec6e9c91, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T11:56Z",
+    "consent_receipt": "9379cf6a2349",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T11:56Z (receipt 9379cf6a2349); selected commit 2c25ec6e9c91: \"Defects: rerun after a fix only when the fix is newer than the failed\u2026\". LICENSE file at pin 2c25ec6e9c91 detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

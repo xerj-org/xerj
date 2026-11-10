@@ -1,0 +1,23 @@
+{
+ "corpus": "unknown404-practice--autonomous-code-writer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, devops, docker queries this for how unknown404-practice/autonomous-code-writer implements it: \ud83c\udf0c Turnkey local AI SRE agent built with Docker Agent and Ollama (Qwen 2.5 7B). Automatically investigates production logs and delivers actio",
+ "repos": [
+  {
+   "repo": "autonomous-code-writer",
+   "url": "https://github.com/unknown404-practice/autonomous-code-writer",
+   "sha": "2ceb13726c7559c24775f2228add7020443c67ea",
+   "licence": "MIT (LICENSE file at pin 2ceb13726c75, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T08:10Z",
+    "consent_receipt": "4b9a65cd5585",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-07T08:10Z (receipt 4b9a65cd5585); pinned to the default-branch head. LICENSE file at pin 2ceb13726c75 detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

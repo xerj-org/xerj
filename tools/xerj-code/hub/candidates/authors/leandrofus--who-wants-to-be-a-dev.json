@@ -1,0 +1,23 @@
+{
+ "corpus": "leandrofus--who-wants-to-be-a-dev",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how leandrofus/who-wants-to-be-a-DEV implements it: leandrofus/who-wants-to-be-a-DEV (JavaScript) (selected work: trailer, src, public)",
+ "repos": [
+  {
+   "repo": "who-wants-to-be-a-DEV",
+   "url": "https://github.com/leandrofus/who-wants-to-be-a-DEV",
+   "sha": "812d8f9b48bf20a81c157ba12658e26cbef9118a",
+   "licence": "AGPL-3.0 (LICENSE file at pin 812d8f9b48bf, GitHub licence API 2026-11-04)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-04T01:35Z",
+    "consent_receipt": "e6f1180f5bf8",
+    "note": "Inclusion consented by the commit author by email at 2026-11-04T01:35Z (receipt e6f1180f5bf8); selected commit 812d8f9b48bf: \"pr review (#1)\". LICENSE file at pin 812d8f9b48bf detected as AGPL-3.0 by the GitHub licence API on 2026-11-04; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "ankith-00--homi-ai-agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, composiotool, elevenlabs queries this for how ankith-00/homi-ai-agent implements it: Your personal AI, connected to your everyday apps (selected work: app/agent, app/routers, app/utils)",
+ "repos": [
+  {
+   "repo": "homi-ai-agent",
+   "url": "https://github.com/ankith-00/homi-ai-agent",
+   "sha": "c555c7092a1a0367e6cfc1405418da6a8b9ca59e",
+   "licence": "MIT (LICENSE file at pin c555c7092a1a, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T14:56Z",
+    "consent_receipt": "6c5973ad7059",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T14:56Z (receipt 6c5973ad7059); selected commit c555c7092a1a: \"feat: connect Homi to frontend for version one\". LICENSE file at pin c555c7092a1a detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution. Pinned to head c555c7092a1a (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

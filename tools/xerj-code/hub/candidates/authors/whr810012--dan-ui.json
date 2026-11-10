@@ -1,0 +1,23 @@
+{
+ "corpus": "whr810012--dan-ui",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Vue queries this for how whr810012/dan-ui implements it: whr810012/dan-ui (Vue) (selected work: packages/ui)",
+ "repos": [
+  {
+   "repo": "dan-ui",
+   "url": "https://github.com/whr810012/dan-ui",
+   "sha": "6bbe06af469be144fab261082cab6439a42eba5a",
+   "licence": "MIT (LICENSE file at pin 6bbe06af469b, GitHub licence API 2026-11-06)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T11:34Z",
+    "consent_receipt": "ab748febd7af",
+    "note": "Inclusion consented by the commit author by email at 2026-11-06T11:34Z (receipt ab748febd7af); selected commit 6bbe06af469b: \"feat: polish popper form components with DanIcon glyphs and unified p\u2026\". LICENSE file at pin 6bbe06af469b detected as MIT by the GitHub licence API on 2026-11-06; used under that licence with attribution."
+   }
+  }
+ ]
+}

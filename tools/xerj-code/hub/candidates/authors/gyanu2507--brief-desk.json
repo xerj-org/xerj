@@ -2,8 +2,8 @@
  "corpus": "gyanu2507--brief-desk",
  "cloned_at": null,
  "status": "draft",
- "shelf": "WEB",
- "domain": "an agent working on TypeScript queries this for how gyanu2507/brief-desk implements it: CopilotKit + AG-UI chat desk with MCP tools for workspace and corpus briefing (selected work: backend, app, lib)",
+ "shelf": "AI",
+ "domain": "an agent working on ag-ui, agents, copilotkit queries this for how gyanu2507/brief-desk implements it: CopilotKit + AG-UI chat desk with MCP tools for workspace and corpus briefing (selected work: backend, app, lib)",
  "repos": [
   {
    "repo": "brief-desk",

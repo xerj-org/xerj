@@ -1,0 +1,23 @@
+{
+ "corpus": "zarmumia--comment-to-lead",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on code queries this for how zarmumia/comment-to-lead implements it: A Claude skill: find relevant posts in Facebook groups, draft a helpful comment, log the lead. A human edits and sends every comment",
+ "repos": [
+  {
+   "repo": "comment-to-lead",
+   "url": "https://github.com/zarmumia/comment-to-lead",
+   "sha": "6b07ea8de890cd3c02454728969fd99deac15f27",
+   "licence": "MIT (LICENSE file at pin 6b07ea8de890, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T20:02Z",
+    "consent_receipt": "a7cb82f205b6",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-09T20:02Z (receipt a7cb82f205b6); pinned to the default-branch head. LICENSE file at pin 6b07ea8de890 detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

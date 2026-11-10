@@ -1,0 +1,23 @@
+{
+ "corpus": "fivet-53--f-easyuimask",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on C# queries this for how FiveT-53/F_EasyUIMask implements it: Unity \u63d2\u4ef6\uff1a\u7b80\u5316 UGUI \u906e\u7f69\u914d\u7f6e\u3002\u652f\u6301\u914d\u7f6e\u6b63\u53cd\u5411\u7684\u77e9\u5f62\u906e\u7f69\uff0c\u63d0\u4f9b\u4e24\u79cd\u533a\u57df\u9009\u62e9\u6a21\u5f0f\uff1a\u624b\u52a8\u6a21\u5f0f\u548c\u76ee\u6807 UI \u6a21\u5f0f\u3002 (selected work: EditorResources, the project root, Runtime)",
+ "repos": [
+  {
+   "repo": "F_EasyUIMask",
+   "url": "https://github.com/FiveT-53/F_EasyUIMask",
+   "sha": "d94d9f3a7b8ddef99c18631b6a2136aca48b7a02",
+   "licence": "author's permission (LICENSE at pin d94d9f3a7b8d: NOASSERTION; repository: MIT)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T04:46Z",
+    "consent_receipt": "a9ccd755f602",
+    "note": "Inclusion consented by the commit author by email at 2026-11-06T04:46Z (receipt a9ccd755f602); selected commit d94d9f3a7b8d: \"Publish complete UPM package from main with stable metadata\". LICENSE at pin d94d9f3a7b8d: NOASSERTION (repository: MIT); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

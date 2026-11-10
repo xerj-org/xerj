@@ -2,8 +2,8 @@
  "corpus": "dimamishchenko--currency",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Swift queries this for how DimaMishchenko/currency implements it: Currency Converter Widgets App (selected work: Domain, Apps/Currency)",
+ "shelf": "WEB",
+ "domain": "an agent working on indie, ios, swift queries this for how DimaMishchenko/currency implements it: Currency Converter Widgets App (selected work: Domain, Apps/Currency)",
  "repos": [
   {
    "repo": "currency",

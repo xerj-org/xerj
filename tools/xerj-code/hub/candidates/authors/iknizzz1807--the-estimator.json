@@ -8,15 +8,15 @@
   {
    "repo": "the-estimator",
    "url": "https://github.com/iknizzz1807/the-estimator",
-   "sha": "f94f78d16a27c9a28bb91a0b94c7c41e0e3fb173",
-   "licence": "MIT (LICENSE file at pin f94f78d16a27, GitHub licence API 2026-10-24)",
+   "sha": "7a3fbe5c6a980b917c7ea678bc993a3f3440576d",
+   "licence": "MIT (LICENSE file at pin 7a3fbe5c6a98, GitHub licence API 2026-11-07)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-18T20:14Z",
     "consent_receipt": "62ada4daa66b",
-    "note": "Inclusion consented by the commit author by email at 2026-10-18T20:14Z (receipt 62ada4daa66b); selected commit f94f78d16a27: \"feat(frontend): feature overrides + show all lower-impact unknowns (D29)\". LICENSE file at pin f94f78d16a27 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Pinned to head f94f78d16a27 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-18T20:14Z (receipt 62ada4daa66b); selected commit 7a3fbe5c6a98: \"feat(frontend): feature overrides + show all lower-impact unknowns (D29)\". LICENSE file at pin 7a3fbe5c6a98 detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution. Pinned to head 7a3fbe5c6a98 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

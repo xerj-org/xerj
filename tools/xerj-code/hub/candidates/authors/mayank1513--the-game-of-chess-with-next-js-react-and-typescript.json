@@ -1,0 +1,23 @@
+{
+ "corpus": "mayank1513--the-game-of-chess-with-next-js-react-and-typescript",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how mayank1513/The-Game-of-Chess-with-Next-JS-React-and-TypeScript implements it: https://mayank-chaudhari.vercel.app/courses",
+ "repos": [
+  {
+   "repo": "The-Game-of-Chess-with-Next-JS-React-and-TypeScript",
+   "url": "https://github.com/mayank1513/The-Game-of-Chess-with-Next-JS-React-and-TypeScript",
+   "sha": "39d503db9a4ea03c250e40a03995f5bf2052d477",
+   "licence": "author's permission (LICENSE at pin 39d503db9a4e: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T04:33Z",
+    "consent_receipt": "08f91613133f",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T04:33Z (receipt 08f91613133f); pinned to the default-branch head. LICENSE at pin 39d503db9a4e: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

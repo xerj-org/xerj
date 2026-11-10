@@ -1,0 +1,23 @@
+{
+ "corpus": "thuva-sk--edu-family",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how Thuva-SK/EDU-FAMILY implements it: Thuva-SK/EDU-FAMILY (JavaScript) (selected work: src, src/components, src/context)",
+ "repos": [
+  {
+   "repo": "EDU-FAMILY",
+   "url": "https://github.com/Thuva-SK/EDU-FAMILY",
+   "sha": "174f64781d9b34b81967c8a9306e064ef0fd4960",
+   "licence": "MIT (LICENSE file at pin 174f64781d9b, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T14:49Z",
+    "consent_receipt": "95d643c93526",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T14:49Z (receipt 95d643c93526); selected commit 174f64781d9b: \"thuva-fix\". LICENSE file at pin 174f64781d9b detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

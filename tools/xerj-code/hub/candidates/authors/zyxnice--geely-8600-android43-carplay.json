@@ -1,0 +1,23 @@
+{
+ "corpus": "zyxnice--geely-8600-android43-carplay",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Kotlin queries this for how zyxnice/Geely-8600-Android43-CarPlay implements it: \u5409\u5229\u661f\u8d8a2019\u6b3e8600\u539f\u5382\u8f66\u673a\u4e13\u7528\uff08Android 4.3/API18\uff09\uff0c\u72ec\u7acb\u7ef4\u62a4\u3002USB CarPlay\u4e0eHUD\u5bfc\u822a\u5df2\u63a5\u5165\uff1b\u539f\u5382\u5a92\u4f5323/\u5bfc\u822a11\u53ca\u5bfc\u822a\u97f3\u91cf\u8c03\u8282\u5df2\u5b9e\u6d4b\uff0c\u63d2\u7ebf\u91cd\u542f\u6062\u590d\u901a\u8fc7\u4e00\u6b21\u5b9e\u8f66\u9a8c\u8bc1\u3002HUD\u884c\u9a76\u95ea\u70c1\u3001VPN\u91cd\u542f\u6388\u6743\u4e0e\u957f\u671f\u7a33\u5b9a\u6027\u4ecd\u5f85\u9a8c\u8bc1\u6216\u5904\u7406\u3002\u65e0\u7ebf\u8fde\u63a5\u4e3a\u540e\u7eed\u89c4\u5212 (selected work: shared, common)",
+ "repos": [
+  {
+   "repo": "Geely-8600-Android43-CarPlay",
+   "url": "https://github.com/zyxnice/Geely-8600-Android43-CarPlay",
+   "sha": "1789912a15fb10bfefa2d0490685c2662f97f251",
+   "licence": "GPL-3.0 (LICENSE file at pin 1789912a15fb, GitHub licence API 2026-11-04)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-04T09:30Z",
+    "consent_receipt": "d09e6656ccd8",
+    "note": "Inclusion consented by the commit author by email at 2026-11-04T09:30Z (receipt d09e6656ccd8); selected commit 1789912a15fb: \"feat(hud): add exclusive stock navigation control and recovery\". LICENSE file at pin 1789912a15fb detected as GPL-3.0 by the GitHub licence API on 2026-11-04; used under that licence with attribution."
+   }
+  }
+ ]
+}

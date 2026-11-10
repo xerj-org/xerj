@@ -1,0 +1,23 @@
+{
+ "corpus": "hironow--advena",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how hironow/advena implements it: \u30df=\u30db Mi-Ho /mi\u02d0 ho\u028a/ \u30df\u30fc\u30fb\u30db (\u30b3\u30fc\u30c9\u30cd\u30fc\u30e0 advena \u30a2\u30c9\u30f4\u30a7\u30ca) *in development / Build at AI Agent Hackathon (selected work: backend)",
+ "repos": [
+  {
+   "repo": "advena",
+   "url": "https://github.com/hironow/advena",
+   "sha": "29f912344aec9f4277852627ff170dafda97265b",
+   "licence": "MIT (LICENSE file at pin 29f912344aec, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T19:23Z",
+    "consent_receipt": "8e58b9ef776b",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T19:23Z (receipt 8e58b9ef776b); selected commit 29f912344aec: \"fix(genai): replace LiteLLM with native Gemini model (#193)\". LICENSE file at pin 29f912344aec detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

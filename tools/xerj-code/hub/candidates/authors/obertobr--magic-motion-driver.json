@@ -1,0 +1,23 @@
+{
+ "corpus": "obertobr--magic-motion-driver",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how obertobr/magic-motion-driver implements it: Driver for LG Magic Motion controller (selected work: src/presentation, src/domain)",
+ "repos": [
+  {
+   "repo": "magic-motion-driver",
+   "url": "https://github.com/obertobr/magic-motion-driver",
+   "sha": "b780f3745339113885e56a5c89f423ae0b20f17a",
+   "licence": "GPL-2.0 (LICENSE file at pin b780f3745339, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-06T15:34Z",
+    "consent_receipt": "efd627c30919",
+    "note": "Inclusion consented by the commit author by email at 2026-11-06T15:34Z (receipt efd627c30919); selected commit b780f3745339: \"feat(i18n): add pt-BR/en-US localization, Windows language detection,\u2026\". LICENSE file at pin b780f3745339 detected as GPL-2.0 by the GitHub licence API on 2026-11-07; used under that licence with attribution. Pinned to head b780f3745339 (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

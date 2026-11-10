@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on health, local-first, medication queries this for how SuperDaveOrg/Nexpill implements it: SuperDaveOrg/Nexpill (Dart) (selected work: lib/ui, test, lib/data)",
+ "domain": "an agent working on health, local-first, medication queries this for how SuperDaveOrg/Nexpill implements it: A medication timing tracker for caregivers. On-device reminders, no account, no server, no internet permission (selected work: lib/ui, test, lib/data)",
  "repos": [
   {
    "repo": "Nexpill",

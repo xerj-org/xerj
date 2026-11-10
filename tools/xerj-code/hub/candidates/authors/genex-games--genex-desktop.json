@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on TypeScript queries this for how genex-games/genex-desktop implements it: Desktop app for game dev with AI. macOS, Windows and Linux (selected work: src/renderer, tests, src/shared)",
+ "domain": "an agent working on ai-agents, claude-code, codex queries this for how genex-games/genex-desktop implements it: Desktop app for game dev with AI: make games in Unreal Engine, Unity, Godot or the browser. The agent sets up the engine, builds your game a (selected work: src/renderer, tests, src/shared)",
  "repos": [
   {
    "repo": "genex-desktop",

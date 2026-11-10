@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on factory-operations, firebase, genkit queries this for how senanurcetin/Ops-Copilot implements it: Industrial RAG and SECOM research plus a separate read-only GitHub Actions REST API auditor; evidence-led demos, not safety control (selected work: tests, src/server, src/services)",
+ "domain": "an agent working on factory-operations, firebase, genkit queries this for how senanurcetin/Ops-Copilot implements it: Industrial RAG assistant and SECOM yield research, plus a read-only GitHub Actions audit CLI (selected work: tests, src/server, src/services)",
  "repos": [
   {
    "repo": "Ops-Copilot",

@@ -1,0 +1,23 @@
+{
+ "corpus": "zarmumia--upwork-scout",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on code queries this for how zarmumia/upwork-scout implements it: A Claude skill that scans fresh Upwork jobs, screens them against your criteria and red flags, and reads the client's history. You decide an",
+ "repos": [
+  {
+   "repo": "upwork-scout",
+   "url": "https://github.com/zarmumia/upwork-scout",
+   "sha": "67079d00f2fe4ed85da021c99b75fed500658b2b",
+   "licence": "MIT (LICENSE file at pin 67079d00f2fe, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T20:02Z",
+    "consent_receipt": "2118090831f6",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-09T20:02Z (receipt 2118090831f6); pinned to the default-branch head. LICENSE file at pin 67079d00f2fe detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

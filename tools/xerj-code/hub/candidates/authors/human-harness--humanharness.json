@@ -1,0 +1,23 @@
+{
+ "corpus": "human-harness--humanharness",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on acp, ai-agents, electron queries this for how Human-Harness/humanharness implements it: Open-source framework for installable AI harness apps powered by each user's own AI subscription (selected work: packages/shell, packages/mod-sdk, packages/protocol)",
+ "repos": [
+  {
+   "repo": "humanharness",
+   "url": "https://github.com/Human-Harness/humanharness",
+   "sha": "53c19c2787226767f65d8d0bc7a2aafac715ffab",
+   "licence": "Apache-2.0 (LICENSE file at pin 53c19c278722, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T00:15Z",
+    "consent_receipt": "07dce79b1712",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T00:15Z (receipt 07dce79b1712); selected commit 53c19c278722: \"feat(mods): mod API and host (minimal core step 0a) (#140)\". LICENSE file at pin 53c19c278722 detected as Apache-2.0 by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

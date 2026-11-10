@@ -1,0 +1,23 @@
+{
+ "corpus": "dhunu--gitos",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on ai, developer-tools, git queries this for how Dhunu/gitOS implements it: A native macOS git client that switches GitHub accounts automatically by folder or repository (selected work: Sources, Tests, scripts)",
+ "repos": [
+  {
+   "repo": "gitOS",
+   "url": "https://github.com/Dhunu/gitOS",
+   "sha": "4a3b4c16ae04919d3050bbc38a2afa17d6770d8f",
+   "licence": "MIT (LICENSE file at pin 4a3b4c16ae04, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T05:07Z",
+    "consent_receipt": "fac65eed1f22",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T05:07Z (receipt fac65eed1f22); selected commit 4a3b4c16ae04: \"Add themes, background update install, and restart prompt\". LICENSE file at pin 4a3b4c16ae04 detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution. Pinned to head 4a3b4c16ae04 (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

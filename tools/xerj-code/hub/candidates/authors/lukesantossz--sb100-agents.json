@@ -1,0 +1,23 @@
+{
+ "corpus": "lukesantossz--sb100-agents",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ollama, qdrant, rag queries this for how LukeSantossz/sb100_agents implements it: RAG-based agricultural Q&A system using FastAPI, Qdrant vector database, and Ollama LLM for semantic document retrieval and response generat (selected work: web)",
+ "repos": [
+  {
+   "repo": "sb100_agents",
+   "url": "https://github.com/LukeSantossz/sb100_agents",
+   "sha": "5d467160b4b255b85478e9f83df4dcf6e5e82f75",
+   "licence": "MIT (LICENSE file at pin 5d467160b4b2, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T02:20Z",
+    "consent_receipt": "cdb9add6a2df",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T02:20Z (receipt cdb9add6a2df); selected commit 5d467160b4b2: \"feat(web): redesign the web page around the conversation\". LICENSE file at pin 5d467160b4b2 detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+   }
+  }
+ ]
+}

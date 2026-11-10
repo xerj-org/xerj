@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-agents, applicant-tracking-system, fastapi queries this for how davinakmalyasha/HRAgents implements it: Open-source virtual HR team: LLM agents extract, deterministic code decides, humans gate every consequential decision (Apache-2.0) (selected work: tests, src/hr_agents)",
+ "domain": "an agent working on ai-agents, applicant-tracking-system, hr-tech queries this for how davinakmalyasha/HRAgents implements it: Open-source HR cockpit for a one-person HR department: Tauri desktop, encrypted SQLite, agents draft while humans decide (Apache-2.0) (selected work: tests, src/hr_agents)",
  "repos": [
   {
    "repo": "HRAgents",

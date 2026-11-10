@@ -1,0 +1,23 @@
+{
+ "corpus": "maxsinggamer--acsystem",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on cpp, cryptocurrency, economy queries this for how MaxSingGamer/ACSystem implements it: \u4e3a Minecraft \u670d\u52a1\u5668\u7ec4\u7ec7 Alpha Economy Union \u63d0\u4f9b\u7684\u53ef\u5ba1\u8ba1\u3001\u53ef\u7b7e\u540d\u7684 A\u20ac \u6e38\u620f\u865a\u62df\u6570\u5b57\u8d27\u5e01\u7ed3\u7b97\u57fa\u7840\u8bbe\u65bd (selected work: panel, server, core/src)",
+ "repos": [
+  {
+   "repo": "ACSystem",
+   "url": "https://github.com/MaxSingGamer/ACSystem",
+   "sha": "1bf1ce0f053cc6caacd363f9f2f8ef9dc1b20be4",
+   "licence": "MIT (LICENSE file at pin 1bf1ce0f053c, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T09:14Z",
+    "consent_receipt": "b1b8d924c093",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T09:14Z (receipt b1b8d924c093); selected commit 1bf1ce0f053c: \"[Mix - 20261107] v4.0.0 \u53d1\u5e03\uff1a\u670d\u52a1\u53cc\u57df\u540d\u4e0e\u9762\u677f\u767b\u5f55/2FA/Passkey\u3001\u5b89\u5168\u52a0\u56fa\u4e0e DDoS \u9632\u62a4\u3001\u5ba2\u6237\u7aef\u7b7e\u540d\u2026\". LICENSE file at pin 1bf1ce0f053c detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+   }
+  }
+ ]
+}

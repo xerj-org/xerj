@@ -1,0 +1,23 @@
+{
+ "corpus": "yeying-community--deployer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Shell queries this for how yeying-community/deployer implements it: a toolkit for yeying community (selected work: tool)",
+ "repos": [
+  {
+   "repo": "deployer",
+   "url": "https://github.com/yeying-community/deployer",
+   "sha": "7ddda83b9fff3d58ac72f40c5213e440f50ebc99",
+   "licence": "MIT (LICENSE file at pin 7ddda83b9fff, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T01:04Z",
+    "consent_receipt": "1e573229fa10",
+    "note": "Inclusion consented by the commit author by email at 2026-11-05T01:04Z (receipt 1e573229fa10); selected commit 7ddda83b9fff: \"feat(tool): add Windows Codex configurator\". LICENSE file at pin 7ddda83b9fff detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

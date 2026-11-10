@@ -1,0 +1,23 @@
+{
+ "corpus": "xarber--velunivo",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on altstore, android, ebike queries this for how Xarber/Velunivo implements it: Your route. Your riding speed. iOS-first e-scooter and e-bike navigation, vehicle-specific ETA, GPX, native maps and a responsive web planne (selected work: modules/velunivo-ride-wake, src/components, src/services)",
+ "repos": [
+  {
+   "repo": "Velunivo",
+   "url": "https://github.com/Xarber/Velunivo",
+   "sha": "9f5e4b921e3d696387ec3eea96c90ed290110faa",
+   "licence": "AGPL-3.0 (LICENSE file at pin 9f5e4b921e3d, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-08T12:55Z",
+    "consent_receipt": "6c226053c7bf",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T12:55Z (receipt 6c226053c7bf); selected commit 9f5e4b921e3d: \"feat(ios): resume ride detection through native location wake\". LICENSE file at pin 9f5e4b921e3d detected as AGPL-3.0 by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+   }
+  }
+ ]
+}

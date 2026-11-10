@@ -1,0 +1,23 @@
+{
+ "corpus": "fabiocmazzo--idetea",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Rust queries this for how fabiocmazzo/idetea implements it: A fast, quiet IDE written in pure Rust with iced, built for working side by side with coding agents. Free, always: Apache 2.0 (selected work: crates/ext, crates/tea-core, crates/tea-dap)",
+ "repos": [
+  {
+   "repo": "idetea",
+   "url": "https://github.com/fabiocmazzo/idetea",
+   "sha": "eae479dca75e1e3f6df4ca26c2d33019b76c4795",
+   "licence": "Apache-2.0 (LICENSE file at pin eae479dca75e, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T22:57Z",
+    "consent_receipt": "79ca733aec5e",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T22:57Z (receipt 79ca733aec5e); selected commit eae479dca75e: \"Implementa Etapa 2 da RFC 0013 (Terminal, Tasks, DAP e atalhos/PATH n\u2026\". LICENSE file at pin eae479dca75e detected as Apache-2.0 by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

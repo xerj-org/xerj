@@ -1,0 +1,23 @@
+{
+ "corpus": "belasoaress--tanque-cheio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on duckdb, fine-tuning, gradio queries this for how belasoaress/tanque-cheio implements it: Portuguese text-to-SQL over Brazil's ANP fuel prices. A QLoRA fine-tuned Qwen2.5-Coder-1.5B ties the 32B (80.7% vs 78.0% EX) at ~15\u00d7 lower c (selected work: app, tests, the project root)",
+ "repos": [
+  {
+   "repo": "tanque-cheio",
+   "url": "https://github.com/belasoaress/tanque-cheio",
+   "sha": "e0dcfd8f66d79187ed5ec2266288eeabd9d3e3a6",
+   "licence": "MIT (LICENSE file at pin e0dcfd8f66d7, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T20:02Z",
+    "consent_receipt": "bd15c4c56f40",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T20:02Z (receipt bd15c4c56f40); selected commit e0dcfd8f66d7: \"feat(app): demo Gradio para o HF Spaces com o GGUF, o mesmo guardrail\u2026\". LICENSE file at pin e0dcfd8f66d7 detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

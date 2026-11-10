@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "NET",
- "domain": "an agent working on hyper, load-balancer, ngnix queries this for how luizfonseca/super implements it: Reverse proxy without the overhead. Automatic HTTPS, load balancing, plugins, HTTP/3 and an admin UI. Fast enough to forget it's there (selected work: crates/super_plugins, crates/super)",
+ "domain": "an agent working on hyper, load-balancer, ngnix queries this for how luizfonseca/super implements it: Reverse proxy without the overhead. Automatic HTTPS, load balancing, plugins, HTTP/3 and an admin UI. It's fast (selected work: crates/super_plugins, crates/super)",
  "repos": [
   {
    "repo": "super",

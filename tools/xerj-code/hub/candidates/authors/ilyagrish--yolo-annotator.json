@@ -1,0 +1,23 @@
+{
+ "corpus": "ilyagrish--yolo-annotator",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on annotation-tool, coco, coco-dataset queries this for how ILYAGRISH/yolo-annotator implements it: Offline desktop image annotation tool (PyQt6): bbox, polygon, OBB, keypoints, brush masks, semantic & panoptic segmentation. Exports YOLO (d (selected work: new_annotator, Deploy, the project root)",
+ "repos": [
+  {
+   "repo": "yolo-annotator",
+   "url": "https://github.com/ILYAGRISH/yolo-annotator",
+   "sha": "fdd44bfd4cddce9719ac8d29f4f596c64887ffb4",
+   "licence": "GPL-3.0 (LICENSE file at pin fdd44bfd4cdd, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-03T09:06Z",
+    "consent_receipt": "d7ae4efd7b99",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T09:06Z (receipt d7ae4efd7b99); selected commit fdd44bfd4cdd: \"feat: ML backend infrastructure (phase 7-A)\". LICENSE file at pin fdd44bfd4cdd detected as GPL-3.0 by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "mohanedmoh--rock-paper-scissors-spock-lizard",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Java queries this for how mohanedmoh/rock-paper-scissors-spock-lizard implements it: mohanedmoh/rock-paper-scissors-spock-lizard (Java) (selected work: the project root, src/main, cypher)",
+ "repos": [
+  {
+   "repo": "rock-paper-scissors-spock-lizard",
+   "url": "https://github.com/mohanedmoh/rock-paper-scissors-spock-lizard",
+   "sha": "3ab68dff0533db16e0473e870d01255efcead610",
+   "licence": "Apache-2.0 (LICENSE file at pin 3ab68dff0533, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T11:49Z",
+    "consent_receipt": "1b70341dcd38",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T11:49Z (receipt 1b70341dcd38); selected commit 3ab68dff0533: \"Add the Part 4 game project\". LICENSE file at pin 3ab68dff0533 detected as Apache-2.0 by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

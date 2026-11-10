@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on social, web-app, community-platform queries this for how sebin-gg/kindred implements it: \ud83e\udd1d Kindred - Full-stack community impact tracking platform with Express 5, React 19, MongoDB, and JWT authentication",
+ "domain": "an agent working on mongodb, full-stack, express queries this for how sebin-gg/kindred implements it: \ud83e\udd1d Kindred - Full-stack community impact tracking platform with Express 5, React 19, MongoDB, and JWT authentication",
  "repos": [
   {
    "repo": "kindred",

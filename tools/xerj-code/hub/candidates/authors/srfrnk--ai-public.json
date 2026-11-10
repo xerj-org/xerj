@@ -1,0 +1,23 @@
+{
+ "corpus": "srfrnk--ai-public",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how srfrnk/ai-public implements it: Public stuff I can share (selected work: bantha, strata)",
+ "repos": [
+  {
+   "repo": "ai-public",
+   "url": "https://github.com/srfrnk/ai-public",
+   "sha": "b80b55d6e1635ea52c47e3875dcad3e552e9862d",
+   "licence": "MIT (LICENSE file at pin b80b55d6e163, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T06:02Z",
+    "consent_receipt": "d482383ad04f",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T06:02Z (receipt d482383ad04f); selected commit b80b55d6e163: \"feat(bantha,strata): add bantha agent sandbox runner and strata servi\u2026\". LICENSE file at pin b80b55d6e163 detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

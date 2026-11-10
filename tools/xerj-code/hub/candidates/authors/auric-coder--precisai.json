@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on HTML queries this for how Auric-Coder/PrecisAI implements it: Abstractive and extractive summarizer for long news and government circulars. A BiGRU encoder-decoder with Bahdanau/Luong attention and beam (selected work: results, src/extras)",
+ "domain": "an agent working on nlp, nlp-deep-learning, nlp-machine-learning queries this for how Auric-Coder/PrecisAI implements it: Abstractive and extractive summarizer for long news and government circulars. A BiGRU encoder-decoder with Bahdanau/Luong attention and beam (selected work: results, src/extras)",
  "repos": [
   {
    "repo": "PrecisAI",

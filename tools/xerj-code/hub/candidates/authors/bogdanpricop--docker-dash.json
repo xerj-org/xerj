@@ -1,0 +1,23 @@
+{
+ "corpus": "bogdanpricop--docker-dash",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on container-management, dashboard, devops queries this for how bogdanpricop/docker-dash implements it: Self-hosted Docker management dashboard \u2014 runs standalone (zero deps) or in HA mode (Redis). In-app observability wizard (Prometheus+Grafana (selected work: public, src/services, src/__tests__)",
+ "repos": [
+  {
+   "repo": "docker-dash",
+   "url": "https://github.com/bogdanpricop/docker-dash",
+   "sha": "3c8c01930a38407c938e47b1551f8c39386d5524",
+   "licence": "MIT (LICENSE file at pin 3c8c01930a38, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T11:02Z",
+    "consent_receipt": "0918e68abc00",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T11:02Z (receipt 0918e68abc00); selected commit 3c8c01930a38: \"fix: update AI models and restore settings dialogs\". LICENSE file at pin 3c8c01930a38 detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "jessebrown1980--solved-the-birch-and-swinnerton-dyer-bsd-conjecture-on-elliptic-curves-solved",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how JesseBrown1980/Solved-The-Birch-and-Swinnerton-Dyer-BSD-Conjecture-on-Elliptic-Curves-Solved implements it: JesseBrown1980/Solved-The-Birch-and-Swinnerton-Dyer-BSD-Conjecture-on-Elliptic-Curves-Solved (Rust)",
+ "repos": [
+  {
+   "repo": "Solved-The-Birch-and-Swinnerton-Dyer-BSD-Conjecture-on-Elliptic-Curves-Solved",
+   "url": "https://github.com/JesseBrown1980/Solved-The-Birch-and-Swinnerton-Dyer-BSD-Conjecture-on-Elliptic-Curves-Solved",
+   "sha": "28d8393f297974f931669dc7dab0a8108fb71ed9",
+   "licence": "author's permission (LICENSE at pin 28d8393f2979: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T14:53Z",
+    "consent_receipt": "15c81c7d864d",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T14:53Z (receipt 15c81c7d864d); pinned to the default-branch head. LICENSE at pin 28d8393f2979: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "OPS",
- "domain": "an agent working on TypeScript queries this for how rivi-software/tools implements it: Small packages RIVI Software builds its own apps with, for Cloudflare Workers, Vite, React and TanStack Start (selected work: packages/deploy-watch)",
+ "domain": "an agent working on cloudflare, cloudflare-workers, posthog queries this for how rivi-software/tools implements it: Small packages RIVI Software builds its own apps with, for Cloudflare Workers, Vite, React and TanStack Start (selected work: packages/deploy-watch)",
  "repos": [
   {
    "repo": "tools",

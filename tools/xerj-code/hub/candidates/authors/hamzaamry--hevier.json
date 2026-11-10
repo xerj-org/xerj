@@ -1,0 +1,23 @@
+{
+ "corpus": "hamzaamry--hevier",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on fitness, gym, gymampfitnessapp queries this for how hamzaamry/hevier implements it: Workout tracker for Android: log sets fast, follow a training cycle, and see what each muscle is getting, with science-backed set counts and (selected work: components, plugins, app/(tabs))",
+ "repos": [
+  {
+   "repo": "hevier",
+   "url": "https://github.com/hamzaamry/hevier",
+   "sha": "78c6e9a8e04524afc9bfdc55679b2007ff29d649",
+   "licence": "AGPL-3.0 (LICENSE file at pin 78c6e9a8e045, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-09T23:08Z",
+    "consent_receipt": "acd25b90c214",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T23:08Z (receipt acd25b90c214); selected commit 78c6e9a8e045: \"Tabs: Android's native tab bar, sized like Hevy's, so switching tabs \u2026\". LICENSE file at pin 78c6e9a8e045 detected as AGPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

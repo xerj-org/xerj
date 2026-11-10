@@ -1,0 +1,23 @@
+{
+ "corpus": "aleixmt--home-server",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on home-server queries this for how AleixMT/home-server implements it: Contains documentation, scripts, data, public keys and guides to set up a world-wide accessible home media server",
+ "repos": [
+  {
+   "repo": "home-server",
+   "url": "https://github.com/AleixMT/home-server",
+   "sha": "34d71d47b38fd1e729a608707285583c02805d5d",
+   "licence": "GPL-3.0 (LICENSE file at pin 34d71d47b38f, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-03T14:44Z",
+    "consent_receipt": "ba916d071fbe",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-03T14:44Z (receipt ba916d071fbe); pinned to the default-branch head. LICENSE file at pin 34d71d47b38f detected as GPL-3.0 by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

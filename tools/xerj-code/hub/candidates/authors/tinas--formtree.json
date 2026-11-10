@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on TypeScript queries this for how tinas/formtree implements it: A headless form tree for any UI layer (selected work: packages/vue, apps/vue-playground, the project root)",
+ "domain": "an agent working on form-validation, forms, headless queries this for how tinas/formtree implements it: A headless form tree for any UI layer (selected work: packages/vue, apps/vue-playground, the project root)",
  "repos": [
   {
    "repo": "formtree",

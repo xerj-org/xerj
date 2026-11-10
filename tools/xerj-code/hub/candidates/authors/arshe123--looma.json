@@ -1,0 +1,23 @@
+{
+ "corpus": "arshe123--looma",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how Arshe123/looma implements it: \u4e00\u4e2a\u529f\u80fd\u65b9\u4fbf\u3001\u4f7f\u7528\u7b80\u5355\uff0c\u96c6\u6210\u672c\u5730Agent\u7684\u672c\u5730\u5f00\u6e90\u7b14\u8bb0\u8f6f\u4ef6 (selected work: src/shared, scripts, src/renderer)",
+ "repos": [
+  {
+   "repo": "looma",
+   "url": "https://github.com/Arshe123/looma",
+   "sha": "bb5a1563addb9c84457fb1e0ba6cb5e183ef1c18",
+   "licence": "AGPL-3.0 (LICENSE file at pin bb5a1563addb, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-03T09:47Z",
+    "consent_receipt": "b48d405a57a6",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T09:47Z (receipt b48d405a57a6); selected commit bb5a1563addb: \"feat: \u5f53\u5149\u6807\u5728\u884c\u5185\u5757\u5185\u548c\u8fb9\u754c\u5904\u65f6\uff0c\u4f1a\u5c55\u5f00\u884c\u5185\u5757md\u6e90\u7801\uff0c\u4ee5\u4fbf\u7f16\u5199\". LICENSE file at pin bb5a1563addb detected as AGPL-3.0 by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

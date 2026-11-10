@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on JavaScript queries this for how nuttallp/agent-plugin implements it: Clypmint agent plugin: video creation, editing and shared skills for ChatGPT, Claude and Codex (selected work: chatgpt, plugins, scripts)",
+ "domain": "an agent working on chatgpt, claude-code, codex queries this for how nuttallp/agent-plugin implements it: Clypmint agent plugin: video creation, editing and shared skills for ChatGPT, Claude and Codex (selected work: chatgpt, plugins, scripts)",
  "repos": [
   {
    "repo": "agent-plugin",

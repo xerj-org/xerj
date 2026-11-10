@@ -1,0 +1,23 @@
+{
+ "corpus": "jessebrown1980--finite-reversible-ternary-system-generate-the-experimentally-measured-laws-of-physics-from",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how JesseBrown1980/finite-reversible-ternary-system-generate-the-experimentally-measured-laws-of-physics-from implements it: JesseBrown1980/finite-reversible-ternary-system-generate-the-experimentally-measured-laws-of-physics-from (C++)",
+ "repos": [
+  {
+   "repo": "finite-reversible-ternary-system-generate-the-experimentally-measured-laws-of-physics-from",
+   "url": "https://github.com/JesseBrown1980/finite-reversible-ternary-system-generate-the-experimentally-measured-laws-of-physics-from",
+   "sha": "65f2b95859db572ceaa71f7fb88ffc3501abd4b7",
+   "licence": "MIT (LICENSE file at pin 65f2b95859db, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T14:53Z",
+    "consent_receipt": "177f3d80f86b",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T14:53Z (receipt 177f3d80f86b); pinned to the default-branch head. LICENSE file at pin 65f2b95859db detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

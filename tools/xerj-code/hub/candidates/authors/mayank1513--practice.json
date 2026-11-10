@@ -1,0 +1,23 @@
+{
+ "corpus": "mayank1513--practice",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how mayank1513/practice implements it: mayank1513/practice (C)",
+ "repos": [
+  {
+   "repo": "practice",
+   "url": "https://github.com/mayank1513/practice",
+   "sha": "da8e9feb9e04b8e8b88c10e4a176202f857fb10d",
+   "licence": "author's permission (LICENSE at pin da8e9feb9e04: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T04:33Z",
+    "consent_receipt": "6ded6cc0b1e7",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T04:33Z (receipt 6ded6cc0b1e7); pinned to the default-branch head. LICENSE at pin da8e9feb9e04: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

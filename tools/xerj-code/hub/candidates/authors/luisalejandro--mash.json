@@ -1,0 +1,23 @@
+{
+ "corpus": "luisalejandro--mash",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent, agent-orchestration, ai queries this for how LuisAlejandro/mash implements it: Your favorite tools \u2014 mashed to help you ship (selected work: packaging)",
+ "repos": [
+  {
+   "repo": "mash",
+   "url": "https://github.com/LuisAlejandro/mash",
+   "sha": "3202d0ba079e6da5fe6bee462407cc4f145b9c2f",
+   "licence": "GPL-3.0 (LICENSE file at pin 3202d0ba079e, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-07T17:20Z",
+    "consent_receipt": "fe73e0b55e78",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T17:20Z (receipt fe73e0b55e78); selected commit 3202d0ba079e: \"[ADD] Build Mash for Intel Macs (macos-amd64).\". LICENSE file at pin 3202d0ba079e detected as GPL-3.0 by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

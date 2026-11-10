@@ -1,0 +1,23 @@
+{
+ "corpus": "jessebrown1980--hf-the-white-writing",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on code queries this for how JesseBrown1980/hf-the-white-writing implements it: The White Writing - the transformations in the symbol row. Naming layer. Mirrored from Hugging Face",
+ "repos": [
+  {
+   "repo": "hf-the-white-writing",
+   "url": "https://github.com/JesseBrown1980/hf-the-white-writing",
+   "sha": "d78010a902657915d5221ad9bc02f79bb777d3c3",
+   "licence": "author's permission (LICENSE at pin d78010a90265: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T14:53Z",
+    "consent_receipt": "cbb3c2476b14",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T14:53Z (receipt cbb3c2476b14); pinned to the default-branch head. LICENSE at pin d78010a90265: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

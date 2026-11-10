@@ -1,0 +1,23 @@
+{
+ "corpus": "vdtdg--dev-toolbox",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on developer-tools, development queries this for how vdtdg/dev-toolbox implements it: A developer toolbox containing various tools to help them in their day-to-day journey. Free. No ads. Open-source (selected work: src/routes, static, src/lib)",
+ "repos": [
+  {
+   "repo": "dev-toolbox",
+   "url": "https://github.com/vdtdg/dev-toolbox",
+   "sha": "243c994223de9c6b7f496663e409498625682fe9",
+   "licence": "GPL-3.0 (LICENSE file at pin 243c994223de, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-05T14:10Z",
+    "consent_receipt": "c742778ca0eb",
+    "note": "Inclusion consented by the commit author by email at 2026-11-05T14:10Z (receipt c742778ca0eb); selected commit 243c994223de: \"seo improvments.\". LICENSE file at pin 243c994223de detected as GPL-3.0 by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

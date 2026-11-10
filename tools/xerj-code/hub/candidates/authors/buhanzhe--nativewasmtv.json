@@ -1,0 +1,23 @@
+{
+ "corpus": "buhanzhe--nativewasmtv",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Java queries this for how buhanzhe/NativeWasmTv implements it: \u5f00\u6e90\u7f51\u9875\u7535\u89c6 (selected work: app/src, tools, tests)",
+ "repos": [
+  {
+   "repo": "NativeWasmTv",
+   "url": "https://github.com/buhanzhe/NativeWasmTv",
+   "sha": "7a6acca83d6a6c7f01eaff17d3d05f70e667d61e",
+   "licence": "author's permission (LICENSE at pin 7a6acca83d6a: NONE; repository: GPL-3.0)",
+   "review": {
+    "spdx": "NONE",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-04T02:04Z",
+    "consent_receipt": "d2c046efb74b",
+    "note": "Inclusion consented by the commit author by email at 2026-11-04T02:04Z (receipt d2c046efb74b); selected commit 7a6acca83d6a: \"\u4f18\u5316 HDR \u6620\u5c04\u5e76\u4fee\u590d KU9 \u76f4\u64ad\u548c\u8282\u76ee\u5355\u5237\u65b0\". LICENSE at pin 7a6acca83d6a: NONE (repository: GPL-3.0); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

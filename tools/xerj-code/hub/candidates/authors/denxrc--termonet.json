@@ -1,0 +1,23 @@
+{
+ "corpus": "denxrc--termonet",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on color-scheme, dotfiles, hyprland queries this for how Denxrc/termonet implements it: Fast, dynamic Material You system theme & palette generator for Linux (Wayland/X11) written in Rust. Responsive TUI with pixel font & live r (selected work: src/tui, src/config, src)",
+ "repos": [
+  {
+   "repo": "termonet",
+   "url": "https://github.com/Denxrc/termonet",
+   "sha": "6c4c1ded37bab1f86b869e9d503d711417fd2b77",
+   "licence": "MIT (LICENSE file at pin 6c4c1ded37ba, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T08:07Z",
+    "consent_receipt": "b797bddcab70",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T08:07Z (receipt b797bddcab70); selected commit 6c4c1ded37ba: \"feat(v0.3.0): manual wallpaper path input in TUI, tilde expansion, an\u2026\". LICENSE file at pin 6c4c1ded37ba detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution. Pinned to head 6c4c1ded37ba (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

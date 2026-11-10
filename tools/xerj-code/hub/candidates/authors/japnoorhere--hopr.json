@@ -1,0 +1,23 @@
+{
+ "corpus": "japnoorhere--hopr",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how JapnoorHere/hopr implements it: JapnoorHere/hopr (Rust) (selected work: src/lib, src/features)",
+ "repos": [
+  {
+   "repo": "hopr",
+   "url": "https://github.com/JapnoorHere/hopr",
+   "sha": "8eb38beadd7e3e648630be8a13023fc050c26647",
+   "licence": "MIT (LICENSE file at pin 8eb38beadd7e, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T05:02Z",
+    "consent_receipt": "4f629c4d81e4",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T05:02Z (receipt 4f629c4d81e4); selected commit 8eb38beadd7e: \"Password fields everywhere use one modern field: lock icon, show/hide\u2026\". LICENSE file at pin 8eb38beadd7e detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

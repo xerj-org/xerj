@@ -1,0 +1,23 @@
+{
+ "corpus": "jkleecontrols--symphony-kanban",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how jkleecontrols/symphony-kanban implements it: jkleecontrols/symphony-kanban (JavaScript) (selected work: test, src, scripts)",
+ "repos": [
+  {
+   "repo": "symphony-kanban",
+   "url": "https://github.com/jkleecontrols/symphony-kanban",
+   "sha": "b7462505bba82a164538fc91ac9b15a727e167d4",
+   "licence": "MIT (LICENSE file at pin b7462505bba8, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T23:58Z",
+    "consent_receipt": "02fcefeecece",
+    "note": "Inclusion consented by the commit author by email at 2026-11-06T23:58Z (receipt 02fcefeecece); selected commit b7462505bba8: \"Show Claude plan limits and track Codex session activity\". LICENSE file at pin b7462505bba8 detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

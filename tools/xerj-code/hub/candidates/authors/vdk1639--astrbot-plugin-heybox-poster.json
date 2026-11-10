@@ -1,0 +1,23 @@
+{
+ "corpus": "vdk1639--astrbot-plugin-heybox-poster",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how Vdk1639/astrbot_plugin_heybox_poster implements it: \u8fd9\u662f\u4e00\u4e2a\u7ed9AstrBot\u5f00\u53d1\u7684\u5c0f\u9ed1\u76d2\u51b2\u6d6a\u63d2\u4ef6 (selected work: xiaoheihe, adapter_tests, the project root)",
+ "repos": [
+  {
+   "repo": "astrbot_plugin_heybox_poster",
+   "url": "https://github.com/Vdk1639/astrbot_plugin_heybox_poster",
+   "sha": "52595084bc9f221e48782230762b83c733c15d35",
+   "licence": "MIT (LICENSE file at pin 52595084bc9f, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T19:25Z",
+    "consent_receipt": "82ef13fd1839",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T19:25Z (receipt 82ef13fd1839); selected commit 52595084bc9f: \"feat: add comment corpus collection for v0.8.4 dev\". LICENSE file at pin 52595084bc9f detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -8,15 +8,15 @@
   {
    "repo": "noctalia-opnsense-traffic",
    "url": "https://github.com/dMopp/noctalia-opnsense-traffic",
-   "sha": "1fdd75e1716b8c5420ee29f7a4351859f5073bb6",
-   "licence": "author's permission (LICENSE at pin 1fdd75e1716b: NONE; repository: none)",
+   "sha": "d2594fe9669e3f795ab59655fbbaca7d9984b6d9",
+   "licence": "MIT (LICENSE file at pin d2594fe9669e, GitHub licence API 2026-11-08)",
    "review": {
-    "spdx": "NONE",
+    "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-30T20:24Z",
     "consent_receipt": "759c36776d30",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T20:24Z (receipt 759c36776d30); pinned to the default-branch head. LICENSE at pin 1fdd75e1716b: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T20:24Z (receipt 759c36776d30); pinned to the default-branch head. LICENSE file at pin d2594fe9669e detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution."
    }
   }
  ]

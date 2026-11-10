@@ -1,0 +1,23 @@
+{
+ "corpus": "octotools--octotools",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agentic-framework, agents, complex-reasoning queries this for how octotools/octotools implements it: OctoTools: An agentic framework with extensible tools for complex reasoning (selected work: tests, octotools, tasks)",
+ "repos": [
+  {
+   "repo": "octotools",
+   "url": "https://github.com/octotools/octotools",
+   "sha": "bc17062af888f2cd9455af792dcbf4d7450ce12f",
+   "licence": "author's permission (LICENSE at pin bc17062af888: NOASSERTION; repository: MIT)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T02:26Z",
+    "consent_receipt": "a005cfa97427",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T02:26Z (receipt a005cfa97427); selected commit bc17062af888: \"Make vLLM optional and support separately managed servers (#64)\". LICENSE at pin bc17062af888: NOASSERTION (repository: MIT); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

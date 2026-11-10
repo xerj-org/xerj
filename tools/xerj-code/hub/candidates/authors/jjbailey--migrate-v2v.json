@@ -2,21 +2,21 @@
  "corpus": "jjbailey--migrate-v2v",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Python queries this for how jjbailey/migrate-v2v implements it: jjbailey/migrate-v2v (Python)",
+ "shelf": "OPS",
+ "domain": "an agent working on infrastructure, virtualization queries this for how jjbailey/migrate-v2v implements it: Migrate a VMware VM to another cloud provider",
  "repos": [
   {
    "repo": "migrate-v2v",
    "url": "https://github.com/jjbailey/migrate-v2v",
-   "sha": "61eb33b880c82c2f35e22f1c7affd3f99781cb40",
-   "licence": "MIT (LICENSE file at pin 61eb33b880c8, GitHub licence API 2026-11-01)",
+   "sha": "a3cb23fd2978da16207cd1e5d6fa33d916f03826",
+   "licence": "GPL-3.0 (LICENSE file at pin a3cb23fd2978, GitHub licence API 2026-11-09)",
    "review": {
-    "spdx": "MIT",
-    "use": "adapt-with-attribution",
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
     "by": "author-consent",
     "at": "2026-11-01T02:23Z",
     "consent_receipt": "9383d79138bc",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T02:23Z (receipt 9383d79138bc); pinned to the default-branch head. LICENSE file at pin 61eb33b880c8 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T02:23Z (receipt 9383d79138bc); pinned to the default-branch head. LICENSE file at pin a3cb23fd2978 detected as GPL-3.0 by the GitHub licence API on 2026-11-09; used under that licence with attribution."
    }
   }
  ]

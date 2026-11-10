@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Python queries this for how tujy859/Wearable-Physiological-Foundation-Models implements it: Awesome and Comprehensive Survey of Wearable Physiological Foundation Models (Smartwatch, CGM, Sleep, General TSFM) (selected work: data, scripts, the project root)",
+ "domain": "an agent working on Python queries this for how tujy859/Wearable-Physiological-Foundation-Models implements it: A guide to wearable and physiological foundation models, with papers, code, weights, benchmarks, and datasets (selected work: data, scripts, the project root)",
  "repos": [
   {
    "repo": "Wearable-Physiological-Foundation-Models",

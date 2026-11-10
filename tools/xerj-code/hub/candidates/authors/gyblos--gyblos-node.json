@@ -1,0 +1,23 @@
+{
+ "corpus": "gyblos--gyblos-node",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on inference, llm, llms queries this for how Gyblos/gyblos-node implements it: Gyblos reusable x402 payment adapters and devnet gates (selected work: tests, apps/node, the project root)",
+ "repos": [
+  {
+   "repo": "gyblos-node",
+   "url": "https://github.com/Gyblos/gyblos-node",
+   "sha": "3be161bb2736c86decdfd20fe17550f1b35bd968",
+   "licence": "Apache-2.0 (LICENSE file at pin 3be161bb2736, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T16:55Z",
+    "consent_receipt": "8d8ed481cef7",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T16:55Z (receipt 8d8ed481cef7); selected commit 3be161bb2736: \"seller: guide each onboarding step in the installer, status and regis\u2026\". LICENSE file at pin 3be161bb2736 detected as Apache-2.0 by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+   }
+  }
+ ]
+}

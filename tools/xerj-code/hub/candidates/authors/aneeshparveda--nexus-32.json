@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "LAW",
- "domain": "an agent working on artix-7, basys3, computer-architecture queries this for how Aneeshparveda/NEXUS-32 implements it: PicoRV32 FPGA SoC on Digilent Basys 3 (Artix-7 XC7A35T) comparing Sequential, Parallel and Pipelined FIR accelerators under one Q16.16 contr (selected work: scripts, firmware, tests)",
+ "domain": "an agent working on artix-7, basys3, computer-architecture queries this for how Aneeshparveda/NEXUS-32 implements it: PicoRV32 RISC-V SoC on Basys 3 (Artix-7) racing Sequential, Parallel and Pipelined FIR accelerators under one bit-exact Q16.16 contract. Sel (selected work: scripts, firmware, tests)",
  "repos": [
   {
    "repo": "NEXUS-32",

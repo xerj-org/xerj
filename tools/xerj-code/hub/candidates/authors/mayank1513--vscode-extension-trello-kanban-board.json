@@ -1,0 +1,23 @@
+{
+ "corpus": "mayank1513--vscode-extension-trello-kanban-board",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on javascript, kanban, kanban-board queries this for how mayank1513/vscode-extension-trello-kanban-board implements it: Simple trello like kanban board for VS Code. Visually organize your ideas!",
+ "repos": [
+  {
+   "repo": "vscode-extension-trello-kanban-board",
+   "url": "https://github.com/mayank1513/vscode-extension-trello-kanban-board",
+   "sha": "e126e50127ca406836996a009a3496de467b710f",
+   "licence": "MIT (LICENSE file at pin e126e50127ca, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T04:33Z",
+    "consent_receipt": "87c413879bf7",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T04:33Z (receipt 87c413879bf7); pinned to the default-branch head. LICENSE file at pin e126e50127ca detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

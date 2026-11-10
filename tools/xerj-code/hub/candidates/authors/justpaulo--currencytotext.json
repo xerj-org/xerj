@@ -1,0 +1,23 @@
+{
+ "corpus": "justpaulo--currencytotext",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Swift queries this for how justPaulo/CurrencyToText implements it: justPaulo/CurrencyToText (Swift) (selected work: Sources, CurrencyToText.app)",
+ "repos": [
+  {
+   "repo": "CurrencyToText",
+   "url": "https://github.com/justPaulo/CurrencyToText",
+   "sha": "06da96cd7b58cb0afc3b4a17cc7ad8be62a9d4ea",
+   "licence": "MIT (LICENSE file at pin 06da96cd7b58, GitHub licence API 2026-11-06)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T08:08Z",
+    "consent_receipt": "4c51ca55fac9",
+    "note": "Inclusion consented by the commit author by email at 2026-11-06T08:08Z (receipt 4c51ca55fac9); selected commit 06da96cd7b58: \"Added support for thousands separator and many other languages. Added\u2026\". LICENSE file at pin 06da96cd7b58 detected as MIT by the GitHub licence API on 2026-11-06; used under that licence with attribution. Pinned to head 06da96cd7b58 (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai, free-ai, multi-agent queries this for how WYSTAF/Vibe_Assembly implements it: Vibe Assembly v2.0.0 - zero-dollar, infinite-context vibe coding architecture. Pure-Rust multi-agent harness with hash-anchored patches, liv (selected work: crates/va-cli, crates/va-harness, crates/va-core)",
+ "domain": "an agent working on ai, free-ai, multi-agent queries this for how WYSTAF/Vibe_Assembly implements it: Vibe Assembly v2.4.0 - zero-dollar, infinite-context vibe coding architecture. Pure-Rust multi-agent harness with hash-anchored patches, liv (selected work: crates/va-cli, crates/va-harness, crates/va-core)",
  "repos": [
   {
    "repo": "Vibe_Assembly",
    "url": "https://github.com/WYSTAF/Vibe_Assembly",
-   "sha": "522d123a07d64eda3b7dce95e39ea7944abc56ab",
-   "licence": "Apache-2.0 (LICENSE file at pin 522d123a07d6, GitHub licence API 2026-11-02)",
+   "sha": "321f201dacf5bfc34485e3afb152a38927b43f55",
+   "licence": "Apache-2.0 (LICENSE file at pin 321f201dacf5, GitHub licence API 2026-11-08)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-22T10:37Z",
     "consent_receipt": "ef3d0f8eed81",
-    "note": "Inclusion consented by the commit author by email at 2026-10-22T10:37Z (receipt ef3d0f8eed81); selected commit 522d123a07d6: \"feat(runtime): adaptive profiles, context surface compaction, onYield\u2026\". LICENSE file at pin 522d123a07d6 detected as Apache-2.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution. Pinned to head 522d123a07d6 (contains the selected commit): the LICENSE at the selected commit was MIT."
+    "note": "Inclusion consented by the commit author by email at 2026-10-22T10:37Z (receipt ef3d0f8eed81); selected commit 321f201dacf5: \"feat(runtime): adaptive profiles, context surface compaction, onYield\u2026\". LICENSE file at pin 321f201dacf5 detected as Apache-2.0 by the GitHub licence API on 2026-11-08; used under that licence with attribution. Pinned to head 321f201dacf5 (contains the selected commit): the LICENSE at the selected commit was MIT."
    }
   }
  ]

@@ -1,0 +1,23 @@
+{
+ "corpus": "genokeeper--genokeeper",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "HEALTH",
+ "domain": "an agent working on bioinformatics, cli, clinvar queries this for how genokeeper/genokeeper implements it: Local, privacy-first analyser for your own whole genome sequencing (WGS) data: FASTQ to GRCh38 calls with DeepVariant on your Mac, graded ag (selected work: tests, src/genokeeper)",
+ "repos": [
+  {
+   "repo": "genokeeper",
+   "url": "https://github.com/genokeeper/genokeeper",
+   "sha": "433b9a6858db18137076bb34fa76756fee4674c5",
+   "licence": "AGPL-3.0 (LICENSE file at pin 433b9a6858db, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-08T03:02Z",
+    "consent_receipt": "358aa7a7c529",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T03:02Z (receipt 358aa7a7c529); selected commit 433b9a6858db: \"feat(sources): keep what a calibration table withholds, for the agent\". LICENSE file at pin 433b9a6858db detected as AGPL-3.0 by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+   }
+  }
+ ]
+}

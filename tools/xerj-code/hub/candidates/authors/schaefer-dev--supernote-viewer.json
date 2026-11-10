@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "NET",
- "domain": "an agent working on e-ink, handwriting, macos queries this for how schaefer-dev/supernote-viewer implements it: Open Supernote .note and .pdf.mark files on your Mac: Quick Look, searchable handwriting in Preview, live reload, measuring (selected work: SupernoteKit, Bridge, Shared)",
+ "domain": "an agent working on e-ink, handwriting, macos queries this for how schaefer-dev/supernote-viewer implements it: Sumi for Supernote: read Supernote .note notebooks and .pdf.mark annotated PDFs on Mac, iPhone and iPad. Searchable handwriting, Quick Look, (selected work: SupernoteKit, Bridge, Shared)",
  "repos": [
   {
    "repo": "supernote-viewer",

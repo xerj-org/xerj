@@ -1,0 +1,23 @@
+{
+ "corpus": "harsh0369--mongosnooze",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on agenda, bullmq, change-streams queries this for how Harsh0369/mongosnooze implements it: Schedule it in MongoDB. Wake it when it's due. Lightweight delayed-job triggers using Change Streams. No Redis required (selected work: src, test)",
+ "repos": [
+  {
+   "repo": "mongosnooze",
+   "url": "https://github.com/Harsh0369/mongosnooze",
+   "sha": "1223fd7513eb9d52b88ed71f332d581951823514",
+   "licence": "MIT (LICENSE file at pin 1223fd7513eb, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T07:12Z",
+    "consent_receipt": "a661fc822c4a",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T07:12Z (receipt a661fc822c4a); selected commit 1223fd7513eb: \"feat(reliability): enterprise hardening, auto-heartbeat, queue dedupl\u2026\". LICENSE file at pin 1223fd7513eb detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+   }
+  }
+ ]
+}

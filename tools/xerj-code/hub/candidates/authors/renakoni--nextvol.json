@@ -1,0 +1,23 @@
+{
+ "corpus": "renakoni--nextvol",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Kotlin queries this for how Renakoni/nextvol implements it: Renakoni/nextvol (Kotlin) (selected work: app/src, native, app)",
+ "repos": [
+  {
+   "repo": "nextvol",
+   "url": "https://github.com/Renakoni/nextvol",
+   "sha": "d809f64931cacef9a3205aa7b469281873c8db65",
+   "licence": "Apache-2.0 (LICENSE file at pin d809f64931ca, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T00:25Z",
+    "consent_receipt": "fb689208f47e",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T00:25Z (receipt fb689208f47e); selected commit d809f64931ca: \"feat(tts): unify speech PCM processing with Sonic and SoundTouch\". LICENSE file at pin d809f64931ca detected as Apache-2.0 by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

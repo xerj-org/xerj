@@ -1,0 +1,23 @@
+{
+ "corpus": "taezeem14--sine",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on ad-free, media-app, media-application queries this for how taezeem14/Sine implements it: \u26a1 The Spotify-killer with zero ads, NewPipe YouTube audio engine, pure Android hardware EQ, & Spotify-tier UI. No cap, pure vibes (selected work: lib/services, lib/screens, test)",
+ "repos": [
+  {
+   "repo": "Sine",
+   "url": "https://github.com/taezeem14/Sine",
+   "sha": "03c4c555a168cfb40426c40cd492d0f260c60230",
+   "licence": "GPL-3.0 (LICENSE file at pin 03c4c555a168, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-08T10:11Z",
+    "consent_receipt": "96f3b48af6d2",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T10:11Z (receipt 96f3b48af6d2); selected commit 03c4c555a168: \"feat(v1.1.7): SOTA BS-RoFormer AI stem separation and instant studio \u2026\". LICENSE file at pin 03c4c555a168 detected as GPL-3.0 by the GitHub licence API on 2026-11-09; used under that licence with attribution. Pinned to head 03c4c555a168 (contains the selected commit): the LICENSE at the selected commit was NOASSERTION."
+   }
+  }
+ ]
+}

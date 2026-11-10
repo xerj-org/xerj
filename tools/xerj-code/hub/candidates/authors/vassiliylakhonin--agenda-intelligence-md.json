@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-agents, json-schema, mcp-server queries this for how vassiliylakhonin/agenda-intelligence-md implements it: Find broken references, mismatched quotes, unmatched numbers and evidence gaps in AI-generated claims. Python, CLI, MCP and browser review w (selected work: deploy, src/agenda_intelligence, examples)",
+ "domain": "an agent working on ai-agents, mcp-server, evidence-validation queries this for how vassiliylakhonin/agenda-intelligence-md implements it: Local evidence checks for AI agents and RAG. Catch broken citations, quote mismatches and unsupported numbers in supplied sources. Determini (selected work: deploy, src/agenda_intelligence, examples)",
  "repos": [
   {
    "repo": "agenda-intelligence-md",

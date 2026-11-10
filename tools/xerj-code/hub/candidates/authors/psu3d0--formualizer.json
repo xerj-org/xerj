@@ -1,0 +1,23 @@
+{
+ "corpus": "psu3d0--formualizer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on excel, rust, apache-arrow queries this for how PSU3D0/formualizer implements it: The fastest embeddable spreadsheet engine - parse, evaluate & mutate Excel workbooks from Rust, Python, or the browser. Arrow-powered, 400+  (selected work: crates/formualizer-workbook)",
+ "repos": [
+  {
+   "repo": "formualizer",
+   "url": "https://github.com/PSU3D0/formualizer",
+   "sha": "2cbaeec454d48a7c6f1c228d177faf46ed20b8c9",
+   "licence": "author's permission (LICENSE at pin 2cbaeec454d4: NOASSERTION; repository: Apache-2.0)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T12:49Z",
+    "consent_receipt": "e0dd53db5db5",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T12:49Z (receipt e0dd53db5db5); selected commit 2cbaeec454d4: \"feat(workbook): serve linked workbooks' defined names from the link c\u2026\". LICENSE at pin 2cbaeec454d4: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

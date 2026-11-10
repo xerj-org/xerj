@@ -1,0 +1,23 @@
+{
+ "corpus": "pixelanay--engram",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on JavaScript queries this for how PixelAnay/Engram implements it: The AI that remembers you. A persistent personal intelligence for Obsidian (selected work: the project root, src, src/chat)",
+ "repos": [
+  {
+   "repo": "Engram",
+   "url": "https://github.com/PixelAnay/Engram",
+   "sha": "efbdcd3549ed14b9b025a2bd883b5046f1347a7e",
+   "licence": "MIT (LICENSE file at pin efbdcd3549ed, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T06:40Z",
+    "consent_receipt": "f80763cbbf0f",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T06:40Z (receipt f80763cbbf0f); selected commit efbdcd3549ed: \"fix: resolve Obsidian plugin scan warnings (typing, promises, popout-\u2026\". LICENSE file at pin efbdcd3549ed detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+   }
+  }
+ ]
+}

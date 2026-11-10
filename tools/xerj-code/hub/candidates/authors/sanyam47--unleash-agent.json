@@ -1,0 +1,23 @@
+{
+ "corpus": "sanyam47--unleash-agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agentic-ai, autonomous-agents, coding-assistant queries this for how sanyam47/unleash-agent implements it: Autonomous local coding harness for 8B/14B LLMs. AST symbol injection, surgical diff patcher, 4-layer DoD gate, and cloud GPU bridge. 100% o (selected work: backend)",
+ "repos": [
+  {
+   "repo": "unleash-agent",
+   "url": "https://github.com/sanyam47/unleash-agent",
+   "sha": "bd0e4173448d5a3626fb99040dc0c9556da54e6d",
+   "licence": "MIT (LICENSE file at pin bd0e4173448d, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T21:24Z",
+    "consent_receipt": "5eba3a1e07aa",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T21:24Z (receipt 5eba3a1e07aa); selected commit bd0e4173448d: \"feat: Adaptive Compute Tiering Engine & Headless Multi-Viewport Brows\u2026\". LICENSE file at pin bd0e4173448d detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

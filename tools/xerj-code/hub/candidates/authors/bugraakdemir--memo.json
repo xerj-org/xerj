@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on golang, llm, local-llm queries this for how BugraAkdemir/memo implements it: Local-first AI assistant with real memory, agent tool use, and proactive habits \u2014 built with Go + Flutter. Runs fully offline via llama.cpp, (selected work: internal/cliproxy, frontend, internal/webserver)",
+ "domain": "an agent working on golang, llm, local-llm queries this for how BugraAkdemir/memo implements it: Local-first AI assistant that remembers you. Long-term memory stays on your machine; run local models (llama.cpp) or plug in your own subscr (selected work: internal/cliproxy, frontend, internal/webserver)",
  "repos": [
   {
    "repo": "memo",

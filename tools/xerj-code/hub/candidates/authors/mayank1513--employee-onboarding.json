@@ -1,0 +1,23 @@
+{
+ "corpus": "mayank1513--employee-onboarding",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how mayank1513/employee-onboarding implements it: mayank1513/employee-onboarding (TypeScript)",
+ "repos": [
+  {
+   "repo": "employee-onboarding",
+   "url": "https://github.com/mayank1513/employee-onboarding",
+   "sha": "4a5e647d293edd48e99e374a8c339079acb05989",
+   "licence": "Apache-2.0 (LICENSE file at pin 4a5e647d293e, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T04:33Z",
+    "consent_receipt": "48ddffd0aefe",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T04:33Z (receipt 48ddffd0aefe); pinned to the default-branch head. LICENSE file at pin 4a5e647d293e detected as Apache-2.0 by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

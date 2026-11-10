@@ -1,0 +1,23 @@
+{
+ "corpus": "jessebrown1980--solved-goldbach-s-strong-conjecture-solved",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how JesseBrown1980/Solved-Goldbach-s-Strong-Conjecture-Solved implements it: JesseBrown1980/Solved-Goldbach-s-Strong-Conjecture-Solved (Rust)",
+ "repos": [
+  {
+   "repo": "Solved-Goldbach-s-Strong-Conjecture-Solved",
+   "url": "https://github.com/JesseBrown1980/Solved-Goldbach-s-Strong-Conjecture-Solved",
+   "sha": "84c92c4a93dc58580465168074da605116ba32f6",
+   "licence": "author's permission (LICENSE at pin 84c92c4a93dc: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T14:53Z",
+    "consent_receipt": "06449f906fd7",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T14:53Z (receipt 06449f906fd7); pinned to the default-branch head. LICENSE at pin 84c92c4a93dc: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

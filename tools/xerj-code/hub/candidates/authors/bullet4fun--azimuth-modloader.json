@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on C queries this for how Bullet4fun/Azimuth_ModLoader implements it: Mod loader for Forza Horizon 2, Forza Horizon 2 Presents Fast & Furious, Forza Horizon 3, Forza Motorsport 5 and Forza Motorsport 6 on Azimu",
+ "domain": "an agent working on C queries this for how Bullet4fun/Azimuth_ModLoader implements it: Mod loader for the Forza titles released on the Xbox One, on Azimuth",
  "repos": [
   {
    "repo": "Azimuth_ModLoader",
    "url": "https://github.com/Bullet4fun/Azimuth_ModLoader",
-   "sha": "8a688164f8d5fe35b73e0f8a03d6d4df7adc8d71",
-   "licence": "GPL-3.0 (LICENSE file at pin 8a688164f8d5, GitHub licence API 2026-10-28)",
+   "sha": "15d021ade531f57104a46c49c32afe5c53dbfae0",
+   "licence": "GPL-3.0 (LICENSE file at pin 15d021ade531, GitHub licence API 2026-11-10)",
    "review": {
     "spdx": "GPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-28T18:38Z",
     "consent_receipt": "5e925b5608dc",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T18:38Z (receipt 5e925b5608dc); pinned to the default-branch head. LICENSE file at pin 8a688164f8d5 detected as GPL-3.0 by the GitHub licence API on 2026-10-28; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T18:38Z (receipt 5e925b5608dc); pinned to the default-branch head. LICENSE file at pin 15d021ade531 detected as GPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
    }
   }
  ]

@@ -1,0 +1,23 @@
+{
+ "corpus": "wazzac--people-of-the-bible",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on bible, bible-study, christianity queries this for how wazzac/people-of-the-bible implements it: An interactive map of the people of the Bible and how they are connected, drawn from the NIV. Explore both testaments as a network or a time (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "people-of-the-bible",
+   "url": "https://github.com/wazzac/people-of-the-bible",
+   "sha": "b0d4c030d63c8ecab52880b2400cd5f262ff28ea",
+   "licence": "MIT (LICENSE file at pin b0d4c030d63c, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T15:03Z",
+    "consent_receipt": "2aa74ee18386",
+    "note": "Inclusion consented by the commit author by email at 2026-11-05T15:03Z (receipt 2aa74ee18386); selected commit b0d4c030d63c: \"main: Finished the Old Testament characters\". LICENSE file at pin b0d4c030d63c detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "smtorg--smt",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on surrogate-models, derivative, sampling queries this for how SMTorg/smt implements it: SMT: The Surrogate Modeling Toolbox (selected work: smt)",
+ "repos": [
+  {
+   "repo": "smt",
+   "url": "https://github.com/SMTorg/smt",
+   "sha": "4be8d41ed9fa1f402a40d63146989a8c736b442e",
+   "licence": "BSD-3-Clause (LICENSE file at pin 4be8d41ed9fa, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "BSD-3-Clause",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T17:36Z",
+    "consent_receipt": "af6725c08184",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T17:36Z (receipt af6725c08184); selected commit 4be8d41ed9fa: \"Replace_PLS_mat_raw_nugget_by_MDG_Repair (#842)\". LICENSE file at pin 4be8d41ed9fa detected as BSD-3-Clause by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

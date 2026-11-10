@@ -1,0 +1,23 @@
+{
+ "corpus": "freshrss--freshrss",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on freshrss, php, feed queries this for how FreshRSS/FreshRSS implements it: A free, self-hostable news aggregator\u2026 (selected work: tests, p, app/Controllers)",
+ "repos": [
+  {
+   "repo": "FreshRSS",
+   "url": "https://github.com/FreshRSS/FreshRSS",
+   "sha": "76e89935790b2fd8045c032d67a187901e645dd9",
+   "licence": "AGPL-3.0 (LICENSE file at pin 76e89935790b, GitHub licence API 2026-11-05)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-05T19:09Z",
+    "consent_receipt": "186003bb7c2f",
+    "note": "Inclusion consented by the commit author by email at 2026-11-05T19:09Z (receipt 186003bb7c2f); selected commit 76e89935790b: \"Replace bcrypt challenge auth with direct password comparison (#9358)\". LICENSE file at pin 76e89935790b detected as AGPL-3.0 by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+   }
+  }
+ ]
+}

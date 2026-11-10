@@ -1,0 +1,23 @@
+{
+ "corpus": "irhamullah--indonesian-dev-skills",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on bmkg, bps, doku queries this for how irhamullah/indonesian-dev-skills implements it: Agent Skills untuk developer Indonesia \u2014 kompatibel dengan Claude Code, Codex, Cursor, Gemini CLI, VS Code & OpenCode. Payment Gateway (Midt (selected work: scripts, bin, the project root)",
+ "repos": [
+  {
+   "repo": "indonesian-dev-skills",
+   "url": "https://github.com/irhamullah/indonesian-dev-skills",
+   "sha": "6f3844b32b5286f6acdcf8e2289cf81cef0551e0",
+   "licence": "MIT (LICENSE file at pin 6f3844b32b52, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T15:00Z",
+    "consent_receipt": "039e26ba147b",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T15:00Z (receipt 039e26ba147b); selected commit 6f3844b32b52: \"feat: add skill #6 pelindungan-data-pribadi (UU 27/2022 & PP 33/2026)\u2026\". LICENSE file at pin 6f3844b32b52 detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+   }
+  }
+ ]
+}

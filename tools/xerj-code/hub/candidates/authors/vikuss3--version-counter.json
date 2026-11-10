@@ -1,0 +1,23 @@
+{
+ "corpus": "vikuss3--version-counter",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on astro, react queries this for how VikusS3/version-counter implements it: VikusS3/version-counter (Astro) (selected work: src/utils, tests, the project root)",
+ "repos": [
+  {
+   "repo": "version-counter",
+   "url": "https://github.com/VikusS3/version-counter",
+   "sha": "c4af887987fba0fa933f7aca9388f1fef5159c21",
+   "licence": "MIT (LICENSE file at pin c4af887987fb, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T15:39Z",
+    "consent_receipt": "bc9f6e3da845",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T15:39Z (receipt bc9f6e3da845); selected commit c4af887987fb: \"feat: add sitemap alias integration and update sitemap handling\". LICENSE file at pin c4af887987fb detected as MIT by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

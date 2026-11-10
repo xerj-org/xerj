@@ -1,0 +1,23 @@
+{
+ "corpus": "tasha-dev--glyph",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on TypeScript queries this for how tasha-dev/glyph implements it: Glyph is a fast, local-first Markdown editor built for developers (selected work: component, the project root)",
+ "repos": [
+  {
+   "repo": "glyph",
+   "url": "https://github.com/tasha-dev/glyph",
+   "sha": "c084c30ee2f56f8a312b375de353a41685107160",
+   "licence": "MIT (LICENSE file at pin c084c30ee2f5, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T07:34Z",
+    "consent_receipt": "cf479fea17ff",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T07:34Z (receipt cf479fea17ff); selected commit c084c30ee2f5: \"added logout and user info things in toolbar\". LICENSE file at pin c084c30ee2f5 detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

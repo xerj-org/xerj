@@ -1,0 +1,23 @@
+{
+ "corpus": "nain9dev--nainorder",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on aspnet-core, clean-architecture, cqrs queries this for how Nain9Dev/NainOrder implements it: .NET 10 order engine: Clean Architecture, tactical DDD and a CQRS read side. EF Core over SQLite, optimistic concurrency on stock and order  (selected work: NainOrder.Api)",
+ "repos": [
+  {
+   "repo": "NainOrder",
+   "url": "https://github.com/Nain9Dev/NainOrder",
+   "sha": "2b15533541b1de128fff05fef8bfb63b11ff244d",
+   "licence": "MIT (LICENSE file at pin 2b15533541b1, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T06:01Z",
+    "consent_receipt": "31fd8559e915",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T06:01Z (receipt 31fd8559e915); selected commit 2b15533541b1: \"feat: add standalone in-memory demo engine and github pages deployment\". LICENSE file at pin 2b15533541b1 detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution. Pinned to head 2b15533541b1 (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

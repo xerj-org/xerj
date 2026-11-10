@@ -2,8 +2,8 @@
  "corpus": "almas77abolfazl--chat-app",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on TypeScript queries this for how almas77abolfazl/chat-app implements it: almas77abolfazl/chat-app (TypeScript) (selected work: chat-app-front, chat-app-back)",
+ "shelf": "AI",
+ "domain": "an agent working on agentic-ai, angular, mongodb queries this for how almas77abolfazl/chat-app implements it: Open-source real-time messaging app built with NestJS 11, Angular 22, Socket.io, MongoDB, and Agentic AI (selected work: chat-app-front, chat-app-back)",
  "repos": [
   {
    "repo": "chat-app",

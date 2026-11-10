@@ -1,0 +1,23 @@
+{
+ "corpus": "egoushka--personal-website",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on blog, caddy, homelab queries this for how Egoushka/personal-website implements it: The source of hrabovskyi.online, my portfolio and blog: a static Next.js site that I test, deploy and host myself",
+ "repos": [
+  {
+   "repo": "personal-website",
+   "url": "https://github.com/Egoushka/personal-website",
+   "sha": "a2ae74ffe72dd9b0068bcd07e216ceca53aa1723",
+   "licence": "Apache-2.0 (LICENSE file at pin a2ae74ffe72d, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T15:00Z",
+    "consent_receipt": "87a07067b9d1",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-07T15:00Z (receipt 87a07067b9d1); pinned to the default-branch head. LICENSE file at pin a2ae74ffe72d detected as Apache-2.0 by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

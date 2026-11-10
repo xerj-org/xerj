@@ -1,0 +1,23 @@
+{
+ "corpus": "riz007--somtum",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agentic-ai, agentic-coding, claude-code queries this for how riz007/somtum implements it: Long-term memory for Claude Code and Codex that meters every token it spends (selected work: src/hooks, src/cli, src/core)",
+ "repos": [
+  {
+   "repo": "somtum",
+   "url": "https://github.com/riz007/somtum",
+   "sha": "5030be70b15d68a0f74f18edbe2a91cdcbc84ee5",
+   "licence": "MIT (LICENSE file at pin 5030be70b15d, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T08:16Z",
+    "consent_receipt": "8d82ed869f91",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T08:16Z (receipt 8d82ed869f91); selected commit 5030be70b15d: \"feat: Long-term memory for Claude Code and Codex that meters every to\u2026\". LICENSE file at pin 5030be70b15d detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

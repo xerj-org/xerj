@@ -1,0 +1,23 @@
+{
+ "corpus": "jdsalasca--open-civic-signal-os",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on civic-tech, community, open-source queries this for how jdsalasca/open-civic-signal-os implements it: Open civic prioritization system: citizen signals to auditable public backlog (selected work: apps/api-java, packages/contracts)",
+ "repos": [
+  {
+   "repo": "open-civic-signal-os",
+   "url": "https://github.com/jdsalasca/open-civic-signal-os",
+   "sha": "4cfd5c14a104eac7a44f9b492a578db9a63ecc52",
+   "licence": "MIT (LICENSE file at pin 4cfd5c14a104, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T23:35Z",
+    "consent_receipt": "f28ace7e4389",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T23:35Z (receipt f28ace7e4389); selected commit 4cfd5c14a104: \"feat(communities): register city, locality and neighborhood with a no\u2026\". LICENSE file at pin 4cfd5c14a104 detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "mayank1513--pepole-tracking-and-age-gender-classification",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how mayank1513/pepole-tracking-and-age-gender-classification implements it: mayank1513/pepole-tracking-and-age-gender-classification (Python)",
+ "repos": [
+  {
+   "repo": "pepole-tracking-and-age-gender-classification",
+   "url": "https://github.com/mayank1513/pepole-tracking-and-age-gender-classification",
+   "sha": "ff9f10b045884f8601a6e58cf2444d868abd1627",
+   "licence": "author's permission (LICENSE at pin ff9f10b04588: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-05T04:33Z",
+    "consent_receipt": "1618da73a58c",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T04:33Z (receipt 1618da73a58c); pinned to the default-branch head. LICENSE at pin ff9f10b04588: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

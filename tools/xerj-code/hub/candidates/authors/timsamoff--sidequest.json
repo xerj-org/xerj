@@ -1,0 +1,23 @@
+{
+ "corpus": "timsamoff--sidequest",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on burndown-chart, gamification, github-pages queries this for how timsamoff/sidequest implements it: A lightweight project planner for juggling several projects (selected work: satchel, app, Sidequest-App)",
+ "repos": [
+  {
+   "repo": "Sidequest",
+   "url": "https://github.com/timsamoff/Sidequest",
+   "sha": "8f7ba69f4a887668793f6d8ee330166986095eb9",
+   "licence": "GPL-3.0 (LICENSE file at pin 8f7ba69f4a88, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-08T03:48Z",
+    "consent_receipt": "d20a83e2a6e7",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T03:48Z (receipt d20a83e2a6e7); selected commit 8f7ba69f4a88: \"Sidequest-App rename, satchel copy, menu overlay, update check; 0.18.4\". LICENSE file at pin 8f7ba69f4a88 detected as GPL-3.0 by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+   }
+  }
+ ]
+}

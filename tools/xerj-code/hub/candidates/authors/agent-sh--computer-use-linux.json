@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agent, ai, claude queries this for how agent-sh/computer-use-linux implements it: Native Linux desktop control for AI agents (MCP, Pi, CLI) \u2014 semantic AT-SPI trees, screenshots, window targeting, and input across GNOME, KD (selected work: src, scripts, pi)",
+ "domain": "an agent working on agent, ai, claude queries this for how agent-sh/computer-use-linux implements it: Native Linux desktop control for AI agents (MCP, Pi, CLI): semantic AT-SPI trees, screenshots, window targeting, and input across GNOME, KDE (selected work: src, scripts, pi)",
  "repos": [
   {
    "repo": "computer-use-linux",

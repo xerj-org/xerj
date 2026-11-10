@@ -1,0 +1,23 @@
+{
+ "corpus": "opok-ops--mindforge",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent, ai, claude-code queries this for how opok-ops/MindForge implements it: Production-grade lifelong memory for AI agents \u2014 4-tier memory, knowledge graph, E2EE, federated P2P, MCP server (selected work: scripts, tests, mindforge)",
+ "repos": [
+  {
+   "repo": "MindForge",
+   "url": "https://github.com/opok-ops/MindForge",
+   "sha": "4408bf8f1a571456273d7edefab89670a4206988",
+   "licence": "MIT (LICENSE file at pin 4408bf8f1a57, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T13:53Z",
+    "consent_receipt": "99924c16acf0",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T13:53Z (receipt 99924c16acf0); selected commit 4408bf8f1a57: \"v6.4.1: million-character millisecond search (fuzzy long-tail fix)\". LICENSE file at pin 4408bf8f1a57 detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -8,15 +8,15 @@
   {
    "repo": "skillpot",
    "url": "https://github.com/tugrulguner/skillpot",
-   "sha": "6689ef6eb63eedc924763bcdec4f7c3910697261",
-   "licence": "MIT (LICENSE file at pin 6689ef6eb63e, GitHub licence API 2026-11-02)",
+   "sha": "203e942848b33ca5b1250b99d17536a19c145a5c",
+   "licence": "MIT (LICENSE file at pin 203e942848b3, GitHub licence API 2026-11-09)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T22:45Z",
     "consent_receipt": "5c604424ce64",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:45Z (receipt 5c604424ce64); pinned to the default-branch head. LICENSE file at pin 6689ef6eb63e detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:45Z (receipt 5c604424ce64); pinned to the default-branch head. LICENSE file at pin 203e942848b3 detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
    }
   }
  ]

@@ -1,0 +1,23 @@
+{
+ "corpus": "jorgesalgueiro--aion-looper",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how jorgesalgueiro/Aion-Looper implements it: Aion Looper is a Rust multi-track looper, drone synth and tracker for live experimental music (selected work: tests, source, resources)",
+ "repos": [
+  {
+   "repo": "Aion-Looper",
+   "url": "https://github.com/jorgesalgueiro/Aion-Looper",
+   "sha": "e82003556151c5a956348e11cd953a67a29962ce",
+   "licence": "AGPL-3.0 (LICENSE file at pin e82003556151, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-07T00:26Z",
+    "consent_receipt": "c63e9eb1dc0f",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T00:26Z (receipt c63e9eb1dc0f); selected commit e82003556151: \"Preserve queued destination sources through MERGE finalization\". LICENSE file at pin e82003556151 detected as AGPL-3.0 by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

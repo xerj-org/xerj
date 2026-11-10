@@ -2,8 +2,8 @@
  "corpus": "ziyangliu-666--lumen-next",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on TypeScript queries this for how ziyangliu-666/lumen-next implements it: ziyangliu-666/lumen-next (TypeScript) (selected work: apps/server, apps/web)",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, fastify, llm queries this for how ziyangliu-666/lumen-next implements it: An AI that does research in mathematics on its own. It reads papers, runs code in a sandbox, and you can watch and steer it while it works (selected work: apps/server, apps/web)",
  "repos": [
   {
    "repo": "lumen-next",

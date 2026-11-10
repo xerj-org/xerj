@@ -1,0 +1,23 @@
+{
+ "corpus": "ronnyharianto--fintracko",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on budget-tracker, finance, multi-tenant queries this for how ronnyharianto/fintracko implements it: Multi-tenant financial tracking SaaS \u2014 workspaces, budgets, accounts & transactions. Next.js 16, React 19, TypeScript, Prisma, PostgreSQL (selected work: src/components, src/features, src/app)",
+ "repos": [
+  {
+   "repo": "fintracko",
+   "url": "https://github.com/ronnyharianto/fintracko",
+   "sha": "ff6133c3497e8666aed0925190be2a895459202d",
+   "licence": "MIT (LICENSE file at pin ff6133c3497e, GitHub licence API 2026-11-09)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T13:44Z",
+    "consent_receipt": "c464eeb0da38",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T13:44Z (receipt c464eeb0da38); selected commit ff6133c3497e: \"refactor: consolidate repeated UI and error handling\". LICENSE file at pin ff6133c3497e detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution. Pinned to head ff6133c3497e (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

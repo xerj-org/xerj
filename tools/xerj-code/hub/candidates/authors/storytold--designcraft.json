@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on art, layout, print queries this for how storytold/designcraft implements it: DesignCraft: An open-source page and layout design editor written by scratch in pure Rust (selected work: crates/textimport)",
+ "domain": "an agent working on art, layout, print queries this for how storytold/designcraft implements it: DesignCraft: An open-source page and layout design editor written from scratch in pure Rust (selected work: crates/textimport)",
  "repos": [
   {
    "repo": "designcraft",

@@ -1,0 +1,23 @@
+{
+ "corpus": "rqlite--rqlite-js",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on javascript, rqlite, database queries this for how rqlite/rqlite-js implements it: Javascript client library for rqlite, the lightweight, distributed database built on SQLite (selected work: es6, the project root, docker)",
+ "repos": [
+  {
+   "repo": "rqlite-js",
+   "url": "https://github.com/rqlite/rqlite-js",
+   "sha": "3671dfa45a89f55567b3dbdaa349900198f50223",
+   "licence": "MIT (LICENSE file at pin 3671dfa45a89, GitHub licence API 2026-11-07)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T19:56Z",
+    "consent_receipt": "62ec818d7a6b",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T19:56Z (receipt 62ec818d7a6b); selected commit 3671dfa45a89: \"feat: modernize client for rqlite 10.x and harden npm release path\". LICENSE file at pin 3671dfa45a89 detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+   }
+  }
+ ]
+}

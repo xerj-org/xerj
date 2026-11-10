@@ -1,0 +1,23 @@
+{
+ "corpus": "dfop02--html4docx",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on docx, html, html2docx queries this for how dfop02/html4docx implements it: Convert html to docx (selected work: html4docx, tests, the project root)",
+ "repos": [
+  {
+   "repo": "html4docx",
+   "url": "https://github.com/dfop02/html4docx",
+   "sha": "0812a4125598b11be35d8814116538f97f6c4367",
+   "licence": "MIT (LICENSE file at pin 0812a4125598, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T00:05Z",
+    "consent_receipt": "a0c7da4265d4",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T00:05Z (receipt a0c7da4265d4); selected commit 0812a4125598: \"fix: security issues\". LICENSE file at pin 0812a4125598 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

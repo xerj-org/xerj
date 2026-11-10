@@ -1,0 +1,23 @@
+{
+ "corpus": "tobiascoding--shellstudio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Go queries this for how TobiasCoding/ShellStudio implements it: A development environment (IDE) that enables the management of multiple consoles and remote tools via a single SSH session, using tmux to mu (selected work: internal/app, tests, internal/mux)",
+ "repos": [
+  {
+   "repo": "ShellStudio",
+   "url": "https://github.com/TobiasCoding/ShellStudio",
+   "sha": "745d1e3c249ba405a4f1170f0f25ec3ccbd38574",
+   "licence": "GPL-3.0 (LICENSE file at pin 745d1e3c249b, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-03T01:50Z",
+    "consent_receipt": "58cee32c4792",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T01:50Z (receipt 58cee32c4792); selected commit 745d1e3c249b: \"Fix Mosh clipboard copying, panel resizing and console dialogs\". LICENSE file at pin 745d1e3c249b detected as GPL-3.0 by the GitHub licence API on 2026-11-03; used under that licence with attribution."
+   }
+  }
+ ]
+}

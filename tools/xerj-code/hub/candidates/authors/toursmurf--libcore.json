@@ -1,0 +1,23 @@
+{
+ "corpus": "toursmurf--libcore",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how toursmurf/libcore implements it: toursmurf/libcore (C) (selected work: src, include)",
+ "repos": [
+  {
+   "repo": "libcore",
+   "url": "https://github.com/toursmurf/libcore",
+   "sha": "eba785b960803f3295bfb9fb7d4b65c1f6e65a08",
+   "licence": "MIT (LICENSE file at pin eba785b96080, GitHub licence API 2026-11-08)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T12:28Z",
+    "consent_receipt": "853245381940",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T12:28Z (receipt 853245381940); selected commit eba785b96080: \"websocket  \uc218\uc815\ubd84 \ub204\ub77d \ubcf4\uc644\". LICENSE file at pin eba785b96080 detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+   }
+  }
+ ]
+}

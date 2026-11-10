@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on expense-tracker, expo, financial-management queries this for how rezadesky/RSDVault implements it: Modern, secure, offline-first personal finance and expense tracking mobile application built with React Native Expo (selected work: src/app, src/database)",
+ "domain": "an agent working on expo, offline-first, personal-finance queries this for how rezadesky/RSDVault implements it: Modern, secure, offline-first personal finance and expense tracking mobile application built with React Native Expo (selected work: src/app, src/database)",
  "repos": [
   {
    "repo": "RSDVault",

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on TypeScript queries this for how SCAU-Computer-Serving-Team/cst-pilot implements it: SCAU-Computer-Serving-Team/cst-pilot (TypeScript) (selected work: agent)",
+ "domain": "an agent working on Rust queries this for how SCAU-Computer-Serving-Team/cst-pilot implements it: SCAU-Computer-Serving-Team/cst-pilot (Rust) (selected work: agent)",
  "repos": [
   {
    "repo": "cst-pilot",
