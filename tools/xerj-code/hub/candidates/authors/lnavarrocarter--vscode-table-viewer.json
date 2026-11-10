@@ -1,0 +1,23 @@
+{
+ "corpus": "lnavarrocarter--vscode-table-viewer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on csv, ods, tables queries this for how lnavarrocarter/vscode-table-viewer implements it: Open CSV, TSV, XLSX, XLS, ODS, or DBF as a searchable and sortable table. Edit existing cells and save (selected work: src, tests, media)",
+ "repos": [
+  {
+   "repo": "vscode-table-viewer",
+   "url": "https://github.com/lnavarrocarter/vscode-table-viewer",
+   "sha": "9871d54b5c20e8077433b5be19fbad02cdeedb26",
+   "licence": "MIT (LICENSE file at pin 9871d54b5c20, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T15:34Z",
+    "consent_receipt": "6b63b1e7a81c",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T15:34Z (receipt 6b63b1e7a81c); selected commit 9871d54b5c20: \"feat: release 0.6.0 with MCP analysis, charts and DBF filters\". LICENSE file at pin 9871d54b5c20 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

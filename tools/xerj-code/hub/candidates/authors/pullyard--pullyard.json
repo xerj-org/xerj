@@ -2,8 +2,8 @@
  "corpus": "pullyard--pullyard",
  "cloned_at": null,
  "status": "draft",
- "shelf": "WEB",
- "domain": "an agent working on claude-code, code-review, github queries this for how pullyard/pullyard implements it: Pull requests, without the browser. A tiny native GitHub client with a Claude Code workspace (selected work: Sources)",
+ "shelf": "AI",
+ "domain": "an agent working on claude-code, code-review, github queries this for how pullyard/pullyard implements it: Review pull requests in a native app and fix the feedback with Claude Code. Free and open source for macOS, Windows and Linux (selected work: Sources)",
  "repos": [
   {
    "repo": "shipyard",

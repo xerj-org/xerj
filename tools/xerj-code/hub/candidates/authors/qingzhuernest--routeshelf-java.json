@@ -1,0 +1,23 @@
+{
+ "corpus": "qingzhuernest--routeshelf-java",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Java queries this for how qingzhuernest/routeshelf-java implements it: qingzhuernest/routeshelf-java (Java) (selected work: apple)",
+ "repos": [
+  {
+   "repo": "routeshelf-java",
+   "url": "https://github.com/qingzhuernest/routeshelf-java",
+   "sha": "e5521977455d9d3d707ab553fbfabbda184a01cf",
+   "licence": "GPL-3.0 (LICENSE file at pin e5521977455d, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-10T14:50Z",
+    "consent_receipt": "585285b3dbb1",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T14:50Z (receipt 585285b3dbb1); selected commit e5521977455d: \"Build and verify the native GDirect Lite macOS app\". LICENSE file at pin e5521977455d detected as GPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution. Pinned to head e5521977455d (contains the selected commit): the LICENSE at the selected commit was Apache-2.0."
+   }
+  }
+ ]
+}

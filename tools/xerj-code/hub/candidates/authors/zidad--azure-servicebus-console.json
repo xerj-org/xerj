@@ -2,8 +2,8 @@
  "corpus": "zidad--azure-servicebus-console",
  "cloned_at": null,
  "status": "draft",
- "shelf": "WEB",
- "domain": "an agent working on C# queries this for how zidad/azure-servicebus-console implements it: A simple Azure Service Bus console browser (selected work: src/ServiceBusConsole.AzureServiceBus, src/ServiceBusConsole, tests)",
+ "shelf": "API",
+ "domain": "an agent working on azure, azure-cli, azure-service-bus queries this for how zidad/azure-servicebus-console implements it: Azure Service Bus CLI and terminal UI: browse queues, topics and subscriptions, peek messages, resend and retry dead letters from the termin (selected work: src/ServiceBusConsole.AzureServiceBus, src/ServiceBusConsole, tests)",
  "repos": [
   {
    "repo": "azure-servicebus-console",

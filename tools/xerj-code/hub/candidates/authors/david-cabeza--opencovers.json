@@ -1,0 +1,23 @@
+{
+ "corpus": "david-cabeza--opencovers",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on TypeScript queries this for how David-Cabeza/OpenCovers implements it: Open-source reservations engine for restaurants, with an HTTP API and a planned MCP server (selected work: apps/web, apps/api)",
+ "repos": [
+  {
+   "repo": "OpenCovers",
+   "url": "https://github.com/David-Cabeza/OpenCovers",
+   "sha": "583cb9138ed525411709cc4f3821f52c9aeac365",
+   "licence": "Apache-2.0 (LICENSE file at pin 583cb9138ed5, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T14:15Z",
+    "consent_receipt": "c435cca7575e",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T14:15Z (receipt c435cca7575e); selected commit 583cb9138ed5: \"feat: let staff admins manage agent API keys\". LICENSE file at pin 583cb9138ed5 detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

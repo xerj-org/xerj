@@ -1,0 +1,23 @@
+{
+ "corpus": "akitaonrails--ai-jail",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Rust queries this for how akitaonrails/ai-jail implements it: Multi-OS sandbox to run AI agents with better constraints (it is not 100% secure, but enough) (selected work: src/sandbox, src)",
+ "repos": [
+  {
+   "repo": "ai-jail",
+   "url": "https://github.com/akitaonrails/ai-jail",
+   "sha": "97fe5cd9171f0495a8b2e3a963a39427391223bd",
+   "licence": "GPL-3.0 (LICENSE file at pin 97fe5cd9171f, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-10T14:26Z",
+    "consent_receipt": "63a0a961f6f0",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T14:26Z (receipt 63a0a961f6f0); selected commit 97fe5cd9171f: \"fix: allow Codex app server startup in Seatbelt\". LICENSE file at pin 97fe5cd9171f detected as GPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}
