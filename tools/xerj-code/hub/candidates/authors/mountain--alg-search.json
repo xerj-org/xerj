@@ -1,0 +1,23 @@
+{
+ "corpus": "mountain--alg-search",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Java queries this for how mountain/alg-search implements it: search for algebraic structures",
+ "repos": [
+  {
+   "repo": "alg-search",
+   "url": "https://github.com/mountain/alg-search",
+   "sha": "5f3b7bdc3c94dbcc0d06c0d8eb9496987d142f2f",
+   "licence": "EPL-2.0 (LICENSE file at pin 5f3b7bdc3c94, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "EPL-2.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-10T11:31Z",
+    "consent_receipt": "3776325eb5da",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T11:31Z (receipt 3776325eb5da); pinned to the default-branch head. LICENSE file at pin 5f3b7bdc3c94 detected as EPL-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

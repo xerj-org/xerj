@@ -8,15 +8,15 @@
   {
    "repo": "databend",
    "url": "https://github.com/databendlabs/databend",
-   "sha": "da3061aaf7a937656a4a0ef0150771d190dd6275",
-   "licence": "Apache-2.0 (LICENSE file at pin da3061aaf7a9, GitHub licence API 2026-11-10)",
+   "sha": "abb9272b8e55f00e4ca7b30fa5c146af68e49562",
+   "licence": "Apache-2.0 (LICENSE file at pin abb9272b8e55, GitHub licence API 2026-11-10)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-06T14:33Z",
     "consent_receipt": "8db8760cb067",
-    "note": "Inclusion consented by the commit author by email at 2026-11-06T14:33Z (receipt 8db8760cb067); selected commit da3061aaf7a9: \"refactor(query): simplify inverted index cache warmup (#20641)\". LICENSE file at pin da3061aaf7a9 detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution. Pinned to head da3061aaf7a9 (contains the selected commit): the LICENSE at the selected commit was NOASSERTION."
+    "note": "Inclusion consented by the commit author by email at 2026-11-06T14:33Z (receipt 8db8760cb067); selected commit abb9272b8e55: \"refactor(query): simplify inverted index cache warmup (#20641)\". LICENSE file at pin abb9272b8e55 detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution. Pinned to head abb9272b8e55 (contains the selected commit): the LICENSE at the selected commit was NOASSERTION."
    }
   }
  ]

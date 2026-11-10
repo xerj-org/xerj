@@ -1,0 +1,23 @@
+{
+ "corpus": "mountain--onecorner",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on HTML queries this for how mountain/onecorner implements it: my blog",
+ "repos": [
+  {
+   "repo": "onecorner",
+   "url": "https://github.com/mountain/onecorner",
+   "sha": "b98ecf2b1c5ca1d2de72b00db033e25b0362a7bf",
+   "licence": "author's permission (LICENSE at pin b98ecf2b1c5c: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T11:31Z",
+    "consent_receipt": "6c6b34779824",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T11:31Z (receipt 6c6b34779824); pinned to the default-branch head. LICENSE at pin b98ecf2b1c5c: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

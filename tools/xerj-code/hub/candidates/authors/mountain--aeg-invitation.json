@@ -1,0 +1,23 @@
+{
+ "corpus": "mountain--aeg-invitation",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TeX queries this for how mountain/aeg-invitation implements it: An invitation to arithmetic expression geometry",
+ "repos": [
+  {
+   "repo": "aeg-invitation",
+   "url": "https://github.com/mountain/aeg-invitation",
+   "sha": "7a0fe94d2318708f33dd0a9a564f7075f3d0be13",
+   "licence": "CC0-1.0 (LICENSE file at pin 7a0fe94d2318, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "CC0-1.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T11:31Z",
+    "consent_receipt": "75da0ede3f70",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T11:31Z (receipt 75da0ede3f70); pinned to the default-branch head. LICENSE file at pin 7a0fe94d2318 detected as CC0-1.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

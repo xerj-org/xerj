@@ -1,0 +1,23 @@
+{
+ "corpus": "mountain--math-notes",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TeX queries this for how mountain/math-notes implements it: exploration in the garden of mathematics",
+ "repos": [
+  {
+   "repo": "math-notes",
+   "url": "https://github.com/mountain/math-notes",
+   "sha": "73531075355f21c764de9e375a27cd3036c001e0",
+   "licence": "CC0-1.0 (LICENSE file at pin 73531075355f, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "CC0-1.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T11:31Z",
+    "consent_receipt": "dd84f9fdc07d",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T11:31Z (receipt dd84f9fdc07d); pinned to the default-branch head. LICENSE file at pin 73531075355f detected as CC0-1.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "mountain--process-geometry",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how mountain/process-geometry implements it: Process Geometry is an experimental process-first mathematical library for constructing, comparing, and discovering task-sufficient presenta",
+ "repos": [
+  {
+   "repo": "process-geometry",
+   "url": "https://github.com/mountain/process-geometry",
+   "sha": "c47c96fa79123c677172278be59d67ca1cc891b1",
+   "licence": "Unlicense (LICENSE file at pin c47c96fa7912, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Unlicense",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T11:31Z",
+    "consent_receipt": "dd8a96e555db",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T11:31Z (receipt dd8a96e555db); pinned to the default-branch head. LICENSE file at pin c47c96fa7912 detected as Unlicense by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

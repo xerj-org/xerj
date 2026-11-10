@@ -1,0 +1,23 @@
+{
+ "corpus": "xunxuntj--eth-perp-trading-bot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how xunxuntj/ETH_Perp_Trading_bot implements it: xunxuntj/ETH_Perp_Trading_bot (Python) (selected work: tests, the project root)",
+ "repos": [
+  {
+   "repo": "ETH_Perp_Trading_bot",
+   "url": "https://github.com/xunxuntj/ETH_Perp_Trading_bot",
+   "sha": "61bd3e5ecda9253d904484424fd8a1e89ca4f4a0",
+   "licence": "MIT (LICENSE file at pin 61bd3e5ecda9, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T10:15Z",
+    "consent_receipt": "0d40afdfa93f",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T10:15Z (receipt 0d40afdfa93f); selected commit 61bd3e5ecda9: \"fix(strategy): harden 1D EMA50 warmup, alignment, stale feed, and num\u2026\". LICENSE file at pin 61bd3e5ecda9 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

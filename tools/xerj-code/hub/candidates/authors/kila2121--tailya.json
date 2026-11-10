@@ -1,0 +1,23 @@
+{
+ "corpus": "kila2121--tailya",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on CSS queries this for how kila2121/Tailya implements it: Gnome-shell theme (selected work: gnome-shells, the project root)",
+ "repos": [
+  {
+   "repo": "Tailya",
+   "url": "https://github.com/kila2121/Tailya",
+   "sha": "5daf3b599e08b7eb568ee3f0cba3d8263a9af1bf",
+   "licence": "MIT (LICENSE file at pin 5daf3b599e08, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T10:31Z",
+    "consent_receipt": "f41939dd459e",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T10:31Z (receipt f41939dd459e); selected commit 5daf3b599e08: \"add white theme\". LICENSE file at pin 5daf3b599e08 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "k-almahamid--liquid-glass-bottom-navigator",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Dart queries this for how K-Almahamid/liquid_glass_bottom_navigator implements it: A customizable Liquid Glass bottom navigation bar for Flutter, featuring smooth spring animations, glassmorphism, badges, theming, and acces (selected work: lib/src, test, example)",
+ "repos": [
+  {
+   "repo": "liquid_glass_bottom_navigator",
+   "url": "https://github.com/K-Almahamid/liquid_glass_bottom_navigator",
+   "sha": "7479b0dbdd72f4ef4f875578f2b0b059111fc8a0",
+   "licence": "BSD-3-Clause (LICENSE file at pin 7479b0dbdd72, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "BSD-3-Clause",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T12:08Z",
+    "consent_receipt": "ae0c1d3dccdc",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T12:08Z (receipt ae0c1d3dccdc); selected commit 7479b0dbdd72: \"feat: render the bar as backdrop glass with a liquid bubble\". LICENSE file at pin 7479b0dbdd72 detected as BSD-3-Clause by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

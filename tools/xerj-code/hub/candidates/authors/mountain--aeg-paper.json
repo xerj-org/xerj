@@ -1,0 +1,23 @@
+{
+ "corpus": "mountain--aeg-paper",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on geometry, arithmetic-expression-geometry queries this for how mountain/aeg-paper implements it: a paper about Arithmetic Expression Geometry (AEG), a new way to think about computation, analysis, and geometry (selected work: paper-4, paper-0, bibliography)",
+ "repos": [
+  {
+   "repo": "aeg-paper",
+   "url": "https://github.com/mountain/aeg-paper",
+   "sha": "2659481408b19a795ef306c9d5806d18c6c1f1e8",
+   "licence": "CC0-1.0 (LICENSE file at pin 2659481408b1, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "CC0-1.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T11:31Z",
+    "consent_receipt": "0ba5ca723132",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T11:31Z (receipt 0ba5ca723132); selected commit 2659481408b1: \"Integrate finite-type and ported AES research with reviewed proofs\". LICENSE file at pin 2659481408b1 detected as CC0-1.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

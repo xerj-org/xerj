@@ -1,0 +1,23 @@
+{
+ "corpus": "mountain--adva-library",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how mountain/adva-library implements it: adva-library",
+ "repos": [
+  {
+   "repo": "adva-library",
+   "url": "https://github.com/mountain/adva-library",
+   "sha": "95d5f57eabdf89b4e42034f1e61880c9f75d9369",
+   "licence": "author's permission (LICENSE at pin 95d5f57eabdf: NOASSERTION; repository: NOASSERTION)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T11:31Z",
+    "consent_receipt": "ef87c0d4e06b",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T11:31Z (receipt ef87c0d4e06b); pinned to the default-branch head. LICENSE at pin 95d5f57eabdf: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}
