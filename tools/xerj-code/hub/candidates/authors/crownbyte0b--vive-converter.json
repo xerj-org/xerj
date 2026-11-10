@@ -1,0 +1,23 @@
+{
+ "corpus": "crownbyte0b--vive-converter",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on onenote, onenote-alternative queries this for how CrownByte0b/vive-converter implements it: converts microsoft One Note format to .vive (selected work: src, the project root)",
+ "repos": [
+  {
+   "repo": "vive-converter",
+   "url": "https://github.com/CrownByte0b/vive-converter",
+   "sha": "9917ae73b1758d738db468c85c094d32daefe060",
+   "licence": "GPL-3.0 (LICENSE file at pin 9917ae73b175, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-10T05:17Z",
+    "consent_receipt": "ab10ad5cb8a8",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T05:17Z (receipt ab10ad5cb8a8); selected commit 9917ae73b175: \"Add an Android library entry point for ViveNotes, bump v1.1.0\". LICENSE file at pin 9917ae73b175 detected as GPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

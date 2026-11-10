@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on aula, aulaf75 queries this for how VitalyArt/Aula-F75-Max-Driver implements it: Native utility for configuring the Epomaker x Aula F75 Max keyboard on macOS, Linux and Android (selected work: Sources, Tests, scripts)",
+ "domain": "an agent working on aula, aulaf75, driver queries this for how VitalyArt/Aula-F75-Max-Driver implements it: Native utility for configuring the Epomaker x Aula F75 Max keyboard on macOS, Linux and Android (selected work: Sources, Tests, scripts)",
  "repos": [
   {
    "repo": "Aula-F75-Max-Driver",

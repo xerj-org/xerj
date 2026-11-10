@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on cpp11, json queries this for how skyorange-dev/ejson implements it: A C++ library that enables programmers to manipulate JSON files in a concise manner while maintaining high performance (selected work: tests, src, include)",
+ "domain": "an agent working on cpp11, json, high-performance queries this for how skyorange-dev/ejson implements it: A C++ library that enables programmers to manipulate JSON files in a concise manner while maintaining high performance (selected work: tests, src, include)",
  "repos": [
   {
    "repo": "ejson",
