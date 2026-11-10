@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agent, agent-skill, agent-skills queries this for how Vumb-VibeCoder/ai-anti-overrefusal-skills implements it: Vumb-VibeCoder/ai-anti-overrefusal-skills (Python)",
+ "domain": "an agent working on agent, agent-skill, agent-skills queries this for how Vumb-VibeCoder/ai-anti-overrefusal-skills implements it: skills help your ai don't refuse your request with its rules without deep checking",
  "repos": [
   {
    "repo": "ai-anti-overrefusal-skills",

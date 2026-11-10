@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Go queries this for how AlexandreZanata/Abastevo implements it: \u26fd Open-source platform helping drivers across Brazil compare fuel prices using official ANP data and community-powered updates. Find station (selected work: application, domain)",
+ "domain": "an agent working on Go queries this for how AlexandreZanata/Abastevo implements it: Open-source platform helping drivers across Brazil compare fuel prices using official ANP data and community-powered updates. Find stations, (selected work: application, domain)",
  "repos": [
   {
    "repo": "Abastevo",

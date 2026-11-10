@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on book, cli, ebook queries this for how heartleo/zlib implements it: A command-line tool for Z-Library. Search, download, send to Kindle, and integrate with AI agents (selected work: internal/cli)",
+ "domain": "an agent working on book, cli, ebook queries this for how heartleo/zlib implements it: A command-line tool for Z-Library. Search, download, send to Kindle and WeRead, and integrate with AI agents (selected work: internal/cli)",
  "repos": [
   {
    "repo": "zlib",

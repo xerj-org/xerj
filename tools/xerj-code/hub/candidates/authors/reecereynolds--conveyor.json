@@ -1,0 +1,23 @@
+{
+ "corpus": "reecereynolds--conveyor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how ReeceReynolds/Conveyor implements it: An open-source AI software factory powered by human-defined agents, workflows, and evaluations (selected work: tests, src/conveyor)",
+ "repos": [
+  {
+   "repo": "Conveyor",
+   "url": "https://github.com/ReeceReynolds/Conveyor",
+   "sha": "671895ed058d42e3015b07b91f0b13c863c31266",
+   "licence": "Apache-2.0 (LICENSE file at pin 671895ed058d, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T12:48Z",
+    "consent_receipt": "35c4ac072c4a",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T12:48Z (receipt 35c4ac072c4a); selected commit 671895ed058d: \"feat(registry): add agent list, read-only registry commands, readable\u2026\". LICENSE file at pin 671895ed058d detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

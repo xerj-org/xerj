@@ -1,0 +1,23 @@
+{
+ "corpus": "nanoeffects--nanoeffects",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on abort-signal, abortcontroller, async queries this for how nanoeffects/nanoeffects implements it: Business logic and side effects outside UI components, as plain async functions. Tiny, no dependencies (selected work: src/effects, src/tests, openspec)",
+ "repos": [
+  {
+   "repo": "nanoeffects",
+   "url": "https://github.com/nanoeffects/nanoeffects",
+   "sha": "cdf09dbb2ce33b6eb8a0495412f6de2fc954091a",
+   "licence": "MIT (LICENSE file at pin cdf09dbb2ce3, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T12:35Z",
+    "consent_receipt": "9ae137331164",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T12:35Z (receipt 9ae137331164); selected commit cdf09dbb2ce3: \"feat(effects): add the scope form of transaction\". LICENSE file at pin cdf09dbb2ce3 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

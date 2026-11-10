@@ -1,0 +1,23 @@
+{
+ "corpus": "vsachin094--netdevops-agent-skills",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Python queries this for how vsachin094/netdevops-agent-skills implements it: AI agent skills for network automation SSH, NETCONF, gNMI, Ansible, Terraform, parsing, testing, observability, GitOps. Each skill has runna (selected work: skills, scripts)",
+ "repos": [
+  {
+   "repo": "netdevops-agent-skills",
+   "url": "https://github.com/vsachin094/netdevops-agent-skills",
+   "sha": "120aafb462649832109847cffe9b5988ded4d2df",
+   "licence": "MIT (LICENSE file at pin 120aafb46264, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T13:29Z",
+    "consent_receipt": "0fea4a97b33e",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T13:29Z (receipt 0fea4a97b33e); selected commit 120aafb46264: \"Rebuild skill catalog: 54 production-grade network automation skills \u2026\". LICENSE file at pin 120aafb46264 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on TypeScript queries this for how Rice-dog/code-codex implements it: Local project file tree and preview companion for Codex Desktop (selected work: releases, packages/explorer-ui, scripts)",
+ "domain": "an agent working on Rust queries this for how Rice-dog/code-codex implements it: Local project file tree and preview companion for Codex Desktop (selected work: releases, packages/explorer-ui, scripts)",
  "repos": [
   {
    "repo": "code-codex",

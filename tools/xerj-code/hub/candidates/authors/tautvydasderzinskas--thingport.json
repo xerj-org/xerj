@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on 3d-models, 3d-printing, makerworld queries this for how TautvydasDerzinskas/Thingport implements it: Collect, organize, preview, and manage your 3D printing models from the places where you discover them (selected work: frontend, regression)",
+ "domain": "an agent working on 3d-models, 3d-printing, makerworld queries this for how TautvydasDerzinskas/Thingport implements it: A self-hosted library that imports, organises, designs, and never loses your favourites 3d print models (selected work: frontend, regression)",
  "repos": [
   {
    "repo": "Thingport",

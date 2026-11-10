@@ -1,0 +1,23 @@
+{
+ "corpus": "calcom--cal-diy",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on open-source, typescript, nextjs queries this for how calcom/cal.diy implements it: Scheduling infrastructure for absolutely everyone (selected work: packages/lib, packages/features, packages/trpc)",
+ "repos": [
+  {
+   "repo": "cal.diy",
+   "url": "https://github.com/calcom/cal.diy",
+   "sha": "3030d88a1fd9a9b9acc986aac37879a6ba51cb8a",
+   "licence": "MIT (LICENSE file at pin 3030d88a1fd9, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T14:06Z",
+    "consent_receipt": "04375908cac8",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T14:06Z (receipt 04375908cac8); selected commit 3030d88a1fd9: \"fix(bookings): trim whitespace in BLACKLISTED_GUEST_EMAILS (#30461)\". LICENSE file at pin 3030d88a1fd9 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

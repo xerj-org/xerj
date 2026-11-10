@@ -8,15 +8,15 @@
   {
    "repo": "llama-proxy-cache",
    "url": "https://github.com/kokleong98/llama-proxy-cache",
-   "sha": "578031cd6896c5de599d2f8b67edd291b3cf984d",
-   "licence": "MIT (LICENSE file at pin 578031cd6896, GitHub licence API 2026-11-10)",
+   "sha": "c782c0faf4ecaf65b9c2c4e2b2a2f1341cb450b8",
+   "licence": "MIT (LICENSE file at pin c782c0faf4ec, GitHub licence API 2026-11-10)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-03T02:52Z",
     "consent_receipt": "f74e54b106a4",
-    "note": "Inclusion consented by the commit author by email at 2026-11-03T02:52Z (receipt f74e54b106a4); selected commit 578031cd6896: \"Add W3C like request log statistic plugins\". LICENSE file at pin 578031cd6896 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Pinned to head 578031cd6896 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T02:52Z (receipt f74e54b106a4); selected commit c782c0faf4ec: \"Add W3C like request log statistic plugins\". LICENSE file at pin c782c0faf4ec detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Pinned to head c782c0faf4ec (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]
