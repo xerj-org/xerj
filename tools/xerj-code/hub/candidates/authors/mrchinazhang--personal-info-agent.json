@@ -1,0 +1,23 @@
+{
+ "corpus": "mrchinazhang--personal-info-agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, knowledge-base, personal-knowledge-management queries this for how Mrchinazhang/personal-info-agent implements it: \u7528 AI \u7ba1\u4f4f\u96f6\u6563\u7684\u60f3\u6cd5\u3001\u8d44\u6599\u548c\u5f85\u529e (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "personal-info-agent",
+   "url": "https://github.com/Mrchinazhang/personal-info-agent",
+   "sha": "0758ebc1b96c40ed3cc3bf660cfa41f3ba474489",
+   "licence": "MIT (LICENSE file at pin 0758ebc1b96c, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T04:50Z",
+    "consent_receipt": "8e189a5e1bf1",
+    "note": "Inclusion consented by the commit author by email at 2026-11-06T04:50Z (receipt 8e189a5e1bf1); selected commit 0758ebc1b96c: \"\u6269\u5145\u767b\u5f55\u65b9\u5f0f\uff08\u90ae\u7bb1/\u56fd\u9645\u624b\u673a\u53f7/WorkBuddy\uff09\u5e76\u8865\u9f50\u5f00\u6e90\u5de5\u7a0b\u89c4\u8303\". LICENSE file at pin 0758ebc1b96c detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

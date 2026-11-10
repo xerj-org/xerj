@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-agents, go, mcp queries this for how open-mcp-ai/Termcp implements it: \u6700\u7ec8\u7684 MCP | Terminus MCP (selected work: internal/webui)",
+ "domain": "an agent working on ai-agents, go, mcp queries this for how open-mcp-ai/Termcp implements it: \u6700\u7ec8\u7684 MCP | Terminus MCP\uff1a \u5c06\u754c\u9762\u89c6\u4f5c\u7ec8\u7aef\u3002\u7ba1\u7406\u672c\u5730\u548c\u8fdc\u7aef\u673a\u5668\uff0c\u52a8\u6001\u96c6\u6210\u7ba1\u7406\u4e0d\u9650\u6570\u91cf\u4e14\u4e0d\u9650\u673a\u5668\u7684MCP\uff0c\u5e76\u4fdd\u6301\u5355mcp tool\u4e0a\u4e0b\u6587\u4e0d\u589e\u957f\u3002 Treat the interface as a terminal. Manage local and remote (selected work: internal/webui)",
  "repos": [
   {
    "repo": "Termcp",

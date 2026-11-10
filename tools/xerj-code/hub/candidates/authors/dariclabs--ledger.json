@@ -1,0 +1,27 @@
+{
+ "corpus": "dariclabs--ledger",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on finance, fintech, ledger queries this for how DaricLabs/ledger implements it: Core financial ledger service implementing double-entry accounting, immutable journal entries, account balances, and transaction posting. Pr (selected work: apps/ledger-api)",
+ "repos": [
+  {
+   "repo": "ledger",
+   "url": "https://github.com/DaricLabs/ledger",
+   "sha": "fc4e31e36326428425d50772d52ea6394d730ad4",
+   "licence": "MIT (LICENSE file at pin fc4e31e36326, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T10:49Z",
+    "consent_receipt": "876f8f9c5127",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T10:49Z (receipt 876f8f9c5127); selected commit fc4e31e36326: \"feat(ledgers): add save and delete ledger metadata (#21)\". LICENSE file at pin fc4e31e36326 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @DaricLabs, who has not added it."
+   },
+   "paths": [
+    "apps/ledger-api/src/ledgers",
+    "apps/ledger-api/test"
+   ]
+  }
+ ]
+}

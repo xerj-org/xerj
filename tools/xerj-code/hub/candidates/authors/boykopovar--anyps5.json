@@ -23,7 +23,8 @@
     "core/libs/tests",
     "core/relinker",
     "docs/dev",
-    "docs/user"
+    "docs/user",
+    "tools"
    ]
   }
  ]

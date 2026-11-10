@@ -1,0 +1,23 @@
+{
+ "corpus": "omari91--berlin-grid-project",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "LAW",
+ "domain": "an agent working on digital-twin-grid-edge-berlin-python, fuzzy-logic-control, hosting-capacity queries this for how omari91/berlin-grid-project implements it: Real-time grid digital twin for Germany's energy transition. Features <50ms physics loop, VDE-AR-N 4110 compliance validation, Monte Carlo r (selected work: tests, src/distribution, src/observability)",
+ "repos": [
+  {
+   "repo": "berlin-grid-project",
+   "url": "https://github.com/omari91/berlin-grid-project",
+   "sha": "53736d645a2e0b67263e65f6ad2bd3b04c5fba4c",
+   "licence": "MIT (LICENSE file at pin 53736d645a2e, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T23:49Z",
+    "consent_receipt": "bb2cfbede0ed",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T23:49Z (receipt bb2cfbede0ed); selected commit 53736d645a2e: \"feat: implement 5 verification pillars, production resilience, and 95\u2026\". LICENSE file at pin 53736d645a2e detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

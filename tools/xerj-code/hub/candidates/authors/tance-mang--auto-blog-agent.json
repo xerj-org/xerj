@@ -1,0 +1,23 @@
+{
+ "corpus": "tance-mang--auto-blog-agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-skills, ai, ai-agent queries this for how tance-mang/auto-blog-agent implements it: \u5f00\u6e90\u535a\u5ba2\u81ea\u52a8\u5316\u4e0e\u65e0\u4eba\u503c\u5b88\u6545\u969c\u8bca\u65ad \u00b7 GitHub Actions, incident reports and optional email (selected work: autoblog, tests, the project root)",
+ "repos": [
+  {
+   "repo": "auto-blog-agent",
+   "url": "https://github.com/tance-mang/auto-blog-agent",
+   "sha": "988edf954a81bc4b6ac0ccaddca55aa71b8a5efe",
+   "licence": "MIT (LICENSE file at pin 988edf954a81, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-04T07:23Z",
+    "consent_receipt": "8884d55381ce",
+    "note": "Inclusion consented by the commit author by email at 2026-11-04T07:23Z (receipt 8884d55381ce); selected commit 988edf954a81: \"feat: initial tested blog agent\". LICENSE file at pin 988edf954a81 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

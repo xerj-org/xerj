@@ -1,0 +1,23 @@
+{
+ "corpus": "paulsinnema--sessyweb",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on C# queries this for how PaulSinnema/SessyWeb implements it: Sessy batteries web interface and charging controller (selected work: SessyUnitTests, SessyController, SessyData)",
+ "repos": [
+  {
+   "repo": "SessyWeb",
+   "url": "https://github.com/PaulSinnema/SessyWeb",
+   "sha": "dce1963410aebd0a169a4a98045b7f9455530dc1",
+   "licence": "MIT (LICENSE file at pin dce1963410ae, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T19:29Z",
+    "consent_receipt": "64c3f9ce6bec",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T19:29Z (receipt 64c3f9ce6bec); selected commit dce1963410ae: \"## [v1.0.169] \u2014 2026-11-09\". LICENSE file at pin dce1963410ae detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

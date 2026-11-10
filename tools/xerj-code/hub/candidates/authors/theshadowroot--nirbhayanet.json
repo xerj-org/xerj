@@ -1,0 +1,23 @@
+{
+ "corpus": "theshadowroot--nirbhayanet",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how TheShadowRoot/NIRBHAYANET implements it: A Community-Powered Women's Safety Ecosystem (selected work: frontend)",
+ "repos": [
+  {
+   "repo": "NIRBHAYANET",
+   "url": "https://github.com/TheShadowRoot/NIRBHAYANET",
+   "sha": "eff9d4e5f5c413606c7857dc455ef3d0e5bf22ae",
+   "licence": "MIT (LICENSE file at pin eff9d4e5f5c4, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T09:24Z",
+    "consent_receipt": "89428a997b0b",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T09:24Z (receipt 89428a997b0b); selected commit eff9d4e5f5c4: \"Organize clean root repository structure\". LICENSE file at pin eff9d4e5f5c4 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

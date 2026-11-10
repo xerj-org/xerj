@@ -1,0 +1,23 @@
+{
+ "corpus": "lachinhan--hosiflow-studio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on JavaScript queries this for how lachinhan/hosiflow-studio implements it: Flow cho Muse AI (selected work: companion-extension)",
+ "repos": [
+  {
+   "repo": "hosiflow-studio",
+   "url": "https://github.com/lachinhan/hosiflow-studio",
+   "sha": "3f9b8110265838c6de640e6754777ef9e6cdaca4",
+   "licence": "MIT (LICENSE file at pin 3f9b81102658, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T05:37Z",
+    "consent_receipt": "b987c1934a6c",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T05:37Z (receipt b987c1934a6c); selected commit 3f9b81102658: \"fix(companion): adopt proven museflow attachment engine and local med\u2026\". LICENSE file at pin 3f9b81102658 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

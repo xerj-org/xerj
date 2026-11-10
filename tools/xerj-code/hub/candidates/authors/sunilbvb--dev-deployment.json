@@ -1,0 +1,23 @@
+{
+ "corpus": "sunilbvb--dev-deployment",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Python queries this for how sunilbvb/dev-deployment implements it: A lightweight, cross-platform build orchestration console and deployment automation dashboard for mobile and web apps (selected work: features, tests, the project root)",
+ "repos": [
+  {
+   "repo": "dev-deployment",
+   "url": "https://github.com/sunilbvb/dev-deployment",
+   "sha": "8d92173ada55c27ff9134b050d12fc494850bc2a",
+   "licence": "MIT (LICENSE file at pin 8d92173ada55, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T20:29Z",
+    "consent_receipt": "c777a9ebe4c7",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T20:29Z (receipt c777a9ebe4c7); selected commit 8d92173ada55: \"feat(deployment,metadata,mcp): merge latest multi-platform build scri\u2026\". LICENSE file at pin 8d92173ada55 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

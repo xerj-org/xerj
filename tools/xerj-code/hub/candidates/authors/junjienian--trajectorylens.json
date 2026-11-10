@@ -1,0 +1,23 @@
+{
+ "corpus": "junjienian--trajectorylens",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on HTML queries this for how JunjieNian/TrajectoryLens implements it: A local, evidence-preserving workspace for inspecting and comparing raw agent logs with TraceGraph (selected work: web, artifacts, examples)",
+ "repos": [
+  {
+   "repo": "TrajectoryLens",
+   "url": "https://github.com/JunjieNian/TrajectoryLens",
+   "sha": "fa554e6d3109ad4c21a264e17fdb278211e8b9e1",
+   "licence": "Apache-2.0 (LICENSE file at pin fa554e6d3109, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T22:00Z",
+    "consent_receipt": "6778cdfb2722",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T22:00Z (receipt 6778cdfb2722); selected commit fa554e6d3109: \"Add task-aware analysis and TraceGraph outcome landscapes\". LICENSE file at pin fa554e6d3109 detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

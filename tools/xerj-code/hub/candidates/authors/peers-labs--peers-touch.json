@@ -1,0 +1,37 @@
+{
+ "corpus": "peers-labs--peers-touch",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on ai-agent, decentralized, p2p-network queries this for how peers-labs/peers-touch implements it: A decentralized social networking service with built-in AI Agent capabilities. Peer-to-peer, self-hostable social space where users retain o (selected work: tooling, apps/station, apps/mobile)",
+ "repos": [
+  {
+   "repo": "peers-touch",
+   "url": "https://github.com/peers-labs/peers-touch",
+   "sha": "6598fc3a3c81e08fdb15317071ab583f60691e00",
+   "licence": "MIT (LICENSE file at pin 6598fc3a3c81, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T14:09Z",
+    "consent_receipt": "d6874df34f7a",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T14:09Z (receipt d6874df34f7a); selected commit 6598fc3a3c81: \"feat(conversation): discriminated Local/Federation scope for Direct (\u2026\". LICENSE file at pin 6598fc3a3c81 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @peers-labs, who has not added it."
+   },
+   "paths": [
+    "apps/desktop/src",
+    "apps/desktop/src-tauri",
+    "apps/mobile/src",
+    "apps/mobile/src-tauri",
+    "apps/station/app",
+    "apps/station/frame",
+    "docs/architecture/domains",
+    "docs/architecture/engineering",
+    "docs/knowledge/pitfalls",
+    "model/domain/chat",
+    "packages/messaging-core",
+    "tooling/acceptance"
+   ]
+  }
+ ]
+}

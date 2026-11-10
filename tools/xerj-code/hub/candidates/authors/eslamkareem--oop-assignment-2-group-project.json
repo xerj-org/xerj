@@ -1,0 +1,23 @@
+{
+ "corpus": "eslamkareem--oop-assignment-2-group-project",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Makefile queries this for how EslamKareem/OOP-assignment-2-group-project implements it: it`s a repo for group project (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "OOP-assignment-2-group-project",
+   "url": "https://github.com/EslamKareem/OOP-assignment-2-group-project",
+   "sha": "0fac1b1a76ab5fe1ba7d4e2b600908e72434e8ca",
+   "licence": "GPL-3.0 (LICENSE file at pin 0fac1b1a76ab, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-09T15:01Z",
+    "consent_receipt": "f448b7b81bb5",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T15:01Z (receipt f448b7b81bb5); selected commit 0fac1b1a76ab: \"Add Eslam's Memory & I/O subsystem: Memory, Screen, Programs, main ap\u2026\". LICENSE file at pin 0fac1b1a76ab detected as GPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

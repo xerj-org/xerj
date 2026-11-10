@@ -1,0 +1,23 @@
+{
+ "corpus": "asimalimikial-rgb--noor-aliman",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on HTML queries this for how asimalimikial-rgb/Noor-aliman implements it: \u0646\u0648\u0631 \u0627\u0644\u0625\u064a\u0645\u0627\u0646 \u062a\u0637\u0628\u064a\u0642 \u0625\u0633\u0644\u0627\u0645\u064a \u064a\u062c\u0645\u0639 \u0627\u0644\u0635\u0644\u0627\u0629 \u0648\u0627\u0644\u0642\u0631\u0622\u0646 \u0648\u0627\u0644\u0623\u0630\u0643\u0627\u0631 \u0648\u0627\u0644\u0642\u0628\u0644\u0629 \u0641\u064a \u062a\u062c\u0631\u0628\u0629 \u0639\u0631\u0628\u064a\u0629 \u0633\u0647\u0644\u0629\u060c \u0635\u064f\u0645\u0651\u0645 \u0644\u062a\u0648\u0638\u064a\u0641 \u0627\u0644\u062a\u0642\u0646\u064a\u0629 \u0641\u064a \u062e\u062f\u0645\u0629 \u0627\u0644\u0639\u0628\u0627\u062f\u0629 \u0648\u0646\u0634\u0631 \u0627\u0644\u062e\u064a\u0631. \u0625\u0647\u062f\u0627\u0621: \u0639 (selected work: App/src, App)",
+ "repos": [
+  {
+   "repo": "Noor-aliman",
+   "url": "https://github.com/asimalimikial-rgb/Noor-aliman",
+   "sha": "f87510b0879618a64a5547db8ad589b80072ca84",
+   "licence": "author's permission (LICENSE at pin f87510b08796: NOASSERTION; repository: MIT)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T19:07Z",
+    "consent_receipt": "0dcd52811616",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T19:07Z (receipt 0dcd52811616); selected commit f87510b08796: \"Publish v1.18.0 release\". LICENSE at pin f87510b08796: NOASSERTION (repository: MIT); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

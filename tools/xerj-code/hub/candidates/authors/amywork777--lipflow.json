@@ -1,0 +1,26 @@
+{
+ "corpus": "amywork777--lipflow",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how amywork777/lipflow implements it: Wispr Flow for your lips: hold a key, silently mouth words, and they're typed at your cursor. Runs locally on your Mac (selected work: the project root, scripts)",
+ "repos": [
+  {
+   "repo": "lipflow",
+   "url": "https://github.com/amywork777/lipflow",
+   "sha": "c155972bf125906766da25eea0862e2fdae9831f",
+   "licence": "MIT (LICENSE file at pin c155972bf125, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T05:43Z",
+    "consent_receipt": "5a0d16574f0d",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T05:43Z (receipt 5a0d16574f0d); selected commit c155972bf125: \"feat(docker): add non-root Docker setup with Wayland and GPU support \u2026\". LICENSE file at pin c155972bf125 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @amywork777, who has not added it."
+   },
+   "paths": [
+    "scripts"
+   ]
+  }
+ ]
+}

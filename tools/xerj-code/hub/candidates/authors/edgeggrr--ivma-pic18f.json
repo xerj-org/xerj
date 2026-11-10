@@ -1,0 +1,23 @@
+{
+ "corpus": "edgeggrr--ivma-pic18f",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Makefile queries this for how edgeggrr/IVMA-PIC18F implements it: IV Infusion-Set Monitoring and Alert System Using PIC18F4550 (selected work: Firmware, the project root)",
+ "repos": [
+  {
+   "repo": "IVMA-PIC18F",
+   "url": "https://github.com/edgeggrr/IVMA-PIC18F",
+   "sha": "7ddd122203fdb1ef485f00d4273dee27da86d7d2",
+   "licence": "MIT (LICENSE file at pin 7ddd122203fd, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T17:34Z",
+    "consent_receipt": "c88850c9b001",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T17:34Z (receipt c88850c9b001); selected commit 7ddd122203fd: \"[ADDED] Project Structure\". LICENSE file at pin 7ddd122203fd detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

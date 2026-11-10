@@ -1,0 +1,23 @@
+{
+ "corpus": "amlaban65--ciblame",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, ci-cd, claude-code queries this for how amlaban65/ciblame implements it: See where your GitHub Actions minutes go. A Go CLI that breaks down CI usage and cost by AI coding agent (Copilot, Claude Code, Codex, Devin (selected work: npm, the project root)",
+ "repos": [
+  {
+   "repo": "ciblame",
+   "url": "https://github.com/amlaban65/ciblame",
+   "sha": "27f2401c1dcba4b1f21c8111cb8d4b87d999fd29",
+   "licence": "MIT (LICENSE file at pin 27f2401c1dcb, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T18:12Z",
+    "consent_receipt": "c8b20b931748",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T18:12Z (receipt c8b20b931748); selected commit 27f2401c1dcb: \"Publish to npm as prebuilt binaries\". LICENSE file at pin 27f2401c1dcb detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -19,7 +19,9 @@
     "note": "Inclusion consented by the commit author by email at 2026-10-14T14:53Z (receipt ca7665394f7b); selected commit 2176213b2270: \"Follow verified OTP digit boxes during autofill\". LICENSE file at pin 2176213b2270 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @nixfred, who has not added it."
    },
    "paths": [
-    "docs"
+    "bridge/mac",
+    "docs",
+    "scripts"
    ]
   }
  ]

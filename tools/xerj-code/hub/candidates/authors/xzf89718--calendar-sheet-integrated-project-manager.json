@@ -1,0 +1,23 @@
+{
+ "corpus": "xzf89718--calendar-sheet-integrated-project-manager",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on Python queries this for how xzf89718/calendar_sheet_integrated_project_manager implements it: \u4e3a\u4e86\u66ff\u4ee3\u7528 Excel\u3001\u8bb0\u4e8b\u672c\u505a\u9879\u76ee\u7ba1\u7406\u7684\u56f0\u5883\u800c\u751f\u2014\u2014\u6240\u6709\u9879\u76ee\u6570\u636e\u5b58\u5728\u4e00\u4e2a SQLite \u7684\u6570\u636e\u5e93 .db \u6587\u4ef6\u91cc\uff0c\u590d\u5236\u5373\u5907\u4efd\uff0c\u4efb\u4f55 SQLite \u5de5\u5177\u53ef\u6253\u5f00\uff0c\u4e0d\u6ce8\u518c\u3001\u4e0d\u8054\u7f51\u3001\u4e0d\u4e0a\u4f20\u3002 \u65e5\u5386\u548c\u8868\u683c\u805a\u5408\u5230\u540c\u4e00\u754c\u9762\uff1a\u4e0a\u534a\u65e5\u5386\u770b\u65f6\u95f4\u5206\u5e03\uff0c\u4e0b\u534a\u8868\u683c\u770b\u660e\u7ec6\uff0c\u6570\u636e\u540c\u6e90\u3001\u7b5b\u9009\u4e92\u901a\u3002\u6bcf\u6b21\u8ddf\u8fdb\u5b58\u4e00 (selected work: the project root, tests, scripts)",
+ "repos": [
+  {
+   "repo": "calendar_sheet_integrated_project_manager",
+   "url": "https://github.com/xzf89718/calendar_sheet_integrated_project_manager",
+   "sha": "cc9bb762e221227717bede656ef724c2975c9620",
+   "licence": "MIT (LICENSE file at pin cc9bb762e221, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T01:45Z",
+    "consent_receipt": "420153071f13",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T01:45Z (receipt 420153071f13); selected commit cc9bb762e221: \"CLI\u5168\u547d\u4ee4\u56fe\u6807\u5f00\u5173 v3.7.2\uff1aworkbench_ui\u5168\u5b50\u547d\u4ee4+fav\u4e8c\u7ea7\u3001main.py check-config\u63a5\u5165\uff1b\u56fe\u6807\u5148\u64ad\u4e0d\u2026\". LICENSE file at pin cc9bb762e221 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

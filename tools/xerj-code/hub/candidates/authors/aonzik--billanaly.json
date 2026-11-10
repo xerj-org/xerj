@@ -1,0 +1,23 @@
+{
+ "corpus": "aonzik--billanaly",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how Aonzik/billAnaly implements it: Self-hosted personal finance tracker with FastAPI, DeepSeek-powered financial audits, and interactive drill-down dashboards (selected work: the project root, static)",
+ "repos": [
+  {
+   "repo": "billAnaly",
+   "url": "https://github.com/Aonzik/billAnaly",
+   "sha": "2778967ce404c0fac6989da4f2de1882964f4773",
+   "licence": "MIT (LICENSE file at pin 2778967ce404, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-04T14:48Z",
+    "consent_receipt": "df3be9f748f4",
+    "note": "Inclusion consented by the commit author by email at 2026-11-04T14:48Z (receipt df3be9f748f4); selected commit 2778967ce404: \"feat:\u65b0\u589e\u65e5\u5fd7\u8f93\u51fa\u529f\u80fd\". LICENSE file at pin 2778967ce404 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

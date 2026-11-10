@@ -1,0 +1,28 @@
+{
+ "corpus": "mapmanager-group--mapmanager-core-community-v4",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Java queries this for how MapManager-group/MapManager-Core-community-v4 implements it: MapManager-group/MapManager-Core-community-v4 (Java) (selected work: plugin, api, the project root)",
+ "repos": [
+  {
+   "repo": "MapManager-Core-community-v4",
+   "url": "https://github.com/MapManager-group/MapManager-Core-community-v4",
+   "sha": "36cde9aa3cfba3629647793028fd56f64b8bf563",
+   "licence": "GPL-3.0 (LICENSE file at pin 36cde9aa3cfb, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-04T10:37Z",
+    "consent_receipt": "0350fdc55546",
+    "note": "Inclusion consented by the commit author by email at 2026-11-04T10:37Z (receipt 0350fdc55546); selected commit 36cde9aa3cfb: \"fix: \u5b8c\u5584\u547d\u4ee4\u8865\u5168\u5e2e\u52a9\u5e76\u4fee\u590d\u8fb9\u754c\u903b\u8f91\". LICENSE file at pin 36cde9aa3cfb detected as GPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @MapManager-group, who has not added it."
+   },
+   "paths": [
+    "api",
+    "docs",
+    "plugin"
+   ]
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "feelgxxd--tiny-software-renderer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on cpp, pbr, rasterizer queries this for how feelgxxd/tiny-software-renderer implements it: A multithreaded, tile-based software rasterizer written from scratch in C++17 (selected work: src/core, src/math, src/render)",
+ "repos": [
+  {
+   "repo": "tiny-software-renderer",
+   "url": "https://github.com/feelgxxd/tiny-software-renderer",
+   "sha": "850c242ef7a157041632d658f38a70994ac1482f",
+   "licence": "MIT (LICENSE file at pin 850c242ef7a1, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T17:10Z",
+    "consent_receipt": "a51213841087",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T17:10Z (receipt a51213841087); selected commit 850c242ef7a1: \"perf: SIMD 2x2 quad shading for SSE2, NEON and WebAssembly SIMD128\". LICENSE file at pin 850c242ef7a1 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

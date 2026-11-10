@@ -1,0 +1,23 @@
+{
+ "corpus": "mthomason--mad",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on business-intelligence, ios, mysql queries this for how mthomason/MAD implements it: Native macOS / iOS SQL query builder and banded report designer. An open format and embeddable engine for relational reporting - where every (selected work: Mac, MADSqlite3, MAD)",
+ "repos": [
+  {
+   "repo": "MAD",
+   "url": "https://github.com/mthomason/MAD",
+   "sha": "3c9e86e03ba9e3e75fa492a33d5f83274b9a1cd5",
+   "licence": "MIT (LICENSE file at pin 3c9e86e03ba9, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-03T14:16Z",
+    "consent_receipt": "025709c81e5e",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T14:16Z (receipt 025709c81e5e); selected commit 3c9e86e03ba9: \"Fix SQLite missing-file 0-byte creation, smart path resolution, serve\u2026\". LICENSE file at pin 3c9e86e03ba9 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

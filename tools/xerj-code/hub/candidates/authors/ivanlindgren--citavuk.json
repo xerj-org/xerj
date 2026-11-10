@@ -1,0 +1,23 @@
+{
+ "corpus": "ivanlindgren--citavuk",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how IvanLindgren/citavuk implements it: The app for studying Serbian and Croatian languages by reading (selected work: web, tools)",
+ "repos": [
+  {
+   "repo": "citavuk",
+   "url": "https://github.com/IvanLindgren/citavuk",
+   "sha": "34525fc9623ca1042efd52b6cef4f1b45df0fffd",
+   "licence": "MIT (LICENSE file at pin 34525fc9623c, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-07T19:03Z",
+    "consent_receipt": "6452f00ada01",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T19:03Z (receipt 6452f00ada01); selected commit 34525fc9623c: \"\u041f\u043e\u0434\u043e\u0431\u0440\u0430\u0442\u044c \u0440\u0430\u0437\u043d\u044b\u0435 \u0441\u0432\u043e\u0431\u043e\u0434\u043d\u044b\u0435 \u0438\u043b\u043b\u044e\u0441\u0442\u0440\u0430\u0446\u0438\u0438 \u0434\u043b\u044f 30 \u0431\u0430\u0441\u0435\u043d\". LICENSE file at pin 34525fc9623c detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

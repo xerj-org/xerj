@@ -1,0 +1,23 @@
+{
+ "corpus": "ocelotjungle--agent-rig",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how OcelotJungle/agent-rig implements it: OcelotJungle/agent-rig (TypeScript) (selected work: tests, src, src/commands)",
+ "repos": [
+  {
+   "repo": "agent-rig",
+   "url": "https://github.com/OcelotJungle/agent-rig",
+   "sha": "15ccf32f257b38daa8688b759b45825680cf07e3",
+   "licence": "MIT (LICENSE file at pin 15ccf32f257b, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T05:59Z",
+    "consent_receipt": "c6b0337bcadb",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T05:59Z (receipt c6b0337bcadb); selected commit 15ccf32f257b: \"fix: hooks name their program by an absolute path resolved at apply, \u2026\". LICENSE file at pin 15ccf32f257b detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "sarajo--circe",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, desktop-app, electron queries this for how SaraJo/circe implements it: Choose your character and grow your agent workforce (selected work: src/main, test, src/renderer)",
+ "repos": [
+  {
+   "repo": "circe",
+   "url": "https://github.com/SaraJo/circe",
+   "sha": "d2a3279c21bc7f13cb617bc1badc2964ac72c416",
+   "licence": "MIT (LICENSE file at pin d2a3279c21bc, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T00:39Z",
+    "consent_receipt": "92046eb774ab",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T00:39Z (receipt 92046eb774ab); selected commit d2a3279c21bc: \"Add local personal memory with automatic capture and review\". LICENSE file at pin d2a3279c21bc detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}
