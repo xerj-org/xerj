@@ -1,0 +1,29 @@
+{
+ "corpus": "e2e-inc--e2e-iframes",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how e2e-inc/e2e-iframes implements it: Example repository to demonstrate how you can use e2e to test iframes (e.g. for payments) (selected work: components, lib, tests)",
+ "repos": [
+  {
+   "repo": "e2e-iframes",
+   "url": "https://github.com/tester-army/e2e-iframes",
+   "sha": "b5af46473d7557fd3648a7016dd9199d48cbbef8",
+   "licence": "MIT (LICENSE file at pin b5af46473d75, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T07:19Z",
+    "consent_receipt": "891afa1c59aa",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T07:19Z (receipt 891afa1c59aa); selected commit b5af46473d75: \"Rework checkout per React best practices and add agentic e2e tests\". LICENSE file at pin b5af46473d75 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Pinned to head b5af46473d75 (contains the selected commit): the LICENSE at the selected commit was NONE. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @tester-army, who has not added it."
+   },
+   "paths": [
+    "components/checkout",
+    "components/ui",
+    "lib",
+    "tests"
+   ]
+  }
+ ]
+}

@@ -8,15 +8,15 @@
   {
    "repo": "TwVodNoAdsJCed",
    "url": "https://github.com/Endymi0n74/TwVodNoAdsJCed",
-   "sha": "0bc357718c7f2b8e3a56a37a8cf94469525d64a9",
-   "licence": "MIT (LICENSE file at pin 0bc357718c7f, GitHub licence API 2026-10-28)",
+   "sha": "482aa94d3fb877da1db10daea01443c6ff6d34ee",
+   "licence": "MIT (LICENSE file at pin 482aa94d3fb8, GitHub licence API 2026-11-10)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T18:20Z",
     "consent_receipt": "dfd3bded5e19",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T18:20Z (receipt dfd3bded5e19); pinned to the default-branch head. LICENSE file at pin 0bc357718c7f detected as MIT by the GitHub licence API on 2026-10-28; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T18:20Z (receipt dfd3bded5e19); pinned to the default-branch head. LICENSE file at pin 482aa94d3fb8 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
    }
   }
  ]

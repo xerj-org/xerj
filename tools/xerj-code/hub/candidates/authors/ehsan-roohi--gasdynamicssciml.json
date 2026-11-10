@@ -1,0 +1,23 @@
+{
+ "corpus": "ehsan-roohi--gasdynamicssciml",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Python queries this for how Ehsan-Roohi/GasDynamicsSciML implements it: Ehsan-Roohi/GasDynamicsSciML (Python)",
+ "repos": [
+  {
+   "repo": "GasDynamicsSciML",
+   "url": "https://github.com/Ehsan-Roohi/GasDynamicsSciML",
+   "sha": "374431a1033138f56e2752bf8bbf9b75a454d80c",
+   "licence": "MIT (LICENSE file at pin 374431a10331, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T21:31Z",
+    "consent_receipt": "92e7b141fcec",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T21:31Z (receipt 92e7b141fcec); pinned to the default-branch head. LICENSE file at pin 374431a10331 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "ehsan-roohi--roohi-bulk-to-wall-observability",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Python queries this for how Ehsan-Roohi/roohi-bulk-to-wall-observability implements it: Research code and processed reproducibility artifacts for quantity-dependent bulk-to-wall observability in rarefied hypersonic flow",
+ "repos": [
+  {
+   "repo": "roohi-bulk-to-wall-observability",
+   "url": "https://github.com/Ehsan-Roohi/roohi-bulk-to-wall-observability",
+   "sha": "ee01545bef9b325b7f31e2866bfd0fa80036a2a6",
+   "licence": "author's permission (LICENSE at pin ee01545bef9b: NOASSERTION; repository: MIT)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T21:31Z",
+    "consent_receipt": "91be5ab926f7",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T21:31Z (receipt 91be5ab926f7); pinned to the default-branch head. LICENSE at pin ee01545bef9b: NOASSERTION (repository: MIT); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

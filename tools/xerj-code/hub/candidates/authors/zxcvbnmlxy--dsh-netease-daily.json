@@ -1,0 +1,23 @@
+{
+ "corpus": "zxcvbnmlxy--dsh-netease-daily",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on deepseek-harness, dsh, dsh-plugin queries this for how zxcvbnmlxy/dsh-netease-daily implements it: DeepSeek Harness ??????????????:?? 21:00 ? 5 ?????? mpv ?? 30 ???? 3 ????? (selected work: src, the project root)",
+ "repos": [
+  {
+   "repo": "dsh-netease-daily",
+   "url": "https://github.com/zxcvbnmlxy/dsh-netease-daily",
+   "sha": "8864ee00fcb661e1c9421ebd52faf5711920a657",
+   "licence": "MIT (LICENSE file at pin 8864ee00fcb6, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-27T02:30Z",
+    "consent_receipt": "de26d1235c9f",
+    "note": "Inclusion consented by the commit author by email at 2026-10-27T02:30Z (receipt de26d1235c9f); selected commit 8864ee00fcb6: \"0.2.0: \u8bbe\u7f6e\u9875\u914d\u7f6e\u9762\u677f\u3001\u9759\u9ed8\u64ad\u653e\uff08ao=null\uff09\u3001\u6309\u63cf\u8ff0\u63a8\u8350\u4e0e\u9010\u9996 AI \u8bc4\u4ef7\u3001\u53ef\u914d\u7f6e\u65e5\u5fd7\u76ee\u5f55\u3001mpv \u4f9d\u8d56\u68c0\u6d4b/\u5b89\u88c5\". LICENSE file at pin 8864ee00fcb6 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

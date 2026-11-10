@@ -1,0 +1,29 @@
+{
+ "corpus": "x-lance--sure-evaluation",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how X-LANCE/sure-evaluation implements it: A Systematic and Unified Reproducible Evaluation Toolkit (SURE). Easy to use and integrate like a plugin. Build your evaluation pipeline her (selected work: tests, src/sure_eval, scripts)",
+ "repos": [
+  {
+   "repo": "sure-evaluation",
+   "url": "https://github.com/PigeonDan1/sure-evaluation",
+   "sha": "9f6d1efd31d2290d5f0e201e40216ffda5212e7c",
+   "licence": "MIT (LICENSE file at pin 9f6d1efd31d2, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-28T01:51Z",
+    "consent_receipt": "5a7d4cfcfcc9",
+    "note": "Inclusion consented by the commit author by email at 2026-10-28T01:51Z (receipt 5a7d4cfcfcc9); selected commit 9f6d1efd31d2: \"feat(tts): add Korean KOMOS route\". LICENSE file at pin 9f6d1efd31d2 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @PigeonDan1, who has not added it."
+   },
+   "paths": [
+    "docs",
+    "scripts",
+    "src/sure_eval/evaluation",
+    "tests"
+   ]
+  }
+ ]
+}

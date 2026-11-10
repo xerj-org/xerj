@@ -1,0 +1,23 @@
+{
+ "corpus": "azeemamjad--orewire",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on JavaScript queries this for how azeemamjad/Orewire implements it: Orewire is a mining filings intelligence platform that automates the collection, analysis, and monitoring of Canadian mining company disclos (selected work: outreach, Server, postal)",
+ "repos": [
+  {
+   "repo": "Orewire",
+   "url": "https://github.com/azeemamjad/Orewire",
+   "sha": "dd88b5148d50a6296b932153c3dab72a7afe8b1a",
+   "licence": "MIT (LICENSE file at pin dd88b5148d50, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-27T06:40Z",
+    "consent_receipt": "3a257dbe3ff1",
+    "note": "Inclusion consented by the commit author by email at 2026-10-27T06:40Z (receipt 3a257dbe3ff1); selected commit dd88b5148d50: \"Add email outreach stack: pre-send verification, Postal/Listmonk conf\u2026\". LICENSE file at pin dd88b5148d50 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

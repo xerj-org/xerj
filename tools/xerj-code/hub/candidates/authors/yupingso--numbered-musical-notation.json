@@ -1,0 +1,23 @@
+{
+ "corpus": "yupingso--numbered-musical-notation",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how yupingso/numbered-musical-notation implements it: yupingso/numbered-musical-notation (TypeScript) (selected work: web)",
+ "repos": [
+  {
+   "repo": "numbered-musical-notation",
+   "url": "https://github.com/yupingso/numbered-musical-notation",
+   "sha": "4df69ab82b22456cc140e4a7218d5f3a774c73d2",
+   "licence": "MIT (LICENSE file at pin 4df69ab82b22, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T08:43Z",
+    "consent_receipt": "394e97b589e0",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T08:43Z (receipt 394e97b589e0); selected commit 4df69ab82b22: \"web: Report parser errors as structured diagnostics\". LICENSE file at pin 4df69ab82b22 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

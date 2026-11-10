@@ -1,0 +1,23 @@
+{
+ "corpus": "dimixar--miri",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Swift queries this for how dimixar/miri implements it: Niri-ish, keyboard-first window manager for macOS (selected work: Sources, Tests, the project root)",
+ "repos": [
+  {
+   "repo": "miri",
+   "url": "https://github.com/dimixar/miri",
+   "sha": "e4722d71c0312a2fb49d013dfd591d71f61add67",
+   "licence": "MIT (LICENSE file at pin e4722d71c031, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T20:25Z",
+    "consent_receipt": "c011a055883c",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T20:25Z (receipt c011a055883c); selected commit e4722d71c031: \"Add per-window layout fullscreen\". LICENSE file at pin e4722d71c031 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "art-test-stack--gpt-lab",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ablation-study, from-scratch, gpt queries this for how art-test-stack/gpt-lab implements it: A light-weight library for fast-ablation studies on GPT-like Language Models (selected work: spaces, tests, scripts)",
+ "repos": [
+  {
+   "repo": "gpt-lab",
+   "url": "https://github.com/art-test-stack/gpt-lab",
+   "sha": "71bcebde6f05052ce8f5a06708a358c0f4ed9ca9",
+   "licence": "MIT (LICENSE file at pin 71bcebde6f05, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-27T22:56Z",
+    "consent_receipt": "15142eb2bd8e",
+    "note": "Inclusion consented by the commit author by email at 2026-10-27T22:56Z (receipt 15142eb2bd8e); selected commit 71bcebde6f05: \"updating space with nicer ui\". LICENSE file at pin 71bcebde6f05 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

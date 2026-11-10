@@ -1,0 +1,23 @@
+{
+ "corpus": "ehsan-roohi--roohi-nozzle-dsmc-fortran",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Fortran queries this for how Ehsan-Roohi/roohi-nozzle-dsmc-fortran implements it: Deduplicated legacy Fortran DSMC micro-nozzle research archive with reconstruction manifest",
+ "repos": [
+  {
+   "repo": "roohi-nozzle-dsmc-fortran",
+   "url": "https://github.com/Ehsan-Roohi/roohi-nozzle-dsmc-fortran",
+   "sha": "6e62458d31e99d9c63ca3079a28edba8376f5487",
+   "licence": "MIT (LICENSE file at pin 6e62458d31e9, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T21:31Z",
+    "consent_receipt": "6b59628b6706",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T21:31Z (receipt 6b59628b6706); pinned to the default-branch head. LICENSE file at pin 6e62458d31e9 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

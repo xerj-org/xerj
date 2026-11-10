@@ -1,0 +1,23 @@
+{
+ "corpus": "gunnarguy--openintelligence",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on apple-intelligence, document-ai, document-intelligence queries this for how Gunnarguy/OpenIntelligence implements it: Apple-native iOS/macOS app for document intelligence, OCR, cited answers, and source-backed retrieval over PDFs, scans, and user-controlled  (selected work: OpenIntelligence, OpenIntelligenceTests)",
+ "repos": [
+  {
+   "repo": "OpenIntelligence",
+   "url": "https://github.com/Gunnarguy/OpenIntelligence",
+   "sha": "55af0726069a3d9c87e46f678f966d6f979f63a5",
+   "licence": "MIT (LICENSE file at pin 55af0726069a, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-27T14:17Z",
+    "consent_receipt": "4cd47035e78d",
+    "note": "Inclusion consented by the commit author by email at 2026-10-27T14:17Z (receipt 4cd47035e78d); selected commit 55af0726069a: \"5.7: a large text import no longer freezes the app; numbers checked a\u2026\". LICENSE file at pin 55af0726069a detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

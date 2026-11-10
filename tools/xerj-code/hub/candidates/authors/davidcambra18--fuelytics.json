@@ -1,0 +1,23 @@
+{
+ "corpus": "davidcambra18--fuelytics",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on fuel-consumption, fuel-prices, statistics queries this for how DavidCambra18/fuelytics implements it: Aplicaci\u00f3n de gesti\u00f3n de veh\u00edculos con estad\u00edsticas de consumo, repostajes y mantenimientos (selected work: frontend)",
+ "repos": [
+  {
+   "repo": "fuelytics",
+   "url": "https://github.com/DavidCambra18/fuelytics",
+   "sha": "f844f51ad9475d5878f9ec7412a7bf93d58b9edc",
+   "licence": "MIT (LICENSE file at pin f844f51ad947, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-26T11:39Z",
+    "consent_receipt": "37fe77996241",
+    "note": "Inclusion consented by the commit author by email at 2026-10-26T11:39Z (receipt 37fe77996241); selected commit f844f51ad947: \"fix: corrige sesiones, formularios e historiales\". LICENSE file at pin f844f51ad947 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

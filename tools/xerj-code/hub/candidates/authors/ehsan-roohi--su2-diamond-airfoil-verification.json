@@ -1,0 +1,23 @@
+{
+ "corpus": "ehsan-roohi--su2-diamond-airfoil-verification",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how Ehsan-Roohi/SU2-Diamond-Airfoil-Verification implements it: Supersonic diamond airfoil simulations and validations with SU2 open-source software",
+ "repos": [
+  {
+   "repo": "SU2-Diamond-Airfoil-Verification",
+   "url": "https://github.com/Ehsan-Roohi/SU2-Diamond-Airfoil-Verification",
+   "sha": "cd36c78f027a6c096c62839063e5e91c930e0c7c",
+   "licence": "MIT (LICENSE file at pin cd36c78f027a, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T21:31Z",
+    "consent_receipt": "2c09f746847d",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T21:31Z (receipt 2c09f746847d); pinned to the default-branch head. LICENSE file at pin cd36c78f027a detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

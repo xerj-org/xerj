@@ -1,0 +1,23 @@
+{
+ "corpus": "ehsan-roohi--roohi-step-dnn-mahdavi",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how Ehsan-Roohi/roohi-step-dnn-mahdavi implements it: Curated data, code, and reference results for the backward-facing-step DeepONet study",
+ "repos": [
+  {
+   "repo": "roohi-step-dnn-mahdavi",
+   "url": "https://github.com/Ehsan-Roohi/roohi-step-dnn-mahdavi",
+   "sha": "c3f211376b42b8dc30daad380eaef5e0ab800b5c",
+   "licence": "author's permission (LICENSE at pin c3f211376b42: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T21:31Z",
+    "consent_receipt": "c2f3d183ff0c",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T21:31Z (receipt c2f3d183ff0c); pinned to the default-branch head. LICENSE at pin c3f211376b42: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

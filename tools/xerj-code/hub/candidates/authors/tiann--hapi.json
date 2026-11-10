@@ -1,0 +1,27 @@
+{
+ "corpus": "tiann--hapi",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on app, claude-code, codex queries this for how tiann/hapi implements it: App for Codex / Claude Code / Pi / OpenCode / Kimi Code / Grok Build, vibe coding anytime, anywhere (selected work: web, cli)",
+ "repos": [
+  {
+   "repo": "hapi",
+   "url": "https://github.com/tiann/hapi",
+   "sha": "13fec3e15767251f6ef7cf70f637a093688d394e",
+   "licence": "AGPL-3.0 (LICENSE file at pin 13fec3e15767, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-29T17:48Z",
+    "consent_receipt": "37ba1f23d942",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T17:48Z (receipt 37ba1f23d942); selected commit 13fec3e15767: \"fix(web): show session mentions without waiting for remote file searc\u2026\". LICENSE file at pin 13fec3e15767 detected as AGPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @tiann, who has not added it."
+   },
+   "paths": [
+    "cli/src/runner",
+    "web/src"
+   ]
+  }
+ ]
+}

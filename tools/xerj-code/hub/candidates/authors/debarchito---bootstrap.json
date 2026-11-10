@@ -1,0 +1,23 @@
+{
+ "corpus": "debarchito---bootstrap",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Nix queries this for how debarchito/.bootstrap implements it: Everything built for and around Nix. Mirror of https://git.sr.ht/~debarchito/.bootstrap (selected work: modules/features, modules/packages, modules/users)",
+ "repos": [
+  {
+   "repo": ".bootstrap",
+   "url": "https://github.com/debarchito/.bootstrap",
+   "sha": "2412405b911aa49bab77115b0abcd58d8bf42785",
+   "licence": "Zlib (LICENSE file at pin 2412405b911a, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Zlib",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T02:19Z",
+    "consent_receipt": "54e6ffb09191",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T02:19Z (receipt 54e6ffb09191); selected commit 2412405b911a: \"feat(bibata-cursors): matugen style\". LICENSE file at pin 2412405b911a detected as Zlib by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

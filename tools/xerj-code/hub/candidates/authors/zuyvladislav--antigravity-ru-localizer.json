@@ -1,0 +1,23 @@
+{
+ "corpus": "zuyvladislav--antigravity-ru-localizer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how ZuyVladislav/antigravity-ru-localizer implements it: \u041b\u043e\u043a\u0430\u043b\u044c\u043d\u044b\u0439 \u0440\u0443\u0441\u0438\u0444\u0438\u043a\u0430\u0442\u043e\u0440 \u0441\u0442\u0430\u0442\u0438\u0447\u0435\u0441\u043a\u043e\u0433\u043e \u0438\u043d\u0442\u0435\u0440\u0444\u0435\u0439\u0441\u0430 Google Antigravity 2.17.0 (selected work: dicts, compat, the project root)",
+ "repos": [
+  {
+   "repo": "antigravity-ru-localizer",
+   "url": "https://github.com/ZuyVladislav/antigravity-ru-localizer",
+   "sha": "df4f924a6e9f5cde3821b6df9dcaf659ad23ea53",
+   "licence": "MIT (LICENSE file at pin df4f924a6e9f, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T16:44Z",
+    "consent_receipt": "3c8b1c1ea864",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T16:44Z (receipt 3c8b1c1ea864); selected commit df4f924a6e9f: \"Support Antigravity 2.28.0 and preserve BetterGravity\". LICENSE file at pin df4f924a6e9f detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

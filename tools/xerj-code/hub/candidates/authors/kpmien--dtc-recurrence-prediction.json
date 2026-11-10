@@ -1,0 +1,23 @@
+{
+ "corpus": "kpmien--dtc-recurrence-prediction",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Jupyter Notebook queries this for how kpmien/DTC-Recurrence-Prediction implements it: kpmien/DTC-Recurrence-Prediction (Jupyter Notebook) (selected work: the project root, results, saved_models)",
+ "repos": [
+  {
+   "repo": "DTC-Recurrence-Prediction",
+   "url": "https://github.com/kpmien/DTC-Recurrence-Prediction",
+   "sha": "f1b8b2a9502e802de61470675e53e477513cacf3",
+   "licence": "Apache-2.0 (LICENSE file at pin f1b8b2a9502e, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-26T18:30Z",
+    "consent_receipt": "b3e1a1b5798d",
+    "note": "Inclusion consented by the commit author by email at 2026-10-26T18:30Z (receipt b3e1a1b5798d); selected commit f1b8b2a9502e: \"Set up for online availability\". LICENSE file at pin f1b8b2a9502e detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

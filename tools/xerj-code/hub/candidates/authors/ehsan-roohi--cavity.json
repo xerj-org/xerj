@@ -1,0 +1,23 @@
+{
+ "corpus": "ehsan-roohi--cavity",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Jupyter Notebook queries this for how Ehsan-Roohi/Cavity implements it: Cavity Flow: CFD and PINN",
+ "repos": [
+  {
+   "repo": "Cavity",
+   "url": "https://github.com/Ehsan-Roohi/Cavity",
+   "sha": "f229bdc17ede0b9b6507cfe6482f8ba805a9c4bf",
+   "licence": "author's permission (LICENSE at pin f229bdc17ede: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T21:31Z",
+    "consent_receipt": "0f0df36e2eab",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T21:31Z (receipt 0f0df36e2eab); pinned to the default-branch head. LICENSE at pin f229bdc17ede: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "mabunemeh--openstack-janitor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Python queries this for how mabunemeh/openstack-janitor implements it: Audit an OpenStack cloud for orphaned and wasteful resources (selected work: tests, src/openstack_janitor)",
+ "repos": [
+  {
+   "repo": "openstack-janitor",
+   "url": "https://github.com/mabunemeh/openstack-janitor",
+   "sha": "7209c15e281865d5f85342a6f75bf55f1c0ff293",
+   "licence": "Apache-2.0 (LICENSE file at pin 7209c15e2818, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T14:32Z",
+    "consent_receipt": "6738b5e41be0",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T14:32Z (receipt 6738b5e41be0); selected commit 7209c15e2818: \"feat: add old-unused-images detector\". LICENSE file at pin 7209c15e2818 detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

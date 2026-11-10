@@ -1,0 +1,23 @@
+{
+ "corpus": "su-yu-s--cloudforge",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on TypeScript queries this for how Su-yu-s/CloudForge implements it: Su-yu-s/CloudForge (TypeScript) (selected work: CloudForge)",
+ "repos": [
+  {
+   "repo": "CloudForge",
+   "url": "https://github.com/Su-yu-s/CloudForge",
+   "sha": "d1b006534ac574312435a3f53072d3c7b7452fca",
+   "licence": "Apache-2.0 (LICENSE file at pin d1b006534ac5, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T04:33Z",
+    "consent_receipt": "aac2b69476f7",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T04:33Z (receipt aac2b69476f7); selected commit d1b006534ac5: \"feat: make the CloudForge panel viewer-first\". LICENSE file at pin d1b006534ac5 detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "wenakanew--tactiq",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how wenakanew/tactiq implements it: See the play. Understand the game. From match events to meaningful stories: real-time AI that explains what happened, why it matters, and wh (selected work: services, tests, apps/web)",
+ "repos": [
+  {
+   "repo": "tactiq",
+   "url": "https://github.com/wenakanew/tactiq",
+   "sha": "ffb4b8637a4478c6ddc396c996098ad93e8095e5",
+   "licence": "MIT (LICENSE file at pin ffb4b8637a44, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-27T05:40Z",
+    "consent_receipt": "b507e2f097cd",
+    "note": "Inclusion consented by the commit author by email at 2026-10-27T05:40Z (receipt b507e2f097cd); selected commit ffb4b8637a44: \"Enhance metrics handling and improve video upload processing; add tes\u2026\". LICENSE file at pin ffb4b8637a44 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Pinned to head ffb4b8637a44 (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "deathpaul1125--matipanel",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how DeathPaul1125/matipanel implements it: DeathPaul1125/matipanel (Python) (selected work: app/modules, app, app/templates)",
+ "repos": [
+  {
+   "repo": "matipanel",
+   "url": "https://github.com/DeathPaul1125/matipanel",
+   "sha": "6b4a250d8862ab2f77891f7e55923bbedd788b5e",
+   "licence": "MIT (LICENSE file at pin 6b4a250d8862, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-28T21:00Z",
+    "consent_receipt": "8334973a6e0c",
+    "note": "Inclusion consented by the commit author by email at 2026-10-28T21:00Z (receipt 8334973a6e0c); selected commit 6b4a250d8862: \"Refactor validation and error handling in webserver module; improve s\u2026\". LICENSE file at pin 6b4a250d8862 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

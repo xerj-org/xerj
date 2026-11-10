@@ -22,7 +22,8 @@
     "extensions/archiver",
     "extensions/coffee",
     "extensions/github",
-    "extensions/memradar"
+    "extensions/memradar",
+    "extensions/zoo"
    ]
   }
  ]

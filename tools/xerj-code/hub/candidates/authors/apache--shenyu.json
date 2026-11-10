@@ -19,8 +19,15 @@
     "note": "Inclusion consented by the commit author by email at 2026-10-20T13:39Z (receipt 198649e4d53e); selected commit 0e6216d6eda6: \"fix: enforce single half-open circuit breaker probe (#7802)\". LICENSE file at pin 0e6216d6eda6 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @apache, who has not added it."
    },
    "paths": [
+    "shenyu-admin/src/main/java/org/apache/shenyu/admin/mapper",
+    "shenyu-admin/src/main/java/org/apache/shenyu/admin/model/entity",
     "shenyu-admin/src/main/java/org/apache/shenyu/admin/service/impl",
+    "shenyu-admin/src/main/java/org/apache/shenyu/admin/transfer",
+    "shenyu-admin/src/main/resources/mappers",
+    "shenyu-admin/src/test/java/org/apache/shenyu/admin/mapper",
     "shenyu-admin/src/test/java/org/apache/shenyu/admin/service",
+    "shenyu-admin/src/test/java/org/apache/shenyu/admin/transfer",
+    "shenyu-alert/src/main/java/org/apache/shenyu/alert/model",
     "shenyu-plugin/shenyu-plugin-base/src/main/java/org/apache/shenyu/plugin/base/circuitbreaker",
     "shenyu-plugin/shenyu-plugin-base/src/test/java/org/apache/shenyu/plugin/base/circuitbreaker",
     "shenyu-plugin/shenyu-plugin-proxy/shenyu-plugin-divide/src/main/java/org/apache/shenyu/plugin/divide",

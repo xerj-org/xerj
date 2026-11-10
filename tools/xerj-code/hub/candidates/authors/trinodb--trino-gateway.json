@@ -1,0 +1,29 @@
+{
+ "corpus": "trinodb--trino-gateway",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Java queries this for how trinodb/trino-gateway implements it: trinodb/trino-gateway (Java) (selected work: webapp, gateway-ha, the project root)",
+ "repos": [
+  {
+   "repo": "trino-gateway",
+   "url": "https://github.com/trinodb/trino-gateway",
+   "sha": "fd7b7a971981907d9c9030d6a2b986aadc1beb18",
+   "licence": "Apache-2.0 (LICENSE file at pin fd7b7a971981, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-28T02:43Z",
+    "consent_receipt": "bf29a19f0561",
+    "note": "Inclusion consented by the commit author by email at 2026-10-28T02:43Z (receipt bf29a19f0561); selected commit fd7b7a971981: \"Build the web UI as a separate Maven module\". LICENSE file at pin fd7b7a971981 detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @trinodb, who has not added it."
+   },
+   "paths": [
+    ".github/workflows",
+    "docs",
+    "gateway-ha",
+    "webapp"
+   ]
+  }
+ ]
+}

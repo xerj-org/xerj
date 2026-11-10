@@ -1,0 +1,23 @@
+{
+ "corpus": "mustafa-fathy-youssef--esp32-egg-incubator",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "HEALTH",
+ "domain": "an agent working on C++ queries this for how mustafa-fathy-youssef/ESP32-Egg-Incubator implements it: Safety-critical, offline-first ESP32 firmware for precision bio-incubation: hysteresis control, multi-layer safety modes, predictive thermal (selected work: src/diagnostics, src/core, src/network)",
+ "repos": [
+  {
+   "repo": "ESP32-Egg-Incubator",
+   "url": "https://github.com/mustafa-fathy-youssef/ESP32-Egg-Incubator",
+   "sha": "34c5a58e5184d1e3c8914ef50a5b4c3b894dbdbb",
+   "licence": "MIT (LICENSE file at pin 34c5a58e5184, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T21:50Z",
+    "consent_receipt": "8a564146cc3b",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T21:50Z (receipt 8a564146cc3b); selected commit 34c5a58e5184: \"feat: apply 11 critical fixes from AI agent\". LICENSE file at pin 34c5a58e5184 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

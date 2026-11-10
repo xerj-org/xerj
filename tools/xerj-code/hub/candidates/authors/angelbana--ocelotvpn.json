@@ -1,0 +1,23 @@
+{
+ "corpus": "angelbana--ocelotvpn",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on anyconnect, linux, openconnect queries this for how angelbana/ocelotVPN implements it: A VPN client for servers that speak the Cisco AnyConnect protocol, built on OpenConnect. Windows and Linux (selected work: src, src/qml)",
+ "repos": [
+  {
+   "repo": "ocelotVPN",
+   "url": "https://github.com/angelbana/ocelotVPN",
+   "sha": "ba9c214723491eb1ba54652f23f15d05135213d2",
+   "licence": "GPL-2.0 (LICENSE file at pin ba9c21472349, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-29T22:04Z",
+    "consent_receipt": "7c40d967d59e",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T22:04Z (receipt 7c40d967d59e); selected commit ba9c21472349: \"Download updates in the background and stabilize update installation\". LICENSE file at pin ba9c21472349 detected as GPL-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

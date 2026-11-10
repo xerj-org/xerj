@@ -1,0 +1,23 @@
+{
+ "corpus": "ehsan-roohi--fpcode",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Jupyter Notebook queries this for how Ehsan-Roohi/FPCode implements it: Ehsan-Roohi/FPCode (Jupyter Notebook)",
+ "repos": [
+  {
+   "repo": "FPCode",
+   "url": "https://github.com/Ehsan-Roohi/FPCode",
+   "sha": "114c7eb2d0e352c9cd11deec46dbec066168859d",
+   "licence": "author's permission (LICENSE at pin 114c7eb2d0e3: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T21:31Z",
+    "consent_receipt": "00af2001266d",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T21:31Z (receipt 00af2001266d); pinned to the default-branch head. LICENSE at pin 114c7eb2d0e3: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

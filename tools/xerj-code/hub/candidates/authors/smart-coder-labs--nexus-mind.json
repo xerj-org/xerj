@@ -1,0 +1,28 @@
+{
+ "corpus": "smart-coder-labs--nexus-mind",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-memory, ai-agents, ai-memory queries this for how smart-coder-labs/nexus-mind implements it: Open-source, self-hosted team memory for AI coding agents. Share, search, and audit project context through MCP (selected work: apps/backend)",
+ "repos": [
+  {
+   "repo": "nexus-mind",
+   "url": "https://github.com/smart-coder-labs/nexus-mind",
+   "sha": "38a510d68cba09495c1074cb981fcb85eb388198",
+   "licence": "MIT (LICENSE file at pin 38a510d68cba, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-27T03:51Z",
+    "consent_receipt": "4e0b3141829a",
+    "note": "Inclusion consented by the commit author by email at 2026-10-27T03:51Z (receipt 4e0b3141829a); selected commit 38a510d68cba: \"feat(factory): specialists repair once after a rejecting review; docs\u2026\". LICENSE file at pin 38a510d68cba detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @smart-coder-labs, who has not added it."
+   },
+   "paths": [
+    "apps/backend/src/automation",
+    "apps/backend/src/factory",
+    "docs/factory"
+   ]
+  }
+ ]
+}

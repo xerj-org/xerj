@@ -1,0 +1,23 @@
+{
+ "corpus": "hemanthkp98--driftsentry",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Python queries this for how hemanthkp98/driftsentry implements it: \ud83d\udee1\ufe0f Your infrastructure's immune system \u2014 detect IaC drift, attribute blame with CloudTrail audit logs, and auto-remediate with PRs. Built fo (selected work: tests, src/driftsentry)",
+ "repos": [
+  {
+   "repo": "driftsentry",
+   "url": "https://github.com/hemanthkp98/driftsentry",
+   "sha": "ce18693c4d474e8f0d54ac5bc3400508c0096d55",
+   "licence": "Apache-2.0 (LICENSE file at pin ce18693c4d47, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-26T07:28Z",
+    "consent_receipt": "bbb9904dbd70",
+    "note": "Inclusion consented by the commit author by email at 2026-10-26T07:28Z (receipt bbb9904dbd70); selected commit ce18693c4d47: \"feat(core): add drift baseline data models and filtering engine\". LICENSE file at pin ce18693c4d47 detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

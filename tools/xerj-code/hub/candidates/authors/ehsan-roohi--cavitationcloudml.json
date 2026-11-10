@@ -1,0 +1,23 @@
+{
+ "corpus": "ehsan-roohi--cavitationcloudml",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Python queries this for how Ehsan-Roohi/CavitationCloudML implements it: CFD-supervised segmentation of attached cavities and detached clouds over porous hydrofoils",
+ "repos": [
+  {
+   "repo": "CavitationCloudML",
+   "url": "https://github.com/Ehsan-Roohi/CavitationCloudML",
+   "sha": "281d1e74ae4fafdd10ec40b1a4d992df475fa2df",
+   "licence": "author's permission (LICENSE at pin 281d1e74ae4f: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T21:31Z",
+    "consent_receipt": "6155cb9abb74",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T21:31Z (receipt 6155cb9abb74); pinned to the default-branch head. LICENSE at pin 281d1e74ae4f: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

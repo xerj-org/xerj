@@ -1,0 +1,23 @@
+{
+ "corpus": "ehsan-roohi--shockvortexml",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how Ehsan-Roohi/ShockVortexML implements it: ML-first shock and vortex-core segmentation in compressible CFD. JCP-oriented development with physics audits and explicit validation limits",
+ "repos": [
+  {
+   "repo": "ShockVortexML",
+   "url": "https://github.com/Ehsan-Roohi/ShockVortexML",
+   "sha": "c07346dc21479926fe0b12dcd04ae53e6c50016c",
+   "licence": "MIT (LICENSE file at pin c07346dc2147, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T21:31Z",
+    "consent_receipt": "061b47a4bbf0",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T21:31Z (receipt 061b47a4bbf0); pinned to the default-branch head. LICENSE file at pin c07346dc2147 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

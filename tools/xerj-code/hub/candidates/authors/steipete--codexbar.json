@@ -21,6 +21,7 @@
    "paths": [
     "Sources/CodexBar",
     "Sources/CodexBarCLI",
+    "Sources/CodexBarCore/Config",
     "Sources/CodexBarCore/Providers",
     "Sources/CodexBarCore/Resources",
     "Sources/CodexBarCore/Sync",

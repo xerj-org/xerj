@@ -1,0 +1,23 @@
+{
+ "corpus": "artemkagoldman--contextswitcher",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on avalonia, csharp, dotnet queries this for how ArtemkaGoldMan/ContextSwitcher implements it: macOS menu bar app: switch between work and personal in one click. Opens the apps and tabs you need, quits the rest, turns on Focus, starts  (selected work: src/ContextSwitcher.Infrastructure.Windows, src/ContextSwitcher.Tests.Windows)",
+ "repos": [
+  {
+   "repo": "ContextSwitcher",
+   "url": "https://github.com/ArtemkaGoldMan/ContextSwitcher",
+   "sha": "899857ee55eee4e587be2d605648588e457b488c",
+   "licence": "MIT (LICENSE file at pin 899857ee55ee, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T09:47Z",
+    "consent_receipt": "5f618f17acb5",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T09:47Z (receipt 5f618f17acb5); selected commit 899857ee55ee: \"Windows stage 1b: list the Start menu's apps and open them\". LICENSE file at pin 899857ee55ee detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

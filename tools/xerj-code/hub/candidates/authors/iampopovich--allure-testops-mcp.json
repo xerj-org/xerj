@@ -1,0 +1,23 @@
+{
+ "corpus": "iampopovich--allure-testops-mcp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-tools, allure, allure-testops queries this for how iampopovich/allure-testops-mcp implements it: MCP Server for Allure TestOps (selected work: src, tests, src/tools)",
+ "repos": [
+  {
+   "repo": "allure-testops-mcp",
+   "url": "https://github.com/iampopovich/allure-testops-mcp",
+   "sha": "b5568702a043a0fab45ccac3aabc6ae491cb2b4a",
+   "licence": "MIT (LICENSE file at pin b5568702a043, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T21:49Z",
+    "consent_receipt": "9737b0ca0f62",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T21:49Z (receipt 9737b0ca0f62); selected commit b5568702a043: \"Add extensive unit tests for `AllureApiClient`, update cache behavior\u2026\". LICENSE file at pin b5568702a043 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}
