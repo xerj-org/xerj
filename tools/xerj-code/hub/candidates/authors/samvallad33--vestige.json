@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on rust, local-first, security queries this for how samvallad33/vestige implements it: Think before doing, prove before saving. Vestige is the local-first cognitive operating system and deterministic safety kernel for autonomou (selected work: crates/vestige-mcp)",
+ "domain": "an agent working on rust, local-first, security queries this for how samvallad33/vestige implements it: Local first cognitive operating system and deterministic safety kernel for autonomous AI agents. Powered by FSRS-6 causal graph memory and p (selected work: crates/vestige-mcp)",
  "repos": [
   {
    "repo": "vestige",

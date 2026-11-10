@@ -2,21 +2,21 @@
  "corpus": "jchristn--arguebot",
  "cloned_at": null,
  "status": "draft",
- "shelf": "AI",
- "domain": "an agent working on C# queries this for how jchristn/ArgueBot implements it: Let Claude Code and Codex duke it out over a topic you supply",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how jchristn/ArgueBot implements it: Let Claude Code, Codex, Gemini, Mux, and API models duke it out over a topic you supply",
  "repos": [
   {
    "repo": "ArgueBot",
    "url": "https://github.com/jchristn/ArgueBot",
-   "sha": "d0b35de1346de2c63697bcaf2fe24faaca95e92b",
-   "licence": "MIT (LICENSE file at pin d0b35de1346d, GitHub licence API 2026-11-06)",
+   "sha": "323cc5cca916320f518e96a232a65899699c3f1b",
+   "licence": "MIT (LICENSE file at pin 323cc5cca916, GitHub licence API 2026-11-10)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T22:23Z",
     "consent_receipt": "e5440885dc2f",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:23Z (receipt e5440885dc2f); pinned to the default-branch head. LICENSE file at pin d0b35de1346d detected as MIT by the GitHub licence API on 2026-11-06; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:23Z (receipt e5440885dc2f); pinned to the default-branch head. LICENSE file at pin 323cc5cca916 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
    }
   }
  ]

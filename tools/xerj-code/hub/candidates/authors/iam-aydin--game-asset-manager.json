@@ -2,8 +2,8 @@
  "corpus": "iam-aydin--game-asset-manager",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on TypeScript queries this for how iam-aydin/Game-Asset-Manager implements it: Manage your 3D Models, IMGs, Text, Audio, Video Files with Game Asset Manager, All in One Place (selected work: src/renderer, src/main, src/shared)",
+ "shelf": "WEB",
+ "domain": "an agent working on 3d-models, 3d-viewer, asset-manager queries this for how iam-aydin/Game-Asset-Manager implements it: Manage your \ud83e\uddca 3D Models, \ud83d\uddbc\ufe0f Images, \ud83d\udcdd Text, \ud83c\udfb5 Audio, and \ud83c\udfac Video. All in one place (selected work: src/renderer, src/main, src/shared)",
  "repos": [
   {
    "repo": "Game-Asset-Manager",

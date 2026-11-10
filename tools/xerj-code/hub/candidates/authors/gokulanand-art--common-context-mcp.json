@@ -1,0 +1,23 @@
+{
+ "corpus": "gokulanand-art--common-context-mcp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-memory, ai-agents, claude-code queries this for how Gokulanand-art/common-context-mcp implements it: common context MCP \u2014 shared, append-only context store for AI agents over MCP: checkpoints, failures, file claims, handoffs and crash recove (selected work: test, scripts, src)",
+ "repos": [
+  {
+   "repo": "common-context-mcp",
+   "url": "https://github.com/Gokulanand-art/common-context-mcp",
+   "sha": "313e8dc891ab0eef04088ce64a0ac2380cffd65b",
+   "licence": "MIT (LICENSE file at pin 313e8dc891ab, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T02:11Z",
+    "consent_receipt": "5eb483da5d0a",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T02:11Z (receipt 5eb483da5d0a); selected commit 313e8dc891ab: \"3.10.0: Muse enforcement hooks like Claude\". LICENSE file at pin 313e8dc891ab detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

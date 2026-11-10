@@ -1,0 +1,23 @@
+{
+ "corpus": "lianhaorui--cppmodernwinpcapsniffer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on C++ queries this for how Lianhaorui/CppModernWinPcapSniffer implements it: CppModernWinPcapSniffer \u662f\u57fa\u4e8e C++17 \u4e0e Npcap\u3001\u9762\u5411 Windows \u7684\u5b66\u4e60\u6f14\u793a\u578b\u7f51\u7edc\u55c5\u63a2\u5668\uff0c\u5177\u5907\u7f51\u5361\u6355\u83b7\u3001\u53cc\u6a21\u5f0f\u8fc7\u6ee4\u3001\u591a\u534f\u8bae\u89e3\u6790\u3001TLS\u2011SNI \u63d0\u53d6\u3001\u89c6\u56fe\u4ea4\u4e92\u4e0e PCAP \u6587\u4ef6\u5904\u7406\u7b49\u529f\u80fd\uff0c\u540c\u65f6\u5b58\u5728\u5217\u8868\u5bb9\u91cf\u3001\u663e\u793a\u8fc7\u6ee4\u8bed\u6cd5\u3001TCP \u6d41\u4e0d\u91cd\u7ec4\u7b49\u5df2 (selected work: src, scripts, resources)",
+ "repos": [
+  {
+   "repo": "CppModernWinPcapSniffer",
+   "url": "https://github.com/Lianhaorui/CppModernWinPcapSniffer",
+   "sha": "3e8989063440dd1a4d2a1eeb5bd1bc31c745975b",
+   "licence": "MIT (LICENSE file at pin 3e8989063440, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T02:15Z",
+    "consent_receipt": "47c5bf02b544",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T02:15Z (receipt 47c5bf02b544); selected commit 3e8989063440: \"Add files via upload\". LICENSE file at pin 3e8989063440 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

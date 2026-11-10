@@ -1,0 +1,23 @@
+{
+ "corpus": "skrinvex--skrumi",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on code, interpreter, languages queries this for how SkrinVex/Skrumi implements it: Skrumi (formerly FoxLang) \u2014 an embeddable programming language with a VM, LSP, browser playground and Android SDK (selected work: installer, tests, packaging)",
+ "repos": [
+  {
+   "repo": "Skrumi",
+   "url": "https://github.com/SkrinVex/Skrumi",
+   "sha": "f4e8c2f84afdb22b974c0283644a2c5c69e0e240",
+   "licence": "MIT (LICENSE file at pin f4e8c2f84afd, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T03:32Z",
+    "consent_receipt": "9076f6ac8a5c",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T03:32Z (receipt 9076f6ac8a5c); selected commit f4e8c2f84afd: \"Add transactional optional VS Code and Kate setup in 10.0.1\". LICENSE file at pin f4e8c2f84afd detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "SEC",
- "domain": "an agent working on cdrive, local-first, virus-scanning queries this for how MadB0i/C.U.R.E implements it: Portable Windows security & storage rescue toolkit in Rust & Tauri. Evidence-first heuristic scanner that catches stealth droppers & persist (selected work: testing, gui, tools)",
+ "domain": "an agent working on cdrive, local-first, virus-scanning queries this for how MadB0i/C.U.R.E implements it: Catch stealth malware, obfuscated script droppers, and LOLBins that Windows Defender skips. 100% offline, zero-telemetry portable Windows se (selected work: testing, gui, tools)",
  "repos": [
   {
    "repo": "C.U.R.E",
