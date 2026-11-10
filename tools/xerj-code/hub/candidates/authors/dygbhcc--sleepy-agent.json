@@ -1,0 +1,23 @@
+{
+ "corpus": "dygbhcc--sleepy-agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Go queries this for how dygbhcc/sleepy-agent implements it: dygbhcc/sleepy-agent (Go) (selected work: cmd/fixstats)",
+ "repos": [
+  {
+   "repo": "sleepy-agent",
+   "url": "https://github.com/dygbhcc/sleepy-agent",
+   "sha": "1de201afe713da7713fc7f45be8881b514c7e9a2",
+   "licence": "MIT (LICENSE file at pin 1de201afe713, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T13:14Z",
+    "consent_receipt": "4466859fc222",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T13:14Z (receipt 4466859fc222); selected commit 1de201afe713: \"Day 7: record the fixstats run\". LICENSE file at pin 1de201afe713 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

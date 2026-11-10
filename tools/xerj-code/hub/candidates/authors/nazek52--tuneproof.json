@@ -1,0 +1,23 @@
+{
+ "corpus": "nazek52--tuneproof",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on fine-tuning, llm, lora queries this for how nazek52/tuneproof implements it: Reproducible LLM fine-tuning lab: CPU LoRA, leakage-aware data splits, held-out evaluation, and zero-learning-rate controls (selected work: evidence, src/tuneproof, tests)",
+ "repos": [
+  {
+   "repo": "tuneproof",
+   "url": "https://github.com/nazek52/tuneproof",
+   "sha": "fb3202784ae87890bf58d85837b6d45be876f9f8",
+   "licence": "MIT (LICENSE file at pin fb3202784ae8, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T13:40Z",
+    "consent_receipt": "107f4da6fa24",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T13:40Z (receipt 107f4da6fa24); selected commit fb3202784ae8: \"feat: add real CPU LoRA lab, leakage-aware bundles, 84 tests and meas\u2026\". LICENSE file at pin fb3202784ae8 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

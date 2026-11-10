@@ -1,0 +1,23 @@
+{
+ "corpus": "santiagosabogall--raytracingjulia",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Julia queries this for how SantiagoSabogall/Raytracingjulia implements it: SantiagoSabogall/Raytracingjulia (Julia) (selected work: the project root, practice, src/common)",
+ "repos": [
+  {
+   "repo": "Raytracingjulia",
+   "url": "https://github.com/SantiagoSabogall/Raytracingjulia",
+   "sha": "8482cdbac6c02770d8ab6c85a43d409caf11ad79",
+   "licence": "MIT (LICENSE file at pin 8482cdbac6c0, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T12:56Z",
+    "consent_receipt": "aca961c78a55",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T12:56Z (receipt aca961c78a55); selected commit 8482cdbac6c0: \"Improve examples, physics, and generated documentation\". LICENSE file at pin 8482cdbac6c0 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

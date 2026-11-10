@@ -2,8 +2,8 @@
  "corpus": "georgxzh--hermes-agent-plugin-hackathon",
  "cloned_at": null,
  "status": "draft",
- "shelf": "OPS",
- "domain": "an agent working on Python queries this for how georgxzh/hermes-agent-plugin-hackathon implements it: https://nousresearch.com/ (selected work: waterloo-jane-street-qr, hello_hackathon)",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how georgxzh/hermes-agent-plugin-hackathon implements it: Hermes agent plugin, worked with https://teknium.io/ (selected work: waterloo-jane-street-qr, hello_hackathon)",
  "repos": [
   {
    "repo": "hermes-agent-plugin-hackathon",

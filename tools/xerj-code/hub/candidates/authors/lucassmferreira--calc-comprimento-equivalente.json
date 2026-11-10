@@ -2,8 +2,8 @@
  "corpus": "lucassmferreira--calc-comprimento-equivalente",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Python queries this for how LucasSMFerreira/calc-comprimento-equivalente implements it: Calculadora de comprimento equivalente de tubula\u00e7\u00f5es hidr\u00e1ulicas (P2 Fen\u00f4menos de Transporte) (selected work: app/dados, tests, app/dominio)",
+ "shelf": "AI",
+ "domain": "an agent working on engineering, github-actions, portfolio queries this for how LucasSMFerreira/calc-comprimento-equivalente implements it: Calculadora de perda de carga em tubula\u00e7\u00f5es com memorial em PDF. FastAPI em camadas, entrada por texto via LLM local (a IA interpreta, nunca (selected work: app/dados, tests, app/dominio)",
  "repos": [
   {
    "repo": "calc-comprimento-equivalente",

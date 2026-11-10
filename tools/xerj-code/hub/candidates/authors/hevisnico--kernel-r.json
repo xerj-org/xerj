@@ -1,0 +1,23 @@
+{
+ "corpus": "hevisnico--kernel-r",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on Lean queries this for how HevisNico/kernel-R implements it: Pulse-driven learning cells with exact, mismatch-robust doses, proved end to end in Lean 4: chains of any length learn exactly, and native R (selected work: research)",
+ "repos": [
+  {
+   "repo": "kernel-R",
+   "url": "https://github.com/HevisNico/kernel-R",
+   "sha": "c1e442e623b093b945297d1d201e764a5fb46f52",
+   "licence": "author's permission (LICENSE at pin c1e442e623b0: NOASSERTION; repository: MIT)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T12:46Z",
+    "consent_receipt": "0d0d6094351d",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T12:46Z (receipt 0d0d6094351d); selected commit c1e442e623b0: \"Prove the full R coincidence contract and the timed-write obstruction\". LICENSE at pin c1e442e623b0: NOASSERTION (repository: MIT); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

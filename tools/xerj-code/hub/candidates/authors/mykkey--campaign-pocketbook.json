@@ -1,0 +1,23 @@
+{
+ "corpus": "mykkey--campaign-pocketbook",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Java queries this for how Mykkey/Campaign-Pocketbook implements it: Everything for a D&D campaign in one place: world and battle maps, notes, NPC and loot generators, an SRD library and linked cards. Offline  (selected work: src/main, src/test)",
+ "repos": [
+  {
+   "repo": "Campaign-Pocketbook",
+   "url": "https://github.com/Mykkey/Campaign-Pocketbook",
+   "sha": "0657e12b13efc788d10f29f54abdb76cd31dd4b5",
+   "licence": "MIT (LICENSE file at pin 0657e12b13ef, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T13:14Z",
+    "consent_receipt": "8f2189800247",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T13:14Z (receipt 8f2189800247); selected commit 0657e12b13ef: \"Add links, notes, hover previews, backlinks and search to world maps\". LICENSE file at pin 0657e12b13ef detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Pinned to head 0657e12b13ef (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "kevung--blunderdb",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on backgammon, blunder, database queries this for how kevung/blunderDB implements it: Backgammon blunder analysis: import your matches, search positions by structure and mistake, measure your play, study with spaced repetition (selected work: pkg/blunderdb, internal/server)",
+ "repos": [
+  {
+   "repo": "blunderDB",
+   "url": "https://github.com/kevung/blunderDB",
+   "sha": "ed7cd63dcbadcdad9a409bb44822f21dda3125fb",
+   "licence": "MIT (LICENSE file at pin ed7cd63dcbad, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T14:03Z",
+    "consent_receipt": "ab2ffa3bcfca",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T14:03Z (receipt ab2ffa3bcfca); selected commit ed7cd63dcbad: \"perf(import): a file already imported is recognised by its bytes befo\u2026\". LICENSE file at pin ed7cd63dcbad detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

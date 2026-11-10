@@ -1,0 +1,23 @@
+{
+ "corpus": "mimoccc--mjdev-desktop",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Kotlin queries this for how mimoccc/mjdev-desktop implements it: An kotlin compose desktop environment like DDE Desktop (selected work: buildSrc, compositor)",
+ "repos": [
+  {
+   "repo": "mjdev-desktop",
+   "url": "https://github.com/mimoccc/mjdev-desktop",
+   "sha": "57924ed2a8edf0cd9e0196b03b0a5fde368fa077",
+   "licence": "GPL-3.0 (LICENSE file at pin 57924ed2a8ed, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-10T13:54Z",
+    "consent_receipt": "716a5c82af2f",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T13:54Z (receipt 716a5c82af2f); selected commit 57924ed2a8ed: \"nested run action shows the login screen against a mock greetd\". LICENSE file at pin 57924ed2a8ed detected as GPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

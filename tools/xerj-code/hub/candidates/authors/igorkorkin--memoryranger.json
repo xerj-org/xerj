@@ -1,0 +1,23 @@
+{
+ "corpus": "igorkorkin--memoryranger",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how IgorKorkin/MemoryRanger implements it: MemoryRanger protects kernel data and code by running drivers and hosting data in isolated kernel enclaves using VT-x and EPT features. Memo",
+ "repos": [
+  {
+   "repo": "MemoryRanger",
+   "url": "https://github.com/IgorKorkin/MemoryRanger",
+   "sha": "63985707b9f469ed824b5edb4635cb26d980ddae",
+   "licence": "author's permission (LICENSE at pin 63985707b9f4: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T12:37Z",
+    "consent_receipt": "26a408b39676",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T12:37Z (receipt 26a408b39676); pinned to the default-branch head. LICENSE at pin 63985707b9f4: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}
