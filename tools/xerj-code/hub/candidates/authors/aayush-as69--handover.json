@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Python queries this for how aayush-as69/Handover implements it: aayush-as69/Handover (Python) (selected work: tests, scripts, app/ingest)",
+ "domain": "an agent working on evidence, fastapi, hackathon queries this for how aayush-as69/Handover implements it: Evidence-linked project handover: every claim traces to its source quote, is checked against the evidence, and needs human approval before p (selected work: tests, scripts, app/ingest)",
  "repos": [
   {
    "repo": "Handover",

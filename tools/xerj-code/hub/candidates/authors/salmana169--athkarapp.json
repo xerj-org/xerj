@@ -1,0 +1,23 @@
+{
+ "corpus": "salmana169--athkarapp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, kotlin, android-application queries this for how salmanA169/AthkarApp implements it: AthkarApp Athkar App is Prayer remembrance specialized application designed to assist Muslims in performing the five daily prayers regularly (selected work: app, the project root, app/src)",
+ "repos": [
+  {
+   "repo": "AthkarApp",
+   "url": "https://github.com/salmanA169/AthkarApp",
+   "sha": "c93932e23085713e9bf279d37f9005dea23a3b03",
+   "licence": "Apache-2.0 (LICENSE file at pin c93932e23085, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-22T14:00Z",
+    "consent_receipt": "256833c7c83d",
+    "note": "Inclusion consented by the commit author by email at 2026-10-22T14:00Z (receipt 256833c7c83d); selected commit c93932e23085: \"update\". LICENSE file at pin c93932e23085 detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

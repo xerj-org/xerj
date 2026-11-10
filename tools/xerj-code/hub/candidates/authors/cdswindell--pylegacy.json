@@ -1,0 +1,23 @@
+{
+ "corpus": "cdswindell--pylegacy",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how cdswindell/PyLegacy implements it: Python library to issue Lionel Legacy Train Control Commands via a serial connection (selected work: tests, src/pytrain)",
+ "repos": [
+  {
+   "repo": "PyLegacy",
+   "url": "https://github.com/cdswindell/PyLegacy",
+   "sha": "2a66d985389eff65dc7733cb8460ef797ee0265f",
+   "licence": "LGPL-3.0 (LICENSE file at pin 2a66d985389e, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "LGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-25T14:08Z",
+    "consent_receipt": "c32ba809c1f2",
+    "note": "Inclusion consented by the commit author by email at 2026-10-25T14:08Z (receipt c32ba809c1f2); selected commit 2a66d985389e: \"Add: support for target speed in `BaseReq`, extend `ComponentStateSto\u2026\". LICENSE file at pin 2a66d985389e detected as LGPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "millidavids--orbs",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how millidavids/orbs implements it: millidavids/orbs (Rust) (selected work: crates/orbs, crates/orbs-shell, crates/orbs-tui)",
+ "repos": [
+  {
+   "repo": "orbs",
+   "url": "https://github.com/millidavids/orbs",
+   "sha": "90def92a6a712a1065c42e4a6a153e9cf83c675a",
+   "licence": "GPL-3.0 (LICENSE file at pin 90def92a6a71, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-22T20:26Z",
+    "consent_receipt": "d6946a3a1a37",
+    "note": "Inclusion consented by the commit author by email at 2026-10-22T20:26Z (receipt d6946a3a1a37); selected commit 90def92a6a71: \"v0.17.18: the orb made yours, and the hum is gone\". LICENSE file at pin 90def92a6a71 detected as GPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "demon673--dota2-mcp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how Demon673/dota2-mcp implements it: Demon673/dota2-mcp (TypeScript) (selected work: src/tools, scripts, src)",
+ "repos": [
+  {
+   "repo": "dota2-mcp",
+   "url": "https://github.com/Demon673/dota2-mcp",
+   "sha": "7ac0db2cf5dbb43fbd52eddcebcaff7b61ccfc37",
+   "licence": "MIT (LICENSE file at pin 7ac0db2cf5db, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-25T18:21Z",
+    "consent_receipt": "db39d97a09fb",
+    "note": "Inclusion consented by the commit author by email at 2026-10-25T18:21Z (receipt db39d97a09fb); selected commit 7ac0db2cf5db: \"fix: 2.0 \u5de5\u5177\u9762\u8bc4\u5ba1\u4fee\u6b63\u2014\u2014\u5951\u7ea6\u95e8\u7981\u3001\u6587\u672c\u9003\u751f\u8231\u4e0e\u5f55\u5236\u8fb9\u754c\". LICENSE file at pin 7ac0db2cf5db detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "adaumsilva--orchestrai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, canvas, claude-code queries this for how adaumsilva/OrchestrAI implements it: A spatial canvas workspace for orchestrating terminals and AI agents: arrange shells, notes, git, files, browsers and Android devices on an  (selected work: src/renderer, tests)",
+ "repos": [
+  {
+   "repo": "OrchestrAI",
+   "url": "https://github.com/adaumsilva/OrchestrAI",
+   "sha": "193656dbf7e81f03076815774b2ef3134c1a9f11",
+   "licence": "MIT (LICENSE file at pin 193656dbf7e8, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-24T21:29Z",
+    "consent_receipt": "483879586a4b",
+    "note": "Inclusion consented by the commit author by email at 2026-10-24T21:29Z (receipt 483879586a4b); selected commit 193656dbf7e8: \"feat: UI/UX rebuild\". LICENSE file at pin 193656dbf7e8 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

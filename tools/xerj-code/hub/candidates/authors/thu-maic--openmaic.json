@@ -24,14 +24,23 @@
     "lib/agent/runtime",
     "lib/ai",
     "lib/audio",
+    "lib/export",
     "lib/hooks",
+    "lib/orchestration/registry",
     "lib/playback",
+    "lib/server/agent-runtime",
+    "lib/server/generation/run",
+    "lib/server/generation/steps",
     "lib/store",
+    "packages/@openmaic/dsl",
+    "tests/agent-runtime",
     "tests/ai",
     "tests/audio",
+    "tests/export",
     "tests/hooks",
     "tests/lib/agent/runtime",
     "tests/playback",
+    "tests/server/generation-steps",
     "tests/store"
    ]
   }

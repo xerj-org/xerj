@@ -1,0 +1,23 @@
+{
+ "corpus": "drunktrader--rigged-audio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on audio, audio-processing, audio-stems queries this for how DrunkTrader/rigged_audio implements it: A local desktop app that splits a song into six stems (vocals, drums, bass, guitar, piano, other) with the open-source Demucs AI model, then",
+ "repos": [
+  {
+   "repo": "rigged_audio",
+   "url": "https://github.com/DrunkTrader/rigged_audio",
+   "sha": "bb72f9f95327bac3e451bd2874a8bd643071b46a",
+   "licence": "GPL-3.0 (LICENSE file at pin bb72f9f95327, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-10T20:58Z",
+    "consent_receipt": "a838591f6efb",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T20:58Z (receipt a838591f6efb); pinned to the default-branch head. LICENSE file at pin bb72f9f95327 detected as GPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

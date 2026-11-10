@@ -1,0 +1,33 @@
+{
+ "corpus": "limelit-co--open",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on aeo, ai-search-optimization, ai-seo queries this for how limelit-co/open implements it: Self-hosted AI visibility tracking (AEO / GEO / LLMO). Track how ChatGPT, Claude, Perplexity, Gemini and Google AI Overviews mention and cit (selected work: internal/mcpserver, internal/runner, internal/store)",
+ "repos": [
+  {
+   "repo": "open",
+   "url": "https://github.com/limelit-co/open",
+   "sha": "0d7fbe238eb3096fcf133fa40bb9b3f937927d3a",
+   "licence": "Apache-2.0 (LICENSE file at pin 0d7fbe238eb3, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-21T16:26Z",
+    "consent_receipt": "cf30bae12b2a",
+    "note": "Inclusion consented by the commit author by email at 2026-10-21T16:26Z (receipt cf30bae12b2a); selected commit 0d7fbe238eb3: \"mcp: start a run and check on it, one run at a time across processes \u2026\". LICENSE file at pin 0d7fbe238eb3 detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @limelit-co, who has not added it."
+   },
+   "paths": [
+    "cmd/limelit",
+    "docs",
+    "internal/config",
+    "internal/httpx",
+    "internal/mcpserver",
+    "internal/runner",
+    "internal/store",
+    "internal/ui"
+   ]
+  }
+ ]
+}

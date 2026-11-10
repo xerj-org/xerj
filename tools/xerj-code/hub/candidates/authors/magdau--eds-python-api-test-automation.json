@@ -1,0 +1,23 @@
+{
+ "corpus": "magdau--eds-python-api-test-automation",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on api-test, python, pytest queries this for how magdaU/eds-python-api-test-automation implements it: EDS API Automation Framework-Python-based API test automation framework for Energi Data Service (selected work: tests, client)",
+ "repos": [
+  {
+   "repo": "eds-python-api-test-automation",
+   "url": "https://github.com/magdaU/eds-python-api-test-automation",
+   "sha": "a0db11701670ba86d334b39f8052fe1a685c8011",
+   "licence": "MIT (LICENSE file at pin a0db11701670, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-25T20:07Z",
+    "consent_receipt": "48a06ab70bea",
+    "note": "Inclusion consented by the commit author by email at 2026-10-25T20:07Z (receipt 48a06ab70bea); selected commit a0db11701670: \"Refactor tests to an API object model, DRY and arrange/act/assert\". LICENSE file at pin a0db11701670 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on coding, education queries this for how abdul-aziz-memon/studymate-ai implements it: StudyMate AI is an intelligent study assistant built for 9th-grade students to break down complex concepts, solve tough equations, and provi",
+ "domain": "an agent working on coding, education queries this for how abdul-aziz-memon/studymate-ai implements it: StudyMate AI is an intelligent study assistant built for 9th-grade students to break down complex concepts, solve tough equations, and provi (selected work: the project root, css, js)",
  "repos": [
   {
    "repo": "studymate-ai",
    "url": "https://github.com/abdul-aziz-memon/studymate-ai",
-   "sha": "d49513dbfced6ebf8f525ec2c350974391ad5677",
-   "licence": "MIT (LICENSE file at pin d49513dbfced, GitHub licence API 2026-11-10)",
+   "sha": "3e93c4fe14962f8dc13bc8976a4aa69d82ad62b1",
+   "licence": "MIT (LICENSE file at pin 3e93c4fe1496, GitHub licence API 2026-11-06)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
-    "at": "2026-11-06T13:16Z",
-    "consent_receipt": "b5ce5812157f",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T13:16Z (receipt b5ce5812157f); pinned to the default-branch head. LICENSE file at pin d49513dbfced detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+    "at": "2026-11-02T04:29Z",
+    "consent_receipt": "6d09c9fc0ef8",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T04:29Z (receipt 6d09c9fc0ef8); selected commit 3e93c4fe1496: \"Adding all code\". LICENSE file at pin 3e93c4fe1496 detected as MIT by the GitHub licence API on 2026-11-06; used under that licence with attribution."
    }
   }
  ]

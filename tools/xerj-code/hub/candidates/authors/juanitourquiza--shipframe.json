@@ -1,0 +1,23 @@
+{
+ "corpus": "juanitourquiza--shipframe",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, ai-coding, ai-tools queries this for how juanitourquiza/shipframe implements it: AI coding workflows for teams that plan, prove, and ship (selected work: scripts, templates, the project root)",
+ "repos": [
+  {
+   "repo": "shipframe",
+   "url": "https://github.com/juanitourquiza/shipframe",
+   "sha": "38be3e5e9a6cb0a87d87c21366890793c7eca856",
+   "licence": "MIT (LICENSE file at pin 38be3e5e9a6c, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-24T22:47Z",
+    "consent_receipt": "260f663bd1b9",
+    "note": "Inclusion consented by the commit author by email at 2026-10-24T22:47Z (receipt 260f663bd1b9); selected commit 38be3e5e9a6c: \"feat: opt-in AI PR reviewer via --pr-review <provider> (#44)\". LICENSE file at pin 38be3e5e9a6c detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

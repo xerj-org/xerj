@@ -1,0 +1,31 @@
+{
+ "corpus": "eduardtomas1--inertia",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how eduardtomas1/inertia implements it: Unstoppable execution (selected work: tests, src/server, src/renderer)",
+ "repos": [
+  {
+   "repo": "inertia",
+   "url": "https://github.com/eduardtomas1/inertia",
+   "sha": "f01d1eb529223eff794ef6cacd3ebc797d1f7267",
+   "licence": "Apache-2.0 (LICENSE file at pin f01d1eb52922, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-22T06:26Z",
+    "consent_receipt": "9dd5039ce391",
+    "note": "Inclusion consented by the commit author by email at 2026-10-22T06:26Z (receipt 9dd5039ce391); selected commit f01d1eb52922: \"Let a detached chat window answer its own context request (#638)\". LICENSE file at pin f01d1eb52922 detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @eduardtomas1, who has not added it."
+   },
+   "paths": [
+    "scripts",
+    "src/renderer/src",
+    "src/server/persistence",
+    "src/server/runtime",
+    "src/shared",
+    "tests"
+   ]
+  }
+ ]
+}

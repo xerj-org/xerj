@@ -1,0 +1,23 @@
+{
+ "corpus": "yusefsyed--scopehaven-oss",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on action-verification, agent-evaluation, agent-testing queries this for how YusefSyed/scopehaven-oss implements it: Security testing for AI agents: checks what an agent actually did in your app, not what it said. Local, deterministic, Apache-2.0 (selected work: integrations, test, src)",
+ "repos": [
+  {
+   "repo": "scopehaven-oss",
+   "url": "https://github.com/YusefSyed/scopehaven-oss",
+   "sha": "b3342120e846dd53312a9e9f059352629e7a7c06",
+   "licence": "Apache-2.0 (LICENSE file at pin b3342120e846, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T20:51Z",
+    "consent_receipt": "bb103ae3041c",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T20:51Z (receipt bb103ae3041c); selected commit b3342120e846: \"Remove internal plan and review identifiers from comments, docs and t\u2026\". LICENSE file at pin b3342120e846 detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

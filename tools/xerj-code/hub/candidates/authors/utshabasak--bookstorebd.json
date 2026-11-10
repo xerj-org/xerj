@@ -1,0 +1,23 @@
+{
+ "corpus": "utshabasak--bookstorebd",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on bookstore, cloudinary, ecommerce queries this for how UtshaBasak/BookStoreBD implements it: A full-stack marketplace for new and second-hand books in Bangladesh \u2014 built with MERN and TypeScript, it has role-based access, Bangla\u2013Engl (selected work: server, client)",
+ "repos": [
+  {
+   "repo": "BookStoreBD",
+   "url": "https://github.com/UtshaBasak/BookStoreBD",
+   "sha": "6cd226e46d39e4fbf642c7db2ab72b86012936ff",
+   "licence": "MIT (LICENSE file at pin 6cd226e46d39, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-21T19:33Z",
+    "consent_receipt": "1d7d5b99f1c9",
+    "note": "Inclusion consented by the commit author by email at 2026-10-21T19:33Z (receipt 1d7d5b99f1c9); selected commit 6cd226e46d39: \"fix(accounts): closing an account leaves nothing open, a verified e-m\u2026\". LICENSE file at pin 6cd226e46d39 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

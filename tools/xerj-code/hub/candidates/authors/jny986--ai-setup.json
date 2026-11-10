@@ -1,0 +1,23 @@
+{
+ "corpus": "jny986--ai-setup",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on HTML queries this for how jny986/ai-setup implements it: The setup I use for my AI workflows (selected work: skills, the project root, scripts)",
+ "repos": [
+  {
+   "repo": "ai-setup",
+   "url": "https://github.com/jny986/ai-setup",
+   "sha": "d00d0b00dfb060941ed4fa4b96458b367b296384",
+   "licence": "Apache-2.0 (LICENSE file at pin d00d0b00dfb0, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-22T01:30Z",
+    "consent_receipt": "4b32bae232fc",
+    "note": "Inclusion consented by the commit author by email at 2026-10-22T01:30Z (receipt 4b32bae232fc); selected commit d00d0b00dfb0: \"feat: add skills-check, rename build-index, pin jny986 skill versions\u2026\". LICENSE file at pin d00d0b00dfb0 detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

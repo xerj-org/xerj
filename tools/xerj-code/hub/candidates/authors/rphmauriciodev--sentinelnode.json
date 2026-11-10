@@ -1,0 +1,23 @@
+{
+ "corpus": "rphmauriciodev--sentinelnode",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Go queries this for how rphmauriciodev/SentinelNode implements it: rphmauriciodev/SentinelNode (Go) (selected work: media-gateway, ingestion-engine, edge-agent)",
+ "repos": [
+  {
+   "repo": "SentinelNode",
+   "url": "https://github.com/rphmauriciodev/SentinelNode",
+   "sha": "17a7c08fb83e0a38ccb0f80ec47635ed7ca5403a",
+   "licence": "MIT (LICENSE file at pin 17a7c08fb83e, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-25T03:42Z",
+    "consent_receipt": "8c2c9d9c4c39",
+    "note": "Inclusion consented by the commit author by email at 2026-10-25T03:42Z (receipt 8c2c9d9c4c39); selected commit 17a7c08fb83e: \"[FEAT] Sentinel Node 2.0, and AI agents added to source-code\". LICENSE file at pin 17a7c08fb83e detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

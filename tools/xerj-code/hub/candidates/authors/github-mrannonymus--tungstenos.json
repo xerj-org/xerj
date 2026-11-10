@@ -1,0 +1,23 @@
+{
+ "corpus": "github-mrannonymus--tungstenos",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Shell queries this for how GitHub-MrAnnonymus/TungstenOS implements it: This repo hosts my toughened version of Arch Linux called TungstenOS (selected work: selinux, root_files, the project root)",
+ "repos": [
+  {
+   "repo": "TungstenOS",
+   "url": "https://github.com/GitHub-MrAnnonymus/TungstenOS",
+   "sha": "ff37c4c845d2e973506c5cfd0eefddbbd2c74f5d",
+   "licence": "MIT (LICENSE file at pin ff37c4c845d2, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-24T22:34Z",
+    "consent_receipt": "004719732651",
+    "note": "Inclusion consented by the commit author by email at 2026-10-24T22:34Z (receipt 004719732651); selected commit ff37c4c845d2: \"SELinux: logins as user_u; Flatpak apps in their own domain\". LICENSE file at pin ff37c4c845d2 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

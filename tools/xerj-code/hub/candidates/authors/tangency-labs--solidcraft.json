@@ -16,13 +16,8 @@
     "by": "author-consent",
     "at": "2026-10-17T14:10Z",
     "consent_receipt": "c849b821fbb5",
-    "note": "Inclusion consented by the commit author by email at 2026-10-17T14:10Z (receipt c849b821fbb5); selected commit b7eac9220b3d: \"inspect.silhouette: the outline of bodies seen from a view, as a mask\u2026\". LICENSE at pin b7eac9220b3d: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @tangency-labs, who has not added it."
-   },
-   "paths": [
-    "assets/locales",
-    "crates/engine/src",
-    "crates/ui-egui/src"
-   ]
+    "note": "Inclusion consented by the commit author by email at 2026-10-17T14:10Z (receipt c849b821fbb5); selected commit b7eac9220b3d: \"inspect.silhouette: the outline of bodies seen from a view, as a mask\u2026\". LICENSE at pin b7eac9220b3d: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution."
+   }
   }
  ]
 }

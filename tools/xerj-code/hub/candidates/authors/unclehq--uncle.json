@@ -1,0 +1,27 @@
+{
+ "corpus": "unclehq--uncle",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how unclehq/uncle implements it: Uncle \u2014 Build apps and ship changes with AI agents you choose (selected work: scripts, the project root)",
+ "repos": [
+  {
+   "repo": "uncle",
+   "url": "https://github.com/unclehq/uncle",
+   "sha": "31063570cf2bd6f0ddd76c0e68eea77e15ad2352",
+   "licence": "MIT (LICENSE file at pin 31063570cf2b, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-26T03:49Z",
+    "consent_receipt": "839429c8493e",
+    "note": "Inclusion consented by the commit author by email at 2026-10-26T03:49Z (receipt 839429c8493e); selected commit 31063570cf2b: \"local models force json schema\". LICENSE file at pin 31063570cf2b detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @unclehq, who has not added it."
+   },
+   "paths": [
+    "prompts",
+    "scripts"
+   ]
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "sofyan-rs--yoru-comic-app",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Dart queries this for how sofyan-rs/yoru-comic-app implements it: Read Comic App (selected work: lib/features, test, lib/core)",
+ "repos": [
+  {
+   "repo": "bacakomik-app-flutter",
+   "url": "https://github.com/sofyan-rs/bacakomik-app-flutter",
+   "sha": "01edcf370b360756efa3c689e9bae957be93eb63",
+   "licence": "GPL-3.0 (LICENSE file at pin 01edcf370b36, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-25T20:22Z",
+    "consent_receipt": "0093eb26dcf0",
+    "note": "Inclusion consented by the commit author by email at 2026-10-25T20:22Z (receipt 0093eb26dcf0); selected commit 01edcf370b36: \"feat(bookmark): mark selected comics read or unread\". LICENSE file at pin 01edcf370b36 detected as GPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

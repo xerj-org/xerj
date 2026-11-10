@@ -1,0 +1,23 @@
+{
+ "corpus": "mikitex70--redmine-drawio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on redmine, macros, diagram queries this for how mikitex70/redmine_drawio implements it: Macro plugin to embed draw.io diagrams into Redmine wiki pages (selected work: test, lib/redmine_drawio, assets)",
+ "repos": [
+  {
+   "repo": "redmine_drawio",
+   "url": "https://github.com/mikitex70/redmine_drawio",
+   "sha": "0920e0000dba7f79f2d0b8e1a030a011a5e2ca6f",
+   "licence": "MIT (LICENSE file at pin 0920e0000dba, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-25T19:20Z",
+    "consent_receipt": "f605ca8d3045",
+    "note": "Inclusion consented by the commit author by email at 2026-10-25T19:20Z (receipt f605ca8d3045); selected commit 0920e0000dba: \"fix: fixed CWE-798 (fixes #161)\". LICENSE file at pin 0920e0000dba detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

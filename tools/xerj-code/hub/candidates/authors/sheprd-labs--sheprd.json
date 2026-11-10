@@ -1,0 +1,26 @@
+{
+ "corpus": "sheprd-labs--sheprd",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, desktop-app, developer-tools queries this for how sheprd-labs/sheprd implements it: Native client for Herdr on macOS, Linux, and Windows, built with Rust and GPUI. View terminal sessions, workspaces, Git worktrees, and agent (selected work: crates/herdr-gpui)",
+ "repos": [
+  {
+   "repo": "herdr-gpui",
+   "url": "https://github.com/penso/herdr-gpui",
+   "sha": "ea5e2454a64b5ba8bb9be5255b3751845558f548",
+   "licence": "Apache-2.0 (LICENSE file at pin ea5e2454a64b, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-26T02:55Z",
+    "consent_receipt": "f0a731c09e65",
+    "note": "Inclusion consented by the commit author by email at 2026-10-26T02:55Z (receipt f0a731c09e65); selected commit ea5e2454a64b: \"feat: show agent status text when the daemon's sidebar rows ask for it\". LICENSE file at pin ea5e2454a64b detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @penso, who has not added it."
+   },
+   "paths": [
+    "crates/herdr-gpui"
+   ]
+  }
+ ]
+}

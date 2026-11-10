@@ -1,0 +1,23 @@
+{
+ "corpus": "drunktrader--oxide",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on gui, ocr-text-reader, rust queries this for how DrunkTrader/oxide implements it: A local native workspace for notes and searchable screenshots, with a user-controlled recording-exclusion toggle on Windows",
+ "repos": [
+  {
+   "repo": "oxide",
+   "url": "https://github.com/DrunkTrader/oxide",
+   "sha": "9795f757f1cb5fa7276d1ac53ecd1f1b45a5303b",
+   "licence": "GPL-3.0 (LICENSE file at pin 9795f757f1cb, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-10T20:58Z",
+    "consent_receipt": "8422e4ca3477",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T20:58Z (receipt 8422e4ca3477); pinned to the default-branch head. LICENSE file at pin 9795f757f1cb detected as GPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

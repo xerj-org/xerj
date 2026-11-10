@@ -1,0 +1,23 @@
+{
+ "corpus": "zhen-linhuo--reproducible-executors",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Scheme queries this for how Zhen-LinHuo/reproducible-executors implements it: Declarative CI runner images built with Guix System and NixOS (selected work: executor, the project root)",
+ "repos": [
+  {
+   "repo": "reproducible-executors",
+   "url": "https://github.com/Zhen-LinHuo/reproducible-executors",
+   "sha": "e1b029274e2c287761cbcdc9a01f45208c62d14a",
+   "licence": "Apache-2.0 (LICENSE file at pin e1b029274e2c, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-24T03:09Z",
+    "consent_receipt": "27fd319ee5de",
+    "note": "Inclusion consented by the commit author by email at 2026-10-24T03:09Z (receipt 27fd319ee5de); selected commit e1b029274e2c: \"feat(executor): deterministic tar-level injection, no podman commit\". LICENSE file at pin e1b029274e2c detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

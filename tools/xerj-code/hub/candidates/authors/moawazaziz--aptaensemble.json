@@ -1,0 +1,23 @@
+{
+ "corpus": "moawazaziz--aptaensemble",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how MoawazAziz/AptaEnsemble implements it: Computational prediction of aptamer-protein interactions using ML, DL, ensemble, and hybrid architectures. Evaluates engineered k-mer/physic (selected work: the project root, splits)",
+ "repos": [
+  {
+   "repo": "AptaEnsemble",
+   "url": "https://github.com/MoawazAziz/AptaEnsemble",
+   "sha": "94f641899f3381d8a5ab39d43a6bea7d4e9aeccb",
+   "licence": "MIT (LICENSE file at pin 94f641899f33, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-25T23:24Z",
+    "consent_receipt": "e3490f7cd780",
+    "note": "Inclusion consented by the commit author by email at 2026-10-25T23:24Z (receipt e3490f7cd780); pinned to the default-branch head. LICENSE file at pin 94f641899f33 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,32 @@
+{
+ "corpus": "deepdemos--ds-demos-showcase",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Go queries this for how deepdemos/ds-demos-showcase implements it: \u5c55\u793adeepseek\u53ca\u5176\u4ed6\u6a21\u578b\u751f\u6210demo\u7684\u7f51\u7ad9 (selected work: backend, frontend)",
+ "repos": [
+  {
+   "repo": "ds-demos-showcase",
+   "url": "https://github.com/deepdemos/ds-demos-showcase",
+   "sha": "34a0fa0108a10588ff61b0e95b38383ac8c42613",
+   "licence": "AGPL-3.0 (LICENSE file at pin 34a0fa0108a1, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-26T00:15Z",
+    "consent_receipt": "f6785105c0ac",
+    "note": "Inclusion consented by the commit author by email at 2026-10-26T00:15Z (receipt f6785105c0ac); selected commit 34a0fa0108a1: \"fix(demos): \u7ec4\u4e00\u65e6\u51fa\u73b0\u5c31\u6574\u7ec4\u53ef\u89c1\uff08\u6309\u9898\u8865\u5168\uff0c\u4e0d\u518d\u53ea\u662f\u5df2\u52a0\u8f7d\u5207\u7247\uff09\". LICENSE file at pin 34a0fa0108a1 detected as AGPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution. Pinned to head 34a0fa0108a1 (contains the selected commit): the LICENSE at the selected commit was NONE. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @deepdemos, who has not added it."
+   },
+   "paths": [
+    "backend/app/routers",
+    "backend/tests",
+    "docs/model",
+    "frontend/src/api",
+    "frontend/src/components",
+    "frontend/src/i18n",
+    "frontend/src/views"
+   ]
+  }
+ ]
+}

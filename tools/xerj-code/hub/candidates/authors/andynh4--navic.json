@@ -1,0 +1,23 @@
+{
+ "corpus": "andynh4--navic",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Kotlin queries this for how AndyNH4/Navic implements it: powered by navic (selected work: app/src, app/schemas)",
+ "repos": [
+  {
+   "repo": "Navic",
+   "url": "https://github.com/AndyNH4/Navic",
+   "sha": "f87ba2ac4251b0586d66a89347941457820655c4",
+   "licence": "GPL-3.0 (LICENSE file at pin f87ba2ac4251, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-25T00:11Z",
+    "consent_receipt": "fa84bcfcad0d",
+    "note": "Inclusion consented by the commit author by email at 2026-10-25T00:11Z (receipt fa84bcfcad0d); selected commit f87ba2ac4251: \"feat: artist groups and custom Subsonic scrobble API\". LICENSE file at pin f87ba2ac4251 detected as GPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

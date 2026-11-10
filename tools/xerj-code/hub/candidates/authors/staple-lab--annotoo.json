@@ -1,0 +1,36 @@
+{
+ "corpus": "staple-lab--annotoo",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how staple-lab/annotoo implements it: Annotations that live beside your prototype's UI (selected work: packages/core, packages/react, packages/vite-plugin)",
+ "repos": [
+  {
+   "repo": "annotoo",
+   "url": "https://github.com/staple-lab/annotoo",
+   "sha": "de540126fd14e0fb6f52e259fadcea93d9ecf78c",
+   "licence": "MIT (LICENSE file at pin de540126fd14, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-25T08:09Z",
+    "consent_receipt": "f94043fb899c",
+    "note": "Inclusion consented by the commit author by email at 2026-10-25T08:09Z (receipt f94043fb899c); selected commit de540126fd14: \"Unify framework setup and add attributed thread assignment\". LICENSE file at pin de540126fd14 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @staple-lab, who has not added it."
+   },
+   "paths": [
+    ".annotoo.comments/baf52d83b136c7dd",
+    ".annotoo.comments/fbae041b02c41ed0",
+    ".changeset",
+    "docs",
+    "e2e",
+    "examples/vite-react",
+    "packages/core",
+    "packages/react",
+    "packages/vite-plugin/src",
+    "packages/vite-plugin/test",
+    "site"
+   ]
+  }
+ ]
+}

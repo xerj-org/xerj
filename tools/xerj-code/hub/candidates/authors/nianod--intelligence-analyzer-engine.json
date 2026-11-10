@@ -1,0 +1,23 @@
+{
+ "corpus": "nianod--intelligence-analyzer-engine",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on fastapi, github-api, nextjs queries this for how nianod/Intelligence-analyzer-engine implements it: Analyze any GitHub repo or live URL, secrets scan, vibe coding detection, tech stack detection, performance & SEO insights (selected work: front, back)",
+ "repos": [
+  {
+   "repo": "Intelligence-analyzer-engine",
+   "url": "https://github.com/nianod/Intelligence-analyzer-engine",
+   "sha": "c4f42c87b000e32658055c434b0e31431334f5fe",
+   "licence": "Apache-2.0 (LICENSE file at pin c4f42c87b000, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-24T09:33Z",
+    "consent_receipt": "20ef40d95d52",
+    "note": "Inclusion consented by the commit author by email at 2026-10-24T09:33Z (receipt 20ef40d95d52); selected commit c4f42c87b000: \"Updated relevant components to trigger callbacks on state change\". LICENSE file at pin c4f42c87b000 detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution. Pinned to head c4f42c87b000 (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}
