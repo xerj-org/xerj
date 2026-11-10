@@ -1,0 +1,23 @@
+{
+ "corpus": "ivantopgaming--itg-ray",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Go queries this for how IvanTopGaming/ITG_Ray implements it: VLESS VPN client for Linux and Windows (sing-box + Xray, Electron GUI, privileged TUN helper) (selected work: internal/logstream, cmd/itgray-electron, internal/helper)",
+ "repos": [
+  {
+   "repo": "ITG_Ray",
+   "url": "https://github.com/IvanTopGaming/ITG_Ray",
+   "sha": "1215344d2b021ccc59f5f391a0696f59d1ee3c95",
+   "licence": "GPL-3.0 (LICENSE file at pin 1215344d2b02, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-10T07:26Z",
+    "consent_receipt": "b95f46792104",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T07:26Z (receipt b95f46792104); selected commit 1215344d2b02: \"fix(logs): stop the Logs tab from flooding and freezing the window\". LICENSE file at pin 1215344d2b02 detected as GPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

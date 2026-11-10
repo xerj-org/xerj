@@ -1,0 +1,23 @@
+{
+ "corpus": "aishiktokdar--speech-emotion-recognition-dl",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Jupyter Notebook queries this for how AishikTokdar/Speech-Emotion-Recognition-DL implements it: This is a Speech Emotion Recognition system that classifies emotions from speech samples using deep learning models. The project uses four d",
+ "repos": [
+  {
+   "repo": "Speech-Emotion-Recognition-DL",
+   "url": "https://github.com/AishikTokdar/Speech-Emotion-Recognition-DL",
+   "sha": "78eb04d7982da50d1671fad030800a4f698b5b64",
+   "licence": "Apache-2.0 (LICENSE file at pin 78eb04d7982d, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T07:43Z",
+    "consent_receipt": "ad5b940fdaf7",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T07:43Z (receipt ad5b940fdaf7); pinned to the default-branch head. LICENSE file at pin 78eb04d7982d detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "applegamer22--raker",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on base-ui, connectrpc, golang queries this for how AppleGamer22/raker implements it: A social media scraper for my experiments (selected work: client, the project root)",
+ "repos": [
+  {
+   "repo": "raker",
+   "url": "https://github.com/AppleGamer22/raker",
+   "sha": "3eef34a5e161402b5e068f13313a639a617e0d0b",
+   "licence": "GPL-3.0 (LICENSE file at pin 3eef34a5e161, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-10T07:18Z",
+    "consent_receipt": "816cedd0f841",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T07:18Z (receipt 816cedd0f841); selected commit 3eef34a5e161: \"on the way to vision model cropping\". LICENSE file at pin 3eef34a5e161 detected as GPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

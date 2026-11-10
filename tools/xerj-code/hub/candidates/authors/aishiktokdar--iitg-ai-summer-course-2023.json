@@ -1,0 +1,23 @@
+{
+ "corpus": "aishiktokdar--iitg-ai-summer-course-2023",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, data-science, iitg queries this for how AishikTokdar/IITG-ai-Summer-Course-2023 implements it: The summer course on Data Science and Machine Learning offers a comprehensive blend of high-quality resources sourced from the internet, inc",
+ "repos": [
+  {
+   "repo": "IITG-ai-Summer-Course-2023",
+   "url": "https://github.com/AishikTokdar/IITG-ai-Summer-Course-2023",
+   "sha": "3e442ec2dc5ddc4896ef338386779ef721dd94f5",
+   "licence": "MIT (LICENSE file at pin 3e442ec2dc5d, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T07:43Z",
+    "consent_receipt": "ae9308d52bc5",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T07:43Z (receipt ae9308d52bc5); pinned to the default-branch head. LICENSE file at pin 3e442ec2dc5d detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

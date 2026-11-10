@@ -1,0 +1,23 @@
+{
+ "corpus": "recurloop--recurloop",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how RecurLoop/RecurLoop implements it: An extensible native programming language where syntax, semantics, and namespaces share the same phrase system (selected work: tests, tools, cmake)",
+ "repos": [
+  {
+   "repo": "RecurLoop",
+   "url": "https://github.com/RecurLoop/RecurLoop",
+   "sha": "04a11187ca1b4db50c851f255aaf6087d847230b",
+   "licence": "Apache-2.0 (LICENSE file at pin 04a11187ca1b, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T06:37Z",
+    "consent_receipt": "161e823551bd",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T06:37Z (receipt 161e823551bd); selected commit 04a11187ca1b: \"Enforce release glibc compatibility and cover critical regressions\". LICENSE file at pin 04a11187ca1b detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

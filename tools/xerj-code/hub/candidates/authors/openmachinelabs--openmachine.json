@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agent-runtime, agent-tools, ai-agents queries this for how OpenMachineLabs/openmachine implements it: An open-source runtime that lets your AI agent operate your machines (selected work: test, openmachine, examples)",
+ "domain": "an agent working on ai-agents, linux, macos queries this for how OpenMachineLabs/openmachine implements it: Your AI. Your machines. Let your coding agent work on every machine you own, with the access you choose (selected work: test, openmachine, examples)",
  "repos": [
   {
    "repo": "openmachine",

@@ -1,0 +1,23 @@
+{
+ "corpus": "aishiktokdar--lgmvip-datascience",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on code queries this for how AishikTokdar/LGMVIP-DataScience implements it: LetsGrowMore DataScience Internship Projects",
+ "repos": [
+  {
+   "repo": "LGMVIP-DataScience",
+   "url": "https://github.com/AishikTokdar/LGMVIP-DataScience",
+   "sha": "4ab0d3c4b72542846944b49d34eb6b604b1db530",
+   "licence": "MIT (LICENSE file at pin 4ab0d3c4b725, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T07:43Z",
+    "consent_receipt": "6307fba7c8e5",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T07:43Z (receipt 6307fba7c8e5); pinned to the default-branch head. LICENSE file at pin 4ab0d3c4b725 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

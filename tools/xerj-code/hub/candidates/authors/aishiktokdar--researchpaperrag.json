@@ -1,0 +1,23 @@
+{
+ "corpus": "aishiktokdar--researchpaperrag",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how AishikTokdar/ResearchPaperRAG implements it: ResearchPaperRAG is an open-source Retrieval-Augmented Generation (RAG) platform designed for researchers, computer scientists, academics, a",
+ "repos": [
+  {
+   "repo": "ResearchPaperRAG",
+   "url": "https://github.com/AishikTokdar/ResearchPaperRAG",
+   "sha": "31fac973fa5025d5561394939c0099760dba0ab7",
+   "licence": "author's permission (LICENSE at pin 31fac973fa50: NOASSERTION; repository: NOASSERTION)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T07:43Z",
+    "consent_receipt": "8e501def023f",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T07:43Z (receipt 8e501def023f); pinned to the default-branch head. LICENSE at pin 31fac973fa50: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

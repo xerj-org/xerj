@@ -1,0 +1,23 @@
+{
+ "corpus": "aishiktokdar--neuroforge-hls",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on HTML queries this for how AishikTokdar/NeuroForge-HLS implements it: An end-to-end HLS modeling framework for prototyping custom CNN hardware accelerators. By utilizing INT16 fixed-point quantization and aggre",
+ "repos": [
+  {
+   "repo": "NeuroForge-HLS",
+   "url": "https://github.com/AishikTokdar/NeuroForge-HLS",
+   "sha": "30bfd0f89eef966e2a1b2fa9ebef5d0addd9470a",
+   "licence": "MIT (LICENSE file at pin 30bfd0f89eef, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T07:43Z",
+    "consent_receipt": "4c620353e41d",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T07:43Z (receipt 4c620353e41d); pinned to the default-branch head. LICENSE file at pin 30bfd0f89eef detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

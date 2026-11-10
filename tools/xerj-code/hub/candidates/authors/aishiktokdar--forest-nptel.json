@@ -1,0 +1,23 @@
+{
+ "corpus": "aishiktokdar--forest-nptel",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how AishikTokdar/forest-nptel implements it: NPTEL Practice website for Wildlife Ecology",
+ "repos": [
+  {
+   "repo": "forest-nptel",
+   "url": "https://github.com/AishikTokdar/forest-nptel",
+   "sha": "12196b52eb8374544fedc136e283864a776a3bd6",
+   "licence": "MIT (LICENSE file at pin 12196b52eb83, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T07:43Z",
+    "consent_receipt": "6253afc15efc",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T07:43Z (receipt 6253afc15efc); pinned to the default-branch head. LICENSE file at pin 12196b52eb83 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

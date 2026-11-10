@@ -1,0 +1,23 @@
+{
+ "corpus": "aishiktokdar--taxi-fare-prediction",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on R queries this for how AishikTokdar/Taxi-Fare-Prediction implements it: AishikTokdar/Taxi-Fare-Prediction (R)",
+ "repos": [
+  {
+   "repo": "Taxi-Fare-Prediction",
+   "url": "https://github.com/AishikTokdar/Taxi-Fare-Prediction",
+   "sha": "0f30b6d67b80523f3d8656f520f2815c82b22a84",
+   "licence": "MIT (LICENSE file at pin 0f30b6d67b80, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T07:43Z",
+    "consent_receipt": "9a8f31f95e82",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T07:43Z (receipt 9a8f31f95e82); pinned to the default-branch head. LICENSE file at pin 0f30b6d67b80 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

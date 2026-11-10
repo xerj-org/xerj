@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Go queries this for how barspielberg/pr-pile implements it: barspielberg/pr-pile (Go) (selected work: internal/github, internal/ui, internal/board)",
+ "domain": "an agent working on bubbletea, cli, code-review queries this for how barspielberg/pr-pile implements it: A keyboard-driven terminal board for GitHub pull requests, built with Go and Bubble Tea (selected work: internal/github, internal/ui, internal/board)",
  "repos": [
   {
    "repo": "pr-pile",

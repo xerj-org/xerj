@@ -2,8 +2,8 @@
  "corpus": "nakunaruzeno--yui-ai",
  "cloned_at": null,
  "status": "draft",
- "shelf": "WEB",
- "domain": "an agent working on JavaScript queries this for how NakunaruZeno/Yui.AI implements it: NakunaruZeno/Yui.AI (JavaScript) (selected work: dashboard, capture, popup)",
+ "shelf": "AI",
+ "domain": "an agent working on JavaScript queries this for how NakunaruZeno/Yui.AI implements it: A minimalist SAO-inspired Multi-AI workspace to manage ChatGPT, Claude, and Gemini concurrently with High-DPI screen capture and All-Link au (selected work: dashboard, capture, popup)",
  "repos": [
   {
    "repo": "Yui.AI",

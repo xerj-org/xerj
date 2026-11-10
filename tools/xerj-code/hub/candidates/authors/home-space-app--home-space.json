@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Rust queries this for how home-space-app/home-space implements it: Home space is a file storage service, which can be self hosted (selected work: clients, server, shared)",
+ "domain": "an agent working on Rust queries this for how home-space-app/home-space implements it: Home space is a file storage service, which can be self hosted. It is the Home of your files (selected work: clients, server, shared)",
  "repos": [
   {
    "repo": "home-space",

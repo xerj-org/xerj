@@ -1,0 +1,23 @@
+{
+ "corpus": "lithaxor--crossfree",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on apple-silicon, arm64, crossover queries this for how LitHaxor/crossfree implements it: Play Windows games on your Mac. An open-source alternative to CrossOver for Apple silicon that installs Steam, Epic Games and GOG for you an (selected work: app/Sources, app/Tests, app)",
+ "repos": [
+  {
+   "repo": "crossfree",
+   "url": "https://github.com/LitHaxor/crossfree",
+   "sha": "abc9ba4eab9da4ab23b009c2b8cb32a88ae96324",
+   "licence": "MIT (LICENSE file at pin abc9ba4eab9d, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T06:58Z",
+    "consent_receipt": "9af950f6a6c8",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T06:58Z (receipt 9af950f6a6c8); selected commit abc9ba4eab9d: \"app: a console-style SwiftUI launcher\". LICENSE file at pin abc9ba4eab9d detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

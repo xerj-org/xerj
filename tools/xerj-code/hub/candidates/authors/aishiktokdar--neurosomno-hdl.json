@@ -1,0 +1,23 @@
+{
+ "corpus": "aishiktokdar--neurosomno-hdl",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on HTML queries this for how AishikTokdar/NeuroSomno-HDL implements it: Architected NeuroSomno-HDL, an edge-AI FPGA accelerator for EEG sleep apnea detection. Quantized a MATLAB 1D-CNN (99.62% acc) into 16-bit Q3",
+ "repos": [
+  {
+   "repo": "NeuroSomno-HDL",
+   "url": "https://github.com/AishikTokdar/NeuroSomno-HDL",
+   "sha": "79d9d16d472c9209b7b8bb77c7d68d55815d2960",
+   "licence": "MIT (LICENSE file at pin 79d9d16d472c, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T07:43Z",
+    "consent_receipt": "b7636c3b577b",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T07:43Z (receipt b7636c3b577b); pinned to the default-branch head. LICENSE file at pin 79d9d16d472c detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}

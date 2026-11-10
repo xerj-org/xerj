@@ -1,0 +1,23 @@
+{
+ "corpus": "lewen-cai--browser-translate",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on browser-extension, byok, chrome-extension queries this for how Lewen-Cai/browser-translate implements it: Open-source, privacy-first browser translation extension. Bring your own LLM key. Zero relay, zero telemetry (selected work: src/core, src/storage, src/entrypoints)",
+ "repos": [
+  {
+   "repo": "browser-translate",
+   "url": "https://github.com/Lewen-Cai/browser-translate",
+   "sha": "1e01112e03e82d627d763505f0ea2ed7332fcf26",
+   "licence": "GPL-3.0 (LICENSE file at pin 1e01112e03e8, GitHub licence API 2026-11-10)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-10T06:12Z",
+    "consent_receipt": "6eb4627db2ef",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T06:12Z (receipt 6eb4627db2ef); selected commit 1e01112e03e8: \"fix(providers): no default model, no fallback, nothing on by default\". LICENSE file at pin 1e01112e03e8 detected as GPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+   }
+  }
+ ]
+}
