@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agentic-coding, code-translation, cuda queries this for how h0ffmann/chaceon implements it: CPU/GPU wave modeling in pure agentic rust",
+ "domain": "an agent working on agentic-coding, code-translation, gpu queries this for how h0ffmann/chaceon implements it: CPU/GPU wave modeling in pure agentic rust",
  "repos": [
   {
    "repo": "chaceon",

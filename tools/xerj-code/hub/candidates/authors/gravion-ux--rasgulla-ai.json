@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Python queries this for how gravion-ux/rasgulla-ai implements it: A local-first AI-assisted security research workbench for code understanding, safe test generation, and reproducible debugging",
+ "domain": "an agent working on ai, appsec, code-analysis queries this for how gravion-ux/rasgulla-ai implements it: A local-first AI-assisted security research workbench for code understanding, safe test generation, and reproducible debugging",
  "repos": [
   {
    "repo": "rasgulla-ai",

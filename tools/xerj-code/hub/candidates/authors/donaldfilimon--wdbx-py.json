@@ -1,0 +1,23 @@
+{
+ "corpus": "donaldfilimon--wdbx-py",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on ai, database, distributed queries this for how donaldfilimon/wdbx-py implements it: WDBX is a flexible vector database system designed for AI applications with an extensible plugin architecture. Uses can extend to just about",
+ "repos": [
+  {
+   "repo": "wdbx-py",
+   "url": "https://github.com/donaldfilimon/wdbx-py",
+   "sha": "d129bf3357f34e88579edde3584589c4daf8da3a",
+   "licence": "Apache-2.0 (LICENSE file at pin d129bf3357f3, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T06:47Z",
+    "consent_receipt": "637c0e669645",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T06:47Z (receipt 637c0e669645); pinned to the default-branch head. LICENSE file at pin d129bf3357f3 detected as Apache-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "narendarcodes--yv-approved-paid",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how Narendarcodes/yv-approved-paid implements it: Narendarcodes/yv-approved-paid (JavaScript) (selected work: services, the project root)",
+ "repos": [
+  {
+   "repo": "yv-approved-paid",
+   "url": "https://github.com/Narendarcodes/yv-approved-paid",
+   "sha": "3c53ff1662e45f143c03747e900633e8d4de0314",
+   "licence": "MIT (LICENSE file at pin 3c53ff1662e4, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T08:49Z",
+    "consent_receipt": "1e9091ad4a72",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T08:49Z (receipt 1e9091ad4a72); selected commit 3c53ff1662e4: \"feat(agent): Brand Brain /v1/chat on the lean deals service (same SSE\u2026\". LICENSE file at pin 3c53ff1662e4 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

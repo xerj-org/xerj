@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-agents, apple-intelligence, claude queries this for how hamishburke/theCity implements it: A native macOS app that runs Claude Code as a city of robot-staffed offices. Every project is a building, every floor a team, and every anim (selected work: Packages/OfficeCore, App, AppTests)",
+ "domain": "an agent working on ai-agents, claude-code, developer-tools queries this for how hamishburke/theCity implements it: A native macOS app that runs Claude Code as a city of robot-staffed offices. Every project is a building, every floor a team, and every anim (selected work: Packages/OfficeCore, App, AppTests)",
  "repos": [
   {
    "repo": "theCity",

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "SEC",
- "domain": "an agent working on code queries this for how gravion-ux/webapp-security-toolkit implements it: Authorized-only web application and API security assessment toolkit with header analysis, TLS posture checks, scope enforcement, and structu",
+ "domain": "an agent working on api-security, appsec, ethical-hacking queries this for how gravion-ux/webapp-security-toolkit implements it: Authorized-only web application and API security assessment toolkit with header analysis, TLS posture checks, scope enforcement, and structu",
  "repos": [
   {
    "repo": "webapp-security-toolkit",

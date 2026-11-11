@@ -1,0 +1,23 @@
+{
+ "corpus": "flashboss--pianosmith",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how flashboss/pianosmith implements it: An interactive piano-learning application designed to make practice engaging, structured, and accessible for players of every level. It guid",
+ "repos": [
+  {
+   "repo": "pianosmith",
+   "url": "https://github.com/flashboss/pianosmith",
+   "sha": "bb2e0e62d00ae325c13242c8c305d084e48141d9",
+   "licence": "MIT (LICENSE file at pin bb2e0e62d00a, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T07:36Z",
+    "consent_receipt": "38cc7878cabd",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T07:36Z (receipt 38cc7878cabd); pinned to the default-branch head. LICENSE file at pin bb2e0e62d00a detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -2,8 +2,8 @@
  "corpus": "haui-implsolution--dx-os",
  "cloned_at": null,
  "status": "draft",
- "shelf": "WEB",
- "domain": "an agent working on digital-transformation, docker, fastapi queries this for how HaUI-ImplSolution/DX-OS implements it: HaUI-ImplSolution/DX-OS (Java) (selected work: deploy, frontend, backend)",
+ "shelf": "API",
+ "domain": "an agent working on digital-transformation, docker, java queries this for how HaUI-ImplSolution/DX-OS implements it: L\u00f5i dynamic ngu\u1ed3n m\u1edf cho c\u00e1c h\u1ec7 th\u1ed1ng h\u1ed3 s\u01a1 c\u00f3 quy tr\u00ecnh: khai b\u00e1o nghi\u1ec7p v\u1ee5 trong m\u1ed9t t\u1ec7p m\u00f4 h\u00ecnh, DX-OS d\u1ef1ng c\u01a1 s\u1edf d\u1eef li\u1ec7u, vai tr\u00f2, API c (selected work: deploy, frontend, backend)",
  "repos": [
   {
    "repo": "DX-OS",

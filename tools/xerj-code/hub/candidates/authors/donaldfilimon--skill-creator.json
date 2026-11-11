@@ -1,0 +1,23 @@
+{
+ "corpus": "donaldfilimon--skill-creator",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on code queries this for how donaldfilimon/skill-creator implements it: MLAI agent skill: create and improve skills, and ship the company site without breaking integrity rules",
+ "repos": [
+  {
+   "repo": "skill-creator",
+   "url": "https://github.com/donaldfilimon/skill-creator",
+   "sha": "e7961ad22fdf97ff169b472abef1568ae04db9aa",
+   "licence": "author's permission (LICENSE at pin e7961ad22fdf: NOASSERTION; repository: NOASSERTION)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T06:47Z",
+    "consent_receipt": "1031abcc32a1",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T06:47Z (receipt 1031abcc32a1); pinned to the default-branch head. LICENSE at pin e7961ad22fdf: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "donaldfilimon--abbey-bot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how donaldfilimon/abbey-bot implements it: donaldfilimon/abbey-bot (Rust)",
+ "repos": [
+  {
+   "repo": "abbey-bot",
+   "url": "https://github.com/donaldfilimon/abbey-bot",
+   "sha": "f0abcff03eb0cf392d344dd2a39cd2552d757b43",
+   "licence": "author's permission (LICENSE at pin f0abcff03eb0: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T06:47Z",
+    "consent_receipt": "5218bc4fd12e",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T06:47Z (receipt 5218bc4fd12e); pinned to the default-branch head. LICENSE at pin f0abcff03eb0: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

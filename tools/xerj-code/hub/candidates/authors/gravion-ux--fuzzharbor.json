@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "SEC",
- "domain": "an agent working on Python queries this for how gravion-ux/fuzzharbor implements it: A reproducible local fuzzing campaign manager and crash triage toolkit",
+ "domain": "an agent working on crash-triage, devops, fuzzing queries this for how gravion-ux/fuzzharbor implements it: A reproducible local fuzzing campaign manager and crash triage toolkit",
  "repos": [
   {
    "repo": "fuzzharbor",

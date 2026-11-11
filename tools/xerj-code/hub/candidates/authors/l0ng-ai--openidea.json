@@ -19,8 +19,10 @@
     "note": "Inclusion consented by the commit author by email at 2026-11-07T17:42Z (receipt 511a47d09dc2); selected commit 4830f42168de: \"feat(vcs): add Preview Diff toggle to the Commit tool window (#1615)\". LICENSE at pin 4830f42168de: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @l0ng-ai, who has not added it."
    },
    "paths": [
-    "src/features/vcs",
-    "src/platform/locales/text"
+    ".github/workflows",
+    "crates/ide-core/src",
+    "src",
+    "src-tauri/src"
    ]
   }
  ]

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Python queries this for how gravion-ux/TRISHUL implements it: TRISHUL - an AI-powered authorized security testing platform with a real tool integration layer (httpx, Nuclei, ffuf, Nmap), ten functional ",
+ "domain": "an agent working on agents, ai, bug-bounty queries this for how gravion-ux/TRISHUL implements it: TRISHUL - an AI-powered authorized security testing platform with a real tool integration layer (httpx, Nuclei, ffuf, Nmap), ten functional ",
  "repos": [
   {
    "repo": "TRISHUL",

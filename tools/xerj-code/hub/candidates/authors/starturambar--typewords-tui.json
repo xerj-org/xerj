@@ -1,0 +1,23 @@
+{
+ "corpus": "starturambar--typewords-tui",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on fsrs, ratatui, rust queries this for how StarTurambar/typewords-tui implements it: TypeWords TUI - terminal word practice client (Rust + ratatui) (selected work: tests, src/app, src/ui)",
+ "repos": [
+  {
+   "repo": "typewords-tui",
+   "url": "https://github.com/StarTurambar/typewords-tui",
+   "sha": "5d3dedf142b643bd1323512aa7b2c9a2fc11636c",
+   "licence": "GPL-3.0 (LICENSE file at pin 5d3dedf142b6, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-11T08:31Z",
+    "consent_receipt": "d5a05d69ae6e",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T08:31Z (receipt d5a05d69ae6e); selected commit 5d3dedf142b6: \"fix(tui): \u542f\u52a8\u56fa\u5b9a\u56de\u4e3b\u9875\uff0c\u65ad\u70b9\u7eed\u7ec3\u6539\u4e3a\u663e\u5f0f\u64cd\u4f5c\". LICENSE file at pin 5d3dedf142b6 detected as GPL-3.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

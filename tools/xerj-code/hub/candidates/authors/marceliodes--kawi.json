@@ -1,0 +1,23 @@
+{
+ "corpus": "marceliodes--kawi",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Dart queries this for how marceliodes/kawi implements it: Multiplatform e-book reader with offline, natural TTS (selected work: lib/features, test)",
+ "repos": [
+  {
+   "repo": "kawi",
+   "url": "https://github.com/marceliodes/kawi",
+   "sha": "9cb081d01d167280387b3d08bd3df78128261f03",
+   "licence": "AGPL-3.0 (LICENSE file at pin 9cb081d01d16, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-11T10:06Z",
+    "consent_receipt": "05ad81cd8e26",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T10:06Z (receipt 05ad81cd8e26); selected commit 9cb081d01d16: \"perf(reader): isolate epub parsing with in-memory cache, prefetch cha\u2026\". LICENSE file at pin 9cb081d01d16 detected as AGPL-3.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -2,8 +2,8 @@
  "corpus": "fayzkk889--mcpsense",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Go queries this for how fayzkk889/MCPSense implements it: fayzkk889/MCPSense (Go) (selected work: npm, scripts)",
+ "shelf": "AI",
+ "domain": "an agent working on coding-agents, mcp, mcp-security queries this for how fayzkk889/MCPSense implements it: Open-source security inspection for MCP configurations and tool metadata. Run locally from the CLI or inside your coding assistant (selected work: npm, scripts)",
  "repos": [
   {
    "repo": "MCPSense",

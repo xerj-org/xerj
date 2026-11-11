@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "SEC",
- "domain": "an agent working on JavaScript queries this for how gravion-ux/gravion-harness implements it: Sandboxed LLM command-execution harness with scope/deny lists, risk-tiered audit chain, and zero runtime dependencies",
+ "domain": "an agent working on agent-safety, ai-security, allow-list queries this for how gravion-ux/gravion-harness implements it: Sandboxed LLM command-execution harness with scope/deny lists, risk-tiered audit chain, and zero runtime dependencies",
  "repos": [
   {
    "repo": "gravion-harness",

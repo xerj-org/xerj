@@ -1,0 +1,23 @@
+{
+ "corpus": "donaldfilimon--mlai-site",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on JavaScript queries this for how donaldfilimon/mlai-site implements it: MLAI \u2014 privacy-first AI infrastructure for Apple Silicon. Marketing site: React 19 + TypeScript + Vite",
+ "repos": [
+  {
+   "repo": "mlai-site",
+   "url": "https://github.com/donaldfilimon/mlai-site",
+   "sha": "fcb64c165f5d50228137e12fb87706ded6c57da5",
+   "licence": "author's permission (LICENSE at pin fcb64c165f5d: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T06:47Z",
+    "consent_receipt": "2423079d5574",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T06:47Z (receipt 2423079d5574); pinned to the default-branch head. LICENSE at pin fcb64c165f5d: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

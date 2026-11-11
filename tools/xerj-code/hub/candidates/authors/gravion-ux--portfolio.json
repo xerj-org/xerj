@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "SEC",
- "domain": "an agent working on code queries this for how gravion-ux/portfolio implements it: Professional portfolio showcasing security skills, projects, services, and resume",
+ "domain": "an agent working on appsec, cybersecurity, ethical-hacking queries this for how gravion-ux/portfolio implements it: Professional portfolio showcasing security skills, projects, services, and resume",
  "repos": [
   {
    "repo": "portfolio",

@@ -2,8 +2,8 @@
  "corpus": "gravion-ux--skill-supply-chain-auditor",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on JavaScript queries this for how gravion-ux/skill-supply-chain-auditor implements it: Audits npm package dependency graphs for leaked tokens, typosquatting, and supply-chain risk. Zero runtime dependencies",
+ "shelf": "SEC",
+ "domain": "an agent working on appsec, dependencies, javascript queries this for how gravion-ux/skill-supply-chain-auditor implements it: Audits npm package dependency graphs for leaked tokens, typosquatting, and supply-chain risk. Zero runtime dependencies",
  "repos": [
   {
    "repo": "skill-supply-chain-auditor",

@@ -8,15 +8,15 @@
   {
    "repo": "claudemod",
    "url": "https://github.com/Amitro123/claudemod",
-   "sha": "2a42da40cbb37947793340459258a27e90747974",
-   "licence": "MIT (LICENSE file at pin 2a42da40cbb3, GitHub licence API 2026-11-11)",
+   "sha": "5b0c79e47546ac96804896472b9c6bd282e0117f",
+   "licence": "MIT (LICENSE file at pin 5b0c79e47546, GitHub licence API 2026-11-11)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-23T22:32Z",
     "consent_receipt": "ab78269dc9fb",
-    "note": "Inclusion consented by the commit author by email at 2026-10-23T22:32Z (receipt ab78269dc9fb); selected commit 2a42da40cbb3: \"Fix bugs, add demo GIF generator and documentation\". LICENSE file at pin 2a42da40cbb3 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution. Pinned to head 2a42da40cbb3 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-23T22:32Z (receipt ab78269dc9fb); selected commit 5b0c79e47546: \"Fix bugs, add demo GIF generator and documentation\". LICENSE file at pin 5b0c79e47546 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution. Pinned to head 5b0c79e47546 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

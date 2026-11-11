@@ -1,0 +1,23 @@
+{
+ "corpus": "asimfali--datum",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on b-rep, cad, deterministic queries this for how asimfali/datum implements it: Datum \u2014 Design Automation Toolkit for Universal Modeling. Parallel-first, deterministic B-rep CAD kernel in Rust (selected work: crates/datum-view)",
+ "repos": [
+  {
+   "repo": "datum",
+   "url": "https://github.com/asimfali/datum",
+   "sha": "6b4e6f30932867f66b7f00b23079859ee2a8d1ce",
+   "licence": "author's permission (LICENSE at pin 6b4e6f309328: NOASSERTION; repository: Apache-2.0)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T10:06Z",
+    "consent_receipt": "ce46965090f7",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T10:06Z (receipt ce46965090f7); selected commit 6b4e6f309328: \"The rib's form in its own module; app.rs is the assembly root (D255) \u2026\". LICENSE at pin 6b4e6f309328: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

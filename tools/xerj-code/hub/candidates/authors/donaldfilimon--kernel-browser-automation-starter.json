@@ -1,0 +1,23 @@
+{
+ "corpus": "donaldfilimon--kernel-browser-automation-starter",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how donaldfilimon/kernel-browser-automation-starter implements it: donaldfilimon/kernel-browser-automation-starter (TypeScript)",
+ "repos": [
+  {
+   "repo": "kernel-browser-automation-starter",
+   "url": "https://github.com/donaldfilimon/kernel-browser-automation-starter",
+   "sha": "383c5d903bc22ca6c23f7303fb84fe1d66d15a07",
+   "licence": "MIT (LICENSE file at pin 383c5d903bc2, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T06:47Z",
+    "consent_receipt": "41b19080a344",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T06:47Z (receipt 41b19080a344); pinned to the default-branch head. LICENSE file at pin 383c5d903bc2 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

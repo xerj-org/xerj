@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on JavaScript queries this for how gravion-ux/preference-data-doctor implements it: Diagnoses and repairs preference datasets for LLM personalisation: duplicates, contradictions, class imbalance, format drift, and leaked sec",
+ "domain": "an agent working on data-cleaning, data-privacy, dataset-quality queries this for how gravion-ux/preference-data-doctor implements it: Diagnoses and repairs preference datasets for LLM personalisation: duplicates, contradictions, class imbalance, format drift, and leaked sec",
  "repos": [
   {
    "repo": "preference-data-doctor",

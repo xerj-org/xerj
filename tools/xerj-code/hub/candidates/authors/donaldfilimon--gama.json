@@ -1,0 +1,23 @@
+{
+ "corpus": "donaldfilimon--gama",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, app, apple queries this for how donaldfilimon/gama implements it: Gama Swift Framework",
+ "repos": [
+  {
+   "repo": "gama",
+   "url": "https://github.com/donaldfilimon/gama",
+   "sha": "2fd4ace6a25ab2265deb04059eb2da5a975c431e",
+   "licence": "author's permission (LICENSE at pin 2fd4ace6a25a: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T06:47Z",
+    "consent_receipt": "8d6bfac06818",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T06:47Z (receipt 8d6bfac06818); pinned to the default-branch head. LICENSE at pin 2fd4ace6a25a: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

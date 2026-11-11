@@ -1,0 +1,23 @@
+{
+ "corpus": "mengangs--ipadn",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on app-store, ios, ipa queries this for how mengangs/ipadn implements it: Search, download and install the apps you own on iPhone and iPad: older versions, removed apps, regional prices and native install. 11 langu (selected work: iPadn-iOS)",
+ "repos": [
+  {
+   "repo": "ipadn",
+   "url": "https://github.com/mengangs/ipadn",
+   "sha": "61e133c61163d7708ba800f5d0f145dfc97097f3",
+   "licence": "GPL-2.0 (LICENSE file at pin 61e133c61163, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-11T09:05Z",
+    "consent_receipt": "6748e472c4ee",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T09:05Z (receipt 6748e472c4ee); selected commit 61e133c61163: \"Compact notices and confirmations; coalesce reveal rendering [skip ci]\". LICENSE file at pin 61e133c61163 detected as GPL-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

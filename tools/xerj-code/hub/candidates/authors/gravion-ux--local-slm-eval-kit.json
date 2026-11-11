@@ -2,8 +2,8 @@
  "corpus": "gravion-ux--local-slm-eval-kit",
  "cloned_at": null,
  "status": "draft",
- "shelf": "WRITE",
- "domain": "an agent working on JavaScript queries this for how gravion-ux/local-slm-eval-kit implements it: Evaluate small language models against a task suite with redaction, timeouts, and JSON/Markdown reports. Zero runtime dependencies",
+ "shelf": "AI",
+ "domain": "an agent working on ai, benchmarking, evaluation queries this for how gravion-ux/local-slm-eval-kit implements it: Evaluate small language models against a task suite with redaction, timeouts, and JSON/Markdown reports. Zero runtime dependencies",
  "repos": [
   {
    "repo": "local-slm-eval-kit",

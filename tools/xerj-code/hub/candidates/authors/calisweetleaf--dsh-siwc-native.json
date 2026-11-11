@@ -1,9 +1,9 @@
 {
- "corpus": "calisweetleaf--dsh-chatgpt-swic",
+ "corpus": "calisweetleaf--dsh-siwc-native",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on cordis, deepseek-harness, dsh-plugin queries this for how calisweetleaf/dsh-chatgpt-swic implements it: DSH Plugin to Sign in with Your ChatGPT Account and GUI Enhancements for a seamless experience inside dsh (selected work: lib, src, tests)",
+ "domain": "an agent working on cordis, deepseek-harness, dsh-plugin queries this for how calisweetleaf/dsh-siwc-native implements it: Native Sign in with ChatGPT provider for DeepSeek Harness (Cordis). OAuth, live model discovery, Responses streaming, reasoning replay and c (selected work: lib, src, tests)",
  "repos": [
   {
    "repo": "dsh-chatgpt-swic",

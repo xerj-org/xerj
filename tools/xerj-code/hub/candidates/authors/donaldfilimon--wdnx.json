@@ -1,0 +1,23 @@
+{
+ "corpus": "donaldfilimon--wdnx",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on Python queries this for how donaldfilimon/wdnx implements it: work in heavy progress database implementation & specifically specifications",
+ "repos": [
+  {
+   "repo": "wdnx",
+   "url": "https://github.com/donaldfilimon/wdnx",
+   "sha": "f8a5558577d10f3572a5edc53e14adcfbaaa3f04",
+   "licence": "MIT (LICENSE file at pin f8a5558577d1, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T06:47Z",
+    "consent_receipt": "61e51a7f62cc",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T06:47Z (receipt 61e51a7f62cc); pinned to the default-branch head. LICENSE file at pin f8a5558577d1 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

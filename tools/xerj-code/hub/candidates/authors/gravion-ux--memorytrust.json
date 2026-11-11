@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on JavaScript queries this for how gravion-ux/memorytrust implements it: Audits AI agent memory stores for unverified, stale, contradictory, sensitive and injection-shaped content, and scores how much can be trust",
+ "domain": "an agent working on agent-memory, ai-agents, ai-security queries this for how gravion-ux/memorytrust implements it: Audits AI agent memory stores for unverified, stale, contradictory, sensitive and injection-shaped content, and scores how much can be trust",
  "repos": [
   {
    "repo": "memorytrust",

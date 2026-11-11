@@ -1,0 +1,23 @@
+{
+ "corpus": "donaldfilimon--mlaix-app",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Swift queries this for how donaldfilimon/mlaix-app implements it: donaldfilimon/mlaix-app (Swift)",
+ "repos": [
+  {
+   "repo": "mlaix-app",
+   "url": "https://github.com/donaldfilimon/mlaix-app",
+   "sha": "e768648d08fed43b7cf05060e63330b19ced4006",
+   "licence": "MIT (LICENSE file at pin e768648d08fe, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T06:47Z",
+    "consent_receipt": "81a7f1770e98",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T06:47Z (receipt 81a7f1770e98); pinned to the default-branch head. LICENSE file at pin e768648d08fe detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

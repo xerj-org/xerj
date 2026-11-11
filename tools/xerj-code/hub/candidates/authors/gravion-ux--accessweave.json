@@ -2,8 +2,8 @@
  "corpus": "gravion-ux--accessweave",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Python queries this for how gravion-ux/accessweave implements it: Offline identity-relationship and directory-permission review from explicitly exported inventory data",
+ "shelf": "SEC",
+ "domain": "an agent working on access-control, active-directory, appsec queries this for how gravion-ux/accessweave implements it: Offline identity-relationship and directory-permission review from explicitly exported inventory data",
  "repos": [
   {
    "repo": "accessweave",
