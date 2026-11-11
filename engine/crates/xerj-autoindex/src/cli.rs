@@ -949,6 +949,9 @@ pub(crate) fn prefix_rewrite_note(given: &str, used: &str) -> Option<String> {
     ))
 }
 
+/// The node `--url` targets when it is not given.
+pub const DEFAULT_URL: &str = "http://localhost:9200";
+
 pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
     // `--facts <namespace>` is its own mode with its own small flag set: it
     // writes table rows as facts and indexes nothing for search, so none of
@@ -960,7 +963,7 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
     let mut folder: Option<PathBuf> = None;
     let mut sub: Option<String> = None;
 
-    let mut url = "http://localhost:9200".to_string();
+    let mut url = DEFAULT_URL.to_string();
     // `xerj autoindex` takes its endpoint from `--url` ONLY, unlike `xerj
     // search` which honors `XERJ_URL`. Ignoring the env var here is deliberate:
     // a write must not be redirected by a stale variable. But silent is a trap
