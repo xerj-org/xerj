@@ -1,0 +1,23 @@
+{
+ "corpus": "ibrahimirfan--pspoke",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on beta, decompilation, nintendo-ds queries this for how IbrahimIrfan/pspoke implements it: Pok\u00e9mon Platinum and SoulSilver running natively on the PSP. Bring your own ROM (selected work: tests, patches, port)",
+ "repos": [
+  {
+   "repo": "pspoke",
+   "url": "https://github.com/IbrahimIrfan/pspoke",
+   "sha": "4c585827fd50ebd2e893e1932a0ca2919d934fc0",
+   "licence": "GPL-3.0 (LICENSE file at pin 4c585827fd50, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-11T03:24Z",
+    "consent_receipt": "3deefce7a52c",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T03:24Z (receipt 3deefce7a52c); selected commit 4c585827fd50: \"Fix Platinum weather and menu crashes; add quit combo, one-screen lay\u2026\". LICENSE file at pin 4c585827fd50 detected as GPL-3.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

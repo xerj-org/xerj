@@ -1,0 +1,31 @@
+{
+ "corpus": "nguyentribaothang--decisionpilotai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on artificial-intelligence, data-analytics, machine-learning queries this for how NguyenTriBaoThang/DecisionPilotAI implements it: AI-powered business intelligence and decision-support platform for SMEs, featuring natural-language analytics, revenue anomaly detection, de (selected work: frontend, tests, backend)",
+ "repos": [
+  {
+   "repo": "DecisionPilotAI",
+   "url": "https://github.com/NguyenTriBaoThang/DecisionPilotAI",
+   "sha": "f3aef053a8f84eb154cfb38a044f98aec738af31",
+   "licence": "MIT (LICENSE file at pin f3aef053a8f8, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T03:10Z",
+    "consent_receipt": "d58d96f0666a",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T03:10Z (receipt d58d96f0666a); selected commit f3aef053a8f8: \"feat: connect the demo flow (alert -> Ask -> recommendation -> simula\u2026\". LICENSE file at pin f3aef053a8f8 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @NguyenTriBaoThang, who has not added it."
+   },
+   "paths": [
+    "ai_service",
+    "backend/app",
+    "frontend/e2e",
+    "frontend/src",
+    "scripts",
+    "tests"
+   ]
+  }
+ ]
+}

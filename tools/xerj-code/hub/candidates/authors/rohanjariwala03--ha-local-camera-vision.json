@@ -1,9 +1,9 @@
 {
- "corpus": "rohanjariwala03--ha-blink-instant-events",
+ "corpus": "rohanjariwala03--ha-local-camera-vision",
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on blink, hacs, hacs-integration queries this for how rohanjariwala03/ha-blink-instant-events implements it: Instant Blink motion and doorbell events for Home Assistant via Blink's push channel (selected work: custom_components, tests)",
+ "domain": "an agent working on blink, hacs, hacs-integration queries this for how rohanjariwala03/ha-local-camera-vision implements it: Local Camera Vision for Home Assistant: local RTSP/ONVIF cameras and Blink, with face and person detection on your own hardware (selected work: custom_components, tests)",
  "repos": [
   {
    "repo": "ha-blink-instant-events",

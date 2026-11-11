@@ -1,0 +1,23 @@
+{
+ "corpus": "aryan447--mpvium",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, foss, jetpack-compose queries this for how Aryan447/mpvium implements it: Sane defaults, pro-level control. An Android video player powered by mpv and libmpv (selected work: app/src)",
+ "repos": [
+  {
+   "repo": "mpvium",
+   "url": "https://github.com/Aryan447/mpvium",
+   "sha": "b6374a24792df657cd92e60e27c81069001a9c34",
+   "licence": "GPL-3.0 (LICENSE file at pin b6374a24792d, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-11T03:14Z",
+    "consent_receipt": "731f7ba58ac7",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T03:14Z (receipt 731f7ba58ac7); selected commit b6374a24792d: \"feat(player): add Modern player layout matching Apple TV native style\u2026\". LICENSE file at pin b6374a24792d detected as GPL-3.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

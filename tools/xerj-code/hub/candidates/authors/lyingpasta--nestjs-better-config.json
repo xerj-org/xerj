@@ -1,0 +1,23 @@
+{
+ "corpus": "lyingpasta--nestjs-better-config",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how lyingpasta/nestjs-better-config implements it: lyingpasta/nestjs-better-config (TypeScript) (selected work: src, src/reporters)",
+ "repos": [
+  {
+   "repo": "nestjs-better-config",
+   "url": "https://github.com/lyingpasta/nestjs-better-config",
+   "sha": "3b374460de1f97081d35e6a9656e3ca53e3dd8ed",
+   "licence": "MIT (LICENSE file at pin 3b374460de1f, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T03:12Z",
+    "consent_receipt": "e05180d35778",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T03:12Z (receipt e05180d35778); selected commit 3b374460de1f: \"refactor: apply code standards to src\". LICENSE file at pin 3b374460de1f detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

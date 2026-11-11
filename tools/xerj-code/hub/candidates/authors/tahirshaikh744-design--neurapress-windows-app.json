@@ -1,0 +1,23 @@
+{
+ "corpus": "tahirshaikh744-design--neurapress-windows-app",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on HTML queries this for how tahirshaikh744-design/neurapress-windows-app implements it: Hyper-Quantum Offline Windows Desktop PDF Compression Suite",
+ "repos": [
+  {
+   "repo": "neurapress-windows-app",
+   "url": "https://github.com/tahirshaikh744-design/neurapress-windows-app",
+   "sha": "1fb7a310809b89ca1c5dac9f8d84622013ac5487",
+   "licence": "author's permission (LICENSE at pin 1fb7a310809b: NOASSERTION; repository: MIT)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T04:14Z",
+    "consent_receipt": "ee8ac5a183ce",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T04:14Z (receipt ee8ac5a183ce); pinned to the default-branch head. LICENSE at pin 1fb7a310809b: NOASSERTION (repository: MIT); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

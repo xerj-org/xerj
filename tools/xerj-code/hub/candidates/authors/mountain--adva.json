@@ -8,15 +8,15 @@
   {
    "repo": "adva",
    "url": "https://github.com/mountain/adva",
-   "sha": "17e1842addcd9f9262eef87bd19c5eabcdc843e1",
-   "licence": "author's permission (LICENSE at pin 17e1842addcd: NOASSERTION; repository: NOASSERTION)",
+   "sha": "8fc38427f2a479b4e8e84802e1873cff14d54566",
+   "licence": "author's permission (LICENSE at pin 8fc38427f2a4: NOASSERTION; repository: NOASSERTION)",
    "review": {
     "spdx": "NOASSERTION",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-10T11:31Z",
     "consent_receipt": "f62adb07f625",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T11:31Z (receipt f62adb07f625); pinned to the default-branch head. LICENSE at pin 17e1842addcd: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T11:31Z (receipt f62adb07f625); pinned to the default-branch head. LICENSE at pin 8fc38427f2a4: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
    }
   }
  ]

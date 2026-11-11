@@ -1,0 +1,30 @@
+{
+ "corpus": "feast-dev--feast",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on machine-learning, features, ml queries this for how feast-dev/feast implements it: The Open Source Feature Store for AI/ML (selected work: scripts, sdk)",
+ "repos": [
+  {
+   "repo": "feast",
+   "url": "https://github.com/feast-dev/feast",
+   "sha": "81770b9014d044f9f09ad5162ba5b705bb67a039",
+   "licence": "Apache-2.0 (LICENSE file at pin 81770b9014d0, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T02:42Z",
+    "consent_receipt": "9b3fd5aed681",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T02:42Z (receipt 9b3fd5aed681); selected commit 81770b9014d0: \"Add optional LocalCloud integration (#6939)\". LICENSE file at pin 81770b9014d0 detected as Apache-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @feast-dev, who has not added it."
+   },
+   "paths": [
+    ".github/workflows",
+    "scripts",
+    "sdk/python/feast/infra/offline_stores",
+    "sdk/python/tests/localcloud",
+    "sdk/python/tests/unit"
+   ]
+  }
+ ]
+}

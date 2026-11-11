@@ -2,8 +2,8 @@
  "corpus": "sunny-kavixo--sunny-devfix",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Python queries this for how sunny-kavixo/Sunny-DevFix implements it: Sunny DevFix: local-first Python debugging and repair evidence lab (selected work: extensions, tests, the project root)",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, code-repair, debugging queries this for how sunny-kavixo/Sunny-DevFix implements it: Sunny DevFix: local-first Python debugging and repair evidence lab (selected work: extensions, tests, the project root)",
  "repos": [
   {
    "repo": "Sunny-DevFix",

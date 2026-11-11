@@ -1,9 +1,9 @@
 {
- "corpus": "cyberistic--gpuixui",
+ "corpus": "sudo-kw--gpuixui",
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on TypeScript queries this for how Cyberistic/GPUIXUI implements it: Cyberistic/GPUIXUI (TypeScript) (selected work: apps/playground, packages/fx, packages/native)",
+ "domain": "an agent working on TypeScript queries this for how sudo-kw/GPUIXUI implements it: sudo-kw/GPUIXUI (TypeScript) (selected work: apps/playground, packages/fx, packages/native)",
  "repos": [
   {
    "repo": "GPUIXUI",
