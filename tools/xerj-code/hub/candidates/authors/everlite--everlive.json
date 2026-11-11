@@ -1,0 +1,27 @@
+{
+ "corpus": "everlite--everlive",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on avermedia, capture-card, drivers queries this for how Everlite/EverLive implements it: EverLive: 100% blob-free userspace VFIO driver & gaming screen for AVerMedia Live Gamer 4K (GC573) \u2014 1440p120, 4K60, L-PCM audio, zero DKMS (selected work: tools, the project root)",
+ "repos": [
+  {
+   "repo": "EverLive",
+   "url": "https://github.com/Everlite/EverLive",
+   "sha": "61231eaa403023e95dfa716fafed3c8af57ed902",
+   "licence": "GPL-2.0 (LICENSE file at pin 61231eaa4030, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-07T13:32Z",
+    "consent_receipt": "d5179b66873b",
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T13:32Z (receipt d5179b66873b); selected commit 61231eaa4030: \"feat(viewer): decouple from v4l2loopback and support Chromium udev ca\u2026\". LICENSE file at pin 61231eaa4030 detected as GPL-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Everlite, who has not added it."
+   },
+   "paths": [
+    "tools/everlive",
+    "tools/opengc570d-userd/src"
+   ]
+  }
+ ]
+}

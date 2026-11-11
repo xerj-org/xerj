@@ -1,0 +1,23 @@
+{
+ "corpus": "eladerino--spm-nx",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on nintendo-switch, recompilation, super-paper-mario queries this for how Eladerino/spm-nx implements it: Switch port of New Super Paper Bros, JosiahG's Super Paper Mario recompilation, for Nintendo Switch. Unofficial fan project; runs as a nativ (selected work: wiicompiled, switch)",
+ "repos": [
+  {
+   "repo": "spm-nx",
+   "url": "https://github.com/Eladerino/spm-nx",
+   "sha": "11d4ab752c93ce9578a69c50a869dc9a880b24a0",
+   "licence": "GPL-3.0 (LICENSE file at pin 11d4ab752c93, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-11T00:02Z",
+    "consent_receipt": "dc8113e7ea0a",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T00:02Z (receipt dc8113e7ea0a); selected commit 11d4ab752c93: \"gx: incremental Zobrist vertex-layout hash for the DL scan cache (lev\u2026\". LICENSE file at pin 11d4ab752c93 detected as GPL-3.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on anomaly-detection, anomalydetection, automated queries this for how JAdelhelm/AutoAD implements it: AutoAD - A framework for the rapid detection of anomalies in (big) datasets (selected work: AutoAD, src/autoad, tests)",
+ "domain": "an agent working on anomaly-detection, automated, preprocessing queries this for how JAdelhelm/AutoAD implements it: Automatic preprocessing and anomaly detection for tabular data, built on scikit-learn and PyOD (selected work: AutoAD, src/autoad, tests)",
  "repos": [
   {
    "repo": "AutoAD",

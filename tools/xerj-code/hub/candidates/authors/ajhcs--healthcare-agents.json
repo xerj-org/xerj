@@ -1,0 +1,23 @@
+{
+ "corpus": "ajhcs--healthcare-agents",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agents-md, ai-agents, ai-prompts queries this for how ajhcs/healthcare-agents implements it: Portable prompt and SKILL.md pack with 51 specialist AI agents for US healthcare administration workflows",
+ "repos": [
+  {
+   "repo": "healthcare-agents",
+   "url": "https://github.com/ajhcs/healthcare-agents",
+   "sha": "b00a51b654fc31331b005818c4bb1ec7f7817a9f",
+   "licence": "Apache-2.0 (LICENSE file at pin b00a51b654fc, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T23:53Z",
+    "consent_receipt": "fb919deeafe7",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T23:53Z (receipt fb919deeafe7); pinned to the default-branch head. LICENSE file at pin b00a51b654fc detected as Apache-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

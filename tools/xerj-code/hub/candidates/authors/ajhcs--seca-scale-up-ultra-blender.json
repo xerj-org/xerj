@@ -1,0 +1,23 @@
+{
+ "corpus": "ajhcs--seca-scale-up-ultra-blender",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "HEALTH",
+ "domain": "an agent working on 3d-modeling, blender, medical-device queries this for how ajhcs/seca-scale-up-ultra-blender implements it: Editable Blender and OpenUSD reconstruction of the seca Scale-up Ultra, with provisional articulation, simulation studies and validation evi",
+ "repos": [
+  {
+   "repo": "seca-scale-up-ultra-blender",
+   "url": "https://github.com/ajhcs/seca-scale-up-ultra-blender",
+   "sha": "b415ca9638c3dc0e29094005453aa96f346bdc48",
+   "licence": "MIT (LICENSE file at pin b415ca9638c3, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T23:53Z",
+    "consent_receipt": "642cab1f48e6",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T23:53Z (receipt 642cab1f48e6); pinned to the default-branch head. LICENSE file at pin b415ca9638c3 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

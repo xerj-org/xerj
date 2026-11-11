@@ -1,0 +1,23 @@
+{
+ "corpus": "execode765--vapor-loop",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on HTML queries this for how Execode765/vapor-loop implements it: Development of an original musical instrument firmware for the M-VAVE FM-1, with AI-assisted coding and documented hardware testing (selected work: src, web, tests)",
+ "repos": [
+  {
+   "repo": "vapor-loop",
+   "url": "https://github.com/Execode765/vapor-loop",
+   "sha": "573a5dea7290d4e74f6bdb945e3f642931830b24",
+   "licence": "GPL-3.0 (LICENSE file at pin 573a5dea7290, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-10T23:14Z",
+    "consent_receipt": "d7e5ecb19969",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T23:14Z (receipt d7e5ecb19969); selected commit 573a5dea7290: \"Vapor Loop 0.12.2: shared harmonic context\". LICENSE file at pin 573a5dea7290 detected as GPL-3.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

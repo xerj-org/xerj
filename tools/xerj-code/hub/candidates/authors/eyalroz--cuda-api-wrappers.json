@@ -1,0 +1,23 @@
+{
+ "corpus": "eyalroz--cuda-api-wrappers",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on api-wrapper, cuda, cuda-runtime-api queries this for how eyalroz/cuda-api-wrappers implements it: Thin, unified, C++-flavored wrappers for the CUDA APIs (selected work: src/cuda, examples)",
+ "repos": [
+  {
+   "repo": "cuda-api-wrappers",
+   "url": "https://github.com/eyalroz/cuda-api-wrappers",
+   "sha": "a9719d68c062e76f2cf589f25789ff548e3c2215",
+   "licence": "BSD-3-Clause (LICENSE file at pin a9719d68c062, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "BSD-3-Clause",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T22:51Z",
+    "consent_receipt": "61cf40def9e5",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T22:51Z (receipt 61cf40def9e5); selected commit a9719d68c062: \"Fixes #817: Transitioning the library to \"east const\", i.e. placing `\u2026\". LICENSE file at pin a9719d68c062 detected as BSD-3-Clause by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "ajhcs--ingenium",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-skills, claude-code, codex queries this for how ajhcs/Ingenium implements it: A collaborative design skill for AI agents. Explore visual directions, refine designs together, and keep editable sources",
+ "repos": [
+  {
+   "repo": "Ingenium",
+   "url": "https://github.com/ajhcs/Ingenium",
+   "sha": "fde3ecd59fa61e4ec80d5e7885ff345c14e84707",
+   "licence": "MIT (LICENSE file at pin fde3ecd59fa6, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T23:53Z",
+    "consent_receipt": "c39ce64dfc9f",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T23:53Z (receipt c39ce64dfc9f); pinned to the default-branch head. LICENSE file at pin fde3ecd59fa6 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

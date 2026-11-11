@@ -1,0 +1,23 @@
+{
+ "corpus": "timfennis--andy-cpp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how timfennis/andy-cpp implements it: Andy C++ programming language (selected work: ndc_vm, tests, ndc_stdlib)",
+ "repos": [
+  {
+   "repo": "andy-cpp",
+   "url": "https://github.com/timfennis/andy-cpp",
+   "sha": "2bec7a8a562de761f0e7624195849136f33efb58",
+   "licence": "MIT (LICENSE file at pin 2bec7a8a562d, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T22:25Z",
+    "consent_receipt": "97a0c737910f",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T22:25Z (receipt 97a0c737910f); selected commit 2bec7a8a562d: \"perf(vm): cache string character indexes with char_index \ud83e\uddf5 (#223)\". LICENSE file at pin 2bec7a8a562d detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

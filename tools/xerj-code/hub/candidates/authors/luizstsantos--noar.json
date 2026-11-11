@@ -1,0 +1,23 @@
+{
+ "corpus": "luizstsantos--noar",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on graphics, hls, playlist queries this for how LuizStSantos/NoAr implements it: NoAr is a 24/7 TV playout system: it plays daily playlists or folders without interruption, lets you schedule breaks and live shows over the (selected work: backend, qa, frontend)",
+ "repos": [
+  {
+   "repo": "NoAr",
+   "url": "https://github.com/LuizStSantos/NoAr",
+   "sha": "6cf6721c2bc94b43c76bae2d7d6983387a08e831",
+   "licence": "GPL-3.0 (LICENSE file at pin 6cf6721c2bc9, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-10T23:20Z",
+    "consent_receipt": "02bb1071617c",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T23:20Z (receipt 02bb1071617c); selected commit 6cf6721c2bc9: \"fix: checkpoint graphics audit corrections and regression coverage\". LICENSE file at pin 6cf6721c2bc9 detected as GPL-3.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}
