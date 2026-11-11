@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on python, ai-agent, android-control queries this for how thekaifansari01/Jarvis-OS-Agent implements it: An open-source autonomous AI OS Agent for Windows. Features zero line-drift coding, lifelong memory, Android ADB control, and proactive HITL (selected work: core/brain, core/main, the project root)",
+ "domain": "an agent working on python, ai-agent, autonomous-agents queries this for how thekaifansari01/Jarvis-OS-Agent implements it: Not just a chatbot \u2014 an open-source autonomous AI OS Agent for Windows. It codes without line-drift, remembers you for life, controls your P (selected work: core/brain, core/main, the project root)",
  "repos": [
   {
    "repo": "Jarvis-OS-Agent",

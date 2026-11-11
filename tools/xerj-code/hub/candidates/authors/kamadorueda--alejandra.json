@@ -1,0 +1,23 @@
+{
+ "corpus": "kamadorueda--alejandra",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on nix, rust, fmt queries this for how kamadorueda/alejandra implements it: The Uncompromising Nix Code Formatter (selected work: src/alejandra)",
+ "repos": [
+  {
+   "repo": "alejandra",
+   "url": "https://github.com/kamadorueda/alejandra",
+   "sha": "cf5fe1fff51f77582486e078262331daa8ff6c38",
+   "licence": "Unlicense (LICENSE file at pin cf5fe1fff51f, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "Unlicense",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T04:39Z",
+    "consent_receipt": "17dd882b4a47",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T04:39Z (receipt 17dd882b4a47); selected commit cf5fe1fff51f: \"feat: keep empty lines between function arguments\". LICENSE file at pin cf5fe1fff51f detected as Unlicense by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,27 @@
+{
+ "corpus": "yeachan-heo--gajae-way",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how Yeachan-Heo/gajae-way implements it: Gateway that hosts an operator-owned agent session behind durable journal delivery, with Discord and Telegram surfaces (selected work: packages/gateway)",
+ "repos": [
+  {
+   "repo": "gajae-way",
+   "url": "https://github.com/Yeachan-Heo/gajae-way",
+   "sha": "ecce12c3455af417e1840b9163570c277fdaca8c",
+   "licence": "AGPL-3.0 (LICENSE file at pin ecce12c3455a, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-11T04:58Z",
+    "consent_receipt": "e5a63702463e",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T04:58Z (receipt e5a63702463e); selected commit ecce12c3455a: \"fix(gateway): roll a monitor session after a wedged prompt submission\". LICENSE file at pin ecce12c3455a detected as AGPL-3.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Yeachan-Heo, who has not added it."
+   },
+   "paths": [
+    "packages/gateway/src/monitors",
+    "packages/gateway/test"
+   ]
+  }
+ ]
+}

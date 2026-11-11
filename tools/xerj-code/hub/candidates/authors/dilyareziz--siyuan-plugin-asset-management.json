@@ -1,0 +1,23 @@
+{
+ "corpus": "dilyareziz--siyuan-plugin-asset-management",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how DilyarEziz/siyuan-plugin-asset-management implements it: DilyarEziz/siyuan-plugin-asset-management (JavaScript) (selected work: the project root, scripts, api)",
+ "repos": [
+  {
+   "repo": "siyuan-plugin-asset-management",
+   "url": "https://github.com/DilyarEziz/siyuan-plugin-asset-management",
+   "sha": "ea33e35361a5e63404988b9fe46e0a89b3cf5d4f",
+   "licence": "MIT (LICENSE file at pin ea33e35361a5, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T05:24Z",
+    "consent_receipt": "ab03385741ae",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T05:24Z (receipt ab03385741ae); selected commit ea33e35361a5: \"feat(v2.7.0): \u5907\u6ce8\u652f\u6301\u7b14\u8bb0\u53cc\u94fe\u3001\u4e70\u65ad/\u9884\u4ed8\u5feb\u901f\u9000\u5f79\u3001\u9884\u4ed8\u5feb\u6377\u8bb0\u8d26\u63d2\u4ef6\u5185\u5316\". LICENSE file at pin ea33e35361a5 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

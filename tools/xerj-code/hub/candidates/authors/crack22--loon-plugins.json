@@ -8,15 +8,15 @@
   {
    "repo": "loon-plugins",
    "url": "https://github.com/Crack22/loon-plugins",
-   "sha": "dbeb0be7984c5c0a30153d1bd0bec5b962d8cf58",
-   "licence": "MIT (LICENSE file at pin dbeb0be7984c, GitHub licence API 2026-11-11)",
+   "sha": "ad773e4ef9ca80a70546b9f99668f8430b90e16c",
+   "licence": "MIT (LICENSE file at pin ad773e4ef9ca, GitHub licence API 2026-11-11)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-07T01:12Z",
     "consent_receipt": "7e42a9f8836e",
-    "note": "Inclusion consented by the commit author by email at 2026-11-07T01:12Z (receipt 7e42a9f8836e); selected commit dbeb0be7984c: \"\u65b0\u589e Loon \u914d\u7f6e\u72b6\u6001\u5907\u4efd\u63d2\u4ef6\uff08\u6bcf\u5929 04:00 \u81ea\u52a8\u5907\u4efd\u8fd0\u884c\u914d\u7f6e\u5230\u79c1\u4eba\u4ed3\u5e93\uff09\". LICENSE file at pin dbeb0be7984c detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution. Pinned to head dbeb0be7984c (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T01:12Z (receipt 7e42a9f8836e); selected commit ad773e4ef9ca: \"\u65b0\u589e Loon \u914d\u7f6e\u72b6\u6001\u5907\u4efd\u63d2\u4ef6\uff08\u6bcf\u5929 04:00 \u81ea\u52a8\u5907\u4efd\u8fd0\u884c\u914d\u7f6e\u5230\u79c1\u4eba\u4ed3\u5e93\uff09\". LICENSE file at pin ad773e4ef9ca detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution. Pinned to head ad773e4ef9ca (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

@@ -1,0 +1,23 @@
+{
+ "corpus": "ashik1291--stock-market-expert-bd",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how ashik1291/stock_market_expert_bd implements it: Bangladesh DSE Quantitative Research, Risk Screening, and Portfolio Decision-Support System (selected work: scripts, the project root)",
+ "repos": [
+  {
+   "repo": "stock_market_expert_bd",
+   "url": "https://github.com/ashik1291/stock_market_expert_bd",
+   "sha": "a38ecbd0d872c028b59ac808bbcd36acc45f4e66",
+   "licence": "MIT (LICENSE file at pin a38ecbd0d872, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T05:21Z",
+    "consent_receipt": "6112b20fc59e",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T05:21Z (receipt 6112b20fc59e); selected commit a38ecbd0d872: \"feat(data): add automated push-db updater script and untrack commerci\u2026\". LICENSE file at pin a38ecbd0d872 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

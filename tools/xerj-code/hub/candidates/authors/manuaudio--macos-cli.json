@@ -2,8 +2,8 @@
  "corpus": "manuaudio--macos-cli",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Swift queries this for how manuaudio/macos-cli implements it: macOS native CLI for Reminders, Calendar, and Contacts \u2014 built for AI agents (selected work: Sources, Tests)",
+ "shelf": "AI",
+ "domain": "an agent working on agent-skills, ai-agents, claude-code queries this for how manuaudio/macos-cli implements it: Drive the whole Mac from the terminal: Calendar, Mail, Messages, files, windows, screenshots and more, with JSON for AI agents (selected work: Sources, Tests)",
  "repos": [
   {
    "repo": "macos-cli",

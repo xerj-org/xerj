@@ -1,0 +1,23 @@
+{
+ "corpus": "deelter--vrcamera",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Java queries this for how DeelTer/VRCamera implements it: Automatic third-person camera for Minecraft VR. Vivecraft addon for streaming and recording (selected work: src/client)",
+ "repos": [
+  {
+   "repo": "VRCamera",
+   "url": "https://github.com/DeelTer/VRCamera",
+   "sha": "b13dff330301ee2bf318087dfca2226272c269f8",
+   "licence": "GPL-3.0 (LICENSE file at pin b13dff330301, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-11T06:02Z",
+    "consent_receipt": "b4434dd3502f",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T06:02Z (receipt b4434dd3502f); selected commit b13dff330301: \"* \"Without VR\" renamed to PC\". LICENSE file at pin b13dff330301 detected as GPL-3.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

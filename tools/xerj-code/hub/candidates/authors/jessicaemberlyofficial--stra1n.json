@@ -1,0 +1,23 @@
+{
+ "corpus": "jessicaemberlyofficial--stra1n",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on wip queries this for how JessicaEmberlyOfficial/Stra1n implements it: An encryption algorithm extension, built on-top of RSA (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "Stra1n",
+   "url": "https://github.com/JessicaEmberlyOfficial/Stra1n",
+   "sha": "2d7d27a6c14f91c0bb469de939174f10456e3244",
+   "licence": "CC0-1.0 (LICENSE file at pin 2d7d27a6c14f, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "CC0-1.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T05:28Z",
+    "consent_receipt": "3e7b6108c2ee",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T05:28Z (receipt 3e7b6108c2ee); selected commit 2d7d27a6c14f: \"Add files via upload\". LICENSE file at pin 2d7d27a6c14f detected as CC0-1.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

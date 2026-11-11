@@ -1,0 +1,27 @@
+{
+ "corpus": "beeson-group--slides",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on JavaScript queries this for how beeson-group/slides implements it: Template for Beeson group HTML presentations, built on reveal.js (selected work: src/editor, theme, src)",
+ "repos": [
+  {
+   "repo": "slides",
+   "url": "https://github.com/beeson-group/slides",
+   "sha": "eed11abb623ba8a6eeccc13811712521f81c06e2",
+   "licence": "MIT (LICENSE file at pin eed11abb623b, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T04:53Z",
+    "consent_receipt": "2ff3e0f0124a",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T04:53Z (receipt 2ff3e0f0124a); selected commit eed11abb623b: \"edit a slide with faded-out elements one layer at a time, open a file\u2026\". LICENSE file at pin eed11abb623b detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @beeson-group, who has not added it."
+   },
+   "paths": [
+    "src",
+    "theme"
+   ]
+  }
+ ]
+}
