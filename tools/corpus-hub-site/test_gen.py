@@ -193,7 +193,7 @@ class HubV2CopyTest(unittest.TestCase):
         self.assertIn('<code>xerj "your question" --corpus lz4</code>', body)
         self.assertIn("<code>xerj ask --def SYMBOL --corpus lz4</code>", body)
         self.assertIn("<code>xerj_hub_ask</code>", body)
-        self.assertIn('href="../llms.txt"', body)  # the catalogue, from a corpus page
+        self.assertIn('href="../catalogue/"', body)  # the catalogue, from a corpus page
         self.assertNoV1Flow(body, "the Use-it block")
 
     def test_entry_without_a_pack_prints_no_command(self):
@@ -229,8 +229,9 @@ class HubV2CopyTest(unittest.TestCase):
         self.assertIn('href="lz4-next"', body)
 
     def test_page_chrome_links_the_catalogue(self):
-        self.assertIn('<a href="llms.txt" title="The catalogue', gen.page("t", "d", "<main></main>"))
-        self.assertIn('<a href="../llms.txt" title="The catalogue',
+        # owner, 2026-11-10: the menu item opened llms.txt (text for agents); it opens the catalogue page
+        self.assertIn('<a href="catalogue/" title="The catalogue', gen.page("t", "d", "<main></main>"))
+        self.assertIn('<a href="../catalogue/" title="The catalogue',
                       gen.page("t", "d", "<main></main>", rel="../"))
         self.assertIn(">CATALOGUE</a>", gen.page("t", "d", "<main></main>"))
 
@@ -263,7 +264,17 @@ class GeneratedSiteTest(unittest.TestCase):
             if page.name == "404.html":
                 # The 404 page is served at any depth, so its links are absolute.
                 rel = "/"
-            self.assertIn(f'<a href="{rel}llms.txt" title="The catalogue', text, str(page))
+            self.assertIn(f'<a href="{rel}catalogue/" title="The catalogue', text, str(page))
+
+    def test_catalogue_page_lists_every_live_corpus(self):
+        text = (self.out / "catalogue" / "index.html").read_text(encoding="utf-8")
+        llms = (self.out / "llms.txt").read_text(encoding="utf-8")
+        slugs = re.findall(r"^- \[([^\]]+)\]\(https://hub\.xerj\.org/corpus/", llms, re.M)
+        self.assertGreater(len(slugs), 10)
+        for slug in slugs:
+            self.assertIn(f'<a href="../corpus/{slug}">{slug}</a>', text, slug)
+        self.assertIn(f"Live corpora · {len(slugs):,}", text)
+        self.assertIn('<a href="../llms.txt">llms.txt</a>', text)   # agents still get the text file
 
     def test_no_page_prints_the_v1_flow(self):
         for page in sorted(self.out.rglob("*.html")):
