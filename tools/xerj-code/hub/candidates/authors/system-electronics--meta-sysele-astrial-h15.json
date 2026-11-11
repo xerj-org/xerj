@@ -8,15 +8,15 @@
   {
    "repo": "meta-sysele-h15-5.15.32",
    "url": "https://github.com/System-Electronics-Org/meta-sysele-h15-5.15.32",
-   "sha": "a66b2549943cef39be4e8be6f37994f05ccd3805",
-   "licence": "MIT (LICENSE file at pin a66b2549943c, GitHub licence API 2026-11-06)",
+   "sha": "e067226464833b1fd89ba4e79c0de4f751ef4f4a",
+   "licence": "MIT (LICENSE file at pin e06722646483, GitHub licence API 2026-11-11)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-20T10:02Z",
     "consent_receipt": "c25ddb8bca3e",
-    "note": "Inclusion consented by the commit author by email at 2026-10-20T10:02Z (receipt c25ddb8bca3e); selected commit a66b2549943c: \"sysele-tools: find the camera at runtime, IMX678 or IMX334\". LICENSE file at pin a66b2549943c detected as MIT by the GitHub licence API on 2026-11-06; used under that licence with attribution. Pinned to head a66b2549943c (contains the selected commit): the LICENSE at the selected commit was NONE. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @System-Electronics-Org, who has not added it."
+    "note": "Inclusion consented by the commit author by email at 2026-10-20T10:02Z (receipt c25ddb8bca3e); selected commit e06722646483: \"sysele-tools: find the camera at runtime, IMX678 or IMX334\". LICENSE file at pin e06722646483 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution. Pinned to head e06722646483 (contains the selected commit): the LICENSE at the selected commit was NONE. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @System-Electronics-Org, who has not added it."
    },
    "paths": [
     "recipes-sysele/sysele-dsi-detection/files",

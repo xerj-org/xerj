@@ -8,15 +8,15 @@
   {
    "repo": "drone-ranger",
    "url": "https://github.com/LukeA77/drone-ranger",
-   "sha": "64964f94e3cf5626418370ee8f0a9251bf108bbd",
-   "licence": "Apache-2.0 (LICENSE file at pin 64964f94e3cf, GitHub licence API 2026-11-09)",
+   "sha": "d0b2465c07a90e00b81a171d974e54e027a9e055",
+   "licence": "Apache-2.0 (LICENSE file at pin d0b2465c07a9, GitHub licence API 2026-11-11)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-08T15:03Z",
     "consent_receipt": "c915bfc479fe",
-    "note": "Inclusion consented by the commit author by email at 2026-11-08T15:03Z (receipt c915bfc479fe); selected commit 64964f94e3cf: \"phase-7: SynDrone development evaluation, data checks and Kaggle pack\u2026\". LICENSE file at pin 64964f94e3cf detected as Apache-2.0 by the GitHub licence API on 2026-11-09; used under that licence with attribution. Pinned to head 64964f94e3cf (contains the selected commit): the LICENSE at the selected commit was AGPL-3.0."
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T15:03Z (receipt c915bfc479fe); selected commit d0b2465c07a9: \"phase-7: SynDrone development evaluation, data checks and Kaggle pack\u2026\". LICENSE file at pin d0b2465c07a9 detected as Apache-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution. Pinned to head d0b2465c07a9 (contains the selected commit): the LICENSE at the selected commit was AGPL-3.0."
    }
   }
  ]

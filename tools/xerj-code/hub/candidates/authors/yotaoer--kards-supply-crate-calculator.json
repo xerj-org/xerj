@@ -8,15 +8,15 @@
   {
    "repo": "Kards_Supply_Crate_Calculator",
    "url": "https://github.com/Yotaoer/Kards_Supply_Crate_Calculator",
-   "sha": "22e207c7bc5b6b783ab19db68fcd07e71657bf25",
-   "licence": "author's permission (LICENSE at pin 22e207c7bc5b: NONE; repository: none)",
+   "sha": "89b54ddb206330d5fbb6acafba7709a810c0bb01",
+   "licence": "author's permission (LICENSE at pin 89b54ddb2063: NONE; repository: none)",
    "review": {
     "spdx": "NONE",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-07T09:32Z",
     "consent_receipt": "efe9fbf453cf",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-07T09:32Z (receipt efe9fbf453cf); pinned to the default-branch head. LICENSE at pin 22e207c7bc5b: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-07T09:32Z (receipt efe9fbf453cf); pinned to the default-branch head. LICENSE at pin 89b54ddb2063: NONE (repository: none); used with the author's permission, with attribution."
    }
   }
  ]

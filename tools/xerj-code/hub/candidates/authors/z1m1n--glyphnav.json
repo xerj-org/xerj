@@ -1,0 +1,23 @@
+{
+ "corpus": "z1m1n--glyphnav",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on address-bar, animation, decode queries this for how z1m1n/glyphnav implements it: Animate navigation: random glyphs resolve into the destination URL right in the address bar. Framework-agnostic core with Vue Router, React  (selected work: demo, test, the project root)",
+ "repos": [
+  {
+   "repo": "glyphnav",
+   "url": "https://github.com/z1m1n/glyphnav",
+   "sha": "567bb95af06868732c56b11a58ef5514b19353cb",
+   "licence": "MIT (LICENSE file at pin 567bb95af068, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T15:46Z",
+    "consent_receipt": "30fe2e1aa1ab",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T15:46Z (receipt 30fe2e1aa1ab); selected commit 567bb95af068: \"feat: add Astro adapter and upgrade framework toolchains\". LICENSE file at pin 567bb95af068 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

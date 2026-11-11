@@ -8,15 +8,15 @@
   {
    "repo": "test-mandi",
    "url": "https://github.com/flawsom/test-mandi",
-   "sha": "fb4434544073eaf47935d5597a1a0daf4a5f11a7",
-   "licence": "MIT (LICENSE file at pin fb4434544073, GitHub licence API 2026-11-11)",
+   "sha": "325a30ec4dda7371a7bf0929fb46629dc026ff24",
+   "licence": "MIT (LICENSE file at pin 325a30ec4dda, GitHub licence API 2026-11-11)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-01T13:44Z",
     "consent_receipt": "972c1eadb09b",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T13:44Z (receipt 972c1eadb09b); pinned to the default-branch head. LICENSE file at pin fb4434544073 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T13:44Z (receipt 972c1eadb09b); pinned to the default-branch head. LICENSE file at pin 325a30ec4dda detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
    }
   }
  ]

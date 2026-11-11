@@ -1,0 +1,23 @@
+{
+ "corpus": "perdangasoftware--perdanga-vsp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on libmpv, lightweight, media-player queries this for how PerdangaSoftware/Perdanga-VSP implements it: Native C++ media player built with libmpv and D3D11 hardware rendering (selected work: ui, src, the project root)",
+ "repos": [
+  {
+   "repo": "Perdanga-VSP",
+   "url": "https://github.com/PerdangaSoftware/Perdanga-VSP",
+   "sha": "e30e6b495c6bf124b6d99d40e85526a94a98aa38",
+   "licence": "MIT (LICENSE file at pin e30e6b495c6b, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T15:53Z",
+    "consent_receipt": "ef81e992a066",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T15:53Z (receipt ef81e992a066); selected commit e30e6b495c6b: \"Support external audio/subtitle tracks, 150% volume boost, and hotkey\u2026\". LICENSE file at pin e30e6b495c6b detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

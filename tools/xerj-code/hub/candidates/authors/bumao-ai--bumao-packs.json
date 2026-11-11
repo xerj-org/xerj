@@ -8,15 +8,15 @@
   {
    "repo": "Bumao-packs",
    "url": "https://github.com/Bumao-Ai/Bumao-packs",
-   "sha": "a8db73bdf3fd89b30949c23c29a5955ace1e2d9e",
-   "licence": "Apache-2.0 (LICENSE file at pin a8db73bdf3fd, GitHub licence API 2026-11-11)",
+   "sha": "f8e6ed9e980f2dbdda725511027d209a6c184081",
+   "licence": "Apache-2.0 (LICENSE file at pin f8e6ed9e980f, GitHub licence API 2026-11-11)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-11T13:49Z",
     "consent_receipt": "b070676102d7",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T13:49Z (receipt b070676102d7); pinned to the default-branch head. LICENSE file at pin a8db73bdf3fd detected as Apache-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T13:49Z (receipt b070676102d7); pinned to the default-branch head. LICENSE file at pin f8e6ed9e980f detected as Apache-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution."
    }
   }
  ]

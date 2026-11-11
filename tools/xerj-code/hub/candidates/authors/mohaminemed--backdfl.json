@@ -1,0 +1,23 @@
+{
+ "corpus": "mohaminemed--backdfl",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how mohaminemed/BackDFL implements it: mohaminemed/BackDFL (Python) (selected work: experiments, src/attacks, src/defenses)",
+ "repos": [
+  {
+   "repo": "BackDFL",
+   "url": "https://github.com/mohaminemed/BackDFL",
+   "sha": "90181fda442f06dcf4f8d7f51e20985b1f39b30d",
+   "licence": "MIT (LICENSE file at pin 90181fda442f, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T14:43Z",
+    "consent_receipt": "c5ba347c3ccf",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T14:43Z (receipt c5ba347c3ccf); selected commit 90181fda442f: \"Update attacks, defenses, flows and utilities (detection/timing metri\u2026\". LICENSE file at pin 90181fda442f detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

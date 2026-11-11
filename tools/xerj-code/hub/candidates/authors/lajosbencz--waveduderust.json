@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Rust queries this for how lajosbencz/WaveDudeRust implements it: A 2D wave simulator: a Rust rewrite of WaveDude Next (selected work: crates/wavedude-widgets, crates/wavedude-app, examples)",
+ "domain": "an agent working on diffraction, fdtd, photonics queries this for how lajosbencz/WaveDudeRust implements it: A 2D wave simulator: a Rust rewrite of WaveDude Next (selected work: crates/wavedude-widgets, crates/wavedude-app, examples)",
  "repos": [
   {
    "repo": "WaveDudeRust",
