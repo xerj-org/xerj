@@ -1,0 +1,23 @@
+{
+ "corpus": "shaurya-900--rebuttal-ai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how Shaurya-900/rebuttal-ai implements it: Shaurya-900/rebuttal-ai (TypeScript) (selected work: src/app, src/lib, e2e)",
+ "repos": [
+  {
+   "repo": "rebuttal-ai",
+   "url": "https://github.com/Shaurya-900/rebuttal-ai",
+   "sha": "ce6c138dfa37cd0b27f996f19823a4d6c05ffcb1",
+   "licence": "MIT (LICENSE file at pin ce6c138dfa37, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T10:45Z",
+    "consent_receipt": "9bcd1b7c5a40",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T10:45Z (receipt 9bcd1b7c5a40); selected commit ce6c138dfa37: \"AG Studio dashboard: runs, attack eval per agent, live disputes, cust\u2026\". LICENSE file at pin ce6c138dfa37 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

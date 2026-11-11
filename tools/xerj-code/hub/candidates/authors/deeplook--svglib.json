@@ -1,0 +1,23 @@
+{
+ "corpus": "deeplook--svglib",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on svg, python, pdf queries this for how deeplook/svglib implements it: Read SVG files and convert them to other formats",
+ "repos": [
+  {
+   "repo": "svglib",
+   "url": "https://github.com/deeplook/svglib",
+   "sha": "17331b382af0b45378070b8a8e0f2e9834474245",
+   "licence": "LGPL-3.0 (LICENSE file at pin 17331b382af0, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "LGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-11T10:32Z",
+    "consent_receipt": "208be13db22a",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T10:32Z (receipt 208be13db22a); pinned to the default-branch head. LICENSE file at pin 17331b382af0 detected as LGPL-3.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -8,15 +8,15 @@
   {
    "repo": "Campaign-Pocketbook",
    "url": "https://github.com/Mykkey/Campaign-Pocketbook",
-   "sha": "3e4138b3a4c4c06964fba02d57b5fd924f4afe2d",
-   "licence": "MIT (LICENSE file at pin 3e4138b3a4c4, GitHub licence API 2026-11-11)",
+   "sha": "3bcf96845651410c316476763a4a28d34dc03720",
+   "licence": "MIT (LICENSE file at pin 3bcf96845651, GitHub licence API 2026-11-11)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-10T13:14Z",
     "consent_receipt": "8f2189800247",
-    "note": "Inclusion consented by the commit author by email at 2026-11-10T13:14Z (receipt 8f2189800247); selected commit 3e4138b3a4c4: \"Add links, notes, hover previews, backlinks and search to world maps\". LICENSE file at pin 3e4138b3a4c4 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution. Pinned to head 3e4138b3a4c4 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T13:14Z (receipt 8f2189800247); selected commit 3bcf96845651: \"Add links, notes, hover previews, backlinks and search to world maps\". LICENSE file at pin 3bcf96845651 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution. Pinned to head 3bcf96845651 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

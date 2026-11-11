@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on kernel, proof-assistant, verification queries this for how h0ffmann/proof implements it: agda aixiv submission",
+ "domain": "an agent working on kernel, proof-assistant, verification queries this for how h0ffmann/proof implements it: agda aiXiv experiments",
  "repos": [
   {
    "repo": "proof",
    "url": "https://github.com/h0ffmann/proof",
-   "sha": "64b2501069ddb97ac16563d27fb03ec22c1db395",
-   "licence": "MPL-2.0 (LICENSE file at pin 64b2501069dd, GitHub licence API 2026-11-11)",
+   "sha": "009ae977ff181008ace16fae15d21bef2ab280cf",
+   "licence": "MPL-2.0 (LICENSE file at pin 009ae977ff18, GitHub licence API 2026-11-11)",
    "review": {
     "spdx": "MPL-2.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-11-10T15:11Z",
     "consent_receipt": "78aadbf1cbe0",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T15:11Z (receipt 78aadbf1cbe0); pinned to the default-branch head. LICENSE file at pin 64b2501069dd detected as MPL-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T15:11Z (receipt 78aadbf1cbe0); pinned to the default-branch head. LICENSE file at pin 009ae977ff18 detected as MPL-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution."
    }
   }
  ]

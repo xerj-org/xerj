@@ -8,15 +8,15 @@
   {
    "repo": "oura-platform",
    "url": "https://github.com/Egoushka/oura-platform",
-   "sha": "05611a0007250424fa9ceffd9b6baf0f34db850d",
-   "licence": "Apache-2.0 (LICENSE file at pin 05611a000725, GitHub licence API 2026-11-11)",
+   "sha": "73c67a8e386029b905a47854aec844138c520bef",
+   "licence": "Apache-2.0 (LICENSE file at pin 73c67a8e3860, GitHub licence API 2026-11-11)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-07T15:00Z",
     "consent_receipt": "571f511ba2dc",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-07T15:00Z (receipt 571f511ba2dc); pinned to the default-branch head. LICENSE file at pin 05611a000725 detected as Apache-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-07T15:00Z (receipt 571f511ba2dc); pinned to the default-branch head. LICENSE file at pin 73c67a8e3860 detected as Apache-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution."
    }
   }
  ]

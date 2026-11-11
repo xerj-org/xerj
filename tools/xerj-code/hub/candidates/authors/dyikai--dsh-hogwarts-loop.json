@@ -1,0 +1,23 @@
+{
+ "corpus": "dyikai--dsh-hogwarts-loop",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, deepseek-harness, dsh queries this for how dyikai/dsh-hogwarts-loop implements it: Hogwarts-loop as a DeepSeek Harness plugin: per-role subagents on configurable models, with a client settings page (selected work: test, the project root)",
+ "repos": [
+  {
+   "repo": "dsh-hogwarts-loop",
+   "url": "https://github.com/dyikai/dsh-hogwarts-loop",
+   "sha": "11613e7bdaae671c7000dbb71806e5cb934458e6",
+   "licence": "MIT (LICENSE file at pin 11613e7bdaae, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T10:31Z",
+    "consent_receipt": "13326df22980",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T10:31Z (receipt 13326df22980); selected commit 11613e7bdaae: \"Keep Harry implementing with Voldemort as escalation advisor\". LICENSE file at pin 11613e7bdaae detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

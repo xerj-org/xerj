@@ -1,0 +1,23 @@
+{
+ "corpus": "bachubila--envkit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how bachubila/envkit implements it: Share your team's environment variables through your own self-hosted Vaultwarden. envkit run -- <cmd> injects them in about 100ms, with no . (selected work: packages/core, packages/cli, tools)",
+ "repos": [
+  {
+   "repo": "envkit",
+   "url": "https://github.com/bachubila/envkit",
+   "sha": "2ac527b03ff3d5882807ef3e57bde26afe732667",
+   "licence": "MIT (LICENSE file at pin 2ac527b03ff3, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T10:51Z",
+    "consent_receipt": "d7a703f55ded",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T10:51Z (receipt d7a703f55ded); selected commit 2ac527b03ff3: \"feat: add native login verification and Windows command launching\". LICENSE file at pin 2ac527b03ff3 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "vectormike--findmeajob",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how Vectormike/findmeajob implements it: A workflow of agents that finds jobs, applies, and tracks each case to the debrief (selected work: frontend, src/findmeajob, tests)",
+ "repos": [
+  {
+   "repo": "findmeajob",
+   "url": "https://github.com/Vectormike/findmeajob",
+   "sha": "6e28bc7c2002f491bb52c593e1514457be1efe42",
+   "licence": "MIT (LICENSE file at pin 6e28bc7c2002, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T11:36Z",
+    "consent_receipt": "16616ef7779b",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T11:36Z (receipt 16616ef7779b); selected commit 6e28bc7c2002: \"Make tailored CVs easier to read, and let each agent be retried.\". LICENSE file at pin 6e28bc7c2002 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution. Pinned to head 6e28bc7c2002 (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

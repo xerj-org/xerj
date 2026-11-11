@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Swift queries this for how Miri-Labs/MoMo-Agent implements it: Open-Source, Self-Hosted, All-Day Wearable Personal Agent for Apple Watch, iPhone, and Mac (selected work: Packages/MoMoAgentKit)",
+ "domain": "an agent working on ai-agent, apple-watch, claude-code queries this for how Miri-Labs/MoMo-Agent implements it: 24/7 Self-Hosted Personal Agent for Apple Watch, iPhone & Mac \u2014 $0 On-Device CoreML ASR, Obsidian-Style Memory Vault, Tailscale & Codex/Clau (selected work: Packages/MoMoAgentKit)",
  "repos": [
   {
    "repo": "MoMo-Agent",

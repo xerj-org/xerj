@@ -1,0 +1,28 @@
+{
+ "corpus": "vitekube--vitekube",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on TypeScript queries this for how vitekube/vitekube implements it: Vitest on real Kubernetes clusters. Write integration tests that feel like unit tests (selected work: src/core, src/vitest, e2e)",
+ "repos": [
+  {
+   "repo": "vitekube",
+   "url": "https://github.com/vitekube/vitekube",
+   "sha": "337fdecb966b7b9c41e5f024e2eafcfb25ef6b02",
+   "licence": "MIT (LICENSE file at pin 337fdecb966b, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T12:10Z",
+    "consent_receipt": "b0264edaaa99",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T12:10Z (receipt b0264edaaa99); selected commit 337fdecb966b: \"feat: add quiescent scaling and shared resource evidence\". LICENSE file at pin 337fdecb966b detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @vitekube, who has not added it."
+   },
+   "paths": [
+    "docs/plans",
+    "e2e",
+    "src"
+   ]
+  }
+ ]
+}

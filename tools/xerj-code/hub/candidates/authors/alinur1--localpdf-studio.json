@@ -1,0 +1,23 @@
+{
+ "corpus": "alinur1--localpdf-studio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on image-editor, pdf, pdf-converter queries this for how Alinur1/LocalPDF_Studio implements it: Complete offline, privacy focused PDF tool (selected work: PyBackend, LocalPDF_Studio_api, src/main)",
+ "repos": [
+  {
+   "repo": "LocalPDF_Studio",
+   "url": "https://github.com/Alinur1/LocalPDF_Studio",
+   "sha": "d13049d440ce058fa7e362d3c1d6f40ea8664d1f",
+   "licence": "AGPL-3.0 (LICENSE file at pin d13049d440ce, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-11T11:00Z",
+    "consent_receipt": "79893c243102",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T11:00Z (receipt 79893c243102); selected commit d13049d440ce: \"PDF to Markdown feature improved\". LICENSE file at pin d13049d440ce detected as AGPL-3.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}
