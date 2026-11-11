@@ -2,8 +2,8 @@
  "corpus": "crossplane-contrib--crossview",
  "cloned_at": null,
  "status": "draft",
- "shelf": "WEB",
- "domain": "an agent working on crossplane, crossplane-managed, kubernetes queries this for how crossplane-contrib/crossview implements it: A standard Crossplane UI dashboard (selected work: crossview-go-server, src/presentation, helm)",
+ "shelf": "OPS",
+ "domain": "an agent working on crossplane, crossplane-managed, kubernetes queries this for how crossplane-contrib/crossview implements it: A web-based dashboard for visualizing, monitoring, and troubleshooting Crossplane resources across Kubernetes clusters, with real-time updat (selected work: crossview-go-server, src/presentation, helm)",
  "repos": [
   {
    "repo": "crossview",

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agents, agents-sdk, ai queries this for how rowboatlabs/rowboat implements it: AI coworker with memory and collaboration (selected work: apps/x)",
+ "domain": "an agent working on agents, agents-sdk, ai queries this for how rowboatlabs/rowboat implements it: Your agent team, in one group chat (selected work: apps/x)",
  "repos": [
   {
    "repo": "rowboat",

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agpl, ai, customer-support queries this for how benaiah-muga/ChasteDesk implements it: Self-hostable, AI-native customer support desk in Go. Cited answers, human approvals, and an append-only audit trail (selected work: internal/email, internal/httpapi, internal/db)",
+ "domain": "an agent working on agpl, ai, customer-support queries this for how benaiah-muga/ChasteDesk implements it: Self-hostable, AI native customer support desk in Go. Cited answers, human approvals, and an append-only audit trail (selected work: internal/email, internal/httpapi, internal/db)",
  "repos": [
   {
    "repo": "ChasteDesk",

@@ -1,0 +1,28 @@
+{
+ "corpus": "aiengineeringblueprints--rag-nimbf",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how aiengineeringblueprints/RAG-NIMBF implements it: aiengineeringblueprints/RAG-NIMBF (Python) (selected work: tests, benchmark, the project root)",
+ "repos": [
+  {
+   "repo": "RAG-NIMBF",
+   "url": "https://github.com/aiengineeringblueprints/RAG-NIMBF",
+   "sha": "5ac24d4e2a62d4d4aced2d6d91bf0e17d2618614",
+   "licence": "MIT (LICENSE file at pin 5ac24d4e2a62, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T19:46Z",
+    "consent_receipt": "2b5df92c11a7",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T19:46Z (receipt 2b5df92c11a7); selected commit 5ac24d4e2a62: \"Add hybrid retrieval (dense + BM25 via weighted RRF)\". LICENSE file at pin 5ac24d4e2a62 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @aiengineeringblueprints, who has not added it."
+   },
+   "paths": [
+    "benchmark",
+    "doc/changes",
+    "tests"
+   ]
+  }
+ ]
+}

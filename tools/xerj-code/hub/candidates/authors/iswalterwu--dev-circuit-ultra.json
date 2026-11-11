@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-agents, ai-coding, claude-code queries this for how iswalterwu/dev-circuit-ultra implements it: Less context. Less ceremony. More shipping. A design-first five-step loop for coding agents (selected work: tools, tests, skills)",
+ "domain": "an agent working on ai-agents, ai-coding, claude-code queries this for how iswalterwu/dev-circuit-ultra implements it: Less context. Less ceremony. One feature at a time. A design-first development flow for coding agents (selected work: tools, tests, skills)",
  "repos": [
   {
    "repo": "dev-circuit-ultra",

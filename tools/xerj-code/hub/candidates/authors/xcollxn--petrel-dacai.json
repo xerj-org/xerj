@@ -1,0 +1,23 @@
+{
+ "corpus": "xcollxn--petrel-dacai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on 3d-printing, creality, dacai queries this for how xCollxn/petrel-dacai implements it: Petrel for Creality DACAI knob screens on Klipper \u2013 patches, icons, font, SD tools (selected work: tools)",
+ "repos": [
+  {
+   "repo": "petrel-dacai",
+   "url": "https://github.com/xCollxn/petrel-dacai",
+   "sha": "c8b1c26548999ff5f1d7545b33d21b676c28a16f",
+   "licence": "GPL-3.0 (LICENSE file at pin c8b1c2654899, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-11T19:32Z",
+    "consent_receipt": "9a7e433e810b",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T19:32Z (receipt 9a7e433e810b); selected commit c8b1c2654899: \"Add the panel test scripts\". LICENSE file at pin c8b1c2654899 detected as GPL-3.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

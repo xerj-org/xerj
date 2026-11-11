@@ -1,0 +1,23 @@
+{
+ "corpus": "aj224--git-switch",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how AJ224/Git_Switch implements it: A lightweight desktop app for switching between Git identities, SSH keys, and HTTPS personal access tokens (PATs) without editing config fil (selected work: extension, gitswitch, tests)",
+ "repos": [
+  {
+   "repo": "Git_Switch",
+   "url": "https://github.com/AJ224/Git_Switch",
+   "sha": "c4d4678ba7115075b9aa09df2619b0e695eb1cf0",
+   "licence": "MIT (LICENSE file at pin c4d4678ba711, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T19:04Z",
+    "consent_receipt": "b9156952627a",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T19:04Z (receipt b9156952627a); selected commit c4d4678ba711: \"Update project to rename from \"Git Account Switcher\" to \"Git Switch\" \u2026\". LICENSE file at pin c4d4678ba711 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

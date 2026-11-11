@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Python queries this for how ggiallo28/skye implements it: Lightweight Python library for AI agents on serverless: zero core dependencies, REST adapters for the major LLM providers, a model router wi (selected work: tests, src/nimbus, examples)",
+ "domain": "an agent working on ai-agents, aws-lambda, bedrock queries this for how ggiallo28/skye implements it: Lightweight Python library for AI agents on serverless: zero core dependencies, REST adapters for the major LLM providers, a model router wi (selected work: tests, src/nimbus, examples)",
  "repos": [
   {
    "repo": "nimbus",

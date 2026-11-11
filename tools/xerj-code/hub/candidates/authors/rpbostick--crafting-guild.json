@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Shell queries this for how rpbostick/crafting-guild implements it: Crafting Guild Agentic Workspace: build software with a small team of Claude Code agents (selected work: schema, scripts, bin)",
+ "domain": "an agent working on Shell queries this for how rpbostick/crafting-guild implements it: Crafting Guild Agentic Workspace: build software with a small team of Deepseek or Claude Code agents (selected work: schema, scripts, bin)",
  "repos": [
   {
    "repo": "crafting-guild",

@@ -2,8 +2,8 @@
  "corpus": "dvrd--wayu",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Odin queries this for how dvrd/wayu implements it: zsh/bash shell manager (selected work: src, tests)",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on Odin queries this for how dvrd/wayu implements it: Shell config manager for zsh, bash and fish: PATH, aliases, env, encrypted secrets, plugins, prompt (selected work: src, tests)",
  "repos": [
   {
    "repo": "wayu",

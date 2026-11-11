@@ -8,15 +8,15 @@
   {
    "repo": "chaca-scanner",
    "url": "https://github.com/madebyaris/chaca-scanner",
-   "sha": "d47662ea1752b6bbe5f0eb0d0989a4b30aa2574d",
-   "licence": "MIT (LICENSE file at pin d47662ea1752, GitHub licence API 2026-10-27)",
+   "sha": "5445143a374bba24c5ca4661af314d27a552f03e",
+   "licence": "MIT (LICENSE file at pin 5445143a374b, GitHub licence API 2026-11-11)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-27T00:39Z",
     "consent_receipt": "8da3631bfddb",
-    "note": "Inclusion consented by the commit author by email at 2026-10-27T00:39Z (receipt 8da3631bfddb); selected commit d47662ea1752: \"feat: v0.7 capability pack \u2014 TLS cert probe, typed DNS, extended checks\". LICENSE file at pin d47662ea1752 detected as MIT by the GitHub licence API on 2026-10-27; used under that licence with attribution. Pinned to head d47662ea1752 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-27T00:39Z (receipt 8da3631bfddb); selected commit 5445143a374b: \"feat: v0.7 capability pack \u2014 TLS cert probe, typed DNS, extended checks\". LICENSE file at pin 5445143a374b detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution. Pinned to head 5445143a374b (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

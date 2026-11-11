@@ -1,0 +1,23 @@
+{
+ "corpus": "luisalonsoesteban--hdviewer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Python queries this for how LuisAlonsoEsteban/HDViewer implements it: Interactive web platform for multi-resolution visualization and analysis of 10x Genomics Visium HD spatial transcriptomics data (selected work: hd_viewer, tests)",
+ "repos": [
+  {
+   "repo": "HDViewer",
+   "url": "https://github.com/LuisAlonsoEsteban/HDViewer",
+   "sha": "7b8e1f5ad9574bfff54cc36af71c3692a4909442",
+   "licence": "MIT (LICENSE file at pin 7b8e1f5ad957, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T18:11Z",
+    "consent_receipt": "9f955539bc91",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T18:11Z (receipt 9f955539bc91); selected commit 7b8e1f5ad957: \"Clusters list bug + shared preprocess between clustering and embedding\". LICENSE file at pin 7b8e1f5ad957 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

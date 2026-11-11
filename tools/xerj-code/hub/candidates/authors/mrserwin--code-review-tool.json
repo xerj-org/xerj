@@ -2,8 +2,8 @@
  "corpus": "mrserwin--code-review-tool",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on TypeScript queries this for how MrSerWin/code-review-tool implements it: MrSerWin/code-review-tool (TypeScript) (selected work: src, src/routes)",
+ "shelf": "AI",
+ "domain": "an agent working on ai-code-review, claude-code, code-review queries this for how MrSerWin/code-review-tool implements it: Local, read-only AI code review of branches and PRs against ticket requirements. Works with Claude Code, Codex, Cursor Agent and Grok; also  (selected work: src, src/routes)",
  "repos": [
   {
    "repo": "code-review-tool",

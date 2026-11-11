@@ -1,0 +1,27 @@
+{
+ "corpus": "nsfcac--monster",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Python queries this for how nsfcac/MonSTer implements it: Monitoring Tool for HPC metrics from batch scheduler and BMC resources (selected work: tools, monster, the project root)",
+ "repos": [
+  {
+   "repo": "MonSTer",
+   "url": "https://github.com/nsfcac/MonSTer",
+   "sha": "11554db80c1312ecb9946c31caeadee5ea9a9246",
+   "licence": "MIT (LICENSE file at pin 11554db80c13, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T18:22Z",
+    "consent_receipt": "c0a0135bc748",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T18:22Z (receipt c0a0135bc748); selected commit 11554db80c13: \"fix slurm auth token issue\". LICENSE file at pin 11554db80c13 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @nsfcac, who has not added it."
+   },
+   "paths": [
+    "monster",
+    "tools"
+   ]
+  }
+ ]
+}

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-tool, coding-assistant, context-management queries this for how LuminariSoftwares/tool-guardian implements it: Too many MCP servers eating your context? tool-guardian sits in front of all of them and loads each tool's schema only when it's needed. A 7",
+ "domain": "an agent working on ai-tool, coding-assistant, context-management queries this for how LuminariSoftwares/tool-guardian implements it: Too many MCP servers eating your context? tool-guardian sits in front of all of them and loads each tool\u2019s schema only when needed. A 7-serv",
  "repos": [
   {
    "repo": "tool-guardian",
