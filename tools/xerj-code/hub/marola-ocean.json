@@ -1,1 +1,209 @@
-__PLACEHOLDER__
+{
+  "corpus": "marola-ocean",
+  "cloned_at": "2026-11-10T14:01:33Z",
+  "repos": [
+    {
+      "repo": "marola",
+      "url": "https://github.com/marola-dev/marola",
+      "licence": "UNKNOWN",
+      "sha": "ba501bb9082ba3e4a3c849bbf044d3a08c9be104",
+      "files": 410,
+      "bytes": 10828384,
+      "review": {
+        "spdx": "CC-BY-4.0 AND AGPL-3.0-only AND MIT AND CC0-1.0",
+        "use": "mixed",
+        "by": "@h0ffmann",
+        "at": "2026-11-10",
+        "note": "Opened LICENSE (CC BY 4.0) and REUSE.toml at pin: docs and app CC-BY-4.0; tools/, scripts/, .github/, mkdocs/, justfile, flake and the logo/sponsor JS are AGPL-3.0-only; templates and three vendored skills MIT; one file CC0. One sponsor logo (LicenseRef-LNT-Proud-Partner) and the names/logos are not licensed. Detector said UNKNOWN (missed the CC BY text). Check REUSE.toml for a file's path before copying."
+      }
+    },
+    {
+      "repo": "marola-app",
+      "url": "https://github.com/marola-dev/marola-app",
+      "licence": "MIT",
+      "sha": "7061a08e643c5fe05485cb2917be405f5b1ab8c4",
+      "files": 278,
+      "bytes": 2811380,
+      "review": {
+        "spdx": "MIT",
+        "use": "adapt-with-attribution",
+        "by": "@h0ffmann",
+        "at": "2026-11-10",
+        "note": "Opened LICENSE: MIT, (c) 2026 marola.dev. No REUSE.toml or other licence files."
+      }
+    },
+    {
+      "repo": "marola-oods",
+      "url": "https://github.com/marola-dev/marola-oods",
+      "licence": "MIT",
+      "sha": "3db811386ae42a98cd52e990231dcc7d5b6cfac9",
+      "files": 32,
+      "bytes": 70891,
+      "review": {
+        "spdx": "MIT",
+        "use": "adapt-with-attribution",
+        "by": "@h0ffmann",
+        "at": "2026-11-10",
+        "note": "Opened LICENSE: MIT, (c) 2026 marola.dev. data/oods/ holds only .gitkeep at this pin (the store layout, no data); .claude/skills/routing is MIT, (c) 2026 marola.dev."
+      }
+    },
+    {
+      "repo": "marola-research",
+      "url": "https://github.com/marola-dev/marola-research",
+      "licence": "MIT",
+      "sha": "2103b7faafaf59c1f01dad86a8bff71c0b94e308",
+      "files": 35,
+      "bytes": 227283,
+      "review": {
+        "spdx": "CC-BY-4.0 AND MIT",
+        "use": "adapt-with-attribution",
+        "by": "@h0ffmann",
+        "at": "2026-11-10",
+        "note": "Opened LICENSE, REUSE.toml and REUSE.md at pin: texts CC-BY-4.0, build code MIT. marola-bench/ is all rights reserved (LicenseRef-Hoffmann-All-Rights-Reserved) and is EXCLUDED via paths; only the CC-BY/MIT parts are harvested."
+      },
+      "paths": [
+        "README.md",
+        "AGENTS.md",
+        "NOTES.md",
+        "REUSE.md",
+        "REUSE.toml",
+        "TRADEMARKS.md",
+        "LICENSE",
+        "LICENSES",
+        "CITATION.cff",
+        "chamada",
+        "drawings",
+        "format",
+        "scripts",
+        "tools",
+        "justfile",
+        "flake.nix"
+      ]
+    },
+    {
+      "repo": "marola-corpus",
+      "url": "https://github.com/marola-dev/marola-corpus",
+      "licence": "MIT",
+      "sha": "1137cd4745b30313bb0bc6b843e3711db67d8097",
+      "files": 19,
+      "bytes": 74697,
+      "review": {
+        "spdx": "MIT AND CC-BY-4.0",
+        "use": "adapt-with-attribution",
+        "by": "@h0ffmann",
+        "at": "2026-11-11",
+        "note": "detector said MIT; opened LICENSE (MIT, (c) 2026 marola.dev) and REUSE.toml at the pin: 10 notes summarise CC-BY-4.0 articles and stay CC-BY-4.0 with authors credited per file, 2 summarise Brazilian official acts (unprotected, Lei 9.610/98 art. 8 IV) and the rest are MIT. paths drop the 4 Wikipedia (CC BY-SA) notes and the IMA/SC note (source terms unstated). No note has had its sentence-by-sentence source check yet (docs/4-reference.md)."
+      },
+      "paths": [
+        "LICENSE",
+        "LICENSES",
+        "REUSE.toml",
+        "docs/4-reference.md",
+        "knowledge/README.md",
+        "knowledge/balneabilidade-e-coli-chuva-florianopolis.md",
+        "knowledge/energia-das-ondas-litoral-catarinense.md",
+        "knowledge/inpo-edital-de-chamamento.md",
+        "knowledge/inpo-organizacao-social.md",
+        "knowledge/inundacao-costeira-enseada-de-tijucas.md",
+        "knowledge/labeco-previsao-de-ondas-ww3.md",
+        "knowledge/lioc-medir-ondas-com-camera.md",
+        "knowledge/mares-de-tempestade-armacao-e-canasvieiras.md",
+        "knowledge/ressacas-e-danos-rio-de-janeiro-1979-2013.md",
+        "knowledge/ressacas-rio-de-janeiro-1948-2008.md",
+        "knowledge/temperatura-do-mar-e-corrente-do-brasil.md",
+        "knowledge/safety/correntes-de-retorno-rio-de-janeiro.md",
+        "knowledge/safety/rip-currents.md"
+      ]
+    },
+    {
+      "repo": "marola-ml",
+      "url": "https://github.com/marola-dev/marola-ml",
+      "licence": "MIT",
+      "sha": "e63f0ad6520eb241fd9158041ce79c95888aa6cd",
+      "files": 108,
+      "bytes": 485862,
+      "review": {
+        "spdx": "MIT",
+        "use": "adapt-with-attribution",
+        "by": "@h0ffmann",
+        "at": "2026-11-10",
+        "note": "Opened LICENSE and REUSE.toml: MIT, (c) 2026 marola.dev; sea/nanogpt/ is copied from karpathy/nanoGPT (MIT, (c) 2022 Andrej Karpathy), headers kept."
+      }
+    },
+    {
+      "repo": "chaceon",
+      "url": "https://github.com/h0ffmann/chaceon",
+      "licence": "MPL-2.0",
+      "sha": "0c098fe1b039b3d235bbfef505ba4ce0c7b21445",
+      "files": 904,
+      "bytes": 7671476,
+      "review": {
+        "spdx": "MPL-2.0",
+        "use": "approach-only",
+        "by": "@h0ffmann",
+        "at": "2026-11-10",
+        "note": "Opened LICENSE: Mozilla Public License 2.0, full text. Detector agrees."
+      }
+    },
+    {
+      "repo": "ww3-dia-gpu-v2",
+      "url": "https://github.com/h0ffmann/ww3-dia-gpu-v2",
+      "licence": "MIT",
+      "sha": "32aa2ef4a1ee3225e5072f18310726cdd763cbfe",
+      "files": 2,
+      "bytes": 10605,
+      "review": {
+        "spdx": "MIT",
+        "use": "adapt-with-attribution",
+        "by": "@h0ffmann",
+        "at": "2026-11-10",
+        "note": "Opened LICENSE: MIT, (c) 2026 mhoffmann. Archived repo with 2 files (README + LICENSE)."
+      }
+    },
+    {
+      "repo": "astrbot_dw_ext_br_south_disaster",
+      "url": "https://github.com/h0ffmann/astrbot_dw_ext_br_south_disaster",
+      "licence": "MPL-2.0",
+      "sha": "a6675479bebcacb92b1d18f4931a7065a1f70178",
+      "files": 58,
+      "bytes": 373955,
+      "review": {
+        "spdx": "MPL-2.0",
+        "use": "approach-only",
+        "by": "@h0ffmann",
+        "at": "2026-11-10",
+        "note": "Opened LICENSE: Mozilla Public License 2.0, full text. Detector agrees. Vendored .claude/skills/asd-ste100 is MIT, (c) 2026 Dustin Yuchen Teng."
+      }
+    },
+    {
+      "repo": "astrbot_dw_ext_br_south_waterq",
+      "url": "https://github.com/h0ffmann/astrbot_dw_ext_br_south_waterq",
+      "licence": "MPL-2.0",
+      "sha": "12b71ac048ad29b83bfc6aaa0149e011c66886ce",
+      "files": 60,
+      "bytes": 391968,
+      "review": {
+        "spdx": "MPL-2.0",
+        "use": "approach-only",
+        "by": "@h0ffmann",
+        "at": "2026-11-10",
+        "note": "Opened LICENSE: Mozilla Public License 2.0, full text. Detector agrees. Vendored .claude/skills/asd-ste100 is MIT, (c) 2026 Dustin Yuchen Teng."
+      }
+    },
+    {
+      "repo": "alerts",
+      "url": "https://github.com/piabrota/alerts",
+      "licence": "MPL-2.0",
+      "sha": "d69858c130667c7bd87e99bd34a5f19be5200c40",
+      "files": 239,
+      "bytes": 2784668,
+      "review": {
+        "spdx": "MPL-2.0 AND ODbL-1.0 AND CC-BY-4.0 AND Apache-2.0",
+        "use": "approach-only",
+        "by": "@h0ffmann",
+        "at": "2026-11-10",
+        "note": "Opened LICENSE and REUSE.toml: code MPL-2.0; data/raw/trilhas/osm.tsv is ODbL-1.0 (OpenStreetMap contributors); some screenshots carry OSM/OpenMapTiles (ODbL, CC-BY-4.0) and Loco (Apache-2.0) material."
+      }
+    }
+  ]
+}
