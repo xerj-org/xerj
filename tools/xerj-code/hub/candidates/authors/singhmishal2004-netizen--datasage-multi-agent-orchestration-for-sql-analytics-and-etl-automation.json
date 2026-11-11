@@ -1,0 +1,23 @@
+{
+ "corpus": "singhmishal2004-netizen--datasage-multi-agent-orchestration-for-sql-analytics-and-etl-automation",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how singhmishal2004-netizen/DATASAGE-Multi-Agent-Orchestration-for-SQL-Analytics-and-ETL-Automation. implements it: An LLM-powered multi-agent data platform featuring intelligent request routing, dynamic LLM selection based on task complexity, low-cost mod (selected work: Agents, utils, Models)",
+ "repos": [
+  {
+   "repo": "DATASAGE-Multi-Agent-Orchestration-for-SQL-Analytics-and-ETL-Automation.",
+   "url": "https://github.com/singhmishal2004-netizen/DATASAGE-Multi-Agent-Orchestration-for-SQL-Analytics-and-ETL-Automation.",
+   "sha": "1d53464b8d2b995cc28074410ec722050c1e615f",
+   "licence": "MIT (LICENSE file at pin 1d53464b8d2b, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T21:57Z",
+    "consent_receipt": "d8f41d265d31",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T21:57Z (receipt d8f41d265d31); selected commit 1d53464b8d2b: \"added sql_analyst and etl_analyst as subagents and also updated schema\". LICENSE file at pin 1d53464b8d2b detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

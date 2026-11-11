@@ -1,0 +1,23 @@
+{
+ "corpus": "cr8297408--curso-microservicios",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how cr8297408/curso-microservicios implements it: cr8297408/curso-microservicios (TypeScript)",
+ "repos": [
+  {
+   "repo": "curso-microservicios",
+   "url": "https://github.com/cr8297408/curso-microservicios",
+   "sha": "e6f0795e40d28c0a5283a189e1b949997efcdd0b",
+   "licence": "author's permission (LICENSE at pin e6f0795e40d2: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T21:16Z",
+    "consent_receipt": "e48f8616b9eb",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T21:16Z (receipt e48f8616b9eb); pinned to the default-branch head. LICENSE at pin e6f0795e40d2: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

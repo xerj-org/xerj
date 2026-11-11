@@ -1,0 +1,23 @@
+{
+ "corpus": "cr8297408--public-util-prompts",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on code queries this for how cr8297408/public-util-prompts implements it: cr8297408/public-util-prompts (code)",
+ "repos": [
+  {
+   "repo": "public-util-prompts",
+   "url": "https://github.com/cr8297408/public-util-prompts",
+   "sha": "9bc2ad6bcf731be0ebb11b95feec82b33f6a3e68",
+   "licence": "author's permission (LICENSE at pin 9bc2ad6bcf73: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T21:16Z",
+    "consent_receipt": "3b674d860977",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T21:16Z (receipt 3b674d860977); pinned to the default-branch head. LICENSE at pin 9bc2ad6bcf73: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on ansi, mpv, mpv-player queries this for how greenbugx/ANSImuz implements it: A lightweight fast TUI to stream your favourite music with pure 8-bit ANSI vibes (selected work: src, src/ui, src/artwork)",
+ "domain": "an agent working on ansi, mpv, mpv-player queries this for how greenbugx/ANSImuz implements it: A lightweight fast TUI to stream your favourite music with 8-bit ANSI vibes (selected work: src, src/ui, src/artwork)",
  "repos": [
   {
    "repo": "ANSImuz",

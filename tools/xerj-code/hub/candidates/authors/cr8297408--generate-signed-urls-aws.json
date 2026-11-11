@@ -1,0 +1,23 @@
+{
+ "corpus": "cr8297408--generate-signed-urls-aws",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how cr8297408/generate-signed-urls-aws implements it: cr8297408/generate-signed-urls-aws (JavaScript)",
+ "repos": [
+  {
+   "repo": "generate-signed-urls-aws",
+   "url": "https://github.com/cr8297408/generate-signed-urls-aws",
+   "sha": "ddf913ea623428abbe13af9c8146fbe42a8e5e0f",
+   "licence": "author's permission (LICENSE at pin ddf913ea6234: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T21:16Z",
+    "consent_receipt": "12d8a8452898",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T21:16Z (receipt 12d8a8452898); pinned to the default-branch head. LICENSE at pin ddf913ea6234: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

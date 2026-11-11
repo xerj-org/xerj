@@ -1,0 +1,23 @@
+{
+ "corpus": "cr8297408--smartapi-cli",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how cr8297408/smartapi-cli implements it: CLI for smart api generate tool",
+ "repos": [
+  {
+   "repo": "smartapi-cli",
+   "url": "https://github.com/cr8297408/smartapi-cli",
+   "sha": "de83b0da13059643a9e695633cadb8f5f847de9a",
+   "licence": "author's permission (LICENSE at pin de83b0da1305: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T21:16Z",
+    "consent_receipt": "c25fc416ccda",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T21:16Z (receipt c25fc416ccda); pinned to the default-branch head. LICENSE at pin de83b0da1305: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

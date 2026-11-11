@@ -1,0 +1,23 @@
+{
+ "corpus": "cr8297408--cr8297408",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how cr8297408/cr8297408 implements it: cr8297408/cr8297408 (TypeScript)",
+ "repos": [
+  {
+   "repo": "cr8297408",
+   "url": "https://github.com/cr8297408/cr8297408",
+   "sha": "7ddc39f3b0c9bcce446dd6e691bff11addd48e70",
+   "licence": "author's permission (LICENSE at pin 7ddc39f3b0c9: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T21:16Z",
+    "consent_receipt": "e17e44e85b6f",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T21:16Z (receipt e17e44e85b6f); pinned to the default-branch head. LICENSE at pin 7ddc39f3b0c9: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

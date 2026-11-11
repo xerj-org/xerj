@@ -1,0 +1,23 @@
+{
+ "corpus": "cr8297408--example-arquitect-toolkit-use",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how cr8297408/example-arquitect-toolkit-use implements it: Projecto basico de ejemplos de implementaci\u00f3nes de arquitect-toolkit",
+ "repos": [
+  {
+   "repo": "example-arquitect-toolkit-use",
+   "url": "https://github.com/cr8297408/example-arquitect-toolkit-use",
+   "sha": "6326c81fd4a60f548612ffcf84567ea75d28b081",
+   "licence": "author's permission (LICENSE at pin 6326c81fd4a6: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T21:16Z",
+    "consent_receipt": "0393168a2e02",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T21:16Z (receipt 0393168a2e02); pinned to the default-branch head. LICENSE at pin 6326c81fd4a6: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

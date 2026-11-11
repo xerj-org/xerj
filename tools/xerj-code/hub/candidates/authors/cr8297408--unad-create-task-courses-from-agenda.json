@@ -1,0 +1,23 @@
+{
+ "corpus": "cr8297408--unad-create-task-courses-from-agenda",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how cr8297408/unad-create-task-courses-from-agenda implements it: cr8297408/unad-create-task-courses-from-agenda (Python)",
+ "repos": [
+  {
+   "repo": "unad-create-task-courses-from-agenda",
+   "url": "https://github.com/cr8297408/unad-create-task-courses-from-agenda",
+   "sha": "3c816ca135a0815c02c13626b9be0a624202430d",
+   "licence": "author's permission (LICENSE at pin 3c816ca135a0: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T21:16Z",
+    "consent_receipt": "1c0eca0e2e10",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T21:16Z (receipt 1c0eca0e2e10); pinned to the default-branch head. LICENSE at pin 3c816ca135a0: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

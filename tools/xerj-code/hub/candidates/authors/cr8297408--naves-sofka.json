@@ -1,0 +1,23 @@
+{
+ "corpus": "cr8297408--naves-sofka",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how cr8297408/naves_sofka implements it: reto tecnico para las ligas de entrenamiento sofka; naves espaciales",
+ "repos": [
+  {
+   "repo": "naves_sofka",
+   "url": "https://github.com/cr8297408/naves_sofka",
+   "sha": "c3bc4bd0ccea23f716a51d816ef21094734e1256",
+   "licence": "author's permission (LICENSE at pin c3bc4bd0ccea: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T21:16Z",
+    "consent_receipt": "9673697afaab",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T21:16Z (receipt 9673697afaab); pinned to the default-branch head. LICENSE at pin c3bc4bd0ccea: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

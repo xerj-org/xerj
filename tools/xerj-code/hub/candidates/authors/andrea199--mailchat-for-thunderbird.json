@@ -1,0 +1,23 @@
+{
+ "corpus": "andrea199--mailchat-for-thunderbird",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how andrea199/mailchat-for-thunderbird implements it: Connect Thunderbird to local Codex chats on Windows. Drafts by default, optional autonomous sending (selected work: bridge, extension, tests)",
+ "repos": [
+  {
+   "repo": "mailchat-for-thunderbird",
+   "url": "https://github.com/andrea199/mailchat-for-thunderbird",
+   "sha": "8504e4470f819e5314d01b9232f58b700de8554a",
+   "licence": "MIT (LICENSE file at pin 8504e4470f81, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T21:04Z",
+    "consent_receipt": "b1606e5f710d",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T21:04Z (receipt b1606e5f710d); selected commit 8504e4470f81: \"fix: append verified attachments to existing drafts\". LICENSE file at pin 8504e4470f81 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

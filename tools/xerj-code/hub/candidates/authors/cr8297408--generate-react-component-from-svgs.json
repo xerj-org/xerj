@@ -1,0 +1,23 @@
+{
+ "corpus": "cr8297408--generate-react-component-from-svgs",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how cr8297408/generate-react-component-from-svgs implements it: Este proyecto automatiza la conversi\u00f3n de archivos SVG a componentes React con tipado en TypeScript, optimizaci\u00f3n de tama\u00f1o y un sistema de ",
+ "repos": [
+  {
+   "repo": "generate-react-component-from-svgs",
+   "url": "https://github.com/cr8297408/generate-react-component-from-svgs",
+   "sha": "665826a2b659dc561baa53cfbedafbd91d801b77",
+   "licence": "author's permission (LICENSE at pin 665826a2b659: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T21:16Z",
+    "consent_receipt": "1a39c00b1d45",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T21:16Z (receipt 1a39c00b1d45); pinned to the default-branch head. LICENSE at pin 665826a2b659: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}
