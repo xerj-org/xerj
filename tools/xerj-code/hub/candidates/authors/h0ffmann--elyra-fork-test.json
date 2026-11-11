@@ -1,0 +1,23 @@
+{
+ "corpus": "h0ffmann--elyra-fork-test",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how h0ffmann/elyra-fork-test implements it: h0ffmann/elyra-fork-test (Python)",
+ "repos": [
+  {
+   "repo": "elyra-fork-test",
+   "url": "https://github.com/h0ffmann/elyra-fork-test",
+   "sha": "ba57086c9f18dd799fa8122a4408b617a1e25cf9",
+   "licence": "author's permission (LICENSE at pin ba57086c9f18: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T01:57Z",
+    "consent_receipt": "80544c865e23",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T01:57Z (receipt 80544c865e23); pinned to the default-branch head. LICENSE at pin ba57086c9f18: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

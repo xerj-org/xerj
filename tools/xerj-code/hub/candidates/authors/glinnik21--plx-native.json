@@ -1,0 +1,28 @@
+{
+ "corpus": "glinnik21--plx-native",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on ffmpeg, lg-webos, media-player queries this for how GLinnik21/plx-native implements it: Fast, unofficial Plex client for LG webOS TVs \u2014 native 60 fps UI, 4K HEVC/Dolby Vision, no Chromium or WebView (selected work: rust-modules)",
+ "repos": [
+  {
+   "repo": "plx-native",
+   "url": "https://github.com/GLinnik21/plx-native",
+   "sha": "62354d9038ad97301932e1d69c83c5c32f6c475f",
+   "licence": "GPL-3.0 (LICENSE file at pin 62354d9038ad, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-11T00:17Z",
+    "consent_receipt": "5574a16e7800",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T00:17Z (receipt 5574a16e7800); selected commit 62354d9038ad: \"Playback: recover retranscodes and correct codec declarations (#1309)\". LICENSE file at pin 62354d9038ad detected as GPL-3.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @GLinnik21, who has not added it."
+   },
+   "paths": [
+    "rust-modules/media/src",
+    "rust-modules/play-feed/src",
+    "rust-modules/playback-contract/src"
+   ]
+  }
+ ]
+}

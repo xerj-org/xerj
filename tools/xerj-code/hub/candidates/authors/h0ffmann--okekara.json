@@ -1,0 +1,23 @@
+{
+ "corpus": "h0ffmann--okekara",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on chrome-extension, chromium, karaoke queries this for how h0ffmann/okekara implements it: synchronized lyrics and karaoke mode to YouTube Music",
+ "repos": [
+  {
+   "repo": "okekara",
+   "url": "https://github.com/h0ffmann/okekara",
+   "sha": "c7f94102ba3c245a336bc30239235541f3507fb9",
+   "licence": "author's permission (LICENSE at pin c7f94102ba3c: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T01:57Z",
+    "consent_receipt": "3914a19f01f0",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T01:57Z (receipt 3914a19f01f0); pinned to the default-branch head. LICENSE at pin c7f94102ba3c: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

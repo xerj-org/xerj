@@ -1,0 +1,23 @@
+{
+ "corpus": "h0ffmann--awesome-prediction-markets",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how h0ffmann/awesome-prediction-markets implements it: h0ffmann/awesome-prediction-markets (Python)",
+ "repos": [
+  {
+   "repo": "awesome-prediction-markets",
+   "url": "https://github.com/h0ffmann/awesome-prediction-markets",
+   "sha": "1f57ad1e48a8a25b4ca670cae47c4c2d38817908",
+   "licence": "Apache-2.0 (LICENSE file at pin 1f57ad1e48a8, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T01:57Z",
+    "consent_receipt": "40bb4f2977fe",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T01:57Z (receipt 40bb4f2977fe); pinned to the default-branch head. LICENSE file at pin 1f57ad1e48a8 detected as Apache-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

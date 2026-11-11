@@ -1,0 +1,23 @@
+{
+ "corpus": "geeksville--voicebot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how geeksville/voicebot implements it: experiments with a dumb local ai",
+ "repos": [
+  {
+   "repo": "voicebot",
+   "url": "https://github.com/geeksville/voicebot",
+   "sha": "85ef08ee099f9cd0eab9773f6cc9b679656c1083",
+   "licence": "GPL-3.0 (LICENSE file at pin 85ef08ee099f, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-11T01:03Z",
+    "consent_receipt": "214e43da1e4d",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T01:03Z (receipt 214e43da1e4d); pinned to the default-branch head. LICENSE file at pin 85ef08ee099f detected as GPL-3.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

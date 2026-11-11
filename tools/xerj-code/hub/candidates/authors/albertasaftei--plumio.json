@@ -1,0 +1,23 @@
+{
+ "corpus": "albertasaftei--plumio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on TypeScript queries this for how albertasaftei/plumio implements it: A self-hosted markdown notes taking app with live preview, document encryption, multi-user support, multi-organization capabilities and more (selected work: frontend, backend)",
+ "repos": [
+  {
+   "repo": "plumio",
+   "url": "https://github.com/albertasaftei/plumio",
+   "sha": "d7007a6512b68f0b932906b902e30cdda9493963",
+   "licence": "AGPL-3.0 (LICENSE file at pin d7007a6512b6, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-11T00:31Z",
+    "consent_receipt": "8370e36fa5c9",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T00:31Z (receipt 8370e36fa5c9); selected commit d7007a6512b6: \"feat(search): added tag filtering on FTS search bar\". LICENSE file at pin d7007a6512b6 detected as AGPL-3.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

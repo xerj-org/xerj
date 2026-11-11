@@ -1,0 +1,23 @@
+{
+ "corpus": "philip-euste--trace-deterministic-deduction-simulator",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how philip-euste/TRACE-deterministic-deduction-simulator implements it: philip-euste/TRACE-deterministic-deduction-simulator (Python) (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "TRACE-deterministic-deduction-simulator",
+   "url": "https://github.com/philip-euste/TRACE-deterministic-deduction-simulator",
+   "sha": "d144e2e6d7c18ca26f4a93afd5a4fa305da47f04",
+   "licence": "MIT (LICENSE file at pin d144e2e6d7c1, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T02:02Z",
+    "consent_receipt": "992909fc3d61",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T02:02Z (receipt 992909fc3d61); selected commit d144e2e6d7c1: \"added Multirunning\". LICENSE file at pin d144e2e6d7c1 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

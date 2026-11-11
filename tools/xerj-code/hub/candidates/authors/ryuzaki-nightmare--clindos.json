@@ -1,0 +1,23 @@
+{
+ "corpus": "ryuzaki-nightmare--clindos",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how Ryuzaki-Nightmare/ClinDos implements it: A minimal Kernel from Scratch",
+ "repos": [
+  {
+   "repo": "ClinDos",
+   "url": "https://github.com/Ryuzaki-Nightmare/ClinDos",
+   "sha": "40691462854d74ecb5eb49f1defa0b136fbca1ce",
+   "licence": "MIT (LICENSE file at pin 40691462854d, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T01:19Z",
+    "consent_receipt": "5dd933b94f5f",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T01:19Z (receipt 5dd933b94f5f); pinned to the default-branch head. LICENSE file at pin 40691462854d detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

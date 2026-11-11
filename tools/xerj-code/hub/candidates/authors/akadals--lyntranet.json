@@ -2,8 +2,8 @@
  "corpus": "akadals--lyntranet",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on C++ queries this for how Akadals/LyntraNet implements it: IOCP/epoll \uac8c\uc784 \uc11c\ubc84 \ub137\ucf54\uc5b4 (selected work: include, tests, src/Utility)",
+ "shelf": "NET",
+ "domain": "an agent working on C++ queries this for how Akadals/LyntraNet implements it: A cross-platform C++ networking framework for building high-performance multiplayer game servers (selected work: include, tests, src/Utility)",
  "repos": [
   {
    "repo": "LyntraNet",

@@ -1,9 +1,9 @@
 {
- "corpus": "insightflo--papercompany-runtime",
+ "corpus": "insightflo--paperwork-runtime",
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on TypeScript queries this for how insightflo/papercompany-runtime implements it: Papercompany runtime (selected work: ui, server, packages/shared)",
+ "domain": "an agent working on TypeScript queries this for how insightflo/paperwork-runtime implements it: Papercompany runtime (selected work: ui, server, packages/shared)",
  "repos": [
   {
    "repo": "papercompany-runtime",

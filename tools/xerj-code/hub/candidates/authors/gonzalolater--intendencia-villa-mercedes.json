@@ -8,15 +8,15 @@
   {
    "repo": "Intendencia-villa-mercedes",
    "url": "https://github.com/gonzalolater/Intendencia-villa-mercedes",
-   "sha": "b546c99340f31cf12a84354c4f44bd3606084a46",
-   "licence": "author's permission (LICENSE at pin b546c99340f3: NONE; repository: none)",
+   "sha": "d60f742e8c4416172ecae6cfe5cf84aa31660cb4",
+   "licence": "author's permission (LICENSE at pin d60f742e8c44: NONE; repository: none)",
    "review": {
     "spdx": "NONE",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T21:51Z",
     "consent_receipt": "8594fa59f93d",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T21:51Z (receipt 8594fa59f93d); pinned to the default-branch head. LICENSE at pin b546c99340f3: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T21:51Z (receipt 8594fa59f93d); pinned to the default-branch head. LICENSE at pin d60f742e8c44: NONE (repository: none); used with the author's permission, with attribution."
    }
   }
  ]
