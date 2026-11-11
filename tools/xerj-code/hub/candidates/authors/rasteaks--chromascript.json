@@ -8,15 +8,15 @@
   {
    "repo": "ChromaScript",
    "url": "https://github.com/RaSteaks/ChromaScript",
-   "sha": "e846118b0b9540c5dd5d5b628c5a3cba99e576fd",
-   "licence": "MIT (LICENSE file at pin e846118b0b95, GitHub licence API 2026-10-31)",
+   "sha": "d07e9f4f17d25ad5dd1128077c71a9032c591e3f",
+   "licence": "AGPL-3.0 (LICENSE file at pin d07e9f4f17d2, GitHub licence API 2026-11-11)",
    "review": {
-    "spdx": "MIT",
-    "use": "adapt-with-attribution",
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-31T17:38Z",
     "consent_receipt": "535d52e8a511",
-    "note": "Inclusion consented by the commit author by email at 2026-10-31T17:38Z (receipt 535d52e8a511); selected commit e846118b0b95: \"feat: add OpenAI speech generation and web authoring\". LICENSE file at pin e846118b0b95 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T17:38Z (receipt 535d52e8a511); selected commit d07e9f4f17d2: \"feat: add OpenAI speech generation and web authoring\". LICENSE file at pin d07e9f4f17d2 detected as AGPL-3.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution. Pinned to head d07e9f4f17d2 (contains the selected commit): the LICENSE at the selected commit was MIT."
    }
   }
  ]

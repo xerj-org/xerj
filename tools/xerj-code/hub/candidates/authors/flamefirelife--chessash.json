@@ -1,0 +1,23 @@
+{
+ "corpus": "flamefirelife--chessash",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how FlameFirelife/ChessAsh implements it: Free local chess review for Windows and Android, with Foxash-powered review rules (selected work: src, src/components, src/core)",
+ "repos": [
+  {
+   "repo": "ChessAsh",
+   "url": "https://github.com/FlameFirelife/ChessAsh",
+   "sha": "ddb512cfddb3063ef63ed07a02599318fc5eb091",
+   "licence": "GPL-3.0 (LICENSE file at pin ddb512cfddb3, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-11T06:28Z",
+    "consent_receipt": "d3bc80dc51cb",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T06:28Z (receipt d3bc80dc51cb); selected commit ddb512cfddb3: \"ChessAsh v1.2\". LICENSE file at pin ddb512cfddb3 detected as GPL-3.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

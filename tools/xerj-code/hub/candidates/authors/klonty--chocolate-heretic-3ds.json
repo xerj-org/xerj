@@ -1,0 +1,23 @@
+{
+ "corpus": "klonty--chocolate-heretic-3ds",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how Klonty/chocolate-heretic-3ds implements it: Nintendo 3DS port of Chocolate Heretic: stereoscopic 3D, bottom-screen HUD, automap and inventory (selected work: src/heretic, port3ds, src)",
+ "repos": [
+  {
+   "repo": "chocolate-heretic-3ds",
+   "url": "https://github.com/Klonty/chocolate-heretic-3ds",
+   "sha": "c56f4e37b24bb5c0dae046cde9f19cf2a8ca7b73",
+   "licence": "GPL-2.0 (LICENSE file at pin c56f4e37b24b, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-11T08:05Z",
+    "consent_receipt": "6bc800f85b6c",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T08:05Z (receipt 6bc800f85b6c); selected commit c56f4e37b24b: \"3DS: render at 400x200, HUD on the bottom screen, stereo convergence\". LICENSE file at pin c56f4e37b24b detected as GPL-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

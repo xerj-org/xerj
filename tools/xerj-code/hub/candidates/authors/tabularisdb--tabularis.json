@@ -19,9 +19,17 @@
     "note": "Inclusion consented by the commit author by email at 2026-10-26T19:09Z (receipt bc3d6735447c); selected commit 160b4bc2d1e3: \"fix: handle IME composition in table filters (#1201)\". LICENSE file at pin 160b4bc2d1e3 detected as Apache-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @TabularisDB, who has not added it."
    },
    "paths": [
+    "packages/plugin-guest/src",
     "packages/web-ui/src/components/layout",
     "packages/web-ui/src/i18n/locales",
+    "packages/web-ui/src/platform",
+    "packages/web-ui/src/plugins/sandbox",
     "packages/web-ui/tests/components/layout/sidebar",
+    "packages/web-ui/tests/components/ui",
+    "packages/web-ui/tests/plugins",
+    "src-tauri/resources/guest",
+    "src-tauri/src",
+    "src-tauri/tests/postgres_integration",
     "src/components/layout/sidebar",
     "src/i18n/locales",
     "src/utils",

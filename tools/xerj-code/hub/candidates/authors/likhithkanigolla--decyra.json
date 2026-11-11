@@ -1,0 +1,23 @@
+{
+ "corpus": "likhithkanigolla--decyra",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on adr, architecture, decision-record queries this for how likhithkanigolla/decyra implements it: Architecture Hub (Decyra) is an open-source, collaborative engineering platform designed for creating, reviewing, visualizing, and governing (selected work: tests, src/lib, src/routes)",
+ "repos": [
+  {
+   "repo": "decyra",
+   "url": "https://github.com/likhithkanigolla/decyra",
+   "sha": "c4f10d528be1abb0c6a62e3f6094489a4edd3e3d",
+   "licence": "AGPL-3.0 (LICENSE file at pin c4f10d528be1, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-11T06:49Z",
+    "consent_receipt": "0e4016ed89df",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T06:49Z (receipt 0e4016ed89df); selected commit c4f10d528be1: \"feat: add support for multiple reviewers and review request blocks on\u2026\". LICENSE file at pin c4f10d528be1 detected as AGPL-3.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

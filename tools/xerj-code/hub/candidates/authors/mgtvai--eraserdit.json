@@ -1,0 +1,31 @@
+{
+ "corpus": "mgtvai--eraserdit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how MGTVAI/EraserDiT implements it: MGTVAI/EraserDiT (Python) (selected work: layers, tests, scripts)",
+ "repos": [
+  {
+   "repo": "EraserDiT",
+   "url": "https://github.com/MGTVAI/EraserDiT",
+   "sha": "9271825695e3e0a5b8bc7e00de632b18540d09ac",
+   "licence": "Apache-2.0 (LICENSE file at pin 9271825695e3, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T06:52Z",
+    "consent_receipt": "24859e23abc0",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T06:52Z (receipt 24859e23abc0); selected commit 9271825695e3: \"Add mask-protected STA and single-GPU optimization worklog\". LICENSE file at pin 9271825695e3 detected as Apache-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @MGTVAI, who has not added it."
+   },
+   "paths": [
+    "config",
+    "docs",
+    "layers/attention/backends",
+    "pipelines/stages/eraserdit_erase",
+    "scripts",
+    "tests"
+   ]
+  }
+ ]
+}

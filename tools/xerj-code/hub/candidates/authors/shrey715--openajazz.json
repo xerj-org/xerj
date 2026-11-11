@@ -1,0 +1,23 @@
+{
+ "corpus": "shrey715--openajazz",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on ajazz, ak820, hid queries this for how shrey715/openajazz implements it: unofficial control for ajazz keyboards (ak820 max plus so far). rgb, keymaps, macros, music sync, battery. cli, tui and a web app, reverse e (selected work: openajazz, packaging, the project root)",
+ "repos": [
+  {
+   "repo": "openajazz",
+   "url": "https://github.com/shrey715/openajazz",
+   "sha": "dd09e223963abc6ed4ef0db38ac9f8cc4584d5b4",
+   "licence": "MIT (LICENSE file at pin dd09e223963a, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T06:23Z",
+    "consent_receipt": "7eef9b93f70f",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T06:23Z (receipt 7eef9b93f70f); selected commit dd09e223963a: \"gtk: desktop app (GTK 4 + libadwaita), flatpak packaging, mic source \u2026\". LICENSE file at pin dd09e223963a detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

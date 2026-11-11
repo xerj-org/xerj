@@ -1,0 +1,23 @@
+{
+ "corpus": "kijeong-lim--ppap",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on ppap, lambda-prolog, lexer-generator queries this for how KiJeong-Lim/ppap implements it: Project Putting All Power! (selected work: src/X, example, src/Hol)",
+ "repos": [
+  {
+   "repo": "ppap",
+   "url": "https://github.com/KiJeong-Lim/ppap",
+   "sha": "2933944694cab12277caf120383c10d1c356ec6b",
+   "licence": "BSD-3-Clause (LICENSE file at pin 2933944694ca, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "BSD-3-Clause",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T08:10Z",
+    "consent_receipt": "80143e36f63d",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T08:10Z (receipt 80143e36f63d); selected commit 2933944694ca: \"the beginning of the `LoL` project.\". LICENSE file at pin 2933944694ca detected as BSD-3-Clause by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

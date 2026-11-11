@@ -1,0 +1,23 @@
+{
+ "corpus": "goldloong--yeelight-bar-control",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how GoldLoong/yeelight-bar-control implements it: \u3010\u975e\u5b98\u65b9\u3011macOS \u83dc\u5355\u680f\u5de5\u5177\u63a7\u5236\uff1a\u7c73\u5bb6-Yeelight\u6613\u6765\u5c4f\u5e55\u6302\u706fPro\uff0c\u63a7\u5236\u5c0f\u5de5\u5177\uff0c\u5e76\u53ef\u8ddf\u968f\u672c\u5730\u7535\u5f71\u3001\u5728\u7ebf\u89c6\u9891\u548c\u5c4f\u5e55\u8272\u5f69\u8ffd\u8e2a\u8272\u5f69\uff0c\u6210\u4e3a\u771f\u6b63\u7684\u5c4f\u5e55\u6c1b\u56f4\u5149\uff0c\u63d0\u9ad8\u89c2\u5f71\u548c\u4f7f\u7528\u4f53\u9a8c\u7684\u6c1b\u56f4\u795e\u5668\u3002[Unofficial] macOS menu bar widget for Mi Hom (selected work: server, scripts, app/renderer)",
+ "repos": [
+  {
+   "repo": "yeelight-bar-control",
+   "url": "https://github.com/GoldLoong/yeelight-bar-control",
+   "sha": "f14c26ff6fd0e50bbf48cb6627cde63be25a60ec",
+   "licence": "MIT (LICENSE file at pin f14c26ff6fd0, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T06:57Z",
+    "consent_receipt": "abf37d564632",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T06:57Z (receipt abf37d564632); selected commit f14c26ff6fd0: \"\u628a\u7248\u672c\u5b9a\u4e3a 0.9.0\uff0c\u8ba9\u6c1b\u56f4\u706f\u80fd\u8ddf\u7740\u66f2\u5b50\u8d70\uff0c\u8ffd\u8272\u4e5f\u53ef\u4ee5\u5de6\u53f3\u5206\u8272\u3002\". LICENSE file at pin f14c26ff6fd0 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

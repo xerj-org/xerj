@@ -2,8 +2,8 @@
  "corpus": "fbccsz--fieldops-service-crm",
  "cloned_at": null,
  "status": "draft",
- "shelf": "WEB",
- "domain": "an agent working on crm, dashboard, javascript queries this for how fbccsz/fieldops-service-crm implements it: FieldOps: CRM operacional para empresas de servi\u00e7os, com funil comercial, clientes, or\u00e7amentos e agenda. Demo interativa em JavaScript, com  (selected work: src, tests, the project root)",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how fbccsz/fieldops-service-crm implements it: fbccsz/fieldops-service-crm (JavaScript) (selected work: src, tests, the project root)",
  "repos": [
   {
    "repo": "fieldops-service-crm",
