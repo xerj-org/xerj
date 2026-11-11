@@ -1,0 +1,23 @@
+{
+ "corpus": "massimomazzariol--lexicon",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on cefr, content-as-code, language-learning queries this for how massimomazzariol/Lexicon implements it: Content-as-code lexical packs for language learning: CEFR-leveled, deterministic, multi-language plugins, offline-first (selected work: tools)",
+ "repos": [
+  {
+   "repo": "Lexicon",
+   "url": "https://github.com/massimomazzariol/Lexicon",
+   "sha": "23248f2c00dd58fc9bc8d3926d6caf70282ba4b8",
+   "licence": "Apache-2.0 (LICENSE file at pin 23248f2c00dd, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T18:50Z",
+    "consent_receipt": "d60a6ecefd3a",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T18:50Z (receipt d60a6ecefd3a); selected commit 23248f2c00dd: \"tools: one finalize step after every write (forms, gate, ship check)\". LICENSE file at pin 23248f2c00dd detected as Apache-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

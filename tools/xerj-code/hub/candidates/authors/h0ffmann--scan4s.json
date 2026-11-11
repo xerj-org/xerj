@@ -1,0 +1,23 @@
+{
+ "corpus": "h0ffmann--scan4s",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Scala queries this for how h0ffmann/scan4s implements it: h0ffmann/scan4s (Scala)",
+ "repos": [
+  {
+   "repo": "scan4s",
+   "url": "https://github.com/h0ffmann/scan4s",
+   "sha": "dfcd0928eb7bef727ecf0a5d5aa1766a596df89a",
+   "licence": "Apache-2.0 (LICENSE file at pin dfcd0928eb7b, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T01:57Z",
+    "consent_receipt": "e8c833003e00",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T01:57Z (receipt e8c833003e00); pinned to the default-branch head. LICENSE file at pin dfcd0928eb7b detected as Apache-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

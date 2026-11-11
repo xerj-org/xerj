@@ -8,15 +8,15 @@
   {
    "repo": "playnite-link",
    "url": "https://github.com/metanmai/playnite-link",
-   "sha": "fbab0bdfcb883c82f5e6b102755d888ba1877cbf",
-   "licence": "AGPL-3.0 (LICENSE file at pin fbab0bdfcb88, GitHub licence API 2026-10-24)",
+   "sha": "2163d6176f10db6969c1fc4a6526a73b85328fee",
+   "licence": "AGPL-3.0 (LICENSE file at pin 2163d6176f10, GitHub licence API 2026-11-11)",
    "review": {
     "spdx": "AGPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-22T08:00Z",
     "consent_receipt": "a831a97b21da",
-    "note": "Inclusion consented by the commit author by email at 2026-10-22T08:00Z (receipt a831a97b21da); selected commit fbab0bdfcb88: \"Add connection test/reset and verified Google vault reconnection\". LICENSE file at pin fbab0bdfcb88 detected as AGPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Pinned to head fbab0bdfcb88 (contains the selected commit): the LICENSE at the selected commit was MIT."
+    "note": "Inclusion consented by the commit author by email at 2026-10-22T08:00Z (receipt a831a97b21da); selected commit 2163d6176f10: \"Add connection test/reset and verified Google vault reconnection\". LICENSE file at pin 2163d6176f10 detected as AGPL-3.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution. Pinned to head 2163d6176f10 (contains the selected commit): the LICENSE at the selected commit was MIT."
    }
   }
  ]

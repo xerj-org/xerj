@@ -1,0 +1,33 @@
+{
+ "corpus": "mf-deev--openbar",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, claude-code, codex queries this for how MF-DEEV/Openbar implements it: The Dynamic Island for your AI agents. Claude Code, Codex and more in your Mac's notch, plus a full menu bar toolkit (selected work: windows)",
+ "repos": [
+  {
+   "repo": "Openbar",
+   "url": "https://github.com/MF-DEEV/Openbar",
+   "sha": "d8bbfbbcd85c52f6bede3832c86472bab8d581e2",
+   "licence": "GPL-3.0 (LICENSE file at pin d8bbfbbcd85c, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-11T19:19Z",
+    "consent_receipt": "ee5b0c4d90bd",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T19:19Z (receipt ee5b0c4d90bd); selected commit d8bbfbbcd85c: \"feat(windows): persist notification history and queue island banners \u2026\". LICENSE file at pin d8bbfbbcd85c detected as GPL-3.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @MF-DEEV, who has not added it."
+   },
+   "paths": [
+    "windows/docs",
+    "windows/packaging",
+    "windows/scripts",
+    "windows/src-tauri/src",
+    "windows/src/i18n",
+    "windows/src/island",
+    "windows/src/notifications",
+    "windows/src/shared"
+   ]
+  }
+ ]
+}

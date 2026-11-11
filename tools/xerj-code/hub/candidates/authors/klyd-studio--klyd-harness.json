@@ -1,0 +1,27 @@
+{
+ "corpus": "klyd-studio--klyd-harness",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, hallucination-mitigation, harness queries this for how klyd-studio/klyd-harness implements it: klyd: the harness that stops terminal coding agents from silently drifting your architecture. Extracts, stores, and enforces design decision (selected work: the project root, demo, klyd)",
+ "repos": [
+  {
+   "repo": "klyd-harness",
+   "url": "https://github.com/klyd-studio/klyd-harness",
+   "sha": "3a2c607010e2b1fe69a31df002520c8f0cdb4af5",
+   "licence": "MIT (LICENSE file at pin 3a2c607010e2, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T14:55Z",
+    "consent_receipt": "ffe4a4460dfe",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T14:55Z (receipt ffe4a4460dfe); selected commit 3a2c607010e2: \"Fix the bugs only the real hook path exposed, and prove the loop end \u2026\". LICENSE file at pin 3a2c607010e2 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @klyd-studio, who has not added it."
+   },
+   "paths": [
+    "demo",
+    "klyd"
+   ]
+  }
+ ]
+}

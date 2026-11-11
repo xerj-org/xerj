@@ -1,0 +1,23 @@
+{
+ "corpus": "yanstd888--9routerx",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-gateway, ai-proxy, ai-routing queries this for how yanstd888/9routerx implements it: 9RouterX (9R Next Go Generation): Single-binary Go AI router, LLM gateway & 20-40% token saver. Route Claude Code, Cursor & Codex across 155",
+ "repos": [
+  {
+   "repo": "9routerx",
+   "url": "https://github.com/yanstd888/9routerx",
+   "sha": "0eeaad97fcebd50598b9b5148f970e5ea1652bdc",
+   "licence": "author's permission (LICENSE at pin 0eeaad97fceb: NOASSERTION; repository: NOASSERTION)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T16:48Z",
+    "consent_receipt": "47269655cd14",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T16:48Z (receipt 47269655cd14); pinned to the default-branch head. LICENSE at pin 0eeaad97fceb: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

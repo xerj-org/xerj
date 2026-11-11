@@ -1,0 +1,23 @@
+{
+ "corpus": "iuseacosbtw--acos",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how iuseacosbtw/acos implements it: Hobbyist kernel designed for i386 computers (selected work: src, utility, include)",
+ "repos": [
+  {
+   "repo": "acos",
+   "url": "https://github.com/iuseacosbtw/acos",
+   "sha": "0643035f412c53c97980e7c907c50dd2072da4a7",
+   "licence": "GPL-3.0 (LICENSE file at pin 0643035f412c, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-11T01:50Z",
+    "consent_receipt": "5ee8a2228d9d",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T01:50Z (receipt 5ee8a2228d9d); selected commit 0643035f412c: \"Added user memory allocation\". LICENSE file at pin 0643035f412c detected as GPL-3.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

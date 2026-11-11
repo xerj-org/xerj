@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Python queries this for how chekusu/yobiru implements it: Let your agents talk: messages, data, files and wake-ups over Tailscale (selected work: tests, plugins, the project root)",
+ "domain": "an agent working on agent-communication, agent-to-agent, ai-agents queries this for how chekusu/yobiru implements it: Let your agents talk: messages, data, files and wake-ups over Tailscale (selected work: tests, plugins, the project root)",
  "repos": [
   {
    "repo": "yobiru",

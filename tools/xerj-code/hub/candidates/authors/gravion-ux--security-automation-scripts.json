@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "SEC",
- "domain": "an agent working on JavaScript queries this for how gravion-ux/security-automation-scripts implements it: Security automation scripts for reconnaissance, validation, and security testing",
+ "domain": "an agent working on appsec, ethical-hacking, infosec queries this for how gravion-ux/security-automation-scripts implements it: Security automation scripts for reconnaissance, validation, and security testing",
  "repos": [
   {
    "repo": "security-automation-scripts",

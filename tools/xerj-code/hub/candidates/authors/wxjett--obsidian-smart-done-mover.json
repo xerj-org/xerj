@@ -1,0 +1,23 @@
+{
+ "corpus": "wxjett--obsidian-smart-done-mover",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how wxjett/obsidian-smart-done-mover implements it: Smart Obsidian task mover with nested task filtering, customizable Done headings, auto mode, and Tasks plugin support (selected work: src, the project root)",
+ "repos": [
+  {
+   "repo": "obsidian-smart-done-mover",
+   "url": "https://github.com/wxjett/obsidian-smart-done-mover",
+   "sha": "a6da25c86b2cfee0558f0e05845a627f900f2b28",
+   "licence": "MIT (LICENSE file at pin a6da25c86b2c, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T04:11Z",
+    "consent_receipt": "8677deffb3c9",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T04:11Z (receipt 8677deffb3c9); selected commit a6da25c86b2c: \"feat: restore reopened tasks to their daily notes\". LICENSE file at pin a6da25c86b2c detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

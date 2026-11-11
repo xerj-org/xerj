@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Python queries this for how eduardoghi/reverse-engineering-skills implements it: Claude Code skills and helper scripts for reverse-engineering work (selected work: bin, tests)",
+ "domain": "an agent working on binary-patching, claude-code, claude-skills queries this for how eduardoghi/reverse-engineering-skills implements it: Claude Code skills and helper scripts for reverse-engineering work (selected work: bin, tests)",
  "repos": [
   {
    "repo": "reverse-engineering-skills",

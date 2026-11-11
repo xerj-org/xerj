@@ -1,0 +1,23 @@
+{
+ "corpus": "jim60105--air-friends",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on acp, agent-client-protocol, ai queries this for how jim60105/AIr-Friends implements it: Your AIr friends custom chatbot with integrated shell and skills. Powered by ACP AI agents. (Deno) (selected work: tests, src/core)",
+ "repos": [
+  {
+   "repo": "AIr-Friends",
+   "url": "https://github.com/jim60105/AIr-Friends",
+   "sha": "6c4652cd4d4c439d72c7d6f44f999ed049986d81",
+   "licence": "GPL-3.0 (LICENSE file at pin 6c4652cd4d4c, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-11T07:54Z",
+    "consent_receipt": "477740558f98",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T07:54Z (receipt 477740558f98); selected commit 6c4652cd4d4c: \"feat(context): render quoted references as attributed third-party con\u2026\". LICENSE file at pin 6c4652cd4d4c detected as GPL-3.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

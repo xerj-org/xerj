@@ -1,0 +1,23 @@
+{
+ "corpus": "lumina-hc--luminaos",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on elf64, fat16, hobby-os queries this for how Lumina-hc/LuminaOS implements it: A hobby x86-64 operating system built from scratch: UEFI bootloader, kernel, desktop environment, and ELF64 apps. Current release: v0.7.5 (selected work: kernel, boot, the project root)",
+ "repos": [
+  {
+   "repo": "LuminaOS",
+   "url": "https://github.com/Lumina-hc/LuminaOS",
+   "sha": "aff2686af0177a4fa04cf3dc464fcb83256b8f7d",
+   "licence": "Apache-2.0 (LICENSE file at pin aff2686af017, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T12:29Z",
+    "consent_receipt": "91e230359a85",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T12:29Z (receipt 91e230359a85); selected commit aff2686af017: \"new:uefi-boot-and-multitasking\". LICENSE file at pin aff2686af017 detected as Apache-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

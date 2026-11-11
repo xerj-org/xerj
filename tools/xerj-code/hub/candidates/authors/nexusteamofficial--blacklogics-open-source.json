@@ -1,0 +1,23 @@
+{
+ "corpus": "nexusteamofficial--blacklogics-open-source",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android-ide, open-source, android queries this for how NexusTeamOfficial/BlackLogics-Open-Source implements it: No-code Android IDE that runs on your phone. Design UI with drag and drop, build logic with blocks, export APK (selected work: app/libs)",
+ "repos": [
+  {
+   "repo": "BlackLogics-Open-Source",
+   "url": "https://github.com/NexusTeamOfficial/BlackLogics-Open-Source",
+   "sha": "c0d3458e26cf3695aef026aeeafab170cbb57ecd",
+   "licence": "author's permission (LICENSE at pin c0d3458e26cf: NOASSERTION; repository: GPL-3.0)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-11T05:12Z",
+    "consent_receipt": "e913cc7dfbe8",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T05:12Z (receipt e913cc7dfbe8); selected commit c0d3458e26cf: \"Add local libraries for v0.1.5\". LICENSE at pin c0d3458e26cf: NOASSERTION (repository: GPL-3.0); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

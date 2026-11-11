@@ -1,0 +1,23 @@
+{
+ "corpus": "softenrj--bricks",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on ai-code-editor, ai-code-generation, axois queries this for how softenrj/Bricks implements it: Revolutionary AI-powered IDE that turns voice, text, and images into functional applications directly in your browser",
+ "repos": [
+  {
+   "repo": "Bricks",
+   "url": "https://github.com/softenrj/Bricks",
+   "sha": "283fff77395cfde33665ee5c681928a877b6e833",
+   "licence": "author's permission (LICENSE at pin 283fff77395c: NOASSERTION; repository: NOASSERTION)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T07:25Z",
+    "consent_receipt": "f76fd3c199f4",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T07:25Z (receipt f76fd3c199f4); pinned to the default-branch head. LICENSE at pin 283fff77395c: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

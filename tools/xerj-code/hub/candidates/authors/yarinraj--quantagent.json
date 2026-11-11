@@ -1,0 +1,23 @@
+{
+ "corpus": "yarinraj--quantagent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how yarinraj/QuantAgent implements it: An AI-powered quantitative risk co-pilot and trading analytics platform built with Python, Streamlit, and Groq LLM (selected work: src/UI, the project root, data)",
+ "repos": [
+  {
+   "repo": "QuantAgent",
+   "url": "https://github.com/yarinraj/QuantAgent",
+   "sha": "48037d32a692b94ac849cac753b266cee8077a58",
+   "licence": "MIT (LICENSE file at pin 48037d32a692, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T09:35Z",
+    "consent_receipt": "ca650135059e",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T09:35Z (receipt ca650135059e); selected commit 48037d32a692: \"UI commit\". LICENSE file at pin 48037d32a692 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution. Pinned to head 48037d32a692 (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

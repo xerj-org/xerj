@@ -1,0 +1,28 @@
+{
+ "corpus": "helpcode-ai--anythingmcp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on model-context-protocol, mcp-gateway, sap queries this for how HelpCode-ai/anythingmcp implements it: Enterprise Agent Harness & MCP Gateway: connect APIs, databases, file servers and 600+ connectors (SAP, Odoo, Etsy\u2026) to Claude, ChatGPT, Mic (selected work: packages/backend, the project root)",
+ "repos": [
+  {
+   "repo": "anythingmcp",
+   "url": "https://github.com/HelpCode-ai/anythingmcp",
+   "sha": "75a43aeffd86b5cb0aa79057fd8f6171dbc89c5f",
+   "licence": "AGPL-3.0 (LICENSE file at pin 75a43aeffd86, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-11T02:55Z",
+    "consent_receipt": "418d6cc039e2",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T02:55Z (receipt 418d6cc039e2); selected commit 75a43aeffd86: \"Add the NocoDB adapter (#1254)\". LICENSE file at pin 75a43aeffd86 detected as AGPL-3.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @HelpCode-ai, who has not added it."
+   },
+   "paths": [
+    "content/guides/en",
+    "packages/backend/src/adapters",
+    "packages/frontend/public/logos/connectors"
+   ]
+  }
+ ]
+}

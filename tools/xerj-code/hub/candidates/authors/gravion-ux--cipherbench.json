@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "CRYPTO",
- "domain": "an agent working on Python queries this for how gravion-ux/cipherbench implements it: A benchmark and interoperability test harness specification for vetted post-quantum cryptographic providers",
+ "domain": "an agent working on benchmarks, cryptography, cryptography-tools queries this for how gravion-ux/cipherbench implements it: A benchmark and interoperability test harness specification for vetted post-quantum cryptographic providers",
  "repos": [
   {
    "repo": "cipherbench",

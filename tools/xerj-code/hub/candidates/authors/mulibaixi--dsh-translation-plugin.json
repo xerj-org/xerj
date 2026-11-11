@@ -1,0 +1,23 @@
+{
+ "corpus": "mulibaixi--dsh-translation-plugin",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on deepseek-harness, dsh-plugin, translation queries this for how Mulibaixi/dsh-translation-plugin implements it: \u9762\u5411 DeepSeek Harness \u7684\u7ffb\u8bd1\u4e0e\u6da6\u8272\u5de5\u4f5c\u533a\uff0c\u7ed3\u5408\u4e3b\u9898\u8bb0\u5fc6\u3001\u4e3b\u6a21\u578b\u534f\u4f5c\u4e0e\u8bd1\u6587\u4fee\u8ba2\uff0c\u652f\u6301\u4ece\u7ffb\u8bd1\u5230\u5ba1\u9605\u5b9a\u7a3f\u7684\u5b8c\u6574\u5de5\u4f5c\u6d41\u3002 (selected work: src/client, src/host, src/shared)",
+ "repos": [
+  {
+   "repo": "dsh-translation-plugin",
+   "url": "https://github.com/Mulibaixi/dsh-translation-plugin",
+   "sha": "0e0ec2d9c637199fc81c510f61884b8b37ae2a1d",
+   "licence": "MIT (LICENSE file at pin 0e0ec2d9c637, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T17:39Z",
+    "consent_receipt": "cb2576d683e2",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T17:39Z (receipt cb2576d683e2); selected commit 0e0ec2d9c637: \"feat: \u652f\u6301\u5355\u56fe\u7247\u7ffb\u8bd1\u4e0e\u539f\u6587\u7f16\u8f91\uff08v0.27.0\uff09\". LICENSE file at pin 0e0ec2d9c637 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

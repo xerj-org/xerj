@@ -2,8 +2,8 @@
  "corpus": "gravion-ux--quanta-sentry",
  "cloned_at": null,
  "status": "draft",
- "shelf": "CRYPTO",
- "domain": "an agent working on Python queries this for how gravion-ux/quanta-sentry implements it: Cryptographic inventory and post-quantum migration-readiness reporting from source/configuration evidence",
+ "shelf": "SEC",
+ "domain": "an agent working on compliance, cryptography, infosec queries this for how gravion-ux/quanta-sentry implements it: Cryptographic inventory and post-quantum migration-readiness reporting from source/configuration evidence",
  "repos": [
   {
    "repo": "quanta-sentry",

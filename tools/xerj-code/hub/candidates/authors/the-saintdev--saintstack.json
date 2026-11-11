@@ -1,0 +1,23 @@
+{
+ "corpus": "the-saintdev--saintstack",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how The-Saintdev/Saintstack implements it: My own memory system and set up for agents between sessions and projects (Open source , readme for setup) (selected work: src, test, the project root)",
+ "repos": [
+  {
+   "repo": "Saintstack",
+   "url": "https://github.com/The-Saintdev/Saintstack",
+   "sha": "ed7cd7606f56507807754980380c06f42a1abde2",
+   "licence": "MIT (LICENSE file at pin ed7cd7606f56, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T02:36Z",
+    "consent_receipt": "896741a409de",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T02:36Z (receipt 896741a409de); selected commit ed7cd7606f56: \"feat: add edge in-memory caching, token-efficient markdown context, m\u2026\". LICENSE file at pin ed7cd7606f56 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

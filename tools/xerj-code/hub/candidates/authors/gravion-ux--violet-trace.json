@@ -2,8 +2,8 @@
  "corpus": "gravion-ux--violet-trace",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Python queries this for how gravion-ux/violet-trace implements it: A safe purple-team validation harness for defensive telemetry and detection-rule tests",
+ "shelf": "SEC",
+ "domain": "an agent working on blue-team, detection-engineering, mitre-attack queries this for how gravion-ux/violet-trace implements it: A safe purple-team validation harness for defensive telemetry and detection-rule tests",
  "repos": [
   {
    "repo": "violet-trace",

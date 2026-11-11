@@ -1,0 +1,23 @@
+{
+ "corpus": "rosoam--droplink",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on blake3, bonjour, chacha20poly1305 queries this for how rosoam/droplink implements it: Transfert de fichiers P2P chiffr\u00e9 de bout en bout \u2014 Rust natif, egui, mDNS/Bonjour, iOS + desktop, sans compte ni serveur (selected work: spikes, crates/droplink-app, the project root)",
+ "repos": [
+  {
+   "repo": "droplink",
+   "url": "https://github.com/rosoam/droplink",
+   "sha": "cd15e19909e206109dd7761341f9243f79981e93",
+   "licence": "MIT (LICENSE file at pin cd15e19909e2, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T19:32Z",
+    "consent_receipt": "da609b9daafc",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T19:32Z (receipt da609b9daafc); selected commit cd15e19909e2: \"spike(webrtc): data channel desktop, iOS via str0m, onglet code masqu\u00e9\". LICENSE file at pin cd15e19909e2 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

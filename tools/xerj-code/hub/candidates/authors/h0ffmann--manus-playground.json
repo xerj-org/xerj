@@ -1,0 +1,23 @@
+{
+ "corpus": "h0ffmann--manus-playground",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how h0ffmann/manus-playground implements it: h0ffmann/manus-playground (TypeScript)",
+ "repos": [
+  {
+   "repo": "manus-playground",
+   "url": "https://github.com/h0ffmann/manus-playground",
+   "sha": "2682c2069e78799bad7d8fd0fd019f87160e9627",
+   "licence": "author's permission (LICENSE at pin 2682c2069e78: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T01:57Z",
+    "consent_receipt": "5358286b788d",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T01:57Z (receipt 5358286b788d); pinned to the default-branch head. LICENSE at pin 2682c2069e78: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

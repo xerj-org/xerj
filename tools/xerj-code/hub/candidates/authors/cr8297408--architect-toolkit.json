@@ -1,0 +1,23 @@
+{
+ "corpus": "cr8297408--architect-toolkit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how cr8297408/architect-toolkit implements it: Este repositorio facilita el uso de patrones de dise\u00f1o en proyectos de software, ofreciendo una estructura modular para soluciones escalable",
+ "repos": [
+  {
+   "repo": "architect-toolkit",
+   "url": "https://github.com/cr8297408/architect-toolkit",
+   "sha": "ce5661af0166aea333a62cb700674b99228b0594",
+   "licence": "author's permission (LICENSE at pin ce5661af0166: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T21:16Z",
+    "consent_receipt": "1443f4c920aa",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T21:16Z (receipt 1443f4c920aa); pinned to the default-branch head. LICENSE at pin ce5661af0166: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

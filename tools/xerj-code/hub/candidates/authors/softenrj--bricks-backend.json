@@ -1,0 +1,23 @@
+{
+ "corpus": "softenrj--bricks-backend",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on babel, backend, developer-tools queries this for how softenrj/Bricks-backend implements it: Bricks Backend is the secure, cloud-ready service layer that powers Bricks AI \u2013 an AI-powered IDE that transforms ideas into functional appl",
+ "repos": [
+  {
+   "repo": "Bricks-backend",
+   "url": "https://github.com/softenrj/Bricks-backend",
+   "sha": "c00a12f7719c5902847bcb295d748532c790e59b",
+   "licence": "author's permission (LICENSE at pin c00a12f7719c: NOASSERTION; repository: NOASSERTION)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T07:25Z",
+    "consent_receipt": "5bc80ca59ec7",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T07:25Z (receipt 5bc80ca59ec7); pinned to the default-branch head. LICENSE at pin c00a12f7719c: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "h0ffmann--akka-bank",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Scala queries this for how h0ffmann/akka-bank implements it: h0ffmann/akka-bank (Scala)",
+ "repos": [
+  {
+   "repo": "akka-bank",
+   "url": "https://github.com/h0ffmann/akka-bank",
+   "sha": "8d397cb00270d5ed96294b58415423c8cce91fb7",
+   "licence": "Apache-2.0 (LICENSE file at pin 8d397cb00270, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T01:57Z",
+    "consent_receipt": "7a77ea7b42aa",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T01:57Z (receipt 7a77ea7b42aa); pinned to the default-branch head. LICENSE file at pin 8d397cb00270 detected as Apache-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "donaldfilimon--wdbx-python",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on artificial-intelligence, database, distributed queries this for how donaldfilimon/wdbx_python implements it: Python WDBX database project is currently in active development, with a fully functional Python implementation available for immediate use a",
+ "repos": [
+  {
+   "repo": "wdbx_python",
+   "url": "https://github.com/donaldfilimon/wdbx_python",
+   "sha": "5281ab97e384a0d30b2c1cec2b5df24d73720c86",
+   "licence": "Apache-2.0 (LICENSE file at pin 5281ab97e384, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T06:47Z",
+    "consent_receipt": "06507e833f68",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T06:47Z (receipt 06507e833f68); pinned to the default-branch head. LICENSE file at pin 5281ab97e384 detected as Apache-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

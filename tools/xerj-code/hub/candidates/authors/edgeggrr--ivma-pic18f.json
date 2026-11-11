@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "OPS",
- "domain": "an agent working on Makefile queries this for how edgeggrr/IVMA-PIC18F implements it: IV Infusion-Set Monitoring and Alert System Using PIC18F4550 (selected work: Firmware, the project root)",
+ "domain": "an agent working on Makefile queries this for how edgeggrr/IVMA-PIC18F implements it: IV Infusion-Set Monitoring and Alert System Using PIC18F4550 ,MPLAB-IDE (selected work: Firmware, the project root)",
  "repos": [
   {
    "repo": "IVMA-PIC18F",

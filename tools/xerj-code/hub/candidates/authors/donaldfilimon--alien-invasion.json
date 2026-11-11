@@ -1,0 +1,23 @@
+{
+ "corpus": "donaldfilimon--alien-invasion",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how donaldfilimon/alien-invasion implements it: A real-time WebGL cinematic (React 19 + Three.js WebGPU): seven chapters, one continuous 3D world, one camera move",
+ "repos": [
+  {
+   "repo": "alien-invasion",
+   "url": "https://github.com/donaldfilimon/alien-invasion",
+   "sha": "2a04069b5e5c2541cc1fe5068057ccd4e62bb7f2",
+   "licence": "author's permission (LICENSE at pin 2a04069b5e5c: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T06:47Z",
+    "consent_receipt": "80da788b5ede",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T06:47Z (receipt 80da788b5ede); pinned to the default-branch head. LICENSE at pin 2a04069b5e5c: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "donaldfilimon--donaldfilimon-github-io",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on github-pages, nextjs, portfolio queries this for how donaldfilimon/donaldfilimon.github.io implements it: Donald Filimon personal site (Next.js static export)",
+ "repos": [
+  {
+   "repo": "donaldfilimon.github.io",
+   "url": "https://github.com/donaldfilimon/donaldfilimon.github.io",
+   "sha": "21651bc77bddd094388bcddab195e257971d11c7",
+   "licence": "author's permission (LICENSE at pin 21651bc77bdd: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T06:47Z",
+    "consent_receipt": "d9b19231dc8f",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T06:47Z (receipt d9b19231dc8f); pinned to the default-branch head. LICENSE at pin 21651bc77bdd: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

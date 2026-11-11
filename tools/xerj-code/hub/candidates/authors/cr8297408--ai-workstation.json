@@ -1,0 +1,23 @@
+{
+ "corpus": "cr8297408--ai-workstation",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Shell queries this for how cr8297408/ai-workstation implements it: cr8297408/ai-workstation (Shell)",
+ "repos": [
+  {
+   "repo": "ai-workstation",
+   "url": "https://github.com/cr8297408/ai-workstation",
+   "sha": "2b98c41c3bd5429c74017753c4e9b42068bfb2ee",
+   "licence": "MIT (LICENSE file at pin 2b98c41c3bd5, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T21:16Z",
+    "consent_receipt": "1de1b120aef1",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T21:16Z (receipt 1de1b120aef1); pinned to the default-branch head. LICENSE file at pin 2b98c41c3bd5 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

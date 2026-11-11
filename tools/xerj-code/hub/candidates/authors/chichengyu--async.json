@@ -8,15 +8,15 @@
   {
    "repo": "async",
    "url": "https://github.com/chichengyu/async",
-   "sha": "1a2015535defcd8b13e17fb5b288da82e9d8b7a9",
-   "licence": "MIT (LICENSE file at pin 1a2015535def, GitHub licence API 2026-11-10)",
+   "sha": "401cb6d2c59abdba003c5bb96700983cd3d30aaa",
+   "licence": "MIT (LICENSE file at pin 401cb6d2c59a, GitHub licence API 2026-11-11)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-19T22:16Z",
     "consent_receipt": "8ca69cddae23",
-    "note": "Inclusion consented by the commit author by email at 2026-10-19T22:16Z (receipt 8ca69cddae23); selected commit 1a2015535def: \"pipeline\u65b0\u589eFlow.stage\". LICENSE file at pin 1a2015535def detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Pinned to head 1a2015535def (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-19T22:16Z (receipt 8ca69cddae23); selected commit 401cb6d2c59a: \"pipeline\u65b0\u589eFlow.stage\". LICENSE file at pin 401cb6d2c59a detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution. Pinned to head 401cb6d2c59a (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

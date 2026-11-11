@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on JavaScript queries this for how gravion-ux/aegis implements it: Project AEGIS \u2014 multi-agent AI system core. Task lifecycle, persistent memory, provider abstraction, default-deny tool registry, budgets, sp",
+ "domain": "an agent working on agent-orchestration, agents, ai queries this for how gravion-ux/aegis implements it: Project AEGIS \u2014 multi-agent AI system core. Task lifecycle, persistent memory, provider abstraction, default-deny tool registry, budgets, sp",
  "repos": [
   {
    "repo": "aegis",

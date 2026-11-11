@@ -1,0 +1,31 @@
+{
+ "corpus": "anefzaoui--misterdownloadmanager",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on download-accelerator, download-manager, egui queries this for how anefzaoui/misterdownloadmanager implements it: misterdownloadmanager: The ultimate open-source, clean-room download manager written from scratch in pure Rust for Windows, Mac, and Linux (selected work: crates/app, crates/engine, crates/torrent)",
+ "repos": [
+  {
+   "repo": "misterdownloadmanager",
+   "url": "https://github.com/anefzaoui/misterdownloadmanager",
+   "sha": "7adb2f9fa191d22e762ffb7e00a5a7dc0001515d",
+   "licence": "GPL-3.0 (LICENSE file at pin 7adb2f9fa191, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-11T13:39Z",
+    "consent_receipt": "05c13f4866b2",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T13:39Z (receipt 05c13f4866b2); selected commit 7adb2f9fa191: \"feat(progress): add safe deferred Rename row on Download status tab (\u2026\". LICENSE file at pin 7adb2f9fa191 detected as GPL-3.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @anefzaoui, who has not added it."
+   },
+   "paths": [
+    "crates/app/src",
+    "crates/debrid/src",
+    "crates/engine/src",
+    "crates/tools/src",
+    "crates/torrent/src",
+    "i18n"
+   ]
+  }
+ ]
+}

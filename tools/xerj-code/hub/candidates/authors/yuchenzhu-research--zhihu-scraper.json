@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on image-downloader, knowledge-base, markdown queries this for how yuchenzhu-research/zhihu-scraper implements it: \u77e5\u4e4e\u672c\u5730\u5f52\u6863\u5de5\u5177\uff1a\u652f\u6301\u6587\u7ae0\u3001\u95ee\u7b54\u3001\u4e13\u680f\u53ca\u89c6\u9891\uff0c\u9ed8\u8ba4\u4fdd\u5b58\u4e3a Markdown \u548c\u672c\u5730\u5a92\u4f53\uff0c\u53ef\u9009\u5bfc\u51fa\u79bb\u7ebf HTML \u4e0e PDF (selected work: zhihu_scraper, tests)",
+ "domain": "an agent working on image-downloader, knowledge-base, markdown queries this for how yuchenzhu-research/zhihu-scraper implements it: \u77e5\u4e4e\u672c\u5730\u5f52\u6863\u5de5\u5177\uff0c\u652f\u6301\u6587\u7ae0\u3001\u95ee\u7b54\u3001\u4e13\u680f\u548c\u89c6\u9891\u3002\u9ed8\u8ba4\u751f\u6210 Markdown \u5e76\u4e0b\u8f7d\u5a92\u4f53\uff0c\u53ef\u6309\u9700\u4fdd\u5b58\u8bc4\u8bba\u3001\u5bfc\u51fa\u79bb\u7ebf HTML \u548c PDF (selected work: zhihu_scraper, tests)",
  "repos": [
   {
    "repo": "zhihu-scraper",

@@ -1,0 +1,23 @@
+{
+ "corpus": "ajhcs--cameo-mcp-bridge",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on cameo, catia-magic, claude queries this for how ajhcs/cameo-mcp-bridge implements it: MCP server bridging AI assistants to CATIA Magic / Cameo Systems Modeler for SysML/UML model creation, querying, and manipulation",
+ "repos": [
+  {
+   "repo": "cameo-mcp-bridge",
+   "url": "https://github.com/ajhcs/cameo-mcp-bridge",
+   "sha": "c00f0cf7f21aa2fa94dac33c310c79d860874260",
+   "licence": "MIT (LICENSE file at pin c00f0cf7f21a, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T23:53Z",
+    "consent_receipt": "542d5aae5050",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T23:53Z (receipt 542d5aae5050); pinned to the default-branch head. LICENSE file at pin c00f0cf7f21a detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

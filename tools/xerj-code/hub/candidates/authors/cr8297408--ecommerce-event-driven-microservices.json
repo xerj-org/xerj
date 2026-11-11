@@ -1,0 +1,23 @@
+{
+ "corpus": "cr8297408--ecommerce-event-driven-microservices",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how cr8297408/ecommerce-event-driven-microservices implements it: A modern, scalable e-commerce platform built with microservices architecture, event-driven design patterns, and CQRS/Event Sourcing principl",
+ "repos": [
+  {
+   "repo": "ecommerce-event-driven-microservices",
+   "url": "https://github.com/cr8297408/ecommerce-event-driven-microservices",
+   "sha": "a98342e3e46fd568d468a99ed8dbf74757e357c9",
+   "licence": "author's permission (LICENSE at pin a98342e3e46f: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T21:16Z",
+    "consent_receipt": "a90286ed44f0",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T21:16Z (receipt a90286ed44f0); pinned to the default-branch head. LICENSE at pin a98342e3e46f: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

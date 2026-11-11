@@ -1,0 +1,23 @@
+{
+ "corpus": "h0ffmann--gcp-agentic-architect",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agentic-ai, certification, gcp queries this for how h0ffmann/gcp-agentic-architect implements it: learning agents on GCP",
+ "repos": [
+  {
+   "repo": "gcp-agentic-architect",
+   "url": "https://github.com/h0ffmann/gcp-agentic-architect",
+   "sha": "dd718d87dd7af2258604478e69af8c0372392284",
+   "licence": "MIT (LICENSE file at pin dd718d87dd7a, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T01:57Z",
+    "consent_receipt": "33ef1cd0243b",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T01:57Z (receipt 33ef1cd0243b); pinned to the default-branch head. LICENSE file at pin dd718d87dd7a detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

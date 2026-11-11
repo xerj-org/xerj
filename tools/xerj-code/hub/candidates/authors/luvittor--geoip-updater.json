@@ -1,0 +1,23 @@
+{
+ "corpus": "luvittor--geoip-updater",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on PHP queries this for how luvittor/geoip-updater implements it: Safe, framework-agnostic updater for MaxMind GeoLite2 and GeoIP2 databases for PHP (selected work: tests, src, src/Contract)",
+ "repos": [
+  {
+   "repo": "geoip-updater",
+   "url": "https://github.com/luvittor/geoip-updater",
+   "sha": "b4d02d6ab1e3082fd4efe7cd7077f9e31cf50991",
+   "licence": "MIT (LICENSE file at pin b4d02d6ab1e3, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T11:31Z",
+    "consent_receipt": "c2fd31d2521c",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T11:31Z (receipt c2fd31d2521c); selected commit b4d02d6ab1e3: \"Expand updater and transport test coverage\". LICENSE file at pin b4d02d6ab1e3 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

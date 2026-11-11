@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on native-port, pc-port, ps4 queries this for how AbdelmoumenDeghbouche/wipeout_pc implements it: WipEout Omega Collection (PS4) native PC port for Windows: the game's own x86-64 code on the CPU, a PS4 runtime and the shadPS4 Vulkan video (selected work: scripts, tests, the project root)",
+ "domain": "an agent working on native-port, pc-port, ps4 queries this for how AbdelmoumenDeghbouche/wipeout_pc implements it: WipEout Omega Collection (PS4) native PC port for Windows and Linux: the game's own x86-64 code on the CPU, a PS4 runtime and the shadPS4 Vu (selected work: scripts, tests, the project root)",
  "repos": [
   {
    "repo": "wipeout_pc",

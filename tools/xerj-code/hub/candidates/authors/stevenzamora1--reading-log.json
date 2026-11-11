@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on koreader-plugin, koreader-plugins queries this for how stevenzamora1/reading-log implements it: Reading dashboard cards for KOReader\u2019s Simple UI and Bookshelf plugings (selected work: micromodules, tests)",
+ "domain": "an agent working on koreader-plugin, koreader-plugins queries this for how stevenzamora1/reading-log implements it: Reading dashboard cards for KOReader\u2019s Simple UI, ZenOS and Bookshelf plugins (selected work: micromodules, tests)",
  "repos": [
   {
    "repo": "reading-log",

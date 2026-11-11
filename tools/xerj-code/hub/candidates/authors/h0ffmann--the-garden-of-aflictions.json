@@ -1,0 +1,23 @@
+{
+ "corpus": "h0ffmann--the-garden-of-aflictions",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on concept-map, conspiracy-theories, digital-humanities queries this for how h0ffmann/the-garden-of-aflictions implements it: h0ffmann/the-garden-of-aflictions (HTML)",
+ "repos": [
+  {
+   "repo": "the-garden-of-aflictions",
+   "url": "https://github.com/h0ffmann/the-garden-of-aflictions",
+   "sha": "90658a534f58aab0f45825cb04342335558c8404",
+   "licence": "Apache-2.0 (LICENSE file at pin 90658a534f58, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T01:57Z",
+    "consent_receipt": "b559f4f1863c",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T01:57Z (receipt b559f4f1863c); pinned to the default-branch head. LICENSE file at pin 90658a534f58 detected as Apache-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

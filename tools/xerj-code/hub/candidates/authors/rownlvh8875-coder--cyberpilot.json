@@ -1,0 +1,23 @@
+{
+ "corpus": "rownlvh8875-coder--cyberpilot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how rownlvh8875-coder/CyberPilot implements it: rownlvh8875-coder/CyberPilot (Python) (selected work: tools)",
+ "repos": [
+  {
+   "repo": "CyberPilot",
+   "url": "https://github.com/rownlvh8875-coder/CyberPilot",
+   "sha": "84113fbb43778f578f65a4df2f9adcc7fc0a9472",
+   "licence": "MIT (LICENSE file at pin 84113fbb4377, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T09:21Z",
+    "consent_receipt": "cf7ba3c38881",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T09:21Z (receipt cf7ba3c38881); selected commit 84113fbb4377: \"feat: render verified scenario records without model execution R32 [s\u2026\". LICENSE file at pin 84113fbb4377 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

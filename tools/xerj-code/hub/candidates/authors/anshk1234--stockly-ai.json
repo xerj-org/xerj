@@ -1,0 +1,23 @@
+{
+ "corpus": "anshk1234--stockly-ai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on crypto, financial-analysis, fintech queries this for how anshk1234/stockly.ai implements it: A lightweight, highly optimized Next.js app to track global stocks, crypto, and prediction markets in real-time. Engineered to handle large-",
+ "repos": [
+  {
+   "repo": "stockly.ai",
+   "url": "https://github.com/anshk1234/stockly.ai",
+   "sha": "b9f0e1e205df6c5026a5a7f7e0bb32db0d7e1bd7",
+   "licence": "Apache-2.0 (LICENSE file at pin b9f0e1e205df, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T06:17Z",
+    "consent_receipt": "9c7ee075a071",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T06:17Z (receipt 9c7ee075a071); pinned to the default-branch head. LICENSE file at pin b9f0e1e205df detected as Apache-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

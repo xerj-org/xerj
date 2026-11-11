@@ -1,0 +1,23 @@
+{
+ "corpus": "scripttowin--ringlook",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how ScriptToWin/ringlook implements it: a simple tool that shows what runs at what ring with what previlegies u can also terminate them directly (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "ringlook",
+   "url": "https://github.com/ScriptToWin/ringlook",
+   "sha": "550c8d53fa21c9fe38a6259b1e28019ca12d63b7",
+   "licence": "GPL-3.0 (LICENSE file at pin 550c8d53fa21, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-11T12:20Z",
+    "consent_receipt": "ab4dcbfe875c",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T12:20Z (receipt ab4dcbfe875c); selected commit 550c8d53fa21: \"Add files via upload\". LICENSE file at pin 550c8d53fa21 detected as GPL-3.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

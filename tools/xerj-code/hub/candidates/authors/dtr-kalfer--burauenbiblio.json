@@ -1,0 +1,23 @@
+{
+ "corpus": "dtr-kalfer--burauenbiblio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on educational, library-management, open-source queries this for how dtr-kalfer/burauenbiblio implements it: Modified Openbiblio to support PHP8.3.36 with added features (selected work: catalog)",
+ "repos": [
+  {
+   "repo": "burauenbiblio",
+   "url": "https://github.com/dtr-kalfer/burauenbiblio",
+   "sha": "bc6cc83ebc5baf54a8bf2ed299e33e782116edea",
+   "licence": "author's permission (LICENSE at pin bc6cc83ebc5b: NOASSERTION; repository: GPL-2.0)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-11T04:48Z",
+    "consent_receipt": "1404dd40d271",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T04:48Z (receipt 1404dd40d271); selected commit bc6cc83ebc5b: \"update and refactor: bundled fix for z39.50 tested to work with PHP Y\u2026\". LICENSE at pin bc6cc83ebc5b: NOASSERTION (repository: GPL-2.0); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

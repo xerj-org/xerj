@@ -1,0 +1,23 @@
+{
+ "corpus": "kurtdubain--football-universe",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how KurtDubain/football-universe implements it: \u8db3\u7403\u8054\u8d5b\u5b87\u5b99 - \u7535\u5b50\u6597\u86d0\u86d0\u6a21\u62df\u5668 (selected work: src/components)",
+ "repos": [
+  {
+   "repo": "football-universe",
+   "url": "https://github.com/KurtDubain/football-universe",
+   "sha": "483bc39cef184fe4e28b63416e2e970b42352d91",
+   "licence": "MIT (LICENSE file at pin 483bc39cef18, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T07:56Z",
+    "consent_receipt": "270947c8b0a1",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T07:56Z (receipt 270947c8b0a1); selected commit 483bc39cef18: \"feat(pitch): \u955c\u5934\u653e\u5f00\u7f29\u653e\u4e0a\u9650\uff0c\u8fdb\u7403\u65f6\u523b\u7b2c\u4e00\u6b21\u771f\u7684\u63a8\u8fd1\". LICENSE file at pin 483bc39cef18 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

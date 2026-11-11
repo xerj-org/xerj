@@ -1,0 +1,23 @@
+{
+ "corpus": "cr8297408--smartapi-template-mvc",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how cr8297408/smartapi-template.mvc implements it: Template of mvc for smartapi project",
+ "repos": [
+  {
+   "repo": "smartapi-template.mvc",
+   "url": "https://github.com/cr8297408/smartapi-template.mvc",
+   "sha": "e74707d1efffc485a138be840d9449f07a15a47c",
+   "licence": "author's permission (LICENSE at pin e74707d1efff: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T21:16Z",
+    "consent_receipt": "d60c44fbf65a",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T21:16Z (receipt d60c44fbf65a); pinned to the default-branch head. LICENSE at pin e74707d1efff: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

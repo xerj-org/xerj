@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on ad-free, android, audio-player queries this for how muthumanikandanb2005-ux/PulseMusic implements it: \ud83c\udfb5 Next-Gen Open-Source Music Player & YouTube Music Streaming App for Android & Windows. Pure Ad-Free, WHO 85dB Hearing Protection, Synced A (selected work: composeApp, the project root, core/service)",
+ "domain": "an agent working on ad-free, android, compose-multiplatform queries this for how muthumanikandanb2005-ux/PulseMusic implements it: \ud83c\udfb5 Next-Gen Open-Source Music Player & YouTube Music Streaming App for Android & Windows. Pure Ad-Free, WHO 85dB Hearing Protection, Synced A (selected work: composeApp, the project root, core/service)",
  "repos": [
   {
    "repo": "PulseMusic",
    "url": "https://github.com/muthumanikandanb2005-ux/PulseMusic",
    "sha": "5e2a9dcbbb44822ed2bcb0572757aa4b302517cd",
-   "licence": "GPL-3.0 (LICENSE file at pin 5e2a9dcbbb44, GitHub licence API 2026-10-26)",
+   "licence": "author's permission (LICENSE at pin 5e2a9dcbbb44: GPL-3.0; repository: NOASSERTION)",
    "review": {
     "spdx": "GPL-3.0",
-    "use": "approach-only",
+    "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-26T03:29Z",
     "consent_receipt": "188b3828fe3a",
-    "note": "Inclusion consented by the commit author by email at 2026-10-26T03:29Z (receipt 188b3828fe3a); selected commit 5e2a9dcbbb44: \"feat: Add BiniLyrics API integration, real-time Audio Output Device b\u2026\". LICENSE file at pin 5e2a9dcbbb44 detected as GPL-3.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-10-26T03:29Z (receipt 188b3828fe3a); selected commit 5e2a9dcbbb44: \"feat: Add BiniLyrics API integration, real-time Audio Output Device b\u2026\". LICENSE at pin 5e2a9dcbbb44: GPL-3.0 (repository: NOASSERTION); used with the author's permission, with attribution."
    }
   }
  ]

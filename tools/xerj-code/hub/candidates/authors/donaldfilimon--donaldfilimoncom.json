@@ -1,0 +1,23 @@
+{
+ "corpus": "donaldfilimon--donaldfilimoncom",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how donaldfilimon/donaldfilimoncom implements it: donaldfilimon/donaldfilimoncom (Python)",
+ "repos": [
+  {
+   "repo": "donaldfilimoncom",
+   "url": "https://github.com/donaldfilimon/donaldfilimoncom",
+   "sha": "05ad734824bbc5daf57ad5f15b2cf0a85a851a67",
+   "licence": "MIT (LICENSE file at pin 05ad734824bb, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T06:47Z",
+    "consent_receipt": "b358d15c0903",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T06:47Z (receipt b358d15c0903); pinned to the default-branch head. LICENSE file at pin 05ad734824bb detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

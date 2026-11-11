@@ -1,0 +1,23 @@
+{
+ "corpus": "cr8297408--msm",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how cr8297408/msm implements it: cr8297408/msm (TypeScript)",
+ "repos": [
+  {
+   "repo": "msm",
+   "url": "https://github.com/cr8297408/msm",
+   "sha": "238ecd330f0808454ed6fa0f81baaae5c60d7bb1",
+   "licence": "author's permission (LICENSE at pin 238ecd330f08: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T21:16Z",
+    "consent_receipt": "ea451b2f8b8e",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T21:16Z (receipt ea451b2f8b8e); pinned to the default-branch head. LICENSE at pin 238ecd330f08: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

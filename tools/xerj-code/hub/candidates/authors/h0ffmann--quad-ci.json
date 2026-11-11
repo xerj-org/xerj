@@ -1,0 +1,23 @@
+{
+ "corpus": "h0ffmann--quad-ci",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Haskell queries this for how h0ffmann/quad-ci implements it: The Simple Haskell Handbook book suff",
+ "repos": [
+  {
+   "repo": "quad-ci",
+   "url": "https://github.com/h0ffmann/quad-ci",
+   "sha": "44915daa5d4490740f4d731e9407bb761fac72b7",
+   "licence": "author's permission (LICENSE at pin 44915daa5d44: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T01:57Z",
+    "consent_receipt": "ce828050f20f",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T01:57Z (receipt ce828050f20f); pinned to the default-branch head. LICENSE at pin 44915daa5d44: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

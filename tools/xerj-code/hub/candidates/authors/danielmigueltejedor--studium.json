@@ -2,8 +2,8 @@
  "corpus": "danielmigueltejedor--studium",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Python queries this for how danielmigueltejedor/studium implements it: danielmigueltejedor/studium (Python) (selected work: src/studium, tests)",
+ "shelf": "AI",
+ "domain": "an agent working on academic-writing, ai-agents, education queries this for how danielmigueltejedor/studium implements it: Framework for AI-assisted textbook authoring with traceable sources, mathematical verification, and LaTeX and PDF output (selected work: src/studium, tests)",
  "repos": [
   {
    "repo": "studium",

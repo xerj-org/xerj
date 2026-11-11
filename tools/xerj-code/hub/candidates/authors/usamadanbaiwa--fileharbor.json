@@ -1,0 +1,23 @@
+{
+ "corpus": "usamadanbaiwa--fileharbor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on api-key-authentication, api-keys, backend queries this for how usamadanbaiwa/FileHarbor implements it: Self-hosted file management API for images, documents, and videos. Use your VPS or shared hosting with PHP or Node.js, scoped API keys, and  (selected work: node, php, spec)",
+ "repos": [
+  {
+   "repo": "FileHarbor",
+   "url": "https://github.com/usamadanbaiwa/FileHarbor",
+   "sha": "0ac0354deaa7012b3975b0a4ddb4dabc9ecd49c1",
+   "licence": "MIT (LICENSE file at pin 0ac0354deaa7, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T15:44Z",
+    "consent_receipt": "a04cfad3c0e1",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T15:44Z (receipt a04cfad3c0e1); selected commit 0ac0354deaa7: \"feat: support configurable file formats in PHP and Node.js\". LICENSE file at pin 0ac0354deaa7 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

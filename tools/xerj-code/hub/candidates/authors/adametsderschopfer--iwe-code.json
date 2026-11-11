@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Rust queries this for how adametsderschopfer/iwe-code implements it: Minimal native Rust and Iced desktop application template (selected work: src/app, src/ui, src/infrastructure)",
+ "domain": "an agent working on Rust queries this for how adametsderschopfer/iwe-code implements it: A desktop workspace for browsing source code, reviewing Git history, and tracking CI pipelines on macOS, Windows, and Linux (selected work: src/app, src/ui, src/infrastructure)",
  "repos": [
   {
    "repo": "iwe-code",

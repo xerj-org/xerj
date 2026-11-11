@@ -1,0 +1,23 @@
+{
+ "corpus": "computerprogrammerlily123--mc-learning-lab",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on C++ queries this for how ComputerProgrammerLily123/mc-learning-lab implements it: OpenGL voxel game learning project. A Minecraft-like sandbox built from scratch for study purposes (selected work: src/resource, src/render, src/world)",
+ "repos": [
+  {
+   "repo": "mc-learning-lab",
+   "url": "https://github.com/ComputerProgrammerLily123/mc-learning-lab",
+   "sha": "d68ab4ecaa172e2c360daa740863f66186ad581c",
+   "licence": "MIT (LICENSE file at pin d68ab4ecaa17, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T13:41Z",
+    "consent_receipt": "387c18e4c6a0",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T13:41Z (receipt 387c18e4c6a0); selected commit d68ab4ecaa17: \"add modelParser, update text render, update resource load\". LICENSE file at pin d68ab4ecaa17 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

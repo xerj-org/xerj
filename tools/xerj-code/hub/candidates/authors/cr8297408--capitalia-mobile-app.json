@@ -1,0 +1,23 @@
+{
+ "corpus": "cr8297408--capitalia-mobile-app",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how cr8297408/capitalia-mobile-app implements it: cr8297408/capitalia-mobile-app (TypeScript)",
+ "repos": [
+  {
+   "repo": "capitalia-mobile-app",
+   "url": "https://github.com/cr8297408/capitalia-mobile-app",
+   "sha": "94a1fd4d8d33e04aed87f031d63e54e62b9dd62b",
+   "licence": "author's permission (LICENSE at pin 94a1fd4d8d33: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T21:16Z",
+    "consent_receipt": "855eaba4f7a6",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T21:16Z (receipt 855eaba4f7a6); pinned to the default-branch head. LICENSE at pin 94a1fd4d8d33: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

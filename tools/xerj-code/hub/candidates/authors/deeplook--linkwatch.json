@@ -1,0 +1,23 @@
+{
+ "corpus": "deeplook--linkwatch",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on calendar, chart, internet-service-provider queries this for how deeplook/linkwatch implements it: Monitor internet connectivity and log outages to CSV",
+ "repos": [
+  {
+   "repo": "linkwatch",
+   "url": "https://github.com/deeplook/linkwatch",
+   "sha": "bd5067eeb2bd77cebab4e98b5b70a80923d480f7",
+   "licence": "MIT (LICENSE file at pin bd5067eeb2bd, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T10:32Z",
+    "consent_receipt": "e0dbc39bad8f",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T10:32Z (receipt e0dbc39bad8f); pinned to the default-branch head. LICENSE file at pin bd5067eeb2bd detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

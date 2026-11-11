@@ -1,0 +1,23 @@
+{
+ "corpus": "itsyourap--rustone",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on arm64, asterisk, cross-platform queries this for how itsyourap/RusTone implements it: A fast, modern SIP softphone for Windows, Linux and macOS (x64 and ARM64). Voice and video calls, messaging, presence and contacts, written  (selected work: crates/pjsua-sys, crates/sip-engine, crates/rustone-core)",
+ "repos": [
+  {
+   "repo": "RusTone",
+   "url": "https://github.com/itsyourap/RusTone",
+   "sha": "e983ee994eba54ac063affaf9bf2e357eff13c36",
+   "licence": "GPL-3.0 (LICENSE file at pin e983ee994eba, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-11T19:53Z",
+    "consent_receipt": "8c8454a4ab2a",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T19:53Z (receipt 8c8454a4ab2a); selected commit e983ee994eba: \"feat: customise an account's SIP requests (number address, custom hea\u2026\". LICENSE file at pin e983ee994eba detected as GPL-3.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

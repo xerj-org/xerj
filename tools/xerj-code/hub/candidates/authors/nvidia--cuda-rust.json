@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on compiler-backend, async, cuda queries this for how NVIDIA/cuda-rust implements it: NVIDIA's CUDA platform for Rust. Host runtime crates plus Tile (cutile-rs) and SIMT (cuda-oxide) kernel programming models in idiomatic Rust (selected work: crates/rustc-codegen-cuda)",
+ "domain": "an agent working on compiler-backend, async, cuda queries this for how NVIDIA/cuda-rust implements it: NVIDIA's CUDA platform for Rust. Host runtime crates plus Tile (cutile-rs) and SIMT (cuda-oxide) kernel programming models in idiomatic Rust (selected work: crates/mir-lower, crates/llvm-export, the project root)",
  "repos": [
   {
    "repo": "cuda-rust",
    "url": "https://github.com/NVIDIA/cuda-rust",
-   "sha": "dff7767e702457d5070f3649fd73d9fa425c40e3",
-   "licence": "Apache-2.0 (LICENSE file at pin dff7767e7024, GitHub licence API 2026-11-10)",
+   "sha": "d9430b0a167a9a60ecdcc824bf8836cdd5708c50",
+   "licence": "Apache-2.0 (LICENSE file at pin d9430b0a167a, GitHub licence API 2026-11-11)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
-    "at": "2026-10-17T17:25Z",
-    "consent_receipt": "6d4550392cbd",
-    "note": "Inclusion consented by the commit author by email at 2026-10-17T17:25Z (receipt 6d4550392cbd); selected commit dff7767e7024: \"feat(examples): add image convolution example\". LICENSE file at pin dff7767e7024 detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution. Pinned to head dff7767e7024 (contains the selected commit): the LICENSE at the selected commit was NOASSERTION. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @NVIDIA, who has not added it."
+    "at": "2026-10-16T02:18Z",
+    "consent_receipt": "c78880a9014a",
+    "note": "Inclusion consented by the commit author by email at 2026-10-16T02:18Z (receipt c78880a9014a); selected commit d9430b0a167a: \"refactor(llvm): use upstream inline asm semantics\". LICENSE file at pin d9430b0a167a detected as Apache-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution. Pinned to head d9430b0a167a (contains the selected commit): the LICENSE at the selected commit was NOASSERTION. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @NVIDIA, who has not added it."
    },
    "paths": [
     "crates/dialect-mir/src/ops",

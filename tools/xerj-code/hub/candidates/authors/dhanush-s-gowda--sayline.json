@@ -1,0 +1,23 @@
+{
+ "corpus": "dhanush-s-gowda--sayline",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on dictation, dictation-tool, nemotron queries this for how Dhanush-S-Gowda/Sayline implements it: Your keyboard could use a break. Live, local voice typing for KDE Plasma (selected work: tests, src, qml)",
+ "repos": [
+  {
+   "repo": "Sayline",
+   "url": "https://github.com/Dhanush-S-Gowda/Sayline",
+   "sha": "f8c6737428c93caf5bb20e47e35dfed72e4d3aa2",
+   "licence": "MIT (LICENSE file at pin f8c6737428c9, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T18:00Z",
+    "consent_receipt": "0df1eed4c005",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T18:00Z (receipt 0df1eed4c005); selected commit f8c6737428c9: \"Expand spoken punctuation and formatting commands\". LICENSE file at pin f8c6737428c9 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

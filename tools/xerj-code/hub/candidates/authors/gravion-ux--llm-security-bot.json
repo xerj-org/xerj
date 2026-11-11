@@ -2,8 +2,8 @@
  "corpus": "gravion-ux--llm-security-bot",
  "cloned_at": null,
  "status": "draft",
- "shelf": "AI",
- "domain": "an agent working on JavaScript queries this for how gravion-ux/llm-security-bot implements it: AI-powered security analysis tool using LLMs for code, log, and configuration review (selected work: src, test, the project root)",
+ "shelf": "SEC",
+ "domain": "an agent working on ai-security, appsec, code-review queries this for how gravion-ux/llm-security-bot implements it: AI-powered security analysis tool using LLMs for code, log, and configuration review (selected work: src, test, the project root)",
  "repos": [
   {
    "repo": "llm-security-bot",

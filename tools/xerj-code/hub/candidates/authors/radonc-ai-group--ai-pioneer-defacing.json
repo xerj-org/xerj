@@ -1,0 +1,28 @@
+{
+ "corpus": "radonc-ai-group--ai-pioneer-defacing",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how RadOnc-AI-group/AI_Pioneer-Defacing implements it: RadOnc-AI-group/AI_Pioneer-Defacing (Python) (selected work: tests, defacing, tools)",
+ "repos": [
+  {
+   "repo": "AI_Pioneer-Defacing",
+   "url": "https://github.com/RadOnc-AI-group/AI_Pioneer-Defacing",
+   "sha": "6af6775d7fae863d200d6279dd3f718e2d9d7e3b",
+   "licence": "Apache-2.0 (LICENSE file at pin 6af6775d7fae, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T15:34Z",
+    "consent_receipt": "7c36ad237b73",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T15:34Z (receipt 7c36ad237b73); selected commit 6af6775d7fae: \"Adding --fill template option based on FLAME2023 phantom\". LICENSE file at pin 6af6775d7fae detected as Apache-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution. Pinned to head 6af6775d7fae (contains the selected commit): the LICENSE at the selected commit was NONE. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @RadOnc-AI-group, who has not added it."
+   },
+   "paths": [
+    "defacing",
+    "tests",
+    "tools"
+   ]
+  }
+ ]
+}

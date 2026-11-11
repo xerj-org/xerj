@@ -8,15 +8,15 @@
   {
    "repo": "muslimtify",
    "url": "https://github.com/muslimtify-org/muslimtify",
-   "sha": "bebb929add9832899b76f21ed9e7ba4362a6a272",
-   "licence": "GPL-3.0 (LICENSE file at pin bebb929add98, GitHub licence API 2026-11-10)",
+   "sha": "60a380656e36d5fe989399b404988da8e87ad85c",
+   "licence": "GPL-3.0 (LICENSE file at pin 60a380656e36, GitHub licence API 2026-11-11)",
    "review": {
     "spdx": "GPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-08T16:34Z",
     "consent_receipt": "355f30b41e7d",
-    "note": "Inclusion consented by the commit author by email at 2026-10-08T16:34Z (receipt 355f30b41e7d); selected commit bebb929add98: \"windows daemon management through the library (#100)\". LICENSE file at pin bebb929add98 detected as GPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution. Pinned to head bebb929add98 (contains the selected commit): the LICENSE at the selected commit was MIT. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @muslimtify-org, who has not added it."
+    "note": "Inclusion consented by the commit author by email at 2026-10-08T16:34Z (receipt 355f30b41e7d); selected commit 60a380656e36: \"windows daemon management through the library (#100)\". LICENSE file at pin 60a380656e36 detected as GPL-3.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution. Pinned to head 60a380656e36 (contains the selected commit): the LICENSE at the selected commit was MIT. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @muslimtify-org, who has not added it."
    },
    "paths": [
     "include",

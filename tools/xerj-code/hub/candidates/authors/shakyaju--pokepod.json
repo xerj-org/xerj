@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on dart, flutter, flutter-app queries this for how ShakyaJU/pokepod implements it: A feature-rich Flutter Pok\u00e9dex and Pok\u00e9mon research companion featuring interactive exploration, collection tracking, team building, evoluti (selected work: lib/features, test, android)",
+ "domain": "an agent working on dart, flutter, flutter-app queries this for how ShakyaJU/pokepod implements it: A Flutter Pok\u00e9dex and Pok\u00e9mon research companion featuring interactive exploration, collection tracking, team building, evolution discovery, (selected work: lib/features, test, android)",
  "repos": [
   {
    "repo": "pokepod",

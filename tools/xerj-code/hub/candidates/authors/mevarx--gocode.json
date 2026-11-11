@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Go queries this for how mevarx/GoCode implements it: GoCode is a lightweight, high-performance terminal AI coding agent written in Go. It operates directly inside your terminal, assisting you w (selected work: internal/tui, internal/provider, internal/tools)",
+ "domain": "an agent working on cli, go, golang queries this for how mevarx/GoCode implements it: GoCode is a lightweight, high-performance terminal AI coding agent written in Go. It operates directly inside your terminal, assisting you w (selected work: internal/tui, internal/provider, internal/tools)",
  "repos": [
   {
    "repo": "GoCode",

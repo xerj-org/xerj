@@ -1,0 +1,23 @@
+{
+ "corpus": "donaldfilimon--wdbx",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how donaldfilimon/wdbx implements it: Provenance-aware episodic substrate beneath ABI: abi-wdbx, abi-compute, abi-foundation, abi-core, abi-telemetry. Extracted from donaldfilimo",
+ "repos": [
+  {
+   "repo": "wdbx",
+   "url": "https://github.com/donaldfilimon/wdbx",
+   "sha": "c1f7d23c3f0572f64545d66984dcd94ffcb9315e",
+   "licence": "Apache-2.0 (LICENSE file at pin c1f7d23c3f05, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T06:47Z",
+    "consent_receipt": "e35eda725d45",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T06:47Z (receipt e35eda725d45); pinned to the default-branch head. LICENSE file at pin c1f7d23c3f05 detected as Apache-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

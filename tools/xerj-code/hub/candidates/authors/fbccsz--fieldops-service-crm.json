@@ -1,0 +1,23 @@
+{
+ "corpus": "fbccsz--fieldops-service-crm",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how fbccsz/fieldops-service-crm implements it: fbccsz/fieldops-service-crm (JavaScript) (selected work: src, tests, the project root)",
+ "repos": [
+  {
+   "repo": "fieldops-service-crm",
+   "url": "https://github.com/fbccsz/fieldops-service-crm",
+   "sha": "99b1122f7e19909fd1701f101bafda508d9e568f",
+   "licence": "MIT (LICENSE file at pin 99b1122f7e19, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T04:37Z",
+    "consent_receipt": "b6e9dee51d39",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T04:37Z (receipt b6e9dee51d39); selected commit 99b1122f7e19: \"feat: deliver FieldOps dashboard with CRM, estimates, operations and CI\". LICENSE file at pin 99b1122f7e19 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

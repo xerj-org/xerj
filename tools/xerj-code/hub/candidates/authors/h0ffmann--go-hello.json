@@ -1,0 +1,23 @@
+{
+ "corpus": "h0ffmann--go-hello",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Go queries this for how h0ffmann/go-hello implements it: Skeleton for GO RESTful API's",
+ "repos": [
+  {
+   "repo": "go-hello",
+   "url": "https://github.com/h0ffmann/go-hello",
+   "sha": "2b475fce76ee3ff58f70453a443e3affcbd160d0",
+   "licence": "author's permission (LICENSE at pin 2b475fce76ee: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T01:57Z",
+    "consent_receipt": "3741f08754a4",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T01:57Z (receipt 3741f08754a4); pinned to the default-branch head. LICENSE at pin 2b475fce76ee: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

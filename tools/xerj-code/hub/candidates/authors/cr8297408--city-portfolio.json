@@ -1,0 +1,23 @@
+{
+ "corpus": "cr8297408--city-portfolio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how cr8297408/city-portfolio implements it: cr8297408/city-portfolio (TypeScript)",
+ "repos": [
+  {
+   "repo": "city-portfolio",
+   "url": "https://github.com/cr8297408/city-portfolio",
+   "sha": "c5cec98f6a30a53a263aac53797a059202434b33",
+   "licence": "author's permission (LICENSE at pin c5cec98f6a30: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T21:16Z",
+    "consent_receipt": "ff3da5ff7beb",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T21:16Z (receipt ff3da5ff7beb); pinned to the default-branch head. LICENSE at pin c5cec98f6a30: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

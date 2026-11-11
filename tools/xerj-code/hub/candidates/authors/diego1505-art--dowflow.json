@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on dowload-video, downloader, local queries this for how diego1505-Art/DowFlow implements it: Local Windows app (Flask + yt-dlp) to download videos and music from URLs, with Turbo mode (aria2c), resumable downloads and a local music l (selected work: the project root, templates, url_expanders)",
+ "domain": "an agent working on dowload-video, downloader, local queries this for how diego1505-Art/DowFlow implements it: Local Windows app (Flask + yt-dlp) to download videos and music from URLs, resumable downloads and a local music library (selected work: the project root, templates, url_expanders)",
  "repos": [
   {
    "repo": "DowFlow",

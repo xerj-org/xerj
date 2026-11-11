@@ -1,0 +1,23 @@
+{
+ "corpus": "donaldfilimon--nyon-game",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on creative, development, engine queries this for how donaldfilimon/nyon-game implements it: Unleash Your Creativity: The Future of Game Development is Here | A blazingly fast, minimal Zig-based game engine that empowers developers t",
+ "repos": [
+  {
+   "repo": "nyon-game",
+   "url": "https://github.com/donaldfilimon/nyon-game",
+   "sha": "f6920b56be3da1a11e0352eaa9253f75922e0e39",
+   "licence": "Apache-2.0 (LICENSE file at pin f6920b56be3d, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T06:47Z",
+    "consent_receipt": "56fdcd75625c",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T06:47Z (receipt 56fdcd75625c); pinned to the default-branch head. LICENSE file at pin f6920b56be3d detected as Apache-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

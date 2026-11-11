@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agent-skills, ai-agents, claude-code queries this for how sebabottero/ai-setup implements it: Guardrails + token savings for Claude Code, OpenCode & Codex: asks before git push/rm -rf, picks the right model, warns when context gets co (selected work: core/guard, tests, core)",
+ "domain": "an agent working on agent-skills, ai-agents, claude-code queries this for how sebabottero/ai-setup implements it: Make AI coding agents ask before hard-to-undo actions, and cover a 6-step cycle: decide, guardrails, build, review, human gate, learn. Claud (selected work: core/guard, tests, core)",
  "repos": [
   {
    "repo": "ai-setup",

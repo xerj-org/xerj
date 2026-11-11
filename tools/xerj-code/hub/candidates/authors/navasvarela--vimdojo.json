@@ -1,0 +1,23 @@
+{
+ "corpus": "navasvarela--vimdojo",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on game, learning, lua queries this for how navasvarela/vimdojo implements it: A Vim puzzle game in real Neovim: learn motions, workflows and your own init.lua, scored on keystrokes against par. Daily challenge in the b (selected work: web, lua)",
+ "repos": [
+  {
+   "repo": "vimdojo",
+   "url": "https://github.com/navasvarela/vimdojo",
+   "sha": "2bd0cad2342d33611989c44a76ac842130e04d89",
+   "licence": "MIT (LICENSE file at pin 2bd0cad2342d, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T23:09Z",
+    "consent_receipt": "ca0cbb653545",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T23:09Z (receipt ca0cbb653545); selected commit 2bd0cad2342d: \"Site menu, first-visit start, and other quick wins (#55)\". LICENSE file at pin 2bd0cad2342d detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

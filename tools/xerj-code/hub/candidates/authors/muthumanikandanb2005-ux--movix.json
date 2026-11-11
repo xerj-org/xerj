@@ -2,21 +2,21 @@
  "corpus": "muthumanikandanb2005-ux--movix",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on TypeScript queries this for how muthumanikandanb2005-ux/Movix implements it: muthumanikandanb2005-ux/Movix (TypeScript)",
+ "shelf": "WEB",
+ "domain": "an agent working on admob, android-app, apk queries this for how muthumanikandanb2005-ux/Movix implements it: \ud83c\udfac MOVIX - High-Speed 4K Movie & Series Streaming App for Android, Windows & Mac with Universal Multi-Language Regional Audio (Hindi, Tamil, ",
  "repos": [
   {
    "repo": "Movix",
    "url": "https://github.com/muthumanikandanb2005-ux/Movix",
-   "sha": "d041688e746de05482d777d935c37739538dffd1",
-   "licence": "author's permission (LICENSE at pin d041688e746d: NONE; repository: none)",
+   "sha": "ced9698feb94d0d0a939a9cb585ee544be66de40",
+   "licence": "author's permission (LICENSE at pin ced9698feb94: NONE; repository: none)",
    "review": {
     "spdx": "NONE",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T02:25Z",
     "consent_receipt": "a7217a0a5145",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T02:25Z (receipt a7217a0a5145); pinned to the default-branch head. LICENSE at pin d041688e746d: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T02:25Z (receipt a7217a0a5145); pinned to the default-branch head. LICENSE at pin ced9698feb94: NONE (repository: none); used with the author's permission, with attribution."
    }
   }
  ]

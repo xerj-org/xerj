@@ -8,15 +8,15 @@
   {
    "repo": "OffsideBOT",
    "url": "https://github.com/evangelionxyz/OffsideBOT",
-   "sha": "6ee4c02f20318b02b0c0e142b52c65113b663f75",
-   "licence": "Apache-2.0 (LICENSE file at pin 6ee4c02f2031, GitHub licence API 2026-11-09)",
+   "sha": "1f6e5cc1ee4de7f6d6fb0b19635811e38309158e",
+   "licence": "Apache-2.0 (LICENSE file at pin 1f6e5cc1ee4d, GitHub licence API 2026-11-11)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-01T09:29Z",
     "consent_receipt": "601b2f6a5051",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T09:29Z (receipt 601b2f6a5051); pinned to the default-branch head. LICENSE file at pin 6ee4c02f2031 detected as Apache-2.0 by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T09:29Z (receipt 601b2f6a5051); pinned to the default-branch head. LICENSE file at pin 1f6e5cc1ee4d detected as Apache-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution."
    }
   }
  ]

@@ -1,0 +1,23 @@
+{
+ "corpus": "cr8297408--boilerplate-serverless-nest",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how cr8297408/boilerplate-serverless-nest implements it: cr8297408/boilerplate-serverless-nest (TypeScript)",
+ "repos": [
+  {
+   "repo": "boilerplate-serverless-nest",
+   "url": "https://github.com/cr8297408/boilerplate-serverless-nest",
+   "sha": "30f8bee94035f4619045509284156b9a7fb8eaf1",
+   "licence": "author's permission (LICENSE at pin 30f8bee94035: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T21:16Z",
+    "consent_receipt": "ba9441414b03",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T21:16Z (receipt ba9441414b03); pinned to the default-branch head. LICENSE at pin 30f8bee94035: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

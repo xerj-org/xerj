@@ -1,0 +1,27 @@
+{
+ "corpus": "include-xb--luopulse-adornment",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on game, gdscript, godot queries this for how include-xb/LuoPulse_Adornment implements it: \u4e2d\u6587\u865a\u62df\u6b4c\u624b\u540c\u4eba\u97f3\u4e50\u6e38\u620f A fan-made rhythm game about Chinese virtual singers (selected work: Script, the project root)",
+ "repos": [
+  {
+   "repo": "LuoPulse_Adornment",
+   "url": "https://github.com/include-xb/LuoPulse_Adornment",
+   "sha": "75980f572899b06599bb357abc445c347f36c68a",
+   "licence": "AGPL-3.0 (LICENSE file at pin 75980f572899, GitHub licence API 2026-11-03)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-03T14:57Z",
+    "consent_receipt": "266bc2714081",
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T14:57Z (receipt 266bc2714081); selected commit 75980f572899: \"feat: \u652f\u6301\u8d44\u6e90\u66f4\u65b0\u68c0\u67e5\". LICENSE file at pin 75980f572899 detected as AGPL-3.0 by the GitHub licence API on 2026-11-03; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @include-xb, who has not added it."
+   },
+   "paths": [
+    "Script/GameManager",
+    "Script/Ui/Widget"
+   ]
+  }
+ ]
+}

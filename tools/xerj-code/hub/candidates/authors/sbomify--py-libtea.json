@@ -1,0 +1,29 @@
+{
+ "corpus": "sbomify--py-libtea",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how sbomify/py-libtea implements it: Transparency Exchange API (TEA) client and library for Python (selected work: src/libtea, tests)",
+ "repos": [
+  {
+   "repo": "py-libtea",
+   "url": "https://github.com/sbomify/py-libtea",
+   "sha": "2c0619a23a48b0d0a5678a71119d5974456f0cf4",
+   "licence": "Apache-2.0 (LICENSE file at pin 2c0619a23a48, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T09:41Z",
+    "consent_receipt": "05a5e7256c02",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T09:41Z (receipt 05a5e7256c02); selected commit 2c0619a23a48: \"fix: discovery failover, legacy pagination offsets, model round-trips\u2026\". LICENSE file at pin 2c0619a23a48 detected as Apache-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @sbomify, who has not added it."
+   },
+   "paths": [
+    "src/libtea",
+    "tests/cli",
+    "tests/client",
+    "tests/unit"
+   ]
+  }
+ ]
+}

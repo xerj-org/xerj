@@ -1,0 +1,23 @@
+{
+ "corpus": "h0ffmann--forecast-energy-demand",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on energy-consumption, forecasting, machine-learning queries this for how h0ffmann/forecast-energy-demand implements it: forecasting algorithms applied to hourly electricity",
+ "repos": [
+  {
+   "repo": "forecast-energy-demand",
+   "url": "https://github.com/h0ffmann/forecast-energy-demand",
+   "sha": "a9a35ee4223037469c0ed35b22ecf510417de86e",
+   "licence": "author's permission (LICENSE at pin a9a35ee42230: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T01:57Z",
+    "consent_receipt": "16182a1154bd",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T01:57Z (receipt 16182a1154bd); pinned to the default-branch head. LICENSE at pin a9a35ee42230: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

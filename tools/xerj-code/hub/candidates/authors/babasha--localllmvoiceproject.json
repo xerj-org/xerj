@@ -1,0 +1,23 @@
+{
+ "corpus": "babasha--localllmvoiceproject",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Rust queries this for how babasha/LocalLLMVoiceProject implements it: babasha/LocalLLMVoiceProject (Rust) (selected work: crates/voice-core, the project root, ui)",
+ "repos": [
+  {
+   "repo": "LocalLLMVoiceProject",
+   "url": "https://github.com/babasha/LocalLLMVoiceProject",
+   "sha": "e6c993107d0611aa17973e91d8c841ad265b5293",
+   "licence": "MIT (LICENSE file at pin e6c993107d06, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T00:47Z",
+    "consent_receipt": "2b13854dbb03",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T00:47Z (receipt 2b13854dbb03); selected commit e6c993107d06: \"up\". LICENSE file at pin e6c993107d06 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

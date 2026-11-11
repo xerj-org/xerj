@@ -1,0 +1,23 @@
+{
+ "corpus": "senvor--tapdish",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how Senvor/Tapdish implements it: Tap what you crave, we\u2019ll handle the rest (selected work: public, the project root)",
+ "repos": [
+  {
+   "repo": "Tapdish",
+   "url": "https://github.com/Senvor/Tapdish",
+   "sha": "d663fad089ec3285597c1171414c4c4e7f454bfa",
+   "licence": "MIT (LICENSE file at pin d663fad089ec, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T07:07Z",
+    "consent_receipt": "e91cfd332f7a",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T07:07Z (receipt e91cfd332f7a); selected commit d663fad089ec: \"feat: initialize project with Express server and menu data\". LICENSE file at pin d663fad089ec detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

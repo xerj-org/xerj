@@ -1,0 +1,23 @@
+{
+ "corpus": "longtmb2003--desktop-pet",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how longtmb2003/desktop-pet implements it: longtmb2003/desktop-pet (Python) (selected work: mochi, tests, scripts)",
+ "repos": [
+  {
+   "repo": "desktop-pet",
+   "url": "https://github.com/longtmb2003/desktop-pet",
+   "sha": "f2446e4a868492be9cb6373565613f8c856ebd1a",
+   "licence": "MIT (LICENSE file at pin f2446e4a8684, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T10:29Z",
+    "consent_receipt": "266495377345",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T10:29Z (receipt 266495377345); selected commit f2446e4a8684: \"feat: Catppuccin dark UI, alarm snooze, timezone support, cross-platf\u2026\". LICENSE file at pin f2446e4a8684 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

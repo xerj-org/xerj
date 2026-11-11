@@ -1,0 +1,27 @@
+{
+ "corpus": "litedb-org--litedb",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on nosql, database, dotnet queries this for how litedb-org/LiteDB implements it: LiteDB - A .NET NoSQL Document Store in a single data file (selected work: LiteDB.Tests, LiteDB)",
+ "repos": [
+  {
+   "repo": "LiteDB",
+   "url": "https://github.com/litedb-org/LiteDB",
+   "sha": "614f06affe3990d3ad27faea5ba4e20b6a5c775b",
+   "licence": "MIT (LICENSE file at pin 614f06affe39, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T20:28Z",
+    "consent_receipt": "5ee60e0274dd",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T20:28Z (receipt 5ee60e0274dd); selected commit 614f06affe39: \"Translate unary minus and bitwise complement in LINQ queries (#2971)\". LICENSE file at pin 614f06affe39 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @litedb-org, who has not added it."
+   },
+   "paths": [
+    "LiteDB.Tests/Issues",
+    "LiteDB/Client/Mapper/Linq"
+   ]
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "amitkvint--atlasti-guided-coding",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how amitkvint/atlasti-guided-coding implements it: Claude Skill for guided qualitative coding in ATLAS.ti over MCP: the AI suggests from the live codebook, the researcher decides, the AI writ (selected work: scripts, the project root)",
+ "repos": [
+  {
+   "repo": "atlasti-guided-coding",
+   "url": "https://github.com/amitkvint/atlasti-guided-coding",
+   "sha": "a45314abc2d0c0213adbc771d8ceb862cd0c6136",
+   "licence": "MIT (LICENSE file at pin a45314abc2d0, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T17:37Z",
+    "consent_receipt": "c34c5f5ace56",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T17:37Z (receipt c34c5f5ace56); selected commit a45314abc2d0: \"1.2.0: split close-out and tool behaviour into reference files, add h\u2026\". LICENSE file at pin a45314abc2d0 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

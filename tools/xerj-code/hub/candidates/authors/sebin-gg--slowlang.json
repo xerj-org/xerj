@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on interpreter, programming-language, college-of-engineering-chengannur queries this for how sebin-gg/slowlang implements it: \ud83d\udc22 TortoiseLang - A programming language that enforces slow typing. Type too fast and get angry turtle ASCII feedback!",
+ "domain": "an agent working on interpreter, programming-language, college-of-engineering-chengannur queries this for how sebin-gg/slowlang implements it: SlowLang: a Python-based esolang that enforces a 30 WPM typing cap - angry ASCII turtle, rage lockouts, haiku errors. Winner, TinkerHub Usel",
  "repos": [
   {
    "repo": "slowlang",

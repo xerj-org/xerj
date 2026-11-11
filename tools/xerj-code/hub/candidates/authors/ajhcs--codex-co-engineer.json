@@ -1,0 +1,23 @@
+{
+ "corpus": "ajhcs--codex-co-engineer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on codex, codex-cli, codex-plugin queries this for how ajhcs/Codex-Co-Engineer implements it: Open-source MCP supervisor for Codex to delegate, monitor, and manage Grok, Cursor, and DeepSeek coding agents",
+ "repos": [
+  {
+   "repo": "Codex-Co-Engineer",
+   "url": "https://github.com/ajhcs/Codex-Co-Engineer",
+   "sha": "2907aa41baa9bfbcc4c7342b83d929a4ae8544aa",
+   "licence": "MIT (LICENSE file at pin 2907aa41baa9, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-10T23:53Z",
+    "consent_receipt": "d16c0cc29f20",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T23:53Z (receipt d16c0cc29f20); pinned to the default-branch head. LICENSE file at pin 2907aa41baa9 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

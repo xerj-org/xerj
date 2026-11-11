@@ -1,0 +1,23 @@
+{
+ "corpus": "linoleic--bitlockerdroid",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, bitlocker queries this for how Linoleic/BitLockerDroid implements it: A native Android application to unlock, browse, read, and write Microsoft BitLocker encrypted drives (NTFS, FAT32, exFAT) on mobile devices (selected work: app/src, native, app)",
+ "repos": [
+  {
+   "repo": "BitLockerDroid",
+   "url": "https://github.com/Linoleic/BitLockerDroid",
+   "sha": "e3680e5a04f3e64c7fdac52f96fe895f86f71078",
+   "licence": "GPL-2.0 (LICENSE file at pin e3680e5a04f3, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-11T03:25Z",
+    "consent_receipt": "690f39ed7f7f",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T03:25Z (receipt 690f39ed7f7f); selected commit e3680e5a04f3: \"feat(smart): format raw telemetry as S.M.A.R.T. attribute table and h\u2026\". LICENSE file at pin e3680e5a04f3 detected as GPL-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

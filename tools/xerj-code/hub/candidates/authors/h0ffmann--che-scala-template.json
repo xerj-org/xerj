@@ -1,0 +1,23 @@
+{
+ "corpus": "h0ffmann--che-scala-template",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Shell queries this for how h0ffmann/che-scala-template implements it: che test",
+ "repos": [
+  {
+   "repo": "che-scala-template",
+   "url": "https://github.com/h0ffmann/che-scala-template",
+   "sha": "efa3266169bb6dc93d84c1118f50ca8bf50f370c",
+   "licence": "MIT (LICENSE file at pin efa3266169bb, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T01:57Z",
+    "consent_receipt": "7860e8f7f96e",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T01:57Z (receipt 7860e8f7f96e); pinned to the default-branch head. LICENSE file at pin efa3266169bb detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

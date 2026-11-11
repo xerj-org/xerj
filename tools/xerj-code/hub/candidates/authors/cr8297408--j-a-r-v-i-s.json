@@ -1,0 +1,23 @@
+{
+ "corpus": "cr8297408--j-a-r-v-i-s",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how cr8297408/J.A.R.V.I.S implements it: Just A Rather Very Intelligent System",
+ "repos": [
+  {
+   "repo": "J.A.R.V.I.S",
+   "url": "https://github.com/cr8297408/J.A.R.V.I.S",
+   "sha": "68d14b47b0cda895fce5516aaba8210d9c364531",
+   "licence": "author's permission (LICENSE at pin 68d14b47b0cd: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T21:16Z",
+    "consent_receipt": "dc0b7e38d65e",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T21:16Z (receipt dc0b7e38d65e); pinned to the default-branch head. LICENSE at pin 68d14b47b0cd: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

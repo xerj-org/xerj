@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agentic-coding, code-translation, cuda queries this for how h0ffmann/chaceon implements it: CPU/GPU wave modeling in pure agentic rust",
+ "domain": "an agent working on agentic-coding, code-translation, gpu queries this for how h0ffmann/chaceon implements it: CPU/GPU wave modeling in pure agentic rust",
  "repos": [
   {
    "repo": "chaceon",
    "url": "https://github.com/h0ffmann/chaceon",
-   "sha": "0c098fe1b039b3d235bbfef505ba4ce0c7b21445",
-   "licence": "MPL-2.0 (LICENSE file at pin 0c098fe1b039, GitHub licence API 2026-11-10)",
+   "sha": "89a11e465a7c6bfccf2d117533f217c9c9c879c7",
+   "licence": "MPL-2.0 (LICENSE file at pin 89a11e465a7c, GitHub licence API 2026-11-11)",
    "review": {
     "spdx": "MPL-2.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-11-10T15:11Z",
     "consent_receipt": "83597d5e03d1",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T15:11Z (receipt 83597d5e03d1); pinned to the default-branch head. LICENSE file at pin 0c098fe1b039 detected as MPL-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T15:11Z (receipt 83597d5e03d1); pinned to the default-branch head. LICENSE file at pin 89a11e465a7c detected as MPL-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution."
    }
   }
  ]

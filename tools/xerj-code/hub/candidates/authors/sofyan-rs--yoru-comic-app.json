@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Dart queries this for how sofyan-rs/yoru-comic-app implements it: Read Comic App (selected work: lib/features, test, lib/core)",
+ "domain": "an agent working on Java queries this for how sofyan-rs/yoru-comic-app implements it: Read Comic App (selected work: lib/features, test, lib/core)",
  "repos": [
   {
    "repo": "bacakomik-app-flutter",

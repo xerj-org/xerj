@@ -1,0 +1,23 @@
+{
+ "corpus": "donaldfilimon--cell-lang",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Zig queries this for how donaldfilimon/cell-lang implements it: Cell: a systems language combining Rust ownership, Swift value/reference ergonomics, and Zig explicit control, compiled to a C ABI. Zig-host",
+ "repos": [
+  {
+   "repo": "cell-lang",
+   "url": "https://github.com/donaldfilimon/cell-lang",
+   "sha": "49c144d72f18259b0caa5178ff8ca1c92320c48a",
+   "licence": "MIT (LICENSE file at pin 49c144d72f18, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T06:47Z",
+    "consent_receipt": "ded2bd5e3196",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T06:47Z (receipt ded2bd5e3196); pinned to the default-branch head. LICENSE file at pin 49c144d72f18 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

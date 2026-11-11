@@ -1,0 +1,23 @@
+{
+ "corpus": "donaldfilimon--mfs",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Zig queries this for how donaldfilimon/mfs implements it: donaldfilimon/mfs (Zig)",
+ "repos": [
+  {
+   "repo": "mfs",
+   "url": "https://github.com/donaldfilimon/mfs",
+   "sha": "974424bbb30690f4754a09adddf26df68484a107",
+   "licence": "Apache-2.0 (LICENSE file at pin 974424bbb306, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T06:47Z",
+    "consent_receipt": "7f31be3126ad",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T06:47Z (receipt 7f31be3126ad); pinned to the default-branch head. LICENSE file at pin 974424bbb306 detected as Apache-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

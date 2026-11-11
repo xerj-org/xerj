@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "HEALTH",
- "domain": "an agent working on bioinformatics, cli, clinvar queries this for how genokeeper/genokeeper implements it: Local, privacy-first analyser for your own whole genome sequencing (WGS) data: FASTQ to GRCh38 calls with DeepVariant on your Mac, graded ag (selected work: tests, src/genokeeper)",
+ "domain": "an agent working on bioinformatics, cli, clinvar queries this for how genokeeper/genokeeper implements it: Local, privacy-first analyser for your own whole-genome sequencing data: FASTQ to GRCh38 calls with DeepVariant on your own machine, graded  (selected work: tests, src/genokeeper)",
  "repos": [
   {
    "repo": "genokeeper",

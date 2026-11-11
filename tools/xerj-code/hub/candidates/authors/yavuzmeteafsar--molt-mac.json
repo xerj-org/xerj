@@ -2,8 +2,8 @@
  "corpus": "yavuzmeteafsar--molt-mac",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Swift queries this for how yavuzmeteafsar/molt-mac implements it: Native macOS file converter, powered by Filee (selected work: Sources, the project root)",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on appkit, apple-silicon, file-converter queries this for how yavuzmeteafsar/molt-mac implements it: Native macOS file converter, powered by Filee (selected work: Sources, the project root)",
  "repos": [
   {
    "repo": "molt-mac",

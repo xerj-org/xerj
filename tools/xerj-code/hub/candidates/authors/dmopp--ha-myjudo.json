@@ -8,15 +8,15 @@
   {
    "repo": "ha-myjudo",
    "url": "https://github.com/dMopp/ha-myjudo",
-   "sha": "d1ce817ccbaf5bf1bf5357a314ae4b3fc6b190c6",
-   "licence": "MIT (LICENSE file at pin d1ce817ccbaf, GitHub licence API 2026-11-04)",
+   "sha": "d509277747b37384a7fc8d869a0fb97af5ebd3ae",
+   "licence": "MIT (LICENSE file at pin d509277747b3, GitHub licence API 2026-11-11)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-30T20:24Z",
     "consent_receipt": "2638df869211",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T20:24Z (receipt 2638df869211); pinned to the default-branch head. LICENSE file at pin d1ce817ccbaf detected as MIT by the GitHub licence API on 2026-11-04; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T20:24Z (receipt 2638df869211); pinned to the default-branch head. LICENSE file at pin d509277747b3 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
    }
   }
  ]

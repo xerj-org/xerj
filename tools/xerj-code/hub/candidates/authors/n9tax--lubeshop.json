@@ -1,0 +1,23 @@
+{
+ "corpus": "n9tax--lubeshop",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how n9tax/lubeshop implements it: An easy to use terminal user interface for the Greaseweazle disk imaging system (selected work: crates/gwm-tui)",
+ "repos": [
+  {
+   "repo": "lubeshop",
+   "url": "https://github.com/n9tax/lubeshop",
+   "sha": "2775bebbb9ea9139c8b6730d6d676ac1ebd6d0da",
+   "licence": "GPL-3.0 (LICENSE file at pin 2775bebbb9ea, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-10T22:50Z",
+    "consent_receipt": "eee30d80a501",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T22:50Z (receipt eee30d80a501); selected commit 2775bebbb9ea: \"Insert several files into a disk image at once\". LICENSE file at pin 2775bebbb9ea detected as GPL-3.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

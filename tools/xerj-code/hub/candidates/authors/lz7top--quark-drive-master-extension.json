@@ -1,0 +1,23 @@
+{
+ "corpus": "lz7top--quark-drive-master-extension",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how LZ7TOP/quark-drive-master-extension implements it: \u4e13\u4e3a\u5938\u514b\u7f51\u76d8\u6253\u9020\u7684\u5168\u80fd\u81ea\u52a8\u5316\u7ba1\u7406\u52a9\u624b \u00b7 \u6279\u91cf\u91cd\u547d\u540d \u00b7 \u6279\u91cf\u5220\u9664 \u00b7 \u5feb\u6377\u65b0\u5efa\u6587\u4ef6\u5939 \u00b7 CSV\u4ea4\u4e92 \u00b7 \u5386\u53f2\u64a4\u9500 (selected work: src/content, public, src/background)",
+ "repos": [
+  {
+   "repo": "quark-drive-master-extension",
+   "url": "https://github.com/LZ7TOP/quark-drive-master-extension",
+   "sha": "bdbe75be33501f64cf98994639ac22e0d0c00387",
+   "licence": "MIT (LICENSE file at pin bdbe75be3350, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T08:50Z",
+    "consent_receipt": "277c5b3ad8dc",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T08:50Z (receipt 277c5b3ad8dc); selected commit bdbe75be3350: \"feat: \u5168\u91cf\u5347\u7ea7\u5206\u4eab\u5168\u751f\u547d\u5468\u671f\u3001\u5168\u76d8\u68c0\u7d22\u3001\u6279\u91cf\u79fb\u52a8\u3001\u76f4\u94fe\u5bfc\u51fa\u4e0e\u8d26\u53f7\u5bb9\u91cf\u76d1\u63a7 v3.5.0\". LICENSE file at pin bdbe75be3350 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

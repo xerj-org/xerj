@@ -1,0 +1,23 @@
+{
+ "corpus": "h0ffmann--predictive-content",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how h0ffmann/predictive-content implements it: h0ffmann/predictive-content (Python)",
+ "repos": [
+  {
+   "repo": "predictive-content",
+   "url": "https://github.com/h0ffmann/predictive-content",
+   "sha": "6b1a96d0e4336dcd64e01a587959f66a24a4fe0a",
+   "licence": "author's permission (LICENSE at pin 6b1a96d0e433: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T01:57Z",
+    "consent_receipt": "ea1ecbed405b",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T01:57Z (receipt ea1ecbed405b); pinned to the default-branch head. LICENSE at pin 6b1a96d0e433: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

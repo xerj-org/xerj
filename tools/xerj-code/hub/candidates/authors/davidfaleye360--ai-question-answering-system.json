@@ -1,0 +1,23 @@
+{
+ "corpus": "davidfaleye360--ai-question-answering-system",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how Davidfaleye360/AI-Question-Answering-System implements it: Extractive question answering with DistilBERT on SQuAD 2.0 (CSCI 390 course project) (selected work: src, results, tests)",
+ "repos": [
+  {
+   "repo": "AI-Question-Answering-System",
+   "url": "https://github.com/Davidfaleye360/AI-Question-Answering-System",
+   "sha": "2dc19a20a3be3fc642d208bf8b4d5911ea714438",
+   "licence": "MIT (LICENSE file at pin 2dc19a20a3be, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T16:01Z",
+    "consent_receipt": "78ad529f090b",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T16:01Z (receipt 78ad529f090b); selected commit 2dc19a20a3be: \"T10: Long-document mode, tested on three whole articles\". LICENSE file at pin 2dc19a20a3be detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution. Pinned to head 2dc19a20a3be (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

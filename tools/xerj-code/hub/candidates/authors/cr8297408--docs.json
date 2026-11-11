@@ -1,0 +1,23 @@
+{
+ "corpus": "cr8297408--docs",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on MDX queries this for how cr8297408/docs implements it: cr8297408/docs (MDX)",
+ "repos": [
+  {
+   "repo": "docs",
+   "url": "https://github.com/cr8297408/docs",
+   "sha": "472ba61da534886dc071e8540c24915319215e62",
+   "licence": "author's permission (LICENSE at pin 472ba61da534: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T21:16Z",
+    "consent_receipt": "e1c1bae5a406",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T21:16Z (receipt e1c1bae5a406); pinned to the default-branch head. LICENSE at pin 472ba61da534: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

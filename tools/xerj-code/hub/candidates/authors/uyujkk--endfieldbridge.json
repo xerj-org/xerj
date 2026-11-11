@@ -1,0 +1,23 @@
+{
+ "corpus": "uyujkk--endfieldbridge",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on C# queries this for how uyujkk/EndfieldBridge implements it: Experimental Windows GUI launch bridge for Endfield with Chinese/English UI and optional XXMI/EFMI integration. Account-ban risk; no safety  (selected work: packaging, src, scripts)",
+ "repos": [
+  {
+   "repo": "EndfieldBridge",
+   "url": "https://github.com/uyujkk/EndfieldBridge",
+   "sha": "c9783fc81da535b44d697fbe4cda78fb08bfcc1d",
+   "licence": "AGPL-3.0 (LICENSE file at pin c9783fc81da5, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-11T05:55Z",
+    "consent_receipt": "ca7e4cfc8e37",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T05:55Z (receipt ca7e4cfc8e37); selected commit c9783fc81da5: \"Bundle runtime and organize release folders with legacy data migration\". LICENSE file at pin c9783fc81da5 detected as AGPL-3.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

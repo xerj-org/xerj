@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "SEC",
- "domain": "an agent working on JavaScript queries this for how gravion-ux/web-security-labs implements it: Hands-on OWASP Top 10 web security labs with vulnerable code, payloads, and remediation notes",
+ "domain": "an agent working on appsec, ethical-hacking, infosec queries this for how gravion-ux/web-security-labs implements it: Hands-on OWASP Top 10 web security labs with vulnerable code, payloads, and remediation notes",
  "repos": [
   {
    "repo": "web-security-labs",

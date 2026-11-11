@@ -1,0 +1,23 @@
+{
+ "corpus": "caucolabs--rea-vscode",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how CAUCOLabs/rea-vscode implements it: A Visual Studio Code extension integrating the REA reverse engineering engine through MCP, bringing inspection, analysis, and automation too (selected work: src/views, src/mcp, media)",
+ "repos": [
+  {
+   "repo": "rea-vscode",
+   "url": "https://github.com/CAUCOLabs/rea-vscode",
+   "sha": "7137cdc17fb02de94a578fab1723f036f607d859",
+   "licence": "MIT (LICENSE file at pin 7137cdc17fb0, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T06:10Z",
+    "consent_receipt": "2c80e0de546b",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T06:10Z (receipt 2c80e0de546b); selected commit 7137cdc17fb0: \"feat: integrate AI-assisted web reconstruction workflow\". LICENSE file at pin 7137cdc17fb0 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

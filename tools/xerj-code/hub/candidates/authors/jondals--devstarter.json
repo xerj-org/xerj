@@ -1,0 +1,23 @@
+{
+ "corpus": "jondals--devstarter",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how Jondals/DevStarter implements it: VS Code extension that sets up any project in a few clicks, even for people who have never programmed. 24 templates and 54 libraries. It ins (selected work: media, src/templates, src)",
+ "repos": [
+  {
+   "repo": "DevStarter",
+   "url": "https://github.com/Jondals/DevStarter",
+   "sha": "811f9401918d5064d7fcd2988d8cc8b416ba9601",
+   "licence": "MIT (LICENSE file at pin 811f9401918d, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T21:38Z",
+    "consent_receipt": "1c25a2c9d1e8",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T21:38Z (receipt 1c25a2c9d1e8); selected commit 811f9401918d: \"1.1.0 Simple beginner mode, logos, more stacks and GitHub in one click\". LICENSE file at pin 811f9401918d detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

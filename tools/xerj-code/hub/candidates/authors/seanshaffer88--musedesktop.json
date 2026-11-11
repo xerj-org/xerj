@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on desktop-app, dotnet, muse queries this for how SeanShaffer88/MuseDesktop implements it: A Windows desktop home for Muse \u2014 multiple windows and profiles, three window layouts, everything stored locally (selected work: src/MuseDesktop.Core)",
+ "domain": "an agent working on desktop-app, dotnet, muse queries this for how SeanShaffer88/MuseDesktop implements it: A Windows 11 x64 desktop home for Muse \u2014 independent Dual chats, multiple profiles, native window layouts and local-only preferences (selected work: src/MuseDesktop.Core)",
  "repos": [
   {
    "repo": "MuseDesktop",

@@ -1,0 +1,23 @@
+{
+ "corpus": "flashboss--alfresco-tests-parent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Java queries this for how flashboss/alfresco-tests-parent implements it: Alfresco tests",
+ "repos": [
+  {
+   "repo": "alfresco-tests-parent",
+   "url": "https://github.com/flashboss/alfresco-tests-parent",
+   "sha": "06ad191697edd1d98569be20c0a32eaa58c96586",
+   "licence": "author's permission (LICENSE at pin 06ad191697ed: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T07:36Z",
+    "consent_receipt": "90d4a0826819",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T07:36Z (receipt 90d4a0826819); pinned to the default-branch head. LICENSE at pin 06ad191697ed: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

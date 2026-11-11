@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Python queries this for how 4Raisan/PyPack implements it: PyPack \u2014 compact Python package search, installation, and environment maintenance (selected work: scripts, releases, tests)",
+ "domain": "an agent working on package-management, python queries this for how 4Raisan/PyPack implements it: PyPack \u2014 compact Python package search, installation, and environment maintenance (selected work: scripts, releases, tests)",
  "repos": [
   {
    "repo": "PyPack",

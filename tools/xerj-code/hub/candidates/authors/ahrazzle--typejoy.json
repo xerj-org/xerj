@@ -8,15 +8,15 @@
   {
    "repo": "typejoy",
    "url": "https://github.com/ahrazzle/typejoy",
-   "sha": "6b2f595eda541058855d49b8e8f563eb433d6294",
-   "licence": "MIT (LICENSE file at pin 6b2f595eda54, GitHub licence API 2026-10-28)",
+   "sha": "f731cc9021d71381c1f3b1bb517c946425e1cbf7",
+   "licence": "MIT (LICENSE file at pin f731cc9021d7, GitHub licence API 2026-11-11)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T20:06Z",
     "consent_receipt": "2aa956cea575",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T20:06Z (receipt 2aa956cea575); pinned to the default-branch head. LICENSE file at pin 6b2f595eda54 detected as MIT by the GitHub licence API on 2026-10-28; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T20:06Z (receipt 2aa956cea575); pinned to the default-branch head. LICENSE file at pin f731cc9021d7 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
    }
   }
  ]

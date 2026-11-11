@@ -1,0 +1,23 @@
+{
+ "corpus": "h0ffmann--hoffmagic",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on alembic, blogging, fastapi queries this for how h0ffmann/hoffmagic implements it: me + blog + over-engineering",
+ "repos": [
+  {
+   "repo": "hoffmagic",
+   "url": "https://github.com/h0ffmann/hoffmagic",
+   "sha": "f48d6e83f2cf4a90d430708267a44b7f38f91a1f",
+   "licence": "author's permission (LICENSE at pin f48d6e83f2cf: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T01:57Z",
+    "consent_receipt": "5ed038eb960b",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T01:57Z (receipt 5ed038eb960b); pinned to the default-branch head. LICENSE at pin f48d6e83f2cf: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

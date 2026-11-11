@@ -1,0 +1,30 @@
+{
+ "corpus": "assertj--assertj",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on java, typed-assertions, testing queries this for how assertj/assertj implements it: Fluent testing assertions for Java and the JVM (selected work: assertj-tests, assertj-core)",
+ "repos": [
+  {
+   "repo": "assertj",
+   "url": "https://github.com/assertj/assertj",
+   "sha": "e276192308e0c99f369af1c2dc320c4abe331514",
+   "licence": "author's permission (LICENSE at pin e276192308e0: NOASSERTION; repository: Apache-2.0)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T06:11Z",
+    "consent_receipt": "420e1122e96d",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T06:11Z (receipt 420e1122e96d); selected commit e276192308e0: \"Add `isHidden` and `isNotHidden` to `Path` and `File` assertions (#4465)\". LICENSE at pin e276192308e0: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @assertj, who has not added it."
+   },
+   "paths": [
+    "assertj-core/src/main/java/org/assertj/core/api",
+    "assertj-core/src/main/java/org/assertj/core/error",
+    "assertj-tests/assertj-integration-tests/assertj-core-tests/src/test/java/org/assertj/tests/core/api/file",
+    "assertj-tests/assertj-integration-tests/assertj-core-tests/src/test/java/org/assertj/tests/core/api/path",
+    "assertj-tests/assertj-integration-tests/assertj-core-tests/src/test/java/org/assertj/tests/core/testkit"
+   ]
+  }
+ ]
+}

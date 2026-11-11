@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai, claude, context queries this for how code4161/memgit implements it: Git for AI memory \u2014 version-controlled context persistence across Claude, GPT, Gemini, Cursor, Windsurf, and more (selected work: memgit, tests)",
+ "domain": "an agent working on ai, claude, context queries this for how code4161/memgit implements it: One memory for Claude Code, Cursor and Codex on every machine. Imports Claude Code's own memory, versions every change, syncs end-to-end enc (selected work: memgit, tests)",
  "repos": [
   {
    "repo": "memgit",

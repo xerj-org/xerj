@@ -1,0 +1,23 @@
+{
+ "corpus": "kertonex--idemerax",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on data-integrity, devops, devsecops queries this for how kertonex/Idemerax implements it: \u2699\ufe0f Idemerax is a full-stack transaction processing platform inspired by financial systems. It explores distributed reliability challenges, f (selected work: frontend)",
+ "repos": [
+  {
+   "repo": "Idemerax",
+   "url": "https://github.com/kertonex/Idemerax",
+   "sha": "bb0b6446e1dedbe5f449e12b59d8340a9794545b",
+   "licence": "MIT (LICENSE file at pin bb0b6446e1de, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T19:38Z",
+    "consent_receipt": "1ed2e750d132",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T19:38Z (receipt 1ed2e750d132); selected commit bb0b6446e1de: \"feat: implement card management frontend\". LICENSE file at pin bb0b6446e1de detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

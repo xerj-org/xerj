@@ -1,0 +1,23 @@
+{
+ "corpus": "cr8297408--impostor-game-server",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how cr8297408/impostor-game-server implements it: cr8297408/impostor-game-server (JavaScript)",
+ "repos": [
+  {
+   "repo": "impostor-game-server",
+   "url": "https://github.com/cr8297408/impostor-game-server",
+   "sha": "c859be4579ccde7010f6f6b1a710c93ad361fffd",
+   "licence": "author's permission (LICENSE at pin c859be4579cc: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T21:16Z",
+    "consent_receipt": "ad167eab696e",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T21:16Z (receipt ad167eab696e); pinned to the default-branch head. LICENSE at pin c859be4579cc: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

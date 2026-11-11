@@ -1,0 +1,23 @@
+{
+ "corpus": "donaldfilimon--nyon",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how donaldfilimon/NYON implements it: donaldfilimon/NYON (Rust)",
+ "repos": [
+  {
+   "repo": "NYON",
+   "url": "https://github.com/donaldfilimon/NYON",
+   "sha": "d1f70150bc1c4ef7a1293a7da26564ce9da9e55e",
+   "licence": "author's permission (LICENSE at pin d1f70150bc1c: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T06:47Z",
+    "consent_receipt": "f28bd179f574",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T06:47Z (receipt f28bd179f574); pinned to the default-branch head. LICENSE at pin d1f70150bc1c: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

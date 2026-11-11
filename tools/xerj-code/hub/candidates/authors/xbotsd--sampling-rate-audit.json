@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Python queries this for how Xbotsd/sampling-rate-audit implements it: Official code and reproduction scripts for the paper \"Sampling Rate as an Influence Quantity: Invariance Orders and a Definition-Level Audit (selected work: src/leakage_audit, tests, examples)",
+ "domain": "an agent working on feature-engineering, metrology, physiological-signals queries this for how Xbotsd/sampling-rate-audit implements it: Reference implementation and per-record results for 'Sampling Rate as an Influence Quantity: A Paired Audit of Sampled-Signal Feature Defini (selected work: src/leakage_audit, tests, examples)",
  "repos": [
   {
    "repo": "sampling-rate-audit",

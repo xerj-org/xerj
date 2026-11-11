@@ -2,8 +2,8 @@
  "corpus": "gravion-ux--xerj-ipv6-rate-limit-fix",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on JavaScript queries this for how gravion-ux/xerj-ipv6-rate-limit-fix implements it: Patch for xerj-org/xerj Corpus Hub: rate-limit bucket keys must use the IPv6 /64 prefix, not the first four IPv6 fields",
+ "shelf": "SEC",
+ "domain": "an agent working on backend, bugfix, infrastructure queries this for how gravion-ux/xerj-ipv6-rate-limit-fix implements it: Patch for xerj-org/xerj Corpus Hub: rate-limit bucket keys must use the IPv6 /64 prefix, not the first four IPv6 fields",
  "repos": [
   {
    "repo": "xerj-ipv6-rate-limit-fix",

@@ -1,0 +1,27 @@
+{
+ "corpus": "sovis-team--soundvisualizer-windows",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on audio-visualizer, csharp, dotnet queries this for how SOVIS-Team/SoundVisualizer-Windows implements it: Visualize the unseen sounds. Start a new experience from gaming to movies (selected work: SoundVisualizer.Core, SoundVisualizer)",
+ "repos": [
+  {
+   "repo": "SoundVisualizer-Windows",
+   "url": "https://github.com/SOVIS-Team/SoundVisualizer-Windows",
+   "sha": "ae6af328e8448dfcd0271ca2c50f4c11c8f515e8",
+   "licence": "AGPL-3.0 (LICENSE file at pin ae6af328e844, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-11T08:46Z",
+    "consent_receipt": "194d69dd668c",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T08:46Z (receipt 194d69dd668c); selected commit ae6af328e844: \"fix: \uc0c9 \uc120\ud0dd \ucc3d\uc758 \uc0ac\uac01\ud615\u00b7\ub9c9\ub300\u00b7\uc790\uc8fc \uc4f0\ub294 \uc0c9\uc744 \ud654\uba74 \uc77d\uc5b4\uc8fc\uae30\uac00 \uc77d\uac8c \ud55c\ub2e4\". LICENSE file at pin ae6af328e844 detected as AGPL-3.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @SOVIS-Team, who has not added it."
+   },
+   "paths": [
+    "SoundVisualizer",
+    "SoundVisualizer.Core/Localization/Strings"
+   ]
+  }
+ ]
+}
