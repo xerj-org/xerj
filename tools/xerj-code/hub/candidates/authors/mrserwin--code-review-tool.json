@@ -2,21 +2,21 @@
  "corpus": "mrserwin--code-review-tool",
  "cloned_at": null,
  "status": "draft",
- "shelf": "AI",
- "domain": "an agent working on ai-code-review, claude-code, code-review queries this for how MrSerWin/code-review-tool implements it: Local, read-only AI code review of branches and PRs against ticket requirements. Works with Claude Code, Codex, Cursor Agent and Grok; also  (selected work: src, src/routes)",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how MrSerWin/code-review-tool implements it: MrSerWin/code-review-tool (TypeScript) (selected work: web, src, src/trackers)",
  "repos": [
   {
    "repo": "code-review-tool",
    "url": "https://github.com/MrSerWin/code-review-tool",
-   "sha": "d01cb0658e1dd253ed68b7180c443a041b881ec1",
-   "licence": "MIT (LICENSE file at pin d01cb0658e1d, GitHub licence API 2026-11-11)",
+   "sha": "5b1b2af36ec23f9ab73df9385a9192fa3fb48bc5",
+   "licence": "MIT (LICENSE file at pin 5b1b2af36ec2, GitHub licence API 2026-10-24)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
-    "at": "2026-10-26T16:08Z",
-    "consent_receipt": "1cf960aa9158",
-    "note": "Inclusion consented by the commit author by email at 2026-10-26T16:08Z (receipt 1cf960aa9158); selected commit d01cb0658e1d: \"Start a child slice only after its parent's review ends\". LICENSE file at pin d01cb0658e1d detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+    "at": "2026-10-17T01:25Z",
+    "consent_receipt": "f0233ecc2047",
+    "note": "Inclusion consented by the commit author by email at 2026-10-17T01:25Z (receipt f0233ecc2047); selected commit 5b1b2af36ec2: \"added link to task. support task links\". LICENSE file at pin 5b1b2af36ec2 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
    }
   }
  ]
