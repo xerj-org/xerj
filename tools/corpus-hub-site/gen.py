@@ -1149,7 +1149,7 @@ PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
 <a href="{home}">CORPORA</a>
 <a href="{people}">CONTRIBUTORS</a>
 <a href="{rel}whats-this/">WHAT'S THIS?</a>
-<a href="{rel}llms.txt" title="The catalogue: every live corpus, one line each">CATALOGUE</a>
+<a href="{rel}catalogue/" title="The catalogue: every live corpus, one line each">CATALOGUE</a>
 <span class="spacer"></span>{search}<details class="authbox" id="hubauth" hidden></details><a class="navicon" href="https://x.com/xerj_org" title="XERJ on X" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg></a><a class="navicon" href="https://discord.com/invite/yetXFusXfs" title="XERJ on Discord" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.317 4.37a19.79 19.79 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.74 19.74 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 00-.041-.106 13.1 13.1 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.3 12.3 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.84 19.84 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg></a>{ghstars}<a href="https://xerj.org">XERJ.ORG</a><a href="{add}" class="navcta">ADD YOUR CORPUS</a></nav>
 {body}
 <footer><span>XERJ · CORPUS HUB · {stamp}</span>
@@ -1798,12 +1798,12 @@ def detail_body(c, g7, graded, impact, prov, contrib="", top=""):
                  f'No shell: the MCP tool <code>xerj_hub_ask</code> with <code>corpus: "{s}"</code>, '
                  f'once the pack is on the machine (a tool never downloads one). '
                  f'Not sure this is the right corpus? '
-                 f'<a href="../llms.txt">The catalogue</a> lists every one, a line each.</p></div>')
+                 f'<a href="../catalogue/">The catalogue</a> lists every one, a line each.</p></div>')
     else:
         # Nothing to ask: a pack exists only for a live, lane-A corpus.
         useit = (f'<div class="kbox"><b>Use it</b><br>'
                  f'<span class="note">This entry has no hub pack, so there is nothing to ask. '
-                 f'<a href="../llms.txt">The catalogue</a> lists the corpora that can be asked.</span></div>')
+                 f'<a href="../catalogue/">The catalogue</a> lists the corpora that can be asked.</span></div>')
     up = upstream_label(c)
     upline = f'<p class="crepo">{esc(up)}</p>\n' if up else ""
     return f'''<main>
@@ -1956,6 +1956,51 @@ better, not just yours.</p>
 <a href="https://github.com/xerj-org/xerj/blob/corpus-hub/tools/xerj-code/hub/CONTRIBUTING.md">CONTRIBUTING.md</a>.</p>
 </section>
 {COPY_JS}
+</main>'''
+
+
+def catalogue_fields(c, g7, graded, imp2):
+    """One live corpus as the catalogue shows it: the same fields in llms.txt (agents) and catalogue/ (people)."""
+    files, nbytes, licences = corpus_stats(c)
+    t = c.get("tags") or {}
+    g = graded.get(c["slug"])
+    r = imp2.get(c["slug"])
+    return {"up": upstream_label(c), "tags": "/".join(([t["region"]] if t.get("region") else []) + t.get("topics", [])),
+            "lic": "+".join(licences) or "?", "bytes": nbytes,
+            "g7": f"G7 {g['median']:.1f}/5" if g else (f"G7 {g7[c['slug']]['median']:.1f}/5" if c["slug"] in g7 else "G7 not yet graded"),
+            "ab": f"{r['p']} -> {r['x']}" if r and r.get("status") == "measured" else ""}
+
+
+# The CATALOGUE menu item (owner, 2026-11-10: it opened llms.txt, a plain-text file written for agents). The same
+# list as llms.txt, as a page: every live corpus one row each, then the contributed corpora by domain, then the
+# text indexes for agents.
+def catalogue_body(live, g7, graded, imp2, people):
+    rows = []
+    for c in live:
+        f = catalogue_fields(c, g7, graded, imp2)
+        rows.append(f'<tr><td><a href="../corpus/{esc(c["slug"])}">{esc(c["slug"])}</a></td><td>{esc(f["up"])}</td>'
+                    f'<td><a href="../category/{esc(c["cat"])}">{esc(c["cat"])}</a></td><td class="mono">{esc(f["lic"])}</td>'
+                    f'<td class="mono">{human_bytes(f["bytes"])}</td><td class="mono">{esc(f["g7"].replace("G7 not yet graded", "not yet graded"))}</td>'
+                    f'<td>{esc(plain(c["usecase"])[:160])}</td></tr>')
+    shelves = [(k, len(contributed_in(k, people))) for k in CATS]
+    n_contrib = sum(n for _, n in shelves)
+    shelf_links = " · ".join(f'<a href="../category/{esc(k)}#contributed">{esc(k)} {n:,}</a>' for k, n in shelves if n)
+    return f'''<main>
+<div class="kicker"><span class="accent">CATALOGUE</span><span class="dash">&middot;</span><span>EVERY LIVE CORPUS</span></div>
+<h1 class="hero" style="font-size:clamp(44px,6vw,var(--fs-96))">THE<br><span class="accent">CATALOGUE</span></h1>
+<p class="lead">{len(live):,} live corpora, one row each, pinned and licence-checked, plus {n_contrib:,} corpora contributed by
+their authors. Agents read the same list as text in <a href="../llms.txt">llms.txt</a>.</p>
+<section class="detail catalogue"><h2>Live corpora · {len(live):,}</h2>
+<p class="row"><input class="cfilter" type="search" placeholder="filter by corpus, source, domain or licence" aria-label="filter the catalogue"></p>
+<table class="mystars"><tr><th>corpus</th><th>source</th><th>domain</th><th>licence</th><th>size</th><th>G7</th><th>for</th></tr>{"".join(rows)}</table>
+<p class="note">G7 is 5 pre-registered queries, graded on the top 5 results.</p></section>
+<section class="detail"><h2>Contributed corpora · {n_contrib:,}</h2>
+<p>Repositories their authors agreed to share, listed on each domain page. {shelf_links}</p></section>
+<section class="detail"><h2>For agents</h2>
+<p><a href="../llms.txt">llms.txt</a> (the catalogue and how to ask it) · <a href="../llms-repos.txt">llms-repos.txt</a>
+(every pinned repository) · <a href="../llms-contributors.txt">llms-contributors.txt</a> (every contributor)</p></section>
+<script>(function(){{var i=document.querySelector('.cfilter'),rs=[].slice.call(document.querySelectorAll('.catalogue tr')).slice(1);
+i.addEventListener('input',function(){{var q=i.value.toLowerCase();rs.forEach(function(r){{r.hidden=q&&r.textContent.toLowerCase().indexOf(q)<0}})}})}})();</script>
 </main>'''
 
 
@@ -2171,18 +2216,10 @@ def main():
         "",
     ]
     for c in live:
-        files, nbytes, licences = corpus_stats(c)
-        t = c.get("tags") or {}
-        tags = "/".join(([t["region"]] if t.get("region") else []) + t.get("topics", []))
-        g = graded.get(c["slug"])
-        g7s = f"G7 {g['median']:.1f}/5" if g else (f"G7 {g7[c['slug']]['median']:.1f}/5" if c["slug"] in g7 else "G7 not yet graded")
-        ab = ""
-        r = imp2.get(c["slug"])
-        if r and r.get("status") == "measured":
-            ab = f"; agent A/B {r['p']} -> {r['x']}"
-        up = upstream_label(c)
-        who = f"{up} · " if up else ""
-        lines.append(f"- [{c['slug']}](https://hub.xerj.org/corpus/{c['slug']}): {who}{c['cat']} · {tags} · {'+'.join(licences) or '?'} · {human_bytes(nbytes)} · {g7s}{ab}; {plain(c['usecase'])[:160]}")
+        f = catalogue_fields(c, g7, graded, imp2)
+        who = f"{f['up']} · " if f["up"] else ""
+        ab = f"; agent A/B {f['ab']}" if f["ab"] else ""
+        lines.append(f"- [{c['slug']}](https://hub.xerj.org/corpus/{c['slug']}): {who}{c['cat']} · {f['tags']} · {f['lic']} · {human_bytes(f['bytes'])} · {f['g7']}{ab}; {plain(c['usecase'])[:160]}")
     lines += ["", "## Also in the registry", "",
               f"- {len(corpora) - len(live)} rows in candidate, planned, deferred, killed, or",
               "  withdrawn states (visible, not hidden: hub policy is honest statuses).",
@@ -2195,6 +2232,10 @@ def main():
               "- https://hub.xerj.org/llms-repos.txt: every repository a live corpus pins, with commit and licence.",
               "- https://hub.xerj.org/llms-contributors.txt: every contributor with a hub page."]
     (OUT / "llms.txt").write_text("\n".join(lines) + "\n")
+    (OUT / "catalogue").mkdir(exist_ok=True)
+    (OUT / "catalogue" / "index.html").write_text(page(
+        "Catalogue: every live corpus, XERJ Corpus Hub", f"All {len(live)} live corpora of the XERJ Corpus Hub, one row each, with source, licence and size",
+        catalogue_body(live, g7, graded, imp2, people), rel="../", path="/catalogue/", kind="CollectionPage"))
     (OUT / "llms-repos.txt").write_text(llms_repos(live))
     (OUT / "llms-contributors.txt").write_text(llms_contributors(people, {c["slug"] for c in live}))
     (OUT / f"{INDEXNOW_KEY}.txt").write_text(INDEXNOW_KEY)
