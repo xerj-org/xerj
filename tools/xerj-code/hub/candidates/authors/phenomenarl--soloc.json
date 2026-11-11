@@ -1,0 +1,27 @@
+{
+ "corpus": "phenomenarl--soloc",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how PhenomenaRL/soloc implements it: Enabling data that is spatiotemporally localized anywhere in Sol System (selected work: examples, crates/soloc-ledger)",
+ "repos": [
+  {
+   "repo": "soloc",
+   "url": "https://github.com/PhenomenaRL/soloc",
+   "sha": "514883ce12e0c8af8f8bcd1d269f833fb4cbb98a",
+   "licence": "Apache-2.0 (LICENSE file at pin 514883ce12e0, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T16:54Z",
+    "consent_receipt": "60c309b81047",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T16:54Z (receipt 60c309b81047); selected commit 514883ce12e0: \"feat: Indexed Lookup for Historical Queries in Ledger (#77)\". LICENSE file at pin 514883ce12e0 detected as Apache-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @PhenomenaRL, who has not added it."
+   },
+   "paths": [
+    "crates/soloc-ledger/src",
+    "examples/sim_study_0"
+   ]
+  }
+ ]
+}

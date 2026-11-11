@@ -8,15 +8,15 @@
   {
    "repo": "Common",
    "url": "https://github.com/esohns/Common",
-   "sha": "f96af1f845264a9554f6a0973c8676f9045600eb",
-   "licence": "author's permission (LICENSE at pin f96af1f84526: NOASSERTION; repository: LGPL-3.0)",
+   "sha": "64ca3bae3725643b8b5ab75366ac5c5e48c15e5c",
+   "licence": "author's permission (LICENSE at pin 64ca3bae3725: NOASSERTION; repository: LGPL-3.0)",
    "review": {
     "spdx": "NOASSERTION",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-28T19:13Z",
     "consent_receipt": "d638f1d4835a",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T19:13Z (receipt d638f1d4835a); pinned to the default-branch head. LICENSE at pin f96af1f84526: NOASSERTION (repository: LGPL-3.0); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T19:13Z (receipt d638f1d4835a); pinned to the default-branch head. LICENSE at pin 64ca3bae3725: NOASSERTION (repository: LGPL-3.0); used with the author's permission, with attribution."
    }
   }
  ]

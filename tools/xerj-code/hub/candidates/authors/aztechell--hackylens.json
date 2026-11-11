@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on c, computer-vision, embedded queries this for how aztechell/hackylens implements it: Modular open-source firmware for HUSKYLENS, built in C for the Kendryte K210 (selected work: tests, firmware, boards)",
+ "domain": "an agent working on c, computer-vision, embedded queries this for how aztechell/hackylens implements it: Open-source Kendryte K210 firmware for HUSKYLENS SEN0305 and Sipeed Maix Cube, with on-device computer vision, MicroPython, and a Web Serial (selected work: tests, firmware, boards)",
  "repos": [
   {
    "repo": "hackylens",

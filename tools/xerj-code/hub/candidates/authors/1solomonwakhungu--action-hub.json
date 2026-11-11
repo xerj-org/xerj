@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on TypeScript queries this for how 1solomonwakhungu/action-hub implements it: Indexed, on-demand capability layer for MCP servers and skills, for any MCP-capable agent harness (selected work: stress, packages/plugin)",
+ "domain": "an agent working on agent-skills, ai-agents, claude-code queries this for how 1solomonwakhungu/action-hub implements it: Indexed, on-demand capability layer for MCP servers and skills, for any MCP-capable agent harness (selected work: stress, packages/plugin)",
  "repos": [
   {
    "repo": "action-hub",

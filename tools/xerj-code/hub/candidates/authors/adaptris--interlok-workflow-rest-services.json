@@ -1,0 +1,31 @@
+{
+ "corpus": "adaptris--interlok-workflow-rest-services",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Java queries this for how adaptris/interlok-workflow-rest-services implements it: REST style API into the Interlok workflows (selected work: interlok-rest-base, interlok-rest-health-check, interlok-rest-provider-prometheus)",
+ "repos": [
+  {
+   "repo": "interlok-workflow-rest-services",
+   "url": "https://github.com/adaptris/interlok-workflow-rest-services",
+   "sha": "7f98612f3ccfb75426cb2c0e00be34988598bf3f",
+   "licence": "Apache-2.0 (LICENSE file at pin 7f98612f3ccf, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T16:10Z",
+    "consent_receipt": "11c544c97ecf",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T16:10Z (receipt 11c544c97ecf); selected commit 7f98612f3ccf: \"feat: Add configurable management port\". LICENSE file at pin 7f98612f3ccf detected as Apache-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @adaptris, who has not added it."
+   },
+   "paths": [
+    "interlok-rest-base/src/main/java/com/adaptris/rest",
+    "interlok-rest-base/src/test/java/com/adaptris/rest",
+    "interlok-rest-health-check/src/main/java/com/adaptris/rest/healthcheck",
+    "interlok-rest-health-check/src/test/java/com/adaptris/rest/healthcheck",
+    "interlok-rest-provider-prometheus/src/main/java/com/adaptris/rest/metrics/prometheus",
+    "interlok-rest-provider-prometheus/src/test/java/com/adaptris/rest/metrics/prometheus"
+   ]
+  }
+ ]
+}

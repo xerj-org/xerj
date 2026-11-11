@@ -1,0 +1,23 @@
+{
+ "corpus": "aishsoni--sabha-ai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how AishSoni/Sabha-AI implements it: AishSoni/Sabha-AI (TypeScript) (selected work: frontend)",
+ "repos": [
+  {
+   "repo": "Sabha-AI",
+   "url": "https://github.com/AishSoni/Sabha-AI",
+   "sha": "3ac3529766fc4069c7307b5e0889bc6fb7eb3b70",
+   "licence": "Apache-2.0 (LICENSE file at pin 3ac3529766fc, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T17:12Z",
+    "consent_receipt": "0a68066a3c00",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T17:12Z (receipt 0a68066a3c00); selected commit 3ac3529766fc: \"fix(evidence): surface truncation in bounded previews\". LICENSE file at pin 3ac3529766fc detected as Apache-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution. Pinned to head 3ac3529766fc (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

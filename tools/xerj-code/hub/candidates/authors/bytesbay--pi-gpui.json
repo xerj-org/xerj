@@ -8,15 +8,15 @@
   {
    "repo": "pi-gpui",
    "url": "https://github.com/bytesbay/pi-gpui",
-   "sha": "c8fd61b38d32725bde90361f2fe1725c18ecb37a",
-   "licence": "MIT (LICENSE file at pin c8fd61b38d32, GitHub licence API 2026-11-11)",
+   "sha": "65023e360d45f08f0ee40a854f3619f16bbd8c1b",
+   "licence": "MIT (LICENSE file at pin 65023e360d45, GitHub licence API 2026-11-11)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-06T12:05Z",
     "consent_receipt": "cf6c64e992e9",
-    "note": "Inclusion consented by the commit author by email at 2026-11-06T12:05Z (receipt cf6c64e992e9); selected commit c8fd61b38d32: \"feat(plugins): prompt fields in tool calls, secrets plugin\". LICENSE file at pin c8fd61b38d32 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution. Pinned to head c8fd61b38d32 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-11-06T12:05Z (receipt cf6c64e992e9); selected commit 65023e360d45: \"feat(plugins): prompt fields in tool calls, secrets plugin\". LICENSE file at pin 65023e360d45 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution. Pinned to head 65023e360d45 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

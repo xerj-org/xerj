@@ -8,15 +8,15 @@
   {
    "repo": "total-recall",
    "url": "https://github.com/dax8it/total-recall",
-   "sha": "fb5f332dfa150f882c5b27b4d71fbdd485b2657c",
-   "licence": "MIT (LICENSE file at pin fb5f332dfa15, GitHub licence API 2026-11-11)",
+   "sha": "ad3475c1a178bf1d11e3a7ed864a6d401d5ae5e7",
+   "licence": "MIT (LICENSE file at pin ad3475c1a178, GitHub licence API 2026-11-11)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-12T02:01Z",
     "consent_receipt": "2c334aaf0e89",
-    "note": "Inclusion consented by the commit author by email at 2026-10-12T02:01Z (receipt 2c334aaf0e89); selected commit fb5f332dfa15: \"fix: harden ledger parsing and isolate external index maintenance\". LICENSE file at pin fb5f332dfa15 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution. Pinned to head fb5f332dfa15 (contains the selected commit): the LICENSE at the selected commit was NOASSERTION."
+    "note": "Inclusion consented by the commit author by email at 2026-10-12T02:01Z (receipt 2c334aaf0e89); selected commit ad3475c1a178: \"fix: harden ledger parsing and isolate external index maintenance\". LICENSE file at pin ad3475c1a178 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution. Pinned to head ad3475c1a178 (contains the selected commit): the LICENSE at the selected commit was NOASSERTION."
    }
   }
  ]

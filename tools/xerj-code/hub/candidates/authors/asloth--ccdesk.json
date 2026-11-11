@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Python queries this for how asloth/ccdesk implements it: Desktop control for Claude Code on Linux: an MCP server and skill for screenshots, mouse, keyboard and windows (selected work: ccdesk, tests, bench)",
+ "domain": "an agent working on accessibility, computer-use, linux queries this for how asloth/ccdesk implements it: Give coding agents control of Linux apps through MCP, with accessibility tools, screenshots, and private screens (selected work: ccdesk, tests, bench)",
  "repos": [
   {
    "repo": "ccdesk",

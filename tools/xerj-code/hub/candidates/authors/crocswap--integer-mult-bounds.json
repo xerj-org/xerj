@@ -21,6 +21,7 @@
    "paths": [
     "certificates",
     "references/frame-compiler/pr58",
+    "research/complex-jp8-diagonal-gauge",
     "research/joint-dual",
     "research/matrix-exponent-synthesis",
     "scripts/experiments",

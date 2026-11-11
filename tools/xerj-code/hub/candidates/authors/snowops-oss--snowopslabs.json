@@ -1,9 +1,9 @@
 {
- "corpus": "sagar2395--snowopslabs",
+ "corpus": "snowops-oss--snowopslabs",
  "cloned_at": null,
  "status": "draft",
  "shelf": "OPS",
- "domain": "an agent working on chaos-engineering, devops, homelab queries this for how sagar2395/snowopslabs implements it: Learn platform engineering by breaking and fixing real Kubernetes clusters (selected work: platform, incidents, src/internal)",
+ "domain": "an agent working on chaos-engineering, devops, homelab queries this for how snowops-oss/snowopslabs implements it: Learn platform engineering by breaking and fixing real Kubernetes clusters (selected work: platform, incidents, src/internal)",
  "repos": [
   {
    "repo": "snowopslabs",

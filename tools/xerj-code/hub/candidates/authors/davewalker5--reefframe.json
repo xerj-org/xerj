@@ -8,15 +8,15 @@
   {
    "repo": "ReefFrame",
    "url": "https://github.com/davewalker5/ReefFrame",
-   "sha": "ffb7c0e1a74481cc3cceeb780f29323ffa819094",
-   "licence": "MIT (LICENSE file at pin ffb7c0e1a744, GitHub licence API 2026-11-11)",
+   "sha": "f38c466111864822fa2a8a7cdd73cac25f03984f",
+   "licence": "MIT (LICENSE file at pin f38c46611186, GitHub licence API 2026-11-11)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-31T10:09Z",
     "consent_receipt": "e020cdfdf808",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T10:09Z (receipt e020cdfdf808); pinned to the default-branch head. LICENSE file at pin ffb7c0e1a744 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T10:09Z (receipt e020cdfdf808); pinned to the default-branch head. LICENSE file at pin f38c46611186 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
    }
   }
  ]

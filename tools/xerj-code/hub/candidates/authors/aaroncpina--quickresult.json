@@ -1,0 +1,23 @@
+{
+ "corpus": "aaroncpina--quickresult",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on csharp, dotnet, error-handling queries this for how aaroncpina/QuickResult implements it: Lightweight Result monad for C# with full LINQ query syntax for both sync and async. Mix sync and async steps seamlessly in one query. Zero  (selected work: tests, src/QuickResult)",
+ "repos": [
+  {
+   "repo": "QuickResult",
+   "url": "https://github.com/aaroncpina/QuickResult",
+   "sha": "1b0f86089121653854207a51ebb49e62676037d1",
+   "licence": "MIT (LICENSE file at pin 1b0f86089121, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T16:58Z",
+    "consent_receipt": "3ea624bcde98",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T16:58Z (receipt 3ea624bcde98); selected commit 1b0f86089121: \"feat: make Result<T> a C# union of T and IError on .NET 10+ (2.5.0)\". LICENSE file at pin 1b0f86089121 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

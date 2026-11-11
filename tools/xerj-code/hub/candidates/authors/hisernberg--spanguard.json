@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-agents, baseten, gateway queries this for how Hisernberg/spanguard implements it: Span-level prompt-injection guard for AI agent tool traffic: strip the attack, keep the data. Built for Meta Global AI Hackathon 2026 \u2014 fine (selected work: training, src/spanguard)",
+ "domain": "an agent working on llm-security, prompt-injection, ai-safety queries this for how Hisernberg/spanguard implements it: Span-level prompt-injection guard for AI agent tool traffic: strip the attack, keep the data. Built for Meta Global AI Hackathon 2026 \u2014 fine (selected work: training, src/spanguard)",
  "repos": [
   {
    "repo": "spanguard",

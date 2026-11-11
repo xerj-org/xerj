@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on ime, input-method, linux queries this for how Funput/Funput implements it: Vietnamese input method for macOS, Windows & Linux. Keyboard for iOS & Android. \u2022 B\u1ed9 g\u00f5 ti\u1ebfng Vi\u1ec7t \u0111a n\u1ec1n t\u1ea3ng cho macOS, Windows & Linux. B (selected work: platforms)",
+ "domain": "an agent working on ime, input-method, linux queries this for how Funput/Funput implements it: B\u1ed9 g\u00f5 ti\u1ebfng Vi\u1ec7t cho Linux, macOS & Windows. B\u00e0n ph\u00edm ti\u1ebfng Vi\u1ec7t cho iOS & Android (selected work: platforms)",
  "repos": [
   {
    "repo": "Funput",
