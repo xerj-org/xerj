@@ -434,6 +434,25 @@ pub fn pr_commands(d: &Draft) -> String {
     } else {
         format!(" \\\n --agent {:?}", d.agent)
     };
+    // Suppress --title when it would be reconstructed identically on rerun or
+    // is still the placeholder:
+    // - `d.title == PH_TITLE`: no title was set or derived
+    // - `d.title == d.used_for`: rerun derives title from --used-for
+    // - `d.title == d.pointed_at && d.used_for == PH_USED_FOR`: rerun derives
+    //   title from --pointed-at only when --used-for is absent
+    let title_line = if d.title == PH_TITLE
+        || d.title == d.used_for
+        || (d.title == d.pointed_at && d.used_for == PH_USED_FOR)
+    {
+        String::new()
+    } else {
+        format!(" \\\n --title {:?}", d.title)
+    };
+    let filed_line = if d.filed_alongside == PH_FILED {
+        String::new()
+    } else {
+        format!(" \\\n --filed-alongside {:?}", d.filed_alongside)
+    };
     format!(
         "# Ready-to-run — files ONLY the field report, nothing else.\n\
          # Run these in a clone of xerj-org/xerj, not in the project you are working in.\n\
@@ -441,7 +460,7 @@ pub fn pr_commands(d: &Draft) -> String {
          cd xerj\n\
          gh repo fork xerj-org/xerj --clone=false\n\
          git remote add xerj-fork https://github.com/YOUR_LOGIN/xerj.git\n\
-         xerj feedback{agent_line} \\\n\
+         xerj feedback{agent_line}{title_line}{filed_line} \\\n\
          \x20 --used-for {used_for:?} --pointed-at {pointed_at:?} \\\n\
          \x20 --verdict {verdict:?} --numbers {numbers:?} \\\n\
          \x20 -o {relpath}\n\
@@ -1461,6 +1480,8 @@ mod tests {
         let filled = resolve_draft(
             &Cfg {
                 agent: Some("Claude Code".into()),
+                title: Some("custom human title".into()),
+                filed_alongside: Some("https://github.com/xerj-org/xerj/pull/9001".into()),
                 ..base_cfg()
             },
             None,
@@ -1472,14 +1493,348 @@ mod tests {
             "a passed --agent must be reprinted, got:\n{commands}"
         );
         assert!(commands.contains("xerj feedback \\\n --agent \"Claude Code\""));
+        assert!(
+            commands.contains("--title \"custom human title\""),
+            "a passed --title must be reprinted, got:\n{commands}"
+        );
+        assert!(
+            commands.contains("--filed-alongside \"https://github.com/xerj-org/xerj/pull/9001\""),
+            "a passed --filed-alongside must be reprinted, got:\n{commands}"
+        );
 
         let placeholder = resolve_draft(&base_cfg(), None, "2026-08-18");
         let commands = pr_commands(&placeholder);
+        let feedback_cmd = commands
+            .split("git checkout")
+            .next()
+            .expect("xerj feedback command block");
         assert!(
-            !commands.contains("--agent"),
+            !feedback_cmd.contains("--agent"),
             "the placeholder agent must not be reprinted as a flag:\n{commands}"
         );
-        assert!(!commands.contains(PH_AGENT), "{commands}");
+        assert!(!feedback_cmd.contains(PH_AGENT), "{commands}");
+        assert!(
+            !feedback_cmd.contains("--title"),
+            "the placeholder/derived title must not be reprinted as a flag:\n{commands}"
+        );
+        assert!(
+            !feedback_cmd.contains("--filed-alongside"),
+            "the placeholder filed_alongside must not be reprinted as a flag:\n{commands}"
+        );
+    }
+
+    /// Issue #3061 exact reproduction: a draft built with an explicit --title
+    /// and --filed-alongside must produce a ready-to-run command that carries
+    /// both, and a draft without them must suppress them entirely.
+    #[test]
+    fn issue_3061_exact_reproduction_title_and_filed_alongside_survive() {
+        let cfg = Cfg {
+            agent: Some("Claude Code".into()),
+            used_for: Some(
+                "autoindex over a 40k-file Rust workspace, then code queries".into(),
+            ),
+            pointed_at: Some("40k Rust files from a personal monorepo".into()),
+            verdict: Some("worked; the ranking was sane".into()),
+            numbers: Some("xerj code -k 5 -> 5/5 relevant".into()),
+            title: Some("custom human title the operator typed".into()),
+            filed_alongside: Some(
+                "https://github.com/xerj-org/xerj/pull/9001".into(),
+            ),
+            ..base_cfg()
+        };
+        let d = resolve_draft(&cfg, None, "2026-11-09");
+        let commands = pr_commands(&d);
+        let fb = commands.split("git checkout").next().unwrap();
+
+        assert!(
+            fb.contains("--title \"custom human title the operator typed\""),
+            "Issue #3061: --title must survive:\n{fb}"
+        );
+        assert!(
+            fb.contains(
+                "--filed-alongside \"https://github.com/xerj-org/xerj/pull/9001\""
+            ),
+            "Issue #3061: --filed-alongside must survive:\n{fb}"
+        );
+        assert!(
+            fb.contains("--agent \"Claude Code\""),
+            "Issue #3061: --agent must still survive:\n{fb}"
+        );
+
+        // Negative case: derived title (from --used-for) and placeholder
+        // filed-alongside must NOT appear as flags.
+        let cfg2 = Cfg {
+            used_for: Some("autoindex over a 40k-file Rust workspace".into()),
+            verdict: Some("worked".into()),
+            ..base_cfg()
+        };
+        let d2 = resolve_draft(&cfg2, None, "2026-11-09");
+        let commands2 = pr_commands(&d2);
+        let fb2 = commands2.split("git checkout").next().unwrap();
+
+        assert!(
+            !fb2.contains("--title"),
+            "Issue #3061: derived title must NOT be reprinted:\n{fb2}"
+        );
+        assert!(
+            !fb2.contains("--filed-alongside"),
+            "Issue #3061: placeholder filed-alongside must NOT be reprinted:\n{fb2}"
+        );
+    }
+
+    /// Edge: only --title provided, no --filed-alongside.
+    #[test]
+    fn edge_3061_title_only_no_filed() {
+        let cfg = Cfg {
+            title: Some("my custom title".into()),
+            ..base_cfg()
+        };
+        let d = resolve_draft(&cfg, None, "2026-11-09");
+        let commands = pr_commands(&d);
+        let fb = commands.split("git checkout").next().unwrap();
+        assert!(fb.contains("--title \"my custom title\""), "title must appear:\n{fb}");
+        assert!(!fb.contains("--filed-alongside"), "filed-alongside must NOT appear:\n{fb}");
+    }
+
+    /// Edge: only --filed-alongside provided, no --title.
+    #[test]
+    fn edge_3061_filed_only_no_title() {
+        let cfg = Cfg {
+            filed_alongside: Some("https://github.com/xerj-org/xerj/issues/42".into()),
+            ..base_cfg()
+        };
+        let d = resolve_draft(&cfg, None, "2026-11-09");
+        let commands = pr_commands(&d);
+        let fb = commands.split("git checkout").next().unwrap();
+        assert!(!fb.contains("--title"), "title must NOT appear:\n{fb}");
+        assert!(
+            fb.contains(
+                "--filed-alongside \"https://github.com/xerj-org/xerj/issues/42\""
+            ),
+            "filed-alongside must appear:\n{fb}"
+        );
+    }
+
+    /// Edge: title derived from --pointed-at (no --title, no --used-for).
+    #[test]
+    fn edge_3061_title_derived_from_pointed_at_is_suppressed() {
+        let cfg = Cfg {
+            pointed_at: Some("100 PDF files".into()),
+            verdict: Some("worked".into()),
+            ..base_cfg()
+        };
+        let d = resolve_draft(&cfg, None, "2026-11-09");
+        assert_eq!(d.title, "100 PDF files");
+        let fb = pr_commands(&d).split("git checkout").next().unwrap().to_string();
+        assert!(!fb.contains("--title"), "derived-from-pointed_at title must NOT appear:\n{fb}");
+    }
+
+    /// Edge: all defaults, no opinion flags at all.
+    #[test]
+    fn edge_3061_all_defaults_no_flags_emitted() {
+        let d = resolve_draft(&base_cfg(), None, "2026-11-09");
+        let fb = pr_commands(&d).split("git checkout").next().unwrap().to_string();
+        assert!(!fb.contains("--title"), "PH_TITLE must NOT appear as --title:\n{fb}");
+        assert!(!fb.contains("--filed-alongside"), "PH_FILED must NOT appear:\n{fb}");
+        assert!(!fb.contains("--agent"), "PH_AGENT must NOT appear:\n{fb}");
+    }
+
+    /// Edge: user explicitly types --title matching --used-for.
+    /// Redundant with derivation, so suppressed.
+    #[test]
+    fn edge_3061_explicit_title_matching_used_for_suppressed() {
+        let cfg = Cfg {
+            title: Some("autoindex query".into()),
+            used_for: Some("autoindex query".into()),
+            ..base_cfg()
+        };
+        let d = resolve_draft(&cfg, None, "2026-11-09");
+        let fb = pr_commands(&d).split("git checkout").next().unwrap().to_string();
+        assert!(!fb.contains("--title"), "title matching used_for must be suppressed:\n{fb}");
+    }
+
+    /// Edge: user explicitly types --title matching --pointed-at while --used-for
+    /// is also set — MUST preserve --title so rerun doesn't derive from --used-for.
+    #[test]
+    fn edge_3061_explicit_title_matching_pointed_at_preserved_when_used_for_set() {
+        let cfg = Cfg {
+            title: Some("my corpus".into()),
+            pointed_at: Some("my corpus".into()),
+            used_for: Some("something else".into()),
+            ..base_cfg()
+        };
+        let d = resolve_draft(&cfg, None, "2026-11-09");
+        let fb = pr_commands(&d).split("git checkout").next().unwrap().to_string();
+        assert!(
+            fb.contains("--title \"my corpus\""),
+            "title matching pointed_at must be preserved when used_for differs:\n{fb}"
+        );
+    }
+
+    /// Edge: title differs from BOTH used_for and pointed_at — must survive.
+    #[test]
+    fn edge_3061_unique_title_survives() {
+        let cfg = Cfg {
+            title: Some("a completely custom title".into()),
+            used_for: Some("autoindex query".into()),
+            pointed_at: Some("my corpus".into()),
+            ..base_cfg()
+        };
+        let d = resolve_draft(&cfg, None, "2026-11-09");
+        let fb = pr_commands(&d).split("git checkout").next().unwrap().to_string();
+        assert!(
+            fb.contains("--title \"a completely custom title\""),
+            "unique title must survive:\n{fb}"
+        );
+    }
+
+    /// Edge: special characters in title and filed-alongside.
+    #[test]
+    fn edge_3061_special_chars_in_values() {
+        let cfg = Cfg {
+            title: Some("title with \"quotes\" and \\backslash".into()),
+            filed_alongside: Some(
+                "https://github.com/xerj-org/xerj/pull/42?foo=bar&baz=1".into(),
+            ),
+            ..base_cfg()
+        };
+        let d = resolve_draft(&cfg, None, "2026-11-09");
+        let fb = pr_commands(&d).split("git checkout").next().unwrap().to_string();
+        assert!(fb.contains("--title"), "title with special chars must appear:\n{fb}");
+        assert!(fb.contains("--filed-alongside"), "filed with URL must appear:\n{fb}");
+    }
+
+    /// Edge: filed-alongside set to "nothing broke" (not PH_FILED).
+    #[test]
+    fn edge_3061_filed_alongside_nothing_broke_survives() {
+        let cfg = Cfg {
+            filed_alongside: Some("nothing broke".into()),
+            ..base_cfg()
+        };
+        let d = resolve_draft(&cfg, None, "2026-11-09");
+        let fb = pr_commands(&d).split("git checkout").next().unwrap().to_string();
+        assert!(
+            fb.contains("--filed-alongside \"nothing broke\""),
+            "'nothing broke' is a valid value, must survive:\n{fb}"
+        );
+    }
+
+    /// Edge: all three flags present, verify ordering (agent < title < filed).
+    #[test]
+    fn edge_3061_all_three_flags_ordering() {
+        let cfg = Cfg {
+            agent: Some("Gemini".into()),
+            title: Some("my title".into()),
+            filed_alongside: Some("https://example.com/pr/1".into()),
+            ..base_cfg()
+        };
+        let d = resolve_draft(&cfg, None, "2026-11-09");
+        let fb = pr_commands(&d).split("git checkout").next().unwrap().to_string();
+        let agent_pos = fb.find("--agent").expect("agent must appear");
+        let title_pos = fb.find("--title").expect("title must appear");
+        let filed_pos = fb.find("--filed-alongside").expect("filed must appear");
+        assert!(agent_pos < title_pos, "agent before title");
+        assert!(title_pos < filed_pos, "title before filed-alongside");
+    }
+
+    /// True end-to-end roundtrip: parse the `xerj feedback` invocation printed by
+    /// `pr_commands()` back through `parse()` and `resolve_draft()`, and assert
+    /// `render_report()` produces byte-for-byte identical output.
+    #[test]
+    fn edge_3061_cli_roundtrip_reproduces_identical_report() {
+        fn tokenize_xerj_feedback(commands: &str) -> Vec<String> {
+            let line = commands
+                .split("git checkout")
+                .next()
+                .unwrap()
+                .lines()
+                .skip_while(|l| !l.starts_with("xerj feedback"))
+                .collect::<Vec<_>>()
+                .join("\n")
+                .replace("\\\n", " ");
+            let mut tokens = Vec::new();
+            let mut chars = line.chars().peekable();
+            while let Some(&c) = chars.peek() {
+                if c.is_whitespace() {
+                    chars.next();
+                    continue;
+                }
+                if c == '"' {
+                    chars.next();
+                    let mut s = String::new();
+                    while let Some(ch) = chars.next() {
+                        if ch == '\\' {
+                            if let Some(esc) = chars.next() {
+                                match esc {
+                                    'n' => s.push('\n'),
+                                    't' => s.push('\t'),
+                                    'r' => s.push('\r'),
+                                    other => s.push(other),
+                                }
+                            }
+                        } else if ch == '"' {
+                            break;
+                        } else {
+                            s.push(ch);
+                        }
+                    }
+                    tokens.push(s);
+                } else {
+                    let mut s = String::new();
+                    while let Some(&ch) = chars.peek() {
+                        if ch.is_whitespace() {
+                            break;
+                        }
+                        s.push(ch);
+                        chars.next();
+                    }
+                    tokens.push(s);
+                }
+            }
+            // Drop leading "xerj" and "feedback".
+            assert_eq!(tokens[0], "xerj");
+            assert_eq!(tokens[1], "feedback");
+            tokens.into_iter().skip(2).collect()
+        }
+
+        let cases = [
+            Cfg {
+                agent: Some("Claude Code".into()),
+                used_for: Some("autoindex over 40k Rust files".into()),
+                pointed_at: Some("40k Rust files".into()),
+                verdict: Some("worked; ranking was sane".into()),
+                numbers: Some("xerj code -k 5 -> 5/5".into()),
+                title: Some("custom human title".into()),
+                filed_alongside: Some("https://github.com/xerj-org/xerj/pull/9001".into()),
+                ..base_cfg()
+            },
+            Cfg {
+                used_for: Some("autoindex over 40k Rust files".into()),
+                pointed_at: Some("40k Rust files".into()),
+                verdict: Some("worked".into()),
+                numbers: Some("not measured".into()),
+                filed_alongside: Some("nothing broke".into()),
+                ..base_cfg()
+            },
+            Cfg {
+                used_for: Some("something else".into()),
+                pointed_at: Some("my corpus".into()),
+                verdict: Some("worked".into()),
+                numbers: Some("not measured".into()),
+                title: Some("my corpus".into()),
+                filed_alongside: Some("https://github.com/xerj-org/xerj/issues/1".into()),
+                ..base_cfg()
+            },
+        ];
+
+        for cfg in &cases {
+            let d1 = resolve_draft(cfg, None, "2026-11-09");
+            let commands = pr_commands(&d1);
+            let argv = tokenize_xerj_feedback(&commands);
+            let cfg2 = parse(argv).unwrap().unwrap();
+            let d2 = resolve_draft(&cfg2, None, "2026-11-09");
+            assert_eq!(render_report(&d2), render_report(&d1), "roundtrip mismatch for {cfg:?}");
+        }
     }
 
     #[test]
