@@ -1,0 +1,23 @@
+{
+ "corpus": "naoeosavio--tell-ai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how naoeosavio/Tell-ai implements it: I am a multi-step terminal assistant. I can execute bash commands directly, help with code generation, and provide concise answers. I run in (selected work: packages/web)",
+ "repos": [
+  {
+   "repo": "Tell-ai",
+   "url": "https://github.com/naoeosavio/Tell-ai",
+   "sha": "2a5956c2caf9adbac33ef91e79008316de955eef",
+   "licence": "GPL-3.0 (LICENSE file at pin 2a5956c2caf9, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-11T12:26Z",
+    "consent_receipt": "85b6c4074c97",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T12:26Z (receipt 85b6c4074c97); selected commit 2a5956c2caf9: \"feat(server): add auto-run chain execution and security hardening\". LICENSE file at pin 2a5956c2caf9 detected as GPL-3.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

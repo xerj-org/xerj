@@ -1,0 +1,23 @@
+{
+ "corpus": "peteryuen--ziwei-mcp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how PeterYuen/ziwei-mcp implements it: MCP server for ziwei-doushu \u2014 9 tools, stdio + Streamable HTTP (SSE), true-solar-time correction, deterministic selftest. MIT, engine-agnost (selected work: the project root, tests)",
+ "repos": [
+  {
+   "repo": "ziwei-mcp",
+   "url": "https://github.com/PeterYuen/ziwei-mcp",
+   "sha": "97900cd0015df877e71eb88d22f862450a457794",
+   "licence": "MIT (LICENSE file at pin 97900cd0015d, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T13:40Z",
+    "consent_receipt": "9b4d4411c01e",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T13:40Z (receipt 9b4d4411c01e); selected commit 97900cd0015d: \"feat: ziwei_patterns tool + leapMonth param (engine pin 906bd93)\". LICENSE file at pin 97900cd0015d detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}

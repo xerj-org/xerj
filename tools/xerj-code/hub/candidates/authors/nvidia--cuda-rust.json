@@ -8,15 +8,15 @@
   {
    "repo": "cuda-rust",
    "url": "https://github.com/NVIDIA/cuda-rust",
-   "sha": "9d0c9bfbc954a9a29565ab81b78da70f054d8e04",
-   "licence": "Apache-2.0 (LICENSE file at pin 9d0c9bfbc954, GitHub licence API 2026-11-11)",
+   "sha": "4b9133c145e02618d33286cdc65d89487f51fe7f",
+   "licence": "Apache-2.0 (LICENSE file at pin 4b9133c145e0, GitHub licence API 2026-11-11)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-16T02:18Z",
     "consent_receipt": "c78880a9014a",
-    "note": "Inclusion consented by the commit author by email at 2026-10-16T02:18Z (receipt c78880a9014a); selected commit 9d0c9bfbc954: \"refactor(llvm): use upstream inline asm semantics\". LICENSE file at pin 9d0c9bfbc954 detected as Apache-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution. Pinned to head 9d0c9bfbc954 (contains the selected commit): the LICENSE at the selected commit was NOASSERTION. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @NVIDIA, who has not added it."
+    "note": "Inclusion consented by the commit author by email at 2026-10-16T02:18Z (receipt c78880a9014a); selected commit 4b9133c145e0: \"refactor(llvm): use upstream inline asm semantics\". LICENSE file at pin 4b9133c145e0 detected as Apache-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution. Pinned to head 4b9133c145e0 (contains the selected commit): the LICENSE at the selected commit was NOASSERTION. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @NVIDIA, who has not added it."
    },
    "paths": [
     "crates/dialect-mir/src/ops",

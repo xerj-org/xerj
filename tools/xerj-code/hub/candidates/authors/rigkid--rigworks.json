@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on creative-coding, ecs, interchange queries this for how rigkid/RigWorks implements it: A shared grammar for real work. Entity/component POD schemas \u2014 one document shape, nothing to link. MCP-ready for agents (selected work: schemas, examples, tools)",
+ "domain": "an agent working on creative-coding, ecs, interchange queries this for how rigkid/RigWorks implements it: A future-proof, host-independent, human-readable vocabulary for creative work (selected work: schemas, examples, tools)",
  "repos": [
   {
    "repo": "RigWorks",

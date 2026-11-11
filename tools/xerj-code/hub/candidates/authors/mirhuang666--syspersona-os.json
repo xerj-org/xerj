@@ -1,0 +1,23 @@
+{
+ "corpus": "mirhuang666--syspersona-os",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, memory, ai-memory queries this for how MirHuang666/SysPersona-OS implements it: AI \u8bbe\u8ba1\u7684\u8bb0\u5fc6\u5c42\uff1a\u4eba\u683c\u662f\u6570\u636e\u3001\u8bb0\u5fc6\u53ef\u8fc1\u79fb\uff1b\u6709\u300c\u6709\u9650\u7684\u81ea\u4e3b\u9a71\u52a8\u300d\u2014\u2014\u7a7a\u95f2\u65f6\u505a\u81ea\u5df1\u5199\u4e0b\u7684\u4e8b\uff0c\u53ef\u6253\u65ad\u3001\u53ef\u5173\u6389\u3001\u7ea2\u7ebf\u5728\u5199\u4e0b\u7684\u90a3\u4e00\u523b\u5c31\u88ab\u62d2\u3002\u4e0d\u53d1\u7a0b\u5e8f\uff0c\u4ea4\u7ed9 AI \u667a\u80fd\u4f53\u6309\u73af\u5883\u751f\u6210\uff08Windows\uff09 (selected work: tools)",
+ "repos": [
+  {
+   "repo": "SysPersona-OS",
+   "url": "https://github.com/MirHuang666/SysPersona-OS",
+   "sha": "c463c8519896c6513e5984aa8582eea9681f4406",
+   "licence": "MIT (LICENSE file at pin c463c8519896, GitHub licence API 2026-11-11)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T13:25Z",
+    "consent_receipt": "07e2e32a8a9d",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T13:25Z (receipt 07e2e32a8a9d); selected commit c463c8519896: \"feat(search): zero-model FTS5 engine + 5-engine benchmark (fts-char w\u2026\". LICENSE file at pin c463c8519896 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+   }
+  }
+ ]
+}
