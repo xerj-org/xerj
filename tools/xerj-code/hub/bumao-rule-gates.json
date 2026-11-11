@@ -1,0 +1,66 @@
+{
+ "corpus": "bumao-rule-gates",
+ "cloned_at": "2026-11-11T13:59:21Z",
+ "repos": [
+  {
+   "repo": "Bumao-core",
+   "url": "https://github.com/Bumao-Ai/Bumao-core",
+   "licence": "Apache-2.0",
+   "sha": "ac756a2b6ba6b76d7936e58117d7bbea4580e707",
+   "files": 152,
+   "bytes": 2448364,
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "Bumao-Ai",
+    "at": "2026-11-11",
+    "note": "Opened LICENSE at this pin (11336 bytes LF, sha256 180ab2a186c91b04...): verbatim Apache-2.0 terms 1-9 plus END OF TERMS and the appendix, the only edit being the appendix line filled in as \"Copyright 2026 Bumao\"; no added clauses. NOTICE adds no restrictions beyond attribution. 17 file headers carry SPDX-License-Identifier: Apache-2.0. Detector agreed; confirmed by reading the text, not the badge."
+   }
+  },
+  {
+   "repo": "Bumao-xtgl-community",
+   "url": "https://github.com/Bumao-Ai/Bumao-xtgl-community",
+   "licence": "Apache-2.0",
+   "sha": "f83fa7c1422df14a562022c08327a3c0dfd63aba",
+   "files": 212,
+   "bytes": 3483514,
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "Bumao-Ai",
+    "at": "2026-11-11",
+    "note": "Opened LICENSE at this pin (11336 bytes LF, sha256 180ab2a186c91b04...): verbatim Apache-2.0 terms 1-9 plus END OF TERMS and the appendix, the only edit being the appendix line filled in as \"Copyright 2026 Bumao\"; no added clauses. The nested 10_rac/LICENSE is the same Apache-2.0 text byte-for-byte, not a second licence. NOTICE adds no restrictions. 46 file headers carry SPDX-License-Identifier: Apache-2.0."
+   }
+  },
+  {
+   "repo": "Bumao-xtgl-minimal",
+   "url": "https://github.com/Bumao-Ai/Bumao-xtgl-minimal",
+   "licence": "Apache-2.0",
+   "sha": "f15774d33f3fe34410682dc07f961bbaa9d55174",
+   "files": 129,
+   "bytes": 1564058,
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "Bumao-Ai",
+    "at": "2026-11-11",
+    "note": "Opened LICENSE at this pin (11336 bytes LF, sha256 180ab2a186c91b04...): verbatim Apache-2.0 terms 1-9 plus END OF TERMS and the appendix, the only edit being the appendix line filled in as \"Copyright 2026 Bumao\"; no added clauses. The nested 10_rac/LICENSE is the same Apache-2.0 text (CRLF in the checkout, identical after newline normalisation), not a second licence. NOTICE adds no restrictions. 37 file headers carry SPDX-License-Identifier: Apache-2.0."
+   }
+  },
+  {
+   "repo": "Bumao-packs",
+   "url": "https://github.com/Bumao-Ai/Bumao-packs",
+   "licence": "Apache-2.0",
+   "sha": "a8db73bdf3fd89b30949c23c29a5955ace1e2d9e",
+   "files": 102,
+   "bytes": 154121,
+   "review": {
+    "spdx": "Apache-2.0 AND MIT",
+    "use": "adapt-with-attribution",
+    "by": "Bumao-Ai",
+    "at": "2026-11-11",
+    "note": "Opened LICENSE at this pin (11336 bytes LF, sha256 180ab2a186c91b04...): verbatim Apache-2.0 terms 1-9 plus END OF TERMS and the appendix, the only edit being the appendix line filled in as \"Copyright 2026 Bumao\"; no added clauses. One subtree is NOT Apache-2.0: packs/rules/basic-repo/0.1/counterexamples/_baseline/LICENSE is MIT (1065 bytes, \"Copyright (c) 2026 Bumao-Ai\"), a deliberate rule-pack counterexample fixture with its own NOTICE. Both licences are permissive, so use stays adapt-with-attribution rather than mixed; keep the MIT notice if you copy that fixture subtree. No copyleft or source-available part found."
+   }
+  }
+ ]
+}
