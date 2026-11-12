@@ -2,8 +2,8 @@
  "corpus": "garnet-owl--taura-2-0",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Python queries this for how Garnet-Owl/taura-2.0 implements it: Garnet-Owl/taura-2.0 (Python) (selected work: app/preprocessing, tests)",
+ "shelf": "WRITE",
+ "domain": "an agent working on ctranslate2, fastapi, fasttext queries this for how Garnet-Owl/taura-2.0 implements it: Open-source Kikuyu (G\u0129k\u0169y\u0169) to English machine translation. Marian + CTranslate2, runs on CPU, with a FastAPI API and web UI (selected work: app/preprocessing, tests)",
  "repos": [
   {
    "repo": "taura-2.0",

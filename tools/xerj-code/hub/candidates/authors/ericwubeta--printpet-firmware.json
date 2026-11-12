@@ -1,9 +1,9 @@
 {
- "corpus": "ericwubeta--ai-passport-bambu-monitor",
+ "corpus": "ericwubeta--printpet-firmware",
  "cloned_at": null,
  "status": "draft",
  "shelf": "OPS",
- "domain": "an agent working on C queries this for how ericwubeta/ai-passport-bambu-monitor implements it: Wearable Bambu Lab 3D-printer monitor on FoloToy AI Passport (ESP32-C3): cloud MQTT telemetry, AMS/temperature/HMS display, on-device Wi-Fi  (selected work: main)",
+ "domain": "an agent working on 3d-printing, bambu-lab, esp-idf queries this for how ericwubeta/printpet-firmware implements it: PrintPet Core and PrintPet Spirit firmware for third-party FoloToy AI Passport hardware. Bambu Cloud monitoring; Spirit remains in internal  (selected work: main)",
  "repos": [
   {
    "repo": "ai-passport-bambu-monitor",

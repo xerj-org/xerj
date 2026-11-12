@@ -2,8 +2,8 @@
  "corpus": "xpallares1987-ai--atlas-logistics",
  "cloned_at": null,
  "status": "draft",
- "shelf": "WEB",
- "domain": "an agent working on drizzle-orm, erp, fastify queries this for how xpallares1987-ai/Atlas-Logistics implements it: Enterprise Logistics ERP & Control Tower: Multi-modal freight, customs warehouse, decarbonization (GLEC/FuelEU), trade finance & real-time t (selected work: src/modules, src/db, tests)",
+ "shelf": "AI",
+ "domain": "an agent working on logistics, typescript, customs-declaration queries this for how xpallares1987-ai/Atlas-Logistics implements it: Enterprise Logistics ERP & Control Tower: Multi-modal freight, customs warehouse, decarbonization (GLEC/FuelEU), trade finance & real-time t (selected work: src/modules, src/db, tests)",
  "repos": [
   {
    "repo": "Atlas-Logistics",

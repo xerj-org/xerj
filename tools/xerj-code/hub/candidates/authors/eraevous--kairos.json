@@ -1,0 +1,23 @@
+{
+ "corpus": "eraevous--kairos",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how eraevous/KAIROS implements it: eraevous/KAIROS (Python)",
+ "repos": [
+  {
+   "repo": "KAIROS",
+   "url": "https://github.com/eraevous/KAIROS",
+   "sha": "4c0c3f187ae8cc55a2bc568c0f7765d757faa6f7",
+   "licence": "author's permission (LICENSE at pin 4c0c3f187ae8: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T17:12Z",
+    "consent_receipt": "ed06f3c09c62",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-12T17:12Z (receipt ed06f3c09c62); pinned to the default-branch head. LICENSE at pin 4c0c3f187ae8: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

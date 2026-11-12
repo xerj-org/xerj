@@ -2,8 +2,8 @@
  "corpus": "vorgtrom--capsule-notch",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on C# queries this for how vorgtrom/capsule-notch implements it: vorgtrom/capsule-notch (C#) (selected work: src, tests)",
+ "shelf": "AI",
+ "domain": "an agent working on claude-code, codex, csharp queries this for how vorgtrom/capsule-notch implements it: A glass capsule at the top of your Windows screen: Claude Code and Codex usage, inline approvals, calendar, music, clipboard, shelf and scre (selected work: src, tests)",
  "repos": [
   {
    "repo": "capsule-notch",

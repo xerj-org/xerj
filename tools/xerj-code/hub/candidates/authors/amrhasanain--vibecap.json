@@ -8,15 +8,15 @@
   {
    "repo": "vibecap",
    "url": "https://github.com/amrhasanain/vibecap",
-   "sha": "b4a5355a222db0c8e13f8577b0ee4c61ffc06048",
-   "licence": "Apache-2.0 (LICENSE file at pin b4a5355a222d, GitHub licence API 2026-10-31)",
+   "sha": "797f8a5191bf23bea0fd663e38045756adea1ce8",
+   "licence": "Apache-2.0 (LICENSE file at pin 797f8a5191bf, GitHub licence API 2026-11-12)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-31T16:55Z",
     "consent_receipt": "b6f8a0a382d4",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T16:55Z (receipt b6f8a0a382d4); pinned to the default-branch head. LICENSE file at pin b4a5355a222d detected as Apache-2.0 by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T16:55Z (receipt b6f8a0a382d4); pinned to the default-branch head. LICENSE file at pin 797f8a5191bf detected as Apache-2.0 by the GitHub licence API on 2026-11-12; used under that licence with attribution."
    }
   }
  ]

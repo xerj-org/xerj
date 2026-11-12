@@ -1,9 +1,9 @@
 {
- "corpus": "ponskigila-hub--kronos",
+ "corpus": "ponskigila-hub--kronos-ai-stock-assistant",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai, chatbot, data-analysis queries this for how ponskigila-hub/Kronos implements it: Kronos is the first open-source foundation model built specifically for financial candlesticks (K-lines), trained on data from over 45 globa (selected work: the project root, webapp, assistant)",
+ "domain": "an agent working on ai, chatbot, data-analysis queries this for how ponskigila-hub/Kronos-AI-Stock-Assistant implements it: Kronos is the first open-source foundation model built specifically for financial candlesticks (K-lines), trained on data from over 45 globa (selected work: the project root, webapp, assistant)",
  "repos": [
   {
    "repo": "Kronos",

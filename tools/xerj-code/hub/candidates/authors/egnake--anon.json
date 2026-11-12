@@ -2,8 +2,8 @@
  "corpus": "egnake--anon",
  "cloned_at": null,
  "status": "draft",
- "shelf": "SEC",
- "domain": "an agent working on bash, bash-script, bash-scripting queries this for how egnake/anon implements it: An advanced, all-in-one operational security (OPSEC) framework for Linux and WSL. Features transparent Tor routing, MAC spoofing, RAM wiping (selected work: assets)",
+ "shelf": "API",
+ "domain": "an agent working on bash, opsec, opsec-safe queries this for how egnake/anon implements it: An advanced, all-in-one operational security (OPSEC) framework for Linux and WSL. Features transparent Tor routing, MAC spoofing, RAM wiping (selected work: assets)",
  "repos": [
   {
    "repo": "anon",
