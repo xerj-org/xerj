@@ -1,0 +1,23 @@
+{
+ "corpus": "raslmm--preproc-city-hospital",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "HEALTH",
+ "domain": "an agent working on code queries this for how raslmm/preproc-city-hospital implements it: Part of the Data Preprocessing and Visualisation assesment. Goal of the project is to turn the raw consultation data into a clean, documente",
+ "repos": [
+  {
+   "repo": "preproc-city-hospital",
+   "url": "https://github.com/raslmm/preproc-city-hospital",
+   "sha": "791fb79864453d162d0668682ec6a8aeac0ea625",
+   "licence": "author's permission (LICENSE at pin 791fb7986445: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T02:04Z",
+    "consent_receipt": "9d7fe6ef87bd",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-12T02:04Z (receipt 9d7fe6ef87bd); pinned to the default-branch head. LICENSE at pin 791fb7986445: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

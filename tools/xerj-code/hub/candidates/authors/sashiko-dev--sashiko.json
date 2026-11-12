@@ -2,8 +2,8 @@
  "corpus": "sashiko-dev--sashiko",
  "cloned_at": null,
  "status": "draft",
- "shelf": "AI",
- "domain": "an agent working on Rust queries this for how sashiko-dev/sashiko implements it: Agentic code review for the Linux kernel and other critical open-source systems software (selected work: src/ai)",
+ "shelf": "SEC",
+ "domain": "an agent working on bugs, codereview, gcc queries this for how sashiko-dev/sashiko implements it: Agentic code review for the Linux kernel and other critical open-source systems software (selected work: src/ai)",
  "repos": [
   {
    "repo": "sashiko",

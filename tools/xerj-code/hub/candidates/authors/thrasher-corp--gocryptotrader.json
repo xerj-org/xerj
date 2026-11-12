@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "CRYPTO",
- "domain": "an agent working on cryptocurrency, trading-bot, trading-platform queries this for how thrasher-corp/gocryptotrader implements it: A cryptocurrency trading bot and framework supporting multiple exchanges written in Golang (selected work: exchange)",
+ "domain": "an agent working on cryptocurrency, trading-bot, trading-platform queries this for how thrasher-corp/gocryptotrader implements it: A cryptocurrency trading bot and framework supporting multiple exchanges written in Golang (selected work: exchanges)",
  "repos": [
   {
    "repo": "gocryptotrader",
    "url": "https://github.com/thrasher-corp/gocryptotrader",
-   "sha": "914ac56530888d41ee134dc7f4b5a3bffc708316",
-   "licence": "MIT (LICENSE file at pin 914ac5653088, GitHub licence API 2026-10-24)",
+   "sha": "a53f2391ddde00a538c1cf3cabe262fe28bf4d32",
+   "licence": "MIT (LICENSE file at pin a53f2391ddde, GitHub licence API 2026-11-11)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
-    "at": "2026-10-14T12:43Z",
-    "consent_receipt": "4418d042b4ca",
-    "note": "Inclusion consented by the commit author by email at 2026-10-14T12:43Z (receipt 4418d042b4ca); selected commit 914ac5653088: \"websocket: record a connection's subscriptions when the subscriber fa\u2026\". LICENSE file at pin 914ac5653088 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @thrasher-corp, who has not added it."
+    "at": "2026-10-14T09:33Z",
+    "consent_receipt": "7d3f73b9ae5c",
+    "note": "Inclusion consented by the commit author by email at 2026-10-14T09:33Z (receipt 7d3f73b9ae5c); selected commit a53f2391ddde: \"request: filter out sensitive strings in logs (#2387)\". LICENSE file at pin a53f2391ddde detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @thrasher-corp, who has not added it."
    },
    "paths": [
     "docs",

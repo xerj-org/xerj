@@ -1,0 +1,23 @@
+{
+ "corpus": "nirtuttnauer--modelanvil",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how nirtuttnauer/ModelAnvil implements it: Open-source workspace for datasets, model training, alignment and evaluation (selected work: modelanvil)",
+ "repos": [
+  {
+   "repo": "ModelAnvil",
+   "url": "https://github.com/nirtuttnauer/ModelAnvil",
+   "sha": "490ad633dd2170f0935ec26c439b8ed636fa324f",
+   "licence": "MIT (LICENSE file at pin 490ad633dd21, GitHub licence API 2026-11-12)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T01:07Z",
+    "consent_receipt": "754e89650760",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T01:07Z (receipt 754e89650760); selected commit 490ad633dd21: \"ANVIL-022: Check the CPU character eval against its frozen envelope\". LICENSE file at pin 490ad633dd21 detected as MIT by the GitHub licence API on 2026-11-12; used under that licence with attribution."
+   }
+  }
+ ]
+}

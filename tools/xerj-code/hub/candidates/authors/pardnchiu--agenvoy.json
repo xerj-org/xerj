@@ -1,0 +1,23 @@
+{
+ "corpus": "pardnchiu--agenvoy",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on golang, ai, go queries this for how pardnchiu/Agenvoy implements it: A local AI agent harness in Go that runs 24/7 with auto-built tools, MCP, and Ollama (selected work: internal/tools, internal/runtime, internal/app)",
+ "repos": [
+  {
+   "repo": "Agenvoy",
+   "url": "https://github.com/pardnchiu/Agenvoy",
+   "sha": "87b931c2854ee1f334b7ac7fd8ec497dfae56532",
+   "licence": "AGPL-3.0 (LICENSE file at pin 87b931c2854e, GitHub licence API 2026-11-12)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-12T00:48Z",
+    "consent_receipt": "27e8f528e643",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T00:48Z (receipt 27e8f528e643); selected commit 87b931c2854e: \"refactor: Replace pending-bound background tasks with grouped jobs\". LICENSE file at pin 87b931c2854e detected as AGPL-3.0 by the GitHub licence API on 2026-11-12; used under that licence with attribution."
+   }
+  }
+ ]
+}

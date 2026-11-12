@@ -1,0 +1,23 @@
+{
+ "corpus": "dfsmania--laradminlte",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on laravel, admin-dashboard, adminlte-4 queries this for how dfsmania/LaradminLTE implements it: AdminLTE v4 for Laravel (selected work: tests, src/Console, src/Support)",
+ "repos": [
+  {
+   "repo": "LaradminLTE",
+   "url": "https://github.com/dfsmania/LaradminLTE",
+   "sha": "3448dbc3c804e573865a1d188744b2d1ca905cc9",
+   "licence": "MIT (LICENSE file at pin 3448dbc3c804, GitHub licence API 2026-11-12)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T01:59Z",
+    "consent_receipt": "7fe24fbc93be",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T01:59Z (receipt 7fe24fbc93be); selected commit 3448dbc3c804: \"Add install command for package resources (#21)\". LICENSE file at pin 3448dbc3c804 detected as MIT by the GitHub licence API on 2026-11-12; used under that licence with attribution."
+   }
+  }
+ ]
+}

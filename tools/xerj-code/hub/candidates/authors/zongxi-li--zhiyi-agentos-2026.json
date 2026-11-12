@@ -1,0 +1,23 @@
+{
+ "corpus": "zongxi-li--zhiyi-agentos-2026",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how zongxi-Li/zhiyi-AgentOS-2026 implements it: \u9762\u5411\u8d85\u957f\u7a0b\u590d\u6742\u4efb\u52a1\u7684\u52a8\u6001\u5f02\u6784\u7fa4\u4f53\u667a\u80fd\u67b6\u6784\u4e0e\u6df1\u5ea6\u534f\u540c\u63a8\u7406\u7684\u5b9e\u73b0\uff0c\u672c\u4ed3\u5e93\u4e3a\u79c1\u4eba\u4ed3\u5e93\uff0c\u7528\u4e8e\u4ee3\u7801\u5ba1\u8ba1 (selected work: apps/agentOS)",
+ "repos": [
+  {
+   "repo": "zhiyi-AgentOS-2026",
+   "url": "https://github.com/zongxi-Li/zhiyi-AgentOS-2026",
+   "sha": "af4af1b0a403ed67bee6dc4efc48e369b8a31920",
+   "licence": "MulanPSL-2.0 (LICENSE file at pin af4af1b0a403, GitHub licence API 2026-11-12)",
+   "review": {
+    "spdx": "MulanPSL-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T00:46Z",
+    "consent_receipt": "e67c1fdd1d97",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T00:46Z (receipt e67c1fdd1d97); selected commit af4af1b0a403: \"perf(agentos): DeepSeek \u6267\u884c\u8bf7\u6c42\u7f16\u8bd1\u516c\u5171\u524d\u7f00\u63d0\u5347\u7f13\u5b58\u590d\u7528\". LICENSE file at pin af4af1b0a403 detected as MulanPSL-2.0 by the GitHub licence API on 2026-11-12; used under that licence with attribution."
+   }
+  }
+ ]
+}

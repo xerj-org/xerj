@@ -8,15 +8,15 @@
   {
    "repo": "CasioGShockSmartSync",
    "url": "https://github.com/izivkov/CasioGShockSmartSync",
-   "sha": "46d01e57f86255402119940b1a9a8b9e6905b630",
-   "licence": "Apache-2.0 (LICENSE file at pin 46d01e57f862, GitHub licence API 2026-11-09)",
+   "sha": "d3d6a1cf6d88e5df5edbb44c07c108306ab377f4",
+   "licence": "Apache-2.0 (LICENSE file at pin d3d6a1cf6d88, GitHub licence API 2026-11-12)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T21:09Z",
     "consent_receipt": "5e3ef271a312",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T21:09Z (receipt 5e3ef271a312); pinned to the default-branch head. LICENSE file at pin 46d01e57f862 detected as Apache-2.0 by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T21:09Z (receipt 5e3ef271a312); pinned to the default-branch head. LICENSE file at pin d3d6a1cf6d88 detected as Apache-2.0 by the GitHub licence API on 2026-11-12; used under that licence with attribution."
    }
   }
  ]

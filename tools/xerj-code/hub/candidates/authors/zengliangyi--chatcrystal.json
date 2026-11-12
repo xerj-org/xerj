@@ -1,0 +1,23 @@
+{
+ "corpus": "zengliangyi--chatcrystal",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-tools, claude-code, codex queries this for how ZengLiangYi/ChatCrystal implements it: Local-first AI PKM for coding conversations: import Claude Code/Cursor/Codex, distill notes, semantic search, tag graph, MCP memory (selected work: server)",
+ "repos": [
+  {
+   "repo": "ChatCrystal",
+   "url": "https://github.com/ZengLiangYi/ChatCrystal",
+   "sha": "f49643ba8ba3c658e570ad80c9170c2a46029b0e",
+   "licence": "Apache-2.0 (LICENSE file at pin f49643ba8ba3, GitHub licence API 2026-11-12)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T00:31Z",
+    "consent_receipt": "01ef4c6fa0d8",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T00:31Z (receipt 01ef4c6fa0d8); selected commit f49643ba8ba3: \"feat(server): index-first import with lazy transcripts and disk cache\". LICENSE file at pin f49643ba8ba3 detected as Apache-2.0 by the GitHub licence API on 2026-11-12; used under that licence with attribution."
+   }
+  }
+ ]
+}

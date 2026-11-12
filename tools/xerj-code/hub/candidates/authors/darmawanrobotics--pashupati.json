@@ -1,0 +1,26 @@
+{
+ "corpus": "darmawanrobotics--pashupati",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on apriltag, fast-lio, jetson-orin queries this for how DarmawanRobotics/Pashupati implements it: Autonomous patrol and inspection stack for quadruped robots (ROS 2 Humble): LiDAR teach and repeat, path-shift obstacle avoidance, on-robot  (selected work: src/pashupati_fleet)",
+ "repos": [
+  {
+   "repo": "Pashupati",
+   "url": "https://github.com/DarmawanRobotics/Pashupati",
+   "sha": "6e0f30a09898fc9911cbb40a59d2900b819b390b",
+   "licence": "Apache-2.0 (LICENSE file at pin 6e0f30a09898, GitHub licence API 2026-11-12)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T01:07Z",
+    "consent_receipt": "c56a4df225c4",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T01:07Z (receipt c56a4df225c4); selected commit 6e0f30a09898: \"feat(fleet): measure the offset to NETRA's clock\". LICENSE file at pin 6e0f30a09898 detected as Apache-2.0 by the GitHub licence API on 2026-11-12; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @DarmawanRobotics, who has not added it."
+   },
+   "paths": [
+    "src/pashupati_fleet"
+   ]
+  }
+ ]
+}

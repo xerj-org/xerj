@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on audio-visualizer, csharp, dotnet queries this for how SOVIS-Team/SoundVisualizer-Windows implements it: Visualize the unseen sounds. Start a new experience from gaming to movies (selected work: SoundVisualizer.Core, SoundVisualizer)",
+ "domain": "an agent working on audio-visualizer, csharp, dotnet queries this for how SOVIS-Team/SoundVisualizer-Windows implements it: Windows app that draws every sound your PC plays \u2014 where it comes from, how loud it is, and what it is \u2014 as a click-through overlay around t (selected work: SoundVisualizer.Core, SoundVisualizer)",
  "repos": [
   {
    "repo": "SoundVisualizer-Windows",

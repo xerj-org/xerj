@@ -1,0 +1,23 @@
+{
+ "corpus": "chibarie--sdvx-asphyxia-best-50",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how ChibaRie/sdvx_asphyxia_best_50 implements it: \u57fa\u4e8e asphyxia \u7684 SDVX best 50 \u751f\u6210\u5668",
+ "repos": [
+  {
+   "repo": "sdvx_asphyxia_best_50",
+   "url": "https://github.com/ChibaRie/sdvx_asphyxia_best_50",
+   "sha": "e3cfa01309252c41cff887430b2229b1b5a92583",
+   "licence": "author's permission (LICENSE at pin e3cfa0130925: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T01:26Z",
+    "consent_receipt": "e2ee40d20692",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-12T01:26Z (receipt e2ee40d20692); pinned to the default-branch head. LICENSE at pin e3cfa0130925: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

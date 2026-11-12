@@ -1,0 +1,23 @@
+{
+ "corpus": "chibarie--agentcraft",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how ChibaRie/AgentCraft implements it: AI expert workstation",
+ "repos": [
+  {
+   "repo": "AgentCraft",
+   "url": "https://github.com/ChibaRie/AgentCraft",
+   "sha": "b4f7fc06dee6d549acb961988b8762978dd1808f",
+   "licence": "MIT (LICENSE file at pin b4f7fc06dee6, GitHub licence API 2026-11-12)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T01:26Z",
+    "consent_receipt": "e5a5e5f12b92",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-12T01:26Z (receipt e5a5e5f12b92); pinned to the default-branch head. LICENSE file at pin b4f7fc06dee6 detected as MIT by the GitHub licence API on 2026-11-12; used under that licence with attribution."
+   }
+  }
+ ]
+}
