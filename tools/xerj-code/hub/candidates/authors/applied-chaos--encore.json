@@ -1,9 +1,9 @@
 {
- "corpus": "mintopia--encore",
+ "corpus": "applied-chaos--encore",
  "cloned_at": null,
  "status": "draft",
  "shelf": "NET",
- "domain": "an agent working on TypeScript queries this for how mintopia/encore implements it: Authenticating WebSocket proxy + supervisor for Spotify Soloist (selected work: src, src/web-vue)",
+ "domain": "an agent working on TypeScript queries this for how applied-chaos/encore implements it: Authenticating WebSocket proxy + supervisor for Spotify Soloist (selected work: src, src/web-vue)",
  "repos": [
   {
    "repo": "encore",

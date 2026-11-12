@@ -8,15 +8,15 @@
   {
    "repo": "circles-app",
    "url": "https://github.com/cucoleadan/circles-app",
-   "sha": "a277082c215dbb63ddf50dbb03f9f798a59d25fb",
-   "licence": "MIT (LICENSE file at pin a277082c215d, GitHub licence API 2026-11-12)",
+   "sha": "207ffeadaaf178ba4f974a16d97039053e4d3acb",
+   "licence": "MIT (LICENSE file at pin 207ffeadaaf1, GitHub licence API 2026-11-12)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-22T10:09Z",
     "consent_receipt": "d9c4f5cfc467",
-    "note": "Inclusion consented by the commit author by email at 2026-10-22T10:09Z (receipt d9c4f5cfc467); selected commit a277082c215d: \"feat: implement scope-filtered discovery and inline SDK results; enha\u2026\". LICENSE file at pin a277082c215d detected as MIT by the GitHub licence API on 2026-11-12; used under that licence with attribution. Pinned to head a277082c215d (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-22T10:09Z (receipt d9c4f5cfc467); selected commit 207ffeadaaf1: \"feat: implement scope-filtered discovery and inline SDK results; enha\u2026\". LICENSE file at pin 207ffeadaaf1 detected as MIT by the GitHub licence API on 2026-11-12; used under that licence with attribution. Pinned to head 207ffeadaaf1 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

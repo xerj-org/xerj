@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on transact queries this for how woocommerce/woocommerce-gateway-stripe implements it: The official Stripe Payment Gateway for WooCommerce (selected work: client)",
+ "domain": "an agent working on transact queries this for how woocommerce/woocommerce-gateway-stripe implements it: The official Stripe Payment Gateway for WooCommerce (selected work: client, tests)",
  "repos": [
   {
    "repo": "woocommerce-gateway-stripe",
    "url": "https://github.com/woocommerce/woocommerce-gateway-stripe",
-   "sha": "d2a7418e5da6137b9ece720b5bf7cd88fc7e1458",
-   "licence": "GPL-3.0 (LICENSE file at pin d2a7418e5da6, GitHub licence API 2026-11-12)",
+   "sha": "d456ea2b7e4227898b9d9d4798f68ef119e4aa09",
+   "licence": "GPL-3.0 (LICENSE file at pin d456ea2b7e42, GitHub licence API 2026-11-11)",
    "review": {
     "spdx": "GPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
-    "at": "2026-10-22T10:05Z",
-    "consent_receipt": "75dccb62dc2d",
-    "note": "Inclusion consented by the commit author by email at 2026-10-22T10:05Z (receipt 75dccb62dc2d); selected commit d2a7418e5da6: \"Avoid overwriting Agentic Commerce add-on toggles after a failed sett\u2026\". LICENSE file at pin d2a7418e5da6 detected as GPL-3.0 by the GitHub licence API on 2026-11-12; used under that licence with attribution. Pinned to head d2a7418e5da6 (contains the selected commit): the LICENSE at the selected commit was NONE. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @woocommerce, who has not added it."
+    "at": "2026-11-10T19:03Z",
+    "consent_receipt": "ada14d80b2dd",
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T19:03Z (receipt ada14d80b2dd); selected commit d456ea2b7e42: \"perf: Start Blocks wallet discovery before cart hydration (#6184)\". LICENSE file at pin d456ea2b7e42 detected as GPL-3.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @woocommerce, who has not added it."
    },
    "paths": [
     "client/blocks/express-checkout",

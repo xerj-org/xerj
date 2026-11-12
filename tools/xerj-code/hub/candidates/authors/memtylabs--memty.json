@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai, genai, memory queries this for how memtylabs/memty implements it: Multi-model AI workspace with portable memory, smart model routing, and cross-model conversations (selected work: memty, tests)",
+ "domain": "an agent working on ai, genai, memory queries this for how memtylabs/memty implements it: User-owned, local-first memory for AI assistants: one private vault for Claude, ChatGPT, Gemini, Perplexity, Cursor, and any MCP client (selected work: memty, tests)",
  "repos": [
   {
    "repo": "memty",

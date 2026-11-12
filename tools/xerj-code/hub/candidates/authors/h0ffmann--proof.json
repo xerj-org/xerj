@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on kernel, proof-assistant, verification queries this for how h0ffmann/proof implements it: agda aiXiv experiments",
+ "domain": "an agent working on kernel, proof-assistant, verification queries this for how h0ffmann/proof implements it: agda paper experiments",
  "repos": [
   {
    "repo": "proof",
