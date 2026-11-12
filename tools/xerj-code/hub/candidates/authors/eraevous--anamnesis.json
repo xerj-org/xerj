@@ -1,0 +1,23 @@
+{
+ "corpus": "eraevous--anamnesis",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on code queries this for how eraevous/Anamnesis implements it: eraevous/Anamnesis (code)",
+ "repos": [
+  {
+   "repo": "Anamnesis",
+   "url": "https://github.com/eraevous/Anamnesis",
+   "sha": "95941cd0632d8bc4dbde663dbdcead11c608b534",
+   "licence": "author's permission (LICENSE at pin 95941cd0632d: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T17:12Z",
+    "consent_receipt": "0df17be8ce6a",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-12T17:12Z (receipt 0df17be8ce6a); pinned to the default-branch head. LICENSE at pin 95941cd0632d: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

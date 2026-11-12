@@ -8,15 +8,15 @@
   {
    "repo": "pianosmith",
    "url": "https://github.com/flashboss/pianosmith",
-   "sha": "4b999e21ea57fe15432f24cfa369f50ed1199d20",
-   "licence": "MIT (LICENSE file at pin 4b999e21ea57, GitHub licence API 2026-11-12)",
+   "sha": "2d6dd8798bd6697d3ad99075e0f3138883bc1b4e",
+   "licence": "MIT (LICENSE file at pin 2d6dd8798bd6, GitHub licence API 2026-11-12)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-11T07:36Z",
     "consent_receipt": "38cc7878cabd",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T07:36Z (receipt 38cc7878cabd); pinned to the default-branch head. LICENSE file at pin 4b999e21ea57 detected as MIT by the GitHub licence API on 2026-11-12; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T07:36Z (receipt 38cc7878cabd); pinned to the default-branch head. LICENSE file at pin 2d6dd8798bd6 detected as MIT by the GitHub licence API on 2026-11-12; used under that licence with attribution."
    }
   }
  ]

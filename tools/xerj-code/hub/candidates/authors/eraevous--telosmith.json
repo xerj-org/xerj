@@ -8,15 +8,15 @@
   {
    "repo": "Telosmith",
    "url": "https://github.com/eraevous/Telosmith",
-   "sha": "adc1666c650e3e5e0639ef21eac5771dbfd54d57",
-   "licence": "MIT (LICENSE file at pin adc1666c650e, GitHub licence API 2026-11-12)",
+   "sha": "3c8415d819ccb054facfe0ad4728e65dc0d6ec06",
+   "licence": "MIT (LICENSE file at pin 3c8415d819cc, GitHub licence API 2026-11-12)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-07T16:41Z",
     "consent_receipt": "35c3a129b3b9",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-07T16:41Z (receipt 35c3a129b3b9); pinned to the default-branch head. LICENSE file at pin adc1666c650e detected as MIT by the GitHub licence API on 2026-11-12; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-07T16:41Z (receipt 35c3a129b3b9); pinned to the default-branch head. LICENSE file at pin 3c8415d819cc detected as MIT by the GitHub licence API on 2026-11-12; used under that licence with attribution."
    }
   }
  ]

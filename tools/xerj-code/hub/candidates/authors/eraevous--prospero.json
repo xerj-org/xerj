@@ -1,0 +1,23 @@
+{
+ "corpus": "eraevous--prospero",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how eraevous/Prospero implements it: eraevous/Prospero (Python)",
+ "repos": [
+  {
+   "repo": "Prospero",
+   "url": "https://github.com/eraevous/Prospero",
+   "sha": "31b4dec95cda798621d509969900054d7130f7ef",
+   "licence": "MIT (LICENSE file at pin 31b4dec95cda, GitHub licence API 2026-11-12)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T17:12Z",
+    "consent_receipt": "69fce13b460e",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-12T17:12Z (receipt 69fce13b460e); pinned to the default-branch head. LICENSE file at pin 31b4dec95cda detected as MIT by the GitHub licence API on 2026-11-12; used under that licence with attribution."
+   }
+  }
+ ]
+}
