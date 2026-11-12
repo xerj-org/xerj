@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on avermedia, capture-card, drivers queries this for how Everlite/EverLive implements it: EverLive: 100% blob-free userspace VFIO driver & gaming screen for AVerMedia Live Gamer 4K (GC573) \u2014 1440p120, 4K60, L-PCM audio, zero DKMS (selected work: tools, the project root)",
+ "domain": "an agent working on avermedia, capture-card, drivers queries this for how Everlite/EverLive implements it: Modular Linux gaming suite & blob-free userspace capture engine for AVerMedia Live Gamer 4K (GC573) & DUO (GC570D) \u2014 1440p120, 4K60, real-ti (selected work: tools, the project root)",
  "repos": [
   {
    "repo": "EverLive",

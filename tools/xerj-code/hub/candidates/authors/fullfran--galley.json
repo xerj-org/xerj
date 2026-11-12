@@ -8,15 +8,15 @@
   {
    "repo": "galley",
    "url": "https://github.com/FullFran/galley",
-   "sha": "ae2bd3a049eb77c58d438332dc285b45d919b8c9",
-   "licence": "MIT (LICENSE file at pin ae2bd3a049eb, GitHub licence API 2026-11-12)",
+   "sha": "54d277ec4ad830a88424a7b2f3e3972a303a520b",
+   "licence": "MIT (LICENSE file at pin 54d277ec4ad8, GitHub licence API 2026-11-12)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-31T07:14Z",
     "consent_receipt": "ecde95167b18",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T07:14Z (receipt ecde95167b18); pinned to the default-branch head. LICENSE file at pin ae2bd3a049eb detected as MIT by the GitHub licence API on 2026-11-12; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T07:14Z (receipt ecde95167b18); pinned to the default-branch head. LICENSE file at pin 54d277ec4ad8 detected as MIT by the GitHub licence API on 2026-11-12; used under that licence with attribution."
    }
   }
  ]
