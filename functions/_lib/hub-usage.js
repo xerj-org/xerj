@@ -33,6 +33,8 @@
 // `Sec-GPC: 1` is answered normally and not recorded. A hosted client that
 // honours XERJ_DISABLE_FEEDBACK / --disable-feedback must send the first one.
 
+import { sourceKey } from '../api/hub-stars.js';
+
 export const K = 3;                 // publish a template only when seen >= K times
 export const WINDOW_DAYS = 30;
 export const DAILY_CAP = 5000;      // ×2 Class-A writes = 300k/mo, inside R2's free 1M
@@ -122,9 +124,15 @@ export function optedOut(request) {
 // only, never written; the map is dropped every minute.
 const RATE_PER_MIN = 30;
 let rateMinute = 0, rateMap = new Map();
+
 export async function overRate(request) {
   const ip = String(request.headers.get('CF-Connecting-IP') || '');
-  const key = ip.includes(':') ? ip.split(':').slice(0, 4).join(':') : ip;
+  // sourceKey() folds an IPv6 address to its /64 and leaves an IPv4 address as is.
+  // It is the same helper the stars and traffic routes use, so every rate limit
+  // on the hub buckets a source the same way. Splitting the address on ':' here
+  // instead would keep the host bits whenever '::' sits before the fourth group,
+  // which lets one /64 pass the limit many times over.
+  const key = sourceKey(ip);
   const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(key));
   const h = [...new Uint8Array(d).slice(0, 8)].map((b) => b.toString(16).padStart(2, '0')).join('');
   const m = Math.floor(Date.now() / 60000);
