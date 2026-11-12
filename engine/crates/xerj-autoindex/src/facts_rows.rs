@@ -595,6 +595,43 @@ pub struct VersionState {
     journal: Option<std::fs::File>,
 }
 
+fn escape_journal_field(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for ch in s.chars() {
+        match ch {
+            '\\' => out.push_str("\\\\"),
+            '\t' => out.push_str("\\t"),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            c => out.push(c),
+        }
+    }
+    out
+}
+
+fn unescape_journal_field(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut chars = s.chars();
+    while let Some(ch) = chars.next() {
+        if ch == '\\' {
+            match chars.next() {
+                Some('t') => out.push('\t'),
+                Some('n') => out.push('\n'),
+                Some('r') => out.push('\r'),
+                Some('\\') => out.push('\\'),
+                Some(other) => {
+                    out.push('\\');
+                    out.push(other);
+                }
+                None => out.push('\\'),
+            }
+        } else {
+            out.push(ch);
+        }
+    }
+    out
+}
+
 impl VersionState {
     pub fn load(path: PathBuf) -> Result<Self> {
         let mut versions = HashMap::new();
@@ -604,10 +641,10 @@ impl VersionState {
                 let mut it = line.splitn(3, '\t');
                 match (it.next(), it.next(), it.next()) {
                     (Some("+"), Some(d), Some(v)) => {
-                        versions.insert(d.to_string(), v.to_string());
+                        versions.insert(unescape_journal_field(d), v.to_string());
                     }
                     (Some("-"), Some(d), _) => {
-                        versions.remove(d);
+                        versions.remove(&unescape_journal_field(d));
                     }
                     _ => {}
                 }
@@ -637,13 +674,14 @@ impl VersionState {
             );
         }
         let j = self.journal.as_mut().expect("opened above");
+        let enc_id = escape_journal_field(doc_id);
         match version {
             Some(v) => {
-                writeln!(j, "+\t{doc_id}\t{v}")?;
+                writeln!(j, "+\t{enc_id}\t{v}")?;
                 self.versions.insert(doc_id.to_string(), v.to_string());
             }
             None => {
-                writeln!(j, "-\t{doc_id}")?;
+                writeln!(j, "-\t{enc_id}")?;
                 self.versions.remove(doc_id);
             }
         }
@@ -666,7 +704,8 @@ impl VersionState {
             let mut keys: Vec<_> = self.versions.iter().collect();
             keys.sort();
             for (d, v) in keys {
-                writeln!(f, "+\t{d}\t{v}")?;
+                let enc_id = escape_journal_field(d);
+                writeln!(f, "+\t{enc_id}\t{v}")?;
             }
             f.flush()?;
         }
@@ -901,7 +940,9 @@ pub fn run(cfg: FactsCfg) -> Result<i32> {
         let canon = std::fs::canonicalize(&path).unwrap_or_else(|_| path.clone());
         let mut state =
             VersionState::load(state_file(&state_dir, &cfg.url, &cfg.namespace, &canon))?;
-        let _ = &ns_status;
+        if !cfg.dry_run && ns_status.as_ref().is_none_or(|s| s.records == 0) {
+            state.versions.clear();
+        }
 
         let mut mappers: HashMap<String, (RowFactMapper, TableReport, HashSet<String>)> =
             HashMap::new();
@@ -1405,6 +1446,158 @@ mod tests {
         let mut s3 = VersionState::load(p.clone()).unwrap();
         s3.compact().unwrap();
         assert_eq!(std::fs::read_to_string(&p).unwrap(), "+\tb\t2\n");
+    }
+
+    #[test]
+    fn the_journal_round_trips_doc_ids_with_tabs_or_newlines() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path().join("ns.journal");
+        let mut s = VersionState::load(p.clone()).unwrap();
+        s.record("hr/people/row\t1", Some("deadbeef01234567"))
+            .unwrap();
+        s.record("hr/people/line1\nline2", Some("cafebabe89abcdef"))
+            .unwrap();
+        s.flush().unwrap();
+
+        let s2 = VersionState::load(p.clone()).unwrap();
+        assert_eq!(
+            s2.versions.get("hr/people/row\t1").map(String::as_str),
+            Some("deadbeef01234567"),
+            "doc_id with a tab was corrupted on journal reload: {:?}",
+            s2.versions
+        );
+        assert_eq!(
+            s2.versions
+                .get("hr/people/line1\nline2")
+                .map(String::as_str),
+            Some("cafebabe89abcdef"),
+            "doc_id with a newline was corrupted on journal reload: {:?}",
+            s2.versions
+        );
+    }
+
+    #[test]
+    fn a_recreated_or_empty_namespace_on_the_node_ignores_a_stale_local_journal() {
+        use std::io::{Read, Write};
+        use std::net::TcpListener;
+        use std::sync::{Arc, Mutex};
+
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let bulk_bodies: Arc<Mutex<Vec<Value>>> = Arc::new(Mutex::new(Vec::new()));
+        let bulk_clone = bulk_bodies.clone();
+
+        let srv = std::thread::spawn(move || {
+            // Serve 3 requests:
+            // 1. GET /_facts -> 200 OK
+            // 2. GET /_facts/hr -> 404 Not Found (fresh/recreated node)
+            // 3. POST /_facts/hr/_bulk -> 200 OK (only reached if stale journal is ignored!)
+            for _ in 0..3 {
+                let Ok((mut stream, _)) = listener.accept() else {
+                    break;
+                };
+                stream
+                    .set_read_timeout(Some(Duration::from_millis(500)))
+                    .ok();
+                let mut buf = Vec::new();
+                let mut chunk = [0u8; 4096];
+                let mut header_end = None;
+                let mut content_len = 0usize;
+                loop {
+                    match stream.read(&mut chunk) {
+                        Ok(0) | Err(_) => break,
+                        Ok(n) => {
+                            buf.extend_from_slice(&chunk[..n]);
+                            if header_end.is_none() {
+                                if let Some(pos) = buf.windows(4).position(|w| w == b"\r\n\r\n") {
+                                    header_end = Some(pos + 4);
+                                    let hdr = String::from_utf8_lossy(&buf[..pos]);
+                                    for line in hdr.lines() {
+                                        if let Some((k, v)) = line.split_once(':') {
+                                            if k.eq_ignore_ascii_case("content-length") {
+                                                content_len = v.trim().parse().unwrap_or(0);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            if let Some(he) = header_end {
+                                if buf.len() >= he + content_len {
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+                let req_str = String::from_utf8_lossy(&buf);
+                let first_line = req_str.lines().next().unwrap_or("");
+                let (status, body) = if first_line.starts_with("GET /_facts/hr ") {
+                    ("404 Not Found", r#"{"error":{"type":"not_found"}}"#)
+                } else if first_line.starts_with("POST /_facts/hr/_bulk ") {
+                    if let Some(he) = header_end {
+                        if let Ok(v) = serde_json::from_slice::<Value>(&buf[he..he + content_len]) {
+                            bulk_clone.lock().unwrap().push(v);
+                        }
+                    }
+                    ("200 OK", r#"{"committed":{"to_rev":1}}"#)
+                } else {
+                    ("200 OK", r#"{"status":"ok"}"#)
+                };
+                let resp = format!(
+                    "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                    body.len()
+                );
+                let _ = stream.write_all(resp.as_bytes());
+            }
+        });
+
+        let dir = tempfile::tempdir().unwrap();
+        let csv = dir.path().join("people.csv");
+        std::fs::write(&csv, "id,name,office\n1,Ana Bel,Berlin\n").unwrap();
+        let state_dir = dir.path().join("state");
+        let url = format!("http://127.0.0.1:{port}");
+        let canon = std::fs::canonicalize(&csv).unwrap_or_else(|_| csv.clone());
+
+        // Seed a stale local journal from a previous node for the exact same row:
+        let m = RowFactMapper {
+            source: "people".into(),
+            table: "people".into(),
+            key_column: Some("id".into()),
+            subject_column: Some("name".into()),
+        }
+        .map_change(&RowChange::Upsert {
+            key: "1".into(),
+            columns: row(json!({"id": "1", "name": "Ana Bel", "office": "Berlin"})),
+            prev_version: None,
+        });
+        let mut stale = VersionState::load(state_file(&state_dir, &url, "hr", &canon)).unwrap();
+        stale.record(&m.doc_id, m.new_version.as_deref()).unwrap();
+        stale.compact().unwrap();
+
+        let cfg = FactsCfg {
+            path: csv,
+            namespace: "hr".into(),
+            url,
+            api_key: None,
+            key_column: None,
+            subject_column: None,
+            tables: vec![],
+            batch_actions: 100,
+            state_dir: Some(state_dir),
+            dry_run: false,
+            json: true,
+            quiet: true,
+        };
+        run(cfg).unwrap();
+        drop(srv);
+
+        let posted = bulk_bodies.lock().unwrap();
+        assert_eq!(
+            posted.len(),
+            1,
+            "fresh 404 namespace on node received 0 _bulk writes because stale local journal was not cleared"
+        );
+        assert_eq!(posted[0]["documents"].as_array().unwrap().len(), 1);
     }
 
     #[test]
