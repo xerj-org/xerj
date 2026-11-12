@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on JavaScript queries this for how OmmNoMi/omniquery implements it: OmmNoMi/omniquery (JavaScript) (selected work: src/components, omniquery, src/utils)",
+ "domain": "an agent working on Vue queries this for how OmmNoMi/omniquery implements it: OmmNoMi/omniquery (Vue) (selected work: src/components, omniquery, src/utils)",
  "repos": [
   {
    "repo": "omniquery",

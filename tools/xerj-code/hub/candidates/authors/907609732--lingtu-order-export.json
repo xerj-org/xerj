@@ -8,15 +8,15 @@
   {
    "repo": "lingtu-order-export",
    "url": "https://github.com/907609732/lingtu-order-export",
-   "sha": "4fc39bee2c1d3fa6d04a1bd2eec82028e9280bb4",
-   "licence": "author's permission (LICENSE at pin 4fc39bee2c1d: NONE; repository: none)",
+   "sha": "11343c6ff9e40675d88480298b202cae13cb5f52",
+   "licence": "author's permission (LICENSE at pin 11343c6ff9e4: NONE; repository: none)",
    "review": {
     "spdx": "NONE",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-06T08:36Z",
     "consent_receipt": "41e6049896e5",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T08:36Z (receipt 41e6049896e5); pinned to the default-branch head. LICENSE at pin 4fc39bee2c1d: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T08:36Z (receipt 41e6049896e5); pinned to the default-branch head. LICENSE at pin 11343c6ff9e4: NONE (repository: none); used with the author's permission, with attribution."
    }
   }
  ]

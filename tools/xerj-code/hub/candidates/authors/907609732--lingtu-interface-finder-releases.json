@@ -8,15 +8,15 @@
   {
    "repo": "lingtu-interface-finder-releases",
    "url": "https://github.com/907609732/lingtu-interface-finder-releases",
-   "sha": "552b93e721eefed300b936c8f087274f1574f299",
-   "licence": "author's permission (LICENSE at pin 552b93e721ee: NONE; repository: none)",
+   "sha": "2909c2b02c0e386db6829d47104f3d7df07b427a",
+   "licence": "author's permission (LICENSE at pin 2909c2b02c0e: NONE; repository: none)",
    "review": {
     "spdx": "NONE",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-06T08:36Z",
     "consent_receipt": "63ccb1562db6",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T08:36Z (receipt 63ccb1562db6); pinned to the default-branch head. LICENSE at pin 552b93e721ee: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T08:36Z (receipt 63ccb1562db6); pinned to the default-branch head. LICENSE at pin 2909c2b02c0e: NONE (repository: none); used with the author's permission, with attribution."
    }
   }
  ]

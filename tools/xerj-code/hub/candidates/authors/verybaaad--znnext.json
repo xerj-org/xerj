@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on android, android-root, apatch queries this for how VeryBaaad/ZNNext implements it: A from-scratch, standalone implementation of the Zygisk Next module (selected work: injector, webui)",
+ "domain": "an agent working on android, android-root, apatch queries this for how VeryBaaad/ZNNext implements it: A from-scratch, standalone implementation of the Zygisk Next API (selected work: injector, webui)",
  "repos": [
   {
    "repo": "ZygiskNextNext",

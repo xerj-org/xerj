@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Python queries this for how TUDelft-MUDE/workbook-2026 implements it: Collection of all assignments (selected work: book)",
+ "domain": "an agent working on JavaScript queries this for how TUDelft-MUDE/workbook-2026 implements it: Collection of all assignments (selected work: book)",
  "repos": [
   {
    "repo": "workbook-2026",

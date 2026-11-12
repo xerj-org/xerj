@@ -1,0 +1,23 @@
+{
+ "corpus": "fggzs--fgwx",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on HTML queries this for how fggzs/fgwx implements it: fggzs/fgwx (HTML)",
+ "repos": [
+  {
+   "repo": "fgwx",
+   "url": "https://github.com/fggzs/fgwx",
+   "sha": "3f53e54ffa4d36e9f3ed9c2cd09133cdd7a25dc9",
+   "licence": "author's permission (LICENSE at pin 3f53e54ffa4d: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T13:35Z",
+    "consent_receipt": "bc1397774bca",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-12T13:35Z (receipt bc1397774bca); pinned to the default-branch head. LICENSE at pin 3f53e54ffa4d: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

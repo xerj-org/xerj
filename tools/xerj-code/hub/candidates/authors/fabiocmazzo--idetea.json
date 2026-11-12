@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Rust queries this for how fabiocmazzo/idetea implements it: A fast, quiet IDE written in pure Rust with iced, built for working side by side with coding agents. Free, always: Apache 2.0 (selected work: crates/ext, crates/tea-core, crates/tea-dap)",
+ "domain": "an agent working on ai-agents, code-editor, coding-agents queries this for how fabiocmazzo/idetea implements it: A fast, quiet IDE written in pure Rust with iced, built for working side by side with coding agents. Free, always: Apache 2.0 (selected work: crates/ext, crates/tea-core, crates/tea-dap)",
  "repos": [
   {
    "repo": "idetea",
