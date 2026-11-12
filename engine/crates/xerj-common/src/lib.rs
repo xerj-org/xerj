@@ -45,6 +45,7 @@
 //!   definition record, and the [`hub::Answer`] every surface renders (#1374)
 
 pub mod argv;
+pub mod bio_evidence;
 pub mod calibration;
 pub mod code_query;
 pub mod config;
