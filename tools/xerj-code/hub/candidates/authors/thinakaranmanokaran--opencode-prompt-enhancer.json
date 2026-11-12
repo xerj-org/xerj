@@ -2,8 +2,8 @@
  "corpus": "thinakaranmanokaran--opencode-prompt-enhancer",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on npm, opencode, opencode-plugin queries this for how thinakaranmanokaran/opencode_prompt_enhancer implements it: Opencode Prompt enhancer in the same Opencode Terminal by using /enhance command (selected work: src, tests, the project root)",
+ "shelf": "WEB",
+ "domain": "an agent working on npm, opencode, opencode-plugin queries this for how thinakaranmanokaran/opencode_prompt_enhancer implements it: OpenCode Prompt Enhancer \u2014 a free, open-source TUI plugin that turns rough drafts into precise prompts with /enhance (selected work: src, tests, the project root)",
  "repos": [
   {
    "repo": "opencode_prompt_enhancer",

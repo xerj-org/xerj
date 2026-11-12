@@ -1,0 +1,23 @@
+{
+ "corpus": "zaynchen--lightdm-webkit-greeter",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Rust queries this for how ZaynChen/lightdm-webkit-greeter implements it: LightDM greeter made with WebKitGTK (selected work: greeter, crates/lightdm-webkit-greeter, ext)",
+ "repos": [
+  {
+   "repo": "lightdm-webkit-greeter",
+   "url": "https://github.com/ZaynChen/lightdm-webkit-greeter",
+   "sha": "b7c2d234b4659ca169264face021ffe646a526c2",
+   "licence": "GPL-3.0 (LICENSE file at pin b7c2d234b465, GitHub licence API 2026-11-12)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-12T07:37Z",
+    "consent_receipt": "d4a53f360191",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T07:37Z (receipt d4a53f360191); selected commit b7c2d234b465: \"refactor!: port from webkit-greeter\". LICENSE file at pin b7c2d234b465 detected as GPL-3.0 by the GitHub licence API on 2026-11-12; used under that licence with attribution."
+   }
+  }
+ ]
+}

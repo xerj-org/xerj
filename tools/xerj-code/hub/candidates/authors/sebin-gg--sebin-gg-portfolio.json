@@ -8,15 +8,15 @@
   {
    "repo": "sebin-gg-portfolio",
    "url": "https://github.com/sebin-gg/sebin-gg-portfolio",
-   "sha": "b7e0a9db40ca5a75c3c8c44a1bddbb92e1f6d6ec",
-   "licence": "MIT (LICENSE file at pin b7e0a9db40ca, GitHub licence API 2026-11-10)",
+   "sha": "f94306c4b0f23c7a4407fde4cded2a0458422686",
+   "licence": "MIT (LICENSE file at pin f94306c4b0f2, GitHub licence API 2026-11-12)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-02T15:14Z",
     "consent_receipt": "a0919e3f55b2",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T15:14Z (receipt a0919e3f55b2); pinned to the default-branch head. LICENSE file at pin b7e0a9db40ca detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T15:14Z (receipt a0919e3f55b2); pinned to the default-branch head. LICENSE file at pin f94306c4b0f2 detected as MIT by the GitHub licence API on 2026-11-12; used under that licence with attribution."
    }
   }
  ]

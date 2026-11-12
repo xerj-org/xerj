@@ -8,15 +8,15 @@
   {
    "repo": "good-news-everyone",
    "url": "https://github.com/gbrennon/good-news-everyone",
-   "sha": "34fa69a704681508cff217ee9fd59140c763f145",
-   "licence": "author's permission (LICENSE at pin 34fa69a70468: NONE; repository: none)",
+   "sha": "dddf532ca8cdf019bf5cf8826e325fcbe3c106dc",
+   "licence": "author's permission (LICENSE at pin dddf532ca8cd: NONE; repository: none)",
    "review": {
     "spdx": "NONE",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T19:07Z",
     "consent_receipt": "663a0a42a7bc",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T19:07Z (receipt 663a0a42a7bc); pinned to the default-branch head. LICENSE at pin 34fa69a70468: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T19:07Z (receipt 663a0a42a7bc); pinned to the default-branch head. LICENSE at pin dddf532ca8cd: NONE (repository: none); used with the author's permission, with attribution."
    }
   }
  ]

@@ -1,0 +1,23 @@
+{
+ "corpus": "echo-braveshine--simlaunch",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Swift queries this for how Echo-BraveShine/SimLaunch implements it: Mac\u72b6\u6001\u680f\u7ec4\u4ef6,\u5feb\u901f\u542f\u52a8iOS,Anddroid,HarmonyOS\u6a21\u62df\u5668 (selected work: Sources, Tests, the project root)",
+ "repos": [
+  {
+   "repo": "SimLaunch",
+   "url": "https://github.com/Echo-BraveShine/SimLaunch",
+   "sha": "118027d1370316c3715c97d1ad925c71ab0ee92e",
+   "licence": "MIT (LICENSE file at pin 118027d13703, GitHub licence API 2026-11-12)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T06:20Z",
+    "consent_receipt": "2161c6a32f3a",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T06:20Z (receipt 2161c6a32f3a); selected commit 118027d13703: \"\u65b0\u589e\u5b89\u88c5\u5e94\u7528\". LICENSE file at pin 118027d13703 detected as MIT by the GitHub licence API on 2026-11-12; used under that licence with attribution."
+   }
+  }
+ ]
+}

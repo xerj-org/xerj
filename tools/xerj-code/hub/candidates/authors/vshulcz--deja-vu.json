@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on claude-code, codex, mcp queries this for how vshulcz/deja-vu implements it: Local memory, uncommitted code recovery, and cross-agent handoff for Claude Code, Codex, Cursor, OpenCode, and 39 more agents (CLI & MCP). O (selected work: internal/sources, cmd/deja, codebuddy-plugin)",
+ "domain": "an agent working on claude-code, codex, mcp-server queries this for how vshulcz/deja-vu implements it: Shared local memory, session history search, cross-agent handoff, and uncommitted code recovery across 43 coding agents \u2014 Claude Code, Codex (selected work: internal/sources, cmd/deja, codebuddy-plugin)",
  "repos": [
   {
    "repo": "deja-vu",

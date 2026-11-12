@@ -1,0 +1,23 @@
+{
+ "corpus": "whatsgooglykp--keyring-paypal",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how whatsgooglyKP/keyring-paypal implements it: Lock, revoke, and understand your saved cards across PayPal merchants \u2014 PayPal Vault v3 + ML + Gemini (selected work: src, public, scripts)",
+ "repos": [
+  {
+   "repo": "keyring-paypal",
+   "url": "https://github.com/whatsgooglyKP/keyring-paypal",
+   "sha": "5445f4a7a4f333cf3df180af285206a3acd6f8b5",
+   "licence": "MIT (LICENSE file at pin 5445f4a7a4f3, GitHub licence API 2026-11-12)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T07:23Z",
+    "consent_receipt": "7c5c7b8c2a6f",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T07:23Z (receipt 7c5c7b8c2a6f); selected commit 5445f4a7a4f3: \"Add Smart checkout for a $2,450 designer dress, with a white/navy theme\". LICENSE file at pin 5445f4a7a4f3 detected as MIT by the GitHub licence API on 2026-11-12; used under that licence with attribution."
+   }
+  }
+ ]
+}
