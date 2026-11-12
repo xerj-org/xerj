@@ -1,0 +1,28 @@
+{
+ "corpus": "blinkpay--blinkpay-snipcart-demo",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how BlinkPay/BlinkPay-Snipcart-Demo implements it: A project showcasing how to integrate Snipcart for e-commerce functionality with the BlinkPay payment gateway (selected work: tests, netlify, src/pages)",
+ "repos": [
+  {
+   "repo": "BlinkPay-Snipcart-Demo",
+   "url": "https://github.com/BlinkPay/BlinkPay-Snipcart-Demo",
+   "sha": "a7bcb88415cc6fb8cecd79105282f3757033a756",
+   "licence": "MIT (LICENSE file at pin a7bcb88415cc, GitHub licence API 2026-11-12)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T02:49Z",
+    "consent_receipt": "76ec2cacb432",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T02:49Z (receipt 76ec2cacb432); selected commit a7bcb88415cc: \"BDL-2107: Bumped dependencies and addressed Aikido findings. (#7)\". LICENSE file at pin a7bcb88415cc detected as MIT by the GitHub licence API on 2026-11-12; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @BlinkPay, who has not added it."
+   },
+   "paths": [
+    "netlify/functions",
+    "src/pages/payments",
+    "tests"
+   ]
+  }
+ ]
+}

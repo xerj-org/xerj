@@ -2,8 +2,8 @@
  "corpus": "sean-zhixin-li--spacecraft-ai-controller",
  "cloned_at": null,
  "status": "draft",
- "shelf": "AI",
- "domain": "an agent working on aerospace-engineering, astrodynamics, control-systems queries this for how Sean-ZhiXin-Li/spacecraft-ai-controller implements it: Physics-grounded spacecraft orbit-insertion simulator comparing PPO, explicit controllers, and optimal-control baselines (selected work: development_results, scripts, Tests)",
+ "shelf": "SEC",
+ "domain": "an agent working on aerospace-engineering, astrodynamics, control-systems queries this for how Sean-ZhiXin-Li/spacecraft-ai-controller implements it: Spacecraft autonomy research sandbox in 2D orbital dynamics: recoverable insertion, fuel-constrained transfer planning, state estimation, an (selected work: development_results, scripts, Tests)",
  "repos": [
   {
    "repo": "spacecraft-ai-controller",

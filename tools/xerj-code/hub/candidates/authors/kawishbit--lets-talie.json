@@ -1,0 +1,23 @@
+{
+ "corpus": "kawishbit--lets-talie",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on astro, finance, self-hosted queries this for how kawishbit/lets-talie implements it: Who's paying the bill? let's split and track it. A self-hostable, installable Astro + Vue PWA for shared expenses between friends, flatmates",
+ "repos": [
+  {
+   "repo": "lets-talie",
+   "url": "https://github.com/kawishbit/lets-talie",
+   "sha": "6b612a557a1ed4ef6894551deb814b40e0f84492",
+   "licence": "MIT (LICENSE file at pin 6b612a557a1e, GitHub licence API 2026-11-12)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T03:38Z",
+    "consent_receipt": "a378e1278db4",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-12T03:38Z (receipt a378e1278db4); pinned to the default-branch head. LICENSE file at pin 6b612a557a1e detected as MIT by the GitHub licence API on 2026-11-12; used under that licence with attribution."
+   }
+  }
+ ]
+}

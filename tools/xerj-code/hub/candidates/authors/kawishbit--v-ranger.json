@@ -1,0 +1,23 @@
+{
+ "corpus": "kawishbit--v-ranger",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on input-range, slider, vue queries this for how kawishbit/v-ranger implements it: A colourful, emotive range slider for Vue 3 \u2014 accessible, token-driven theming, ordinal & numeric axes, WCAG 2.2 AA compliant",
+ "repos": [
+  {
+   "repo": "v-ranger",
+   "url": "https://github.com/kawishbit/v-ranger",
+   "sha": "b25543cb9e05057cb2728ba44acacf968df8972b",
+   "licence": "MIT (LICENSE file at pin b25543cb9e05, GitHub licence API 2026-11-12)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T03:38Z",
+    "consent_receipt": "61d1a9410ec4",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-12T03:38Z (receipt 61d1a9410ec4); pinned to the default-branch head. LICENSE file at pin b25543cb9e05 detected as MIT by the GitHub licence API on 2026-11-12; used under that licence with attribution."
+   }
+  }
+ ]
+}

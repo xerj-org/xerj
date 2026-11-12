@@ -1,0 +1,23 @@
+{
+ "corpus": "lowaltitudeflight--llm-inference-bench",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on awq, benchmark, benchmarking queries this for how Lowaltitudeflight/llm-inference-bench implements it: Benchmark self-hosted LLM inference across engines (vLLM, Ollama) and quantisation levels (FP16 / INT8 / AWQ / GPTQ). Concurrency sweeps, TT",
+ "repos": [
+  {
+   "repo": "llm-inference-bench",
+   "url": "https://github.com/Lowaltitudeflight/llm-inference-bench",
+   "sha": "6b0ed60db0906a2e7d7d62beecd872141f8668bd",
+   "licence": "MIT (LICENSE file at pin 6b0ed60db090, GitHub licence API 2026-11-12)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T02:47Z",
+    "consent_receipt": "1256acb814dd",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-12T02:47Z (receipt 1256acb814dd); pinned to the default-branch head. LICENSE file at pin 6b0ed60db090 detected as MIT by the GitHub licence API on 2026-11-12; used under that licence with attribution."
+   }
+  }
+ ]
+}

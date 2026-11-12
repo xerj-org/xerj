@@ -1,9 +1,9 @@
 {
- "corpus": "jhowliu--codex-cage",
+ "corpus": "jhowliu--agent-cage",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on TypeScript queries this for how jhowliu/codex-cage implements it: This feature provides an isolated Docker-based sandbox environment where an AI agent can repeatedly develop, run, test, debug, and improve c (selected work: web)",
+ "domain": "an agent working on TypeScript queries this for how jhowliu/agent-cage implements it: This feature provides an isolated Docker-based sandbox environment where an AI agent can repeatedly develop, run, test, debug, and improve c (selected work: web)",
  "repos": [
   {
    "repo": "codex-cage",

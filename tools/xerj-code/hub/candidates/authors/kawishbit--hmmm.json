@@ -1,0 +1,23 @@
+{
+ "corpus": "kawishbit--hmmm",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on astro, quotes, self-hosted queries this for how kawishbit/hmmm implements it: Frame your quotes and go hmmm. Hmmm is a static, astro-based, privacy-friendly tool for turning quotes into shareable images",
+ "repos": [
+  {
+   "repo": "hmmm",
+   "url": "https://github.com/kawishbit/hmmm",
+   "sha": "c3cf3b5ad2b22652ba0a365411c4d103c273b357",
+   "licence": "MIT (LICENSE file at pin c3cf3b5ad2b2, GitHub licence API 2026-11-12)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T03:38Z",
+    "consent_receipt": "c6c90c308d38",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-12T03:38Z (receipt c6c90c308d38); pinned to the default-branch head. LICENSE file at pin c3cf3b5ad2b2 detected as MIT by the GitHub licence API on 2026-11-12; used under that licence with attribution."
+   }
+  }
+ ]
+}

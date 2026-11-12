@@ -1,0 +1,23 @@
+{
+ "corpus": "smc17--logic-zig",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on aiger, formal-methods, ipasir queries this for how SMC17/logic-zig implements it: An executable museum of logic: one system, one evidence file, Zig (selected work: src/sat, src/core, src/track)",
+ "repos": [
+  {
+   "repo": "logic-zig",
+   "url": "https://github.com/SMC17/logic-zig",
+   "sha": "9ecee090ddbce142af35c77f8551709397c8be01",
+   "licence": "Apache-2.0 (LICENSE file at pin 9ecee090ddbc, GitHub licence API 2026-11-12)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T02:30Z",
+    "consent_receipt": "09ac855efa60",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T02:30Z (receipt 09ac855efa60); selected commit 9ecee090ddbc: \"Fix native host portability and require evidence in trust gates (#9)\". LICENSE file at pin 9ecee090ddbc detected as Apache-2.0 by the GitHub licence API on 2026-11-12; used under that licence with attribution."
+   }
+  }
+ ]
+}
