@@ -1,0 +1,34 @@
+{
+ "corpus": "open-eid--libdigidocpp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on signing, c-plus-plus, osx queries this for how open-eid/libdigidocpp implements it: Libdigidocpp library offers creating, signing and verification of digitally signed documents, according to XAdES and XML-DSIG standards. Doc (selected work: src, src/crypto, debian)",
+ "repos": [
+  {
+   "repo": "libdigidocpp",
+   "url": "https://github.com/open-eid/libdigidocpp",
+   "sha": "d3ab67499b05086068ef43621f9888af1baedb1a",
+   "licence": "LGPL-2.1 (LICENSE file at pin d3ab67499b05, GitHub licence API 2026-11-12)",
+   "review": {
+    "spdx": "LGPL-2.1",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-12T09:24Z",
+    "consent_receipt": "3e69a833d092",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T09:24Z (receipt 3e69a833d092); selected commit d3ab67499b05: \"Add copyright header check (#769)\". LICENSE file at pin d3ab67499b05 detected as LGPL-2.1 by the GitHub licence API on 2026-11-12; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @open-eid, who has not added it."
+   },
+   "paths": [
+    ".github/workflows",
+    "cmake/modules",
+    "debian",
+    "doc",
+    "etc",
+    "examples",
+    "src",
+    "test",
+    "vcpkg-triplets"
+   ]
+  }
+ ]
+}

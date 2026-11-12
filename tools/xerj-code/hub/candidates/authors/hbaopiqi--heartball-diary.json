@@ -1,0 +1,23 @@
+{
+ "corpus": "hbaopiqi--heartball-diary",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how HBaopiqi/heartball-diary implements it: Local diary for Heartball voice notes, daily reviews and PDF reports | \u5fc3\u529b\u7403\u672c\u5730\u65e5\u8bb0\u3001\u6bcf\u65e5\u56de\u987e\u4e0ePDF\u65e5\u62a5 | \u5fc3\u529b\u7403\u306e\u97f3\u58f0\u8a18\u9332\u3092\u632f\u308a\u8fd4\u308b\u30ed\u30fc\u30ab\u30eb\u65e5\u8a18 (selected work: scripts, the project root, tests)",
+ "repos": [
+  {
+   "repo": "heartball-diary",
+   "url": "https://github.com/HBaopiqi/heartball-diary",
+   "sha": "820c6c94f0b92155df087f7c30493de4c41af571",
+   "licence": "MIT (LICENSE file at pin 820c6c94f0b9, GitHub licence API 2026-11-12)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T09:24Z",
+    "consent_receipt": "e8e53909acca",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T09:24Z (receipt e8e53909acca); selected commit 820c6c94f0b9: \"Improve beginner setup and multi-agent onboarding\". LICENSE file at pin 820c6c94f0b9 detected as MIT by the GitHub licence API on 2026-11-12; used under that licence with attribution."
+   }
+  }
+ ]
+}

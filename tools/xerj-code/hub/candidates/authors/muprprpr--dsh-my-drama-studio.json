@@ -1,0 +1,23 @@
+{
+ "corpus": "muprprpr--dsh-my-drama-studio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on drama, dsh, dsh-plugin queries this for how Muprprpr/dsh-my-drama-studio implements it: \u8ba9\u5bb6\u91cc\u5927\u80a5\u9c7c\u4e0d\u5403\u767d\u996d\uff0c\u77ed\u5267\u7528\u8fd9\u4e00\u5957\u5c31\u591f\u4e86\uff01\uff08\u6682\u672a\u5b9e\u73b0\uff0c\u4ec5\u4f9b\u53c2\u8003/\u7b11\uff09 (selected work: studio, src, tests)",
+ "repos": [
+  {
+   "repo": "dsh-my-drama-studio",
+   "url": "https://github.com/Muprprpr/dsh-my-drama-studio",
+   "sha": "f10e02c019899e845d3f55ad0f11e6739a8e01c4",
+   "licence": "Apache-2.0 (LICENSE file at pin f10e02c01989, GitHub licence API 2026-11-12)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T10:00Z",
+    "consent_receipt": "8a31cc0e6f30",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T10:00Z (receipt 8a31cc0e6f30); selected commit f10e02c01989: \"feat:\u5b8c\u5584\u4e86\u6e20\u9053\u914d\u7f6e\u5165\u53e3\". LICENSE file at pin f10e02c01989 detected as Apache-2.0 by the GitHub licence API on 2026-11-12; used under that licence with attribution."
+   }
+  }
+ ]
+}

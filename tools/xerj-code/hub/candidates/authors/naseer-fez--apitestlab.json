@@ -1,9 +1,9 @@
 {
- "corpus": "naseer-fez--apilab",
+ "corpus": "naseer-fez--apitestlab",
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on JavaScript queries this for how Naseer-fez/APILab implements it: This Project is a simple developer integration tool for automating the API testing thorough the project (selected work: frontend)",
+ "domain": "an agent working on JavaScript queries this for how Naseer-fez/APITestLab implements it: This Project is a simple developer integration tool for automating the API testing thorough the project (selected work: frontend)",
  "repos": [
   {
    "repo": "APILab",

@@ -2,8 +2,8 @@
  "corpus": "allanhue--galleria",
  "cloned_at": null,
  "status": "draft",
- "shelf": "WEB",
- "domain": "an agent working on TypeScript queries this for how allanhue/Galleria implements it: Galleria is an event application platform designed to seamlessly connect users with local and trending events. Built with Next.js, Go and Ca (selected work: server, app/dashboard, app/events)",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how allanhue/Galleria implements it: Galleria is an event application platform designed to seamlessly connect users with local and trending events. Built in it features real-tim (selected work: server, app/dashboard, app/events)",
  "repos": [
   {
    "repo": "Galleria",

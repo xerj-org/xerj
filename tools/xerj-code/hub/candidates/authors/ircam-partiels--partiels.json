@@ -8,15 +8,15 @@
   {
    "repo": "Partiels",
    "url": "https://github.com/Ircam-Partiels/Partiels",
-   "sha": "74776a8dfd1f30eac595241a20b2e0dab38fea1a",
-   "licence": "AGPL-3.0 (LICENSE file at pin 74776a8dfd1f, GitHub licence API 2026-11-12)",
+   "sha": "8b8df82cb831d30cf77a689e4e932de5a31e1c6b",
+   "licence": "AGPL-3.0 (LICENSE file at pin 8b8df82cb831, GitHub licence API 2026-11-12)",
    "review": {
     "spdx": "AGPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-11-11T06:11Z",
     "consent_receipt": "cc7bc39b6ab2",
-    "note": "Inclusion consented by the commit author by email at 2026-11-11T06:11Z (receipt cc7bc39b6ab2); selected commit 74776a8dfd1f: \"Display and control the bin zoom in hertz when possible\". LICENSE file at pin 74776a8dfd1f detected as AGPL-3.0 by the GitHub licence API on 2026-11-12; used under that licence with attribution. Pinned to head 74776a8dfd1f (contains the selected commit): the LICENSE at the selected commit was GPL-3.0. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Ircam-Partiels, who has not added it."
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T06:11Z (receipt cc7bc39b6ab2); selected commit 8b8df82cb831: \"Display and control the bin zoom in hertz when possible\". LICENSE file at pin 8b8df82cb831 detected as AGPL-3.0 by the GitHub licence API on 2026-11-12; used under that licence with attribution. Pinned to head 8b8df82cb831 (contains the selected commit): the LICENSE at the selected commit was GPL-3.0. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Ircam-Partiels, who has not added it."
    },
    "paths": [
     "BinaryData/Translations",

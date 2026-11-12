@@ -1,0 +1,29 @@
+{
+ "corpus": "opensymbolicrules--lean",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Lean queries this for how OpenSymbolicRules/Lean implements it: OpenSymbolicRules/Lean (Lean) (selected work: OSR, scripts, OSRTest)",
+ "repos": [
+  {
+   "repo": "Lean",
+   "url": "https://github.com/OpenSymbolicRules/Lean",
+   "sha": "bd87ea8e4a1c05b780882f6e0b4c230da1e11961",
+   "licence": "MIT (LICENSE file at pin bd87ea8e4a1c, GitHub licence API 2026-11-12)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T08:23Z",
+    "consent_receipt": "c0081ace36c0",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T08:23Z (receipt c0081ace36c0); selected commit bd87ea8e4a1c: \"feat: state antiderivatives and migrate the first RUBI rules\". LICENSE file at pin bd87ea8e4a1c detected as MIT by the GitHub licence API on 2026-11-12; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @OpenSymbolicRules, who has not added it."
+   },
+   "paths": [
+    "OSR",
+    "OSRTest",
+    "docs",
+    "scripts"
+   ]
+  }
+ ]
+}

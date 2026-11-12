@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on react, twemoji, emoji-picker queries this for how BrianHung/emoji-components implements it: Unstyled, composable emoji components for React (selected work: packages/react, packages/core, apps/demo)",
+ "domain": "an agent working on react, twemoji, emoji-picker queries this for how BrianHung/emoji-components implements it: Unstyled, composable emoji picker for React (selected work: packages/react, packages/core, apps/demo)",
  "repos": [
   {
    "repo": "emoji-components",

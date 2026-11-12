@@ -1,0 +1,23 @@
+{
+ "corpus": "hmfareed--frontier-engineer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how hmfareed/Frontier-Engineer implements it: hmfareed/Frontier-Engineer (TypeScript) (selected work: scripts, tests, schemas)",
+ "repos": [
+  {
+   "repo": "Frontier-Engineer",
+   "url": "https://github.com/hmfareed/Frontier-Engineer",
+   "sha": "3023d674b9e9c60c83b5a7b38e2f9c45ab2d4afe",
+   "licence": "MIT (LICENSE file at pin 3023d674b9e9, GitHub licence API 2026-11-12)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T09:30Z",
+    "consent_receipt": "f63787bde332",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T09:30Z (receipt f63787bde332); selected commit 3023d674b9e9: \"feat: Add Playwright and Sentry integrations with detailed specificat\u2026\". LICENSE file at pin 3023d674b9e9 detected as MIT by the GitHub licence API on 2026-11-12; used under that licence with attribution."
+   }
+  }
+ ]
+}

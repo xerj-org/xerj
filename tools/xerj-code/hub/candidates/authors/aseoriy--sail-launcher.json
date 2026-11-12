@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on emulation, gaming, indie queries this for how Aseoriy/Sail-Launcher implements it: Custom game/app launcher i made mainly for pirated games, also has a built in downloader (selected work: runtime, the project root, ui)",
+ "domain": "an agent working on emulation, gaming, indie queries this for how Aseoriy/Sail-Launcher implements it: Custom game/app launcher i made mainly for games acquired from certain sources. also has a built in downloader (selected work: runtime, the project root, ui)",
  "repos": [
   {
    "repo": "Sail-Launcher",

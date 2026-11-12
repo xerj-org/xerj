@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on TypeScript queries this for how PeterYuen/ziwei-mcp implements it: MCP server for ziwei-doushu \u2014 9 tools, stdio + Streamable HTTP (SSE), true-solar-time correction, deterministic selftest. MIT, engine-agnost (selected work: the project root, tests)",
+ "domain": "an agent working on TypeScript queries this for how PeterYuen/ziwei-mcp implements it: MCP server for Zi Wei Dou Shu (\u7d2b\u5fae\u6597\u6570) natal charts \u2014 10 tools, deterministic vendored engine, gold-standard regression tested (selected work: the project root, tests)",
  "repos": [
   {
    "repo": "ziwei-mcp",
