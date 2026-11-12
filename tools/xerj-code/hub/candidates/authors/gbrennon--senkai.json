@@ -2,8 +2,8 @@
  "corpus": "gbrennon--senkai",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on git, tmux, tmux-session queries this for how gbrennon/senkai implements it: A version-control and terminal-multiplexing workspace manager, starting with Git and tmux and expanding to Mercurial and screen",
+ "shelf": "WEB",
+ "domain": "an agent working on git, tmux, tmux-session queries this for how gbrennon/senkai implements it: A version-control and terminal-multiplexing workspace manager",
  "repos": [
   {
    "repo": "senkai",

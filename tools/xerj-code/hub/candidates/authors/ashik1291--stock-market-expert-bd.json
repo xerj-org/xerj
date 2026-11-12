@@ -2,8 +2,8 @@
  "corpus": "ashik1291--stock-market-expert-bd",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Python queries this for how ashik1291/stock_market_expert_bd implements it: Bangladesh DSE Quantitative Research, Risk Screening, and Portfolio Decision-Support System (selected work: scripts, the project root)",
+ "shelf": "SEC",
+ "domain": "an agent working on algorithmic-trading-quantitative, backtesting-engine, bayesian-inference queries this for how ashik1291/stock_market_expert_bd implements it: Bangladesh DSE Quantitative Research, Risk Screening, and Portfolio Decision-Support System (selected work: scripts, the project root)",
  "repos": [
   {
    "repo": "stock_market_expert_bd",

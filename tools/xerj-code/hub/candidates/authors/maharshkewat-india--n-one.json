@@ -1,0 +1,23 @@
+{
+ "corpus": "maharshkewat-india--n-one",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on Python queries this for how maharshkewat-india/N-ONE implements it: An advanced AI Surveillance & Threat Tracking Platform using Python, Streamlit, and OpenCV. Features multi-mode operation (person tracking,  (selected work: the project root, tests)",
+ "repos": [
+  {
+   "repo": "N-ONE",
+   "url": "https://github.com/maharshkewat-india/N-ONE",
+   "sha": "0fb1c2d83bf85c39a10332ef0a3a6e5dab52e18b",
+   "licence": "MIT (LICENSE file at pin 0fb1c2d83bf8, GitHub licence API 2026-11-12)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T07:44Z",
+    "consent_receipt": "10d86a228db1",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T07:44Z (receipt 10d86a228db1); selected commit 0fb1c2d83bf8: \"feat: improve face workflow and CPU performance\". LICENSE file at pin 0fb1c2d83bf8 detected as MIT by the GitHub licence API on 2026-11-12; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "henry784-hart--student-budget-tracker",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how henry784-hart/student_budget_tracker implements it: A simple budget tracker for university students (selected work: scripts, styles, the project root)",
+ "repos": [
+  {
+   "repo": "student_budget_tracker",
+   "url": "https://github.com/henry784-hart/student_budget_tracker",
+   "sha": "ce6fdc6533242077b481385f7183cd9547d589c9",
+   "licence": "MIT (LICENSE file at pin ce6fdc653324, GitHub licence API 2026-11-12)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T06:59Z",
+    "consent_receipt": "5dadd3e47ca6",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T06:59Z (receipt 5dadd3e47ca6); selected commit ce6fdc653324: \"Split frontend into scripts and styles folders\". LICENSE file at pin ce6fdc653324 detected as MIT by the GitHub licence API on 2026-11-12; used under that licence with attribution."
+   }
+  }
+ ]
+}

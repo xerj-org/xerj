@@ -1,0 +1,23 @@
+{
+ "corpus": "ahaufox--tilo-content-kit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how ahaufox/tilo-content-kit implements it: Tilo \u5185\u5bb9\u6e32\u67d3\u4e0e\u7f16\u8f91 SDK\uff1aMarkdown \u6e32\u67d3\u3001\u5185\u5bb9\u8f6c\u6362\u3001Tiptap \u6269\u5c55\u3001Yjs \u534f\u540c (selected work: demo)",
+ "repos": [
+  {
+   "repo": "tilo-content-kit",
+   "url": "https://github.com/ahaufox/tilo-content-kit",
+   "sha": "86a75a1a9ff3e522e4a0ac6ad6efb454fb0eb192",
+   "licence": "MIT (LICENSE file at pin 86a75a1a9ff3, GitHub licence API 2026-11-12)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T07:34Z",
+    "consent_receipt": "cc343227c9a6",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T07:34Z (receipt cc343227c9a6); selected commit 86a75a1a9ff3: \"feat(demo): \u65b0\u589e\u5728\u7ebf\u6587\u6863\u4e0e Demo \u7ad9\u70b9\uff08Vite + React\uff0cPages \u90e8\u7f72\u6e90\uff09\". LICENSE file at pin 86a75a1a9ff3 detected as MIT by the GitHub licence API on 2026-11-12; used under that licence with attribution."
+   }
+  }
+ ]
+}

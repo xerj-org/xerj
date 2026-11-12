@@ -8,15 +8,15 @@
   {
    "repo": "slowlang",
    "url": "https://github.com/sebin-gg/slowlang",
-   "sha": "6c14e78105376d3ddace7365aded1d0550d6ef0f",
-   "licence": "MIT (LICENSE file at pin 6c14e7810537, GitHub licence API 2026-11-09)",
+   "sha": "a8e94bf91c8c2826c967ec14eb61483304da4a72",
+   "licence": "MIT (LICENSE file at pin a8e94bf91c8c, GitHub licence API 2026-11-12)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-02T15:14Z",
     "consent_receipt": "fdede3a10338",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T15:14Z (receipt fdede3a10338); pinned to the default-branch head. LICENSE file at pin 6c14e7810537 detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T15:14Z (receipt fdede3a10338); pinned to the default-branch head. LICENSE file at pin a8e94bf91c8c detected as MIT by the GitHub licence API on 2026-11-12; used under that licence with attribution."
    }
   }
  ]

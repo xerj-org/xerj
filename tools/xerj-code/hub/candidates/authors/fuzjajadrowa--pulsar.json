@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on yt-dlp-gui, compressor, converter queries this for how FuzjaJadrowa/Pulsar implements it: A fast, modern media manager built with Tauri and Rust (selected work: src-tauri)",
+ "domain": "an agent working on yt-dlp-gui, compressor, converter queries this for how FuzjaJadrowa/Pulsar implements it: Fast and modern media manager (selected work: src-tauri)",
  "repos": [
   {
    "repo": "Pulsar",
