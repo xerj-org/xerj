@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "OPS",
- "domain": "an agent working on HTML queries this for how infrapi/lib implements it: Opinionated Go building blocks shared by InfraPI services (selected work: pkg/server, pkg/tofu, pkg/http)",
+ "domain": "an agent working on Go queries this for how infrapi/lib implements it: Opinionated Go building blocks shared by InfraPI services (selected work: pkg/server, pkg/tofu, pkg/http)",
  "repos": [
   {
    "repo": "lib",

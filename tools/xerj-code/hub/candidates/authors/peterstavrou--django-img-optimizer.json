@@ -2,8 +2,8 @@
  "corpus": "peterstavrou--django-img-optimizer",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Python queries this for how peterstavrou/django-img-optimizer implements it: Image optimizer for Django (selected work: django_img_optimizer, tests, the project root)",
+ "shelf": "WEB",
+ "domain": "an agent working on avif, django, django-package queries this for how peterstavrou/django-img-optimizer implements it: Django package to convert JPG and PNG images to WebP format, with customizable quality settings and image optimization (selected work: django_img_optimizer, tests, the project root)",
  "repos": [
   {
    "repo": "django-img-optimizer",

@@ -2,8 +2,8 @@
  "corpus": "pingdotgg--t3code",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on TypeScript queries this for how pingdotgg/t3code implements it: pingdotgg/t3code (TypeScript) (selected work: infra)",
+ "shelf": "AI",
+ "domain": "an agent working on agent-orchestration, agents, ai queries this for how pingdotgg/t3code implements it: The best way to control Claude Code, Codex and more from any computer or phone (selected work: infra)",
  "repos": [
   {
    "repo": "t3code",

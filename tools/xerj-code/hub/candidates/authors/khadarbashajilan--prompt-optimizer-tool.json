@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Python queries this for how khadarbashajilan/prompt-optimizer-tool implements it: CLI tool that scores and rewrites your prompts using 10 prompt-engineering principles \u2014 powered by Groq (selected work: eval, tests, src/prompt_optimizer_tool)",
+ "domain": "an agent working on Python queries this for how khadarbashajilan/prompt-optimizer-tool implements it: CLI tool that scores and rewrites your prompts using 10 prompt-engineering principles \u2014 Side project for learning (selected work: eval, tests, src/prompt_optimizer_tool)",
  "repos": [
   {
    "repo": "prompt-optimizer-tool",

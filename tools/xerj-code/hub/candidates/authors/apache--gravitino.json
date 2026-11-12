@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on datalake, lakehouse, metadata queries this for how apache/gravitino implements it: World's most powerful open data catalog for building a high-performance, geo-distributed and federated metadata lake (selected work: plugins)",
+ "domain": "an agent working on datalake, lakehouse, metadata queries this for how apache/gravitino implements it: World's most powerful open data catalog for building a high-performance, geo-distributed and federated metadata lake (selected work: server, core/src)",
  "repos": [
   {
    "repo": "gravitino",
    "url": "https://github.com/apache/gravitino",
-   "sha": "0763327dc8c61277ef8be68edc3456601f9ddb86",
-   "licence": "Apache-2.0 (LICENSE file at pin 0763327dc8c6, GitHub licence API 2026-11-11)",
+   "sha": "c732bfa5de7c1b58a21c086452a9f7cd83dccc4d",
+   "licence": "Apache-2.0 (LICENSE file at pin c732bfa5de7c, GitHub licence API 2026-10-24)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
-    "at": "2026-10-28T03:30Z",
-    "consent_receipt": "049b9f1c210a",
-    "note": "Inclusion consented by the commit author by email at 2026-10-28T03:30Z (receipt 049b9f1c210a); selected commit 0763327dc8c6: \"[#14218] feat(tms): Commit-chain collection and auth consistency\". LICENSE file at pin 0763327dc8c6 detected as Apache-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @apache, who has not added it."
+    "at": "2026-10-12T05:26Z",
+    "consent_receipt": "2811528e889a",
+    "note": "Inclusion consented by the commit author by email at 2026-10-12T05:26Z (receipt 2811528e889a); selected commit c732bfa5de7c: \"[#12594] feat(server): Authorize Semantic Model REST and validate sou\u2026\". LICENSE file at pin c732bfa5de7c detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @apache, who has not added it."
    },
    "paths": [
     ".github/workflows",

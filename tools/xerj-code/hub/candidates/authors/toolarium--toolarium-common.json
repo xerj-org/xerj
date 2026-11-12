@@ -1,0 +1,28 @@
+{
+ "corpus": "toolarium--toolarium-common",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Java queries this for how toolarium/toolarium-common implements it: Defines some common missing java data structures and helpers (selected work: src/main, src/test, the project root)",
+ "repos": [
+  {
+   "repo": "toolarium-common",
+   "url": "https://github.com/toolarium/toolarium-common",
+   "sha": "dec81d1b027b43c7ab9b0620468fb13fa964b252",
+   "licence": "MPL-2.0 (LICENSE file at pin dec81d1b027b, GitHub licence API 2026-11-12)",
+   "review": {
+    "spdx": "MPL-2.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-12T10:59Z",
+    "consent_receipt": "817328795b43",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T10:59Z (receipt 817328795b43); selected commit dec81d1b027b: \"Added PercentileHistogram and improved StatisticCounter\". LICENSE file at pin dec81d1b027b detected as MPL-2.0 by the GitHub licence API on 2026-11-12; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @toolarium, who has not added it."
+   },
+   "paths": [
+    "src/main/java/com/github/toolarium/common/statistic",
+    "src/test/java/com/github/toolarium/common/statistic",
+    "src/test/java/com/github/toolarium/common/util"
+   ]
+  }
+ ]
+}

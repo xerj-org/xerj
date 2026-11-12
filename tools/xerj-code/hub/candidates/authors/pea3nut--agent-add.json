@@ -1,0 +1,23 @@
+{
+ "corpus": "pea3nut--agent-add",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on cli, llm, mcp queries this for how pea3nut/agent-add implements it: Install MCP, Skills, slash commands, sub-agents and more into any AI tool like Claude Code, Cursor, etc (selected work: tests, src, src/assets)",
+ "repos": [
+  {
+   "repo": "agent-add",
+   "url": "https://github.com/pea3nut/agent-add",
+   "sha": "bbe0fdd2b472d7d6e8924fc15f5b347ea169a766",
+   "licence": "MPL-2.0 (LICENSE file at pin bbe0fdd2b472, GitHub licence API 2026-11-12)",
+   "review": {
+    "spdx": "MPL-2.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-12T10:49Z",
+    "consent_receipt": "4df339a614c6",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T10:49Z (receipt 4df339a614c6); selected commit bbe0fdd2b472: \"feat: make all supported asset installations overwrite idempotently\". LICENSE file at pin bbe0fdd2b472 detected as MPL-2.0 by the GitHub licence API on 2026-11-12; used under that licence with attribution."
+   }
+  }
+ ]
+}

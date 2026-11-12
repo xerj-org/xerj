@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on academic-integrity, ai-detection, pdf-analysis queries this for how aalramadan/PeerCheck implements it: Local checks of the submissions, the reviews, and the conflicts of interest of any publication venue (selected work: src/peercheck, tests, the project root)",
+ "domain": "an agent working on academic-integrity, ai-detection, pdf-analysis queries this for how aalramadan/PeerCheck implements it: Local checks of the submissions, the reviews, and the conflicts of interest of IEEE and ACM venues (selected work: src/peercheck, tests, the project root)",
  "repos": [
   {
    "repo": "PeerCheck",

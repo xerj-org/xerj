@@ -1,0 +1,23 @@
+{
+ "corpus": "thamindumiuranda--agent-skills",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-skills, ai-agents, antigravity queries this for how ThaminduMiuranda/agent-skills implements it: Harness-agnostic Agent Skills. harness-comms: join claude.ai chat with Claude Code, Antigravity, Codex, Gemini CLI through a file-based comm (selected work: skills)",
+ "repos": [
+  {
+   "repo": "agent-skills",
+   "url": "https://github.com/ThaminduMiuranda/agent-skills",
+   "sha": "c0fb139ce134bac4e87526c11fadd835f1ed698a",
+   "licence": "MIT (LICENSE file at pin c0fb139ce134, GitHub licence API 2026-11-12)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T11:06Z",
+    "consent_receipt": "3039c64c660e",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T11:06Z (receipt 3039c64c660e); selected commit c0fb139ce134: \"harness-comms: add claiming, extra header fields and pre-archive steps\". LICENSE file at pin c0fb139ce134 detected as MIT by the GitHub licence API on 2026-11-12; used under that licence with attribution."
+   }
+  }
+ ]
+}

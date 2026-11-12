@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on Kotlin queries this for how Chaniug/Vaultix implements it: Vaultix \u662f\u4e00\u6b3e Android \u5e73\u53f0\u7684\u5f00\u6e90\u5bc6\u7801\u7ba1\u7406\u5668\uff0c\u7528\u4e00\u4e2a\u5e94\u7528\u540c\u65f6\u7ba1\u7406\u4e24\u7c7b\u5bc6\u7801\u5e93 (selected work: data)",
+ "domain": "an agent working on android, autofill, bitwarden queries this for how Chaniug/Vaultix implements it: Android \u5f00\u6e90\u5bc6\u7801\u7ba1\u7406\u5668 \u00b7 \u540c\u65f6\u7ba1\u7406 Bitwarden/Vaultwarden \u4e91\u7aef\u5e93\u4e0e KeePass KDBX \u672c\u5730\u5e93 \u00b7 \u81ea\u52a8\u586b\u5145\u3001\u901a\u884c\u5bc6\u94a5\u3001TOTP\u3001\u7f51\u76d8\u540c\u6b65 \u00b7 Kotlin / Jetpack Compose / GPL-3.0 (selected work: data)",
  "repos": [
   {
    "repo": "Vaultix",

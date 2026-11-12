@@ -1,0 +1,23 @@
+{
+ "corpus": "serrebidev--blindpilot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how serrebidev/BlindPilot implements it: Vibe coded, accessible desktop frontend for Agents like codex, Claude, etc and chatting with AI's through API's (selected work: the project root, tests)",
+ "repos": [
+  {
+   "repo": "BlindPilot",
+   "url": "https://github.com/serrebidev/BlindPilot",
+   "sha": "fcac366fcfeb5b2e12ded0a579ea0563c500e383",
+   "licence": "MIT (LICENSE file at pin fcac366fcfeb, GitHub licence API 2026-10-24)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-14T05:29Z",
+    "consent_receipt": "2f767991329a",
+    "note": "Inclusion consented by the commit author by email at 2026-10-14T05:29Z (receipt 2f767991329a); selected commit fcac366fcfeb: \"Add opt-in Command Code task model routing (#79)\". LICENSE file at pin fcac366fcfeb detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
+   }
+  }
+ ]
+}
