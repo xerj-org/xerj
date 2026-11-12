@@ -1,0 +1,23 @@
+{
+ "corpus": "eins78--meteoswiss-llm-tools",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on claude-code, claude-skill, mcp-server queries this for how eins78/meteoswiss-llm-tools implements it: Meteoswiss Open Data Tools for LLMs - MCP server and Agent Skill (selected work: packages/meteoswiss-mcp)",
+ "repos": [
+  {
+   "repo": "meteoswiss-llm-tools",
+   "url": "https://github.com/eins78/meteoswiss-llm-tools",
+   "sha": "50821f681e6673c2a02c1d137e0c9ac249bc727f",
+   "licence": "CC0-1.0 (LICENSE file at pin 50821f681e66, GitHub licence API 2026-11-12)",
+   "review": {
+    "spdx": "CC0-1.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T10:55Z",
+    "consent_receipt": "f0c89a641859",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T10:55Z (receipt f0c89a641859); selected commit 50821f681e66: \"feat(mcp): hourly symbol and cloud cover only with detail \"sky\"\". LICENSE file at pin 50821f681e66 detected as CC0-1.0 by the GitHub licence API on 2026-11-12; used under that licence with attribution."
+   }
+  }
+ ]
+}

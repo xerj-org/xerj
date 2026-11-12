@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-security, cli, devsecops queries this for how bastyn-labs/bastyn-scan implements it: Static analysis for AI and agent code: Python, TypeScript, JavaScript, MCP manifests and live servers, Skills, and dependency CVEs (selected work: crates/bastyn-core, tests, crates/bastyn-cli)",
+ "domain": "an agent working on ai-security, cli, devsecops queries this for how bastyn-labs/bastyn-scan implements it: Instant zero trust analysis for Harnesses and Agentic Codebases: Python, TypeScript, JavaScript, MCP manifests and remote servers, Skills, a (selected work: crates/bastyn-core, tests, crates/bastyn-cli)",
  "repos": [
   {
    "repo": "bastyn-scan",

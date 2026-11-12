@@ -1,0 +1,28 @@
+{
+ "corpus": "windshiftapp--core",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agile, agpl, docker queries this for how Windshiftapp/core implements it: Self-hosted, open-source work management platform and Jira alternative (AGPL v3) (selected work: frontend)",
+ "repos": [
+  {
+   "repo": "core",
+   "url": "https://github.com/Windshiftapp/core",
+   "sha": "983bfbf63f4374c9bf008877c655e83fd1834154",
+   "licence": "AGPL-3.0 (LICENSE file at pin 983bfbf63f43, GitHub licence API 2026-11-12)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-12T10:15Z",
+    "consent_receipt": "74f68451f9bd",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T10:15Z (receipt 74f68451f9bd); selected commit 983bfbf63f43: \"feat(ui): add calendar-aware date formatting and Jalali picker\". LICENSE file at pin 983bfbf63f43 detected as AGPL-3.0 by the GitHub licence API on 2026-11-12; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Windshiftapp, who has not added it."
+   },
+   "paths": [
+    "frontend/src/lib/pickers",
+    "frontend/src/lib/stores",
+    "frontend/src/lib/utils"
+   ]
+  }
+ ]
+}

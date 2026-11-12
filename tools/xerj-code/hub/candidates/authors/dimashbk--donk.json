@@ -1,0 +1,23 @@
+{
+ "corpus": "dimashbk--donk",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Swift queries this for how dimashbk/donk implements it: In-app debugger for iOS: network (HTTP, gRPC, WebView) with rules & breakpoints, UI inspector, push simulation, storage, performance, crashe (selected work: Sources, Tests, the project root)",
+ "repos": [
+  {
+   "repo": "donk",
+   "url": "https://github.com/dimashbk/donk",
+   "sha": "edbc632a79a93e86aee73f20e881997b43d48e35",
+   "licence": "MIT (LICENSE file at pin edbc632a79a9, GitHub licence API 2026-11-12)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T10:36Z",
+    "consent_receipt": "5ad358624e88",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T10:36Z (receipt 5ad358624e88); selected commit edbc632a79a9: \"feat: reveal and multiselect\". LICENSE file at pin edbc632a79a9 detected as MIT by the GitHub licence API on 2026-11-12; used under that licence with attribution."
+   }
+  }
+ ]
+}

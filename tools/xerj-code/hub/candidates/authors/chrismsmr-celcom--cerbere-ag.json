@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agentguard, agentic, agentic-ai queries this for how chrismsmr-celcom/cerbere-AG implements it: Welcome to cerbere-agent guard, originally just agent guard, then rebranded after the mythical hound of the underworld. Our mission? Guardin (selected work: tests, the project root, agentguard)",
+ "domain": "an agent working on agentguard, agentic, agentic-ai queries this for how chrismsmr-celcom/cerbere-AG implements it: Cerbere is a self-hosted runtime security layer for AI agents. Every tool call is checked before it executes. No customer data leaves your i (selected work: tests, the project root, agentguard)",
  "repos": [
   {
    "repo": "cerbere-AG",
