@@ -1,0 +1,23 @@
+{
+ "corpus": "itsvlxd--stacklog",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Go queries this for how itsvlxd/StackLog implements it: StackLog is a Go module designed for fast and high performance console logging, with minimal exposure to the HEAP. It's meant to stay on the (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "StackLog",
+   "url": "https://github.com/itsvlxd/StackLog",
+   "sha": "c19d3d1a7a16f6f9aa97ecfcc156657beb5c051b",
+   "licence": "MIT (LICENSE file at pin c19d3d1a7a16, GitHub licence API 2026-11-12)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T23:41Z",
+    "consent_receipt": "990071c32159",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T23:41Z (receipt 990071c32159); selected commit c19d3d1a7a16: \"feat(log): one JSON object per call, cut where a cut cannot break it\". LICENSE file at pin c19d3d1a7a16 detected as MIT by the GitHub licence API on 2026-11-12; used under that licence with attribution."
+   }
+  }
+ ]
+}

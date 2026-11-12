@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on dynamic-library, game-porting, ps5-tools queries this for how boykopovar/AnyPS5 implements it: Tool for automatic PS5 executables porting to Linux and Windows (selected work: tools)",
+ "domain": "an agent working on dynamic-library, game-porting, ps5-tools queries this for how boykopovar/AnyPS5 implements it: Tool for automatic PS5 executables porting to Linux and Windows (selected work: core/relinker)",
  "repos": [
   {
    "repo": "AnyPS5",
    "url": "https://github.com/boykopovar/AnyPS5",
-   "sha": "9765806d88673c2b9a29490d3c7e60e3f89e37eb",
-   "licence": "GPL-2.0 (LICENSE file at pin 9765806d8867, GitHub licence API 2026-11-11)",
+   "sha": "cfd61a5977d987d4aff1d46a38b5b308b12942e4",
+   "licence": "GPL-2.0 (LICENSE file at pin cfd61a5977d9, GitHub licence API 2026-11-12)",
    "review": {
     "spdx": "GPL-2.0",
     "use": "approach-only",
     "by": "author-consent",
-    "at": "2026-11-10T22:09Z",
-    "consent_receipt": "a01bc8d8fca3",
-    "note": "Inclusion consented by the commit author by email at 2026-11-10T22:09Z (receipt a01bc8d8fca3); selected commit 9765806d8867: \"feat(tools): validate complete patch catalogs offline\". LICENSE file at pin 9765806d8867 detected as GPL-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @boykopovar, who has not added it."
+    "at": "2026-11-01T18:11Z",
+    "consent_receipt": "93e7e2d328d0",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T18:11Z (receipt 93e7e2d328d0); selected commit cfd61a5977d9: \"fix(relinker): treat address-taken code as reachable in unused-filter=1\". LICENSE file at pin cfd61a5977d9 detected as GPL-2.0 by the GitHub licence API on 2026-11-12; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @boykopovar, who has not added it."
    },
    "paths": [
     "core/libs/prx/libkernel",

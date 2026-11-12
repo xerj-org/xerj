@@ -2,8 +2,8 @@
  "corpus": "eoth--mimicway",
  "cloned_at": null,
  "status": "draft",
- "shelf": "NET",
- "domain": "an agent working on Rust queries this for how Eoth/mimicway implements it: Intercepts HTTP requests, mocks them or proxies them to the actual destination (selected work: src/server, frontend, src)",
+ "shelf": "API",
+ "domain": "an agent working on api-mock, api-testing, developer-tools queries this for how Eoth/mimicway implements it: Mock or proxy any HTTP API, rule by rule, from a web UI: one self-contained binary, no telemetry (selected work: src/server, frontend, src)",
  "repos": [
   {
    "repo": "mimicway",

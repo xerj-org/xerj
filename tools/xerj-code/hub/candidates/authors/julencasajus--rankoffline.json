@@ -8,15 +8,15 @@
   {
    "repo": "RankOffline",
    "url": "https://github.com/JulenCasajus/RankOffline",
-   "sha": "89eae26022142255096eeb726e23cd7902530414",
-   "licence": "GPL-3.0 (LICENSE file at pin 89eae2602214, GitHub licence API 2026-10-27)",
+   "sha": "1eb3512917504619e5810710603f9eeb910717e6",
+   "licence": "GPL-3.0 (LICENSE file at pin 1eb351291750, GitHub licence API 2026-11-12)",
    "review": {
     "spdx": "GPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-23T10:31Z",
     "consent_receipt": "cac3250cc552",
-    "note": "Inclusion consented by the commit author by email at 2026-10-23T10:31Z (receipt cac3250cc552); selected commit 89eae2602214: \"Sixth commit: Add configurable elaborate rating profiles\". LICENSE file at pin 89eae2602214 detected as GPL-3.0 by the GitHub licence API on 2026-10-27; used under that licence with attribution. Pinned to head 89eae2602214 (contains the selected commit): the LICENSE at the selected commit was MIT."
+    "note": "Inclusion consented by the commit author by email at 2026-10-23T10:31Z (receipt cac3250cc552); selected commit 1eb351291750: \"Sixth commit: Add configurable elaborate rating profiles\". LICENSE file at pin 1eb351291750 detected as GPL-3.0 by the GitHub licence API on 2026-11-12; used under that licence with attribution. Pinned to head 1eb351291750 (contains the selected commit): the LICENSE at the selected commit was MIT."
    }
   }
  ]

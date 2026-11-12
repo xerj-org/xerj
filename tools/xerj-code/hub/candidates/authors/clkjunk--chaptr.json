@@ -1,0 +1,23 @@
+{
+ "corpus": "clkjunk--chaptr",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how clkjunk/chaptr implements it: CLI for merge separate Markdown chapters into one document, with shared variables and editable themes (selected work: src/chaptr, tests, the project root)",
+ "repos": [
+  {
+   "repo": "chaptr",
+   "url": "https://github.com/clkjunk/chaptr",
+   "sha": "d327d603643720ad906c8147f2438b06596448c0",
+   "licence": "MIT (LICENSE file at pin d327d6036437, GitHub licence API 2026-11-12)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T23:04Z",
+    "consent_receipt": "41807a2ed33b",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T23:04Z (receipt 41807a2ed33b); selected commit d327d6036437: \"Prepare 0.1.2 with neutral base styling and document layout controls\". LICENSE file at pin d327d6036437 detected as MIT by the GitHub licence API on 2026-11-12; used under that licence with attribution."
+   }
+  }
+ ]
+}
