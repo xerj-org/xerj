@@ -1,0 +1,26 @@
+{
+  "corpus": "agent-manager",
+  "cloned_at": "2026-11-12T17:19:13Z",
+  "own": true,
+  "repos": [
+    {
+      "repo": "agent-manager",
+      "url": "https://github.com/wainmann/agent-manager",
+      "licence": "Apache-2.0",
+      "sha": "ed8e52d79ee869ecd1b3c31c7b016c4701828a90",
+      "files": 28,
+      "bytes": 17388232,
+      "paths": [
+        "docs",
+        "README.md"
+      ],
+      "review": {
+        "spdx": "Apache-2.0",
+        "use": "adapt-with-attribution",
+        "by": "@YoanWai",
+        "at": "2026-11-12",
+        "note": "First-party repository maintained by @YoanWai (admin of wainmann/agent-manager). Pin ed8e52d79ee8 is the v0.48.1 tag. Opened LICENSE at the pin: verbatim Apache License 2.0 (whitespace-only diff against apache.org LICENSE-2.0.txt). NOTICE: Copyright 2026 Yoan Wai and the agent-manager contributors, Apache-2.0. Harvest is docs/ and README.md only. The scoped checkout omits the root LICENSE, which was read independently at the pin. docs/ also holds GIF/PNG/WebP screenshots, which the indexer skips."
+      }
+    }
+  ]
+}
