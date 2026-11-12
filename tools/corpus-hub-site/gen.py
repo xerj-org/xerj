@@ -39,13 +39,14 @@ HUB = ROOT / "tools" / "xerj-code" / "hub"
 
 
 def added_today(people, now=None):
-    """(n, date): contributors on the hub now who were not in the contributor ledger at 00:00 UTC today, read from
-    the corpus-hub history (the ledger at the last commit before midnight). (None, date) without git history."""
+    """(n, since): contributors on the hub now who were not in the contributor ledger 24 hours ago, read from the
+    corpus-hub history (the ledger at the last commit before now - 24 h). A rolling window, so a merge just before
+    00:00 UTC does not read as "+0" right after midnight (owner, 2026-11-12). (None, since) without git history."""
     import subprocess
     now = now or dt.datetime.now(dt.timezone.utc)
-    day = now.strftime("%Y-%m-%d")
+    day = (now - dt.timedelta(hours=24)).strftime("%Y-%m-%d %H:%M")
     git = lambda *a: subprocess.run(["git", "-C", str(ROOT), *a], capture_output=True, text=True)
-    base = git("rev-list", "-1", f"--before={day}T00:00:00Z", "HEAD").stdout.strip()
+    base = git("rev-list", "-1", f"--before={day.replace(' ', 'T')}:00Z", "HEAD").stdout.strip()
     if not base:
         return None, day
     def logins(ref):
@@ -1572,7 +1573,7 @@ def render_index(corpora, g7, graded, impact, prov, people=None):
     n_lines = sum(contributors.volume(pp)["lines"] for pp in (people or {}).values())
     # owner, 2026-11-10: "how many added TODAY" on the contributors card
     today_n, today_d = added_today(people or {})
-    today = (f'<span class="today" title="contributors added to the hub since 00:00 UTC on {today_d}">+{today_n:,} today</span>'
+    today = (f'<span class="today" title="contributors added to the hub since {today_d} UTC (last 24 hours)">+{today_n:,} in 24 h</span>'
              if today_n is not None else "")
     body = f'''<main>
 <div class="kicker"><span class="accent">HUB.XERJ.ORG</span><span class="dash">·</span><span>REFERENCE MEMORY HUB FOR AI AGENTS</span></div>
