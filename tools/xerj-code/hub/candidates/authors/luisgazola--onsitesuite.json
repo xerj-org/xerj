@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on PowerShell queries this for how luisgazola/OnSiteSuite implements it: Toolkit profissional para Field Service em PowerShell 7 (selected work: src/linux, src/windows, scripts)",
+ "domain": "an agent working on Shell queries this for how luisgazola/OnSiteSuite implements it: Toolkit profissional para Field Service em PowerShell 7 (selected work: src/linux, src/windows, scripts)",
  "repos": [
   {
    "repo": "OnSiteSuite",

@@ -1,0 +1,23 @@
+{
+ "corpus": "eregnier--repro-vr",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how eregnier/repro-vr implements it: a vr reprojection tool (selected work: src/setup, src/proxy, tests)",
+ "repos": [
+  {
+   "repo": "repro-vr",
+   "url": "https://github.com/eregnier/repro-vr",
+   "sha": "36c2f92113c954437f008fac5f1d23a6371ab803",
+   "licence": "LGPL-3.0 (LICENSE file at pin 36c2f92113c9, GitHub licence API 2026-11-12)",
+   "review": {
+    "spdx": "LGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-12T08:28Z",
+    "consent_receipt": "2b03273c7b5f",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T08:28Z (receipt 2b03273c7b5f); selected commit 36c2f92113c9: \"feat(openxr): auto-register implicit layer in registry for universal \u2026\". LICENSE file at pin 36c2f92113c9 detected as LGPL-3.0 by the GitHub licence API on 2026-11-12; used under that licence with attribution."
+   }
+  }
+ ]
+}

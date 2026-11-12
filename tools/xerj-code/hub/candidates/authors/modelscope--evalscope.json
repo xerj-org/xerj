@@ -8,15 +8,15 @@
   {
    "repo": "evalscope",
    "url": "https://github.com/modelscope/evalscope",
-   "sha": "7374840043bddf85026df7a5b63df106f1ef9816",
-   "licence": "Apache-2.0 (LICENSE file at pin 7374840043bd, GitHub licence API 2026-10-24)",
+   "sha": "45f5b4dc0c997b9f9836ab7526d37c56a1c5bb59",
+   "licence": "Apache-2.0 (LICENSE file at pin 45f5b4dc0c99, GitHub licence API 2026-11-11)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
-    "at": "2026-10-12T06:12Z",
-    "consent_receipt": "44cb313279bd",
-    "note": "Inclusion consented by the commit author by email at 2026-10-12T06:12Z (receipt 44cb313279bd); selected commit 7374840043bd: \"fix(dataset): reuse the default ModelScope cache for Native loading (\u2026\". LICENSE file at pin 7374840043bd detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @modelscope, who has not added it."
+    "at": "2026-10-28T08:21Z",
+    "consent_receipt": "0bd2b1cf24c4",
+    "note": "Inclusion consented by the commit author by email at 2026-10-28T08:21Z (receipt 0bd2b1cf24c4); selected commit 45f5b4dc0c99: \"fix(cache): keep review identities consistent after failed rescoring \u2026\". LICENSE file at pin 45f5b4dc0c99 detected as Apache-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @modelscope, who has not added it."
    },
    "paths": [
     "docs/en/get_started",

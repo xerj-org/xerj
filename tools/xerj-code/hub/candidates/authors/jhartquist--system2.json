@@ -1,0 +1,23 @@
+{
+ "corpus": "jhartquist--system2",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on jev, rust, sdk queries this for how jhartquist/system2 implements it: An idiomatic Rust SDK for Jev (selected work: system2)",
+ "repos": [
+  {
+   "repo": "system2",
+   "url": "https://github.com/jhartquist/system2",
+   "sha": "f3a103c4740de475b464f98f9fe4a2736df30357",
+   "licence": "author's permission (LICENSE at pin f3a103c4740d: NOASSERTION; repository: Apache-2.0)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T08:23Z",
+    "consent_receipt": "519d02915648",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T08:23Z (receipt 519d02915648); selected commit f3a103c4740d: \"add answer to each question, for tests of decision code\". LICENSE at pin f3a103c4740d: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

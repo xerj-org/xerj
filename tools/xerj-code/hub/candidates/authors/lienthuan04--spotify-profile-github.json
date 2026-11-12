@@ -1,0 +1,23 @@
+{
+ "corpus": "lienthuan04--spotify-profile-github",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on github-profile-readme, python, spotify queries this for how LienThuan04/Spotify-Profile-Github implements it: Show your Spotify playing on your Github profile and more (selected work: api, tests)",
+ "repos": [
+  {
+   "repo": "Spotify-Profile-Github",
+   "url": "https://github.com/LienThuan04/Spotify-Profile-Github",
+   "sha": "a84746d9e1d1597e864098e79a56af1f74b29c2b",
+   "licence": "MIT (LICENSE file at pin a84746d9e1d1, GitHub licence API 2026-11-12)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T08:56Z",
+    "consent_receipt": "63c820537cbe",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T08:56Z (receipt 63c820537cbe); selected commit a84746d9e1d1: \"feat: rebuild Spotify card customization studio\". LICENSE file at pin a84746d9e1d1 detected as MIT by the GitHub licence API on 2026-11-12; used under that licence with attribution."
+   }
+  }
+ ]
+}

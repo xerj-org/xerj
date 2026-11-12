@@ -1,0 +1,23 @@
+{
+ "corpus": "nicezic--lean-quota-monitor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, claude, gemini queries this for how nicezic/lean-quota-monitor implements it: VS Code status bar monitor for Codex, Claude Code, GitHub Copilot, Gemini/Antigravity and other AI usage limits, quotas, reset times and cre (selected work: src/providers, the project root, tests)",
+ "repos": [
+  {
+   "repo": "lean-quota-monitor",
+   "url": "https://github.com/nicezic/lean-quota-monitor",
+   "sha": "254510c14b97c296455990bf54e3c5ccd1b6ad4d",
+   "licence": "MIT (LICENSE file at pin 254510c14b97, GitHub licence API 2026-11-12)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T09:25Z",
+    "consent_receipt": "481f98e0b2c6",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T09:25Z (receipt 481f98e0b2c6); selected commit 254510c14b97: \"feat: add Qwen Token Plan and Coding Plan providers via Bailian CLI\". LICENSE file at pin 254510c14b97 detected as MIT by the GitHub licence API on 2026-11-12; used under that licence with attribution."
+   }
+  }
+ ]
+}

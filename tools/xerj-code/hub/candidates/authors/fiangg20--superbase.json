@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai, debugging, executor-plugin queries this for how fiangg20/superbase implements it: A local MCP server that connects AI assistants to a live Roblox executor session. Read console logs and errors, search and inspect the insta (selected work: src, src/lua, test)",
+ "domain": "an agent working on ai, debugging, executor-plugin queries this for how fiangg20/superbase implements it: A local MCP server that connects AI assistants to a live Roblox executor session (selected work: src, src/lua, test)",
  "repos": [
   {
    "repo": "superbase",

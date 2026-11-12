@@ -1,0 +1,23 @@
+{
+ "corpus": "marketingbybesic--kronos",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on adhd, gtd, local-first queries this for how marketingbybesic/kronos implements it: ADHD project manager made for MacOS with smart project management and apple ecosystem integration. Ai features to break down tasks and a lay (selected work: Kronos, Packages/KronosCore)",
+ "repos": [
+  {
+   "repo": "kronos",
+   "url": "https://github.com/marketingbybesic/kronos",
+   "sha": "39f645d67b7240d68a7c86dc7ec63d1e1d1b91c7",
+   "licence": "Apache-2.0 (LICENSE file at pin 39f645d67b72, GitHub licence API 2026-11-12)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T08:36Z",
+    "consent_receipt": "3bd4a3ef80cb",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T08:36Z (receipt 3bd4a3ef80cb); selected commit 39f645d67b72: \"v1.0.0-beta.5: tour keyboard access, save-as-view focus, sticky heade\u2026\". LICENSE file at pin 39f645d67b72 detected as Apache-2.0 by the GitHub licence API on 2026-11-12; used under that licence with attribution."
+   }
+  }
+ ]
+}

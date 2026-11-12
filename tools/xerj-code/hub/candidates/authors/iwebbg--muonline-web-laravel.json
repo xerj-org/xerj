@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on PHP queries this for how iwebbg/muonline-web-laravel implements it: iwebbg/muonline-web-laravel (PHP) (selected work: database, tests, app/Models)",
+ "domain": "an agent working on PHP queries this for how iwebbg/muonline-web-laravel implements it: MuOnline Web is a free, open-source website, account panel and administration suite for MuOnline servers (selected work: database, tests, app/Models)",
  "repos": [
   {
    "repo": "muonline-web-laravel",

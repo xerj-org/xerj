@@ -1,0 +1,23 @@
+{
+ "corpus": "hugocornelis--workflow-automation-engine",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Perl queries this for how HugoCornelis/workflow-automation-engine implements it: Neurospaces workflow-automation-engine (selected work: vigilia)",
+ "repos": [
+  {
+   "repo": "workflow-automation-engine",
+   "url": "https://github.com/HugoCornelis/workflow-automation-engine",
+   "sha": "2d37c88d0fe538c23dd5142b00991d8126f4dec6",
+   "licence": "author's permission (LICENSE at pin 2d37c88d0fe5: NOASSERTION; repository: AGPL-3.0)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-12T08:40Z",
+    "consent_receipt": "7243876db242",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T08:40Z (receipt 7243876db242); selected commit 2d37c88d0fe5: \"workflow: Add tests for tmux roles and broken configs.\". LICENSE at pin 2d37c88d0fe5: NOASSERTION (repository: AGPL-3.0); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}
