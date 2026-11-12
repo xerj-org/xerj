@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai, mcp, procedural-generation queries this for how zajalist/hayba implements it: Agentic MCP toolkit for UE5 \u2014 100+ tools across 34 domains, PCG SQLite registry, cognitive map, SpatialCLIP grounding. The ultimate engine f (selected work: unreal)",
+ "domain": "an agent working on ai, mcp, procedural-generation queries this for how zajalist/hayba implements it: MCP server and Unreal Engine 5.9 editor plugin that let AI agents inspect, plan, build and validate Unreal worlds, with multi-agent editor l (selected work: unreal)",
  "repos": [
   {
    "repo": "hayba",

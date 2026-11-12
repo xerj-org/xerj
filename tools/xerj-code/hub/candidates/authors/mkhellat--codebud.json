@@ -8,15 +8,15 @@
   {
    "repo": "codebud",
    "url": "https://github.com/mkhellat/codebud",
-   "sha": "7146c656a61d70cdd5b4041e55fc3cc341bd3b9d",
-   "licence": "GPL-3.0 (LICENSE file at pin 7146c656a61d, GitHub licence API 2026-11-12)",
+   "sha": "305dad9b3365685eda211fc6a3c970d0afde05ac",
+   "licence": "GPL-3.0 (LICENSE file at pin 305dad9b3365, GitHub licence API 2026-11-12)",
    "review": {
     "spdx": "GPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-27T05:10Z",
     "consent_receipt": "a50e8b31956c",
-    "note": "Inclusion consented by the commit author by email at 2026-10-27T05:10Z (receipt a50e8b31956c); selected commit 7146c656a61d: \"feat(agent): add agent modes enforced by SafetyEngine and Executor\". LICENSE file at pin 7146c656a61d detected as GPL-3.0 by the GitHub licence API on 2026-11-12; used under that licence with attribution. Pinned to head 7146c656a61d (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-27T05:10Z (receipt a50e8b31956c); selected commit 305dad9b3365: \"feat(agent): add agent modes enforced by SafetyEngine and Executor\". LICENSE file at pin 305dad9b3365 detected as GPL-3.0 by the GitHub licence API on 2026-11-12; used under that licence with attribution. Pinned to head 305dad9b3365 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

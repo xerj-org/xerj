@@ -1,0 +1,23 @@
+{
+ "corpus": "srivarsank--glide",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how SrivarsanK/Glide implements it: Local visual design tool for React, Vue and Svelte. Click any element on a live canvas, edit styles and layout visually, and Glide writes th (selected work: packages/overlay, src/__tests__, packages/ast-writer)",
+ "repos": [
+  {
+   "repo": "Glide",
+   "url": "https://github.com/SrivarsanK/Glide",
+   "sha": "a01b2e4d7f08a0946b28fca330fd2bc821728793",
+   "licence": "Apache-2.0 (LICENSE file at pin a01b2e4d7f08, GitHub licence API 2026-11-12)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T16:09Z",
+    "consent_receipt": "b283d8c297f5",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-12T16:09Z (receipt b283d8c297f5); selected commit a01b2e4d7f08: \"fix(editor): remap source selections after transactional edits\". LICENSE file at pin a01b2e4d7f08 detected as Apache-2.0 by the GitHub licence API on 2026-11-12; used under that licence with attribution."
+   }
+  }
+ ]
+}

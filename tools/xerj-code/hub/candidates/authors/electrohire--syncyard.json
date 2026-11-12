@@ -1,9 +1,9 @@
 {
- "corpus": "axiovex--syncyard",
+ "corpus": "electrohire--syncyard",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-agents, automation, devops queries this for how AXIOVEX/syncyard implements it: Syncyard \u2014 synchronized, gated dispatch to your own machines: self-hosted CPU/GPU runner lanes plus an API-budget gatekeeper for agent workf (selected work: runner, gatekeeper)",
+ "domain": "an agent working on ai-agents, automation, devops queries this for how electrohire/syncyard implements it: Syncyard \u2014 synchronized, gated dispatch to your own machines: self-hosted CPU/GPU runner lanes plus an API-budget gatekeeper for agent workf (selected work: runner, gatekeeper)",
  "repos": [
   {
    "repo": "syncyard",

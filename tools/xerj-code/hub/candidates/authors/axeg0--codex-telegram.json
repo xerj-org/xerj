@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on codex, codex-plugin, mcp queries this for how AXEG0/codex-telegram implements it: Talk to your Codex session from Telegram (selected work: plugins, the project root)",
+ "domain": "an agent working on codex, codex-plugin, mcp queries this for how AXEG0/codex-telegram implements it: Turn your Codex session into a live agent on Telegram (selected work: plugins, the project root)",
  "repos": [
   {
    "repo": "codex-telegram",

@@ -2,8 +2,8 @@
  "corpus": "pranesh-selvaraj--nexus",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on TypeScript queries this for how Pranesh-Selvaraj/Nexus implements it: Self-hosted learning portal: turn anything you read, watch or photograph into grounded, practiceable knowledge (selected work: apps/backend, apps/frontend)",
+ "shelf": "AI",
+ "domain": "an agent working on ai, education, flashcards queries this for how Pranesh-Selvaraj/Nexus implements it: Self-hosted learning portal: turn anything you read, watch or photograph into grounded, practiceable knowledge (selected work: apps/backend, apps/frontend)",
  "repos": [
   {
    "repo": "Nexus",

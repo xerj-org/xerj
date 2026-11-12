@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai, llm, llm-agents queries this for how r-uby-dev/llm implements it: An agentic runtime (selected work: spec, lib/llm)",
+ "domain": "an agent working on ai, llm, llm-agents queries this for how r-uby-dev/llm implements it: An agentic runtime for system programmers - in Ruby (selected work: spec, lib/llm)",
  "repos": [
   {
    "repo": "llm",

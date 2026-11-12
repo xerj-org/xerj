@@ -9,14 +9,14 @@
    "repo": "SysPersona-OS",
    "url": "https://github.com/MirHuang666/SysPersona-OS",
    "sha": "c463c8519896c6513e5984aa8582eea9681f4406",
-   "licence": "MIT (LICENSE file at pin c463c8519896, GitHub licence API 2026-11-11)",
+   "licence": "author's permission (LICENSE at pin c463c8519896: MIT; repository: NOASSERTION)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-11T13:25Z",
     "consent_receipt": "07e2e32a8a9d",
-    "note": "Inclusion consented by the commit author by email at 2026-11-11T13:25Z (receipt 07e2e32a8a9d); selected commit c463c8519896: \"feat(search): zero-model FTS5 engine + 5-engine benchmark (fts-char w\u2026\". LICENSE file at pin c463c8519896 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T13:25Z (receipt 07e2e32a8a9d); selected commit c463c8519896: \"feat(search): zero-model FTS5 engine + 5-engine benchmark (fts-char w\u2026\". LICENSE at pin c463c8519896: MIT (repository: NOASSERTION); used with the author's permission, with attribution."
    }
   }
  ]

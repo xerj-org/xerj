@@ -1,9 +1,9 @@
 {
- "corpus": "teo-clerk--mdlearn",
+ "corpus": "md-learn--md-learn",
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on education, electron, flashcards queries this for how teo-clerk/MDlearn implements it: Turn your class files into short lessons, and study them a few minutes a day. Runs on your computer (selected work: packages/studio)",
+ "domain": "an agent working on education, electron, flashcards queries this for how MD-Learn/MD-Learn implements it: Turn your class files into short lessons, and study them a few minutes a day. Runs on your computer (selected work: packages/studio)",
  "repos": [
   {
    "repo": "MDlearn",
