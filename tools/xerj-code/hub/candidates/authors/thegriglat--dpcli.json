@@ -1,0 +1,30 @@
+{
+ "corpus": "thegriglat--dpcli",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how thegriglat/dpcli implements it: Digital Process CLI (selected work: tests, lib/dpcli, hooks)",
+ "repos": [
+  {
+   "repo": "dpcli",
+   "url": "https://github.com/thegriglat/dpcli",
+   "sha": "b5ca8d08a349095e88ee99e41c4a23fd9825b8b9",
+   "licence": "MIT (LICENSE file at pin b5ca8d08a349, GitHub licence API 2026-11-12)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T06:08Z",
+    "consent_receipt": "a3d681bd25a5",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T06:08Z (receipt a3d681bd25a5); selected commit b5ca8d08a349: \"Frictions F-13..F-16: accept stdin, feedback lists, branches by journ\u2026\". LICENSE file at pin b5ca8d08a349 detected as MIT by the GitHub licence API on 2026-11-12; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @thegriglat, who has not added it."
+   },
+   "paths": [
+    "hooks",
+    "lib/dpcli",
+    "templates",
+    "tests",
+    "tools"
+   ]
+  }
+ ]
+}

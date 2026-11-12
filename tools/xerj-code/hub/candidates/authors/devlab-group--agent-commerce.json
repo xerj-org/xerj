@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agent-commerce, ai-agents, api-gateway queries this for how devlab-group/agent-commerce implements it: Self-hosted, non-custodial gateway between the API you already run and the protocols AI agents use to discover, call and pay for it (selected work: tests, src/protocols)",
+ "domain": "an agent working on agent-commerce, ai-agents, api-gateway queries this for how devlab-group/agent-commerce implements it: Self-hosted, non-custodial gateway between the API you already run and the protocols AI agents use to discover, call and pay for it (selected work: tests, src/config, src/protocols)",
  "repos": [
   {
    "repo": "agent-commerce",
@@ -14,9 +14,9 @@
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
-    "at": "2026-10-12T08:15Z",
-    "consent_receipt": "00b97bb965e2",
-    "note": "Inclusion consented by the commit author by email at 2026-10-12T08:15Z (receipt 00b97bb965e2); selected commit a2d43237411b: \"fix(a2a): describe the call on the Agent Card and close A2A 1.0.1 gaps\". LICENSE file at pin a2d43237411b detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution. Pinned to head a2d43237411b (contains the selected commit): the LICENSE at the selected commit was NOASSERTION. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @devlab-group, who has not added it."
+    "at": "2026-10-10T11:21Z",
+    "consent_receipt": "7beaf8a043a5",
+    "note": "Inclusion consented by the commit author by email at 2026-10-10T11:21Z (receipt 7beaf8a043a5); selected commit a2d43237411b: \"fix: ACP body schema check, import output dirs and example run steps\". LICENSE file at pin a2d43237411b detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution. Pinned to head a2d43237411b (contains the selected commit): the LICENSE at the selected commit was NOASSERTION. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @devlab-group, who has not added it."
    },
    "paths": [
     "docs",

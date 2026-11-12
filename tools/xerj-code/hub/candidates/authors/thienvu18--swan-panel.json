@@ -1,0 +1,23 @@
+{
+ "corpus": "thienvu18--swan-panel",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on control-plane, golang, ikev2 queries this for how thienvu18/swan-panel implements it: Enterprise zero-trust web control plane for strongSwan Remote Access VPN with native client provisioning (macOS, iOS, Windows, Linux, Androi (selected work: ui, internal/api, internal/pki)",
+ "repos": [
+  {
+   "repo": "swan-panel",
+   "url": "https://github.com/thienvu18/swan-panel",
+   "sha": "e04c79b634b1fc5939336ac2989548cef0ecea9e",
+   "licence": "AGPL-3.0 (LICENSE file at pin e04c79b634b1, GitHub licence API 2026-11-12)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-12T04:34Z",
+    "consent_receipt": "7332cb7f4d07",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T04:34Z (receipt 7332cb7f4d07); selected commit e04c79b634b1: \"feat: add Android platform support and define TypeScript interfaces\". LICENSE file at pin e04c79b634b1 detected as AGPL-3.0 by the GitHub licence API on 2026-11-12; used under that licence with attribution."
+   }
+  }
+ ]
+}

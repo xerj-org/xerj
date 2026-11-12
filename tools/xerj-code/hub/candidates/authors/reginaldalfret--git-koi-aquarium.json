@@ -1,0 +1,23 @@
+{
+ "corpus": "reginaldalfret--git-koi-aquarium",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Go queries this for how reginaldalfret/git-koi-aquarium implements it: Draw an animated pixel-art koi fish swimming from your GitHub activity graph \u2014 100% native Go rewrite with zero external dependencies (selected work: pkg/aquarium, cmd/git-koi, pkg/output)",
+ "repos": [
+  {
+   "repo": "git-koi-aquarium",
+   "url": "https://github.com/reginaldalfret/git-koi-aquarium",
+   "sha": "85cb4a71e306228df39355f5039e447f8c3b2aec",
+   "licence": "MIT (LICENSE file at pin 85cb4a71e306, GitHub licence API 2026-11-12)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T04:48Z",
+    "consent_receipt": "7886366d49d6",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T04:48Z (receipt 7886366d49d6); selected commit 85cb4a71e306: \"feat: add live 6-koi animated SVG aquarium engine and CLI command\". LICENSE file at pin 85cb4a71e306 detected as MIT by the GitHub licence API on 2026-11-12; used under that licence with attribution. Pinned to head 85cb4a71e306 (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

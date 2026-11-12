@@ -1,0 +1,23 @@
+{
+ "corpus": "suoten--protoforge",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on bacnet, edge-computing, fieldbus queries this for how suoten/ProtoForge implements it: Zero-hardware simulator for 28 industrial protocols \u2014 Modbus TCP/S7/OPC UA/BACnet/MQTT & more. Test SCADA, HMI & IoT gateway software withou (selected work: protoforge, tests, the project root)",
+ "repos": [
+  {
+   "repo": "ProtoForge",
+   "url": "https://github.com/suoten/ProtoForge",
+   "sha": "0d4bd4c3251680a7dfa2faf4bc1931e01fa797b2",
+   "licence": "MIT (LICENSE file at pin 0d4bd4c32516, GitHub licence API 2026-11-12)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T06:05Z",
+    "consent_receipt": "07e66b2ffa03",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T06:05Z (receipt 07e66b2ffa03); selected commit 0d4bd4c32516: \"feat(ai): v1.13.1 \u2014\u2014 AI \u70b9\u8868/\u8bf4\u660e\u4e66\u5bfc\u5165\uff0c\u672c\u5730 Ollama \u4f18\u5148\uff08OpenAI \u517c\u5bb9\u53ef\u5207\u6362\uff09\". LICENSE file at pin 0d4bd4c32516 detected as MIT by the GitHub licence API on 2026-11-12; used under that licence with attribution."
+   }
+  }
+ ]
+}

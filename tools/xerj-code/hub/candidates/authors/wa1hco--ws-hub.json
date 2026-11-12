@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Python queries this for how wa1hco/WS-Hub implements it: wa1hco/WS-Hub (Python) (selected work: src/wims, hardware, tests)",
+ "domain": "an agent working on Python queries this for how wa1hco/WS-Hub implements it: One console for several WSJT-X instances: ranked call roster, goals, DX spots, TX interlock. A person starts every transmit. Formerly WIMS (selected work: src/wims, hardware, tests)",
  "repos": [
   {
    "repo": "WIMS",
