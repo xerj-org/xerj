@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on docker, fastapi, llm queries this for how IvanSytnik/shopsmart-ai implements it: AI shopping-list generator for German supermarkets: budget-aware, diet-aware weekly lists. React + TypeScript + Vite, FastAPI, OpenAI, Docke (selected work: backend, frontend)",
+ "domain": "an agent working on docker, fastapi, llm queries this for how IvanSytnik/shopsmart-ai implements it: AI shopping-list generator for Austrian supermarkets (Billa, Hofer): budget-aware, diet-aware weekly lists and price comparison. React + Typ (selected work: backend, frontend)",
  "repos": [
   {
    "repo": "shopsmart-ai",

@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on calibration, classification, decision-model queries this for how NandhaKishorM/laya implements it: Non-autoregressive System 1 decision engine. Typed choice, score and yes/no decisions over any text in a single forward pass, in 100+ langua (selected work: laya, tests)",
+ "domain": "an agent working on calibration, classification, decision-model queries this for how NandhaKishorM/laya implements it: Non-autoregressive System 1 decision engine. Typed choice, score and yes/no decisions over any text in a single forward pass, in 100+ langua (selected work: laya-java)",
  "repos": [
   {
    "repo": "laya",
    "url": "https://github.com/NandhaKishorM/laya",
-   "sha": "212bdfa9fd8d903046fccdd70e1809eb960033b1",
-   "licence": "Apache-2.0 (LICENSE file at pin 212bdfa9fd8d, GitHub licence API 2026-11-11)",
+   "sha": "71e43b75e5f701239c232f32b894af315350c05e",
+   "licence": "Apache-2.0 (LICENSE file at pin 71e43b75e5f7, GitHub licence API 2026-10-24)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
-    "at": "2026-10-12T09:30Z",
-    "consent_receipt": "6797b9955721",
-    "note": "Inclusion consented by the commit author by email at 2026-10-12T09:30Z (receipt 6797b9955721); selected commit 212bdfa9fd8d: \"feat(train): add --eval, abstention threshold fitting, and before/aft\u2026\". LICENSE file at pin 212bdfa9fd8d detected as Apache-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @NandhaKishorM, who has not added it."
+    "at": "2026-10-12T21:42Z",
+    "consent_receipt": "c7df09f294ed",
+    "note": "Inclusion consented by the commit author by email at 2026-10-12T21:42Z (receipt c7df09f294ed); selected commit 71e43b75e5f7: \"feat(java): port predict_tournament as Shortlist.predictTournament\". LICENSE file at pin 71e43b75e5f7 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @NandhaKishorM, who has not added it."
    },
    "paths": [
     ".github/workflows",

@@ -2,8 +2,8 @@
  "corpus": "light-projects--lightbpf",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Python queries this for how Light-Projects/LightBPF implements it: Light-Projects/LightBPF (Python) (selected work: LightBPF)",
+ "shelf": "SEC",
+ "domain": "an agent working on cbpf, filtering, compiler queries this for how Light-Projects/LightBPF implements it: LightBPF is a standalone, pure-Python Berkeley Packet Filter engine for packet sniffing, inspection, and network security applications. It t (selected work: LightBPF)",
  "repos": [
   {
    "repo": "LightBPF",

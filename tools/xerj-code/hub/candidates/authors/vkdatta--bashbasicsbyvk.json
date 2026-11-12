@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on termux, linux, shell queries this for how vkdatta/bashbasicsbyvk implements it: bashbasicsbyvk is a modular Bash toolkit designed to simplify command-line workflows, reduce repetitive typing, and make terminal operations (selected work: script, the project root)",
+ "domain": "an agent working on termux, linux, shell queries this for how vkdatta/bashbasicsbyvk implements it: An advanced file manager for your terminal (selected work: script, the project root)",
  "repos": [
   {
    "repo": "bashbasicsbyvk",
