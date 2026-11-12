@@ -8,15 +8,15 @@
   {
    "repo": "OpenBots",
    "url": "https://github.com/danielpang/OpenBots",
-   "sha": "47e155579372493f09bf1bf636f89e323c2ceb82",
-   "licence": "Apache-2.0 (LICENSE file at pin 47e155579372, GitHub licence API 2026-11-12)",
+   "sha": "a8e51483ecfc1f30150643acc07ae159b0fd6b19",
+   "licence": "Apache-2.0 (LICENSE file at pin a8e51483ecfc, GitHub licence API 2026-11-12)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-10T19:39Z",
     "consent_receipt": "afe0e1489206",
-    "note": "Inclusion consented by the commit author by email at 2026-11-10T19:39Z (receipt afe0e1489206); selected commit 47e155579372: \"Share model subscriptions between bots and coding agents (#29)\". LICENSE file at pin 47e155579372 detected as Apache-2.0 by the GitHub licence API on 2026-11-12; used under that licence with attribution. Pinned to head 47e155579372 (contains the selected commit): the LICENSE at the selected commit was NOASSERTION."
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T19:39Z (receipt afe0e1489206); selected commit a8e51483ecfc: \"Share model subscriptions between bots and coding agents (#29)\". LICENSE file at pin a8e51483ecfc detected as Apache-2.0 by the GitHub licence API on 2026-11-12; used under that licence with attribution. Pinned to head a8e51483ecfc (contains the selected commit): the LICENSE at the selected commit was NOASSERTION."
    }
   }
  ]

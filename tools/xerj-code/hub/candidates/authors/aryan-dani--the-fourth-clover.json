@@ -8,15 +8,15 @@
   {
    "repo": "The_Fourth_Clover",
    "url": "https://github.com/aryan-dani/The_Fourth_Clover",
-   "sha": "35c71d8b637cd45c847e31ec17469b3bdb042e8b",
-   "licence": "Apache-2.0 (LICENSE file at pin 35c71d8b637c, GitHub licence API 2026-11-11)",
+   "sha": "f4b9e2e5d5b38a90cb97a4382d4aa44eaf253941",
+   "licence": "Apache-2.0 (LICENSE file at pin f4b9e2e5d5b3, GitHub licence API 2026-11-12)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T06:46Z",
     "consent_receipt": "0945e0b183d1",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T06:46Z (receipt 0945e0b183d1); pinned to the default-branch head. LICENSE file at pin 35c71d8b637c detected as Apache-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T06:46Z (receipt 0945e0b183d1); pinned to the default-branch head. LICENSE file at pin f4b9e2e5d5b3 detected as Apache-2.0 by the GitHub licence API on 2026-11-12; used under that licence with attribution."
    }
   }
  ]

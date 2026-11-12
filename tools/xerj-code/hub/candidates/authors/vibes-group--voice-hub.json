@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on TypeScript queries this for how vibes-group/voice-hub implements it: vibes-group/voice-hub (TypeScript) (selected work: backend, the project root)",
+ "domain": "an agent working on Rust queries this for how vibes-group/voice-hub implements it: vibes-group/voice-hub (Rust) (selected work: backend, the project root)",
  "repos": [
   {
    "repo": "voice-hub",
