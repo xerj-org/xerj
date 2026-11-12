@@ -8,15 +8,15 @@
   {
    "repo": "stack-guardian",
    "url": "https://github.com/LuminariSoftwares/stack-guardian",
-   "sha": "2529dd08fe2594d905cc54cb699650d9b3cd8cb9",
-   "licence": "MIT (LICENSE file at pin 2529dd08fe25, GitHub licence API 2026-11-12)",
+   "sha": "b063b1706add63ac938abffea00d948be340ccfd",
+   "licence": "MIT (LICENSE file at pin b063b1706add, GitHub licence API 2026-11-12)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-31T15:40Z",
     "consent_receipt": "1355a8fa778b",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T15:40Z (receipt 1355a8fa778b); pinned to the default-branch head. LICENSE file at pin 2529dd08fe25 detected as MIT by the GitHub licence API on 2026-11-12; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T15:40Z (receipt 1355a8fa778b); pinned to the default-branch head. LICENSE file at pin b063b1706add detected as MIT by the GitHub licence API on 2026-11-12; used under that licence with attribution."
    }
   }
  ]

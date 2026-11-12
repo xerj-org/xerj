@@ -1,0 +1,27 @@
+{
+ "corpus": "bmander--brep-bench",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how bmander/brep-bench implements it: bmander/brep-bench (Rust) (selected work: kernels, the project root)",
+ "repos": [
+  {
+   "repo": "brep-bench",
+   "url": "https://github.com/bmander/brep-bench",
+   "sha": "c0f354b9562f7e88e2a4735de600b1a533bf2b26",
+   "licence": "author's permission (LICENSE at pin c0f354b9562f: NOASSERTION; repository: Apache-2.0)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T02:28Z",
+    "consent_receipt": "20cbe503231c",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T02:28Z (receipt 20cbe503231c); selected commit c0f354b9562f: \"Add a runner for SMLib, through the usd-brep package\". LICENSE at pin c0f354b9562f: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @bmander, who has not added it."
+   },
+   "paths": [
+    "docs",
+    "kernels/smlib"
+   ]
+  }
+ ]
+}

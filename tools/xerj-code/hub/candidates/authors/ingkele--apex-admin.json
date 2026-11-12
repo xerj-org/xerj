@@ -1,0 +1,23 @@
+{
+ "corpus": "ingkele--apex-admin",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how ingkele/apex-admin implements it: Apex AI Studio \u7ba1\u7406\u7aef / \u6807\u51c6\u540e\u53f0\u7ba1\u7406\u6a21\u677f\uff08React 19 + TanStack Router + Base UI + Tailwind v4\uff09 (selected work: packages/create-apex-admin, the project root)",
+ "repos": [
+  {
+   "repo": "apex-admin",
+   "url": "https://github.com/ingkele/apex-admin",
+   "sha": "4d607deb1ce54f223f0414c47202210bdddf9346",
+   "licence": "MIT (LICENSE file at pin 4d607deb1ce5, GitHub licence API 2026-11-12)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T03:51Z",
+    "consent_receipt": "104cf72c6412",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T03:51Z (receipt 104cf72c6412); selected commit 4d607deb1ce5: \"feat: \u65b0\u589e create-apex-admin npm \u811a\u624b\u67b6\u5305\". LICENSE file at pin 4d607deb1ce5 detected as MIT by the GitHub licence API on 2026-11-12; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "chenhlsh--esp-sdr-rs",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how chenhlSH/esp-sdr-rs implements it: chenhlSH/esp-sdr-rs (Rust) (selected work: firmware)",
+ "repos": [
+  {
+   "repo": "esp-sdr-rs",
+   "url": "https://github.com/chenhlSH/esp-sdr-rs",
+   "sha": "b92b368491a912396ae951559bf785c21a39db85",
+   "licence": "GPL-3.0 (LICENSE file at pin b92b368491a9, GitHub licence API 2026-11-12)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-12T03:27Z",
+    "consent_receipt": "a06f6b42e3b9",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T03:27Z (receipt a06f6b42e3b9); selected commit b92b368491a9: \"C5c: beacon v2 (max power, continuous, 3-band hop) + duplex loop probe\". LICENSE file at pin b92b368491a9 detected as GPL-3.0 by the GitHub licence API on 2026-11-12; used under that licence with attribution. Pinned to head b92b368491a9 (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

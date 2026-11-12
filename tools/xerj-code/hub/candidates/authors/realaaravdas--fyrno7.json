@@ -8,15 +8,15 @@
   {
    "repo": "neuron7",
    "url": "https://github.com/realaaravdas/neuron7",
-   "sha": "c2cddaa2b55dae1bed56d50b5de4808c0c11775b",
-   "licence": "MIT (LICENSE file at pin c2cddaa2b55d, GitHub licence API 2026-11-12)",
+   "sha": "3307a5888fbb3e08474eb9f0382f2b25bdab1ccb",
+   "licence": "MIT (LICENSE file at pin 3307a5888fbb, GitHub licence API 2026-11-12)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-10T04:59Z",
     "consent_receipt": "374c9b2c1646",
-    "note": "Inclusion consented by the commit author by email at 2026-11-10T04:59Z (receipt 374c9b2c1646); selected commit c2cddaa2b55d: \"added exporting options\". LICENSE file at pin c2cddaa2b55d detected as MIT by the GitHub licence API on 2026-11-12; used under that licence with attribution. Pinned to head c2cddaa2b55d (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T04:59Z (receipt 374c9b2c1646); selected commit 3307a5888fbb: \"added exporting options\". LICENSE file at pin 3307a5888fbb detected as MIT by the GitHub licence API on 2026-11-12; used under that licence with attribution. Pinned to head 3307a5888fbb (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

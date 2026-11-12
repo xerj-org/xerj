@@ -1,9 +1,9 @@
 {
- "corpus": "ero-dragon--tianshu-libs",
+ "corpus": "ero-dragon--tianshu-foundry",
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Java queries this for how ERO-Dragon/Tianshu-libs implements it: \u5929\u67a2\u7684\u5e93\u6a21\u7ec4 (selected work: common, the project root)",
+ "domain": "an agent working on Java queries this for how ERO-Dragon/Tianshu-Foundry implements it: \u5929\u67a2\u7684\u5e93\u6a21\u7ec4\u767e\u5de5 (selected work: common, the project root)",
  "repos": [
   {
    "repo": "Tianshu-libs",
