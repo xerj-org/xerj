@@ -1,0 +1,29 @@
+{
+ "corpus": "chopinregis--creabim",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on architecture, bim, blender queries this for how chopinregis/CreaBIM implements it: Design-first BIM, modelled like Blender, made for architects. One model for 3D, plans, sections, sheets, schedules, quantities and IFC. Free (selected work: packaging)",
+ "repos": [
+  {
+   "repo": "CreaBIM",
+   "url": "https://github.com/chopinregis/CreaBIM",
+   "sha": "ee987e505be8c448c809f09d1118b1a01fa4731f",
+   "licence": "GPL-3.0 (LICENSE file at pin ee987e505be8, GitHub licence API 2026-11-12)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-12T05:00Z",
+    "consent_receipt": "732b05843f46",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T05:00Z (receipt 732b05843f46); selected commit ee987e505be8: \"Added deb, rpm and MacOS packages\". LICENSE file at pin ee987e505be8 detected as GPL-3.0 by the GitHub licence API on 2026-11-12; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @chopinregis, who has not added it."
+   },
+   "paths": [
+    ".github/workflows",
+    "docs",
+    "packaging/linux",
+    "packaging/macos"
+   ]
+  }
+ ]
+}

@@ -1,0 +1,30 @@
+{
+ "corpus": "jardda-jardda--jardda-league",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Java queries this for how Jardda-Jardda/Jardda_League implements it: Sistema de armazenamento de estat\u00edsticas relevantes ao meio futebolistico (selected work: sql, mongodb)",
+ "repos": [
+  {
+   "repo": "Jardda_League",
+   "url": "https://github.com/Jardda-Jardda/Jardda_League",
+   "sha": "0e065f7a21ec6d118c07c14fa5abeb361c96dd16",
+   "licence": "MIT (LICENSE file at pin 0e065f7a21ec, GitHub licence API 2026-11-12)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T04:50Z",
+    "consent_receipt": "08be751a8212",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T04:50Z (receipt 08be751a8212); selected commit 0e065f7a21ec: \"jardda_league quase completo\". LICENSE file at pin 0e065f7a21ec detected as MIT by the GitHub licence API on 2026-11-12; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Jardda-Jardda, who has not added it."
+   },
+   "paths": [
+    "docs",
+    "mongodb",
+    "sql/schema",
+    "sql/security",
+    "sql/seed"
+   ]
+  }
+ ]
+}

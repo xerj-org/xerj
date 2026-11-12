@@ -1,0 +1,23 @@
+{
+ "corpus": "27synthesis--dsh-go-fish-panel",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on ai-companion, android, dsh-fish queries this for how 27Synthesis/dsh-go-fish-panel implements it: \u7ed9 dsh-fish\uff08\u5927\u80a5\u9c7c\uff09\u5728 DSH Go \u624b\u673a App \u4e0a\u52a0\u89c2\u6d4b\u53f0\u4e0e\u8bbe\u7f6e\u9762\u677f\u7684\u539f\u751f\u63d2\u4ef6 (selected work: lib, the project root)",
+ "repos": [
+  {
+   "repo": "dsh-go-fish-panel",
+   "url": "https://github.com/27Synthesis/dsh-go-fish-panel",
+   "sha": "68cf66886415ca86035e75e65fd70d0a560e5051",
+   "licence": "MIT (LICENSE file at pin 68cf66886415, GitHub licence API 2026-11-12)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T04:46Z",
+    "consent_receipt": "9c31ec1b5a6b",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T04:46Z (receipt 9c31ec1b5a6b); selected commit 68cf66886415: \"\u9c7c\u00b7\u89c2\u6d4b\u53f0\uff1a\u7ed9 dsh-fish \u5728 DSH Go \u624b\u673a\u4e0a\u52a0\u89c2\u6d4b\u53f0\u4e0e\u8bbe\u7f6e\u9762\u677f\". LICENSE file at pin 68cf66886415 detected as MIT by the GitHub licence API on 2026-11-12; used under that licence with attribution."
+   }
+  }
+ ]
+}

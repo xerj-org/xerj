@@ -2,8 +2,8 @@
  "corpus": "yhay81--pylopdf",
  "cloned_at": null,
  "status": "draft",
- "shelf": "WEB",
- "domain": "an agent working on pdf, pdf-editing, pdf-library queries this for how yhay81/pylopdf implements it: PDF editing, rendering, extraction, and generation for Python on the Rust engines lopdf, hayro, and krilla \u2014 MIT, safe on untrusted input, W (selected work: tests, rust, src/pylopdf)",
+ "shelf": "OPS",
+ "domain": "an agent working on pdf, pdf-editing, pdf-library queries this for how yhay81/pylopdf implements it: Archived \u2014 migrate to pyropdf (https://github.com/yhay81/pyropdf). PDF editing, rendering, extraction, and generation for Python (selected work: tests, rust, src/pylopdf)",
  "repos": [
   {
    "repo": "pylopdf",

@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Python queries this for how HelixAthu/Agent-Memory-and-Coordination implements it: HelixAthu/Agent-Memory-and-Coordination (Python) (selected work: frontend, memory_core)",
+ "domain": "an agent working on Python queries this for how HelixAthu/Agent-Memory-and-Coordination implements it: HelixAthu/Agent-Memory-and-Coordination (Python) (selected work: frontend)",
  "repos": [
   {
    "repo": "Agent-Memory-and-Coordination",
    "url": "https://github.com/HelixAthu/Agent-Memory-and-Coordination",
-   "sha": "697984a13b744af549089c34b97a272d527881eb",
-   "licence": "MIT (LICENSE file at pin 697984a13b74, GitHub licence API 2026-10-24)",
+   "sha": "277738e338cffae0d288847607ce008a8c796762",
+   "licence": "MIT (LICENSE file at pin 277738e338cf, GitHub licence API 2026-11-11)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
-    "at": "2026-10-17T04:40Z",
-    "consent_receipt": "a746b387851e",
-    "note": "Inclusion consented by the commit author by email at 2026-10-17T04:40Z (receipt a746b387851e); selected commit 697984a13b74: \"feat(web): event reducer and sse hook with tests\". LICENSE file at pin 697984a13b74 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
+    "at": "2026-10-17T04:38Z",
+    "consent_receipt": "3d39b4dbc832",
+    "note": "Inclusion consented by the commit author by email at 2026-10-17T04:38Z (receipt 3d39b4dbc832); selected commit 277738e338cf: \"feat(web): tenant switcher and memory graph rendering\". LICENSE file at pin 277738e338cf detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
    }
   }
  ]

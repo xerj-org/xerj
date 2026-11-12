@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on C# queries this for how SimplifyNet/etcd-terminal implements it: etcd v3+ TUI based modern console client, very fast and lightweight (selected work: src/EtcdTerminal.App, src/EtcdTerminal.Tests, src/EtcdTerminal.Infrastructure)",
+ "domain": "an agent working on etcd, etcd-manage, etcdv3 queries this for how SimplifyNet/etcd-terminal implements it: Etcd v3+ TUI based modern console client, very fast and lightweight (selected work: src/EtcdTerminal.App, src/EtcdTerminal.Tests, src/EtcdTerminal.Infrastructure)",
  "repos": [
   {
    "repo": "etcd-terminal",

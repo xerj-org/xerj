@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on C++ queries this for how iw4x/launcher implements it: Cross-platform launcher and auto-updater for IW4x (selected work: launcher)",
+ "domain": "an agent working on game, iw4x, launcher queries this for how iw4x/launcher implements it: IW4x launcher and updater (selected work: launcher)",
  "repos": [
   {
    "repo": "launcher",

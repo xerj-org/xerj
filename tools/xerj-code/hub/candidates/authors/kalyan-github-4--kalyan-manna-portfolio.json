@@ -1,0 +1,23 @@
+{
+ "corpus": "kalyan-github-4--kalyan-manna-portfolio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how Kalyan-github-4/Kalyan-Manna-Portfolio implements it: \ud83d\ude80 My personal developer portfolio built with React, TypeScript, Tailwind CSS, and Framer Motion. Showcasing my projects, skills, and journey (selected work: src/components, src/views)",
+ "repos": [
+  {
+   "repo": "Kalyan-Manna-Portfolio",
+   "url": "https://github.com/Kalyan-github-4/Kalyan-Manna-Portfolio",
+   "sha": "7fa39e34feb016e6bf00901ce82e7213ebbafa2a",
+   "licence": "MIT (LICENSE file at pin 7fa39e34feb0, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T03:01Z",
+    "consent_receipt": "106f5ad5d393",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T03:01Z (receipt 106f5ad5d393); selected commit 7fa39e34feb0: \"feat(links): add mobile layout and copy email button\". LICENSE file at pin 7fa39e34feb0 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}
