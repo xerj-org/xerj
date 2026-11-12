@@ -1,0 +1,27 @@
+{
+ "corpus": "cognimachina--genx320-person-detection",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on dataset, event-camera, genx320 queries this for how cognimachina/genx320-person-detection implements it: Live person detection with a Prophesee GenX320 event camera on an STM32F746 (Cortex-M7): firmware, recording, curation, simulation, training (selected work: tools, the project root)",
+ "repos": [
+  {
+   "repo": "genx320-person-detection",
+   "url": "https://github.com/cognimachina/genx320-person-detection",
+   "sha": "2fae6fd77c2c7044c249ee43bf0d32192e3de52a",
+   "licence": "Apache-2.0 (LICENSE file at pin 2fae6fd77c2c, GitHub licence API 2026-11-12)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-11T22:28Z",
+    "consent_receipt": "7ba219096354",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T22:28Z (receipt 7ba219096354); selected commit 2fae6fd77c2c: \"N-People tools after an independent dataset review: pictures without \u2026\". LICENSE file at pin 2fae6fd77c2c detected as Apache-2.0 by the GitHub licence API on 2026-11-12; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @cognimachina, who has not added it."
+   },
+   "paths": [
+    "docs",
+    "tools"
+   ]
+  }
+ ]
+}

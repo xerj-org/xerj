@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on amd, llm, strix-halo queries this for how gufo-org/gufo implements it: The Open Source Strix Halo AI engine. Qwen 3.8 Flash Next Q4_K_XL: 1,801.01 pp, 73.17 tg single user, 194.37 tok/s 8 users; Qwen 3.8 27B Q4_ (selected work: tests, src/cli)",
+ "domain": "an agent working on amd, llm, strix-halo queries this for how gufo-org/gufo implements it: The open-source AI engine for AMD Strix Halo. Text, embeddings, speech, image and video models in one binary, with OpenAI-compatible APIs, c (selected work: tests, src/cli)",
  "repos": [
   {
    "repo": "gufo",
