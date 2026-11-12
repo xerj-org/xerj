@@ -9,14 +9,14 @@
    "repo": "pokemonTeamBuilder",
    "url": "https://github.com/ensinho/pokemonTeamBuilder",
    "sha": "9d0deb4cdfdcb894fdac374b8550957bb741c195",
-   "licence": "MIT (LICENSE file at pin 9d0deb4cdfdc, GitHub licence API 2026-10-24)",
+   "licence": "author's permission (LICENSE at pin 9d0deb4cdfdc: MIT; repository: NOASSERTION)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-10T16:10Z",
     "consent_receipt": "ee2b7e065b7c",
-    "note": "Inclusion consented by the commit author by email at 2026-10-10T16:10Z (receipt ee2b7e065b7c); selected commit 9d0deb4cdfdc: \"refactor(design): major changes on desig system for better organizati\u2026\". LICENSE file at pin 9d0deb4cdfdc detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-10-10T16:10Z (receipt ee2b7e065b7c); selected commit 9d0deb4cdfdc: \"refactor(design): major changes on desig system for better organizati\u2026\". LICENSE at pin 9d0deb4cdfdc: MIT (repository: NOASSERTION); used with the author's permission, with attribution."
    }
   }
  ]

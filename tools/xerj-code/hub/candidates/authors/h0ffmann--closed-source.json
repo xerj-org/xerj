@@ -8,15 +8,15 @@
   {
    "repo": "closed-source",
    "url": "https://github.com/h0ffmann/closed-source",
-   "sha": "6e5ab43f41a2edb6f6d67d05a95b8539935bafbb",
-   "licence": "CC-BY-4.0 (LICENSE file at pin 6e5ab43f41a2, GitHub licence API 2026-11-12)",
+   "sha": "7c1426d70d321fd3ce58c225a5a75b4dbe0520ac",
+   "licence": "CC-BY-4.0 (LICENSE file at pin 7c1426d70d32, GitHub licence API 2026-11-12)",
    "review": {
     "spdx": "CC-BY-4.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-10T15:11Z",
     "consent_receipt": "b04d3d5a5749",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T15:11Z (receipt b04d3d5a5749); pinned to the default-branch head. LICENSE file at pin 6e5ab43f41a2 detected as CC-BY-4.0 by the GitHub licence API on 2026-11-12; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T15:11Z (receipt b04d3d5a5749); pinned to the default-branch head. LICENSE file at pin 7c1426d70d32 detected as CC-BY-4.0 by the GitHub licence API on 2026-11-12; used under that licence with attribution."
    }
   }
  ]

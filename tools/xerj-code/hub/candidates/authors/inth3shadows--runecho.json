@@ -8,15 +8,15 @@
   {
    "repo": "runecho",
    "url": "https://github.com/inth3shadows/runecho",
-   "sha": "c13becdb0f80c788cee0fe47f4ea507cb86a94b2",
-   "licence": "MIT (LICENSE file at pin c13becdb0f80, GitHub licence API 2026-11-12)",
+   "sha": "6ad4584b34418193307ed45ee779a126cbfa1687",
+   "licence": "MIT (LICENSE file at pin 6ad4584b3441, GitHub licence API 2026-11-12)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T22:01Z",
     "consent_receipt": "dc775231584a",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:01Z (receipt dc775231584a); pinned to the default-branch head. LICENSE file at pin c13becdb0f80 detected as MIT by the GitHub licence API on 2026-11-12; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:01Z (receipt dc775231584a); pinned to the default-branch head. LICENSE file at pin 6ad4584b3441 detected as MIT by the GitHub licence API on 2026-11-12; used under that licence with attribution."
    }
   }
  ]
