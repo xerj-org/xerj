@@ -1,0 +1,23 @@
+{
+ "corpus": "brandenleong1--nonograms-katana-dungeon-viewer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how brandenleong1/nonograms-katana-dungeon-viewer implements it: A dungeon viewer and simulator for Nonograms Katana (selected work: tools, test, the project root)",
+ "repos": [
+  {
+   "repo": "nonograms-katana-dungeon-viewer",
+   "url": "https://github.com/brandenleong1/nonograms-katana-dungeon-viewer",
+   "sha": "6efdc4db1508aa8fa1b21595e91c442fe31d37a6",
+   "licence": "MIT (LICENSE file at pin 6efdc4db1508, GitHub licence API 2026-11-12)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T01:14Z",
+    "consent_receipt": "2bbf75619fdc",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T01:14Z (receipt 2bbf75619fdc); selected commit 6efdc4db1508: \"[CI] Feature: Add Precommit Checks, PR Bot And Branch Rules\". LICENSE file at pin 6efdc4db1508 detected as MIT by the GitHub licence API on 2026-11-12; used under that licence with attribution."
+   }
+  }
+ ]
+}

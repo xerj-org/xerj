@@ -1,0 +1,23 @@
+{
+ "corpus": "chibarie--acgn-journey",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how ChibaRie/acgn_journey implements it: ChibaRie/acgn_journey (JavaScript) (selected work: src/hooks, src/utils, src)",
+ "repos": [
+  {
+   "repo": "acgn_journey",
+   "url": "https://github.com/ChibaRie/acgn_journey",
+   "sha": "58752b3124615876bd7fa11828f11d8b924ff557",
+   "licence": "MIT (LICENSE file at pin 58752b312461, GitHub licence API 2026-11-12)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-06T01:53Z",
+    "consent_receipt": "ff15ccb8f52e",
+    "note": "Inclusion consented by the commit author by email at 2026-11-06T01:53Z (receipt ff15ccb8f52e); selected commit 58752b312461: \"fix: close recovery races and reduce dashboard calculation cost\". LICENSE file at pin 58752b312461 detected as MIT by the GitHub licence API on 2026-11-12; used under that licence with attribution."
+   }
+  }
+ ]
+}

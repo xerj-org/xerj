@@ -1,0 +1,23 @@
+{
+ "corpus": "raslmm--safebite",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how raslmm/safebite implements it: AI Agent that detects allergens from food labels (selected work: safebite_agent, the project root)",
+ "repos": [
+  {
+   "repo": "safebite",
+   "url": "https://github.com/raslmm/safebite",
+   "sha": "136ab44b9fa717326f9d6629846b04ece94cb60a",
+   "licence": "MIT (LICENSE file at pin 136ab44b9fa7, GitHub licence API 2026-11-12)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T02:01Z",
+    "consent_receipt": "295e648f75be",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T02:01Z (receipt 295e648f75be); selected commit 136ab44b9fa7: \"test API call\". LICENSE file at pin 136ab44b9fa7 detected as MIT by the GitHub licence API on 2026-11-12; used under that licence with attribution."
+   }
+  }
+ ]
+}

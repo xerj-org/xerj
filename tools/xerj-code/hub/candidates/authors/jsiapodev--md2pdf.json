@@ -2,8 +2,8 @@
  "corpus": "jsiapodev--md2pdf",
  "cloned_at": null,
  "status": "draft",
- "shelf": "WEB",
- "domain": "an agent working on HTML queries this for how JSiapoDEV/md2pdf implements it: Free, open-source Markdown to PDF converter with 11 visual styles. Live preview, syntax highlighting, custom CSS, templates, dark mode, shar (selected work: public, the project root, cli)",
+ "shelf": "AI",
+ "domain": "an agent working on claude-code, e2ee, markdown queries this for how JSiapoDEV/md2pdf implements it: Free, open-source Markdown to PDF, HTML and image converter that runs in your browser: 11 styles, Mermaid, table of contents, templates. Sha (selected work: public, the project root, cli)",
  "repos": [
   {
    "repo": "md2pdf",

@@ -8,15 +8,15 @@
   {
    "repo": "diggity",
    "url": "https://github.com/chrj/diggity",
-   "sha": "84f46e1f4ce704629315746edeeffefc4edd6858",
-   "licence": "MIT (LICENSE file at pin 84f46e1f4ce7, GitHub licence API 2026-11-10)",
+   "sha": "313736c8c7d9879438a3c30786e2890fa2629d61",
+   "licence": "MIT (LICENSE file at pin 313736c8c7d9, GitHub licence API 2026-11-12)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-30T22:51Z",
     "consent_receipt": "3b0e36ebde75",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T22:51Z (receipt 3b0e36ebde75); pinned to the default-branch head. LICENSE file at pin 84f46e1f4ce7 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T22:51Z (receipt 3b0e36ebde75); pinned to the default-branch head. LICENSE file at pin 313736c8c7d9 detected as MIT by the GitHub licence API on 2026-11-12; used under that licence with attribution."
    }
   }
  ]
