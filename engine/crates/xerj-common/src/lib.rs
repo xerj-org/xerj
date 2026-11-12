@@ -69,6 +69,7 @@ pub mod resource;
 pub mod schema;
 pub mod thread_spawn;
 pub mod types;
+pub mod write_pack;
 pub mod xccode;
 
 // Convenience re-exports at the crate root
