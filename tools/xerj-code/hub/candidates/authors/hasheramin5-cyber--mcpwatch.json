@@ -1,0 +1,23 @@
+{
+ "corpus": "hasheramin5-cyber--mcpwatch",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, cli, mcp queries this for how hasheramin5-cyber/MCPWatch implements it: Static security auditor for local MCP configs. Flags risky shell, filesystem, secret and network settings, and diffs local snapshots. Never ",
+ "repos": [
+  {
+   "repo": "MCPWatch",
+   "url": "https://github.com/hasheramin5-cyber/MCPWatch",
+   "sha": "ed6f23f0cbe43c9cdd65357028c257abe1662014",
+   "licence": "author's permission (LICENSE at pin ed6f23f0cbe4: NOASSERTION; repository: Apache-2.0)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T00:02Z",
+    "consent_receipt": "5a2dcedcc74a",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-13T00:02Z (receipt 5a2dcedcc74a); pinned to the default-branch head. LICENSE at pin ed6f23f0cbe4: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

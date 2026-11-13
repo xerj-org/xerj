@@ -1,9 +1,9 @@
 {
- "corpus": "zw-duran--tribe-news-extractor-filter",
+ "corpus": "zw-duran--mmiwg-archival-coding-suite",
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Python queries this for how ZW-Duran/Tribe_News_Extractor-Filter implements it: ZW-Duran/Tribe_News_Extractor-Filter (Python) (selected work: GoogleSheetCoding, the project root)",
+ "domain": "an agent working on Python queries this for how ZW-Duran/MMIWG-Archival-Coding-Suite implements it: ZW-Duran/MMIWG-Archival-Coding-Suite (Python) (selected work: GoogleSheetCoding, the project root)",
  "repos": [
   {
    "repo": "Tribe_News_Extractor-Filter",
