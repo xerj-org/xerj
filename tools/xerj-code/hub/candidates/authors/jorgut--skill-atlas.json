@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agent-skills, claude-code, claude-code-skill queries this for how Jorgut/skill-atlas implements it: Cross-platform agent skill manager for discovery, model/tool recommendations, orchestration, secure updates, and shared project context and  (selected work: closeout, scripts, tests)",
+ "domain": "an agent working on agent-skills, claude-code, claude-code-skill queries this for how Jorgut/skill-atlas implements it: Local-first agent environment atlas: scan agent tools and copies, audit project roots, measure disk usage, and remind you about unpushed com (selected work: closeout, scripts, tests)",
  "repos": [
   {
    "repo": "skill-atlas",

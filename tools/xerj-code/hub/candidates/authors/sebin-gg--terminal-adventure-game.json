@@ -8,15 +8,15 @@
   {
    "repo": "terminal-adventure-game",
    "url": "https://github.com/sebin-gg/terminal-adventure-game",
-   "sha": "9adb84c0970b26e0efc209803e2005d7a216736a",
-   "licence": "MIT (LICENSE file at pin 9adb84c0970b, GitHub licence API 2026-11-02)",
+   "sha": "3a5c3c524381cb584b1c951229bcdfc1df95fb68",
+   "licence": "MIT (LICENSE file at pin 3a5c3c524381, GitHub licence API 2026-11-13)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-02T15:14Z",
     "consent_receipt": "9ccbae39f9f9",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T15:14Z (receipt 9ccbae39f9f9); pinned to the default-branch head. LICENSE file at pin 9adb84c0970b detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T15:14Z (receipt 9ccbae39f9f9); pinned to the default-branch head. LICENSE file at pin 3a5c3c524381 detected as MIT by the GitHub licence API on 2026-11-13; used under that licence with attribution."
    }
   }
  ]
