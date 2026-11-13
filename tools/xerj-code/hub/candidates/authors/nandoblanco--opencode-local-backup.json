@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on JavaScript queries this for how nandoblanco/opencode-local-backup implements it: Automatic pre-edit file backups for OpenCode with timestamped project snapshots, configurable retention pruning, and an interactive /backups (selected work: the project root, test)",
+ "domain": "an agent working on TypeScript queries this for how nandoblanco/opencode-local-backup implements it: Automatic pre-edit file backups for OpenCode with timestamped project snapshots, configurable retention pruning, and an interactive /backups (selected work: the project root, test)",
  "repos": [
   {
    "repo": "opencode-local-backup",

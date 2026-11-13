@@ -8,15 +8,15 @@
   {
    "repo": "gaze-estimation",
    "url": "https://github.com/yakhyo/gaze-estimation",
-   "sha": "4125329cfb0dd0071bb91e4c6ca994013db5a26b",
-   "licence": "MIT (LICENSE file at pin 4125329cfb0d, GitHub licence API 2026-11-10)",
+   "sha": "4bf557d8a819da2b208214a9ef9268fd84cb52f1",
+   "licence": "MIT (LICENSE file at pin 4bf557d8a819, GitHub licence API 2026-11-13)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-10T17:49Z",
     "consent_receipt": "9713623c5b64",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T17:49Z (receipt 9713623c5b64); pinned to the default-branch head. LICENSE file at pin 4125329cfb0d detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T17:49Z (receipt 9713623c5b64); pinned to the default-branch head. LICENSE file at pin 4bf557d8a819 detected as MIT by the GitHub licence API on 2026-11-13; used under that licence with attribution."
    }
   }
  ]

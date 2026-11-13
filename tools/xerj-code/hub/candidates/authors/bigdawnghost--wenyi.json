@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WRITE",
- "domain": "an agent working on novel, python, translation-tool queries this for how BigDawnGhost/wenyi implements it: \u5c06\u88ab\u8bed\u8a00\u963b\u9694\u7684\u4f5c\u54c1\uff0c\u5e26\u5230\u8bfb\u8005\u7684\u8bed\u8a00\u4e2d\u3002Bringing literature into your language (selected work: apps/api, packages/backend, packages/core)",
+ "domain": "an agent working on novel, book-translations, book-translator queries this for how BigDawnGhost/wenyi implements it: \u5c06\u88ab\u8bed\u8a00\u963b\u9694\u7684\u4f5c\u54c1\uff0c\u5e26\u5230\u8bfb\u8005\u7684\u8bed\u8a00\u4e2d\u3002Bringing literature into your language (selected work: apps/api, packages/backend, packages/core)",
  "repos": [
   {
    "repo": "wenyi",
