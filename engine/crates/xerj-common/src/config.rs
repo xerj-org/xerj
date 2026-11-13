@@ -704,7 +704,7 @@ pub struct CompatConfig {
 /// Authentication settings.
 ///
 /// **3 settings.**
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct AuthConfig {
     /// Enable API-key authentication (default: `true`).
@@ -717,6 +717,7 @@ pub struct AuthConfig {
     ///
     /// Leave empty in production; the engine writes the generated key to
     /// `<data_dir>/admin.key` on startup.
+    #[serde(skip_serializing)]
     pub admin_api_key: String,
     /// Optional read-only metrics scrape token (default: `""` — disabled).
     ///
@@ -727,7 +728,33 @@ pub struct AuthConfig {
     /// that can read metrics but cannot touch index data. The admin key still
     /// works for `/v1/metrics`; when this is empty, metrics require the admin
     /// key like any other endpoint (unchanged behavior).
+    #[serde(skip_serializing)]
     pub metrics_token: String,
+}
+
+/// Hand-written so `{:?}` never prints `admin_api_key` or `metrics_token`.
+impl std::fmt::Debug for AuthConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AuthConfig")
+            .field("enabled", &self.enabled)
+            .field(
+                "admin_api_key",
+                &if self.admin_api_key.trim().is_empty() {
+                    "<unset>"
+                } else {
+                    "<redacted>"
+                },
+            )
+            .field(
+                "metrics_token",
+                &if self.metrics_token.trim().is_empty() {
+                    "<unset>"
+                } else {
+                    "<redacted>"
+                },
+            )
+            .finish()
+    }
 }
 
 impl Default for AuthConfig {
@@ -3055,6 +3082,64 @@ mod tests {
         assert!(!shown.contains("ts-secret-1"), "{shown}");
         assert!(!shown.contains("co-secret-2"), "{shown}");
         assert!(shown.contains("<redacted>"), "{shown}");
+    }
+
+    /// `{:?}` on `AuthConfig` and `Config` never prints the admin API key or metrics token,
+    /// and JSON serialization does not expose the keys.
+    #[test]
+    fn auth_config_secrets_never_reach_debug_or_serialization() {
+        let auth = AuthConfig {
+            enabled: true,
+            admin_api_key: "super-secret-admin-key".into(),
+            metrics_token: "super-secret-metrics-token".into(),
+        };
+        let shown = format!("{auth:?}");
+        assert!(!shown.contains("super-secret-admin-key"), "{shown}");
+        assert!(!shown.contains("super-secret-metrics-token"), "{shown}");
+        assert!(shown.contains("<redacted>"), "{shown}");
+
+        let json = serde_json::to_string(&auth).unwrap();
+        assert!(!json.contains("super-secret-admin-key"), "{json}");
+        assert!(!json.contains("super-secret-metrics-token"), "{json}");
+        assert!(!json.contains("admin_api_key"), "{json}");
+        assert!(!json.contains("metrics_token"), "{json}");
+
+        // Also verify when wrapped in full Config
+        let cfg = Config {
+            auth,
+            ..Default::default()
+        };
+        let cfg_shown = format!("{cfg:?}");
+        assert!(!cfg_shown.contains("super-secret-admin-key"), "{cfg_shown}");
+        assert!(!cfg_shown.contains("super-secret-metrics-token"), "{cfg_shown}");
+
+        let cfg_json = serde_json::to_string(&cfg).unwrap();
+        assert!(!cfg_json.contains("super-secret-admin-key"), "{cfg_json}");
+        assert!(!cfg_json.contains("super-secret-metrics-token"), "{cfg_json}");
+    }
+
+    /// `AuthConfig` still deserializes admin_api_key and metrics_token from TOML and JSON.
+    #[test]
+    fn auth_config_deserialization_reads_secrets() {
+        let toml_str = "enabled = true\nadmin_api_key = \"loaded-key\"\nmetrics_token = \"loaded-token\"\n";
+        let parsed: AuthConfig = toml::from_str(toml_str).unwrap();
+        assert_eq!(parsed.admin_api_key, "loaded-key");
+        assert_eq!(parsed.metrics_token, "loaded-token");
+        assert!(parsed.enabled);
+
+        let json_str = r#"{"enabled":true,"admin_api_key":"json-key","metrics_token":"json-token"}"#;
+        let parsed_json: AuthConfig = serde_json::from_str(json_str).unwrap();
+        assert_eq!(parsed_json.admin_api_key, "json-key");
+        assert_eq!(parsed_json.metrics_token, "json-token");
+    }
+
+    /// `AuthConfig` Debug shows `<unset>` when secrets are empty.
+    #[test]
+    fn auth_config_debug_shows_unset_when_empty() {
+        let auth = AuthConfig::default();
+        let shown = format!("{auth:?}");
+        assert!(shown.contains("<unset>"), "{shown}");
+        assert!(!shown.contains("<redacted>"), "{shown}");
     }
 
     /// `[rerank.cohere]` parses from TOML, and an unknown key under it is a
