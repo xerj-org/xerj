@@ -1051,6 +1051,7 @@ The model, its bundle and its serve rule are those of rc.102.
   setting above it does not raise that cap. `_async_search`,
   `_search/template` and `_msearch/template` do not read the setting yet.
 - The CSV extractor now caps one record at 16 MiB of decoded bytes (issue [#3201](https://github.com/xerj-org/xerj/issues/3201)). A quoted field may span newlines, so a single record could previously be as large as the whole input stream: the parser buffered it all before returning it. An oversize record is now counted as junk and extraction stops there, with the records before it still indexed; an oversize header row junks the file instead of failing it, so one hostile file cannot abort the whole autoindex run.
+- A YAML alias bomb no longer OOMs autoindex: YAML parsed from untrusted files is now counted with a node budget of 100,000 expanded nodes before any `Value` is materialised, and an over-budget stream is junk-filed instead of expanding. A 7,351 byte input that expanded to 17.85 GiB RSS is now rejected. (issue [#3157](https://github.com/xerj-org/xerj/issues/3157))
 
 ## [1.0.0-rc.102] - 2026-11-06
 

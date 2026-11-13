@@ -161,6 +161,16 @@ fn emit_doc(
     sink: Sink,
 ) -> bool {
     let text = String::from_utf8_lossy(body);
+    // #3157: an over-budget body is junk, same as one that does not parse.
+    if matches!(
+        crate::yaml_budget::check_yaml_node_budget(&text, crate::yaml_budget::YAML_NODE_BUDGET),
+        crate::yaml_budget::YamlBudgetOutcome::OverBudget
+    ) {
+        if !truncated_by_sampling {
+            stats.junk += 1;
+        }
+        return true;
+    }
     let parsed: serde_yaml::Value = match serde_yaml::from_str(&text) {
         Ok(v) => v,
         Err(_) => {
@@ -277,6 +287,15 @@ pub fn extract_meta(path: &Path, gzip: bool, sink: Sink) -> Result<ExtractStats>
     };
     let (text, _) = crate::sniff::decode_text(&bytes);
     let text = text.trim_start_matches('\u{feff}');
+    // #3157: an over-budget .meta file is junk, same as one that does not
+    // parse.
+    if matches!(
+        crate::yaml_budget::check_yaml_node_budget(text, crate::yaml_budget::YAML_NODE_BUDGET),
+        crate::yaml_budget::YamlBudgetOutcome::OverBudget
+    ) {
+        stats.junk += 1;
+        return Ok(stats);
+    }
     let parsed: serde_yaml::Value = match serde_yaml::from_str(text) {
         Ok(v) => v,
         Err(_) => {

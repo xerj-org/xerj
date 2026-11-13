@@ -15,6 +15,16 @@ pub fn extract(path: &Path, gzip: bool, sink: Sink) -> Result<ExtractStats> {
         return Ok(stats);
     };
     let (text, _) = crate::sniff::decode_text(&bytes);
+    // #3157: an over-budget stream is junk-filed whole, before any `Value`
+    // is built. A stream that does not parse keeps the per-document path
+    // below, so the good documents before a bad one still extract.
+    if matches!(
+        crate::yaml_budget::check_yaml_node_budget(&text, crate::yaml_budget::YAML_NODE_BUDGET),
+        crate::yaml_budget::YamlBudgetOutcome::OverBudget
+    ) {
+        stats.junk += 1;
+        return Ok(stats);
+    }
     let mut any = false;
     for (d, de) in serde_yaml::Deserializer::from_str(&text).enumerate() {
         let yv: serde_yaml::Value = match serde_yaml::Value::deserialize(de) {
@@ -124,5 +134,28 @@ mod tests {
         assert_eq!(n, 2);
         assert_eq!(stats.records, 2);
         assert_eq!(stats.junk, 0);
+    }
+
+    /// #3157: the alias-bomb shape must be junk-filed, never materialised.
+    /// Before the node-budget gate this test OOM-killed the runner (7,351
+    /// bytes expanding to 17.85 GiB RSS through `Value::deserialize`).
+    #[test]
+    fn yaml_alias_bomb_is_junked_not_materialised() {
+        let mut s = String::from("---\nt: t\n---\n");
+        for _ in 0..12 {
+            s.push_str("# c\n");
+        }
+        s.push_str("a0: &a0 [");
+        s.push_str(&vec!["lol"; 1000].join(","));
+        s.push_str("]\n");
+        for i in 1..=8usize {
+            s.push_str(&format!("a{i}: &a{i} ["));
+            s.push_str(&vec![format!("*a{}", i - 1); 100].join(","));
+            s.push_str("]\n");
+        }
+        assert_eq!(s.len(), 7351, "fixture must match the reported repro size");
+        let (stats, n) = extract_str(&s);
+        assert_eq!(n, 0, "an alias bomb must not fabricate records");
+        assert!(stats.junk >= 1, "the over-budget stream is junk-filed");
     }
 }
