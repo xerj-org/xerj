@@ -1,0 +1,23 @@
+{
+ "corpus": "morepriyam--pulse-editor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, avfoundation, expo queries this for how morepriyam/pulse-editor implements it: Native video editing for React Native and Expo: trim, join, crop, rotate and speed up clips, convert HDR imports, and preview the draft as i (selected work: android, src, ios)",
+ "repos": [
+  {
+   "repo": "pulse-editor",
+   "url": "https://github.com/morepriyam/pulse-editor",
+   "sha": "798c91c156b0ef90595f86575be6b6f2de215b70",
+   "licence": "MIT (LICENSE file at pin 798c91c156b0, GitHub licence API 2026-11-13)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-20T03:24Z",
+    "consent_receipt": "a00591cbcdf5",
+    "note": "Inclusion consented by the commit author by email at 2026-10-20T03:24Z (receipt a00591cbcdf5); selected commit 798c91c156b0: \"feat(bench): plain-ExoPlayer seek bench (SeekBench) (#6)\". LICENSE file at pin 798c91c156b0 detected as MIT by the GitHub licence API on 2026-11-13; used under that licence with attribution."
+   }
+  }
+ ]
+}

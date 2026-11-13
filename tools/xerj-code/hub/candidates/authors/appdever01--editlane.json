@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on coding-agents, context-engineering, developer-tools queries this for how appdever01/editlane implements it: Focused, exact context and session evidence for coding agents. Local CLI and read-only MCP (selected work: test, src, the project root)",
+ "domain": "an agent working on coding-agents, context-engineering, developer-tools queries this for how appdever01/editlane implements it: Focused context for coding agents. Gathers the affected files and contracts in one request through a local CLI or read-only MCP server for C (selected work: test, src, the project root)",
  "repos": [
   {
    "repo": "editlane",

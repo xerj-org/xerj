@@ -1,9 +1,9 @@
 {
- "corpus": "heroamogs--flowstride-os",
+ "corpus": "heroamogs--flowstride",
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on api-testing, bdd, e2e-testing queries this for how heroamogs/flowstride-os implements it: The next-generation, BDD-flavored End-to-End Testing Framework. Combine plain-English test steps with the raw execution power of Playwright, (selected work: tests, src/native, src/cli)",
+ "domain": "an agent working on api-testing, bdd, e2e-testing queries this for how heroamogs/flowstride implements it: The next-generation, BDD-flavored End-to-End Testing Framework. Combine plain-English test steps with the raw execution power of Playwright, (selected work: tests, src/native, src/cli)",
  "repos": [
   {
    "repo": "flowstride-os",
