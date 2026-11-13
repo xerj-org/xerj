@@ -1,0 +1,23 @@
+{
+ "corpus": "bangkah--ecoid",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how Bangkah/EcoID implements it: Offline-first plant identification (5 classes) with local ONNX inference. EcoID generates identification candidates; the user verifies them",
+ "repos": [
+  {
+   "repo": "EcoID",
+   "url": "https://github.com/Bangkah/EcoID",
+   "sha": "dc785e83e889e14ee3a2b69fc980c9e3cc725fc7",
+   "licence": "MIT (LICENSE file at pin dc785e83e889, GitHub licence API 2026-11-13)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T04:10Z",
+    "consent_receipt": "1f500ad1aae2",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-13T04:10Z (receipt 1f500ad1aae2); pinned to the default-branch head. LICENSE file at pin dc785e83e889 detected as MIT by the GitHub licence API on 2026-11-13; used under that licence with attribution."
+   }
+  }
+ ]
+}

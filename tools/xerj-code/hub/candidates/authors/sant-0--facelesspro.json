@@ -8,15 +8,15 @@
   {
    "repo": "facelesspro",
    "url": "https://github.com/sanT-0/facelesspro",
-   "sha": "a87e48caac703f022b07075711059ffd87a71b70",
-   "licence": "MIT (LICENSE file at pin a87e48caac70, GitHub licence API 2026-11-09)",
+   "sha": "410302cd256609fab4fa8ce54752009b890ea935",
+   "licence": "MIT (LICENSE file at pin 410302cd2566, GitHub licence API 2026-11-13)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-01T11:23Z",
     "consent_receipt": "f343dce5ff55",
-    "note": "Inclusion consented by the commit author by email at 2026-11-01T11:23Z (receipt f343dce5ff55); selected commit a87e48caac70: \"Add configurable LLM planner adapters\". LICENSE file at pin a87e48caac70 detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution. Pinned to head a87e48caac70 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T11:23Z (receipt f343dce5ff55); selected commit 410302cd2566: \"Add configurable LLM planner adapters\". LICENSE file at pin 410302cd2566 detected as MIT by the GitHub licence API on 2026-11-13; used under that licence with attribution. Pinned to head 410302cd2566 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]
