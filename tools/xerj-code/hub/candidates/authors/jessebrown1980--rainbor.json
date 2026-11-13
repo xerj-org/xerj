@@ -8,15 +8,15 @@
   {
    "repo": "RAINBOR",
    "url": "https://github.com/JesseBrown1980/RAINBOR",
-   "sha": "56de9ee137f204452d7dff41f7b1e953b6ff5c3e",
-   "licence": "author's permission (LICENSE at pin 56de9ee137f2: NONE; repository: none)",
+   "sha": "fa02fbe14931e113cdad721f60413fb49bf82325",
+   "licence": "author's permission (LICENSE at pin fa02fbe14931: NONE; repository: none)",
    "review": {
     "spdx": "NONE",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-05T14:53Z",
     "consent_receipt": "09da3fd474cd",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T14:53Z (receipt 09da3fd474cd); pinned to the default-branch head. LICENSE at pin 56de9ee137f2: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T14:53Z (receipt 09da3fd474cd); pinned to the default-branch head. LICENSE at pin fa02fbe14931: NONE (repository: none); used with the author's permission, with attribution."
    }
   }
  ]

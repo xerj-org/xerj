@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on formal-verification, lean4, mathematical-physics queries this for how jeffgurd888/thet-logos implements it: Machine-verified foundations for quantum field theory in Lean 4 (ACMD) \u2014 15,256 theorem declarations, zero sorrys. Every claim tiered; kills (selected work: lean, epistemic-ledger)",
+ "domain": "an agent working on formal-verification, lean4, mathematical-physics queries this for how jeffgurd888/thet-logos implements it: Machine-verified foundations for quantum field theory in Lean 4 (ACMD) \u2014 15,266 theorem declarations, zero sorrys. Every claim tiered; kills (selected work: lean, epistemic-ledger)",
  "repos": [
   {
    "repo": "thet-logos",

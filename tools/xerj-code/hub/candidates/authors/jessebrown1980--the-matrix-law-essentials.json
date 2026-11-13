@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "LAW",
- "domain": "an agent working on Rust queries this for how JesseBrown1980/The-matrix-law-essentials implements it: JesseBrown1980/The-matrix-law-essentials (Rust)",
+ "domain": "an agent working on Python queries this for how JesseBrown1980/The-matrix-law-essentials implements it: JesseBrown1980/The-matrix-law-essentials (Python)",
  "repos": [
   {
    "repo": "The-matrix-law-essentials",
    "url": "https://github.com/JesseBrown1980/The-matrix-law-essentials",
-   "sha": "e9eb98803d0474c31aca045723d1d896a03dc8f1",
-   "licence": "author's permission (LICENSE at pin e9eb98803d04: NONE; repository: none)",
+   "sha": "00eddd558c39a2bdd2b0120e09ac6887fe6d65b8",
+   "licence": "author's permission (LICENSE at pin 00eddd558c39: NONE; repository: none)",
    "review": {
     "spdx": "NONE",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-05T14:53Z",
     "consent_receipt": "dc3e8d75064a",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T14:53Z (receipt dc3e8d75064a); pinned to the default-branch head. LICENSE at pin e9eb98803d04: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T14:53Z (receipt dc3e8d75064a); pinned to the default-branch head. LICENSE at pin 00eddd558c39: NONE (repository: none); used with the author's permission, with attribution."
    }
   }
  ]

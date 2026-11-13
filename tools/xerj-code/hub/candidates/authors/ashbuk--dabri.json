@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on appimage, linux, whisper-cpp queries this for how AshBuk/dabri implements it: Dabri \u2022 Native Linux Speech-to-Text (STT) \u2022 Offline, Privacy-First (selected work: internal/services, internal/notify, whisper)",
+ "domain": "an agent working on appimage, linux, dictation queries this for how AshBuk/dabri implements it: Dabri \u2022 Native Linux Speech-to-Text (STT) \u2022 Offline, Privacy-First (selected work: internal/services, internal/notify, whisper)",
  "repos": [
   {
    "repo": "dabri",

@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on android, compose-multiplatform, ios queries this for how vladleesi/braindance implements it: Explore games, track favorites and releases, discover giveaways, and browse news. Built with Kotlin Multiplatform & Compose Multiplatform fo (selected work: backend, shared, the project root)",
+ "domain": "an agent working on android, compose-multiplatform, ios queries this for how vladleesi/braindance implements it: Game discovery app for Android, iOS, and Web: popular and upcoming games, similar titles, and giveaways. Open-source Kotlin Multiplatform &  (selected work: backend, shared, the project root)",
  "repos": [
   {
    "repo": "braindance",
    "url": "https://github.com/vladleesi/braindance",
-   "sha": "78ee24fbb69821cd28fd5bed23910d7e6eab60b2",
-   "licence": "MPL-2.0 (LICENSE file at pin 78ee24fbb698, GitHub licence API 2026-11-12)",
+   "sha": "2911fde47134f6c58b0efd848da8723870611bda",
+   "licence": "MPL-2.0 (LICENSE file at pin 2911fde47134, GitHub licence API 2026-11-13)",
    "review": {
     "spdx": "MPL-2.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-13T23:17Z",
     "consent_receipt": "36acd82eae29",
-    "note": "Inclusion consented by the commit author by email at 2026-10-13T23:17Z (receipt 36acd82eae29); selected commit 78ee24fbb698: \"perf: cache public reads and warm backend on app startup\". LICENSE file at pin 78ee24fbb698 detected as MPL-2.0 by the GitHub licence API on 2026-11-12; used under that licence with attribution. Pinned to head 78ee24fbb698 (contains the selected commit): the LICENSE at the selected commit was GPL-3.0."
+    "note": "Inclusion consented by the commit author by email at 2026-10-13T23:17Z (receipt 36acd82eae29); selected commit 2911fde47134: \"perf: cache public reads and warm backend on app startup\". LICENSE file at pin 2911fde47134 detected as MPL-2.0 by the GitHub licence API on 2026-11-13; used under that licence with attribution. Pinned to head 2911fde47134 (contains the selected commit): the LICENSE at the selected commit was GPL-3.0."
    }
   }
  ]

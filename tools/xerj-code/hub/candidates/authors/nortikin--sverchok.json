@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Python queries this for how nortikin/sverchok implements it: Sverchok (selected work: nodes, utils, menus)",
+ "domain": "an agent working on blender, blender-addon, blender-python queries this for how nortikin/sverchok implements it: Sverchok is Node-based visual programming for parametric 3D modeling and computational geometry in Blender (selected work: nodes, utils, menus)",
  "repos": [
   {
    "repo": "sverchok",

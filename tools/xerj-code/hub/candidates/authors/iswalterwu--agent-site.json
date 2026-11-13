@@ -8,15 +8,15 @@
   {
    "repo": "agent-site",
    "url": "https://github.com/iswalterwu/agent-site",
-   "sha": "09b4c11645b51f590293b71e8fc0f0777fc5f78c",
-   "licence": "MIT (LICENSE file at pin 09b4c11645b5, GitHub licence API 2026-11-12)",
+   "sha": "ccf02162bcbaf38a30a3fe52009a905127249469",
+   "licence": "MIT (LICENSE file at pin ccf02162bcba, GitHub licence API 2026-11-12)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-12T20:14Z",
     "consent_receipt": "2800e855f057",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-12T20:14Z (receipt 2800e855f057); pinned to the default-branch head. LICENSE file at pin 09b4c11645b5 detected as MIT by the GitHub licence API on 2026-11-12; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-12T20:14Z (receipt 2800e855f057); pinned to the default-branch head. LICENSE file at pin ccf02162bcba detected as MIT by the GitHub licence API on 2026-11-12; used under that licence with attribution."
    }
   }
  ]
