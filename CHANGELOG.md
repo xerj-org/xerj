@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- A YAML alias bomb no longer OOMs autoindex: YAML parsed from untrusted files is now counted with a node budget of 100,000 expanded nodes before any `Value` is materialised, and an over-budget stream is junk-filed instead of expanding. A 7,351 byte input that expanded to 17.85 GiB RSS is now rejected. (issue [#3157](https://github.com/xerj-org/xerj/issues/3157))
+
 ## [1.0.0-rc.102] - 2026-11-06
 
 <!-- notes-exempt: #2971 #2972 #2976 #2978 #2980 #2990 #3032 #3034 (site, blog, donation and README/AGENTS pages only, no shipped-binary change) -->

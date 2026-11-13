@@ -136,6 +136,14 @@ fn split_frontmatter(text: &str) -> Option<(Option<String>, &str)> {
 /// prose between two `---` rules is not frontmatter.
 fn frontmatter(text: &str) -> Option<(serde_yaml::Mapping, &str)> {
     let (block, rest) = frontmatter_block(text)?;
+    // #3157: an over-budget block is not frontmatter, same as a block
+    // strict YAML refuses.
+    if matches!(
+        crate::yaml_budget::check_yaml_node_budget(block, crate::yaml_budget::YAML_NODE_BUDGET),
+        crate::yaml_budget::YamlBudgetOutcome::OverBudget
+    ) {
+        return None;
+    }
     let serde_yaml::Value::Mapping(map) = serde_yaml::from_str(block).ok()? else {
         return None;
     };
@@ -232,13 +240,20 @@ impl SkillCard {
 fn skill_card(text: &str) -> Option<SkillCard> {
     let text = text.strip_prefix('\u{feff}').unwrap_or(text);
     let (block, _) = frontmatter_block(text)?;
-    let card = match serde_yaml::from_str(block) {
-        Ok(serde_yaml::Value::Mapping(map)) => SkillCard {
+    // #3157: an over-budget block is treated exactly like one strict YAML
+    // refuses, so the two keys are read from their own lines.
+    let over_budget = matches!(
+        crate::yaml_budget::check_yaml_node_budget(block, crate::yaml_budget::YAML_NODE_BUDGET),
+        crate::yaml_budget::YamlBudgetOutcome::OverBudget
+    );
+    let parsed = (!over_budget).then(|| serde_yaml::from_str(block));
+    let card = match parsed {
+        Some(Ok(serde_yaml::Value::Mapping(map))) => SkillCard {
             name: frontmatter_line(&map, "name"),
             description: frontmatter_line(&map, "description"),
         },
-        Ok(_) => return None,
-        Err(_) => SkillCard {
+        Some(Ok(_)) => return None,
+        _ => SkillCard {
             name: loose_line(block, "name"),
             description: loose_line(block, "description"),
         },
