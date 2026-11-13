@@ -434,6 +434,19 @@ pub fn pr_commands(d: &Draft) -> String {
     } else {
         format!(" \\\n --agent {:?}", d.agent)
     };
+    // A derived title is still real input: reprinting it keeps the rerun's
+    // heading identical to the first draft. Only the untouched template
+    // placeholder is omitted.
+    let title_line = if d.title == PH_TITLE {
+        String::new()
+    } else {
+        format!(" \\\n --title {:?}", d.title)
+    };
+    let filed_line = if d.filed_alongside == PH_FILED {
+        String::new()
+    } else {
+        format!(" \\\n --filed-alongside {:?}", d.filed_alongside)
+    };
     format!(
         "# Ready-to-run — files ONLY the field report, nothing else.\n\
          # Run these in a clone of xerj-org/xerj, not in the project you are working in.\n\
@@ -441,7 +454,7 @@ pub fn pr_commands(d: &Draft) -> String {
          cd xerj\n\
          gh repo fork xerj-org/xerj --clone=false\n\
          git remote add xerj-fork https://github.com/YOUR_LOGIN/xerj.git\n\
-         xerj feedback{agent_line} \\\n\
+         xerj feedback{agent_line}{title_line}{filed_line} \\\n\
          \x20 --used-for {used_for:?} --pointed-at {pointed_at:?} \\\n\
          \x20 --verdict {verdict:?} --numbers {numbers:?} \\\n\
          \x20 -o {relpath}\n\
@@ -1457,29 +1470,66 @@ mod tests {
     }
 
     #[test]
-    fn the_rerun_command_keeps_a_real_agent_and_drops_the_placeholder() {
+    fn the_rerun_command_keeps_operator_fields_and_drops_placeholders() {
         let filled = resolve_draft(
             &Cfg {
                 agent: Some("Claude Code".into()),
+                used_for: Some("indexing a tiny corpus".into()),
+                pointed_at: Some("a small checkout".into()),
+                verdict: Some("worked".into()),
+                numbers: Some("one query -> one hit".into()),
+                title: Some("custom human title the operator typed".into()),
+                filed_alongside: Some("https://github.com/xerj-org/xerj/pull/9001".into()),
                 ..base_cfg()
             },
             None,
             "2026-08-18",
         );
         let commands = pr_commands(&filled);
+        let rerun = commands
+            .split("\ngit checkout -b ")
+            .next()
+            .expect("the rerun command is followed by git checkout");
         assert!(
-            commands.contains("--agent \"Claude Code\""),
+            rerun.contains("--agent \"Claude Code\""),
             "a passed --agent must be reprinted, got:\n{commands}"
         );
-        assert!(commands.contains("xerj feedback \\\n --agent \"Claude Code\""));
+        assert!(
+            rerun.contains("--title \"custom human title the operator typed\""),
+            "a passed --title must be reprinted, got:\n{commands}"
+        );
+        assert!(
+            rerun.contains("--filed-alongside \"https://github.com/xerj-org/xerj/pull/9001\""),
+            "a passed --filed-alongside must be reprinted, got:\n{commands}"
+        );
+        assert!(
+            rerun.contains(
+                "xerj feedback \\\n --agent \"Claude Code\" \\\n --title \"custom human title the operator typed\" \\\n --filed-alongside \"https://github.com/xerj-org/xerj/pull/9001\""
+            ),
+            "the retained fields must stay in the rerun command:\n{commands}"
+        );
 
         let placeholder = resolve_draft(&base_cfg(), None, "2026-08-18");
         let commands = pr_commands(&placeholder);
+        let rerun = commands
+            .split("\ngit checkout -b ")
+            .next()
+            .expect("the rerun command is followed by git checkout");
         assert!(
-            !commands.contains("--agent"),
+            !rerun.contains("--agent"),
             "the placeholder agent must not be reprinted as a flag:\n{commands}"
         );
-        assert!(!commands.contains(PH_AGENT), "{commands}");
+        assert!(
+            !rerun.contains("--title"),
+            "the placeholder title must not be reprinted as a flag:\n{commands}"
+        );
+        assert!(
+            !rerun.contains("--filed-alongside"),
+            "the placeholder filed-alongside must not be reprinted as a flag:\n{commands}"
+        );
+        assert!(!rerun.contains(PH_AGENT), "{commands}");
+        assert!(!rerun.contains(PH_TITLE), "{commands}");
+        assert!(!rerun.contains(PH_FILED), "{commands}");
     }
 
     #[test]
