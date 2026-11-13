@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on ai-companion, android, dsh-fish queries this for how 27Synthesis/dsh-go-fish-panel implements it: \u7ed9 dsh-fish\uff08\u5927\u80a5\u9c7c\uff09\u5728 DSH Go \u624b\u673a App \u4e0a\u52a0\u89c2\u6d4b\u53f0\u4e0e\u8bbe\u7f6e\u9762\u677f\u7684\u539f\u751f\u63d2\u4ef6 (selected work: lib, the project root)",
+ "domain": "an agent working on ai-companion, android, dsh-fish queries this for how 27Synthesis/dsh-go-fish-panel implements it: \u9c7c\u00b7\u89c2\u6d4b\u53f0\uff1a\u7ed9 dsh-fish \u5728 DSH Go \u624b\u673a\u4e0a\u52a0\u89c2\u6d4b\u53f0\u4e0e\u8bbe\u7f6e\u9762\u677f\uff0c\u5305\u62ec\uff1a\u89c2\u6d4b\u53f0 + \u4f5c\u606f / \u4e0a\u7f51 / \u8bf4\u8bdd\u4e0e\u8bb0\u5fc6\u4e09\u9875\u8bbe\u7f6e\uff0c57 \u9879\u8bbe\u7f6e\u80fd\u591f\u76f4\u63a5\u6539\u3002\u89e3\u51b3\u4e86dsh-fish\u5728\u624b\u673aDSH Go\u4e0a\u65e0\u6cd5\u6b63\u5e38\u4f7f\u7528\u7684\u95ee\u9898\u3002 (selected work: lib, the project root)",
  "repos": [
   {
    "repo": "dsh-go-fish-panel",

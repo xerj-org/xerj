@@ -1,0 +1,23 @@
+{
+ "corpus": "vorjdux--monocoque",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on compio, high-performance, high-performance-computing queries this for how vorjdux/monocoque implements it: Monocoque is a high-performance messaging kernel for Rust, not just a library",
+ "repos": [
+  {
+   "repo": "monocoque",
+   "url": "https://github.com/vorjdux/monocoque",
+   "sha": "a37409bdc873f638f029e9814b5899487317f611",
+   "licence": "MIT (LICENSE file at pin a37409bdc873, GitHub licence API 2026-11-13)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T14:30Z",
+    "consent_receipt": "76149eb9e215",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-13T14:30Z (receipt 76149eb9e215); pinned to the default-branch head. LICENSE file at pin a37409bdc873 detected as MIT by the GitHub licence API on 2026-11-13; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on deepseek, deepseek-harness, dsh-plugin queries this for how HanaAyane/dsh-reasoning-effort implements it: DSH\u9002\u7528\u7684\u5927\u80a5\u9c7c\u8dd1\u6b65\u601d\u8003\u5f3a\u5ea6\u6ed1\u5757\u3002Codex-style model and reasoning-effort slider for DeepSeek Harness (selected work: lib/client, src/client, scripts)",
+ "domain": "an agent working on deepseek, deepseek-harness, dsh-plugin queries this for how HanaAyane/dsh-reasoning-effort implements it: DSH\u9002\u7528\u7684Q\u7248\u5927\u6a21\u578b\u5a18\u8dd1\u6b65\u601d\u8003\u5f3a\u5ea6\u6ed1\u5757\u3002Codex-style model and reasoning-effort slider for DeepSeek Harness (selected work: lib/client, src/client, scripts)",
  "repos": [
   {
    "repo": "dsh-reasoning-effort",

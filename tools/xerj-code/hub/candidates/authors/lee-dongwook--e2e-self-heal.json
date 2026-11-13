@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on e2e-testing, langgraph, playwright queries this for how Lee-Dongwook/E2E-Self-Heal implements it: Automatically repair broken Playwright E2E tests. When a UI change renames or restructures an element and a test's selector breaks, the engi (selected work: tests, app)",
+ "domain": "an agent working on e2e-testing, langgraph, playwright queries this for how Lee-Dongwook/E2E-Self-Heal implements it: Automatically repair broken Playwright E2E tests. When a UI change renames or restructures an element and a test's selector breaks, the engi (selected work: product)",
  "repos": [
   {
    "repo": "E2E-Self-Heal",
    "url": "https://github.com/Lee-Dongwook/E2E-Self-Heal",
-   "sha": "1e6e69fcbfdc63065dca7b8fa328ad04fa1d1894",
-   "licence": "MIT (LICENSE file at pin 1e6e69fcbfdc, GitHub licence API 2026-10-24)",
+   "sha": "1aa965c20f3aff3b0cd963c2340e712e5c038d16",
+   "licence": "MIT (LICENSE file at pin 1aa965c20f3a, GitHub licence API 2026-11-11)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
-    "at": "2026-10-15T13:45Z",
-    "consent_receipt": "7bb30cecdc2f",
-    "note": "Inclusion consented by the commit author by email at 2026-10-15T13:45Z (receipt 7bb30cecdc2f); selected commit 1e6e69fcbfdc: \"fix: let the safety benchmark run under the sandbox and report why it\u2026\". LICENSE file at pin 1e6e69fcbfdc detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
+    "at": "2026-10-13T03:12Z",
+    "consent_receipt": "d6332265e189",
+    "note": "Inclusion consented by the commit author by email at 2026-10-13T03:12Z (receipt d6332265e189); selected commit 1aa965c20f3a: \"feat(api): ingest versioned CI runs\". LICENSE file at pin 1aa965c20f3a detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
    }
   }
  ]

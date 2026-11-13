@@ -8,15 +8,15 @@
   {
    "repo": "node2mint",
    "url": "https://github.com/yanstd888/node2mint",
-   "sha": "9634029482565a54cdd7ead545e4d6032e88c3a9",
-   "licence": "MIT (LICENSE file at pin 963402948256, GitHub licence API 2026-10-29)",
+   "sha": "9b6aa3985ce77e1de5678979864696d7f6e8d8cc",
+   "licence": "MIT (LICENSE file at pin 9b6aa3985ce7, GitHub licence API 2026-11-13)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T23:13Z",
     "consent_receipt": "1798c32f7f33",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T23:13Z (receipt 1798c32f7f33); pinned to the default-branch head. LICENSE file at pin 963402948256 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T23:13Z (receipt 1798c32f7f33); pinned to the default-branch head. LICENSE file at pin 9b6aa3985ce7 detected as MIT by the GitHub licence API on 2026-11-13; used under that licence with attribution."
    }
   }
  ]

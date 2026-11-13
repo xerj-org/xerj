@@ -1,9 +1,9 @@
 {
- "corpus": "galeoindus--pixelstudioedit",
+ "corpus": "galeoindus--pixbinduedit",
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on JavaScript queries this for how galeoindus/pixelstudioedit implements it: Pixel Studio Edit \u2014 a free, open-source pixel art and text editor in your browser: 3D text, gradients, strokes, shadows, stickers, layers, p (selected work: js, tests, css)",
+ "domain": "an agent working on JavaScript queries this for how galeoindus/pixbinduedit implements it: PixbinduEdit \u2014 a free, open-source pixel art and text editor in your browser: 3D text, gradients, strokes, shadows, stickers, layers, palett (selected work: js, tests, css)",
  "repos": [
   {
    "repo": "pixelstudioedit",

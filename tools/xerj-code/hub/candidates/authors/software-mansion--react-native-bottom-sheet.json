@@ -1,9 +1,9 @@
 {
- "corpus": "software-mansion-labs--react-native-bottom-sheet",
+ "corpus": "software-mansion--react-native-bottom-sheet",
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on Kotlin queries this for how software-mansion-labs/react-native-bottom-sheet implements it: Provides bottom-sheet components for React Native (selected work: android, example, ios)",
+ "domain": "an agent working on Kotlin queries this for how software-mansion/react-native-bottom-sheet implements it: Provides bottom-sheet components for React Native (selected work: android, example, ios)",
  "repos": [
   {
    "repo": "react-native-bottom-sheet",

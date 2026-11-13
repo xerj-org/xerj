@@ -8,15 +8,15 @@
   {
    "repo": "TheClawRepo",
    "url": "https://github.com/ClawProject/TheClawRepo",
-   "sha": "83f2b6e5af601b77f52fb9dfeb8b12dd0f17ae10",
-   "licence": "MIT (LICENSE file at pin 83f2b6e5af60, GitHub licence API 2026-11-12)",
+   "sha": "e3e8e01cc2b20291eabc6aa837e6bf1e05205db6",
+   "licence": "MIT (LICENSE file at pin e3e8e01cc2b2, GitHub licence API 2026-11-13)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-09T13:34Z",
     "consent_receipt": "bedf350bc7c9",
-    "note": "Inclusion consented by the commit author by email at 2026-11-09T13:34Z (receipt bedf350bc7c9); selected commit 83f2b6e5af60: \"Arreglar funcion de vetar no vetaba a los numeros\". LICENSE file at pin 83f2b6e5af60 detected as MIT by the GitHub licence API on 2026-11-12; used under that licence with attribution. Pinned to head 83f2b6e5af60 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T13:34Z (receipt bedf350bc7c9); selected commit e3e8e01cc2b2: \"Arreglar funcion de vetar no vetaba a los numeros\". LICENSE file at pin e3e8e01cc2b2 detected as MIT by the GitHub licence API on 2026-11-13; used under that licence with attribution. Pinned to head e3e8e01cc2b2 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

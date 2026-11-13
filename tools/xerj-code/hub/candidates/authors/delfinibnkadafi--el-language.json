@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on C queries this for how DelfinIbnKadafi/El-Language implements it: High Level Programming Language Using Virtual Machine (selected work: src, the project root)",
+ "domain": "an agent working on high-level-language, programming-language, virtual-machine queries this for how DelfinIbnKadafi/El-Language implements it: High Level Programming Language Using Virtual Machine (selected work: src, the project root)",
  "repos": [
   {
    "repo": "El-Language",

@@ -1,9 +1,9 @@
 {
- "corpus": "beatwad--linkedin-ai-job-applier-ultimate",
+ "corpus": "naumov-alex--linkedin-ai-job-applier-ultimate",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai, application-resume, automation queries this for how beatwad/LinkedIn-AI-Job-Applier-Ultimate implements it: AI-powered LinkedIn and Indeed job bot with Playwright automation, LLM integration, data anonymization, and Telegram reporting. Helps to fin (selected work: src/job_manager, tests, src/llm)",
+ "domain": "an agent working on ai, application-resume, automation queries this for how naumov-alex/LinkedIn-AI-Job-Applier-Ultimate implements it: AI-powered LinkedIn and Indeed job bot with Playwright automation, LLM integration, data anonymization, and Telegram reporting. Helps to fin (selected work: src/job_manager, tests, src/llm)",
  "repos": [
   {
    "repo": "LinkedIn-AI-Job-Applier-Ultimate",

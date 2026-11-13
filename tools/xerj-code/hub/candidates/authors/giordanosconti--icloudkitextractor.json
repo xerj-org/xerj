@@ -1,0 +1,23 @@
+{
+ "corpus": "giordanosconti--icloudkitextractor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on adp, backup, cloudkit queries this for how GiordanoSconti/iCloudKitExtractor implements it: Experimental .NET/WPF forensic toolkit for iCloud auth, CloudKit/MMCS backup download, and Octagon/PCS recovery (ADP, Recovery Key, Lockdown (selected work: src/iCloudKitExtractor.Core, src/iCloudKitExtractor.Desktop, src/iCloudKitExtractor)",
+ "repos": [
+  {
+   "repo": "iCloudKitExtractor",
+   "url": "https://github.com/GiordanoSconti/iCloudKitExtractor",
+   "sha": "61c5bc81a5c3346fb7fc24cfdebc6feb8533e32f",
+   "licence": "MIT (LICENSE file at pin 61c5bc81a5c3, GitHub licence API 2026-11-13)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T15:12Z",
+    "consent_receipt": "6a4c57a9477f",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-13T15:12Z (receipt 6a4c57a9477f); selected commit 61c5bc81a5c3: \"Expand iCloud Keychain CKKS recovery and document the reimplementatio\u2026\". LICENSE file at pin 61c5bc81a5c3 detected as MIT by the GitHub licence API on 2026-11-13; used under that licence with attribution."
+   }
+  }
+ ]
+}

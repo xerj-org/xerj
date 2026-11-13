@@ -8,15 +8,15 @@
   {
    "repo": "overlook",
    "url": "https://github.com/last-refuge/overlook",
-   "sha": "cc180236547f83cf0a7c3ea2d6b237b348d2fce4",
-   "licence": "MIT (LICENSE file at pin cc180236547f, GitHub licence API 2026-11-11)",
+   "sha": "723f269e05af8c33055fd25a556f569a39129048",
+   "licence": "MIT (LICENSE file at pin 723f269e05af, GitHub licence API 2026-11-13)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-11T01:44Z",
     "consent_receipt": "548d9135f153",
-    "note": "Inclusion consented by the commit author by email at 2026-11-11T01:44Z (receipt 548d9135f153); selected commit cc180236547f: \"feat: support folder-only mailboxes and improve name handling in IMAP\". LICENSE file at pin cc180236547f detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution. Pinned to head cc180236547f (contains the selected commit): the LICENSE at the selected commit was NONE. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @last-refuge, who has not added it."
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T01:44Z (receipt 548d9135f153); selected commit 723f269e05af: \"feat: support folder-only mailboxes and improve name handling in IMAP\". LICENSE file at pin 723f269e05af detected as MIT by the GitHub licence API on 2026-11-13; used under that licence with attribution. Pinned to head 723f269e05af (contains the selected commit): the LICENSE at the selected commit was NONE. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @last-refuge, who has not added it."
    },
    "paths": [
     "crates/overlook-app/src",

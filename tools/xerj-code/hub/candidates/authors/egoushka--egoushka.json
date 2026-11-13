@@ -8,15 +8,15 @@
   {
    "repo": "Egoushka",
    "url": "https://github.com/Egoushka/Egoushka",
-   "sha": "605c8edde0212f219f28ad30d8774f289a43d7af",
-   "licence": "author's permission (LICENSE at pin 605c8edde021: NONE; repository: none)",
+   "sha": "31c8d42e8baea3b3b1c26449340b1abe80e3da84",
+   "licence": "author's permission (LICENSE at pin 31c8d42e8bae: NONE; repository: none)",
    "review": {
     "spdx": "NONE",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-07T15:00Z",
     "consent_receipt": "5411e64f0f98",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-07T15:00Z (receipt 5411e64f0f98); pinned to the default-branch head. LICENSE at pin 605c8edde021: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-07T15:00Z (receipt 5411e64f0f98); pinned to the default-branch head. LICENSE at pin 31c8d42e8bae: NONE (repository: none); used with the author's permission, with attribution."
    }
   }
  ]

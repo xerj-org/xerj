@@ -1,0 +1,23 @@
+{
+ "corpus": "liangchenxu--algo-time-machine",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how Liangchenxu/algo-time-machine implements it: Liangchenxu/algo-time-machine (TypeScript)",
+ "repos": [
+  {
+   "repo": "algo-time-machine",
+   "url": "https://github.com/Liangchenxu/algo-time-machine",
+   "sha": "8ba7156f220ebd5a917c2f14af9268f41399a9ef",
+   "licence": "author's permission (LICENSE at pin 8ba7156f220e: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T13:35Z",
+    "consent_receipt": "14ff51d6983e",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-13T13:35Z (receipt 14ff51d6983e); pinned to the default-branch head. LICENSE at pin 8ba7156f220e: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

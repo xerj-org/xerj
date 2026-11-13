@@ -8,15 +8,15 @@
   {
    "repo": "tcl-g09-debloat",
    "url": "https://github.com/amfakh/tcl-g09-debloat",
-   "sha": "b35fb003cf35f8faba7030258328dd30024db67d",
-   "licence": "MIT (LICENSE file at pin b35fb003cf35, GitHub licence API 2026-10-29)",
+   "sha": "25ba99a14c4b2c1c7803cda81969f150213b584e",
+   "licence": "MIT (LICENSE file at pin 25ba99a14c4b, GitHub licence API 2026-11-13)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T17:47Z",
     "consent_receipt": "265ca82e2d94",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T17:47Z (receipt 265ca82e2d94); pinned to the default-branch head. LICENSE file at pin b35fb003cf35 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T17:47Z (receipt 265ca82e2d94); pinned to the default-branch head. LICENSE file at pin 25ba99a14c4b detected as MIT by the GitHub licence API on 2026-11-13; used under that licence with attribution."
    }
   }
  ]

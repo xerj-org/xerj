@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on react-native, video-player, vlc queries this for how amerllica/rn-vlc-plyr implements it: React Native VLC Player (Video/Audio Player) based on VLC (selected work: example-shared, example)",
+ "domain": "an agent working on react-native, video-player, vlc queries this for how amerllica/rn-vlc-plyr implements it: React Native VLC Player (Video/Audio Player) based on VLC - React Native Video Player (selected work: example-shared, example)",
  "repos": [
   {
    "repo": "rn-vlc-plyr",

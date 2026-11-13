@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "DB",
- "domain": "an agent working on art, rust, rust-lang queries this for how storytold/vectorcraft implements it: VectorCraft: An open-source vector art tool written from scratch in pure Rust (selected work: crates/mcp, apps/vectorcraft-cli)",
+ "domain": "an agent working on art, rust, rust-lang queries this for how storytold/vectorcraft implements it: VectorCraft: An open-source vector art tool written from scratch in pure Rust (selected work: crates/ui-egui, crates/engine)",
  "repos": [
   {
    "repo": "vectorcraft",
    "url": "https://github.com/storytold/vectorcraft",
-   "sha": "e80b7e383bcf7c8dab1abe363b1c72ee6b852025",
-   "licence": "author's permission (LICENSE at pin e80b7e383bcf: NOASSERTION; repository: Apache-2.0)",
+   "sha": "ba4a870750e7f9408a16ec6259c9ad56fbe4b900",
+   "licence": "author's permission (LICENSE at pin ba4a870750e7: NOASSERTION; repository: Apache-2.0)",
    "review": {
     "spdx": "NOASSERTION",
     "use": "adapt-with-attribution",
     "by": "author-consent",
-    "at": "2026-10-12T14:15Z",
-    "consent_receipt": "a7d4b3b034aa",
-    "note": "Inclusion consented by the commit author by email at 2026-10-12T14:15Z (receipt a7d4b3b034aa); selected commit e80b7e383bcf: \"MCP: prompts, resource templates, completions and logging\". LICENSE at pin e80b7e383bcf: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @storytold, who has not added it."
+    "at": "2026-10-12T02:56Z",
+    "consent_receipt": "f54732907c63",
+    "note": "Inclusion consented by the commit author by email at 2026-10-12T02:56Z (receipt f54732907c63); selected commit ba4a870750e7: \"fix: Simplify\u5f8c\u306e\u9078\u629e\u3092\u66f4\u65b0\u3057\u3066\u70b9\u6570\u3092\u8868\u793a\u3059\u308b #1272\". LICENSE at pin ba4a870750e7: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @storytold, who has not added it."
    },
    "paths": [
     "apps/vectorcraft-cli/src",

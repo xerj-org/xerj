@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on face-parsing, face-segmentation, onnx-inference queries this for how yakhyo/face-parsing implements it: Real-time face parsing and facial semantic segmentation with BiSeNet - PyTorch training, ONNX export, pretrained weights",
+ "domain": "an agent working on face-parsing, face-segmentation, onnx-inference queries this for how yakhyo/face-parsing implements it: Real-time facial semantic segmentation with BiSeNet",
  "repos": [
   {
    "repo": "face-parsing",

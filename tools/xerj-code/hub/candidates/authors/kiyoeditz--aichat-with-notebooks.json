@@ -8,15 +8,15 @@
   {
    "repo": "AIChat-With-Notebooks",
    "url": "https://github.com/KiyoEditz/AIChat-With-Notebooks",
-   "sha": "dd641c74bfdf3833f9185ea61721b7aaef5bd8be",
-   "licence": "author's permission (LICENSE at pin dd641c74bfdf: NOASSERTION; repository: NOASSERTION)",
+   "sha": "2d33eec94dbdccaeb5d955fa239bab859dffcd42",
+   "licence": "author's permission (LICENSE at pin 2d33eec94dbd: NOASSERTION; repository: NOASSERTION)",
    "review": {
     "spdx": "NOASSERTION",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-30T16:51Z",
     "consent_receipt": "08bfb0b54350",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T16:51Z (receipt 08bfb0b54350); pinned to the default-branch head. LICENSE at pin dd641c74bfdf: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T16:51Z (receipt 08bfb0b54350); pinned to the default-branch head. LICENSE at pin 2d33eec94dbd: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
    }
   }
  ]

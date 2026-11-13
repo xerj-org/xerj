@@ -8,15 +8,15 @@
   {
    "repo": "fallback-forge",
    "url": "https://github.com/sebin-gg/fallback-forge",
-   "sha": "94b9c566775b37eb3ce30fb4bfa6d169bc20af86",
-   "licence": "author's permission (LICENSE at pin 94b9c566775b: NONE; repository: none)",
+   "sha": "38ae03d91b7d09452cfd02e4cf4b4d994f947993",
+   "licence": "author's permission (LICENSE at pin 38ae03d91b7d: NONE; repository: none)",
    "review": {
     "spdx": "NONE",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-02T15:14Z",
     "consent_receipt": "6221c695229a",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T15:14Z (receipt 6221c695229a); pinned to the default-branch head. LICENSE at pin 94b9c566775b: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T15:14Z (receipt 6221c695229a); pinned to the default-branch head. LICENSE at pin 38ae03d91b7d: NONE (repository: none); used with the author's permission, with attribution."
    }
   }
  ]

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on coding-agents, context-engineering, mcp-server queries this for how redhat-et/ripwire implements it: The ripgrep of AI context: a zero-dependency C++23 CLI + MCP server for coding agents. Find what you want without reading the repo, then che (selected work: src/infra, test, src)",
+ "domain": "an agent working on coding-agents, context-engineering, mcp-server queries this for how redhat-et/ripwire implements it: The ripgrep of AI context: a zero-dependency C++23 CLI + MCP server for coding agents. Cut agent token costs by finding code without reading (selected work: src/infra, test, src)",
  "repos": [
   {
    "repo": "ripwire",

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "DB",
- "domain": "an agent working on asynchronous-programming, c, cpp queries this for how DelegateMQ/Async-SQLite implements it: Asynchronous SQLite using C++ Delegates (selected work: DelegateMQ)",
+ "domain": "an agent working on asynchronous-programming, c, cpp queries this for how DelegateMQ/Async-SQLite implements it: SQLite Wrapper using Asynchronous C++ Delegates (selected work: DelegateMQ)",
  "repos": [
   {
    "repo": "Async-SQLite",

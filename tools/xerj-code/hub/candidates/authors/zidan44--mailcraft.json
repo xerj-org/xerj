@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on artcraft, egui, email queries this for how ZIDAN44/mailcraft implements it: An open-source, clean-room, local-first alternative to Microsoft Outlook in pure Rust (selected work: crates/mime, crates/ui-egui, crates/engine)",
+ "domain": "an agent working on artcraft, egui, email queries this for how ZIDAN44/mailcraft implements it: MailCraft: a free, open-source email client that works like Outlook. Local-first, clean-room, in pure Rust, for Windows, macOS, Linux and th (selected work: crates/mime, crates/ui-egui, crates/engine)",
  "repos": [
   {
    "repo": "mailcraft",
