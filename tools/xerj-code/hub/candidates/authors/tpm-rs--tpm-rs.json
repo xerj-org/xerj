@@ -8,15 +8,15 @@
   {
    "repo": "tpm-rs",
    "url": "https://github.com/tpm-rs/tpm-rs",
-   "sha": "08d9a4781d8e4729d2a1e48f7e89ef2e41aaa5ca",
-   "licence": "Apache-2.0 (LICENSE file at pin 08d9a4781d8e, GitHub licence API 2026-11-12)",
+   "sha": "258cffad523b21e6af01ac857844127b46868bd5",
+   "licence": "Apache-2.0 (LICENSE file at pin 258cffad523b, GitHub licence API 2026-11-13)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-17T00:13Z",
     "consent_receipt": "c3a52bd31b11",
-    "note": "Inclusion consented by the commit author by email at 2026-10-17T00:13Z (receipt c3a52bd31b11); selected commit 08d9a4781d8e: \"tpm2: add 112 TPM 2.0 commands and responses\". LICENSE file at pin 08d9a4781d8e detected as Apache-2.0 by the GitHub licence API on 2026-11-12; used under that licence with attribution. Pinned to head 08d9a4781d8e (contains the selected commit): the LICENSE at the selected commit was NOASSERTION. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @tpm-rs, who has not added it."
+    "note": "Inclusion consented by the commit author by email at 2026-10-17T00:13Z (receipt c3a52bd31b11); selected commit 258cffad523b: \"tpm2: add 112 TPM 2.0 commands and responses\". LICENSE file at pin 258cffad523b detected as Apache-2.0 by the GitHub licence API on 2026-11-13; used under that licence with attribution. Pinned to head 258cffad523b (contains the selected commit): the LICENSE at the selected commit was NOASSERTION. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @tpm-rs, who has not added it."
    },
    "paths": [
     "crates/tpm2/src"

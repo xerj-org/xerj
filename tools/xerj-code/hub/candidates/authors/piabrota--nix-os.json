@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on dotfiles, nix, nixos queries this for how piabrota/nix-os implements it: software and research factory w/ Hermes Agent + OpenRig spec (selected work: proof-site, the project root, hosts)",
+ "domain": "an agent working on nix, nixos, hermes queries this for how piabrota/nix-os implements it: software and research factory w/ Hermes Agent + OpenRig spec (selected work: proof-site, the project root, hosts)",
  "repos": [
   {
    "repo": "nix-os",

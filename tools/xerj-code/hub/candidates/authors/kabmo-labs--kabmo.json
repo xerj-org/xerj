@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agents, ai-agent, bun queries this for how kabmo-labs/kabmo implements it: Web for Oh-My-Pi (omp) agent sessions \u2014 live timeline, steering, real PTY, git/diff/wiki panels, and a panel-plugin platform. Elysia + Preac (selected work: src/client, the project root)",
+ "domain": "an agent working on ai-agent, bun, developer-tools queries this for how kabmo-labs/kabmo implements it: Web console and diagnostic workbench for AI coding agents \u2014 omp by default, with Claude Code, Codex, OpenCode and any ACP agent beside it. E (selected work: src/client, the project root)",
  "repos": [
   {
    "repo": "kabmo",

@@ -1,0 +1,23 @@
+{
+ "corpus": "sb-child--watchwallet",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on Rust queries this for how sb-child/watchwallet implements it: \u94fe\u4e0a\u94b1\u5305\u6d3b\u52a8\u76d1\u542c\u5668",
+ "repos": [
+  {
+   "repo": "watchwallet",
+   "url": "https://github.com/sb-child/watchwallet",
+   "sha": "a46e5188d281e591f0965d844825fa1b42f16674",
+   "licence": "MIT (LICENSE file at pin a46e5188d281, GitHub licence API 2026-11-13)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T01:22Z",
+    "consent_receipt": "a5801656f0ad",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-13T01:22Z (receipt a5801656f0ad); pinned to the default-branch head. LICENSE file at pin a46e5188d281 detected as MIT by the GitHub licence API on 2026-11-13; used under that licence with attribution."
+   }
+  }
+ ]
+}
