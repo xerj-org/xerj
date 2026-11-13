@@ -2,8 +2,8 @@
  "corpus": "yakhyo--face-reidentification",
  "cloned_at": null,
  "status": "draft",
- "shelf": "DB",
- "domain": "an agent working on face-detection, face-recognition, face-reidentification queries this for how yakhyo/face-reidentification implements it: Real-time face re-identification and face search with SCRFD detection, ArcFace embeddings and FAISS vector search on ONNX Runtime",
+ "shelf": "API",
+ "domain": "an agent working on face-detection, face-recognition, face-reidentification queries this for how yakhyo/face-reidentification implements it: Face search and matching with ArcFace and FAISS",
  "repos": [
   {
    "repo": "face-reidentification",

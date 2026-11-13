@@ -8,15 +8,15 @@
   {
    "repo": "Sine",
    "url": "https://github.com/taezeem14/Sine",
-   "sha": "1ecb58e825e034de01500bc85c04a10e26429b3f",
-   "licence": "GPL-3.0 (LICENSE file at pin 1ecb58e825e0, GitHub licence API 2026-11-10)",
+   "sha": "d24c8524909d0ef5a759acf083be40addc82f17e",
+   "licence": "GPL-3.0 (LICENSE file at pin d24c8524909d, GitHub licence API 2026-11-13)",
    "review": {
     "spdx": "GPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-11-08T10:11Z",
     "consent_receipt": "96f3b48af6d2",
-    "note": "Inclusion consented by the commit author by email at 2026-11-08T10:11Z (receipt 96f3b48af6d2); selected commit 1ecb58e825e0: \"feat(v1.1.7): SOTA BS-RoFormer AI stem separation and instant studio \u2026\". LICENSE file at pin 1ecb58e825e0 detected as GPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution. Pinned to head 1ecb58e825e0 (contains the selected commit): the LICENSE at the selected commit was NOASSERTION."
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T10:11Z (receipt 96f3b48af6d2); selected commit d24c8524909d: \"feat(v1.1.7): SOTA BS-RoFormer AI stem separation and instant studio \u2026\". LICENSE file at pin d24c8524909d detected as GPL-3.0 by the GitHub licence API on 2026-11-13; used under that licence with attribution. Pinned to head d24c8524909d (contains the selected commit): the LICENSE at the selected commit was NOASSERTION."
    }
   }
  ]

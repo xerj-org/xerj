@@ -8,15 +8,15 @@
   {
    "repo": "dsh-full-life-memory",
    "url": "https://github.com/Toctsu/dsh-full-life-memory",
-   "sha": "02b601f1a099cf4688ce0c8d7a09d1993b87339d",
-   "licence": "MIT (LICENSE file at pin 02b601f1a099, GitHub licence API 2026-11-02)",
+   "sha": "4da62b237618f0ba4fc0d873e5bca074b918116b",
+   "licence": "MIT (LICENSE file at pin 4da62b237618, GitHub licence API 2026-11-13)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-01T00:09Z",
     "consent_receipt": "1e9b54be3f6c",
-    "note": "Inclusion consented by the commit author by email at 2026-11-01T00:09Z (receipt 1e9b54be3f6c); selected commit 02b601f1a099: \"feat: add scene-specific overrides (qqbot, wechat, etc.)\". LICENSE file at pin 02b601f1a099 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution. Pinned to head 02b601f1a099 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T00:09Z (receipt 1e9b54be3f6c); selected commit 4da62b237618: \"feat: add scene-specific overrides (qqbot, wechat, etc.)\". LICENSE file at pin 4da62b237618 detected as MIT by the GitHub licence API on 2026-11-13; used under that licence with attribution. Pinned to head 4da62b237618 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

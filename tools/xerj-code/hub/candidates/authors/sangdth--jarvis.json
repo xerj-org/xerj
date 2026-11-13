@@ -8,15 +8,15 @@
   {
    "repo": "jarvis",
    "url": "https://github.com/sangdth/jarvis",
-   "sha": "eb6f79ba0d0bf56265f422726ffb80de6ac80ae9",
-   "licence": "AGPL-3.0 (LICENSE file at pin eb6f79ba0d0b, GitHub licence API 2026-11-13)",
+   "sha": "4eed40ace19c22b2889072f0920353e3b8a6b1f8",
+   "licence": "AGPL-3.0 (LICENSE file at pin 4eed40ace19c, GitHub licence API 2026-11-13)",
    "review": {
     "spdx": "AGPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-11-04T05:50Z",
     "consent_receipt": "2126693fdee7",
-    "note": "Inclusion consented by the commit author by email at 2026-11-04T05:50Z (receipt 2126693fdee7); selected commit eb6f79ba0d0b: \"feat: make T3 Code the default coding agent and open named projects\". LICENSE file at pin eb6f79ba0d0b detected as AGPL-3.0 by the GitHub licence API on 2026-11-13; used under that licence with attribution. Pinned to head eb6f79ba0d0b (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-11-04T05:50Z (receipt 2126693fdee7); selected commit 4eed40ace19c: \"feat: make T3 Code the default coding agent and open named projects\". LICENSE file at pin 4eed40ace19c detected as AGPL-3.0 by the GitHub licence API on 2026-11-13; used under that licence with attribution. Pinned to head 4eed40ace19c (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

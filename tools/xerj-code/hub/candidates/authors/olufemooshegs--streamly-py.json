@@ -1,0 +1,23 @@
+{
+ "corpus": "olufemooshegs--streamly-py",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Python queries this for how Olufemooshegs/streamly-py implements it: Streaming research assistant on FastAPI and SSE that survives browser disconnects and replays missed output on reconnect",
+ "repos": [
+  {
+   "repo": "streamly-py",
+   "url": "https://github.com/Olufemooshegs/streamly-py",
+   "sha": "bf45c4ecba5ad127bd0c42e7b3eb00e0a4de7d1f",
+   "licence": "author's permission (LICENSE at pin bf45c4ecba5a: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T11:49Z",
+    "consent_receipt": "2e1863db73d3",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-13T11:49Z (receipt 2e1863db73d3); pinned to the default-branch head. LICENSE at pin bf45c4ecba5a: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

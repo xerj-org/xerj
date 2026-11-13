@@ -2,8 +2,8 @@
  "corpus": "zw-duran--mmiwg-archival-coding-suite",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Python queries this for how ZW-Duran/MMIWG-Archival-Coding-Suite implements it: ZW-Duran/MMIWG-Archival-Coding-Suite (Python) (selected work: GoogleSheetCoding, the project root)",
+ "shelf": "AI",
+ "domain": "an agent working on archival-research, computational-social-science, digital-humanities queries this for how ZW-Duran/MMIWG-Archival-Coding-Suite implements it: End-to-end research pipeline and multi-platform AI coding suite (CLI, PySide6, Flet, Streamlit) for archival newspaper scraping, OCR preproc (selected work: GoogleSheetCoding, the project root)",
  "repos": [
   {
    "repo": "Tribe_News_Extractor-Filter",

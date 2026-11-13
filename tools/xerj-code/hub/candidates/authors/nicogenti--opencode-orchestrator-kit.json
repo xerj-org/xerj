@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agent-orchestration, ai-agents, ai-coding-assistant queries this for how NicoGenti/opencode-orchestrator-kit implements it: Cost-aware multi-agent orchestrator kit for OpenCode CLI \u2014 one routing agent, 14 specialized subagents, zero application code touched by the (selected work: plugin, tests)",
+ "domain": "an agent working on agent-orchestration, ai-agents, ai-coding-assistant queries this for how NicoGenti/opencode-orchestrator-kit implements it: Cost-aware multi-agent orchestration for OpenCode CLI: route work to the right model, keep context small, and resume multi-session work from (selected work: plugin, tests)",
  "repos": [
   {
    "repo": "opencode-orchestrator-kit",

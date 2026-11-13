@@ -8,15 +8,15 @@
   {
    "repo": "svglib",
    "url": "https://github.com/deeplook/svglib",
-   "sha": "877ec1a9383592072dd00654e7537b9b81334791",
-   "licence": "LGPL-3.0 (LICENSE file at pin 877ec1a93835, GitHub licence API 2026-11-12)",
+   "sha": "fd7e1805316621fc69eba67fd94cbd032f093680",
+   "licence": "LGPL-3.0 (LICENSE file at pin fd7e18053166, GitHub licence API 2026-11-13)",
    "review": {
     "spdx": "LGPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-11-11T10:32Z",
     "consent_receipt": "208be13db22a",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T10:32Z (receipt 208be13db22a); pinned to the default-branch head. LICENSE file at pin 877ec1a93835 detected as LGPL-3.0 by the GitHub licence API on 2026-11-12; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T10:32Z (receipt 208be13db22a); pinned to the default-branch head. LICENSE file at pin fd7e18053166 detected as LGPL-3.0 by the GitHub licence API on 2026-11-13; used under that licence with attribution."
    }
   }
  ]

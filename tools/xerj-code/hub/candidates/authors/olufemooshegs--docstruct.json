@@ -1,0 +1,23 @@
+{
+ "corpus": "olufemooshegs--docstruct",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how Olufemooshegs/docstruct implements it: \"Upload your rough notes, lecture materials, or research draft and receive a fully structured academic/business document.\"",
+ "repos": [
+  {
+   "repo": "docstruct",
+   "url": "https://github.com/Olufemooshegs/docstruct",
+   "sha": "57c4f1cc962c8d1b57fec5a0516691a250fcf0dc",
+   "licence": "MIT (LICENSE file at pin 57c4f1cc962c, GitHub licence API 2026-11-13)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T11:49Z",
+    "consent_receipt": "ad8ecb0bc02a",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-13T11:49Z (receipt ad8ecb0bc02a); pinned to the default-branch head. LICENSE file at pin 57c4f1cc962c detected as MIT by the GitHub licence API on 2026-11-13; used under that licence with attribution."
+   }
+  }
+ ]
+}
