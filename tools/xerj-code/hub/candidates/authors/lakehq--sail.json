@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "DB",
- "domain": "an agent working on arrow, big-data, pyspark queries this for how lakehq/sail implements it: Drop-in Apache Spark replacement written in Rust, unifying batch processing, stream processing, and compute-intensive AI workloads (selected work: crates/sail-sql-analyzer, crates/sail-sql-parser, the project root)",
+ "domain": "an agent working on arrow, big-data, pyspark queries this for how lakehq/sail implements it: Drop-in Apache Spark replacement written in Rust, unifying batch processing, stream processing, and compute-intensive AI workloads (selected work: crates/sail-function, python, crates/sail-execution)",
  "repos": [
   {
    "repo": "sail",
    "url": "https://github.com/lakehq/sail",
-   "sha": "568deb718eac5b985386feffdd12704e36fb15c2",
-   "licence": "Apache-2.0 (LICENSE file at pin 568deb718eac, GitHub licence API 2026-11-11)",
+   "sha": "c3d6a1cdaf6bc619e4da587ca3208a98f2fe052d",
+   "licence": "Apache-2.0 (LICENSE file at pin c3d6a1cdaf6b, GitHub licence API 2026-10-24)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
-    "at": "2026-10-14T09:10Z",
-    "consent_receipt": "6cc5e24ed399",
-    "note": "Inclusion consented by the commit author by email at 2026-10-14T09:10Z (receipt 6cc5e24ed399); selected commit 568deb718eac: \"fix: leak one SQL grammar per thread instead of one per parse (#2528)\". LICENSE file at pin 568deb718eac detected as Apache-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @lakehq, who has not added it."
+    "at": "2026-10-15T14:21Z",
+    "consent_receipt": "982d87eb313d",
+    "note": "Inclusion consented by the commit author by email at 2026-10-15T14:21Z (receipt 982d87eb313d); selected commit c3d6a1cdaf6b: \"feat: implement vector norm (#2689)\". LICENSE file at pin c3d6a1cdaf6b detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @lakehq, who has not added it."
    },
    "paths": [
     "crates/sail-execution/src/proto",

@@ -8,15 +8,15 @@
   {
    "repo": "Event-Tracker",
    "url": "https://github.com/sebin-gg/Event-Tracker",
-   "sha": "191993d7da231b09746031da57fe7541e611420f",
-   "licence": "MIT (LICENSE file at pin 191993d7da23, GitHub licence API 2026-11-02)",
+   "sha": "2a97fca307192269544dff11be3a71d4a0c79c14",
+   "licence": "MIT (LICENSE file at pin 2a97fca30719, GitHub licence API 2026-11-13)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-02T15:14Z",
     "consent_receipt": "fe039be55959",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T15:14Z (receipt fe039be55959); pinned to the default-branch head. LICENSE file at pin 191993d7da23 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T15:14Z (receipt fe039be55959); pinned to the default-branch head. LICENSE file at pin 2a97fca30719 detected as MIT by the GitHub licence API on 2026-11-13; used under that licence with attribution."
    }
   }
  ]

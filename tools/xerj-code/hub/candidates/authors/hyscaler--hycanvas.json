@@ -8,15 +8,15 @@
   {
    "repo": "HyCanvas",
    "url": "https://github.com/hyscaler/HyCanvas",
-   "sha": "ba7b2c0c06b2a9467aafe86c8e7f395339a5367d",
-   "licence": "AGPL-3.0 (LICENSE file at pin ba7b2c0c06b2, GitHub licence API 2026-11-10)",
+   "sha": "f9d6ddb10e7ad403c4d285b04db846cddf0cdd7b",
+   "licence": "AGPL-3.0 (LICENSE file at pin f9d6ddb10e7a, GitHub licence API 2026-11-13)",
    "review": {
     "spdx": "AGPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-16T03:18Z",
     "consent_receipt": "ffb52f055def",
-    "note": "Inclusion consented by the commit author by email at 2026-10-16T03:18Z (receipt ffb52f055def); selected commit ba7b2c0c06b2: \"AI: a personal provider in user settings, tested before saving\". LICENSE file at pin ba7b2c0c06b2 detected as AGPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution. Pinned to head ba7b2c0c06b2 (contains the selected commit): the LICENSE at the selected commit was NOASSERTION. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @hyscaler, who has not added it."
+    "note": "Inclusion consented by the commit author by email at 2026-10-16T03:18Z (receipt ffb52f055def); selected commit f9d6ddb10e7a: \"AI: a personal provider in user settings, tested before saving\". LICENSE file at pin f9d6ddb10e7a detected as AGPL-3.0 by the GitHub licence API on 2026-11-13; used under that licence with attribution. Pinned to head f9d6ddb10e7a (contains the selected commit): the LICENSE at the selected commit was NOASSERTION. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @hyscaler, who has not added it."
    },
    "paths": [
     "backend/internal/ai",

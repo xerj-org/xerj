@@ -8,15 +8,15 @@
   {
    "repo": "gemini-nano-summarizer",
    "url": "https://github.com/sebin-gg/gemini-nano-summarizer",
-   "sha": "b1d811b7130832d09e45420e93ebe7a910dc5bbc",
-   "licence": "MIT (LICENSE file at pin b1d811b71308, GitHub licence API 2026-11-02)",
+   "sha": "059a37b93b3f009299458452dd2e209d8b92691d",
+   "licence": "MIT (LICENSE file at pin 059a37b93b3f, GitHub licence API 2026-11-13)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-02T15:14Z",
     "consent_receipt": "5ca4bb19ef8b",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T15:14Z (receipt 5ca4bb19ef8b); pinned to the default-branch head. LICENSE file at pin b1d811b71308 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T15:14Z (receipt 5ca4bb19ef8b); pinned to the default-branch head. LICENSE file at pin 059a37b93b3f detected as MIT by the GitHub licence API on 2026-11-13; used under that licence with attribution."
    }
   }
  ]

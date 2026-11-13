@@ -8,15 +8,15 @@
   {
    "repo": "refind",
    "url": "https://github.com/tanay-787/refind",
-   "sha": "a8f7d34cdc871eca5e4bfb1e1b6fdabd1ea4187d",
-   "licence": "Apache-2.0 (LICENSE file at pin a8f7d34cdc87, GitHub licence API 2026-11-09)",
+   "sha": "7d9c2639d0ce11977c6ed5ab9ab1767134176d3b",
+   "licence": "Apache-2.0 (LICENSE file at pin 7d9c2639d0ce, GitHub licence API 2026-11-13)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-22T08:18Z",
     "consent_receipt": "566ca2d7200e",
-    "note": "Inclusion consented by the commit author by email at 2026-10-22T08:18Z (receipt 566ca2d7200e); selected commit a8f7d34cdc87: \"feat(jobjournal): add notification pause and resume actions with auto\u2026\". LICENSE file at pin a8f7d34cdc87 detected as Apache-2.0 by the GitHub licence API on 2026-11-09; used under that licence with attribution. Pinned to head a8f7d34cdc87 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-22T08:18Z (receipt 566ca2d7200e); selected commit 7d9c2639d0ce: \"feat(jobjournal): add notification pause and resume actions with auto\u2026\". LICENSE file at pin 7d9c2639d0ce detected as Apache-2.0 by the GitHub licence API on 2026-11-13; used under that licence with attribution. Pinned to head 7d9c2639d0ce (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

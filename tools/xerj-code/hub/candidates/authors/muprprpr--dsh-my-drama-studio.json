@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on drama, dsh, dsh-plugin queries this for how Muprprpr/dsh-my-drama-studio implements it: \u8ba9\u5bb6\u91cc\u5927\u80a5\u9c7c\u4e0d\u5403\u767d\u996d\uff0c\u77ed\u5267\u7528\u8fd9\u4e00\u5957\u5c31\u591f\u4e86\uff01\uff08\u6682\u672a\u5b9e\u73b0\uff0c\u4ec5\u4f9b\u53c2\u8003/\u7b11\uff09 (selected work: studio, src, tests)",
+ "domain": "an agent working on drama, dsh, dsh-plugin queries this for how Muprprpr/dsh-my-drama-studio implements it: \u8ba9\u5bb6\u91cc\u5927\u80a5\u9c7c\u4e0d\u5403\u767d\u996d\uff0c\u77ed\u5267\u7528\u8fd9\u4e00\u5957\u5c31\u591f\u4e86\uff01 (selected work: studio, src, tests)",
  "repos": [
   {
    "repo": "dsh-my-drama-studio",

@@ -1,0 +1,23 @@
+{
+ "corpus": "ananta888--webrtc-minimize-server",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on nodejs, p2p, screensharing queries this for how ananta888/webrtc-minimize-server implements it: Adaptive Angular WebRTC rooms with Keycloak, Active Speaker, trusted peer relay and Coturn",
+ "repos": [
+  {
+   "repo": "webrtc-minimize-server",
+   "url": "https://github.com/ananta888/webrtc-minimize-server",
+   "sha": "1757fb6be8a3011c32971842145fe4c32b548ce7",
+   "licence": "BSD-3-Clause (LICENSE file at pin 1757fb6be8a3, GitHub licence API 2026-11-13)",
+   "review": {
+    "spdx": "BSD-3-Clause",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T09:12Z",
+    "consent_receipt": "52b3972554d0",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-13T09:12Z (receipt 52b3972554d0); pinned to the default-branch head. LICENSE file at pin 1757fb6be8a3 detected as BSD-3-Clause by the GitHub licence API on 2026-11-13; used under that licence with attribution."
+   }
+  }
+ ]
+}

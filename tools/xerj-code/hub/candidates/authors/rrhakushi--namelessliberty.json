@@ -1,9 +1,9 @@
 {
- "corpus": "rrhakushi--iris",
+ "corpus": "rrhakushi--namelessliberty",
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on TypeScript queries this for how rrHakushi/IRIS implements it: rrHakushi/IRIS (TypeScript) (selected work: plugins, the project root)",
+ "domain": "an agent working on TypeScript queries this for how rrHakushi/NamelessLiberty implements it: rrHakushi/NamelessLiberty (TypeScript) (selected work: plugins, the project root)",
  "repos": [
   {
    "repo": "IRIS",
