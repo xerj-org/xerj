@@ -1,0 +1,23 @@
+{
+ "corpus": "danilchizhikov--actorframework",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how DanilChizhikov/ActorFramework implements it: DanilChizhikov/ActorFramework (C#)",
+ "repos": [
+  {
+   "repo": "ActorFramework",
+   "url": "https://github.com/DanilChizhikov/ActorFramework",
+   "sha": "52fab016281493713c65ac0e197483b9ea567010",
+   "licence": "author's permission (LICENSE at pin 52fab0162814: NOASSERTION; repository: MIT)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T17:03Z",
+    "consent_receipt": "a0976c24017b",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-13T17:03Z (receipt a0976c24017b); pinned to the default-branch head. LICENSE at pin 52fab0162814: NOASSERTION (repository: MIT); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

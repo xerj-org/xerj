@@ -8,15 +8,15 @@
   {
    "repo": "chitu",
    "url": "https://github.com/thu-pacman/chitu",
-   "sha": "eba97437b4139a3757edf9da57dba7efd6d31e31",
-   "licence": "Apache-2.0 (LICENSE file at pin eba97437b413, GitHub licence API 2026-11-11)",
+   "sha": "14b050ed9e9ad345f95390f58043dbbde2ff0e5a",
+   "licence": "Apache-2.0 (LICENSE file at pin 14b050ed9e9a, GitHub licence API 2026-10-24)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
-    "at": "2026-10-19T23:39Z",
-    "consent_receipt": "e9977d20048c",
-    "note": "Inclusion consented by the commit author by email at 2026-10-19T23:39Z (receipt e9977d20048c); selected commit eba97437b413: \"Reject Request When No Worker Exisit\". LICENSE file at pin eba97437b413 detected as Apache-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @thu-pacman, who has not added it."
+    "at": "2026-10-20T05:23Z",
+    "consent_receipt": "323f078a9188",
+    "note": "Inclusion consented by the commit author by email at 2026-10-20T05:23Z (receipt 323f078a9188); selected commit 14b050ed9e9a: \"Support `response_format` in OpenAI-compatible API\". LICENSE file at pin 14b050ed9e9a detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @thu-pacman, who has not added it."
    },
    "paths": [
     "chitu",

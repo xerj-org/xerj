@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on JavaScript queries this for how jorgesalgueiro/Aion-Looper implements it: Aion Looper is a Rust multi-track looper, drone synth and tracker for live experimental music (selected work: tests, source, resources)",
+ "domain": "an agent working on C++ queries this for how jorgesalgueiro/Aion-Looper implements it: Aion Looper is a Rust multi-track looper, drone synth and tracker for live experimental music (selected work: tests, source, resources)",
  "repos": [
   {
    "repo": "Aion-Looper",

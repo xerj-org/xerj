@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on head-pose-estimation, lightweight-head-pose, pytorch-head-pose queries this for how yakhyo/head-pose-estimation implements it: Real-time 3D head pose estimation with yaw, pitch, and roll prediction",
+ "domain": "an agent working on head-pose-estimation, lightweight-head-pose, pytorch-head-pose queries this for how yakhyo/head-pose-estimation implements it: Real-time 3D head pose estimation (yaw, pitch, and roll)",
  "repos": [
   {
    "repo": "head-pose-estimation",

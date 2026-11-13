@@ -1,9 +1,9 @@
 {
- "corpus": "xc-xin-cheng--meteor-mikuxc",
+ "corpus": "xc-xin-cheng--meteor-cheng",
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Java queries this for how XC-Xin-Cheng/meteor-mikuXC implements it: \u4e3ahttps://github.com/mikumiku7/meteor-miku\u63d0\u4f9b26.1\u652f\u6301 (selected work: src/main, the project root)",
+ "domain": "an agent working on Java queries this for how XC-Xin-Cheng/meteor-Cheng implements it: Meteor addon (selected work: src/main, the project root)",
  "repos": [
   {
    "repo": "meteor-mikuXC",
