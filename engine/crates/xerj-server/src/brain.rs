@@ -317,18 +317,24 @@ fn run(cfg: BrainCfg) -> Result<i32> {
     };
     // `records_total` is run-scoped: a resumed re-run over an already-indexed
     // folder legitimately reports 0. Server truth decides what that means.
-    if needs_live_node_probe(run_u64(&run_doc, "records_total")) {
+    let run_records = run_u64(&run_doc, "records_total");
+    let live_nodes = if needs_live_node_probe(run_records) {
         let live_nodes = live_node_docs(&es, &brain)?;
         if journal_server_disagrees(run_u64(&run_doc, "files_indexed"), live_nodes, cfg.fresh) {
             bail!("{}", journal_server_disagreement(&cfg, &brain));
         }
-    }
+        live_nodes
+    } else {
+        None
+    };
 
-    // Server truth for every surface below: run-scoped counters read 0 on a
-    // converged re-run, but the brain is live on the server all the same.
-    let records_live = match run_u64(&run_doc, "records_total") {
-        0 => live_node_docs(&es, &brain)?.unwrap_or(0),
-        n => n,
+    // A missing or legacy brain meta is an unknown count, NOT zero. Never
+    // report an empty corpus or a ready brain without verified server truth.
+    let Some(records_live) = resolve_live_records(run_records, live_nodes) else {
+        bail!(
+            "xerj brain: cannot verify the live record count for brain {brain} on {}.              The brain metadata or its nodes index is unavailable; this does not              mean the corpus is empty. Verify the server and retry, or rerun              with --fresh to rebuild the plan in place.",
+            cfg.url
+        );
     };
     if records_live == 0 {
         eprintln!(
@@ -532,6 +538,16 @@ fn zero_live_is_journal_server_disagreement(
 
 fn needs_live_node_probe(records_total: u64) -> bool {
     records_total == 0
+}
+
+/// Run counters are per invocation, so zero needs a server probe. An absent
+/// probe is unknown, not an authoritative empty corpus (#3077).
+fn resolve_live_records(run_records: u64, live_nodes: Option<u64>) -> Option<u64> {
+    if run_records == 0 {
+        live_nodes
+    } else {
+        Some(run_records)
+    }
 }
 
 /// The environment prefix for the `xerj-mcp` line in the success banner.
@@ -1000,6 +1016,14 @@ mod tests {
         assert!(!journal_server_disagrees(1, Some(7), false));
         assert!(!journal_server_disagrees(0, Some(0), false));
         assert!(!journal_server_disagrees(1, Some(0), true));
+    }
+
+    #[test]
+    fn unknown_live_count_is_not_reported_as_an_empty_corpus() {
+        assert_eq!(resolve_live_records(0, None), None);
+        assert_eq!(resolve_live_records(0, Some(0)), Some(0));
+        assert_eq!(resolve_live_records(0, Some(7)), Some(7));
+        assert_eq!(resolve_live_records(4, None), Some(4));
     }
 
     /// The wiped-data-dir case never reaches the probe above on its own: the
