@@ -14095,16 +14095,18 @@ impl CatalogSummary {
         if !matched.is_empty() {
             return matched;
         }
-        let any_other_run = self.datasets.iter().any(|d| {
-            d.get("run_id")
-                .and_then(Value::as_str)
-                .is_some_and(|s| !s.is_empty())
-        });
-        if any_other_run {
-            Vec::new()
-        } else {
-            self.datasets.iter().collect()
-        }
+        // Nothing matched this run. Keep untagged legacy docs (missing or
+        // empty `run_id`) and drop docs stamped with a different run. One
+        // other-run doc must not discard the untagged ones: the fallback
+        // page mixes both, and the doc comment counts the untagged docs.
+        self.datasets
+            .iter()
+            .filter(|d| {
+                d.get("run_id")
+                    .and_then(Value::as_str)
+                    .is_none_or(str::is_empty)
+            })
+            .collect()
     }
 }
 

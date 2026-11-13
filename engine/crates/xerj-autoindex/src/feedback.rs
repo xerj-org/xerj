@@ -1436,6 +1436,44 @@ mod tests {
             Some("7 records under /x (autoindex run run-new)")
         );
 
+        // Mixed catalog: one legacy doc with no `run_id`, plus one doc from an
+        // older run, and nothing stamped with the latest run. The untagged doc
+        // is still this run's count; the other run must not wipe it. This is
+        // the page `fetch_catalog_summary` falls back to when the scoped
+        // dataset query returns nothing.
+        let mixed = crate::CatalogSummary {
+            run: Some(serde_json::json!({
+                "run_id": "run-new",
+                "records_total": 7,
+                "root": "/x",
+            })),
+            datasets: vec![
+                serde_json::json!({"record_count": 3}),
+                serde_json::json!({"run_id": "run-old", "record_count": 99}),
+            ],
+        };
+        assert_eq!(
+            mixed.one_line().as_deref(),
+            Some("7 records across 1 dataset(s) under /x (autoindex run run-new)")
+        );
+
+        // Same mixture with no `records_total`: the sentence is derived from
+        // the untagged doc's `record_count`, not dropped.
+        let mixed_no_total = crate::CatalogSummary {
+            run: Some(serde_json::json!({
+                "run_id": "run-new",
+                "root": "/x",
+            })),
+            datasets: vec![
+                serde_json::json!({"record_count": 3}),
+                serde_json::json!({"run_id": "run-old", "record_count": 99}),
+            ],
+        };
+        assert_eq!(
+            mixed_no_total.one_line().as_deref(),
+            Some("3 records across 1 dataset(s) under /x (autoindex run run-new)")
+        );
+
         // No run document: sum the dataset docs that were actually fetched.
         let datasets_only = crate::CatalogSummary {
             run: None,
