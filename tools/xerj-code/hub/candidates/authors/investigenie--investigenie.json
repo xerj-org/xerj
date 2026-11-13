@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Rust queries this for how InvestiGenie/investigenie implements it: InvestiGenie/investigenie (Rust) (selected work: playground, backend)",
+ "domain": "an agent working on Rust queries this for how InvestiGenie/investigenie implements it: InvestiGenie/investigenie (Rust) (selected work: integrations, backend, frontend)",
  "repos": [
   {
    "repo": "investigenie",
    "url": "https://github.com/InvestiGenie/investigenie",
-   "sha": "0dec2524384e33561df44967f8767687bdb772ba",
-   "licence": "Apache-2.0 (LICENSE file at pin 0dec2524384e, GitHub licence API 2026-11-11)",
+   "sha": "106443d9dbe0c23e9853559886ec35fdf512cfdc",
+   "licence": "Apache-2.0 (LICENSE file at pin 106443d9dbe0, GitHub licence API 2026-10-26)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
-    "at": "2026-11-10T09:32Z",
-    "consent_receipt": "5e47bb36ce09",
-    "note": "Inclusion consented by the commit author by email at 2026-11-10T09:32Z (receipt 5e47bb36ce09); selected commit 0dec2524384e: \"feat: enhance playground environment and add comprehensive tests for \u2026\". LICENSE file at pin 0dec2524384e detected as Apache-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @InvestiGenie, who has not added it."
+    "at": "2026-10-26T18:08Z",
+    "consent_receipt": "e6a94f47f1a5",
+    "note": "Inclusion consented by the commit author by email at 2026-10-26T18:08Z (receipt e6a94f47f1a5); selected commit 106443d9dbe0: \"Refactor connector architecture and improve Explore\". LICENSE file at pin 106443d9dbe0 detected as Apache-2.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @InvestiGenie, who has not added it."
    },
    "paths": [
     ".github/release-notes",
