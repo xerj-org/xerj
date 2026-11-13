@@ -8,15 +8,15 @@
   {
    "repo": "yammer",
    "url": "https://github.com/surajS0106/yammer",
-   "sha": "f64cfe67eea4fd7ed8ec681ac522f4621e0032b6",
-   "licence": "MIT (LICENSE file at pin f64cfe67eea4, GitHub licence API 2026-11-12)",
+   "sha": "e3d14c6885552b4857a270bc9fd7746c996fb75e",
+   "licence": "MIT (LICENSE file at pin e3d14c688555, GitHub licence API 2026-11-13)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-09T08:52Z",
     "consent_receipt": "a5fe414eb320",
-    "note": "Inclusion consented by the commit author by email at 2026-11-09T08:52Z (receipt a5fe414eb320); selected commit f64cfe67eea4: \"feat: implement shared motion components for smoother UI transitions\". LICENSE file at pin f64cfe67eea4 detected as MIT by the GitHub licence API on 2026-11-12; used under that licence with attribution. Pinned to head f64cfe67eea4 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T08:52Z (receipt a5fe414eb320); selected commit e3d14c688555: \"feat: implement shared motion components for smoother UI transitions\". LICENSE file at pin e3d14c688555 detected as MIT by the GitHub licence API on 2026-11-13; used under that licence with attribution. Pinned to head e3d14c688555 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

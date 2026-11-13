@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on TypeScript queries this for how Divinity-Labs/Lens implements it: Unified Stellar price API \u2014 aggregates real-time SDEX trade prices and AMM pool spot prices into VWAP, OHLCV, and best-route data. REST + Gr (selected work: snippets, the project root, scripts)",
+ "domain": "an agent working on TypeScript queries this for how Divinity-Labs/Lens implements it: Unified Stellar price API \u2014 aggregates real-time SDEX trade prices and AMM pool spot prices into VWAP, OHLCV, and best-route data. REST + Gr (selected work: tests, the project root, src/routes)",
  "repos": [
   {
    "repo": "Lens",
    "url": "https://github.com/Divinity-Labs/Lens",
-   "sha": "76cbcdb21e6b5f055308c61907296db09d76f167",
-   "licence": "MIT (LICENSE file at pin 76cbcdb21e6b, GitHub licence API 2026-10-26)",
+   "sha": "c97b14085ddda5c5b85af805803e5f6caf3f8f45",
+   "licence": "MIT (LICENSE file at pin c97b14085ddd, GitHub licence API 2026-11-11)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
-    "at": "2026-10-25T20:41Z",
-    "consent_receipt": "b1a48d373919",
-    "note": "Inclusion consented by the commit author by email at 2026-10-25T20:41Z (receipt b1a48d373919); selected commit 76cbcdb21e6b: \"Fix snippet generator: group all GET routes, add spec examples\". LICENSE file at pin 76cbcdb21e6b detected as MIT by the GitHub licence API on 2026-10-26; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Divinity-Labs, who has not added it."
+    "at": "2026-10-26T06:48Z",
+    "consent_receipt": "98c5c057144d",
+    "note": "Inclusion consented by the commit author by email at 2026-10-26T06:48Z (receipt 98c5c057144d); selected commit c97b14085ddd: \"fix: standardize empty-result vs not-found HTTP status codes (#262)\". LICENSE file at pin c97b14085ddd detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Divinity-Labs, who has not added it."
    },
    "paths": [
     "docs",

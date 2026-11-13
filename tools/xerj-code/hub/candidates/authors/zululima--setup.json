@@ -1,9 +1,9 @@
 {
- "corpus": "zululima--dotclaude",
+ "corpus": "zululima--setup",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on claude-code, dotfiles, ai queries this for how zululima/dotclaude implements it: How I use Claude Code, in the open (selected work: hooks, the project root)",
+ "domain": "an agent working on claude-code, dotfiles, ai queries this for how zululima/setup implements it: My setup and how I work with it, in the open (selected work: hooks, the project root)",
  "repos": [
   {
    "repo": "dotclaude",

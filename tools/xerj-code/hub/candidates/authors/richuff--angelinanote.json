@@ -8,15 +8,15 @@
   {
    "repo": "AngelinaNote",
    "url": "https://github.com/richuff/AngelinaNote",
-   "sha": "afc854b72f7fefda6acfca786aebeee65c585116",
-   "licence": "author's permission (LICENSE at pin afc854b72f7f: NONE; repository: none)",
+   "sha": "eb4621e392ea13b7c30610735fba2329e20f807c",
+   "licence": "author's permission (LICENSE at pin eb4621e392ea: NONE; repository: none)",
    "review": {
     "spdx": "NONE",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-02T08:43Z",
     "consent_receipt": "eb3fa8b212f8",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T08:43Z (receipt eb3fa8b212f8); pinned to the default-branch head. LICENSE at pin afc854b72f7f: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T08:43Z (receipt eb3fa8b212f8); pinned to the default-branch head. LICENSE at pin eb4621e392ea: NONE (repository: none); used with the author's permission, with attribution."
    }
   }
  ]
