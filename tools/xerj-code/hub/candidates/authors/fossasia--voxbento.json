@@ -8,15 +8,15 @@
   {
    "repo": "voxbento",
    "url": "https://github.com/fossasia/voxbento",
-   "sha": "06067cda0c234fc0b1f240dcb8e28213e8620cc8",
-   "licence": "Apache-2.0 (LICENSE file at pin 06067cda0c23, GitHub licence API 2026-11-11)",
+   "sha": "e518eda6a2a2205a447114c1453f705086c75aa8",
+   "licence": "Apache-2.0 (LICENSE file at pin e518eda6a2a2, GitHub licence API 2026-10-24)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
-    "at": "2026-10-26T22:36Z",
-    "consent_receipt": "2acdc18c850c",
-    "note": "Inclusion consented by the commit author by email at 2026-10-26T22:36Z (receipt 2acdc18c850c); selected commit 06067cda0c23: \"fix(developer): validate OAuth client registration and developer appl\u2026\". LICENSE file at pin 06067cda0c23 detected as Apache-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @fossasia, who has not added it."
+    "at": "2026-10-18T05:28Z",
+    "consent_receipt": "f7416ebdd3e0",
+    "note": "Inclusion consented by the commit author by email at 2026-10-18T05:28Z (receipt f7416ebdd3e0); selected commit e518eda6a2a2: \"Fix interpreter invite access for logged-in users (#793)\". LICENSE file at pin e518eda6a2a2 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @fossasia, who has not added it."
    },
    "paths": [
     "portal",

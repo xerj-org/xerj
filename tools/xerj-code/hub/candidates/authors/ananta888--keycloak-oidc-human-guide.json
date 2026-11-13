@@ -1,0 +1,23 @@
+{
+ "corpus": "ananta888--keycloak-oidc-human-guide",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how ananta888/keycloak-oidc-human-guide implements it: ananta888/keycloak-oidc-human-guide (Python)",
+ "repos": [
+  {
+   "repo": "keycloak-oidc-human-guide",
+   "url": "https://github.com/ananta888/keycloak-oidc-human-guide",
+   "sha": "61dc18a39f3696f92c357ac58552742025fe7af2",
+   "licence": "BSD-3-Clause (LICENSE file at pin 61dc18a39f36, GitHub licence API 2026-11-13)",
+   "review": {
+    "spdx": "BSD-3-Clause",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T09:12Z",
+    "consent_receipt": "9d49f3c77b14",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-13T09:12Z (receipt 9d49f3c77b14); pinned to the default-branch head. LICENSE file at pin 61dc18a39f36 detected as BSD-3-Clause by the GitHub licence API on 2026-11-13; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "ananta888--little-speech-server",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Python queries this for how ananta888/little-speech-server implements it: Lokale Sprach-zu-Text-Web-App: Vosk + Whisper im Backend, recasepunc-Zeichensetzung, Angular-Frontend, kein Fremd-Backend",
+ "repos": [
+  {
+   "repo": "little-speech-server",
+   "url": "https://github.com/ananta888/little-speech-server",
+   "sha": "2e4eac6f40fe540de914144af9f6d465ba1ab581",
+   "licence": "MIT (LICENSE file at pin 2e4eac6f40fe, GitHub licence API 2026-11-13)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T09:12Z",
+    "consent_receipt": "dff3d2de8890",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-13T09:12Z (receipt dff3d2de8890); pinned to the default-branch head. LICENSE file at pin 2e4eac6f40fe detected as MIT by the GitHub licence API on 2026-11-13; used under that licence with attribution."
+   }
+  }
+ ]
+}

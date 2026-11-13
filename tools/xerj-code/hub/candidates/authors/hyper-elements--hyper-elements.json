@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on pdf-generation, react, component-library queries this for how hyper-elements/hyper-elements implements it: React components for email templates, web pages, documents, and images. Generate email-safe HTML, responsive web pages, print-ready PDFs, an (selected work: benchmark)",
+ "domain": "an agent working on pdf-generation, react, component-library queries this for how hyper-elements/hyper-elements implements it: React components for emails, web pages, PDFs and images, plus a local JavaScript library and CLI to check existing HTML emails and preview O (selected work: benchmark)",
  "repos": [
   {
    "repo": "hyper-elements",

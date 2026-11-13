@@ -8,15 +8,15 @@
   {
    "repo": "AndroidAutoMaker",
    "url": "https://github.com/malebuffy/AndroidAutoMaker",
-   "sha": "fc367e32181d59965a6d0f9bdfb89574bd1fb070",
-   "licence": "GPL-3.0 (LICENSE file at pin fc367e32181d, GitHub licence API 2026-10-27)",
+   "sha": "ebc33b21bda813ac7d04db991805532033e1f86b",
+   "licence": "GPL-3.0 (LICENSE file at pin ebc33b21bda8, GitHub licence API 2026-11-13)",
    "review": {
     "spdx": "GPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-24T22:11Z",
     "consent_receipt": "a402d7565f4f",
-    "note": "Inclusion consented by the commit author by email at 2026-10-24T22:11Z (receipt a402d7565f4f); selected commit fc367e32181d: \"Add the website and Android app sources.\". LICENSE file at pin fc367e32181d detected as GPL-3.0 by the GitHub licence API on 2026-10-27; used under that licence with attribution. Pinned to head fc367e32181d (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-24T22:11Z (receipt a402d7565f4f); selected commit ebc33b21bda8: \"Add the website and Android app sources.\". LICENSE file at pin ebc33b21bda8 detected as GPL-3.0 by the GitHub licence API on 2026-11-13; used under that licence with attribution. Pinned to head ebc33b21bda8 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

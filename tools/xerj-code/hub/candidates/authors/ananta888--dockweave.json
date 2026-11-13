@@ -1,0 +1,23 @@
+{
+ "corpus": "ananta888--dockweave",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Go queries this for how ananta888/dockweave implements it: Dynamic Workspaces for Isolated AI Agents",
+ "repos": [
+  {
+   "repo": "dockweave",
+   "url": "https://github.com/ananta888/dockweave",
+   "sha": "2553e042dc45faf5161d38490e92d4c995068b39",
+   "licence": "BSD-3-Clause (LICENSE file at pin 2553e042dc45, GitHub licence API 2026-11-13)",
+   "review": {
+    "spdx": "BSD-3-Clause",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T09:12Z",
+    "consent_receipt": "e3634933b4d2",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-13T09:12Z (receipt e3634933b4d2); pinned to the default-branch head. LICENSE file at pin 2553e042dc45 detected as BSD-3-Clause by the GitHub licence API on 2026-11-13; used under that licence with attribution."
+   }
+  }
+ ]
+}

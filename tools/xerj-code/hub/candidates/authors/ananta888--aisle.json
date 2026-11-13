@@ -1,0 +1,23 @@
+{
+ "corpus": "ananta888--aisle",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on accessibility, assistive-technology, blindness queries this for how ananta888/aisle implements it: A.I.S.L.E. \u2013 Accessible Intelligent Shopping & Location Explorer: open-source, mobile-first assistive navigation and product search for blin",
+ "repos": [
+  {
+   "repo": "aisle",
+   "url": "https://github.com/ananta888/aisle",
+   "sha": "2c104794fe758aa8c50b855435db3d139f437c1d",
+   "licence": "BSD-3-Clause (LICENSE file at pin 2c104794fe75, GitHub licence API 2026-11-13)",
+   "review": {
+    "spdx": "BSD-3-Clause",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T09:12Z",
+    "consent_receipt": "c88579c6bd2c",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-13T09:12Z (receipt c88579c6bd2c); pinned to the default-branch head. LICENSE file at pin 2c104794fe75 detected as BSD-3-Clause by the GitHub licence API on 2026-11-13; used under that licence with attribution."
+   }
+  }
+ ]
+}

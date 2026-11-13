@@ -2,8 +2,8 @@
  "corpus": "weebzone--telegram-stremio",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on pyrofork, pyrogram, stremio queries this for how weebzone/Telegram-Stremio implements it: A powerful, self-hosted Telegram Stremio Media Server built with FastAPI, MongoDB, and PyroFork \u2014 seamlessly integrated with Stremio for aut (selected work: Backend, the project root)",
+ "shelf": "OPS",
+ "domain": "an agent working on pyrofork, pyrogram, stremio queries this for how weebzone/Telegram-Stremio implements it: Self-hosted server that turns your Telegram channels into a multi-user Stremio & Nuvio addon: web panel, catalogs, tokens, subscriptions. Up (selected work: Backend, the project root)",
  "repos": [
   {
    "repo": "Telegram-Stremio",

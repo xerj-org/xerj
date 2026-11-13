@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on clang-compiler, differentiation, gradient queries this for how vgvassilev/clad implements it: clad -- automatic differentiation for C/C++ (selected work: benchmark, test)",
+ "domain": "an agent working on clang-compiler, differentiation, gradient queries this for how vgvassilev/clad implements it: clad -- automatic differentiation for C/C++ (selected work: lib/Differentiator, test, include)",
  "repos": [
   {
    "repo": "clad",
    "url": "https://github.com/vgvassilev/clad",
-   "sha": "1fe56cde6d60d04cf674a331e285560487fe28f6",
-   "licence": "author's permission (LICENSE at pin 1fe56cde6d60: NOASSERTION; repository: LGPL-3.0)",
+   "sha": "6493bba139dea1417efe8a05eb144c57a983a632",
+   "licence": "author's permission (LICENSE at pin 6493bba139de: NOASSERTION; repository: LGPL-3.0)",
    "review": {
     "spdx": "NOASSERTION",
     "use": "approach-only",
     "by": "author-consent",
-    "at": "2026-10-15T06:15Z",
-    "consent_receipt": "38a84dd0055e",
-    "note": "Inclusion consented by the commit author by email at 2026-10-15T06:15Z (receipt 38a84dd0055e); selected commit 1fe56cde6d60: \"[benchmark] Add activity-analysis headroom cases measuring master\". LICENSE at pin 1fe56cde6d60: NOASSERTION (repository: LGPL-3.0); used with the author's permission, with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @vgvassilev, who has not added it."
+    "at": "2026-10-15T17:48Z",
+    "consent_receipt": "589c11b2fc2f",
+    "note": "Inclusion consented by the commit author by email at 2026-10-15T17:48Z (receipt 589c11b2fc2f); selected commit 6493bba139de: \"Fix adjoint shape for objects (#2212)\". LICENSE at pin 6493bba139de: NOASSERTION (repository: LGPL-3.0); used with the author's permission, with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @vgvassilev, who has not added it."
    },
    "paths": [
     "benchmark",
