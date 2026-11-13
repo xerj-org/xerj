@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on face-detection, face-recognition, face-analysis queries this for how yakhyo/uniface implements it: A Unified Face Analysis Library for Python | Detection, alignment, landmarks, face-mesh, recognition, parsing, gaze, attributes and anti-spo (selected work: uniface, tests)",
+ "domain": "an agent working on face-detection, face-recognition, face-analysis queries this for how yakhyo/uniface implements it: A Unified Face Analysis Library for Python (selected work: uniface, tests)",
  "repos": [
   {
    "repo": "uniface",

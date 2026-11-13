@@ -8,15 +8,15 @@
   {
    "repo": "senkai",
    "url": "https://github.com/gbrennon/senkai",
-   "sha": "3df063c104aa3153bf36c80295a6eea11d81ea32",
-   "licence": "MIT (LICENSE file at pin 3df063c104aa, GitHub licence API 2026-11-12)",
+   "sha": "f06277e600a205f22a1bc27376cd42591ca7ecdb",
+   "licence": "MIT (LICENSE file at pin f06277e600a2, GitHub licence API 2026-11-13)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T19:07Z",
     "consent_receipt": "aaa97899a8d6",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T19:07Z (receipt aaa97899a8d6); pinned to the default-branch head. LICENSE file at pin 3df063c104aa detected as MIT by the GitHub licence API on 2026-11-12; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T19:07Z (receipt aaa97899a8d6); pinned to the default-branch head. LICENSE file at pin f06277e600a2 detected as MIT by the GitHub licence API on 2026-11-13; used under that licence with attribution."
    }
   }
  ]

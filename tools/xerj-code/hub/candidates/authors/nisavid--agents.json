@@ -8,15 +8,15 @@
   {
    "repo": "agents",
    "url": "https://github.com/nisavid/agents",
-   "sha": "967200d4b37d5217296ddf2cec9cd7009e90c8a5",
-   "licence": "MIT (LICENSE file at pin 967200d4b37d, GitHub licence API 2026-11-06)",
+   "sha": "30848977591af9bdd6db3652a940f0cf9dbcd4c5",
+   "licence": "MIT (LICENSE file at pin 30848977591a, GitHub licence API 2026-11-13)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-06T21:16Z",
     "consent_receipt": "5ec58945e4a6",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T21:16Z (receipt 5ec58945e4a6); pinned to the default-branch head. LICENSE file at pin 967200d4b37d detected as MIT by the GitHub licence API on 2026-11-06; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T21:16Z (receipt 5ec58945e4a6); pinned to the default-branch head. LICENSE file at pin 30848977591a detected as MIT by the GitHub licence API on 2026-11-13; used under that licence with attribution."
    }
   }
  ]
