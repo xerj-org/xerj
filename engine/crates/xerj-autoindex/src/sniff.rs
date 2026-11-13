@@ -2462,6 +2462,17 @@ fn markdown_signature(nonblank: &[&str]) -> bool {
 /// consecutive paragraphs does.
 fn parses_as_yaml_stream(text: &str) -> bool {
     use serde::Deserialize as _;
+    // #3157: count expanded nodes first. `Value` materialises every alias
+    // as a deep copy, so an alias bomb expands past any memory the process
+    // has; the budget aborts the count long before that. An over-budget
+    // stream is not YAML. An unparseable stream keeps the existing path
+    // below, which returns false on the first error.
+    if matches!(
+        crate::yaml_budget::check_yaml_node_budget(text, crate::yaml_budget::YAML_NODE_BUDGET),
+        crate::yaml_budget::YamlBudgetOutcome::OverBudget
+    ) {
+        return false;
+    }
     let mut structured = 0usize;
     for de in serde_yaml::Deserializer::from_str(text) {
         match serde_yaml::Value::deserialize(de) {
@@ -5283,6 +5294,48 @@ mod text_family_tests {
             Family::Yaml,
             "a multi-document YAML stream whose later document is prose-heavy must \
              stay YAML — it parses as a YAML stream, unlike a markdown body (#587)"
+        );
+    }
+
+    /// The alias-bomb shape from #3157: 9 anchors, `a0` a flow sequence of
+    /// 1000 plain scalars, each later anchor 100 references to the previous
+    /// one, 12 comment lines so the frontmatter gate passes. 7,351 bytes,
+    /// expanding to 17.85 GiB RSS through the unguarded `Value` parse.
+    fn yaml_alias_bomb() -> String {
+        let mut s = String::from("---\nt: t\n---\n");
+        for _ in 0..12 {
+            s.push_str("# c\n");
+        }
+        s.push_str("a0: &a0 [");
+        s.push_str(&vec!["lol"; 1000].join(","));
+        s.push_str("]\n");
+        for i in 1..=8usize {
+            s.push_str(&format!("a{i}: &a{i} ["));
+            s.push_str(&vec![format!("*a{}", i - 1); 100].join(","));
+            s.push_str("]\n");
+        }
+        s
+    }
+
+    /// #3157: an alias bomb must not be called YAML, and must not be
+    /// materialised. Before the node-budget gate this test OOM-killed the
+    /// runner (7,351 bytes expanding to 17.85 GiB RSS).
+    #[test]
+    fn yaml_alias_bomb_is_not_yaml() {
+        let bomb = yaml_alias_bomb();
+        assert_eq!(
+            bomb.len(),
+            7351,
+            "fixture must match the reported repro size"
+        );
+        assert!(
+            !parses_as_yaml_stream(&bomb),
+            "an alias bomb must fail the parse tier, not expand into a Value (#3157)"
+        );
+        assert_ne!(
+            classify_full(&bomb),
+            Family::Yaml,
+            "an alias bomb must fail closed to text, never reach the YAML extractor (#3157)"
         );
     }
 

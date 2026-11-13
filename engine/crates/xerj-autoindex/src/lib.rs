@@ -69,6 +69,7 @@ mod test_loopback;
 pub mod walk;
 pub mod watch;
 pub mod xc;
+pub mod yaml_budget;
 
 use anyhow::{Context, Result};
 use serde::Serialize;
