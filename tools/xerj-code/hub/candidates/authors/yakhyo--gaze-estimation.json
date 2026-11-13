@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on gaze-detection, gaze-estimation, gaze-tracking queries this for how yakhyo/gaze-estimation implements it: Real-time gaze estimation with ResNet, MobileNet and MobileOne - PyTorch training, ONNX Runtime inference, pretrained weights",
+ "domain": "an agent working on gaze-detection, gaze-estimation, gaze-tracking queries this for how yakhyo/gaze-estimation implements it: Real-time gaze estimation with ResNet, MobileNet and MobileOne",
  "repos": [
   {
    "repo": "gaze-estimation",

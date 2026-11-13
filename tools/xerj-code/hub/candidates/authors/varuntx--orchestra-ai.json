@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Python queries this for how VarunTx/orchestra-ai implements it: Orchestra AI \u2014 durable AI workflow orchestration powered by Conductor OSS (selected work: backend, scripts)",
+ "domain": "an agent working on Python queries this for how VarunTx/orchestra-ai implements it: Finds the mistakes your coding agent repeats across sessions, from local logs (selected work: backend, scripts)",
  "repos": [
   {
    "repo": "orchestra-ai",

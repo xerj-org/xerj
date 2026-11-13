@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on retinaface, retinaface-detector, retinaface-pytorch queries this for how yakhyo/retinaface-pytorch implements it: Face detection and five facial keypoint localization with RetinaFace",
+ "domain": "an agent working on retinaface, retinaface-detector, retinaface-pytorch queries this for how yakhyo/retinaface-pytorch implements it: Face detection and five-keypoint localization with RetinaFace",
  "repos": [
   {
    "repo": "retinaface-pytorch",

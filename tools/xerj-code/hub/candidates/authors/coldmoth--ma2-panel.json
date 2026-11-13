@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on dmx, fastapi, grandma2 queries this for how coldmoth/ma2-panel implements it: Web-based lighting control for grandMA2 onPC. Scenes, fixtures and venue layout for computers and tablets. Download the Windows ZIP below (3 (selected work: tests, the project root, scripts)",
+ "domain": "an agent working on dmx, fastapi, grandma2 queries this for how coldmoth/ma2-panel implements it: Web-based lighting control for grandMA2 onPC: scenes, fixtures and venue layout on Windows and tablets. Russian-language UI; English install (selected work: tests, the project root, scripts)",
  "repos": [
   {
    "repo": "ma2-panel",

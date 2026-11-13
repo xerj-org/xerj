@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on framework, javascript, javascript-framework queries this for how Avenx-JS/avenx-js implements it: Avenx.js is a compiler-driven, blazingly fast JavaScript framework with proxy-based reactivity (selected work: test, lib/core)",
+ "domain": "an agent working on framework, javascript, javascript-framework queries this for how Avenx-JS/avenx-js implements it: Avenx.js is a compiler-driven, blazingly fast JavaScript framework with proxy-based reactivity (selected work: lib/core, test, lib/compiler)",
  "repos": [
   {
    "repo": "avenx-js",
    "url": "https://github.com/Avenx-JS/avenx-js",
-   "sha": "bb12456d9fcc73a6094516c14e57988ac5ec727c",
-   "licence": "MIT (LICENSE file at pin bb12456d9fcc, GitHub licence API 2026-11-11)",
+   "sha": "270595158aca39bd8a81a0c41396cdb1bb278648",
+   "licence": "MIT (LICENSE file at pin 270595158aca, GitHub licence API 2026-10-24)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
-    "at": "2026-11-02T16:20Z",
-    "consent_receipt": "3be8455a37a9",
-    "note": "Inclusion consented by the commit author by email at 2026-11-02T16:20Z (receipt 3be8455a37a9); selected commit bb12456d9fcc: \"Fix AVX_R16 detection on direct this.state reassignment\". LICENSE file at pin bb12456d9fcc detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Avenx-JS, who has not added it."
+    "at": "2026-10-12T05:30Z",
+    "consent_receipt": "129959951d2b",
+    "note": "Inclusion consented by the commit author by email at 2026-10-12T05:30Z (receipt 129959951d2b); selected commit 270595158aca: \"fix(events): warn about unknown template modifiers\". LICENSE file at pin 270595158aca detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Avenx-JS, who has not added it."
    },
    "paths": [
     "docs/src/content/docs/troubleshooting",
