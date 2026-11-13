@@ -332,7 +332,10 @@ fn run(cfg: BrainCfg) -> Result<i32> {
     // report an empty corpus or a ready brain without verified server truth.
     let Some(records_live) = resolve_live_records(run_records, live_nodes) else {
         bail!(
-            "xerj brain: cannot verify the live record count for brain {brain} on {}.              The brain metadata or its nodes index is unavailable; this does not              mean the corpus is empty. Verify the server and retry, or rerun              with --fresh to rebuild the plan in place.",
+            "xerj brain: cannot verify the live record count for brain {brain} on {}. \
+             The brain metadata or its nodes index is unavailable; this does not \
+             mean the corpus is empty. Verify the server and retry, or rerun \
+             with --fresh to rebuild the plan in place.",
             cfg.url
         );
     };
