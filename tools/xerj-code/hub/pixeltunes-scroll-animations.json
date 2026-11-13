@@ -1,0 +1,5 @@
+{"corpus":"pixeltunes-scroll-animations","cloned_at":"2026-11-13T12:04:19Z","repos":[
+  {"repo":"Pixeltunes","url":"https://github.com/Mxhi-04/Pixeltunes","licence":"MIT","sha":"c17af23a48789f37853a9365af20e07401798216","files":8,"bytes":47536,
+   "paths":["src/hooks/useScrollAnimation.tsx","src/components/landing/Hero.tsx","src/components/landing/Navbar.tsx","src/components/landing/FeaturesGrid.tsx","src/components/landing/SpecsComparison.tsx","src/components/landing/PixelArtGallery.tsx","src/components/landing/FaqSection.tsx","src/index.css"],
+   "review":{"spdx":"MIT","use":"adapt-with-attribution","by":"satiricalguru","at":"2026-11-13","note":"Licence read from LICENSE at the pinned sha (MIT, (c) 2026 Mxhi-04). Pinned to Jatin Pandey's commit 'feat(landing): add scroll reading progress, parallax mascots, and scroll reveal animations'; repo co-maintained with Mahi Patni (@Mxhi-04)."}}
+]}
