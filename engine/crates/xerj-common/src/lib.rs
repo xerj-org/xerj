@@ -64,6 +64,7 @@ pub mod loopback_test;
 pub mod metrics;
 pub mod net;
 pub mod nodedir;
+pub mod pack_recipe;
 pub mod packed_f32;
 pub mod resource;
 pub mod schema;
