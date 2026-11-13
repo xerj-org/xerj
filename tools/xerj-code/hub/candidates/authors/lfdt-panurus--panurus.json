@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "CRYPTO",
- "domain": "an agent working on hyperledger, hyperledger-fabric, blockchain queries this for how LFDT-Panurus/panurus implements it: Panurs provides a collection of APIs and services that streamline development for token-based distributed applications (selected work: token, the project root)",
+ "domain": "an agent working on hyperledger, hyperledger-fabric, blockchain queries this for how LFDT-Panurus/panurus implements it: Panurs provides a collection of APIs and services that streamline development for token-based distributed applications (selected work: token)",
  "repos": [
   {
    "repo": "panurus",
    "url": "https://github.com/LFDT-Panurus/panurus",
-   "sha": "abdeeab2cdd75a812ffd516e5faef3460ab30650",
-   "licence": "Apache-2.0 (LICENSE file at pin abdeeab2cdd7, GitHub licence API 2026-11-11)",
+   "sha": "23b63ff8a8361f52b81a68e6a357d47d187efffb",
+   "licence": "Apache-2.0 (LICENSE file at pin 23b63ff8a836, GitHub licence API 2026-10-24)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
-    "at": "2026-10-29T13:35Z",
-    "consent_receipt": "2c005a0ebac1",
-    "note": "Inclusion consented by the commit author by email at 2026-10-29T13:35Z (receipt 2c005a0ebac1); selected commit abdeeab2cdd7: \"feat(observability): implement injectable Token-API decorators and ci\u2026\". LICENSE file at pin abdeeab2cdd7 detected as Apache-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @LFDT-Panurus, who has not added it."
+    "at": "2026-10-14T10:03Z",
+    "consent_receipt": "93bc667b5d9d",
+    "note": "Inclusion consented by the commit author by email at 2026-10-14T10:03Z (receipt 93bc667b5d9d); selected commit 23b63ff8a836: \"perf(storage): index tokens.amount and offer a bounded spendable query\". LICENSE file at pin 23b63ff8a836 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @LFDT-Panurus, who has not added it."
    },
    "paths": [
     "docs",
