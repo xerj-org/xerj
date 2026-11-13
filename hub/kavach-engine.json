@@ -1,0 +1,21 @@
+{
+  "corpus": "kavach-engine",
+  "cloned_at": "2026-11-13T07:17:00Z",
+  "repos": [
+    {
+      "repo": "kavach-engine",
+      "url": "https://github.com/l72683876-beep/kavach-engine.git",
+      "licence": "MIT",
+      "sha": "3b95f4fc19df2d7d6b4c5d82cf0efc2ea3f05f87",
+      "files": 156,
+      "bytes": 19043510,
+      "review": {
+        "spdx": "MIT",
+        "use": "adapt-with-attribution",
+        "by": "l72683876-beep",
+        "at": "2026-11-13",
+        "note": "opened LICENSE myself: MIT, (c) 2026 Lucky Nayak. No detector used."
+      }
+    }
+  ]
+}
