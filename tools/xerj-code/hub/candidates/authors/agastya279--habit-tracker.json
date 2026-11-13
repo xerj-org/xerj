@@ -1,0 +1,23 @@
+{
+ "corpus": "agastya279--habit-tracker",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on application, first-project, python queries this for how agastya279/habit-tracker implements it: A privacy-first habit tracker with a responsive, installable **website**, an **Android APK**, and a lightweight **Python desktop app**. Crea (selected work: web, the project root)",
+ "repos": [
+  {
+   "repo": "habit-tracker",
+   "url": "https://github.com/agastya279/habit-tracker",
+   "sha": "d4a33402d742c87f3fdc68361cf7a82b83bd73f2",
+   "licence": "MIT (LICENSE file at pin d4a33402d742, GitHub licence API 2026-11-13)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-09T13:06Z",
+    "consent_receipt": "1e7cca6fe869",
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T13:06Z (receipt 1e7cca6fe869); selected commit d4a33402d742: \"Added APK, web version and extra features\". LICENSE file at pin d4a33402d742 detected as MIT by the GitHub licence API on 2026-11-13; used under that licence with attribution."
+   }
+  }
+ ]
+}

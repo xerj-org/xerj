@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "NET",
- "domain": "an agent working on network-monitoring, networking, networking-in-python queries this for how woninet/woninet implements it: A local network monitoring tool that discovers hosts, checks their reachability, tracks network metrics, and triggers alerts through a dedic (selected work: woninet)",
+ "domain": "an agent working on network-monitoring, networking, networking-in-python queries this for how woninet/woninet implements it: A local network monitoring tool that discovers network hosts, monitors their availability and measures latency, packet loss, and jitter. It  (selected work: woninet)",
  "repos": [
   {
    "repo": "woninet",

@@ -1,0 +1,23 @@
+{
+ "corpus": "vishwakulkarni--tidyagents",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on orca-plugin queries this for how vishwakulkarni/tidyagents implements it: Lint, score and tidy AI agent instruction files: AGENTS.md, CLAUDE.md, .cursorrules and more",
+ "repos": [
+  {
+   "repo": "tidyagents",
+   "url": "https://github.com/vishwakulkarni/tidyagents",
+   "sha": "20edee3aa307b82e00b4c52749838439c92bf6f4",
+   "licence": "Apache-2.0 (LICENSE file at pin 20edee3aa307, GitHub licence API 2026-11-13)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T19:34Z",
+    "consent_receipt": "1df74acdc3a6",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-13T19:34Z (receipt 1df74acdc3a6); pinned to the default-branch head. LICENSE file at pin 20edee3aa307 detected as Apache-2.0 by the GitHub licence API on 2026-11-13; used under that licence with attribution."
+   }
+  }
+ ]
+}
