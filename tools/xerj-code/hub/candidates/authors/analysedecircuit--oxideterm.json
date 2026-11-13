@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on filemanager, rust, sftp queries this for how AnalyseDeCircuit/oxideterm implements it: AI-native workspace for local shells and remote machines.Zero Webview, zero OpenSSL, zero telemetry, and no app subscription.Written in Rust (selected work: crates/oxideterm-terminal, crates/oxideterm-gpui-editor, crates/oxideterm-gpui-app)",
+ "domain": "an agent working on filemanager, rust, sftp queries this for how AnalyseDeCircuit/oxideterm implements it: AI-native workspace for local shells and remote machines in Rust+GPUI. Combines split-pane SSH, SFTP, remote file editing, and MCP tools wit (selected work: crates/oxideterm-terminal, crates/oxideterm-gpui-editor, crates/oxideterm-gpui-app)",
  "repos": [
   {
    "repo": "oxideterm",

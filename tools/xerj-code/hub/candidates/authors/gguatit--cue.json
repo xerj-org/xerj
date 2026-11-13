@@ -1,0 +1,23 @@
+{
+ "corpus": "gguatit--cue",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how gguatit/cue implements it: A Windows quiz assistant: hotkey capture of the display under the cursor, answers via your own OpenAI-compatible API key, disguised as a sys",
+ "repos": [
+  {
+   "repo": "cue",
+   "url": "https://github.com/gguatit/cue",
+   "sha": "9b326bc874115a4d03aaa447c9cafa3cda6ca27d",
+   "licence": "MIT (LICENSE file at pin 9b326bc87411, GitHub licence API 2026-11-13)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T05:07Z",
+    "consent_receipt": "d84a0cc134bc",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-13T05:07Z (receipt d84a0cc134bc); pinned to the default-branch head. LICENSE file at pin 9b326bc87411 detected as MIT by the GitHub licence API on 2026-11-13; used under that licence with attribution."
+   }
+  }
+ ]
+}
