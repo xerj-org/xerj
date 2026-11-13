@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on gui, library, odin queries this for how armscream/CalcUI implements it: A Retained-Mode Graphical User Interface (GUI) Toolkit written entirely in Odin (selected work: src/GUI)",
+ "domain": "an agent working on gui, library, odin queries this for how armscream/CalcUI implements it: A Backend-Agnostic Retained-Mode Graphical User Interface (GUI) Toolkit written entirely in Odin (selected work: src/GUI)",
  "repos": [
   {
    "repo": "CalcUI",

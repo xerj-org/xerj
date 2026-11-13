@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on deepgram, groq, llm queries this for how ManeeshJupalle/Auricle implements it: Local-first meeting engine + desktop copilot: live two-voice transcription, summaries, and screen-aware answers. One Rust binary \u2014 no bots i (selected work: crates/auricle-server, ui, crates/auricle-llm)",
+ "domain": "an agent working on deepgram, groq, llm queries this for how ManeeshJupalle/Auricle implements it: Open-source, local-first Granola + Wispr Flow + Cluely for Windows: bot-free meeting transcripts and summaries, dictation into any app, and  (selected work: crates/auricle-server, ui, crates/auricle-llm)",
  "repos": [
   {
    "repo": "Auricle",

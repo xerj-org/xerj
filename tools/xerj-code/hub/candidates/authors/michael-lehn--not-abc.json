@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on LLVM queries this for how michael-lehn/not-abc implements it: michael-lehn/not-abc (LLVM) (selected work: hpc0-sessions)",
+ "domain": "an agent working on compiler, education, llvm queries this for how michael-lehn/not-abc implements it: michael-lehn/not-abc (LLVM) (selected work: hpc0-sessions)",
  "repos": [
   {
    "repo": "not-abc",

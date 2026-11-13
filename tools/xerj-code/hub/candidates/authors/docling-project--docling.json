@@ -8,15 +8,15 @@
   {
    "repo": "docling",
    "url": "https://github.com/docling-project/docling",
-   "sha": "b845ce6e576a6c925c1251e1425b46128c897c50",
-   "licence": "MIT (LICENSE file at pin b845ce6e576a, GitHub licence API 2026-11-11)",
+   "sha": "5f4509767647721a8ec011ce6a3a6a39b19bb1f0",
+   "licence": "MIT (LICENSE file at pin 5f4509767647, GitHub licence API 2026-10-24)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
-    "at": "2026-10-30T07:43Z",
-    "consent_receipt": "4b3e61d1c734",
-    "note": "Inclusion consented by the commit author by email at 2026-10-30T07:43Z (receipt 4b3e61d1c734); selected commit b845ce6e576a: \"fix(latex): convert accent and letter macros in body text (#4517)\". LICENSE file at pin b845ce6e576a detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @docling-project, who has not added it."
+    "at": "2026-10-18T03:19Z",
+    "consent_receipt": "09a5fac8b3ae",
+    "note": "Inclusion consented by the commit author by email at 2026-10-18T03:19Z (receipt 09a5fac8b3ae); selected commit 5f4509767647: \"fix(reading-order): bound page-separator candidate work and honor doc\u2026\". LICENSE file at pin 5f4509767647 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @docling-project, who has not added it."
    },
    "paths": [
     "docling/backend/latex",
