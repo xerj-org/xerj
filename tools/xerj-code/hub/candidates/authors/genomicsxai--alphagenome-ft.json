@@ -1,0 +1,28 @@
+{
+ "corpus": "genomicsxai--alphagenome-ft",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "HEALTH",
+ "domain": "an agent working on Python queries this for how genomicsxai/alphagenome_ft implements it: genomicsxai/alphagenome_ft (Python) (selected work: alphagenome_ft, tests)",
+ "repos": [
+  {
+   "repo": "alphagenome_ft",
+   "url": "https://github.com/genomicsxai/alphagenome_ft",
+   "sha": "046e02568af03e82d50a7100de6869fd44030f07",
+   "licence": "MIT (LICENSE file at pin 046e02568af0, GitHub licence API 2026-11-14)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T14:32Z",
+    "consent_receipt": "385e5d7117ea",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T14:32Z (receipt 385e5d7117ea); selected commit 046e02568af0: \"Close LoRA parity and training safety gaps\". LICENSE file at pin 046e02568af0 detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @genomicsxai, who has not added it."
+   },
+   "paths": [
+    "alphagenome_ft",
+    "docs",
+    "tests"
+   ]
+  }
+ ]
+}

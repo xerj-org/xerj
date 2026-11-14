@@ -1,0 +1,23 @@
+{
+ "corpus": "zangjiucheng--orbitopt",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on astrodynamics, cuda, gpu queries this for how zangjiucheng/orbitopt implements it: Orbital trajectory optimization: pykep/pygmo screening + tudatpy verification, CUDA-batched, with a PySide6/PyVista Mission Control 3D viewe (selected work: src/orbitopt, tests)",
+ "repos": [
+  {
+   "repo": "orbitopt",
+   "url": "https://github.com/zangjiucheng/orbitopt",
+   "sha": "9d1f6b20ccf75512aa794f445fb043e3bc19fff7",
+   "licence": "GPL-3.0 (LICENSE file at pin 9d1f6b20ccf7, GitHub licence API 2026-11-14)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-12T19:04Z",
+    "consent_receipt": "0544f4763c41",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T19:04Z (receipt 0544f4763c41); selected commit 9d1f6b20ccf7: \"feat(flightlab): record the full toolchain in every run manifest + TH\u2026\". LICENSE file at pin 9d1f6b20ccf7 detected as GPL-3.0 by the GitHub licence API on 2026-11-14; used under that licence with attribution."
+   }
+  }
+ ]
+}

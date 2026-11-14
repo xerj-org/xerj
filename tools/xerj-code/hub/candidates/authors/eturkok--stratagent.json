@@ -1,0 +1,23 @@
+{
+ "corpus": "eturkok--stratagent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-skills, ai-agents, claude-code queries this for how eturkok/stratagent implements it: A reviewable supply chain for agent skills. Discover GitHub skills and sub-agents, inspect provenance, and generate approved Claude Code/Cod (selected work: src/stratagent)",
+ "repos": [
+  {
+   "repo": "stratagent",
+   "url": "https://github.com/eturkok/stratagent",
+   "sha": "1fe8108af25cfadc7b6342f531a393d960254c0e",
+   "licence": "MIT (LICENSE file at pin 1fe8108af25c, GitHub licence API 2026-11-14)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T19:12Z",
+    "consent_receipt": "cdb22fe36378",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T19:12Z (receipt cdb22fe36378); selected commit 1fe8108af25c: \"Prepare src/stratagent for 0.10.0 [skip ci]\". LICENSE file at pin 1fe8108af25c detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution."
+   }
+  }
+ ]
+}

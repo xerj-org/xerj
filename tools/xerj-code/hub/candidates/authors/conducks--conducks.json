@@ -1,0 +1,32 @@
+{
+ "corpus": "conducks--conducks",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how Conducks/conducks implements it: Conducks/conducks (TypeScript) (selected work: src/lib, tests, tools)",
+ "repos": [
+  {
+   "repo": "conducks",
+   "url": "https://github.com/Conducks/conducks",
+   "sha": "2e0ab089502556e8049c904901f7f716fc1b96fa",
+   "licence": "Apache-2.0 (LICENSE file at pin 2e0ab0895025, GitHub licence API 2026-11-14)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T23:02Z",
+    "consent_receipt": "1c4f826ee75f",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T23:02Z (receipt 1c4f826ee75f); selected commit 2e0ab0895025: \"java: unused private fields\". LICENSE file at pin 2e0ab0895025 detected as Apache-2.0 by the GitHub licence API on 2026-11-14; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Conducks, who has not added it."
+   },
+   "paths": [
+    "src/lib/core/parsing",
+    "src/lib/core/persistence",
+    "src/lib/domain/evolution",
+    "tests/unit/core/parsing/languages",
+    "tests/unit/core/persistence",
+    "tests/unit/domain/evolution",
+    "tools/benchmark"
+   ]
+  }
+ ]
+}

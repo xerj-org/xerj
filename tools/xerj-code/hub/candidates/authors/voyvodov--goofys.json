@@ -1,0 +1,23 @@
+{
+ "corpus": "voyvodov--goofys",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Go queries this for how voyvodov/goofys implements it: a high-performance, POSIX-ish Amazon S3 file system written in Go (selected work: internal, api)",
+ "repos": [
+  {
+   "repo": "goofys",
+   "url": "https://github.com/voyvodov/goofys",
+   "sha": "6fe584874af392c2be00ce6ac20db4af549144b4",
+   "licence": "Apache-2.0 (LICENSE file at pin 6fe584874af3, GitHub licence API 2026-11-14)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T14:10Z",
+    "consent_receipt": "1c4a6f8f9de5",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T14:10Z (receipt 1c4a6f8f9de5); selected commit 6fe584874af3: \"feat(fuse): add async I/O and readdirplus flags\". LICENSE file at pin 6fe584874af3 detected as Apache-2.0 by the GitHub licence API on 2026-11-14; used under that licence with attribution."
+   }
+  }
+ ]
+}

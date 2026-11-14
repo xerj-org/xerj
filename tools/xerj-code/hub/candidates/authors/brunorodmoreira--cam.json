@@ -1,0 +1,23 @@
+{
+ "corpus": "brunorodmoreira--cam",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Rust queries this for how brunorodmoreira/cam implements it: Pick the Claude Code account per folder via .claude-account files (selected work: src, tests)",
+ "repos": [
+  {
+   "repo": "cam",
+   "url": "https://github.com/brunorodmoreira/cam",
+   "sha": "f138d1873353c99d043513f25ec93fb7c4521202",
+   "licence": "author's permission (LICENSE at pin f138d1873353: NOASSERTION; repository: Apache-2.0)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T17:42Z",
+    "consent_receipt": "e0ab058ae99d",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T17:42Z (receipt e0ab058ae99d); selected commit f138d1873353: \"Launch claude with the folder's account, via exec\". LICENSE at pin f138d1873353: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

@@ -8,15 +8,15 @@
   {
    "repo": "kings-newsletter",
    "url": "https://github.com/Programador-jr/kings-newsletter",
-   "sha": "94326543ca64515e573c46e21ff78d9079202099",
-   "licence": "MIT (LICENSE file at pin 94326543ca64, GitHub licence API 2026-11-13)",
+   "sha": "ce87a8016716496f7cf4e7629fb9ec8f4cc513b9",
+   "licence": "MIT (LICENSE file at pin ce87a8016716, GitHub licence API 2026-11-14)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-03T20:54Z",
     "consent_receipt": "7795d8d822f4",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-03T20:54Z (receipt 7795d8d822f4); pinned to the default-branch head. LICENSE file at pin 94326543ca64 detected as MIT by the GitHub licence API on 2026-11-13; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-03T20:54Z (receipt 7795d8d822f4); pinned to the default-branch head. LICENSE file at pin ce87a8016716 detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution."
    }
   }
  ]

@@ -1,0 +1,23 @@
+{
+ "corpus": "lrq3000--infinitabs",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on browser, browser-extension, chrome-extension queries this for how lrq3000/infinitabs implements it: Unlimited tabs, Zero RAM! For Chrome/Chromium (and Firefox in the future) (selected work: test, src/mru, src)",
+ "repos": [
+  {
+   "repo": "infinitabs",
+   "url": "https://github.com/lrq3000/infinitabs",
+   "sha": "398f70b4abd849c5a26eb800c9b7e0bf8fb752c4",
+   "licence": "MIT (LICENSE file at pin 398f70b4abd8, GitHub licence API 2026-11-14)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T21:00Z",
+    "consent_receipt": "befc3661aa24",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T21:00Z (receipt befc3661aa24); selected commit 398f70b4abd8: \"feat(mru): add logical-tab recent switching and opt-in recovery\". LICENSE file at pin 398f70b4abd8 detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution."
+   }
+  }
+ ]
+}

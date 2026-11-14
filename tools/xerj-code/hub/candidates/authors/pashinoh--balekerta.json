@@ -1,0 +1,30 @@
+{
+ "corpus": "pashinoh--balekerta",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-vision, architecture, bali queries this for how Pashinoh/BaleKerta implements it: Otomatisasi pra-evaluasi PBG adat Bali dengan AI Vision dan aturan Sanga Mandala (selected work: frontend)",
+ "repos": [
+  {
+   "repo": "BaleKerta",
+   "url": "https://github.com/Pashinoh/BaleKerta",
+   "sha": "a7ae4a1085c3f59b9125d3a4b7a654a15fb95ad2",
+   "licence": "MIT (LICENSE file at pin a7ae4a1085c3, GitHub licence API 2026-11-14)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T14:23Z",
+    "consent_receipt": "0a07641df45d",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T14:23Z (receipt 0a07641df45d); selected commit a7ae4a1085c3: \"feat(map,canvas,pdf): add searchable location/coord dropdown, saved p\u2026\". LICENSE file at pin a7ae4a1085c3 detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Pashinoh, who has not added it."
+   },
+   "paths": [
+    "frontend/src/app",
+    "frontend/src/components/map",
+    "frontend/src/components/plan",
+    "frontend/src/components/result",
+    "frontend/src/lib"
+   ]
+  }
+ ]
+}

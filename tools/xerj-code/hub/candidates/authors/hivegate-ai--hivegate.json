@@ -1,0 +1,27 @@
+{
+ "corpus": "hivegate-ai--hivegate",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agno, ai-agents, anthropic queries this for how hivegate-ai/hivegate implements it: HiveGate AI agent runtime \u2014 run your Agno agents as a production REST API: per-user sessions and OAuth, human approval, multi-agent teams. ( (selected work: tests, api)",
+ "repos": [
+  {
+   "repo": "hivegate",
+   "url": "https://github.com/hivegate-ai/hivegate",
+   "sha": "97f784098ebdc26aaf36c17e45a7d79f68ace4b4",
+   "licence": "MIT (LICENSE file at pin 97f784098ebd, GitHub licence API 2026-11-14)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T14:38Z",
+    "consent_receipt": "3b08dee90daa",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T14:38Z (receipt 3b08dee90daa); selected commit 97f784098ebd: \"fix(api): return errors for failed model runs\". LICENSE file at pin 97f784098ebd detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @hivegate-ai, who has not added it."
+   },
+   "paths": [
+    "api",
+    "tests"
+   ]
+  }
+ ]
+}

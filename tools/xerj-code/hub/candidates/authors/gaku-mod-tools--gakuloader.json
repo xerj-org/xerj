@@ -1,0 +1,29 @@
+{
+ "corpus": "gaku-mod-tools--gakuloader",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how Gaku-Mod-Tools/GakuLoader implements it: Gaku-Mod-Tools/GakuLoader (C++) (selected work: the project root, src, tests)",
+ "repos": [
+  {
+   "repo": "GakuLoader",
+   "url": "https://github.com/Gaku-Mod-Tools/GakuLoader",
+   "sha": "0d18501f3eb2b157176c07de47f6857bb97e32e8",
+   "licence": "GPL-3.0 (LICENSE file at pin 0d18501f3eb2, GitHub licence API 2026-11-14)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-12T15:35Z",
+    "consent_receipt": "63eb44cedc7c",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T15:35Z (receipt 63eb44cedc7c); selected commit 0d18501f3eb2: \"fix: isolate loader root and route shell file drops\". LICENSE file at pin 0d18501f3eb2 detected as GPL-3.0 by the GitHub licence API on 2026-11-14; used under that licence with attribution. Pinned to head 0d18501f3eb2 (contains the selected commit): the LICENSE at the selected commit was MIT. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Gaku-Mod-Tools, who has not added it."
+   },
+   "paths": [
+    "docs",
+    "src",
+    "tests",
+    "wiki"
+   ]
+  }
+ ]
+}

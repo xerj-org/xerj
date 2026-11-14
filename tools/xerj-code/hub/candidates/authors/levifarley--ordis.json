@@ -1,0 +1,23 @@
+{
+ "corpus": "levifarley--ordis",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how levifarley/ordis implements it: Warframe Information & Combat Guide (selected work: backend, tests)",
+ "repos": [
+  {
+   "repo": "ordis",
+   "url": "https://github.com/levifarley/ordis",
+   "sha": "4321b68781d536e206fd613c763fd285aa37f934",
+   "licence": "MIT (LICENSE file at pin 4321b68781d5, GitHub licence API 2026-11-14)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T22:53Z",
+    "consent_receipt": "f3b459927293",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T22:53Z (receipt f3b459927293); selected commit 4321b68781d5: \"Fix provider failover and circuit breaker wiring; never store zero-ve\u2026\". LICENSE file at pin 4321b68781d5 detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution."
+   }
+  }
+ ]
+}

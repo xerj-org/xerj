@@ -1,0 +1,23 @@
+{
+ "corpus": "workwithcrow12-art--graph-routing-system",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on learning-project, maps, routing-algorithm queries this for how workwithcrow12-art/Graph-Routing-System implements it: Help you learn how Shortest Path Algorithm work (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "Graph-Routing-System",
+   "url": "https://github.com/workwithcrow12-art/Graph-Routing-System",
+   "sha": "2ac57e9eda84bff4714effeae6bd48f520eb88c3",
+   "licence": "MIT (LICENSE file at pin 2ac57e9eda84, GitHub licence API 2026-11-14)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T13:46Z",
+    "consent_receipt": "280b4383e4a3",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T13:46Z (receipt 280b4383e4a3); selected commit 2ac57e9eda84: \"Add files via upload\". LICENSE file at pin 2ac57e9eda84 detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution."
+   }
+  }
+ ]
+}

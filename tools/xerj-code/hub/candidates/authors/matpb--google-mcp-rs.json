@@ -1,0 +1,23 @@
+{
+ "corpus": "matpb--google-mcp-rs",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on claude, claude-desktop, gmail queries this for how matpb/google-mcp-rs implements it: Rust MCP server for Google Workspace (Gmail, Sheets, Drive, Docs, Calendar). Run it multi-tenant over streamable HTTP with full OAuth 2.1, o (selected work: src/mcp, src/google, src)",
+ "repos": [
+  {
+   "repo": "google-mcp-rs",
+   "url": "https://github.com/matpb/google-mcp-rs",
+   "sha": "14360f69de78266f9deb421502b2119744a78988",
+   "licence": "MIT (LICENSE file at pin 14360f69de78, GitHub licence API 2026-11-14)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T20:03Z",
+    "consent_receipt": "814a6e98f587",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T20:03Z (receipt 814a6e98f587); selected commit 14360f69de78: \"feat: Google Chat domain (opt-in, 15 tools)\". LICENSE file at pin 14360f69de78 detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution."
+   }
+  }
+ ]
+}

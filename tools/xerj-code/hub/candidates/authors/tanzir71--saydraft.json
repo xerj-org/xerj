@@ -1,0 +1,23 @@
+{
+ "corpus": "tanzir71--saydraft",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on dictation, offline, pyside6 queries this for how tanzir71/saydraft implements it: Local voice dictation for Windows. Speak messy. Paste polished. Offline speech recognition, cleanup, and a searchable Hub (selected work: saydraft, tests, tools)",
+ "repos": [
+  {
+   "repo": "saydraft",
+   "url": "https://github.com/tanzir71/saydraft",
+   "sha": "ccea652eddf52b16086bc1aafa729a00a6332aab",
+   "licence": "MIT (LICENSE file at pin ccea652eddf5, GitHub licence API 2026-11-14)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T18:53Z",
+    "consent_receipt": "6ea330ecd112",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T18:53Z (receipt 6ea330ecd112); selected commit ccea652eddf5: \"Apply shared app themes and preserve readable native controls\". LICENSE file at pin ccea652eddf5 detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution."
+   }
+  }
+ ]
+}

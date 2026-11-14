@@ -8,15 +8,15 @@
   {
    "repo": "Pneuma",
    "url": "https://github.com/jchristn/Pneuma",
-   "sha": "edf561a22bd9ca45b4cad2aa5c0e66d3514b16db",
-   "licence": "author's permission (LICENSE at pin edf561a22bd9: NONE; repository: none)",
+   "sha": "f2b6471a6add76dd2e7e1f6a3bc5ea40baa0f5e8",
+   "licence": "author's permission (LICENSE at pin f2b6471a6add: NONE; repository: none)",
    "review": {
     "spdx": "NONE",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T22:23Z",
     "consent_receipt": "f89189111a05",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:23Z (receipt f89189111a05); pinned to the default-branch head. LICENSE at pin edf561a22bd9: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:23Z (receipt f89189111a05); pinned to the default-branch head. LICENSE at pin f2b6471a6add: NONE (repository: none); used with the author's permission, with attribution."
    }
   }
  ]

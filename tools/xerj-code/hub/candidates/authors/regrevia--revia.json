@@ -1,0 +1,23 @@
+{
+ "corpus": "regrevia--revia",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-native, ai-agents, developer-tools queries this for how regrevia/Revia implements it: Agent-native executable language for AI-native development: Agents build programs; humans govern verifiable semantic graphs (selected work: scripts, test, the project root)",
+ "repos": [
+  {
+   "repo": "Revia",
+   "url": "https://github.com/regrevia/Revia",
+   "sha": "f7308578982c4933cac2421d892f3ab7e245333d",
+   "licence": "author's permission (LICENSE at pin f7308578982c: NOASSERTION; repository: MPL-2.0)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-12T22:41Z",
+    "consent_receipt": "b56b50173602",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T22:41Z (receipt b56b50173602); selected commit f7308578982c: \"fix(manifest): derive the import allowlist from one selection module\". LICENSE at pin f7308578982c: NOASSERTION (repository: MPL-2.0); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

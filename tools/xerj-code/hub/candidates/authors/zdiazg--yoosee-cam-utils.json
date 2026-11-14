@@ -1,0 +1,23 @@
+{
+ "corpus": "zdiazg--yoosee-cam-utils",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how zDiazG/yoosee-cam-utils implements it: Local ONVIF/RTSP tools and an optional authenticated HTTPS viewer for Yoosee cameras, with PTZ and manual FHD recording (selected work: src/yoosee_cam_utils, tests)",
+ "repos": [
+  {
+   "repo": "yoosee-cam-utils",
+   "url": "https://github.com/zDiazG/yoosee-cam-utils",
+   "sha": "e86c311ea9b02ec09c6a4b870e4bbd90ccdf7eec",
+   "licence": "GPL-3.0 (LICENSE file at pin e86c311ea9b0, GitHub licence API 2026-11-14)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-12T19:06Z",
+    "consent_receipt": "82c49f5a058f",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T19:06Z (receipt 82c49f5a058f); selected commit e86c311ea9b0: \"feat(viewer): add bounded cookie sessions and Watchpost login\". LICENSE file at pin e86c311ea9b0 detected as GPL-3.0 by the GitHub licence API on 2026-11-14; used under that licence with attribution. Pinned to head e86c311ea9b0 (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

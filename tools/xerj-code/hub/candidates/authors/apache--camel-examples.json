@@ -1,0 +1,26 @@
+{
+ "corpus": "apache--camel-examples",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on camel, integration, java queries this for how apache/camel-examples implements it: Apache Camel Examples (selected work: semantic-agent-routing, the project root)",
+ "repos": [
+  {
+   "repo": "camel-examples",
+   "url": "https://github.com/apache/camel-examples",
+   "sha": "309c0a987d409a27bf721edf54d91a7cb7fa76ba",
+   "licence": "Apache-2.0 (LICENSE file at pin 309c0a987d40, GitHub licence API 2026-11-14)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T14:59Z",
+    "consent_receipt": "1da854d1af4e",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T14:59Z (receipt 1da854d1af4e); selected commit 309c0a987d40: \"CAMEL-24977: Add semantic agent routing example with Camel A2A\". LICENSE file at pin 309c0a987d40 detected as Apache-2.0 by the GitHub licence API on 2026-11-14; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @apache, who has not added it."
+   },
+   "paths": [
+    "semantic-agent-routing"
+   ]
+  }
+ ]
+}

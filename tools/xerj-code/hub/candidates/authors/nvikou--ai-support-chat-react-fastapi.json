@@ -1,0 +1,23 @@
+{
+ "corpus": "nvikou--ai-support-chat-react-fastapi",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how nvikou/Ai-support-chat-react-fastapi implements it: ai-support-chat-react-fastapi is a complete solution that enables companies to automate 70\u201380% of their customer support tickets using AI. T (selected work: evaluation, the project root)",
+ "repos": [
+  {
+   "repo": "Ai-support-chat-react-fastapi",
+   "url": "https://github.com/nvikou/Ai-support-chat-react-fastapi",
+   "sha": "f371ee068ab5ccd6fce6f4539a745096018a84c2",
+   "licence": "MIT (LICENSE file at pin f371ee068ab5, GitHub licence API 2026-11-14)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T15:07Z",
+    "consent_receipt": "047d54533fcb",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T15:07Z (receipt 047d54533fcb); selected commit f371ee068ab5: \"feat(eval): wire offline run_eval with JSON Markdown and PNG reports\". LICENSE file at pin f371ee068ab5 detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution."
+   }
+  }
+ ]
+}

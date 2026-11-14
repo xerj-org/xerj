@@ -1,0 +1,23 @@
+{
+ "corpus": "sameralyaghn--winapi-atlas",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on detection-engineering, malapi, malware-analysis queries this for how sameralyaghn/winapi-atlas implements it: Modern MalAPI alternative: Interactive catalog of 721+ Windows APIs mapped to MITRE ATT&CK, Sysmon events, and ETW for SOC & Malware Analyst (selected work: js, css, tests)",
+ "repos": [
+  {
+   "repo": "winapi-atlas",
+   "url": "https://github.com/sameralyaghn/winapi-atlas",
+   "sha": "8c0bebb959bb4d2c022cf71f5817f2cfb7385139",
+   "licence": "MIT (LICENSE file at pin 8c0bebb959bb, GitHub licence API 2026-11-14)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T13:48Z",
+    "consent_receipt": "d4b2a7d7a4f9",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T13:48Z (receipt d4b2a7d7a4f9); selected commit 8c0bebb959bb: \"Enhance contribution dialog with API search functionality and detecti\u2026\". LICENSE file at pin 8c0bebb959bb detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution."
+   }
+  }
+ ]
+}

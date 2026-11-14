@@ -1,0 +1,23 @@
+{
+ "corpus": "rejoice-zx--agrimind",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Python queries this for how rejoice-zx/AgriMind implements it: \u57fa\u4e8e FastAPI + Vue 3 + Hybrid RAG\uff08FAISS + BM25\uff09\u7684\u519c\u4e1a\u667a\u80fd\u8f85\u52a9\u7cfb\u7edf\uff1a\u7ba1\u7406\u519c\u573a\u7530\u5757\u4e0e\u519c\u4e8b\u5c65\u5386\uff0c\u7ed3\u5408\u5929\u6c14\u3001\u79ef\u6e29\u3001\u77e5\u8bc6\u68c0\u7d22\u548c\u75c5\u5bb3\u56fe\u50cf\u521d\u8bca\u7ed9\u51fa\u5206\u6790\u5efa\u8bae\uff0c\u5e76\u652f\u6301\u519c\u6280\u4e13\u5bb6\u590d\u6838\u7b7e\u7f72\u3002 (selected work: frontend)",
+ "repos": [
+  {
+   "repo": "AgriMind",
+   "url": "https://github.com/rejoice-zx/AgriMind",
+   "sha": "b8ab5d2c2c5e2ad46a7cb4936c3306462add7781",
+   "licence": "MIT (LICENSE file at pin b8ab5d2c2c5e, GitHub licence API 2026-11-14)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T15:09Z",
+    "consent_receipt": "4494bc7bcc56",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T15:09Z (receipt 4494bc7bcc56); selected commit b8ab5d2c2c5e: \"feat(tests): integrate shared module for improved dependency manageme\u2026\". LICENSE file at pin b8ab5d2c2c5e detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution."
+   }
+  }
+ ]
+}

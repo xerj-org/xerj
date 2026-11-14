@@ -1,0 +1,28 @@
+{
+ "corpus": "makepad--relax",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how makepad/relax implements it: Relax Rust JIT (selected work: libs)",
+ "repos": [
+  {
+   "repo": "relax",
+   "url": "https://github.com/makepad/relax",
+   "sha": "1e0efa303de77f0bc4cc56ecdd7347b77eb963d4",
+   "licence": "MIT (LICENSE file at pin 1e0efa303de7, GitHub licence API 2026-11-14)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T11:38Z",
+    "consent_receipt": "c71b0ca63790",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T11:38Z (receipt c71b0ca63790); selected commit 1e0efa303de7: \"relax check: read a cached --allow-c build's script outputs (relax is\u2026\". LICENSE file at pin 1e0efa303de7 detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @makepad, who has not added it."
+   },
+   "paths": [
+    "libs/relax/compiler/src",
+    "libs/relax/compiler/tests/allow_c_cached_check",
+    "libs/relax/front/src"
+   ]
+  }
+ ]
+}

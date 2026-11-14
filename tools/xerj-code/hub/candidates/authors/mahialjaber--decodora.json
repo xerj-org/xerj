@@ -1,0 +1,23 @@
+{
+ "corpus": "mahialjaber--decodora",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on base64, blue-team, decoder queries this for how mahialjaber/Decodora implements it: Fast, offline PowerShell, Base64, Base85, Obfuscated URL & Hex decoder for security analysts. Runs 100% in the browser (selected work: css, js, the project root)",
+ "repos": [
+  {
+   "repo": "MiCode",
+   "url": "https://github.com/mahialjaber/MiCode",
+   "sha": "2a89073da0ee58cbfc147c25ee13af1e5641961b",
+   "licence": "MIT (LICENSE file at pin 2a89073da0ee, GitHub licence API 2026-11-14)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T16:34Z",
+    "consent_receipt": "cfa4c3cbfa4b",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T16:34Z (receipt cfa4c3cbfa4b); selected commit 2a89073da0ee: \"Add interactive pull cord lamp toggle for dark and light views\". LICENSE file at pin 2a89073da0ee detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution."
+   }
+  }
+ ]
+}
