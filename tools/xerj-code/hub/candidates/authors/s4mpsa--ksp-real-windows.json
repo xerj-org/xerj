@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on C# queries this for how S4mpsa/ksp-real-windows implements it: S4mpsa/ksp-real-windows (C#) (selected work: src, unity, GameData)",
+ "domain": "an agent working on C# queries this for how S4mpsa/ksp-real-windows implements it: Makes windows transparent in Kerbal Space Program, showing the interior from the outside (selected work: src, unity, GameData)",
  "repos": [
   {
    "repo": "ksp-real-windows",

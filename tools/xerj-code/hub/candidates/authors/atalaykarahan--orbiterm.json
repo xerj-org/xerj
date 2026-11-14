@@ -1,9 +1,9 @@
 {
- "corpus": "atalaykarahan--atalay-terminal",
+ "corpus": "atalaykarahan--orbiterm",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on claude-code, developer-tools, macos queries this for how atalaykarahan/atalay-terminal implements it: A HUD for running many Claude Code sessions on a Mac: live orbit map, a window per chat that keeps running, friends and levels (selected work: app/Resources, app/orbit, app/Sources)",
+ "domain": "an agent working on claude-code, developer-tools, macos queries this for how atalaykarahan/orbiterm implements it: A HUD for running many Claude Code sessions on a Mac: live orbit map, a window per chat that keeps running, friends and levels (selected work: app/Resources, app/orbit, app/Sources)",
  "repos": [
   {
    "repo": "atalay-terminal",

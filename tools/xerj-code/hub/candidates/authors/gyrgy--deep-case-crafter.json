@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on TypeScript queries this for how gyrgy/deep-case-crafter implements it: Transform deeply nested object, array, Map, and Set keys between common case formats while preserving TypeScript type safety (selected work: src/types, src/transform, src/dataTransformers)",
+ "domain": "an agent working on camelcase, case-conversion, object-keys queries this for how gyrgy/deep-case-crafter implements it: Convert object keys between camelCase and snake_case, deeply, with exact TypeScript types (selected work: src/types, src/transform, src/dataTransformers)",
  "repos": [
   {
    "repo": "deep-case-crafter",

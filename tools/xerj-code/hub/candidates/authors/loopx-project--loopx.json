@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agent-control-plane, ai-agents, codex queries this for how loopx-project/loopx implements it: Turn long-horizon goals into verifiable results. A local-first semantic control plane and research workbench for long-running agent teams, a (selected work: tests, loopx, apps/presentation)",
+ "domain": "an agent working on agent-control-plane, ai-agents, codex queries this for how loopx-project/loopx implements it: Turn long-horizon goals into verifiable results. A local-first semantic control plane and research workbench for long-running agent teams, a (selected work: tests, loopx)",
  "repos": [
   {
    "repo": "loopx",
    "url": "https://github.com/loopx-project/loopx",
-   "sha": "cb06759c3e0c409bdf9ab9ce671366a39933aa94",
-   "licence": "author's permission (LICENSE at pin cb06759c3e0c: NOASSERTION; repository: Apache-2.0)",
+   "sha": "92b5692c501eb1ddb2c56a5932420d59d6f3cc99",
+   "licence": "author's permission (LICENSE at pin 92b5692c501e: NOASSERTION; repository: Apache-2.0)",
    "review": {
     "spdx": "NOASSERTION",
     "use": "adapt-with-attribution",
     "by": "author-consent",
-    "at": "2026-10-17T23:05Z",
-    "consent_receipt": "97833c23669f",
-    "note": "Inclusion consented by the commit author by email at 2026-10-17T23:05Z (receipt 97833c23669f); selected commit cb06759c3e0c: \"refactor(work-items): compose whole-Goal task maps in TypeScript (#6602)\". LICENSE at pin cb06759c3e0c: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @loopx-project, who has not added it."
+    "at": "2026-11-11T15:58Z",
+    "consent_receipt": "3b8516155eb6",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T15:58Z (receipt 3b8516155eb6); selected commit 92b5692c501e: \"fix(runtime): enforce private IO and preserve Windows long paths\". LICENSE at pin 92b5692c501e: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @loopx-project, who has not added it."
    },
    "paths": [
     "apps/presentation/dashboard/docs/assets/goal-map-readback",

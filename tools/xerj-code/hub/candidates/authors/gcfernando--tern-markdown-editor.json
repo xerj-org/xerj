@@ -8,15 +8,15 @@
   {
    "repo": "tern-markdown-editor",
    "url": "https://github.com/gcfernando/tern-markdown-editor",
-   "sha": "853941870b7c10e1e0a762cb61bfb44a33134c71",
-   "licence": "MIT (LICENSE file at pin 853941870b7c, GitHub licence API 2026-11-05)",
+   "sha": "a31d2c12202d0ca110aed64fc7e4b90cfe227fb8",
+   "licence": "MIT (LICENSE file at pin a31d2c12202d, GitHub licence API 2026-11-14)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-04T07:40Z",
     "consent_receipt": "d8e54519a6e1",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-04T07:40Z (receipt d8e54519a6e1); pinned to the default-branch head. LICENSE file at pin 853941870b7c detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-04T07:40Z (receipt d8e54519a6e1); pinned to the default-branch head. LICENSE file at pin a31d2c12202d detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution."
    }
   }
  ]

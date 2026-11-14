@@ -8,15 +8,15 @@
   {
    "repo": "8d-audio-converter",
    "url": "https://github.com/gcfernando/8d-audio-converter",
-   "sha": "89a402e9470e96c9ef9e9c9ffbaecd6b67793787",
-   "licence": "MIT (LICENSE file at pin 89a402e9470e, GitHub licence API 2026-10-31)",
+   "sha": "dd01f043626e615f688062c65643cdd0baba78df",
+   "licence": "MIT (LICENSE file at pin dd01f043626e, GitHub licence API 2026-11-14)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T19:31Z",
     "consent_receipt": "0ec766fa81b0",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T19:31Z (receipt 0ec766fa81b0); pinned to the default-branch head. LICENSE file at pin 89a402e9470e detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T19:31Z (receipt 0ec766fa81b0); pinned to the default-branch head. LICENSE file at pin dd01f043626e detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution."
    }
   }
  ]

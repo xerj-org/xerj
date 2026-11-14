@@ -8,15 +8,15 @@
   {
    "repo": "x402-pilot",
    "url": "https://github.com/DrVelvetFog/x402-pilot",
-   "sha": "91638c81370ea208459c1b11a039a0b58fd6405f",
-   "licence": "Apache-2.0 (LICENSE file at pin 91638c81370e, GitHub licence API 2026-11-14)",
+   "sha": "cb09d1e434cc33bd15398989872af2eb16232218",
+   "licence": "Apache-2.0 (LICENSE file at pin cb09d1e434cc, GitHub licence API 2026-11-14)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-14T13:45Z",
     "consent_receipt": "31fa5593ee0a",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-14T13:45Z (receipt 31fa5593ee0a); pinned to the default-branch head. LICENSE file at pin 91638c81370e detected as Apache-2.0 by the GitHub licence API on 2026-11-14; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-14T13:45Z (receipt 31fa5593ee0a); pinned to the default-branch head. LICENSE file at pin cb09d1e434cc detected as Apache-2.0 by the GitHub licence API on 2026-11-14; used under that licence with attribution."
    }
   }
  ]
