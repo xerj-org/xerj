@@ -2882,7 +2882,14 @@ pub async fn ingest_with_pipeline(
     {
         Ok(p) => p,
         Err(e) => {
-            let ze = xerj_common::XerjError::internal(e.to_string());
+            // Issue #3174: a non-object document is malformed input (400),
+            // not an internal failure.
+            let ze = match &e {
+                xerj_wasm::WasmError::NonObjectDocument(_) => {
+                    xerj_common::XerjError::invalid_document_json(e.to_string())
+                }
+                _ => xerj_common::XerjError::internal(e.to_string()),
+            };
             return native_error(ze, Some(&request_id), started.elapsed().as_millis() as u64)
                 .into_response();
         }
