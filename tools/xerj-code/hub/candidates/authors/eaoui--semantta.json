@@ -2,8 +2,8 @@
  "corpus": "eaoui--semantta",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Python queries this for how eaoui/semantta implements it: An Ontology-Based Linked Data Management System (selected work: backend, frontend)",
+ "shelf": "WEB",
+ "domain": "an agent working on linked-data-platform, metadata, metadata-management queries this for how eaoui/semantta implements it: An Ontology-Based Linked Data Management System (selected work: backend, frontend)",
  "repos": [
   {
    "repo": "semantta",

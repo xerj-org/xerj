@@ -8,15 +8,15 @@
   {
    "repo": "kiln",
    "url": "https://github.com/MTegarPamungkas/kiln",
-   "sha": "6da2d491ef1d4ded468c33c470207fedea6f1237",
-   "licence": "MIT (LICENSE file at pin 6da2d491ef1d, GitHub licence API 2026-11-14)",
+   "sha": "d845a2a2c9858d07311d28b868d9ff74677c0fc5",
+   "licence": "MIT (LICENSE file at pin d845a2a2c985, GitHub licence API 2026-11-14)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-04T06:42Z",
     "consent_receipt": "a594d0e59589",
-    "note": "Inclusion consented by the commit author by email at 2026-11-04T06:42Z (receipt a594d0e59589); pinned to the default-branch head. LICENSE file at pin 6da2d491ef1d detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-11-04T06:42Z (receipt a594d0e59589); pinned to the default-branch head. LICENSE file at pin d845a2a2c985 detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution."
    }
   }
  ]

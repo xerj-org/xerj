@@ -8,15 +8,15 @@
   {
    "repo": "agent-checks",
    "url": "https://github.com/Egoushka/agent-checks",
-   "sha": "c6798be581a9992016dfd1cef551c275da69d305",
-   "licence": "MIT (LICENSE file at pin c6798be581a9, GitHub licence API 2026-11-08)",
+   "sha": "3feac29131a43e38c7829dda8d94737fcd3dd7ba",
+   "licence": "MIT (LICENSE file at pin 3feac29131a4, GitHub licence API 2026-11-14)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-07T15:00Z",
     "consent_receipt": "e3db5e62a1df",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-07T15:00Z (receipt e3db5e62a1df); pinned to the default-branch head. LICENSE file at pin c6798be581a9 detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-07T15:00Z (receipt e3db5e62a1df); pinned to the default-branch head. LICENSE file at pin 3feac29131a4 detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution."
    }
   }
  ]

@@ -1,0 +1,23 @@
+{
+ "corpus": "codebyangelo--project-lobster",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how codebyangelo/project-lobster implements it: A context-aware security sidecar that protects AI agents from logic attacks using a hybrid architecture of local \"Iron Dome\" rules and Gemin",
+ "repos": [
+  {
+   "repo": "project-lobster",
+   "url": "https://github.com/codebyangelo/project-lobster",
+   "sha": "39f758d6e01c731e9eb337318b1c73fe6c5761e0",
+   "licence": "Apache-2.0 (LICENSE file at pin 39f758d6e01c, GitHub licence API 2026-11-14)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T14:00Z",
+    "consent_receipt": "4379f0ad8df6",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T14:00Z (receipt 4379f0ad8df6); pinned to the default-branch head. LICENSE file at pin 39f758d6e01c detected as Apache-2.0 by the GitHub licence API on 2026-11-14; used under that licence with attribution."
+   }
+  }
+ ]
+}

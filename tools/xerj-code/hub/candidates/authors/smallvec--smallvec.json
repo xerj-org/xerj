@@ -8,15 +8,15 @@
   {
    "repo": "rust-smallvec",
    "url": "https://github.com/servo/rust-smallvec",
-   "sha": "33f4d6f80db8de96234db14400e17e2e20b3bbd5",
-   "licence": "MIT (LICENSE file at pin 33f4d6f80db8, GitHub licence API 2026-11-14)",
+   "sha": "e635ef340602c268ff8401e29fe9659068af2ba9",
+   "licence": "MIT (LICENSE file at pin e635ef340602, GitHub licence API 2026-11-14)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-31T15:22Z",
     "consent_receipt": "844d8d0172b4",
-    "note": "Inclusion consented by the commit author by email at 2026-10-31T15:22Z (receipt 844d8d0172b4); selected commit 33f4d6f80db8: \"Replace into_raw_parts/from_raw_parts with into_parts/from_parts (#821)\". LICENSE file at pin 33f4d6f80db8 detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution. Pinned to head 33f4d6f80db8 (contains the selected commit): the LICENSE at the selected commit was NOASSERTION. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @servo, who has not added it."
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T15:22Z (receipt 844d8d0172b4); selected commit e635ef340602: \"Replace into_raw_parts/from_raw_parts with into_parts/from_parts (#821)\". LICENSE file at pin e635ef340602 detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution. Pinned to head e635ef340602 (contains the selected commit): the LICENSE at the selected commit was NOASSERTION. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @servo, who has not added it."
    },
    "paths": [
     "src",

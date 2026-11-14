@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai, ai-assisted-development, context-management queries this for how gravion-ux/context-bridge implements it: Create privacy-conscious Markdown handoffs that carry an AI-assisted coding session forward",
+ "domain": "an agent working on ai, ai-assisted-development, context-management queries this for how gravion-ux/context-bridge implements it: A VS Code extension that writes privacy-conscious Markdown handoffs, with secret redaction built in",
  "repos": [
   {
    "repo": "context-bridge",

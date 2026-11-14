@@ -8,15 +8,15 @@
   {
    "repo": "dotfiles",
    "url": "https://github.com/nisavid/dotfiles",
-   "sha": "4b70b263a62a2943dbafe8ff506d6906aa4865f8",
-   "licence": "Unlicense (LICENSE file at pin 4b70b263a62a, GitHub licence API 2026-11-14)",
+   "sha": "69fcaa3e2d39842698774816e8d5c9d66dd69db0",
+   "licence": "Unlicense (LICENSE file at pin 69fcaa3e2d39, GitHub licence API 2026-11-14)",
    "review": {
     "spdx": "Unlicense",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-06T21:16Z",
     "consent_receipt": "27d25159a2c2",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T21:16Z (receipt 27d25159a2c2); pinned to the default-branch head. LICENSE file at pin 4b70b263a62a detected as Unlicense by the GitHub licence API on 2026-11-14; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-06T21:16Z (receipt 27d25159a2c2); pinned to the default-branch head. LICENSE file at pin 69fcaa3e2d39 detected as Unlicense by the GitHub licence API on 2026-11-14; used under that licence with attribution."
    }
   }
  ]
