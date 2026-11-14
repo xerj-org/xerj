@@ -371,18 +371,10 @@ fn d_sample() -> usize {
 
 /// A slug becomes a filename component in the content store
 /// (`<slug>.<key>.json`), so it is gated to a safe charset the way corpus
-/// and repo names are — but locally, because slugs are a builder concept.
+/// and repo names are. The gate lives in `xccode::pathgate` so the pack
+/// consume path shares it (#3166): one rule, builder and consumer.
 fn valid_slug(slug: &str) -> Result<()> {
-    let ok = !slug.is_empty()
-        && slug.len() <= 64
-        && slug
-            .chars()
-            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.')
-        && !slug.starts_with('.');
-    if !ok {
-        bail!("source slug '{slug}' must be 1-64 chars of [A-Za-z0-9._-], not starting with '.'");
-    }
-    Ok(())
+    xerj_common::xccode::pathgate::valid_slug(slug).map_err(anyhow::Error::msg)
 }
 
 /// Read, validate and compile a recipe. Every error names the file and the
