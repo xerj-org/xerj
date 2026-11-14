@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- A boolean field in `query_string` matched nothing once combined with another clause (issue [#3171](https://github.com/xerj-org/xerj/issues/3171)). Two causes, both fixed: the lenient exemption that keeps a `match` from rewriting to a `term` applied to boolean fields as well as numeric ones, so every lenient boolean clause (and `query_string` is lenient by default) stayed a `match`; and the stored-doc scan's `match` predicate had no arm for a JSON boolean value, so it never matched there. `tag:red AND active:false` on the issue's 300-doc index now returns 41 (was 0), `NOT active:true` 163 (was 300), `active:false OR tag:red` 199 (was 77), on `_search` and `_count`, before and after `_flush`. The lenient exemption for numeric fields (#1284) is unchanged.
+
 ## [1.0.0-rc.102] - 2026-11-06
 
 <!-- notes-exempt: #2971 #2972 #2976 #2978 #2980 #2990 #3032 #3034 (site, blog, donation and README/AGENTS pages only, no shipped-binary change) -->

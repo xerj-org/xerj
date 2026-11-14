@@ -53271,6 +53271,16 @@ pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Sc
                 .and_then(|v| match v {
                     Value::String(s) => Some(count_matched(&tokenize(&s)) >= need),
                     Value::Number(n) => Some(count_matched(&[n.to_string()]) >= need),
+                    // A boolean field's `_source` value is a genuine JSON
+                    // `Bool`, never a `String`: without this arm it fell to
+                    // the `_ => None` catch-all and a `match` on a boolean
+                    // field NEVER matched in the stored-doc scan (#3171).
+                    // The same gap the `MatchPhrase` arm below already
+                    // closes for its own predicate. The rendering is the
+                    // same spelling every other path uses for the value
+                    // ("true"/"false": the FTS postings, the doc-values
+                    // column, `json_values_equal`).
+                    Value::Bool(b) => Some(count_matched(&[b.to_string()]) >= need),
                     Value::Array(arr) => {
                         // Multi-valued field: combine all element tokens into
                         // one stream, then apply the threshold (operator/msm-
@@ -53280,6 +53290,7 @@ pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Sc
                             match elem {
                                 Value::String(s) => combined.extend(tokenize(s)),
                                 Value::Number(n) => combined.push(n.to_string()),
+                                Value::Bool(b) => combined.push(b.to_string()),
                                 _ => {}
                             }
                         }
@@ -53307,6 +53318,9 @@ pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Sc
                                 }
                                 Value::Number(n) => {
                                     out.push(n.to_string());
+                                }
+                                Value::Bool(b) => {
+                                    out.push(b.to_string());
                                 }
                                 Value::Array(arr) => {
                                     for e in arr {
