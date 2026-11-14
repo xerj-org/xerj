@@ -8,15 +8,15 @@
   {
    "repo": "PyHealth",
    "url": "https://github.com/sunlabuiuc/PyHealth",
-   "sha": "6ee17457a7d6374dcb599bc82b63736858b721f7",
-   "licence": "MIT (LICENSE file at pin 6ee17457a7d6, GitHub licence API 2026-11-14)",
+   "sha": "2c30cdf7e306592e0170dc8abe5996a05902ae16",
+   "licence": "MIT (LICENSE file at pin 2c30cdf7e306, GitHub licence API 2026-11-14)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-01T03:50Z",
     "consent_receipt": "8383ab8ea609",
-    "note": "Inclusion consented by the commit author by email at 2026-11-01T03:50Z (receipt 8383ab8ea609); selected commit 6ee17457a7d6: \"Implemented hits@k with a configurable cutoff in multiclass_metrics_f\u2026\". LICENSE file at pin 6ee17457a7d6 detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution. Pinned to head 6ee17457a7d6 (contains the selected commit): the LICENSE at the selected commit was NOASSERTION. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @sunlabuiuc, who has not added it."
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T03:50Z (receipt 8383ab8ea609); selected commit 2c30cdf7e306: \"Implemented hits@k with a configurable cutoff in multiclass_metrics_f\u2026\". LICENSE file at pin 2c30cdf7e306 detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution. Pinned to head 2c30cdf7e306 (contains the selected commit): the LICENSE at the selected commit was NOASSERTION. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @sunlabuiuc, who has not added it."
    },
    "paths": [
     "docs/api/metrics",

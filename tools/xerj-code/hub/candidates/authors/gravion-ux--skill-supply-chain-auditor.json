@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "SEC",
- "domain": "an agent working on appsec, dependencies, javascript queries this for how gravion-ux/skill-supply-chain-auditor implements it: Audits npm package dependency graphs for leaked tokens, typosquatting, and supply-chain risk. Zero runtime dependencies",
+ "domain": "an agent working on appsec, dependencies, javascript queries this for how gravion-ux/skill-supply-chain-auditor implements it: Audits agent skill packages for prompt injection, unsafe shell, obfuscated payloads, embedded secrets, unpinned dependencies",
  "repos": [
   {
    "repo": "skill-supply-chain-auditor",

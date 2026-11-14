@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on grand-theft-auto, gta-stories, reverse-engineering queries this for how spicybung/Storyland implements it: Modding tool & editing suite for R* Leeds Engine games, i.e Grand Theft Auto: Stories series, GTA: Chinatown Wars, Manhunt 2 (selected work: src/storyland)",
+ "domain": "an agent working on grand-theft-auto, gta-stories, reverse-engineering queries this for how spicybung/Storyland implements it: Modding tools, editing suite, and engine for R* Leeds games, i.e Grand Theft Auto: Stories series, Chinatown Wars, Manhunt 2 (selected work: src/storyland)",
  "repos": [
   {
    "repo": "Storyland",

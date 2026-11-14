@@ -8,15 +8,15 @@
   {
    "repo": "frameseek",
    "url": "https://github.com/MagiMigi/frameseek",
-   "sha": "fcb8052536030813762e9bb21691993e6247bb55",
-   "licence": "MIT (LICENSE file at pin fcb805253603, GitHub licence API 2026-11-05)",
+   "sha": "23a994e48ffbf39763395abe7f43017c825768b5",
+   "licence": "MIT (LICENSE file at pin 23a994e48ffb, GitHub licence API 2026-11-14)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-30T07:48Z",
     "consent_receipt": "08e27570001f",
-    "note": "Inclusion consented by the commit author by email at 2026-10-30T07:48Z (receipt 08e27570001f); selected commit fcb805253603: \"Add the seek bar to stories\". LICENSE file at pin fcb805253603 detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution. Pinned to head fcb805253603 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T07:48Z (receipt 08e27570001f); selected commit 23a994e48ffb: \"Add the seek bar to stories\". LICENSE file at pin 23a994e48ffb detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution. Pinned to head 23a994e48ffb (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]
