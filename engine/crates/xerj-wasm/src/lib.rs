@@ -85,6 +85,15 @@ pub enum WasmError {
     #[error("pipeline '{pipeline}' is registered but cannot run: {reason}")]
     PipelineNotRunnable { pipeline: String, reason: String },
 
+    /// A document handed to a pipeline was not a JSON object, so no stage
+    /// could run on it. Issue #3174: `set` / `add_field` index into the
+    /// document root with `doc[field] = ...`, and `serde_json` `IndexMut`
+    /// panics on a non-object root; the release profile aborts on panic, so
+    /// one malformed document killed the whole node instead of a 400.
+    /// The payload names the JSON kind the caller actually sent.
+    #[error("document must be a JSON object, got {0}")]
+    NonObjectDocument(String),
+
     #[error("plugin error in '{plugin}': {reason}")]
     PluginError { plugin: String, reason: String },
 

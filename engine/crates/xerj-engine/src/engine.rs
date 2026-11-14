@@ -5135,6 +5135,27 @@ impl Engine {
             }
         })?;
 
+        // Issue #3174: `set` / `add_field` index into the document root
+        // with `doc[field] = ...`, and `serde_json` `IndexMut` panics on a
+        // non-object root. The release profile aborts on panic, so one
+        // malformed document killed the whole node instead of returning a
+        // 400. Refuse here, before any stage runs: this is the single guard
+        // for every caller (the single-doc routes, the `_bulk` create
+        // branch, the native ingest route, reindex, `_update_by_query`).
+        for doc in &docs {
+            if !doc.is_object() {
+                let kind = match doc {
+                    Value::Null => "null",
+                    Value::Bool(_) => "boolean",
+                    Value::Number(_) => "number",
+                    Value::String(_) => "string",
+                    Value::Array(_) => "array",
+                    Value::Object(_) => "object",
+                };
+                return Err(xerj_wasm::WasmError::NonObjectDocument(kind.to_string()));
+            }
+        }
+
         let actions = pipeline.process_batch(&mut docs);
         Ok(actions.into_iter().zip(docs).collect())
     }
