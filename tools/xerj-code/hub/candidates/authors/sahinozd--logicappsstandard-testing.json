@@ -1,0 +1,23 @@
+{
+ "corpus": "sahinozd--logicappsstandard-testing",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how sahinozd/LogicAppsStandard.Testing implements it: This solution is an Azure Logic Apps Standard management and integration testing framework. It's a reusable toolkit that lets teams write au (selected work: tests, source)",
+ "repos": [
+  {
+   "repo": "LogicAppsStandard.Testing",
+   "url": "https://github.com/sahinozd/LogicAppsStandard.Testing",
+   "sha": "9ccfead49fd66c613631f2c551d66f4e19bcbc01",
+   "licence": "MIT (LICENSE file at pin 9ccfead49fd6, GitHub licence API 2026-11-14)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T12:31Z",
+    "consent_receipt": "3c99ea8dd665",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T12:31Z (receipt 3c99ea8dd665); selected commit 9ccfead49fd6: \"Support authenticating with an Azure DevOps service connection and ot\u2026\". LICENSE file at pin 9ccfead49fd6 detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution."
+   }
+  }
+ ]
+}

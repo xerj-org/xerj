@@ -1,0 +1,23 @@
+{
+ "corpus": "andrey-rublev--geoguessr-ai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on clip, computer-vision, geoguessr queries this for how andrey-rublev/geoguessr-AI implements it: A self-trained geolocation AI that plays OpenGuessr by watching your screen and controlling your mouse (selected work: src/geoguessr_ai, tests, scripts)",
+ "repos": [
+  {
+   "repo": "geoguessr-AI",
+   "url": "https://github.com/andrey-rublev/geoguessr-AI",
+   "sha": "63200a3b569829d78d4dbaac4c0a34979a6ea65f",
+   "licence": "MIT (LICENSE file at pin 63200a3b5698, GitHub licence API 2026-11-14)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T20:02Z",
+    "consent_receipt": "d762731f148c",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T20:02Z (receipt d762731f148c); selected commit 63200a3b5698: \"Named models to choose from, Zeus, Hermes and Apollo, and a speed mode\". LICENSE file at pin 63200a3b5698 detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "dragonyx118--segmasirra",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on arduino, automation, esp32 queries this for how Dragonyx118/SegmaSirra implements it: Completly automated green house with one Esp32-WROOM-32, entierly self sustained by solar energy. Controller from a dedicated application fr (selected work: firmware)",
+ "repos": [
+  {
+   "repo": "SegmaSirra",
+   "url": "https://github.com/Dragonyx118/SegmaSirra",
+   "sha": "5c128de274b53fffaf9351d40d41932a500c3cb8",
+   "licence": "MIT (LICENSE file at pin 5c128de274b5, GitHub licence API 2026-11-14)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T22:33Z",
+    "consent_receipt": "e273ff08d31b",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T22:33Z (receipt e273ff08d31b); selected commit 5c128de274b5: \"Added final firmware with gianb's wifi\". LICENSE file at pin 5c128de274b5 detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution."
+   }
+  }
+ ]
+}

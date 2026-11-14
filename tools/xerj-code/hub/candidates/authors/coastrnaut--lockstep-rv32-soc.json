@@ -1,0 +1,23 @@
+{
+ "corpus": "coastrnaut--lockstep-rv32-soc",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on VHDL queries this for how Coastrnaut/lockstep-rv32-soc implements it: Coastrnaut/lockstep-rv32-soc (VHDL) (selected work: sim, rtl, config)",
+ "repos": [
+  {
+   "repo": "lockstep-rv32-soc",
+   "url": "https://github.com/Coastrnaut/lockstep-rv32-soc",
+   "sha": "057c63955f2c7767ad4c1b6615b3dd4493139927",
+   "licence": "BSD-3-Clause (LICENSE file at pin 057c63955f2c, GitHub licence API 2026-11-14)",
+   "review": {
+    "spdx": "BSD-3-Clause",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T23:27Z",
+    "consent_receipt": "e422afc3f4ef",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T23:27Z (receipt e422afc3f4ef); selected commit 057c63955f2c: \"feat(can): receive frames from other nodes\". LICENSE file at pin 057c63955f2c detected as BSD-3-Clause by the GitHub licence API on 2026-11-14; used under that licence with attribution."
+   }
+  }
+ ]
+}

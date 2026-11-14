@@ -1,0 +1,31 @@
+{
+ "corpus": "dinithrathnayaka23--swiftdrop",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Java queries this for how dinithrathnayaka23/swiftdrop implements it: Parcel Delivery and Courier Management System (selected work: backend, the project root)",
+ "repos": [
+  {
+   "repo": "swiftdrop",
+   "url": "https://github.com/dinithrathnayaka23/swiftdrop",
+   "sha": "aad55532edd98f6cc2cd04510057db2d3896f5c1",
+   "licence": "MIT (LICENSE file at pin aad55532edd9, GitHub licence API 2026-11-14)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T18:18Z",
+    "consent_receipt": "fdbf40b003eb",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T18:18Z (receipt fdbf40b003eb); selected commit aad55532edd9: \"feat(assistant): fall back to OpenRouter and Grok when the main model\u2026\". LICENSE file at pin aad55532edd9 detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @dinithrathnayaka23, who has not added it."
+   },
+   "paths": [
+    "backend/src/main/java/com/swiftdrop/assistant/config",
+    "backend/src/main/java/com/swiftdrop/assistant/llm",
+    "backend/src/main/resources",
+    "backend/src/test/java/com/swiftdrop/assistant/config",
+    "backend/src/test/java/com/swiftdrop/assistant/llm",
+    "docs"
+   ]
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "hishamsam--idea2app",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-skill, ai-coding, claude-code queries this for how hishamsam/idea2app implements it: Structured vibe coding: idea \u2192 PRD \u2192 UI design \u2192 code \u2192 test \u2192 handoff. Agent skill for OpenCode, Claude Code, Codex, Cursor and Gemini CLI (selected work: skrip, the project root, templat)",
+ "repos": [
+  {
+   "repo": "idea2app",
+   "url": "https://github.com/hishamsam/idea2app",
+   "sha": "b62024e4b388e95ea114debba738cb9e64e59b9a",
+   "licence": "MIT (LICENSE file at pin b62024e4b388, GitHub licence API 2026-11-14)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T12:06Z",
+    "consent_receipt": "22922f467e93",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T12:06Z (receipt 22922f467e93); selected commit b62024e4b388: \"feat: bootstrap preflight, per-project git, module tests, security gate\". LICENSE file at pin b62024e4b388 detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution."
+   }
+  }
+ ]
+}

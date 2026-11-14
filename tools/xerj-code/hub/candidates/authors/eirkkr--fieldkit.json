@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Python queries this for how eirkkr/fieldkit implements it: Shared dev conventions, tooling, and reusable assets across my repos (selected work: scripts, statusline, the project root)",
+ "domain": "an agent working on Shell queries this for how eirkkr/fieldkit implements it: Shared dev conventions, tooling, and reusable assets across my repos (selected work: scripts, statusline, the project root)",
  "repos": [
   {
    "repo": "fieldkit",

@@ -1,0 +1,23 @@
+{
+ "corpus": "akshaysharma1088--dataranger",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on benchmark, conformal-prediction, data-cleaning queries this for how akshaysharma1088/dataranger implements it: Data-quality repair agent that fixes what it can prove. Every fix is tested on a copy against the source\u2019s control totals, and a calibrated  (selected work: src/dataranger, tests, the project root)",
+ "repos": [
+  {
+   "repo": "dataranger",
+   "url": "https://github.com/akshaysharma1088/dataranger",
+   "sha": "e03243447728932b63f823b354ed2091d2348f56",
+   "licence": "MIT (LICENSE file at pin e03243447728, GitHub licence API 2026-11-14)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T19:55Z",
+    "consent_receipt": "f402ea26f5ce",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T19:55Z (receipt f402ea26f5ce); selected commit e03243447728: \"Add an MCP server so AI agents can patrol data before they trust it\". LICENSE file at pin e03243447728 detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution."
+   }
+  }
+ ]
+}

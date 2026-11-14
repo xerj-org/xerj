@@ -1,0 +1,23 @@
+{
+ "corpus": "jackspence7--civswitch-serialbridge",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on Python queries this for how jackspence7/CivSwitch-SerialBridge implements it: ESP32 serial bridge for CivSwitch.. (or raspberry pi)..send payloads to your Switch over USB without taking your PC off its network. The ESP (selected work: pi-bridge)",
+ "repos": [
+  {
+   "repo": "CivSwitch-SerialBridge",
+   "url": "https://github.com/jackspence7/CivSwitch-SerialBridge",
+   "sha": "fdd0d4a5d7fb0ceea6a5aaf947f0f9144fbf92e9",
+   "licence": "MIT (LICENSE file at pin fdd0d4a5d7fb, GitHub licence API 2026-11-14)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T22:02Z",
+    "consent_receipt": "6a9f7a18522c",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T22:02Z (receipt 6a9f7a18522c); selected commit fdd0d4a5d7fb: \"Add Raspberry Pi all-in-one bridge\". LICENSE file at pin fdd0d4a5d7fb detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution."
+   }
+  }
+ ]
+}

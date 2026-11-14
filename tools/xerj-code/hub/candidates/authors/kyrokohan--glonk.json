@@ -1,0 +1,23 @@
+{
+ "corpus": "kyrokohan--glonk",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on 3d, ascii, game-engine queries this for how kyrokohan/glonk implements it: A terminal rendering engine for Go: 2D, 3D, or both in one frame (selected work: bitmap, engine)",
+ "repos": [
+  {
+   "repo": "glonk",
+   "url": "https://github.com/kyrokohan/glonk",
+   "sha": "d0260d5b73cc5f59556612d8248a67354d8d7eb7",
+   "licence": "MIT (LICENSE file at pin d0260d5b73cc, GitHub licence API 2026-11-14)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T17:39Z",
+    "consent_receipt": "cabaef3f6649",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T17:39Z (receipt cabaef3f6649); selected commit d0260d5b73cc: \"feat: add a bitmap package to draw pictures on the canvas\". LICENSE file at pin d0260d5b73cc detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution."
+   }
+  }
+ ]
+}

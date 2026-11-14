@@ -1,0 +1,23 @@
+{
+ "corpus": "karthus3560--monster-hunter-stories-2-trainer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on csharp, dotnet, game-trainer queries this for how Karthus3560/monster-hunter-stories-2-trainer implements it: Kinship Studio \u2014 native Camp-menu mods for Monster Hunter Stories 2. Windows launcher, Steam detection, battles, exploration, rewards, egg h (selected work: native, the project root, scripts)",
+ "repos": [
+  {
+   "repo": "monster-hunter-stories-2-trainer",
+   "url": "https://github.com/Karthus3560/monster-hunter-stories-2-trainer",
+   "sha": "3ccf00076ce54fc3853e3eb563c075cadf18bdc1",
+   "licence": "MIT (LICENSE file at pin 3ccf00076ce5, GitHub licence API 2026-11-14)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T21:25Z",
+    "consent_receipt": "489696f757f6",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T21:25Z (receipt 489696f757f6); selected commit 3ccf00076ce5: \"Publish native Studio launcher source, release guide and redesigned d\u2026\". LICENSE file at pin 3ccf00076ce5 detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution."
+   }
+  }
+ ]
+}

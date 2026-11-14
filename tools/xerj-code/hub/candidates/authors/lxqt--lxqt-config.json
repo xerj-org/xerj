@@ -1,0 +1,26 @@
+{
+ "corpus": "lxqt--lxqt-config",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how lxqt/lxqt-config implements it: Tools to configure LXQt and the underlying operating system (selected work: lxqt-config-monitor)",
+ "repos": [
+  {
+   "repo": "lxqt-config",
+   "url": "https://github.com/lxqt/lxqt-config",
+   "sha": "86a8e30dcdfe4455a1c9d9294734fdbeaff64b39",
+   "licence": "LGPL-2.1 (LICENSE file at pin 86a8e30dcdfe, GitHub licence API 2026-11-14)",
+   "review": {
+    "spdx": "LGPL-2.1",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-12T16:56Z",
+    "consent_receipt": "539a4de2fda6",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T16:56Z (receipt 539a4de2fda6); selected commit 86a8e30dcdfe: \"lxqt-config-monitor: Add native X11 backend\". LICENSE file at pin 86a8e30dcdfe detected as LGPL-2.1 by the GitHub licence API on 2026-11-14; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @lxqt, who has not added it."
+   },
+   "paths": [
+    "lxqt-config-monitor"
+   ]
+  }
+ ]
+}

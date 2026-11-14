@@ -22,6 +22,7 @@
     "config/boards",
     "patch/kernel/archive/rockchip64-6.18/dt",
     "patch/kernel/archive/rockchip64-7.3/dt",
+    "patch/kernel/archive/sunxi-7.3",
     "patch/u-boot/v2026.07/defconfig",
     "patch/u-boot/v2026.07/dt_uboot",
     "patch/u-boot/v2026.07/dt_upstream_rockchip"

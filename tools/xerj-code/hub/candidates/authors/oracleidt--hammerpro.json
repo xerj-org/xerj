@@ -1,0 +1,23 @@
+{
+ "corpus": "oracleidt--hammerpro",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how oracleidt/hammerpro implements it: A map editor for Source engine games, Hammer Pro (selected work: crates/hp-sniffer, crates/hammerpro, crates/hp-render)",
+ "repos": [
+  {
+   "repo": "hammerpro",
+   "url": "https://github.com/oracleidt/hammerpro",
+   "sha": "12606671afb6b6664d71ca2610f88a98bffa6ca8",
+   "licence": "MIT (LICENSE file at pin 12606671afb6, GitHub licence API 2026-11-14)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T13:57Z",
+    "consent_receipt": "51e7cc34b099",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T13:57Z (receipt 51e7cc34b099); selected commit 12606671afb6: \"Hammer Pro 1.0.5\". LICENSE file at pin 12606671afb6 detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution."
+   }
+  }
+ ]
+}

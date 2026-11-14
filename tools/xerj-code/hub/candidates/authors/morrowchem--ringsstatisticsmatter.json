@@ -1,0 +1,23 @@
+{
+ "corpus": "morrowchem--ringsstatisticsmatter",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on amorphous-materials, atomic-simulation, atomic-simulation-environment queries this for how MorrowChem/RingsStatisticsMatter implements it: Primitive ring counting for atomistic structures, with Rust and Julia backends and a Python interface. Useful for materials simulations (selected work: src, tests, rings_statistics_matter)",
+ "repos": [
+  {
+   "repo": "RingsStatisticsMatter",
+   "url": "https://github.com/MorrowChem/RingsStatisticsMatter",
+   "sha": "2b11dc6427b88c2dd6c6b38c6eb54b803298a2df",
+   "licence": "MIT (LICENSE file at pin 2b11dc6427b8, GitHub licence API 2026-11-14)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T12:08Z",
+    "consent_receipt": "6da20086d6ab",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T12:08Z (receipt 6da20086d6ab); selected commit 2b11dc6427b8: \"Add a Rust kernel beside the Julia one\". LICENSE file at pin 2b11dc6427b8 detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution."
+   }
+  }
+ ]
+}

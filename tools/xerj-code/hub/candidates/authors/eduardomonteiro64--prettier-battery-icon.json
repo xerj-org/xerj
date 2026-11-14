@@ -1,0 +1,23 @@
+{
+ "corpus": "eduardomonteiro64--prettier-battery-icon",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Objective-C queries this for how eduardomonteiro64/prettier-battery-icon implements it: A sleek, lightweight, modern flat battery monitor for the macOS menu bar with real-time telemetry and pixel-perfect native typography (selected work: src, src/Services, src/UI)",
+ "repos": [
+  {
+   "repo": "prettier-battery-icon",
+   "url": "https://github.com/eduardomonteiro64/prettier-battery-icon",
+   "sha": "13a931986e46bee7c4fb4fca37cb752e67cb43a5",
+   "licence": "MIT (LICENSE file at pin 13a931986e46, GitHub licence API 2026-11-14)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T21:06Z",
+    "consent_receipt": "e85d8974ad74",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T21:06Z (receipt e85d8974ad74); selected commit 13a931986e46: \"Refactor architecture to SOLID, fix README DMG link, and add CI/CD re\u2026\". LICENSE file at pin 13a931986e46 detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "flashbond--mert-s-toolbox",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how Flashbond/Mert-s-ToolBox implements it: Cities Skylines II Mod for creating perfectly geometric roads with live preview (selected work: Mert's ToolBox)",
+ "repos": [
+  {
+   "repo": "Mert-s-ToolBox",
+   "url": "https://github.com/Flashbond/Mert-s-ToolBox",
+   "sha": "26a7f863d623cb147233b8815e53d39989769eed",
+   "licence": "MIT (LICENSE file at pin 26a7f863d623, GitHub licence API 2026-11-14)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T20:47Z",
+    "consent_receipt": "278cd7466eb1",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T20:47Z (receipt 278cd7466eb1); selected commit 26a7f863d623: \"v1.0.6\". LICENSE file at pin 26a7f863d623 detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution."
+   }
+  }
+ ]
+}

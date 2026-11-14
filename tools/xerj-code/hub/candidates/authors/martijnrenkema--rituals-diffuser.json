@@ -1,0 +1,23 @@
+{
+ "corpus": "martijnrenkema--rituals-diffuser",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how martijnrenkema/Rituals-diffuser implements it: Custom firmware for the Rituals the Perfume Genie 2.0 (selected work: src, data_src)",
+ "repos": [
+  {
+   "repo": "Rituals-diffuser",
+   "url": "https://github.com/martijnrenkema/Rituals-diffuser",
+   "sha": "c903eed90052b693c63b2a25d0af1664b8d56fd9",
+   "licence": "MIT (LICENSE file at pin c903eed90052, GitHub licence API 2026-11-14)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T16:16Z",
+    "consent_receipt": "2c7c6b19591c",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T16:16Z (receipt 2c7c6b19591c); selected commit c903eed90052: \"Fix web interface state bugs, web upload race and update check retrie\u2026\". LICENSE file at pin c903eed90052 detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution."
+   }
+  }
+ ]
+}

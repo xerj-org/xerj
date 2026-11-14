@@ -1,0 +1,23 @@
+{
+ "corpus": "kephson--paste-reference",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on hacktoberfest, extension queries this for how Kephson/paste_reference implements it: Paste reference instead of copy for content elements in TYPO3 (selected work: Resources, Classes, Tests)",
+ "repos": [
+  {
+   "repo": "paste_reference",
+   "url": "https://github.com/Kephson/paste_reference",
+   "sha": "843be67e4a6f9b5e07cd49690b026cd21c85398a",
+   "licence": "MIT (LICENSE file at pin 843be67e4a6f, GitHub licence API 2026-11-14)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T19:55Z",
+    "consent_receipt": "a812b52abfc4",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T19:55Z (receipt a812b52abfc4); selected commit 843be67e4a6f: \"initial release of version v6 as development version for TYPO3 14.3+ \u2026\". LICENSE file at pin 843be67e4a6f detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution."
+   }
+  }
+ ]
+}

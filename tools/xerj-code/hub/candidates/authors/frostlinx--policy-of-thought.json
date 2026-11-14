@@ -1,0 +1,26 @@
+{
+ "corpus": "frostlinx--policy-of-thought",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "LAW",
+ "domain": "an agent working on Python queries this for how Frostlinx/Policy-of-Thought implements it: POT (selected work: scripts)",
+ "repos": [
+  {
+   "repo": "Policy-of-Thought",
+   "url": "https://github.com/Frostlinx/Policy-of-Thought",
+   "sha": "a6df57ab4d153a182b428319312202b7f7703752",
+   "licence": "MIT (LICENSE file at pin a6df57ab4d15, GitHub licence API 2026-11-14)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T15:34Z",
+    "consent_receipt": "f50bbf02eecf",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T15:34Z (receipt f50bbf02eecf); selected commit a6df57ab4d15: \"Add benchmark download and launch scripts\". LICENSE file at pin a6df57ab4d15 detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Frostlinx, who has not added it."
+   },
+   "paths": [
+    "scripts"
+   ]
+  }
+ ]
+}

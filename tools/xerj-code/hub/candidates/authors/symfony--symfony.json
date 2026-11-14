@@ -19,6 +19,7 @@
     "note": "Inclusion consented by the commit author by email at 2026-10-12T06:31Z (receipt b8c3dbcace42); selected commit b7e51516df7b: \"[TypeInfo][Serializer][JsonStreamer] Add `Type::map()`\". LICENSE file at pin b7e51516df7b detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @symfony, who has not added it."
    },
    "paths": [
+    "src/Symfony/Component/HttpClient",
     "src/Symfony/Component/JsonStreamer",
     "src/Symfony/Component/Serializer",
     "src/Symfony/Component/TypeInfo"

@@ -1,0 +1,23 @@
+{
+ "corpus": "shoukox--sosubot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on osu-api, osuapi, osugame queries this for how Shoukox/SosuBot implements it: SosuBot - a telegram bot for osu! players (selected work: SosuBot, SosuBot.Graphics, tests)",
+ "repos": [
+  {
+   "repo": "SosuBot",
+   "url": "https://github.com/Shoukox/SosuBot",
+   "sha": "e1d0e93daed9922a105d90f33ecabe0f784addf2",
+   "licence": "MIT (LICENSE file at pin e1d0e93daed9, GitHub licence API 2026-11-14)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T16:14Z",
+    "consent_receipt": "91c125ba136e",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T16:14Z (receipt 91c125ba136e); selected commit e1d0e93daed9: \"Add telegram widgets\". LICENSE file at pin e1d0e93daed9 detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution."
+   }
+  }
+ ]
+}

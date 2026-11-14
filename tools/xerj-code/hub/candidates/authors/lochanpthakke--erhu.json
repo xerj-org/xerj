@@ -1,0 +1,35 @@
+{
+ "corpus": "lochanpthakke--erhu",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Kotlin queries this for how lochanpthakke/erhu implements it: An android/iOS music player with VYBE discovery engine, animated artwork, gapless playback, custom transitions, synced lyrics, and an 8-band (selected work: config, feature, core/playback)",
+ "repos": [
+  {
+   "repo": "erhu",
+   "url": "https://github.com/lochanpthakke/erhu",
+   "sha": "de514c52522ff51b03e4fa575fc917bfbbea8734",
+   "licence": "GPL-3.0 (LICENSE file at pin de514c52522f, GitHub licence API 2026-11-14)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-12T20:05Z",
+    "consent_receipt": "a3fc26a6baca",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T20:05Z (receipt a3fc26a6baca); selected commit de514c52522f: \"Prepare erhu 1.0.16: remove unused token and enforce release style ch\u2026\". LICENSE file at pin de514c52522f detected as GPL-3.0 by the GitHub licence API on 2026-11-14; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @lochanpthakke, who has not added it."
+   },
+   "paths": [
+    ".github/workflows",
+    "app",
+    "config/detekt",
+    "core/database/src/main/java/com/lochanpthakke/empee3/core/database/worker",
+    "core/datastore/src/main/kotlin/com/erhu/erhu/core/datastore",
+    "core/playback/src/main/java/com/erhu/erhu/core/playback",
+    "core/sound/src/main/java/com/erhu/erhu/core/sound/dsp",
+    "core/sound/src/main/java/com/erhu/erhu/core/sound/model",
+    "feature/library/src/main/java/com/erhu/erhu/feature/library",
+    "feature/settings/src/main/java/com/erhu/erhu/feature/settings/sound"
+   ]
+  }
+ ]
+}
