@@ -8,15 +8,15 @@
   {
    "repo": "fresh-pickup",
    "url": "https://github.com/loong-git/fresh-pickup",
-   "sha": "12a798eb025509a5d699756158b497ff6a3c0349",
-   "licence": "MIT (LICENSE file at pin 12a798eb0255, GitHub licence API 2026-11-14)",
+   "sha": "edf46b8a0b75e8126ecfd8e6935fb549800486ec",
+   "licence": "MIT (LICENSE file at pin edf46b8a0b75, GitHub licence API 2026-11-14)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-17T03:18Z",
     "consent_receipt": "d1c10d9e54b0",
-    "note": "Inclusion consented by the commit author by email at 2026-10-17T03:18Z (receipt d1c10d9e54b0); selected commit 12a798eb0255: \"F-51 addReview \u6536\u8fdb\u7edf\u4e00\u4fe1\u5c01\uff1aT-M1-02 \u6700\u540e\u4e00\u4e2a\u88f8 Map \u51fa\u53e3\uff0c\u53d6\u8bc1\u5148\u8bc1 C \u7aef\u65e0\u611f\". LICENSE file at pin 12a798eb0255 detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution. Pinned to head 12a798eb0255 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-17T03:18Z (receipt d1c10d9e54b0); selected commit edf46b8a0b75: \"F-51 addReview \u6536\u8fdb\u7edf\u4e00\u4fe1\u5c01\uff1aT-M1-02 \u6700\u540e\u4e00\u4e2a\u88f8 Map \u51fa\u53e3\uff0c\u53d6\u8bc1\u5148\u8bc1 C \u7aef\u65e0\u611f\". LICENSE file at pin edf46b8a0b75 detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution. Pinned to head edf46b8a0b75 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]
