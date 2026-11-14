@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "NET",
- "domain": "an agent working on inference, llm, llms queries this for how Gyblos/gyblos-node implements it: Gyblos reusable x402 payment adapters and devnet gates (selected work: tests, apps/node, the project root)",
+ "domain": "an agent working on inference, llm, llms queries this for how Gyblos/gyblos-node implements it: Gyblos main repo (selected work: tests, apps/node, the project root)",
  "repos": [
   {
    "repo": "gyblos-node",

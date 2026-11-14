@@ -8,15 +8,15 @@
   {
    "repo": "wav-to-mp3",
    "url": "https://github.com/ChrisEdS/wav-to-mp3",
-   "sha": "0e6aba864162981bf313eb792453546710a8019d",
-   "licence": "author's permission (LICENSE at pin 0e6aba864162: NONE; repository: none)",
+   "sha": "95013773b8fc7fffb73179e9e752e7a55513b7a4",
+   "licence": "author's permission (LICENSE at pin 95013773b8fc: NONE; repository: none)",
    "review": {
     "spdx": "NONE",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T18:44Z",
     "consent_receipt": "418fdcd11baf",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T18:44Z (receipt 418fdcd11baf); pinned to the default-branch head. LICENSE at pin 0e6aba864162: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T18:44Z (receipt 418fdcd11baf); pinned to the default-branch head. LICENSE at pin 95013773b8fc: NONE (repository: none); used with the author's permission, with attribution."
    }
   }
  ]

@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agent-skills, apache, automation queries this for how apache/magpie implements it: Agent-assisted maintainership and development framework for Apache projects \u2014 Triage, Mentoring, Drafting (agent-authored fixes with human r (selected work: plugins, tools)",
+ "domain": "an agent working on agent-skills, apache, automation queries this for how apache/magpie implements it: Agent-assisted maintainership and development framework for Apache projects \u2014 Triage, Mentoring, Drafting (agent-authored fixes with human r (selected work: tools, the project root)",
  "repos": [
   {
    "repo": "magpie",
    "url": "https://github.com/apache/magpie",
-   "sha": "4a2e534c373ffd5080ae756c89cc4dd431e5096c",
-   "licence": "Apache-2.0 (LICENSE file at pin 4a2e534c373f, GitHub licence API 2026-10-24)",
+   "sha": "9c0756180a742be54340afeb3e5c773666a81c21",
+   "licence": "Apache-2.0 (LICENSE file at pin 9c0756180a74, GitHub licence API 2026-11-11)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
-    "at": "2026-10-18T07:27Z",
-    "consent_receipt": "8ae2dd27a480",
-    "note": "Inclusion consented by the commit author by email at 2026-10-18T07:27Z (receipt 8ae2dd27a480); selected commit 4a2e534c373f: \"feat(pr-management-triage): opt-in pre-filter using typed_decision.ch\u2026\". LICENSE file at pin 4a2e534c373f detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @apache, who has not added it."
+    "at": "2026-10-04T04:11Z",
+    "consent_receipt": "6ae0b90b9ac9",
+    "note": "Inclusion consented by the commit author by email at 2026-10-04T04:11Z (receipt 6ae0b90b9ac9); selected commit 9c0756180a74: \"feat(tools): add maven-artifact-verify and wire JVM artefact checks i\u2026\". LICENSE file at pin 9c0756180a74 detected as Apache-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @apache, who has not added it."
    },
    "paths": [
     ".github",

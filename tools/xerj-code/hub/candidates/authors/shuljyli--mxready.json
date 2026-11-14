@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on cuda, fastapi, python queries this for how shuljyli/MXReady implements it: \u9762\u5411 PyTorch CUDA \u6269\u5c55\u7684\u6c90\u66e6 MXMACA \u8fc1\u79fb\u51c6\u5907\u5ea6\u9759\u6001\u4f53\u68c0\u5de5\u5177 (selected work: src/mxready, tests)",
+ "domain": "an agent working on cuda, fastapi, python queries this for how shuljyli/MXReady implements it: \u9762\u5411 PyTorch CUDA \u6269\u5c55\u7684\u6c90\u66e6 MXMACA \u8fc1\u79fb\u51c6\u5907\u5ea6\u9759\u6001\u4f53\u68c0\u5de5\u5177 (selected work: frontend, tests, scripts)",
  "repos": [
   {
    "repo": "MXReady",
    "url": "https://github.com/shuljyli/MXReady",
-   "sha": "3227780c7c8bde2af75e297a742d5e91493dd937",
-   "licence": "Apache-2.0 (LICENSE file at pin 3227780c7c8b, GitHub licence API 2026-10-27)",
+   "sha": "27f5cfd29747eff72423d69f7a4db80a919391bf",
+   "licence": "Apache-2.0 (LICENSE file at pin 27f5cfd29747, GitHub licence API 2026-11-11)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
-    "at": "2026-10-27T07:52Z",
-    "consent_receipt": "f560f07e5f0c",
-    "note": "Inclusion consented by the commit author by email at 2026-10-27T07:52Z (receipt f560f07e5f0c); selected commit 3227780c7c8b: \"perf: accelerate fact extraction and prefilter rule regexes with requ\u2026\". LICENSE file at pin 3227780c7c8b detected as Apache-2.0 by the GitHub licence API on 2026-10-27; used under that licence with attribution."
+    "at": "2026-11-04T11:06Z",
+    "consent_receipt": "d1cdbb197e4a",
+    "note": "Inclusion consented by the commit author by email at 2026-11-04T11:06Z (receipt d1cdbb197e4a); selected commit 27f5cfd29747: \"feat: expose MCP and backend capabilities in frontend\". LICENSE file at pin 27f5cfd29747 detected as Apache-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution."
    }
   }
  ]

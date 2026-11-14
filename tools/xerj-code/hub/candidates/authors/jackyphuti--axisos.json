@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Python queries this for how jackyphuti/AxisOS implements it: AxisOS: Linux(Debian Based) Operating system (selected work: os-build, src, pkg-mgr)",
+ "domain": "an agent working on C queries this for how jackyphuti/AxisOS implements it: AxisOS: Linux(Debian Based) Operating system (selected work: os-build, src, pkg-mgr)",
  "repos": [
   {
    "repo": "AxisOS",
