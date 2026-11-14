@@ -14191,6 +14191,215 @@ async fn publish_engaged_memtables(engine: std::sync::Arc<xerj_engine::Engine>) 
     .await;
 }
 
+// Rewrite `match` queries that target a keyword field into `term`
+// queries. ES treats `match` on keyword fields as exact (the
+// keyword analyzer is a no-op), but our Match parser tokenizes the
+// query string and OR-matches tokens. Without the rewrite, a
+// `match string_field: foo` on the canonical filters_bucket test
+// also matches docs with `string_field: "foo bar"`.
+//
+// Shared by `_search` (`search_impl`) and `_count` (`count_docs`):
+// both endpoints must execute the same rewritten query, or they
+// answer different counts for the same query (#3171: `_count`
+// parsed the raw query, so a lenient boolean clause inside a
+// compound query stayed a `match` and matched nothing there).
+fn rewrite_exact_value_matches(
+    state: &crate::state::AppState,
+    index_names: &[&str],
+    query: &mut Value,
+) {
+    let mut keyword_fields: std::collections::HashSet<String> = std::collections::HashSet::new();
+    let mut split_kw_fields: std::collections::HashSet<String> = std::collections::HashSet::new();
+    // Numeric/boolean-typed fields: `match` on them rewrites to the
+    // equivalent exact `term` (see the mapping walk below).
+    let mut exact_value_fields: std::collections::HashSet<String> =
+        std::collections::HashSet::new();
+    // Numeric-typed fields only: the #1284 lenient exemption below
+    // applies to these, not to booleans (#3171).
+    let mut numeric_fields: std::collections::HashSet<String> = std::collections::HashSet::new();
+    for ix in index_names {
+        if let Some(m) = state.engine.index_mappings.get(*ix) {
+            let mapping = m.clone();
+            let props = mapping
+                .get("mappings")
+                .and_then(|mm| mm.get("properties"))
+                .or_else(|| mapping.get("properties"))
+                .cloned();
+            if let Some(Value::Object(props)) = props {
+                for (name, spec) in props {
+                    match spec.get("type").and_then(Value::as_str) {
+                        Some("keyword") => {
+                            keyword_fields.insert(name.clone());
+                            if spec
+                                .get("split_queries_on_whitespace")
+                                .and_then(Value::as_bool)
+                                .unwrap_or(false)
+                            {
+                                split_kw_fields.insert(name);
+                            }
+                        }
+                        // `match` on numeric/boolean fields is NOT
+                        // analyzed either. ES executes it as the
+                        // equivalent `term` query (numerics score a
+                        // constant 1.0·boost per hit, points carry
+                        // no BM25 stats; booleans score BM25 on the
+                        // T/F term). Live-verified vs ES 8.13.4:
+                        // match num:42 → 1.0 where the tokenizing
+                        // Match path BM25-scored it 7.6.
+                        Some(
+                            "long" | "integer" | "short" | "byte" | "double" | "float"
+                            | "half_float" | "scaled_float" | "unsigned_long",
+                        ) => {
+                            exact_value_fields.insert(name.clone());
+                            numeric_fields.insert(name.clone());
+                        }
+                        Some("boolean") => {
+                            exact_value_fields.insert(name.clone());
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
+    }
+    if !keyword_fields.is_empty() || !exact_value_fields.is_empty() {
+        fn rewrite(
+            v: &mut Value,
+            kw: &std::collections::HashSet<String>,
+            split: &std::collections::HashSet<String>,
+            exact: &std::collections::HashSet<String>,
+            numeric: &std::collections::HashSet<String>,
+        ) {
+            match v {
+                Value::Object(obj) => {
+                    let mut new_node: Option<(String, Value)> = None;
+                    if let Some(m_val) = obj.get("match").and_then(|m| m.as_object()) {
+                        if let Some((field, raw)) = m_val.iter().next() {
+                            if kw.contains(field) || exact.contains(field) {
+                                // Preserve a per-clause `boost` through the
+                                // rewrite: ES folds the match boost into the
+                                // term weight, so dropping it here silently
+                                // de-boosted `{"match": {kw: {"query": …,
+                                // "boost": N}}}`.
+                                let mut boost: Option<Value> = None;
+                                let mut lenient = false;
+                                let value = match raw {
+                                    Value::Object(inner) => {
+                                        boost = inner.get("boost").cloned();
+                                        lenient =
+                                            matches!(inner.get("lenient"), Some(Value::Bool(true)))
+                                                || inner.get("lenient").and_then(Value::as_str)
+                                                    == Some("true");
+                                        inner.get("query").cloned().unwrap_or(raw.clone())
+                                    }
+                                    _ => raw.clone(),
+                                };
+                                // #1284: a `term` has no `lenient`, and the
+                                // engine 400s a non-numeric term value on a
+                                // numeric field. A lenient `match` whose value
+                                // is not a number stays a `match`, which the
+                                // engine answers with no hits, as ES does.
+                                // #3171: this exemption is numeric-only.
+                                // "true"/"false" never parse as numbers, so
+                                // applying it to boolean fields left every
+                                // lenient boolean clause a `match`, which
+                                // matches nothing inside a compound query
+                                // (`query_string` is lenient by default).
+                                // A boolean clause always rewrites to
+                                // `term`: a value the boolean predicate
+                                // refuses simply matches nothing there.
+                                let lenient_non_numeric = lenient
+                                    && numeric.contains(field)
+                                    && value
+                                        .as_str()
+                                        .is_some_and(|s| s.trim().parse::<f64>().is_err());
+                                let s_owned = match &value {
+                                    Value::String(s) => Some(s.clone()),
+                                    Value::Number(n) => Some(n.to_string()),
+                                    _ => None,
+                                };
+                                let split_field = split.contains(field);
+                                if lenient_non_numeric {
+                                    // Leave the clause as written.
+                                } else if split_field {
+                                    if let Some(s) = s_owned.as_deref() {
+                                        let toks: Vec<&str> = s.split_whitespace().collect();
+                                        if toks.len() > 1 {
+                                            // Multi-token query → terms (OR over tokens).
+                                            let arr: Vec<Value> = toks
+                                                .iter()
+                                                .map(|t| Value::String(t.to_string()))
+                                                .collect();
+                                            let mut terms = serde_json::Map::new();
+                                            terms.insert(field.clone(), Value::Array(arr));
+                                            if let Some(b) = boost.clone() {
+                                                terms.insert("boost".to_string(), b);
+                                            }
+                                            new_node =
+                                                Some(("terms".to_string(), Value::Object(terms)));
+                                        } else {
+                                            // Single token → term.
+                                            let mut term = serde_json::Map::new();
+                                            let v = if toks.is_empty() {
+                                                Value::String(String::new())
+                                            } else {
+                                                Value::String(toks[0].to_string())
+                                            };
+                                            let v = match boost.clone() {
+                                                Some(b) => serde_json::json!({
+                                                    "value": v, "boost": b
+                                                }),
+                                                None => v,
+                                            };
+                                            term.insert(field.clone(), v);
+                                            new_node =
+                                                Some(("term".to_string(), Value::Object(term)));
+                                        }
+                                    }
+                                } else {
+                                    // Plain keyword → exact term.
+                                    let mut term = serde_json::Map::new();
+                                    let v = match boost.clone() {
+                                        Some(b) => serde_json::json!({
+                                            "value": value, "boost": b
+                                        }),
+                                        None => value,
+                                    };
+                                    term.insert(field.clone(), v);
+                                    new_node = Some(("term".to_string(), Value::Object(term)));
+                                }
+                            }
+                        }
+                    }
+                    if let Some((tag, body)) = new_node {
+                        obj.remove("match");
+                        obj.insert(tag, body);
+                    }
+                    let keys: Vec<String> = obj.keys().cloned().collect();
+                    for k in keys {
+                        if let Some(c) = obj.get_mut(&k) {
+                            rewrite(c, kw, split, exact, numeric);
+                        }
+                    }
+                }
+                Value::Array(arr) => {
+                    for item in arr {
+                        rewrite(item, kw, split, exact, numeric);
+                    }
+                }
+                _ => {}
+            }
+        }
+        rewrite(
+            query,
+            &keyword_fields,
+            &split_kw_fields,
+            &exact_value_fields,
+            &numeric_fields,
+        );
+    }
+}
+
 async fn search_impl(
     state: AppState,
     index: String,
@@ -15322,194 +15531,18 @@ async fn search_impl(
     ) {
         return search_shard_validation_error(&reason);
     }
-    // Rewrite `match` queries that target a keyword field into `term`
-    // queries. ES treats `match` on keyword fields as exact (the
-    // keyword analyzer is a no-op), but our Match parser tokenizes the
-    // query string and OR-matches tokens. Without the rewrite, a
-    // `match string_field: foo` on the canonical filters_bucket test
-    // also matches docs with `string_field: "foo bar"`.
-    {
-        let mut keyword_fields: std::collections::HashSet<String> =
-            std::collections::HashSet::new();
-        let mut split_kw_fields: std::collections::HashSet<String> =
-            std::collections::HashSet::new();
-        // Numeric/boolean-typed fields: `match` on them rewrites to the
-        // equivalent exact `term` (see the mapping walk below).
-        let mut exact_value_fields: std::collections::HashSet<String> =
-            std::collections::HashSet::new();
-        for ix in &index_names {
-            if let Some(m) = state.engine.index_mappings.get(*ix) {
-                let mapping = m.clone();
-                let props = mapping
-                    .get("mappings")
-                    .and_then(|mm| mm.get("properties"))
-                    .or_else(|| mapping.get("properties"))
-                    .cloned();
-                if let Some(Value::Object(props)) = props {
-                    for (name, spec) in props {
-                        match spec.get("type").and_then(Value::as_str) {
-                            Some("keyword") => {
-                                keyword_fields.insert(name.clone());
-                                if spec
-                                    .get("split_queries_on_whitespace")
-                                    .and_then(Value::as_bool)
-                                    .unwrap_or(false)
-                                {
-                                    split_kw_fields.insert(name);
-                                }
-                            }
-                            // `match` on numeric/boolean fields is NOT
-                            // analyzed either — ES executes it as the
-                            // equivalent `term` query (numerics score a
-                            // constant 1.0·boost per hit — points carry
-                            // no BM25 stats; booleans score BM25 on the
-                            // T/F term). Live-verified vs ES 8.13.4:
-                            // match num:42 → 1.0 where the tokenizing
-                            // Match path BM25-scored it 7.6.
-                            Some(
-                                "long" | "integer" | "short" | "byte" | "double" | "float"
-                                | "half_float" | "scaled_float" | "unsigned_long" | "boolean",
-                            ) => {
-                                exact_value_fields.insert(name.clone());
-                            }
-                            _ => {}
-                        }
-                    }
-                }
-            }
-        }
-        if !keyword_fields.is_empty() || !exact_value_fields.is_empty() {
-            fn rewrite(
-                v: &mut Value,
-                kw: &std::collections::HashSet<String>,
-                split: &std::collections::HashSet<String>,
-                exact: &std::collections::HashSet<String>,
-            ) {
-                match v {
-                    Value::Object(obj) => {
-                        let mut new_node: Option<(String, Value)> = None;
-                        if let Some(m_val) = obj.get("match").and_then(|m| m.as_object()) {
-                            if let Some((field, raw)) = m_val.iter().next() {
-                                if kw.contains(field) || exact.contains(field) {
-                                    // Preserve a per-clause `boost` through the
-                                    // rewrite: ES folds the match boost into the
-                                    // term weight, so dropping it here silently
-                                    // de-boosted `{"match": {kw: {"query": …,
-                                    // "boost": N}}}`.
-                                    let mut boost: Option<Value> = None;
-                                    let mut lenient = false;
-                                    let value = match raw {
-                                        Value::Object(inner) => {
-                                            boost = inner.get("boost").cloned();
-                                            lenient =
-                                                matches!(
-                                                    inner.get("lenient"),
-                                                    Some(Value::Bool(true))
-                                                ) || inner.get("lenient").and_then(Value::as_str)
-                                                    == Some("true");
-                                            inner.get("query").cloned().unwrap_or(raw.clone())
-                                        }
-                                        _ => raw.clone(),
-                                    };
-                                    // #1284: a `term` has no `lenient`, and the
-                                    // engine 400s a non-numeric term value on a
-                                    // numeric field. A lenient `match` whose value
-                                    // is not a number stays a `match`, which the
-                                    // engine answers with no hits, as ES does.
-                                    let lenient_non_numeric = lenient
-                                        && exact.contains(field)
-                                        && value
-                                            .as_str()
-                                            .is_some_and(|s| s.trim().parse::<f64>().is_err());
-                                    let s_owned = match &value {
-                                        Value::String(s) => Some(s.clone()),
-                                        Value::Number(n) => Some(n.to_string()),
-                                        _ => None,
-                                    };
-                                    let split_field = split.contains(field);
-                                    if lenient_non_numeric {
-                                        // Leave the clause as written.
-                                    } else if split_field {
-                                        if let Some(s) = s_owned.as_deref() {
-                                            let toks: Vec<&str> = s.split_whitespace().collect();
-                                            if toks.len() > 1 {
-                                                // Multi-token query → terms (OR over tokens).
-                                                let arr: Vec<Value> = toks
-                                                    .iter()
-                                                    .map(|t| Value::String(t.to_string()))
-                                                    .collect();
-                                                let mut terms = serde_json::Map::new();
-                                                terms.insert(field.clone(), Value::Array(arr));
-                                                if let Some(b) = boost.clone() {
-                                                    terms.insert("boost".to_string(), b);
-                                                }
-                                                new_node = Some((
-                                                    "terms".to_string(),
-                                                    Value::Object(terms),
-                                                ));
-                                            } else {
-                                                // Single token → term.
-                                                let mut term = serde_json::Map::new();
-                                                let v = if toks.is_empty() {
-                                                    Value::String(String::new())
-                                                } else {
-                                                    Value::String(toks[0].to_string())
-                                                };
-                                                let v = match boost.clone() {
-                                                    Some(b) => serde_json::json!({
-                                                        "value": v, "boost": b
-                                                    }),
-                                                    None => v,
-                                                };
-                                                term.insert(field.clone(), v);
-                                                new_node =
-                                                    Some(("term".to_string(), Value::Object(term)));
-                                            }
-                                        }
-                                    } else {
-                                        // Plain keyword → exact term.
-                                        let mut term = serde_json::Map::new();
-                                        let v = match boost.clone() {
-                                            Some(b) => serde_json::json!({
-                                                "value": value, "boost": b
-                                            }),
-                                            None => value,
-                                        };
-                                        term.insert(field.clone(), v);
-                                        new_node = Some(("term".to_string(), Value::Object(term)));
-                                    }
-                                }
-                            }
-                        }
-                        if let Some((tag, body)) = new_node {
-                            obj.remove("match");
-                            obj.insert(tag, body);
-                        }
-                        let keys: Vec<String> = obj.keys().cloned().collect();
-                        for k in keys {
-                            if let Some(c) = obj.get_mut(&k) {
-                                rewrite(c, kw, split, exact);
-                            }
-                        }
-                    }
-                    Value::Array(arr) => {
-                        for item in arr {
-                            rewrite(item, kw, split, exact);
-                        }
-                    }
-                    _ => {}
-                }
-            }
-            if let Some(q) = body.query.as_mut() {
-                rewrite(q, &keyword_fields, &split_kw_fields, &exact_value_fields);
-            }
-            if let Some(aggs) = body.aggs.as_mut() {
-                rewrite(aggs, &keyword_fields, &split_kw_fields, &exact_value_fields);
-            }
-            if let Some(aggs) = body.aggregations.as_mut() {
-                rewrite(aggs, &keyword_fields, &split_kw_fields, &exact_value_fields);
-            }
-        }
+    // Rewrite `match` queries that target a keyword/numeric/boolean
+    // field into `term` queries (see `rewrite_exact_value_matches`).
+    // Aggs carry their own `match` clauses too, so each subtree is
+    // rewritten separately.
+    if let Some(q) = body.query.as_mut() {
+        rewrite_exact_value_matches(&state, &index_names, q);
+    }
+    if let Some(aggs) = body.aggs.as_mut() {
+        rewrite_exact_value_matches(&state, &index_names, aggs);
+    }
+    if let Some(aggs) = body.aggregations.as_mut() {
+        rewrite_exact_value_matches(&state, &index_names, aggs);
     }
 
     // Annotate `matrix_stats` aggs with `__xy_f32_fields__`: list of
@@ -25108,6 +25141,10 @@ pub async fn count_docs(
         let mut successful: u64 = 0;
         let mut shard_failures: Vec<Value> = Vec::new();
         let mut first_error: Option<Value> = None;
+        // `_search` rewrites `match` on keyword/numeric/boolean fields
+        // against the union of the target mappings; `_count` does the
+        // same so the two endpoints agree (#3171).
+        let wanted_refs: Vec<&str> = wanted.iter().map(|s| s.as_str()).collect();
         for ix_name in &wanted {
             let Ok(idx) = state.engine.get_index(ix_name) else {
                 continue;
@@ -25131,6 +25168,9 @@ pub async fn count_docs(
                 // `_search` counts correctly (the parser sees the raw lookup
                 // object and rejects it).
                 resolve_terms_lookups(&mut query_val, &state).await;
+                // Rewrite `match` on keyword/numeric/boolean fields exactly
+                // as `_search` does, or `_count` and `_search` disagree.
+                rewrite_exact_value_matches(&state, &wanted_refs, &mut query_val);
                 let search_body = json!({ "query": query_val, "size": 0, "from": 0 });
                 // A body that does not parse is not per-index: it is the same
                 // 400 the single-index arm returns, for the same reason.
@@ -25230,6 +25270,9 @@ pub async fn count_docs(
         // coordination step, and `_count` must match or it silently returns 0
         // where `_search` returns the real total.
         resolve_terms_lookups(&mut query_val, &state).await;
+        // Rewrite `match` on keyword/numeric/boolean fields exactly as
+        // `_search` does, or `_count` and `_search` disagree (#3171).
+        rewrite_exact_value_matches(&state, &[index.as_str()], &mut query_val);
         let search_body = json!({ "query": query_val, "size": 0, "from": 0 });
         match xerj_query::parse_request(&search_body) {
             Ok(mut req) => {
