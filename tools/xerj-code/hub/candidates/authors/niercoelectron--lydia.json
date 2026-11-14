@@ -2,8 +2,8 @@
  "corpus": "niercoelectron--lydia",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on TypeScript queries this for how NiercoElectron/Lydia implements it: NiercoElectron/Lydia (TypeScript) (selected work: src/screens, src, src/drawing)",
+ "shelf": "WEB",
+ "domain": "an agent working on digital-art, drawing, drawing-app queries this for how NiercoElectron/Lydia implements it: Free, open source drawing app that feels like Photoshop and Krita. Brushes with pressure, layers, curves, symmetry and liquify. For Windows  (selected work: src/screens, src, src/drawing)",
  "repos": [
   {
    "repo": "Lydia",

@@ -8,15 +8,15 @@
   {
    "repo": "OKF-Todo",
    "url": "https://github.com/dalby-md/OKF-Todo",
-   "sha": "1bc540cfba73cfc77da064332fedf25fbae970e0",
-   "licence": "MIT (LICENSE file at pin 1bc540cfba73, GitHub licence API 2026-11-13)",
+   "sha": "fb599c477926c453c9737b2de297163916fcd0c0",
+   "licence": "MIT (LICENSE file at pin fb599c477926, GitHub licence API 2026-11-14)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-20T07:06Z",
     "consent_receipt": "67e361c45196",
-    "note": "Inclusion consented by the commit author by email at 2026-10-20T07:06Z (receipt 67e361c45196); selected commit 1bc540cfba73: \"v101\". LICENSE file at pin 1bc540cfba73 detected as MIT by the GitHub licence API on 2026-11-13; used under that licence with attribution. Pinned to head 1bc540cfba73 (contains the selected commit): the LICENSE at the selected commit was AGPL-3.0."
+    "note": "Inclusion consented by the commit author by email at 2026-10-20T07:06Z (receipt 67e361c45196); selected commit fb599c477926: \"v101\". LICENSE file at pin fb599c477926 detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution. Pinned to head fb599c477926 (contains the selected commit): the LICENSE at the selected commit was AGPL-3.0."
    }
   }
  ]

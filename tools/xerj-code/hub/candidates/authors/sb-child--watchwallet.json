@@ -8,15 +8,15 @@
   {
    "repo": "watchwallet",
    "url": "https://github.com/sb-child/watchwallet",
-   "sha": "e21224ec0f1b22b5bdf901d00af9d9f20dd3985f",
-   "licence": "MIT (LICENSE file at pin e21224ec0f1b, GitHub licence API 2026-11-13)",
+   "sha": "03356d0892896a484e6713200c7a46737c885ccc",
+   "licence": "MIT (LICENSE file at pin 03356d089289, GitHub licence API 2026-11-14)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-13T01:22Z",
     "consent_receipt": "a5801656f0ad",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-13T01:22Z (receipt a5801656f0ad); pinned to the default-branch head. LICENSE file at pin e21224ec0f1b detected as MIT by the GitHub licence API on 2026-11-13; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-13T01:22Z (receipt a5801656f0ad); pinned to the default-branch head. LICENSE file at pin 03356d089289 detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution."
    }
   }
  ]

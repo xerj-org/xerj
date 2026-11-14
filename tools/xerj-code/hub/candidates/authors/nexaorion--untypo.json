@@ -8,15 +8,15 @@
   {
    "repo": "UnTypo",
    "url": "https://github.com/Nexaorion/UnTypo",
-   "sha": "02a1c769c9dafe7b93790d6d619254614998f3a6",
-   "licence": "Apache-2.0 (LICENSE file at pin 02a1c769c9da, GitHub licence API 2026-11-07)",
+   "sha": "073557b44c3c015cfcbc167200e282006d8c90bf",
+   "licence": "Apache-2.0 (LICENSE file at pin 073557b44c3c, GitHub licence API 2026-11-14)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-07T13:39Z",
     "consent_receipt": "2c9f3551d47d",
-    "note": "Inclusion consented by the commit author by email at 2026-10-07T13:39Z (receipt 2c9f3551d47d); selected commit 02a1c769c9da: \"perf: async PBKDF2, diagnostic log queue, and abort tests\". LICENSE file at pin 02a1c769c9da detected as Apache-2.0 by the GitHub licence API on 2026-11-07; used under that licence with attribution. Pinned to head 02a1c769c9da (contains the selected commit): the LICENSE at the selected commit was NONE. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Nexaorion, who has not added it."
+    "note": "Inclusion consented by the commit author by email at 2026-10-07T13:39Z (receipt 2c9f3551d47d); selected commit 073557b44c3c: \"perf: async PBKDF2, diagnostic log queue, and abort tests\". LICENSE file at pin 073557b44c3c detected as Apache-2.0 by the GitHub licence API on 2026-11-14; used under that licence with attribution. Pinned to head 073557b44c3c (contains the selected commit): the LICENSE at the selected commit was NONE. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Nexaorion, who has not added it."
    },
    "paths": [
     "src/core/providers",
