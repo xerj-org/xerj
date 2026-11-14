@@ -2019,7 +2019,14 @@ fn run_corpus_add_pack(
     }
     let mut total = 0usize;
     for s in &meta.sources {
-        let count = std::fs::read_to_string(dest.join(&s.slug).join("records.jsonl"))
+        let path = match pack_slug_dir(&dest, &s.slug) {
+            Ok(dir) => dir.join("records.jsonl"),
+            Err(e) => {
+                eprintln!("xerj corpus add: {e:#}");
+                return 1;
+            }
+        };
+        let count = std::fs::read_to_string(path)
             .map(|t| t.lines().filter(|l| !l.trim().is_empty()).count())
             .unwrap_or(0);
         total += count;
@@ -2051,6 +2058,24 @@ fn run_corpus_add_pack(
     0
 }
 
+/// Join a pack slug onto the corpus dir, refusing anything that would
+/// escape it. The slug is gated in `read_manifest`, but the stored
+/// corpus.json on disk predates that gate, so the join itself refuses a
+/// bad name too; resolving the parent first keeps a symlink planted
+/// inside the corpus dir from redirecting the write or the re-add delete
+/// outside it (#3166).
+fn pack_slug_dir(dest: &Path, slug: &str) -> Result<PathBuf> {
+    xccode::pathgate::valid_slug(slug).map_err(anyhow::Error::msg)?;
+    let base = dest
+        .canonicalize()
+        .with_context(|| format!("cannot resolve {}", dest.display()))?;
+    let dir = base.join(slug);
+    if !dir.starts_with(&base) {
+        anyhow::bail!("pack slug '{slug}' escapes {}", dest.display());
+    }
+    Ok(dir)
+}
+
 /// Copy the pack's records into `corpora/<name>/<slug>/records.jsonl`
 /// (verbatim lines — the pack line IS canonical JSON), reconcile away slug
 /// dirs a previous add owned that this pack no longer has, and write the
@@ -2073,7 +2098,10 @@ fn add_pack_materialize(
     // or a re-add APPENDS to the old records.jsonl and duplicates every line
     if let Ok(prev) = manifest::read_corpus_manifest(&dest.join("corpus.json")) {
         for r in &prev.repos {
-            let _ = std::fs::remove_dir_all(dest.join(&r.repo));
+            // a stored repo predates the slug gate: refuse to delete
+            // outside the corpus dir rather than trusting the name (#3166)
+            let dir = pack_slug_dir(dest, &r.repo)?;
+            let _ = std::fs::remove_dir_all(&dir);
         }
     }
     std::fs::create_dir_all(dest).with_context(|| format!("cannot create {}", dest.display()))?;
@@ -2120,7 +2148,7 @@ fn add_pack_materialize(
     let mut counts: std::collections::HashMap<String, u64> = std::collections::HashMap::new();
     for (slug, mut records) in by_slug {
         records.sort_by(|a, b| a.0.cmp(&b.0));
-        let dir = dest.join(&slug);
+        let dir = pack_slug_dir(dest, &slug)?;
         std::fs::create_dir_all(&dir)
             .with_context(|| format!("cannot create {}", dir.display()))?;
         let path = dir.join("records.jsonl");
@@ -2136,7 +2164,7 @@ fn add_pack_materialize(
 
     let mut entries = Vec::new();
     for s in &meta.sources {
-        let path = dest.join(&s.slug).join("records.jsonl");
+        let path = pack_slug_dir(dest, &s.slug)?.join("records.jsonl");
         let bytes = std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
         entries.push(manifest::ManifestRepo {
             repo: s.slug.clone(),
@@ -3982,6 +4010,55 @@ mod tests {
             assert!(xccode::pathgate::valid_corpus_name(bad).is_err(), "{bad}");
         }
         assert!(xccode::pathgate::valid_corpus_name("battle-terse").is_ok());
+    }
+
+    /// #3166: the re-add reconcile deletes every dir the previous
+    /// corpus.json owned, and the stored repo is the pack slug. A corpus
+    /// materialized before the slug gate (or a hand-edited corpus.json)
+    /// can hold `..` as its repo, which would delete the whole corpora
+    /// dir. The re-add must refuse instead, and nothing outside the
+    /// corpus dir may be touched.
+    #[test]
+    fn re_add_with_a_dotdot_repo_does_not_delete_outside_the_corpus() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dest = tmp.path().join("corpora").join("evil");
+        std::fs::create_dir_all(&dest).unwrap();
+        // a sibling file outside dest that must survive the re-add
+        let keep = tmp.path().join("corpora").join("keep.txt");
+        std::fs::write(&keep, "keep\n").unwrap();
+        // a previous add's corpus.json naming `..` as its repo
+        std::fs::write(
+            dest.join("corpus.json"),
+            r#"{"corpus":"evil","kind":"harvested","repos":[{"repo":"..","url":"","licence":"CC0-1.0"}]}"#,
+        )
+        .unwrap();
+        // a pack with one good record
+        let pack_dir = tmp.path().join("pack");
+        std::fs::create_dir_all(&pack_dir).unwrap();
+        std::fs::write(
+            pack_dir.join("records-0.jsonl"),
+            "{\"id\":\"a\",\"source\":\"good\"}\n",
+        )
+        .unwrap();
+        let meta = crate::harvest::pack::PackMeta {
+            name: "evil".to_string(),
+            description: String::new(),
+            generation: 1,
+            records: 1,
+            sources: vec![crate::harvest::pack::PackSource {
+                slug: "good".to_string(),
+                licence: "CC0-1.0".to_string(),
+                url: None,
+                watermark: None,
+            }],
+            files: vec![crate::harvest::pack::PackFile {
+                name: "records-0.jsonl".to_string(),
+                records: 1,
+            }],
+        };
+        let err = add_pack_materialize(&dest, &pack_dir, &meta, false).unwrap_err();
+        assert!(err.to_string().contains(".."), "{err:#}");
+        assert!(keep.exists(), "re-add deleted outside the corpus dir");
     }
 
     #[test]

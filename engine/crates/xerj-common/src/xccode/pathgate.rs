@@ -119,6 +119,32 @@ pub fn valid_repo_name(repo: &str) -> Result<(), String> {
     ))
 }
 
+/// Validate a pack source slug from an untrusted manifest: 1-64 chars of
+/// `[A-Za-z0-9._-]`, not starting with `.`.
+///
+/// The slug becomes a directory under the corpus
+/// (`corpora/<name>/<slug>`), so the rule is the one the recipe build path
+/// has always applied locally: a `/` or a leading `.` would let a crafted
+/// pack write or delete outside the corpus dir on consume (#3166). The
+/// build path and the consume path now share this one gate, so a pack the
+/// builder accepts is a pack the consumer accepts, and nothing else.
+pub fn valid_slug(slug: &str) -> Result<(), String> {
+    let ok = !slug.is_empty()
+        && slug.len() <= 64
+        && slug
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.')
+        && !slug.starts_with('.');
+    if ok {
+        Ok(())
+    } else {
+        Err(format!(
+            "source slug '{slug}' must be 1-64 chars of [A-Za-z0-9._-], not starting with '.'. \
+             It becomes a directory under the corpus, so a '/' or '..' would escape it."
+        ))
+    }
+}
+
 /// How many paths one repo entry may name. A harvest is a few subtrees
 /// (`data/osv`) or files, not a file list; past this, name a parent.
 pub const MAX_SPARSE_PATHS: usize = 32;
@@ -289,6 +315,33 @@ mod tests {
         }
         for good in ["valkey", "ClickHouse", "x_2", "a.b-c", "Sled"] {
             assert!(valid_repo_name(good).is_ok(), "{good:?}");
+        }
+    }
+
+    /// #3166: the pack source slug becomes a directory under the corpus,
+    /// so the consume path and the recipe build path share this gate. The
+    /// build path's old charset is kept exactly (uppercase and a leading
+    /// `-` included), so a pack the builder accepted still consumes.
+    #[test]
+    fn unsafe_pack_slugs_are_rejected_with_the_path_escape_reason() {
+        let too_long = "x".repeat(65);
+        for bad in [
+            "../escape",
+            "a/b",
+            ".hidden",
+            "..",
+            "",
+            "a b",
+            too_long.as_str(),
+        ] {
+            let err = valid_slug(bad).unwrap_err();
+            assert!(
+                err.contains("escapes") || err.contains("escape"),
+                "the message must say why: {err}"
+            );
+        }
+        for good in ["rustsec", "osv-crates-io", "a.b_c-1", "X9", "-lead", "a"] {
+            assert!(valid_slug(good).is_ok(), "{good:?}");
         }
     }
 
