@@ -1,0 +1,23 @@
+{
+ "corpus": "drvelvetfog--x402-pilot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, claude-code, developer-tools queries this for how DrVelvetFog/x402-pilot implements it: Developer-assistant Claude Code plugin for the x402 payment protocol \u2014 bundled spec corpus, authoring/review workflows, and a non-custodial ",
+ "repos": [
+  {
+   "repo": "x402-pilot",
+   "url": "https://github.com/DrVelvetFog/x402-pilot",
+   "sha": "91638c81370ea208459c1b11a039a0b58fd6405f",
+   "licence": "Apache-2.0 (LICENSE file at pin 91638c81370e, GitHub licence API 2026-11-14)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-14T13:45Z",
+    "consent_receipt": "31fa5593ee0a",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-14T13:45Z (receipt 31fa5593ee0a); pinned to the default-branch head. LICENSE file at pin 91638c81370e detected as Apache-2.0 by the GitHub licence API on 2026-11-14; used under that licence with attribution."
+   }
+  }
+ ]
+}

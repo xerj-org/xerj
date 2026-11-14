@@ -1,0 +1,23 @@
+{
+ "corpus": "drvelvetfog--evidence-tier",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, attestation, cli queries this for how DrVelvetFog/evidence-tier implements it: ev \u2014 evidence tiers for agent claims: ran/read/told/recalled/inferred as an in-toto Statement predicate, with an offline verifier",
+ "repos": [
+  {
+   "repo": "evidence-tier",
+   "url": "https://github.com/DrVelvetFog/evidence-tier",
+   "sha": "2053e9b2eed830558e5441feea5c77051bb4e5c8",
+   "licence": "MIT (LICENSE file at pin 2053e9b2eed8, GitHub licence API 2026-11-14)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-14T13:45Z",
+    "consent_receipt": "1f2fba8b2b3b",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-14T13:45Z (receipt 1f2fba8b2b3b); pinned to the default-branch head. LICENSE file at pin 2053e9b2eed8 detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -8,15 +8,15 @@
   {
    "repo": "ms-edge-tts-gui",
    "url": "https://github.com/JJosephph/ms-edge-tts-gui",
-   "sha": "38441d50256a0cbd0c4891327035451632e54fd6",
-   "licence": "GPL-3.0 (LICENSE file at pin 38441d50256a, GitHub licence API 2026-11-10)",
+   "sha": "b318a3a357abd3c52a60c702726d240719cdcd15",
+   "licence": "GPL-3.0 (LICENSE file at pin b318a3a357ab, GitHub licence API 2026-11-14)",
    "review": {
     "spdx": "GPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-14T01:25Z",
     "consent_receipt": "f42ccdb47571",
-    "note": "Inclusion consented by the commit author by email at 2026-10-14T01:25Z (receipt f42ccdb47571); selected commit 38441d50256a: \"fix: \u9002\u914d\u65b0\u8bed\u97f3\u7aef\u70b9\u5e76\u589e\u52a0\u66f4\u65b0\u68c0\u6d4b\uff0c\u53d1\u5e03 v1.5.3\". LICENSE file at pin 38441d50256a detected as GPL-3.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution. Pinned to head 38441d50256a (contains the selected commit): the LICENSE at the selected commit was MIT."
+    "note": "Inclusion consented by the commit author by email at 2026-10-14T01:25Z (receipt f42ccdb47571); selected commit b318a3a357ab: \"fix: \u9002\u914d\u65b0\u8bed\u97f3\u7aef\u70b9\u5e76\u589e\u52a0\u66f4\u65b0\u68c0\u6d4b\uff0c\u53d1\u5e03 v1.5.3\". LICENSE file at pin b318a3a357ab detected as GPL-3.0 by the GitHub licence API on 2026-11-14; used under that licence with attribution. Pinned to head b318a3a357ab (contains the selected commit): the LICENSE at the selected commit was MIT."
    }
   }
  ]

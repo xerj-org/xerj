@@ -8,15 +8,15 @@
   {
    "repo": "GoldenCheetah",
    "url": "https://github.com/GoldenCheetah/GoldenCheetah",
-   "sha": "0cf3acc3f271560c41859d9b4d13f949f963f2b1",
-   "licence": "GPL-3.0 (LICENSE file at pin 0cf3acc3f271, GitHub licence API 2026-11-13)",
+   "sha": "5e0966b4812e05fd45b0070868c6613c15c5390b",
+   "licence": "GPL-3.0 (LICENSE file at pin 5e0966b4812e, GitHub licence API 2026-11-14)",
    "review": {
     "spdx": "GPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-30T05:57Z",
     "consent_receipt": "c3bba93241a4",
-    "note": "Inclusion consented by the commit author by email at 2026-10-30T05:57Z (receipt c3bba93241a4); selected commit 0cf3acc3f271: \"Add VideoHtml Train chart (video under HTML overlay) (#4929)\". LICENSE file at pin 0cf3acc3f271 detected as GPL-3.0 by the GitHub licence API on 2026-11-13; used under that licence with attribution. Pinned to head 0cf3acc3f271 (contains the selected commit): the LICENSE at the selected commit was GPL-2.0. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @GoldenCheetah, who has not added it."
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T05:57Z (receipt c3bba93241a4); selected commit 5e0966b4812e: \"Add VideoHtml Train chart (video under HTML overlay) (#4929)\". LICENSE file at pin 5e0966b4812e detected as GPL-3.0 by the GitHub licence API on 2026-11-14; used under that licence with attribution. Pinned to head 5e0966b4812e (contains the selected commit): the LICENSE at the selected commit was GPL-2.0. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @GoldenCheetah, who has not added it."
    },
    "paths": [
     "src",

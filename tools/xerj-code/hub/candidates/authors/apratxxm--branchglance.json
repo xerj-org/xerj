@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-agents, claude-code, codex queries this for how apratxxm/branchglance implements it: Always-on-top Windows widget for Codex and Claude Code: every agent in one tree, which ones need you, and how much of your usage limits is l (selected work: tests, scripts, token_tracker)",
+ "domain": "an agent working on ai-agents, claude-code, codex queries this for how apratxxm/branchglance implements it: Always-on-top widget for Codex and Claude Code: every agent in one tree, which ones need you, and how much usage limit is left. Windows and  (selected work: tests, scripts, token_tracker)",
  "repos": [
   {
    "repo": "branchglance",

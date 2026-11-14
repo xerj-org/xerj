@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Shell queries this for how chottokun/Geese-in-the-Box implements it: An experimental, audit-ready Docker sandbox for strictly isolated Goose AI agent runs (selected work: bin, the project root, docker)",
+ "domain": "an agent working on Python queries this for how chottokun/Geese-in-the-Box implements it: An experimental, audit-ready Docker sandbox for strictly isolated Goose AI agent runs (selected work: bin, the project root, docker)",
  "repos": [
   {
    "repo": "Geese-in-the-Box",

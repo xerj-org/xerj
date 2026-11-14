@@ -1,0 +1,23 @@
+{
+ "corpus": "drvelvetfog--reversible",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, cli, developer-tools queries this for how DrVelvetFog/reversible implements it: rv \u2014 reversible shell actions: git-tree snapshots, append-only journal, per-path undo. Closes the gap Claude Code checkpointing documents",
+ "repos": [
+  {
+   "repo": "reversible",
+   "url": "https://github.com/DrVelvetFog/reversible",
+   "sha": "76953ce60aa325d16a66c49c19017996f036ca10",
+   "licence": "MIT (LICENSE file at pin 76953ce60aa3, GitHub licence API 2026-11-14)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-14T13:45Z",
+    "consent_receipt": "395e1c7e5588",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-14T13:45Z (receipt 395e1c7e5588); pinned to the default-branch head. LICENSE file at pin 76953ce60aa3 detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution."
+   }
+  }
+ ]
+}

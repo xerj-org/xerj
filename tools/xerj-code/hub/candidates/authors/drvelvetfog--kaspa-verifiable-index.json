@@ -1,0 +1,23 @@
+{
+ "corpus": "drvelvetfog--kaspa-verifiable-index",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on Python queries this for how DrVelvetFog/kaspa-verifiable-index implements it: Verifiable getUtxosByCovenantId over Kaspa node truth, with fail-closed cross-check of a third-party covenant indexer. Answers rusty-kaspa#1",
+ "repos": [
+  {
+   "repo": "kaspa-verifiable-index",
+   "url": "https://github.com/DrVelvetFog/kaspa-verifiable-index",
+   "sha": "c361ea3b6a1986615c02ca1d960935ab58afb96c",
+   "licence": "MIT (LICENSE file at pin c361ea3b6a19, GitHub licence API 2026-11-14)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-14T13:45Z",
+    "consent_receipt": "8355a451a44b",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-14T13:45Z (receipt 8355a451a44b); pinned to the default-branch head. LICENSE file at pin c361ea3b6a19 detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution."
+   }
+  }
+ ]
+}

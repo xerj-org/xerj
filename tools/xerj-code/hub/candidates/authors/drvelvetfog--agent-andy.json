@@ -1,0 +1,23 @@
+{
+ "corpus": "drvelvetfog--agent-andy",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on meta-hackathon-2026 queries this for how DrVelvetFog/agent-andy implements it: An agent that checks a local rule before you act, and proves its answer with hash-chained receipts. Meta Global AI Developer Hackathon 2026 ",
+ "repos": [
+  {
+   "repo": "agent-andy",
+   "url": "https://github.com/DrVelvetFog/agent-andy",
+   "sha": "eac159546d3cf9d9c11602a17fc583352e9f0954",
+   "licence": "MIT (LICENSE file at pin eac159546d3c, GitHub licence API 2026-11-14)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-14T13:45Z",
+    "consent_receipt": "1303008c2f5f",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-14T13:45Z (receipt 1303008c2f5f); pinned to the default-branch head. LICENSE file at pin eac159546d3c detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution."
+   }
+  }
+ ]
+}

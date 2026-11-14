@@ -1,0 +1,23 @@
+{
+ "corpus": "drvelvetfog--kaspa-script-mcp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how DrVelvetFog/kaspa-script-mcp implements it: MCP server for Kaspa (Toccata) script tooling: disassemble scripts, estimate compute cost, and explain txscript errors. Pure TS, generated f",
+ "repos": [
+  {
+   "repo": "kaspa-script-mcp",
+   "url": "https://github.com/DrVelvetFog/kaspa-script-mcp",
+   "sha": "bb2c5f21be1a69db00cffcf2367a7dfefbfd3325",
+   "licence": "MIT (LICENSE file at pin bb2c5f21be1a, GitHub licence API 2026-11-14)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-14T13:45Z",
+    "consent_receipt": "7da91df38f62",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-14T13:45Z (receipt 7da91df38f62); pinned to the default-branch head. LICENSE file at pin bb2c5f21be1a detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution."
+   }
+  }
+ ]
+}
