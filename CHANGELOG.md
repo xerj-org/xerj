@@ -1051,6 +1051,7 @@ The model, its bundle and its serve rule are those of rc.102.
   setting above it does not raise that cap. `_async_search`,
   `_search/template` and `_msearch/template` do not read the setting yet.
 - The CSV extractor now caps one record at 16 MiB of decoded bytes (issue [#3201](https://github.com/xerj-org/xerj/issues/3201)). A quoted field may span newlines, so a single record could previously be as large as the whole input stream: the parser buffered it all before returning it. An oversize record is now counted as junk and extraction stops there, with the records before it still indexed; an oversize header row junks the file instead of failing it, so one hostile file cannot abort the whole autoindex run.
+- `xerj brain` no longer reports "nothing indexable" when the brain meta document is absent or predates `nodes_index`: an unanswerable live-node count is now reported as unverified instead of being read as zero, while a confirmed zero still takes the empty-corpus exit. (issue [#3077](https://github.com/xerj-org/xerj/issues/3077))
 
 ## [1.0.0-rc.102] - 2026-11-06
 
