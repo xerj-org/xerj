@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on codex, codex-plugin, mcp queries this for how AXEG0/codex-telegram implements it: Turn your Codex session into a live agent on Telegram (selected work: plugins, the project root)",
+ "domain": "an agent working on codex, codex-plugin, mcp queries this for how AXEG0/codex-telegram implements it: Telegram for OpenAI Codex CLI, sister of claude-telegram for Claude Code: turn Codex and Claude sessions into live agents that write first,  (selected work: plugins, the project root)",
  "repos": [
   {
    "repo": "codex-telegram",

@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "NET",
- "domain": "an agent working on api-gateway, http-proxy, dubbo-proxy queries this for how apache/shenyu implements it: Apache ShenYu is a Java native API Gateway for service proxy, protocol conversion and API governance (selected work: shenyu-plugin)",
+ "domain": "an agent working on api-gateway, http-proxy, dubbo-proxy queries this for how apache/shenyu implements it: Apache ShenYu is a Java native API Gateway for service proxy, protocol conversion and API governance (selected work: shenyu-admin, shenyu-alert)",
  "repos": [
   {
    "repo": "shenyu",
    "url": "https://github.com/apache/shenyu",
-   "sha": "0e6216d6eda676025849ac38e70d7c144111a384",
-   "licence": "Apache-2.0 (LICENSE file at pin 0e6216d6eda6, GitHub licence API 2026-10-24)",
+   "sha": "baf548fc2305523aed73162eb19d1e76ac51faad",
+   "licence": "Apache-2.0 (LICENSE file at pin baf548fc2305, GitHub licence API 2026-11-11)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
-    "at": "2026-10-20T13:39Z",
-    "consent_receipt": "198649e4d53e",
-    "note": "Inclusion consented by the commit author by email at 2026-10-20T13:39Z (receipt 198649e4d53e); selected commit 0e6216d6eda6: \"fix: enforce single half-open circuit breaker probe (#7802)\". LICENSE file at pin 0e6216d6eda6 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @apache, who has not added it."
+    "at": "2026-10-27T13:22Z",
+    "consent_receipt": "3e2ef90bfefb",
+    "note": "Inclusion consented by the commit author by email at 2026-10-27T13:22Z (receipt 3e2ef90bfefb); selected commit baf548fc2305: \"fix: preserve alert receiver fields during partial updates (#6711) (#\u2026\". LICENSE file at pin baf548fc2305 detected as Apache-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @apache, who has not added it."
    },
    "paths": [
     "shenyu-admin/src/main/java/org/apache/shenyu/admin/mapper",
