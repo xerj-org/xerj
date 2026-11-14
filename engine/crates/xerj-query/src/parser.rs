@@ -566,6 +566,34 @@ fn parse_match(params: &Value) -> Result<QueryNode> {
         .and_then(|v| v.as_str())
         .map(str::to_string);
 
+    // #3172: `fuzziness` was never read here, so a fuzzy `match` built a plain
+    // `Match` and typo queries returned nothing. Lower to per-token `Fuzzy`
+    // leaves, the shape the `bool_prefix` paths already build. `prefix_length`
+    // rides along on the leaves; `lenient` has no `Fuzzy` equivalent and is
+    // dropped, as in the `bool_prefix` fuzzy arm.
+    if let Some(fz) = vobj.get("fuzziness").map(parse_fuzziness) {
+        let prefix_length = parse_prefix_length(vobj);
+        let operator_and = matches!(operator, BoolOperator::And);
+        let node = fuzzy_match_clause(
+            &field,
+            &query,
+            operator_and,
+            minimum_should_match,
+            analyzer.as_deref(),
+            fz,
+            prefix_length,
+            true,
+        );
+        let node = match boost {
+            Some(b) => QueryNode::Boosted {
+                boost: b,
+                query: Box::new(node),
+            },
+            None => node,
+        };
+        return Ok(maybe_named(node, name));
+    }
+
     let node = QueryNode::Match {
         field,
         query,
@@ -887,16 +915,7 @@ fn parse_multi_match(params: &Value) -> Result<QueryNode> {
         let mm_ms = obj
             .get("minimum_should_match")
             .and_then(|v| parse_min_should_match(v).ok());
-        let fuzziness_opt = obj.get("fuzziness").map(|v| match v {
-            Value::String(s) if s.eq_ignore_ascii_case("auto") => crate::ast::Fuzziness::Auto,
-            Value::String(s) => s
-                .parse::<u32>()
-                .ok()
-                .map(crate::ast::Fuzziness::Fixed)
-                .unwrap_or(crate::ast::Fuzziness::Auto),
-            Value::Number(n) => crate::ast::Fuzziness::Fixed(n.as_u64().unwrap_or(0) as u32),
-            _ => crate::ast::Fuzziness::Auto,
-        });
+        let fuzziness_opt = obj.get("fuzziness").map(parse_fuzziness);
         // #848: `match` accepts `prefix_length` alongside `fuzziness`.
         let prefix_length = parse_prefix_length(obj);
         let raw_tokens: Vec<String> = if analyzer_opt.as_deref() == Some("keyword") {
@@ -1003,6 +1022,95 @@ fn parse_multi_match(params: &Value) -> Result<QueryNode> {
             },
             None => n,
         });
+    }
+
+    // #3172: plain (field-centric / term-centric) `multi_match` with
+    // `fuzziness`: the parameter was parsed nowhere and the query ran as a
+    // plain match, so typo queries returned nothing. Lower each field to the
+    // same per-token `Fuzzy` clause `parse_match` builds, then combine per
+    // type the way the engine combines per-field matches (see
+    // `query_node_to_fts`): best_fields goes to dis_max, most_fields and
+    // cross_fields to a bool should. `phrase` / `phrase_prefix` reject
+    // fuzziness in ES. Field patterns (`*`, `title*`) cannot expand at parse
+    // time, so they fall through to the plain node below, and fuzziness stays
+    // ignored there rather than silently zeroing the query.
+    if let Some(fz) = obj.get("fuzziness").map(parse_fuzziness) {
+        match type_str {
+            "phrase" | "phrase_prefix" => {
+                return invalid(format!("[fuzziness] not allowed for type [{type_str}]"));
+            }
+            "best_fields" | "most_fields" | "cross_fields" => {
+                // Field patterns (`*`, `title*`) cannot expand at parse
+                // time, so they fall through to the plain node below, and
+                // fuzziness stays ignored there rather than silently
+                // zeroing the query.
+                if !fields.iter().any(|f| f.contains(['*', '?'])) {
+                    let prefix_length = parse_prefix_length(obj);
+                    let operator = parse_bool_operator(obj.get("operator")).ok();
+                    let operator_and = matches!(operator, Some(BoolOperator::And));
+                    let msm = obj
+                        .get("minimum_should_match")
+                        .map(parse_min_should_match)
+                        .transpose()?;
+                    let analyzer = obj.get("analyzer").and_then(|v| v.as_str());
+                    let boost = obj.get("boost").and_then(|v| v.as_f64()).map(|b| b as f32);
+                    let tie_breaker = obj
+                        .get("tie_breaker")
+                        .and_then(|v| v.as_f64())
+                        .unwrap_or(0.0) as f32;
+                    let mut per_field: Vec<QueryNode> = Vec::new();
+                    for raw_field in &fields {
+                        // Strip any ^boost suffix (e.g. "title^2").
+                        let (field, fb): (&str, Option<f32>) = match raw_field.rfind('^') {
+                            Some(idx) => {
+                                (&raw_field[..idx], raw_field[idx + 1..].parse::<f32>().ok())
+                            }
+                            None => (raw_field.as_str(), None),
+                        };
+                        let clause = fuzzy_match_clause(
+                            field,
+                            &query,
+                            operator_and,
+                            msm.clone(),
+                            analyzer,
+                            fz,
+                            prefix_length,
+                            false,
+                        );
+                        per_field.push(match fb {
+                            Some(b) => QueryNode::Boosted {
+                                boost: b,
+                                query: Box::new(clause),
+                            },
+                            None => clause,
+                        });
+                    }
+                    let combined = if type_str == "best_fields" {
+                        QueryNode::DisMax {
+                            queries: per_field,
+                            tie_breaker,
+                        }
+                    } else {
+                        QueryNode::Bool {
+                            must: vec![],
+                            should: per_field,
+                            filter: vec![],
+                            must_not: vec![],
+                            minimum_should_match: None,
+                        }
+                    };
+                    return Ok(match boost {
+                        Some(b) => QueryNode::Boosted {
+                            boost: b,
+                            query: Box::new(combined),
+                        },
+                        None => combined,
+                    });
+                }
+            }
+            // Unknown type: fall through to the error below, as before.
+            _ => {}
+        }
     }
 
     let match_type = match type_str {
@@ -2409,6 +2517,99 @@ fn parse_prefix_length(obj: &serde_json::Map<String, Value>) -> usize {
         Some(Value::Number(n)) => n.as_u64().unwrap_or(0) as usize,
         Some(Value::String(s)) => s.parse::<usize>().unwrap_or(0),
         _ => 0,
+    }
+}
+
+/// Shared `fuzziness` read for the `match` family (`match`,
+/// `match_bool_prefix`, `multi_match`): `"AUTO"` (any case), an integer, or a
+/// numeric string. Anything else reads as `Auto`, the lenient read the two
+/// `bool_prefix` sites already used, consolidated here so all three agree;
+/// the standalone `fuzzy` query keeps its strict read in `parse_fuzzy`.
+fn parse_fuzziness(v: &Value) -> Fuzziness {
+    match v {
+        Value::String(s) if s.eq_ignore_ascii_case("auto") => Fuzziness::Auto,
+        Value::String(s) => s
+            .parse::<u32>()
+            .ok()
+            .map(Fuzziness::Fixed)
+            .unwrap_or(Fuzziness::Auto),
+        Value::Number(n) => Fuzziness::Fixed(n.as_u64().unwrap_or(0) as u32),
+        _ => Fuzziness::Auto,
+    }
+}
+
+/// Lower a `match`-family query carrying `fuzziness` to per-token
+/// `QueryNode::Fuzzy` leaves, the shape the `bool_prefix` paths already
+/// build, instead of a plain `QueryNode::Match`, whose evaluator never sees
+/// the fuzziness (#3172).
+///
+/// Tokenisation mirrors `parse_match_bool_prefix`: a `keyword` analyzer keeps
+/// the whole query as one token, anything else splits on whitespace, and
+/// tokens are lowercased unless the analyzer is case-preserving (`whitespace`
+/// / `keyword`). A single token collapses to the bare `Fuzzy` leaf; several
+/// combine per `operator` (AND goes to `must`, otherwise `should` with
+/// `minimum_should_match`, as the `Match` doc-scan does).
+///
+/// `case_insensitive` folds the doc side for keyword fields: the tokens are
+/// already lowercased at parse time, so without the fold an uppercase keyword
+/// value could never match. Text fields are unaffected, the FTS lowering
+/// forces case-insensitive off there and the doc scan folds either way.
+#[allow(clippy::too_many_arguments)] // one parameter per match option, as parsed; no grouping exists
+fn fuzzy_match_clause(
+    field: &str,
+    query: &str,
+    operator_and: bool,
+    minimum_should_match: Option<MinShouldMatch>,
+    analyzer: Option<&str>,
+    fuzziness: Fuzziness,
+    prefix_length: usize,
+    case_insensitive: bool,
+) -> QueryNode {
+    let raw_tokens: Vec<String> = if analyzer == Some("keyword") {
+        vec![query.to_string()]
+    } else {
+        query.split_whitespace().map(str::to_string).collect()
+    };
+    let lowercases = !matches!(analyzer, Some("whitespace") | Some("keyword"));
+    let tokens: Vec<String> = raw_tokens
+        .into_iter()
+        .map(|t| if lowercases { t.to_lowercase() } else { t })
+        .collect();
+    // Callers turn an empty query string into `MatchNone` before reaching
+    // here, so a token list cannot be empty; an all-whitespace query is the
+    // same shape and degrades to no leaves rather than panicking.
+    let leaves: Vec<QueryNode> = tokens
+        .into_iter()
+        .map(|tok| QueryNode::Fuzzy {
+            field: field.to_string(),
+            value: tok,
+            fuzziness,
+            case_insensitive,
+            prefix_length,
+        })
+        .collect();
+    if leaves.is_empty() {
+        return QueryNode::MatchNone;
+    }
+    if leaves.len() == 1 {
+        return leaves.into_iter().next().unwrap();
+    }
+    if operator_and {
+        QueryNode::Bool {
+            must: leaves,
+            should: vec![],
+            filter: vec![],
+            must_not: vec![],
+            minimum_should_match: None,
+        }
+    } else {
+        QueryNode::Bool {
+            must: vec![],
+            should: leaves,
+            filter: vec![],
+            must_not: vec![],
+            minimum_should_match,
+        }
     }
 }
 
@@ -4720,16 +4921,7 @@ fn parse_match_bool_prefix(params: &Value) -> Result<QueryNode> {
                 .get("analyzer")
                 .and_then(Value::as_str)
                 .map(str::to_string);
-            let fuzziness = inner.get("fuzziness").map(|v| match v {
-                Value::String(s) if s.eq_ignore_ascii_case("auto") => crate::ast::Fuzziness::Auto,
-                Value::String(s) => s
-                    .parse::<u32>()
-                    .ok()
-                    .map(crate::ast::Fuzziness::Fixed)
-                    .unwrap_or(crate::ast::Fuzziness::Auto),
-                Value::Number(n) => crate::ast::Fuzziness::Fixed(n.as_u64().unwrap_or(0) as u32),
-                _ => crate::ast::Fuzziness::Auto,
-            });
+            let fuzziness = inner.get("fuzziness").map(parse_fuzziness);
             let prefix_length = parse_prefix_length(inner);
             (q, mm_val, op_and, analyzer, fuzziness, prefix_length)
         };
@@ -5294,6 +5486,167 @@ mod tests {
         } else {
             panic!("wrong variant");
         }
+    }
+
+    // ── #3172: match / multi_match honour fuzziness ─────────────────────────
+
+    #[test]
+    fn match_with_fuzziness_lowers_to_a_fuzzy_leaf() {
+        // Single token collapses to the bare leaf; "AUTO" (any case), an
+        // integer and a numeric string all read.
+        let node = q(json!({"match": {"title": {"query": "quikc", "fuzziness": "AUTO"}}}));
+        assert!(
+            matches!(node, QueryNode::Fuzzy { ref field, ref value, fuzziness: Fuzziness::Auto, prefix_length: 0, .. }
+            if field == "title" && value == "quikc")
+        );
+        let node = q(json!({"match": {"title": {"query": "qwick", "fuzziness": 1}}}));
+        assert!(matches!(
+            node,
+            QueryNode::Fuzzy {
+                fuzziness: Fuzziness::Fixed(1),
+                ..
+            }
+        ));
+        let node = q(json!({"match": {"title": {"query": "qwick", "fuzziness": "1"}}}));
+        assert!(matches!(
+            node,
+            QueryNode::Fuzzy {
+                fuzziness: Fuzziness::Fixed(1),
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn match_with_fuzziness_combines_tokens_per_operator() {
+        let node = q(json!({"match": {"title": {"query": "quikc brown", "fuzziness": 1}}}));
+        match node {
+            QueryNode::Bool {
+                should,
+                minimum_should_match,
+                ..
+            } => {
+                assert_eq!(should.len(), 2);
+                assert!(should.iter().all(|c| matches!(c, QueryNode::Fuzzy { .. })));
+                assert_eq!(minimum_should_match, None);
+            }
+            other => panic!("expected Bool should, got {other:?}"),
+        }
+        let node = q(
+            json!({"match": {"title": {"query": "quikc brown", "operator": "and", "fuzziness": 1}}}),
+        );
+        match node {
+            QueryNode::Bool { must, should, .. } => {
+                assert_eq!(must.len(), 2);
+                assert!(should.is_empty());
+            }
+            other => panic!("expected Bool must, got {other:?}"),
+        }
+        // minimum_should_match survives the lowering on the OR path.
+        let node = q(
+            json!({"match": {"title": {"query": "a b c", "fuzziness": 1, "minimum_should_match": 2}}}),
+        );
+        match node {
+            QueryNode::Bool {
+                should,
+                minimum_should_match,
+                ..
+            } => {
+                assert_eq!(should.len(), 3);
+                assert_eq!(minimum_should_match, Some(MinShouldMatch::Fixed(2)));
+            }
+            other => panic!("expected Bool should, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn match_with_fuzziness_reads_prefix_length_and_boost() {
+        let node = q(
+            json!({"match": {"title": {"query": "qwick", "fuzziness": 1, "prefix_length": 2, "boost": 3.0}}}),
+        );
+        match node {
+            QueryNode::Boosted { boost, query } => {
+                assert_eq!(boost, 3.0);
+                assert!(matches!(
+                    *query,
+                    QueryNode::Fuzzy {
+                        prefix_length: 2,
+                        fuzziness: Fuzziness::Fixed(1),
+                        ..
+                    }
+                ));
+            }
+            other => panic!("expected Boosted, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn match_without_fuzziness_is_unchanged() {
+        // prefix_length alone does not change the node: without fuzziness
+        // there is nothing for it to constrain.
+        let node = q(json!({"match": {"title": {"query": "quick", "prefix_length": 1}}}));
+        assert!(matches!(node, QueryNode::Match { .. }));
+    }
+
+    #[test]
+    fn multi_match_with_fuzziness_combines_per_field_by_type() {
+        // best_fields goes to dis_max.
+        let node = q(
+            json!({"multi_match": {"query": "quikc", "fields": ["title", "body"], "fuzziness": 1}}),
+        );
+        match node {
+            QueryNode::DisMax {
+                queries,
+                tie_breaker,
+            } => {
+                assert_eq!(tie_breaker, 0.0);
+                assert_eq!(queries.len(), 2);
+                assert!(queries.iter().all(|c| matches!(c, QueryNode::Fuzzy { .. })));
+            }
+            other => panic!("expected DisMax, got {other:?}"),
+        }
+        // most_fields goes to a bool should; a ^boost suffix wraps the leaf.
+        let node = q(
+            json!({"multi_match": {"query": "quikc", "type": "most_fields", "fields": ["title^2", "body"], "fuzziness": "AUTO"}}),
+        );
+        match node {
+            QueryNode::Bool { should, .. } => {
+                assert_eq!(should.len(), 2);
+                assert!(matches!(&should[0], QueryNode::Boosted { boost, .. } if *boost == 2.0));
+                assert!(matches!(
+                    &should[1],
+                    QueryNode::Fuzzy {
+                        fuzziness: Fuzziness::Auto,
+                        ..
+                    }
+                ));
+            }
+            other => panic!("expected Bool should, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn multi_match_phrase_with_fuzziness_is_a_loud_error() {
+        let err = parse_query(&json!({
+            "multi_match": {"query": "quikc", "type": "phrase", "fields": ["title"], "fuzziness": 1}
+        }));
+        assert!(err.is_err(), "phrase multi_match must reject fuzziness");
+        assert!(
+            format!("{}", err.unwrap_err()).contains("not allowed for type [phrase]"),
+            "error should name the rejected combination"
+        );
+    }
+
+    #[test]
+    fn multi_match_unknown_type_still_errors_with_fuzziness() {
+        let err = parse_query(&json!({
+            "multi_match": {"query": "quikc", "type": "bogus", "fields": ["title"], "fuzziness": 1}
+        }));
+        assert!(err.is_err(), "unknown type must still error");
+        assert!(
+            format!("{}", err.unwrap_err()).contains("unknown multi_match type"),
+            "error should name the unknown type"
+        );
     }
 
     /// #1504: a long-form `match` that leaves `operator` out is not the same
