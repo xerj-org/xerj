@@ -1,0 +1,23 @@
+{
+ "corpus": "talibibrahim--2048-game",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on 2048, 2048-game, cpp queries this for how TalibIbrahim/2048-game implements it: A 2048 game created in C++",
+ "repos": [
+  {
+   "repo": "2048-game",
+   "url": "https://github.com/TalibIbrahim/2048-game",
+   "sha": "8a2c6bcc50ac435b9accf53ccbf1494b864d1e8f",
+   "licence": "author's permission (LICENSE at pin 8a2c6bcc50ac: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-14T22:09Z",
+    "consent_receipt": "be94d9ce61b1",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-14T22:09Z (receipt be94d9ce61b1); pinned to the default-branch head. LICENSE at pin 8a2c6bcc50ac: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

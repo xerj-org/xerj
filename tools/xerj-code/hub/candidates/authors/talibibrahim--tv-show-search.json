@@ -1,0 +1,23 @@
+{
+ "corpus": "talibibrahim--tv-show-search",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on api, backend, javascript queries this for how TalibIbrahim/tv-show-search implements it: A TV show searching app made using an API",
+ "repos": [
+  {
+   "repo": "tv-show-search",
+   "url": "https://github.com/TalibIbrahim/tv-show-search",
+   "sha": "fc2c9e1fccc73cbb1f3f71ffc0d054c5729212b9",
+   "licence": "author's permission (LICENSE at pin fc2c9e1fccc7: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-14T22:09Z",
+    "consent_receipt": "d36de565a7ea",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-14T22:09Z (receipt d36de565a7ea); pinned to the default-branch head. LICENSE at pin fc2c9e1fccc7: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

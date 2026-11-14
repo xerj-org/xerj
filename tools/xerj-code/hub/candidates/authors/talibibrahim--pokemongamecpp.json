@@ -1,0 +1,23 @@
+{
+ "corpus": "talibibrahim--pokemongamecpp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how TalibIbrahim/PokemonGameCPP implements it: A Pokemon game inspired from Pokemon Emerald created in C++ that runs on console",
+ "repos": [
+  {
+   "repo": "PokemonGameCPP",
+   "url": "https://github.com/TalibIbrahim/PokemonGameCPP",
+   "sha": "305cff467fcced64dd4161a473f79ff2c55d689c",
+   "licence": "author's permission (LICENSE at pin 305cff467fcc: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-14T22:09Z",
+    "consent_receipt": "7dce930d00b5",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-14T22:09Z (receipt 7dce930d00b5); pinned to the default-branch head. LICENSE at pin 305cff467fcc: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

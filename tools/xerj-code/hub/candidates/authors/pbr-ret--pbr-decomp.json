@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on C queries this for how pbr-ret/pbr-decomp implements it: A matching decompilation project for Pok\u00e9mon Battle Revolution (selected work: src/gs, include, libs)",
+ "domain": "an agent working on C++ queries this for how pbr-ret/pbr-decomp implements it: A matching decompilation project for Pok\u00e9mon Battle Revolution (selected work: src/gs, include, libs)",
  "repos": [
   {
    "repo": "pbr-dtk",
