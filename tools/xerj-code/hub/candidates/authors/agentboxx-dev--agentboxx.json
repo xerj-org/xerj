@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on accountability, agents, ai queries this for how Agentboxx-dev/Agentboxx implements it: A tamper-evident flight recorder for AI agents. Sandboxed execution, cryptographic HMAC signing, loop detection, and audit reports. pip inst (selected work: verifiers, scripts, examples)",
+ "domain": "an agent working on accountability, agents, ai queries this for how Agentboxx-dev/Agentboxx implements it: A tamper-evident flight recorder for AI agents. Sandboxed execution, cryptographic signing (HMAC & Ed25519), loop detection, and audit repor (selected work: verifiers, scripts, examples)",
  "repos": [
   {
    "repo": "Agentboxx",

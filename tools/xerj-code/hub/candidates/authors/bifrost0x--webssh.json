@@ -8,15 +8,15 @@
   {
    "repo": "webssh",
    "url": "https://github.com/bifrost0x/webssh",
-   "sha": "4eac73cbc319206bce7887e8dba0643a8b0c7ad5",
-   "licence": "Apache-2.0 (LICENSE file at pin 4eac73cbc319, GitHub licence API 2026-11-14)",
+   "sha": "a85a5774a4fbf19797529844f748a8e8a0e20b7b",
+   "licence": "Apache-2.0 (LICENSE file at pin a85a5774a4fb, GitHub licence API 2026-11-14)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-18T08:31Z",
     "consent_receipt": "a9c25984f872",
-    "note": "Inclusion consented by the commit author by email at 2026-10-18T08:31Z (receipt a9c25984f872); selected commit 4eac73cbc319: \"Redesign the complete frontend workspace (#271)\". LICENSE file at pin 4eac73cbc319 detected as Apache-2.0 by the GitHub licence API on 2026-11-14; used under that licence with attribution. Pinned to head 4eac73cbc319 (contains the selected commit): the LICENSE at the selected commit was MIT."
+    "note": "Inclusion consented by the commit author by email at 2026-10-18T08:31Z (receipt a9c25984f872); selected commit a85a5774a4fb: \"Redesign the complete frontend workspace (#271)\". LICENSE file at pin a85a5774a4fb detected as Apache-2.0 by the GitHub licence API on 2026-11-14; used under that licence with attribution. Pinned to head a85a5774a4fb (contains the selected commit): the LICENSE at the selected commit was MIT."
    }
   }
  ]

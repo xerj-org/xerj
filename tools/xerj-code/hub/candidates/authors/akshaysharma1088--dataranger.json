@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on benchmark, conformal-prediction, data-cleaning queries this for how akshaysharma1088/dataranger implements it: Data-quality repair agent that fixes what it can prove. Every fix is tested on a copy against the source\u2019s control totals, and a calibrated  (selected work: src/dataranger, tests, the project root)",
+ "domain": "an agent working on benchmark, conformal-prediction, data-cleaning queries this for how akshaysharma1088/dataranger implements it: Open-source AI agent that patrols your data, fixes only what it can prove against the source, and sends the rest to a person with the eviden (selected work: src/dataranger, tests, the project root)",
  "repos": [
   {
    "repo": "dataranger",
