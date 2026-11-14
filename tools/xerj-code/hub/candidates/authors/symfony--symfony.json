@@ -8,15 +8,15 @@
   {
    "repo": "symfony",
    "url": "https://github.com/symfony/symfony",
-   "sha": "b7e51516df7b1448df44e5437558c1d2b4a95fb2",
-   "licence": "MIT (LICENSE file at pin b7e51516df7b, GitHub licence API 2026-10-24)",
+   "sha": "569176a769099442d9bb3a673e3af9fb8cf144c3",
+   "licence": "MIT (LICENSE file at pin 569176a76909, GitHub licence API 2026-11-14)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
-    "at": "2026-10-12T06:31Z",
-    "consent_receipt": "b8c3dbcace42",
-    "note": "Inclusion consented by the commit author by email at 2026-10-12T06:31Z (receipt b8c3dbcace42); selected commit b7e51516df7b: \"[TypeInfo][Serializer][JsonStreamer] Add `Type::map()`\". LICENSE file at pin b7e51516df7b detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @symfony, who has not added it."
+    "at": "2026-11-12T17:21Z",
+    "consent_receipt": "55c8fa17ec33",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T17:21Z (receipt 55c8fa17ec33); selected commit 569176a76909: \"[HttpClient] Fix sending an empty body when a request with a stream b\u2026\". LICENSE file at pin 569176a76909 detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @symfony, who has not added it."
    },
    "paths": [
     "src/Symfony/Component/HttpClient",

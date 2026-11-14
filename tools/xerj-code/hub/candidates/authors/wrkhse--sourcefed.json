@@ -1,9 +1,9 @@
 {
- "corpus": "stevenjpx2--sourcefed",
+ "corpus": "wrkhse--sourcefed",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on TypeScript queries this for how StevenJPx2/sourcefed implements it: Notifies your agents of changes in your Jira ticket / Github PR / Slack thread, etc (selected work: adapters, packages/daemon, scripts)",
+ "domain": "an agent working on TypeScript queries this for how wrkhse/sourcefed implements it: Notifies your agents of changes in your Jira ticket / Github PR / Slack thread, etc (selected work: adapters, packages/daemon, scripts)",
  "repos": [
   {
    "repo": "sourcefed",

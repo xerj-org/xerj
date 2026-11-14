@@ -1,0 +1,23 @@
+{
+ "corpus": "ivandeus--deus-xbt-tracker",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on torrent-tool queries this for how IvanDeus/deus-xbt-tracker implements it: OlafvdSpek's XBT torrent tracker recreated in Rust",
+ "repos": [
+  {
+   "repo": "deus-xbt-tracker",
+   "url": "https://github.com/IvanDeus/deus-xbt-tracker",
+   "sha": "01423214c000fe75575e9c3b1a8fdc2f5120e7b5",
+   "licence": "GPL-3.0 (LICENSE file at pin 01423214c000, GitHub licence API 2026-11-14)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-14T05:58Z",
+    "consent_receipt": "df78530ee14e",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-14T05:58Z (receipt df78530ee14e); pinned to the default-branch head. LICENSE file at pin 01423214c000 detected as GPL-3.0 by the GitHub licence API on 2026-11-14; used under that licence with attribution."
+   }
+  }
+ ]
+}

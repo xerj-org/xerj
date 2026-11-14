@@ -1,0 +1,23 @@
+{
+ "corpus": "ivandeus--lvbb-lite",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on laravel, bulletin-board queries this for how IvanDeus/lvbb-lite implements it: Simple Laravel-based Bulletin Board",
+ "repos": [
+  {
+   "repo": "lvbb-lite",
+   "url": "https://github.com/IvanDeus/lvbb-lite",
+   "sha": "59f322fb22afa644ed8617b0fd839cfddf280d15",
+   "licence": "MIT (LICENSE file at pin 59f322fb22af, GitHub licence API 2026-11-14)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-14T05:58Z",
+    "consent_receipt": "5f30e4ec2dfe",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-14T05:58Z (receipt 5f30e4ec2dfe); pinned to the default-branch head. LICENSE file at pin 59f322fb22af detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution."
+   }
+  }
+ ]
+}

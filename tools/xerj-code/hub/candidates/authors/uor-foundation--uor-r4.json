@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Rust queries this for how UOR-Foundation/uor-r4 implements it: UOR-Foundation/uor-r4 (Rust) (selected work: crates/uor-r4-training, crates/uor-r4-integer)",
+ "domain": "an agent working on active, computation, math queries this for how UOR-Foundation/uor-r4 implements it: UOR-Foundation/uor-r4 (Rust) (selected work: crates/uor-r4-training, crates/uor-r4-integer)",
  "repos": [
   {
    "repo": "uor-r4",

@@ -1,0 +1,23 @@
+{
+ "corpus": "hasalawa--sloth-tidy",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on devchallenges, file-management, file-organizer queries this for how Hasalawa/sloth-tidy implements it: A lazy, local, undoable file tidier. An open-weight model in Ollama sorts and renames your messy folder. Nothing leaves your machine",
+ "repos": [
+  {
+   "repo": "sloth-tidy",
+   "url": "https://github.com/Hasalawa/sloth-tidy",
+   "sha": "c934a1bc634a65d7c6111fea10fb981a8d969b0c",
+   "licence": "MIT (LICENSE file at pin c934a1bc634a, GitHub licence API 2026-11-14)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-14T04:46Z",
+    "consent_receipt": "b6177f4d6954",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-14T04:46Z (receipt b6177f4d6954); pinned to the default-branch head. LICENSE file at pin c934a1bc634a detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution."
+   }
+  }
+ ]
+}

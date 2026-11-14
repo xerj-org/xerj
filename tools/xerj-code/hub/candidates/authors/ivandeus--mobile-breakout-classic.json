@@ -1,0 +1,23 @@
+{
+ "corpus": "ivandeus--mobile-breakout-classic",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on angularapp, breakout-game queries this for how IvanDeus/Mobile-Breakout-Classic implements it: The classic Breakout-like arcade game built with Angular",
+ "repos": [
+  {
+   "repo": "Mobile-Breakout-Classic",
+   "url": "https://github.com/IvanDeus/Mobile-Breakout-Classic",
+   "sha": "d7a572f01c17e977d1e08b24096857f387300359",
+   "licence": "GPL-3.0 (LICENSE file at pin d7a572f01c17, GitHub licence API 2026-11-14)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-14T05:58Z",
+    "consent_receipt": "9eabb20d280e",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-14T05:58Z (receipt 9eabb20d280e); pinned to the default-branch head. LICENSE file at pin d7a572f01c17 detected as GPL-3.0 by the GitHub licence API on 2026-11-14; used under that licence with attribution."
+   }
+  }
+ ]
+}

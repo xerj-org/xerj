@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on github-profile-readme, python, spotify queries this for how LienThuan04/Spotify-SPARK implements it: Show your Spotify playing on your Github profile and more (selected work: api, tests)",
+ "domain": "an agent working on python, spotify, spotify-spark queries this for how LienThuan04/Spotify-SPARK implements it: Show your Spotify playing on your Github profile and more (selected work: api, tests)",
  "repos": [
   {
    "repo": "Spotify-Profile-Github",
