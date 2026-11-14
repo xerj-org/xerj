@@ -2234,9 +2234,12 @@ pub async fn process_bulk_with_opts(
                         // cannot run reports that instead — issue #204: telling
                         // an operator a pipeline "does not exist" when
                         // `GET /_ingest/pipeline` plainly returns it sends them
-                        // hunting for the wrong problem.
+                        // hunting for the wrong problem. A non-object document
+                        // is likewise the caller's malformed input, not a
+                        // missing pipeline (issue #3174).
                         let reason = match &e {
                             xerj_wasm::WasmError::PipelineNotRunnable { .. } => e.to_string(),
+                            xerj_wasm::WasmError::NonObjectDocument(_) => e.to_string(),
                             _ => format!("pipeline with id [{pid}] does not exist"),
                         };
                         items[item_idx] = Some(BulkItemResult {

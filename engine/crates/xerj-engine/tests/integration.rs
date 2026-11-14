@@ -9951,3 +9951,51 @@ async fn nested_knn_postfilter_prefix_on_keyword_is_case_sensitive() {
         knn.hits.iter().map(|h| &h.id).collect::<Vec<_>>()
     );
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Issue #3174: ingest pipeline panics on a non-object document.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// `set` / `add_field` index into the document root with `doc[field] = ...`,
+/// and `serde_json` `IndexMut` panics on a non-object root. The release
+/// profile aborts on panic, so one malformed document killed the whole node
+/// instead of returning a 400. `process_through_pipeline` must refuse a
+/// non-object document before any stage runs, while object documents keep
+/// flowing through the pipeline unchanged.
+#[tokio::test]
+async fn pipeline_refuses_non_object_document() {
+    let dir = TempDir::new().unwrap();
+    let engine = make_engine(&dir);
+    assert!(
+        engine
+            .put_pipeline(
+                "set-pipe",
+                json!({ "stages": [{ "type": "set", "config": { "field": "tagged", "value": true } }] }),
+            )
+            .expect("put_pipeline")
+            .is_none(),
+        "pipeline stores"
+    );
+
+    for bad in [
+        json!([1, 2, 3]),
+        json!("just a string"),
+        json!(42),
+        json!(null),
+    ] {
+        let err = engine
+            .process_through_pipeline("set-pipe", vec![bad])
+            .expect_err("a non-object document must be refused, not run through the pipeline");
+        assert!(
+            err.to_string().contains("JSON object"),
+            "the refusal must name the required shape: {err}"
+        );
+    }
+
+    let results = engine
+        .process_through_pipeline("set-pipe", vec![json!({ "f": "v" })])
+        .expect("object documents still run through the pipeline");
+    assert_eq!(results.len(), 1, "one document in, one out");
+    assert_eq!(results[0].1["tagged"], true, "the set stage still applies");
+    assert_eq!(results[0].1["f"], "v");
+}
