@@ -142,5 +142,26 @@ class FactsWaitLoopTests(unittest.TestCase):
             self.assertIn(needle, line)
 
 
+class FactsApiReferenceTests(unittest.TestCase):
+    """Reads docs only, so it runs without bash or jq."""
+
+    def test_facts_api_lists_every_model_state(self):
+        # docs/FACTS_API.md is the /_facts reference. If it lists only the
+        # states that end in `loaded` and says "poll until `loaded`", a reader
+        # following it waits forever on a missing bundle, the same failure the
+        # loops above were fixed for.
+        api = (ROOT / "docs" / "FACTS_API.md").read_text(encoding="utf-8")
+        paras = [p for p in api.split("\n\n") if p.startswith("`model.state` is ")]
+        self.assertEqual(len(paras), 1, "docs/FACTS_API.md: expected one model.state paragraph")
+        para = paras[0]
+        for needle in ("`not_configured`", "`not_loaded`", "`loaded`", "`unavailable`", "model.error"):
+            self.assertIn(needle, para, f"docs/FACTS_API.md model.state paragraph lacks {needle}")
+        self.assertNotIn(
+            "Poll until `loaded`",
+            para,
+            "docs/FACTS_API.md: polling until `loaded` never ends on `unavailable`",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
