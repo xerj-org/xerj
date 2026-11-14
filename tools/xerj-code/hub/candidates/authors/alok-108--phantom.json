@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on cli, code-generation, good-first-issue queries this for how alok-108/phantom implements it: Phantom: dual-layer programming language - structured instructions embedded in ordinary Python source (selected work: src/phantom, tests)",
+ "domain": "an agent working on cli, code-generation, good-first-issue queries this for how alok-108/phantom implements it: Phantom: dual-layer Python language \u2014 structured instructions in ordinary Python source. Beginner-friendly open source with good first issue (selected work: src/phantom, tests)",
  "repos": [
   {
    "repo": "phantom",

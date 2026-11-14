@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "DB",
- "domain": "an agent working on background-jobs, background-jobs-python, job-queue queries this for how Piergiuseppe/tinyjobs implements it: Background jobs and cron for Python, on SQLite, with zero dependencies (selected work: tests, tinyjobs)",
+ "domain": "an agent working on background-jobs, background-jobs-python, job-queue queries this for how Piergiuseppe/tinyjobs implements it: Background jobs and cron for Python on SQLite, Postgres or Redis. Zero dependencies on SQLite, crash tested with SIGKILL (selected work: tests, tinyjobs)",
  "repos": [
   {
    "repo": "tinyjobs",

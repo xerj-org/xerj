@@ -1,0 +1,23 @@
+{
+ "corpus": "drvelvetfog--verified-examples",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, ci, documentation queries this for how DrVelvetFog/verified-examples implements it: xv \u2014 verified examples: execution attestations (in-toto) for docs that agents can check instead of recall. VERIFIED/MODIFIED/STALE/FAILED pe",
+ "repos": [
+  {
+   "repo": "verified-examples",
+   "url": "https://github.com/DrVelvetFog/verified-examples",
+   "sha": "353301a083253a379363b7941d9003955e6ed96f",
+   "licence": "MIT (LICENSE file at pin 353301a08325, GitHub licence API 2026-11-14)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-14T13:45Z",
+    "consent_receipt": "ee2c91ddcf96",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-14T13:45Z (receipt ee2c91ddcf96); pinned to the default-branch head. LICENSE file at pin 353301a08325 detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution."
+   }
+  }
+ ]
+}

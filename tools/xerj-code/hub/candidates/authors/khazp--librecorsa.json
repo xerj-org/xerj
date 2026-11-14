@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on game-physics, motorsports, nextjs16 queries this for how KhazP/librecorsa implements it: Open-source racing sim that runs in the browser. 500 Hz 6-DOF physics, tyre temps, wet weather, AI and WebRTC multiplayer (selected work: scripts, the project root)",
+ "domain": "an agent working on game-physics, motorsports, nextjs16 queries this for how KhazP/librecorsa implements it: Open-source racing sim that runs in the browser. 500 Hz 6-DOF physics, tyre temps, wet weather, wheel force feedback, AI races and online mu (selected work: scripts, the project root)",
  "repos": [
   {
    "repo": "rwanda-f1-2026-sim",

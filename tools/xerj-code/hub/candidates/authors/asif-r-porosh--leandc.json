@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on claude, mcp, mcp-server queries this for how asif-r-porosh/leandc implements it: Claude Chat's remote dev kit: a lean, token-efficient MCP server (run, job, read, write, edit) (selected work: bench)",
+ "domain": "an agent working on claude, mcp, mcp-server queries this for how asif-r-porosh/leandc implements it: Lean MCP server for local/remote shell access, background jobs, and file read/write/edit. Benchmarked 37\u201390% fewer tokens than Desktop Comma (selected work: bench)",
  "repos": [
   {
    "repo": "leandc",

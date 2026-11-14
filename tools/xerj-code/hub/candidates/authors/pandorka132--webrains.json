@@ -8,15 +8,15 @@
   {
    "repo": "WeBrains",
    "url": "https://github.com/Pandorka132/WeBrains",
-   "sha": "399bf09ea494764ccbdbbd165ae30bb2beab9390",
-   "licence": "author's permission (LICENSE at pin 399bf09ea494: NONE; repository: none)",
+   "sha": "25d0e05f543253a853f5f6b9ac0ea2167c682be1",
+   "licence": "author's permission (LICENSE at pin 25d0e05f5432: NONE; repository: none)",
    "review": {
     "spdx": "NONE",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T22:52Z",
     "consent_receipt": "9ffa0bf956bf",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T22:52Z (receipt 9ffa0bf956bf); pinned to the default-branch head. LICENSE at pin 399bf09ea494: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T22:52Z (receipt 9ffa0bf956bf); pinned to the default-branch head. LICENSE at pin 25d0e05f5432: NONE (repository: none); used with the author's permission, with attribution."
    }
   }
  ]

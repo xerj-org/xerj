@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on glean, knowledge-graph, ollama queries this for how pipeshub-ai/pipeshub-ai implements it: The open-source context layer for AI agents. PipesHub turns your company's knowledge (Slack, Drive, Jira, GitHub, Microsoft 365 and 50+ conn (selected work: backend)",
+ "domain": "an agent working on knowledge-graph, ollama, rag queries this for how pipeshub-ai/pipeshub-ai implements it: The open-source context layer for AI agents and enterprise AI search. Permission-aware search and cited answers across Slack, Drive, Jira, G (selected work: backend)",
  "repos": [
   {
    "repo": "pipeshub-ai",

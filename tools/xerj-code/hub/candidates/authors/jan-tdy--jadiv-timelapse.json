@@ -8,15 +8,15 @@
   {
    "repo": "jadiv-timelapse",
    "url": "https://github.com/jan-tdy/jadiv-timelapse",
-   "sha": "c6500a51d13f974f4f968c62c201986d10916aa8",
-   "licence": "MIT (LICENSE file at pin c6500a51d13f, GitHub licence API 2026-11-04)",
+   "sha": "9dfbca91d87e787abaf88fa0dd3dd37defff0001",
+   "licence": "MIT (LICENSE file at pin 9dfbca91d87e, GitHub licence API 2026-11-14)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T19:53Z",
     "consent_receipt": "3b91c9c3eaeb",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T19:53Z (receipt 3b91c9c3eaeb); pinned to the default-branch head. LICENSE file at pin c6500a51d13f detected as MIT by the GitHub licence API on 2026-11-04; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T19:53Z (receipt 3b91c9c3eaeb); pinned to the default-branch head. LICENSE file at pin 9dfbca91d87e detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution."
    }
   }
  ]

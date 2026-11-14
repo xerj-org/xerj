@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on 7tv, browser-extension, chrome-extension queries this for how FahadBinHussain/mojify implements it: bring twitch/7tv emotes to any website \u2014 channel sync, media provider integrations and a modern popup workflow. mv3 browser extension",
+ "domain": "an agent working on 7tv, browser-extension, chrome-extension queries this for how FahadBinHussain/mojify implements it: twitch/7tv emotes on any website \u2014 type :emote: or pick from a searchable gui deck, no memorizing names. mv3 browser extension",
  "repos": [
   {
    "repo": "mojify",
    "url": "https://github.com/FahadBinHussain/mojify",
-   "sha": "81270aecde0355a4b0904ec883d9196b80528a44",
-   "licence": "MIT (LICENSE file at pin 81270aecde03, GitHub licence API 2026-11-08)",
+   "sha": "0e0aef3c5e5b84efd68c14259718a980ea9c3ec1",
+   "licence": "MIT (LICENSE file at pin 0e0aef3c5e5b, GitHub licence API 2026-11-14)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T02:34Z",
     "consent_receipt": "cbdaa51120d1",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T02:34Z (receipt cbdaa51120d1); pinned to the default-branch head. LICENSE file at pin 81270aecde03 detected as MIT by the GitHub licence API on 2026-11-08; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T02:34Z (receipt cbdaa51120d1); pinned to the default-branch head. LICENSE file at pin 0e0aef3c5e5b detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution."
    }
   }
  ]
