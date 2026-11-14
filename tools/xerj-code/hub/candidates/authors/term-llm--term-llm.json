@@ -1,9 +1,9 @@
 {
- "corpus": "samsaffron--term-llm",
+ "corpus": "term-llm--term-llm",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Go queries this for how SamSaffron/term-llm implements it: LLM Swiss Army Knife for your Terminal (selected work: frontend, internal/inspect, cmd)",
+ "domain": "an agent working on Go queries this for how term-llm/term-llm implements it: LLM Swiss Army Knife for your Terminal (selected work: frontend, internal/inspect, cmd)",
  "repos": [
   {
    "repo": "term-llm",

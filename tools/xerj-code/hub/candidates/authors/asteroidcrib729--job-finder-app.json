@@ -8,15 +8,15 @@
   {
    "repo": "job-finder-app",
    "url": "https://github.com/asteroidcrib729/job-finder-app",
-   "sha": "646b2368057c57c29499a6ef6666bc03f4c6e4b3",
-   "licence": "Apache-2.0 (LICENSE file at pin 646b2368057c, GitHub licence API 2026-11-13)",
+   "sha": "b29647e191d0a6d31c2c62838fd1f7e48af7ea84",
+   "licence": "Apache-2.0 (LICENSE file at pin b29647e191d0, GitHub licence API 2026-11-14)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T00:03Z",
     "consent_receipt": "b8ac16676407",
-    "note": "Inclusion consented by the commit author by email at 2026-10-28T00:03Z (receipt b8ac16676407); selected commit 646b2368057c: \"feat: activate SerpApi with durable credit limits\". LICENSE file at pin 646b2368057c detected as Apache-2.0 by the GitHub licence API on 2026-11-13; used under that licence with attribution. Pinned to head 646b2368057c (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-28T00:03Z (receipt b8ac16676407); selected commit b29647e191d0: \"feat: activate SerpApi with durable credit limits\". LICENSE file at pin b29647e191d0 detected as Apache-2.0 by the GitHub licence API on 2026-11-14; used under that licence with attribution. Pinned to head b29647e191d0 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]
