@@ -1,9 +1,9 @@
 {
- "corpus": "dhanushk-offl--guro",
+ "corpus": "d5v7--guro",
  "cloned_at": null,
  "status": "draft",
  "shelf": "OPS",
- "domain": "an agent working on benchmarking, heatmap, python queries this for how dhanushk-offl/guro implements it: Sophisticated terminal-based diagnostic toolkit designed for granular system resource monitoring and hardware analysis (selected work: src/guro, tests, the project root)",
+ "domain": "an agent working on benchmarking, heatmap, python queries this for how d5v7/guro implements it: Sophisticated terminal-based diagnostic toolkit designed for granular system resource monitoring and hardware analysis (selected work: src/guro, tests, the project root)",
  "repos": [
   {
    "repo": "guro",

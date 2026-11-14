@@ -2,8 +2,8 @@
  "corpus": "rookweld--fieldrook",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Python queries this for how Rookweld/FieldRook implements it: Rookweld/FieldRook (Python) (selected work: backend, frontend)",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, diagnostics, fastapi queries this for how Rookweld/FieldRook implements it: Local-first, evidence-driven Windows diagnostics with bounded AI-assisted investigations, a portable Collector, and technician-controlled ve (selected work: backend, frontend)",
  "repos": [
   {
    "repo": "FieldRook",

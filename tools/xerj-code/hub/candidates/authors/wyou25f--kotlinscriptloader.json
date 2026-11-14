@@ -2,7 +2,7 @@
  "corpus": "wyou25f--kotlinscriptloader",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
+ "shelf": "DB",
  "domain": "an agent working on gradle, java, java21 queries this for how wyou25f/kotlinscriptloader implements it: KSL is a special plugin for creating your own scripts, similar to Skript (selected work: src/main, examples, the project root)",
  "repos": [
   {

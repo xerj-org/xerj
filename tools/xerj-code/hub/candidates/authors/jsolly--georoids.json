@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on asteroids, game, typescript queries this for how jsolly/GeoRoids implements it: A multiplayer Asteroids game (selected work: scripts, config, the project root)",
+ "domain": "an agent working on asteroids, game, typescript queries this for how jsolly/GeoRoids implements it: A multiplayer Asteroids game (selected work: tests, server, src/entities)",
  "repos": [
   {
    "repo": "GeoRoids",
    "url": "https://github.com/jsolly/GeoRoids",
-   "sha": "5733f242c95c5f3c8d8e789ff310f9fa6844d329",
-   "licence": "Apache-2.0 (LICENSE file at pin 5733f242c95c, GitHub licence API 2026-10-24)",
+   "sha": "af5fbac3f74018106bcf80e123392c16bdfedbde",
+   "licence": "Apache-2.0 (LICENSE file at pin af5fbac3f740, GitHub licence API 2026-11-11)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
-    "at": "2026-10-19T21:50Z",
-    "consent_receipt": "ea2b4d6390b7",
-    "note": "Inclusion consented by the commit author by email at 2026-10-19T21:50Z (receipt ea2b4d6390b7); selected commit 5733f242c95c: \"Standardize test runners on Vitest and pytest (#843)\". LICENSE file at pin 5733f242c95c detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
+    "at": "2026-10-12T03:26Z",
+    "consent_receipt": "9bf8d8a9ae40",
+    "note": "Inclusion consented by the commit author by email at 2026-10-12T03:26Z (receipt 9bf8d8a9ae40); selected commit af5fbac3f740: \"refactor(engine): remove redundant synchronization and logging paths \u2026\". LICENSE file at pin af5fbac3f740 detected as Apache-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution."
    }
   }
  ]

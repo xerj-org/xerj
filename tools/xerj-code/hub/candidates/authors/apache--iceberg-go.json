@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on apache, golang, iceberg queries this for how apache/iceberg-go implements it: Apache Iceberg - Go (selected work: catalog)",
+ "domain": "an agent working on apache, golang, iceberg queries this for how apache/iceberg-go implements it: Apache Iceberg - Go (selected work: table, dev, the project root)",
  "repos": [
   {
    "repo": "iceberg-go",
    "url": "https://github.com/apache/iceberg-go",
-   "sha": "97720316a4a206c600b9357c18d158d8eda570be",
-   "licence": "Apache-2.0 (LICENSE file at pin 97720316a4a2, GitHub licence API 2026-10-24)",
+   "sha": "19a6ef2f377fe88be2b9b41d06561b331cf2f290",
+   "licence": "Apache-2.0 (LICENSE file at pin 19a6ef2f377f, GitHub licence API 2026-11-11)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
-    "at": "2026-10-12T15:56Z",
-    "consent_receipt": "d0781e00ce8a",
-    "note": "Inclusion consented by the commit author by email at 2026-10-12T15:56Z (receipt d0781e00ce8a); selected commit 97720316a4a2: \"feat(catalog): add table lifecycle conformance tests and fix rename-t\u2026\". LICENSE file at pin 97720316a4a2 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @apache, who has not added it."
+    "at": "2026-11-05T20:24Z",
+    "consent_receipt": "1b41091ad103",
+    "note": "Inclusion consented by the commit author by email at 2026-11-05T20:24Z (receipt 1b41091ad103); selected commit 19a6ef2f377f: \"feat(table): add Theta sketch NDV helper (#2347)\". LICENSE file at pin 19a6ef2f377f detected as Apache-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @apache, who has not added it."
    },
    "paths": [
     "catalog/catalogtest",

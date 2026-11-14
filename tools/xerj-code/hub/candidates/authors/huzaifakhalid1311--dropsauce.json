@@ -2,8 +2,8 @@
  "corpus": "huzaifakhalid1311--dropsauce",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Kotlin queries this for how HuzaifaKhalid1311/DropSauce implements it: A light, beautiful comic and novel reading app designed with Jetpack Compose and M3 Expressive that works with a wide range of extensions (selected work: app/src)",
+ "shelf": "WEB",
+ "domain": "an agent working on android, manga-reader, material-design queries this for how HuzaifaKhalid1311/DropSauce implements it: A light, beautiful comic and novel reading app designed with Jetpack Compose and M3 Expressive that works with a wide range of extensions (selected work: app/src)",
  "repos": [
   {
    "repo": "DropSauce",
