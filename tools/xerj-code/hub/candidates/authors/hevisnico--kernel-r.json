@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "NET",
- "domain": "an agent working on Lean queries this for how HevisNico/kernel-R implements it: Pulse-driven learning cells proved in Lean 4: exact doses, training that stops by itself, networks of trained cells and binary searches, rob (selected work: research)",
+ "domain": "an agent working on analog-circuits, formal-verification, hybrid-system queries this for how HevisNico/kernel-R implements it: Pulse-driven learning cells and networks proved in Lean 4: exact doses, training that stops by itself, network memory that freezes and never (selected work: research)",
  "repos": [
   {
    "repo": "kernel-R",

@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on C++ queries this for how rdrsss/planar implements it: a context plane for long running agents (selected work: src/engine, src/cmd, src/lib)",
+ "domain": "an agent working on code queries this for how rdrsss/planar implements it: Spec-driven development plugin and agent ecosystem (selected work: src/engine, src/cmd, src/lib)",
  "repos": [
   {
    "repo": "planar",
    "url": "https://github.com/rdrsss/planar",
    "sha": "9599a19f79e2984e12a4fa5e120b6994677c3263",
-   "licence": "MIT (LICENSE file at pin 9599a19f79e2, GitHub licence API 2026-10-24)",
+   "licence": "author's permission (LICENSE at pin 9599a19f79e2: MIT; repository: none)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-16T21:56Z",
     "consent_receipt": "3ea63d37dd89",
-    "note": "Inclusion consented by the commit author by email at 2026-10-16T21:56Z (receipt 3ea63d37dd89); selected commit 9599a19f79e2: \"Make planar report's inputs and privacy statement trustworthy (#249)\". LICENSE file at pin 9599a19f79e2 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-10-16T21:56Z (receipt 3ea63d37dd89); selected commit 9599a19f79e2: \"Make planar report's inputs and privacy statement trustworthy (#249)\". LICENSE at pin 9599a19f79e2: MIT (repository: none); used with the author's permission, with attribution."
    }
   }
  ]

@@ -2,8 +2,8 @@
  "corpus": "stank2386322761--dyknow",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Python queries this for how stank2386322761/dyknow implements it: stank2386322761/dyknow (Python) (selected work: tests, dyknow)",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agent, chinese, douyin queries this for how stank2386322761/dyknow implements it: \u628a\u6296\u97f3\u6536\u85cf\u53d8\u6210\u4f60\u81ea\u5df1\u7684\u80fd\u95ee\u80fd\u641c\u7684\u77e5\u8bc6\u5e93\uff1a\u81ea\u52a8\u8f6c\u5f55\u6210 Markdown\uff0c\u4ea4\u7ed9\u4efb\u610f AI \u6574\u7406\u3002\u65e0\u9700\u663e\u5361\u4e5f\u80fd\u7528\u3002 (selected work: tests, dyknow)",
  "repos": [
   {
    "repo": "dyknow",

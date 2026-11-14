@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "OPS",
- "domain": "an agent working on Rust queries this for how Waqar-743/Syslume implements it: Syslume is a Windows system intelligence app for storage, CPU, RAM, battery, processes, hardware, and GPU monitoring. Built with Tauri, Rust (selected work: src-tauri, src, src/components)",
+ "domain": "an agent working on destop-companion, security-tools, storage-analyzer queries this for how Waqar-743/Syslume implements it: Syslume is a Windows system intelligence app for storage, CPU, RAM, battery, processes, hardware, and GPU monitoring. Built with Tauri, Rust (selected work: src-tauri, src, src/components)",
  "repos": [
   {
    "repo": "Syslume",
