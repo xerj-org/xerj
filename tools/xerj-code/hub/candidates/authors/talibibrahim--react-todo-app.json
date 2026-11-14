@@ -1,0 +1,23 @@
+{
+ "corpus": "talibibrahim--react-todo-app",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on JavaScript queries this for how TalibIbrahim/react-todo-app implements it: TalibIbrahim/react-todo-app (JavaScript)",
+ "repos": [
+  {
+   "repo": "react-todo-app",
+   "url": "https://github.com/TalibIbrahim/react-todo-app",
+   "sha": "afe4c9773b1fd01bb22ef36400e406bb5f7580a2",
+   "licence": "author's permission (LICENSE at pin afe4c9773b1f: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-14T22:09Z",
+    "consent_receipt": "bc0056d51be6",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-14T22:09Z (receipt bc0056d51be6); pinned to the default-branch head. LICENSE at pin afe4c9773b1f: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

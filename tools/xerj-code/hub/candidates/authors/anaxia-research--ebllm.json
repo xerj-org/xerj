@@ -1,9 +1,9 @@
 {
- "corpus": "creelie--ebllm",
+ "corpus": "anaxia-research--ebllm",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Python queries this for how creelie/eBLLM implements it: creelie/eBLLM (Python) (selected work: src/ebllm, tests, the project root)",
+ "domain": "an agent working on Python queries this for how anaxia-research/eBLLM implements it: anaxia-research/eBLLM (Python) (selected work: src/ebllm, tests, the project root)",
  "repos": [
   {
    "repo": "eBLLM",

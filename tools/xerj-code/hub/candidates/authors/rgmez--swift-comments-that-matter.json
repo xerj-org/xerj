@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Swift queries this for how rgmez/swift-comments-that-matter implements it: Cross-agent standard for high-signal comments in Swift codebases, focused on intent, invariants, constraints, side effects, and concurrency  (selected work: skills, standards, tests)",
+ "domain": "an agent working on agent-skills, claude-code, code-comments queries this for how rgmez/swift-comments-that-matter implements it: Cross-agent standard for high-signal comments in Swift codebases, focused on intent, invariants, constraints, side effects, and concurrency  (selected work: skills, standards, tests)",
  "repos": [
   {
    "repo": "swift-comments-that-matter",

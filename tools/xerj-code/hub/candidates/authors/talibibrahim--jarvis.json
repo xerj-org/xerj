@@ -1,0 +1,23 @@
+{
+ "corpus": "talibibrahim--jarvis",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how TalibIbrahim/JARVIS implements it: Touchless hand-gesture PC control with a Dynamic-Island notch overlay for Windows, powered by MediaPipe and PySide6",
+ "repos": [
+  {
+   "repo": "JARVIS",
+   "url": "https://github.com/TalibIbrahim/JARVIS",
+   "sha": "5d6c5f5206264df3a4d155947f95138b79521455",
+   "licence": "MIT (LICENSE file at pin 5d6c5f520626, GitHub licence API 2026-11-14)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-14T22:09Z",
+    "consent_receipt": "c448b68329ce",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-14T22:09Z (receipt c448b68329ce); pinned to the default-branch head. LICENSE file at pin 5d6c5f520626 detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution."
+   }
+  }
+ ]
+}
