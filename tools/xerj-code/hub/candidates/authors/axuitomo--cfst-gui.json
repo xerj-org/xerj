@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "OPS",
- "domain": "an agent working on Go queries this for how axuitomo/CFST-GUI implements it: cloudflare speedtest\u56fe\u5f62\u5316\u754c\u9762\uff0c\u8be5\u9879\u76ee\u5e76\u4e0d\u7a33\u5b9a (selected work: frontend, internal/httpclient, mobile)",
+ "domain": "an agent working on Go queries this for how axuitomo/CFST-GUI implements it: cloudflarespeedtest\u56fe\u5f62\u5316\u754c\u9762\uff0c\u8be5\u9879\u76ee\u5e76\u4e0d\u7a33\u5b9a (selected work: frontend, internal/httpclient, mobile)",
  "repos": [
   {
    "repo": "CFST-GUI",
