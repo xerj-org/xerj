@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on claude-code, codex, ghostty queries this for how stablyai/orca implements it: Orca lets you run a fleet of coding agents (e.g. Claude Code, Codex) with your own subscription. Available on desktop, mobile and remote run (selected work: src/main, src/relay, src/shared)",
+ "domain": "an agent working on claude-code, codex, ghostty queries this for how stablyai/orca implements it: Orca lets you run a fleet of coding agents (e.g. Claude Code, Codex) with your own subscription. Available on desktop, mobile and remote run (selected work: src/cli, src/shared, config)",
  "repos": [
   {
    "repo": "orca",
    "url": "https://github.com/stablyai/orca",
-   "sha": "ca6c2091e5fb3150efa817338f0cda0b6b97a4c6",
-   "licence": "MIT (LICENSE file at pin ca6c2091e5fb, GitHub licence API 2026-11-11)",
+   "sha": "66134086bdbfca5caf67563657a2d110fe334f38",
+   "licence": "MIT (LICENSE file at pin 66134086bdbf, GitHub licence API 2026-11-01)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
-    "at": "2026-10-18T06:33Z",
-    "consent_receipt": "474c5ae35826",
-    "note": "Inclusion consented by the commit author by email at 2026-10-18T06:33Z (receipt 474c5ae35826); selected commit ca6c2091e5fb: \"feat(ai-vault): show ZCode CLI session history (#23513)\". LICENSE file at pin ca6c2091e5fb detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @stablyai, who has not added it."
+    "at": "2026-11-01T01:24Z",
+    "consent_receipt": "3e089a98a7f3",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T01:24Z (receipt 3e089a98a7f3); selected commit 66134086bdbf: \"fix(cli): strip terminal control sequences from Linear text in CLI ou\u2026\". LICENSE file at pin 66134086bdbf detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @stablyai, who has not added it."
    },
    "paths": [
     "config/scripts",
