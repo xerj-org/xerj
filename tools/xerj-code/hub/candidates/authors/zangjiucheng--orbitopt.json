@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on astrodynamics, cuda, gpu queries this for how zangjiucheng/orbitopt implements it: Orbital trajectory optimization: pykep/pygmo screening + tudatpy verification, CUDA-batched, with a PySide6/PyVista Mission Control 3D viewe (selected work: src/orbitopt, tests)",
+ "domain": "an agent working on astrodynamics, cuda, gpu queries this for how zangjiucheng/orbitopt implements it: orbitopt searches trajectories with pykep and pygmo, verifies selected candidates with tudatpy, and visualizes them in Mission Control. Flig (selected work: src/orbitopt, tests)",
  "repos": [
   {
    "repo": "orbitopt",

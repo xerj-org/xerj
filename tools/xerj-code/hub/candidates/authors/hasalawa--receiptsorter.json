@@ -1,0 +1,23 @@
+{
+ "corpus": "hasalawa--receiptsorter",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on cli, expense-tracker, freelancer-tools queries this for how Hasalawa/receiptsorter implements it: Local-first receipt & invoice sorter for freelancers. Drop in text, PDF or phone photos; open-weight models (via Ollama) extract vendor, dat",
+ "repos": [
+  {
+   "repo": "receiptsorter",
+   "url": "https://github.com/Hasalawa/receiptsorter",
+   "sha": "7c1be7e4079fada25fa86fc1b791074109db8b49",
+   "licence": "MIT (LICENSE file at pin 7c1be7e4079f, GitHub licence API 2026-11-14)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-14T04:46Z",
+    "consent_receipt": "467377452d8f",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-14T04:46Z (receipt 467377452d8f); pinned to the default-branch head. LICENSE file at pin 7c1be7e4079f detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution."
+   }
+  }
+ ]
+}

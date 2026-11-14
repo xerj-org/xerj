@@ -1,0 +1,23 @@
+{
+ "corpus": "hasalawa--ofrenda",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on day-of-the-dead, dia-de-los-muertos, hacktoberfest queries this for how Hasalawa/ofrenda implements it: A private, offline virtual ofrenda for D\u00eda de los Muertos. Keep the stories of people you miss, then talk about them by chat or voice call w",
+ "repos": [
+  {
+   "repo": "ofrenda",
+   "url": "https://github.com/Hasalawa/ofrenda",
+   "sha": "ee9392b55c98ff778cbdc8c3d9e84cb7830b38d8",
+   "licence": "MIT (LICENSE file at pin ee9392b55c98, GitHub licence API 2026-11-14)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-14T04:46Z",
+    "consent_receipt": "e619950e6546",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-14T04:46Z (receipt e619950e6546); pinned to the default-branch head. LICENSE file at pin ee9392b55c98 detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution."
+   }
+  }
+ ]
+}

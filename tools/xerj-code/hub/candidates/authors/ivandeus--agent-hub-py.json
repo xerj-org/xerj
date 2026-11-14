@@ -1,0 +1,23 @@
+{
+ "corpus": "ivandeus--agent-hub-py",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, ai-orchestrator, orchestration queries this for how IvanDeus/agent-hub-py implements it: Agent Hub \u2014 Flask Orchestrator for NAT-Bound AI Agents",
+ "repos": [
+  {
+   "repo": "agent-hub-py",
+   "url": "https://github.com/IvanDeus/agent-hub-py",
+   "sha": "a3f2b3c1599a54f6b6845ce3e68f942ffa1219d7",
+   "licence": "MIT (LICENSE file at pin a3f2b3c1599a, GitHub licence API 2026-11-14)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-14T05:58Z",
+    "consent_receipt": "964887208703",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-14T05:58Z (receipt 964887208703); pinned to the default-branch head. LICENSE file at pin a3f2b3c1599a detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution."
+   }
+  }
+ ]
+}

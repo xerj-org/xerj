@@ -8,15 +8,15 @@
   {
    "repo": "HexShard-messenger",
    "url": "https://github.com/Ventaxis/HexShard-messenger",
-   "sha": "383eb08a9a5ab99fa9bc7ade43394f63da309a9f",
-   "licence": "MIT (LICENSE file at pin 383eb08a9a5a, GitHub licence API 2026-11-13)",
+   "sha": "c724e44985adc1dc7cc69ba6229935f7e4d42312",
+   "licence": "MIT (LICENSE file at pin c724e44985ad, GitHub licence API 2026-11-14)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-07T09:11Z",
     "consent_receipt": "c4f56e7dde25",
-    "note": "Inclusion consented by the commit author by email at 2026-11-07T09:11Z (receipt c4f56e7dde25); selected commit 383eb08a9a5a: \"feat: improve security, messaging, and storage logic\". LICENSE file at pin 383eb08a9a5a detected as MIT by the GitHub licence API on 2026-11-13; used under that licence with attribution. Pinned to head 383eb08a9a5a (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-11-07T09:11Z (receipt c4f56e7dde25); selected commit c724e44985ad: \"feat: improve security, messaging, and storage logic\". LICENSE file at pin c724e44985ad detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution. Pinned to head c724e44985ad (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]
