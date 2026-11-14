@@ -2,8 +2,8 @@
  "corpus": "rcgiri-physics--physverify",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on computational-physics, method-of-manufactured-solutions, monte-carlo queries this for how rcgiri-physics/physverify implements it: Checks that a physics simulation solves the right equations at the right accuracy (selected work: src/physverify, tests, sandbox)",
+ "shelf": "AI",
+ "domain": "an agent working on computational-physics, method-of-manufactured-solutions, monte-carlo queries this for how rcgiri-physics/physverify implements it: Confirm physics claims by running the code: a suspected bug in simulation code becomes a run against a reference from the physics, and a ver (selected work: src/physverify, tests, sandbox)",
  "repos": [
   {
    "repo": "physverify",

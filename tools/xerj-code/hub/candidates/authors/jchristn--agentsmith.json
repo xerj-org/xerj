@@ -8,15 +8,15 @@
   {
    "repo": "AgentSmith",
    "url": "https://github.com/jchristn/AgentSmith",
-   "sha": "7056f1830748f9345b12a0223fcfee43375ece92",
-   "licence": "MIT (LICENSE file at pin 7056f1830748, GitHub licence API 2026-10-28)",
+   "sha": "94db7a25d964dc2626837f5be112d091b1b25cd0",
+   "licence": "MIT (LICENSE file at pin 94db7a25d964, GitHub licence API 2026-11-14)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T22:23Z",
     "consent_receipt": "f386d8feabc4",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:23Z (receipt f386d8feabc4); pinned to the default-branch head. LICENSE file at pin 7056f1830748 detected as MIT by the GitHub licence API on 2026-10-28; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:23Z (receipt f386d8feabc4); pinned to the default-branch head. LICENSE file at pin 94db7a25d964 detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution."
    }
   }
  ]

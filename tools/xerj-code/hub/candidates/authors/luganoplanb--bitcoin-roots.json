@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "CRYPTO",
- "domain": "an agent working on bitcoin, bitcoin-core, bitcoin-full-node queries this for how LuganoPlanB/bitcoin-roots implements it: Bitcoin node based on Core with selected policy features from Knots, provides reviewable patches and runnable builds (selected work: src/qt)",
+ "domain": "an agent working on bitcoin, bitcoin-core, bitcoin-full-node queries this for how LuganoPlanB/bitcoin-roots implements it: Bitcoin node based on Core with enhanced RPC API and knobs, distributed as patch and builds (selected work: src/qt)",
  "repos": [
   {
    "repo": "bitcoin-roots",

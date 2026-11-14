@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on xml, xml-language-server, xml-parser queries this for how harshanacz/xml-language-service implements it: A fast, fault-tolerant XML language service built as a pure TypeScript npm package. https://www.npmjs.com/package/xml-language-service (selected work: resources, src/schema, tests)",
+ "domain": "an agent working on xml, xml-language-server, xml-parser queries this for how harshanacz/xml-language-service implements it: A fast, fault-tolerant XML language service built as a pure TypeScript npm package (selected work: resources, src/schema, tests)",
  "repos": [
   {
    "repo": "xml-language-service",

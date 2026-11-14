@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on assignments, reminders-app, university queries this for how CondaLabs/unitask implements it: Offline-first Android app for university students: track assignments and deadlines, organize courses and timetables, and assign tasks in stu (selected work: app/src, java)",
+ "domain": "an agent working on assignments, reminders-app, university queries this for how CondaLabs/unitask implements it: Free, open-source Android app for university students. Courses, deadlines, timetable, notes and a study timer live on your phone, with remin (selected work: app/src, java)",
  "repos": [
   {
    "repo": "unitask",

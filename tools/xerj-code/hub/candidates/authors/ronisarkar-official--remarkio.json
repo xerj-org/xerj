@@ -1,9 +1,9 @@
 {
- "corpus": "ronisarkar-official--linkedin-comment-generator",
+ "corpus": "ronisarkar-official--remarkio",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on TypeScript queries this for how ronisarkar-official/linkedin-comment-generator implements it: ronisarkar-official/linkedin-comment-generator (TypeScript) (selected work: src/content, tests, src/popup)",
+ "shelf": "AI",
+ "domain": "an agent working on ai, ai-assistant, browser-extension queries this for how ronisarkar-official/remarkio implements it: Remarkio \u2014 Free & Open-Source AI LinkedIn Comment Assistant. Generate thoughtful, tone-matched comments with Gemini, Claude, OpenAI & local  (selected work: src/content, tests, src/popup)",
  "repos": [
   {
    "repo": "linkedin-comment-generator",

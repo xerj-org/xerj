@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Python queries this for how ciaotee86/restaurant-intelligence implements it: ciaotee86/restaurant-intelligence (Python) (selected work: src/data, restaurant-review-ai, src)",
+ "domain": "an agent working on TypeScript queries this for how ciaotee86/restaurant-intelligence implements it: ciaotee86/restaurant-intelligence (TypeScript) (selected work: src/data, restaurant-review-ai, src)",
  "repos": [
   {
    "repo": "restaurant-intelligence",
