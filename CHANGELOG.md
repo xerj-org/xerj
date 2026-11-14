@@ -338,6 +338,7 @@ The model, its bundle and its serve rule are those of rc.102.
   per-aggregation cap from `limits.max_buckets` still applies too, so a
   setting above it does not raise that cap. `_async_search`,
   `_search/template` and `_msearch/template` do not read the setting yet.
+- `xerj brain` no longer reports "nothing indexable" when the brain meta document is absent or predates `nodes_index`: an unanswerable live-node count is now reported as unverified instead of being read as zero, while a confirmed zero still takes the empty-corpus exit. (issue [#3077](https://github.com/xerj-org/xerj/issues/3077))
 
 ## [1.0.0-rc.102] - 2026-11-06
 
