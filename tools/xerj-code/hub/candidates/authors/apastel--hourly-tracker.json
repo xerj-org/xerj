@@ -1,9 +1,9 @@
 {
- "corpus": "apastel--hourly-tracker-v2",
+ "corpus": "apastel--hourly-tracker",
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Python queries this for how apastel/hourly-tracker-v2 implements it: apastel/hourly-tracker-v2 (Python) (selected work: src/hourly_tracker, tests, packaging)",
+ "domain": "an agent working on Python queries this for how apastel/hourly-tracker implements it: Track when your workday is done based on away time (selected work: src/hourly_tracker, tests, packaging)",
  "repos": [
   {
    "repo": "hourly-tracker-v2",

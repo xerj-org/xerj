@@ -8,15 +8,15 @@
   {
    "repo": "mbse-agents",
    "url": "https://github.com/ajhcs/mbse-agents",
-   "sha": "49e2379f858b05482d7ce1957d08d05ef9d41683",
-   "licence": "MIT (LICENSE file at pin 49e2379f858b, GitHub licence API 2026-11-11)",
+   "sha": "e948cf43d4a1a02a704458d6fd4f58081ad8ea18",
+   "licence": "MIT (LICENSE file at pin e948cf43d4a1, GitHub licence API 2026-11-14)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-10T23:53Z",
     "consent_receipt": "402c020cbfe6",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T23:53Z (receipt 402c020cbfe6); pinned to the default-branch head. LICENSE file at pin 49e2379f858b detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T23:53Z (receipt 402c020cbfe6); pinned to the default-branch head. LICENSE file at pin e948cf43d4a1 detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution."
    }
   }
  ]
