@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on sdr, agentic-ai, ai-governance queries this for how TAM-DS/SignalDesk-Acquisition-Intelligence implements it: B2B sales-development research and review application. OpenAI powers optional live company research and evidence-assisted drafting. The appl (selected work: app/salesforce, tests)",
+ "domain": "an agent working on sdr, agentic-ai, ai-governance queries this for how TAM-DS/signaldesk-acquisition-intelligence implements it: B2B sales-development research and review application. OpenAI powers optional live company research and evidence-assisted drafting. The appl (selected work: app/salesforce, tests)",
  "repos": [
   {
    "repo": "SignalDesk-Acquisition-Intelligence",
