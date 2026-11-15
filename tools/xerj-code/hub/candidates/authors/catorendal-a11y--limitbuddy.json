@@ -1,0 +1,23 @@
+{
+ "corpus": "catorendal-a11y--limitbuddy",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on claude-code, codex, desk-companion queries this for how catorendal-a11y/limitbuddy implements it: ESP32 desk display for AI coding usage limits: Claude Code, Codex, Gemini CLI, Copilot, Cursor and more. 4.3-inch touchscreen, quota and res",
+ "repos": [
+  {
+   "repo": "limitbuddy",
+   "url": "https://github.com/catorendal-a11y/limitbuddy",
+   "sha": "84c8c6aa4e589dc5c78cd144a3bb300b0a35bc0f",
+   "licence": "MIT (LICENSE file at pin 84c8c6aa4e58, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-15T10:36Z",
+    "consent_receipt": "20c7bced9380",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-15T10:36Z (receipt 20c7bced9380); pinned to the default-branch head. LICENSE file at pin 84c8c6aa4e58 detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

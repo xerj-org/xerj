@@ -8,15 +8,15 @@
   {
    "repo": "mainframe",
    "url": "https://github.com/FahadBinHussain/mainframe",
-   "sha": "cca3000576789ddc494faa435058581018a8840c",
-   "licence": "MIT (LICENSE file at pin cca300057678, GitHub licence API 2026-11-15)",
+   "sha": "d1791176798b6d34c2d89f888b6dccbddb098c88",
+   "licence": "MIT (LICENSE file at pin d1791176798b, GitHub licence API 2026-11-15)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T02:34Z",
     "consent_receipt": "7fc40a248aa8",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T02:34Z (receipt 7fc40a248aa8); pinned to the default-branch head. LICENSE file at pin cca300057678 detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T02:34Z (receipt 7fc40a248aa8); pinned to the default-branch head. LICENSE file at pin d1791176798b detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
    }
   }
  ]

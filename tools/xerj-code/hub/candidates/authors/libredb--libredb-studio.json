@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "DB",
- "domain": "an agent working on database, sql, self-hosted queries this for how libredb/libredb-studio implements it: One browser tab for PostgreSQL, MySQL, Oracle, SQL Server, MongoDB, Redis, SQLite, Couchbase, ClickHouse, Druid, DuckDB, Turso and more. An  (selected work: tests, src/lib, src/components)",
+ "domain": "an agent working on database, sql, self-hosted queries this for how libredb/libredb-studio implements it: One browser tab for PostgreSQL, MySQL, Oracle, SQL Server, MongoDB, Redis, SQLite, Couchbase, ClickHouse, Druid, DuckDB, Turso and more. An  (selected work: tests, src/lib)",
  "repos": [
   {
    "repo": "libredb-studio",
    "url": "https://github.com/libredb/libredb-studio",
-   "sha": "0c6579ef9d8b06be997b1ebe4400bd818517784c",
-   "licence": "MIT (LICENSE file at pin 0c6579ef9d8b, GitHub licence API 2026-10-24)",
+   "sha": "d87063afea381fd964d6664cc215b3e6ea8f65ba",
+   "licence": "MIT (LICENSE file at pin d87063afea38, GitHub licence API 2026-11-11)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
-    "at": "2026-10-22T07:17Z",
-    "consent_receipt": "15765010a064",
-    "note": "Inclusion consented by the commit author by email at 2026-10-22T07:17Z (receipt 15765010a064); selected commit 0c6579ef9d8b: \"feat(postgres): show the declared column type beside the base name (#\u2026\". LICENSE file at pin 0c6579ef9d8b detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @libredb, who has not added it."
+    "at": "2026-10-28T03:47Z",
+    "consent_receipt": "e067cccf4eaf",
+    "note": "Inclusion consented by the commit author by email at 2026-10-28T03:47Z (receipt e067cccf4eaf); selected commit d87063afea38: \"fix(sqlite,libredb): report databaseSizeBytes as absent, not 0, when \u2026\". LICENSE file at pin d87063afea38 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @libredb, who has not added it."
    },
    "paths": [
     "docs",

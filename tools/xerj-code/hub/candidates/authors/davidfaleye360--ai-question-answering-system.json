@@ -8,15 +8,15 @@
   {
    "repo": "AI-Question-Answering-System",
    "url": "https://github.com/Davidfaleye360/AI-Question-Answering-System",
-   "sha": "842e037a9756abd3e6d6f32b62fc3038ac173b70",
-   "licence": "MIT (LICENSE file at pin 842e037a9756, GitHub licence API 2026-11-15)",
+   "sha": "e2082678eede72b392f4ac7be9993bd4423f3571",
+   "licence": "MIT (LICENSE file at pin e2082678eede, GitHub licence API 2026-11-15)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-11T16:01Z",
     "consent_receipt": "78ad529f090b",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T16:01Z (receipt 78ad529f090b); selected commit 842e037a9756: \"T10: Long-document mode, tested on three whole articles\". LICENSE file at pin 842e037a9756 detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution. Pinned to head 842e037a9756 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T16:01Z (receipt 78ad529f090b); selected commit e2082678eede: \"T10: Long-document mode, tested on three whole articles\". LICENSE file at pin e2082678eede detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution. Pinned to head e2082678eede (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]
