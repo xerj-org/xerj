@@ -2,8 +2,8 @@
  "corpus": "spiob--deptend",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on TypeScript queries this for how SpIob/DepTend implements it: A maintenance-first, zero-budget coordination tool for solo developers and small open-source teams. Converts dependency and issue data into  (selected work: scripts, app/src, packages/core)",
+ "shelf": "SEC",
+ "domain": "an agent working on cli, dependency-management, go queries this for how SpIob/DepTend implements it: A maintenance-first, zero-budget coordination tool for solo developers and small open-source teams. Converts dependency and issue data into  (selected work: scripts, app/src, packages/core)",
  "repos": [
   {
    "repo": "DepTend",

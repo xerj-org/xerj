@@ -1,9 +1,9 @@
 {
- "corpus": "contextunity--contextunity-forge-mcp",
+ "corpus": "contextunity--contextunity-acdd",
  "cloned_at": null,
  "status": "draft",
- "shelf": "AI",
- "domain": "an agent working on code-graph, contract-driven-development, contract-lifecycle-management queries this for how ContextUnity/contextunity-forge-mcp implements it: Local code graph, documentation, and task coordination server for AI coding agents. It indexes supported source files and Markdown into a re (selected work: src/engine)",
+ "shelf": "LAW",
+ "domain": "an agent working on code-graph, contract-driven-development, contract-lifecycle-management queries this for how ContextUnity/contextunity-acdd implements it: Local code graph, documentation, and task coordination server for AI coding agents. It indexes supported source files and Markdown into a re (selected work: src/engine)",
  "repos": [
   {
    "repo": "contextunity-forge-mcp",
