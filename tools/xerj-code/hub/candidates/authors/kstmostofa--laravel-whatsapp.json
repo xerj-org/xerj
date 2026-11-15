@@ -2,8 +2,8 @@
  "corpus": "kstmostofa--laravel-whatsapp",
  "cloned_at": null,
  "status": "draft",
- "shelf": "WEB",
- "domain": "an agent working on PHP queries this for how kstmostofa/laravel-whatsapp implements it: Laravel WhatsApp - Dual-backend WhatsApp integration for Laravel. Meta Cloud API + whatsapp-web.js sidecar, behind a single facade, with a p",
+ "shelf": "API",
+ "domain": "an agent working on whatsapp, whatsapp-api, whatsapp-business-api queries this for how kstmostofa/laravel-whatsapp implements it: Laravel WhatsApp - Dual-backend WhatsApp integration for Laravel. Meta Cloud API + whatsapp-web.js sidecar, behind a single facade, with a p",
  "repos": [
   {
    "repo": "laravel-whatsapp",

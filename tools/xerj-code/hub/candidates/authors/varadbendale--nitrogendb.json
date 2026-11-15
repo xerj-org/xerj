@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "DB",
- "domain": "an agent working on C queries this for how varadbendale/NitrogenDB implements it: Distributed computational node to node database system (selected work: src/Storage_engine)",
+ "domain": "an agent working on C queries this for how varadbendale/NitrogenDB implements it: Locally running database (selected work: src/Storage_engine)",
  "repos": [
   {
    "repo": "NitrogenDB",

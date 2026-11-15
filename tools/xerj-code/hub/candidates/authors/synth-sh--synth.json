@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai, coding-agent, tui queries this for how synth-sh/synth implements it: A terminal coding agent, written in Zig (selected work: src/acp)",
+ "domain": "an agent working on ai, tui, zig queries this for how synth-sh/synth implements it: A terminal coding agent, written in Zig (selected work: src/acp)",
  "repos": [
   {
    "repo": "synth",

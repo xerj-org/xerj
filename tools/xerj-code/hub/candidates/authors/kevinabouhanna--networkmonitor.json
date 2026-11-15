@@ -8,15 +8,15 @@
   {
    "repo": "NetworkMonitor",
    "url": "https://github.com/kevinabouhanna/NetworkMonitor",
-   "sha": "dd4b52101a65ed813cba7e59ada95d5f5b57787e",
-   "licence": "Apache-2.0 (LICENSE file at pin dd4b52101a65, GitHub licence API 2026-11-15)",
+   "sha": "891fb9738e9e6506131ad109ee70c3b783099adc",
+   "licence": "Apache-2.0 (LICENSE file at pin 891fb9738e9e, GitHub licence API 2026-11-15)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-31T20:25Z",
     "consent_receipt": "a8125290db91",
-    "note": "Inclusion consented by the commit author by email at 2026-10-31T20:25Z (receipt a8125290db91); selected commit dd4b52101a65: \"Restart a stalled nettop, test the sample merge, and bring the archit\u2026\". LICENSE file at pin dd4b52101a65 detected as Apache-2.0 by the GitHub licence API on 2026-11-15; used under that licence with attribution. Pinned to head dd4b52101a65 (contains the selected commit): the LICENSE at the selected commit was MIT."
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T20:25Z (receipt a8125290db91); selected commit 891fb9738e9e: \"Restart a stalled nettop, test the sample merge, and bring the archit\u2026\". LICENSE file at pin 891fb9738e9e detected as Apache-2.0 by the GitHub licence API on 2026-11-15; used under that licence with attribution. Pinned to head 891fb9738e9e (contains the selected commit): the LICENSE at the selected commit was MIT."
    }
   }
  ]
