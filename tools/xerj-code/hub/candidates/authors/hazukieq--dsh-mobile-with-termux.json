@@ -1,0 +1,23 @@
+{
+ "corpus": "hazukieq--dsh-mobile-with-termux",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on ai-agent, android, deepseek queries this for how hazukieq/DSH-Mobile-with-Termux implements it: DSH Mobile with Termux \u2014 fork of Soodok/Deepseek-Harness-Local-Android (MIT): DeepSeek Harness engine + bundled Termux userland on Android (selected work: app/src, scripts, app)",
+ "repos": [
+  {
+   "repo": "DSH-Mobile-with-Termux",
+   "url": "https://github.com/hazukieq/DSH-Mobile-with-Termux",
+   "sha": "3fe851a5e400c393313b0d11b625a8625e806371",
+   "licence": "MIT (LICENSE file at pin 3fe851a5e400, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T01:48Z",
+    "consent_receipt": "f4b985126890",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T01:48Z (receipt f4b985126890); selected commit 3fe851a5e400: \"fix(overlay): \u4fee\u590d\u6d6e\u7a97\u751f\u547d\u5468\u671f\u4e0e\u666e\u901a\u6a21\u5f0f\u63d0\u6743\u8fb9\u754c\". LICENSE file at pin 3fe851a5e400 detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

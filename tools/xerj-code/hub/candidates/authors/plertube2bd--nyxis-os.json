@@ -1,0 +1,23 @@
+{
+ "corpus": "plertube2bd--nyxis-os",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how plertube2bd/nyxis-os implements it: Nyxis OS is 64bit x86 OS, powerful API (selected work: userland, nxkernel, tests)",
+ "repos": [
+  {
+   "repo": "nyxis-os",
+   "url": "https://github.com/plertube2bd/nyxis-os",
+   "sha": "f759052530757f34418a2073b4a8ac12ef73aa93",
+   "licence": "GPL-3.0 (LICENSE file at pin f75905253075, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-13T14:02Z",
+    "consent_receipt": "29d5bb1ba49d",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T14:02Z (receipt 29d5bb1ba49d); selected commit f75905253075: \"hohi\". LICENSE file at pin f75905253075 detected as GPL-3.0 by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

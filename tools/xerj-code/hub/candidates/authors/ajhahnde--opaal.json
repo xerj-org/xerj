@@ -1,0 +1,23 @@
+{
+ "corpus": "ajhahnde--opaal",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on automation, command-line, developer-tools queries this for how ajhahnde/opaal implements it: OPAAL is the Operational Programming & Automation Language: typed scripting, command pipelines, and auditable project tasks (selected work: tests, ci, crates/opaal-cli)",
+ "repos": [
+  {
+   "repo": "opaal",
+   "url": "https://github.com/ajhahnde/opaal",
+   "sha": "98c7e0baa4efaca209ae34964b2cdb6073c571c4",
+   "licence": "MPL-2.0 (LICENSE file at pin 98c7e0baa4ef, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MPL-2.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-13T14:06Z",
+    "consent_receipt": "59b82782da7e",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T14:06Z (receipt 59b82782da7e); selected commit 98c7e0baa4ef: \"Add native Linux AArch64 support (#48)\". LICENSE file at pin 98c7e0baa4ef detected as MPL-2.0 by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "raitix--seoindicator-com",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on seo, seo-tools, laravel queries this for how Raitix/seoindicator.com implements it: SEO analysis platform: crawls a domain, runs 17+ static SEO indicator checks and asks an AI model for scored, actionable suggestions. Next.j (selected work: frontend)",
+ "repos": [
+  {
+   "repo": "seoindicator.com",
+   "url": "https://github.com/Raitix/seoindicator.com",
+   "sha": "ce05689802e76dde400c30970128f338a55ac701",
+   "licence": "MIT (LICENSE file at pin ce05689802e7, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T07:49Z",
+    "consent_receipt": "ffd0535f981a",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T07:49Z (receipt ffd0535f981a); selected commit ce05689802e7: \"feat(ui): one persistent top bar on every page, and a guest-open Guid\u2026\". LICENSE file at pin ce05689802e7 detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

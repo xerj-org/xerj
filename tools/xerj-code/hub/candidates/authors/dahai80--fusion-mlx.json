@@ -1,0 +1,23 @@
+{
+ "corpus": "dahai80--fusion-mlx",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how dahai80/fusion-mlx implements it: This is a model management platform for macOS. It aims to combine the strengths of OMLX and Rapid-MLX, and is primarily for personal use. Fe (selected work: benchmarks, fusion_mlx, tests)",
+ "repos": [
+  {
+   "repo": "fusion-mlx",
+   "url": "https://github.com/dahai80/fusion-mlx",
+   "sha": "5dbe28acd94ab6890574a0cb075eb96614d81d15",
+   "licence": "Apache-2.0 (LICENSE file at pin 5dbe28acd94a, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T03:19Z",
+    "consent_receipt": "366c96ea7175",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T03:19Z (receipt 366c96ea7175); selected commit 5dbe28acd94a: \"feat(metrics): scheduler decode-step profile counters + overhead base\u2026\". LICENSE file at pin 5dbe28acd94a detected as Apache-2.0 by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "SEC",
- "domain": "an agent working on anomaly-detection, brute-force-detection, cli queries this for how MrKyaw/Sentry-AI implements it: Offline cybersecurity signal-processing demo derived from SigSentinel: replay synthetic telemetry through brute-force and DDoS detectors, st",
+ "domain": "an agent working on anomaly-detection, brute-force-detection, cli queries this for how MrKyaw/Sentry-AI implements it: Demonstrated explainable cybersecurity detection without live sensors by replaying synthetic telemetry through statistical detectors, risk f",
  "repos": [
   {
    "repo": "Sentry-AI",

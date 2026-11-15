@@ -1,0 +1,23 @@
+{
+ "corpus": "ahmedbentaha--sidekick-agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how AhmedBenTaha/Sidekick-Agent implements it: AhmedBenTaha/Sidekick-Agent (Python) (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "Sidekick-Agent",
+   "url": "https://github.com/AhmedBenTaha/Sidekick-Agent",
+   "sha": "79bdbe40d691f139b682b11613edb64db4ef80a3",
+   "licence": "Apache-2.0 (LICENSE file at pin 79bdbe40d691, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T15:36Z",
+    "consent_receipt": "7a75cf967608",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T15:36Z (receipt 7a75cf967608); selected commit 79bdbe40d691: \"Refactor code structure for improved readability and maintainability\". LICENSE file at pin 79bdbe40d691 detected as Apache-2.0 by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

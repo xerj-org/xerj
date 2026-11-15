@@ -1,0 +1,23 @@
+{
+ "corpus": "eis4ty--rokid-muse-aiui",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on JavaScript queries this for how Eis4TY/rokid-muse-aiui implements it: Connect Meta Muse to Rokid glasses with Muse Gadgets and the Rokid AIUI framework (selected work: lib, tests, pairing)",
+ "repos": [
+  {
+   "repo": "rokid-muse-aiui",
+   "url": "https://github.com/Eis4TY/rokid-muse-aiui",
+   "sha": "915696a18f4608795900ca436476de8df26bdcf8",
+   "licence": "Apache-2.0 (LICENSE file at pin 915696a18f46, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T05:49Z",
+    "consent_receipt": "4a3a7e3a3cbc",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T05:49Z (receipt 4a3a7e3a3cbc); selected commit 915696a18f46: \"Add Muse history and experimental voice calls (#2)\". LICENSE file at pin 915696a18f46 detected as Apache-2.0 by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

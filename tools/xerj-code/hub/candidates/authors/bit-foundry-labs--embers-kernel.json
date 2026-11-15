@@ -1,0 +1,27 @@
+{
+ "corpus": "bit-foundry-labs--embers-kernel",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on Rust queries this for how bit-foundry-labs/embers-kernel implements it: An original x86-64 operating system kernel exploring memory management, scheduling, capability-based security, and the foundations of AI-nat (selected work: rust-kernel, the project root)",
+ "repos": [
+  {
+   "repo": "embers-kernel",
+   "url": "https://github.com/bit-foundry-labs/embers-kernel",
+   "sha": "4b15fed5402462cd91cc97157568b1fd4d581ff2",
+   "licence": "Apache-2.0 (LICENSE file at pin 4b15fed54024, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T03:20Z",
+    "consent_receipt": "044200399c6c",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T03:20Z (receipt 044200399c6c); selected commit 4b15fed54024: \"feat(m06d): prototype bounded nonoverlapping physical-frame reservati\u2026\". LICENSE file at pin 4b15fed54024 detected as Apache-2.0 by the GitHub licence API on 2026-11-15; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @bit-foundry-labs, who has not added it."
+   },
+   "paths": [
+    ".github/workflows",
+    "rust-kernel"
+   ]
+  }
+ ]
+}

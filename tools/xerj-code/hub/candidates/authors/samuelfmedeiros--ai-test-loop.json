@@ -1,0 +1,23 @@
+{
+ "corpus": "samuelfmedeiros--ai-test-loop",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, code-review, llm queries this for how Samuelfmedeiros/ai-test-loop implements it: Never ship unverified work: an independent critic scores the artifact 0-100 with real checks, loops to the threshold, and blocks delivery on (selected work: tests, scripts, templates)",
+ "repos": [
+  {
+   "repo": "ai-test-loop",
+   "url": "https://github.com/Samuelfmedeiros/ai-test-loop",
+   "sha": "3bc464838a8d9ff174b6690df09066e9d0422ff6",
+   "licence": "MIT (LICENSE file at pin 3bc464838a8d, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T02:22Z",
+    "consent_receipt": "565cb800edb2",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T02:22Z (receipt 565cb800edb2); selected commit 3bc464838a8d: \"fix(roger): fecha os furos estruturais e migra para 1.2.0\". LICENSE file at pin 3bc464838a8d detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

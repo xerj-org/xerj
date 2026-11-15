@@ -1,0 +1,23 @@
+{
+ "corpus": "breeze0424--astrbot-plugin-birdreport",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how breeze0424/astrbot_plugin_birdreport implements it: \u5b9a\u65f6\u5411\u6307\u5b9a QQ \u7fa4/QQ \u63a8\u9001\u6307\u5b9a\u57ce\u5e02\u8fc7\u53bb 24 \u5c0f\u65f6\u9e1f\u8baf\uff08\u6570\u636e\u6765\u81ea\u4e2d\u56fd\u89c2\u9e1f\u8bb0\u5f55\u4e2d\u5fc3\uff0c\u53ef\u7531ASTRBOT\u4e3b AI \u751f\u6210\u5bfc\u8bed\uff09 (selected work: data, core, tests)",
+ "repos": [
+  {
+   "repo": "astrbot_plugin_birdreport",
+   "url": "https://github.com/breeze0424/astrbot_plugin_birdreport",
+   "sha": "5adcf1f133ea7bdafb404fd2fc785280075aee10",
+   "licence": "MIT (LICENSE file at pin 5adcf1f133ea, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T02:50Z",
+    "consent_receipt": "a06474e877fb",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T02:50Z (receipt a06474e877fb); selected commit 5adcf1f133ea: \"Add eBird fallback and changelog\". LICENSE file at pin 5adcf1f133ea detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

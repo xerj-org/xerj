@@ -1,0 +1,23 @@
+{
+ "corpus": "barba2k2--flutter-roomplan",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on apple, ios, roomplan queries this for how Barba2k2/flutter_roomplan implements it: A Flutter plugin that allows you to use Apple's RoomPlan API to scan an interior room and get a 3D model and measurements (selected work: packages/flutter_object_capture, the project root)",
+ "repos": [
+  {
+   "repo": "flutter_roomplan",
+   "url": "https://github.com/Barba2k2/flutter_roomplan",
+   "sha": "cfa465fb02051ed9ed6cbb4b6aacd4dd0fa9eb22",
+   "licence": "MIT (LICENSE file at pin cfa465fb0205, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T13:18Z",
+    "consent_receipt": "782608a28013",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T13:18Z (receipt 782608a28013); selected commit cfa465fb0205: \"feat: flutter_object_capture package (iOS and macOS) (#18)\". LICENSE file at pin cfa465fb0205 detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

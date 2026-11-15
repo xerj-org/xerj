@@ -1,0 +1,23 @@
+{
+ "corpus": "someoneisworking--psx-spyro",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how SomeoneIsWorking/psx-spyro implements it: Native PC port of Spyro the Dragon (PS1), built on the psxport static-recompilation framework. Supply your own disc (selected work: game, titles)",
+ "repos": [
+  {
+   "repo": "psx-spyro",
+   "url": "https://github.com/SomeoneIsWorking/psx-spyro",
+   "sha": "f1cf217a71cfe675f3279c1bf33c329e71f45e97",
+   "licence": "MIT (LICENSE file at pin f1cf217a71cf, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T16:57Z",
+    "consent_receipt": "c1f4853bb45e",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T16:57Z (receipt c1f4853bb45e); selected commit f1cf217a71cf: \"fix(terrain): native depth sorts terrain back by the guest bin bias; \u2026\". LICENSE file at pin f1cf217a71cf detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

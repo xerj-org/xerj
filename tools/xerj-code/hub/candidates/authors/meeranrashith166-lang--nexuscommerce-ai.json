@@ -1,0 +1,23 @@
+{
+ "corpus": "meeranrashith166-lang--nexuscommerce-ai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on HTML queries this for how meeranrashith166-lang/nexuscommerce-ai implements it: Autonomous Agentic Commerce Protocol powered by PayPal Developer Platform and AI (selected work: static, backend)",
+ "repos": [
+  {
+   "repo": "nexuscommerce-ai",
+   "url": "https://github.com/meeranrashith166-lang/nexuscommerce-ai",
+   "sha": "fb0e356de4f8696716f4d8ea3c975b02710a5f1b",
+   "licence": "MIT (LICENSE file at pin fb0e356de4f8, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T09:26Z",
+    "consent_receipt": "0b18aabb9b8e",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T09:26Z (receipt 0b18aabb9b8e); selected commit fb0e356de4f8: \"Add files via upload\". LICENSE file at pin fb0e356de4f8 detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

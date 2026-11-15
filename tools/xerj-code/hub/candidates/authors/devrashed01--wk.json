@@ -1,0 +1,23 @@
+{
+ "corpus": "devrashed01--wk",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Swift queries this for how devrashed01/wk implements it: macOS menu-bar app + CLI to jump between repos, branches, worktrees and their Claude Code sessions (built on cmux) (selected work: app/Sources, core/internal, app/Tests)",
+ "repos": [
+  {
+   "repo": "wk",
+   "url": "https://github.com/devrashed01/wk",
+   "sha": "69cc17c4388a6070dfceb4d48445d5a451daaca9",
+   "licence": "MIT (LICENSE file at pin 69cc17c4388a, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T05:50Z",
+    "consent_receipt": "184c2161eeaa",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T05:50Z (receipt 184c2161eeaa); selected commit 69cc17c4388a: \"fix\". LICENSE file at pin 69cc17c4388a detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

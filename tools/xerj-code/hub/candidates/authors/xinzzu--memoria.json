@@ -1,0 +1,23 @@
+{
+ "corpus": "xinzzu--memoria",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-coding, ai-tools, claude-code queries this for how xinzzu/Memoria implements it: Second brain offline for AI coding tools \u2014 capture sessions from Claude, Codex, Gemini, Copilot & more, recall anywhere via MCP + dashboard. (selected work: web, src/engine, tests)",
+ "repos": [
+  {
+   "repo": "Memoria",
+   "url": "https://github.com/xinzzu/Memoria",
+   "sha": "715155fc646632890df13a6e6939de1a30cfe39f",
+   "licence": "MIT (LICENSE file at pin 715155fc6466, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T07:05Z",
+    "consent_receipt": "84f5ba94d16e",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T07:05Z (receipt 84f5ba94d16e); selected commit 715155fc6466: \"feat(f1c): FTS5 search + Float32 BLOB embeddings + SQL dedupe + list \u2026\". LICENSE file at pin 715155fc6466 detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

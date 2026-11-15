@@ -8,15 +8,15 @@
   {
    "repo": "rk-deploy",
    "url": "https://github.com/anguoyang/rk-deploy",
-   "sha": "3f0842ae614133579f572caa155ca099c245a295",
-   "licence": "Apache-2.0 (LICENSE file at pin 3f0842ae6141, GitHub licence API 2026-11-10)",
+   "sha": "9fb331ad635b4565ea63815132a2b101c627912c",
+   "licence": "Apache-2.0 (LICENSE file at pin 9fb331ad635b, GitHub licence API 2026-11-15)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-05T11:45Z",
     "consent_receipt": "0cdcbb5ee0fa",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T11:45Z (receipt 0cdcbb5ee0fa); pinned to the default-branch head. LICENSE file at pin 3f0842ae6141 detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T11:45Z (receipt 0cdcbb5ee0fa); pinned to the default-branch head. LICENSE file at pin 9fb331ad635b detected as Apache-2.0 by the GitHub licence API on 2026-11-15; used under that licence with attribution."
    }
   }
  ]

@@ -1,0 +1,28 @@
+{
+ "corpus": "lyngbak-cloud--container-os",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on alpine, cloud-native, docker-runtime queries this for how lyngbak-cloud/container-os implements it: Minimal, production-ready container operating systems by Miget \u2014 built on Ubuntu and Alpine with selectable runtimes (Docker, Podman) for se (selected work: dockerfiles, manifests)",
+ "repos": [
+  {
+   "repo": "container-os",
+   "url": "https://github.com/lyngbak-cloud/container-os",
+   "sha": "a369835281916c5ce630ae2ebf5aad917c2fb7b1",
+   "licence": "Apache-2.0 (LICENSE file at pin a36983528191, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T09:35Z",
+    "consent_receipt": "5db49bbb5773",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T09:35Z (receipt 5db49bbb5773); selected commit a36983528191: \"Add Ubuntu 26.04\". LICENSE file at pin a36983528191 detected as Apache-2.0 by the GitHub licence API on 2026-11-15; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @lyngbak-cloud, who has not added it."
+   },
+   "paths": [
+    ".github/workflows",
+    "dockerfiles/ubuntu/26.04",
+    "manifests"
+   ]
+  }
+ ]
+}

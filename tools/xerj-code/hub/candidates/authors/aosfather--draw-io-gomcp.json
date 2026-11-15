@@ -1,0 +1,23 @@
+{
+ "corpus": "aosfather--draw-io-gomcp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on drawio, mcp, mcp-server queries this for how aosfather/draw-io-gomcp implements it: the mcp server\uff08stdio\uff09 for draw-io \uff0cport from next-ai-draw-io (selected work: internal/capabilities, cmd/capgen, internal/tools)",
+ "repos": [
+  {
+   "repo": "draw-io-gomcp",
+   "url": "https://github.com/aosfather/draw-io-gomcp",
+   "sha": "8f9c8316ff69be23f85be41c9d2007efb94e6fe0",
+   "licence": "Apache-2.0 (LICENSE file at pin 8f9c8316ff69, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T07:27Z",
+    "consent_receipt": "1b83060cd1c4",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T07:27Z (receipt 1b83060cd1c4); selected commit 8f9c8316ff69: \"add script\". LICENSE file at pin 8f9c8316ff69 detected as Apache-2.0 by the GitHub licence API on 2026-11-15; used under that licence with attribution. Pinned to head 8f9c8316ff69 (contains the selected commit): the LICENSE at the selected commit was MIT."
+   }
+  }
+ ]
+}

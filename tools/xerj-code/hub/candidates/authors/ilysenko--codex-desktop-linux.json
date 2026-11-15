@@ -21,6 +21,7 @@
    "paths": [
     ".github/workflows",
     "docs",
+    "linux-features/pet-overlay",
     "scripts"
    ]
   }

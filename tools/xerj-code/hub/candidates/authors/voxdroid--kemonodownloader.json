@@ -1,0 +1,23 @@
+{
+ "corpus": "voxdroid--kemonodownloader",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on crossplatform, downloader, gui queries this for how VoxDroid/KemonoDownloader implements it: Kemono Downloader - A cross-platform Python app built with PyQt6 to download posts and creator content from Kemono.cr, Coomer.st, and Pawchi (selected work: src/kemonodownloader, tests)",
+ "repos": [
+  {
+   "repo": "KemonoDownloader",
+   "url": "https://github.com/VoxDroid/KemonoDownloader",
+   "sha": "290bdc4c96c3618f918e630f46ab729d9f7592e6",
+   "licence": "MIT (LICENSE file at pin 290bdc4c96c3, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T04:02Z",
+    "consent_receipt": "b4a7cf5ba2c2",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T04:02Z (receipt b4a7cf5ba2c2); selected commit 290bdc4c96c3: \"Save previews, show missing files, direct servers, History counts\". LICENSE file at pin 290bdc4c96c3 detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

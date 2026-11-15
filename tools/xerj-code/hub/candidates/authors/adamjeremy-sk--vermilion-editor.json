@@ -1,0 +1,23 @@
+{
+ "corpus": "adamjeremy-sk--vermilion-editor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how adamjeremy-sk/Vermilion-Editor implements it: A small IDE for small people (selected work: tests, src/core, src/ui)",
+ "repos": [
+  {
+   "repo": "Vermilion-Editor",
+   "url": "https://github.com/adamjeremy-sk/Vermilion-Editor",
+   "sha": "ccd6832224f324b6f6129afa62781c717105f677",
+   "licence": "GPL-3.0 (LICENSE file at pin ccd6832224f3, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-13T01:29Z",
+    "consent_receipt": "1efabfad9471",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T01:29Z (receipt 1efabfad9471); selected commit ccd6832224f3: \"M2.2b: Help \u2192 Index, the manual inside the program (259 tests)\". LICENSE file at pin ccd6832224f3 detected as GPL-3.0 by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

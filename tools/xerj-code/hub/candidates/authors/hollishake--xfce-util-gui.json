@@ -1,0 +1,23 @@
+{
+ "corpus": "hollishake--xfce-util-gui",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on gtk-theme, gtk3, gtk4 queries this for how HolliShake/xfce-util-gui implements it: Xfce configuration utility using tkinter (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "xfce-util-gui",
+   "url": "https://github.com/HolliShake/xfce-util-gui",
+   "sha": "157da96c1f4570ae31372bb347d0ec1fc98d40e5",
+   "licence": "MIT (LICENSE file at pin 157da96c1f45, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T00:48Z",
+    "consent_receipt": "041485852371",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T00:48Z (receipt 041485852371); selected commit 157da96c1f45: \"feat: enhance display manager settings management with save functiona\u2026\". LICENSE file at pin 157da96c1f45 detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

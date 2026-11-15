@@ -1,0 +1,28 @@
+{
+ "corpus": "geolens-io--geolens",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on cloud-optimized-geotiff, data-catalog, fastapi queries this for how geolens-io/geolens implements it: Self-hosted geospatial data catalog with semantic search (pgvector), OGC/STAC APIs, and map builder. Built on FastAPI, PostGIS, React, and M (selected work: backend)",
+ "repos": [
+  {
+   "repo": "geolens",
+   "url": "https://github.com/geolens-io/geolens",
+   "sha": "b76aa8712c53fa6bb6ede62ab1fa64837b2c1bf6",
+   "licence": "Apache-2.0 (LICENSE file at pin b76aa8712c53, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T07:36Z",
+    "consent_receipt": "e18ccde379df",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T07:36Z (receipt e18ccde379df); selected commit b76aa8712c53: \"fix(probe): read gzip in the shared bounded reader (#3791)\". LICENSE file at pin b76aa8712c53 detected as Apache-2.0 by the GitHub licence API on 2026-11-15; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @geolens-io, who has not added it."
+   },
+   "paths": [
+    "backend/app/modules/catalog/sources/adapters",
+    "backend/app/platform",
+    "backend/tests"
+   ]
+  }
+ ]
+}

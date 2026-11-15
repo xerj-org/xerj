@@ -1,0 +1,23 @@
+{
+ "corpus": "arsenicum333--nexum",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how Arsenicum333/Nexum implements it: Chat platform that you never asked, but always wanted (selected work: backend, frontend)",
+ "repos": [
+  {
+   "repo": "Nexum",
+   "url": "https://github.com/Arsenicum333/Nexum",
+   "sha": "3a111982a9cb00e5bb813066f63b2bd4ace001a1",
+   "licence": "GPL-3.0 (LICENSE file at pin 3a111982a9cb, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-13T16:16Z",
+    "consent_receipt": "30df5f9ca3d5",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T16:16Z (receipt 30df5f9ca3d5); selected commit 3a111982a9cb: \"Add workspace-scoped channels and database seeding\". LICENSE file at pin 3a111982a9cb detected as GPL-3.0 by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

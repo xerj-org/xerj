@@ -1,0 +1,23 @@
+{
+ "corpus": "luisbereciartucordido--the-macrochip-newsletter",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how LuisBereciartuCordido/the-macrochip-newsletter implements it: LuisBereciartuCordido/the-macrochip-newsletter (Python) (selected work: tests, src/briefing, scripts)",
+ "repos": [
+  {
+   "repo": "the-macrochip-newsletter",
+   "url": "https://github.com/LuisBereciartuCordido/the-macrochip-newsletter",
+   "sha": "2f52e10b861f5b7297b2e15042727d5e68026dac",
+   "licence": "MIT (LICENSE file at pin 2f52e10b861f, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T13:48Z",
+    "consent_receipt": "041f7ff34760",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T13:48Z (receipt 041f7ff34760); selected commit 2f52e10b861f: \"feat: avisa cuando una noticia afirma una tendencia que no cuadra\". LICENSE file at pin 2f52e10b861f detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

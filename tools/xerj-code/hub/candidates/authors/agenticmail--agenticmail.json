@@ -1,0 +1,32 @@
+{
+ "corpus": "agenticmail--agenticmail",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent, ai, ai-agent queries this for how agenticmail/agenticmail implements it: Email, SMS & phone-call infrastructure for AI agents \u2014 send and receive real email and text messages, and place agent-driven outbound voice  (selected work: packages/core, packages/codex, packages/api)",
+ "repos": [
+  {
+   "repo": "agenticmail",
+   "url": "https://github.com/agenticmail/agenticmail",
+   "sha": "c94a30136f6a6450ae8847b06e6b661fb3f90bd5",
+   "licence": "MIT (LICENSE file at pin c94a30136f6a, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T05:50Z",
+    "consent_receipt": "31d3dfc28c56",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T05:50Z (receipt 31d3dfc28c56); selected commit c94a30136f6a: \"Confine media and Codex hook paths; stop executing caller-chosen bina\u2026\". LICENSE file at pin c94a30136f6a detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @agenticmail, who has not added it."
+   },
+   "paths": [
+    "packages/api/src/__tests__",
+    "packages/api/src/routes",
+    "packages/codex/src",
+    "packages/core/src/__tests__",
+    "packages/core/src/media",
+    "packages/mcp/src",
+    "packages/openclaw/src"
+   ]
+  }
+ ]
+}

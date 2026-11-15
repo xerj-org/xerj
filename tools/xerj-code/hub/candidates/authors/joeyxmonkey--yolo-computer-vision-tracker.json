@@ -1,0 +1,23 @@
+{
+ "corpus": "joeyxmonkey--yolo-computer-vision-tracker",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how joeyxmonkey/YOLO-computer-vision-tracker implements it: Python script that can track unique objects in a video using OpenCV and Ultralytics YOLO, with ByteTracker (selected work: the project root, tests)",
+ "repos": [
+  {
+   "repo": "YOLO-computer-vision-tracker",
+   "url": "https://github.com/joeyxmonkey/YOLO-computer-vision-tracker",
+   "sha": "39b98e8f01ce7cff7d11822e2b2fd91d087a3ab0",
+   "licence": "AGPL-3.0 (LICENSE file at pin 39b98e8f01ce, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-13T01:56Z",
+    "consent_receipt": "d818b68d8ea3",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T01:56Z (receipt d818b68d8ea3); selected commit 39b98e8f01ce: \"Prepare tracker for public use with CLI, setup guide, and AGPL license\". LICENSE file at pin 39b98e8f01ce detected as AGPL-3.0 by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

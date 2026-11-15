@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on bm25, chatbot, conversational-ai queries this for how MrKyaw/ConversaFlow-AI implements it: Self-contained conversational AI runtime for multi-turn support: local TF-IDF/softmax NLU, 8 validated dialogue flows, tenant-scoped BM25 re",
+ "domain": "an agent working on bm25, chatbot, conversational-ai queries this for how MrKyaw/ConversaFlow-AI implements it: Addressed brittle support conversations with explicit dialogue graphs, intent classification, typed business tools, cited retrieval, and hum",
  "repos": [
   {
    "repo": "ConversaFlow-AI",

@@ -1,0 +1,23 @@
+{
+ "corpus": "kadaliao--open-super-agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agent, computer-use, deepseek queries this for how kadaliao/open-super-agent implements it: Self-hosted, always-on AI teammate with its own computer \u2014 an open-source Grok Bot alternative. Bring your own model (selected work: web, desktop, tests)",
+ "repos": [
+  {
+   "repo": "open-super-agent",
+   "url": "https://github.com/kadaliao/open-super-agent",
+   "sha": "cf81a5e88e5394defd8b4a344b4dc33fee9afc8c",
+   "licence": "MIT (LICENSE file at pin cf81a5e88e53, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T01:11Z",
+    "consent_receipt": "1dc608d9b6e0",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T01:11Z (receipt 1dc608d9b6e0); selected commit cf81a5e88e53: \"feat: \u6709\u65b0\u7248\u672c\u65f6\u754c\u9762\u9876\u4e0a\u63d0\u793a\uff0c\u4e00\u952e\u66f4\u65b0\uff1b\u684c\u9762 App \u88c5\u597d\u65b0\u7248\u53ef\u4ee5\u9a6c\u4e0a\u91cd\u542f\". LICENSE file at pin cf81a5e88e53 detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

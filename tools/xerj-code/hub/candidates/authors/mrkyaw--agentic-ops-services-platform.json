@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agentic-ai, angular, evaluation queries this for how MrKyaw/Agentic-Ops-Services-Platform implements it: Multi-tenant foundation for building, evaluating, and operating agentic AI workflows. MCP-governed agents, hybrid retrieval (FTS+vector+grap",
+ "domain": "an agent working on agentic-ai, angular, evaluation queries this for how MrKyaw/Agentic-Ops-Services-Platform implements it: Built a shared foundation for enterprise agents using governed MCP interfaces, ReAct/ReWOO orchestration, multi-strategy retrieval, evaluati",
  "repos": [
   {
    "repo": "Agentic-Ops-Services-Platform",

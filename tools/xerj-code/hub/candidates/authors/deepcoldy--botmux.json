@@ -1,0 +1,32 @@
+{
+ "corpus": "deepcoldy--botmux",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on claude, claude-code, codex queries this for how deepcoldy/botmux implements it: Bridge Feishu/Lark to AI coding CLIs \u2014 Claude Code, Codex, Antigravity, Grok, Pi, OpenCode\u2026 every DM, group or topic spawns its own live-str (selected work: test, src/dashboard, src/core)",
+ "repos": [
+  {
+   "repo": "botmux",
+   "url": "https://github.com/deepcoldy/botmux",
+   "sha": "faa6ac146d9d2d4279c53d438c221a077471aec9",
+   "licence": "MIT (LICENSE file at pin faa6ac146d9d, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T07:33Z",
+    "consent_receipt": "15e249055275",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T07:33Z (receipt 15e249055275); selected commit faa6ac146d9d: \"feat(commands): \u5728 Dashboard \u914d\u7f6e\u76f4\u8fbe CLI \u7684\u539f\u751f\u547d\u4ee4 (#3406)\". LICENSE file at pin faa6ac146d9d detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @deepcoldy, who has not added it."
+   },
+   "paths": [
+    "docs-site/docs/en",
+    "docs-site/docs/zh",
+    "docs/assets/cli-command-config",
+    "src/adapters/cli",
+    "src/core",
+    "src/dashboard",
+    "test"
+   ]
+  }
+ ]
+}

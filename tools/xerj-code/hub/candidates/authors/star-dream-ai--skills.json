@@ -1,0 +1,27 @@
+{
+ "corpus": "star-dream-ai--skills",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent, agent-skills, agentic-workflows queries this for how Star-Dream-AI/skills implements it: Public repository for Agent Skills (selected work: skills)",
+ "repos": [
+  {
+   "repo": "skills",
+   "url": "https://github.com/Star-Dream-AI/skills",
+   "sha": "7add8fa93230d7f805239a04346b94f2f7c0d8c0",
+   "licence": "Apache-2.0 (LICENSE file at pin 7add8fa93230, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T00:45Z",
+    "consent_receipt": "e406b2cda84d",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T00:45Z (receipt e406b2cda84d); selected commit 7add8fa93230: \"Add astrbot-plugin-dev and telegram-use skills\". LICENSE file at pin 7add8fa93230 detected as Apache-2.0 by the GitHub licence API on 2026-11-15; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Star-Dream-AI, who has not added it."
+   },
+   "paths": [
+    "skills/astrbot-plugin-dev",
+    "skills/telegram-use"
+   ]
+  }
+ ]
+}

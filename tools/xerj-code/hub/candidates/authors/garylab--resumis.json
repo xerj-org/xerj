@@ -1,0 +1,23 @@
+{
+ "corpus": "garylab--resumis",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on ai, resume, resume-builder queries this for how garylab/resumis implements it: Open-source Resume editor, edit on your browser, save to you GitHub repo (selected work: public, templates, test)",
+ "repos": [
+  {
+   "repo": "resumis",
+   "url": "https://github.com/garylab/resumis",
+   "sha": "86154a02785204410aea53a301dcdfb4b2925be0",
+   "licence": "MIT (LICENSE file at pin 86154a027852, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T05:05Z",
+    "consent_receipt": "3cb1cdd63627",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T05:05Z (receipt 3cb1cdd63627); selected commit 86154a027852: \"Migrate UI to Tailwind and Lucide and add resume photo controls\". LICENSE file at pin 86154a027852 detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution. Pinned to head 86154a027852 (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}
