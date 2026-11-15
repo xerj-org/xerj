@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Swift queries this for how devrashed01/wk implements it: macOS menu-bar app + CLI to jump between repos, branches, worktrees and their Claude Code sessions (built on cmux) (selected work: app/Sources, core/internal, app/Tests)",
+ "domain": "an agent working on Go queries this for how devrashed01/wk implements it: macOS menu-bar app + CLI to jump between repos, branches, worktrees and their Claude Code sessions (built on cmux) (selected work: app/Sources, core/internal, app/Tests)",
  "repos": [
   {
    "repo": "wk",

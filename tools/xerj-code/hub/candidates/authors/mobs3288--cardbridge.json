@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on C++ queries this for how mobs3288/CardBridge implements it: CardBridge: Koikatsu character cards to rigged PMX models, offline, with a viewer that runs the game's shaders. Alpha. [KKPMX Alternative] (selected work: src/export, viewer, cli)",
+ "domain": "an agent working on C++ queries this for how mobs3288/CardBridge implements it: CardBridge: An offline Koikatsu character card converter that turns cards into rigged PMX models. Includes a built-in 3D viewer that support (selected work: src/export, viewer, cli)",
  "repos": [
   {
    "repo": "CardBridge",
