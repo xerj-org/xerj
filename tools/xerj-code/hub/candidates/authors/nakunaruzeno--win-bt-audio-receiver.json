@@ -1,0 +1,23 @@
+{
+ "corpus": "nakunaruzeno--win-bt-audio-receiver",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how NakunaruZeno/win-bt-audio-receiver implements it: AetherSora: Ultra-lightweight Windows Bluetooth Audio Receiver (A2DP Sink) in Rust",
+ "repos": [
+  {
+   "repo": "win-bt-audio-receiver",
+   "url": "https://github.com/NakunaruZeno/win-bt-audio-receiver",
+   "sha": "0c96ffc26f6623fe72106c0de0f77bd50e59a4b1",
+   "licence": "MIT (LICENSE file at pin 0c96ffc26f66, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-15T12:24Z",
+    "consent_receipt": "9af1e55bcb59",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-15T12:24Z (receipt 9af1e55bcb59); pinned to the default-branch head. LICENSE file at pin 0c96ffc26f66 detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

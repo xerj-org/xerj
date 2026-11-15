@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "NET",
- "domain": "an agent working on avx2, disruptor, exchange queries this for how wasif-exe/Apex-Wire implements it: Apex-Wire V5: Production-grade NASDAQ ITCH 5.0 replay engine \u2014 per-symbol LOB sharding, synthetic matching engine, MoldUDP64/SoupBinTCP live",
+ "domain": "an agent working on avx2, disruptor, exchange queries this for how wasif-exe/Apex-Wire implements it: Apex-Wire V6: Production-grade NASDAQ ITCH 5.0 replay engine \u2014 per-symbol LOB sharding, synthetic matching engine, MoldUDP64/SoupBinTCP live",
  "repos": [
   {
    "repo": "Apex-Wire",
    "url": "https://github.com/wasif-exe/Apex-Wire",
-   "sha": "f89ad8e788625943dac2215d8b68a5efa594b3e7",
-   "licence": "MIT (LICENSE file at pin f89ad8e78862, GitHub licence API 2026-11-04)",
+   "sha": "c0d3ba0b649e8f8ba191d3ca5d90694a490c47c8",
+   "licence": "MIT (LICENSE file at pin c0d3ba0b649e, GitHub licence API 2026-11-15)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T00:56Z",
     "consent_receipt": "ac423289dda5",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T00:56Z (receipt ac423289dda5); pinned to the default-branch head. LICENSE file at pin f89ad8e78862 detected as MIT by the GitHub licence API on 2026-11-04; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T00:56Z (receipt ac423289dda5); pinned to the default-branch head. LICENSE file at pin c0d3ba0b649e detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
    }
   }
  ]

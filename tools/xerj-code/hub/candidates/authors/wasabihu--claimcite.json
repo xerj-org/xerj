@@ -2,7 +2,7 @@
  "corpus": "wasabihu--claimcite",
  "cloned_at": null,
  "status": "draft",
- "shelf": "OPS",
+ "shelf": "AI",
  "domain": "an agent working on citation, crossref, doi queries this for how wasabihu/claimcite implements it: Check that every citation in a document is real, matches what the text says, and contains the quoted words. \u9010\u6761\u6838\u67e5\u5f15\u7528\uff1a\u6587\u732e\u662f\u5426\u5b58\u5728\u3001\u662f\u5426\u5bf9\u5f97\u4e0a\u3001\u5f15\u6587\u662f\u5426\u51fa\u81ea\u539f\u6587\u3002 (selected work: src/claimcite, tests)",
  "repos": [
   {
