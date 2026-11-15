@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on C# queries this for how seifmoustafa/AstraFlow implements it: seifmoustafa/AstraFlow (C#) (selected work: src/AstraFlow.Cli, src/AstraFlow.Generators, tests)",
+ "domain": "an agent working on aspnetcore, cqrs, csharp queries this for how seifmoustafa/AstraFlow implements it: Modular, open-source .NET libraries for mediator workflows, explicit mapping and projections, analyzers and generators, diagnostics, integra (selected work: src/AstraFlow.Cli, src/AstraFlow.Generators, tests)",
  "repos": [
   {
    "repo": "AstraFlow",

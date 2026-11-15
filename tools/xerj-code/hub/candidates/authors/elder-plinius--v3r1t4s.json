@@ -8,15 +8,15 @@
   {
    "repo": "V3R1T4S",
    "url": "https://github.com/elder-plinius/V3R1T4S",
-   "sha": "177fb821827c3e25feb35f9493d6ec6511dc2d9f",
-   "licence": "author's permission (LICENSE at pin 177fb821827c: NOASSERTION; repository: AGPL-3.0)",
+   "sha": "16bbd6cce444248bf337542d689a26328f711e6d",
+   "licence": "author's permission (LICENSE at pin 16bbd6cce444: NOASSERTION; repository: AGPL-3.0)",
    "review": {
     "spdx": "NOASSERTION",
     "use": "approach-only",
     "by": "author-consent",
-    "at": "2026-11-02T15:28Z",
-    "consent_receipt": "1a042b5752ae",
-    "note": "Inclusion consented by the commit author by email at 2026-11-02T15:28Z (receipt 1a042b5752ae); selected commit 177fb821827c: \"claim : (w12 k3) DNA density 0.1365689458 vs 0.138389448 (-1.3155 rel\u2026\". LICENSE at pin 177fb821827c: NOASSERTION (repository: AGPL-3.0); used with the author's permission, with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @elder-plinius, who has not added it."
+    "at": "2026-10-17T19:11Z",
+    "consent_receipt": "b6c12a88609a",
+    "note": "Inclusion consented by the commit author by email at 2026-10-17T19:11Z (receipt b6c12a88609a); selected commit 16bbd6cce444: \"claim: codetables-qubit-upper-bounds-n101-256 2026-10-17-verexxi-de7e\u2026\". LICENSE at pin 16bbd6cce444: NOASSERTION (repository: AGPL-3.0); used with the author's permission, with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @elder-plinius, who has not added it."
    },
    "paths": [
     "known-knowns/codetables-qubit-upper-bounds-n101-256/2026-10-17-verexxi-de7ec13f",
