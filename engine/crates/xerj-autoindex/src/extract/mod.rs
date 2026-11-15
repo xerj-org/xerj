@@ -38,7 +38,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::io::{BufRead, BufReader, Read};
 use std::path::Path;
-use std::sync::{Condvar, Mutex};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, Instant};
 
 /// Where a record's FIELD NAMES came from — the input to dataset clustering.
@@ -108,6 +109,24 @@ pub type Sink<'a> = &'a mut dyn FnMut(RawRecord) -> bool;
 
 pub const MAX_LINE: usize = 16 << 20; // 16MB line cap
 pub const MAX_WHOLE_FILE: u64 = 64 << 20; // whole-file parse cap (json/html/yaml/txt)
+
+/// Hard cap on one CSV record, in decoded bytes (#3201).
+///
+/// The `csv` crate offers no record or field size option (`ReaderBuilder`
+/// has none), and a quoted field may span newlines, so one record can be as
+/// large as the whole input stream: the parser buffers it all before
+/// returning it, then each field is copied into a `String` and a JSON map.
+/// Same 16 MiB per-unit convention as [`MAX_LINE`] (JSONL) and the YAML
+/// whole-file cap, so a record over it is refused at read time, before the
+/// allocation happens. A record over the 8 MiB indexed-document ceiling
+/// would be refused downstream anyway; the read cap is the memory bound.
+///
+/// Enforced on decoded bytes consumed since the last completed record, so
+/// up to one buffered fill (the 256 KiB `BufReader` below, plus the `csv`
+/// crate's own read chunk) of read-ahead may be attributed to the record in
+/// flight. The enforced threshold is therefore the cap minus at most that
+/// much, and the error is always fail-closed, never late by more than it.
+pub const MAX_CSV_RECORD_BYTES: usize = 16 << 20;
 /// Target characters per document section.
 ///
 /// Was 32 KB, which is a *storage* granularity, not a *retrieval* one: BM25
@@ -145,6 +164,95 @@ const WORD_SNAP_BYTES: usize = 64;
 /// Open a (possibly gzipped) file as a buffered reader of DECODED-transparent
 /// bytes, optionally capped at `limit` decoded bytes (sampling).
 pub fn open_reader(path: &Path, gzip: bool, limit: Option<u64>) -> Result<Box<dyn BufRead + Send>> {
+    open_reader_with_cap(path, gzip, limit, None)
+}
+
+/// Shared per-record byte budget for the CSV extractor (#3201).
+///
+/// The `csv` crate reads records through the `Read` it is given and cannot
+/// be told to stop inside a record, so the budget lives in the reader: the
+/// extractor holds the other end of the `Arc` and calls [`reset`] after each
+/// completed record (and after the header). Bytes already pulled into the
+/// parser's buffers are counted at read time, so [`tripped`] may fire while
+/// the parser still holds up to one buffered fill past the cap; the
+/// allocation it guards stays bounded at the cap plus that fill.
+pub struct RecordByteCap {
+    cap: u64,
+    used: AtomicU64,
+    tripped: AtomicBool,
+}
+
+impl RecordByteCap {
+    pub fn new(cap: u64) -> Self {
+        Self {
+            cap,
+            used: AtomicU64::new(0),
+            tripped: AtomicBool::new(false),
+        }
+    }
+
+    /// Start the budget for the next record. Call after each record the
+    /// parser returns, including the header row.
+    pub fn reset(&self) {
+        self.used.store(0, Ordering::Relaxed);
+    }
+
+    /// True once a record has consumed more than the cap. Latched: the
+    /// parser is mid-record inside the oversize field and cannot resume, so
+    /// the caller must stop extraction, never reset and continue.
+    pub fn tripped(&self) -> bool {
+        self.tripped.load(Ordering::Relaxed)
+    }
+}
+
+/// A `Read` that errors once the shared [`RecordByteCap`] is spent. The
+/// bytes that pushed it over are consumed and dropped: the caller is
+/// aborting the file anyway, and handing them to the parser would only grow
+/// the record the cap exists to bound.
+struct CappedReader<R: Read> {
+    inner: R,
+    cap: Arc<RecordByteCap>,
+}
+
+impl<R: Read> Read for CappedReader<R> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        if self.cap.tripped() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!(
+                    "CSV record exceeds the {}-byte per-record cap",
+                    self.cap.cap
+                ),
+            ));
+        }
+        let n = self.inner.read(buf)?;
+        if n > 0 {
+            let used = self.cap.used.fetch_add(n as u64, Ordering::Relaxed) + n as u64;
+            if used > self.cap.cap {
+                self.cap.tripped.store(true, Ordering::Relaxed);
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    format!(
+                        "CSV record exceeds the {}-byte per-record cap",
+                        self.cap.cap
+                    ),
+                ));
+            }
+        }
+        Ok(n)
+    }
+}
+
+/// [`open_reader`], plus an optional per-record byte budget enforced by a
+/// [`RecordByteCap`] the caller holds. The budget counts decoded bytes
+/// (post-gzip, post-sampling-`take`), which is what the parser allocates
+/// from. `None` keeps the old uncapped behaviour for the other extractors.
+pub fn open_reader_with_cap(
+    path: &Path,
+    gzip: bool,
+    limit: Option<u64>,
+    cap: Option<&Arc<RecordByteCap>>,
+) -> Result<Box<dyn BufRead + Send>> {
     let f = std::fs::File::open(path)?;
     let inner: Box<dyn Read + Send> = if gzip {
         Box::new(flate2::read::MultiGzDecoder::new(f))
@@ -156,6 +264,13 @@ pub fn open_reader(path: &Path, gzip: bool, limit: Option<u64>) -> Result<Box<dy
     let inner: Box<dyn Read + Send> = match limit {
         Some(n) => Box::new(inner.take(n)),
         None => Box::new(inner),
+    };
+    let inner: Box<dyn Read + Send> = match cap {
+        Some(c) => Box::new(CappedReader {
+            inner,
+            cap: Arc::clone(c),
+        }),
+        None => inner,
     };
     Ok(Box::new(BufReader::with_capacity(256 << 10, inner)))
 }
