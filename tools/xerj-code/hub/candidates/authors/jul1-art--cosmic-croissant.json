@@ -1,9 +1,9 @@
 {
- "corpus": "jul1-art--relic",
+ "corpus": "jul1-art--cosmic-croissant",
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on 3d, exploration, nasa queries this for how Jul1-art/RELIC implements it: Jul1-art/RELIC (JavaScript) (selected work: the project root, tests)",
+ "domain": "an agent working on 3d, exploration, nasa queries this for how Jul1-art/COSMIC_CROISSANT implements it: Jul1-art/COSMIC_CROISSANT (JavaScript) (selected work: the project root, tests)",
  "repos": [
   {
    "repo": "RELIC",
