@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on TypeScript queries this for how FlameFirelife/ChessAsh implements it: Free local chess review for Windows and Android, with Foxash-powered review rules (selected work: src, src/components, src/core)",
+ "domain": "an agent working on Rust queries this for how FlameFirelife/ChessAsh implements it: Free local chess review for Windows and Android, with Foxash-powered review rules (selected work: src, src/components, src/core)",
  "repos": [
   {
    "repo": "ChessAsh",

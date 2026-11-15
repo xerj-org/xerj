@@ -1,9 +1,9 @@
 {
- "corpus": "utilityforcoders--notch-isla",
+ "corpus": "utilityforcoders--nocho",
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on dynamic-island, media-controls, music-player queries this for how UtilityForCoders/notch-isla implements it: Isla din\u00e1mica para Windows 10/11, al estilo del iPhone: controla la m\u00fasica (Spotify, YouTube...) desde una p\u00edldora flotante. Rust, ~580 KB,  (selected work: src, the project root, installer)",
+ "domain": "an agent working on dynamic-island, media-controls, music-player queries this for how UtilityForCoders/Nocho implements it: Isla din\u00e1mica para Windows 10/11, al estilo del iPhone: controla la m\u00fasica (Spotify, YouTube...) desde una p\u00edldora flotante. Rust, ~580 KB,  (selected work: src, the project root, installer)",
  "repos": [
   {
    "repo": "notch-isla",
