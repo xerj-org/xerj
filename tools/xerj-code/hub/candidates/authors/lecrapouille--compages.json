@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on opengl, cpp, wrapper queries this for how Lecrapouille/Compages implements it: [Lib][Version 1.0.0][Functional] A three stacked layers 3D engine for C++20 (selected work: src/Renderer, examples, include)",
+ "domain": "an agent working on opengl, cpp, wrapper queries this for how Lecrapouille/Compages implements it: [Lib][Version 1.0.0][Functional] A three stacked layers 3D engine for C++20 used for games and science (selected work: src/Renderer, examples, include)",
  "repos": [
   {
    "repo": "Compages",

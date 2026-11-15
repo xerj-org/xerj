@@ -8,15 +8,15 @@
   {
    "repo": "colibri",
    "url": "https://github.com/JustVugg/colibri",
-   "sha": "024bef576e3844210a07ec9a7d7be2030bd57aea",
-   "licence": "Apache-2.0 (LICENSE file at pin 024bef576e38, GitHub licence API 2026-10-24)",
+   "sha": "783d075bb1daad58f67de78ec8e059c79645cf46",
+   "licence": "Apache-2.0 (LICENSE file at pin 783d075bb1da, GitHub licence API 2026-11-11)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
-    "at": "2026-10-11T09:53Z",
-    "consent_receipt": "6e5bf496f538",
-    "note": "Inclusion consented by the commit author by email at 2026-10-11T09:53Z (receipt 6e5bf496f538); selected commit 024bef576e38: \"fix(qwen38): reject pins whose attention rows were overwritten\". LICENSE file at pin 024bef576e38 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @JustVugg, who has not added it."
+    "at": "2026-10-31T18:13Z",
+    "consent_receipt": "9612ca07a21f",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T18:13Z (receipt 9612ca07a21f); selected commit 783d075bb1da: \"run_serve: surface CONTEXT_EXCEEDED refusals in coli chat with the cause\". LICENSE file at pin 783d075bb1da detected as Apache-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @JustVugg, who has not added it."
    },
    "paths": [
     ".github/workflows",

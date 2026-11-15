@@ -2,8 +2,8 @@
  "corpus": "felipe-diniz--keel",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Python queries this for how felipe-diniz/keel implements it: felipe-diniz/keel (Python) (selected work: plugins)",
+ "shelf": "AI",
+ "domain": "an agent working on agent-skills, ai-agents, claude queries this for how felipe-diniz/keel implements it: Claude Code plugin: explore, implement, test, research and review agents, a single pre-commit gate for critical risk, background-session coo (selected work: plugins)",
  "repos": [
   {
    "repo": "keel",

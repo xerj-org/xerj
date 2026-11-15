@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Kotlin queries this for how SaliSalvia/SalviaBrowxer implements it: SaliSalvia/SalviaBrowxer (Kotlin) (selected work: app/src, scripts, app)",
+ "domain": "an agent working on TypeScript queries this for how SaliSalvia/SalviaBrowxer implements it: SaliSalvia/SalviaBrowxer (TypeScript) (selected work: app/src, scripts, app)",
  "repos": [
   {
    "repo": "SalviaBrowxer",

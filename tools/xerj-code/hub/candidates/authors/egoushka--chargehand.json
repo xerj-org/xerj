@@ -8,15 +8,15 @@
   {
    "repo": "chargehand",
    "url": "https://github.com/Egoushka/chargehand",
-   "sha": "fc68c6880bdc4e62f0b437b1feea9d157522aba0",
-   "licence": "author's permission (LICENSE at pin fc68c6880bdc: NOASSERTION; repository: NOASSERTION)",
+   "sha": "550fe9c2a41ada93d66dd1aec4bce228d23e2e0e",
+   "licence": "author's permission (LICENSE at pin 550fe9c2a41a: NOASSERTION; repository: NOASSERTION)",
    "review": {
     "spdx": "NOASSERTION",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-07T15:00Z",
     "consent_receipt": "60cf668be461",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-07T15:00Z (receipt 60cf668be461); pinned to the default-branch head. LICENSE at pin fc68c6880bdc: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-07T15:00Z (receipt 60cf668be461); pinned to the default-branch head. LICENSE at pin 550fe9c2a41a: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
    }
   }
  ]
