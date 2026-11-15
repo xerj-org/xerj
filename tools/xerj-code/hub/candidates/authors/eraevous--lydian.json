@@ -8,15 +8,15 @@
   {
    "repo": "Lydian",
    "url": "https://github.com/eraevous/Lydian",
-   "sha": "5b8e7f2bde8e325373967cba80b25efe6019f1b7",
-   "licence": "MIT (LICENSE file at pin 5b8e7f2bde8e, GitHub licence API 2026-11-15)",
+   "sha": "c9774d1fcd094a53e4e2509c5ce84664bc399c1b",
+   "licence": "MIT (LICENSE file at pin c9774d1fcd09, GitHub licence API 2026-11-15)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-12T17:12Z",
     "consent_receipt": "a221c480d3a1",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-12T17:12Z (receipt a221c480d3a1); pinned to the default-branch head. LICENSE file at pin 5b8e7f2bde8e detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-12T17:12Z (receipt a221c480d3a1); pinned to the default-branch head. LICENSE file at pin c9774d1fcd09 detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
    }
   }
  ]

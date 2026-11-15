@@ -8,15 +8,15 @@
   {
    "repo": "dexpot",
    "url": "https://github.com/tugrulguner/dexpot",
-   "sha": "d0a2d9517a4b5ec7761f34500c5c8b36f032a17c",
-   "licence": "MIT (LICENSE file at pin d0a2d9517a4b, GitHub licence API 2026-11-14)",
+   "sha": "17648bbc9e7f7e1cc692387ebd76a78af6556acc",
+   "licence": "MIT (LICENSE file at pin 17648bbc9e7f, GitHub licence API 2026-11-15)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T22:45Z",
     "consent_receipt": "f664097e17a2",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:45Z (receipt f664097e17a2); pinned to the default-branch head. LICENSE file at pin d0a2d9517a4b detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:45Z (receipt f664097e17a2); pinned to the default-branch head. LICENSE file at pin 17648bbc9e7f detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
    }
   }
  ]

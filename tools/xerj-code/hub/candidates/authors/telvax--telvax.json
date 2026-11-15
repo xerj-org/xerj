@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on apache-arrow, compiler, data-processing queries this for how telvax/telvax implements it: A statically typed, compiled language for data, ML pipelines and AI serving. Python-like syntax, tensor shapes in the types, typed tables on (selected work: python, runtime, tools)",
+ "domain": "an agent working on apache-arrow, compiler, data-processing queries this for how telvax/telvax implements it: If it compiles, it fits. A statically typed, compiled language for data, ML pipelines and AI serving: Python-like syntax, tensor shapes in t (selected work: python, runtime, tools)",
  "repos": [
   {
    "repo": "telvax",
