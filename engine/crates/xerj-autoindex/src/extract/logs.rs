@@ -11,7 +11,9 @@
 //! `key=value` pairs embedded in the message (logfmt convention) are lifted
 //! into fields — names come from the DATA, not from this code.
 
-use super::{sanitize_field_name, ExtractStats, FieldOrigin, RawRecord, Sink};
+use super::{
+    sanitize_field_name, ExtractStats, FieldOrigin, RawRecord, Sink, MAX_FIELDS_PER_RECORD,
+};
 use anyhow::Result;
 use regex::Regex;
 use serde_json::{Map, Value};
@@ -398,10 +400,18 @@ fn parse_line(line: &str, kind: Kind) -> Option<Map<String, Value>> {
 /// Lift `key=value` pairs out of the message (≥2 pairs). If a lifted key is
 /// `msg`/`message`, its value becomes the record's `message`; otherwise the
 /// raw message is kept.
+///
+/// B7: the lifted pairs used to be collected and inserted with no count cap,
+/// so one log line could lift millions of fields into one record. The
+/// collect stops at MAX_FIELDS_PER_RECORD and no NEW key is inserted past
+/// it, the same cap `insert_field` enforces for XML. The `message` field is
+/// the record's core field, so it is set first and always kept; the lifted
+/// pairs fill only what is left under the cap.
 fn lift_kv(msg: &str, m: &mut Map<String, Value>) {
     let t = templates();
     let pairs: Vec<(String, String)> =
         t.kv.captures_iter(msg)
+            .take(MAX_FIELDS_PER_RECORD)
             .map(|c| {
                 let k = c.get(1).unwrap().as_str().to_string();
                 let mut v = c.get(2).unwrap().as_str().to_string();
@@ -413,17 +423,25 @@ fn lift_kv(msg: &str, m: &mut Map<String, Value>) {
             .collect();
     if pairs.len() >= 2 {
         let mut message_set = false;
-        for (k, v) in pairs {
-            let key = sanitize_field_name(&k);
+        for (k, v) in &pairs {
+            let key = sanitize_field_name(k);
             if key == "msg" || key == "message" {
-                m.insert("message".into(), Value::String(v));
+                // No break: as before, the last `msg=` pair wins.
+                m.insert("message".into(), Value::String(v.clone()));
                 message_set = true;
-            } else {
-                m.entry(key).or_insert(Value::String(v));
             }
         }
         if !message_set {
             m.insert("message".into(), Value::String(msg.to_string()));
+        }
+        for (k, v) in pairs {
+            let key = sanitize_field_name(&k);
+            if key == "msg" || key == "message" {
+                continue;
+            }
+            if m.len() < MAX_FIELDS_PER_RECORD || m.contains_key(&key) {
+                m.entry(key).or_insert(Value::String(v));
+            }
         }
     } else if !msg.is_empty() {
         m.insert("message".into(), Value::String(msg.to_string()));
@@ -536,6 +554,29 @@ mod tests {
         assert_eq!(m["level"], serde_json::json!("INFO"));
         assert_eq!(m["tenant"], serde_json::json!("t-n"));
         assert_eq!(m["message"], serde_json::json!("Segment merge."));
+    }
+
+    /// B7: `lift_kv` collects EVERY `key=value` pair in the message into a
+    /// Vec and inserts each one into the record map, with no count cap. A
+    /// single log line is up to MAX_LINE (16 MiB), so one line of `k=v`
+    /// pairs can lift millions of fields into one record.
+    #[test]
+    fn lift_kv_stops_at_the_per_record_field_cap() {
+        let mut msg = String::new();
+        for i in 0..600 {
+            msg.push_str(&format!("k{i}=v{i} "));
+        }
+        let line = format!("2026-03-17 00:00:13,529 INFO [ingest-svc] {msg}");
+        let m = parse_line(&line, Kind::App).unwrap();
+        assert!(
+            m.len() <= MAX_FIELDS_PER_RECORD,
+            "one log line lifted {} fields",
+            m.len()
+        );
+        assert_eq!(m["k0"], serde_json::json!("v0"));
+        // The message is the record's core field, so it is always kept and
+        // the lifted pairs fill only what is left under the cap.
+        assert!(m.get("message").is_some(), "the message field is kept");
     }
 
     /// #1504: `journalctl -o short-iso` / ISO-prefixed syslog —

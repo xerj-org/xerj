@@ -39,7 +39,10 @@ const TXT_CAP: u64 = 16 << 20;
 const CHUNK_LINES: usize = 40;
 const CHUNK_OVERLAP: usize = 10;
 /// Byte ceiling per chunk, so a file of very long lines cannot produce a
-/// multi-megabyte record that would blow up `_source` on every hit.
+/// multi-megabyte record that would blow up `_source` on every hit. Stored
+/// lines are truncated to this same ceiling (see `extract_lines`): the
+/// window holds CHUNK_LINES lines, so an uncut line is what used to let the
+/// window reach 40 x MAX_LINE.
 const CHUNK_MAX_BYTES: usize = 8 << 10;
 /// Largest frontmatter block `split_frontmatter` will hand to the YAML parser.
 /// The sniffer only routes frontmatter here when it closes inside its 8 KiB
@@ -186,6 +189,18 @@ fn frontmatter_line(map: &serde_yaml::Mapping, key: &str) -> Option<String> {
         })
         .map(|t| t.split_whitespace().collect::<Vec<_>>().join(" "))
         .filter(|t| !t.is_empty())
+}
+
+/// `s` cut to at most `max` bytes, on a char boundary.
+fn truncate_to_bytes(s: &str, max: usize) -> &str {
+    if s.len() <= max {
+        return s;
+    }
+    let mut end = max;
+    while !s.is_char_boundary(end) {
+        end -= 1;
+    }
+    &s[..end]
 }
 
 /// Whether `logical` is an agent skill's definition file. Skill loaders read a
@@ -359,11 +374,16 @@ pub fn extract_lines(
         if blank && window.is_empty() {
             continue;
         }
+        // B8: a stored line used to be kept whole up to MAX_LINE (16 MiB),
+        // so the 40-line window could reach 640 MiB, and the first line of
+        // a chunk was emitted whole however long it was. Truncate each
+        // stored line to the per-chunk byte cap: the window then holds at
+        // most 40 x 8 KiB, and no chunk exceeds the cap.
         window.push(WindowLine {
             text: if blank {
                 String::new()
             } else {
-                line.to_string()
+                truncate_to_bytes(line, CHUNK_MAX_BYTES).to_string()
             },
             line: line_no,
             byte: start,
@@ -593,6 +613,32 @@ mod chunk_tests {
         for (_, s, e, _) in &out {
             assert!(s <= e);
         }
+    }
+
+    /// B8: the line window holds up to CHUNK_LINES lines, and each line is
+    /// capped only by MAX_LINE (16 MiB), so the window itself can reach
+    /// 40 * 16 MiB = 640 MiB. The first line of a chunk is also emitted
+    /// whole however long it is, so one oversize line becomes one oversize
+    /// record. Chunks must stay within the byte cap.
+    #[test]
+    fn a_window_of_oversize_lines_stays_within_the_chunk_byte_cap() {
+        let long = "x".repeat(1 << 20);
+        let lines: Vec<&str> = (0..40).map(|_| long.as_str()).collect();
+        let out = run(&lines);
+        assert!(!out.is_empty(), "oversize lines must still chunk");
+        for (t, _, _, _) in &out {
+            assert!(
+                t.len() <= CHUNK_MAX_BYTES,
+                "chunk of {} bytes exceeds the cap",
+                t.len()
+            );
+        }
+        assert_eq!(out[0].1, 1, "chunking starts at line 1");
+        assert_eq!(
+            out.last().unwrap().2,
+            40,
+            "every line is still covered by some chunk"
+        );
     }
 
     /// A file of very long lines must not produce an unbounded record.
