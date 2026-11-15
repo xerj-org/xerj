@@ -51,6 +51,7 @@ pub mod progress;
 mod reconcile_plan;
 pub mod remove;
 pub mod resources;
+pub mod sdd;
 pub mod search;
 pub mod search_hints;
 mod session_memory;
@@ -5585,6 +5586,93 @@ mod phase_a_grouping_tests {
             "defs was not indexed: {docs:#?}"
         );
     }
+
+    /// #2966: when an OpenSpec (`openspec/`) or `github/spec-kit` (`.specify/`)
+    /// layout is detected, `.specify/memory` is admitted (while dotfiles inside
+    /// `.specify` stay excluded) and SDD specs + ADRs cluster into a dedicated
+    /// `<prefix>-specs` dataset separate from `<prefix>-docs`.
+    #[test]
+    fn sdd_layout_indexes_specs_and_specify_into_dedicated_specs_corpus() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        std::fs::create_dir_all(root.join("openspec/specs/auth")).unwrap();
+        std::fs::create_dir_all(root.join(".specify/memory")).unwrap();
+        std::fs::create_dir_all(root.join("specs/001-login")).unwrap();
+        std::fs::create_dir_all(root.join("docs/adr")).unwrap();
+        std::fs::create_dir_all(root.join("src")).unwrap();
+
+        std::fs::write(
+            root.join("openspec/specs/auth/spec.md"),
+            "# Auth Capability\n\nSHALL verify session tokens.\n",
+        )
+        .unwrap();
+        std::fs::write(
+            root.join(".specify/memory/constitution.md"),
+            "# Project Constitution\n\nAll features begin with a spec.\n",
+        )
+        .unwrap();
+        std::fs::write(root.join(".specify/.env"), "SECRET_TOKEN=never_index_me\n").unwrap();
+        std::fs::write(
+            root.join("specs/001-login/spec.md"),
+            "# Login Feature Spec\n\nAcceptance criteria for login.\n",
+        )
+        .unwrap();
+        std::fs::write(
+            root.join("docs/adr/0001-token-format.md"),
+            "# ADR 0001: Token Format\n\nDecision: use Ed25519 signatures.\n",
+        )
+        .unwrap();
+        std::fs::write(
+            root.join("src/lib.rs"),
+            "pub fn verify_session_token(tok: &str) -> bool { !tok.is_empty() }\n",
+        )
+        .unwrap();
+
+        let plan = plan_for(root);
+        let rels: Vec<&str> = plan.files.values().map(|f| f.rel.as_str()).collect();
+        assert!(
+            !rels.contains(&".specify/.env"),
+            "dotfile inside .specify must remain excluded: {rels:?}"
+        );
+        assert!(
+            rels.contains(&".specify/memory/constitution.md"),
+            ".specify/memory/constitution.md must be walked: {rels:?}"
+        );
+
+        let specs_ds = plan
+            .datasets
+            .iter()
+            .find(|d| d.slug == "specs")
+            .expect("dedicated specs dataset");
+        assert_eq!(specs_ds.index, "t-specs");
+        assert_eq!(specs_ds.family, "docs");
+        assert_eq!(specs_ds.file_count, 4);
+
+        let docs_ds = plan
+            .datasets
+            .iter()
+            .find(|d| d.slug == "docs")
+            .expect("docs dataset");
+        assert_eq!(docs_ds.index, "t-docs");
+        assert_eq!(docs_ds.file_count, 1);
+
+        for sdd_rel in [
+            "openspec/specs/auth/spec.md",
+            ".specify/memory/constitution.md",
+            "specs/001-login/spec.md",
+            "docs/adr/0001-token-format.md",
+        ] {
+            let f = plan
+                .files
+                .values()
+                .find(|f| f.rel == sdd_rel)
+                .unwrap_or_else(|| panic!("missing {sdd_rel}"));
+            assert!(
+                f.assignments.iter().any(|(_, slug)| slug == "specs"),
+                "{sdd_rel} should route to specs dataset: {f:#?}"
+            );
+        }
+    }
 }
 
 // ─── Phase A plan building (pure: no server contact) ─────────────────────
@@ -5598,6 +5686,7 @@ mod phase_a_grouping_tests {
 /// corpus searchable as one corpus, split only at nested repository roots.
 fn compute_scopes(root: &Path, rels: &[String]) -> Vec<String> {
     let mut cache: HashMap<String, bool> = HashMap::new();
+    let mut sdd_cache: HashMap<String, bool> = HashMap::new();
     rels.iter()
         .map(|rel| {
             let mut scope = String::new();
@@ -5616,6 +5705,26 @@ fn compute_scopes(root: &Path, rels: &[String]) -> Vec<String> {
                     .or_insert_with(|| root.join(&prefix).join(".git").exists());
                 if repo {
                     scope = prefix.clone();
+                }
+            }
+            let has_sdd = *sdd_cache.entry(scope.clone()).or_insert_with(|| {
+                let scope_dir = if scope.is_empty() {
+                    root.to_path_buf()
+                } else {
+                    root.join(&scope)
+                };
+                sdd::detect_sdd_layout(&scope_dir).is_some()
+            });
+            if has_sdd {
+                let rel_in_repo = if scope.is_empty() {
+                    rel.as_str()
+                } else {
+                    rel.strip_prefix(&scope)
+                        .and_then(|r| r.strip_prefix('/'))
+                        .unwrap_or(rel.as_str())
+                };
+                if sdd::is_sdd_spec_rel(rel_in_repo) {
+                    return sdd::specs_scope_for(&scope);
                 }
             }
             scope
