@@ -193,3 +193,14 @@ tokio = { workspace = true }
 
 [dev-dependencies]
 base64 = "0.23.1"
+# TLS regression test: a self-signed server the clients must accept only on
+# loopback. Both are already in the workspace lockfile (rcgen as a workspace
+# dep, tokio-rustls via reqwest/axum-server), so this adds no new package to
+# the tree. Default features are off on purpose: tokio-rustls defaults to the
+# aws-lc-rs provider, the C/asm backend this workspace keeps out of the
+# cross-compile matrix; `ring` is the provider the rest of the tree already
+# uses. The test reaches rustls through tokio-rustls' re-export
+# (`tokio_rustls::rustls`) rather than a direct dep, so no default-features
+# handling is involved at all.
+rcgen = { workspace = true }
+tokio-rustls = { version = "0.26", default-features = false, features = ["logging", "ring", "tls12"] }
