@@ -1,9 +1,9 @@
 {
- "corpus": "xuqinghuan675--word-axmath-gpt-skill",
+ "corpus": "thirteenmonthlabxiii--word-axmath-gpt-skill",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Python queries this for how xuqinghuan675/word-axmath-gpt-skill implements it: GPT skill for converting Microsoft Word OfficeMath to editable AxMath and repairing layout issues (selected work: scripts, the project root)",
+ "domain": "an agent working on Python queries this for how ThirteenMonthLabXIII/word-axmath-gpt-skill implements it: GPT skill for converting Microsoft Word OfficeMath to editable AxMath and repairing layout issues (selected work: scripts, the project root)",
  "repos": [
   {
    "repo": "word-axmath-gpt-skill",

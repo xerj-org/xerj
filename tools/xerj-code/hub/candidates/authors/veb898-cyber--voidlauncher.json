@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on Rust queries this for how veb898-cyber/VoidLauncher implements it: VoidLauncher \u2014 a open-source Minecraft launcher for Windows. Tauri 2 (Rust + React 19), per-user install, no telemetry. Microsoft / Ely.by / (selected work: src/pages, src-tauri, src/stores)",
+ "domain": "an agent working on curseforge, minecraft, minecraft-launcher queries this for how veb898-cyber/VoidLauncher implements it: VoidLauncher \u2014 an open-source Minecraft launcher for Windows. Built with Tauri 2 (Rust + React 19), featuring per-user installation, Microso (selected work: src/pages, src-tauri, src/stores)",
  "repos": [
   {
    "repo": "VoidLauncher",

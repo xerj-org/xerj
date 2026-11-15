@@ -1,0 +1,23 @@
+{
+ "corpus": "khoadev-vn--hexora",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how khoadev-vn/Hexora implements it: Next-Gen Universal Security Engine for Developers & AI Agents. Blazing-fast vulnerability scanner, secret detection, CLI, MCP Server & IDE e",
+ "repos": [
+  {
+   "repo": "Hexora",
+   "url": "https://github.com/khoadev-vn/Hexora",
+   "sha": "ab4728c020e3899b3124e91a3725dde6bdc78c3c",
+   "licence": "author's permission (LICENSE at pin ab4728c020e3: NOASSERTION; repository: NOASSERTION)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-15T09:32Z",
+    "consent_receipt": "fc57273a2636",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-15T09:32Z (receipt fc57273a2636); pinned to the default-branch head. LICENSE at pin ab4728c020e3: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

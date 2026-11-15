@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on C++ queries this for how Gaku-Mod-Tools/GakuLoader implements it: Gaku-Mod-Tools/GakuLoader (C++) (selected work: the project root, src, tests)",
+ "domain": "an agent working on gakumas-plugin, gakumas queries this for how Gaku-Mod-Tools/GakuLoader implements it: Native DLL plugin loader for gakumas (selected work: the project root, src, tests)",
  "repos": [
   {
    "repo": "GakuLoader",

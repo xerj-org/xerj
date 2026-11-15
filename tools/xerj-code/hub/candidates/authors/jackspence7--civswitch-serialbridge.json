@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "NET",
- "domain": "an agent working on Python queries this for how jackspence7/CivSwitch-SerialBridge implements it: ESP32 serial bridge for CivSwitch.. (or raspberry pi)..send payloads to your Switch over USB without taking your PC off its network. The ESP (selected work: pi-bridge)",
+ "domain": "an agent working on Shell queries this for how jackspence7/CivSwitch-SerialBridge implements it: ESP32 serial bridge for CivSwitch. (or raspberry pi, or hardwired with linux) send payloads to your Switch over USB without taking your PC o (selected work: pi-bridge)",
  "repos": [
   {
    "repo": "CivSwitch-SerialBridge",

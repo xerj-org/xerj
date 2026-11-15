@@ -8,15 +8,15 @@
   {
    "repo": "Project-IGI-Android-Port",
    "url": "https://github.com/rayishere0/Project-IGI-Android-Port",
-   "sha": "f34bbc477ee5fb9b880a8c2bec3254bc0ccdb7fc",
-   "licence": "GPL-3.0 (LICENSE file at pin f34bbc477ee5, GitHub licence API 2026-11-14)",
+   "sha": "1a25e153bb15dd616f3cdc97c5bdce656e83ba91",
+   "licence": "GPL-3.0 (LICENSE file at pin 1a25e153bb15, GitHub licence API 2026-11-15)",
    "review": {
     "spdx": "GPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-11-11T08:11Z",
     "consent_receipt": "17394539edbf",
-    "note": "Inclusion consented by the commit author by email at 2026-11-11T08:11Z (receipt 17394539edbf); selected commit f34bbc477ee5: \"IGI 1 co-op Milestone 2 (Wi-Fi only): direct-IP host/join + LAN disco\u2026\". LICENSE file at pin f34bbc477ee5 detected as GPL-3.0 by the GitHub licence API on 2026-11-14; used under that licence with attribution. Pinned to head f34bbc477ee5 (contains the selected commit): the LICENSE at the selected commit was NOASSERTION."
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T08:11Z (receipt 17394539edbf); selected commit 1a25e153bb15: \"IGI 1 co-op Milestone 2 (Wi-Fi only): direct-IP host/join + LAN disco\u2026\". LICENSE file at pin 1a25e153bb15 detected as GPL-3.0 by the GitHub licence API on 2026-11-15; used under that licence with attribution. Pinned to head 1a25e153bb15 (contains the selected commit): the LICENSE at the selected commit was NOASSERTION."
    }
   }
  ]

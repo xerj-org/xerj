@@ -1,9 +1,9 @@
 {
- "corpus": "jurek646--btmapv2",
+ "corpus": "btmap-pl--btmapv2",
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on TypeScript queries this for how JUreK646/btmapv2 implements it: Open-source web platform for mapping mobile network base stations (BTS), cellular coverage, UKE radio permits, and SI2PEM electromagnetic me (selected work: server, src/components, src)",
+ "domain": "an agent working on TypeScript queries this for how btmap-pl/btmapv2 implements it: Open-source web platform for mapping mobile network base stations (BTS), cellular coverage, UKE radio permits, and SI2PEM electromagnetic me (selected work: server, src/components, src)",
  "repos": [
   {
    "repo": "btmapv2",
