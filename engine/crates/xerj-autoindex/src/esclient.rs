@@ -1314,6 +1314,31 @@ pub(crate) fn node_blocking_builder(url: &str) -> reqwest::blocking::ClientBuild
     }
 }
 
+/// Whether the node at `url` may skip TLS certificate verification.
+///
+/// The node mints a self-signed certificate on first start, and the default
+/// node URL is loopback, so loopback clients accept it. A non-loopback node
+/// must present a certificate the system roots trust: these clients send the
+/// admin API key, and accepting any certificate anywhere else hands the key
+/// (and every indexed document) to a man in the middle. Same host set as
+/// `node_blocking_builder`, so a userinfo spoof is judged by its real host.
+pub(crate) fn node_tls_bypass_allowed(url: &str) -> bool {
+    xerj_common::localauth::url_is_loopback(url)
+}
+
+/// Apply the node-URL TLS policy to a client builder: loopback nodes accept
+/// their self-signed certificate, anything else verifies normally.
+pub(crate) fn with_node_tls_policy(
+    builder: reqwest::blocking::ClientBuilder,
+    url: &str,
+) -> reqwest::blocking::ClientBuilder {
+    if node_tls_bypass_allowed(url) {
+        builder.danger_accept_invalid_certs(true)
+    } else {
+        builder
+    }
+}
+
 impl Es {
     pub fn new(url: &str, api_key: Option<String>) -> Result<Self> {
         Self::with_bulk_timeout(url, api_key, 300)
@@ -1342,11 +1367,16 @@ impl Es {
     ) -> Result<Self> {
         // Loopback skips HTTP(S)_PROXY / ALL_PROXY (#2379). A non-loopback
         // URL keeps them, including NO_PROXY. Same rule as `xerj mcp`.
-        let http = node_blocking_builder(url)
-            .timeout(Duration::from_secs(300))
-            .danger_accept_invalid_certs(true)
-            .build()
-            .context("build http client")?;
+        // Invalid certificates are accepted only for a loopback node, which
+        // mints a self-signed one on first start; a non-loopback node must
+        // present a certificate the system roots trust, or the admin key
+        // this client sends is readable by a man in the middle.
+        let http = with_node_tls_policy(
+            node_blocking_builder(url).timeout(Duration::from_secs(300)),
+            url,
+        )
+        .build()
+        .context("build http client")?;
         Ok(Es {
             base: url.trim_end_matches('/').to_string(),
             http,
@@ -4342,6 +4372,166 @@ mod tests {
         let es = Es::new(&format!("http://{address}"), Some("key".to_string())).unwrap();
         let banner = es.ping().unwrap();
         assert_eq!(banner.pointer("/tagline").unwrap(), "XERJ");
+        server.join().unwrap();
+    }
+
+    /// The certificate bypass exists because a loopback node mints a
+    /// self-signed certificate on first start. It must never extend past
+    /// this machine: a non-loopback URL is judged by its real host, so a
+    /// userinfo spoof and a private address both verify normally.
+    #[test]
+    fn tls_bypass_is_loopback_only() {
+        for url in [
+            "https://127.0.0.1:9200",
+            "https://localhost:9200",
+            "https://[::1]:9200",
+            "https://0.0.0.0:9200",
+            "localhost:9200",
+        ] {
+            assert!(
+                super::node_tls_bypass_allowed(url),
+                "{url} is this machine, so its self-signed cert is accepted"
+            );
+        }
+        for url in [
+            "https://node.example.com:9200",
+            "https://192.168.1.5:9200",
+            "https://10.0.0.7",
+            "https://localhost:9200@evil.com/",
+            "https://127.0.0.1:80@evil.com/",
+            "not a url at all",
+        ] {
+            assert!(
+                !super::node_tls_bypass_allowed(url),
+                "{url} is NOT this machine, so its certificate must verify"
+            );
+        }
+    }
+
+    /// A TLS server with a self-signed certificate for `localhost`, served
+    /// on 127.0.0.1. The certificate is invalid for the IP address (no IP
+    /// SAN, and self-signed), so only a client built with the loopback
+    /// bypass completes the handshake. Returns the bound address; the server
+    /// exits after two connection attempts, so a refused handshake still
+    /// lets it shut down instead of hanging the test.
+    fn spawn_self_signed_tls_server() -> (std::net::SocketAddr, std::thread::JoinHandle<()>) {
+        let certified = rcgen::generate_simple_self_signed(vec!["localhost".to_string()])
+            .expect("generate self-signed test cert");
+        let cert_der = certified.cert.der().to_vec();
+        let key_der = certified.key_pair.serialize_der();
+        let (tx, rx) = std::sync::mpsc::channel();
+        let server = std::thread::spawn(move || {
+            let _ = tokio_rustls::rustls::crypto::ring::default_provider().install_default();
+            let mut config = tokio_rustls::rustls::ServerConfig::builder()
+                .with_no_client_auth()
+                .with_single_cert(
+                    vec![tokio_rustls::rustls::pki_types::CertificateDer::from(
+                        cert_der,
+                    )],
+                    tokio_rustls::rustls::pki_types::PrivateKeyDer::Pkcs8(key_der.into()),
+                )
+                .expect("build test TLS config");
+            config.alpn_protocols = vec![b"http/1.1".to_vec()];
+            let acceptor = tokio_rustls::TlsAcceptor::from(std::sync::Arc::new(config));
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .expect("test TLS runtime");
+            rt.block_on(async move {
+                let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+                    .await
+                    .expect("bind test TLS listener");
+                tx.send(listener.local_addr().expect("test TLS addr"))
+                    .unwrap();
+                let mut attempts = 0;
+                while attempts < 2 {
+                    let accept = tokio::time::timeout(
+                        std::time::Duration::from_secs(30),
+                        listener.accept(),
+                    )
+                    .await;
+                    let Ok(Ok((stream, _))) = accept else {
+                        break;
+                    };
+                    attempts += 1;
+                    // Handled inline, not spawned: the loop exits after the
+                    // second attempt, and a spawned handler would be dropped
+                    // with the runtime before it answered the handshake.
+                    let _ = tokio::time::timeout(
+                        std::time::Duration::from_secs(10),
+                        async {
+                            use tokio::io::{AsyncReadExt, AsyncWriteExt};
+                            let Ok(mut tls) = acceptor.accept(stream).await else {
+                                return;
+                            };
+                            let mut buf = [0u8; 4096];
+                            let mut request = Vec::new();
+                            loop {
+                                match tls.read(&mut buf).await {
+                                    Ok(0) => return,
+                                    Ok(n) => {
+                                        request.extend_from_slice(&buf[..n]);
+                                        if request.windows(4).any(|w| w == b"\r\n\r\n") {
+                                            break;
+                                        }
+                                    }
+                                    Err(_) => return,
+                                }
+                            }
+                            let body =
+                                br#"{"tagline":"XERJ","version":{"number":"1.0"}}"#;
+                            let _ = tls
+                                .write_all(
+                                    format!(
+                                        "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n",
+                                        body.len()
+                                    )
+                                    .as_bytes(),
+                                )
+                                .await;
+                            let _ = tls.write_all(body).await;
+                            let _ = tls.flush().await;
+                        },
+                    )
+                    .await;
+                }
+            });
+        });
+        let addr = rx.recv().expect("test TLS server bound");
+        (addr, server)
+    }
+
+    /// The two sides of the fix, against one self-signed server: the bulk
+    /// client for a loopback node URL still connects (the bypass is
+    /// load-bearing there), and a client built for a non-loopback node URL
+    /// refuses the same certificate instead of completing the handshake.
+    #[test]
+    fn tls_bypass_only_on_loopback() {
+        let (address, server) = spawn_self_signed_tls_server();
+
+        let es = Es::new(&format!("https://{address}"), Some("key".to_string())).unwrap();
+        let banner = es.ping().unwrap();
+        assert_eq!(banner.pointer("/tagline").unwrap(), "XERJ");
+
+        let refusing = super::with_node_tls_policy(
+            super::node_blocking_builder("https://node.invalid:9200"),
+            "https://node.invalid:9200",
+        )
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .unwrap();
+        let error = refusing
+            .get(format!("https://{address}/"))
+            .send()
+            .unwrap_err();
+        // reqwest's Display hides the source chain, so assert on Debug:
+        // the refusal must be the certificate, not a connect or I/O error.
+        let debug = format!("{error:?}");
+        assert!(
+            debug.contains("UnknownIssuer"),
+            "a non-loopback client must refuse the self-signed certificate, got: {debug}"
+        );
+
         server.join().unwrap();
     }
 

@@ -658,12 +658,14 @@ enum CatalogErr {
 
 impl CatalogClient {
     fn new(url: &str, api_key: Option<&str>) -> Option<Self> {
-        let http = reqwest::blocking::Client::builder()
-            .timeout(CATALOG_TIMEOUT)
-            .connect_timeout(Duration::from_secs(1))
-            .danger_accept_invalid_certs(true)
-            .build()
-            .ok()?;
+        let http = crate::esclient::with_node_tls_policy(
+            reqwest::blocking::Client::builder()
+                .timeout(CATALOG_TIMEOUT)
+                .connect_timeout(Duration::from_secs(1)),
+            url,
+        )
+        .build()
+        .ok()?;
         let api_key = api_key
             .map(str::trim)
             .filter(|key| !key.is_empty())
