@@ -8,15 +8,15 @@
   {
    "repo": "openentity",
    "url": "https://github.com/moltbot-den/openentity",
-   "sha": "8f75fb181c17f2e47542240cad9502ae4cd8eaae",
-   "licence": "MIT (LICENSE file at pin 8f75fb181c17, GitHub licence API 2026-11-15)",
+   "sha": "0793671428145e8c5365d2fcfb0efdaaa5f25320",
+   "licence": "MIT (LICENSE file at pin 079367142814, GitHub licence API 2026-11-15)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-30T01:51Z",
     "consent_receipt": "5dced8e41f28",
-    "note": "Inclusion consented by the commit author by email at 2026-10-30T01:51Z (receipt 5dced8e41f28); selected commit 8f75fb181c17: \"fix(sdk-python): read 0.4 keys, sign wallet proofs locally, port card\u2026\". LICENSE file at pin 8f75fb181c17 detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution. Pinned to head 8f75fb181c17 (contains the selected commit): the LICENSE at the selected commit was NOASSERTION. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @moltbot-den, who has not added it."
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T01:51Z (receipt 5dced8e41f28); selected commit 079367142814: \"fix(sdk-python): read 0.4 keys, sign wallet proofs locally, port card\u2026\". LICENSE file at pin 079367142814 detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution. Pinned to head 079367142814 (contains the selected commit): the LICENSE at the selected commit was NOASSERTION. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @moltbot-den, who has not added it."
    },
    "paths": [
     "sdk/python"

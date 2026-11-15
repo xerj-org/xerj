@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on csharp, rest-api, netcore queries this for how vanderlan/Orion-Api implements it: A simple project template for creating a .NET Web Api (selected work: tests, src/Company.Orion.Infra.Data, src/Company.Orion.Application.Core)",
+ "domain": "an agent working on csharp, rest-api, netcore queries this for how vanderlan/Orion-Api implements it: A production-ready .NET 10 Web API template with Clean Architecture, CQRS, JWT auth and real-database tests \u2014 pick SQL Server, PostgreSQL or (selected work: tests, src/Company.Orion.Infra.Data, src/Company.Orion.Application.Core)",
  "repos": [
   {
    "repo": "Orion-Api",
