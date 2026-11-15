@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on computer-vision, generative-ai, llama-vision queries this for how MrKyaw/Mobility-Guided-Intelligent-Information-Assistant implements it: Offline mobility scene guidance: explainable risk scoring, accessible narration, cooldowns, Markdown/HTML/JSON reports. 109 tests, 100% bran",
+ "domain": "an agent working on computer-vision, generative-ai, llama-vision queries this for how MrKyaw/Mobility-Guided-Intelligent-Information-Assistant implements it: Turned scene detections into explainable mobility guidance using proximity, travel-path position, closing speed, and time-to-contact. Added ",
  "repos": [
   {
    "repo": "Mobility-Guided-Intelligent-Information-Assistant",

@@ -2,8 +2,8 @@
  "corpus": "tanzir71--saydraft",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on dictation, offline, pyside6 queries this for how tanzir71/saydraft implements it: Local voice dictation for Windows. Speak messy. Paste polished. Offline speech recognition, cleanup, and a searchable Hub (selected work: saydraft, tests, tools)",
+ "shelf": "AI",
+ "domain": "an agent working on dictation, offline, pyside6 queries this for how tanzir71/saydraft implements it: Free, open-source offline dictation for Windows. Local Parakeet/Whisper speech-to-text and on-device AI cleanup with installed models. A pri (selected work: saydraft, tests, tools)",
  "repos": [
   {
    "repo": "saydraft",

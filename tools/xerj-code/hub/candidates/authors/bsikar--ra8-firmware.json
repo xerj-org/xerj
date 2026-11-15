@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "NET",
- "domain": "an agent working on arm-none-eabi, bare-metal, cmake queries this for how bsikar/ra8-firmware implements it: Bare-metal firmware platform for the Renesas RA8 family (RA8D2/RA8P1): hand-written HAL, RTOS/USB/networking ports, and a host emulator that (selected work: libs)",
+ "domain": "an agent working on cortex-m85, embedded, firmware queries this for how bsikar/ra8-firmware implements it: Bare-metal firmware platform for the Renesas RA8 family (RA8D2/RA8P1): hand-written HAL, RTOS/USB/networking ports, and a host emulator that (selected work: libs)",
  "repos": [
   {
    "repo": "ra8-firmware",
