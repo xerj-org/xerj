@@ -1,9 +1,9 @@
 {
- "corpus": "corbittechnologies--repointxt",
+ "corpus": "corbitlabs--repointxt",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on TypeScript queries this for how CorbitTechnologies/repointxt implements it: 100% in-browser, privacy-first codebase prompt packer for Claude, ChatGPT, and Gemini. Stream repositories in-memory without server uploads (selected work: public, src/components, src/hooks)",
+ "domain": "an agent working on TypeScript queries this for how CorbitLabs/repointxt implements it: 100% in-browser, privacy-first codebase prompt packer for Claude, ChatGPT, and Gemini. Stream repositories in-memory without server uploads (selected work: public, src/components, src/hooks)",
  "repos": [
   {
    "repo": "repointxt",

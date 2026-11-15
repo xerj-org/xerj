@@ -8,15 +8,15 @@
   {
    "repo": "mojify",
    "url": "https://github.com/FahadBinHussain/mojify",
-   "sha": "0e0aef3c5e5b84efd68c14259718a980ea9c3ec1",
-   "licence": "MIT (LICENSE file at pin 0e0aef3c5e5b, GitHub licence API 2026-11-14)",
+   "sha": "3f3cb2d241cc4046961963a068acedd305eee909",
+   "licence": "MIT (LICENSE file at pin 3f3cb2d241cc, GitHub licence API 2026-11-15)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T02:34Z",
     "consent_receipt": "cbdaa51120d1",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T02:34Z (receipt cbdaa51120d1); pinned to the default-branch head. LICENSE file at pin 0e0aef3c5e5b detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T02:34Z (receipt cbdaa51120d1); pinned to the default-branch head. LICENSE file at pin 3f3cb2d241cc detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
    }
   }
  ]

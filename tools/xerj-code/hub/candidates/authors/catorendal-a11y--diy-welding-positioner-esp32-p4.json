@@ -1,0 +1,23 @@
+{
+ "corpus": "catorendal-a11y--diy-welding-positioner-esp32-p4",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on esp32-p4, lvgl, stepper-motor queries this for how catorendal-a11y/DIY-Welding-Positioner-ESP32-P4 implements it: ESP32-P4 welding positioner controller: V5 touch UI, five rotation modes, NVS programs, diagnostics and optional USB mirror (selected work: src/ui, simulator, test)",
+ "repos": [
+  {
+   "repo": "DIY-Welding-Positioner-ESP32-P4",
+   "url": "https://github.com/catorendal-a11y/DIY-Welding-Positioner-ESP32-P4",
+   "sha": "4212443c8aadb9828220d770a2b9cc791ed81f5d",
+   "licence": "MIT (LICENSE file at pin 4212443c8aad, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-15T10:36Z",
+    "consent_receipt": "bc7aca06df02",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-15T10:36Z (receipt bc7aca06df02); selected commit 4212443c8aad: \"fix: timestamp race, review findings and reworked screens (#34)\". LICENSE file at pin 4212443c8aad detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}
