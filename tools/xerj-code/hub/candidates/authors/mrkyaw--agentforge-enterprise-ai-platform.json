@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-agents, ai-governance, audit queries this for how MrKyaw/AgentForge-Enterprise-AI-Platform implements it: Governed enterprise AI control plane: hybrid RAG, agent runtime, model gateway, approvals, hash-chained audit, FinOps, and evaluation. Runs ",
+ "domain": "an agent working on ai-agents, ai-governance, audit queries this for how MrKyaw/AgentForge-Enterprise-AI-Platform implements it: Combined fragmented agent infrastructure into a runnable platform with hybrid retrieval, model routing, tenant controls, approvals, audit tr",
  "repos": [
   {
    "repo": "AgentForge-Enterprise-AI-Platform",

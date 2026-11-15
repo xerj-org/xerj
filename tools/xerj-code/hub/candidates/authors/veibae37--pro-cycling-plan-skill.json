@@ -1,0 +1,23 @@
+{
+ "corpus": "veibae37--pro-cycling-plan-skill",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how veibae37/pro_cycling_plan_skill implements it: steal world tour pro's training plans then plugin yours. \u53d6\u767e\u5bb6\u4e4b\u957f\uff0c\u589e\u52a0\u4f60\u7684FTP~ (selected work: src, tests, scripts)",
+ "repos": [
+  {
+   "repo": "pro_cycling_plan_skill",
+   "url": "https://github.com/veibae37/pro_cycling_plan_skill",
+   "sha": "6ddac784681fd828d0420b40ff4de2fe0ce4968f",
+   "licence": "Apache-2.0 (LICENSE file at pin 6ddac784681f, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T13:14Z",
+    "consent_receipt": "fb4b24deb43e",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T13:14Z (receipt fb4b24deb43e); selected commit 6ddac784681f: \"feat: add conversational power profiling and flexible training planning\". LICENSE file at pin 6ddac784681f detected as Apache-2.0 by the GitHub licence API on 2026-11-15; used under that licence with attribution. Pinned to head 6ddac784681f (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "pruthvikrishnang--smart-home-automation",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how pruthvikrishnang/Smart_Home_Automation implements it: pruthvikrishnang/Smart_Home_Automation (TypeScript) (selected work: SmartHome-PWA, SmartHomeESP32)",
+ "repos": [
+  {
+   "repo": "Smart_Home_Automation",
+   "url": "https://github.com/pruthvikrishnang/Smart_Home_Automation",
+   "sha": "6048175c528931605c6977c9c9d293b4f4dac4a2",
+   "licence": "MIT (LICENSE file at pin 6048175c5289, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T06:08Z",
+    "consent_receipt": "6dca22ac37cd",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T06:08Z (receipt 6dca22ac37cd); selected commit 6048175c5289: \"feat(dx): add in-app MQTT broker settings UI, hostname auto-fallback,\u2026\". LICENSE file at pin 6048175c5289 detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

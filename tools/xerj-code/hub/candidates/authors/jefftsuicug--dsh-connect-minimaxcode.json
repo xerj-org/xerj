@@ -1,0 +1,28 @@
+{
+ "corpus": "jefftsuicug--dsh-connect-minimaxcode",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on cordis, deepseek-harness, dsh-plugin queries this for how JeffTsuiCUG/dsh-connect-minimaxcode implements it: Bring MiniMax Code desktop app models into DeepSeek Harness: zero-config, no API key, Anthropic Messages compatible, dynamic model catalog,  (selected work: tests, src, lib)",
+ "repos": [
+  {
+   "repo": "dsh-connect-minimaxcode",
+   "url": "https://github.com/JeffTsuiCUG/dsh-connect-minimaxcode",
+   "sha": "bc499ebd3c34a6dc1d0c2e346732a2afb7023028",
+   "licence": "MIT (LICENSE file at pin bc499ebd3c34, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T06:14Z",
+    "consent_receipt": "79a86e685fa1",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T06:14Z (receipt 79a86e685fa1); selected commit bc499ebd3c34: \"fix: bind the session methods, so a generated picture reaches the con\u2026\". LICENSE file at pin bc499ebd3c34 detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @JeffTsuiCUG, who has not added it."
+   },
+   "paths": [
+    "lib",
+    "src",
+    "tests"
+   ]
+  }
+ ]
+}

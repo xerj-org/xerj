@@ -1,0 +1,23 @@
+{
+ "corpus": "r3cla--recla",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Astro queries this for how r3cla/recla implements it: My profile/portfolio website (selected work: src/styles, src/components, src/layouts)",
+ "repos": [
+  {
+   "repo": "recla",
+   "url": "https://github.com/r3cla/recla",
+   "sha": "914169a2ba0766e24fe3a4bff520e985e4a2f5b6",
+   "licence": "MIT (LICENSE file at pin 914169a2ba07, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T02:30Z",
+    "consent_receipt": "92bfa2fec907",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T02:30Z (receipt 92bfa2fec907); selected commit 914169a2ba07: \"replace nav with floating bottom dock\". LICENSE file at pin 914169a2ba07 detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

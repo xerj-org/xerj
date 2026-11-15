@@ -1,0 +1,23 @@
+{
+ "corpus": "duyuanxi--bbdroid",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Kotlin queries this for how duyuanxi/bbdroid implements it: B\u7ad9\u89c6\u9891\u4e0b\u8f7d\u5668 + FFmpeg \u5de5\u5177\u7bb1\uff08Android\uff09 (selected work: app/src, app, the project root)",
+ "repos": [
+  {
+   "repo": "bbdroid",
+   "url": "https://github.com/duyuanxi/bbdroid",
+   "sha": "5e1a96e53045cd57205db76c49b72de4cb3fe5eb",
+   "licence": "MIT (LICENSE file at pin 5e1a96e53045, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T15:21Z",
+    "consent_receipt": "0b985091e4b6",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T15:21Z (receipt 0b985091e4b6); selected commit 5e1a96e53045: \"feat: \u4fee\u590d\u8f6c\u6362\u4e0e\u4e0b\u8f7d\u5e76\u91cd\u505a\u73bb\u7483\u754c\u9762\uff0c\u53d1\u5e03 0.4.0\". LICENSE file at pin 5e1a96e53045 detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

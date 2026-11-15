@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agentic-ai, biomarker-extraction, clinical-ai queries this for how MrKyaw/Med-Foundation-Models implements it: Foundation Models for Whole-Body MRI: Self-Supervised Learning, Multimodal Fusion & Clinical Translation",
+ "domain": "an agent working on agentic-ai, biomarker-extraction, clinical-ai queries this for how MrKyaw/Med-Foundation-Models implements it: Created reusable components for whole-body MRI research using self-supervised learning, Vision Transformers, multimodal fusion, and downstre",
  "repos": [
   {
    "repo": "Med-Foundation-Models",

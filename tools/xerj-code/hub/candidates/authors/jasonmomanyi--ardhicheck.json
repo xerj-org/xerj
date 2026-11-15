@@ -1,0 +1,23 @@
+{
+ "corpus": "jasonmomanyi--ardhicheck",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how JasonMomanyi/ArdhiCheck implements it: JasonMomanyi/ArdhiCheck (Python) (selected work: eval, app/meta, app/geo)",
+ "repos": [
+  {
+   "repo": "ArdhiCheck",
+   "url": "https://github.com/JasonMomanyi/ArdhiCheck",
+   "sha": "a767d1471bfe3b972165658db2e337e069c5fcee",
+   "licence": "MIT (LICENSE file at pin a767d1471bfe, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T07:43Z",
+    "consent_receipt": "64207b933180",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T07:43Z (receipt 64207b933180); selected commit a767d1471bfe: \"refactor: enforce strict cadastral closure, enhance test suite, and a\u2026\". LICENSE file at pin a767d1471bfe detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on api, finance, financial-data queries this for how fonrex/fonrex implements it: Financial data, unlocked (selected work: financials, tests, monitoring)",
+ "domain": "an agent working on finance, financial-data, fintech queries this for how fonrex/fonrex implements it: Financial data, unlocked (selected work: financials, tests, monitoring)",
  "repos": [
   {
    "repo": "fonrex",

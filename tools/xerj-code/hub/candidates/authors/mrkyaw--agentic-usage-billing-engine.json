@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "OPS",
- "domain": "an agent working on billing, billing-engine, event-driven queries this for how MrKyaw/Agentic-Usage-Billing-Engine implements it: Event-driven idempotent usage-based billing engine (POC v0.1). Ingest \u2192 idempotent process \u2192 versioned rating \u2192 aggregate \u2192 query \u2192 reconcil (selected work: src/billing_engine, tests)",
+ "domain": "an agent working on billing, billing-engine, event-driven queries this for how MrKyaw/Agentic-Usage-Billing-Engine implements it: Addressed duplicate usage events, inconsistent billing, and reconciliation difficulty through idempotent ingestion, versioned pricing, aggre (selected work: src/billing_engine, tests)",
  "repos": [
   {
    "repo": "Agentic-Usage-Billing-Engine",

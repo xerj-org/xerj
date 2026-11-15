@@ -1,0 +1,23 @@
+{
+ "corpus": "sirai-stack--als-downgrade",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on ableton, ableton-live, als queries this for how SirAI-stack/als-downgrade implements it: Open newer Ableton Live projects (.als) in an older version of Live. Free macOS app to downgrade Ableton projects: fixes the \"created with a (selected work: the project root, app)",
+ "repos": [
+  {
+   "repo": "als-downgrade",
+   "url": "https://github.com/SirAI-stack/als-downgrade",
+   "sha": "05329c80c62f9aae3c349088e4b52c187514e316",
+   "licence": "MIT (LICENSE file at pin 05329c80c62f, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T00:01Z",
+    "consent_receipt": "10c30cf7bede",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T00:01Z (receipt 10c30cf7bede); selected commit 05329c80c62f: \"Add files via upload\". LICENSE file at pin 05329c80c62f detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

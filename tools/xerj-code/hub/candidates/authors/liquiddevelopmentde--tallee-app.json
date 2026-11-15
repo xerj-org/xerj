@@ -1,0 +1,34 @@
+{
+ "corpus": "liquiddevelopmentde--tallee-app",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, app, flutter queries this for how liquiddevelopmentde/tallee-app implements it: An all-in-one app to track card- and board games, manage players and groups and get statistics about your played games (selected work: lib/data, test, lib/presentation)",
+ "repos": [
+  {
+   "repo": "tallee-app",
+   "url": "https://github.com/liquiddevelopmentde/tallee-app",
+   "sha": "ac56808c707ad0a97f1fdd9bff0a65d416feca0b",
+   "licence": "LGPL-3.0 (LICENSE file at pin ac56808c707a, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "LGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-13T07:34Z",
+    "consent_receipt": "38c946bc5f91",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T07:34Z (receipt 38c946bc5f91); selected commit ac56808c707a: \"replace sortOrder with sortDirection\". LICENSE file at pin ac56808c707a detected as LGPL-3.0 by the GitHub licence API on 2026-11-15; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @liquiddevelopmentde, who has not added it."
+   },
+   "paths": [
+    "assets/schemas",
+    "lib/data/dao",
+    "lib/data/db",
+    "lib/data/models",
+    "lib/data/statistics",
+    "lib/presentation/views/main_menu/statistic_view",
+    "lib/services",
+    "test/database/entities",
+    "test/unit"
+   ]
+  }
+ ]
+}

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-agents, datacenter, evaluation queries this for how MrKyaw/Industrial-Agent-Intelligence implements it: Grounded reasoning, policy-checked tools, guardrails, and behavioural evals for industrial AI agents. Zero runtime deps, 119 tests, 22/22 ev",
+ "domain": "an agent working on ai-agents, datacenter, evaluation queries this for how MrKyaw/Industrial-Agent-Intelligence implements it: Converted industrial telemetry, alarms, maintenance knowledge, and facility context into grounded answers with policy-controlled tools and h",
  "repos": [
   {
    "repo": "Industrial-Agent-Intelligence",

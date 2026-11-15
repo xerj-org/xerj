@@ -1,0 +1,23 @@
+{
+ "corpus": "krevas--local-model-provider",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on copilot, llama-cpp, llm queries this for how krevas/local-model-provider implements it: VS Code extension to connect to local LLM inference servers (Ollama, llama.cpp, LocalAI) via OpenAI API compatible endpoints (selected work: src, the project root)",
+ "repos": [
+  {
+   "repo": "local-model-provider",
+   "url": "https://github.com/krevas/local-model-provider",
+   "sha": "a66057899a1d00681b1975546cbf762ed14045bf",
+   "licence": "MIT (LICENSE file at pin a66057899a1d, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T02:02Z",
+    "consent_receipt": "8c3c952d5682",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T02:02Z (receipt 8c3c952d5682); selected commit a66057899a1d: \"Follow-up to #7: narrow fetch-failed retry, tidy running-models code\". LICENSE file at pin a66057899a1d detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

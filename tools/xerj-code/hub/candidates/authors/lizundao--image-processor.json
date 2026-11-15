@@ -1,0 +1,23 @@
+{
+ "corpus": "lizundao--image-processor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how lizundao/image-processor implements it: A powerful desktop image processing application built with React + Tauri + Rust (selected work: src-tauri, src/components, src/services)",
+ "repos": [
+  {
+   "repo": "image-processor",
+   "url": "https://github.com/lizundao/image-processor",
+   "sha": "c9f1d8332640d9c455c1a04e74aeb283214ef830",
+   "licence": "MIT (LICENSE file at pin c9f1d8332640, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T12:58Z",
+    "consent_receipt": "1d1227b1827d",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T12:58Z (receipt 1d1227b1827d); selected commit c9f1d8332640: \"feat: \u5347\u7ea7 Tauri 2 \u5e76\u6309 PDF \u53e3\u5f84\u5b8c\u6210\u5b8c\u5584\". LICENSE file at pin c9f1d8332640 detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution. Pinned to head c9f1d8332640 (contains the selected commit): the LICENSE at the selected commit was NOASSERTION."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "eehrich--scarabhive",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-framework, ai-agents, fastapi queries this for how eehrich/ScarabHive implements it: Self-hosted framework for LLM agents, built around plugins: agents defined in YAML, run in the browser, from the CLI or through an OpenAI-co (selected work: src/plugins)",
+ "repos": [
+  {
+   "repo": "ScarabHive",
+   "url": "https://github.com/eehrich/ScarabHive",
+   "sha": "a7afdb19153695ffb6e4c91680a0d5d1b5b6b200",
+   "licence": "Apache-2.0 (LICENSE file at pin a7afdb191536, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T03:32Z",
+    "consent_receipt": "62f5b9d378c8",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T03:32Z (receipt 62f5b9d378c8); selected commit a7afdb191536: \"context_usage_tracker, sub_agent_manager: update\". LICENSE file at pin a7afdb191536 detected as Apache-2.0 by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

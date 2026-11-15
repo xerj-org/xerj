@@ -1,0 +1,23 @@
+{
+ "corpus": "ankitkaushik24--pr-controller",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how ankitkaushik24/pr-controller implements it: PR controller with GitHub polling and Slack notifications (selected work: pr_controller)",
+ "repos": [
+  {
+   "repo": "pr-controller",
+   "url": "https://github.com/ankitkaushik24/pr-controller",
+   "sha": "e7e98f7d78cfc70465b1a2645df06bc1711ff12b",
+   "licence": "MIT (LICENSE file at pin e7e98f7d78cf, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T06:30Z",
+    "consent_receipt": "928301f4e821",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T06:30Z (receipt 928301f4e821); selected commit e7e98f7d78cf: \"feature(main): support reacting to review comments\". LICENSE file at pin e7e98f7d78cf detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

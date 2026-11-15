@@ -1,0 +1,23 @@
+{
+ "corpus": "stephen-mcelhose--catrace",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on Go queries this for how stephen-mcelhose/catrace implements it: Finite-state Markov models of autonomous-agent networks (selected work: stream, experiments, the project root)",
+ "repos": [
+  {
+   "repo": "catrace",
+   "url": "https://github.com/stephen-mcelhose/catrace",
+   "sha": "9ac33689f21ce1872b09387aa840aca2dae59264",
+   "licence": "MIT (LICENSE file at pin 9ac33689f21c, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T15:47Z",
+    "consent_receipt": "c9b260d3aeb7",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T15:47Z (receipt c9b260d3aeb7); selected commit 9ac33689f21c: \"feat: add stream package (Estimator, IngestJSONL, AnalyzeAndSuggest, \u2026\". LICENSE file at pin 9ac33689f21c detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

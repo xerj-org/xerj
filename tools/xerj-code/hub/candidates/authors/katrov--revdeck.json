@@ -1,0 +1,23 @@
+{
+ "corpus": "katrov--revdeck",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how katrov/revdeck implements it: katrov/revdeck (TypeScript) (selected work: ui, src/daemon, tests)",
+ "repos": [
+  {
+   "repo": "revdeck",
+   "url": "https://github.com/katrov/revdeck",
+   "sha": "218ac019d55bfeafc51f8083d506ddccd3e7ee28",
+   "licence": "MIT (LICENSE file at pin 218ac019d55b, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T13:23Z",
+    "consent_receipt": "a5024484f679",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T13:23Z (receipt a5024484f679); selected commit 218ac019d55b: \"feat: add agent notes, MR reactions and comment editing\". LICENSE file at pin 218ac019d55b detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

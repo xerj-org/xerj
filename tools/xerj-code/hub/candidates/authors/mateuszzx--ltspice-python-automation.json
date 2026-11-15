@@ -1,0 +1,23 @@
+{
+ "corpus": "mateuszzx--ltspice-python-automation",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Jupyter Notebook queries this for how Mateuszzx/LTSpice-python-automation implements it: Python tooling to improve LTspice simulation data analysis in the Python programming language (selected work: src/ltspice_automation, notebooks, tests)",
+ "repos": [
+  {
+   "repo": "LTSpice-python-automation",
+   "url": "https://github.com/Mateuszzx/LTSpice-python-automation",
+   "sha": "1315da2d4634cccc38a2e1ff49220058289eadef",
+   "licence": "MIT (LICENSE file at pin 1315da2d4634, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T12:50Z",
+    "consent_receipt": "7485247f0563",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T12:50Z (receipt 7485247f0563); selected commit 1315da2d4634: \"Move utils to UV based package\". LICENSE file at pin 1315da2d4634 detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

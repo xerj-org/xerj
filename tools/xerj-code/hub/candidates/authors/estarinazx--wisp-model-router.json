@@ -1,0 +1,23 @@
+{
+ "corpus": "estarinazx--wisp-model-router",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on TypeScript queries this for how EstarinAzx/Wisp-Model-Router implements it: A model router for your Agent Harness (e.g Claude Code). Bring your own backend and run your favourite models (selected work: packages/core, packages/vscode)",
+ "repos": [
+  {
+   "repo": "Wisp-Router",
+   "url": "https://github.com/EstarinAzx/Wisp-Router",
+   "sha": "2c3ea70926f043e595edce3a6f08cc64688fdcaa",
+   "licence": "MIT (LICENSE file at pin 2c3ea70926f0, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T07:33Z",
+    "consent_receipt": "4bb8f682b081",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T07:33Z (receipt 4bb8f682b081); selected commit 2c3ea70926f0: \"fix(vscode): preserve Copilot SDK Antigravity tool state\". LICENSE file at pin 2c3ea70926f0 detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

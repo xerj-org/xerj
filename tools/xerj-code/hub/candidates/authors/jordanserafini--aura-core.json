@@ -1,0 +1,23 @@
+{
+ "corpus": "jordanserafini--aura-core",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, apscheduler, bm25 queries this for how JordanSerafini/aura-core implements it: Hybrid BM25 + vector memory store, retrieval benchmark and markdown-driven scheduler, extracted from a personal agent project (selected work: src/aura_core, tests)",
+ "repos": [
+  {
+   "repo": "aura-core",
+   "url": "https://github.com/JordanSerafini/aura-core",
+   "sha": "da826b9fe033a3924f42b51500e38022306b8923",
+   "licence": "MIT (LICENSE file at pin da826b9fe033, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T07:41Z",
+    "consent_receipt": "737edd280a10",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T07:41Z (receipt 737edd280a10); selected commit da826b9fe033: \"refactor(retrieval): le cote vecteur passe par le store, une seule RR\u2026\". LICENSE file at pin da826b9fe033 detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "lsqkk--bili-card",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how lsqkk/bili-card implements it: \u4e00\u884c\u4ee3\u7801\u8fd4\u56deB\u7ad9\u5c55\u793aSVG\u5361\u7247 | \u4f18\u96c5\u3001\u73b0\u4ee3\u7684B\u7ad9\u7528\u6237\u5361\u7247\u751f\u6210\u5de5\u5177\uff0c\u901a\u8fc7\u7b80\u6d01\u7684API\u63a5\u53e3\u5c06B\u7ad9\u7528\u6237\u4fe1\u606f\u8f6c\u5316\u4e3a\u7cbe\u7f8e\u7684SVG\u5361\u7247\u3002\u65e0\u9700\u590d\u6742\u7684\u914d\u7f6e\uff0c\u53ea\u9700\u4e00\u4e2aUID\uff0c\u5373\u53ef\u83b7\u5f97\u7f8e\u89c2\u3001\u53ef\u81ea\u5b9a\u4e49\u7684\u7528\u6237\u4fe1\u606f\u5c55\u793a\u5361\u7247\uff0c\u5b8c\u7f8e\u5d4c\u5165\u4e2a\u4eba\u7f51\u7ad9\u3001GitHub Profile\u6216\u4efb\u4f55\u9700\u8981\u5c55\u793aB\u7ad9\u8eab\u4efd\u7684\u573a\u666f\u3002 (selected work: api, lib/themes, lib)",
+ "repos": [
+  {
+   "repo": "bili-card",
+   "url": "https://github.com/lsqkk/bili-card",
+   "sha": "073722c4e2113b7d5f2d287eef5f56f8caf537b7",
+   "licence": "MIT (LICENSE file at pin 073722c4e211, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T05:16Z",
+    "consent_receipt": "76a3549c67f4",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T05:16Z (receipt 76a3549c67f4); selected commit 073722c4e211: \"Rebuild Bili Card layouts and add an embed studio\". LICENSE file at pin 073722c4e211 detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

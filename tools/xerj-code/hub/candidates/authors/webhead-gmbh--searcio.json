@@ -1,0 +1,30 @@
+{
+ "corpus": "webhead-gmbh--searcio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on wordpress-plugin queries this for how webhead-GmbH/searcio implements it: Connect WordPress and WooCommerce to Searcio - a fast, hosted search service - and give visitors an instant, full-screen search experience f (selected work: tests, src/frontend, includes)",
+ "repos": [
+  {
+   "repo": "searcio",
+   "url": "https://github.com/webhead-GmbH/searcio",
+   "sha": "cdc750b4627bdba30508f80103524833ce7bc0a8",
+   "licence": "GPL-3.0 (LICENSE file at pin cdc750b4627b, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-13T09:34Z",
+    "consent_receipt": "3b3547c85dcd",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T09:34Z (receipt 3b3547c85dcd); selected commit cdc750b4627b: \"fix: index titles as they were typed, and the search window searches \u2026\". LICENSE file at pin cdc750b4627b detected as GPL-3.0 by the GitHub licence API on 2026-11-15; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @webhead-GmbH, who has not added it."
+   },
+   "paths": [
+    "docs",
+    "includes/Indexing",
+    "src/frontend/search/components",
+    "tests/Integration/Indexing",
+    "tests/e2e"
+   ]
+  }
+ ]
+}

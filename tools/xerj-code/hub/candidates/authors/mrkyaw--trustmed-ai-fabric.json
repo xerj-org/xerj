@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-governance, audit-ledger, evaluation queries this for how MrKyaw/TrustMed-AI-Fabric implements it: Governed, traceable AI fabric for regulated life-sciences content, experiences and measurement. Synthetic reference implementation with hash",
+ "domain": "an agent working on ai-governance, audit-ledger, evaluation queries this for how MrKyaw/TrustMed-AI-Fabric implements it: Addressed traceability and approval risks in regulated content by linking claims to evidence, enforcing version/expiry controls, and restric",
  "repos": [
   {
    "repo": "TrustMed-AI-Fabric",

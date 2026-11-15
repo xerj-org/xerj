@@ -1,0 +1,23 @@
+{
+ "corpus": "kgstorm--balboa-gs100-with-vl260-topside",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how kgstorm/Balboa-GS100-with-VL260-topside implements it: An ESPHome project to add an ESP32 to a Balboahot tub with a VLXXX topside controller to send and receive data via Home Assistant (selected work: the project root, esp32-spa, cloud)",
+ "repos": [
+  {
+   "repo": "Balboa-GS100-with-VL260-topside",
+   "url": "https://github.com/kgstorm/Balboa-GS100-with-VL260-topside",
+   "sha": "c5beb851ff4a0d33317ec65c3352929360ecc930",
+   "licence": "MIT (LICENSE file at pin c5beb851ff4a, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-12T23:51Z",
+    "consent_receipt": "c0a7b9299058",
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T23:51Z (receipt c0a7b9299058); selected commit c5beb851ff4a: \"Support for a remote Home Assistant instance through MQTT\". LICENSE file at pin c5beb851ff4a detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}
