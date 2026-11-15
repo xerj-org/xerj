@@ -1,9 +1,9 @@
 {
- "corpus": "opennodesaas--remotepilot",
+ "corpus": "opennodesaas--opennodedesk",
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on C# queries this for how OpenNodeSaas/RemotePilot implements it: OpenNodeSaas/RemotePilot (C#) (selected work: src/RemotePilot, tests, the project root)",
+ "domain": "an agent working on C# queries this for how OpenNodeSaas/OpenNodeDesk implements it: OpenNodeSaas/OpenNodeDesk (C#) (selected work: src/RemotePilot, tests, the project root)",
  "repos": [
   {
    "repo": "RemotePilot",
