@@ -1,0 +1,23 @@
+{
+ "corpus": "lamitaone--miniaudio4delphi",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on delphi, miniaudio, radstudio queries this for how LaMitaOne/MiniAudio4Delphi implements it: A modern, high-performance, fully-featured audio wrapper for Delphi, powered by the incredible miniaudio C library. Includes High-Precision ",
+ "repos": [
+  {
+   "repo": "MiniAudio4Delphi",
+   "url": "https://github.com/LaMitaOne/MiniAudio4Delphi",
+   "sha": "ccb8e37547b872e4889d89a146dffc19a3316ec5",
+   "licence": "MIT (LICENSE file at pin ccb8e37547b8, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-15T18:06Z",
+    "consent_receipt": "a42db8b96632",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-15T18:06Z (receipt a42db8b96632); pinned to the default-branch head. LICENSE file at pin ccb8e37547b8 detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

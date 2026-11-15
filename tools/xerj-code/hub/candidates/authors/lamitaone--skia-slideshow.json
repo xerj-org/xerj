@@ -1,0 +1,23 @@
+{
+ "corpus": "lamitaone--skia-slideshow",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on delphi, fmx, radstudio queries this for how LaMitaOne/Skia-Slideshow implements it: A high-performance, hardware-accelerated slideshow component for Delphi FMX, utilizing the power of Skia4Delphi",
+ "repos": [
+  {
+   "repo": "Skia-Slideshow",
+   "url": "https://github.com/LaMitaOne/Skia-Slideshow",
+   "sha": "46f5cca9e54120e2103a1a0b209520bd6d257431",
+   "licence": "MIT (LICENSE file at pin 46f5cca9e541, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-15T18:06Z",
+    "consent_receipt": "e749437b59e9",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-15T18:06Z (receipt e749437b59e9); pinned to the default-branch head. LICENSE file at pin 46f5cca9e541 detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -8,15 +8,15 @@
   {
    "repo": "ARCTURUS_CLIMATIK",
    "url": "https://github.com/deegpnini/ARCTURUS_CLIMATIK",
-   "sha": "bba80a258aff07b27359dfa2e4d198b89434d1dc",
-   "licence": "MIT (LICENSE file at pin bba80a258aff, GitHub licence API 2026-11-14)",
+   "sha": "56dfc14c456a43d5a49a918f75260d469059527d",
+   "licence": "MIT (LICENSE file at pin 56dfc14c456a, GitHub licence API 2026-11-15)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-22T22:26Z",
     "consent_receipt": "6b703241a648",
-    "note": "Inclusion consented by the commit author by email at 2026-10-22T22:26Z (receipt 6b703241a648); selected commit bba80a258aff: \"feat: insight.py + insight_parte2.py + patch ana_auth (paths relativo\u2026\". LICENSE file at pin bba80a258aff detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution. Pinned to head bba80a258aff (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-22T22:26Z (receipt 6b703241a648); selected commit 56dfc14c456a: \"feat: insight.py + insight_parte2.py + patch ana_auth (paths relativo\u2026\". LICENSE file at pin 56dfc14c456a detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution. Pinned to head 56dfc14c456a (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

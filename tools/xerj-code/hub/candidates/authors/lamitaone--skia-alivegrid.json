@@ -1,0 +1,23 @@
+{
+ "corpus": "lamitaone--skia-alivegrid",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on delphi, fluid, fmx queries this for how LaMitaOne/Skia-AliveGrid implements it: A high-performance, custom-rendered FMX component for Delphi that provides a fluid, physics-based list interface. Built entirely on the Skia",
+ "repos": [
+  {
+   "repo": "Skia-AliveGrid",
+   "url": "https://github.com/LaMitaOne/Skia-AliveGrid",
+   "sha": "f1205f8ba7d0596fc6864c238099b20a0c754c2a",
+   "licence": "MIT (LICENSE file at pin f1205f8ba7d0, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-15T18:06Z",
+    "consent_receipt": "77339c9ebe39",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-15T18:06Z (receipt 77339c9ebe39); pinned to the default-branch head. LICENSE file at pin f1205f8ba7d0 detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

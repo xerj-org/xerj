@@ -1,0 +1,23 @@
+{
+ "corpus": "lamitaone--yutani-chaos",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on delphi, radstudio, skia4delphi queries this for how LaMitaOne/Yutani.CHAOS implements it: Yutani CHAOS - Complete Holographic AI Operating System Interface Skia4delphi version",
+ "repos": [
+  {
+   "repo": "Yutani.CHAOS",
+   "url": "https://github.com/LaMitaOne/Yutani.CHAOS",
+   "sha": "3fec45d76a24c8ec11b0345eecec4d0f7d3a14d4",
+   "licence": "MIT (LICENSE file at pin 3fec45d76a24, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-15T18:06Z",
+    "consent_receipt": "ad55db4203ea",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-15T18:06Z (receipt ad55db4203ea); pinned to the default-branch head. LICENSE file at pin 3fec45d76a24 detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

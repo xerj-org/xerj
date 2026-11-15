@@ -1,0 +1,23 @@
+{
+ "corpus": "lamitaone--skiacubespopup",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on delphi, radstudio, skia4delphi queries this for how LaMitaOne/SkiaCubesPopup implements it: A floating, Cube grid popup menu for Delphi VCL, rendered entirely via Skia4Delphi",
+ "repos": [
+  {
+   "repo": "SkiaCubesPopup",
+   "url": "https://github.com/LaMitaOne/SkiaCubesPopup",
+   "sha": "0a59f0deefdd98f26b36905e7d3405995298fa7b",
+   "licence": "MIT (LICENSE file at pin 0a59f0deefdd, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-15T18:06Z",
+    "consent_receipt": "1354890f6b49",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-15T18:06Z (receipt 1354890f6b49); pinned to the default-branch head. LICENSE file at pin 0a59f0deefdd detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

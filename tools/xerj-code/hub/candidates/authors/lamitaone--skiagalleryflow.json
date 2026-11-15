@@ -1,0 +1,23 @@
+{
+ "corpus": "lamitaone--skiagalleryflow",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on coverflow, fmx, radstudio queries this for how LaMitaOne/SkiaGalleryFlow implements it: A Card Stack / Coverflow control prototype for Delphi FMX. Built entirely on Skia4Delphi",
+ "repos": [
+  {
+   "repo": "SkiaGalleryFlow",
+   "url": "https://github.com/LaMitaOne/SkiaGalleryFlow",
+   "sha": "9c591a32c39e5b126e88402e74f08dd3cbdd4544",
+   "licence": "MIT (LICENSE file at pin 9c591a32c39e, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-15T18:06Z",
+    "consent_receipt": "595934243fd6",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-15T18:06Z (receipt 595934243fd6); pinned to the default-branch head. LICENSE file at pin 9c591a32c39e detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

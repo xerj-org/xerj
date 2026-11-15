@@ -1,0 +1,23 @@
+{
+ "corpus": "lamitaone--skiacastlesiege",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on delphi, game-development, skia4delphi queries this for how LaMitaOne/SkiaCastleSiege implements it: A physics-based siege prototype written in Delphi using Skia4Delphi. It features a slingshot-style catapult with independent projectile mech",
+ "repos": [
+  {
+   "repo": "SkiaCastleSiege",
+   "url": "https://github.com/LaMitaOne/SkiaCastleSiege",
+   "sha": "2497fb3c3027f02dd3202004bb3121ec460022ae",
+   "licence": "MIT (LICENSE file at pin 2497fb3c3027, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-15T18:06Z",
+    "consent_receipt": "ec6f143915ca",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-15T18:06Z (receipt ec6f143915ca); pinned to the default-branch head. LICENSE file at pin 2497fb3c3027 detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

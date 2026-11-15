@@ -1,0 +1,23 @@
+{
+ "corpus": "lamitaone--sedaiaudio4delphi",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on delph, game-development, object-pascal queries this for how LaMitaOne/SedaiAudio4Delphi implements it: A thin, flat-C DLL bridge that lets you use the **Sedai Audio Foundation** (a Free Pascal / Object Pascal audio synthesis library) from **De",
+ "repos": [
+  {
+   "repo": "SedaiAudio4Delphi",
+   "url": "https://github.com/LaMitaOne/SedaiAudio4Delphi",
+   "sha": "9ee9be6e3ea66fa4a3a9d05edbc830ecd9290d10",
+   "licence": "GPL-3.0 (LICENSE file at pin 9ee9be6e3ea6, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-15T18:06Z",
+    "consent_receipt": "63906b3f83df",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-15T18:06Z (receipt 63906b3f83df); pinned to the default-branch head. LICENSE file at pin 9ee9be6e3ea6 detected as GPL-3.0 by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

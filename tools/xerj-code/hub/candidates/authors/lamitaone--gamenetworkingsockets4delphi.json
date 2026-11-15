@@ -1,0 +1,23 @@
+{
+ "corpus": "lamitaone--gamenetworkingsockets4delphi",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on Pascal queries this for how LaMitaOne/GameNetworkingSockets4delphi implements it: A dynamic Delphi wrapper for Valve's Open-Source GameNetworkingSockets library. This wrapper allows you to use the C++ Flat API in Delphi x6",
+ "repos": [
+  {
+   "repo": "GameNetworkingSockets4delphi",
+   "url": "https://github.com/LaMitaOne/GameNetworkingSockets4delphi",
+   "sha": "991c26bb143ac07a667d6bb6fbf6420496d520c2",
+   "licence": "MIT (LICENSE file at pin 991c26bb143a, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-15T18:06Z",
+    "consent_receipt": "e238e1aaec5f",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-15T18:06Z (receipt e238e1aaec5f); pinned to the default-branch head. LICENSE file at pin 991c26bb143a detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

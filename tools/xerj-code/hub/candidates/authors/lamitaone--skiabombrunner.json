@@ -1,0 +1,23 @@
+{
+ "corpus": "lamitaone--skiabombrunner",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on bomberman-clone, delphi, fmx queries this for how LaMitaOne/SkiaBombRunner implements it: A top-down arcade bombing prototype built entirely with Skia4Delphi",
+ "repos": [
+  {
+   "repo": "SkiaBombRunner",
+   "url": "https://github.com/LaMitaOne/SkiaBombRunner",
+   "sha": "48f721fe4e14ad7c5476f555f7ee1c76394901b1",
+   "licence": "MIT (LICENSE file at pin 48f721fe4e14, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-15T18:06Z",
+    "consent_receipt": "97364e470bad",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-15T18:06Z (receipt 97364e470bad); pinned to the default-branch head. LICENSE file at pin 48f721fe4e14 detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

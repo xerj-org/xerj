@@ -1,0 +1,23 @@
+{
+ "corpus": "apokroy--chrono",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Pascal queries this for how apokroy/Chrono implements it: A date and time library for Delphi",
+ "repos": [
+  {
+   "repo": "Chrono",
+   "url": "https://github.com/apokroy/Chrono",
+   "sha": "3b23c5f5b0a7661e40cb289fc3d2b54dc33d4ad2",
+   "licence": "MIT (LICENSE file at pin 3b23c5f5b0a7, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-15T18:14Z",
+    "consent_receipt": "3754a948cac4",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-15T18:14Z (receipt 3754a948cac4); pinned to the default-branch head. LICENSE file at pin 3b23c5f5b0a7 detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "lamitaone--yutani-gpuinfo",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on delphi, game-development, gpu-detection queries this for how LaMitaOne/Yutani-GPUInfo implements it: A lightweight, single-file Delphi unit for universal hardware-based GPU capability, VRAM, and compute shader speed detection \u2014 with **zero e",
+ "repos": [
+  {
+   "repo": "Yutani-GPUInfo",
+   "url": "https://github.com/LaMitaOne/Yutani-GPUInfo",
+   "sha": "18945a5821a342d418de9b6f6f1333ddef6a11d7",
+   "licence": "MIT (LICENSE file at pin 18945a5821a3, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-15T18:06Z",
+    "consent_receipt": "254b629394c5",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-15T18:06Z (receipt 254b629394c5); pinned to the default-branch head. LICENSE file at pin 18945a5821a3 detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

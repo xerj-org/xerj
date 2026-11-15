@@ -1,0 +1,23 @@
+{
+ "corpus": "lamitaone--skiadesktoppetbase",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on delph, desktop-pet, radstudio queries this for how LaMitaOne/SkiaDesktopPetBase implements it: One of the catlings from the SkiaLemmings game project escaped its 2D platformer confinement and decided to take up residence on your Window",
+ "repos": [
+  {
+   "repo": "SkiaDesktopPetBase",
+   "url": "https://github.com/LaMitaOne/SkiaDesktopPetBase",
+   "sha": "7a882613961558f584deab437fd3970f3339abe6",
+   "licence": "MIT (LICENSE file at pin 7a8826139615, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-15T18:06Z",
+    "consent_receipt": "52e03ccf8282",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-15T18:06Z (receipt 52e03ccf8282); pinned to the default-branch head. LICENSE file at pin 7a8826139615 detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

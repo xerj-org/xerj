@@ -1,0 +1,23 @@
+{
+ "corpus": "lamitaone--skiapagecontrol",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on delphi, radstudio, skia4delphi queries this for how LaMitaOne/SkiaPageControl implements it: Delphi RAD Studio SkiaPageControl (Prototype)",
+ "repos": [
+  {
+   "repo": "SkiaPageControl",
+   "url": "https://github.com/LaMitaOne/SkiaPageControl",
+   "sha": "05c73cf63bef822d793b302926a2addf863a6e05",
+   "licence": "MIT (LICENSE file at pin 05c73cf63bef, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-15T18:06Z",
+    "consent_receipt": "80803cafbca6",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-15T18:06Z (receipt 80803cafbca6); pinned to the default-branch head. LICENSE file at pin 05c73cf63bef detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

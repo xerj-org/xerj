@@ -1,0 +1,23 @@
+{
+ "corpus": "lamitaone--mrx-skia-surface",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on delphi, radstudio, skia4delphi queries this for how LaMitaOne/MRX-Skia-Surface implements it: An experimental widget and module rendering engine for Delphi (FMX), powered by Skia4Delphi and FFmpeg",
+ "repos": [
+  {
+   "repo": "MRX-Skia-Surface",
+   "url": "https://github.com/LaMitaOne/MRX-Skia-Surface",
+   "sha": "bb41fdd503c3247b5eea1529e21231f2f7376d16",
+   "licence": "MIT (LICENSE file at pin bb41fdd503c3, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-15T18:06Z",
+    "consent_receipt": "51ad285d81be",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-15T18:06Z (receipt 51ad285d81be); pinned to the default-branch head. LICENSE file at pin bb41fdd503c3 detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

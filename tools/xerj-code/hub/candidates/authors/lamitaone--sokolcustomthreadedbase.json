@@ -1,0 +1,23 @@
+{
+ "corpus": "lamitaone--sokolcustomthreadedbase",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on delphi, radstudio, sokol queries this for how LaMitaOne/SokolCustomThreadedBase implements it: A high-performance, threaded Delphi component that integrates Neslib.Sokol into VCL applications without blocking the UI thread",
+ "repos": [
+  {
+   "repo": "SokolCustomThreadedBase",
+   "url": "https://github.com/LaMitaOne/SokolCustomThreadedBase",
+   "sha": "4531d18a313a804bb37c227dcb6ba504f8dc69b9",
+   "licence": "MIT (LICENSE file at pin 4531d18a313a, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-15T18:06Z",
+    "consent_receipt": "21ed2f058d27",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-15T18:06Z (receipt 21ed2f058d27); pinned to the default-branch head. LICENSE file at pin 4531d18a313a detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

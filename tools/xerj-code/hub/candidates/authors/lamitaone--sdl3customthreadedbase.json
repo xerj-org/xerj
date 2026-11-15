@@ -1,0 +1,23 @@
+{
+ "corpus": "lamitaone--sdl3customthreadedbase",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on delphi, game-development, radstudio queries this for how LaMitaOne/SDL3CustomThreadedBase implements it: A high-performance, multi-threaded SDL3 component for Delphi VCL. This component dynamically loads SDL3.dll at runtime to create its own nat",
+ "repos": [
+  {
+   "repo": "SDL3CustomThreadedBase",
+   "url": "https://github.com/LaMitaOne/SDL3CustomThreadedBase",
+   "sha": "35607851f5713fc1b38f58f38088bfc7d362d2bb",
+   "licence": "MIT (LICENSE file at pin 35607851f571, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-15T18:06Z",
+    "consent_receipt": "be3242279f56",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-15T18:06Z (receipt be3242279f56); pinned to the default-branch head. LICENSE file at pin 35607851f571 detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}
