@@ -1,0 +1,21 @@
+{
+ "corpus": "esp32-p4-welding-positioner",
+ "cloned_at": "2026-11-15T10:38:12Z",
+ "repos": [
+  {
+   "repo": "DIY-Welding-Positioner-ESP32-P4",
+   "url": "https://github.com/catorendal-a11y/DIY-Welding-Positioner-ESP32-P4.git",
+   "licence": "MIT",
+   "sha": "35932fae3d2cce832a6e39e0475b1a2065d4a250",
+   "files": 509,
+   "bytes": 11401329,
+   "review": {
+    "spdx": "MIT AND Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "@catorendal-a11y",
+    "at": "2026-11-15",
+    "note": "detector said MIT; confirmed root LICENSE is MIT (author's own repo). Vendored Espressif drivers lib/esp_lcd_st7701, lib/esp_lcd_touch, lib/esp_lcd_touch_gt911 each carry Apache-2.0 license.txt and SPDX headers (c) Espressif; no copyleft files found."
+   }
+  }
+ ]
+}
