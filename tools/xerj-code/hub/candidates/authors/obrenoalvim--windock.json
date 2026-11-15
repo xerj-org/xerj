@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on dotnet, productivity, taskbar queries this for how obrenoalvim/windock implements it: Swap the pinned apps of the Windows taskbar by preset and schedule (selected work: src/WinDock, tests)",
+ "domain": "an agent working on dotnet, productivity, taskbar queries this for how obrenoalvim/windock implements it: A glass dock for Windows with a Mac-style magnifying lens, live widgets and an environment for every moment (work, games, study). Can replac (selected work: src/WinDock, tests)",
  "repos": [
   {
    "repo": "windock",

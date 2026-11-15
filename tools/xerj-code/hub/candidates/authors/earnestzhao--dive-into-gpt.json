@@ -1,9 +1,9 @@
 {
- "corpus": "earnestzhao--mini-gpt",
+ "corpus": "earnestzhao--dive-into-gpt",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on cpp, deep-learning, educational queries this for how earnestzhao/mini-gpt implements it: Exploring GPT from the ground up, from a minimal implementation to real-world systems (selected work: v0, the project root)",
+ "domain": "an agent working on cpp, deep-learning, educational queries this for how earnestzhao/dive-into-gpt implements it: Exploring GPT from the ground up, from a minimal implementation to real-world systems (selected work: v0, the project root)",
  "repos": [
   {
    "repo": "mini-gpt",
