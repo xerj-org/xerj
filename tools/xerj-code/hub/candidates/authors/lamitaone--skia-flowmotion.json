@@ -1,0 +1,23 @@
+{
+ "corpus": "lamitaone--skia-flowmotion",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on delphi, radstudio, skia4delphi queries this for how LaMitaOne/skia-flowmotion implements it: Delphi RAD Studio Skia Flowmotion - Animated Image gallery/grid component",
+ "repos": [
+  {
+   "repo": "skia-flowmotion",
+   "url": "https://github.com/LaMitaOne/skia-flowmotion",
+   "sha": "817c3c4c60587dbe25032b3c9c32eb9e4786ac55",
+   "licence": "MIT (LICENSE file at pin 817c3c4c6058, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-15T18:06Z",
+    "consent_receipt": "a5441b7ff2da",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-15T18:06Z (receipt a5441b7ff2da); pinned to the default-branch head. LICENSE file at pin 817c3c4c6058 detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

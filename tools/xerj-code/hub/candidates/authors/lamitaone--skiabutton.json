@@ -1,0 +1,23 @@
+{
+ "corpus": "lamitaone--skiabutton",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on delphi, radstudio, skia4delphi queries this for how LaMitaOne/SkiaButton implements it: A modern, highly customizable button component for Delphi FMX, built on top of the Skia4Delphi library. It features hardware-accelerated ren",
+ "repos": [
+  {
+   "repo": "SkiaButton",
+   "url": "https://github.com/LaMitaOne/SkiaButton",
+   "sha": "303816b99e6783da5125dba48f911cacd0ca8ac6",
+   "licence": "MIT (LICENSE file at pin 303816b99e67, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-15T18:06Z",
+    "consent_receipt": "3e261262f5a7",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-15T18:06Z (receipt 3e261262f5a7); pinned to the default-branch head. LICENSE file at pin 303816b99e67 detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "lamitaone--skiadoombase",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on delphi, doom, fmx queries this for how LaMitaOne/SkiaDoomBase implements it: A 2.5D raycasting engine prototype built with Delphi FMX and Skia4Delphi",
+ "repos": [
+  {
+   "repo": "SkiaDoomBase",
+   "url": "https://github.com/LaMitaOne/SkiaDoomBase",
+   "sha": "3760ae77f36d72bac9d33b674868048b7ce46efd",
+   "licence": "MIT (LICENSE file at pin 3760ae77f36d, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-15T18:06Z",
+    "consent_receipt": "b2770d129be1",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-15T18:06Z (receipt b2770d129be1); pinned to the default-branch head. LICENSE file at pin 3760ae77f36d detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

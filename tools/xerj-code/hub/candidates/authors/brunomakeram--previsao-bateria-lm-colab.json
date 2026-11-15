@@ -8,15 +8,15 @@
   {
    "repo": "Previsao-Bateria-LM-Colab",
    "url": "https://github.com/brunomakeram/Previsao-Bateria-LM-Colab",
-   "sha": "61d7c23bd725bca9b158717a08613c799532df64",
-   "licence": "MIT (LICENSE file at pin 61d7c23bd725, GitHub licence API 2026-10-31)",
+   "sha": "4e659dcdaba0acd3e584d34da7d38fd50639ac9d",
+   "licence": "MIT (LICENSE file at pin 4e659dcdaba0, GitHub licence API 2026-11-15)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-31T04:32Z",
     "consent_receipt": "13e58c1a3274",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T04:32Z (receipt 13e58c1a3274); pinned to the default-branch head. LICENSE file at pin 61d7c23bd725 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T04:32Z (receipt 13e58c1a3274); pinned to the default-branch head. LICENSE file at pin 4e659dcdaba0 detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
    }
   }
  ]

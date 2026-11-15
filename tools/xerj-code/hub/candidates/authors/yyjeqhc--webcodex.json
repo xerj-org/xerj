@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agent, chatgpt, codex queries this for how yyjeqhc/webcodex implements it: Give cloud AI agents a real development environment on your own machines (selected work: apps/desktop)",
+ "domain": "an agent working on agent, chatgpt, codex queries this for how yyjeqhc/webcodex implements it: Give cloud AI agents a real development environment on your own machines (selected work: crates/webcodex-browser)",
  "repos": [
   {
    "repo": "webcodex",
    "url": "https://github.com/yyjeqhc/webcodex",
-   "sha": "304508ad5cb0209fc00da2783da9c890c557c76f",
-   "licence": "Apache-2.0 (LICENSE file at pin 304508ad5cb0, GitHub licence API 2026-11-11)",
+   "sha": "f6bd366ef7de9896ec1adbe59dd10b34e7e40c8c",
+   "licence": "Apache-2.0 (LICENSE file at pin f6bd366ef7de, GitHub licence API 2026-10-24)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
-    "at": "2026-10-24T17:00Z",
-    "consent_receipt": "d5c085e0ffb9",
-    "note": "Inclusion consented by the commit author by email at 2026-10-24T17:00Z (receipt d5c085e0ffb9); selected commit 304508ad5cb0: \"fix(desktop): retain bounded lifecycle metadata across restart (#1022)\". LICENSE file at pin 304508ad5cb0 detected as Apache-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @yyjeqhc, who has not added it."
+    "at": "2026-10-04T10:52Z",
+    "consent_receipt": "b136c44a6bbd",
+    "note": "Inclusion consented by the commit author by email at 2026-10-04T10:52Z (receipt b136c44a6bbd); selected commit f6bd366ef7de: \"fix(browser): avoid admitting disabled and readonly controls (#894)\". LICENSE file at pin f6bd366ef7de detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @yyjeqhc, who has not added it."
    },
    "paths": [
     "apps/desktop/src-tauri/src",

@@ -1,0 +1,23 @@
+{
+ "corpus": "lamitaone--mrx-gamepad-core",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on delphi, fmx, game-development queries this for how LaMitaOne/MRX-Gamepad-Core implements it: A modern, lightweight gamepad input handler for Delphi VCL & FireMonkey (FMX) using SDL3. It features a background polling thread, visual UI",
+ "repos": [
+  {
+   "repo": "MRX-Gamepad-Core",
+   "url": "https://github.com/LaMitaOne/MRX-Gamepad-Core",
+   "sha": "2a4efec7a5136500d87b42e178a8e9196c6367de",
+   "licence": "MIT (LICENSE file at pin 2a4efec7a513, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-15T18:06Z",
+    "consent_receipt": "4e3d3fc8651a",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-15T18:06Z (receipt 4e3d3fc8651a); pinned to the default-branch head. LICENSE file at pin 2a4efec7a513 detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

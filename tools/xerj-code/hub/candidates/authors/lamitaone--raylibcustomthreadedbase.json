@@ -1,0 +1,23 @@
+{
+ "corpus": "lamitaone--raylibcustomthreadedbase",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Pascal queries this for how LaMitaOne/RaylibCustomThreadedBase implements it: A high-performance, threaded Delphi component that seamlessly embeds Raylib into VCL/FMX applications without blocking the UI thread",
+ "repos": [
+  {
+   "repo": "RaylibCustomThreadedBase",
+   "url": "https://github.com/LaMitaOne/RaylibCustomThreadedBase",
+   "sha": "7451bad4b787543dfc63b03fbd16b7d066bcbfaf",
+   "licence": "MIT (LICENSE file at pin 7451bad4b787, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-15T18:06Z",
+    "consent_receipt": "59f04554ea67",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-15T18:06Z (receipt 59f04554ea67); pinned to the default-branch head. LICENSE file at pin 7451bad4b787 detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

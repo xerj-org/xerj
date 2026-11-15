@@ -1,0 +1,23 @@
+{
+ "corpus": "mistqkw--cl0udly-mobile",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on ai-agent, android, jetpack-compose queries this for how mistqkw/cl0udly-mobile implements it: OpenCode on Android: a full OpenCode server running inside the phone. Skills, GitHub, phone tools. Unofficial client, beta (selected work: app/src)",
+ "repos": [
+  {
+   "repo": "opencode-mobile",
+   "url": "https://github.com/mistqkw/opencode-mobile",
+   "sha": "f4cdf40a4130b3284fe1a3e7b1487354bedc5dd9",
+   "licence": "MIT (LICENSE file at pin f4cdf40a4130, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T00:13Z",
+    "consent_receipt": "e79e11d91c76",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T00:13Z (receipt e79e11d91c76); selected commit f4cdf40a4130: \"Editions (Claude / OpenCode Terminal / OpenCode Desktop), wordmark ea\u2026\". LICENSE file at pin f4cdf40a4130 detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution. Pinned to head f4cdf40a4130 (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

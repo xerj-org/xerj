@@ -1,0 +1,23 @@
+{
+ "corpus": "lamitaone--skia-circlepopup",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on delphi, skia4delphi queries this for how LaMitaOne/skia-circlepopup implements it: A floating, circular popup menu for Delphi VCL, rendered entirely via Skia4Delphi",
+ "repos": [
+  {
+   "repo": "skia-circlepopup",
+   "url": "https://github.com/LaMitaOne/skia-circlepopup",
+   "sha": "9b97dad90ca575d5e0f82a6612e6fa1dcc1f83ae",
+   "licence": "MIT (LICENSE file at pin 9b97dad90ca5, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-15T18:06Z",
+    "consent_receipt": "a588d26f9a94",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-15T18:06Z (receipt a588d26f9a94); pinned to the default-branch head. LICENSE file at pin 9b97dad90ca5 detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

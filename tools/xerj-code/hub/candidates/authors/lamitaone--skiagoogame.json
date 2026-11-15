@@ -1,0 +1,23 @@
+{
+ "corpus": "lamitaone--skiagoogame",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on delphi, game-development, radstudio queries this for how LaMitaOne/SkiaGooGame implements it: A world of goo like soft body physics prototype built entirely with Skia4Delphi. Features a verlet integration mass-spring system where user",
+ "repos": [
+  {
+   "repo": "SkiaGooGame",
+   "url": "https://github.com/LaMitaOne/SkiaGooGame",
+   "sha": "1a0504b941798f3cbe4125300cd58c6f7f92616e",
+   "licence": "MIT (LICENSE file at pin 1a0504b94179, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-15T18:06Z",
+    "consent_receipt": "8e7addb2a6bf",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-15T18:06Z (receipt 8e7addb2a6bf); pinned to the default-branch head. LICENSE file at pin 1a0504b94179 detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

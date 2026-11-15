@@ -1,0 +1,23 @@
+{
+ "corpus": "lamitaone--skia-powder",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on delphi, powder-game, powder-toy queries this for how LaMitaOne/Skia-Powder implements it: A falling sand simulation (Powder Game) built entirely with Skia4Delphi. A classic cellular automata sandbox experience, featuring dynamic g",
+ "repos": [
+  {
+   "repo": "Skia-Powder",
+   "url": "https://github.com/LaMitaOne/Skia-Powder",
+   "sha": "e3387c8aa1eba6fc64b045a69576e06a87607f2f",
+   "licence": "MIT (LICENSE file at pin e3387c8aa1eb, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-15T18:06Z",
+    "consent_receipt": "4fae58259a9d",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-15T18:06Z (receipt 4fae58259a9d); pinned to the default-branch head. LICENSE file at pin e3387c8aa1eb detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

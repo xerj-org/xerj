@@ -1,0 +1,23 @@
+{
+ "corpus": "lamitaone--skiacustommultithreadedbase",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on delphi, radstudio, skia4delphi queries this for how LaMitaOne/SkiaCustomMultiThreadedBase implements it: A High-Performance, Multi-Threaded Rendering Skeleton for FMX & Skia4Delphi Experimental",
+ "repos": [
+  {
+   "repo": "SkiaCustomMultiThreadedBase",
+   "url": "https://github.com/LaMitaOne/SkiaCustomMultiThreadedBase",
+   "sha": "bd4962692aed4f62414d54da40de6b69c2fc6af7",
+   "licence": "MIT (LICENSE file at pin bd4962692aed, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-15T18:06Z",
+    "consent_receipt": "d6502adc41e0",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-15T18:06Z (receipt d6502adc41e0); pinned to the default-branch head. LICENSE file at pin bd4962692aed detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

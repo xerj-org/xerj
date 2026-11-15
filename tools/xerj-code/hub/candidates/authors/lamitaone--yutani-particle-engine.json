@@ -1,0 +1,23 @@
+{
+ "corpus": "lamitaone--yutani-particle-engine",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on delphi, game-development, particle-system queries this for how LaMitaOne/Yutani-Particle-Engine implements it: A high-performance, threaded VCL Raylib component for 3D GPU Particles. Demonstrates how to Materialize/Dematerialize and batch render thous",
+ "repos": [
+  {
+   "repo": "Yutani-Particle-Engine",
+   "url": "https://github.com/LaMitaOne/Yutani-Particle-Engine",
+   "sha": "5913d5a08bf3d506e7c8a41b717af90bb9fd14bb",
+   "licence": "MIT (LICENSE file at pin 5913d5a08bf3, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-15T18:06Z",
+    "consent_receipt": "9f85ee73dea8",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-15T18:06Z (receipt 9f85ee73dea8); pinned to the default-branch head. LICENSE file at pin 5913d5a08bf3 detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}

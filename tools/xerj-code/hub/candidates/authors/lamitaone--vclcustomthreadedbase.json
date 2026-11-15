@@ -1,0 +1,23 @@
+{
+ "corpus": "lamitaone--vclcustomthreadedbase",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on delphi, radstudio, threading queries this for how LaMitaOne/VCLCustomThreadedBase implements it: A high-performance, threaded Delphi VCL component that utilizes pure GDI for off-screen rendering without blocking the UI thread",
+ "repos": [
+  {
+   "repo": "VCLCustomThreadedBase",
+   "url": "https://github.com/LaMitaOne/VCLCustomThreadedBase",
+   "sha": "9bf1497fa40194fc37059a2c89c862ea44dea4ca",
+   "licence": "MIT (LICENSE file at pin 9bf1497fa401, GitHub licence API 2026-11-15)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-15T18:06Z",
+    "consent_receipt": "08c39943177c",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-15T18:06Z (receipt 08c39943177c); pinned to the default-branch head. LICENSE file at pin 9bf1497fa401 detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+   }
+  }
+ ]
+}
