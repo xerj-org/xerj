@@ -8,15 +8,15 @@
   {
    "repo": "Mitmproxy_Scripts",
    "url": "https://github.com/DilshanHarshajith/Mitmproxy_Scripts",
-   "sha": "39da7c165b7900a912856c631d9a20b762d0ea0f",
-   "licence": "MIT (LICENSE file at pin 39da7c165b79, GitHub licence API 2026-10-29)",
+   "sha": "6d0d7dcb3b2f31b60bf8e4323e228ca11b92608b",
+   "licence": "MIT (LICENSE file at pin 6d0d7dcb3b2f, GitHub licence API 2026-11-16)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T16:35Z",
     "consent_receipt": "f00e28f1c715",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T16:35Z (receipt f00e28f1c715); pinned to the default-branch head. LICENSE file at pin 39da7c165b79 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T16:35Z (receipt f00e28f1c715); pinned to the default-branch head. LICENSE file at pin 6d0d7dcb3b2f detected as MIT by the GitHub licence API on 2026-11-16; used under that licence with attribution."
    }
   }
  ]

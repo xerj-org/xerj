@@ -8,15 +8,15 @@
   {
    "repo": "TelegramTools",
    "url": "https://github.com/DilshanHarshajith/TelegramTools",
-   "sha": "2525cbfa4c6f6aebc4692aedc0129cf7bde65c05",
-   "licence": "GPL-3.0 (LICENSE file at pin 2525cbfa4c6f, GitHub licence API 2026-10-29)",
+   "sha": "8ee83293a6551a72cbb3d6e409ba43af42a97d70",
+   "licence": "GPL-3.0 (LICENSE file at pin 8ee83293a655, GitHub licence API 2026-11-16)",
    "review": {
     "spdx": "GPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-29T16:34Z",
     "consent_receipt": "190d3d8d91ec",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T16:34Z (receipt 190d3d8d91ec); pinned to the default-branch head. LICENSE file at pin 2525cbfa4c6f detected as GPL-3.0 by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T16:34Z (receipt 190d3d8d91ec); pinned to the default-branch head. LICENSE file at pin 8ee83293a655 detected as GPL-3.0 by the GitHub licence API on 2026-11-16; used under that licence with attribution."
    }
   }
  ]

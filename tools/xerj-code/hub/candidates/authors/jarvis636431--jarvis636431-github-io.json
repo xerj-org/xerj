@@ -8,15 +8,15 @@
   {
    "repo": "Jarvis636431.github.io",
    "url": "https://github.com/Jarvis636431/Jarvis636431.github.io",
-   "sha": "42e27b62f0cdac009f12609abec9f11b8fe4437e",
-   "licence": "MIT (LICENSE file at pin 42e27b62f0cd, GitHub licence API 2026-11-13)",
+   "sha": "8c0305b679ded3d4d563161f7ec34485507b7534",
+   "licence": "MIT (LICENSE file at pin 8c0305b679de, GitHub licence API 2026-11-16)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T03:05Z",
     "consent_receipt": "f697af9f9e78",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T03:05Z (receipt f697af9f9e78); pinned to the default-branch head. LICENSE file at pin 42e27b62f0cd detected as MIT by the GitHub licence API on 2026-11-13; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T03:05Z (receipt f697af9f9e78); pinned to the default-branch head. LICENSE file at pin 8c0305b679de detected as MIT by the GitHub licence API on 2026-11-16; used under that licence with attribution."
    }
   }
  ]

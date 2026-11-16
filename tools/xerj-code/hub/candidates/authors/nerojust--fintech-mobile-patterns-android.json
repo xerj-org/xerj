@@ -8,15 +8,15 @@
   {
    "repo": "fintech-mobile-patterns-android",
    "url": "https://github.com/Nerojust/fintech-mobile-patterns-android",
-   "sha": "78cd84e3fc501c09c2009309501636a0295e202d",
-   "licence": "MIT (LICENSE file at pin 78cd84e3fc50, GitHub licence API 2026-11-15)",
+   "sha": "987208ac96d7f859c48845f585d0d7a3740a7874",
+   "licence": "MIT (LICENSE file at pin 987208ac96d7, GitHub licence API 2026-11-16)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T08:19Z",
     "consent_receipt": "80367420d507",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T08:19Z (receipt 80367420d507); pinned to the default-branch head. LICENSE file at pin 78cd84e3fc50 detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T08:19Z (receipt 80367420d507); pinned to the default-branch head. LICENSE file at pin 987208ac96d7 detected as MIT by the GitHub licence API on 2026-11-16; used under that licence with attribution."
    }
   }
  ]
