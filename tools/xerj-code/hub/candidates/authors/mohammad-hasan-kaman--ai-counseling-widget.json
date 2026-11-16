@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on chat-widget, counseling, fastapi queries this for how Mohammad-Hasan-Kaman/ai-counseling-widget implements it: AI-powered multi-tenant Persian RTL chat widget for counseling centers: AI triage assistant, GHQ-28 screening, consultant matching, admin pa (selected work: app, app/routers, static)",
+ "domain": "an agent working on chat-widget, counseling, fastapi queries this for how Mohammad-Hasan-Kaman/ai-counseling-widget implements it: AI-powered multi-tenant Persian RTL counseling-triage platform \u00e2\u20ac\u201d v2 SaaS edition: guided intake, GHQ-28 screening, counselor matching, sub (selected work: app, app/routers, static)",
  "repos": [
   {
    "repo": "ai-counseling-widget",

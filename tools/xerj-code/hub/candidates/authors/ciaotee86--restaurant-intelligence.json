@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on TypeScript queries this for how ciaotee86/restaurant-intelligence implements it: ciaotee86/restaurant-intelligence (TypeScript) (selected work: src/data, restaurant-review-ai, src)",
+ "domain": "an agent working on Python queries this for how ciaotee86/restaurant-intelligence implements it: ciaotee86/restaurant-intelligence (Python) (selected work: src/data, restaurant-review-ai, src)",
  "repos": [
   {
    "repo": "restaurant-intelligence",
    "url": "https://github.com/ciaotee86/restaurant-intelligence",
-   "sha": "ff8373f3b4a6c5a8684426813054c35976a3c9d7",
-   "licence": "MIT (LICENSE file at pin ff8373f3b4a6, GitHub licence API 2026-11-16)",
+   "sha": "6e1ac545849a8512241cd9c72135c0aab135f0ea",
+   "licence": "MIT (LICENSE file at pin 6e1ac545849a, GitHub licence API 2026-11-16)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-10T06:56Z",
     "consent_receipt": "b93d4ae0cae0",
-    "note": "Inclusion consented by the commit author by email at 2026-11-10T06:56Z (receipt b93d4ae0cae0); selected commit ff8373f3b4a6: \"feat(gemini-crawler): enhance gemini json extraction, dynamic review \u2026\". LICENSE file at pin ff8373f3b4a6 detected as MIT by the GitHub licence API on 2026-11-16; used under that licence with attribution. Pinned to head ff8373f3b4a6 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T06:56Z (receipt b93d4ae0cae0); selected commit 6e1ac545849a: \"feat(gemini-crawler): enhance gemini json extraction, dynamic review \u2026\". LICENSE file at pin 6e1ac545849a detected as MIT by the GitHub licence API on 2026-11-16; used under that licence with attribution. Pinned to head 6e1ac545849a (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]
