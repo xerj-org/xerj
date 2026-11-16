@@ -1,9 +1,9 @@
 {
- "corpus": "kynsec--commitguard",
+ "corpus": "kynsec--commitguard-kynsec",
  "cloned_at": null,
  "status": "draft",
  "shelf": "SEC",
- "domain": "an agent working on cybersecurity, git, python queries this for how KynSec/CommitGuard implements it: Offline-first security scanner for Git changes: secret detection, SAST, SCA, AI/IaC rules, and GitHub CI reports (selected work: editors, the project root)",
+ "domain": "an agent working on cybersecurity, git, python queries this for how KynSec/commitguard-kynsec implements it: Offline-first security scanner for Git changes: secret detection, SAST, SCA, AI/IaC rules, and GitHub CI reports (selected work: editors, the project root)",
  "repos": [
   {
    "repo": "CommitGuard",

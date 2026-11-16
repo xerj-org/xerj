@@ -1,9 +1,9 @@
 {
- "corpus": "stochasticresult--codex-cto-agent-team",
+ "corpus": "stochasticresult--cto-agent-team",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agent-skills, codex, multi-agent queries this for how StochasticResult/codex-cto-agent-team implements it: A Codex skill for CTO, product manager, and engineer teams with task routing and completion follow-up (selected work: examples, scripts, tests)",
+ "domain": "an agent working on agent-skills, codex, multi-agent queries this for how StochasticResult/cto-agent-team implements it: A CTO, product manager, and engineer team skill for coding agents on Codex, Google Antigravity, and Claude Code, with task routing, shared h (selected work: examples, scripts, tests)",
  "repos": [
   {
    "repo": "codex-cto-agent-team",

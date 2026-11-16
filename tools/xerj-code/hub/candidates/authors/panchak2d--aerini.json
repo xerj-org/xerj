@@ -1,0 +1,23 @@
+{
+ "corpus": "panchak2d--aerini",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on automation, workflow, desktop-app queries this for how Panchak2d/Aerini implements it: Self-hosted workflow automation with a drag-and-drop canvas. Integrate local AI and MCP, schedule workflows, deploy on your own server, or e (selected work: aerini-engine, examples, src/popover)",
+ "repos": [
+  {
+   "repo": "Aerini",
+   "url": "https://github.com/Panchak2d/Aerini",
+   "sha": "9223f9fa802e70216d77c88fbe496ca68bf73bd1",
+   "licence": "author's permission (LICENSE at pin 9223f9fa802e: NOASSERTION; repository: AGPL-3.0)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-16T15:50Z",
+    "consent_receipt": "6b09692b4552",
+    "note": "Inclusion consented by the commit author by email at 2026-11-16T15:50Z (receipt 6b09692b4552); selected commit 9223f9fa802e: \"Fit imported workflows to screen, pan zoomed minimap, improve AI Agen\u2026\". LICENSE at pin 9223f9fa802e: NOASSERTION (repository: AGPL-3.0); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

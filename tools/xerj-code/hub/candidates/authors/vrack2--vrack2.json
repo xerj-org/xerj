@@ -1,0 +1,29 @@
+{
+ "corpus": "vrack2--vrack2",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how VRack2/vrack2 implements it: \u041e\u0441\u043d\u043e\u043d\u043e\u0439 \u0440\u0435\u043f\u043e\u0437\u0438\u0442\u043e\u0440\u0438\u0439 VRack2 (selected work: devices, src, the project root)",
+ "repos": [
+  {
+   "repo": "vrack2",
+   "url": "https://github.com/VRack2/vrack2",
+   "sha": "5d39cdb2f6f00f3f418198f0e37be599d1c64ba0",
+   "licence": "Apache-2.0 (LICENSE file at pin 5d39cdb2f6f0, GitHub licence API 2026-11-16)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-16T14:32Z",
+    "consent_receipt": "5983ab84b7cb",
+    "note": "Inclusion consented by the commit author by email at 2026-11-16T14:32Z (receipt 5983ab84b7cb); selected commit 5d39cdb2f6f0: \"Unified metrics read API: drop serviceMetric (Service) and systemMetr\u2026\". LICENSE file at pin 5d39cdb2f6f0 detected as Apache-2.0 by the GitHub licence API on 2026-11-16; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @VRack2, who has not added it."
+   },
+   "paths": [
+    "ai-docs/api",
+    "devices",
+    "docs",
+    "src"
+   ]
+  }
+ ]
+}

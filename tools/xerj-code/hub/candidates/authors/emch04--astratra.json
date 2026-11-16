@@ -1,9 +1,9 @@
 {
- "corpus": "emch04--framework",
+ "corpus": "emch04--astratra",
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on JavaScript queries this for how emch04/framework implements it: Astratra: a framework and a set of SDKs for building apps with AI built in (selected work: packages/agent, packages/conscience)",
+ "domain": "an agent working on JavaScript queries this for how emch04/astratra implements it: Astratra: a framework and a set of SDKs for building apps with AI built in (selected work: packages/agent, packages/conscience)",
  "repos": [
   {
    "repo": "framework",
