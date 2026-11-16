@@ -8,15 +8,15 @@
   {
    "repo": "FreeMediator",
    "url": "https://github.com/steffenskov/FreeMediator",
-   "sha": "3b6026eb922ec6f35e4067f8be9b4300c4ebed4d",
-   "licence": "MIT (LICENSE file at pin 3b6026eb922e, GitHub licence API 2026-11-09)",
+   "sha": "b098cda85e6b7f23b1a9b290a0dc90cb1debaeb7",
+   "licence": "MIT (LICENSE file at pin b098cda85e6b, GitHub licence API 2026-11-16)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T19:41Z",
     "consent_receipt": "bafef8184b78",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T19:41Z (receipt bafef8184b78); pinned to the default-branch head. LICENSE file at pin 3b6026eb922e detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T19:41Z (receipt bafef8184b78); pinned to the default-branch head. LICENSE file at pin b098cda85e6b detected as MIT by the GitHub licence API on 2026-11-16; used under that licence with attribution."
    }
   }
  ]

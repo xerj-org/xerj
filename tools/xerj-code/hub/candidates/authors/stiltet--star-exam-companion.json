@@ -2,8 +2,8 @@
  "corpus": "stiltet--star-exam-companion",
  "cloned_at": null,
  "status": "draft",
- "shelf": "OPS",
- "domain": "an agent working on artificial-intelligence, exam-prep, exam-preparation queries this for how stiltet/star-exam-companion implements it: Star Exam Companion is a study PWA-app created by Stellan Lindell for any Google Cloud exam. It offers a voice quiz, practice questions, ful (selected work: quiz, scripts)",
+ "shelf": "WEB",
+ "domain": "an agent working on artificial-intelligence, exam-prep, exam-preparation queries this for how stiltet/star-exam-companion implements it: Star Exam Companion is a study PWA-app created by Stellan Lindell for any exam. It offers a voice quiz, practice questions, full practice ex (selected work: quiz, scripts)",
  "repos": [
   {
    "repo": "star-exam-companion",

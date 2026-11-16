@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Rust queries this for how hulkhongan300/shamash implements it: hulkhongan300/shamash (Rust) (selected work: src, examples)",
+ "domain": "an agent working on Rust queries this for how hulkhongan300/shamash implements it: Wake-word Discord music bot in Rust: say \"groovy, play <song>\" in voice chat and it plays. Local speech recognition, no audio leaves your ma (selected work: src, examples)",
  "repos": [
   {
    "repo": "shamash",

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on animation, blender, blender-addon queries this for how PieroFra/auto-copy-transforms-def implements it: Auto Copy Transforms DEF - Blender rigging add-on (selected work: actd_build)",
+ "domain": "an agent working on animation, blender, blender-addon queries this for how PieroFra/auto-copy-transforms-def implements it: Blender add-on that wires Copy Transforms constraints between armatures in a few clicks. 1.3.2: KEEP counts per constraint type, REPLACE tou (selected work: actd_build)",
  "repos": [
   {
    "repo": "auto-copy-transforms-def",
