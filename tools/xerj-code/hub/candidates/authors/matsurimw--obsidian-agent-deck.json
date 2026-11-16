@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-agents, claude-code, codex queries this for how MatsuriMW/obsidian-agent-deck implements it: Agent Deck: track Claude Code, Codex, WorkBuddy and DeepSeek Harness from Obsidian, delegate from the task line, and keep the agent summary  (selected work: the project root, src, test)",
+ "domain": "an agent working on ai-agents, claude-code, codex queries this for how MatsuriMW/obsidian-agent-deck implements it: Agent Deck: track dozens of agents from Obsidian, delegate from the task line, and keep the agent summary in the macOS menu bar (selected work: the project root, src, test)",
  "repos": [
   {
    "repo": "obsidian-agent-deck",

@@ -8,15 +8,15 @@
   {
    "repo": "LiNaK",
    "url": "https://github.com/joeantouri98-sketch/LiNaK",
-   "sha": "1b0227d2d8c3e7b0b193321182710c642dcdc15f",
-   "licence": "GPL-3.0 (LICENSE file at pin 1b0227d2d8c3, GitHub licence API 2026-11-16)",
+   "sha": "8c4ae7b7defb5a08b99cedbe9116588c8fecf1b6",
+   "licence": "GPL-3.0 (LICENSE file at pin 8c4ae7b7defb, GitHub licence API 2026-11-16)",
    "review": {
     "spdx": "GPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-26T06:10Z",
     "consent_receipt": "52ab47b97a7e",
-    "note": "Inclusion consented by the commit author by email at 2026-10-26T06:10Z (receipt 52ab47b97a7e); selected commit 1b0227d2d8c3: \"Physics bugs fix 1\". LICENSE file at pin 1b0227d2d8c3 detected as GPL-3.0 by the GitHub licence API on 2026-11-16; used under that licence with attribution. Pinned to head 1b0227d2d8c3 (contains the selected commit): the LICENSE at the selected commit was MIT."
+    "note": "Inclusion consented by the commit author by email at 2026-10-26T06:10Z (receipt 52ab47b97a7e); selected commit 8c4ae7b7defb: \"Physics bugs fix 1\". LICENSE file at pin 8c4ae7b7defb detected as GPL-3.0 by the GitHub licence API on 2026-11-16; used under that licence with attribution. Pinned to head 8c4ae7b7defb (contains the selected commit): the LICENSE at the selected commit was MIT."
    }
   }
  ]

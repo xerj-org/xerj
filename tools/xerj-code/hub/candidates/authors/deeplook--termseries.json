@@ -8,15 +8,15 @@
   {
    "repo": "termseries",
    "url": "https://github.com/deeplook/termseries",
-   "sha": "327904298c7c1eb197d6d443e4f64156e01844ab",
-   "licence": "MIT (LICENSE file at pin 327904298c7c, GitHub licence API 2026-11-16)",
+   "sha": "ad50f905639cb09d6c56bf0f8382f2f06b545155",
+   "licence": "MIT (LICENSE file at pin ad50f905639c, GitHub licence API 2026-11-16)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-11T10:32Z",
     "consent_receipt": "40e48b8fd85a",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T10:32Z (receipt 40e48b8fd85a); pinned to the default-branch head. LICENSE file at pin 327904298c7c detected as MIT by the GitHub licence API on 2026-11-16; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T10:32Z (receipt 40e48b8fd85a); pinned to the default-branch head. LICENSE file at pin ad50f905639c detected as MIT by the GitHub licence API on 2026-11-16; used under that licence with attribution."
    }
   }
  ]

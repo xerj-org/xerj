@@ -1,9 +1,9 @@
 {
- "corpus": "akotb14--medical-audit-patient-crm",
+ "corpus": "akotb14--clinic-management-patient-crm-system",
  "cloned_at": null,
  "status": "draft",
  "shelf": "HEALTH",
- "domain": "an agent working on PHP queries this for how akotb14/medical-audit-patient-crm implements it: akotb14/medical-audit-patient-crm (PHP) (selected work: resources, the project root, tests)",
+ "domain": "an agent working on PHP queries this for how akotb14/Clinic-Management-Patient-CRM-System implements it: akotb14/Clinic-Management-Patient-CRM-System (PHP) (selected work: resources, the project root, tests)",
  "repos": [
   {
    "repo": "medical-audit-patient-crm",

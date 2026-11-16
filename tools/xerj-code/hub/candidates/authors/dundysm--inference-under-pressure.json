@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Python queries this for how dundysm/inference-under-pressure implements it: Reproducible performance investigations into LLM inference, KV-cache memory pressure, scheduling, and distributed serving",
+ "domain": "an agent working on benchmarking, distributed-inference, gpu queries this for how dundysm/inference-under-pressure implements it: Reproducible performance investigations into LLM inference, KV-cache memory pressure, scheduling, and distributed serving",
  "repos": [
   {
    "repo": "inference-under-pressure",
    "url": "https://github.com/dundysm/inference-under-pressure",
-   "sha": "aed71d196364bbfd09f8cd80a5f95d4850eb8476",
-   "licence": "author's permission (LICENSE at pin aed71d196364: NONE; repository: none)",
+   "sha": "7c7b50eb40a91a3f4932bd6982e1613cb023a657",
+   "licence": "Apache-2.0 (LICENSE file at pin 7c7b50eb40a9, GitHub licence API 2026-11-16)",
    "review": {
-    "spdx": "NONE",
+    "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-30T14:55Z",
     "consent_receipt": "30bafaa18adf",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T14:55Z (receipt 30bafaa18adf); pinned to the default-branch head. LICENSE at pin aed71d196364: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T14:55Z (receipt 30bafaa18adf); pinned to the default-branch head. LICENSE file at pin 7c7b50eb40a9 detected as Apache-2.0 by the GitHub licence API on 2026-11-16; used under that licence with attribution."
    }
   }
  ]

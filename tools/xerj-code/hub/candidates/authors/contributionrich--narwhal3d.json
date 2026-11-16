@@ -1,0 +1,27 @@
+{
+ "corpus": "contributionrich--narwhal3d",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on 3d-modeling, appimage, blender queries this for how ContributionRich/Narwhal3D implements it: Free, open-source, command-driven NURBS CAD with exact manufacturing geometry (selected work: spike, narwhal3d, the project root)",
+ "repos": [
+  {
+   "repo": "Narwhal3D",
+   "url": "https://github.com/ContributionRich/Narwhal3D",
+   "sha": "ada6da79cd07e0a2777c7c71ecaf00992c7fed1e",
+   "licence": "GPL-3.0 (LICENSE file at pin ada6da79cd07, GitHub licence API 2026-11-16)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-16T10:51Z",
+    "consent_receipt": "798e1ea42cf4",
+    "note": "Inclusion consented by the commit author by email at 2026-11-16T10:51Z (receipt 798e1ea42cf4); selected commit ada6da79cd07: \"Derive Zoom 1to1 scale from projection lens and sensor fit\". LICENSE file at pin ada6da79cd07 detected as GPL-3.0 by the GitHub licence API on 2026-11-16; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @ContributionRich, who has not added it."
+   },
+   "paths": [
+    "narwhal3d",
+    "spike"
+   ]
+  }
+ ]
+}
