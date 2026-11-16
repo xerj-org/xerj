@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "SEC",
- "domain": "an agent working on cybersecurity, security, bug-bounty queries this for how xalgorix/xalgorix implements it: Autonomous AI pentesting agents \u2014 real-time reconnaissance, vulnerability detection, and exploitation orchestration. Go + TypeScript (selected work: internal/agent, internal/tools)",
+ "domain": "an agent working on ai-hacking, ai-penetration-testing, ai-pentesting queries this for how xalgorix/xalgorix implements it: Open-source AI penetration testing agent that exploit-verifies every finding. Autonomous 22-phase pentests of web apps & APIs with CVSS-scor (selected work: internal/agent, internal/tools)",
  "repos": [
   {
    "repo": "xalgorix",

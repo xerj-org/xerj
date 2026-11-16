@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "HEALTH",
- "domain": "an agent working on accounting, asset-management, crm queries this for how amerfathullah/MyERP implements it: Full-featured ERP system built with .NET 10, ABP.IO 10.5, Angular 21, and PostgreSQL \u2014 featuring accounting, inventory, sales, purchasing, m (selected work: test, src/MyERP.Application, src/MyERP.Domain)",
+ "domain": "an agent working on accounting, asset-management, crm queries this for how amerfathullah/MyERP implements it: Full-featured ERP system built with .NET 10, ABP.IO 10.7, Angular 22, and PostgreSQL \u2014 featuring accounting, inventory, sales, purchasing, m (selected work: test, src/MyERP.Application, src/MyERP.Domain)",
  "repos": [
   {
    "repo": "MyERP",

@@ -8,15 +8,15 @@
   {
    "repo": "tboi-recomp",
    "url": "https://github.com/caos-obliquo/tboi-recomp",
-   "sha": "7b59738d5eefd641354a4a5db3b9eeda4b867ed0",
-   "licence": "GPL-3.0 (LICENSE file at pin 7b59738d5eef, GitHub licence API 2026-11-16)",
+   "sha": "d7993f4a6653f7de53ddd4097fbdee9ea6a7509b",
+   "licence": "GPL-3.0 (LICENSE file at pin d7993f4a6653, GitHub licence API 2026-11-16)",
    "review": {
     "spdx": "GPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-25T08:24Z",
     "consent_receipt": "60332b2e596a",
-    "note": "Inclusion consented by the commit author by email at 2026-10-25T08:24Z (receipt 60332b2e596a); selected commit 7b59738d5eef: \"feat(api): implement the Vector class from the recovered surface (#3)\u2026\". LICENSE file at pin 7b59738d5eef detected as GPL-3.0 by the GitHub licence API on 2026-11-16; used under that licence with attribution. Pinned to head 7b59738d5eef (contains the selected commit): the LICENSE at the selected commit was MIT."
+    "note": "Inclusion consented by the commit author by email at 2026-10-25T08:24Z (receipt 60332b2e596a); selected commit d7993f4a6653: \"feat(api): implement the Vector class from the recovered surface (#3)\u2026\". LICENSE file at pin d7993f4a6653 detected as GPL-3.0 by the GitHub licence API on 2026-11-16; used under that licence with attribution. Pinned to head d7993f4a6653 (contains the selected commit): the LICENSE at the selected commit was MIT."
    }
   }
  ]

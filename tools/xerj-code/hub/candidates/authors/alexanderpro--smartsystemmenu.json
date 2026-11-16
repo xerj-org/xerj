@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on systemmenu, menu, transparency queries this for how AlexanderPro/SmartSystemMenu implements it: SmartSystemMenu extends system menu of all windows in the system (selected work: SmartSystemMenu)",
+ "domain": "an agent working on menu, transparency, alignment queries this for how AlexanderPro/SmartSystemMenu implements it: SmartSystemMenu extends system menu of all windows in the system (selected work: SmartSystemMenu)",
  "repos": [
   {
    "repo": "SmartSystemMenu",

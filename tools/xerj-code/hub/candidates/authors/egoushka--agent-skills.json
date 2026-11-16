@@ -8,15 +8,15 @@
   {
    "repo": "agent-skills",
    "url": "https://github.com/Egoushka/agent-skills",
-   "sha": "4e1c4371211823a2b632a8c5e23ef406ffdae3dd",
-   "licence": "author's permission (LICENSE at pin 4e1c43712118: NOASSERTION; repository: NOASSERTION)",
+   "sha": "69a32c36896132a223a518e0d4890de988674514",
+   "licence": "author's permission (LICENSE at pin 69a32c368961: NOASSERTION; repository: NOASSERTION)",
    "review": {
     "spdx": "NOASSERTION",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-07T15:00Z",
     "consent_receipt": "4628aca8d366",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-07T15:00Z (receipt 4628aca8d366); pinned to the default-branch head. LICENSE at pin 4e1c43712118: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-07T15:00Z (receipt 4628aca8d366); pinned to the default-branch head. LICENSE at pin 69a32c368961: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
    }
   }
  ]

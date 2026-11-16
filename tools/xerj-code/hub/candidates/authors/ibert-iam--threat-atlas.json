@@ -1,9 +1,9 @@
 {
- "corpus": "ibert-ai--threat-atlas",
+ "corpus": "ibert-iam--threat-atlas",
  "cloned_at": null,
  "status": "draft",
  "shelf": "SEC",
- "domain": "an agent working on Rust queries this for how ibert-ai/threat-atlas implements it: Threat Atlas \u2014 open-source threat map and AtlasSOC Desktop. Free, non-commercial OSINT context for Windows and macOS (selected work: macos, scripts, updater)",
+ "domain": "an agent working on Rust queries this for how Ibert-Iam/threat-atlas implements it: Threat Atlas \u2014 open-source threat map and AtlasSOC Desktop. Free, non-commercial OSINT context for Windows and macOS (selected work: macos, scripts, updater)",
  "repos": [
   {
    "repo": "threat-atlas",
