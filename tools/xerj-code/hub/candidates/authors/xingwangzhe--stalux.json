@@ -2,8 +2,8 @@
  "corpus": "xingwangzhe--stalux",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on TypeScript queries this for how xingwangzhe/stalux implements it: Stalux - \u9ad8\u6548\u3001\u7f8e\u89c2\u3001\u7075\u6d3b\u7684 Astro \u535a\u5ba2 (selected work: src/internal, tests, src)",
+ "shelf": "WRITE",
+ "domain": "an agent working on astro, astro-integration, astro-theme queries this for how xingwangzhe/stalux implements it: Astro \u535a\u5ba2\u4e3b\u9898\uff0c\u652f\u6301\u4e2d\u6587\u5b57\u4f53\u5b50\u96c6\u548c Pagefind \u641c\u7d22\u3002\u53ef\u4ece\u6e90\u7801\u8fd0\u884c\uff0c\u4e5f\u53ef\u4f5c\u4e3a Astro \u96c6\u6210\u5b89\u88c5\u3002 (selected work: src/internal, tests, src)",
  "repos": [
   {
    "repo": "stalux",

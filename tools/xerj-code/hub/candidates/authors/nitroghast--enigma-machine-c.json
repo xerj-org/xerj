@@ -8,15 +8,15 @@
   {
    "repo": "Enigma-machine-C",
    "url": "https://github.com/Nitroghast/Enigma-machine-C",
-   "sha": "0cf65da3e331decef610d1b637fe87467e84db87",
-   "licence": "MPL-2.0 (LICENSE file at pin 0cf65da3e331, GitHub licence API 2026-11-10)",
+   "sha": "d38e0aa573ddb258b65c5c56b6a48f2dca31d4e6",
+   "licence": "MPL-2.0 (LICENSE file at pin d38e0aa573dd, GitHub licence API 2026-11-16)",
    "review": {
     "spdx": "MPL-2.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-15T21:49Z",
     "consent_receipt": "9411627c6a58",
-    "note": "Inclusion consented by the commit author by email at 2026-10-15T21:49Z (receipt 9411627c6a58); selected commit 0cf65da3e331: \"Everything implemented but fails tests\". LICENSE file at pin 0cf65da3e331 detected as MPL-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution. Pinned to head 0cf65da3e331 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-15T21:49Z (receipt 9411627c6a58); selected commit d38e0aa573dd: \"Everything implemented but fails tests\". LICENSE file at pin d38e0aa573dd detected as MPL-2.0 by the GitHub licence API on 2026-11-16; used under that licence with attribution. Pinned to head d38e0aa573dd (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]
