@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "CRYPTO",
- "domain": "an agent working on acroforms, csharp, digital-signature queries this for how Mibuw/miPDFlib implements it: Open-source PDF library for .NET 8/10 (Apache-2.0): create, edit, merge, forms, text extraction, redaction, encryption, PAdES signatures (B- (selected work: tests, src/MiPdf)",
+ "domain": "an agent working on csharp, digital-signature, dotnet queries this for how Mibuw/miPDFlib implements it: Open-source PDF library for .NET 8/10 (Apache-2.0): create, edit, merge, forms, text extraction, redaction, encryption, PAdES signatures (B- (selected work: tests, src/MiPdf)",
  "repos": [
   {
    "repo": "miPDFlib",

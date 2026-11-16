@@ -8,15 +8,15 @@
   {
    "repo": "Fuyu",
    "url": "https://github.com/TixXin/Fuyu",
-   "sha": "6ccb1b41c262288599f3286a32c1f1af899dc081",
-   "licence": "AGPL-3.0 (LICENSE file at pin 6ccb1b41c262, GitHub licence API 2026-11-16)",
+   "sha": "8a912c75e2c42819a924c1c535ce7d7f3b31febb",
+   "licence": "AGPL-3.0 (LICENSE file at pin 8a912c75e2c4, GitHub licence API 2026-11-16)",
    "review": {
     "spdx": "AGPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-11-11T11:34Z",
     "consent_receipt": "cf9ba38e58e4",
-    "note": "Inclusion consented by the commit author by email at 2026-11-11T11:34Z (receipt cf9ba38e58e4); selected commit 6ccb1b41c262: \"feat(plugins): the todo ring gets a bar item and a redrawn page\". LICENSE file at pin 6ccb1b41c262 detected as AGPL-3.0 by the GitHub licence API on 2026-11-16; used under that licence with attribution. Pinned to head 6ccb1b41c262 (contains the selected commit): the LICENSE at the selected commit was GPL-3.0. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @TixXin, who has not added it."
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T11:34Z (receipt cf9ba38e58e4); selected commit 8a912c75e2c4: \"feat(plugins): the todo ring gets a bar item and a redrawn page\". LICENSE file at pin 8a912c75e2c4 detected as AGPL-3.0 by the GitHub licence API on 2026-11-16; used under that licence with attribution. Pinned to head 8a912c75e2c4 (contains the selected commit): the LICENSE at the selected commit was GPL-3.0. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @TixXin, who has not added it."
    },
    "paths": [
     "plugins/examples/dev.focusd.todo-ring",

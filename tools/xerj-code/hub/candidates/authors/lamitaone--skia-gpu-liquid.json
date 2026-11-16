@@ -8,15 +8,15 @@
   {
    "repo": "Skia-GPU-Liquid",
    "url": "https://github.com/LaMitaOne/Skia-GPU-Liquid",
-   "sha": "25ea92f56f0866cb36e72f753be5744eac8f2d12",
-   "licence": "MIT (LICENSE file at pin 25ea92f56f08, GitHub licence API 2026-11-16)",
+   "sha": "397d53d720b62852108e49a776705bf749f9fdb7",
+   "licence": "MIT (LICENSE file at pin 397d53d720b6, GitHub licence API 2026-11-16)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-15T18:06Z",
     "consent_receipt": "01cb955295ec",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-15T18:06Z (receipt 01cb955295ec); pinned to the default-branch head. LICENSE file at pin 25ea92f56f08 detected as MIT by the GitHub licence API on 2026-11-16; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-15T18:06Z (receipt 01cb955295ec); pinned to the default-branch head. LICENSE file at pin 397d53d720b6 detected as MIT by the GitHub licence API on 2026-11-16; used under that licence with attribution."
    }
   }
  ]

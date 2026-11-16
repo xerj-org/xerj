@@ -8,15 +8,15 @@
   {
    "repo": "guoapp",
    "url": "https://github.com/Xanerix/guoapp",
-   "sha": "5424fb6a46aa8d0c930b806a2114724a11965ec4",
-   "licence": "GPL-3.0 (LICENSE file at pin 5424fb6a46aa, GitHub licence API 2026-11-16)",
+   "sha": "3a8d754fd1dcae0498e8544df2b2d6d19aa9dcce",
+   "licence": "GPL-3.0 (LICENSE file at pin 3a8d754fd1dc, GitHub licence API 2026-11-16)",
    "review": {
     "spdx": "GPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-11-08T05:30Z",
     "consent_receipt": "24b413fd6956",
-    "note": "Inclusion consented by the commit author by email at 2026-11-08T05:30Z (receipt 24b413fd6956); selected commit 5424fb6a46aa: \"feat: \u624b\u673a\u548c\u5e73\u677f\u64ad\u653e\u9875\u52a0\u6ed1\u52a8\u624b\u52bf\uff0c\u7ad6\u5c4f\u5de6\u53f3\u6ed1\u5feb\u8fdb\u5feb\u9000\uff0c\u6a2a\u5c4f\u5168\u5c4f\u518d\u52a0\u5de6\u534a\u5c4f\u8c03\u4eae\u5ea6\u3001\u53f3\u534a\u5c4f\u8c03\u7cfb\u7edf\u97f3\u91cf\uff081.0.1+101\uff09\". LICENSE file at pin 5424fb6a46aa detected as GPL-3.0 by the GitHub licence API on 2026-11-16; used under that licence with attribution. Pinned to head 5424fb6a46aa (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T05:30Z (receipt 24b413fd6956); selected commit 3a8d754fd1dc: \"feat: \u624b\u673a\u548c\u5e73\u677f\u64ad\u653e\u9875\u52a0\u6ed1\u52a8\u624b\u52bf\uff0c\u7ad6\u5c4f\u5de6\u53f3\u6ed1\u5feb\u8fdb\u5feb\u9000\uff0c\u6a2a\u5c4f\u5168\u5c4f\u518d\u52a0\u5de6\u534a\u5c4f\u8c03\u4eae\u5ea6\u3001\u53f3\u534a\u5c4f\u8c03\u7cfb\u7edf\u97f3\u91cf\uff081.0.1+101\uff09\". LICENSE file at pin 3a8d754fd1dc detected as GPL-3.0 by the GitHub licence API on 2026-11-16; used under that licence with attribution. Pinned to head 3a8d754fd1dc (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

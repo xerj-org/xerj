@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "OPS",
- "domain": "an agent working on claude-code, claude-code-plugin, codex queries this for how radra23/otel-as-code-plugin implements it: Claude Code plugin and Codex skills that add OpenTelemetry to your services in 7 languages, show your first trace on a local Grafana stack,  (selected work: evals, tests)",
+ "domain": "an agent working on claude-code, claude-code-plugin, codex queries this for how radra23/otel-as-code-plugin implements it: OpenTelemetry set up for you by your coding agent (Claude Code plugin, Codex skills): checked as it is written, proven in CI, and your first (selected work: evals, tests)",
  "repos": [
   {
    "repo": "otel-as-code-plugin",
