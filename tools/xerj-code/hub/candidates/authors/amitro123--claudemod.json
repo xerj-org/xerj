@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on TypeScript queries this for how Amitro123/claudemod implements it: Amitro123/claudemod (TypeScript) (selected work: demo, plugins, the project root)",
+ "domain": "an agent working on Python queries this for how Amitro123/claudemod implements it: Amitro123/claudemod (Python) (selected work: demo, plugins, the project root)",
  "repos": [
   {
    "repo": "claudemod",

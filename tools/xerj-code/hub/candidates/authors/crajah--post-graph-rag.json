@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Python queries this for how crajah/post-graph-rag implements it: High-Precision GraphRAG. Native to PostgreSQL (selected work: tests, post_graph_rag, the project root)",
+ "domain": "an agent working on ai, embeddings, graphrag queries this for how crajah/post-graph-rag implements it: High-Precision GraphRAG. Native to PostgreSQL (selected work: tests, post_graph_rag, the project root)",
  "repos": [
   {
    "repo": "post-graph-rag",

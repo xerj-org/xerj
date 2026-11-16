@@ -1,0 +1,23 @@
+{
+ "corpus": "summerxaa-z--tokenmeter-mac",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on deepseek, macos, menubar queries this for how SummerXaa-Z/tokenmeter-mac implements it: TokenMeter \u2014 macOS \u83dc\u5355\u680f AI \u7528\u91cf\u76d1\u63a7:DeepSeek \u4f59\u989d/\u6d88\u8d39 + Claude/Codex \u672c\u5730 token \u7edf\u8ba1 + Cursor \u8ba2\u9605\u7528\u91cf,\u539f\u751f Swift (selected work: swift, the project root)",
+ "repos": [
+  {
+   "repo": "tokenmeter-mac",
+   "url": "https://github.com/SummerXaa-Z/tokenmeter-mac",
+   "sha": "33f446890f7ff7abc99f635591e1b359bf2d6f8e",
+   "licence": "MIT (LICENSE file at pin 33f446890f7f, GitHub licence API 2026-11-16)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-16T16:43Z",
+    "consent_receipt": "a6bddfc5164e",
+    "note": "Inclusion consented by the commit author by email at 2026-11-16T16:43Z (receipt a6bddfc5164e); selected commit 33f446890f7f: \"\u8d2f\u901a\u65f6\u95f4\u8303\u56f4\u4e0e\u672a\u77e5\u53e3\u5f84\uff0c\u6536\u655b\u5386\u53f2\u5199\u5165\u4e0e\u7b2c\u4e8c\u8f6e\u53bb\u91cd (#6)\". LICENSE file at pin 33f446890f7f detected as MIT by the GitHub licence API on 2026-11-16; used under that licence with attribution."
+   }
+  }
+ ]
+}
