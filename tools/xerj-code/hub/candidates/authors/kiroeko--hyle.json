@@ -1,0 +1,23 @@
+{
+ "corpus": "kiroeko--hyle",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how kiroeko/hyle implements it: kiroeko/hyle (C++) (selected work: engine, tests)",
+ "repos": [
+  {
+   "repo": "hyle",
+   "url": "https://github.com/kiroeko/hyle",
+   "sha": "79c160bbf3e21004ebe2bc56ee267f57cec8aa9f",
+   "licence": "Apache-2.0 (LICENSE file at pin 79c160bbf3e2, GitHub licence API 2026-11-16)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-16T02:39Z",
+    "consent_receipt": "0c12d25802b5",
+    "note": "Inclusion consented by the commit author by email at 2026-11-16T02:39Z (receipt 0c12d25802b5); selected commit 79c160bbf3e2: \"Share request admission and output assembly outside Qwen\". LICENSE file at pin 79c160bbf3e2 detected as Apache-2.0 by the GitHub licence API on 2026-11-16; used under that licence with attribution."
+   }
+  }
+ ]
+}

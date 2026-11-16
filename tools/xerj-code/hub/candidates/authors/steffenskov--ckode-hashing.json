@@ -8,15 +8,15 @@
   {
    "repo": "Ckode.Hashing",
    "url": "https://github.com/steffenskov/Ckode.Hashing",
-   "sha": "91ed89b79f03ee50d703d1d08df1ddfe99a6fa73",
-   "licence": "MIT (LICENSE file at pin 91ed89b79f03, GitHub licence API 2026-11-09)",
+   "sha": "4116892341b11b1e07162be3bcffda41d663cf4c",
+   "licence": "MIT (LICENSE file at pin 4116892341b1, GitHub licence API 2026-11-16)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T19:41Z",
     "consent_receipt": "0120e97afb08",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T19:41Z (receipt 0120e97afb08); pinned to the default-branch head. LICENSE file at pin 91ed89b79f03 detected as MIT by the GitHub licence API on 2026-11-09; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T19:41Z (receipt 0120e97afb08); pinned to the default-branch head. LICENSE file at pin 4116892341b1 detected as MIT by the GitHub licence API on 2026-11-16; used under that licence with attribution."
    }
   }
  ]
