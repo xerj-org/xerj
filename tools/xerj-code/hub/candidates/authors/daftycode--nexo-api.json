@@ -1,0 +1,23 @@
+{
+ "corpus": "daftycode--nexo-api",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how DaftyCode/nexo_api implements it: DaftyCode/nexo_api (Rust) (selected work: src/app, backend, e2e)",
+ "repos": [
+  {
+   "repo": "nexo_api",
+   "url": "https://github.com/DaftyCode/nexo_api",
+   "sha": "9b50b98ea50aa5341ace5e2597840d9b9efd2731",
+   "licence": "MIT (LICENSE file at pin 9b50b98ea50a, GitHub licence API 2026-11-16)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T20:44Z",
+    "consent_receipt": "a2861bf7c964",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T20:44Z (receipt a2861bf7c964); selected commit 9b50b98ea50a: \"feat: add CodeMirror editors with script and GraphQL autocomplete, Gr\u2026\". LICENSE file at pin 9b50b98ea50a detected as MIT by the GitHub licence API on 2026-11-16; used under that licence with attribution."
+   }
+  }
+ ]
+}

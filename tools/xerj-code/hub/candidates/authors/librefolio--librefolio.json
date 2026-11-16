@@ -1,0 +1,27 @@
+{
+ "corpus": "librefolio--librefolio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on money-manager, moneytracker, self-hosted queries this for how Librefolio/LibreFolio implements it: LibreFolio is a self-hosted financial portfolio tracker for managing investments, cash accounts, and loans across multiple brokers (selected work: backend, scripts)",
+ "repos": [
+  {
+   "repo": "LibreFolio",
+   "url": "https://github.com/Librefolio/LibreFolio",
+   "sha": "68e57a15ca1d9ed7da3db62aef0fee34a33897b0",
+   "licence": "author's permission (LICENSE at pin 68e57a15ca1d: NOASSERTION; repository: AGPL-3.0)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-15T11:35Z",
+    "consent_receipt": "812bd081607c",
+    "note": "Inclusion consented by the commit author by email at 2026-11-15T11:35Z (receipt 812bd081607c); selected commit 68e57a15ca1d: \"fix(gallery): never scale fixture shares\". LICENSE at pin 68e57a15ca1d: NOASSERTION (repository: AGPL-3.0); used with the author's permission, with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Librefolio, who has not added it."
+   },
+   "paths": [
+    "backend/test_scripts/test_utilities",
+    "scripts"
+   ]
+  }
+ ]
+}

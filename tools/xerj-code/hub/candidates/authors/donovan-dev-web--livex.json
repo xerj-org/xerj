@@ -1,0 +1,23 @@
+{
+ "corpus": "donovan-dev-web--livex",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-based-modeling, artificial-life, complex-systems queries this for how donovan-dev-web/LIVEX implements it: Peut-on construire un environnement virtuel r\u00e9gi par des lois fondamentales, au sein duquel des entit\u00e9s autonomes peuvent produire des compo (selected work: installer, scripts, launcher)",
+ "repos": [
+  {
+   "repo": "LIVEX",
+   "url": "https://github.com/donovan-dev-web/LIVEX",
+   "sha": "ce86468782c9be8dbf457f21fee5fc433b1f2f70",
+   "licence": "GPL-3.0 (LICENSE file at pin ce86468782c9, GitHub licence API 2026-11-16)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-14T09:40Z",
+    "consent_receipt": "7dd4b84a7c87",
+    "note": "Inclusion consented by the commit author by email at 2026-11-14T09:40Z (receipt 7dd4b84a7c87); selected commit ce86468782c9: \"Fix release V1 Core and Full Profils (#613)\". LICENSE file at pin ce86468782c9 detected as GPL-3.0 by the GitHub licence API on 2026-11-16; used under that licence with attribution."
+   }
+  }
+ ]
+}

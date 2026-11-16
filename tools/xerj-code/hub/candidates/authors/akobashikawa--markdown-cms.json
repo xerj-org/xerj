@@ -1,0 +1,23 @@
+{
+ "corpus": "akobashikawa--markdown-cms",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on cms, github-pages, wiki queries this for how akobashikawa/markdown-cms implements it: A simple CMS (Content Management System) that uses GitHub's infrastructure for deployment and publishing (selected work: js, the project root)",
+ "repos": [
+  {
+   "repo": "github-cms-101",
+   "url": "https://github.com/akobashikawa/github-cms-101",
+   "sha": "08acabc6b466616768942d11a2c7132ff0450e14",
+   "licence": "MIT (LICENSE file at pin 08acabc6b466, GitHub licence API 2026-11-16)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T18:08Z",
+    "consent_receipt": "98ad19bbb0f5",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T18:08Z (receipt 98ad19bbb0f5); selected commit 08acabc6b466: \"feat: replace OAuth device flow with GitHub token login\". LICENSE file at pin 08acabc6b466 detected as MIT by the GitHub licence API on 2026-11-16; used under that licence with attribution."
+   }
+  }
+ ]
+}

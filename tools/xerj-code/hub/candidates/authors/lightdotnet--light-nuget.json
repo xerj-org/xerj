@@ -1,0 +1,32 @@
+{
+ "corpus": "lightdotnet--light-nuget",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how lightdotnet/light-nuget implements it: .NET packages (selected work: src/plugins)",
+ "repos": [
+  {
+   "repo": "light-nuget",
+   "url": "https://github.com/lightdotnet/light-nuget",
+   "sha": "120d525a8f293a55beb037814734a88cf4d27aa1",
+   "licence": "MIT (LICENSE file at pin 120d525a8f29, GitHub licence API 2026-11-16)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-14T04:08Z",
+    "consent_receipt": "a13056fa6f73",
+    "note": "Inclusion consented by the commit author by email at 2026-11-14T04:08Z (receipt a13056fa6f73); selected commit 120d525a8f29: \"fix(plugins): CSV escape round-trip and opt-out, culture-invariant ES\u2026\". LICENSE file at pin 120d525a8f29 detected as MIT by the GitHub licence API on 2026-11-16; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @lightdotnet, who has not added it."
+   },
+   "paths": [
+    "src/plugins/src/FileGenerator",
+    "src/plugins/src/Graph",
+    "src/plugins/src/Serilog",
+    "src/plugins/tests/UnitTests/FileGeneratorTests",
+    "src/plugins/tests/UnitTests/GraphTests",
+    "src/plugins/tests/UnitTests/SerilogTests",
+    "src/plugins/tests/UnitTests/SmtpMailTests"
+   ]
+  }
+ ]
+}

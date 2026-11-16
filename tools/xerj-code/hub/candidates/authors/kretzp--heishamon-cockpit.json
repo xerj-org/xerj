@@ -1,0 +1,23 @@
+{
+ "corpus": "kretzp--heishamon-cockpit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on TypeScript queries this for how kretzp/heishamon-cockpit implements it: A self-hosted heat pump dashboard and control interface built on HeishaMon. Requires HeishaMon and an MQTT broker (selected work: tests, src/Cockpit.Infrastructure, src/Cockpit.Application)",
+ "repos": [
+  {
+   "repo": "heishamon-cockpit",
+   "url": "https://github.com/kretzp/heishamon-cockpit",
+   "sha": "fcbaf795dba1f1e3854f6bbc7cd489b1daa2d113",
+   "licence": "author's permission (LICENSE at pin fcbaf795dba1: NOASSERTION; repository: MPL-2.0)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-13T18:15Z",
+    "consent_receipt": "5a7b8a6ddae0",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T18:15Z (receipt 5a7b8a6ddae0); selected commit fcbaf795dba1: \"feat: add alternative power and preserve COP mode separation\". LICENSE at pin fcbaf795dba1: NOASSERTION (repository: MPL-2.0); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "hollowbit-dev--fuseduo",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on applescript, automation, claude queries this for how hollowbit-dev/fuseduo implements it: Drop one Mac app onto another. Get an automation (selected work: src, src/renderer, scripts)",
+ "repos": [
+  {
+   "repo": "fuseduo",
+   "url": "https://github.com/hollowbit-dev/fuseduo",
+   "sha": "20d1dc548f993272d5a2d05f2319f62c81c87647",
+   "licence": "MIT (LICENSE file at pin 20d1dc548f99, GitHub licence API 2026-11-16)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-14T02:32Z",
+    "consent_receipt": "c0bb63902255",
+    "note": "Inclusion consented by the commit author by email at 2026-11-14T02:32Z (receipt c0bb63902255); selected commit 20d1dc548f99: \"Shareable fusions: export and open .fuseduo files, checked by Claude \u2026\". LICENSE file at pin 20d1dc548f99 detected as MIT by the GitHub licence API on 2026-11-16; used under that licence with attribution."
+   }
+  }
+ ]
+}

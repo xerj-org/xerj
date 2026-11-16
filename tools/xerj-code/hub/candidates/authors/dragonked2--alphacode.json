@@ -1,0 +1,27 @@
+{
+ "corpus": "dragonked2--alphacode",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, ai-agent, ai-agents queries this for how dragonked2/alphacode implements it: Free MIT AI coding agent \u2014 no API key needed. Built-in free model, or bring Claude, GPT, Gemini, DeepSeek, Ollama +50 more. Swarm mode, 40+  (selected work: src/alphacode_tui, src/alphacode_config_types)",
+ "repos": [
+  {
+   "repo": "alphacode",
+   "url": "https://github.com/dragonked2/alphacode",
+   "sha": "afc3636374dfd52e45dc6531792837e9246663cc",
+   "licence": "MIT (LICENSE file at pin afc3636374df, GitHub licence API 2026-11-16)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T19:43Z",
+    "consent_receipt": "15098c012603",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T19:43Z (receipt 15098c012603); selected commit afc3636374df: \"Fix Windows input stalls and refresh the 1.0.100 release\". LICENSE file at pin afc3636374df detected as MIT by the GitHub licence API on 2026-11-16; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @dragonked2, who has not added it."
+   },
+   "paths": [
+    "src/alphacode_config_types",
+    "src/alphacode_tui/tui"
+   ]
+  }
+ ]
+}

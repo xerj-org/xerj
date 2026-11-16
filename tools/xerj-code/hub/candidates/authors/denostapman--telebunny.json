@@ -1,0 +1,23 @@
+{
+ "corpus": "denostapman--telebunny",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on javascript, nodejs, telegram-bot-api queries this for how denostapman/telebunny implements it: Lightweight zero-dependency Node.js module for Telegram Bot API (selected work: src/telegram, test, src/client)",
+ "repos": [
+  {
+   "repo": "telebunny",
+   "url": "https://github.com/denostapman/telebunny",
+   "sha": "e7640ef58a0184227ff59ecb5bd4bd6251e61059",
+   "licence": "MIT (LICENSE file at pin e7640ef58a01, GitHub licence API 2026-11-16)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T18:51Z",
+    "consent_receipt": "856d0a3c528c",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T18:51Z (receipt 856d0a3c528c); selected commit e7640ef58a01: \"feat!: upgrade Bot API to 10.4\". LICENSE file at pin e7640ef58a01 detected as MIT by the GitHub licence API on 2026-11-16; used under that licence with attribution."
+   }
+  }
+ ]
+}

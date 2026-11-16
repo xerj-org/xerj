@@ -1,0 +1,23 @@
+{
+ "corpus": "emzmo--reactive-dfr",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Rust queries this for how emzmo/reactive-dfr implements it: A reactive Touch Bar daemon for Apple T1/T2 Macs on Linux (selected work: the project root, context-daemon)",
+ "repos": [
+  {
+   "repo": "reactive-dfr",
+   "url": "https://github.com/emzmo/reactive-dfr",
+   "sha": "6dd0c2b7bd0f3835cd681a9fdf54b10403de7673",
+   "licence": "MIT (LICENSE file at pin 6dd0c2b7bd0f, GitHub licence API 2026-11-16)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-15T16:44Z",
+    "consent_receipt": "f6d71cd09cca",
+    "note": "Inclusion consented by the commit author by email at 2026-11-15T16:44Z (receipt f6d71cd09cca); selected commit 6dd0c2b7bd0f: \"feat: add install.sh, PKGBUILD, and setup script\". LICENSE file at pin 6dd0c2b7bd0f detected as MIT by the GitHub licence API on 2026-11-16; used under that licence with attribution."
+   }
+  }
+ ]
+}
