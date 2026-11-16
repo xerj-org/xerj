@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agent-security, ai-agents, audit-trail queries this for how hypler-dev/LNSAT implements it: Layered Network Substrate for Agent Telemetry - AI agent governance and policy enforcement layer for MCP, APIs, CLIs, and tools: scoped auth (selected work: crates/lnsat-store, crates/lnsatd, scripts)",
+ "domain": "an agent working on agent-security, ai-agents, audit-trail queries this for how hypler-dev/LNSAT implements it: Building a CPU-first System One engine for evidence-bound review, with a Gateway for policy, human approval, bounded execution, and durable  (selected work: crates/lnsat-store, crates/lnsatd, scripts)",
  "repos": [
   {
    "repo": "LNSAT",

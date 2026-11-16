@@ -1,0 +1,23 @@
+{
+ "corpus": "bigm4ngo--dsh-skin",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on ambient-audio, cordis, customization queries this for how bigm4ngo/dsh-skin implements it: Skins for DeepSeek Harness Web \u2014 image or video wallpapers, translucent panels, custom colours, logo and wordmark, ambient audio. Drop a fol (selected work: src/client, lib, src)",
+ "repos": [
+  {
+   "repo": "dsh-skin",
+   "url": "https://github.com/bigm4ngo/dsh-skin",
+   "sha": "5a8cf7a4ea6bfe6956d1fd12d61afd5a8e232ddc",
+   "licence": "MIT (LICENSE file at pin 5a8cf7a4ea6b, GitHub licence API 2026-11-16)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-16T09:45Z",
+    "consent_receipt": "cfd709ed010b",
+    "note": "Inclusion consented by the commit author by email at 2026-11-16T09:45Z (receipt cfd709ed010b); selected commit 5a8cf7a4ea6b: \"Let the skin accent drive tabs, send, and the running line\". LICENSE file at pin 5a8cf7a4ea6b detected as MIT by the GitHub licence API on 2026-11-16; used under that licence with attribution."
+   }
+  }
+ ]
+}

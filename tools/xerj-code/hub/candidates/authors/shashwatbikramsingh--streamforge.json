@@ -1,0 +1,23 @@
+{
+ "corpus": "shashwatbikramsingh--streamforge",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on TypeScript queries this for how shashwatbikramsingh/StreamForge implements it: StreamForge is a real-time data engineering platform designed to ingest, process, validate, and analyze high-volume streaming events using P (selected work: consumer, tests, the project root)",
+ "repos": [
+  {
+   "repo": "StreamForge",
+   "url": "https://github.com/shashwatbikramsingh/StreamForge",
+   "sha": "2a4d013af8be7412bd7c1c1c1d556e65f98a2e63",
+   "licence": "MIT (LICENSE file at pin 2a4d013af8be, GitHub licence API 2026-11-16)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-16T08:18Z",
+    "consent_receipt": "f21bccdb9e3e",
+    "note": "Inclusion consented by the commit author by email at 2026-11-16T08:18Z (receipt f21bccdb9e3e); selected commit 2a4d013af8be: \"feat: add kafka stream consumer service, automated unit tests, and ci\u2026\". LICENSE file at pin 2a4d013af8be detected as MIT by the GitHub licence API on 2026-11-16; used under that licence with attribution."
+   }
+  }
+ ]
+}

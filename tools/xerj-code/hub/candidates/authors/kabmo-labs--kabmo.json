@@ -8,15 +8,15 @@
   {
    "repo": "kabmo",
    "url": "https://github.com/kabmo-labs/kabmo",
-   "sha": "928a97ce19ba583552734234d200910fc201154b",
-   "licence": "MIT (LICENSE file at pin 928a97ce19ba, GitHub licence API 2026-11-16)",
+   "sha": "7e6ffc95c3b099a12e682aa8e4d2bf3d78c0dbc1",
+   "licence": "MIT (LICENSE file at pin 7e6ffc95c3b0, GitHub licence API 2026-11-16)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T21:18Z",
     "consent_receipt": "4143c990a9a3",
-    "note": "Inclusion consented by the commit author by email at 2026-10-29T21:18Z (receipt 4143c990a9a3); selected commit 928a97ce19ba: \"feat(editor): validate config files, band conflict markers, and repor\u2026\". LICENSE file at pin 928a97ce19ba detected as MIT by the GitHub licence API on 2026-11-16; used under that licence with attribution. Pinned to head 928a97ce19ba (contains the selected commit): the LICENSE at the selected commit was NONE. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @kabmo-labs, who has not added it."
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T21:18Z (receipt 4143c990a9a3); selected commit 7e6ffc95c3b0: \"feat(editor): validate config files, band conflict markers, and repor\u2026\". LICENSE file at pin 7e6ffc95c3b0 detected as MIT by the GitHub licence API on 2026-11-16; used under that licence with attribution. Pinned to head 7e6ffc95c3b0 (contains the selected commit): the LICENSE at the selected commit was NONE. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @kabmo-labs, who has not added it."
    },
    "paths": [
     "src/client/components/common/code-surface",
