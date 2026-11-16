@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Python queries this for how isoglu/benthic implements it: Checks reference lists from language models for invented, misattributed and retracted sources and fetches the real papers from open access.  (selected work: benthic, tests, the project root)",
+ "domain": "an agent working on Python queries this for how isoglu/Benthic implements it: Checks reference lists from language models for invented, misattributed and retracted sources and fetches the real papers from open access.  (selected work: benthic, tests, the project root)",
  "repos": [
   {
    "repo": "benthic",

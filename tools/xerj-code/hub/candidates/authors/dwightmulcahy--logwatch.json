@@ -8,15 +8,15 @@
   {
    "repo": "logwatch",
    "url": "https://github.com/dwightmulcahy/logwatch",
-   "sha": "b813d0d416ecfabd8fb536d8c12236a83e59ff2b",
-   "licence": "MIT (LICENSE file at pin b813d0d416ec, GitHub licence API 2026-11-10)",
+   "sha": "f7f12b644860f328ca11a04b0e66aec93f383470",
+   "licence": "MIT (LICENSE file at pin f7f12b644860, GitHub licence API 2026-11-16)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T15:41Z",
     "consent_receipt": "bc60c5d7cb10",
-    "note": "Inclusion consented by the commit author by email at 2026-10-28T15:41Z (receipt bc60c5d7cb10); selected commit b813d0d416ec: \"fix(claude): bound nightly analysis prompt size (#2)\". LICENSE file at pin b813d0d416ec detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Pinned to head b813d0d416ec (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-28T15:41Z (receipt bc60c5d7cb10); selected commit f7f12b644860: \"fix(claude): bound nightly analysis prompt size (#2)\". LICENSE file at pin f7f12b644860 detected as MIT by the GitHub licence API on 2026-11-16; used under that licence with attribution. Pinned to head f7f12b644860 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

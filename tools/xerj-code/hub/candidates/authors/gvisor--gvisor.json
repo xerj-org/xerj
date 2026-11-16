@@ -1,9 +1,9 @@
 {
- "corpus": "google--gvisor",
+ "corpus": "gvisor--gvisor",
  "cloned_at": null,
  "status": "draft",
  "shelf": "OPS",
- "domain": "an agent working on sandbox, containers, oci queries this for how google/gvisor implements it: Application Kernel for Containers (selected work: tools, pkg/metric)",
+ "domain": "an agent working on sandbox, containers, oci queries this for how gvisor/gvisor implements it: Application Kernel for Containers (selected work: tools, pkg/metric)",
  "repos": [
   {
    "repo": "gvisor",

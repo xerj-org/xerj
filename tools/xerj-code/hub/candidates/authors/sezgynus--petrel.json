@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on 3d-printer, 3d-printing, display queries this for how sezgynus/Petrel implements it: Open-source local interface for Klipper using the original Ender 3 V2 DWIN T5UIC1 display, with printer controls, bed leveling and Happy Har (selected work: tests, the project root)",
+ "domain": "an agent working on 3d-printer, 3d-printing, display queries this for how sezgynus/Petrel implements it: Open-source local interface for Klipper with support for DWIN T5UIC1 and compatible Creality DACAI displays, featuring printer controls, bed (selected work: tests, the project root)",
  "repos": [
   {
    "repo": "Petrel",

@@ -1,0 +1,23 @@
+{
+ "corpus": "brunothinker--fallbyte",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how brunothinker/FallByte implements it: Fast, private, and local-first media compression. Drop the weight, keep the quality (selected work: tests, ui, src/image)",
+ "repos": [
+  {
+   "repo": "FallByte",
+   "url": "https://github.com/brunothinker/FallByte",
+   "sha": "129aec6389d3aac91e482ba48bd11d21f07006fe",
+   "licence": "GPL-3.0 (LICENSE file at pin 129aec6389d3, GitHub licence API 2026-11-16)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-16T21:06Z",
+    "consent_receipt": "4531d3632740",
+    "note": "Inclusion consented by the commit author by email at 2026-11-16T21:06Z (receipt 4531d3632740); selected commit 129aec6389d3: \"refactor: enforce PEP 8 style, enrich docstrings, and prune test scripts\". LICENSE file at pin 129aec6389d3 detected as GPL-3.0 by the GitHub licence API on 2026-11-16; used under that licence with attribution."
+   }
+  }
+ ]
+}
