@@ -8,15 +8,15 @@
   {
    "repo": "notes-app",
    "url": "https://github.com/Ahmed-Farook/notes-app",
-   "sha": "174237e7a43c2b2a5bfd321c6da4a32b04db24ad",
-   "licence": "MIT (LICENSE file at pin 174237e7a43c, GitHub licence API 2026-11-15)",
+   "sha": "7eea7858ca616ece7d3e8b4d539644ea19bf1652",
+   "licence": "MIT (LICENSE file at pin 7eea7858ca61, GitHub licence API 2026-11-16)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-13T02:49Z",
     "consent_receipt": "0aa848d4bbac",
-    "note": "Inclusion consented by the commit author by email at 2026-11-13T02:49Z (receipt 0aa848d4bbac); selected commit 174237e7a43c: \"feat: add PDF export including drawings (single & bulk ZIP), Apple No\u2026\". LICENSE file at pin 174237e7a43c detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution. Pinned to head 174237e7a43c (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T02:49Z (receipt 0aa848d4bbac); selected commit 7eea7858ca61: \"feat: add PDF export including drawings (single & bulk ZIP), Apple No\u2026\". LICENSE file at pin 7eea7858ca61 detected as MIT by the GitHub licence API on 2026-11-16; used under that licence with attribution. Pinned to head 7eea7858ca61 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

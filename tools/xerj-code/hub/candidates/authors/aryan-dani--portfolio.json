@@ -8,15 +8,15 @@
   {
    "repo": "Portfolio",
    "url": "https://github.com/aryan-dani/Portfolio",
-   "sha": "7a4a0d7c55ab0ffa5aa2a0bcd1c0233461e4b89a",
-   "licence": "MIT (LICENSE file at pin 7a4a0d7c55ab, GitHub licence API 2026-11-14)",
+   "sha": "a23271e8bed91dcf5d05195a2ace4cdc4cd3a5dd",
+   "licence": "MIT (LICENSE file at pin a23271e8bed9, GitHub licence API 2026-11-16)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T06:46Z",
     "consent_receipt": "ed8186b63e89",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T06:46Z (receipt ed8186b63e89); pinned to the default-branch head. LICENSE file at pin 7a4a0d7c55ab detected as MIT by the GitHub licence API on 2026-11-14; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T06:46Z (receipt ed8186b63e89); pinned to the default-branch head. LICENSE file at pin a23271e8bed9 detected as MIT by the GitHub licence API on 2026-11-16; used under that licence with attribution."
    }
   }
  ]

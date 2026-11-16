@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "SEC",
- "domain": "an agent working on cryptography, devsecops, post-quantum-cryptography queries this for how wakaken/pqc-scan implements it: wakaken/pqc-scan (Rust) (selected work: crates/pqc_scan_core, crates/pqc_scan_cli, tasks)",
+ "domain": "an agent working on cryptography, devsecops, post-quantum-cryptography queries this for how wakaken/pqc-scan implements it: wakaken/pqc-scan (HTML) (selected work: crates/pqc_scan_core, crates/pqc_scan_cli, tasks)",
  "repos": [
   {
    "repo": "pqc-scan",
