@@ -1,0 +1,23 @@
+{
+ "corpus": "maxshine--hypatia-mcp-server",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Rust queries this for how maxshine/hypatia-mcp-server implements it: A basic MCP server wrapping hypatia Agentic memory system implemented by Rust (selected work: src/services, src/cli)",
+ "repos": [
+  {
+   "repo": "hypatia-mcp-server",
+   "url": "https://github.com/maxshine/hypatia-mcp-server",
+   "sha": "aba80a10181aa5aea68ee6e46a13dbfc1d680690",
+   "licence": "MIT (LICENSE file at pin aba80a10181a, GitHub licence API 2026-11-16)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-16T07:04Z",
+    "consent_receipt": "620d736283ae",
+    "note": "Inclusion consented by the commit author by email at 2026-11-16T07:04Z (receipt 620d736283ae); selected commit aba80a10181a: \"Make default shelf parameter at server serve command called\". LICENSE file at pin aba80a10181a detected as MIT by the GitHub licence API on 2026-11-16; used under that licence with attribution."
+   }
+  }
+ ]
+}

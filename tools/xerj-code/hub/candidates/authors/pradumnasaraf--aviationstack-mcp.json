@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on mcp, mcp-server, python queries this for how Pradumnasaraf/aviationstack-mcp implements it: An MCP server using the AviationStack API to fetch real-time flight data including airline flights, airport schedules, future flights and ai (selected work: tests, src/aviationstack_mcp, scripts)",
+ "domain": "an agent working on mcp, mcp-server, python queries this for how Pradumnasaraf/aviationstack-mcp implements it: MCP server for real-time flight data from the AviationStack API (selected work: tests, src/aviationstack_mcp, scripts)",
  "repos": [
   {
    "repo": "aviationstack-mcp",

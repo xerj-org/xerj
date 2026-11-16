@@ -8,15 +8,15 @@
   {
    "repo": "nexus-kit",
    "url": "https://github.com/TranHuuQuyet/nexus-kit",
-   "sha": "bb062498c5f71596f02f84210fbff9a1c1b9872c",
-   "licence": "MIT (LICENSE file at pin bb062498c5f7, GitHub licence API 2026-11-16)",
+   "sha": "975bff329d629ae81401201f25a8adfefd7ab270",
+   "licence": "MIT (LICENSE file at pin 975bff329d62, GitHub licence API 2026-11-16)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-10T13:31Z",
     "consent_receipt": "5408eb828e8d",
-    "note": "Inclusion consented by the commit author by email at 2026-11-10T13:31Z (receipt 5408eb828e8d); selected commit bb062498c5f7: \"feat: implement Spec Kit & Agent Skills integration with SDD triad an\u2026\". LICENSE file at pin bb062498c5f7 detected as MIT by the GitHub licence API on 2026-11-16; used under that licence with attribution. Pinned to head bb062498c5f7 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T13:31Z (receipt 5408eb828e8d); selected commit 975bff329d62: \"feat: implement Spec Kit & Agent Skills integration with SDD triad an\u2026\". LICENSE file at pin 975bff329d62 detected as MIT by the GitHub licence API on 2026-11-16; used under that licence with attribution. Pinned to head 975bff329d62 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on VHDL queries this for how Coastrnaut/lockstep-rv32-soc implements it: Coastrnaut/lockstep-rv32-soc (VHDL) (selected work: sim, rtl, config)",
+ "domain": "an agent working on Python queries this for how Coastrnaut/lockstep-rv32-soc implements it: Coastrnaut/lockstep-rv32-soc (Python) (selected work: sim, rtl, config)",
  "repos": [
   {
    "repo": "lockstep-rv32-soc",
