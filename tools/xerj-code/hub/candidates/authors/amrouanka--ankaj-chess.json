@@ -1,0 +1,23 @@
+{
+ "corpus": "amrouanka--ankaj-chess",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on alpha-beta-pruning, chess, chess-engine queries this for how amrouanka/ankaj-chess implements it: A Java 21 chess engine with Swing GUI. Negamax search, material + positional eval, responsive drag-and-drop interface. The classic counterpa (selected work: src/main)",
+ "repos": [
+  {
+   "repo": "ankaj-chess",
+   "url": "https://github.com/amrouanka/ankaj-chess",
+   "sha": "7276b0aba78ea84ca542e65fc57a3145d1bb47b7",
+   "licence": "MIT (LICENSE file at pin 7276b0aba78e, GitHub licence API 2026-11-16)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-16T13:03Z",
+    "consent_receipt": "81e4f4a63cd2",
+    "note": "Inclusion consented by the commit author by email at 2026-11-16T13:03Z (receipt 81e4f4a63cd2); selected commit 7276b0aba78e: \"Refactor GameLogic and Move classes for improved move validation and \u2026\". LICENSE file at pin 7276b0aba78e detected as MIT by the GitHub licence API on 2026-11-16; used under that licence with attribution. Pinned to head 7276b0aba78e (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

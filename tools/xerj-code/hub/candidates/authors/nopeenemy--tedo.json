@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on cli, cli-app, open-source queries this for how NopeEnemy/tedo implements it: Tedo is a simple terminal TO-DO manager for people who don't like GUIs (selected work: src/core, src, the project root)",
+ "domain": "an agent working on cli, cli-app, open-source queries this for how NopeEnemy/tedo implements it: A simple terminal-based task manager written in Rust, without any AIs for people who prefer the command line over GUIs (selected work: src/core, src, the project root)",
  "repos": [
   {
    "repo": "tedo",

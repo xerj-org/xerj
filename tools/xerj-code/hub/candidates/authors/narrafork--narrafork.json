@@ -25,10 +25,13 @@
     "frontend/lib/api",
     "frontend/locales/en",
     "frontend/locales/zh-CN",
+    "scripts",
+    "server/builtin-plugins",
     "server/lib",
     "server/routes",
     "server/services",
-    "tests/server/lib"
+    "tests/server/lib",
+    "tests/server/plugins"
    ]
   }
  ]

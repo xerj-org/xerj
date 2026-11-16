@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on JavaScript queries this for how Mianbier/dsh-mimo-web-login implements it: \u628a\u5c0f\u7c73 MiMo AI Studio \u7f51\u9875\u7aef\u63a5\u8fdb DSH\uff1a\u7528\u6d4f\u89c8\u5668\u767b\u5f55\u6001\uff08\u4e0d\u662f API Key\uff09\u9a71\u52a8 agent (selected work: the project root, lib, test)",
+ "domain": "an agent working on dsh-plugin queries this for how Mianbier/dsh-mimo-web-login implements it: \u628a\u5c0f\u7c73 MiMo AI Studio \u7f51\u9875\u7aef\u63a5\u8fdb DSH\uff1a\u7528\u6d4f\u89c8\u5668\u767b\u5f55\u6001\uff08\u4e0d\u662f API Key\uff09\u9a71\u52a8 agent (selected work: the project root, lib, test)",
  "repos": [
   {
    "repo": "dsh-mimo-web-login",

@@ -2,8 +2,8 @@
  "corpus": "akshatsinghrajawat--limit-order-matching-engine",
  "cloned_at": null,
  "status": "draft",
- "shelf": "SEC",
- "domain": "an agent working on C++ queries this for how akshatsinghrajawat/limit-order-matching-engine implements it: Single-threaded C++ limit order matching engine. Strict price-time priority, integer-tick pricing, deterministic replay via an append-only j (selected work: tests, include, tools)",
+ "shelf": "API",
+ "domain": "an agent working on benchmarking, cpp, cpp17 queries this for how akshatsinghrajawat/limit-order-matching-engine implements it: C++17 limit order book with price-time priority matching: zero hot-path allocations, byte-exact deterministic replay, independently cross-ch (selected work: tests, include, tools)",
  "repos": [
   {
    "repo": "limit-order-matching-engine",

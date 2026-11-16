@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "LAW",
- "domain": "an agent working on Python queries this for how dundysm/r1-sparring-gym implements it: MuJoCo sparring gym and hit-robust balance policy for the Unitree R1 humanoid",
+ "domain": "an agent working on balance-control, humanoid, humanoid-robot queries this for how dundysm/r1-sparring-gym implements it: MuJoCo sparring gym and hit-robust balance policy for the Unitree R1 humanoid",
  "repos": [
   {
    "repo": "r1-sparring-gym",

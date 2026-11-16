@@ -1,0 +1,23 @@
+{
+ "corpus": "maubayuelo--magneto-web-agency-site-grapgql",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how maubayuelo/magneto-web-agency-site-GrapgQL implements it: maubayuelo/magneto-web-agency-site-GrapgQL (TypeScript) (selected work: scripts, the project root)",
+ "repos": [
+  {
+   "repo": "magneto-web-agency-site-GrapgQL",
+   "url": "https://github.com/maubayuelo/magneto-web-agency-site-GrapgQL",
+   "sha": "5120116ab5c0239abffc1eb7e8c9f62f74020dc3",
+   "licence": "MIT (LICENSE file at pin 5120116ab5c0, GitHub licence API 2026-11-16)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-16T13:00Z",
+    "consent_receipt": "d466f1ed6d52",
+    "note": "Inclusion consented by the commit author by email at 2026-11-16T13:00Z (receipt d466f1ed6d52); selected commit 5120116ab5c0: \"feat(qa-i18n): phase 5g i18n copy QA tool (deterministic + opt-in LLM\u2026\". LICENSE file at pin 5120116ab5c0 detected as MIT by the GitHub licence API on 2026-11-16; used under that licence with attribution."
+   }
+  }
+ ]
+}

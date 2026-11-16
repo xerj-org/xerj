@@ -2,8 +2,8 @@
  "corpus": "thurbeen--thurbox",
  "cloned_at": null,
  "status": "draft",
- "shelf": "WEB",
- "domain": "an agent working on thurbox queries this for how Thurbeen/thurbox implements it: TUI for agentic code orchestration (selected work: src/storage, tests, src/kernel)",
+ "shelf": "AI",
+ "domain": "an agent working on thurbox queries this for how Thurbeen/thurbox implements it: Agentic code orchestrator (selected work: src/storage, tests, src/kernel)",
  "repos": [
   {
    "repo": "thurbox",

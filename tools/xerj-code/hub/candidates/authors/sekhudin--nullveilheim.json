@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on dotfiles, hyprland, nix queries this for how Sekhudin/nullveilheim implements it: A declarative NixOS configuration for reproducible systems (selected work: modules/home, shared)",
+ "domain": "an agent working on dotfiles, hyprland, nix queries this for how Sekhudin/nullveilheim implements it: An opinionated Nix flake for reproducible environments (selected work: modules/home, shared)",
  "repos": [
   {
    "repo": "nullveilheim",

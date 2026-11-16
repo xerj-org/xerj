@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Python queries this for how dundysm/occlubench implements it: OccluBench: GPU-native benchmark for VLA robustness to mid-episode physical occlusion (MuJoCo Warp)",
+ "domain": "an agent working on benchmark, franka-panda, gpu queries this for how dundysm/occlubench implements it: OccluBench: GPU-native benchmark for VLA robustness to mid-episode physical occlusion (MuJoCo Warp)",
  "repos": [
   {
    "repo": "occlubench",

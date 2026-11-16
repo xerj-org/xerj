@@ -8,15 +8,15 @@
   {
    "repo": "termixgo",
    "url": "https://github.com/99apps-id/termixgo",
-   "sha": "6b94f95b0037341258a7d9388f4a9a2db5f988d5",
-   "licence": "Apache-2.0 (LICENSE file at pin 6b94f95b0037, GitHub licence API 2026-11-15)",
+   "sha": "1928b3ba5cc33a8fb94a5568bb3ee856aab578e8",
+   "licence": "Apache-2.0 (LICENSE file at pin 1928b3ba5cc3, GitHub licence API 2026-11-16)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-01T01:32Z",
     "consent_receipt": "36720fcc4108",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T01:32Z (receipt 36720fcc4108); pinned to the default-branch head. LICENSE file at pin 6b94f95b0037 detected as Apache-2.0 by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T01:32Z (receipt 36720fcc4108); pinned to the default-branch head. LICENSE file at pin 1928b3ba5cc3 detected as Apache-2.0 by the GitHub licence API on 2026-11-16; used under that licence with attribution."
    }
   }
  ]

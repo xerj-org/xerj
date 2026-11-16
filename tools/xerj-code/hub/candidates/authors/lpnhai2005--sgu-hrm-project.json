@@ -8,15 +8,15 @@
   {
    "repo": "SGU_HRM-Project",
    "url": "https://github.com/lpnHai2005/SGU_HRM-Project",
-   "sha": "1ce044abdaf7426d0bffd2b02c82c5e0da903495",
-   "licence": "MIT (LICENSE file at pin 1ce044abdaf7, GitHub licence API 2026-11-16)",
+   "sha": "1e2063af64c30fc01a75193380e8845dfc078d46",
+   "licence": "MIT (LICENSE file at pin 1e2063af64c3, GitHub licence API 2026-11-16)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-30T05:13Z",
     "consent_receipt": "abef5cbbf07b",
-    "note": "Inclusion consented by the commit author by email at 2026-10-30T05:13Z (receipt abef5cbbf07b); selected commit 1ce044abdaf7: \"feat: implement AI chatbot backend with tools, security guards, evalu\u2026\". LICENSE file at pin 1ce044abdaf7 detected as MIT by the GitHub licence API on 2026-11-16; used under that licence with attribution. Pinned to head 1ce044abdaf7 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T05:13Z (receipt abef5cbbf07b); selected commit 1e2063af64c3: \"feat: implement AI chatbot backend with tools, security guards, evalu\u2026\". LICENSE file at pin 1e2063af64c3 detected as MIT by the GitHub licence API on 2026-11-16; used under that licence with attribution. Pinned to head 1e2063af64c3 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

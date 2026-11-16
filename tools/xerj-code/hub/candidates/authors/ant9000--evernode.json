@@ -1,0 +1,23 @@
+{
+ "corpus": "ant9000--evernode",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how ant9000/evernode implements it: Evernode support material (selected work: the project root, snippets)",
+ "repos": [
+  {
+   "repo": "evernode",
+   "url": "https://github.com/ant9000/evernode",
+   "sha": "775bacae54c4204ce9ec8af62815940c75fd3295",
+   "licence": "GPL-3.0 (LICENSE file at pin 775bacae54c4, GitHub licence API 2026-11-16)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-16T11:01Z",
+    "consent_receipt": "0ec1e22c5835",
+    "note": "Inclusion consented by the commit author by email at 2026-11-16T11:01Z (receipt 0ec1e22c5835); selected commit 775bacae54c4: \"build.sh: transformed bluetooth and mspi into Zephyr snippets\". LICENSE file at pin 775bacae54c4 detected as GPL-3.0 by the GitHub licence API on 2026-11-16; used under that licence with attribution."
+   }
+  }
+ ]
+}

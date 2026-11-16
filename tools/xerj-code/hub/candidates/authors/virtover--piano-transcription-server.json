@@ -8,15 +8,15 @@
   {
    "repo": "piano-transcription-server",
    "url": "https://github.com/Virtover/piano-transcription-server",
-   "sha": "4cb2a3b20c1be1f5758e1e70fd86203e61c82230",
-   "licence": "Apache-2.0 (LICENSE file at pin 4cb2a3b20c1b, GitHub licence API 2026-11-15)",
+   "sha": "a2e293a6b50eb8c6bde6785c26ef7c10780fe076",
+   "licence": "Apache-2.0 (LICENSE file at pin a2e293a6b50e, GitHub licence API 2026-11-16)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-19T00:40Z",
     "consent_receipt": "c45b6e2d35ea",
-    "note": "Inclusion consented by the commit author by email at 2026-10-19T00:40Z (receipt c45b6e2d35ea); selected commit 4cb2a3b20c1b: \"Refactor GPU memory management and enhance device selection logic\". LICENSE file at pin 4cb2a3b20c1b detected as Apache-2.0 by the GitHub licence API on 2026-11-15; used under that licence with attribution. Pinned to head 4cb2a3b20c1b (contains the selected commit): the LICENSE at the selected commit was MIT."
+    "note": "Inclusion consented by the commit author by email at 2026-10-19T00:40Z (receipt c45b6e2d35ea); selected commit a2e293a6b50e: \"Refactor GPU memory management and enhance device selection logic\". LICENSE file at pin a2e293a6b50e detected as Apache-2.0 by the GitHub licence API on 2026-11-16; used under that licence with attribution. Pinned to head a2e293a6b50e (contains the selected commit): the LICENSE at the selected commit was MIT."
    }
   }
  ]
