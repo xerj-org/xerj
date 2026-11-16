@@ -1,0 +1,23 @@
+{
+ "corpus": "mafk21--jarvis",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how mafk21/jarvis implements it: the only real jarvis (selected work: core, tests, the project root)",
+ "repos": [
+  {
+   "repo": "jarvis",
+   "url": "https://github.com/mafk21/jarvis",
+   "sha": "c44243d097cc415348425e60726c129c136ceecb",
+   "licence": "author's permission (LICENSE at pin c44243d097cc: MIT; repository: NOASSERTION)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-16T07:32Z",
+    "consent_receipt": "1333c0cb3d9a",
+    "note": "Inclusion consented by the commit author by email at 2026-11-16T07:32Z (receipt 1333c0cb3d9a); selected commit c44243d097cc: \"Start ambient experience upgrades with safe personality controls (#132)\". LICENSE at pin c44243d097cc: MIT (repository: NOASSERTION); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

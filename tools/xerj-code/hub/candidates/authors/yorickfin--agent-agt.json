@@ -1,9 +1,9 @@
 {
- "corpus": "yorickfin--parallelagent",
+ "corpus": "yorickfin--agent-agt",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on JavaScript queries this for how YorickFin/ParallelAgent implements it: Parallel multi-agent development pattern: arbiter session + track sessions + file-mailbox coordination, orchestrated via CDP (selected work: adapters)",
+ "domain": "an agent working on JavaScript queries this for how YorickFin/Agent-Agt implements it: \u7eaf\u6587\u672c\u534f\u8bae\u9a71\u52a8\u7684\u591a Agent \u5f00\u53d1\u6cbb\u7406\uff1a\u5355\u8f68\u53f0\u8d26 + \u591a\u8f68\u5951\u7ea6/\u56de\u6267/\u5feb\u7167 (selected work: adapters)",
  "repos": [
   {
    "repo": "ParallelAgent",

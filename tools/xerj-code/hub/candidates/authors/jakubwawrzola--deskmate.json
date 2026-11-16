@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "NET",
- "domain": "an agent working on hass-agent, home-assistant, iot queries this for how JakubWawrzola/deskmate implements it: Windows companion for Home Assistant: your PC as a device with sensors, controls, notifications and file transfer, over its own encrypted in (selected work: custom_components, src-tauri, src/pages)",
+ "domain": "an agent working on hass-agent, home-assistant, iot queries this for how JakubWawrzola/deskmate implements it: Your computers in Home Assistant: a desktop app for Windows and Linux, a Windows service, a Linux daemon and a Stream Deck plugin, over its  (selected work: custom_components, src-tauri, src/pages)",
  "repos": [
   {
    "repo": "deskmate",

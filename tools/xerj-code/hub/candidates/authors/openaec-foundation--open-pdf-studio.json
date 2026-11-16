@@ -8,15 +8,15 @@
   {
    "repo": "open-pdf-studio",
    "url": "https://github.com/OpenAEC-Foundation/open-pdf-studio",
-   "sha": "76fc1ac4927a4735e59763ef77c1caea014cbd1b",
-   "licence": "LGPL-3.0 (LICENSE file at pin 76fc1ac4927a, GitHub licence API 2026-11-16)",
+   "sha": "c8efddd6f8defb1f0d9e7a2ecbdaef862c1a904c",
+   "licence": "LGPL-3.0 (LICENSE file at pin c8efddd6f8de, GitHub licence API 2026-11-16)",
    "review": {
     "spdx": "LGPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-11-10T14:01Z",
     "consent_receipt": "e06f93492f84",
-    "note": "Inclusion consented by the commit author by email at 2026-11-10T14:01Z (receipt e06f93492f84); selected commit 76fc1ac4927a: \"feat(werkplek): drawing frames from the company house style in New do\u2026\". LICENSE file at pin 76fc1ac4927a detected as LGPL-3.0 by the GitHub licence API on 2026-11-16; used under that licence with attribution. Pinned to head 76fc1ac4927a (contains the selected commit): the LICENSE at the selected commit was NOASSERTION. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @OpenAEC-Foundation, who has not added it."
+    "note": "Inclusion consented by the commit author by email at 2026-11-10T14:01Z (receipt e06f93492f84); selected commit c8efddd6f8de: \"feat(werkplek): drawing frames from the company house style in New do\u2026\". LICENSE file at pin c8efddd6f8de detected as LGPL-3.0 by the GitHub licence API on 2026-11-16; used under that licence with attribution. Pinned to head c8efddd6f8de (contains the selected commit): the LICENSE at the selected commit was NOASSERTION. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @OpenAEC-Foundation, who has not added it."
    },
    "paths": [
     "open-pdf-studio/js/core",
