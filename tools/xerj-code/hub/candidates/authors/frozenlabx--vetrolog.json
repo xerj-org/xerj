@@ -1,9 +1,9 @@
 {
- "corpus": "tanvirul-swe--vetrolog",
+ "corpus": "frozenlabx--vetrolog",
  "cloned_at": null,
  "status": "draft",
  "shelf": "DB",
- "domain": "an agent working on database-tools, debugging, golang queries this for how Tanvirul-swe/vetrolog implements it: An ultra-fast, zero-SDK local database inspector for mobile developers. Live-stream SQLite, Hive, & SharedPreferences in real-time. Built wi (selected work: frontend)",
+ "domain": "an agent working on database-tools, debugging, golang queries this for how frozenlabx/vetrolog implements it: An ultra-fast, zero-SDK local database inspector for mobile developers. Live-stream SQLite, Hive, & SharedPreferences in real-time. Built wi (selected work: frontend)",
  "repos": [
   {
    "repo": "vetrolog",

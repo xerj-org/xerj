@@ -1,9 +1,9 @@
 {
- "corpus": "netbreaker-org--netbreaker",
+ "corpus": "netbreaker-org--netbreaker-engine",
  "cloned_at": null,
  "status": "draft",
  "shelf": "NET",
- "domain": "an agent working on TypeScript queries this for how NetBreaker-org/NetBreaker implements it: Reverse Proxy (selected work: src/config, src/middlewares, src)",
+ "domain": "an agent working on Go queries this for how NetBreaker-org/netbreaker-engine implements it: Reverse Proxy (selected work: src/config, src/middlewares, src)",
  "repos": [
   {
    "repo": "NetBreaker",

@@ -8,15 +8,15 @@
   {
    "repo": "tessera-deck",
    "url": "https://github.com/catorendal-a11y/tessera-deck",
-   "sha": "ee14c62b95c1d3b9b29c0d0f20a88229489be3f3",
-   "licence": "MIT (LICENSE file at pin ee14c62b95c1, GitHub licence API 2026-11-16)",
+   "sha": "1dec7477125f84226857a7bf7de200dc9c10d90a",
+   "licence": "MIT (LICENSE file at pin 1dec7477125f, GitHub licence API 2026-11-16)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-15T10:37Z",
     "consent_receipt": "ac878c350d87",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-15T10:37Z (receipt ac878c350d87); pinned to the default-branch head. LICENSE file at pin ee14c62b95c1 detected as MIT by the GitHub licence API on 2026-11-16; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-15T10:37Z (receipt ac878c350d87); pinned to the default-branch head. LICENSE file at pin 1dec7477125f detected as MIT by the GitHub licence API on 2026-11-16; used under that licence with attribution."
    }
   }
  ]

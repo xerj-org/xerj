@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "DB",
- "domain": "an agent working on pgrx, pgvector, pinecone queries this for how pinecone-io/pg_pinecone implements it: Pinecone for Postgres: one pgvector column, three engines (selected work: bench)",
+ "domain": "an agent working on pgrx, pgvector, pinecone queries this for how pinecone-io/pg_pinecone implements it: Postgres extension for Pinecone: one pgvector column, three engines (selected work: bench)",
  "repos": [
   {
    "repo": "pg_pinecone",

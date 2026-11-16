@@ -8,15 +8,15 @@
   {
    "repo": "image-classification-improvement-task",
    "url": "https://github.com/wajihullahbaig/image-classification-improvement-task",
-   "sha": "c38418887dcf32f1e2f28a9b3f9effe59590fe97",
-   "licence": "author's permission (LICENSE at pin c38418887dcf: NONE; repository: none)",
+   "sha": "a3e09bb4d88547b02898970056094eee8125b39a",
+   "licence": "author's permission (LICENSE at pin a3e09bb4d885: NONE; repository: none)",
    "review": {
     "spdx": "NONE",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T12:00Z",
     "consent_receipt": "0a9e8349dac4",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T12:00Z (receipt 0a9e8349dac4); pinned to the default-branch head. LICENSE at pin c38418887dcf: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T12:00Z (receipt 0a9e8349dac4); pinned to the default-branch head. LICENSE at pin a3e09bb4d885: NONE (repository: none); used with the author's permission, with attribution."
    }
   }
  ]

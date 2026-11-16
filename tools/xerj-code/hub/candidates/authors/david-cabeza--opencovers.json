@@ -2,8 +2,8 @@
  "corpus": "david-cabeza--opencovers",
  "cloned_at": null,
  "status": "draft",
- "shelf": "NET",
- "domain": "an agent working on TypeScript queries this for how David-Cabeza/OpenCovers implements it: Open-source reservations engine for restaurants, with an HTTP API and a planned MCP server (selected work: apps/web, apps/api)",
+ "shelf": "AI",
+ "domain": "an agent working on booking, hono, mcp queries this for how David-Cabeza/OpenCovers implements it: Open-source reservations engine for restaurants, with an HTTP API and an MCP server (selected work: apps/web, apps/api)",
  "repos": [
   {
    "repo": "OpenCovers",
