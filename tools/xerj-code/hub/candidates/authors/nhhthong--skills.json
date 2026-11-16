@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on TypeScript queries this for how nhhthong/skills implements it: A personal collection of skills I regularly use with Claude Code, inspired by Matt Pocock\u2019s skills (selected work: mcp, the project root)",
+ "domain": "an agent working on TypeScript queries this for how nhhthong/skills implements it: A personal collection of skills I regularly use with Claude Code, inspired by Matt Pocock\u2019s skills and poteto (selected work: mcp, the project root)",
  "repos": [
   {
    "repo": "skills",

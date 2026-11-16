@@ -1,0 +1,29 @@
+{
+ "corpus": "pytgcalls--ntgcalls",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on audio, calls, cpp queries this for how pytgcalls/ntgcalls implements it: A Native Implementation of Telegram Calls in a seamless way (selected work: cmake, targets, the project root)",
+ "repos": [
+  {
+   "repo": "ntgcalls",
+   "url": "https://github.com/pytgcalls/ntgcalls",
+   "sha": "e76f8a939e5aaa0eba084b7f199383aa8d9b04f2",
+   "licence": "LGPL-3.0 (LICENSE file at pin e76f8a939e5a, GitHub licence API 2026-11-16)",
+   "review": {
+    "spdx": "LGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-16T05:15Z",
+    "consent_receipt": "d0236d83f59a",
+    "note": "Inclusion consented by the commit author by email at 2026-11-16T05:15Z (receipt d0236d83f59a); selected commit e76f8a939e5a: \"Added Third-Party Notices To All Packages\". LICENSE file at pin e76f8a939e5a detected as LGPL-3.0 by the GitHub licence API on 2026-11-16; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @pytgcalls, who has not added it."
+   },
+   "paths": [
+    "cmake",
+    "targets/android/app",
+    "targets/c",
+    "targets/node/support"
+   ]
+  }
+ ]
+}

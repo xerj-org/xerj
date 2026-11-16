@@ -8,15 +8,15 @@
   {
    "repo": "FluxRoute",
    "url": "https://github.com/DilshanHarshajith/FluxRoute",
-   "sha": "cfc00c42c999207e7a03a1b74978ef52c5968248",
-   "licence": "GPL-3.0 (LICENSE file at pin cfc00c42c999, GitHub licence API 2026-10-29)",
+   "sha": "85f8b5c9eda396615fb826d1fb0d01abba4c0836",
+   "licence": "GPL-3.0 (LICENSE file at pin 85f8b5c9eda3, GitHub licence API 2026-11-16)",
    "review": {
     "spdx": "GPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-29T16:34Z",
     "consent_receipt": "e070ac00812a",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T16:34Z (receipt e070ac00812a); pinned to the default-branch head. LICENSE file at pin cfc00c42c999 detected as GPL-3.0 by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T16:34Z (receipt e070ac00812a); pinned to the default-branch head. LICENSE file at pin 85f8b5c9eda3 detected as GPL-3.0 by the GitHub licence API on 2026-11-16; used under that licence with attribution."
    }
   }
  ]

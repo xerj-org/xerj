@@ -1,0 +1,23 @@
+{
+ "corpus": "thangdaudau--deepseek-mcp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how thangdaudau/deepseek-mcp implements it: MCP t\u1ef1 t\u1ea1o c\u1eafm v\u00e0o th\u1eb1ng Antigravity x\u00e0i :> (selected work: the project root, tests)",
+ "repos": [
+  {
+   "repo": "deepseek-mcp",
+   "url": "https://github.com/thangdaudau/deepseek-mcp",
+   "sha": "e1006a01925e9e676689defc16548da73d9f0a95",
+   "licence": "MIT (LICENSE file at pin e1006a01925e, GitHub licence API 2026-11-16)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-16T04:13Z",
+    "consent_receipt": "1924d46825f6",
+    "note": "Inclusion consented by the commit author by email at 2026-11-16T04:13Z (receipt 1924d46825f6); selected commit e1006a01925e: \"fix(reliability): implement bounded read_file paging, fail-fast sessi\u2026\". LICENSE file at pin e1006a01925e detected as MIT by the GitHub licence API on 2026-11-16; used under that licence with attribution."
+   }
+  }
+ ]
+}

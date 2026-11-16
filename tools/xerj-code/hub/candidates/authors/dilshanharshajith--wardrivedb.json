@@ -8,15 +8,15 @@
   {
    "repo": "WardriveDB",
    "url": "https://github.com/DilshanHarshajith/WardriveDB",
-   "sha": "12afe11811e116bbd17723c2280785f1d75ef605",
-   "licence": "GPL-3.0 (LICENSE file at pin 12afe11811e1, GitHub licence API 2026-10-29)",
+   "sha": "96dc616fe532474cf4cf89c7de21a0939c0f56bc",
+   "licence": "GPL-3.0 (LICENSE file at pin 96dc616fe532, GitHub licence API 2026-11-16)",
    "review": {
     "spdx": "GPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-29T16:34Z",
     "consent_receipt": "791a9df3753d",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T16:34Z (receipt 791a9df3753d); pinned to the default-branch head. LICENSE file at pin 12afe11811e1 detected as GPL-3.0 by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T16:34Z (receipt 791a9df3753d); pinned to the default-branch head. LICENSE file at pin 96dc616fe532 detected as GPL-3.0 by the GitHub licence API on 2026-11-16; used under that licence with attribution."
    }
   }
  ]
