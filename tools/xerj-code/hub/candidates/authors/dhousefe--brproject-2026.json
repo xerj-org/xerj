@@ -1,0 +1,23 @@
+{
+ "corpus": "dhousefe--brproject-2026",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on HTML queries this for how Dhousefe/Brproject_2026 implements it: Dhousefe/Brproject_2026 (HTML) (selected work: modules/game-server-core, modules/mods, game)",
+ "repos": [
+  {
+   "repo": "Brproject_2026",
+   "url": "https://github.com/Dhousefe/Brproject_2026",
+   "sha": "c20de7a48101af6e597c022e16b1968c29940f0b",
+   "licence": "GPL-3.0 (LICENSE file at pin c20de7a48101, GitHub licence API 2026-11-16)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-13T22:08Z",
+    "consent_receipt": "9a53bd7ab3c1",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T22:08Z (receipt 9a53bd7ab3c1); selected commit c20de7a48101: \"feat: Add quest recommendation features and improve recipe drop visib\u2026\". LICENSE file at pin c20de7a48101 detected as GPL-3.0 by the GitHub licence API on 2026-11-16; used under that licence with attribution."
+   }
+  }
+ ]
+}

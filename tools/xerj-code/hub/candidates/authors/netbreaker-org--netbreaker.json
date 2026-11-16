@@ -1,9 +1,9 @@
 {
- "corpus": "kaushal937--netbreaker",
+ "corpus": "netbreaker-org--netbreaker",
  "cloned_at": null,
  "status": "draft",
  "shelf": "NET",
- "domain": "an agent working on TypeScript queries this for how kaushal937/NetBreaker implements it: Reverse Proxy (selected work: src/config, src/middlewares, src)",
+ "domain": "an agent working on TypeScript queries this for how NetBreaker-org/NetBreaker implements it: Reverse Proxy (selected work: src/config, src/middlewares, src)",
  "repos": [
   {
    "repo": "NetBreaker",

@@ -1,0 +1,23 @@
+{
+ "corpus": "kinanqazan--aporia",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Svelte queries this for how Kinanqazan/Aporia implements it: Notion like App (selected work: src/routes, src, src/lib)",
+ "repos": [
+  {
+   "repo": "Aporia",
+   "url": "https://github.com/Kinanqazan/Aporia",
+   "sha": "8fe438c679d93c5781c5cad3ec3b7991d3686fce",
+   "licence": "MIT (LICENSE file at pin 8fe438c679d9, GitHub licence API 2026-11-16)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T18:52Z",
+    "consent_receipt": "3d5523464515",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T18:52Z (receipt 3d5523464515); selected commit 8fe438c679d9: \"Add safe unused upload counts and refine sidebar and trash UI\". LICENSE file at pin 8fe438c679d9 detected as MIT by the GitHub licence API on 2026-11-16; used under that licence with attribution."
+   }
+  }
+ ]
+}

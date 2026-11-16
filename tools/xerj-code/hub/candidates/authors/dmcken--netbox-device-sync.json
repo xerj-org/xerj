@@ -1,0 +1,23 @@
+{
+ "corpus": "dmcken--netbox-device-sync",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how dmcken/netbox_device_sync implements it: dmcken/netbox_device_sync (Python) (selected work: the project root, drivers)",
+ "repos": [
+  {
+   "repo": "netbox_device_sync",
+   "url": "https://github.com/dmcken/netbox_device_sync",
+   "sha": "9017c91952f9141e7d03a48a8bd8f3ae6d8cbee1",
+   "licence": "GPL-3.0 (LICENSE file at pin 9017c91952f9, GitHub licence API 2026-11-16)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-13T22:35Z",
+    "consent_receipt": "6042737b7916",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T22:35Z (receipt 6042737b7916); selected commit 9017c91952f9: \"Cable RouterOS routers to each other via live OSPF adjacencies\". LICENSE file at pin 9017c91952f9 detected as GPL-3.0 by the GitHub licence API on 2026-11-16; used under that licence with attribution."
+   }
+  }
+ ]
+}

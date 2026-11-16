@@ -1,0 +1,23 @@
+{
+ "corpus": "hiddent3rminal--hardenix",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how hiddent3rminal/Hardenix implements it: Interactive Linux server provisioning and hardening framework for Ubuntu and Debian (selected work: modules, tests, the project root)",
+ "repos": [
+  {
+   "repo": "Hardenix",
+   "url": "https://github.com/hiddent3rminal/Hardenix",
+   "sha": "52f1827943e42796796ffaaf5422c4a7a52dff9d",
+   "licence": "MIT (LICENSE file at pin 52f1827943e4, GitHub licence API 2026-11-16)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-14T07:28Z",
+    "consent_receipt": "49d1042cd171",
+    "note": "Inclusion consented by the commit author by email at 2026-11-14T07:28Z (receipt 49d1042cd171); selected commit 52f1827943e4: \"latest version of refactore branch\". LICENSE file at pin 52f1827943e4 detected as MIT by the GitHub licence API on 2026-11-16; used under that licence with attribution."
+   }
+  }
+ ]
+}

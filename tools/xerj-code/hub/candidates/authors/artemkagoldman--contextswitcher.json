@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on avalonia, csharp, dotnet queries this for how ArtemkaGoldMan/ContextSwitcher implements it: macOS menu bar app: switch between work and personal in one click. Opens the apps and tabs you need, quits the rest, turns on Focus, starts  (selected work: src/ContextSwitcher.Infrastructure.Windows, src/ContextSwitcher.Tests.Windows)",
+ "domain": "an agent working on avalonia, csharp, dotnet queries this for how ArtemkaGoldMan/ContextSwitcher implements it: Switch your Mac or PC between work and personal in one click. Opens the apps you need and quits the rest; on a Mac also tabs, Focus and musi (selected work: src/ContextSwitcher.Infrastructure.Windows, src/ContextSwitcher.Tests.Windows)",
  "repos": [
   {
    "repo": "ContextSwitcher",

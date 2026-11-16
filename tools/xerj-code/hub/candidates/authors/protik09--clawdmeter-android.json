@@ -1,0 +1,23 @@
+{
+ "corpus": "protik09--clawdmeter-android",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on android, android-app, anthropic queries this for how protik09/clawdmeter-android implements it: A little lighthearted Claude-Code meter to tell you if you need to panic or not that you are hitting your limits. Inspired by the ESP32 claw (selected work: android, bridge, the project root)",
+ "repos": [
+  {
+   "repo": "clawdmeter-android",
+   "url": "https://github.com/protik09/clawdmeter-android",
+   "sha": "8687dcbf606c5be71c8864ca2fb43eeae4a39c82",
+   "licence": "Apache-2.0 (LICENSE file at pin 8687dcbf606c, GitHub licence API 2026-11-16)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-14T07:16Z",
+    "consent_receipt": "f2b1d48ba9b8",
+    "note": "Inclusion consented by the commit author by email at 2026-11-14T07:16Z (receipt f2b1d48ba9b8); selected commit 8687dcbf606c: \"Github took first commit, so I guess second commit?\". LICENSE file at pin 8687dcbf606c detected as Apache-2.0 by the GitHub licence API on 2026-11-16; used under that licence with attribution."
+   }
+  }
+ ]
+}

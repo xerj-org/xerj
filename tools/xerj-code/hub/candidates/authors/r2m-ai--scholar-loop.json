@@ -1,9 +1,9 @@
 {
- "corpus": "renee-jia--scholar-loop",
+ "corpus": "r2m-ai--scholar-loop",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-research, autonomous-agents, llm-tools queries this for how renee-jia/scholar-loop implements it: An autonomous AI scientist: a multi-agent loop over literature, experiments, self-critique and write-up, with deterministic guards against r (selected work: scholarloop, tests, engines)",
+ "domain": "an agent working on ai-research, autonomous-agents, llm-tools queries this for how r2m-ai/scholar-loop implements it: An autonomous AI scientist: a multi-agent loop over literature, experiments, self-critique and write-up, with deterministic guards against r (selected work: scholarloop, tests, engines)",
  "repos": [
   {
    "repo": "scholar-loop",

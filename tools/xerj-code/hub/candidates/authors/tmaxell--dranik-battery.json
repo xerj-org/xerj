@@ -1,0 +1,23 @@
+{
+ "corpus": "tmaxell--dranik-battery",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on apple-silicon, battery, battery-health queries this for how tmaxell/dranik-battery implements it: Charge limiter for Apple Silicon Macs: keeps the battery below a set level instead of sitting at 100 %. Root daemon, CLI and menu bar app, n (selected work: Sources, Tests, scripts)",
+ "repos": [
+  {
+   "repo": "dranik-battery",
+   "url": "https://github.com/tmaxell/dranik-battery",
+   "sha": "22fe88e010b076606ed066ddfa3bf2ff57224923",
+   "licence": "MIT (LICENSE file at pin 22fe88e010b0, GitHub licence API 2026-11-16)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-14T17:27Z",
+    "consent_receipt": "748cb1e943ca",
+    "note": "Inclusion consented by the commit author by email at 2026-11-14T17:27Z (receipt 748cb1e943ca); selected commit 22fe88e010b0: \"Let macOS hold the limit when direct SMC control is unavailable\". LICENSE file at pin 22fe88e010b0 detected as MIT by the GitHub licence API on 2026-11-16; used under that licence with attribution."
+   }
+  }
+ ]
+}

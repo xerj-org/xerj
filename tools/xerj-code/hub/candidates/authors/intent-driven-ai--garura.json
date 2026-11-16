@@ -1,0 +1,26 @@
+{
+ "corpus": "intent-driven-ai--garura",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how intent-driven-ai/garura implements it: intent-driven-ai/garura (Python) (selected work: core/components)",
+ "repos": [
+  {
+   "repo": "garura",
+   "url": "https://github.com/intent-driven-ai/garura",
+   "sha": "487d14ba878cde5db3c8ccbfb9ed060f6593a295",
+   "licence": "GPL-3.0 (LICENSE file at pin 487d14ba878c, GitHub licence API 2026-11-16)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-13T18:16Z",
+    "consent_receipt": "ae2791ce9357",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T18:16Z (receipt ae2791ce9357); selected commit 487d14ba878c: \"feat(author-intent-page): add intent page writing from a draft (#1019)\". LICENSE file at pin 487d14ba878c detected as GPL-3.0 by the GitHub licence API on 2026-11-16; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @intent-driven-ai, who has not added it."
+   },
+   "paths": [
+    "core/components/skills/author-intent-page"
+   ]
+  }
+ ]
+}

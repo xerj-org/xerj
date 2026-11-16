@@ -1,0 +1,23 @@
+{
+ "corpus": "radra23--otel-as-code-plugin",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on claude-code, claude-code-plugin, codex queries this for how radra23/otel-as-code-plugin implements it: Claude Code plugin and Codex skills that add OpenTelemetry to your services in 7 languages, show your first trace on a local Grafana stack,  (selected work: evals, tests)",
+ "repos": [
+  {
+   "repo": "otel-as-code-plugin",
+   "url": "https://github.com/radra23/otel-as-code-plugin",
+   "sha": "ae1241440d91303867a1ba8b1bdfb7f7aea6465a",
+   "licence": "Apache-2.0 (LICENSE file at pin ae1241440d91, GitHub licence API 2026-11-16)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-14T12:09Z",
+    "consent_receipt": "84e5f70b4234",
+    "note": "Inclusion consented by the commit author by email at 2026-11-14T12:09Z (receipt 84e5f70b4234); selected commit ae1241440d91: \"test(evals): add a routing eval for plugin selection and record the 0\u2026\". LICENSE file at pin ae1241440d91 detected as Apache-2.0 by the GitHub licence API on 2026-11-16; used under that licence with attribution."
+   }
+  }
+ ]
+}

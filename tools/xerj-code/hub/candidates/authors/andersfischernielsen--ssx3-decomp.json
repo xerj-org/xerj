@@ -1,0 +1,27 @@
+{
+ "corpus": "andersfischernielsen--ssx3-decomp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how andersfischernielsen/ssx3-decomp implements it: A decompilation/port of SSX 3 in Rust (selected work: crates/ssx3-ps2)",
+ "repos": [
+  {
+   "repo": "ssx3-decomp",
+   "url": "https://github.com/andersfischernielsen/ssx3-decomp",
+   "sha": "f874f446ccae3d34df7b018d108bf0b3078edda7",
+   "licence": "MIT (LICENSE file at pin f874f446ccae, GitHub licence API 2026-11-16)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T19:53Z",
+    "consent_receipt": "b960401b9bef",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T19:53Z (receipt b960401b9bef); selected commit f874f446ccae: \"Fix REAL_CLOCK=0 selecting the host clock (#35)\". LICENSE file at pin f874f446ccae detected as MIT by the GitHub licence API on 2026-11-16; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @andersfischernielsen, who has not added it."
+   },
+   "paths": [
+    "crates/ssx3-ps2/src",
+    "docs"
+   ]
+  }
+ ]
+}

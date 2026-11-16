@@ -1,0 +1,32 @@
+{
+ "corpus": "cityofai-dev--hippocampusllms",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how cityofai-dev/HippocampusLLMs implements it: cityofai-dev/HippocampusLLMs (TypeScript) (selected work: packages/cli, tests, packages/storage-sqlite)",
+ "repos": [
+  {
+   "repo": "HippocampusLLMs",
+   "url": "https://github.com/cityofai-dev/HippocampusLLMs",
+   "sha": "72434b166e294eef5a693a7e35057960a8a68ba9",
+   "licence": "MIT (LICENSE file at pin 72434b166e29, GitHub licence API 2026-11-16)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-15T21:35Z",
+    "consent_receipt": "12b03c3a9a45",
+    "note": "Inclusion consented by the commit author by email at 2026-11-15T21:35Z (receipt 12b03c3a9a45); selected commit 72434b166e29: \"feat: add configurable local vector retrieval\". LICENSE file at pin 72434b166e29 detected as MIT by the GitHub licence API on 2026-11-16; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @cityofai-dev, who has not added it."
+   },
+   "paths": [
+    "docs/decisions",
+    "docs/schemas",
+    "packages/cli",
+    "packages/core/src",
+    "packages/mcp/src",
+    "packages/storage-sqlite/src",
+    "tests"
+   ]
+  }
+ ]
+}

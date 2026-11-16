@@ -1,0 +1,23 @@
+{
+ "corpus": "itsllyaz--zare",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Go queries this for how itsllyaz/Zare implements it: Zare is a small Ethiopian calendar for Linux desktops, with first-class support for Hyprland and Waybar (selected work: frontend)",
+ "repos": [
+  {
+   "repo": "Zare",
+   "url": "https://github.com/itsllyaz/Zare",
+   "sha": "19a5578e1fb3911e9643468f9dc6f98ffd937a33",
+   "licence": "MPL-2.0 (LICENSE file at pin 19a5578e1fb3, GitHub licence API 2026-11-16)",
+   "review": {
+    "spdx": "MPL-2.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-15T04:31Z",
+    "consent_receipt": "52bd07748cb9",
+    "note": "Inclusion consented by the commit author by email at 2026-11-15T04:31Z (receipt 52bd07748cb9); selected commit 19a5578e1fb3: \"feat: add the React calendar interface\". LICENSE file at pin 19a5578e1fb3 detected as MPL-2.0 by the GitHub licence API on 2026-11-16; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "cuonghuunguyen--claude-code-ui",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on ai-agents, claude-code, developer-tools queries this for how cuonghuunguyen/claude-code-ui implements it: A web UI for Claude Code: run and steer many sessions from your browser or phone. Local daemon, no cloud (selected work: packages/web, packages/daemon, packages/protocol)",
+ "repos": [
+  {
+   "repo": "claude-code-ui",
+   "url": "https://github.com/cuonghuunguyen/claude-code-ui",
+   "sha": "5c65b317dbf81349024a1cc4031c6f231cea1c79",
+   "licence": "MIT (LICENSE file at pin 5c65b317dbf8, GitHub licence API 2026-11-16)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T17:52Z",
+    "consent_receipt": "94d6a853c8ae",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T17:52Z (receipt 94d6a853c8ae); selected commit 5c65b317dbf8: \"App icon: Settings > Appearance lets you set your own icon (emoji or \u2026\". LICENSE file at pin 5c65b317dbf8 detected as MIT by the GitHub licence API on 2026-11-16; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "zann06--aksesai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, directory, free-tier queries this for how zann06/AksesAI implements it: Direktori info gratis & murah seputar AI: API/token gratis, free tier, harga per token, model open-weight, tool & hosting gratis \u2014 dikontrib (selected work: src/components, tests, src/app)",
+ "repos": [
+  {
+   "repo": "AksesAI",
+   "url": "https://github.com/zann06/AksesAI",
+   "sha": "f0c6d1b6948049e9567b618ee539f44180f57f30",
+   "licence": "MIT (LICENSE file at pin f0c6d1b69480, GitHub licence API 2026-11-16)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-14T03:01Z",
+    "consent_receipt": "cd7a08246fa5",
+    "note": "Inclusion consented by the commit author by email at 2026-11-14T03:01Z (receipt cd7a08246fa5); selected commit f0c6d1b69480: \"feat(ui): rapikan visual menu akun (7 temuan audit)\". LICENSE file at pin f0c6d1b69480 detected as MIT by the GitHub licence API on 2026-11-16; used under that licence with attribution."
+   }
+  }
+ ]
+}

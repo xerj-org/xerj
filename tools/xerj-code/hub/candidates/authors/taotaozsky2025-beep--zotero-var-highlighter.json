@@ -1,0 +1,23 @@
+{
+ "corpus": "taotaozsky2025-beep--zotero-var-highlighter",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how taotaozsky2025-beep/zotero-var-highlighter implements it: A Zotero plugin to highlight variables in PDF (selected work: test, src/modules, addon)",
+ "repos": [
+  {
+   "repo": "zotero-var-highlighter",
+   "url": "https://github.com/taotaozsky2025-beep/zotero-var-highlighter",
+   "sha": "da5928916abc910699cf0c043b0c3fc95ab45e1c",
+   "licence": "AGPL-3.0 (LICENSE file at pin da5928916abc, GitHub licence API 2026-11-16)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-13T17:50Z",
+    "consent_receipt": "ce7774dfd13b",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T17:50Z (receipt ce7774dfd13b); selected commit da5928916abc: \"fix: remove toolkit debug protocols and release v0.2.2\". LICENSE file at pin da5928916abc detected as AGPL-3.0 by the GitHub licence API on 2026-11-16; used under that licence with attribution."
+   }
+  }
+ ]
+}

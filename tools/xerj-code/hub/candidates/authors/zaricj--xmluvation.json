@@ -1,0 +1,23 @@
+{
+ "corpus": "zaricj--xmluvation",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on csv, gui, python queries this for how zaricj/XMLuvation implements it: A XML searcher with XPath expressions, with the ability to export matches to a CSV file (selected work: src/xmluvation, tests, tools)",
+ "repos": [
+  {
+   "repo": "XMLuvation",
+   "url": "https://github.com/zaricj/XMLuvation",
+   "sha": "b7c83e6518c03f834decb11d4746bb3bea25dfd1",
+   "licence": "MIT (LICENSE file at pin b7c83e6518c0, GitHub licence API 2026-11-16)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-14T09:47Z",
+    "consent_receipt": "3048d4d9ee51",
+    "note": "Inclusion consented by the commit author by email at 2026-11-14T09:47Z (receipt 3048d4d9ee51); selected commit b7c83e6518c0: \"Update: Add XML toolkit\". LICENSE file at pin b7c83e6518c0 detected as MIT by the GitHub licence API on 2026-11-16; used under that licence with attribution. Pinned to head b7c83e6518c0 (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

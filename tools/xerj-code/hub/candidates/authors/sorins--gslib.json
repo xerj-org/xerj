@@ -1,0 +1,23 @@
+{
+ "corpus": "sorins--gslib",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how SorinS/gslib implements it: Goose Library (selected work: jwx, crypto, the project root)",
+ "repos": [
+  {
+   "repo": "gslib",
+   "url": "https://github.com/SorinS/gslib",
+   "sha": "024b252e1d519df971b142146239d5cd3cde5e8d",
+   "licence": "Apache-2.0 (LICENSE file at pin 024b252e1d51, GitHub licence API 2026-11-16)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T20:56Z",
+    "consent_receipt": "4f0914e78363",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T20:56Z (receipt 4f0914e78363); selected commit 024b252e1d51: \"Added:\". LICENSE file at pin 024b252e1d51 detected as Apache-2.0 by the GitHub licence API on 2026-11-16; used under that licence with attribution."
+   }
+  }
+ ]
+}

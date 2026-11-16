@@ -1,0 +1,23 @@
+{
+ "corpus": "lyylovemwj--activecontactgs",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how lyylovemwj/ActiveContactGS implements it: Contact Geometry Is a Latent Variable: Active Bayesian Identification of Gaussian Physical Worlds (selected work: src/active_contact_gs, tests, scripts)",
+ "repos": [
+  {
+   "repo": "ActiveContactGS",
+   "url": "https://github.com/lyylovemwj/ActiveContactGS",
+   "sha": "74261670e5ed47fedf4b6db7e6815113347efa62",
+   "licence": "MIT (LICENSE file at pin 74261670e5ed, GitHub licence API 2026-11-16)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T18:29Z",
+    "consent_receipt": "5216e7a16a90",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T18:29Z (receipt 5216e7a16a90); selected commit 74261670e5ed: \"Reconstruct ICLR reviewer experiment suite\". LICENSE file at pin 74261670e5ed detected as MIT by the GitHub licence API on 2026-11-16; used under that licence with attribution."
+   }
+  }
+ ]
+}

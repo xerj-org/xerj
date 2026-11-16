@@ -1,0 +1,28 @@
+{
+ "corpus": "ch6vip--novel-sound",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, audiobook, dart queries this for how ch6vip/novel-sound implements it: \u5185\u5bb9\u805a\u5408 Android \u5ba2\u6237\u7aef\uff1a\u5c0f\u8bf4/\u77ed\u5267/\u6f2b\u5267/\u542c\u4e66/\u6f2b\u753b\uff0cFlutter UI + \u8fdb\u7a0b\u5185 Rust \u6838\u5fc3\uff0c\u65e0\u81ea\u5efa\u670d\u52a1\u5668\u3001\u65e0\u9700 root (selected work: lib/pages, test, lib/services)",
+ "repos": [
+  {
+   "repo": "novel-sound",
+   "url": "https://github.com/ch6vip/novel-sound",
+   "sha": "b333f94bd9ff30823a07518273ee3d907f94631a",
+   "licence": "GPL-3.0 (LICENSE file at pin b333f94bd9ff, GitHub licence API 2026-11-16)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-13T20:25Z",
+    "consent_receipt": "51bbbdf973fa",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T20:25Z (receipt 51bbbdf973fa); selected commit b333f94bd9ff: \"feat: add developer sandbox for AI recovery and sync diagnostics\". LICENSE file at pin b333f94bd9ff detected as GPL-3.0 by the GitHub licence API on 2026-11-16; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @ch6vip, who has not added it."
+   },
+   "paths": [
+    "lib/pages/ai_reading/settings",
+    "lib/services/ai_reading",
+    "test/ai_reading"
+   ]
+  }
+ ]
+}

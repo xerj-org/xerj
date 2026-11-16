@@ -1,0 +1,27 @@
+{
+ "corpus": "nest-ai-org--slm-conversion-bench",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on artificial-intelligence, deep-learning, llm queries this for how nest-ai-org/slm-conversion-bench implements it: Which LLM calls of a real agent can a fine-tuned SLM take over? A pre-registered run of NVIDIA's LLM\u2192SLM conversion (arXiv 2506.02153) on th (selected work: bench, tests)",
+ "repos": [
+  {
+   "repo": "slm-conversion-bench",
+   "url": "https://github.com/nest-ai-org/slm-conversion-bench",
+   "sha": "f2f16302c4bd91e27c410b45c5aea8dd11420caf",
+   "licence": "Apache-2.0 (LICENSE file at pin f2f16302c4bd, GitHub licence API 2026-11-16)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T18:51Z",
+    "consent_receipt": "b36cc4c0df79",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T18:51Z (receipt b36cc4c0df79); selected commit f2f16302c4bd: \"bench run --resume-from: resume an agent run that stopped on an infra\u2026\". LICENSE file at pin f2f16302c4bd detected as Apache-2.0 by the GitHub licence API on 2026-11-16; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @nest-ai-org, who has not added it."
+   },
+   "paths": [
+    "bench",
+    "tests"
+   ]
+  }
+ ]
+}

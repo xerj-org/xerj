@@ -1,0 +1,23 @@
+{
+ "corpus": "cleardaytechgroup--sytequery",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on C# queries this for how ClearDayTechGroup/SyteQuery implements it: SQL editor for CSI SaaS Environments (selected work: SyteQuery.Desktop, SyteQuery.Tests)",
+ "repos": [
+  {
+   "repo": "SyteQuery",
+   "url": "https://github.com/ClearDayTechGroup/SyteQuery",
+   "sha": "0d048a0f820ebbad7285cbb722d9d5881dcdd962",
+   "licence": "MIT (LICENSE file at pin 0d048a0f820e, GitHub licence API 2026-11-16)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-13T20:54Z",
+    "consent_receipt": "d05635dd480a",
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T20:54Z (receipt d05635dd480a); selected commit 0d048a0f820e: \"Quick New Query, a working View menu, and copy from the results grid\". LICENSE file at pin 0d048a0f820e detected as MIT by the GitHub licence API on 2026-11-16; used under that licence with attribution."
+   }
+  }
+ ]
+}
