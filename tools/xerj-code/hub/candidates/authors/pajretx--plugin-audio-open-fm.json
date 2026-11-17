@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Python queries this for how pajretX/plugin.audio.open_FM implements it: KODI's plugin for OPEN.FM (selected work: resources, the project root)",
+ "domain": "an agent working on Python queries this for how pajretX/plugin.audio.open_FM implements it: Kodi plugin - Open FM radio (selected work: resources, the project root)",
  "repos": [
   {
    "repo": "plugin.audio.open_FM",

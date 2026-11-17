@@ -8,15 +8,15 @@
   {
    "repo": "TapoHub-ADV",
    "url": "https://github.com/jan-tdy/TapoHub-ADV",
-   "sha": "9c7d1e7ab38cb30834fd114e0e2287954cc08e08",
-   "licence": "GPL-3.0 (LICENSE file at pin 9c7d1e7ab38c, GitHub licence API 2026-10-28)",
+   "sha": "138052726a6a3198278bb2f56f534f0a1763c6a7",
+   "licence": "GPL-3.0 (LICENSE file at pin 138052726a6a, GitHub licence API 2026-11-17)",
    "review": {
     "spdx": "GPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-28T19:53Z",
     "consent_receipt": "147bb681b510",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T19:53Z (receipt 147bb681b510); pinned to the default-branch head. LICENSE file at pin 9c7d1e7ab38c detected as GPL-3.0 by the GitHub licence API on 2026-10-28; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T19:53Z (receipt 147bb681b510); pinned to the default-branch head. LICENSE file at pin 138052726a6a detected as GPL-3.0 by the GitHub licence API on 2026-11-17; used under that licence with attribution."
    }
   }
  ]
