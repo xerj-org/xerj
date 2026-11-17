@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai, animation, ffmpeg queries this for how heygen-com/hyperframes implements it: Write HTML. Render video. Built for agents (selected work: packages/cli, skills, the project root)",
+ "domain": "an agent working on ai, animation, ffmpeg queries this for how heygen-com/hyperframes implements it: Write HTML. Render video. Built for agents (selected work: packages/player)",
  "repos": [
   {
    "repo": "hyperframes",
    "url": "https://github.com/heygen-com/hyperframes",
-   "sha": "49671b73dd417f7fe0f3c3f500290df18b447cd0",
-   "licence": "Apache-2.0 (LICENSE file at pin 49671b73dd41, GitHub licence API 2026-11-11)",
+   "sha": "2dd708e0a214fa4b8bffadc6a13c7ff55ef954a2",
+   "licence": "Apache-2.0 (LICENSE file at pin 2dd708e0a214, GitHub licence API 2026-10-24)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
-    "at": "2026-10-19T03:08Z",
-    "consent_receipt": "5b83ebbc8d5a",
-    "note": "Inclusion consented by the commit author by email at 2026-10-19T03:08Z (receipt 5b83ebbc8d5a); selected commit 49671b73dd41: \"feat(media-use): source sound effects from Openverse with the bundled\u2026\". LICENSE file at pin 49671b73dd41 detected as Apache-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @heygen-com, who has not added it."
+    "at": "2026-10-14T01:59Z",
+    "consent_receipt": "82dfa66a02ea",
+    "note": "Inclusion consented by the commit author by email at 2026-10-14T01:59Z (receipt 82dfa66a02ea); selected commit 2dd708e0a214: \"fix(player): honor runtime discovery and source in embeds (#5244)\". LICENSE file at pin 2dd708e0a214 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @heygen-com, who has not added it."
    },
    "paths": [
     "packages/cli/src/media-use",

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agentic-ai, ai-agents, developer-tools queries this for how SHEMASOFT/SYSTEM-ENGINEERING implements it: Turn AI coding agents into a governed, traceable, and token-efficient engineering system (selected work: SE-INSTALLER, SCRIPTS)",
+ "domain": "an agent working on agentic-ai, ai-agents, developer-tools queries this for how SHEMASOFT/SYSTEM-ENGINEERING implements it: A governed runtime for AI coding agents: lifecycle, gates, roles and memory \u2014 evidence instead of claims (selected work: SE-INSTALLER, SCRIPTS)",
  "repos": [
   {
    "repo": "SYSTEM-ENGINEERING",
