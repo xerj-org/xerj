@@ -1,0 +1,23 @@
+{
+ "corpus": "zuozuo-ncl--novus-minecraft-launcher",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Java queries this for how zuozuo-ncl/Novus-Minecraft-Launcher implements it: \u4e00\u4e2a\u7531 C++ \u5f15\u5bfc\u5668 + JavaFX \u6838\u5fc3 + Node.js \u8054\u673a\u4e2d\u7ee7\u7ec4\u6210\u7684 Minecraft \u5168\u6808\u542f\u52a8\u5668\u3002\u652f\u6301\u8001\u65e7\u7cfb\u7edf\u3001\u5e95\u5c42\u9632\u7be1\u6539\u4e0e\u4e00\u952e\u8054\u673a\u3002 (selected work: mc-relay-go, MC launcher, the project root)",
+ "repos": [
+  {
+   "repo": "Novus-Minecraft-Launcher",
+   "url": "https://github.com/zuozuo-ncl/Novus-Minecraft-Launcher",
+   "sha": "0fb8ceb0d2d5a710a02a455238a8dd63dfbe226c",
+   "licence": "AGPL-3.0 (LICENSE file at pin 0fb8ceb0d2d5, GitHub licence API 2026-11-17)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-17T10:35Z",
+    "consent_receipt": "8ff226991897",
+    "note": "Inclusion consented by the commit author by email at 2026-11-17T10:35Z (receipt 8ff226991897); selected commit 0fb8ceb0d2d5: \"\u4fdd\u5b58\u5f53\u524d\u8fdb\u5ea6\". LICENSE file at pin 0fb8ceb0d2d5 detected as AGPL-3.0 by the GitHub licence API on 2026-11-17; used under that licence with attribution."
+   }
+  }
+ ]
+}

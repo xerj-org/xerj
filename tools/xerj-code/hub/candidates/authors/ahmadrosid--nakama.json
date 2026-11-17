@@ -20,6 +20,8 @@
    },
    "paths": [
     "apps/server/src",
+    "apps/web/src/components/setup-wizard",
+    "apps/web/src/pages/profiles",
     "packages/db/sql",
     "packages/db/src"
    ]
