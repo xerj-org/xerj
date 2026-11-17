@@ -27,6 +27,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   node writes the rows instead of skipping them as unchanged, and escapes tabs,
   newlines and backslashes in `doc_id` when writing and replaying `.journal`
   files (#3130).
+- Incremental autoindex and watch passes accept an edited file that becomes
+  identical to another indexed file. The existing content group keeps its
+  identity and gains the path as an alias; the superseded group is retired
+  instead of failing with conflicting content and path identities.
 
 ## [1.0.0-rc.102] - 2026-11-06
 

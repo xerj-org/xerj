@@ -773,6 +773,10 @@ editing a handful of files does work proportional to what changed, not to the wh
 common edit-and-rerun / CI case, typically over 95% unchanged. The full content hash still runs
 to detect changes, so total re-index time is floored by hashing, not parsing.
 
+If an edit makes a file identical to another indexed file, the next incremental
+or watch pass keeps the existing content group and records both paths in
+`ax_paths`. The superseded content group is removed; a fresh index is not needed.
+
 ## Build from source
 
 You need a stable Rust toolchain.
