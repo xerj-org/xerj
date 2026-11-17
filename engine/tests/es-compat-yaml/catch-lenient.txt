@@ -17,7 +17,6 @@ aggregations/matrix_stats_multi_value_field.yml · With script params
 aggregations/matrix_stats_single_value_field.yml · With script
 aggregations/matrix_stats_single_value_field.yml · With script params
 aggregations/max_buckets.yml · Max bucket
-aggregations/nested.yml · Illegal reverse nested aggregation to a child nested object
 aggregations/scripted_metric_allow_list.yml · allowed inline scripts do not affect allowed stored scripts
 aggregations/scripted_metric_allow_list.yml · allowed stored scripts do not affect allowed inline scripts
 aggregations/scripted_metric_allow_list.yml · disallow all for empty allow lists
