@@ -20,7 +20,9 @@ measured 0.70 ms cached against 7.80 ms executed), so a timed loop would
 measure the cache, not search. `request_cache=false` does not turn that cache
 off. The `run environment` block at the end of each run prints the node's own
 `xerj_query_cache_hits` / `xerj_query_cache_misses` from `/v1/metrics`: both
-are 0 with the cache off, and a non-zero hit count prints a warning. The same
+are 0 with the cache off, and a non-zero hit count prints a warning. The
+counters are per index, summed over the indexes open at that moment, so a
+deleted index's hits are gone: read them before deleting what you timed. The same
 rule holds for any latency measured outside these scripts: start the node
 with `XERJ_DISABLE_QUERY_CACHE=1`, or send only unique queries.
 

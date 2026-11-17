@@ -158,9 +158,11 @@ XERJ caches whole search responses by default, so a repeated identical query is
 answered from memory instead of being executed (#3020: 0.70 ms cached against
 7.80 ms executed). `request_cache=false` does not turn that cache off. Start
 the node with `XERJ_DISABLE_QUERY_CACHE=1`, or send only unique queries, for any
-latency you publish. The node counts the responses its cache served as
-`xerj_query_cache_hits` on `/v1/metrics`; `bench-matrix.mjs` and the
-[`scripts/bench`](./scripts/bench) repros print that count, and it should be 0.
+latency you publish. `xerj_query_cache_hits` on `/v1/metrics` counts the
+responses the cache served, per index, summed over the indexes open now (a
+deleted index's hits are gone). `bench-matrix.mjs` reads it before and after
+each timed section and the [`scripts/bench`](./scripts/bench) repros print it;
+it should be 0.
 
 Read latencies are measured with a lean keep-alive HTTP client applied identically to both engines (see the methodology note the harness emits). If your change touches a hot path, include before/after numbers in the commit body.
 

@@ -184,9 +184,12 @@ repro_header() {
 }
 
 # The node's own whole-response cache counters (xerj_query_cache_hits /
-# _misses on /v1/metrics, summed over every index). With the cache off both
-# stay 0: no request is even looked up. A non-zero hit count means some
-# measured responses were served from the cache, so it is printed as a warning.
+# _misses on /v1/metrics). They are per-index counters summed over the indexes
+# open at scrape time: a deleted index takes its hits with it, so a script that
+# deletes the index it timed before calling this can read 0 with the cache on.
+# The current scripts report while their timed index still exists. With the
+# cache off both stay 0: no request is even looked up. A non-zero hit count
+# means some measured responses were served from the cache: a warning.
 repro_query_cache_report() {
   local metrics hits misses
   metrics="$(curl -sf "http://127.0.0.1:$REPRO_PORT/v1/metrics" 2>/dev/null)" || {
