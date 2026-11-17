@@ -8,15 +8,15 @@
   {
    "repo": "Ingenium",
    "url": "https://github.com/ajhcs/Ingenium",
-   "sha": "74e456fa9d91636ece622e6542c07bbf86940130",
-   "licence": "MIT (LICENSE file at pin 74e456fa9d91, GitHub licence API 2026-11-17)",
+   "sha": "c476a753778920190b4f7692256cc2ebb04f6068",
+   "licence": "MIT (LICENSE file at pin c476a7537789, GitHub licence API 2026-11-17)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-10T23:53Z",
     "consent_receipt": "c39ce64dfc9f",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T23:53Z (receipt c39ce64dfc9f); pinned to the default-branch head. LICENSE file at pin 74e456fa9d91 detected as MIT by the GitHub licence API on 2026-11-17; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T23:53Z (receipt c39ce64dfc9f); pinned to the default-branch head. LICENSE file at pin c476a7537789 detected as MIT by the GitHub licence API on 2026-11-17; used under that licence with attribution."
    }
   }
  ]

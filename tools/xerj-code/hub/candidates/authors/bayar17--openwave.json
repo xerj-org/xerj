@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on LLVM queries this for how bayar17/OpenWave implements it: Open source Linux-based Phone Operating system (selected work: scripts, the project root, patches)",
+ "domain": "an agent working on C++ queries this for how bayar17/OpenWave implements it: bayar17/OpenWave (C++) (selected work: scripts, the project root, patches)",
  "repos": [
   {
    "repo": "OpenWave",
