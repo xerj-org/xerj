@@ -251,7 +251,11 @@ pub fn parse_url(url: &str) -> Result<ConnParams> {
              dump"
         );
     } else {
-        bail!("a source URL starts with postgres:// (got {url:?})");
+        let scheme = url
+            .split_once("://")
+            .map(|(s, _)| format!("{s}://"))
+            .unwrap_or_else(|| "<missing scheme>".into());
+        bail!("a source URL starts with postgres:// (got {scheme:?})");
     };
     let (main, query) = match rest.split_once('?') {
         Some((m, q)) => (m, Some(q)),
@@ -263,13 +267,14 @@ pub fn parse_url(url: &str) -> Result<ConnParams> {
     };
     let user = match auth {
         Some(a) => {
-            if a.contains(':') {
+            let decoded = pct_decode(a);
+            if a.contains(':') || decoded.contains(':') {
                 bail!(
                     "the URL carries a password; XERJ never stores one. Remove it from the URL and \
                      pass password_env (a variable in the node's environment) or password_file"
                 );
             }
-            pct_decode(a)
+            decoded
         }
         None => std::env::var("USER").unwrap_or_else(|_| "postgres".into()),
     };
@@ -292,10 +297,28 @@ pub fn parse_url(url: &str) -> Result<ConnParams> {
     };
     let mut sslmode = SslMode::Prefer;
     for kv in query.unwrap_or("").split('&').filter(|s| !s.is_empty()) {
-        let (k, v) = kv.split_once('=').unwrap_or((kv, ""));
-        match k {
+        let (raw_k, raw_v) = match kv.split_once('=') {
+            Some((k, v)) => (k, v),
+            None => {
+                let dec = pct_decode(kv);
+                match dec.split_once('=') {
+                    Some((k, _)) if k.eq_ignore_ascii_case("password") => {
+                        bail!(
+                            "the URL carries a password; pass password_env or password_file instead"
+                        )
+                    }
+                    Some((k, _)) => {
+                        bail!("unsupported URL parameter {k:?} (supported: sslmode)")
+                    }
+                    None => (kv, ""),
+                }
+            }
+        };
+        let k_dec = pct_decode(raw_k);
+        let v_dec = pct_decode(raw_v);
+        match k_dec.to_ascii_lowercase().as_str() {
             "sslmode" => {
-                sslmode = match v {
+                sslmode = match v_dec.as_str() {
                     "disable" => SslMode::Disable,
                     "allow" | "prefer" => SslMode::Prefer,
                     "require" | "verify-ca" | "verify-full" => SslMode::Require,
@@ -306,7 +329,7 @@ pub fn parse_url(url: &str) -> Result<ConnParams> {
                 bail!("the URL carries a password; pass password_env or password_file instead")
             }
             "application_name" | "connect_timeout" => {}
-            other => bail!("unsupported URL parameter {other:?} (supported: sslmode)"),
+            _ => bail!("unsupported URL parameter {k_dec:?} (supported: sslmode)"),
         }
     }
     let dbname = if db.is_empty() { user.clone() } else { db };
@@ -411,5 +434,32 @@ mod tests {
         assert!(s.validate().is_err());
         s.watermark_column = Some("updated_at".into());
         s.validate().unwrap();
+    }
+
+    #[test]
+    fn percent_encoded_or_malformed_urls_never_accept_or_echo_a_password() {
+        let s = spec("postgres://app%3Asecret@h/db");
+        assert!(
+            s.validate().is_err(),
+            "percent-encoded password was accepted and echoed in display_url: {}",
+            s.display_url()
+        );
+        for u in [
+            "postgres://app%3Asecret@h/db",
+            "postgres://app%3asecret@h/db",
+            "postgres://app@h/db?%70assword=secret",
+            "postgres://app@h/db?PASSWORD=secret",
+            "postgres://app@h/db?password%3Dsecret",
+            "postgres:/app:secret@h/db",
+            "http://app:secret@h/db",
+        ] {
+            let e = parse_url(u)
+                .expect_err(&format!("{u} was accepted"))
+                .to_string();
+            assert!(
+                !e.contains("secret"),
+                "refusal for {u} echoed the password: {e}"
+            );
+        }
     }
 }

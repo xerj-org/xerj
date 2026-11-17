@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   does not trigger catalog retries. Feedback still drafts a report when catalog
   autofill is unavailable and now warns when its endpoint ignores `XERJ_URL`.
   Use `--url` to select the node explicitly ([#2942](https://github.com/xerj-org/xerj/issues/2942)).
+- `xerj-sources` refuses a percent-encoded password in a source URL without
+  echoing it, and turns truncated `R`, `T` and `D` wire frames into errors
+  instead of panicking (#3013).
 
 ## [1.0.0-rc.102] - 2026-11-06
 
