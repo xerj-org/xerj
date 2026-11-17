@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "OPS",
- "domain": "an agent working on k8s-sig-scheduling, k8s, kubernetes queries this for how kubernetes-sigs/kueue implements it: :vertical_traffic_light: Kubernetes-native Job Queueing and Scheduling (selected work: test, pkg/cache, pkg/scheduler)",
+ "domain": "an agent working on k8s-sig-scheduling, k8s, kubernetes queries this for how kubernetes-sigs/kueue implements it: :vertical_traffic_light: Kubernetes-native Job Queueing and Scheduling (selected work: pkg/scheduler, test, pkg/features)",
  "repos": [
   {
    "repo": "kueue",
    "url": "https://github.com/kubernetes-sigs/kueue",
-   "sha": "96757141d5c75af58c53809d26d55469b1a94b47",
-   "licence": "Apache-2.0 (LICENSE file at pin 96757141d5c7, GitHub licence API 2026-11-11)",
+   "sha": "27b8d9f0272c198687ab0e104ed4d72a8f1c0251",
+   "licence": "Apache-2.0 (LICENSE file at pin 27b8d9f0272c, GitHub licence API 2026-10-24)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
-    "at": "2026-10-12T20:34Z",
-    "consent_receipt": "1a781045b145",
-    "note": "Inclusion consented by the commit author by email at 2026-10-12T20:34Z (receipt 1a781045b145); selected commit 96757141d5c7: \"[TAS] add feature TASReplaceMultipleFailedNodes feature to allow incr\u2026\". LICENSE file at pin 96757141d5c7 detected as Apache-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @kubernetes-sigs, who has not added it."
+    "at": "2026-10-16T09:18Z",
+    "consent_receipt": "1ce7ae90fbb4",
+    "note": "Inclusion consented by the commit author by email at 2026-10-16T09:18Z (receipt 1ce7ae90fbb4); selected commit 27b8d9f0272c: \"Fix FairSharing preemption cycle bug by verifying final targets (#16343)\". LICENSE file at pin 27b8d9f0272c detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @kubernetes-sigs, who has not added it."
    },
    "paths": [
     "keps/2724-topology-aware-scheduling",

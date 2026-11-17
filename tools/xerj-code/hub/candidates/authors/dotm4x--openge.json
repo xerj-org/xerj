@@ -1,9 +1,9 @@
 {
- "corpus": "dotm4x--euphoria",
+ "corpus": "dotm4x--openge",
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on 2d, 3d, dotnet queries this for how dotm4x/euphoria implements it: The foundation for building anything game (selected work: Engine, the project root)",
+ "domain": "an agent working on 2d, 3d, dotnet queries this for how dotm4x/openge implements it: The foundation for building anything game (selected work: Engine, the project root)",
  "repos": [
   {
    "repo": "openge",
