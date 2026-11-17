@@ -704,7 +704,7 @@ pub struct CompatConfig {
 /// Authentication settings.
 ///
 /// **3 settings.**
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct AuthConfig {
     /// Enable API-key authentication (default: `true`).
@@ -717,6 +717,7 @@ pub struct AuthConfig {
     ///
     /// Leave empty in production; the engine writes the generated key to
     /// `<data_dir>/admin.key` on startup.
+    #[serde(serialize_with = "serialize_redacted_secret")]
     pub admin_api_key: String,
     /// Optional read-only metrics scrape token (default: `""` — disabled).
     ///
@@ -727,7 +728,40 @@ pub struct AuthConfig {
     /// that can read metrics but cannot touch index data. The admin key still
     /// works for `/v1/metrics`; when this is empty, metrics require the admin
     /// key like any other endpoint (unchanged behavior).
+    #[serde(serialize_with = "serialize_redacted_secret")]
     pub metrics_token: String,
+}
+
+/// A credential field is safe to display only when it is unset; otherwise the
+/// value is replaced, never shortened or partially shown.
+fn redacted_secret(value: &str) -> &'static str {
+    if value.is_empty() {
+        "<unset>"
+    } else {
+        "<redacted>"
+    }
+}
+
+/// Serialized configurations are used for diagnostics, not as a secret store.
+/// Keep the field present so the config shape stays stable, but never emit the
+/// credential itself.
+fn serialize_redacted_secret<S>(value: &str, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    serializer.serialize_str(if value.is_empty() { "" } else { "<redacted>" })
+}
+
+/// Hand-written so `{:?}` on `AuthConfig` or the parent `Config` cannot print a
+/// usable admin key or metrics token.
+impl std::fmt::Debug for AuthConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AuthConfig")
+            .field("enabled", &self.enabled)
+            .field("admin_api_key", &redacted_secret(&self.admin_api_key))
+            .field("metrics_token", &redacted_secret(&self.metrics_token))
+            .finish()
+    }
 }
 
 impl Default for AuthConfig {
@@ -3038,6 +3072,57 @@ mod tests {
         let mut cfg = Config::default();
         cfg.rerank.cohere.endpoint = "ftp://cohere".into();
         assert!(cfg.validate().is_err());
+    }
+
+    /// `AuthConfig` holds the admin key and the metrics scrape token. Neither
+    /// may appear in `Debug` or in a serialized config: both are routinely
+    /// logged or emitted by diagnostics, and a leaked admin key bypasses every
+    /// other access check.
+    #[test]
+    fn auth_secrets_never_reach_debug_or_json_output() {
+        let auth = AuthConfig {
+            admin_api_key: "admin-secret-3057".into(),
+            metrics_token: "metrics-secret-3057".into(),
+            ..Default::default()
+        };
+
+        let debug = format!("{auth:?}");
+        assert!(!debug.contains("admin-secret-3057"), "{debug}");
+        assert!(!debug.contains("metrics-secret-3057"), "{debug}");
+        assert!(debug.contains("<redacted>"), "{debug}");
+
+        let auth_json = serde_json::to_string(&auth).expect("AuthConfig serialises");
+        assert!(!auth_json.contains("admin-secret-3057"), "{auth_json}");
+        assert!(!auth_json.contains("metrics-secret-3057"), "{auth_json}");
+
+        let config = Config {
+            auth: auth.clone(),
+            ..Default::default()
+        };
+        let config_debug = format!("{config:?}");
+        assert!(
+            !config_debug.contains("admin-secret-3057"),
+            "{config_debug}"
+        );
+        assert!(
+            !config_debug.contains("metrics-secret-3057"),
+            "{config_debug}"
+        );
+
+        let config_json = serde_json::to_string(&config).expect("Config serialises");
+        assert!(!config_json.contains("admin-secret-3057"), "{config_json}");
+        assert!(
+            !config_json.contains("metrics-secret-3057"),
+            "{config_json}"
+        );
+
+        // Redaction must not stop a real config from being loaded.
+        let loaded: AuthConfig = toml::from_str(
+            "admin_api_key = \"admin-secret-3057\"\nmetrics_token = \"metrics-secret-3057\"\n",
+        )
+        .expect("real secrets still deserialize");
+        assert_eq!(loaded.admin_api_key, "admin-secret-3057");
+        assert_eq!(loaded.metrics_token, "metrics-secret-3057");
     }
 
     /// `{:?}` on the whole rerank block never prints either provider's key.
