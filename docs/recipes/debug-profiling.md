@@ -38,6 +38,8 @@ python3 demo/playbooks/debug-profiling/capture.py \
 
 Start the workload from another terminal during the five-second delay. Repeat into fresh data and output directories with `--heap-seconds 30` instead of `--cpu-seconds 30`. Separate runs avoid CPU and heap profiler interference.
 
+If the workload repeats identical searches, run the capture as `XERJ_DISABLE_QUERY_CACHE=1 python3 demo/playbooks/debug-profiling/capture.py ...`; the wrapper passes its environment to the node. Otherwise every repeat after the first is answered from the whole-response query cache and the profile shows cache lookups, not search execution.
+
 Delay is relative to process start, not a readiness check. Delay zero includes configuration, TLS setup, engine replay, and router construction.
 
 ## 3. Validate before analysis

@@ -13,6 +13,19 @@ to want to check. Each one:
   source pointer, and
 - tears the node down (pass `KEEP=1` to keep the data dir and server log).
 
+Every script starts its node with `XERJ_DISABLE_QUERY_CACHE=1` (set by
+`lib/repro.sh`). XERJ caches whole search responses by default, and a repeated
+identical query is then answered from memory instead of executed (#3020
+measured 0.70 ms cached against 7.80 ms executed), so a timed loop would
+measure the cache, not search. `request_cache=false` does not turn that cache
+off. The `run environment` block at the end of each run prints the node's own
+`xerj_query_cache_hits` / `xerj_query_cache_misses` from `/v1/metrics`: both
+are 0 with the cache off, and a non-zero hit count prints a warning. The
+counters are per index, summed over the indexes open at that moment, so a
+deleted index's hits are gone: read them before deleting what you timed. The same
+rule holds for any latency measured outside these scripts: start the node
+with `XERJ_DISABLE_QUERY_CACHE=1`, or send only unique queries.
+
 They are honest by construction: docs/s is computed from the verified
 post-refresh `_count`, never the intended count; kNN recall is scored against
 a client-side brute-force ground truth and `GET /_cat/ann` proves the HNSW
