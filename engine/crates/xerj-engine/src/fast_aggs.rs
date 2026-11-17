@@ -1280,7 +1280,7 @@ impl<'a> FastCtx<'a> {
                     })
                 }
             }
-            MetricKind::ValueCount => json!({ "value": acc.count }),
+            MetricKind::ValueCount => json!({ "value": acc.count, "__xy_agg__": "value_count" }),
         }
     }
 
@@ -1953,11 +1953,12 @@ impl<'a> FastCtx<'a> {
             }
         }
 
+        let sigma = params.get("sigma").and_then(Value::as_f64).unwrap_or(2.0);
         if count == 0 {
             // Mirror run_extended_stats' empty shape exactly: `sum` is a real
             // zero, every higher-order moment is null.
             return Some(json!({
-                "count": 0, "min": Value::Null, "max": Value::Null,
+                "__xy_sigma__": sigma, "count": 0, "min": Value::Null, "max": Value::Null,
                 "avg": Value::Null, "sum": 0.0, "sum_of_squares": Value::Null,
                 "variance": Value::Null, "variance_population": Value::Null,
                 "variance_sampling": Value::Null,
@@ -1982,9 +1983,8 @@ impl<'a> FastCtx<'a> {
         };
         let std_deviation = variance_pop.max(0.0).sqrt();
         let std_deviation_samp = variance_samp.max(0.0).sqrt();
-        let sigma = params.get("sigma").and_then(Value::as_f64).unwrap_or(2.0);
-
         Some(json!({
+            "__xy_sigma__": sigma,
             "count": count,
             "min": min,
             "max": max,
@@ -6073,6 +6073,76 @@ fn vwh_cluster(vals: &[(f64, u64)], num_buckets: usize) -> Vec<VwhBucket> {
 mod range_kw_tests {
     use super::*;
     use xerj_storage::doc_values::KeywordColumn;
+
+    #[test]
+    fn value_count_emission_keeps_reduction_marker() {
+        let empty = MetricAcc::default();
+        assert_eq!(
+            FastCtx::emit_metric(MetricKind::ValueCount, &empty),
+            json!({"value": 0, "__xy_agg__": "value_count"})
+        );
+        let mut acc = MetricAcc::default();
+        acc.add(1.0);
+        acc.add(2.0);
+        assert_eq!(
+            FastCtx::emit_metric(MetricKind::ValueCount, &acc),
+            json!({"value": 2, "__xy_agg__": "value_count"})
+        );
+    }
+
+    #[tokio::test]
+    async fn extended_stats_emission_keeps_custom_sigma_for_reduction() {
+        use xerj_storage::doc_values::NumericColumn;
+        let dir = tempfile::TempDir::new().unwrap();
+        let mut config = xerj_common::config::Config::default();
+        config.server.data_dir = dir.path().to_str().unwrap().to_string();
+        let engine = crate::Engine::new(config).unwrap();
+        engine
+            .create_index("sigma-test", xerj_common::types::Schema::empty())
+            .unwrap();
+        let idx = engine.get_index("sigma-test").unwrap();
+        let bool_fields = std::collections::HashSet::new();
+        let mapped = mapped_fields(&["n"]);
+        let mut cols = std::collections::BTreeMap::new();
+        cols.insert(
+            "n".to_string(),
+            Column::Numeric(NumericColumn::from_iter(
+                [1.0_f64, 2.0].into_iter().map(|v| Some(v.to_bits() as i64)),
+            )),
+        );
+        let mut seg = seg_with_cols(cols);
+        seg.docs = 2;
+        let mut ctx = FastCtx {
+            idx: &idx,
+            segs: vec![seg],
+            mem_docs: std::sync::OnceLock::new(),
+            needs_owned_mem: false,
+            bool_fields: &bool_fields,
+            mapped_fields: &mapped,
+            top_filter: None,
+            top_filter_query: None,
+            top_filter_mem_preds: None,
+            mem_filtered: std::sync::OnceLock::new(),
+            mem_live_gate: None,
+        };
+        let params = json!({"field":"n", "sigma":3.0});
+        let populated = ctx.exec_extended_stats(&params).unwrap();
+        assert_eq!(populated["count"], 2);
+        assert_eq!(populated["__xy_sigma__"], 3.0);
+        assert_eq!(populated["std_deviation_bounds"]["upper"], 3.0);
+        let mut empty_cols = std::collections::BTreeMap::new();
+        empty_cols.insert(
+            "n".to_string(),
+            Column::Numeric(NumericColumn::from_iter(std::iter::empty::<Option<i64>>())),
+        );
+        let mut empty_seg = seg_with_cols(empty_cols);
+        empty_seg.docs = 0;
+        ctx.segs = vec![empty_seg];
+        let empty = ctx.exec_extended_stats(&params).unwrap();
+        assert_eq!(empty["count"], 0);
+        assert_eq!(empty["__xy_sigma__"], 3.0);
+        assert_eq!(empty["variance"], Value::Null);
+    }
 
     /// Canonical RFC3339 timestamps, 24 chars — the shape the query parser
     /// emits and the ingest path normalises to.
