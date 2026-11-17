@@ -193,6 +193,48 @@ fn cleanup_indices(client: &reqwest::blocking::Client, base_url: &str) {
         .send();
 }
 
+/// Delete every template between tests, as ES's `ESRestTestCase#wipeCluster`
+/// does unless a suite opts out with `preserveTemplatesUponCompletion`. Without
+/// it a template one case creates is still there in the next, so a later
+/// `create: true` PUT of the same name is (correctly) refused. Composable
+/// templates go first because ES refuses to drop a component template one of
+/// them still uses. The wildcard is only read, never deleted: names are
+/// deleted one at a time. Errors are ignored, as in [`cleanup_indices`].
+fn cleanup_templates(client: &reqwest::blocking::Client, base_url: &str) {
+    let names = |kind: &str| -> Vec<String> {
+        let Ok(resp) = client.get(format!("{base_url}/{kind}/*")).send() else {
+            return Vec::new();
+        };
+        let Ok(body) = resp.json::<Value>() else {
+            return Vec::new();
+        };
+        let listed = match kind {
+            "_index_template" => body.get("index_templates"),
+            "_component_template" => body.get("component_templates"),
+            _ => {
+                return body
+                    .as_object()
+                    .map(|m| m.keys().cloned().collect())
+                    .unwrap_or_default()
+            }
+        };
+        listed
+            .and_then(Value::as_array)
+            .map(|items| {
+                items
+                    .iter()
+                    .filter_map(|t| t.get("name").and_then(Value::as_str).map(str::to_owned))
+                    .collect()
+            })
+            .unwrap_or_default()
+    };
+    for kind in ["_index_template", "_component_template", "_template"] {
+        for name in names(kind) {
+            let _ = client.delete(format!("{base_url}/{kind}/{name}")).send();
+        }
+    }
+}
+
 fn run_file(
     client: &reqwest::blocking::Client,
     base_url: &str,
@@ -201,6 +243,7 @@ fn run_file(
     stats: &mut Stats,
 ) {
     cleanup_indices(client, base_url);
+    cleanup_templates(client, base_url);
 
     let content = match std::fs::read_to_string(path) {
         Ok(c) => c,
@@ -263,6 +306,7 @@ fn run_file(
 
     for (name, steps) in &tests {
         cleanup_indices(client, base_url);
+        cleanup_templates(client, base_url);
         let key = catch_lenient::key(path, name);
         stats.ran.insert(key.clone());
         catch_lenient::enter(key);
@@ -1124,7 +1168,8 @@ fn resolve_action(action: &str, params: &serde_yaml::Mapping) -> (String, String
         }
         "indices.put_template" => {
             let name = get_param_str(params, "name").unwrap_or_default();
-            ("PUT".into(), format!("/_template/{}", name), body)
+            let path = format!("/_template/{}{}", name, create_query(params));
+            ("PUT".into(), path, body)
         }
         "indices.get_mapping" => {
             let path = if index.is_empty() {
@@ -1182,7 +1227,8 @@ fn resolve_action(action: &str, params: &serde_yaml::Mapping) -> (String, String
         }
         "indices.put_index_template" | "indices.put_index_template.json" => {
             let name = get_param_str(params, "name").unwrap_or_default();
-            ("PUT".into(), format!("/_index_template/{}", name), body)
+            let path = format!("/_index_template/{}{}", name, create_query(params));
+            ("PUT".into(), path, body)
         }
         "indices.get_index_template" => {
             let name = get_param_str(params, "name").unwrap_or_default();
@@ -1681,6 +1727,15 @@ fn resolve_action(action: &str, params: &serde_yaml::Mapping) -> (String, String
             ("GET".into(), path, body)
         }
     }
+}
+
+/// `?create=<v>` when the step sets `create`, else nothing. The template
+/// PUTs refuse a taken name only when this reaches the server; without it a
+/// `create: true` step silently became a plain replace.
+fn create_query(params: &serde_yaml::Mapping) -> String {
+    get_param_str(params, "create")
+        .map(|v| format!("?create={v}"))
+        .unwrap_or_default()
 }
 
 fn get_param_str(params: &serde_yaml::Mapping, key: &str) -> Option<String> {
