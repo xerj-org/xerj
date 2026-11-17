@@ -163,7 +163,10 @@ fn emit_doc(
     let text = String::from_utf8_lossy(body);
     // #3157: an over-budget body is junk, same as one that does not parse.
     if matches!(
-        crate::yaml_budget::check_yaml_node_budget(&text, crate::yaml_budget::YAML_NODE_BUDGET),
+        crate::yaml_budget::check_yaml_node_budget(
+            &text,
+            crate::yaml_budget::yaml_node_budget(&text)
+        ),
         crate::yaml_budget::YamlBudgetOutcome::OverBudget
     ) {
         if !truncated_by_sampling {
@@ -290,7 +293,10 @@ pub fn extract_meta(path: &Path, gzip: bool, sink: Sink) -> Result<ExtractStats>
     // #3157: an over-budget .meta file is junk, same as one that does not
     // parse.
     if matches!(
-        crate::yaml_budget::check_yaml_node_budget(text, crate::yaml_budget::YAML_NODE_BUDGET),
+        crate::yaml_budget::check_yaml_node_budget(
+            text,
+            crate::yaml_budget::yaml_node_budget(text)
+        ),
         crate::yaml_budget::YamlBudgetOutcome::OverBudget
     ) {
         stats.junk += 1;

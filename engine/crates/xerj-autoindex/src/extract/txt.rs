@@ -139,7 +139,10 @@ fn frontmatter(text: &str) -> Option<(serde_yaml::Mapping, &str)> {
     // #3157: an over-budget block is not frontmatter, same as a block
     // strict YAML refuses.
     if matches!(
-        crate::yaml_budget::check_yaml_node_budget(block, crate::yaml_budget::YAML_NODE_BUDGET),
+        crate::yaml_budget::check_yaml_node_budget(
+            block,
+            crate::yaml_budget::yaml_node_budget(block)
+        ),
         crate::yaml_budget::YamlBudgetOutcome::OverBudget
     ) {
         return None;
@@ -243,7 +246,10 @@ fn skill_card(text: &str) -> Option<SkillCard> {
     // #3157: an over-budget block is treated exactly like one strict YAML
     // refuses, so the two keys are read from their own lines.
     let over_budget = matches!(
-        crate::yaml_budget::check_yaml_node_budget(block, crate::yaml_budget::YAML_NODE_BUDGET),
+        crate::yaml_budget::check_yaml_node_budget(
+            block,
+            crate::yaml_budget::yaml_node_budget(block)
+        ),
         crate::yaml_budget::YamlBudgetOutcome::OverBudget
     );
     let parsed = (!over_budget).then(|| serde_yaml::from_str(block));
