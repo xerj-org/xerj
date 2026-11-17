@@ -2,8 +2,8 @@
  "corpus": "peacemakerbill--premisave-auth-service",
  "cloned_at": null,
  "status": "draft",
- "shelf": "SEC",
- "domain": "an agent working on HTML queries this for how peacemakerbill/premisave_auth_service implements it: Spring Auth Microservice for Real Estate System(Premisave) (selected work: src/main, the project root)",
+ "shelf": "OPS",
+ "domain": "an agent working on authentication, cloudinary, docker queries this for how peacemakerbill/premisave_auth_service implements it: Identity service for Premisave: sign up, sign in, JWT sessions with refresh rotation, social sign in, Home Owner applications and admin secu (selected work: src/main, the project root)",
  "repos": [
   {
    "repo": "premisave_auth_service",

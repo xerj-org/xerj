@@ -1,0 +1,23 @@
+{
+ "corpus": "holzfa--vura-intelij",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Kotlin queries this for how holzfa/Vura-Intelij implements it: The official IntelIj plugin for the Vura language (selected work: src/main, the project root, gradle)",
+ "repos": [
+  {
+   "repo": "Vura-Intelij",
+   "url": "https://github.com/holzfa/Vura-Intelij",
+   "sha": "434dcba97778135d80865212a1f30e077fd65bb8",
+   "licence": "Unlicense (LICENSE file at pin 434dcba97778, GitHub licence API 2026-11-17)",
+   "review": {
+    "spdx": "Unlicense",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-17T19:16Z",
+    "consent_receipt": "e5c58aac27f1",
+    "note": "Inclusion consented by the commit author by email at 2026-11-17T19:16Z (receipt e5c58aac27f1); selected commit 434dcba97778: \"Added business logic for lexing and highlighting.\". LICENSE file at pin 434dcba97778 detected as Unlicense by the GitHub licence API on 2026-11-17; used under that licence with attribution."
+   }
+  }
+ ]
+}

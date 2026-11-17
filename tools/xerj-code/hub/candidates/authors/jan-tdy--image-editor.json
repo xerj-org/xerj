@@ -8,15 +8,15 @@
   {
    "repo": "image-editor",
    "url": "https://github.com/jan-tdy/image-editor",
-   "sha": "d72a913474de4db3f3604e7b6cd734738068dea8",
-   "licence": "MIT (LICENSE file at pin d72a913474de, GitHub licence API 2026-11-07)",
+   "sha": "0ffe9d4f09a381e0ad325d6747ae25ba35e715f6",
+   "licence": "MIT (LICENSE file at pin 0ffe9d4f09a3, GitHub licence API 2026-11-17)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T19:53Z",
     "consent_receipt": "5c34d697b466",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T19:53Z (receipt 5c34d697b466); pinned to the default-branch head. LICENSE file at pin d72a913474de detected as MIT by the GitHub licence API on 2026-11-07; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T19:53Z (receipt 5c34d697b466); pinned to the default-branch head. LICENSE file at pin 0ffe9d4f09a3 detected as MIT by the GitHub licence API on 2026-11-17; used under that licence with attribution."
    }
   }
  ]

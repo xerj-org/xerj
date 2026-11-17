@@ -1,9 +1,9 @@
 {
- "corpus": "wystaf--vibe-assembly",
+ "corpus": "chukar-ai--vibe-assembly",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai, free-ai, multi-agent queries this for how WYSTAF/Vibe_Assembly implements it: Vibe Assembly v2.4.0 - zero-dollar, infinite-context vibe coding architecture. Pure-Rust multi-agent harness with hash-anchored patches, liv (selected work: crates/va-cli, crates/va-harness, crates/va-core)",
+ "domain": "an agent working on ai, free-ai, multi-agent queries this for how Chukar-AI/Vibe_Assembly implements it: Vibe Assembly v2.4.0 - zero-dollar, infinite-context vibe coding architecture. Pure-Rust multi-agent harness with hash-anchored patches, liv (selected work: crates/va-cli, crates/va-harness, crates/va-core)",
  "repos": [
   {
    "repo": "Vibe_Assembly",

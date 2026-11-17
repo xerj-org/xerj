@@ -1,9 +1,9 @@
 {
- "corpus": "iruzen-dono--hermes-project-oracle",
+ "corpus": "iruzen-dono--project-oracle",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agents-md, ai-agent, developer-tools queries this for how iruzen-dono/hermes-project-oracle implements it: Scanner and auditor for AI agent context files - generates AGENTS.md/CLAUDE.md, detects drift in CI, scores existing context files for noise (selected work: scripts, tests, the project root)",
+ "domain": "an agent working on agents-md, ai-agent, developer-tools queries this for how iruzen-dono/project-oracle implements it: Scanner and auditor for AI agent context files - generates AGENTS.md/CLAUDE.md, detects drift in CI, scores existing context files for noise (selected work: scripts, tests, the project root)",
  "repos": [
   {
    "repo": "hermes-project-oracle",
