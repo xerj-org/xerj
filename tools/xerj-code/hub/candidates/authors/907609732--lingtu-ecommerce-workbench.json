@@ -1,9 +1,9 @@
 {
- "corpus": "907609732--wucheng-ecommerce-erp-v2",
+ "corpus": "907609732--lingtu-ecommerce-workbench",
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on JavaScript queries this for how 907609732/wucheng-ecommerce-erp-v2 implements it: \u7075\u5154\u7535\u5546\u5de5\u4f5c\u53f0-\u7edf\u8ba1\u91c7\u8d2d\u4fe1\u606f,\u5206\u5e97\u94fa\u7edf\u8ba1\u9500\u552e\u989d,\u81ea\u52a8\u751f\u6210\u5229\u6da6\u62a5\u8868",
+ "domain": "an agent working on JavaScript queries this for how 907609732/lingtu-ecommerce-workbench implements it: \u7075\u5154\u7535\u5546\u5de5\u4f5c\u53f0\uff5c\u91c7\u8d2d\u7ba1\u7406\u3001\u5206\u5e97\u94fa\u9500\u552e\u7edf\u8ba1\u4e0e\u7ecf\u8425\u5229\u6da6\u603b\u89c8\uff0c\u652f\u6301\u98de\u725b NAS \u539f\u751f\u5e94\u7528\u4e0e\u6d4f\u89c8\u5668\u8bbf\u95ee\u3002",
  "repos": [
   {
    "repo": "wucheng-ecommerce-erp-v2",

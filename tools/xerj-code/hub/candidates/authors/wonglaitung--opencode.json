@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on TypeScript queries this for how wonglaitung/opencode implements it: Windows \u4e0a\u7684\u56e2\u961f AI \u7f16\u7a0b\u5de5\u4f5c\u53f0\uff1a\u53cc\u51fb\u5b89\u88c5\u3001\u9009\u76ee\u5f55\u548c\u5de5\u4f5c\u6d41\u5c31\u80fd\u5f00\u5de5\uff1b\u8fc7\u7a0b\u53ef\u7ba1\u3001\u7ed3\u679c\u53ef\u4ea4\u63a5\u3001\u540c\u4e8b\u53ef\u65c1\u89c2\u3002 (selected work: opencode-session-mgmt)",
+ "domain": "an agent working on TypeScript queries this for how wonglaitung/opencode implements it: \u56e2\u961f AI \u7f16\u7a0b\u5de5\u4f5c\u53f0\uff1a\u53cc\u51fb\u5b89\u88c5\u3001\u9009\u76ee\u5f55\u548c\u5de5\u4f5c\u6d41\u5c31\u80fd\u5f00\u5de5\uff1b\u8fc7\u7a0b\u53ef\u7ba1\u3001\u7ed3\u679c\u53ef\u4ea4\u63a5\u3001\u540c\u4e8b\u53ef\u65c1\u89c2\u3002 (selected work: opencode-session-mgmt)",
  "repos": [
   {
    "repo": "opencode",

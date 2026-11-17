@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on liquid, liquid-glass, liqui-design queries this for how leefanv/liqui-design implements it: Liquid glass UI components for React, built on Base UI. Distributed as source through the shadcn CLI (selected work: apps/www)",
+ "domain": "an agent working on liquid, liquid-glass, liqui-design queries this for how leefanv/liqui-design implements it: Liquid glass components for React, built on Base UI. Real refraction with no WebGL, in Safari and Firefox too: one SVG filter, maps baked on (selected work: apps/www)",
  "repos": [
   {
    "repo": "liqui-design",
