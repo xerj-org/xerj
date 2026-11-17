@@ -279,7 +279,16 @@ fn registry() -> &'static [LangDef] {
                 SCALA_Q,
             ),
             def("dart", &["dart"], tree_sitter_dart::LANGUAGE.into(), DART_Q),
-            def("lua", &["lua"], tree_sitter_lua::LANGUAGE.into(), LUA_Q),
+            // `.luau` is Roblox's typed Lua dialect; tree-sitter-lua parses the
+            // declaration forms it shares with Lua and recovers from type
+            // annotations. Without this row the sniffer called .luau files
+            // non-code while `xerj corpus index` counted them as code (#2940).
+            def(
+                "lua",
+                &["lua", "luau"],
+                tree_sitter_lua::LANGUAGE.into(),
+                LUA_Q,
+            ),
             // `.pl` is also Prolog. Perl owns it: overwhelmingly dominant in
             // real repos, and no Prolog grammar is registered to probe for.
             def(
@@ -3542,6 +3551,7 @@ export { type specTypeOnly as Alias, valueStore };
             ("sc", "scala"),
             ("dart", "dart"),
             ("lua", "lua"),
+            ("luau", "lua"),
             ("pl", "perl"),
             ("pm", "perl"),
             ("r", "r"),
@@ -4593,6 +4603,26 @@ export { type specTypeOnly as Alias, valueStore };
         assert!(has(&s, "helper", "function"), "got {s:?}");
         assert!(has(&s, "standalone", "function"), "got {s:?}");
         assert!(has(&s, "handler", "function"), "got {s:?}");
+    }
+
+    /// #2940: Roblox plugins are `.luau` — typed Lua. The file must be code to
+    /// the sniffer, and the declaration spellings a plugin uses must resolve
+    /// even where the grammar meets Luau-only type syntax.
+    #[test]
+    fn luau() {
+        assert!(is_code_ext("luau"), ".luau must be code");
+        let s = syms(
+            "lua",
+            "local function greet(name: string): string\n\
+             \x20 return `hello {name}`\n\
+             end\n\
+             function M.add(a: number, b: number): number return a + b end\n\
+             function M:reset() end\n\
+             return M\n",
+        );
+        assert!(has(&s, "greet", "function"), "got {s:?}");
+        assert!(has(&s, "add", "function"), "got {s:?}");
+        assert!(has(&s, "reset", "method"), "got {s:?}");
     }
 
     #[test]
