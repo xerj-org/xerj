@@ -1,9 +1,9 @@
 {
- "corpus": "krabiclaw--krabiclaw",
+ "corpus": "blawby--blawby",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agpl, booking, chatgpt-apps queries this for how krabiclaw/krabiclaw implements it: Open-source websites, bookings, payments and messaging for local businesses, run from the dashboard or from ChatGPT and Claude over MCP (selected work: tests, server, pages)",
+ "domain": "an agent working on agpl, booking, chatgpt-apps queries this for how Blawby/blawby implements it: Open-source websites, bookings, payments and messaging for local businesses, run from the dashboard or from ChatGPT and Claude over MCP (selected work: tests, server, pages)",
  "repos": [
   {
    "repo": "krabiclaw",

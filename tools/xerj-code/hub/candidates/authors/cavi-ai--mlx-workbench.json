@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on mlx, llm, local-first queries this for how cavi-ai/mlx-workbench implements it: Prepare, check and serve local models on Apple Silicon from a native macOS app powered by MLX Agent (selected work: mlx-mac)",
+ "domain": "an agent working on mlx, llm, local-first queries this for how cavi-ai/mlx-workbench implements it: Prepare, compare and run local AI models on your Mac, with multimodal output review, model serving and storage cleanup (selected work: mlx-mac)",
  "repos": [
   {
    "repo": "mlx-workbench",

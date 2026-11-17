@@ -1,9 +1,9 @@
 {
- "corpus": "mrmehulkhanna--praxis",
+ "corpus": "mrmehulkhanna--mkos",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-safety, linux, llm queries this for how MrMehulkhanna/praxis implements it: A local-first AI operating environment for Linux (selected work: iso)",
+ "domain": "an agent working on ai-safety, linux, llm queries this for how MrMehulkhanna/mkos implements it: A local-first AI operating environment for Linux (selected work: iso)",
  "repos": [
   {
    "repo": "praxis",
