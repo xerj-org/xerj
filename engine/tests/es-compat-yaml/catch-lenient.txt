@@ -32,7 +32,6 @@ aggregations/sig_terms.yml · Misspelled fields get "did you mean"
 aggregations/stats_metric_fail_formatting.yml · fail formatting
 aggregations/top_hits.yml · having
 search/110_field_collapsing.yml · field collapsing and scroll
-search/110_field_collapsing.yml · field collapsing and search_after with invalid sort
 search/110_field_collapsing.yml · Test collapse with inner_hits and missing name fails
 search/115_multiple_field_collapsing.yml · two levels fields collapsing
 search/150_rewrite_on_coordinator.yml · Ensure that we fetch the document only once
