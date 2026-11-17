@@ -8,15 +8,15 @@
   {
    "repo": "monuments-of-india",
    "url": "https://github.com/amananandrai/monuments-of-india",
-   "sha": "a7b50c4d29e631f6a3b88104ebc3924db2386751",
-   "licence": "MIT (LICENSE file at pin a7b50c4d29e6, GitHub licence API 2026-11-17)",
+   "sha": "7b09b6049b7ae68f546674a0014e1c211603708e",
+   "licence": "MIT (LICENSE file at pin 7b09b6049b7a, GitHub licence API 2026-11-17)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-11T16:49Z",
     "consent_receipt": "057b896c7e9f",
-    "note": "Inclusion consented by the commit author by email at 2026-11-11T16:49Z (receipt 057b896c7e9f); selected commit a7b50c4d29e6: \"feat: implement interactive 3D monuments of India explorer web app\". LICENSE file at pin a7b50c4d29e6 detected as MIT by the GitHub licence API on 2026-11-17; used under that licence with attribution. Pinned to head a7b50c4d29e6 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T16:49Z (receipt 057b896c7e9f); selected commit 7b09b6049b7a: \"feat: implement interactive 3D monuments of India explorer web app\". LICENSE file at pin 7b09b6049b7a detected as MIT by the GitHub licence API on 2026-11-17; used under that licence with attribution. Pinned to head 7b09b6049b7a (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]
