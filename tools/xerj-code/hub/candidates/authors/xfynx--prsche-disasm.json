@@ -8,15 +8,15 @@
   {
    "repo": "prsche-disasm",
    "url": "https://github.com/xfynx/prsche-disasm",
-   "sha": "e902614ef5cc02feb06b4b0af819d55f18d7aca9",
-   "licence": "MIT (LICENSE file at pin e902614ef5cc, GitHub licence API 2026-11-16)",
+   "sha": "80f2eaf99fd37b0e4339cb3b3017bc8562e661bf",
+   "licence": "MIT (LICENSE file at pin 80f2eaf99fd3, GitHub licence API 2026-11-17)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-25T11:25Z",
     "consent_receipt": "e5bdecdeec14",
-    "note": "Inclusion consented by the commit author by email at 2026-10-25T11:25Z (receipt e5bdecdeec14); selected commit e902614ef5cc: \"Verify REA CLI and persistent MCP sessions; update recovery checkpoint\". LICENSE file at pin e902614ef5cc detected as MIT by the GitHub licence API on 2026-11-16; used under that licence with attribution. Pinned to head e902614ef5cc (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-25T11:25Z (receipt e5bdecdeec14); selected commit 80f2eaf99fd3: \"Verify REA CLI and persistent MCP sessions; update recovery checkpoint\". LICENSE file at pin 80f2eaf99fd3 detected as MIT by the GitHub licence API on 2026-11-17; used under that licence with attribution. Pinned to head 80f2eaf99fd3 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]
