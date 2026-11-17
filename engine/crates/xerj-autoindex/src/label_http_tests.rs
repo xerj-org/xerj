@@ -396,6 +396,7 @@ fn cfg(root: &Path, state_dir: &Path, url: &str, label: &Path) -> IndexCfg {
         stub_globs: Vec::new(),
         default_stubs: true,
         url: url.to_owned(),
+        ca_cert: None,
         api_key: None,
         api_key_file: None,
         workers: 1,

@@ -663,6 +663,7 @@ impl CatalogClient {
                 .timeout(CATALOG_TIMEOUT)
                 .connect_timeout(Duration::from_secs(1)),
             url,
+            None,
         )
         .build()
         .ok()?;
