@@ -7036,14 +7036,27 @@ fn merge_metric_agg(old: &Value, new: &Value) -> Option<Value> {
         let mut out = serde_json::Map::new();
         out.insert("value".to_string(), value);
         out.insert("__xy_agg__".to_string(), Value::String(t.to_string()));
-        // Preserve value_as_string from whichever side has it (date
-        // metrics emit both and we don't want to strip the formatted
-        // representation during the numeric merge).
-        if let Some(vas) = new_obj
-            .get("value_as_string")
-            .or_else(|| old_obj.get("value_as_string"))
-            .cloned()
-        {
+        // A formatted extremum belongs to the side that supplied its numeric
+        // value. Taking the newer shard's string pairs unrelated dates.
+        let formatted = match t {
+            "min" | "max" => {
+                let av = a.and_then(Value::as_f64);
+                let bv = b.and_then(Value::as_f64);
+                let winner = match (av, bv) {
+                    (Some(x), Some(y)) if (t == "min" && x <= y) || (t == "max" && x >= y) => {
+                        Some(old_obj)
+                    }
+                    (_, Some(_)) => Some(new_obj),
+                    (Some(_), None) => Some(old_obj),
+                    _ => None,
+                };
+                winner.and_then(|o| o.get("value_as_string"))
+            }
+            _ => new_obj
+                .get("value_as_string")
+                .or_else(|| old_obj.get("value_as_string")),
+        };
+        if let Some(vas) = formatted.cloned() {
             out.insert("value_as_string".to_string(), vas);
         }
         return Some(Value::Object(out));
@@ -7327,6 +7340,49 @@ mod merge_bucket_agg_keyed_tests {
     // summing across the same indices. Found live via a Kibana/OSD
     // Timelion panel's `filters` + `query_string` aggregation reporting
     // doc_count 0 on a multi-index (`_all`) search.
+    #[test]
+    fn date_metric_text_follows_the_numeric_winner() {
+        for kind in ["min", "max"] {
+            let a = json!({"value":1577836800000.0,"value_as_string":"2020-01-01T00:00:00.000Z","__xy_agg__":kind});
+            let b = json!({"value":1704067200000.0,"value_as_string":"2024-01-01T00:00:00.000Z","__xy_agg__":kind});
+            let winner = if kind == "min" { &a } else { &b };
+            for (left, right) in [(&a, &b), (&b, &a)] {
+                let result = merge_metric_agg(left, right).unwrap();
+                assert_eq!(result["value"], winner["value"]);
+                assert_eq!(result["value_as_string"], winner["value_as_string"]);
+            }
+        }
+    }
+
+    #[test]
+    fn date_metric_text_never_comes_from_a_losing_or_empty_side() {
+        for kind in ["min", "max"] {
+            let valid = json!({"value":1577836800000.0,
+                "value_as_string":"2020-01-01T00:00:00.000Z","__xy_agg__":kind});
+            let empty = json!({"value":null,"__xy_agg__":kind});
+            for (left, right) in [(&valid, &empty), (&empty, &valid)] {
+                let result = merge_metric_agg(left, right).unwrap();
+                assert_eq!(result["value"], valid["value"]);
+                assert_eq!(result["value_as_string"], valid["value_as_string"]);
+            }
+            let mut unformatted = valid.clone();
+            unformatted
+                .as_object_mut()
+                .unwrap()
+                .remove("value_as_string");
+            let loser = json!({"value":if kind == "min" {1704067200000.0} else {946684800000.0},
+                "value_as_string":"must not be copied","__xy_agg__":kind});
+            for (left, right) in [(&unformatted, &loser), (&loser, &unformatted)] {
+                let result = merge_metric_agg(left, right).unwrap();
+                assert_eq!(result["value"], unformatted["value"]);
+                assert!(result.get("value_as_string").is_none());
+            }
+            let result = merge_metric_agg(&empty, &empty).unwrap();
+            assert!(result["value"].is_null());
+            assert!(result.get("value_as_string").is_none());
+        }
+    }
+
     #[test]
     fn keyed_filters_agg_sums_doc_count_across_indices() {
         let from_index_a = json!({
