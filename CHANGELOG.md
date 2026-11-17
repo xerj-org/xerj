@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `xerj-autoindex`: detect OpenSpec (`openspec/`) and `github/spec-kit` (`.specify/`, `specs/<feature>/spec.md`) layouts and route specs, constitutions, and ADRs into a dedicated `<prefix>-specs` corpus by default (#2966).
+
 ### Fixed
 
 - `xerj autoindex` and `xerj feedback` check the node identity before querying
