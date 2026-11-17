@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "HEALTH",
- "domain": "an agent working on bioinformatics, computational-biology, single-cell queries this for how GregorLueg/bixverse implements it: An R package that provides Rust-based interfaces into your favourite bioinformatics, computational biology methods. Also, analyse 1m cells o (selected work: R, inst, man)",
+ "domain": "an agent working on bioinformatics, computational-biology, single-cell queries this for how GregorLueg/bixverse implements it: An R package that provides Rust-based interfaces into your favourite bioinformatics, computational biology methods. Also, analyse 1m cells ( (selected work: R, inst, man)",
  "repos": [
   {
    "repo": "bixverse",

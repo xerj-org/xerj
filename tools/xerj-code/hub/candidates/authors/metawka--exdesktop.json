@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on C++ queries this for how metawka/exDesktop implements it: Unofficial Cross-Platform Desktop client with customization, channel feed and Python plugins (selected work: Telegram)",
+ "domain": "an agent working on telegram, telegram-client, exdesktop queries this for how metawka/exDesktop implements it: Unofficial Cross-Platform Desktop client with customization, channel feed and Python plugins (selected work: Telegram)",
  "repos": [
   {
    "repo": "exDesktop",

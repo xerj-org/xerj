@@ -8,15 +8,15 @@
   {
    "repo": "proof",
    "url": "https://github.com/h0ffmann/proof",
-   "sha": "932950a87b6c31601eaa64bde1e398f042ebbbfc",
-   "licence": "MPL-2.0 (LICENSE file at pin 932950a87b6c, GitHub licence API 2026-11-15)",
+   "sha": "0c6f3e3d1d366df0a3209439e168d26ea6c23831",
+   "licence": "MPL-2.0 (LICENSE file at pin 0c6f3e3d1d36, GitHub licence API 2026-11-17)",
    "review": {
     "spdx": "MPL-2.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-11-10T15:11Z",
     "consent_receipt": "78aadbf1cbe0",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T15:11Z (receipt 78aadbf1cbe0); pinned to the default-branch head. LICENSE file at pin 932950a87b6c detected as MPL-2.0 by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T15:11Z (receipt 78aadbf1cbe0); pinned to the default-branch head. LICENSE file at pin 0c6f3e3d1d36 detected as MPL-2.0 by the GitHub licence API on 2026-11-17; used under that licence with attribution."
    }
   }
  ]

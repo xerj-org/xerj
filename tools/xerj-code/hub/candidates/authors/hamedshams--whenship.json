@@ -8,15 +8,15 @@
   {
    "repo": "whenship",
    "url": "https://github.com/HamedShams/whenship",
-   "sha": "0de4af292891e284f6a385bc771b1c7fb4321cb3",
-   "licence": "BSD-3-Clause (LICENSE file at pin 0de4af292891, GitHub licence API 2026-11-16)",
+   "sha": "f798b68cec6b60f29a678570ff595ea8fdcb2021",
+   "licence": "BSD-3-Clause (LICENSE file at pin f798b68cec6b, GitHub licence API 2026-11-17)",
    "review": {
     "spdx": "BSD-3-Clause",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-03T17:16Z",
     "consent_receipt": "0810be4ccaf4",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-03T17:16Z (receipt 0810be4ccaf4); pinned to the default-branch head. LICENSE file at pin 0de4af292891 detected as BSD-3-Clause by the GitHub licence API on 2026-11-16; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-03T17:16Z (receipt 0810be4ccaf4); pinned to the default-branch head. LICENSE file at pin f798b68cec6b detected as BSD-3-Clause by the GitHub licence API on 2026-11-17; used under that licence with attribution."
    }
   }
  ]

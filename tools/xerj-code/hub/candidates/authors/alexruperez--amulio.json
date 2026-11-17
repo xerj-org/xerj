@@ -8,15 +8,15 @@
   {
    "repo": "amulio",
    "url": "https://github.com/alexruperez/amulio",
-   "sha": "088334409a4c3aeb7973411b07450c3250058f15",
-   "licence": "Apache-2.0 (LICENSE file at pin 088334409a4c, GitHub licence API 2026-11-16)",
+   "sha": "9940c2fe9352dcb5e0c3618404db70685fc7eb45",
+   "licence": "Apache-2.0 (LICENSE file at pin 9940c2fe9352, GitHub licence API 2026-11-17)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T18:13Z",
     "consent_receipt": "e45f86f5cb4b",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T18:13Z (receipt e45f86f5cb4b); pinned to the default-branch head. LICENSE file at pin 088334409a4c detected as Apache-2.0 by the GitHub licence API on 2026-11-16; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T18:13Z (receipt e45f86f5cb4b); pinned to the default-branch head. LICENSE file at pin 9940c2fe9352 detected as Apache-2.0 by the GitHub licence API on 2026-11-17; used under that licence with attribution."
    }
   }
  ]
