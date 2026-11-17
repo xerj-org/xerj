@@ -18,11 +18,6 @@ aggregations/matrix_stats_single_value_field.yml · With script
 aggregations/matrix_stats_single_value_field.yml · With script params
 aggregations/max_buckets.yml · Max bucket
 aggregations/nested.yml · Illegal reverse nested aggregation to a child nested object
-aggregations/pipeline.yml · Max pipeline on percentiles hdr agg without specifying percent
-aggregations/pipeline.yml · Max pipeline on percentiles tdigest agg without specifying percent
-aggregations/pipeline.yml · Max pipeline on percentiles with incorrect name
-aggregations/pipeline.yml · Max pipeline on terms agg
-aggregations/pipeline.yml · Max pipeline through terms agg
 aggregations/rare_terms.yml · IP test
 aggregations/scripted_metric_allow_list.yml · allowed inline scripts do not affect allowed stored scripts
 aggregations/scripted_metric_allow_list.yml · allowed stored scripts do not affect allowed inline scripts
