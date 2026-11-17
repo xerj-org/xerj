@@ -17340,6 +17340,19 @@ async fn search_impl(
     if let Some(q) = body.query.as_mut() {
         rewrite_unqueryable_exists(q, &state, &participating_indices);
     }
+    // #3185 follow-up: the member filters get the same `exists` rewrite the
+    // user query gets. They used to sit inside `body.query`; now they are
+    // parsed separately, and without this a filter on an unqueryable field
+    // was answered from source instead of matching nothing. The field-alias
+    // rewrite is deliberately NOT repeated here: the engine resolves alias
+    // fields per index at execution time (`rewrite_query_aliases`), so a
+    // filter naming an alias field already behaves like the query (see
+    // `alias_filter_gets_query_rewrites.rs`).
+    for filters in member_alias_filters.values_mut() {
+        for filter in filters {
+            rewrite_unqueryable_exists(filter, &state, &participating_indices);
+        }
+    }
 
     // Collect alias → target field name mappings from every
     // participating index. Mapping shape:
@@ -33413,20 +33426,25 @@ async fn msearch_impl(
         };
 
         // #3065: each member's alias filter, parsed up front so a malformed
-        // filter fails this item the way a malformed query does.
-        let mut parsed_alias_filters: HashMap<String, Vec<xerj_query::ast::QueryNode>> =
-            HashMap::new();
-        for (member, filters) in &member_alias_filters {
-            match parse_alias_filters(filters) {
-                Ok(parsed) => {
-                    parsed_alias_filters.insert(member.clone(), parsed);
-                }
+        // filter fails this item the way a malformed query does. Collected
+        // into a `Result` first: a parse failure must skip the whole
+        // sub-request, and `continue` inside the per-member loop would only
+        // skip that member and then run the request unfiltered, adding a
+        // second response and leaking the documents the alias hides.
+        let parsed_alias_filters: HashMap<String, Vec<xerj_query::ast::QueryNode>> =
+            match member_alias_filters
+                .iter()
+                .map(|(member, filters)| {
+                    parse_alias_filters(filters).map(|parsed| (member.clone(), parsed))
+                })
+                .collect::<Result<HashMap<String, Vec<xerj_query::ast::QueryNode>>, _>>()
+            {
+                Ok(parsed) => parsed,
                 Err(e) => {
                     responses.push(ApiError::new(e).into_value());
                     continue;
                 }
-            }
-        }
+            };
 
         let mut merged_hits: Vec<(String, xerj_query::executor::Hit)> = Vec::new();
         let mut total_count: u64 = 0;
@@ -44804,19 +44822,24 @@ async fn msearch_template_impl(
 
         // #3065: each member's alias filter, parsed up front so a malformed
         // filter fails this sub-request the way a malformed query does.
-        let mut parsed_alias_filters: HashMap<String, Vec<xerj_query::ast::QueryNode>> =
-            HashMap::new();
-        for (member, filters) in &member_alias_filters {
-            match parse_alias_filters(filters) {
-                Ok(parsed) => {
-                    parsed_alias_filters.insert(member.clone(), parsed);
-                }
+        // Collected into a `Result` first: a parse failure must skip the
+        // whole sub-request, and `continue` inside the per-member loop would
+        // only skip that member and then run the request unfiltered, adding
+        // a second response and leaking the documents the alias hides.
+        let parsed_alias_filters: HashMap<String, Vec<xerj_query::ast::QueryNode>> =
+            match member_alias_filters
+                .iter()
+                .map(|(member, filters)| {
+                    parse_alias_filters(filters).map(|parsed| (member.clone(), parsed))
+                })
+                .collect::<Result<HashMap<String, Vec<xerj_query::ast::QueryNode>>, _>>()
+            {
+                Ok(parsed) => parsed,
                 Err(e) => {
                     responses.push(ApiError::new(e).into_value());
                     continue;
                 }
-            }
-        }
+            };
 
         let index_names: Vec<String> = if index_name == "*" || index_name == "_all" {
             state.engine.index_name_list()

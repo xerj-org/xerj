@@ -343,6 +343,12 @@ The model, its bundle and its serve rule are those of rc.102.
   EQL and `_cat/count` now pair each member's filter with its own index, so
   a partially filtered alias stops silently dropping the unfiltered members'
   documents (#3065).
+- A malformed alias filter no longer lets `_msearch` / `_msearch/template`
+  run the sub-request unfiltered: the parse failure now fails that item
+  only, instead of adding a second response and leaking the documents the
+  alias hides. Alias filters also get the unqueryable-`exists` rewrite the
+  user query gets, so an `exists` filter on an `index: false` field with no
+  doc values matches nothing instead of matching from source (#3185).
 
 ## [1.0.0-rc.102] - 2026-11-06
 
