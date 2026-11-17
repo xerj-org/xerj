@@ -8,15 +8,15 @@
   {
    "repo": "llm-shared",
    "url": "https://github.com/VonC/llm-shared",
-   "sha": "73c46cd24079375993a8d11866b6b88c154514c3",
-   "licence": "MIT (LICENSE file at pin 73c46cd24079, GitHub licence API 2026-11-17)",
+   "sha": "5184eed891e8fd3115ef318f081a4b5a9d4235a4",
+   "licence": "MIT (LICENSE file at pin 5184eed891e8, GitHub licence API 2026-11-17)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-26T13:51Z",
     "consent_receipt": "76a8e4e12def",
-    "note": "Inclusion consented by the commit author by email at 2026-10-26T13:51Z (receipt 76a8e4e12def); selected commit 73c46cd24079: \"fix(review): write relative paths in spec review summaries\". LICENSE file at pin 73c46cd24079 detected as MIT by the GitHub licence API on 2026-11-17; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-10-26T13:51Z (receipt 76a8e4e12def); selected commit 5184eed891e8: \"fix(review): keep nature completion paths relative\". LICENSE file at pin 5184eed891e8 detected as MIT by the GitHub licence API on 2026-11-17; used under that licence with attribution."
    }
   }
  ]

@@ -2,8 +2,8 @@
  "corpus": "arsenicum333--nexum",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on TypeScript queries this for how Arsenicum333/Nexum implements it: Chat platform that you never asked, but always wanted (selected work: backend, frontend)",
+ "shelf": "WEB",
+ "domain": "an agent working on adonisjs, chat-platform, full-stack queries this for how Arsenicum333/Nexum implements it: Chat platform that you never asked, but always wanted (selected work: backend, frontend)",
  "repos": [
   {
    "repo": "Nexum",

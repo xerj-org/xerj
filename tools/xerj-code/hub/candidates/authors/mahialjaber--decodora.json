@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "SEC",
- "domain": "an agent working on base64, blue-team, decoder queries this for how mahialjaber/Decodora implements it: Fast, offline PowerShell, Base64, Base85, Obfuscated URL & Hex decoder for security analysts. Runs 100% in the browser (selected work: css, js, the project root)",
+ "domain": "an agent working on base64, blue-team, decoder queries this for how mahialjaber/Decodora implements it: Zero-recipe, multi-layer payload unwrapper & IOC extractor for SOC triage. Auto-peels PowerShell, Base64, Base85, Gzip, Hex, Reversed & Safe (selected work: css, js, the project root)",
  "repos": [
   {
    "repo": "MiCode",

@@ -1,0 +1,23 @@
+{
+ "corpus": "lapis-devs--lapis",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how Lapis-Devs/Lapis implements it: Lapis-Devs/Lapis (C++) (selected work: Lapis_AI, LapisCompiler)",
+ "repos": [
+  {
+   "repo": "Lapis",
+   "url": "https://github.com/ThisIsACallForHelp/Lapis",
+   "sha": "546ca9c2d56caee1e7dce507a574b4148cf0ba0d",
+   "licence": "MIT (LICENSE file at pin 546ca9c2d56c, GitHub licence API 2026-11-17)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-08T10:23Z",
+    "consent_receipt": "fd3cf9994a08",
+    "note": "Inclusion consented by the commit author by email at 2026-11-08T10:23Z (receipt fd3cf9994a08); pinned to the default-branch head. LICENSE file at pin 546ca9c2d56c detected as MIT by the GitHub licence API on 2026-11-17; used under that licence with attribution."
+   }
+  }
+ ]
+}
