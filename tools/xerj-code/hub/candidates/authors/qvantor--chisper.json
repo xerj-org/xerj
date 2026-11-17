@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on audio-processing, synth, synthesizer queries this for how qvantor/chisper implements it: Experimental wavetable synth written on TS and Web Audio (selected work: apps/waveform, libs)",
+ "domain": "an agent working on synth, synthesizer, wavetable queries this for how qvantor/chisper implements it: Wavetable synth for the browser on the Web Audio API: AudioWorklet DSP in Rust compiled to WebAssembly, React 19 + RxJS UI Free to play onli (selected work: apps/waveform, libs)",
  "repos": [
   {
    "repo": "waveform",
