@@ -2468,7 +2468,10 @@ fn parses_as_yaml_stream(text: &str) -> bool {
     // stream is not YAML. An unparseable stream keeps the existing path
     // below, which returns false on the first error.
     if matches!(
-        crate::yaml_budget::check_yaml_node_budget(text, crate::yaml_budget::YAML_NODE_BUDGET),
+        crate::yaml_budget::check_yaml_node_budget(
+            text,
+            crate::yaml_budget::yaml_node_budget(text)
+        ),
         crate::yaml_budget::YamlBudgetOutcome::OverBudget
     ) {
         return false;

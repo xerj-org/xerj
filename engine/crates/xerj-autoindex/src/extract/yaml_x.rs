@@ -19,7 +19,10 @@ pub fn extract(path: &Path, gzip: bool, sink: Sink) -> Result<ExtractStats> {
     // is built. A stream that does not parse keeps the per-document path
     // below, so the good documents before a bad one still extract.
     if matches!(
-        crate::yaml_budget::check_yaml_node_budget(&text, crate::yaml_budget::YAML_NODE_BUDGET),
+        crate::yaml_budget::check_yaml_node_budget(
+            &text,
+            crate::yaml_budget::yaml_node_budget(&text)
+        ),
         crate::yaml_budget::YamlBudgetOutcome::OverBudget
     ) {
         stats.junk += 1;
@@ -157,5 +160,28 @@ mod tests {
         let (stats, n) = extract_str(&s);
         assert_eq!(n, 0, "an alias bomb must not fabricate records");
         assert!(stats.junk >= 1, "the over-budget stream is junk-filed");
+    }
+
+    /// Review follow-up on #3159: a large ordinary record file must still
+    /// extract. 20k list items with 4 fields each (about 1 MB, roughly
+    /// 180k nodes) was junked whole by the flat 100,000 node budget; the
+    /// budget now scales with the input, so all 20,000 records extract.
+    #[test]
+    fn large_ordinary_record_file_still_extracts() {
+        let mut s = String::with_capacity(1_150_000);
+        for i in 0..20_000usize {
+            s.push_str(&format!(
+                "- id: {i}\n  name: item{i}\n  flag: true\n  score: 1.5\n"
+            ));
+        }
+        assert!(
+            (1_000_000..1_500_000).contains(&s.len()),
+            "fixture must be about 1 MB, got {} bytes",
+            s.len()
+        );
+        let (stats, n) = extract_str(&s);
+        assert_eq!(n, 20_000, "all 20,000 records must extract");
+        assert_eq!(stats.records, 20_000);
+        assert_eq!(stats.junk, 0, "a large ordinary file must not be junked");
     }
 }

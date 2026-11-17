@@ -7,21 +7,46 @@
 //! so a 7,351 byte alias bomb expands to 17.85 GiB RSS (#3157). Count the
 //! expanded nodes with a visitor that aborts past a budget, before any
 //! `Value` is built, and treat an over-budget stream the way each call
-//! site already treats a parse error.
+//! site already treats a parse error. The budget scales with the input
+//! size (see [`yaml_node_budget`]): a large ordinary file gets headroom,
+//! a small input that expands hugely does not.
 
 use serde::de::{DeserializeSeed, EnumAccess, MapAccess, SeqAccess, VariantAccess, Visitor};
 use std::cell::Cell;
 use std::fmt;
 use std::rc::Rc;
 
-/// Maximum expanded YAML nodes a single stream may materialise. An 8 KiB
-/// sniff prefix holds at most about 4,000 nodes (a node needs at least
-/// about 2 bytes of input), so this is 25 times headroom there; the
-/// largest YAML the extractor reads (16 MiB) would need at least 200 KB
-/// of maximally dense YAML to reach it. A `Value` node costs roughly 50
-/// to 150 bytes, so the bound caps transient memory at roughly 10 to
-/// 20 MB per file instead of the gigabytes an alias bomb reaches.
+/// Floor for the node budget: the smallest budget any stream gets, so a
+/// small input that expands hugely is still rejected at the same place.
+/// A 7,351 byte alias bomb expands past this long before the counting
+/// visitor has done any real work, and the count aborts before any
+/// `Value` is built.
 pub const YAML_NODE_BUDGET: usize = 100_000;
+
+/// One expanded node per this many input bytes. Ordinary YAML carries at
+/// most about one node per 2 bytes (a node needs at least a key or scalar
+/// plus its punctuation, and the record-style files the extractor sees
+/// run closer to one node per 5 bytes), so a stream that needs more nodes
+/// than half its bytes must be expanding aliases. Kept as a divisor so
+/// the budget stays in integer arithmetic.
+const YAML_NODE_BUDGET_BYTES_PER_NODE: usize = 2;
+
+/// Budget for one stream of `text`: the floor, or one node per
+/// [`YAML_NODE_BUDGET_BYTES_PER_NODE`] input bytes, whichever is larger.
+/// A large but ordinary file scales up with its size instead of being
+/// junked whole: 20k list items with 4 fields each (about 1 MB, roughly
+/// 180k nodes) gets a budget of about 500k, while the 7,351 byte alias
+/// bomb still gets the 100,000 floor and is rejected.
+///
+/// The trade-off is explicit: the largest YAML the extractor reads
+/// (16 MiB) now budgets about 8.4M nodes, so a file that genuinely holds
+/// that many nodes may transiently materialise roughly 400 MB to 1.3 GB
+/// (50 to 150 bytes per `Value` node) instead of the 10 to 20 MB the flat
+/// budget capped. What the scaling still stops is the bomb shape: a large
+/// expansion from a small input, which is what an alias bomb is.
+pub fn yaml_node_budget(text: &str) -> usize {
+    YAML_NODE_BUDGET.max(text.len() / YAML_NODE_BUDGET_BYTES_PER_NODE)
+}
 
 /// Outcome of counting the expanded nodes of a YAML stream without
 /// materialising it.
@@ -338,9 +363,54 @@ mod tests {
             s.push_str("]\n");
         }
         assert_eq!(s.len(), 7351, "fixture must match the reported repro size");
+        // A 7,351 byte input budgets the 100,000 floor, so the bomb is
+        // still rejected at the same place under the scaled rule.
         assert_eq!(
-            check_yaml_node_budget(&s, YAML_NODE_BUDGET),
+            check_yaml_node_budget(&s, yaml_node_budget(&s)),
             YamlBudgetOutcome::OverBudget
+        );
+    }
+
+    #[test]
+    fn budget_scales_with_input_size() {
+        // Small inputs keep the floor.
+        assert_eq!(yaml_node_budget("a: 1\n"), 100_000);
+        assert_eq!(yaml_node_budget(&"x".repeat(199_999)), 100_000);
+        // Past the floor the budget is one node per two input bytes.
+        assert_eq!(yaml_node_budget(&"x".repeat(1_000_000)), 500_000);
+        assert_eq!(yaml_node_budget(&"x".repeat(16 << 20)), 8_388_608);
+    }
+
+    /// The maintainer's example: 20k list items with 4 fields each, about
+    /// 1 MB. One top-level sequence (1) plus 9 nodes per item (a mapping,
+    /// 4 keys, 4 scalar values): 180,001 nodes in total.
+    fn large_record_yaml() -> String {
+        let mut s = String::with_capacity(1_150_000);
+        for i in 0..20_000usize {
+            s.push_str(&format!(
+                "- id: {i}\n  name: item{i}\n  flag: true\n  score: 1.5\n"
+            ));
+        }
+        s
+    }
+
+    #[test]
+    fn large_ordinary_yaml_fits_the_scaled_budget() {
+        let text = large_record_yaml();
+        assert!(
+            (1_000_000..1_500_000).contains(&text.len()),
+            "fixture must be about 1 MB, got {} bytes",
+            text.len()
+        );
+        // The flat 100,000 budget junked this file whole.
+        assert_eq!(
+            check_yaml_node_budget(&text, YAML_NODE_BUDGET),
+            YamlBudgetOutcome::OverBudget
+        );
+        // The scaled budget (one node per two bytes) lets it through.
+        assert_eq!(
+            check_yaml_node_budget(&text, yaml_node_budget(&text)),
+            YamlBudgetOutcome::WithinBudget(180_001)
         );
     }
 }
