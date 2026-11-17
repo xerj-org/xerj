@@ -1,0 +1,33 @@
+{
+  "corpus": "hunterqa-selected-security-components",
+  "repos": [
+    {
+      "repo": "HunterQA-AI",
+      "url": "https://github.com/ManeaAl-Shabrain/HunterQA-AI",
+      "licence": "MIT",
+      "sha": "253c8e064225a73d5a69560e273702aca5bedc52",
+      "files": 11,
+      "bytes": 113288,
+      "paths": [
+        "hunterqa/gpo_review.py",
+        "tests/test_gpo_review.py",
+        "hunterqa/assessment_sessions.py",
+        "tests/test_cloud_token_vault.py",
+        "hunterqa/ad_directory.py",
+        "tests/test_ad_directory.py",
+        "hunterqa/aws_inventory.py",
+        "tests/test_aws_inventory.py",
+        "hunterqa/shared_quota.py",
+        "tests/test_shared_quota.py",
+        "LICENSE"
+      ],
+      "review": {
+        "spdx": "MIT",
+        "use": "adapt-with-attribution",
+        "by": "ManeaAl-Shabrain",
+        "at": "2026-11-13",
+        "note": "The repository owner confirmed personally reviewing the pinned MIT LICENSE and authorizing only the ten explicitly listed source/test files plus LICENSE for attribution. Copyright (c) 2026 ManeaAl-Shabrain. Preserve this notice. This is a reference-excerpt corpus, not a standalone runnable distribution; tests depend on unselected supporting modules. No directory-wide or whole-repository ingestion or automatic refresh is authorized by this submission. Ingestion requires an exact-file-aware paths consumer; if unavailable, stop. The metadata was prepared with Codex on behalf of the owner."
+      }
+    }
+  ]
+}
