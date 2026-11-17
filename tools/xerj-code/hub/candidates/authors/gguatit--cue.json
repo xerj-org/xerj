@@ -8,15 +8,15 @@
   {
    "repo": "cue",
    "url": "https://github.com/gguatit/cue",
-   "sha": "a66c8f6ee057f8a0541794bd3ce0edff616236cf",
-   "licence": "MIT (LICENSE file at pin a66c8f6ee057, GitHub licence API 2026-11-17)",
+   "sha": "08a8079a5a509f0f9a3e7752c92c98ca5f5ca595",
+   "licence": "MIT (LICENSE file at pin 08a8079a5a50, GitHub licence API 2026-11-17)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-13T05:07Z",
     "consent_receipt": "d84a0cc134bc",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-13T05:07Z (receipt d84a0cc134bc); pinned to the default-branch head. LICENSE file at pin a66c8f6ee057 detected as MIT by the GitHub licence API on 2026-11-17; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-13T05:07Z (receipt d84a0cc134bc); pinned to the default-branch head. LICENSE file at pin 08a8079a5a50 detected as MIT by the GitHub licence API on 2026-11-17; used under that licence with attribution."
    }
   }
  ]
