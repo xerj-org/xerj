@@ -12,7 +12,6 @@ aggregations/bucket_script.yml · bad script
 aggregations/bucket_selector.yml · bad script
 aggregations/composite.yml · Composite aggregation with invalid format
 aggregations/composite.yml · Composite aggregation with lossy format
-aggregations/extended_stats_metric.yml · Bad sigma test
 aggregations/matrix_stats_multi_value_field.yml · With script
 aggregations/matrix_stats_multi_value_field.yml · With script params
 aggregations/matrix_stats_single_value_field.yml · With script
