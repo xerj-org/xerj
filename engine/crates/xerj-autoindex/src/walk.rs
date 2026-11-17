@@ -369,12 +369,20 @@ fn walk_impl(
         // without descending does not have. `cp -al`, `rsync --link-dest` and
         // hard-linked package stores all produce that shape without an attacker.
         if entry.depth() > 0 && is_hidden_name(entry.file_name()) {
-            stack.note_hidden_reinclude(entry.path(), is_dir);
-            stack.record_hidden(entry.path(), is_dir);
-            if is_dir {
-                it.skip_current_dir();
+            // #2966: `github/spec-kit` stores its project constitution and spec
+            // templates under `.specify/{memory,specs,templates,scripts}`. Admit
+            // a `.specify` directory when it carries that structure; any dotfile
+            // or hidden subdirectory *inside* `.specify` (such as `.specify/.env`)
+            // still hits this guard on its own depth and is skipped.
+            let admit_specify = is_dir && crate::sdd::is_specify_dir(entry.path());
+            if !admit_specify {
+                stack.note_hidden_reinclude(entry.path(), is_dir);
+                stack.record_hidden(entry.path(), is_dir);
+                if is_dir {
+                    it.skip_current_dir();
+                }
+                continue;
             }
-            continue;
         }
         // The rule above judges the NAME the walk arrived by, which is the
         // whole rule when links are not followed. Under `--follow-symlinks` it

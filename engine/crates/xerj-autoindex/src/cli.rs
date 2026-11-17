@@ -507,6 +507,11 @@ pub fn help_text_with(feedback: bool) -> String {
          \x20\x20\x20\x20--drop-indexed       delete already-indexed files a reduced plan leaves\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20out. Without this flag that re-run exits 4 and lists\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20them. --plan and --yes do not agree to the deletion.\n\
+         \x20\x20\x20\x20--worktree <MODE>    Git worktree mode for parallel agents (#2967): `shared`\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20resolves a linked Git worktree to its main checkout and\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20shares `ax-<repo>` + one locked state dir; `isolated`\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20indexes the worktree in place under `ax-<repo>-<wt>`\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20with its own state dir and no prefix collision\n\
          \x20\x20\x20\x20--dry-run            walk+sniff+infer, print the plan, index nothing.\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20`autoindex map <folder>` is this same preview\n\
          \x20\x20\x20\x20--walk-only          stop after the walk. Prints each top-level folder's\n\
@@ -1036,6 +1041,7 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
     let mut max_index_explicit = false;
     let mut budget_plan: Option<String> = None;
     let mut drop_indexed = false;
+    let mut worktree_mode: Option<crate::worktree::WorktreeMode> = None;
     let mut json = false;
     let mut quiet = false;
     let mut progress: Option<ProgressMode> = None;
@@ -1286,6 +1292,16 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
                     return Err("--drop-indexed was given twice".into());
                 }
                 drop_indexed = true;
+            }
+            "--worktree" => {
+                let raw = it
+                    .next()
+                    .ok_or("--worktree needs one of: shared, isolated")?;
+                let parsed = crate::worktree::WorktreeMode::parse(&raw)?;
+                if worktree_mode.is_some() {
+                    return Err("--worktree was given twice".into());
+                }
+                worktree_mode = Some(parsed);
             }
             "--yes" | "-y" => {
                 if let Some(previous) = approve {
@@ -2060,6 +2076,20 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
         );
     }
 
+    if worktree_mode.is_some()
+        && (sub.as_deref() == Some("remove")
+            || sub.as_deref() == Some("status")
+            || (sub.as_deref() == Some("map") && folder.is_none())
+            || (watch && root_is_object_url))
+    {
+        return Err(
+            "--worktree applies only to indexing or previewing a local folder (`xerj autoindex \
+             <folder> --worktree shared|isolated`), not to `map`, `status`, `remove`, or an \
+             object-storage watch"
+                .into(),
+        );
+    }
+
     match (sub.as_deref(), folder) {
         (Some("remove"), _) => remove_cmd(RemoveParse {
             cfg: RemoveCfg {
@@ -2224,7 +2254,23 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
                         .into(),
                 );
             }
-            let plan = crate::resources::plan(workers, pdf_workers, bulk_mb);
+            if worktree_mode.is_some() && (skills || root_is_object_url) {
+                return Err(
+                    "--worktree applies only to a local Git checkout or worktree folder, not \
+                     --skills or object storage"
+                        .into(),
+                );
+            }
+            let mut root = root;
+            let mut prefix = prefix;
+            let mut plan = crate::resources::plan(workers, pdf_workers, bulk_mb);
+            if let Some(wt_mode) = worktree_mode {
+                let resolved =
+                    crate::worktree::resolve_worktree(&root, wt_mode, prefix_explicit, &prefix);
+                root = resolved.root;
+                prefix = resolved.prefix;
+                plan.notes.push(resolved.note);
+            }
             let cfg = Box::new(IndexCfg {
                 root,
                 endpoint_url,
@@ -4362,5 +4408,39 @@ mod tests {
     fn exclude_without_a_pattern_is_refused() {
         let text = err(&["data", "--exclude"]);
         assert!(text.contains("--exclude needs a glob pattern"), "{text}");
+    }
+
+    #[test]
+    fn worktree_flag_resolves_shared_and_isolated_modes_and_refuses_non_folder_routes() {
+        let _env = ENV_LOCK.lock().unwrap_or_else(|poison| poison.into_inner());
+        let tmp = tempfile::tempdir().unwrap();
+        let main_repo = tmp.path().join("my-repo");
+        let wt_gitdir = main_repo.join(".git").join("worktrees").join("wt-one");
+        std::fs::create_dir_all(&wt_gitdir).unwrap();
+        std::fs::write(wt_gitdir.join("commondir"), "../..\n").unwrap();
+
+        let wt_one = tmp.path().join("wt-one");
+        std::fs::create_dir_all(&wt_one).unwrap();
+        std::fs::write(
+            wt_one.join(".git"),
+            format!("gitdir: {}\n", wt_gitdir.display()),
+        )
+        .unwrap();
+
+        let wt_str = wt_one.to_string_lossy().to_string();
+        let shared = index(&[&wt_str, "--worktree", "shared"]);
+        assert_eq!(shared.root, main_repo.canonicalize().unwrap());
+        assert_eq!(shared.prefix, "ax-my-repo");
+
+        let isolated = index(&[&wt_str, "--worktree", "isolated"]);
+        assert_eq!(isolated.root, wt_one);
+        assert_eq!(isolated.prefix, "ax-my-repo-wt-one");
+
+        assert!(
+            err(&[&wt_str, "--worktree", "invalid"]).contains("expected `shared` or `isolated`")
+        );
+        assert!(err(&["status", "--worktree", "shared"]).contains("--worktree applies only"));
+        assert!(err(&["remove", "--prefix", "ax", "--worktree", "isolated"])
+            .contains("--worktree applies only"));
     }
 }
