@@ -8,15 +8,15 @@
   {
    "repo": "Anamnesis",
    "url": "https://github.com/eraevous/Anamnesis",
-   "sha": "6930935ad730b012fe3e18fccade4d50f81142e2",
-   "licence": "author's permission (LICENSE at pin 6930935ad730: NONE; repository: none)",
+   "sha": "1e9e8f9656c0e837c95eba6554ac722529803b42",
+   "licence": "author's permission (LICENSE at pin 1e9e8f9656c0: NONE; repository: none)",
    "review": {
     "spdx": "NONE",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-12T17:12Z",
     "consent_receipt": "0df17be8ce6a",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-12T17:12Z (receipt 0df17be8ce6a); pinned to the default-branch head. LICENSE at pin 6930935ad730: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-12T17:12Z (receipt 0df17be8ce6a); pinned to the default-branch head. LICENSE at pin 1e9e8f9656c0: NONE (repository: none); used with the author's permission, with attribution."
    }
   }
  ]

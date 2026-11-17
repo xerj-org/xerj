@@ -8,15 +8,15 @@
   {
    "repo": "rwanda-f1-2026-sim",
    "url": "https://github.com/KhazP/rwanda-f1-2026-sim",
-   "sha": "3ffa4169b9ba32e3f15a7c24af7a71ef153844d5",
-   "licence": "AGPL-3.0 (LICENSE file at pin 3ffa4169b9ba, GitHub licence API 2026-11-16)",
+   "sha": "02ee8ca34c32dcc0ab97be6da8e93d2f8c0f32d2",
+   "licence": "AGPL-3.0 (LICENSE file at pin 02ee8ca34c32, GitHub licence API 2026-11-17)",
    "review": {
     "spdx": "AGPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-19T00:02Z",
     "consent_receipt": "4410e393b36d",
-    "note": "Inclusion consented by the commit author by email at 2026-10-19T00:02Z (receipt 4410e393b36d); selected commit 3ffa4169b9ba: \"test: add physics, session, FFB, and telemetry verification suites an\u2026\". LICENSE file at pin 3ffa4169b9ba detected as AGPL-3.0 by the GitHub licence API on 2026-11-16; used under that licence with attribution. Pinned to head 3ffa4169b9ba (contains the selected commit): the LICENSE at the selected commit was MIT."
+    "note": "Inclusion consented by the commit author by email at 2026-10-19T00:02Z (receipt 4410e393b36d); selected commit 02ee8ca34c32: \"test: add physics, session, FFB, and telemetry verification suites an\u2026\". LICENSE file at pin 02ee8ca34c32 detected as AGPL-3.0 by the GitHub licence API on 2026-11-17; used under that licence with attribution. Pinned to head 02ee8ca34c32 (contains the selected commit): the LICENSE at the selected commit was MIT."
    }
   }
  ]
