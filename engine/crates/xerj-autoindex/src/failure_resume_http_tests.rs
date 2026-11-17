@@ -298,7 +298,9 @@ fn handle(mut stream: TcpStream, state: &Arc<Mutex<MockState>>) {
         thread::sleep(std::time::Duration::from_millis(response_delay_ms));
     }
 
-    let (status, response) = if method == "GET" && path == "/v1/embedding/identity" {
+    let (status, response) = if method == "GET" && path == "/" {
+        (200, crate::test_loopback::xerj_root())
+    } else if method == "GET" && path == "/v1/embedding/identity" {
         let identity = state.lock().unwrap().embedding_identity_sha256.clone();
         (
             200,

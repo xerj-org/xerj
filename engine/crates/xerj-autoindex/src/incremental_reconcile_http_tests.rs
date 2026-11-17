@@ -280,7 +280,9 @@ fn handle_http(mut stream: TcpStream, state: &Arc<Mutex<HttpState>>) {
         .requests
         .push((method.to_owned(), path.to_owned()));
 
-    let (status, response) = if method == "GET" && path == "/v1/embedding/identity" {
+    let (status, response) = if method == "GET" && path == "/" {
+        (200, crate::test_loopback::xerj_root())
+    } else if method == "GET" && path == "/v1/embedding/identity" {
         let locked = state.lock().unwrap();
         if locked.fail_embedding_identity {
             (

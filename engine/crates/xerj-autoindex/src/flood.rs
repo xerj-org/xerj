@@ -755,7 +755,7 @@ mod tests {
                                 .unwrap()
                                 .push((method.clone(), path.clone()));
                             let (status, body) = if method == "GET" && path == "/" {
-                                (200, r#"{"ok":true}"#)
+                                (200, crate::test_loopback::XERJ_ROOT)
                             } else if method == "GET" && path.starts_with("/_cat/allocation") {
                                 if flooded {
                                     (
