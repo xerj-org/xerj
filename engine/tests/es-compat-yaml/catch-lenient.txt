@@ -48,10 +48,6 @@ search/110_field_collapsing.yml · Test collapse with inner_hits and missing nam
 search/115_multiple_field_collapsing.yml · two levels fields collapsing
 search/150_rewrite_on_coordinator.yml · Ensure that we fetch the document only once
 search/320_disallow_queries.yml · Test disallow expensive queries
-search/330_fetch_fields.yml · error for flattened includes whole path
-search/330_fetch_fields.yml · error includes field name
-search/330_fetch_fields.yml · error includes glob pattern
-search/330_fetch_fields.yml · Test date formatting
 search/350_point_in_time.yml · msearch
 search/390_lookup_fields.yml · Fails to query or aggregate on lookup fields
 search/500_date_range.yml · test bad dates in range - future
