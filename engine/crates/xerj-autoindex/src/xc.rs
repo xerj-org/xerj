@@ -236,6 +236,7 @@ fn fetch_catalog_run_prefixes(url: &str, explicit_key: Option<&str>) -> Option<V
             .connect_timeout(CATALOG_HINT_CONNECT)
             .timeout(CATALOG_HINT_TIMEOUT),
         url,
+        None,
     )
     .build()
     .ok()?;

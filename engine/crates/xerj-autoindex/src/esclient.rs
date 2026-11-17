@@ -6,6 +6,7 @@
 use anyhow::{anyhow, Context, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, Instant};
@@ -1326,13 +1327,55 @@ pub(crate) fn node_tls_bypass_allowed(url: &str) -> bool {
     xerj_common::localauth::url_is_loopback(url)
 }
 
-/// Apply the node-URL TLS policy to a client builder: loopback nodes accept
-/// their self-signed certificate, anything else verifies normally.
+/// Load a PEM CA certificate file for `--ca-cert` / `XERJ_CA_CERT`: one
+/// certificate, trusted as an extra root next to the system roots. Fails
+/// here, before any request is made, so a bad path is a usage error rather
+/// than a handshake failure halfway through a run. The file must hold
+/// exactly one PEM certificate: `Certificate::from_pem` does not parse
+/// under rustls (it stores the bytes for client build), so the bundle is
+/// parsed here and a file with no certificate, or more than one, is
+/// refused with the path named.
+pub(crate) fn load_ca_cert(path: &Path) -> Result<reqwest::Certificate> {
+    let pem = std::fs::read(path).with_context(|| {
+        format!(
+            "cannot read CA certificate file {} (--ca-cert / XERJ_CA_CERT)",
+            path.display()
+        )
+    })?;
+    let certs = reqwest::Certificate::from_pem_bundle(&pem).with_context(|| {
+        format!(
+            "cannot parse a PEM certificate from {} (--ca-cert / XERJ_CA_CERT)",
+            path.display()
+        )
+    })?;
+    match certs.as_slice() {
+        [cert] => Ok(cert.clone()),
+        [] => anyhow::bail!(
+            "no PEM certificate found in {} (--ca-cert / XERJ_CA_CERT)",
+            path.display()
+        ),
+        _ => anyhow::bail!(
+            "expected exactly one PEM certificate in {} (found {}); pass the node's own \
+             certificate on its own (--ca-cert / XERJ_CA_CERT)",
+            path.display(),
+            certs.len()
+        ),
+    }
+}
+
+/// Apply the node-URL TLS policy to a client builder. A supplied CA
+/// certificate is trusted as an extra root and verification stays on: the
+/// node's own self-signed certificate then verifies, and any other
+/// untrusted certificate still fails. Without one, loopback nodes accept
+/// their self-signed certificate and anything else verifies normally.
 pub(crate) fn with_node_tls_policy(
     builder: reqwest::blocking::ClientBuilder,
     url: &str,
+    ca_cert: Option<&reqwest::Certificate>,
 ) -> reqwest::blocking::ClientBuilder {
-    if node_tls_bypass_allowed(url) {
+    if let Some(cert) = ca_cert {
+        builder.add_root_certificate(cert.clone())
+    } else if node_tls_bypass_allowed(url) {
         builder.danger_accept_invalid_certs(true)
     } else {
         builder
@@ -1342,6 +1385,19 @@ pub(crate) fn with_node_tls_policy(
 impl Es {
     pub fn new(url: &str, api_key: Option<String>) -> Result<Self> {
         Self::with_bulk_timeout(url, api_key, 300)
+    }
+
+    /// Same as [`Self::new`], but trusts one extra CA certificate as well
+    /// as the system roots: the escape hatch for a remote node that serves
+    /// the self-signed certificate it minted on first start (`--ca-cert` /
+    /// `XERJ_CA_CERT`). The file must hold one PEM certificate; a missing
+    /// or unparsable file fails here, before any request is made.
+    pub fn with_ca_cert(
+        url: &str,
+        api_key: Option<String>,
+        ca_cert: Option<PathBuf>,
+    ) -> Result<Self> {
+        Self::with_bulk_timeout_and_ca_cert(url, api_key, 300, ca_cert)
     }
 
     pub fn with_bulk_timeout(
@@ -1358,6 +1414,25 @@ impl Es {
         )
     }
 
+    /// Same as [`Self::with_bulk_timeout`], plus the `--ca-cert` escape
+    /// hatch: `ca_cert` names a PEM file whose certificate is trusted as an
+    /// extra root for this node (see [`Self::with_ca_cert`]).
+    pub fn with_bulk_timeout_and_ca_cert(
+        url: &str,
+        api_key: Option<String>,
+        bulk_timeout_secs: u64,
+        ca_cert: Option<PathBuf>,
+    ) -> Result<Self> {
+        Self::with_bulk_policy_and_ca_cert(
+            url,
+            api_key,
+            Duration::from_secs(bulk_timeout_secs),
+            Duration::from_millis(250),
+            Duration::from_secs(8),
+            ca_cert,
+        )
+    }
+
     fn with_bulk_policy(
         url: &str,
         api_key: Option<String>,
@@ -1365,15 +1440,38 @@ impl Es {
         retry_initial_delay: Duration,
         retry_max_delay: Duration,
     ) -> Result<Self> {
+        Self::with_bulk_policy_and_ca_cert(
+            url,
+            api_key,
+            bulk_timeout,
+            retry_initial_delay,
+            retry_max_delay,
+            None,
+        )
+    }
+
+    fn with_bulk_policy_and_ca_cert(
+        url: &str,
+        api_key: Option<String>,
+        bulk_timeout: Duration,
+        retry_initial_delay: Duration,
+        retry_max_delay: Duration,
+        ca_cert: Option<PathBuf>,
+    ) -> Result<Self> {
         // Loopback skips HTTP(S)_PROXY / ALL_PROXY (#2379). A non-loopback
         // URL keeps them, including NO_PROXY. Same rule as `xerj mcp`.
         // Invalid certificates are accepted only for a loopback node, which
         // mints a self-signed one on first start; a non-loopback node must
         // present a certificate the system roots trust, or the admin key
-        // this client sends is readable by a man in the middle.
+        // this client sends is readable by a man in the middle. A supplied
+        // CA certificate is trusted as an extra root instead: a remote node
+        // serving its own self-signed certificate then verifies, with no
+        // bypass anywhere.
+        let ca_cert = ca_cert.map(|path| load_ca_cert(&path)).transpose()?;
         let http = with_node_tls_policy(
             node_blocking_builder(url).timeout(Duration::from_secs(300)),
             url,
+            ca_cert.as_ref(),
         )
         .build()
         .context("build http client")?;
@@ -1488,6 +1586,14 @@ impl Es {
     pub fn ping_failure_is_auth(err: &anyhow::Error) -> bool {
         let text = format!("{err:#}");
         text.contains("(HTTP 401)") || text.contains("(HTTP 403)")
+    }
+
+    /// True when `ping` failed because the node presented a certificate this
+    /// machine does not trust. reqwest's Display hides the source chain, so
+    /// this reads the full chain like `ping_failure_is_auth` does: the
+    /// rustls refusal names its cause `UnknownIssuer`.
+    pub fn ping_failure_is_tls_cert(err: &anyhow::Error) -> bool {
+        format!("{err:#}").contains("UnknownIssuer")
     }
 
     pub fn ping(&self) -> Result<Value> {
@@ -4408,17 +4514,36 @@ mod tests {
         }
     }
 
-    /// A TLS server with a self-signed certificate for `localhost`, served
-    /// on 127.0.0.1. The certificate is invalid for the IP address (no IP
-    /// SAN, and self-signed), so only a client built with the loopback
-    /// bypass completes the handshake. Returns the bound address; the server
-    /// exits after two connection attempts, so a refused handshake still
-    /// lets it shut down instead of hanging the test.
-    fn spawn_self_signed_tls_server() -> (std::net::SocketAddr, std::thread::JoinHandle<()>) {
-        let certified = rcgen::generate_simple_self_signed(vec!["localhost".to_string()])
-            .expect("generate self-signed test cert");
-        let cert_der = certified.cert.der().to_vec();
-        let key_der = certified.key_pair.serialize_der();
+    /// One self-signed certificate for `localhost` and `127.0.0.1`, as DER,
+    /// PEM, and private key DER: the material the test TLS server serves
+    /// and the `--ca-cert` tests load. Both names are on the certificate so
+    /// a client that trusts it as an extra root verifies by either one.
+    fn generate_self_signed_test_cert() -> (Vec<u8>, String, Vec<u8>) {
+        let key_pair = rcgen::KeyPair::generate().expect("generate test key pair");
+        let certified =
+            rcgen::CertificateParams::new(vec!["localhost".to_string(), "127.0.0.1".to_string()])
+                .expect("test cert params")
+                .self_signed(&key_pair)
+                .expect("generate self-signed test cert");
+        (
+            certified.der().to_vec(),
+            certified.pem(),
+            key_pair.serialize_der(),
+        )
+    }
+
+    /// A TLS server with a self-signed certificate for `localhost` and
+    /// `127.0.0.1`, served on 127.0.0.1. Both names are on the certificate
+    /// so a client that trusts it as an extra root verifies by either one;
+    /// self-signed, it verifies for no one else, so only a client built
+    /// with the loopback bypass or with this certificate as a trusted root
+    /// completes the handshake. Returns the bound address, the certificate
+    /// in PEM form (what `--ca-cert` consumes), and the server handle; the
+    /// server exits after two connection attempts, so a refused handshake
+    /// still lets it shut down instead of hanging the test.
+    fn spawn_self_signed_tls_server() -> (std::net::SocketAddr, String, std::thread::JoinHandle<()>)
+    {
+        let (cert_der, cert_pem, key_der) = generate_self_signed_test_cert();
         let (tx, rx) = std::sync::mpsc::channel();
         let server = std::thread::spawn(move || {
             let _ = tokio_rustls::rustls::crypto::ring::default_provider().install_default();
@@ -4498,7 +4623,7 @@ mod tests {
             });
         });
         let addr = rx.recv().expect("test TLS server bound");
-        (addr, server)
+        (addr, cert_pem, server)
     }
 
     /// The two sides of the fix, against one self-signed server: the bulk
@@ -4507,7 +4632,7 @@ mod tests {
     /// refuses the same certificate instead of completing the handshake.
     #[test]
     fn tls_bypass_only_on_loopback() {
-        let (address, server) = spawn_self_signed_tls_server();
+        let (address, _cert_pem, server) = spawn_self_signed_tls_server();
 
         let es = Es::new(&format!("https://{address}"), Some("key".to_string())).unwrap();
         let banner = es.ping().unwrap();
@@ -4516,6 +4641,7 @@ mod tests {
         let refusing = super::with_node_tls_policy(
             super::node_blocking_builder("https://node.invalid:9200"),
             "https://node.invalid:9200",
+            None,
         )
         .timeout(std::time::Duration::from_secs(10))
         .build()
@@ -4533,6 +4659,149 @@ mod tests {
         );
 
         server.join().unwrap();
+    }
+
+    /// The `--ca-cert` escape hatch, against the same self-signed server:
+    /// a client built for a non-loopback node URL trusts the server's own
+    /// certificate when it is handed it as an extra root, and still refuses
+    /// it without one. The policy URL is deliberately not the address the
+    /// request goes to: it is what the client judges the node by, exactly
+    /// as a remote `--url` is judged while the request itself goes to the
+    /// node. The request goes to the loopback address because that is where
+    /// the test server listens; the certificate carries that address as a
+    /// SAN, so verification by name succeeds once the root is trusted.
+    #[test]
+    fn ca_cert_trusts_self_signed_node() {
+        let (address, cert_pem, server) = spawn_self_signed_tls_server();
+        let dir = tempfile::tempdir().expect("test tempdir");
+        let path = dir.path().join("node.pem");
+        std::fs::write(&path, &cert_pem).expect("write test CA cert");
+        let cert = super::load_ca_cert(&path).expect("load test CA cert");
+
+        let refusing = super::with_node_tls_policy(
+            super::node_blocking_builder("https://node.invalid:9200"),
+            "https://node.invalid:9200",
+            None,
+        )
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .unwrap();
+        let debug = format!(
+            "{:?}",
+            refusing
+                .get(format!("https://{address}/"))
+                .send()
+                .unwrap_err()
+        );
+        assert!(
+            debug.contains("UnknownIssuer"),
+            "without the CA cert the handshake must still fail on the issuer, got: {debug}"
+        );
+
+        let trusting = super::with_node_tls_policy(
+            super::node_blocking_builder("https://node.invalid:9200"),
+            "https://node.invalid:9200",
+            Some(&cert),
+        )
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .unwrap();
+        let resp = trusting
+            .get(format!("https://{address}/"))
+            .send()
+            .expect("a client trusting the node's own cert must complete the handshake");
+        assert!(resp.status().is_success(), "got {}", resp.status());
+
+        server.join().unwrap();
+    }
+
+    /// `--ca-cert` loads a PEM file, and a bad file fails with the path and
+    /// the option named, so the operator knows what to fix instead of
+    /// getting a bare handshake error later.
+    #[test]
+    fn ca_cert_file_loads_and_bad_files_fail_clearly() {
+        let (_cert_der, cert_pem, _key_der) = generate_self_signed_test_cert();
+        let dir = tempfile::tempdir().expect("test tempdir");
+
+        let good = dir.path().join("node.pem");
+        std::fs::write(&good, &cert_pem).expect("write test CA cert");
+        assert!(
+            super::load_ca_cert(&good).is_ok(),
+            "a PEM certificate file must load"
+        );
+
+        let missing = dir.path().join("no-such-file.pem");
+        let err = format!("{:#}", super::load_ca_cert(&missing).unwrap_err());
+        assert!(err.contains("no-such-file.pem"), "{err}");
+        assert!(err.contains("--ca-cert"), "{err}");
+
+        let garbage = dir.path().join("garbage.pem");
+        std::fs::write(&garbage, b"this is not a certificate").expect("write garbage");
+        let err = format!("{:#}", super::load_ca_cert(&garbage).unwrap_err());
+        assert!(err.contains("garbage.pem"), "{err}");
+        assert!(err.contains("--ca-cert"), "{err}");
+
+        let empty = dir.path().join("empty.pem");
+        std::fs::write(&empty, b"").expect("write empty file");
+        let err = format!("{:#}", super::load_ca_cert(&empty).unwrap_err());
+        assert!(err.contains("empty.pem"), "{err}");
+        assert!(err.contains("--ca-cert"), "{err}");
+
+        let bundle = dir.path().join("bundle.pem");
+        std::fs::write(&bundle, format!("{cert_pem}{cert_pem}")).expect("write bundle");
+        let err = format!("{:#}", super::load_ca_cert(&bundle).unwrap_err());
+        assert!(err.contains("bundle.pem"), "{err}");
+        assert!(err.contains("exactly one"), "{err}");
+    }
+
+    /// The constructors thread `--ca-cert` through: a bad file fails at
+    /// client build, naming the option, and a good file builds a client
+    /// for a non-loopback URL instead of failing closed.
+    #[test]
+    fn ca_cert_constructors_reject_a_bad_file_and_accept_a_good_one() {
+        let (_cert_der, cert_pem, _key_der) = generate_self_signed_test_cert();
+        let dir = tempfile::tempdir().expect("test tempdir");
+        let good = dir.path().join("node.pem");
+        std::fs::write(&good, &cert_pem).expect("write test CA cert");
+
+        let err = format!(
+            "{:#}",
+            Es::with_ca_cert(
+                "https://node.invalid:9200",
+                None,
+                Some(dir.path().join("no-such-file.pem")),
+            )
+            .err()
+            .expect("a bad CA file must fail client build")
+        );
+        assert!(err.contains("no-such-file.pem"), "{err}");
+        assert!(err.contains("--ca-cert"), "{err}");
+
+        assert!(
+            Es::with_ca_cert("https://node.invalid:9200", None, Some(good.clone())).is_ok(),
+            "a good CA file must build a client for a non-loopback URL"
+        );
+        assert!(
+            Es::with_bulk_timeout_and_ca_cert("https://node.invalid:9200", None, 30, Some(good))
+                .is_ok(),
+            "the bulk constructor must accept the same file"
+        );
+    }
+
+    /// The TLS-cert detector reads the full error chain: a refusal names
+    /// its cause `UnknownIssuer`, a refused connection does not.
+    #[test]
+    fn ping_failure_is_tls_cert_only_for_certificate_refusals() {
+        let cert_err = anyhow::anyhow!(
+            "endpoint unreachable: https://node.invalid:9200: invalid peer certificate: UnknownIssuer"
+        );
+        assert!(Es::ping_failure_is_tls_cert(&cert_err));
+        let conn_err = anyhow::anyhow!(
+            "endpoint unreachable: http://127.0.0.1:9: Connection refused (os error 111)"
+        );
+        assert!(!Es::ping_failure_is_tls_cert(&conn_err));
+        let auth_err = anyhow::anyhow!("the node answered (HTTP 401)");
+        assert!(!Es::ping_failure_is_tls_cert(&auth_err));
     }
 
     /// Defence in depth for a `--url` target that answers `GET /` anonymously
