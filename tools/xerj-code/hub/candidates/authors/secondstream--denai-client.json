@@ -8,15 +8,15 @@
   {
    "repo": "DenAI-client",
    "url": "https://github.com/SecondStream/DenAI-client",
-   "sha": "c2464637da95e8a9ce06712a66d028160c1ae7fd",
-   "licence": "GPL-3.0 (LICENSE file at pin c2464637da95, GitHub licence API 2026-11-17)",
+   "sha": "176fb3668c87cefc3eb5b31f8592a274352067e5",
+   "licence": "GPL-3.0 (LICENSE file at pin 176fb3668c87, GitHub licence API 2026-11-17)",
    "review": {
     "spdx": "GPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-11-13T16:51Z",
     "consent_receipt": "76122be68579",
-    "note": "Inclusion consented by the commit author by email at 2026-11-13T16:51Z (receipt 76122be68579); selected commit c2464637da95: \"Rebuilding lorebooks when changing the embedding model\". LICENSE file at pin c2464637da95 detected as GPL-3.0 by the GitHub licence API on 2026-11-17; used under that licence with attribution. Pinned to head c2464637da95 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T16:51Z (receipt 76122be68579); selected commit 176fb3668c87: \"Rebuilding lorebooks when changing the embedding model\". LICENSE file at pin 176fb3668c87 detected as GPL-3.0 by the GitHub licence API on 2026-11-17; used under that licence with attribution. Pinned to head 176fb3668c87 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

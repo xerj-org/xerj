@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on esp-idf, esp32, lvgl queries this for how catorendal-a11y/tessera-deck implements it: Tessera: a DIY Stream Deck alternative on the GUITION 7-inch ESP32-P4 touchscreen, with an experimental, untested build for two 7-inch ESP32",
+ "domain": "an agent working on esp-idf, esp32, lvgl queries this for how catorendal-a11y/tessera-deck implements it: Tessera: a DIY Stream Deck alternative for 7-inch ESP32-P4 touchscreens. Supported boards: GUITION JC1060P470C and Elecrow CrowPanel Advance",
  "repos": [
   {
    "repo": "tessera-deck",
    "url": "https://github.com/catorendal-a11y/tessera-deck",
-   "sha": "955c795b4da4a4207cc8145e44d899440e974b65",
-   "licence": "MIT (LICENSE file at pin 955c795b4da4, GitHub licence API 2026-11-17)",
+   "sha": "fd6d7ef32f6f12f75b164a30b051c9c1246d77e7",
+   "licence": "MIT (LICENSE file at pin fd6d7ef32f6f, GitHub licence API 2026-11-17)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-15T10:37Z",
     "consent_receipt": "ac878c350d87",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-15T10:37Z (receipt ac878c350d87); pinned to the default-branch head. LICENSE file at pin 955c795b4da4 detected as MIT by the GitHub licence API on 2026-11-17; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-15T10:37Z (receipt ac878c350d87); pinned to the default-branch head. LICENSE file at pin fd6d7ef32f6f detected as MIT by the GitHub licence API on 2026-11-17; used under that licence with attribution."
    }
   }
  ]

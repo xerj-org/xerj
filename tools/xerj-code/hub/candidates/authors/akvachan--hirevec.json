@@ -1,9 +1,9 @@
 {
- "corpus": "akvachan--hirevec-core",
+ "corpus": "akvachan--hirevec",
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Go queries this for how akvachan/hirevec-core implements it: Find your perfect job blazingly fast! (selected work: the project root, migrations, cmd/hvserver)",
+ "domain": "an agent working on Go queries this for how akvachan/hirevec implements it: Find your perfect job blazingly fast! (selected work: the project root, migrations, cmd/hvserver)",
  "repos": [
   {
    "repo": "hirevec-core",
