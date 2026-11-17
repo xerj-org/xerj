@@ -128,7 +128,9 @@ fn serve(mut stream: TcpStream, state: &Mutex<NodeState>) {
     let method = parts.next().unwrap_or("").to_owned();
     let path = parts.next().unwrap_or("").to_owned();
 
-    let (status, response) = if method == "POST" && path == "/_decide" {
+    let (status, response) = if method == "GET" && path == "/" {
+        (200, crate::test_loopback::xerj_root())
+    } else if method == "POST" && path == "/_decide" {
         if state.lock().unwrap().fail_decide {
             (
                 500,
@@ -167,7 +169,7 @@ fn serve(mut stream: TcpStream, state: &Mutex<NodeState>) {
             }}),
         )
     } else {
-        // Ping, index/mapping PUTs, anything else a generated run needs to be
+        // Index/mapping PUTs and anything else a generated run needs to be
         // told "yes" about.
         (200, json!({"acknowledged": true}))
     };

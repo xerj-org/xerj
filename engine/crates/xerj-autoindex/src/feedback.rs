@@ -79,6 +79,7 @@ pub struct Cfg {
     pub title: Option<String>,
     pub slug: Option<String>,
     pub url: String,
+    pub xerj_url_note: Option<String>,
     pub api_key: Option<String>,
     pub output: Option<PathBuf>,
     pub open_pr: bool,
@@ -139,7 +140,12 @@ pub fn run_cli() -> i32 {
 
 /// Parse argv (after `xerj feedback`). `Ok(None)` means `--help`.
 pub fn parse(args: Vec<String>) -> Result<Option<Cfg>, String> {
+    parse_with_node_env(args, std::env::var("XERJ_URL").ok().as_deref())
+}
+
+fn parse_with_node_env(args: Vec<String>, xerj_url: Option<&str>) -> Result<Option<Cfg>, String> {
     let mut it = args.into_iter();
+    let mut url_explicit = false;
     let mut cfg = Cfg {
         agent: None,
         used_for: None,
@@ -150,6 +156,7 @@ pub fn parse(args: Vec<String>) -> Result<Option<Cfg>, String> {
         title: None,
         slug: None,
         url: "http://localhost:9200".to_string(),
+        xerj_url_note: None,
         api_key: std::env::var("XERJ_API_KEY").ok().filter(|s| !s.is_empty()),
         output: None,
         open_pr: false,
@@ -172,7 +179,10 @@ pub fn parse(args: Vec<String>) -> Result<Option<Cfg>, String> {
             "--filed-alongside" => cfg.filed_alongside = Some(next("--filed-alongside")?),
             "--title" => cfg.title = Some(next("--title")?),
             "--slug" => cfg.slug = Some(next("--slug")?),
-            "--url" => cfg.url = next("--url")?,
+            "--url" => {
+                cfg.url = next("--url")?;
+                url_explicit = true;
+            }
             "--api-key" => cfg.api_key = Some(next("--api-key")?),
             "-o" | "--output" => cfg.output = Some(PathBuf::from(next("--output")?)),
             "--open-pr" => cfg.open_pr = true,
@@ -225,12 +235,18 @@ pub fn parse(args: Vec<String>) -> Result<Option<Cfg>, String> {
             "--no-github and --github-only contradict each other. Drop one of the two".into(),
         );
     }
+    if !cfg.no_autofill {
+        cfg.xerj_url_note = crate::cli::xerj_url_ignored_note("feedback", xerj_url, url_explicit);
+    }
     Ok(Some(cfg))
 }
 
 /// Resolve the draft, render it, and act on the mode (`--dry-run`, `--submit`,
 /// `--open-pr`, or the default stdout/`-o`).
 pub fn run(cfg: &Cfg) -> i32 {
+    if let Some(note) = &cfg.xerj_url_note {
+        eprintln!("feedback: {note}");
+    }
     let date = today();
     // Auto-fill "what was indexed" only when asked to and only from a node that
     // actually answers; any failure leaves `None` → placeholder, never a
@@ -240,7 +256,15 @@ pub fn run(cfg: &Cfg) -> i32 {
     } else {
         match crate::fetch_catalog_summary(&cfg.url, cfg.api_key.clone()) {
             Ok(summary) => summary.one_line(),
-            Err(_) => None,
+            Err(error) => {
+                if error.is::<crate::esclient::UnexpectedNode>() {
+                    eprintln!(
+                        "feedback: {} Catalog autofill skipped.",
+                        crate::node_ping_failure(&cfg.url, &error)
+                    );
+                }
+                None
+            }
         }
     };
     let mut draft = resolve_draft(cfg, indexed, &date);
@@ -1216,7 +1240,7 @@ pub fn help_text(feedback: bool) -> String {
                                   (opens no PR, writes no file, sends nothing)\n\
          \n\
          READING THE CATALOG (auto-fill source):\n\
-             --url <U>            ES-compat endpoint (default http://localhost:9200)\n\
+             --url <U>            Catalog node (default http://localhost:9200). XERJ_URL is ignored.\n\
              --api-key <K>        Authorization header (or env XERJ_API_KEY)\n\
              --no-autofill        skip the node probe; draft fully offline\n\
          \n\
@@ -1247,6 +1271,7 @@ mod tests {
             title: None,
             slug: None,
             url: "http://127.0.0.1:1".to_string(),
+            xerj_url_note: None,
             api_key: None,
             output: None,
             open_pr: false,
@@ -1627,6 +1652,27 @@ mod tests {
             .contains("unknown"));
         assert!(parse(vec!["--help".into()]).unwrap().is_none());
         assert!(parse(vec!["-h".into()]).unwrap().is_none());
+    }
+
+    #[test]
+    fn catalog_autofill_warns_when_the_node_env_would_be_ignored() {
+        let env = "http://127.0.0.1:19242";
+        let parse = |args: &[&str]| {
+            parse_with_node_env(args.iter().map(|arg| (*arg).into()).collect(), Some(env))
+                .unwrap()
+                .unwrap()
+        };
+        let cfg = parse(&["--dry-run"]);
+        assert_eq!(cfg.url, "http://localhost:9200");
+        let note = cfg.xerj_url_note.unwrap();
+        assert!(
+            note.contains(env) && note.contains(&cfg.url) && note.contains("--url"),
+            "{note}"
+        );
+        assert!(parse(&["--no-autofill"]).xerj_url_note.is_none());
+        let cfg = parse(&["--url", "http://other:9200"]);
+        assert_eq!(cfg.url, "http://other:9200");
+        assert!(cfg.xerj_url_note.is_none());
     }
 
     #[test]
