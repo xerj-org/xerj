@@ -1,9 +1,9 @@
 {
- "corpus": "ezedike-evan--corridor-in-a-box",
+ "corpus": "corridor-in-a-box--corridor-in-a-box",
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on cross-border-payments, fintech, sep-31 queries this for how ezedike-evan/corridor-in-a-box implements it: Manifest-driven engine for Stellar SEP-31 cross-border corridors - a corridor is config, not code (selected work: packages/stellar, tests, packages/service)",
+ "domain": "an agent working on cross-border-payments, fintech, sep-31 queries this for how corridor-in-a-box/corridor-in-a-box implements it: Manifest-driven engine for Stellar SEP-31 cross-border corridors - a corridor is config, not code (selected work: packages/stellar, tests, packages/service)",
  "repos": [
   {
    "repo": "corridor-in-a-box",
