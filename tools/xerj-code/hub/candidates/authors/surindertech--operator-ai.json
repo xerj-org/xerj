@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Python queries this for how SurinderTech/Operator_AI implements it: AI Receptionist \u2192 AI Sales & Operations Agent: A business gets a call \u2192 AI understands the customer \u2192 qualifies them \u2192 takes action \u2192 update (selected work: backend)",
+ "domain": "an agent working on agent-skills, ai, orchestration-systems queries this for how SurinderTech/Operator_AI implements it: AI Receptionist \u2192 AI Sales & Operations Agent: A business gets a call \u2192 AI understands the customer \u2192 qualifies them \u2192 takes action \u2192 update (selected work: backend)",
  "repos": [
   {
    "repo": "Operator_AI",

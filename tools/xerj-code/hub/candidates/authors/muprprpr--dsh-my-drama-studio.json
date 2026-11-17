@@ -8,15 +8,15 @@
   {
    "repo": "dsh-my-drama-studio",
    "url": "https://github.com/Muprprpr/dsh-my-drama-studio",
-   "sha": "69c8f53c8dfca167d829449c0ec56b15e3c902bf",
-   "licence": "AGPL-3.0 (LICENSE file at pin 69c8f53c8dfc, GitHub licence API 2026-11-17)",
+   "sha": "e732c6570fa95285c9c94f17ee8478b66bd14e0f",
+   "licence": "AGPL-3.0 (LICENSE file at pin e732c6570fa9, GitHub licence API 2026-11-17)",
    "review": {
     "spdx": "AGPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-11-12T10:00Z",
     "consent_receipt": "8a31cc0e6f30",
-    "note": "Inclusion consented by the commit author by email at 2026-11-12T10:00Z (receipt 8a31cc0e6f30); selected commit 69c8f53c8dfc: \"feat:\u5b8c\u5584\u4e86\u6e20\u9053\u914d\u7f6e\u5165\u53e3\". LICENSE file at pin 69c8f53c8dfc detected as AGPL-3.0 by the GitHub licence API on 2026-11-17; used under that licence with attribution. Pinned to head 69c8f53c8dfc (contains the selected commit): the LICENSE at the selected commit was Apache-2.0."
+    "note": "Inclusion consented by the commit author by email at 2026-11-12T10:00Z (receipt 8a31cc0e6f30); selected commit e732c6570fa9: \"feat:\u5b8c\u5584\u4e86\u6e20\u9053\u914d\u7f6e\u5165\u53e3\". LICENSE file at pin e732c6570fa9 detected as AGPL-3.0 by the GitHub licence API on 2026-11-17; used under that licence with attribution. Pinned to head e732c6570fa9 (contains the selected commit): the LICENSE at the selected commit was Apache-2.0."
    }
   }
  ]
