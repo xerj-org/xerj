@@ -8,15 +8,15 @@
   {
    "repo": "kubeswift",
    "url": "https://github.com/kubeswift-io/kubeswift",
-   "sha": "42b7e8b82c8998687c1b6416e4268c98163c7124",
-   "licence": "Apache-2.0 (LICENSE file at pin 42b7e8b82c89, GitHub licence API 2026-11-17)",
+   "sha": "4103e9b2ccc029cd38765886e9cf6a4ac0f40c79",
+   "licence": "Apache-2.0 (LICENSE file at pin 4103e9b2ccc0, GitHub licence API 2026-11-17)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-18T08:01Z",
     "consent_receipt": "8ac13f3d900a",
-    "note": "Inclusion consented by the commit author by email at 2026-10-18T08:01Z (receipt 8ac13f3d900a); selected commit 42b7e8b82c89: \"fix(sandbox): replace a warm slot whose guest agent never answers (#808)\". LICENSE file at pin 42b7e8b82c89 detected as Apache-2.0 by the GitHub licence API on 2026-11-17; used under that licence with attribution. Pinned to head 42b7e8b82c89 (contains the selected commit): the LICENSE at the selected commit was AGPL-3.0. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @kubeswift-io, who has not added it."
+    "note": "Inclusion consented by the commit author by email at 2026-10-18T08:01Z (receipt 8ac13f3d900a); selected commit 4103e9b2ccc0: \"fix(sandbox): replace a warm slot whose guest agent never answers (#808)\". LICENSE file at pin 4103e9b2ccc0 detected as Apache-2.0 by the GitHub licence API on 2026-11-17; used under that licence with attribution. Pinned to head 4103e9b2ccc0 (contains the selected commit): the LICENSE at the selected commit was AGPL-3.0. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @kubeswift-io, who has not added it."
    },
    "paths": [
     "cmd/controller-manager",

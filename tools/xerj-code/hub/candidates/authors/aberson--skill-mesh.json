@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agentic-workflows, claude, claude-code queries this for how aberson/skill-mesh implements it: Agent skills for a gated plan -> build -> review -> ship pipeline on Claude Code and OpenAI Codex: 46 skills (44 portable), independent evid (selected work: tests, tools)",
+ "domain": "an agent working on agentic-workflows, claude, claude-code queries this for how aberson/skill-mesh implements it: Agent skills for a gated plan -> build -> review -> ship pipeline on Claude Code and OpenAI Codex: 47 skills (45 portable), independent evid (selected work: tests, tools)",
  "repos": [
   {
    "repo": "skill-mesh",
