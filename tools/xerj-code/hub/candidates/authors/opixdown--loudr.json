@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Rust queries this for how opixdown/loudr implements it: Free, open-source, fully offline text to speech and voice typing for macOS and Windows. Select text and tap a key to hear it; hold a key and (selected work: video, src-tauri)",
+ "domain": "an agent working on TypeScript queries this for how opixdown/loudr implements it: Free, open-source, fully offline text to speech and voice typing for macOS and Windows. Select text and tap a key to hear it; hold a key and (selected work: video, src-tauri)",
  "repos": [
   {
    "repo": "loudr",

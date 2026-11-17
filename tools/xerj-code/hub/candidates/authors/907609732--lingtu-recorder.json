@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on C# queries this for how 907609732/lingtu-recorder implements it: \u7075\u5154\u62c6\u5305\u667a\u5f55\uff1aWindows \u62c6\u5305\u5f55\u50cf\u3001\u626b\u7801\u3001\u624b\u673a\u534f\u540c\u4e0e Excel \u6570\u636e\u540c\u6b65\u5de5\u5177",
+ "domain": "an agent working on C# queries this for how 907609732/lingtu-recorder implements it: \u7075\u5154\u8fd9\u662f\u4e00\u4e2a\u9762\u5411\u4e2d\u5c0f\u7535\u5546\u5546\u5bb6\u7684\u96f6\u6210\u672c\u3001\u5f00\u6e90 Windows \u62c6\u5305/\u6253\u5305\u5f55\u50cf\u3001\u624b\u673a\u534f\u540c\u4e0e\u6570\u636e\u540c\u6b65\u7cfb\u7edf",
  "repos": [
   {
    "repo": "lingtu-recorder",

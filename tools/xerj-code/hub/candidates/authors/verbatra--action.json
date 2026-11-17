@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WRITE",
- "domain": "an agent working on actions, anthropic, ci queries this for how verbatra/action implements it: Incremental i18n translation automation in CI: translate only the keys that changed, and never write a result that breaks a placeholder. Gat (selected work: the project root)",
+ "domain": "an agent working on actions, anthropic, ci queries this for how verbatra/action implements it: Run verbatra in CI: gate pull requests on locale drift with annotations and a job summary, or translate only what changed without breaking p (selected work: the project root)",
  "repos": [
   {
    "repo": "action",

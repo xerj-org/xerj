@@ -1,0 +1,23 @@
+{
+ "corpus": "zebraine--logisim-rs",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how Zebraine/logisim-rs implements it: Zebraine/logisim-rs (Rust) (selected work: crates/logisim-plugin-api, crates/logisim-plugin, crates/logisim-plugin-sdk)",
+ "repos": [
+  {
+   "repo": "logisim-rs",
+   "url": "https://github.com/Zebraine/logisim-rs",
+   "sha": "587f417b35febfeb34b09119dec8cd28a14fa3e2",
+   "licence": "MIT (LICENSE file at pin 587f417b35fe, GitHub licence API 2026-11-17)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-17T06:52Z",
+    "consent_receipt": "563f047c597d",
+    "note": "Inclusion consented by the commit author by email at 2026-11-17T06:52Z (receipt 563f047c597d); selected commit 587f417b35fe: \"perf(plugin): add negotiated linear-memory stable transport\". LICENSE file at pin 587f417b35fe detected as MIT by the GitHub licence API on 2026-11-17; used under that licence with attribution."
+   }
+  }
+ ]
+}
