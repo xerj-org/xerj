@@ -12585,6 +12585,11 @@ fn run_date_range(
     // RFC3339/ISO-ish strings, so formats like `dd-MM-yyyy` need
     // format-aware parsing to yield a valid ms timestamp.
     let parse_with_fmt = |val: &Value| -> Option<i64> {
+        // `now-30d/d` is date math, which parse_date_ms doesn't read.
+        if let Some(math) = val.as_str().filter(|s| s.trim_start().starts_with("now")) {
+            let resolved = xerj_query::dates::resolve_date_bound_str(math, false, None).ok()??;
+            return parse_date_ms(&Value::String(resolved));
+        }
         // Epoch formats interpret raw numbers as seconds / milliseconds.
         // parse_date_ms would otherwise return the number as-is (always
         // treating it as millis), which for `format: epoch_second` is
@@ -15914,6 +15919,31 @@ mod tests {
             Some(5),
             "a span exactly at the cap must still be served, got {ok}"
         );
+    }
+}
+
+#[cfg(test)]
+mod date_range_math_tests {
+    use super::run_date_range;
+    use serde_json::json;
+
+    #[test]
+    fn date_math_bounds_split_the_documents() {
+        let now = chrono::Utc::now();
+        let old = (now - chrono::Duration::days(40)).to_rfc3339();
+        let recent = (now - chrono::Duration::days(2)).to_rfc3339();
+        let docs = vec![json!({"ts": old}), json!({"ts": recent})];
+        let params = json!({"field": "ts", "ranges": [{"to": "now-30d/d"}, {"from": "now-30d/d"}]});
+
+        let out = run_date_range(&params, None, &docs, &docs);
+
+        let counts: Vec<i64> = out["buckets"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|b| b["doc_count"].as_i64().unwrap())
+            .collect();
+        assert_eq!(counts, vec![1, 1]);
     }
 }
 
