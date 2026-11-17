@@ -8,15 +8,15 @@
   {
    "repo": "Finite-universe-Yang-mills-existence-and-mass-gap-using-HEB-C",
    "url": "https://github.com/JesseBrown1980/Finite-universe-Yang-mills-existence-and-mass-gap-using-HEB-C",
-   "sha": "896ba5f173a934cb750bf94d88309f474e566bbd",
-   "licence": "author's permission (LICENSE at pin 896ba5f173a9: NONE; repository: none)",
+   "sha": "fa1e07fc59193d549c71fc02bfe430cbef6f46fe",
+   "licence": "author's permission (LICENSE at pin fa1e07fc5919: NONE; repository: none)",
    "review": {
     "spdx": "NONE",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-05T14:53Z",
     "consent_receipt": "c39f3fdea7b4",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T14:53Z (receipt c39f3fdea7b4); pinned to the default-branch head. LICENSE at pin 896ba5f173a9: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T14:53Z (receipt c39f3fdea7b4); pinned to the default-branch head. LICENSE at pin fa1e07fc5919: NONE (repository: none); used with the author's permission, with attribution."
    }
   }
  ]

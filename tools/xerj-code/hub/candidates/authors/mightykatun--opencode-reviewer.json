@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on adversarial-testing, agentic-coding, ai-security queries this for how mightykatun/opencode-reviewer implements it: Safety reviews and optional one-time auto-approval for OpenCode permissions (selected work: test, src, scripts)",
+ "domain": "an agent working on adversarial-testing, agentic-coding, ai-security queries this for how mightykatun/opencode-reviewer implements it: Smart auto permission mode for OpenCode (selected work: test, src, scripts)",
  "repos": [
   {
    "repo": "opencode-reviewer",

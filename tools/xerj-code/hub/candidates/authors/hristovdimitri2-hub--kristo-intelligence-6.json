@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-agents, base, defi queries this for how hristovdimitri2-hub/kristo-intelligence-6 implements it: Pay-per-call DeFi intelligence API on Base: trading signals, whale flow, arbitrage radar - x402 micropayments in USDC at $0.003-$0.005 per c (selected work: scripts, tests, the project root)",
+ "domain": "an agent working on ai-agents, base, defi queries this for how hristovdimitri2-hub/kristo-intelligence-6 implements it: Pay-per-call DeFi intelligence API on Base: trading signals, whale flow, arbitrage radar, on-chain seller audits - x402 micropayments in USD (selected work: scripts, tests, the project root)",
  "repos": [
   {
    "repo": "kristo-intelligence-6",
