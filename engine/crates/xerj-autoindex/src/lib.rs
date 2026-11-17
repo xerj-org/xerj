@@ -69,6 +69,7 @@ mod sync_executor;
 mod test_loopback;
 pub mod walk;
 pub mod watch;
+pub mod worktree;
 pub mod xc;
 
 use anyhow::{Context, Result};
