@@ -25,6 +25,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Cluster: each index routes documents with its own shard count.** The shard
+  router used one hash width for the whole cluster, set to the widest plan, so
+  creating an index with more shards (for example after a fourth node joined)
+  re-bucketed every older index: acknowledged ids answered 404 and new writes
+  landed on a shard the older index's plan does not have. The width is now
+  per index, derived from that index's own plan. A write to a planned shard
+  that has no primary is refused with 503 `shard_not_assigned_exception`
+  instead of being stored on the node that received it. Documents already
+  misplaced on a running cluster are not moved by this fix.
 - A newly elected cluster leader now appends a no-op entry of its own term
   (Raft §5.4.2, §8), so a log tail left uncommitted by the previous leader
   commits right after the election instead of waiting for the next client

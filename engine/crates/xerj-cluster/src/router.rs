@@ -41,6 +41,36 @@ pub fn jump_hash(key: u64, num_buckets: u32) -> u32 {
 
 // ── ShardRouter ───────────────────────────────────────────────────────────────
 
+/// Where a document of an index goes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Route<'a> {
+    /// The index has no shard plan (single-node, or created outside the
+    /// replicated plan). The receiving node stores the document.
+    NoPlan { shard: u32 },
+    /// The plan names `node` as the primary of `shard`.
+    Owned { shard: u32, node: &'a str },
+    /// The index has a plan, but no primary is assigned for `shard`. The
+    /// write must be refused: storing it locally puts it outside the plan,
+    /// where search and reads by id never look.
+    Unowned { shard: u32 },
+}
+
+impl Route<'_> {
+    pub fn shard(&self) -> u32 {
+        match self {
+            Route::NoPlan { shard } | Route::Owned { shard, .. } | Route::Unowned { shard } => {
+                *shard
+            }
+        }
+    }
+}
+
+/// The index has a shard plan but the document's shard has no primary.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ShardUnassigned {
+    pub shard: u32,
+}
+
 /// Routes documents and search queries to cluster nodes via consistent hashing.
 ///
 /// The routing table is a snapshot of [`ClusterMetadata::shard_assignments`] and
@@ -49,8 +79,16 @@ pub fn jump_hash(key: u64, num_buckets: u32) -> u32 {
 ///
 /// [`update_from_metadata`]: ShardRouter::update_from_metadata
 pub struct ShardRouter {
-    /// Number of virtual shards per index (constant across the cluster lifetime).
+    /// Hash width for an index that has no plan. Never applied to an index
+    /// that has one: see `index_shards`.
     num_shards: u32,
+    /// Hash width of each planned index: its highest assigned shard + 1.
+    ///
+    /// Per index, never cluster-wide. A single width shared by every index
+    /// meant that creating one index with more shards re-bucketed every
+    /// older index, so acknowledged ids routed to a shard that did not
+    /// hold them.
+    index_shards: HashMap<String, u32>,
     /// `(index_name, shard_id)` → `node_id` (primary owner)
     routing_table: HashMap<(String, u32), String>,
     /// `(index_name, shard_id)` → list of replica node IDs (excluding primary)
@@ -66,20 +104,25 @@ impl ShardRouter {
         assert!(num_shards > 0, "num_shards must be > 0");
         ShardRouter {
             num_shards,
+            index_shards: HashMap::new(),
             routing_table: HashMap::new(),
             replica_table: HashMap::new(),
             in_sync: HashMap::new(),
         }
     }
 
-    /// The configured number of virtual shards.
+    /// Hash width used for an index with no shard plan.
     pub fn num_shards(&self) -> u32 {
         self.num_shards
     }
 
-    /// Widen or set the hash width. `route_doc` uses this for every index,
-    /// so a plan that assigns shard `n` must set the width to at least `n + 1`
-    /// or that shard is unreachable.
+    /// Hash width of `index`'s own plan, when it has one.
+    pub fn index_num_shards(&self, index: &str) -> Option<u32> {
+        self.index_shards.get(index).copied()
+    }
+
+    /// Set the hash width for indices that have no plan. A planned index
+    /// keeps the width of its own plan.
     pub fn set_num_shards(&mut self, num_shards: u32) {
         assert!(num_shards > 0, "num_shards must be > 0");
         self.num_shards = num_shards;
@@ -90,20 +133,37 @@ impl ShardRouter {
         self.routing_table.retain(|(idx, _), _| idx != index);
         self.replica_table.retain(|(idx, _), _| idx != index);
         self.in_sync.retain(|(idx, _), _| idx != index);
+        self.index_shards.remove(index);
     }
 
     /// Route a document to its shard and owning node.
     ///
-    /// Returns `(shard_id, Option<node_id>)`. `node_id` is `None` when the
-    /// shard has not yet been assigned to a node.
+    /// The shard comes from `index`'s own plan width, or from the fallback
+    /// width when the index has no plan. Returns `(shard_id, Option<node_id>)`;
+    /// `node_id` is `None` when no primary is assigned. Use [`Self::route`]
+    /// to tell "no plan" from "planned but unassigned".
     pub fn route_doc(&self, index: &str, doc_id: &str) -> (u32, Option<&str>) {
-        let hash = xxh3_64(doc_id.as_bytes());
-        let shard = jump_hash(hash, self.num_shards);
-        let node = self
-            .routing_table
-            .get(&(index.to_string(), shard))
-            .map(|s| s.as_str());
-        (shard, node)
+        let route = self.route(index, doc_id);
+        match route {
+            Route::Owned { shard, node } => (shard, Some(node)),
+            other => (other.shard(), None),
+        }
+    }
+
+    /// Route a document, distinguishing an unplanned index from a planned
+    /// shard that has no primary.
+    pub fn route(&self, index: &str, doc_id: &str) -> Route<'_> {
+        let planned = self.index_shards.get(index).copied();
+        let width = planned.unwrap_or(self.num_shards);
+        let shard = jump_hash(xxh3_64(doc_id.as_bytes()), width);
+        match self.routing_table.get(&(index.to_string(), shard)) {
+            Some(node) => Route::Owned {
+                shard,
+                node: node.as_str(),
+            },
+            None if planned.is_some() => Route::Unowned { shard },
+            None => Route::NoPlan { shard },
+        }
     }
 
     /// Return the deduplicated list of node IDs that hold shards for `index`.
@@ -126,29 +186,31 @@ impl ShardRouter {
 
     /// Refresh the routing table from authoritative cluster metadata.
     ///
-    /// Also updates `num_shards` to the maximum shard count seen across all
-    /// index assignments.
+    /// Each index's hash width is derived from that index's own assignments
+    /// (and its recorded `num_shards`, when larger). The fallback width for
+    /// unplanned indices is left alone.
     pub fn update_from_metadata(&mut self, metadata: &ClusterMetadata) {
         self.routing_table.clear();
         self.replica_table.clear();
         self.in_sync.clear();
-        let mut max_shards: u32 = 0;
+        self.index_shards.clear();
         for ((index, shard), node_id) in &metadata.shard_assignments {
-            self.routing_table
-                .insert((index.clone(), *shard), node_id.clone());
-            max_shards = max_shards.max(shard + 1);
+            self.assign(index, *shard, node_id);
         }
-        // Only widen when we actually saw assignments — an empty metadata set
-        // must not violate the `num_shards > 0` invariant established in `new`.
-        if max_shards > 0 {
-            self.num_shards = max_shards;
+        for (index, width) in self.index_shards.iter_mut() {
+            if let Some(meta) = metadata.indices.get(index) {
+                *width = (*width).max(meta.num_shards);
+            }
         }
     }
 
-    /// Manually assign a shard to a node (used during cluster bootstrap or testing).
+    /// Assign a shard's primary. Widens `index`'s own hash width to cover
+    /// `shard`; other indices are not affected.
     pub fn assign(&mut self, index: &str, shard: u32, node_id: &str) {
         self.routing_table
             .insert((index.to_string(), shard), node_id.to_string());
+        let width = self.index_shards.entry(index.to_string()).or_insert(0);
+        *width = (*width).max(shard.saturating_add(1));
     }
 
     /// Register a replica node for a shard.
@@ -410,13 +472,18 @@ mod tests {
         );
 
         // Start with a single virtual shard: refreshing from metadata that
-        // assigns shards 0 and 1 must widen num_shards to 2.
+        // assigns shards 0 and 1 must give `products` a width of 2.
         let mut router = ShardRouter::new(1);
         router.update_from_metadata(&meta);
 
-        // num_shards is refreshed to the max shard index seen (+1), matching
-        // the doc comment on update_from_metadata.
-        assert_eq!(router.num_shards(), 2, "num_shards should widen to 2");
+        // The index's own width follows its assignments; the fallback width
+        // for unplanned indices is not widened by another index's plan.
+        assert_eq!(router.index_num_shards("products"), Some(2));
+        assert_eq!(
+            router.num_shards(),
+            1,
+            "fallback width is per-cluster, untouched"
+        );
 
         let targets = router.search_targets("products");
         assert!(targets.contains(&"node-a".to_string()));
@@ -440,6 +507,77 @@ mod tests {
             saw_node_a && saw_node_b,
             "both shards should be reachable after refresh (a={saw_node_a}, b={saw_node_b})"
         );
+    }
+
+    /// Regression: installing a wider index must not re-bucket an older one.
+    /// One cluster-wide width made `a`'s ids move when `b` (4 shards) was
+    /// assigned, so acknowledged ids routed to shards that did not hold them.
+    #[test]
+    fn a_wider_index_does_not_change_an_older_index_routes() {
+        let mut router = ShardRouter::new(1);
+        for shard in 0..3u32 {
+            router.assign("a", shard, &format!("n{shard}"));
+        }
+        let ids: Vec<String> = (0..10_000).map(|i| format!("doc-{i}")).collect();
+        let before: Vec<(u32, Option<String>)> = ids
+            .iter()
+            .map(|id| {
+                let (shard, node) = router.route_doc("a", id);
+                (shard, node.map(str::to_string))
+            })
+            .collect();
+        assert!(before.iter().all(|(s, n)| *s < 3 && n.is_some()));
+
+        for shard in 0..4u32 {
+            router.assign("b", shard, &format!("n{}", shard % 3));
+        }
+        assert_eq!(router.index_num_shards("a"), Some(3));
+        assert_eq!(router.index_num_shards("b"), Some(4));
+
+        let mut moved = 0;
+        for (id, want) in ids.iter().zip(&before) {
+            let (shard, node) = router.route_doc("a", id);
+            if (shard, node.map(str::to_string)) != *want {
+                moved += 1;
+            }
+        }
+        assert_eq!(moved, 0, "{moved} of 10000 ids of `a` changed route");
+
+        let mut seen = [0u32; 4];
+        for id in &ids {
+            let (shard, node) = router.route_doc("b", id);
+            assert_eq!(shard, jump_hash(xxh3_64(id.as_bytes()), 4));
+            assert!(node.is_some());
+            seen[shard as usize] += 1;
+        }
+        assert!(seen.iter().all(|c| *c > 0), "b uses width 4: {seen:?}");
+
+        router.clear_index("b");
+        assert_eq!(router.index_num_shards("b"), None);
+        assert_eq!(router.index_num_shards("a"), Some(3));
+    }
+
+    /// A planned index whose shard 2 has no primary routes that shard as
+    /// `Unowned`, not as "no plan, write locally".
+    #[test]
+    fn a_planned_shard_with_no_primary_is_unowned() {
+        let mut router = ShardRouter::new(1);
+        router.assign("gap", 0, "n0");
+        router.assign("gap", 1, "n1");
+        router.assign("gap", 3, "n3");
+        assert_eq!(router.index_num_shards("gap"), Some(4));
+        let id = (0..10_000)
+            .map(|i| format!("doc-{i}"))
+            .find(|id| jump_hash(xxh3_64(id.as_bytes()), 4) == 2)
+            .expect("an id hashing to shard 2");
+        assert_eq!(router.route("gap", &id), Route::Unowned { shard: 2 });
+        assert_eq!(router.route_doc("gap", &id), (2, None));
+
+        let (shard, node) = router.route_doc("gap", "doc-x");
+        if shard != 2 {
+            assert!(node.is_some());
+        }
+        assert!(matches!(router.route("other", &id), Route::NoPlan { .. }));
     }
 
     #[test]

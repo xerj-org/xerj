@@ -557,6 +557,8 @@ async fn an_acknowledged_write_is_on_the_replica_and_readable_after_the_primary_
         let (shard, _) = members[primary]
             .engine
             .primary_of("orders", &id)
+            .ok()
+            .flatten()
             .expect("primary placement");
         let replicas = members[primary].engine.replica_nodes("orders", shard);
         assert_eq!(replicas.len(), 1, "one replica for shard {shard}");
@@ -744,6 +746,8 @@ async fn a_quorum_of_copies_acks_when_one_of_two_replicas_does_not() {
         let (shard, _) = members[primary]
             .engine
             .primary_of("orders", &id)
+            .ok()
+            .flatten()
             .expect("primary placement");
         let replicas = members[primary]
             .engine
@@ -1168,7 +1172,12 @@ async fn restart_reloads_the_shard_plan_and_still_routes_the_document() {
     let owner_id = members[owner].handle.node_id().to_string();
     let other = (0..3).find(|i| *i != owner).expect("a non-owner");
     assert_eq!(
-        members[other].engine.route_write("orders", "1").as_deref(),
+        members[other]
+            .engine
+            .route_write("orders", "1")
+            .ok()
+            .flatten()
+            .as_deref(),
         Some(owner_id.as_str()),
         "before restart the non-owner forwards"
     );
@@ -1186,7 +1195,12 @@ async fn restart_reloads_the_shard_plan_and_still_routes_the_document() {
         "replay must put the primary back on {owner_id}"
     );
     assert_eq!(
-        members[other].engine.route_write("orders", "1").as_deref(),
+        members[other]
+            .engine
+            .route_write("orders", "1")
+            .ok()
+            .flatten()
+            .as_deref(),
         Some(owner_id.as_str()),
         "restart must not treat the index as unassigned"
     );
@@ -1433,7 +1447,8 @@ async fn a_late_member_copies_documents_written_before_it_joined() {
     let mut gone_id = None;
     for n in 0..256 {
         let id = format!("b{n}");
-        let Some((shard, owner)) = members[0].engine.primary_of("orders", &id) else {
+        let Some((shard, owner)) = members[0].engine.primary_of("orders", &id).ok().flatten()
+        else {
             continue;
         };
         if owner == "n3" {
@@ -1606,6 +1621,8 @@ async fn a_replica_dropped_from_the_in_sync_set_copies_the_missed_write_and_rejo
         let (shard, _) = members[primary]
             .engine
             .primary_of("orders", &id)
+            .ok()
+            .flatten()
             .expect("placement");
         let replicas = members[primary]
             .engine
@@ -1719,6 +1736,8 @@ async fn primary_shard_sources(primary: &Member, shard: u32) -> BTreeMap<String,
         primary
             .engine
             .primary_of("orders", id)
+            .ok()
+            .flatten()
             .is_some_and(|(doc_shard, _)| doc_shard == shard)
     });
     out
@@ -1785,7 +1804,8 @@ fn shard_case(members: &[Member]) -> ShardCase {
     let mut ids = Vec::new();
     for n in 0..512 {
         let id = format!("r{n}");
-        let Some((shard, owner)) = members[0].engine.primary_of("orders", &id) else {
+        let Some((shard, owner)) = members[0].engine.primary_of("orders", &id).ok().flatten()
+        else {
             continue;
         };
         let replicas = members[0].engine.placed_replica_nodes("orders", shard);
@@ -2121,6 +2141,8 @@ async fn bulk_and_update_from_a_non_owner_write_the_primary_and_the_replica() {
         let (shard, _) = members[primary]
             .engine
             .primary_of("orders", &id)
+            .ok()
+            .flatten()
             .expect("placement");
         let replicas = members[primary].engine.replica_nodes("orders", shard);
         if replicas.len() != 1 {
@@ -2252,6 +2274,8 @@ async fn bulk_and_update_from_a_non_owner_write_the_primary_and_the_replica() {
     let (auto_shard, _) = members[auto_primary]
         .engine
         .primary_of("orders", &auto_id)
+        .ok()
+        .flatten()
         .expect("auto placement");
     let auto_replicas = members[auto_primary]
         .engine
@@ -2452,6 +2476,8 @@ async fn update_by_query_from_a_non_owner_updates_every_primary_and_replica() {
         let (shard, _) = members[primary]
             .engine
             .primary_of("orders", &id)
+            .ok()
+            .flatten()
             .expect("placement");
         let replicas = members[primary].engine.replica_nodes("orders", shard);
         if replicas.len() != 1 {
@@ -2833,6 +2859,8 @@ async fn delete_by_query_from_a_non_owner_deletes_on_every_primary_and_replica()
         let (shard, _) = members[primary]
             .engine
             .primary_of("orders", &id)
+            .ok()
+            .flatten()
             .expect("placement");
         let replicas = members[primary].engine.replica_nodes("orders", shard);
         if replicas.len() != 1 {
@@ -3169,6 +3197,8 @@ async fn native_doc_writes_from_a_non_owner_hit_the_primary_and_the_replica() {
         let (shard, _) = members[primary]
             .engine
             .primary_of("orders", &id)
+            .ok()
+            .flatten()
             .expect("placement");
         let replicas = members[primary].engine.replica_nodes("orders", shard);
         if replicas.len() != 1 {
