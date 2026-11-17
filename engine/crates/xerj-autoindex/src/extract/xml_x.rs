@@ -638,6 +638,32 @@ mod tests {
     }
 
     /// Depth cannot separate sibling wrappers, so the last key has to.
+    #[test]
+    fn a_tie_at_the_same_depth_is_settled_by_the_lowest_tag_name() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("siblings.xml");
+        std::fs::write(
+            &path,
+            r#"<catalog>
+                 <beta id="1"><v>1</v></beta><alpha id="1"><v>1</v></alpha>
+                 <beta id="2"><v>2</v></beta><alpha id="2"><v>2</v></alpha>
+                 <beta id="3"><v>3</v></beta><alpha id="3"><v>3</v></alpha>
+               </catalog>"#,
+        )
+        .unwrap();
+
+        for _ in 0..200 {
+            assert_eq!(
+                elect_record_tag(&path, false).unwrap().as_deref(),
+                Some("alpha")
+            );
+        }
+        let (stats, recs) = run(&std::fs::read_to_string(&path).unwrap());
+        assert_eq!(stats.records, 3, "only the elected tag emits records");
+        assert_eq!(recs[0].fields["id"], serde_json::json!("1"));
+        assert_eq!(recs[0].fields["v"], serde_json::json!("1"));
+    }
+
     /// B6: `handle_open` clones the whole element stack and joins it into a
     /// key prefix on EVERY start event, and `handle_text` joins it again per
     /// text event. With no depth bound, a document nested N deep costs
@@ -688,31 +714,5 @@ mod tests {
             "the deepest text must still extract: {:?}",
             recs[0].fields
         );
-    }
-
-    #[test]
-    fn a_tie_at_the_same_depth_is_settled_by_the_lowest_tag_name() {
-        let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("siblings.xml");
-        std::fs::write(
-            &path,
-            r#"<catalog>
-                 <beta id="1"><v>1</v></beta><alpha id="1"><v>1</v></alpha>
-                 <beta id="2"><v>2</v></beta><alpha id="2"><v>2</v></alpha>
-                 <beta id="3"><v>3</v></beta><alpha id="3"><v>3</v></alpha>
-               </catalog>"#,
-        )
-        .unwrap();
-
-        for _ in 0..200 {
-            assert_eq!(
-                elect_record_tag(&path, false).unwrap().as_deref(),
-                Some("alpha")
-            );
-        }
-        let (stats, recs) = run(&std::fs::read_to_string(&path).unwrap());
-        assert_eq!(stats.records, 3, "only the elected tag emits records");
-        assert_eq!(recs[0].fields["id"], serde_json::json!("1"));
-        assert_eq!(recs[0].fields["v"], serde_json::json!("1"));
     }
 }

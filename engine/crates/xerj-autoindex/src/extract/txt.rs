@@ -40,9 +40,9 @@ const CHUNK_LINES: usize = 40;
 const CHUNK_OVERLAP: usize = 10;
 /// Byte ceiling per chunk, so a file of very long lines cannot produce a
 /// multi-megabyte record that would blow up `_source` on every hit. Stored
-/// lines are truncated to this same ceiling (see `extract_lines`): the
-/// window holds CHUNK_LINES lines, so an uncut line is what used to let the
-/// window reach 40 x MAX_LINE.
+/// lines are split into pieces of at most this ceiling (see
+/// `extract_lines`): the window holds CHUNK_LINES entries, so an uncut
+/// line is what used to let the window reach 40 x MAX_LINE.
 const CHUNK_MAX_BYTES: usize = 8 << 10;
 /// Largest frontmatter block `split_frontmatter` will hand to the YAML parser.
 /// The sniffer only routes frontmatter here when it closes inside its 8 KiB
@@ -201,6 +201,27 @@ fn truncate_to_bytes(s: &str, max: usize) -> &str {
         end -= 1;
     }
     &s[..end]
+}
+
+/// `s` split into pieces of at most `max` bytes, each on a char boundary.
+/// An oversize line is split, never truncated, so every byte of it stays
+/// searchable. The cut reuses [`truncate_to_bytes`]; a piece is never empty
+/// while bytes remain, since a single char wider than `max` is kept whole
+/// rather than stalling the split.
+fn split_to_bytes(mut s: &str, max: usize) -> Vec<&str> {
+    let mut pieces = Vec::new();
+    while s.len() > max {
+        let mut piece = truncate_to_bytes(s, max);
+        if piece.is_empty() {
+            piece = &s[..s.chars().next().unwrap().len_utf8()];
+        }
+        pieces.push(piece);
+        s = &s[piece.len()..];
+    }
+    if !s.is_empty() {
+        pieces.push(s);
+    }
+    pieces
 }
 
 /// Whether `logical` is an agent skill's definition file. Skill loaders read a
@@ -444,13 +465,21 @@ pub fn extract_lines(
         }
         // B8: a stored line used to be kept whole up to MAX_LINE (16 MiB),
         // so the 40-line window could reach 640 MiB, and the first line of
-        // a chunk was emitted whole however long it was. Truncate each
-        // stored line to the per-chunk byte cap: the window then holds at
-        // most 40 x 8 KiB, and no chunk exceeds the cap.
-        let line = truncate_to_bytes(line, CHUNK_MAX_BYTES);
-        window.push((line.to_string(), line_no, start));
-        if window.len() >= CHUNK_LINES && !flush(&mut window, &extra, false, &mut stats, sink) {
-            stopped = true;
+        // a chunk was emitted whole however long it was. Splitting each
+        // oversize line into <=8 KiB pieces keeps the window at most
+        // 40 x 8 KiB and no chunk over the cap, without dropping any bytes:
+        // every piece keeps the line's number, and its byte offset advances
+        // so the chunk locator still points at the piece it starts on.
+        let mut piece_start = start;
+        for piece in split_to_bytes(line, CHUNK_MAX_BYTES) {
+            window.push((piece.to_string(), line_no, piece_start));
+            piece_start += piece.len() as u64;
+            if window.len() >= CHUNK_LINES && !flush(&mut window, &extra, false, &mut stats, sink) {
+                stopped = true;
+                break;
+            }
+        }
+        if stopped {
             break;
         }
     }
@@ -574,6 +603,46 @@ mod chunk_tests {
             out.last().unwrap().2,
             40,
             "every line is still covered by some chunk"
+        );
+    }
+
+    /// FAIL-BEFORE (review): an oversize line was truncated to its first
+    /// 8 KiB, so everything past that was dropped and unsearchable. The
+    /// line is split into <=8 KiB pieces instead, so the tail of a 28 KiB
+    /// line must show up in some chunk, with the line's own number on it.
+    /// The cut at 8192 falls inside a multi-byte char, so the split must
+    /// land on a char boundary, never a replacement char.
+    #[test]
+    fn oversize_line_is_split_not_truncated_so_its_tail_stays_searchable() {
+        let mut long = "a".repeat(CHUNK_MAX_BYTES - 1);
+        long.push_str(&"é".repeat(10));
+        long.push_str(&"x".repeat(20_000));
+        long.push_str("TAILMARKER");
+        let out = run(&[long.as_str()]);
+        assert!(!out.is_empty(), "an oversize line must still chunk");
+        for (t, s, e, _) in &out {
+            assert!(
+                t.len() <= CHUNK_MAX_BYTES,
+                "chunk of {} bytes exceeds the cap",
+                t.len()
+            );
+            assert_eq!(
+                (*s, *e),
+                (1, 1),
+                "every piece of the split line keeps its line number"
+            );
+            assert!(
+                !t.contains('\u{FFFD}'),
+                "a split must land on a char boundary, not mid-char"
+            );
+        }
+        assert!(
+            out.iter().any(|(t, _, _, _)| t.contains("TAILMARKER")),
+            "the last bytes of the long line must show up in some chunk"
+        );
+        assert!(
+            out.iter().any(|(t, _, _, _)| t.contains('é')),
+            "multi-byte chars must survive the split intact"
         );
     }
 
