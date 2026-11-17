@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on open-source, self-hosted, audio-converter queries this for how bispitalieri/biolaris-media implements it: Biolaris Media is an open-source cross-platform desktop app for local media conversion, compression, and PDF tools \u2014 built with Rust, Tauri, (selected work: src/screens, src-tauri, src/components)",
+ "domain": "an agent working on open-source, cross-platform, desktop-application queries this for how bispitalieri/biolaris-media implements it: Biolaris Media is an open-source cross-platform desktop app for local media conversion, compression, and PDF tools \u2014 built with Rust, Tauri, (selected work: src/screens, src-tauri, src/components)",
  "repos": [
   {
    "repo": "biolaris-media",

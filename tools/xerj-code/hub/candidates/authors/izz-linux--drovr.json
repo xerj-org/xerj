@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Rust queries this for how izz-linux/drovr implements it: A desktop cockpit for orchestrating Claude Code agents (selected work: crates/drovr-core, the project root)",
+ "domain": "an agent working on claude-code, opencode, agent-orchestration queries this for how izz-linux/drovr implements it: Lightweight Rust desktop control plane for orchestrating, monitoring, and sharing context across Claude Code, OpenCode, and OpenAI Codex age (selected work: crates/drovr-core, the project root)",
  "repos": [
   {
    "repo": "drovr",

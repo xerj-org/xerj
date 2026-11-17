@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "SEC",
- "domain": "an agent working on Python queries this for how h0ffmann/astrbot_dw_ext_br_south_disaster implements it: \ud83c\udde7\ud83c\uddf7 South of Brazil (RS, SC, PR) disaster extension for AstrBot plugin astrbot_plugin_disaster_warning",
+ "domain": "an agent working on Python queries this for how h0ffmann/astrbot_dw_ext_br_south_disaster implements it: \ud83c\udde7\ud83c\uddf7 \ud83c\udde8\ud83c\uddf3 South of Brazil (RS, SC, PR) disaster extension for AstrBot plugin astrbot_plugin_disaster_warning",
  "repos": [
   {
    "repo": "astrbot_dw_ext_br_south_disaster",
    "url": "https://github.com/h0ffmann/astrbot_dw_ext_br_south_disaster",
-   "sha": "a6675479bebcacb92b1d18f4931a7065a1f70178",
-   "licence": "MPL-2.0 (LICENSE file at pin a6675479bebc, GitHub licence API 2026-11-10)",
+   "sha": "0a3bb7e741ed6a153513f1012542ed6afc2ce6df",
+   "licence": "MPL-2.0 (LICENSE file at pin 0a3bb7e741ed, GitHub licence API 2026-11-17)",
    "review": {
     "spdx": "MPL-2.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-11-10T15:11Z",
     "consent_receipt": "ae3b25bda431",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T15:11Z (receipt ae3b25bda431); pinned to the default-branch head. LICENSE file at pin a6675479bebc detected as MPL-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T15:11Z (receipt ae3b25bda431); pinned to the default-branch head. LICENSE file at pin 0a3bb7e741ed detected as MPL-2.0 by the GitHub licence API on 2026-11-17; used under that licence with attribution."
    }
   }
  ]

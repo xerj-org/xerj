@@ -1,0 +1,23 @@
+{
+ "corpus": "aggiovato--yrest",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on fastify, rest-api, yaml queries this for how aggiovato/yRest implements it: yRest \u2014 YAML-powered json-server alternative. Zero-config REST API mock server with CRUD, relations, filters and snapshots from db.yml (selected work: tests, src/router, src/utils)",
+ "repos": [
+  {
+   "repo": "yRest",
+   "url": "https://github.com/aggiovato/yRest",
+   "sha": "604865d6d82bb13a57d0f28b347a3e0b1cb01822",
+   "licence": "MIT (LICENSE file at pin 604865d6d82b, GitHub licence API 2026-11-17)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-17T01:54Z",
+    "consent_receipt": "6f9b2fe30a34",
+    "note": "Inclusion consented by the commit author by email at 2026-11-17T01:54Z (receipt 6f9b2fe30a34); selected commit 604865d6d82b: \"feat(handlers): typed handlers, collections in handlers and SSE handl\u2026\". LICENSE file at pin 604865d6d82b detected as MIT by the GitHub licence API on 2026-11-17; used under that licence with attribution."
+   }
+  }
+ ]
+}
