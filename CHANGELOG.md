@@ -501,6 +501,10 @@ all 2,387 evaluation items. Without the flag a node is the node rc.100 was: no
 - Fields scored by passage no longer build an HNSW graph nobody can read.
 - The autoindex semantic cap counts past the first 1,024 rows of a file, and a
   sender parked on a full wire no longer hangs the run.
+- Multi-index composite aggregation pages now use the requested global source
+  order and page size, combine duplicate bucket counts, and set the cursor from
+  the retained page. Internal typed keys preserve formatted-date ordering.
+
 - A plain debug `cargo test --workspace` no longer aborts on a stack overflow,
   and the `127.0.0.2` loopback test names the missing macOS alias (#2903). Five
   tests that run the ES-compat router on multi-thread workers overflowed tokio's
