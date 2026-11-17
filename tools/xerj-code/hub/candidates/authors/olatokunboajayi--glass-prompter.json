@@ -1,9 +1,9 @@
 {
- "corpus": "tokunboajayi--glass-prompter",
+ "corpus": "olatokunboajayi--glass-prompter",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on desktop-app, productivity, pyside6 queries this for how tokunboajayi/glass-prompter implements it: Free see-through teleprompter for Windows and Mac. Follows your voice, reads aloud, stays off screen share. AI assistant that sees your scre",
+ "domain": "an agent working on desktop-app, productivity, pyside6 queries this for how OlatokunboAjayi/glass-prompter implements it: Free see-through teleprompter for Windows and Mac. Follows your voice, reads aloud, stays off screen share. AI assistant that sees your scre",
  "repos": [
   {
    "repo": "glass-prompter",

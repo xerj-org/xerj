@@ -8,15 +8,15 @@
   {
    "repo": "hoply",
    "url": "https://github.com/Milos5611/hoply",
-   "sha": "8deef24f256d65ece10f33ab92cc056a6712b3e9",
-   "licence": "MIT (LICENSE file at pin 8deef24f256d, GitHub licence API 2026-11-17)",
+   "sha": "65f21e11360fb5caf9c19587b00b5dad589ba9e8",
+   "licence": "MIT (LICENSE file at pin 65f21e11360f, GitHub licence API 2026-11-17)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-11T20:25Z",
     "consent_receipt": "1ec404580033",
-    "note": "Inclusion consented by the commit author by email at 2026-11-11T20:25Z (receipt 1ec404580033); selected commit 8deef24f256d: \"local SDLC\". LICENSE file at pin 8deef24f256d detected as MIT by the GitHub licence API on 2026-11-17; used under that licence with attribution. Pinned to head 8deef24f256d (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T20:25Z (receipt 1ec404580033); selected commit 65f21e11360f: \"local SDLC\". LICENSE file at pin 65f21e11360f detected as MIT by the GitHub licence API on 2026-11-17; used under that licence with attribution. Pinned to head 65f21e11360f (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

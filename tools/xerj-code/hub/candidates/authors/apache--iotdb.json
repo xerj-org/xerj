@@ -8,15 +8,15 @@
   {
    "repo": "iotdb",
    "url": "https://github.com/apache/iotdb",
-   "sha": "5b9e8868c475ad2699a3252862ece5dde3607d92",
-   "licence": "Apache-2.0 (LICENSE file at pin 5b9e8868c475, GitHub licence API 2026-10-24)",
+   "sha": "48233ea92dde92bbc13b0466c2b4ed0173676438",
+   "licence": "Apache-2.0 (LICENSE file at pin 48233ea92dde, GitHub licence API 2026-11-11)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
-    "at": "2026-10-13T12:20Z",
-    "consent_receipt": "b7aeb0451fdd",
-    "note": "Inclusion consented by the commit author by email at 2026-10-13T12:20Z (receipt b7aeb0451fdd); selected commit 5b9e8868c475: \"[ConfigNode] Skip non-existent and duplicate region IDs during recons\u2026\". LICENSE file at pin 5b9e8868c475 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @apache, who has not added it."
+    "at": "2026-10-10T23:13Z",
+    "consent_receipt": "3d41843c8763",
+    "note": "Inclusion consented by the commit author by email at 2026-10-10T23:13Z (receipt 3d41843c8763); selected commit 48233ea92dde: \"[Fix] Isolate FileReaderManager reader I/O with per-file locks (#18788)\". LICENSE file at pin 48233ea92dde detected as Apache-2.0 by the GitHub licence API on 2026-11-11; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @apache, who has not added it."
    },
    "paths": [
     "iotdb-core/confignode/src/main/i18n/en/org/apache/iotdb/confignode/i18n",

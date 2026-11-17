@@ -1,9 +1,9 @@
 {
- "corpus": "tokunboajayi--jobdec",
+ "corpus": "olatokunboajayi--jobdec",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-agents, automation, cyberdeck queries this for how tokunboajayi/jobdec implements it: Autonomous multi-agent internship application engine with local neural embeddings, Playwright Chromium, self-healing rules, and Cyberdeck TU (selected work: brain, dashboard, tests)",
+ "domain": "an agent working on ai-agents, automation, cyberdeck queries this for how OlatokunboAjayi/jobdec implements it: Autonomous multi-agent internship application engine with local neural embeddings, Playwright Chromium, self-healing rules, and Cyberdeck TU (selected work: brain, dashboard, tests)",
  "repos": [
   {
    "repo": "jobdec",
