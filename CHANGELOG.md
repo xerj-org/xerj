@@ -17,6 +17,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `xerj-sources` refuses a percent-encoded password in a source URL without
   echoing it, and turns truncated `R`, `T` and `D` wire frames into errors
   instead of panicking (#3013).
+- `xerj autoindex <path> --facts <namespace>` resets its local `VersionState`
+  journal when the target namespace on the node is absent or empty (`GET
+  /_facts/<ns>` returns `404` or `records: 0`), so re-indexing into a recreated
+  node writes the rows instead of skipping them as unchanged, and escapes tabs,
+  newlines and backslashes in `doc_id` when writing and replaying `.journal`
+  files (#3130).
 
 ## [1.0.0-rc.102] - 2026-11-06
 
