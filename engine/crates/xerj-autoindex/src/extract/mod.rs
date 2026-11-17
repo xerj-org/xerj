@@ -499,7 +499,14 @@ fn flatten_into(key: &str, v: Value, depth: usize, out: &mut Map<String, Value>)
         }
         Value::Array(a) => {
             if a.iter().all(|e| !e.is_object() && !e.is_array()) {
-                out.insert(key.to_string(), Value::Array(a));
+                let bounded_a = a
+                    .into_iter()
+                    .map(|e| match e {
+                        Value::String(s) => Value::String(bounded_string(s)),
+                        other => other,
+                    })
+                    .collect();
+                out.insert(key.to_string(), Value::Array(bounded_a));
             } else if is_numeric_series(&a) {
                 // #2422/#2423: a flight trace, coordinate ring or sample
                 // matrix. As a JSON string it became a ~72 KB `text` field per
@@ -510,6 +517,9 @@ fn flatten_into(key: &str, v: Value, depth: usize, out: &mut Map<String, Value>)
             } else {
                 out.insert(key.to_string(), Value::String(bounded_json(&a)));
             }
+        }
+        Value::String(s) => {
+            out.insert(key.to_string(), Value::String(bounded_string(s)));
         }
         other => {
             out.insert(key.to_string(), other);
@@ -573,15 +583,21 @@ fn is_numeric_series(a: &[Value]) -> bool {
 /// round-trips.
 fn bounded_json(value: &impl serde::Serialize) -> String {
     let full = serde_json::to_string(value).unwrap_or_default();
-    if full.len() <= NESTED_JSON_FIELD_MAX {
-        return full;
+    bounded_string(full)
+}
+
+/// Bound a string field to at most `NESTED_JSON_FIELD_MAX` bytes, truncating
+/// on a UTF-8 char boundary and appending `…[truncated]`.
+fn bounded_string(s: String) -> String {
+    if s.len() <= NESTED_JSON_FIELD_MAX {
+        return s;
     }
-    let mut end = NESTED_JSON_FIELD_MAX.min(full.len());
-    while end > 0 && !full.is_char_boundary(end) {
+    let mut end = NESTED_JSON_FIELD_MAX.min(s.len());
+    while end > 0 && !s.is_char_boundary(end) {
         end -= 1;
     }
     let mut cut = String::with_capacity(end + 16);
-    cut.push_str(&full[..end]);
+    cut.push_str(&s[..end]);
     cut.push_str("…[truncated]");
     cut
 }
@@ -1305,6 +1321,92 @@ mod section_tests {
             .and_then(Value::as_str)
             .is_some_and(|s| s.starts_with("[[\"alpha0\"")));
         assert!(!flat.contains_key("ring_count") && !flat.contains_key("pairs_count"));
+    }
+
+    #[test]
+    fn a_large_scalar_string_is_capped() {
+        let big = "x".repeat(12 * 1024 * 1024);
+        // An array of objects is serialized as one field and goes through bounded_json.
+        let nested = serde_json::json!([{"k": "y".repeat(12 * 1024 * 1024)}]);
+        let obj = serde_json::json!({"body": big, "nested": nested});
+        let flat = flatten_object(obj.as_object().unwrap().clone());
+        let body = flat.get("body").and_then(|v| v.as_str()).unwrap();
+        let nested = flat.get("nested").and_then(|v| v.as_str()).unwrap();
+        assert!(
+            nested.len() <= NESTED_JSON_FIELD_MAX + 16,
+            "nested was {} bytes",
+            nested.len()
+        );
+        assert!(
+            body.len() <= NESTED_JSON_FIELD_MAX + 16,
+            "body was {} bytes",
+            body.len()
+        );
+        let Value::String(body_str) = flat.get("body").unwrap() else {
+            panic!("expected body string");
+        };
+        assert!(
+            body_str.capacity() <= NESTED_JSON_FIELD_MAX + 64,
+            "heap capacity was not released, was {} bytes",
+            body_str.capacity()
+        );
+    }
+
+    #[test]
+    fn edge_3058_multibyte_utf8_char_boundary_truncation() {
+        let mut text = "a".to_string(); // 1 byte offset
+        text.push_str(&"🦀".repeat(20_000)); // 80,000 bytes
+        let obj = serde_json::json!({"crab": text});
+        let flat = flatten_object(obj.as_object().unwrap().clone());
+        let crab = flat.get("crab").and_then(|v| v.as_str()).unwrap();
+        assert!(crab.ends_with("…[truncated]"));
+        assert!(crab.len() <= NESTED_JSON_FIELD_MAX + 16);
+        let prefix = crab.strip_suffix("…[truncated]").unwrap();
+        assert!(prefix.starts_with("a🦀"));
+    }
+
+    #[test]
+    fn edge_3058_boundary_exact_sizes() {
+        let exact = "a".repeat(NESTED_JSON_FIELD_MAX);
+        let obj = serde_json::json!({"exact": exact});
+        let flat = flatten_object(obj.as_object().unwrap().clone());
+        let val = flat.get("exact").and_then(|v| v.as_str()).unwrap();
+        assert_eq!(val.len(), NESTED_JSON_FIELD_MAX);
+        assert!(!val.contains("truncated"));
+
+        let over = "a".repeat(NESTED_JSON_FIELD_MAX + 1);
+        let obj2 = serde_json::json!({"over": over});
+        let flat2 = flatten_object(obj2.as_object().unwrap().clone());
+        let val2 = flat2.get("over").and_then(|v| v.as_str()).unwrap();
+        assert!(val2.ends_with("…[truncated]"));
+        assert_eq!(val2.len(), NESTED_JSON_FIELD_MAX + "…[truncated]".len());
+    }
+
+    #[test]
+    fn edge_3058_array_of_scalar_strings_is_capped() {
+        let big = "z".repeat(12 * 1024 * 1024);
+        let obj = serde_json::json!({"tags": ["normal", big, "short"]});
+        let flat = flatten_object(obj.as_object().unwrap().clone());
+        let tags = flat.get("tags").and_then(|v| v.as_array()).unwrap();
+        assert_eq!(tags.len(), 3);
+        assert_eq!(tags[0], serde_json::json!("normal"));
+        let big_tag = tags[1].as_str().unwrap();
+        assert!(big_tag.ends_with("…[truncated]"));
+        assert!(big_tag.len() <= NESTED_JSON_FIELD_MAX + 16);
+        assert_eq!(tags[2], serde_json::json!("short"));
+    }
+
+    #[test]
+    fn edge_3058_nested_flattened_scalar_string_is_capped() {
+        let big = "w".repeat(12 * 1024 * 1024);
+        let obj = serde_json::json!({"meta": {"description": big}});
+        let flat = flatten_object(obj.as_object().unwrap().clone());
+        let desc = flat
+            .get("meta_description")
+            .and_then(|v| v.as_str())
+            .unwrap();
+        assert!(desc.ends_with("…[truncated]"));
+        assert!(desc.len() <= NESTED_JSON_FIELD_MAX + 16);
     }
 
     fn doc(paras: usize, para_chars: usize) -> String {
