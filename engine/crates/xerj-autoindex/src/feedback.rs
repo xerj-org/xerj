@@ -1555,16 +1555,12 @@ mod tests {
     fn issue_3061_exact_reproduction_title_and_filed_alongside_survive() {
         let cfg = Cfg {
             agent: Some("Claude Code".into()),
-            used_for: Some(
-                "autoindex over a 40k-file Rust workspace, then code queries".into(),
-            ),
+            used_for: Some("autoindex over a 40k-file Rust workspace, then code queries".into()),
             pointed_at: Some("40k Rust files from a personal monorepo".into()),
             verdict: Some("worked; the ranking was sane".into()),
             numbers: Some("xerj code -k 5 -> 5/5 relevant".into()),
             title: Some("custom human title the operator typed".into()),
-            filed_alongside: Some(
-                "https://github.com/xerj-org/xerj/pull/9001".into(),
-            ),
+            filed_alongside: Some("https://github.com/xerj-org/xerj/pull/9001".into()),
             ..base_cfg()
         };
         let d = resolve_draft(&cfg, None, "2026-11-09");
@@ -1576,9 +1572,7 @@ mod tests {
             "Issue #3061: --title must survive:\n{fb}"
         );
         assert!(
-            fb.contains(
-                "--filed-alongside \"https://github.com/xerj-org/xerj/pull/9001\""
-            ),
+            fb.contains("--filed-alongside \"https://github.com/xerj-org/xerj/pull/9001\""),
             "Issue #3061: --filed-alongside must survive:\n{fb}"
         );
         assert!(
@@ -1617,8 +1611,14 @@ mod tests {
         let d = resolve_draft(&cfg, None, "2026-11-09");
         let commands = pr_commands(&d);
         let fb = commands.split("git checkout").next().unwrap();
-        assert!(fb.contains("--title \"my custom title\""), "title must appear:\n{fb}");
-        assert!(!fb.contains("--filed-alongside"), "filed-alongside must NOT appear:\n{fb}");
+        assert!(
+            fb.contains("--title \"my custom title\""),
+            "title must appear:\n{fb}"
+        );
+        assert!(
+            !fb.contains("--filed-alongside"),
+            "filed-alongside must NOT appear:\n{fb}"
+        );
     }
 
     /// Edge: only --filed-alongside provided, no --title.
@@ -1633,9 +1633,7 @@ mod tests {
         let fb = commands.split("git checkout").next().unwrap();
         assert!(!fb.contains("--title"), "title must NOT appear:\n{fb}");
         assert!(
-            fb.contains(
-                "--filed-alongside \"https://github.com/xerj-org/xerj/issues/42\""
-            ),
+            fb.contains("--filed-alongside \"https://github.com/xerj-org/xerj/issues/42\""),
             "filed-alongside must appear:\n{fb}"
         );
     }
@@ -1650,17 +1648,34 @@ mod tests {
         };
         let d = resolve_draft(&cfg, None, "2026-11-09");
         assert_eq!(d.title, "100 PDF files");
-        let fb = pr_commands(&d).split("git checkout").next().unwrap().to_string();
-        assert!(!fb.contains("--title"), "derived-from-pointed_at title must NOT appear:\n{fb}");
+        let fb = pr_commands(&d)
+            .split("git checkout")
+            .next()
+            .unwrap()
+            .to_string();
+        assert!(
+            !fb.contains("--title"),
+            "derived-from-pointed_at title must NOT appear:\n{fb}"
+        );
     }
 
     /// Edge: all defaults, no opinion flags at all.
     #[test]
     fn edge_3061_all_defaults_no_flags_emitted() {
         let d = resolve_draft(&base_cfg(), None, "2026-11-09");
-        let fb = pr_commands(&d).split("git checkout").next().unwrap().to_string();
-        assert!(!fb.contains("--title"), "PH_TITLE must NOT appear as --title:\n{fb}");
-        assert!(!fb.contains("--filed-alongside"), "PH_FILED must NOT appear:\n{fb}");
+        let fb = pr_commands(&d)
+            .split("git checkout")
+            .next()
+            .unwrap()
+            .to_string();
+        assert!(
+            !fb.contains("--title"),
+            "PH_TITLE must NOT appear as --title:\n{fb}"
+        );
+        assert!(
+            !fb.contains("--filed-alongside"),
+            "PH_FILED must NOT appear:\n{fb}"
+        );
         assert!(!fb.contains("--agent"), "PH_AGENT must NOT appear:\n{fb}");
     }
 
@@ -1674,8 +1689,15 @@ mod tests {
             ..base_cfg()
         };
         let d = resolve_draft(&cfg, None, "2026-11-09");
-        let fb = pr_commands(&d).split("git checkout").next().unwrap().to_string();
-        assert!(!fb.contains("--title"), "title matching used_for must be suppressed:\n{fb}");
+        let fb = pr_commands(&d)
+            .split("git checkout")
+            .next()
+            .unwrap()
+            .to_string();
+        assert!(
+            !fb.contains("--title"),
+            "title matching used_for must be suppressed:\n{fb}"
+        );
     }
 
     /// Edge: user explicitly types --title matching --pointed-at while --used-for
@@ -1689,7 +1711,11 @@ mod tests {
             ..base_cfg()
         };
         let d = resolve_draft(&cfg, None, "2026-11-09");
-        let fb = pr_commands(&d).split("git checkout").next().unwrap().to_string();
+        let fb = pr_commands(&d)
+            .split("git checkout")
+            .next()
+            .unwrap()
+            .to_string();
         assert!(
             fb.contains("--title \"my corpus\""),
             "title matching pointed_at must be preserved when used_for differs:\n{fb}"
@@ -1706,7 +1732,11 @@ mod tests {
             ..base_cfg()
         };
         let d = resolve_draft(&cfg, None, "2026-11-09");
-        let fb = pr_commands(&d).split("git checkout").next().unwrap().to_string();
+        let fb = pr_commands(&d)
+            .split("git checkout")
+            .next()
+            .unwrap()
+            .to_string();
         assert!(
             fb.contains("--title \"a completely custom title\""),
             "unique title must survive:\n{fb}"
@@ -1718,15 +1748,23 @@ mod tests {
     fn edge_3061_special_chars_in_values() {
         let cfg = Cfg {
             title: Some("title with \"quotes\" and \\backslash".into()),
-            filed_alongside: Some(
-                "https://github.com/xerj-org/xerj/pull/42?foo=bar&baz=1".into(),
-            ),
+            filed_alongside: Some("https://github.com/xerj-org/xerj/pull/42?foo=bar&baz=1".into()),
             ..base_cfg()
         };
         let d = resolve_draft(&cfg, None, "2026-11-09");
-        let fb = pr_commands(&d).split("git checkout").next().unwrap().to_string();
-        assert!(fb.contains("--title"), "title with special chars must appear:\n{fb}");
-        assert!(fb.contains("--filed-alongside"), "filed with URL must appear:\n{fb}");
+        let fb = pr_commands(&d)
+            .split("git checkout")
+            .next()
+            .unwrap()
+            .to_string();
+        assert!(
+            fb.contains("--title"),
+            "title with special chars must appear:\n{fb}"
+        );
+        assert!(
+            fb.contains("--filed-alongside"),
+            "filed with URL must appear:\n{fb}"
+        );
     }
 
     /// Edge: filed-alongside set to "nothing broke" (not PH_FILED).
@@ -1737,7 +1775,11 @@ mod tests {
             ..base_cfg()
         };
         let d = resolve_draft(&cfg, None, "2026-11-09");
-        let fb = pr_commands(&d).split("git checkout").next().unwrap().to_string();
+        let fb = pr_commands(&d)
+            .split("git checkout")
+            .next()
+            .unwrap()
+            .to_string();
         assert!(
             fb.contains("--filed-alongside \"nothing broke\""),
             "'nothing broke' is a valid value, must survive:\n{fb}"
@@ -1754,7 +1796,11 @@ mod tests {
             ..base_cfg()
         };
         let d = resolve_draft(&cfg, None, "2026-11-09");
-        let fb = pr_commands(&d).split("git checkout").next().unwrap().to_string();
+        let fb = pr_commands(&d)
+            .split("git checkout")
+            .next()
+            .unwrap()
+            .to_string();
         let agent_pos = fb.find("--agent").expect("agent must appear");
         let title_pos = fb.find("--title").expect("title must appear");
         let filed_pos = fb.find("--filed-alongside").expect("filed must appear");
@@ -1858,7 +1904,11 @@ mod tests {
             let argv = tokenize_xerj_feedback(&commands);
             let cfg2 = parse(argv).unwrap().unwrap();
             let d2 = resolve_draft(&cfg2, None, "2026-11-09");
-            assert_eq!(render_report(&d2), render_report(&d1), "roundtrip mismatch for {cfg:?}");
+            assert_eq!(
+                render_report(&d2),
+                render_report(&d1),
+                "roundtrip mismatch for {cfg:?}"
+            );
         }
     }
 
