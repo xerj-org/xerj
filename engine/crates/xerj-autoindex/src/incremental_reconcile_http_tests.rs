@@ -1710,6 +1710,11 @@ fn dataset_read_back_bounds_time_by_sort_and_no_materialising_agg() {
     );
     for body in &sorted {
         assert_eq!(body.get("size"), Some(&json!(1)), "size-1 query: {body}");
+        assert_eq!(
+            body.pointer("/sort/0/cloned_at/unmapped_type"),
+            Some(&json!("date")),
+            "bound query carries unmapped_type: date so dotted time fields never abort finalize-catalog: {body}"
+        );
         assert!(
             body.pointer("/query/bool/filter").is_some(),
             "bound query keeps the dataset filter: {body}"
