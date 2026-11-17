@@ -1,0 +1,21 @@
+{
+ "corpus": "cortex-mcp",
+ "cloned_at": "2026-11-17T02:15:14Z",
+ "repos": [
+  {
+   "repo": "cortex-mcp",
+   "url": "https://github.com/codesphere-u/cortex-mcp.git",
+   "licence": "MIT",
+   "sha": "a63623f7d3141fb041c219e4a3f78eab6dc0864a",
+   "files": 70,
+   "bytes": 811566,
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "@codesphere-u",
+    "at": "2026-11-17",
+    "note": "First-party repository owned by Akandwanaho Ivan Alvin (@codesphere-u). Opened and read root LICENSE verbatim: standard MIT License (Copyright (c) 2026 Akandwanaho Ivan Alvin), confirmed consistent with pyproject.toml (license = \"MIT\"), CITATION.cff (license: \"MIT\"), and api/index.py license_info; no third-party or copyleft vendored code in the 70-file checkout."
+   }
+  }
+ ]
+}
