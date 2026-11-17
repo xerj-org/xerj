@@ -25,6 +25,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A newly elected cluster leader now appends a no-op entry of its own term
+  (Raft §5.4.2, §8), so a log tail left uncommitted by the previous leader
+  commits right after the election instead of waiting for the next client
+  write; before this, a metadata write interrupted by an election stayed at
+  commit=0 and timed out. A leader that cannot persist the no-op steps down.
+  The rc.101 "Fixed" note that claimed this was premature: no such code
+  shipped in rc.101, and the fix lands here (#2987). The same bug was a main
+  cause of the `log_catchup` CI flake; those tests now re-propose a write only
+  when a leader change dropped it.
 - `xerj autoindex` and `xerj feedback` check the node identity before querying
   the autoindex catalog, so an unrelated HTTP service on the default port
   does not trigger catalog retries. Feedback still drafts a report when catalog
@@ -85,6 +94,13 @@ declines). Without `--facts-model-dir` a node is the node rc.101 was.
 
 ### Upgrade notes
 
+- **Cluster: upgrade every member before restarting the ring.** The leader
+  no-op is a new Raft log entry type (`"Noop"`). A member still on an older
+  build cannot decode it and will not accept the log of a new-build leader,
+  so a mixed-version cluster must not run with a new-build leader. Stop and
+  upgrade all members, then start them. Once a new build has written a
+  no-op, an older build fails to open that data directory's Raft log
+  ("decode raft entry"), so there is no downgrade in place.
 - **The rc.102 bundle needs an rc.102 binary.** rc.101 refuses its
   `bundle.json` (unknown rule `decline_v2_r8`, model state `unavailable`).
   The rc.102 binary still loads the rc.101 bundle and serves it under
