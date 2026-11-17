@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - `xerj-autoindex`: detect OpenSpec (`openspec/`) and `github/spec-kit` (`.specify/`, `specs/<feature>/spec.md`) layouts and route specs, constitutions, and ADRs into a dedicated `<prefix>-specs` corpus by default (#2966).
 - `xerj-autoindex`: add `--worktree shared|isolated` so parallel agents in linked Git worktrees either share one main-checkout index (`ax-<repo>`) or keep an isolated per-worktree index (`ax-<repo>-<worktree>`) without lock contention or prefix collisions (#2967).
+- Configurable, deterministic plain-text writing review primitive in
+  `xerj-common` (Refs #2765): phrase, length, repetition, hedging and
+  syntactic source-citation checks with stable line notes. This is a library
+  foundation; recipe-runner and MCP integration remain pending #2762.
 
 ### Fixed
 

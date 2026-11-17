@@ -1,0 +1,6 @@
+{"passed":false,"notes":[
+{"line":1,"rule_id":"slop","message":"Avoid configured phrase: game changer"},
+{"line":2,"rule_id":"hedge","message":"2 hedge matches in 4 words; maximum is 20 per 100 words."},
+{"line":3,"rule_id":"citation","message":"Potential claim has no recognized source citation."},
+{"line":5,"rule_id":"repeat","message":"Repeated sentence occurrence 2; maximum is 1."},
+{"line":6,"rule_id":"length","message":"Sentence has 14 words; maximum is 12."}]}
