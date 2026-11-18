@@ -6025,6 +6025,11 @@ mod knn_exact_cutover_tests {
         assert!(knn_prefers_exact_scan(3_333, 768, budget));
         assert!(!knn_prefers_exact_scan(3_334, 768, budget));
         assert!(!knn_prefers_exact_scan(1_000_000, 384, budget));
+        // Low dimensions: the byte budget alone would take 1.28 M 2-d
+        // vectors; the document ceiling keeps those on the graph.
+        assert!(knn_prefers_exact_scan(16_384, 2, budget));
+        assert!(!knn_prefers_exact_scan(16_385, 2, budget));
+        assert!(!knn_prefers_exact_scan(1_000_000, 2, budget));
         // `0` is the pre-#3006 gate: never prefer the scan.
         assert!(!knn_prefers_exact_scan(1, 1, 0));
         assert!(!knn_prefers_exact_scan(u64::MAX, usize::MAX, budget));
@@ -46573,8 +46578,18 @@ fn knn_prefers_exact_scan(vector_doc_count: u64, dims: usize, max_bytes: u64) ->
     let bytes = vector_doc_count
         .saturating_mul(dims as u64)
         .saturating_mul(std::mem::size_of::<f32>() as u64);
-    max_bytes > 0 && bytes <= max_bytes
+    max_bytes > 0 && bytes <= max_bytes && vector_doc_count <= KNN_EXACT_SCAN_MAX_DOCS
 }
+
+/// #3006: document ceiling on the exact-scan cutover, beside the byte budget.
+///
+/// The byte rule alone sends a low-dimension set to the scan at any size
+/// (10,000 KiB is 1.28 M vectors of 2 dims), and the scan pays a fixed
+/// per-candidate cost (pool entry, rank, id) on top of the dot product, so
+/// its cost there is the document count, not the bytes. 16,384 is about 5x
+/// the 3,080-vector set measured in #3006 and never binds at 768 dims
+/// (3,333 vectors fill the byte budget first).
+const KNN_EXACT_SCAN_MAX_DOCS: u64 = 16_384;
 
 /// Lower bound on the HNSW beam width (`ef`).
 ///
