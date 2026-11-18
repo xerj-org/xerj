@@ -1827,6 +1827,23 @@ pub fn search_segments(
 
 // ── Phrase matching helper ────────────────────────────────────────────────────
 
+/// Re-express a term's document positions as if the term were phrase slot
+/// `slot` instead of sitting at relative phrase position `declared`, so the
+/// slot-ordered matcher ([`phrase_positions_match`]) evaluates an explicit-position phrase
+/// (`PhraseQuery::positions`). A document position `p` of a term declared at
+/// `declared` lines up with phrase start `p - declared`; the matcher expects
+/// slot `slot` at `start + slot`, so `p` becomes `p - declared + slot`.
+/// Positions that would fall below zero cannot start a match and are dropped.
+pub fn shift_to_slot(positions: &[u32], declared: u32, slot: u32) -> Vec<u32> {
+    positions
+        .iter()
+        .filter_map(|&p| {
+            let v = i64::from(p) - i64::from(declared) + i64::from(slot);
+            u32::try_from(v).ok()
+        })
+        .collect()
+}
+
 /// Returns `true` if the per-term **raw** position lists (in TERM ORDER)
 /// contain an occurrence of the phrase within `slop` — Lucene sloppy-phrase
 /// semantics, transpositions included.
@@ -1892,23 +1909,6 @@ pub fn search_segments(
 /// re-analyses text with the standard analyzer while the segment arm reads
 /// indexed positions — so a custom analyzer (synonyms,
 /// `position_increment_gap`) can still hand the two arms different inputs.
-/// Re-express a term's document positions as if the term were phrase slot
-/// `slot` instead of sitting at relative phrase position `declared`, so the
-/// slot-ordered matcher below evaluates an explicit-position phrase
-/// (`PhraseQuery::positions`). A document position `p` of a term declared at
-/// `declared` lines up with phrase start `p - declared`; the matcher expects
-/// slot `slot` at `start + slot`, so `p` becomes `p - declared + slot`.
-/// Positions that would fall below zero cannot start a match and are dropped.
-pub fn shift_to_slot(positions: &[u32], declared: u32, slot: u32) -> Vec<u32> {
-    positions
-        .iter()
-        .filter_map(|&p| {
-            let v = i64::from(p) - i64::from(declared) + i64::from(slot);
-            u32::try_from(v).ok()
-        })
-        .collect()
-}
-
 pub fn phrase_positions_match(all_positions: &[&[u32]], slop: u32) -> bool {
     if all_positions.iter().any(|p| p.is_empty()) {
         return false;
