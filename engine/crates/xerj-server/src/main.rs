@@ -206,6 +206,7 @@ fn is_top_level_command(arg: &str) -> bool {
             | "batch-search"
             | "sessions"
             | "def"
+            | "status"
             | "init"
             | "gain"
             | "autoindex"
@@ -506,6 +507,8 @@ fn help_text(feedback: bool) -> String {
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20query client, no wrapper scripts (see xerj search --help)\n\
          \x20\x20\x20\x20xerj def        \"<symbol>\"       go-to-definition: where is this symbol defined, and\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20what is its signature (see xerj def --help)\n\
+         \x20\x20\x20\x20xerj status     [--prefix <p>]  when a prefix was indexed, its commit then and now,\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20and how many files changed since (xerj status --help)\n\
          \x20\x20\x20\x20xerj code       <corpus> \"<q>\"  reference-coding retrieval: how did peer projects\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20solve this (see xerj code --help)\n\
          \x20\x20\x20\x20xerj corpus     add|index|list   clone + index + list the reference corpora that\n\
@@ -4727,6 +4730,13 @@ async fn async_main() -> Result<()> {
     }
     if matches!(argv1.as_deref(), Some("def")) {
         let code = tokio::task::spawn_blocking(xerj_autoindex::def::run_def_cli)
+            .await
+            .unwrap_or(1);
+        std::process::exit(code);
+    }
+    if matches!(argv1.as_deref(), Some("status")) {
+        // #3268: index freshness for a prefix (time, commit, changed files).
+        let code = tokio::task::spawn_blocking(xerj_autoindex::status_cli::run_status_cli)
             .await
             .unwrap_or(1);
         std::process::exit(code);

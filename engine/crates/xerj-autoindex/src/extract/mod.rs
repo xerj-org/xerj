@@ -4,6 +4,7 @@
 
 pub mod bvh;
 pub mod code;
+mod code_regex;
 pub mod csv_x;
 pub mod doc;
 pub mod docx;

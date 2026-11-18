@@ -1357,7 +1357,10 @@ pub fn tool_specs_with(include_hub: bool) -> Value {
                 "the whole index. Up to 100 indexes per call (`indexes_omitted` ",
                 "reports more). When more than 8 indexes match and you did not pass ",
                 "`index`, the answer is a SUMMARY page (index, records, field names) ",
-                "— pass `index` or `detail: true` with `offset`/`limit` for full fields."
+                "— pass `index` or `detail: true` with `offset`/`limit` for full fields. ",
+                "`index_runs` lists, per autoindex prefix, `indexed_at`, `root` and, for a ",
+                "local git checkout, `indexed_commit` (HEAD at index time, from the reflog) ",
+                "and `head_commit` (HEAD now): compare them before trusting line numbers."
             ), xerj_autoindex::catalog::MAP_NAMESPACE_HINT),
             "inputSchema": {
                 "type": "object",
@@ -2235,12 +2238,9 @@ async fn call_tool_inner(ctx: &Ctx, msg: &Value) -> Value {
         "xerj_def" => {
             // Same staleness hint as xerj_search (#2426): an index older than
             // the folder can return a definition that moved or was removed.
-            let result = def::run(ctx, &args).await;
-            if result.get("isError") == Some(&Value::Bool(true)) {
-                return result;
-            }
-            let hint = search_staleness(ctx, name, &args).await;
-            return apply_staleness(result, hint);
+            // #3268: def::run also corrects stale hits against the folder
+            // before the token budget, then attaches the hint after it.
+            return def::run(ctx, &args).await;
         }
         // Keep the batch state machine off the shared dispatcher future's
         // stack: single-item tools must not inherit its larger frame.
@@ -3793,7 +3793,7 @@ fn staleness_checked(name: &str) -> bool {
 /// during the search would be a different request, and a failed search has
 /// nothing to annotate. Other tools do not share this path: `xerj code`'s
 /// 30-day refusal stays on `xerj_code_search`.
-async fn search_staleness(
+pub(crate) async fn search_staleness(
     ctx: &Ctx,
     name: &str,
     args: &Value,
@@ -3817,7 +3817,10 @@ async fn search_staleness(
 
 /// Attach a staleness hint after the token budget so a tight budget cannot
 /// drop the warning. An error result is returned unchanged.
-fn apply_staleness(result: Value, hint: Option<xerj_autoindex::staleness::StalenessHint>) -> Value {
+pub(crate) fn apply_staleness(
+    result: Value,
+    hint: Option<xerj_autoindex::staleness::StalenessHint>,
+) -> Value {
     let Some(hint) = hint else {
         return result;
     };
