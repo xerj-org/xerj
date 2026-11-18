@@ -435,6 +435,12 @@ pub fn extract(
                 .unwrap_or("file")
                 .to_string();
             fields.insert("title".into(), Value::String(title));
+            // #2439: a stubbed lockfile is still findable by what it weighs.
+            // `metadata` reads the inode, not the bytes, so the file stays
+            // unopened; a durable blob has the same length as its source.
+            if let Ok(meta) = std::fs::metadata(path) {
+                fields.insert("bytes".into(), Value::from(meta.len()));
+            }
             stats.records += 1;
             sink(RawRecord {
                 fields,
@@ -2077,6 +2083,20 @@ mod phrase_skip_tests {
         })
         .unwrap();
         recs
+    }
+
+    /// #2439: a stubbed lockfile's card carries its name and size and none of
+    /// its content.
+    #[test]
+    fn a_stub_card_carries_the_name_and_size_but_no_content() {
+        let body = r#"{"name":"web","lockfileVersion":3,"packages":{"node_modules/left-pad":{}}}"#;
+        let recs = records_for("web/package-lock.json", Family::Stub, body);
+        assert_eq!(recs.len(), 1);
+        let fields = &recs[0].fields;
+        assert_eq!(fields["title"], "package-lock.json");
+        assert_eq!(fields["bytes"], body.len() as u64);
+        assert_eq!(fields.len(), 2, "{fields:?}");
+        assert_eq!(recs[0].locator, "stub");
     }
 
     const SKILL_FRONT: &str = "---\nname: pdf\ndescription: Fill in PDF forms, merge PDF files and extract their text.\nlicense: Proprietary\n---\n";

@@ -7559,6 +7559,7 @@ dependencies = [
  "tree-sitter-swift",
  "tree-sitter-typescript",
  "tree-sitter-zig",
+ "unicode-width 0.2.2",
  "uuid",
  "walkdir",
  "xerj-ai",

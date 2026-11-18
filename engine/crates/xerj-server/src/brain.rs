@@ -624,6 +624,7 @@ fn index_cfg(cfg: &BrainCfg, brain: &str, api_key: Option<String>) -> IndexCfg {
         follow_symlinks: false,
         follow_symlinks_outside_root: false,
         stub_globs: Vec::new(),
+        default_stubs: true,
         // `xerj brain` composes autoindex, so it inherits its ignore rules
         // rather than inventing its own: build output does not belong in a
         // second brain either (#276).

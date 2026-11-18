@@ -152,6 +152,7 @@ fn index_cfg(root: &Path, state_dir: &Path, url: &str, prefix: &str, no_graph: b
         root: root.to_owned(),
         endpoint_url: None,
         stub_globs: Vec::new(),
+        default_stubs: true,
         url: url.to_owned(),
         api_key: None,
         api_key_file: None,

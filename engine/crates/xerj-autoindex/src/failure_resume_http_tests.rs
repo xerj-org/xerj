@@ -1001,6 +1001,7 @@ fn cfg(root: &Path, state_dir: &Path, url: &str) -> IndexCfg {
         follow_symlinks: false,
         follow_symlinks_outside_root: false,
         stub_globs: Vec::new(),
+        default_stubs: true,
         ignore: crate::ignore_rules::IgnoreOptions::default(),
         max_file_bytes: 1 << 30,
         sample: 50,
