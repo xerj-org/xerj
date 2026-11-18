@@ -1156,12 +1156,29 @@ impl ShardedFtsMemtable {
     /// see each other's state consistently.  New writes always target
     /// the active generation — frozen ones belong to in-flight flushes.
     pub fn with_shard_mut<R>(&self, shard: usize, f: impl FnOnce(&mut FtsMemtable) -> R) -> R {
-        let active = {
-            let g = self.shards[shard].read();
-            Arc::clone(&g.active)
-        };
-        let mut m = active.write();
-        f(&mut m)
+        self.with_active_write(shard, f)
+    }
+
+    /// Run `f` with the write lock of shard `shard`'s CURRENT active
+    /// generation, without holding the shard lock across `f`.
+    ///
+    /// The handle is resolved under the shard read lock and written after
+    /// it is released, so a freeze can swap the generation out in between.
+    /// The freeze seals the generation under its write lock before the
+    /// flush snapshot is taken: a writer that then acquires the write lock
+    /// sees `sealed` and re-resolves, and a writer that acquired it first
+    /// finishes before the freeze can seal (and snapshot) it.  Without the
+    /// recheck the write lands after the snapshot and `retire` drops it
+    /// (#3055 review; `concurrent_freeze_tests`).  Lock order is unchanged:
+    /// the shard lock is never taken while a generation lock is held here.
+    fn with_active_write<R>(&self, shard: usize, f: impl FnOnce(&mut FtsMemtable) -> R) -> R {
+        loop {
+            let active = Arc::clone(&self.shards[shard].read().active);
+            let mut m = active.write();
+            if !m.sealed {
+                return f(&mut m);
+            }
+        }
     }
 
     /// Run `f` with shared (read-only) access to a specific shard's ACTIVE
@@ -1555,9 +1572,7 @@ impl ShardedFtsMemtable {
         if val.is_some() {
             return val;
         }
-        frozen
-            .iter()
-            .find_map(|fz| fz.read().get_source(doc_id))
+        frozen.iter().find_map(|fz| fz.read().get_source(doc_id))
     }
 
     /// Combined numeric doc-values column — concatenates per-shard
@@ -1607,7 +1622,10 @@ impl ShardedFtsMemtable {
         let mut n = 0;
         for s in 0..self.shards.len() {
             let (active, frozen) = self.shard_generation_handles(s);
-            n += active.read().doc_values_keyword_count(field, value).unwrap_or(0);
+            n += active
+                .read()
+                .doc_values_keyword_count(field, value)
+                .unwrap_or(0);
             for fz in frozen {
                 n += fz
                     .read()
@@ -1622,7 +1640,10 @@ impl ShardedFtsMemtable {
         let mut n = 0;
         for s in 0..self.shards.len() {
             let (active, frozen) = self.shard_generation_handles(s);
-            n += active.read().doc_values_numeric_count(field, value).unwrap_or(0);
+            n += active
+                .read()
+                .doc_values_numeric_count(field, value)
+                .unwrap_or(0);
             for fz in frozen {
                 n += fz
                     .read()
@@ -2065,8 +2086,7 @@ impl ShardedFtsMemtable {
         let s = self.shard_for_dynamic(&doc_id);
         // New writes always land in the ACTIVE generation — frozen ones are
         // immutable snapshots held for an in-flight flush (#1015).
-        let active = { self.shards[s].read().active.clone() };
-        active.write().insert_shared(doc_id, source, schema, seq_no);
+        self.with_active_write(s, |m| m.insert_shared(doc_id, source, schema, seq_no));
     }
 
     /// Drop-in for `insert_pretokenized_with_seq` — picks a shard by
@@ -2080,15 +2100,17 @@ impl ShardedFtsMemtable {
         tokens: &[String],
     ) {
         let s = self.shard_for_dynamic(&doc_id);
-        let active = { self.shards[s].read().active.clone() };
-        active.write().insert_pretokenized_with_seq(seq_no, doc_id, source, tokens);
+        self.with_active_write(s, |m| {
+            m.insert_pretokenized_with_seq(seq_no, doc_id, source, tokens)
+        });
     }
 
     /// M5.11 — raw-bytes ultra-turbo insert (shard-routed).
     pub fn insert_raw_bytes_with_seq(&self, seq_no: u64, doc_id: String, source_bytes: Arc<[u8]>) {
         let s = self.shard_for_dynamic(&doc_id);
-        let active = { self.shards[s].read().active.clone() };
-        active.write().insert_raw_bytes_with_seq(seq_no, doc_id, source_bytes);
+        self.with_active_write(s, |m| {
+            m.insert_raw_bytes_with_seq(seq_no, doc_id, source_bytes)
+        });
     }
 
     /// Iterate every document in every shard as `(doc_id, Value)`.
@@ -2287,52 +2309,53 @@ impl ShardedFtsMemtable {
         // `missing = n - present` is unchanged.  Any shard that hits a bail
         // condition (array-valued field, `_doc_count` weights) yields `None`,
         // and `collect::<Option<_>>` short-circuits the whole call to `None`.
-        let per_shard: Option<Vec<(std::collections::HashMap<String, u64>, u64)>> = (0..self.shards.len())
-            .into_par_iter()
-            .map(|s| {
-                let (active, frozen) = self.shard_generation_handles(s);
-                let mut counts: std::collections::HashMap<String, u64> =
-                    std::collections::HashMap::new();
-                let mut missing: u64 = 0;
-                for gen_arc in std::iter::once(&active).chain(frozen.iter()) {
-                    let gen = gen_arc.read();
-                    let gn = gen.doc_count();
-                    if gn == 0 {
-                        continue;
-                    }
-                    if gen.doc_values.array_fields.contains(field)
-                        || gen.doc_values.numeric.contains_key("_doc_count")
-                        || gen.doc_values.keyword.contains_key("_doc_count")
-                    {
-                        return None;
-                    }
-                    let gcounts = gen.doc_values.with_keyword_field(field, |c| {
-                        match c.keyword_counts.get(field) {
-                            None => {
-                                // No doc in this generation carries the field
-                                // as a scalar — all of them are "missing".
-                                (std::collections::HashMap::new(), gn as u64)
-                            }
-                            Some(m) => {
-                                let mut gc: std::collections::HashMap<String, u64> =
-                                    std::collections::HashMap::with_capacity(m.len());
-                                let mut present: u64 = 0;
-                                for (k, &cnt) in m.iter() {
-                                    gc.insert(k.clone(), cnt as u64);
-                                    present += cnt as u64;
-                                }
-                                (gc, gn as u64 - present)
-                            }
+        let per_shard: Option<Vec<(std::collections::HashMap<String, u64>, u64)>> =
+            (0..self.shards.len())
+                .into_par_iter()
+                .map(|s| {
+                    let (active, frozen) = self.shard_generation_handles(s);
+                    let mut counts: std::collections::HashMap<String, u64> =
+                        std::collections::HashMap::new();
+                    let mut missing: u64 = 0;
+                    for gen_arc in std::iter::once(&active).chain(frozen.iter()) {
+                        let gen = gen_arc.read();
+                        let gn = gen.doc_count();
+                        if gn == 0 {
+                            continue;
                         }
-                    });
-                    missing += gcounts.1;
-                    for (term, cnt) in gcounts.0 {
-                        *counts.entry(term).or_insert(0) += cnt;
+                        if gen.doc_values.array_fields.contains(field)
+                            || gen.doc_values.numeric.contains_key("_doc_count")
+                            || gen.doc_values.keyword.contains_key("_doc_count")
+                        {
+                            return None;
+                        }
+                        let gcounts = gen.doc_values.with_keyword_field(field, |c| {
+                            match c.keyword_counts.get(field) {
+                                None => {
+                                    // No doc in this generation carries the field
+                                    // as a scalar — all of them are "missing".
+                                    (std::collections::HashMap::new(), gn as u64)
+                                }
+                                Some(m) => {
+                                    let mut gc: std::collections::HashMap<String, u64> =
+                                        std::collections::HashMap::with_capacity(m.len());
+                                    let mut present: u64 = 0;
+                                    for (k, &cnt) in m.iter() {
+                                        gc.insert(k.clone(), cnt as u64);
+                                        present += cnt as u64;
+                                    }
+                                    (gc, gn as u64 - present)
+                                }
+                            }
+                        });
+                        missing += gcounts.1;
+                        for (term, cnt) in gcounts.0 {
+                            *counts.entry(term).or_insert(0) += cnt;
+                        }
                     }
-                }
-                Some((counts, missing))
-            })
-            .collect();
+                    Some((counts, missing))
+                })
+                .collect();
         let per_shard = per_shard?;
         // Merge the per-shard partials (commutative — identical to the serial
         // single-map accumulation this replaces).
@@ -2656,11 +2679,26 @@ impl ShardedFtsMemtable {
                     claimed.push(Arc::clone(&fg.gen));
                 }
             }
-            if g.active.read().doc_count() > 0 {
-                let fresh = Arc::new(parking_lot::RwLock::new(FtsMemtable::with_registry_and_aggregate(
-                    Arc::clone(&g.registry),
-                    Arc::clone(&g.aggregate),
-                )));
+            // Seal under the generation's WRITE lock: this waits out any
+            // writer already inside it, and every later writer that resolved
+            // this handle re-resolves (see `with_active_write`), so the
+            // snapshot below is final for this generation's inserts.
+            let freeze_active = {
+                let mut a = g.active.write();
+                if a.doc_count() > 0 {
+                    a.sealed = true;
+                    true
+                } else {
+                    false
+                }
+            };
+            if freeze_active {
+                let fresh = Arc::new(parking_lot::RwLock::new(
+                    FtsMemtable::with_registry_and_aggregate(
+                        Arc::clone(&g.registry),
+                        Arc::clone(&g.aggregate),
+                    ),
+                ));
                 let frozen_gen = std::mem::replace(&mut g.active, fresh);
                 g.frozen.push(FrozenGen {
                     gen: Arc::clone(&frozen_gen),
@@ -3089,6 +3127,13 @@ pub struct FtsMemtable {
     ghost_docs: u64,
     ghost_field_len: FxHashMap<String, (f64, u64)>,
     ghost_doc_freq: FxHashMap<String, FxHashMap<String, u64>>,
+    /// Set (under this generation's write lock) by the freeze that moves it
+    /// out of the ACTIVE slot.  Writers resolve the active handle under the
+    /// shard lock but write after releasing it (#3055); one that resolved
+    /// this generation before the swap sees `sealed` once it holds the
+    /// write lock and retries against the new active one, so no insert can
+    /// land after the flush snapshot was taken.
+    sealed: bool,
 }
 
 impl FtsMemtable {
@@ -3131,6 +3176,7 @@ impl FtsMemtable {
             ghost_docs: 0,
             ghost_field_len: FxHashMap::default(),
             ghost_doc_freq: FxHashMap::default(),
+            sealed: false,
         }
     }
 
