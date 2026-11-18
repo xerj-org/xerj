@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added evidence-gated `cyber.code_review` source-to-sink review with corpus-backed citations, explicit abstentions, deterministic seeded benchmarks, and RFC 8785 report sealing.
+
 ## [1.0.0-rc.105] - 2026-11-23
 
 <!-- notes-exempt: #3341 #3343 (CLA signatures, .contributors only) -->
