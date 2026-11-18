@@ -125,10 +125,22 @@ pub enum Category {
     CacheDecodedStored,
     CacheFtsReader,
     CacheVectorColumn,
+    /// In-memory HNSW graphs (vectors + neighbour lists + id maps), sampled
+    /// from every open index (#2427). Not a cache: it lives as long as the
+    /// index is open and grows with every vector document.
+    VectorGraph,
+    /// Per-index document version maps (doc id -> seq/segment), sampled
+    /// from every open index (#2427). Lives as long as the index is open
+    /// and grows with every distinct doc id.
+    VersionMap,
+    /// Estimated working set of in-flight memtable flush builds (#2427):
+    /// the governor's flush reservation, held from before the freeze until
+    /// the segment is published.
+    FlushBuild,
 }
 
 impl Category {
-    pub const ALL: [Self; 23] = [
+    pub const ALL: [Self; 26] = [
         Self::HttpBody,
         Self::HttpRewriteBuffer,
         Self::RawSource,
@@ -152,6 +164,9 @@ impl Category {
         Self::CacheDecodedStored,
         Self::CacheFtsReader,
         Self::CacheVectorColumn,
+        Self::VectorGraph,
+        Self::VersionMap,
+        Self::FlushBuild,
     ];
 
     const COUNT: usize = Self::ALL.len();
@@ -506,6 +521,9 @@ fn measurement(category: Category) -> Measurement {
         | Category::CacheDecodedStored
         | Category::CacheFtsReader
         | Category::CacheVectorColumn
+        | Category::VectorGraph
+        | Category::VersionMap
+        | Category::FlushBuild
         | Category::MergeDecoded
         | Category::MergeSurvivor
         | Category::MergeParsed => Measurement::Estimated,
@@ -730,12 +748,27 @@ pub fn vector_value_capacity(
             _ => 0,
         }
     }
+    fn retained_vector_bytes(value: &serde_json::Value) -> usize {
+        match value {
+            // Packed embeddings retain one string, not one Value per
+            // component (#1940). Count it or the ledger reports the vector
+            // as free. Number arrays still go through `arrays`.
+            serde_json::Value::String(text) if xerj_common::packed_f32::is_packed_f32(text) => {
+                text.capacity()
+            }
+            serde_json::Value::Array(values) => {
+                values.capacity() * std::mem::size_of::<serde_json::Value>()
+                    + values.iter().map(retained_vector_bytes).sum::<usize>()
+            }
+            other => arrays(other),
+        }
+    }
     match value {
         serde_json::Value::Object(values) => values
             .iter()
             .map(|(key, value)| {
                 if fields.contains(key) {
-                    arrays(value)
+                    retained_vector_bytes(value)
                 } else {
                     vector_value_capacity(value, fields)
                 }

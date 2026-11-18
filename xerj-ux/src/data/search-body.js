@@ -105,6 +105,13 @@ function fieldClause(kind, f, text, roles) {
   return clause;
 }
 
+// Capture the complete operator before checking the value: requiring a value
+// in the regex lets `page>=` backtrack into `page > "="`.
+function rangeMatch(text) {
+  const m = text.match(/^([\w.]+)\s*(>=|<=|>|<)\s*(.*)$/);
+  return m && m[3].trim() ? m : null;
+}
+
 /**
  * Why a (q, type) pair cannot run, or null. TERM and RANGE need
  * `field=value` / `field>=value`; free text used to fall through to
@@ -116,7 +123,7 @@ export function queryProblem(q, type) {
   const text = (q || '').trim();
   if (!text) return null;
   if (type === 'term' && !/^([\w.]+)\s*=\s*(.+)$/.test(text)) return 'TERM needs field=value — for example ax_format=eml. Nothing was searched.';
-  if (type === 'range' && !/^([\w.]+)\s*(>=|<=|>|<)\s*(.+)$/.test(text)) return 'RANGE needs field>=value (or >, <=, <) — for example page>=2. Nothing was searched.';
+  if (type === 'range' && !rangeMatch(text)) return 'RANGE needs field>=value (or >, <=, <) — for example page>=2. Nothing was searched.';
   return null;
 }
 
@@ -140,7 +147,7 @@ export function buildQueryClause(q, type, roles) {
       return m ? { term: { [m[1]]: m[2].trim() } } : { match_all: {} };
     }
     case 'range': {
-      const m = text.match(/^([\w.]+)\s*(>=|<=|>|<)\s*(.+)$/);
+      const m = rangeMatch(text);
       if (!m) return { match_all: {} };
       const [, f, op, raw] = m;
       const k = op === '>=' ? 'gte' : op === '<=' ? 'lte' : op === '>' ? 'gt' : 'lt';

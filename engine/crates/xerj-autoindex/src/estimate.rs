@@ -485,6 +485,51 @@ pub fn human_bytes(bytes: u64) -> String {
     format!("{bytes} B")
 }
 
+/// `1 file`, `0 files`, `810 files`. Zero takes the plural.
+pub fn count_phrase(n: u64, one: &str, many: &str) -> String {
+    if n == 1 {
+        format!("1 {one}")
+    } else {
+        format!("{n} {many}")
+    }
+}
+
+/// The estimate table's count cell. The number stays width 5 and the noun
+/// stays width 5, so `1 file` does not shift the byte column and does not
+/// read as `1 files`.
+pub fn count_files_column(n: u64) -> String {
+    format!("{n:>5} {:<5}", if n == 1 { "file" } else { "files" })
+}
+
+/// `phase A: 1 dataset inferred, 0 junk/skipped files`.
+pub fn phase_a_line(datasets: u64, junk_files: u64) -> String {
+    format!(
+        "phase A: {} inferred, {}",
+        count_phrase(datasets, "dataset", "datasets"),
+        count_phrase(junk_files, "junk/skipped file", "junk/skipped files"),
+    )
+}
+
+/// The interactive `done in …` line. A count of one uses the singular noun.
+pub fn done_summary_line(
+    wall: f64,
+    datasets: u64,
+    records: u64,
+    aliases: u64,
+    junk_records: u64,
+    junk_files: u64,
+    docs_per_sec: f64,
+) -> String {
+    format!(
+        "done in {wall:.1}s — {}, {} live, {}, {}, {} ({docs_per_sec:.1} docs/sec)",
+        count_phrase(datasets, "dataset", "datasets"),
+        count_phrase(records, "record", "records"),
+        count_phrase(aliases, "duplicate alias", "duplicate aliases"),
+        count_phrase(junk_records, "junk record", "junk records"),
+        count_phrase(junk_files, "junk/skipped file", "junk/skipped files"),
+    )
+}
+
 /// `3.2 s`, `4.7 min`, `1.9 h`.
 pub fn human_secs(seconds: f64) -> String {
     if seconds < 90.0 {
@@ -499,6 +544,31 @@ pub fn human_secs(seconds: f64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Tokio's json family printed `1 files` and `1 file(s)`.
+    #[test]
+    fn a_count_of_one_uses_the_singular_noun() {
+        assert_eq!(count_phrase(1, "dataset", "datasets"), "1 dataset");
+        assert_eq!(count_phrase(0, "dataset", "datasets"), "0 datasets");
+        assert_eq!(count_phrase(2, "file", "files"), "2 files");
+        assert_eq!(count_files_column(1), "    1 file ");
+        assert_eq!(count_files_column(810), "  810 files");
+        assert_eq!(count_files_column(1).len(), count_files_column(810).len());
+        assert_eq!(
+            phase_a_line(1, 0),
+            "phase A: 1 dataset inferred, 0 junk/skipped files"
+        );
+        let done = done_summary_line(6.8, 1, 11246, 6, 0, 0, 1644.3);
+        assert!(done.contains("1 dataset,"), "{done}");
+        assert!(!done.contains("1 datasets"), "{done}");
+        assert!(done.contains("11246 records live"), "{done}");
+        assert!(done.contains("6 duplicate aliases"), "{done}");
+        assert!(done.contains("0 junk records"), "{done}");
+        assert!(done.contains("0 junk/skipped files"), "{done}");
+        assert!(done_summary_line(0.2, 1, 1, 1, 1, 1, 0.0).contains(
+            "1 dataset, 1 record live, 1 duplicate alias, 1 junk record, 1 junk/skipped file"
+        ));
+    }
 
     fn rate(family: &'static str, bytes_per_sec: f64) -> (&'static str, MeasuredRate) {
         (

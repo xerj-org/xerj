@@ -80,6 +80,7 @@ pub(super) fn decode_v2_identity_columns_controlled(
                 &mut stats,
                 &mut dict_ids,
                 checkpoint,
+                false,
             )?;
             if result.is_ok()
                 && decode_cancelled(
@@ -108,6 +109,28 @@ pub(super) fn decode_v2_identity_columns_controlled(
         ids,
         seq_nos,
     ))))
+}
+
+/// `_id` of every row of a columnar (ZBS2/ZBS3) stored section, in row
+/// order, decoded from the identity columns alone: no `_source` column is
+/// read. `Ok(None)` for a non-columnar section or an identity shape that
+/// cannot be read selectively; the caller decodes the whole section instead.
+pub fn decode_stored_v2_ids(bytes: &[u8]) -> Result<Option<Vec<serde_json::Value>>> {
+    let bytes = if bytes.len() >= 4 && &bytes[..4] == STORED_V3_MAGIC {
+        split_stored_v3(bytes)?.1
+    } else {
+        bytes
+    };
+    if !is_columnar_stored_magic(bytes) {
+        return Ok(None);
+    }
+    let mut no_cancel = |_| std::ops::ControlFlow::Continue(());
+    match decode_v2_identity_columns_controlled(bytes, &mut no_cancel)? {
+        StoredDecodeRun::Complete(Some((num_docs, ids, _))) if ids.len() == num_docs => {
+            Ok(Some(ids))
+        }
+        StoredDecodeRun::Complete(_) | StoredDecodeRun::Cancelled => Ok(None),
+    }
 }
 
 struct SelectedRowsVisitor<'a> {
@@ -175,7 +198,39 @@ fn select_json_rows<R: std::io::Read>(
     checkpoint: &mut dyn FnMut(StoredDecodeCheckpoint) -> std::ops::ControlFlow<()>,
 ) -> Result<std::result::Result<Vec<serde_json::Value>, ()>> {
     let cancelled = Cell::new(false);
-    let mut deserializer = serde_json::Deserializer::from_reader(reader);
+    let mut deserializer = serde_json::Deserializer::from_reader(buffered_json_stream(reader));
+    let values = match deserializer.deserialize_seq(SelectedRowsVisitor {
+        selected,
+        expected_rows,
+        column_index,
+        checkpoint,
+        cancelled: &cancelled,
+    }) {
+        Ok(values) => values,
+        Err(_) if cancelled.get() => return Ok(Err(())),
+        Err(error) => {
+            return Err(StorageError::Other(anyhow::anyhow!("{context}: {error}")));
+        }
+    };
+    deserializer
+        .end()
+        .map_err(|error| StorageError::Other(anyhow::anyhow!("{context}: {error}")))?;
+    Ok(Ok(values))
+}
+
+/// [`select_json_rows`] over a column already decompressed in memory. The
+/// slice parser skips unselected rows several times faster than the
+/// byte-at-a-time reader parser; validation is the same.
+fn select_json_rows_slice(
+    bytes: &[u8],
+    selected: &[usize],
+    expected_rows: usize,
+    context: &str,
+    column_index: usize,
+    checkpoint: &mut dyn FnMut(StoredDecodeCheckpoint) -> std::ops::ControlFlow<()>,
+) -> Result<std::result::Result<Vec<serde_json::Value>, ()>> {
+    let cancelled = Cell::new(false);
+    let mut deserializer = serde_json::Deserializer::from_slice(bytes);
     let values = match deserializer.deserialize_seq(SelectedRowsVisitor {
         selected,
         expected_rows,
@@ -489,6 +544,11 @@ fn repeat_constant_rows_controlled(
     Ok(Ok(values))
 }
 
+/// `in_memory`: decompress a JSON column whole and parse it as a slice
+/// (faster) instead of streaming it. Only the non-cancellable parallel
+/// hydration asks for it, so cancellation still never waits on a whole
+/// column's decompression.
+#[allow(clippy::too_many_arguments)]
 fn select_column_rows(
     column_index: usize,
     directory: &V2Directory<'_>,
@@ -496,9 +556,28 @@ fn select_column_rows(
     stats: &mut StoredV2RowHydrationStats,
     dict_ids: &mut HashMap<usize, Vec<u32>>,
     checkpoint: &mut dyn FnMut(StoredDecodeCheckpoint) -> std::ops::ControlFlow<()>,
+    in_memory: bool,
 ) -> Result<std::result::Result<Vec<serde_json::Value>, Option<String>>> {
     let column = &directory.columns[column_index];
     let values = match column.codec {
+        ColCodec::RawJson if in_memory => {
+            stats.encoded_rows_visited += directory.num_docs;
+            let frame = decode_raw_payload(column.payload)?;
+            let raw = zstd::stream::decode_all(frame)
+                .map_err(|error| StorageError::Other(anyhow::anyhow!("raw zstd: {error}")))?;
+            stats.decompressed_buffer_bytes += raw.len();
+            match select_json_rows_slice(
+                &raw,
+                selected,
+                directory.num_docs,
+                "raw json",
+                column_index,
+                checkpoint,
+            )? {
+                Ok(values) => values,
+                Err(()) => return Ok(Err(None)),
+            }
+        }
         ColCodec::RawJson => {
             stats.encoded_rows_visited += directory.num_docs;
             let frame = decode_raw_payload(column.payload)?;
@@ -590,6 +669,7 @@ fn select_column_rows(
                 stats,
                 dict_ids,
                 checkpoint,
+                in_memory,
             );
         }
         ColCodec::CrossDep => {
@@ -699,6 +779,38 @@ pub fn decode_stored_v2_rows_projected_controlled<F>(
     bytes: &[u8],
     ordinals: &[usize],
     source_fields: Option<&[&str]>,
+    checkpoint: F,
+) -> Result<StoredDecodeRun<StoredV2RowHydrationResult>>
+where
+    F: FnMut(StoredDecodeCheckpoint) -> std::ops::ControlFlow<()>,
+{
+    hydrate_v2_rows(bytes, ordinals, source_fields, false, checkpoint)
+}
+
+/// Like [`decode_stored_v2_rows_projected`] (`None` = every field), but
+/// decodes the wanted columns concurrently on the rayon pool. Each column is
+/// an independent stream, so a cold top-k hydration that must walk every
+/// column of a segment for a handful of rows costs roughly its largest
+/// column instead of the sum of all of them. Output is identical to the
+/// serial decoder.
+pub fn decode_stored_v2_rows_projected_parallel(
+    bytes: &[u8],
+    ordinals: &[usize],
+    source_fields: Option<&[&str]>,
+) -> Result<StoredV2RowHydrationResult> {
+    match hydrate_v2_rows(bytes, ordinals, source_fields, true, |_| {
+        std::ops::ControlFlow::Continue(())
+    })? {
+        StoredDecodeRun::Complete(result) => Ok(result),
+        StoredDecodeRun::Cancelled => unreachable!("non-cancelling parallel wrapper"),
+    }
+}
+
+fn hydrate_v2_rows<F>(
+    bytes: &[u8],
+    ordinals: &[usize],
+    source_fields: Option<&[&str]>,
+    parallel: bool,
     mut checkpoint: F,
 ) -> Result<StoredDecodeRun<StoredV2RowHydrationResult>>
 where
@@ -750,17 +862,86 @@ where
     let mut stats = StoredV2RowHydrationStats::default();
     let requested: Option<HashSet<&str>> =
         source_fields.map(|fields| fields.iter().copied().collect());
+    // #1122/#2433: a row whose derived semantic vectors were stripped gets
+    // them rebuilt from its text when the projection wants them, so decode
+    // every column for it and trim back to the projection afterwards.
+    let wants_derived = {
+        let mut targets = directory
+            .columns
+            .iter()
+            .filter_map(|column| derived_vectors::metadata_target(column.name))
+            .peekable();
+        targets.peek().is_some()
+            && match requested.as_ref() {
+                None => true,
+                Some(fields) => targets.any(|target| {
+                    fields.contains(target)
+                        || fields.contains(derived_vectors::chunks_name(target).as_str())
+                }),
+            }
+    };
+    let allowed: Option<HashSet<String>> = if wants_derived {
+        requested
+            .as_ref()
+            .map(|fields| fields.iter().map(|field| field.to_string()).collect())
+    } else {
+        None
+    };
+    let requested = if wants_derived { None } else { requested };
     let mut columns: Vec<Option<Vec<serde_json::Value>>> =
         (0..directory.columns.len()).map(|_| None).collect();
     let mut dict_ids = HashMap::new();
-    for index in 0..directory.columns.len() {
-        let column = &directory.columns[index];
-        let wanted = index == id_index
-            || index == seq_index
-            || requested
-                .as_ref()
-                .is_none_or(|fields| fields.contains(column.name));
-        if !wanted {
+    let wanted_columns: Vec<usize> = (0..directory.columns.len())
+        .filter(|&index| {
+            index == id_index
+                || index == seq_index
+                || requested
+                    .as_ref()
+                    .is_none_or(|fields| fields.contains(directory.columns[index].name))
+        })
+        .collect();
+    if parallel && wanted_columns.len() > 1 {
+        use rayon::prelude::*;
+        // Each task gets its own stats and dictionary-id scratch: a CROSS_DEP
+        // column re-derives its DICT source ids locally, which is the same
+        // work the serial path does once and shares.
+        let decoded: Vec<_> = wanted_columns
+            .par_iter()
+            .map(|&index| {
+                let mut local_stats = StoredV2RowHydrationStats::default();
+                let mut local_dict_ids = HashMap::new();
+                let mut noop = |_: StoredDecodeCheckpoint| std::ops::ControlFlow::Continue(());
+                select_column_rows(
+                    index,
+                    &directory,
+                    &selected,
+                    &mut local_stats,
+                    &mut local_dict_ids,
+                    &mut noop,
+                    true,
+                )
+                .map(|values| (index, values, local_stats))
+            })
+            .collect();
+        for result in decoded {
+            let (index, values, local_stats) = result?;
+            stats.encoded_rows_visited += local_stats.encoded_rows_visited;
+            stats.selected_json_values += local_stats.selected_json_values;
+            stats.selected_dictionary_entries += local_stats.selected_dictionary_entries;
+            stats.decompressed_buffer_bytes += local_stats.decompressed_buffer_bytes;
+            match values {
+                Ok(values) => columns[index] = Some(values),
+                Err(Some(column)) => {
+                    return Ok(StoredDecodeRun::Complete(
+                        StoredV2RowHydrationResult::UnsupportedDependencyShape { column },
+                    ));
+                }
+                Err(None) => return Ok(StoredDecodeRun::Cancelled),
+            }
+        }
+    }
+    for index in wanted_columns {
+        if columns[index].is_some() {
             continue;
         }
         if decode_cancelled(&mut checkpoint, StoredDecodePhase::BeforeColumn, index, 0) {
@@ -773,6 +954,7 @@ where
             &mut stats,
             &mut dict_ids,
             &mut checkpoint,
+            false,
         )? {
             Ok(values) => columns[index] = Some(values),
             Err(Some(column)) => {
@@ -809,6 +991,12 @@ where
                 // Present explicit null (#415) — re-insert, unlike an absent field.
                 source.insert(column.name.to_string(), serde_json::Value::Null);
                 stats.output_values_cloned += 1;
+            }
+        }
+        if wants_derived {
+            derived_vectors::rehydrate_source_map(&mut source);
+            if let Some(allowed) = allowed.as_ref() {
+                source.retain(|name, _| allowed.contains(name));
             }
         }
         stats.output_values_cloned += 2;
@@ -873,6 +1061,50 @@ mod tests {
         )
     }
 
+    /// #2422: `select_json_rows` reads its column through a buffer.
+    /// `serde_json`'s reader pulls one byte per `read`, and over zstd's
+    /// streaming decoder every `read` was a `ZSTD_decompressStream` call, so
+    /// one selected row of a large column cost one zstd call per byte.
+    #[test]
+    fn selected_rows_read_the_column_in_large_chunks_not_byte_by_byte() {
+        struct CountingReader<'a> {
+            inner: &'a [u8],
+            reads: &'a Cell<usize>,
+        }
+        impl std::io::Read for CountingReader<'_> {
+            fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+                self.reads.set(self.reads.get() + 1);
+                self.inner.read(buf)
+            }
+        }
+        let rows: Vec<_> = (0..4096)
+            .map(|i| json!({"row": i, "text": "x".repeat(200)}))
+            .collect();
+        let column = serde_json::to_vec(&rows).unwrap();
+        let reads = Cell::new(0);
+        let selected = select_json_rows(
+            CountingReader {
+                inner: &column,
+                reads: &reads,
+            },
+            &[7, 4000],
+            rows.len(),
+            "test json",
+            0,
+            &mut |_| std::ops::ControlFlow::Continue(()),
+        )
+        .unwrap()
+        .unwrap();
+        assert_eq!(selected, vec![rows[7].clone(), rows[4000].clone()]);
+        let chunk_reads = column.len().div_ceil(JSON_STREAM_READ_BUFFER) + 2;
+        assert!(
+            reads.get() <= chunk_reads,
+            "{} reads for a {} byte column; a byte-at-a-time parse makes one per byte",
+            reads.get(),
+            column.len()
+        );
+    }
+
     #[test]
     fn raw_and_lz4_select_rows_and_reject_trailing_json() {
         for codec in [ColCodec::RawJson, ColCodec::Lz4Json] {
@@ -908,6 +1140,76 @@ mod tests {
             ],
         );
         assert!(decode_stored_v2_rows(&bad, &[0]).is_err());
+    }
+
+    /// The parallel hydration parses each JSON column as an in-memory slice;
+    /// its rows must equal the streaming path's, and it must still reject a
+    /// column with trailing JSON or a row count other than the directory's.
+    #[test]
+    fn parallel_hydration_matches_streaming_and_validates_columns() {
+        for codec in [ColCodec::RawJson, ColCodec::Lz4Json] {
+            let encoded = fixture(300, codec);
+            let ordinals = [299, 0, 7, 7, 128];
+            for fields in [None, Some(&["body"][..]), Some(&[][..])] {
+                let serial = match fields {
+                    Some(fields) => decode_stored_v2_rows_projected(&encoded, &ordinals, fields),
+                    None => decode_stored_v2_rows(&encoded, &ordinals),
+                }
+                .unwrap();
+                let parallel =
+                    decode_stored_v2_rows_projected_parallel(&encoded, &ordinals, fields).unwrap();
+                let (
+                    StoredV2RowHydrationResult::Hydrated { rows: a, .. },
+                    StoredV2RowHydrationResult::Hydrated { rows: b, .. },
+                ) = (serial, parallel)
+                else {
+                    panic!("expected hydration")
+                };
+                assert_eq!(a.len(), 4);
+                assert_eq!(a.len(), b.len());
+                for (a, b) in a.iter().zip(&b) {
+                    assert_eq!(
+                        (a.ordinal, &a.id, &a.seq_no, &a.source),
+                        (b.ordinal, &b.id, &b.seq_no, &b.source)
+                    );
+                }
+            }
+        }
+        for tail in [&b"[]"[..], &b""[..]] {
+            let mut values = serde_json::to_vec(&vec![json!("x"); 4]).unwrap();
+            values.extend_from_slice(tail);
+            let rows = if tail.is_empty() { 3 } else { 4 };
+            let bad = assemble(
+                rows,
+                &[
+                    ("__id", ColCodec::RawJson, raw(&vec![json!("x"); rows])),
+                    ("__seq_no", ColCodec::RawJson, raw(&vec![json!(0); rows])),
+                    (
+                        "bad",
+                        ColCodec::RawJson,
+                        zstd::encode_all(Cursor::new(values), 3).unwrap(),
+                    ),
+                    ("other", ColCodec::RawJson, raw(&vec![json!(1); rows])),
+                ],
+            );
+            assert!(decode_stored_v2_rows_projected_parallel(&bad, &[0], None).is_err());
+        }
+    }
+
+    /// The identity-only id list equals the `_id`s of the full decode.
+    #[test]
+    fn identity_ids_match_the_full_decode() {
+        for codec in [ColCodec::RawJson, ColCodec::Lz4Json] {
+            let encoded = fixture(200, codec);
+            let ids = decode_stored_v2_ids(&encoded).unwrap().unwrap();
+            let full: Vec<serde_json::Value> =
+                serde_json::from_slice(&super::super::decode_stored(&encoded).unwrap()).unwrap();
+            assert_eq!(ids.len(), full.len());
+            for (id, doc) in ids.iter().zip(&full) {
+                assert_eq!(id, &doc["_id"]);
+            }
+        }
+        assert!(decode_stored_v2_ids(b"not columnar").unwrap().is_none());
     }
 
     #[test]

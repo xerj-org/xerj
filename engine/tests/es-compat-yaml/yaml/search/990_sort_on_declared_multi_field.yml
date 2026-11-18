@@ -1,0 +1,32 @@
+---
+"Sort on a multi-field declared in the mapping":
+  - do:
+      indices.create:
+        index: test_multi_field_sort
+        body:
+          mappings:
+            properties:
+              title:
+                type: text
+                fields:
+                  keyword:
+                    type: keyword
+
+  - do:
+      bulk:
+        index: test_multi_field_sort
+        refresh: true
+        body:
+          - {"index": {"_id": "1"}}
+          - {"title": "beta"}
+          - {"index": {"_id": "2"}}
+          - {"title": "alpha"}
+
+  - do:
+      search:
+        index: test_multi_field_sort
+        body:
+          sort: [{"title.keyword": "asc"}]
+
+  - match: { hits.hits.0._id: "2" }
+  - match: { hits.hits.1._id: "1" }

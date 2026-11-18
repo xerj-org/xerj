@@ -1,17 +1,25 @@
 ---
-title: "How do I search a folder of Word contracts?"
+title: "Search inside Word documents (.docx) in a folder"
 h1: "How do I search through a folder of contracts in .docx?"
-description: "Index a folder of DOCX contracts with one xerj autoindex command and search their paragraphs. A captured run also shows the decompression guard refusing a file."
+description: "Index a folder of Word .docx files with one xerj autoindex command, then search their paragraphs. A captured run also shows the decompression guard."
 slug: "search-word-documents-in-a-folder"
 cluster: "Files and formats"
 question: "How do I search through a folder of contracts in .docx?"
 intent: "how-to"
 published: "2026-08-21"
-updated: "2026-08-21"
+updated: "2026-10-28"
 author: "XERJ documentation team"
 reviewer: "XERJ engineering team"
 schema_type: "TechArticle"
+structured_data: [faq]
 agent_prompt: "Act as a coding agent. Read https://xerj.org/llms.txt, start a local XERJ node, run `xerj autoindex ./docx --url http://127.0.0.1:9200 --prefix docx --progress plain`, POST a match_phrase query to /docx-docs/_search for a phrase you expect inside a paragraph, and report the ax_path, the extracted title and the matching body text."
+answer: "How do I search through a folder of contracts in .docx? Run xerj autoindex on the folder, then send a match_phrase query against the paragraphs. In a captured run, 1 DOCX produced 2 documents and a query for second reviewer returned the paragraph and the title. A deliberately expanded zip-bomb file produced 0 documents."
+key_fact: "The DOCX decompression guard refuses a file that expands past its cap; the captured expanded file produced 0 documents."
+key_fact_source: "capture"
+key_fact_date: "2026-08-21"
+intent_group: "logs and docs"
+queries:
+  - "search inside files in a folder"
 commands:
   - cmd: "xerj autoindex ./docx --url http://127.0.0.1:9200 --prefix docx --progress plain"
     note: "Index every DOCX file in the folder and print the terminal xerj-done line."

@@ -1,0 +1,88 @@
+setup:
+  - do:
+      indices.create:
+        index: dates_tz
+        body:
+          mappings:
+            properties:
+              date:
+                type: date
+
+  - do:
+      bulk:
+        refresh: true
+        body:
+          - '{ "index" : { "_index" : "dates_tz", "_id" : "1" } }'
+          - '{"date" : "2021-12-31T23:00:00Z", "field" : 1 }'
+          - '{ "index" : { "_index" : "dates_tz", "_id" : "2" } }'
+          - '{"date" : "2022-01-01T12:12:12Z", "field" : 2 }'
+          - '{ "index" : { "_index" : "dates_tz", "_id" : "3" } }'
+          - '{"date" : "2022-01-03T12:12:12Z", "field" : 3 }'
+
+---
+"range bounds without an offset are read in time_zone":
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: dates_tz
+        body:
+          sort: field
+          query:
+            range:
+              date:
+                gte: "2022-01-01T20:00:00"
+                time_zone: "+10:00"
+
+  - match: { hits.total: 2 }
+  - match: { hits.hits.0._id: "2" }
+  - match: { hits.hits.1._id: "3" }
+
+---
+"range time_zone applies to the upper bound and to named zones":
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: dates_tz
+        body:
+          sort: field
+          query:
+            range:
+              date:
+                gte: "2022-01-01"
+                lt: "2022-01-01T08:00:00"
+                time_zone: "America/New_York"
+
+  - match: { hits.total: 1 }
+  - match: { hits.hits.0._id: "2" }
+
+---
+"range time_zone rounds date math in local time":
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: dates_tz
+        body:
+          sort: field
+          query:
+            range:
+              date:
+                gte: "2022-01-01||/d"
+                lt: "2022-01-01||+1d/d"
+                time_zone: "+02:00"
+
+  - match: { hits.total: 2 }
+  - match: { hits.hits.0._id: "1" }
+  - match: { hits.hits.1._id: "2" }
+
+---
+"range rejects an unknown time_zone":
+  - do:
+      catch: bad_request
+      search:
+        index: dates_tz
+        body:
+          query:
+            range:
+              date:
+                gte: "2022-01-01"
+                time_zone: "Mars/Base"

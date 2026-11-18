@@ -1,0 +1,6 @@
+$ /workspace/engine/target/release/xerj search --url http://127.0.0.1:9217 --prefix sessions -k 3 why did we decide zstd
+# exit 0
+xerj search: these hits are lexical; this command does not consult the embedding.
+no match in sessions-* for: why did we decide zstd
+prefixes on this node: docs, epoch, gh, sessions
+try: xerj search --prefix docs "why did we decide zstd"

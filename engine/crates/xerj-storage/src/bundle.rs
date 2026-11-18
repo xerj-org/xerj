@@ -150,7 +150,7 @@ pub fn valid_flush_artifact_set(segment_id: &str, artifacts: &[(String, u64, u32
         let rest = &name[prefix.len()..];
         if matches!(
             rest,
-            "seg" | "sidx" | "ids" | "dv" | "fts-layout-v2" | "ftsan"
+            "seg" | "sidx" | "ids" | "dv" | "fts-layout-v2" | "fts-layout-v3" | "ftsan"
         ) {
             if !roles.insert(rest) {
                 return false;

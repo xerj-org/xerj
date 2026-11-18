@@ -2,7 +2,7 @@
 
 <a href="https://trendshift.io/repositories/116361?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-116361" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/repositories/116361" alt="xerj-org%2Fxerj | Trendshift" width="250" height="55"/></a>
 
-[English](./README.md) | [简体中文](./README.zh-CN.md) | [日本語](./README.ja-JP.md)
+[English](./README.md) | [简体中文](./README.zh-CN.md) | [日本語](./README.ja-JP.md) | [العربية](./README.ar.md) | [Español](./README.es.md) | [한국어](./README.ko.md)
 
 [![CI](https://img.shields.io/github/actions/workflow/status/xerj-org/xerj/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/xerj-org/xerj/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/xerj-org/xerj?style=flat-square&label=release)](https://github.com/xerj-org/xerj/releases)
@@ -10,6 +10,8 @@
 [![Stars](https://img.shields.io/github/stars/xerj-org/xerj?style=flat-square)](https://github.com/xerj-org/xerj/stargazers)
 [![Rust](https://img.shields.io/badge/built%20with-Rust-000000?style=flat-square&logo=rust)](https://www.rust-lang.org)
 [![Discussions](https://img.shields.io/github/discussions/xerj-org/xerj?style=flat-square&label=discussions)](https://github.com/xerj-org/xerj/discussions)
+[![Discord](https://img.shields.io/badge/Discord-join-5865F2?style=flat-square&logo=discord&logoColor=white)](https://discord.com/invite/yetXFusXfs)
+[![X](https://img.shields.io/badge/X-%40xerj__org-000000?style=flat-square&logo=x&logoColor=white)](https://x.com/xerj_org)
 
 [![Reference coding](https://img.shields.io/badge/reference%20coding-2.7%C3%97%20fewer%20tokens-ff8c00?style=flat-square)](https://xerj.org/case-studies/reference-coding.html)
 [![Autoindex](https://img.shields.io/badge/autoindex-zero%20config-ff8c00?style=flat-square)](https://xerj.org/docs/cli.html)
@@ -17,7 +19,7 @@
 [![Agent memory](https://img.shields.io/badge/agent%20memory-%2F__memory-00b3a4?style=flat-square)](https://xerj.org/docs/recipes/agentic-memory.html)
 [![MCP](https://img.shields.io/badge/MCP-native-1f6feb?style=flat-square)](https://xerj.org/llms.txt)
 [![llms.txt](https://img.shields.io/badge/llms.txt-agent%20ready-6f42c1?style=flat-square)](https://xerj.org/llms.txt)
-[![ES-YAML conformance](https://img.shields.io/badge/ES--YAML%20conformance-1366%2F1369-brightgreen?style=flat-square)](https://xerj.org/benchmarks)
+[![ES-YAML conformance](https://img.shields.io/badge/ES--YAML%20conformance-1444%2F1454-brightgreen?style=flat-square)](https://xerj.org/benchmarks)
 [![Single static binary](https://img.shields.io/badge/single%20static%20binary-no%20JVM-orange?style=flat-square)](https://xerj.org/docs/install.html)
 [![Default embedder](https://img.shields.io/badge/default%20embedder-lexical%2C%20offline-teal?style=flat-square)](https://xerj.org/docs/vectors.html)
 [![Neural](https://img.shields.io/badge/neural%20embedder-opt--in%2C%20downloads%20~90%20MB-9c6ade?style=flat-square)](https://xerj.org/docs/vectors.html)
@@ -44,13 +46,15 @@ and search how they solved a problem before writing code.
 
 ```sh
 curl -fsSL https://xerj.org/get | sh
-xerj --insecure --data-dir ./data &
+xerj --insecure --data-dir ~/xerj-data &
 xerj init                                        # wire XERJ into Claude Code/Cursor (MCP + skill), one command
 xerj autoindex ~/my-project
 xerj search "how do we rotate the WAL segment"   # ranked passages, file:line
 xerj def "euler_to_rotationmatrix"               # go-to-definition: file:line + signature
 xerj gain                                        # what it did for you — counted, not estimated
 ```
+
+データディレクトリは、autoindex するフォルダの外に置いてください。組み込みの無視リストに `data/` は入っていないので、これから索引するツリーの中で `--data-dir ./data` とすると、ノードが自分のストレージまで索引します。
 
 Windows と、手作業で検証しながらインストールする方法は [手動インストール](#手動インストール) にあります。
 
@@ -111,7 +115,7 @@ grep を使うエージェントはファイル全体をコンテキストに取
 パイプラインを設定する必要もありません。
 
 ```sh
-xerj --insecure --data-dir ./data &      # start it
+xerj --insecure --data-dir ~/xerj-data &      # start it
 xerj autoindex ~/my-project              # point it at anything
 ```
 
@@ -191,7 +195,7 @@ irm https://xerj.org/get.ps1 | iex
 Elasticsearch API を話すため、既存のクライアント、ダッシュボード、ツールがそのまま動きます。
 
 インストール後の最初のコマンド（インストーラーが `xerj` の配置先を表示するので、必要なら PATH に
-追加してください）: `xerj --insecure --data-dir ./data &` を実行し、`http://localhost:9200` が応答する
+追加してください）: `xerj --insecure --data-dir ~/xerj-data &` を実行し、`http://localhost:9200` が応答する
 まで待ってから、`xerj autoindex ~/my-project` を実行します。[フォルダをインデックスする](#フォルダをインデックスする)
 を参照してください。
 
@@ -205,7 +209,7 @@ Elasticsearch API を話すため、既存のクライアント、ダッシュ�
 サーバーを起動し、`autoindex` を任意の対象に向けます:
 
 ```sh
-xerj --insecure --data-dir ./data &     # local dev: no TLS, no auth
+xerj --insecure --data-dir ~/xerj-data &     # local dev: no TLS, no auth
 xerj autoindex ~/my-project
 ```
 
@@ -218,8 +222,8 @@ xerj autoindex ~/my-project
 `--api-key` を渡すか `XERJ_API_KEY` を設定しないと、すべてのリクエストが `401 Unauthorized` になります:
 
 ```sh
-xerj --data-dir ./data &                          # auth on: key minted on first boot
-export XERJ_API_KEY="$(cat ./data/admin.key)"     # <data_dir>/admin.key
+xerj --data-dir ~/xerj-data &                          # auth on: key minted on first boot
+export XERJ_API_KEY="$(cat ~/xerj-data/admin.key)" # <data_dir>/admin.key
 xerj autoindex ~/my-project
 ```
 
@@ -298,7 +302,7 @@ function calling のホストは Model Context Protocol を通じてツールに
 ありません:
 
 ```sh
-xerj --insecure --data-dir ./data &     # 1. the node the tools query
+xerj --insecure --data-dir ~/xerj-data &     # 1. the node the tools query
 xerj mcp                                # 2. MCP stdio server (your client runs this)
 ```
 
@@ -389,7 +393,7 @@ kNN、scroll、reindex、そして `_cat` エンドポイントです。Kibana �
 サイズの結果セットには `search_after` を使ってください
 （[上限について](https://xerj.org/docs/api-es-compat.html#scroll-cap)）。
 
-適合性テストスイートはコミットごとに実行され、現在 1369 ケース中 1366 ケースに合格しています。スイートは
+適合性テストスイートはコミットごとに実行され、現在 1454 ケース中 1444 ケースに合格しています。スイートは
 [`engine/tests/es-compat-yaml`](./engine/tests/es-compat-yaml) にあり、残りのギャップも隠さずにそこに
 列挙しています。XERJ は API と互換性がありますが、Elasticsearch の内部実装を再実装したものではなく、
 フォークでもありません。
@@ -432,7 +436,7 @@ CI でよくあるケースで、通常は 95% 以上が未変更です。変更
 git clone https://github.com/xerj-org/xerj
 cd xerj/engine
 cargo build --release -p xerj-server
-./target/release/xerj --insecure --data-dir ./data
+./target/release/xerj --insecure --data-dir ~/xerj-data
 ```
 
 稼働中のサーバーに対して適合性テストスイートを実行するには:

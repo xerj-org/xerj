@@ -1,0 +1,8 @@
+model = "gpt-5"
+
+[mcp_servers.xerj]
+command = "/workspace/engine/target/release/xerj"
+args = ["mcp"]
+
+[mcp_servers.xerj.env]
+XERJ_URL = "http://127.0.0.1:9217"

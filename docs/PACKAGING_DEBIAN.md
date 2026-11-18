@@ -20,6 +20,11 @@ xerj-<version>-x86_64-unknown-linux-gnu.deb    (Architecture: amd64)
 xerj-<version>-aarch64-unknown-linux-gnu.deb   (Architecture: arm64)
 ```
 
+Debian control-file prereleases use `~`: Rust version `1.0.0-rc.76` becomes
+`1.0.0~rc.76`, so the final `1.0.0` sorts newer for upgrades. Asset filenames,
+the staged executable and its version banner keep the original Rust version.
+A hyphen occurring only in `+build` metadata is not rewritten.
+
 Install with `sudo dpkg -i xerj-<version>-x86_64-unknown-linux-gnu.deb`; the
 binary lands in `/usr/bin/xerj` with docs under `/usr/share/doc/xerj`
 (README, LICENSE, machine-readable `copyright`). There is no systemd unit and

@@ -230,6 +230,11 @@ jobs:
       - name: Landing page constants agree with the newest release
         run: bash .github/scripts/landing-constants-guard.sh
 
+      # cohere-tools.json is generated from openai-tools.json; a hand edit or a
+      # forgotten regeneration would publish a tool list that disagrees with it.
+      - name: Cohere tool schema is generated from openai-tools.json
+        run: python3 tools/agents/gen_cohere_tools.py --check
+
   # #770. A job with no `timeout-minutes` runs against GitHub's 360-minute
   # default, and 22 of this repo's 23 jobs had none. Three of its workflows
   # serialise on a concurrency group that never auto-cancels
@@ -423,8 +428,15 @@ jobs:
 
       # libFuzzer + the sanitizer runtimes are nightly-only.
       - name: Install Rust (nightly)
-        uses: dtolnay/rust-toolchain@7c8d7d138f5c09cef361f8214cf96882cd029cdb # nightly (pinned action ref; toolchain itself floats by design)
+        uses: dtolnay/rust-toolchain@7c8d7d138f5c09cef361f8214cf96882cd029cdb # nightly (pinned action ref)
         with:
+          # Temporarily pinned: rustc 1.101.0-nightly (f9ceb4a4d 2026-10-31)
+          # fails to compile xerj-engine with E0391 ("cycle detected when
+          # computing when `xerj_fts::search::Query` needs async drop"), a
+          # compiler regression; nightly-2026-10-30 (rustc 92b5b8c87
+          # 2026-10-29) built and ran every target. Drop this line to float
+          # again once a newer nightly compiles the engine.
+          toolchain: nightly-2026-10-30
           components: rustfmt
 
       - name: Cache
@@ -450,6 +462,10 @@ jobs:
         run: cargo fmt --manifest-path fuzz/Cargo.toml --check
 
       - name: Build + run every fuzz target
+        env:
+          # Must match the pinned toolchain above; the script defaults to the
+          # runner's floating `nightly`, which is the broken 2026-10-31 build.
+          FUZZ_TOOLCHAIN: nightly-2026-10-30
         run: bash .github/scripts/fuzz-smoke.sh
 
       # A crashing input is the entire product of this job; losing it would
@@ -481,8 +497,10 @@ jobs:
     # against the old 50-min cap (setup + ~36-min step 5 + ~2.3-min step 6 +
     # cache-save) — too thin a margin on a loaded runner — so this was bumped to
     # 60 min. Neither cap is what fixed #751 — the engine deadlock was; they
-    # bound the blast radius of the next one.
-    timeout-minutes: 60
+    # bound the blast radius of the next one. By Oct 2026 cold builds took
+    # ~46-55 min, so healthy runs kept hitting 60 and were cancelled; bumped
+    # to 90 min.
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
@@ -825,12 +843,21 @@ jobs:
       - name: Installer script lint (landing/get, landing/get.ps1)
         run: bash .github/scripts/installer-lint.sh
 
+      - name: Installer refused-download behaviour (landing/get)
+        run: bash .github/scripts/installer-download-failure-test.sh
+
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: '20'
 
       - name: Install counter behaviour + privacy (functions/get.js)
         run: node .github/scripts/functions-get-test.mjs
+
+      - name: Lead request validation (functions/lead.js)
+        run: node .github/scripts/functions-lead-test.mjs
+
+      - name: Field-report request byte limits (functions/api/field-report.js)
+        run: node .github/scripts/functions-field-report-test.mjs
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@032958afbdc797a9164d3bc0b56325c1308924a5 # 1.97.1
@@ -850,6 +877,15 @@ jobs:
       - name: Build xerj + xerj-mcp (release)
         working-directory: engine
         run: cargo build --profile ci-test -p xerj-server -p xerj-mcp
+
+      - name: Local definition CLI and MCP parity
+        run: python3 scripts/mcp-def-smoke.py engine/target/ci-test/xerj
+
+      - name: MCP query compatibility and default response budget
+        run: python3 scripts/mcp-search-contract-smoke.py engine/target/ci-test/xerj
+
+      - name: MCP authentication discovery diagnostics
+        run: python3 scripts/auth-discovery-smoke.py engine/target/ci-test/xerj
 
       # Drives the demo/usecases scripts themselves, so the thing CI gates is
       # the same thing a reader runs. No browser, no model, no network.

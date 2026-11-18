@@ -1,17 +1,25 @@
 ---
-title: "Let an agent look up endpoints in an API spec"
+title: "Search an OpenAPI spec so an agent can find endpoints"
 h1: "My agent needs to look up endpoints in a big OpenAPI spec and the SDK markdown. What's the right way?"
-description: "Index the spec file itself. A captured run found route names, operation descriptions and operationIds in both the JSON and the YAML serialization."
+description: "Index the OpenAPI file with xerj autoindex. In a captured run a route name, a description and an operationId each returned 1 hit per serialization."
 slug: "search-openapi-spec-for-agent"
 cluster: "Files and formats"
 question: "My agent needs to look up endpoints in a big OpenAPI spec. What's the right way?"
 intent: "how-to"
 published: "2026-08-21"
-updated: "2026-08-21"
+updated: "2026-10-28"
 author: "XERJ documentation team"
 reviewer: "XERJ engineering team"
 schema_type: "TechArticle"
+structured_data: [faq]
 agent_prompt: "Act as a coding agent. Read https://xerj.org/llms.txt, start a local XERJ node, put an OpenAPI document on disk as both .json and .yaml, run `xerj autoindex ./api-specs --url http://127.0.0.1:9200 --prefix oa --progress plain`, then POST a match on body for a route name and for an operationId, GET /oa-docs/_mapping, and report the ax_format of every hit plus the complete field list the spec produced."
+answer: "My agent needs to look up endpoints in a big OpenAPI spec; what's the right way? Index the spec file itself with xerj autoindex and let the agent query it. In a captured run a route name, a description and an operationId each returned 2 hits, 1 per JSON and YAML serialization. Extraction is format-based: body and title only."
+key_fact: "Each of 3 lookups (route, description, operationId) returned 2 hits, 1 per serialization of the same spec."
+key_fact_source: "capture"
+key_fact_date: "2026-08-21"
+intent_group: "code search for agents"
+queries:
+  - "openapi spec search for agents"
 commands:
   - cmd: "xerj autoindex ./api-specs --url http://127.0.0.1:9200 --prefix oa --progress plain"
     note: "Index a folder of OpenAPI documents from local disk."

@@ -653,9 +653,15 @@ pub fn assemble(drafts: &[EdgeDraft], edges_index: &str, created_at_ms: i64) -> 
     }
 }
 
-/// Create-if-absent write of the §2.5 brain meta doc. `create` semantics via
-/// a probing GET: a racing writer's meta doc must never be clobbered — it may
-/// carry a different `nodes_index` some reader already resolved through.
+/// Write the §2.5 brain meta doc.
+///
+/// A missing doc is created. An existing doc whose `nodes_index` names a
+/// different non-empty set is updated in place: only `nodes_index` changes,
+/// so `created_at`, `brain`, and `meta_version` stay. That is what makes
+/// `brain overview` follow a later `xerj autoindex --prefix` of the same
+/// folder (#2351). The same set, ignoring order and surrounding spaces, is
+/// a no-op. An empty desired list does not wipe a pointer a reader already
+/// resolved. `graph_api::link` still creates the doc only when it is absent.
 pub fn ensure_brain_meta(
     es: &Es,
     edges_index: &str,
@@ -663,21 +669,16 @@ pub fn ensure_brain_meta(
     nodes_index: &str,
     created_at_ms: i64,
 ) -> Result<()> {
-    if es.get_doc(edges_index, BRAIN_META_ID)?.is_some() {
-        return Ok(());
+    if let Some(existing) = es.get_doc(edges_index, BRAIN_META_ID)? {
+        return align_existing_brain_meta(es, edges_index, existing, nodes_index);
     }
-    let action = json!({"create": {"_index": edges_index, "_id": BRAIN_META_ID}});
     let doc = json!({
         "meta_version": 1,
         "brain": brain,
         "nodes_index": nodes_index,
         "created_at": created_at_ms,
     });
-    let mut body = action.to_string().into_bytes();
-    body.push(b'\n');
-    body.extend_from_slice(doc.to_string().as_bytes());
-    body.push(b'\n');
-    let outcome = es.bulk(body).context("write brain meta doc")?;
+    let outcome = write_brain_meta(es, edges_index, "create", &doc)?;
     if outcome.server_errors > 0 {
         return Err(anyhow!(
             "brain meta write failed: {}",
@@ -687,16 +688,92 @@ pub fn ensure_brain_meta(
                 .unwrap_or("unknown server error")
         ));
     }
-    // item_errors here can only be the create-conflict race — the doc exists,
-    // which is exactly the state we want.
+    if outcome.item_errors > 0 {
+        // Create conflict: another writer landed between the GET and the
+        // bulk. Align to this run when the doc is readable.
+        if let Some(existing) = es.get_doc(edges_index, BRAIN_META_ID)? {
+            return align_existing_brain_meta(es, edges_index, existing, nodes_index);
+        }
+        return Err(anyhow!(
+            "brain meta create conflicted and the doc is not readable: {}",
+            outcome
+                .first_error
+                .as_deref()
+                .unwrap_or("unknown item error")
+        ));
+    }
     Ok(())
 }
 
+fn align_existing_brain_meta(
+    es: &Es,
+    edges_index: &str,
+    existing: Value,
+    nodes_index: &str,
+) -> Result<()> {
+    let current = existing
+        .get("nodes_index")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    if nodes_index_names(nodes_index).is_empty() || same_nodes_index(current, nodes_index) {
+        return Ok(());
+    }
+    let mut doc = existing;
+    let Some(obj) = doc.as_object_mut() else {
+        return Err(anyhow!("brain meta doc is not an object"));
+    };
+    obj.insert("nodes_index".into(), Value::String(nodes_index.to_string()));
+    let outcome = write_brain_meta(es, edges_index, "index", &doc)?;
+    if outcome.server_errors > 0 || outcome.item_errors > 0 {
+        return Err(anyhow!(
+            "brain meta update failed: {}",
+            outcome
+                .first_server_error
+                .as_deref()
+                .or(outcome.first_error.as_deref())
+                .unwrap_or("unknown error")
+        ));
+    }
+    Ok(())
+}
+
+fn nodes_index_names(raw: &str) -> Vec<&str> {
+    let mut names: Vec<&str> = raw
+        .split(',')
+        .map(str::trim)
+        .filter(|name| !name.is_empty())
+        .collect();
+    names.sort_unstable();
+    names.dedup();
+    names
+}
+
+fn same_nodes_index(current: &str, desired: &str) -> bool {
+    nodes_index_names(current) == nodes_index_names(desired)
+}
+
+fn write_brain_meta(
+    es: &Es,
+    edges_index: &str,
+    op: &str,
+    doc: &Value,
+) -> Result<crate::esclient::BulkOutcome> {
+    let action = match op {
+        "index" => json!({"index": {"_index": edges_index, "_id": BRAIN_META_ID}}),
+        _ => json!({"create": {"_index": edges_index, "_id": BRAIN_META_ID}}),
+    };
+    let mut body = action.to_string().into_bytes();
+    body.push(b'\n');
+    body.extend_from_slice(doc.to_string().as_bytes());
+    body.push(b'\n');
+    es.bulk(body).context("write brain meta doc")
+}
+
 /// Soft-invalidate every live edge whose keyword `field` equals `value`.
-/// Each pass re-indexes its hits with `invalid_at = expired_at = now` and
-/// refreshes, so repeat-until-empty converges; the pass bound turns a broken
-/// endpoint into an error instead of an infinite loop. Callers pass `src_file`
-/// (edges a file taught) or `dst` (edges pointing at a file's anchor node).
+/// Callers pass `src_file` (edges a file taught) or `dst` (edges pointing at a
+/// file's anchor node). One value is the one-element case of
+/// [`invalidate_edges_by_field_values`]; a caller holding many values must
+/// use that directly (#2640).
 pub fn invalidate_edges_by_field(
     es: &Es,
     edges_index: &str,
@@ -704,73 +781,111 @@ pub fn invalidate_edges_by_field(
     value: &str,
     now_ms: i64,
 ) -> Result<u64> {
-    const MAX_PASSES: usize = 1_000;
-    let query = json!({
-        "query": {"bool": {
-            "filter": [{"term": {field: value}}],
-            "must_not": [{"exists": {"field": "invalid_at"}}]
-        }},
-        "size": 1000,
-        "_source": true
-    });
+    invalidate_edges_by_field_values(es, edges_index, field, &[value], now_ms)
+}
+
+/// Upper bound on full sweeps in [`invalidate_edges_by_field_values`]. One
+/// sweep pages through every match, so a healthy endpoint converges on the
+/// second (verifying) sweep; the bound turns a broken endpoint into an error
+/// instead of an infinite loop.
+const INVALIDATE_MAX_SWEEPS: usize = 16;
+
+/// Soft-invalidate every live edge whose keyword `field` equals ANY of
+/// `values`, re-indexing each hit with `invalid_at = expired_at = now_ms`.
+///
+/// #2640: this used to be one `search → bulk → refresh → search` round per
+/// value. Under `autoindex --fresh` after a branch switch every changed file
+/// supersedes its anchor, so a ~1k-file repo paid ~2k refreshes of the edges
+/// index, each publishing a segment of a handful of re-indexed edges; search
+/// and refresh cost grew with the segment count, so the phase went
+/// super-linear (hours on a corpus a from-scratch build edges in seconds).
+///
+/// Now the values are walked in [`SCAN_TERMS`] slices with one `terms` filter
+/// each, paged by [`scan_by_id`], re-indexed in [`SCAN_PAGE`] bulks while the
+/// walk streams (memory stays bounded by one page, not by the match count),
+/// and the index is refreshed once per sweep. A sweep that invalidated
+/// anything is followed by a verifying sweep after its refresh, so the
+/// repeat-until-empty contract of the per-value loop is kept. A missing
+/// edges index holds nothing to invalidate and is not an error (the
+/// exclusion sweep, #694, can run before the graph phase creates it).
+pub fn invalidate_edges_by_field_values(
+    es: &Es,
+    edges_index: &str,
+    field: &str,
+    values: &[&str],
+    now_ms: i64,
+) -> Result<u64> {
+    if values.is_empty() {
+        return Ok(0);
+    }
     let mut total = 0u64;
-    for _ in 0..MAX_PASSES {
-        // `search_present`, not `search`: the exclusion sweep (#694) may call
-        // this before the edges index has ever been created (it runs ahead of
-        // the graph phase's `ensure_index`). A missing index is not a failure —
-        // it simply holds no edges to invalidate. The replacement-invalidation
-        // caller always ensures the index first, so its behaviour is unchanged
-        // (the index is present → `Some`).
-        let Some(resp) = es.search_present(edges_index, &query)? else {
-            return Ok(total);
+    for _ in 0..INVALIDATE_MAX_SWEEPS {
+        let mut swept = 0u64;
+        let mut body: Vec<u8> = Vec::new();
+        let mut pending = 0usize;
+        let mut failure: Option<anyhow::Error> = None;
+        let flush = |body: &mut Vec<u8>, pending: &mut usize| -> Result<()> {
+            if *pending == 0 {
+                return Ok(());
+            }
+            let outcome = es
+                .bulk(std::mem::take(body))
+                .context("invalidate prior edges")?;
+            *pending = 0;
+            if outcome.server_errors > 0 || outcome.item_errors > 0 {
+                return Err(anyhow!(
+                    "edge invalidation by {field} was partial: {}",
+                    outcome
+                        .first_server_error
+                        .or(outcome.first_error)
+                        .unwrap_or_else(|| "unknown bulk error".into())
+                ));
+            }
+            Ok(())
         };
-        let hits = resp
-            .pointer("/hits/hits")
-            .and_then(Value::as_array)
-            .cloned()
-            .unwrap_or_default();
-        if hits.is_empty() {
+        for slice in values.chunks(SCAN_TERMS) {
+            let query = json!({"bool": {
+                "filter": [{"terms": {field: slice}}],
+                "must_not": [{"exists": {"field": "invalid_at"}}]
+            }});
+            scan_by_id(es, edges_index, &query, &json!(true), &mut |id, source| {
+                if failure.is_some() {
+                    return;
+                }
+                let mut source = source.clone();
+                source.insert("invalid_at".into(), json!(now_ms));
+                source.insert("expired_at".into(), json!(now_ms));
+                body.extend_from_slice(
+                    json!({"index": {"_index": edges_index, "_id": id}})
+                        .to_string()
+                        .as_bytes(),
+                );
+                body.push(b'\n');
+                body.extend_from_slice(Value::Object(source).to_string().as_bytes());
+                body.push(b'\n');
+                pending += 1;
+                swept += 1;
+                if pending >= SCAN_PAGE {
+                    if let Err(e) = flush(&mut body, &mut pending) {
+                        failure = Some(e);
+                    }
+                }
+            })?;
+            if let Some(e) = failure.take() {
+                return Err(e);
+            }
+        }
+        flush(&mut body, &mut pending)?;
+        if swept == 0 {
             return Ok(total);
         }
-        let mut body = Vec::new();
-        for hit in &hits {
-            let id = hit
-                .get("_id")
-                .and_then(Value::as_str)
-                .ok_or_else(|| anyhow!("edge hit without _id in {edges_index}"))?;
-            let mut source = hit
-                .get("_source")
-                .and_then(Value::as_object)
-                .cloned()
-                .ok_or_else(|| anyhow!("edge {id} returned without _source"))?;
-            source.insert("invalid_at".into(), json!(now_ms));
-            source.insert("expired_at".into(), json!(now_ms));
-            body.extend_from_slice(
-                json!({"index": {"_index": edges_index, "_id": id}})
-                    .to_string()
-                    .as_bytes(),
-            );
-            body.push(b'\n');
-            body.extend_from_slice(Value::Object(source).to_string().as_bytes());
-            body.push(b'\n');
-        }
-        let outcome = es.bulk(body).context("invalidate prior edges")?;
-        if outcome.server_errors > 0 || outcome.item_errors > 0 {
-            return Err(anyhow!(
-                "edge invalidation for {}={} was partial: {}",
-                field,
-                value,
-                outcome
-                    .first_server_error
-                    .or(outcome.first_error)
-                    .unwrap_or_else(|| "unknown bulk error".into())
-            ));
-        }
-        total += hits.len() as u64;
+        total += swept;
         es.refresh(edges_index)?;
     }
     Err(anyhow!(
-        "edge invalidation for {field}={value} still found live edges after {MAX_PASSES} passes"
+        "edge invalidation by {field} ({} values) still found live edges after \
+         {INVALIDATE_MAX_SWEEPS} sweeps",
+        values.len()
     ))
 }
 

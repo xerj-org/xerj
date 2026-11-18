@@ -7,11 +7,20 @@ cluster: "Operations: freshness"
 question: "How do I keep a search index up to date as files change, without re-indexing everything?"
 intent: "how-to"
 published: "2026-09-19"
-updated: "2026-09-20"
+updated: "2026-10-24"
 author: "XERJ documentation team"
 reviewer: "XERJ engineering team"
 schema_type: "TechArticle"
+structured_data: [faq]
 agent_prompt: "Act as a coding agent keeping a folder searchable. Read https://xerj.org/llms.txt first. Index the folder once with xerj autoindex --no-graph, then start xerj autoindex --watch --no-graph on the same --state-dir and --prefix, read the per-pass watch lines on stderr to confirm hashed= versus carried=, and do not add a cron job that re-runs the indexer."
+answer: "How do I keep a search index up to date as files change, without re-indexing everything? Run xerj autoindex ./folder --watch --no-graph. It indexes once, then reindexes only what the filesystem reports changed. Measured idle cost was 0.00 CPU-seconds per minute, against 1.7 s and a full corpus re-read for every timed re-run."
+key_fact: "The --debounce quiet period accepts at most 60,000 ms (`MAX_DEBOUNCE_MS`); longer than a minute is a timer, not a debounce."
+key_fact_source: "engine/crates/xerj-autoindex/src/cli.rs"
+key_fact_date: "2026-10-19"
+intent_group: "operating autoindex"
+queries:
+  - "incremental index jsonl appended file search"
+  - "search checkpoint files while crawler still running"
 commands:
   - cmd: "xerj autoindex ./notes --url http://127.0.0.1:9200 --prefix notes --state-dir ./state-notes --no-graph"
     note: "Index the folder once. This is the pass a watcher would run first."
@@ -27,7 +36,7 @@ faq:
   - q: "How do I keep a search index up to date as files change, without re-indexing everything?"
     a: "Run xerj autoindex with --watch --no-graph. It indexes the folder once, then stays resident and reindexes only what the filesystem reports as changed, using one OS watch per indexed directory and no polling."
   - q: "Why does --watch require --no-graph?"
-    a: "Reconciling an added or deleted file exists only on the --no-graph route. On the default graph path a re-run resumes a frozen plan: a file added after that plan was frozen is reported as appeared after the resume plan was frozen and is not indexed until a --fresh rebuild, and a deleted file aborts the run and every re-run after it. A file whose content changed is reconciled there, so the limitation is additions and deletions, not edits."
+    a: "The watcher re-runs the generated route, which reconciles added, changed, renamed and deleted files, including a file that would be a new dataset. On the default graph path a deleted file is swept and an added file that fits a frozen dataset is indexed, but a file that needs a new dataset still stops with reason=stale-resume-plan until --fresh, and the watcher is not built on that route."
   - q: "Is a file watcher cheaper than re-running the indexer on a timer?"
     a: "At idle, yes, and measurably. On a 10,000-file tree a re-run with nothing changed took 1.7 s and re-read all 4,576,300 bytes, while an idle watcher used 0.00 CPU-seconds over 60 s and read nothing. It does hold about 157 MiB resident between passes."
   - q: "Does --watch use less CPU per change than a re-run?"
@@ -118,17 +127,20 @@ than a formality:
 * On the `--no-graph` route, a run reconciles the folder against a committed
   generation: added, changed, renamed and deleted files are all handled.
 * On the default graph path, a run resumes a *frozen* plan. A file whose content
-  changed **is** reconciled there (measured: 3.07 s, `files=1`, the new text
-  searchable). A file that was **added** is not. The run reports
-  `1 file(s) appeared after the resume plan was frozen and were NOT indexed`,
-  exits 3, and tells you to rebuild with `--fresh`. A file that was **deleted** is
-  worse. The run aborts in 0.24 s with "removing files from an indexed folder is
-  not reconciled yet". Its documents stay live, and every later re-run aborts the
-  same way.
+  changed **is** reconciled there (measured on 2026-09-19: 3.07 s, `files=1`,
+  the new text searchable). A deleted file is swept (exit 3,
+  `reason=files-removed`; the next unchanged rerun is exit 0), and an added
+  file that fits a frozen dataset is indexed on the rerun. A file that needs a
+  new dataset is not: the run exits 3 with `reason=stale-resume-plan` and names
+  `--fresh`.
+  Before that reconcile, the same 2026-09-19 capture recorded a deletion
+  aborting in 0.24 s and leaving its documents live. Those timings were not
+  re-measured here.
 
-A watcher on the graph path would therefore go stale on the first new file and
-stop reindexing on the first deletion. The price of `--no-graph` is relationship
-detection: no wikilink, local-link, section-order or directory-chain edges.
+The watcher stays on `--no-graph` because that route also reconciles a file
+that would be a new dataset, and the watcher is not built on the graph path.
+The price of `--no-graph` is relationship detection: no wikilink, local-link,
+section-order or directory-chain edges.
 
 ## Which directories the watcher covers
 

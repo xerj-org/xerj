@@ -34,6 +34,12 @@ pub struct ManifestRepo {
     /// match — a human's licence review must survive a re-index.
     #[serde(default)]
     pub review: Option<Value>,
+    /// Directories or files this checkout harvested (`data/osv`). Empty means the
+    /// whole pin. Author declaration, like [`CorpusManifest::query`]: it is
+    /// written back so a shared `corpus.json` rebuilds the same limited
+    /// tree. Absent on every historical manifest.
+    #[serde(default)]
+    pub paths: Vec<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -55,6 +61,24 @@ pub struct CorpusManifest {
     /// Validation happens in [`query_text_weight`] / [`read_hub_manifest`].
     #[serde(default)]
     pub query: Option<Value>,
+    /// First-party marker (#2339). `true` only when the operator passed
+    /// `xerj corpus add --own` or `xerj corpus own`. Absent on every
+    /// historical manifest, and never taken from a `--from` document: that
+    /// file is untrusted input and must not be able to silence the
+    /// do-not-copy banner. A non-bool value is read as false so a corrupt
+    /// key cannot blank the licence map.
+    #[serde(default, deserialize_with = "deserialize_own")]
+    pub own: bool,
+}
+
+/// Only JSON `true` counts. Anything else — including a string an untrusted
+/// file might carry — is not the operator's marker.
+fn deserialize_own<'de, D>(deserializer: D) -> Result<bool, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let value = Value::deserialize(deserializer)?;
+    Ok(value.as_bool() == Some(true))
 }
 
 /// `corpus.json`'s optional `"query"` block (#1254). The corpus AUTHOR knows
@@ -101,25 +125,74 @@ pub fn read_corpus_manifest(path: &Path) -> Result<CorpusManifest, String> {
     serde_json::from_str(&raw).map_err(|e| format!("{} is not valid JSON: {e}", path.display()))
 }
 
-/// repo -> recorded licence for a corpus. ALWAYS the recorded string, never
+/// Whether this corpus was marked first-party (#2339). Missing manifest,
+/// a missing key, or any value other than JSON `true` is false — the
+/// do-not-copy banner stays on.
+pub fn corpus_is_own(root: &Path, corpus: &str) -> bool {
+    let path = root.join("corpora").join(corpus).join("corpus.json");
+    read_corpus_manifest(&path).is_ok_and(|m| m.own)
+}
+
+/// Set or clear the first-party marker on an existing `corpus.json`.
+///
+/// Rewrites through the pinned writer. `own: false` omits the key, which is
+/// what every historical manifest looks like. The recorded licences are not
+/// touched. A malformed `query` block is refused rather than dropped.
+pub fn set_corpus_own(path: &Path, corpus: &str, own: bool) -> Result<(), String> {
+    let m = read_corpus_manifest(path)?;
+    let query = match m.query {
+        None => None,
+        Some(q) => Some(
+            serde_json::from_value::<QueryHints>(q)
+                .map_err(|e| format!("{}: query block is malformed: {e}", path.display()))?,
+        ),
+    };
+    let cloned_at = m.cloned_at.unwrap_or_default();
+    write_corpus_manifest_kind(
+        path,
+        corpus,
+        m.kind.as_deref(),
+        &cloned_at,
+        &m.repos,
+        query.as_ref(),
+        own,
+    );
+    let back = read_corpus_manifest(path)?;
+    if back.own != own {
+        return Err(format!("could not record own={own} in {}", path.display()));
+    }
+    Ok(())
+}
+
+/// repo -> recorded licence for a corpus. ALWAYS the recorded data, never
 /// re-derived at query time: the licence decision was made once, at clone
 /// time, against the checkout — re-deriving it per query is how prose drift
-/// becomes load-bearing.
+/// becomes load-bearing. The recorded data includes the repo's human review:
+/// when the detector could not identify a licence and a completed review
+/// names one, the review's SPDX is the label (#1893, see
+/// [`super::licence::effective_licence`]).
 pub fn licence_map(root: &Path, corpus: &str) -> HashMap<String, String> {
     let path = root.join("corpora").join(corpus).join("corpus.json");
     read_corpus_manifest(&path)
         .map(|m| {
             m.repos
                 .iter()
-                .map(|r| (r.repo.clone(), r.licence.clone()))
+                .map(|r| {
+                    (
+                        r.repo.clone(),
+                        super::licence::effective_licence(&r.licence, r.review.as_ref()),
+                    )
+                })
                 .collect()
         })
         .unwrap_or_default()
 }
 
 /// One repo entry as the writer emits it. Compact, key order pinned
-/// (`repo,url,licence,sha,files,bytes[,review]`) — byte-identical to the
-/// script's hand-built line so existing manifests diff clean against new ones.
+/// (`repo,url,licence,sha,files,bytes[,paths][,review]`) — byte-identical to
+/// the script's hand-built line so existing manifests diff clean against new
+/// ones. `paths` is omitted when empty, which is every manifest written
+/// before a subpath harvest existed.
 fn entry_json(repo: &ManifestRepo) -> String {
     let mut m = Map::new();
     m.insert("repo".into(), Value::String(repo.repo.clone()));
@@ -131,6 +204,9 @@ fn entry_json(repo: &ManifestRepo) -> String {
     }
     if let Some(b) = repo.bytes {
         m.insert("bytes".into(), Value::from(b));
+    }
+    if !repo.paths.is_empty() {
+        m.insert("paths".into(), Value::from(repo.paths.clone()));
     }
     if let Some(r) = &repo.review {
         m.insert("review".into(), r.clone());
@@ -149,17 +225,20 @@ fn entry_json(repo: &ManifestRepo) -> String {
 /// Atomic (tmp + rename): a half-written manifest describes a checkout that
 /// does not exist, and `xerj corpus list` reads these.
 pub fn write_corpus_manifest(path: &Path, corpus: &str, cloned_at: &str, repos: &[ManifestRepo]) {
-    write_corpus_manifest_kind(path, corpus, None, cloned_at, repos, None)
+    write_corpus_manifest_kind(path, corpus, None, cloned_at, repos, None, false)
 }
 
-/// [`write_corpus_manifest`] with an optional `kind` and query-hint block.
-/// `None` for either emits byte-for-byte what the pinned format has always
-/// been — a git corpus's manifest must not churn because a second kind of
-/// corpus now exists. `Some("harvested")` inserts `"kind":"harvested"`
-/// directly after `"corpus"`; only packs' corpora carry it, and `add` refuses
-/// to mix the two kinds under one name. A `query` block (#1254) is appended
-/// after `repos` verbatim — the corpus author's declaration must survive a
-/// re-clone from a hub pin that carries it.
+/// [`write_corpus_manifest`] with an optional `kind`, query-hint block, and
+/// first-party marker. `None` / `false` for those emits byte-for-byte what
+/// the pinned format has always been — a git corpus's manifest must not
+/// churn because a second kind of corpus, or an own-code marker, now exists.
+/// `Some("harvested")` inserts `"kind":"harvested"` directly after
+/// `"corpus"`; only packs' corpora carry it, and `add` refuses to mix the
+/// two kinds under one name. `own: true` inserts `"own":true` after
+/// `cloned_at` (#2339). A `query` block (#1254) is appended after `repos`
+/// verbatim — the corpus author's declaration must survive a re-clone from
+/// a hub pin that carries it.
+#[allow(clippy::too_many_arguments)]
 pub fn write_corpus_manifest_kind(
     path: &Path,
     corpus: &str,
@@ -167,11 +246,13 @@ pub fn write_corpus_manifest_kind(
     cloned_at: &str,
     repos: &[ManifestRepo],
     query: Option<&QueryHints>,
+    own: bool,
 ) {
     let kind_json = match kind {
         Some(k) => format!(",\"kind\":{}", Value::String(k.to_string())),
         None => String::new(),
     };
+    let own_json = if own { ",\"own\":true" } else { "" };
     let query_json = match query {
         Some(q) => match q.text_weight {
             Some(w) => format!(",\"query\":{{\"text_weight\":{w}}}"),
@@ -180,7 +261,7 @@ pub fn write_corpus_manifest_kind(
         None => String::new(),
     };
     let mut body = format!(
-        "{{\"corpus\":{}{kind_json},\"cloned_at\":{},\"repos\":[\n",
+        "{{\"corpus\":{}{kind_json},\"cloned_at\":{}{own_json},\"repos\":[\n",
         Value::String(corpus.to_string()),
         Value::String(cloned_at.to_string())
     );
@@ -205,6 +286,13 @@ pub struct HubRow {
     pub url: String,
     pub sha: String,
     pub declared_licence: String,
+    /// The row's `review` block, verbatim (a human's licence review of the
+    /// repo at `sha`). `xerj corpus add` records it in the cloned corpus.json
+    /// when the checkout lands at that same sha (#1893).
+    pub review: Option<Value>,
+    /// Repo-relative directories or files to harvest. Empty harvests the
+    /// whole pin (#1842, #2486). Already validated by [`read_hub_manifest`].
+    pub paths: Vec<String>,
 }
 
 /// A whole validated hub manifest: the corpus name plus its rows. The
@@ -217,6 +305,47 @@ pub struct HubManifest {
     pub rows: Vec<HubRow>,
     /// The pin's `query` block (#1254), carried into the cloned corpus.json.
     pub query: Option<QueryHints>,
+}
+
+/// `paths` on one repo entry. Absent harvests the whole pin. Present must be
+/// a non-empty array of relative directories or files; a string or an empty array is
+/// a mistake, not a request for the whole repo, and is refused so a typo
+/// cannot silently clone everything (#1842).
+fn read_sparse_paths(repo: &str, row: &Value) -> Result<Vec<String>, String> {
+    let Some(raw) = row.get("paths") else {
+        return Ok(Vec::new());
+    };
+    let Some(arr) = raw.as_array() else {
+        return Err(format!(
+            "repo '{repo}': 'paths' must be a non-empty array of relative directories \
+             or files such as [\"data/osv\"]; omit the field to harvest the whole pin"
+        ));
+    };
+    if arr.is_empty() {
+        return Err(format!(
+            "repo '{repo}': 'paths' is empty; omit the field to harvest the whole pin, \
+             or name at least one directory or file"
+        ));
+    }
+    if arr.len() > pathgate::MAX_SPARSE_PATHS {
+        return Err(format!(
+            "repo '{repo}': 'paths' has {} entries; at most {} paths can be \
+             sparse-checked out. Name a parent directory instead.",
+            arr.len(),
+            pathgate::MAX_SPARSE_PATHS
+        ));
+    }
+    let mut out = Vec::with_capacity(arr.len());
+    for entry in arr {
+        let Some(text) = entry.as_str() else {
+            return Err(format!("repo '{repo}': 'paths' entries must be strings"));
+        };
+        let path = pathgate::valid_sparse_path(text).map_err(|e| format!("repo '{repo}': {e}"))?;
+        if !out.iter().any(|seen: &String| seen == &path) {
+            out.push(path);
+        }
+    }
+    Ok(out)
 }
 
 /// Parse and VALIDATE a hub manifest (`--from`). Untrusted input rules from
@@ -280,6 +409,7 @@ pub fn read_hub_manifest(path: &Path) -> Result<HubManifest, String> {
         pathgate::valid_repo_name(repo).map_err(|e| format!("{}: {e}", path.display()))?;
         let sha = r.get("sha").and_then(Value::as_str).unwrap_or("");
         pathgate::valid_sha(repo, sha).map_err(|e| format!("{}: {e}", path.display()))?;
+        let paths = read_sparse_paths(repo, r).map_err(|e| format!("{}: {e}", path.display()))?;
         out.push(HubRow {
             repo: repo.to_string(),
             url: url.to_string(),
@@ -289,6 +419,8 @@ pub fn read_hub_manifest(path: &Path) -> Result<HubManifest, String> {
                 .and_then(Value::as_str)
                 .unwrap_or("")
                 .to_string(),
+            review: r.get("review").filter(|v| v.is_object()).cloned(),
+            paths,
         });
     }
     Ok(HubManifest {
@@ -320,6 +452,7 @@ mod tests {
             files: Some(912),
             bytes: Some(1_234_567),
             review: Some(review.clone()),
+            paths: Vec::new(),
         }];
         write_corpus_manifest(&path, "kv", "2026-08-06T12:00:00Z", &repos);
         let text = std::fs::read_to_string(&path).unwrap();
@@ -348,8 +481,17 @@ mod tests {
             files: Some(2),
             bytes: Some(512),
             review: None,
+            paths: Vec::new(),
         }];
-        write_corpus_manifest_kind(&path, "rust-vulns", Some("harvested"), "t", &repos, None);
+        write_corpus_manifest_kind(
+            &path,
+            "rust-vulns",
+            Some("harvested"),
+            "t",
+            &repos,
+            None,
+            false,
+        );
         let text = std::fs::read_to_string(&path).unwrap();
         assert!(
             text.starts_with("{\"corpus\":\"rust-vulns\",\"kind\":\"harvested\",\"cloned_at\":"),
@@ -387,6 +529,7 @@ mod tests {
                     files: None,
                     bytes: None,
                     review: None,
+                    paths: Vec::new(),
                 },
                 ManifestRepo {
                     repo: "sonic".into(),
@@ -396,6 +539,7 @@ mod tests {
                     files: None,
                     bytes: None,
                     review: None,
+                    paths: Vec::new(),
                 },
             ],
         );
@@ -403,6 +547,105 @@ mod tests {
         assert_eq!(m.get("sonic").map(String::as_str), Some("MPL-2.0"));
         assert!(!m.contains_key("nope"));
         assert!(licence_map(&dir, "never-cloned").is_empty());
+    }
+
+    #[test]
+    fn licence_map_uses_a_completed_review_for_an_unknown_licence() {
+        // #1893: 18f-content-guide's checkout reads UNKNOWN, its review says
+        // CC0-1.0; passages must be labelled CC0-1.0, not "do not copy".
+        let dir = tmp();
+        let pin = dir.join("18f.json");
+        let sha = "1b1723d3d5b8f91d92c16487c88b56265dc0ec3a";
+        let review = json!({ "spdx": "CC0-1.0", "use": "adapt-with-attribution", "by": "xerj-org", "at": "2026-10-13", "note": "LICENSE.md verified" });
+        std::fs::write(&pin, json!({ "corpus": "18f-content-guide", "repos": [ { "repo": "content-guide", "url": "https://github.com/18F/content-guide", "licence": "CC0-1.0", "sha": sha, "review": review } ] }).to_string()).unwrap();
+        let hub = read_hub_manifest(&pin).unwrap();
+        assert_eq!(hub.rows[0].review.as_ref(), Some(&review));
+
+        let cdir = dir.join("corpora").join("18f-content-guide");
+        std::fs::create_dir_all(&cdir).unwrap();
+        write_corpus_manifest_kind(
+            &cdir.join("corpus.json"),
+            "18f-content-guide",
+            None,
+            "2026-10-19T00:00:00Z",
+            &[ManifestRepo {
+                repo: "content-guide".into(),
+                url: "https://github.com/18F/content-guide".into(),
+                licence: "UNKNOWN".into(),
+                sha: sha.into(),
+                files: None,
+                bytes: None,
+                review: hub.rows[0].review.clone(),
+                paths: Vec::new(),
+            }],
+            None,
+            false,
+        );
+        let m = licence_map(&dir, "18f-content-guide");
+        assert_eq!(m.get("content-guide").map(String::as_str), Some("CC0-1.0"));
+    }
+
+    /// #2339: `own` is absent on the historical byte format, round-trips when
+    /// set, and a non-bool value does not fail the manifest (that would blank
+    /// the licence map).
+    #[test]
+    fn own_is_omitted_unless_set_and_only_json_true_counts() {
+        let dir = tmp();
+        let path = dir.join("corpus.json");
+        let repos = vec![ManifestRepo {
+            repo: "mine".into(),
+            url: "/src".into(),
+            licence: "NONE-FOUND".into(),
+            sha: "abc".into(),
+            files: Some(1),
+            bytes: Some(2),
+            review: None,
+            paths: Vec::new(),
+        }];
+        write_corpus_manifest(&path, "mine", "t", &repos);
+        let text = std::fs::read_to_string(&path).unwrap();
+        assert!(!text.contains("own"), "{text}");
+        assert!(!read_corpus_manifest(&path).unwrap().own);
+
+        write_corpus_manifest_kind(&path, "mine", None, "t", &repos, None, true);
+        let text = std::fs::read_to_string(&path).unwrap();
+        assert!(
+            text.contains("\"cloned_at\":\"t\",\"own\":true,\"repos\":"),
+            "{text}"
+        );
+        assert!(read_corpus_manifest(&path).unwrap().own);
+        assert_eq!(
+            read_corpus_manifest(&path).unwrap().repos[0].licence,
+            "NONE-FOUND"
+        );
+
+        std::fs::write(
+            &path,
+            "{\"corpus\":\"mine\",\"own\":\"yes\",\"repos\":[{\"repo\":\"mine\",\"url\":\"u\",\"licence\":\"UNKNOWN\"}]}",
+        )
+        .unwrap();
+        let parsed = read_corpus_manifest(&path).unwrap();
+        assert!(!parsed.own, "a string is not the operator's marker");
+        assert_eq!(parsed.repos[0].licence, "UNKNOWN");
+
+        let root = tmp();
+        let corpora = root.join("corpora").join("mine");
+        std::fs::create_dir_all(&corpora).unwrap();
+        let manifest = corpora.join("corpus.json");
+        std::fs::copy(&path, &manifest).unwrap();
+        assert!(!corpus_is_own(&root, "mine"));
+        set_corpus_own(&manifest, "mine", true).unwrap();
+        assert!(corpus_is_own(&root, "mine"));
+        assert_eq!(
+            read_corpus_manifest(&manifest).unwrap().repos[0].licence,
+            "UNKNOWN",
+            "setting own does not rewrite the recorded licence"
+        );
+        set_corpus_own(&manifest, "mine", false).unwrap();
+        let cleared = std::fs::read_to_string(&manifest).unwrap();
+        assert!(!cleared.contains("own"), "{cleared}");
+        assert!(!corpus_is_own(&root, "mine"));
+        assert!(!corpus_is_own(&root, "missing"));
     }
 
     #[test]
@@ -540,6 +783,7 @@ mod tests {
             files: None,
             bytes: None,
             review: None,
+            paths: Vec::new(),
         }];
         // No hints: byte-for-byte the historical pinned format (the
         // round-trip test above pins the exact bytes; here the absence).
@@ -551,7 +795,7 @@ mod tests {
         let hints = QueryHints {
             text_weight: Some(1.0),
         };
-        write_corpus_manifest_kind(&path, "otel-proto", None, "t", &repos, Some(&hints));
+        write_corpus_manifest_kind(&path, "otel-proto", None, "t", &repos, Some(&hints), false);
         let text = std::fs::read_to_string(&path).unwrap();
         assert!(
             text.ends_with("],\"query\":{\"text_weight\":1}}\n"),
@@ -653,6 +897,103 @@ mod tests {
         .unwrap();
         let err = read_hub_manifest(&pin).unwrap_err();
         assert!(err.contains("query"), "{err}");
+    }
+
+    /// #1842: a repo-pin can name the directories to harvest. The field is
+    /// per repo, normalized, and written back so a shared corpus.json rebuilds
+    /// the same limited tree. A bad value is refused here, before git runs.
+    #[test]
+    fn hub_paths_are_normalized_written_back_and_refused_when_unsafe() {
+        let dir = tmp();
+        let pin = dir.join("go-vulndb.json");
+        let sha = "5cd8418cf9c867d344fda07a73ea844b0f34bca2";
+        std::fs::write(
+            &pin,
+            json!({
+                "corpus": "go-vulndb",
+                "repos": [{
+                    "repo": "corpus-go-vulndb-osv",
+                    "url": "https://github.com/golang/vulndb",
+                    "sha": sha,
+                    "paths": ["data/osv/", "data/osv", "cmd"]
+                }]
+            })
+            .to_string(),
+        )
+        .unwrap();
+        let hub = read_hub_manifest(&pin).unwrap();
+        assert_eq!(
+            hub.rows[0].paths,
+            vec!["data/osv".to_string(), "cmd".to_string()]
+        );
+
+        let repos = vec![ManifestRepo {
+            repo: "corpus-go-vulndb-osv".into(),
+            url: "https://github.com/golang/vulndb".into(),
+            licence: "BSD-3-Clause".into(),
+            sha: sha.into(),
+            files: Some(2),
+            bytes: Some(40),
+            review: None,
+            paths: hub.rows[0].paths.clone(),
+        }];
+        let written = dir.join("corpus.json");
+        write_corpus_manifest(&written, "go-vulndb", "t", &repos);
+        let text = std::fs::read_to_string(&written).unwrap();
+        assert!(text.contains("\"paths\":[\"data/osv\",\"cmd\"]"), "{text}");
+        assert!(text.find("\"paths\"").unwrap() < text.find("}").unwrap());
+        let back = read_hub_manifest(&written).unwrap();
+        assert_eq!(back.rows[0].paths, hub.rows[0].paths);
+        // A manifest with no paths field is the historical whole-pin harvest.
+        std::fs::write(
+            &pin,
+            json!({
+                "corpus": "go-vulndb",
+                "repos": [{ "repo": "corpus-go-vulndb-osv", "url": "u", "sha": sha }]
+            })
+            .to_string(),
+        )
+        .unwrap();
+        assert!(read_hub_manifest(&pin).unwrap().rows[0].paths.is_empty());
+
+        for (body, needle) in [
+            (
+                json!({ "corpus": "go-vulndb", "repos": [{ "repo": "r", "url": "u", "sha": sha, "paths": "data/osv" }] }),
+                "must be a non-empty array",
+            ),
+            (
+                json!({ "corpus": "go-vulndb", "repos": [{ "repo": "r", "url": "u", "sha": sha, "paths": [] }] }),
+                "paths' is empty",
+            ),
+            (
+                json!({ "corpus": "go-vulndb", "repos": [{ "repo": "r", "url": "u", "sha": sha, "paths": ["../secret"] }] }),
+                "escapes the repository",
+            ),
+            (
+                json!({ "corpus": "go-vulndb", "repos": [{ "repo": "r", "url": "u", "sha": sha, "paths": ["/etc"] }] }),
+                "is absolute",
+            ),
+            (
+                json!({ "corpus": "go-vulndb", "repos": [{ "repo": "r", "url": "u", "sha": sha, "paths": ["data/osv/*"] }] }),
+                "glob",
+            ),
+        ] {
+            std::fs::write(&pin, body.to_string()).unwrap();
+            let err = read_hub_manifest(&pin).unwrap_err();
+            assert!(err.contains(needle), "expected {needle:?} in {err}");
+        }
+        let too_many: Vec<String> = (0..33).map(|i| format!("d{i}")).collect();
+        std::fs::write(
+            &pin,
+            json!({
+                "corpus": "go-vulndb",
+                "repos": [{ "repo": "r", "url": "u", "sha": sha, "paths": too_many }]
+            })
+            .to_string(),
+        )
+        .unwrap();
+        let err = read_hub_manifest(&pin).unwrap_err();
+        assert!(err.contains("at most 32"), "{err}");
     }
 
     fn find_repo_root() -> std::path::PathBuf {

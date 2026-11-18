@@ -93,7 +93,7 @@ RESULT=$(awk '
     if (pkgs["rust-" name]) print "P\t" $0; else print "M\t" $0
   }
 ' "$JOIN.pkgs" "$JOIN.crates")
-PRESENT=$(printf '%s\n' "$RESULT" | grep -c '^P' | tr -d ' ')
+PRESENT=$(printf '%s\n' "$RESULT" | awk '/^P/ { count++ } END { print count + 0 }')
 MISSING=$(printf '%s\n' "$RESULT" | sed -n 's/^M\t//p')
 
 MISSING_COUNT=$((TOTAL - PRESENT))

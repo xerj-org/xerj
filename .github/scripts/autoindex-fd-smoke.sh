@@ -4,8 +4,10 @@
 #   1. the "Too many open files" (EMFILE) crash — described below;
 #   2. #482, the `--no-graph` ERROR_ACCESS_DENIED abort on Windows — described
 #      at its own section further down.
+#   3. #2644, `xerj autoindex --skills` finding skill folders under HOME or
+#      USERPROFILE, at its own section near the end.
 #
-# Both exist because nothing in CI used to RUN the binary on macOS/Windows.
+# All three exist because nothing in CI used to RUN the binary on macOS/Windows.
 #
 # The crash: `xerj autoindex` on a large repo infers hundreds of datasets =>
 # hundreds of indices. Before the fix each index pinned one WAL file descriptor
@@ -33,16 +35,34 @@ BIN="${XERJ_BIN:-engine/target/release/xerj}"
 [ -f "$BIN.exe" ] && BIN="$BIN.exe" # windows
 
 # ── generate 400 distinct-schema datasets (one index each) ─────────────────
+# Each dataset must stay its OWN index, or the descriptor pressure this gate
+# exists for disappears. Since #2422/#2430 one run aims for at most
+# MAX_DATASETS_PER_RUN (32) data datasets: past that, CSV/JSONL/log clusters
+# below DATASET_CAP_PROTECT_RECORDS (1024) rows merge into one shared dataset
+# per scope and family (400 x 3-row CSVs became 32 indices). A cluster of
+# 1024+ rows "never moves", so every folder gets ROWS >= 1024 rows. For CSV the
+# cluster size is the SAMPLED row count (the extractor declares no length),
+# so autoindex below runs with --sample SAMPLE > ROWS. Keep
+# ROWS > DATASET_CAP_PROTECT_RECORDS in engine/crates/xerj-autoindex/src/dataset.rs.
+N_DATASETS=400
+ROWS=1050
+SAMPLE=1100
 ROOT="$(mktemp -d)"
 CORPUS="$ROOT/corpus"
 mkdir -p "$CORPUS"
-for i in $(seq 1 400); do
-  d="$CORPUS/ds_$i"
-  mkdir -p "$d"
-  # Unique column names per folder => a distinct inferred dataset per folder.
-  printf 'k_%d_id,k_%d_name,k_%d_val\n1,alpha,10\n2,beta,20\n3,gamma,30\n' "$i" "$i" "$i" > "$d/data.csv"
-done
-echo "generated $(find "$CORPUS" -name '*.csv' | wc -l | tr -d ' ') dataset files"
+for i in $(seq 1 "$N_DATASETS"); do mkdir -p "$CORPUS/ds_$i"; done
+# Unique column names per folder => a distinct inferred dataset per folder.
+# One awk process writes all files (cheap on git-bash, where forks are slow).
+awk -v n="$N_DATASETS" -v rows="$ROWS" -v root="$CORPUS" 'BEGIN {
+  split("alpha beta gamma delta", w, " ")
+  for (i = 1; i <= n; i++) {
+    f = root "/ds_" i "/data.csv"
+    printf "k_%d_id,k_%d_name,k_%d_val\n", i, i, i > f
+    for (r = 1; r <= rows; r++) printf "%d,%s,%d\n", r, w[(r % 4) + 1], r * 10 > f
+    close(f)
+  }
+}' || { echo "::error::corpus generation failed"; exit 1; }
+echo "generated $(find "$CORPUS" -name '*.csv' | wc -l | tr -d ' ') dataset files of $ROWS rows"
 
 # ── boot the server (inherits the constrained fd budget) ───────────────────
 DATA="$ROOT/data"
@@ -76,7 +96,12 @@ HITS="$(curl -s -m10 'localhost:9200/smoke-crud/_search?q=durability' | tr -d ' 
 echo "write/read round-trip OK on $(uname -s)"
 
 # ── autoindex the corpus ───────────────────────────────────────────────────
-"$BIN" autoindex "$CORPUS" > "$DATA/ax.log" 2>&1
+# --sample: see the corpus comment (CSV cluster size is the sampled count).
+# --max-minutes 0: never stop at the estimate gate (exit 4) on a slow runner.
+# --no-semantic: no embeddings for ~420k rows; FD pressure comes from the
+# index count, not from semantic fields.
+"$BIN" autoindex "$CORPUS" --sample "$SAMPLE" --max-minutes 0 --no-semantic \
+  > "$DATA/ax.log" 2>&1
 RC=$?
 echo "autoindex exit=$RC"
 tail -20 "$DATA/ax.log" || true
@@ -94,8 +119,20 @@ if [ "$RC" != "0" ] && [ "$RC" != "3" ]; then
 fi
 CREATED="$(curl -s 'localhost:9200/_cat/indices?h=index' 2>/dev/null | grep -c 'ax-' || true)"
 echo "ax-* indices created: $CREATED"
+# One index per folder is the FD pressure; 300 leaves slack for the engine
+# legitimately joining a few. Far fewer means the corpus no longer produces
+# one index per dataset (e.g. the run cap merged them): fix the corpus, not
+# the threshold, or the gate stops guarding EMFILE.
 if [ "${CREATED:-0}" -lt 300 ]; then
-  echo "::error::expected >=300 datasets indexed, got ${CREATED:-0}"
+  echo "::error::expected >=300 datasets indexed, got ${CREATED:-0} (are the datasets still >= DATASET_CAP_PROTECT_RECORDS rows?)"
+  FAIL=1
+fi
+# Every row indexed, read from autoindex's own summary line.
+WANT_RECORDS=$((N_DATASETS * ROWS))
+RECORDS="$(sed -n 's/.*xerj-done .*[[:space:]]records=\([0-9]*\).*/\1/p' "$DATA/ax.log" | tail -1)"
+echo "records indexed: ${RECORDS:-?} (want $WANT_RECORDS)"
+if [ "${RECORDS:-0}" -lt "$WANT_RECORDS" ]; then
+  echo "::error::expected $WANT_RECORDS records indexed, got ${RECORDS:-none}"
   FAIL=1
 fi
 
@@ -154,10 +191,66 @@ if [ "${NG_CREATED:-0}" -lt 1 ]; then
   FAIL=1
 fi
 
+# ── `xerj autoindex --skills` finds skill folders on this platform (#2644) ──
+# The skill folders are found under HOME, else USERPROFILE (Windows). A fake
+# home holds two of the folders `--skills` looks for (`.claude/skills`,
+# `.agents/skills`); `.codex/skills` is left missing on purpose, and the run
+# starts in an empty folder so no project `.claude/skills` is found. Both
+# folders must be indexed, a search must find a skill, and the missing folder
+# must not be mentioned at all.
+SK_HOME="$ROOT/skills-home"
+SK_CWD="$ROOT/skills-cwd"
+mkdir -p "$SK_HOME/.claude/skills/kiln-log" "$SK_HOME/.agents/skills/tide-chart" "$SK_CWD"
+printf -- '---\nname: kiln-log\ndescription: Record pottery kiln firings and their temperatures.\n---\n\n# Kiln log\n\nWrite one line per firing with the cone reached.\n' \
+  > "$SK_HOME/.claude/skills/kiln-log/SKILL.md"
+printf -- '---\nname: tide-chart\ndescription: Read a harbour tide chart before a boat launch.\n---\n\n# Tide chart\n\nFind the next high water for the harbour.\n' \
+  > "$SK_HOME/.agents/skills/tide-chart/SKILL.md"
+# On Windows (git-bash and MSYS, where cygpath exists) HOME is emptied so the
+# run takes the folder from USERPROFILE as a Windows path, the way a program
+# started from PowerShell or cmd, where HOME is usually unset, finds it.
+SK_HOME_VAR="$SK_HOME"
+SK_PROFILE="$SK_HOME"
+if command -v cygpath >/dev/null 2>&1; then
+  SK_HOME_VAR=""
+  SK_PROFILE="$(cygpath -w "$SK_HOME")"
+fi
+BIN_ABS="$(cd "$(dirname "$BIN")" && pwd)/$(basename "$BIN")"
+(cd "$SK_CWD" && HOME="$SK_HOME_VAR" USERPROFILE="$SK_PROFILE" \
+  "$BIN_ABS" autoindex --skills --max-minutes 0) > "$DATA/skills.log" 2>&1
+SKRC=$?
+echo "autoindex --skills exit=$SKRC"
+tail -20 "$DATA/skills.log" || true
+if [ "$SKRC" != "0" ] && [ "$SKRC" != "3" ]; then
+  echo "::error::autoindex --skills exited $SKRC (expected 0 or 3) on $(uname -s)"
+  FAIL=1
+fi
+for want in claude agents; do
+  if ! curl -s 'localhost:9200/_cat/indices?h=index' 2>/dev/null | grep -qE "(^|[[:space:]])skills-$want-"; then
+    echo "::error::--skills created no skills-$want-* index on $(uname -s)"
+    FAIL=1
+  fi
+done
+if grep -q '\.codex' "$DATA/skills.log"; then
+  echo "::error::--skills mentioned the missing .codex/skills folder on $(uname -s)"
+  FAIL=1
+fi
+# One search per folder; each query shares words with one skill only.
+for pair in "kiln-log|pottery kiln firing temperatures" "tide-chart|harbour tide chart boat launch"; do
+  skill="${pair%%|*}"
+  "$BIN_ABS" search --prefix skills "${pair#*|}" > "$DATA/skills-search.log" 2>&1
+  if ! grep -qE "$skill[/\\\\]SKILL\.md" "$DATA/skills-search.log"; then
+    echo "::error::a --skills search did not find $skill/SKILL.md on $(uname -s)"
+    cat "$DATA/skills-search.log"
+    FAIL=1
+  else
+    echo "--skills search found $skill/SKILL.md"
+  fi
+done
+
 kill "$SPID" 2>/dev/null || true
 if [ "$FAIL" = 0 ]; then
   echo "AUTOINDEX SMOKE PASSED on $(uname -s) ($CREATED datasets, no EMFILE; \
---no-graph sealed and reconciled, no ACCESS_DENIED)"
+--no-graph sealed and reconciled, no ACCESS_DENIED; --skills found 2 folders)"
 else
   echo "AUTOINDEX SMOKE FAILED on $(uname -s)"
   exit 1

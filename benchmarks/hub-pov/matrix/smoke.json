@@ -1,0 +1,8 @@
+{
+ "_comment": "SMOKE ONLY (2026-10-17): 1 repeat x 2 tasks x every arm, cheap model. Validates the harness; its numbers are NOT results (SMOKE.md). C2:lz4.smoke:S1 is a smoke fixture, not a pre-registered task.",
+ "model": "sonnet",
+ "repeats": 1,
+ "allow_smoke_fixtures": true,
+ "arms": ["A0", "A1", "A2", "A3", "A4", "A5", "A6", "A7"],
+ "cells": ["C1:snappy:T4", "C2:lz4.smoke:S1"]
+}

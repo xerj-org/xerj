@@ -1,0 +1,89 @@
+{
+ "tool_versions": {},
+ "host": "Linux 6.12.94+ x86_64",
+ "cpus": 8,
+ "corpus_bytes": 9724646,
+ "results": [
+  {
+   "tool": "ripgrep 14.1.1",
+   "index_s": 0.0,
+   "index_bytes": 0,
+   "queries": {
+    "rare term": {
+     "ms": 3.27,
+     "hits": 51
+    },
+    "common term": {
+     "ms": 3.38,
+     "hits": 2485
+    },
+    "phrase": {
+     "ms": 2.9,
+     "hits": 253
+    }
+   }
+  },
+  {
+   "tool": "SQLite FTS5 3.46.1",
+   "index_s": 0.29,
+   "index_bytes": 13836288,
+   "queries": {
+    "rare term": {
+     "ms": 0.02,
+     "hits": 51
+    },
+    "common term": {
+     "ms": 0.08,
+     "hits": 2485
+    },
+    "phrase": {
+     "ms": 0.05,
+     "hits": 253
+    }
+   }
+  },
+  {
+   "tool": "DuckDB FTS 1.5.6",
+   "index_s": 0.61,
+   "index_bytes": 3682304,
+   "queries": {
+    "rare term": {
+     "ms": 7.25,
+     "hits": 51
+    },
+    "common term": {
+     "ms": 9.19,
+     "hits": 2485
+    },
+    "phrase": {
+     "ms": 8.13,
+     "hits": 253
+    }
+   }
+  },
+  {
+   "tool": "xerj v1.0.0-rc.97",
+   "index_s": 70.57,
+   "index_bytes": 112309405,
+   "autoindex_exit": 0,
+   "node_peak_rss_kb_during_index": 9578548,
+   "autoindex_tail": [
+    "xerj-done ok=true exit=0 reason=completed wall=70.2s files=1 records=50000 generation=1 code_files=0 code_files_indexed=0 code_files_junked=0"
+   ],
+   "queries": {
+    "rare term": {
+     "ms": 0.35,
+     "hits": 51
+    },
+    "common term": {
+     "ms": 0.31,
+     "hits": 2485
+    },
+    "phrase": {
+     "ms": 0.31,
+     "hits": 253
+    }
+   }
+  }
+ ]
+}

@@ -1,5 +1,5 @@
 ---
-title: "Is there a single-binary local search engine?"
+title: "Single-binary local search engine, no Docker or JVM"
 h1: "Is there a single-binary local search engine I can just run?"
 description: "XERJ runs from one native binary with no container and no JVM. A measured capture records 3 linked libraries and a 1.071 s cold start to the first HTTP 200."
 slug: "search-engine-without-docker"
@@ -7,11 +7,20 @@ cluster: "Operations: installation"
 question: "Is there a single-binary local search engine I can just run?"
 intent: "cost"
 published: "2026-08-21"
-updated: "2026-08-23"
+updated: "2026-10-28"
 author: "XERJ documentation team"
 reviewer: "XERJ engineering team"
 schema_type: "TechArticle"
+structured_data: [faq]
 agent_prompt: "Act as a coding agent. Read https://xerj.org/llms.txt, download the XERJ release binary for this host, start a single-node instance with --insecure on a scratch data directory, poll GET / until it answers 200, and report the linked libraries and the cold-start time you measured."
+answer: "Is there a single-binary local search engine I can just run? Yes. XERJ runs from one native Rust binary with no container and no JVM. A first-party capture on Linux x86-64 shows 3 dynamically linked libraries and a 67,174,440-byte executable, and a cold start of 1.071 s to the first HTTP 200 on an empty data directory."
+key_fact: "XERJ passes 1444 of 1454 Elasticsearch YAML conformance cases from that single binary."
+key_fact_source: "README.md"
+key_fact_date: "2026-10-23"
+intent_group: "search engine alternatives"
+queries:
+  - "self-hosted Elasticsearch alternative single binary Rust MCP"
+  - "search engine without docker"
 commands:
   - cmd: "xerj --version"
     note: "Print the binary version before you start a node."
@@ -26,6 +35,8 @@ links_out:
   - "local-embeddings-without-openai-api"
   - "/compare/xerj-vs-elasticsearch-local"
   - "/compare/xerj-vs-meilisearch"
+  - "/benchmarks/elasticsearch"
+  - "/answers/search-kubernetes-pod-logs-on-disk"
 faq:
   - q: "Is there a single-binary local search engine I can just run?"
     a: "XERJ is one native executable. The captured binary links only libgcc_s.so.1, libm.so.6 and libc.so.6, and answered its first HTTP 200 in 1.071 s from process start."

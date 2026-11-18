@@ -2,11 +2,15 @@
 ---
 title: "What a XERJ share-link guest can and cannot reach"
 canonical: "https://xerj.org/answers/what-a-share-link-guest-can-reach"
-updated: "2026-09-20"
+updated: "2026-10-19"
 source: "content/answers/what-a-share-link-guest-can-reach.md"
 ---
 
 # If I share one index with a link and a passcode, what can that person actually reach on my node?
+
+**Short answer** (updated 2026-10-19): If I give someone a read-only share link to one search index, can they see my other indices? No. A share-link guest key carries read on the shared index only, and a guest route allow-list closes _cat, _cluster, every other index, all writes, and scroll and point-in-time contexts. A live test checked each refusal.
+
+**Key number:** The live share-link test ran 237 checks on 2026-09-19 with 0 failures. (as of 2026-09-19; source: [docs/usecases/share-links/VERIFICATION.md](https://github.com/xerj-org/xerj/blob/main/docs/usecases/share-links/VERIFICATION.md))
 
 **TL;DR** — A share-link guest gets a key with `read` on the shared index and nothing else. A route allow-list, used for guests only, closes `_cat`, `_cluster`, every other index, all writes, and scroll and point-in-time contexts. Each refusal is a check in a live test that ran 237 checks on 2026-09-19, with 0 failures.
 

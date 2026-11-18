@@ -227,6 +227,22 @@ pub fn sniff_with_name(content_path: &Path, logical_path: &Path) -> Result<Sniff
     let mut s = sniff_bytes(&prefix, content_path, logical_path, gzip)?;
     s.gzip = gzip;
     s.logical_name = logical_path.file_name().map(std::path::PathBuf::from);
+    // #1984: the sniff prefix is 8 KiB. A dump whose first row statement sits
+    // past that — pg_dump writes every CREATE TABLE, then COPY — would
+    // otherwise fall through to text, because the prefix is schema only.
+    // One extra read, and only when the prefix already looks like DDL and
+    // the file continues. The scan stops at the first row statement.
+    // #2337: a `.sql` schema file is promoted to Code inside `sniff_bytes`.
+    // The same past-the-prefix row scan as #1984 still wins when the rest of
+    // the file is a real dump, so a long CREATE TABLE section followed by
+    // INSERT/COPY does not stay code.
+    if prefix.len() == PREFIX
+        && matches!(s.family, Family::TxtLines | Family::TxtProse | Family::Code)
+        && prefix_is_schema_ddl(&prefix)
+        && file_contains_sql_row_data(content_path, gzip)
+    {
+        s.family = Family::SqlDump;
+    }
     Ok(s)
 }
 
@@ -421,7 +437,7 @@ fn sniff_bytes(
         // A man(7) page: comments and a generator's roff preamble, then
         // `.TH`. Checked before the text heuristics, which would otherwise
         // see the page as txt-lines — or, for sqlite3(1)/psql(1), whose
-        // examples hold `CREATE TABLE …;`, as a SQL dump.
+        // examples hold `INSERT INTO … VALUES`, as a SQL dump.
         // A Jupyter notebook is JSON; without this it reached the generic
         // JSON extractor (one record per cell, a dataset per notebook).
         if crate::extract::ipynb::looks_like_notebook(body) {
@@ -454,7 +470,9 @@ fn sniff_bytes(
     // routes to the tree-sitter AST extractor (crate::extract::code). Extension
     // is the right signal — code vs prose is not reliably content-sniffable.
     if let Some(ext) = logical_path.extension().and_then(|e| e.to_str()) {
-        if crate::extract::code::is_code_ext(ext) {
+        // #2732: a Vue/Svelte component opens with `<template>` or `<script>`
+        // and used to fall to the XML branch below, whose extractor junked it.
+        if crate::extract::code::is_code_ext(ext) || crate::extract::code::is_component_ext(ext) {
             let mut s = mk(Family::Code);
             s.encoding = encoding;
             return Ok(s);
@@ -472,7 +490,11 @@ fn sniff_bytes(
         .filter(|l| !l.trim().is_empty())
         .collect();
 
-    let mut out = mk(classify_text(&text, &nonblank));
+    let md_named = logical_path
+        .extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(is_markdown_ext);
+    let mut out = mk(classify_text(&text, &nonblank, md_named));
     out.encoding = encoding;
     if out.family == Family::Csv {
         out.csv = sniff_csv_dialect(&nonblank);
@@ -480,7 +502,63 @@ fn sniff_bytes(
             out.family = txt_kind(&nonblank);
         }
     }
+    // #2337: `.sql` is not a tree-sitter extension. Claiming it before this
+    // point would mark every dump as code and the row extractor would never
+    // run. A file that survived the dump test is schema, a migration, or a
+    // routine — source, indexed as code.
+    if is_sql_filename(logical_path) && matches!(out.family, Family::TxtLines | Family::TxtProse) {
+        out.family = Family::Code;
+    }
+    // #2740: an HTML partial or a server/JS template opens with `<` and has
+    // closing tags, so the content check calls it XML, and the XML extractor
+    // junks it at the first `<%`, `&&` or unclosed `<br>`, losing the text
+    // after it. The name settles it, as it does for `.sql` above. Only an XML
+    // verdict is replaced: a full page stays HTML, and a template that reads
+    // as anything else keeps that family.
+    if out.family == Family::Xml {
+        if let Some(family) = markup_template_family(logical_path, &nonblank) {
+            out.family = family;
+        }
+    }
     Ok(out)
+}
+
+/// #2740: the family for a name that is never standalone XML. `.html` and
+/// `.htm` are HTML, read by its tolerant tokenizer. A template is text, so the
+/// code inside `<% %>`, `{{ }}` and `{% %}` stays searchable. `.vue` and
+/// `.svelte` are not here: #2732 tracks them as code. A trailing `.gz` is
+/// looked through, as [`is_sql_filename`] does, since the sniff reads the
+/// decompressed bytes.
+fn markup_template_family(path: &Path, nonblank: &[&str]) -> Option<Family> {
+    let name = path.file_name()?.to_str()?.to_ascii_lowercase();
+    let name = name.strip_suffix(".gz").unwrap_or(&name);
+    let (_, ext) = name.rsplit_once('.')?;
+    match ext {
+        "html" | "htm" => Some(Family::Html),
+        "hbs" | "handlebars" | "mustache" | "ejs" | "erb" | "jsp" | "aspx" | "cshtml" | "razor"
+        | "twig" | "jinja" | "jinja2" | "j2" | "njk" | "liquid" | "astro" | "marko" | "riot" => {
+            Some(txt_kind(nonblank))
+        }
+        _ => None,
+    }
+}
+
+/// `.sql`, or a gzipped `.sql.gz`. Case-insensitive. The dump-vs-source
+/// decision is content; this only says the name is SQL.
+pub(crate) fn is_sql_filename(path: &Path) -> bool {
+    let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
+        return false;
+    };
+    let name = name.as_bytes();
+    ends_with_ascii_ignore(name, b".sql") || ends_with_ascii_ignore(name, b".sql.gz")
+}
+
+fn ends_with_ascii_ignore(name: &[u8], suffix: &[u8]) -> bool {
+    name.len() >= suffix.len()
+        && name[name.len() - suffix.len()..]
+            .iter()
+            .zip(suffix)
+            .all(|(a, b)| a.to_ascii_lowercase() == *b)
 }
 
 /// The label for the last-resort decode. Every byte maps to *something* in
@@ -1318,22 +1396,34 @@ pub fn unsupported_data_advice(binary_kind: &str) -> Option<String> {
 /// so. "binary content (zip)" is true and useless to someone whose entire
 /// Google Takeout download is that one file — so the reason names the action.
 pub fn archive_advice(binary_kind: &str, gzip: bool) -> Option<String> {
-    let (what, how) = match (binary_kind, gzip) {
-        ("zip", _) => ("zip archive", "unzip <file>"),
-        ("tar", true) => ("gzip-compressed tar archive", "tar -xzf <file>"),
-        ("tar", false) => ("tar archive", "tar -xf <file>"),
-        ("7z", _) => ("7z archive", "7z x <file>"),
-        ("rar", _) => ("rar archive", "unrar x <file>"),
+    // zip / tar / tar.gz open on their own (`xerj autoindex <file>`, see
+    // `crate::archive`); a folder run still does not unpack archives it finds
+    // inside the folder, because that would mirror every nested archive.
+    let (what, how, opens) = match (binary_kind, gzip) {
+        ("zip", _) => ("zip archive", "unzip <file>", true),
+        ("tar", true) => ("gzip-compressed tar archive", "tar -xzf <file>", true),
+        ("tar", false) => ("tar archive", "tar -xf <file>", true),
+        ("7z", _) => ("7z archive", "7z x <file>", false),
+        ("rar", _) => ("rar archive", "unrar x <file>", false),
         ("xz", _) => (
             "xz-compressed file",
             "xz -dk <file>, or tar -xJf <file> for a .tar.xz",
+            false,
         ),
         _ => return None,
     };
-    Some(format!(
-        "unextracted {what}: autoindex does not open archives — extract it first ({how}), \
-         then run autoindex on the extracted folder"
-    ))
+    Some(if opens {
+        format!(
+            "unextracted {what}: a folder run does not open archives inside the folder — index it \
+             on its own with `xerj autoindex <file>`, or extract it first ({how}) and run \
+             autoindex on the extracted folder"
+        )
+    } else {
+        format!(
+            "unextracted {what}: autoindex does not open this archive format — extract it first \
+             ({how}), then run autoindex on the extracted folder"
+        )
+    })
 }
 
 fn decode(bytes: &[u8]) -> (String, &'static str) {
@@ -1359,7 +1449,20 @@ pub fn decode_text(bytes: &[u8]) -> (String, &'static str) {
     decode(bytes)
 }
 
-fn classify_text(text: &str, nonblank: &[&str]) -> Family {
+/// Markdown extensions that conventionally carry a `---` frontmatter block.
+/// Used to settle the one case the line-shape tier cannot: `- item` bullets and
+/// `Key: value` prose are valid YAML too, so content alone cannot tell a short
+/// markdown body from a YAML document (#2447). Extension is the same signal the
+/// code branch above already trusts for "code vs prose is not reliably
+/// content-sniffable".
+fn is_markdown_ext(ext: &str) -> bool {
+    matches!(
+        ext.to_ascii_lowercase().as_str(),
+        "md" | "markdown" | "mdx" | "mdown" | "mkd" | "mkdn" | "mdwn"
+    )
+}
+
+fn classify_text(text: &str, nonblank: &[&str], md_named: bool) -> Family {
     // Email wins first: an RFC 5322 message opens with a header block whose lines
     // (`From:`/`Date:`/`Message-ID:`/…) would otherwise be misread as prose or a
     // key:value log. Gated on a STRONG header plus >=3 canonical headers so an
@@ -1403,31 +1506,50 @@ fn classify_text(text: &str, nonblank: &[&str]) -> Family {
             // frontmatter file with a single non-blank body line still went to
             // the YAML extractor, which keeps the frontmatter mapping and drops
             // that line. One line is enough to judge on its shape.
-            if !body.is_empty() && yaml_like_count(body) * 2 < body.len() {
+            if !body.is_empty() {
                 let body_text = body.join("\n");
-                // #587 item 1: classify the body by its real structured family
-                // (JSON/CSV/HTML/logs/SQL), not prose-only, so a
-                // frontmatter-over-CSV/JSON body matches its frontmatter-less
-                // twin. `classify_structured` never re-enters this
-                // YAML/frontmatter branch, so a recursive frontmatter parse
-                // cannot occur. It runs before the parse tier below because
-                // JSON *is* valid YAML — measured over 36,936 real
-                // frontmatter-shaped files, putting the parse first pulled 341
-                // JSON bodies and one XML body back into `Yaml` and undid #587
-                // item 1 for them.
-                if let Some(family) = classify_structured(&body_text, body) {
-                    return family;
+                // #2447: a markdown *name* settles the question the line tier
+                // cannot. `- item` bullets and `Key: value` prose are valid YAML
+                // too, so a short markdown body under frontmatter failed
+                // `yaml_like_count(body) * 2 < body.len()` and skipped the parse
+                // tier entirely — falling through to `leads_with_marker` below,
+                // which sent the whole file to the YAML extractor and dropped the
+                // body. Measured on six realistic short-post shapes (bullet list,
+                // link list, `Note:`/`Warning:` prose, heading + list, one-line
+                // body, plain paragraph), four classified `Yaml`; the frontmatter
+                // that every Jekyll/Hugo/Docusaurus/MkDocs/Astro page carries was
+                // enough to make a docs corpus unsearchable. A `.md`/`.mdx` file
+                // that opens with `---` has frontmatter there, not a YAML document
+                // separator, so its body decides. `classify_structured` still runs
+                // first, so a frontmatter-over-CSV/JSON body keeps its structured
+                // family (#587 item 1).
+                let body_decides = md_named || yaml_like_count(body) * 2 < body.len();
+                if body_decides {
+                    // #587 item 1: classify the body by its real structured family
+                    // (JSON/CSV/HTML/logs/SQL), not prose-only, so a
+                    // frontmatter-over-CSV/JSON body matches its frontmatter-less
+                    // twin. `classify_structured` never re-enters this
+                    // YAML/frontmatter branch, so a recursive frontmatter parse
+                    // cannot occur. It runs before the parse tier below because
+                    // JSON *is* valid YAML — measured over 36,936 real
+                    // frontmatter-shaped files, putting the parse first pulled 341
+                    // JSON bodies and one XML body back into `Yaml` and undid #587
+                    // item 1 for them.
+                    if let Some(family) = classify_structured(&body_text, body) {
+                        return family;
+                    }
+                    // #587 item 2: the line-shape test above is not enough on its
+                    // own — a genuine multi-document YAML stream whose later
+                    // document is dominated by block scalars, comments and
+                    // continuation lines fails it and was re-classified as prose,
+                    // losing its per-document key structure. Parse the body: a real
+                    // stream parses, a markdown body does not
+                    // (`parses_as_yaml_stream`).
+                    if md_named || !parses_as_yaml_stream(&body_text) {
+                        return txt_kind(body);
+                    }
+                    // else: a real YAML stream — fall through to `Family::Yaml`.
                 }
-                // #587 item 2: the line-shape test above is not enough on its
-                // own — a genuine multi-document YAML stream whose later
-                // document is dominated by block scalars, comments and
-                // continuation lines fails it and was re-classified as prose,
-                // losing its per-document key structure. Parse the body: a real
-                // stream parses, a markdown body does not (`parses_as_yaml_stream`).
-                if !parses_as_yaml_stream(&body_text) {
-                    return txt_kind(body);
-                }
-                // else: a real YAML stream — fall through to `Family::Yaml`.
             }
         }
     }
@@ -1633,10 +1755,21 @@ fn classify_structured(text: &str, nonblank: &[&str]) -> Option<Family> {
         }
     }
 
-    // SQL dump
-    let upper: String = text.chars().take(4096).collect::<String>().to_uppercase();
-    if (upper.contains("CREATE TABLE") || upper.contains("INSERT INTO")) && text.contains(';') {
+    // SQL dump (#1984, #2337). A dump carries top-level row data:
+    // `INSERT INTO … VALUES (` or Postgres `COPY … FROM stdin`. Matches
+    // inside comments, quotes, or dollar-quoted routine bodies do not
+    // count — a migration that mentions INSERT, or a function whose body
+    // inserts a row, is source. The dump extractor emits nothing for DDL,
+    // so treating that file as a dump junked it ("no records extracted").
+    // DDL alone returns None. A `.sql` name is then promoted to code in
+    // `sniff_bytes`; the CSV probe below does not read a trailing `;` as
+    // a delimiter. Row data that starts past the sniff prefix is caught
+    // in `sniff_with_name`.
+    if sql_dump_has_rows(text.as_bytes()) {
         return Some(Family::SqlDump);
+    }
+    if schema_ddl_in_head(text) {
+        return None;
     }
 
     // CSV — dialect probe happens in caller; here just a cheap plausibility test.
@@ -1647,10 +1780,579 @@ fn classify_structured(text: &str, nonblank: &[&str]) -> Option<Family> {
     None
 }
 
+/// `CREATE TABLE` inside the first 4 KiB, plus a statement terminator.
+/// The same window the old dump rule used. Row data is decided separately.
+fn schema_ddl_in_head(text: &str) -> bool {
+    let head: String = text
+        .chars()
+        .take(4096)
+        .collect::<String>()
+        .to_ascii_uppercase();
+    head.contains("CREATE TABLE") && text.contains(';')
+}
+
+/// Decoded prefix: schema DDL and no row statement yet. The file may still
+/// hold `INSERT`/`COPY` past the 8 KiB sniff window.
+fn prefix_is_schema_ddl(prefix: &[u8]) -> bool {
+    let (text, _) = decode(prefix);
+    schema_ddl_in_head(&text) && !sql_dump_has_rows(text.as_bytes())
+}
+
+fn file_contains_sql_row_data(path: &Path, gzip: bool) -> bool {
+    let Ok(file) = std::fs::File::open(path) else {
+        return false;
+    };
+    if gzip {
+        scan_sql_row_data(flate2::read::MultiGzDecoder::new(file))
+    } else {
+        scan_sql_row_data(file)
+    }
+}
+
+fn scan_sql_row_data(mut reader: impl Read) -> bool {
+    let mut probe = SqlRowProbe::default();
+    let mut buf = [0u8; 64 * 1024];
+    loop {
+        match reader.read(&mut buf) {
+            Ok(0) => return probe.finish(),
+            Ok(n) => {
+                if probe.push(&buf[..n]) {
+                    return true;
+                }
+            }
+            Err(_) => return false,
+        }
+    }
+}
+
+pub(crate) fn sql_dump_has_rows(bytes: &[u8]) -> bool {
+    let mut probe = SqlRowProbe::default();
+    probe.push(bytes) || probe.finish()
+}
+
+/// One step of [`SqlLex::feed`]. `n` visible code bytes were written to the
+/// caller buffer. `end_stmt` is a `;` outside strings, comments, dollar
+/// quotes, and parentheses.
+pub(crate) struct SqlLexStep {
+    pub n: u8,
+    pub end_stmt: bool,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum SqlMode {
+    Code,
+    LineComment,
+    Block,
+    SQuote,
+    SQuoteEsc,
+    SQuoteEnd,
+    DQuote,
+    DQuoteEsc,
+    DQuoteEnd,
+    Tick,
+    TickEsc,
+    TickEnd,
+    DollarOpen,
+    Dollar,
+}
+
+/// Hides comments, quotes, and dollar-quoted bodies from the row-data probe,
+/// and tells a statement scanner where a top-level statement ends.
+///
+/// The probe used to match `INSERT INTO … VALUES (` anywhere in the bytes.
+/// A comment (`-- backfill: INSERT INTO t VALUES (1);`) or a PL/pgSQL body
+/// (`AS $$ … INSERT INTO audit VALUES (1); … $$`) then classified a schema
+/// file as a dump. The dump extractor emits no rows for that file, and
+/// `scan_file` junked it (#2337).
+pub(crate) struct SqlLex {
+    mode: SqlMode,
+    /// MySQL identifier quotes. Off for the row probe: a Markdown fence is
+    /// also backticks, and hiding them would miss `INSERT` inside a README
+    /// code block (#360). The statement scanner keeps them on.
+    mask_ticks: bool,
+    /// `-` or `/` in code, waiting for the second byte of `--` or `/*`.
+    hold: Option<u8>,
+    block_star: bool,
+    dollar_tag: Vec<u8>,
+    dollar_closer: Vec<u8>,
+    dollar_at: usize,
+    paren: i32,
+}
+
+impl Default for SqlLex {
+    fn default() -> Self {
+        Self {
+            mode: SqlMode::Code,
+            mask_ticks: true,
+            hold: None,
+            block_star: false,
+            dollar_tag: Vec::new(),
+            dollar_closer: Vec::new(),
+            dollar_at: 0,
+            paren: 0,
+        }
+    }
+}
+
+impl SqlLex {
+    pub(crate) fn feed(&mut self, b: u8, out: &mut [u8; 2]) -> SqlLexStep {
+        let mut n = 0usize;
+        let mut end_stmt = false;
+        // A held byte or an aborted `$` / quote is replayed by looping, not
+        // by recursion. Four steps covers hold-replay plus one abort.
+        for _ in 0..4 {
+            match self.mode {
+                SqlMode::LineComment => {
+                    if b == b'\n' {
+                        self.mode = SqlMode::Code;
+                    }
+                    break;
+                }
+                SqlMode::Block => {
+                    if self.block_star {
+                        self.block_star = false;
+                        if b == b'/' {
+                            self.mode = SqlMode::Code;
+                        } else if b == b'*' {
+                            self.block_star = true;
+                        }
+                    } else if b == b'*' {
+                        self.block_star = true;
+                    }
+                    break;
+                }
+                SqlMode::SQuoteEsc | SqlMode::DQuoteEsc | SqlMode::TickEsc => {
+                    self.mode = match self.mode {
+                        SqlMode::SQuoteEsc => SqlMode::SQuote,
+                        SqlMode::DQuoteEsc => SqlMode::DQuote,
+                        _ => SqlMode::Tick,
+                    };
+                    break;
+                }
+                SqlMode::SQuote | SqlMode::DQuote | SqlMode::Tick => {
+                    let (q, esc, end) = match self.mode {
+                        SqlMode::DQuote => (b'"', SqlMode::DQuoteEsc, SqlMode::DQuoteEnd),
+                        SqlMode::Tick => (b'`', SqlMode::TickEsc, SqlMode::TickEnd),
+                        _ => (b'\'', SqlMode::SQuoteEsc, SqlMode::SQuoteEnd),
+                    };
+                    if b == b'\\' {
+                        self.mode = esc;
+                    } else if b == q {
+                        self.mode = end;
+                    }
+                    break;
+                }
+                SqlMode::SQuoteEnd | SqlMode::DQuoteEnd | SqlMode::TickEnd => {
+                    let (q, inside) = match self.mode {
+                        SqlMode::DQuoteEnd => (b'"', SqlMode::DQuote),
+                        SqlMode::TickEnd => (b'`', SqlMode::Tick),
+                        _ => (b'\'', SqlMode::SQuote),
+                    };
+                    if b == q {
+                        self.mode = inside;
+                        break;
+                    }
+                    self.mode = SqlMode::Code;
+                    continue;
+                }
+                SqlMode::Dollar => {
+                    if self.dollar_at < self.dollar_closer.len()
+                        && b == self.dollar_closer[self.dollar_at]
+                    {
+                        self.dollar_at += 1;
+                        if self.dollar_at == self.dollar_closer.len() {
+                            self.mode = SqlMode::Code;
+                            self.dollar_at = 0;
+                        }
+                    } else if !self.dollar_closer.is_empty() && b == self.dollar_closer[0] {
+                        self.dollar_at = 1;
+                    } else {
+                        self.dollar_at = 0;
+                    }
+                    break;
+                }
+                SqlMode::DollarOpen => {
+                    if self.dollar_tag.is_empty() && b == b'$' {
+                        self.dollar_closer = b"$$".to_vec();
+                        self.dollar_at = 0;
+                        self.mode = SqlMode::Dollar;
+                        break;
+                    }
+                    if (self.dollar_tag.is_empty() && (b.is_ascii_alphabetic() || b == b'_'))
+                        || (!self.dollar_tag.is_empty()
+                            && self.dollar_tag.len() < 128
+                            && (b.is_ascii_alphanumeric() || b == b'_'))
+                    {
+                        self.dollar_tag.push(b);
+                        break;
+                    }
+                    if b == b'$' && !self.dollar_tag.is_empty() {
+                        let mut closer = Vec::with_capacity(self.dollar_tag.len() + 2);
+                        closer.push(b'$');
+                        closer.append(&mut self.dollar_tag);
+                        closer.push(b'$');
+                        self.dollar_closer = closer;
+                        self.dollar_at = 0;
+                        self.mode = SqlMode::Dollar;
+                        break;
+                    }
+                    // `$1` and other non-quotes. The `$` and the tag are not
+                    // keywords; the current byte is real code.
+                    self.dollar_tag.clear();
+                    self.mode = SqlMode::Code;
+                    continue;
+                }
+                SqlMode::Code => {
+                    if let Some(h) = self.hold.take() {
+                        if h == b'-' && b == b'-' {
+                            self.mode = SqlMode::LineComment;
+                            break;
+                        }
+                        if h == b'/' && b == b'*' {
+                            self.mode = SqlMode::Block;
+                            self.block_star = false;
+                            break;
+                        }
+                        self.emit_visible(h, out, &mut n, &mut end_stmt);
+                        continue;
+                    }
+                    if b == b'-' || b == b'/' {
+                        self.hold = Some(b);
+                        break;
+                    }
+                    if b == b'\'' {
+                        self.mode = SqlMode::SQuote;
+                        break;
+                    }
+                    if b == b'"' {
+                        self.mode = SqlMode::DQuote;
+                        break;
+                    }
+                    if b == b'`' && self.mask_ticks {
+                        self.mode = SqlMode::Tick;
+                        break;
+                    }
+                    if b == b'$' {
+                        self.dollar_tag.clear();
+                        self.mode = SqlMode::DollarOpen;
+                        break;
+                    }
+                    self.emit_visible(b, out, &mut n, &mut end_stmt);
+                    break;
+                }
+            }
+        }
+        SqlLexStep {
+            n: n as u8,
+            end_stmt,
+        }
+    }
+
+    /// A `-` or `/` held at EOF is code, not the start of a comment.
+    pub(crate) fn flush_hold(&mut self) -> Option<u8> {
+        if self.mode == SqlMode::Code {
+            self.hold.take()
+        } else {
+            self.hold = None;
+            None
+        }
+    }
+
+    fn emit_visible(&mut self, b: u8, out: &mut [u8; 2], n: &mut usize, end_stmt: &mut bool) {
+        if *n >= out.len() {
+            return;
+        }
+        if b == b'(' {
+            self.paren = self.paren.saturating_add(1);
+        } else if b == b')' {
+            self.paren = self.paren.saturating_sub(1);
+        } else if b == b';' && self.paren == 0 {
+            *end_stmt = true;
+        }
+        out[*n] = b;
+        *n += 1;
+    }
+}
+
+fn is_sql_ident(b: u8) -> bool {
+    b.is_ascii_alphanumeric() || b == b'_'
+}
+
+/// Streaming, ASCII-case-insensitive search for dump row data:
+/// `INSERT [IGNORE] INTO … VALUES (` or `COPY … FROM stdin`.
+///
+/// The two halves of each pattern can be far apart (a wide column list,
+/// or pg_dump's schema section), so a flag remembers the opener and the
+/// window only has to hold one keyword.
+struct SqlRowProbe {
+    /// Recent uppercase bytes. Long enough for `INSERT IGNORE INTO`.
+    win: Vec<u8>,
+    trimmed: bool,
+    seen_insert_into: bool,
+    seen_copy: bool,
+    /// Whitespace after a completed `VALUES`, waiting for `(`.
+    values_ws: bool,
+    /// Whitespace after a completed `FROM` (and a prior `COPY`), waiting
+    /// for `STDIN`.
+    from_ws: bool,
+    /// How many leading bytes of `STDIN` are matched.
+    stdin_at: u8,
+    /// `STDIN` letters are complete; the next byte decides the boundary.
+    stdin_done: bool,
+    /// The next identifier is the first word of a statement. `INSERT` /
+    /// `COPY` count only there: a routine body (`BEGIN INSERT … END`) is
+    /// not a dump (#2337).
+    at_stmt: bool,
+    /// The current statement opened with `INSERT`.
+    stmt_insert: bool,
+    /// Comments, quotes, and dollar quotes are not row data (#2337).
+    lex: SqlLex,
+}
+
+const SQL_ROW_WIN: usize = 96;
+
+impl Default for SqlRowProbe {
+    fn default() -> Self {
+        Self {
+            win: Vec::with_capacity(SQL_ROW_WIN),
+            trimmed: false,
+            seen_insert_into: false,
+            seen_copy: false,
+            values_ws: false,
+            from_ws: false,
+            stdin_at: 0,
+            stdin_done: false,
+            at_stmt: true,
+            stmt_insert: false,
+            // Backticks stay visible. ``` fences in a README are not MySQL
+            // identifier quotes; masking them hides the INSERT the dump
+            // sniff has to see (#360).
+            lex: SqlLex {
+                mask_ticks: false,
+                ..SqlLex::default()
+            },
+        }
+    }
+}
+
+impl SqlRowProbe {
+    fn push(&mut self, chunk: &[u8]) -> bool {
+        chunk.iter().any(|&b| self.feed(b))
+    }
+
+    /// EOF is a word boundary, so a statement that ends on `STDIN` still hits.
+    fn finish(&mut self) -> bool {
+        let flushed = self.lex.flush_hold().is_some_and(|b| self.push_byte(b));
+        flushed || self.push_byte(b'\n')
+    }
+
+    fn feed(&mut self, b: u8) -> bool {
+        let mut buf = [0u8; 2];
+        let step = self.lex.feed(b, &mut buf);
+        let hit = (0..step.n as usize).any(|i| self.push_byte(buf[i]));
+        if step.end_stmt {
+            self.at_stmt = true;
+            self.stmt_insert = false;
+            self.seen_copy = false;
+            self.seen_insert_into = false;
+            self.values_ws = false;
+            self.from_ws = false;
+            self.stdin_at = 0;
+            self.stdin_done = false;
+        }
+        hit
+    }
+
+    fn push_byte(&mut self, b: u8) -> bool {
+        let u = b.to_ascii_uppercase();
+        let boundary = !is_sql_ident(u);
+
+        if self.stdin_done {
+            self.stdin_done = false;
+            if boundary {
+                return true;
+            }
+        }
+        if self.values_ws {
+            if u == b'(' {
+                return true;
+            }
+            if !u.is_ascii_whitespace() {
+                self.values_ws = false;
+            }
+        }
+        if self.from_ws {
+            if u == b'S' {
+                self.from_ws = false;
+                self.stdin_at = 1;
+            } else if !u.is_ascii_whitespace() {
+                self.from_ws = false;
+            }
+        } else if self.stdin_at > 0 {
+            const STDIN: &[u8] = b"STDIN";
+            if self.stdin_at < STDIN.len() as u8 && u == STDIN[self.stdin_at as usize] {
+                self.stdin_at += 1;
+                if self.stdin_at == STDIN.len() as u8 {
+                    self.stdin_at = 0;
+                    self.stdin_done = true;
+                }
+            } else {
+                self.stdin_at = 0;
+            }
+        }
+
+        if boundary && self.win.last().is_some_and(|c| is_sql_ident(*c)) {
+            // The first word decides whether this statement can be row data.
+            // `CREATE PROCEDURE … INSERT INTO t VALUES (1)` is still DDL.
+            if self.at_stmt {
+                self.at_stmt = false;
+                self.stmt_insert = self.ends_with_word(b"INSERT");
+                self.seen_copy = self.ends_with_word(b"COPY");
+                self.seen_insert_into = false;
+            }
+            if self.seen_insert_into && self.ends_with_word(b"VALUES") {
+                if u == b'(' {
+                    return true;
+                }
+                if u.is_ascii_whitespace() {
+                    self.values_ws = true;
+                }
+            }
+            if self.seen_copy && self.ends_with_word(b"FROM") && u.is_ascii_whitespace() {
+                self.from_ws = true;
+            }
+            if self.stmt_insert && self.ends_with_word(b"INTO") && self.win_is_insert_into() {
+                self.seen_insert_into = true;
+            }
+        } else if self.at_stmt && boundary && !u.is_ascii_whitespace() {
+            self.at_stmt = false;
+            self.stmt_insert = false;
+            self.seen_copy = false;
+        }
+
+        self.win.push(u);
+        if self.win.len() > SQL_ROW_WIN {
+            let extra = self.win.len() - SQL_ROW_WIN;
+            self.win.drain(..extra);
+            self.trimmed = true;
+        }
+        false
+    }
+
+    fn ends_with_word(&self, word: &[u8]) -> bool {
+        if self.win.len() < word.len() || !self.win.ends_with(word) {
+            return false;
+        }
+        let start = self.win.len() - word.len();
+        if start == 0 {
+            // A trimmed window hid the preceding byte, so a keyword sitting
+            // on that edge is not evidence. The file start (never trimmed)
+            // is a real boundary.
+            return !self.trimmed;
+        }
+        !is_sql_ident(self.win[start - 1])
+    }
+
+    /// Window ends at the last letter of `INTO`. True for `INSERT INTO` and
+    /// `INSERT IGNORE INTO`, whitespace only between the words.
+    fn win_is_insert_into(&self) -> bool {
+        let Some(into_at) = self.word_at_end(b"INTO") else {
+            return false;
+        };
+        let after_prev = skip_ws_back(&self.win, into_at);
+        if after_prev == into_at {
+            return false;
+        }
+        if let Some(ign_at) = word_at_end(&self.win[..after_prev], b"IGNORE", self.trimmed) {
+            let after_insert = skip_ws_back(&self.win, ign_at);
+            if after_insert == ign_at {
+                return false;
+            }
+            return word_at_end(&self.win[..after_insert], b"INSERT", self.trimmed).is_some();
+        }
+        word_at_end(&self.win[..after_prev], b"INSERT", self.trimmed).is_some()
+    }
+
+    fn word_at_end(&self, word: &[u8]) -> Option<usize> {
+        word_at_end(&self.win, word, self.trimmed)
+    }
+}
+
+fn word_at_end(win: &[u8], word: &[u8], trimmed: bool) -> Option<usize> {
+    if win.len() < word.len() || !win.ends_with(word) {
+        return None;
+    }
+    let start = win.len() - word.len();
+    if start == 0 {
+        if trimmed {
+            return None;
+        }
+    } else if is_sql_ident(win[start - 1]) {
+        return None;
+    }
+    Some(start)
+}
+
+fn skip_ws_back(win: &[u8], mut end: usize) -> usize {
+    while end > 0 && win[end - 1].is_ascii_whitespace() {
+        end -= 1;
+    }
+    end
+}
+
 fn looks_like_json_start(t: &str) -> bool {
-    // starts with { or [ and the first ~200 chars look like JSON tokens
-    let head: String = t.chars().take(200).collect();
-    head.contains(':') || head.contains('[') || head.contains('{')
+    // Pretty-printed JSON, and a JSON value cut off by the 8 KiB sniff
+    // prefix, parse as one value or fail because the input ran out. Either
+    // one is JSON. A `{`/`[` opener that is prose fails with a syntax error
+    // instead and must not take this family.
+    //
+    // The previous test ("the first ~200 chars contain `:`, `[` or `{`") was
+    // true for every opener — the opener itself is one of those bytes — so a
+    // README whose first line is a badge or link row
+    // (`[![CI](badge.svg)](https://…/actions)`, `[Docs](https://x) | [Discord](https://y)`)
+    // sniffed as JSON and the extractor junked it (#1983). `](` outside a
+    // JSON string is a markdown link, including the link texts that happen
+    // to be JSON values (`[true](https://…)`, `[1](https://…)`). Valid JSON
+    // can contain that byte pair only inside a string.
+    if first_line_has_markdown_link(t) {
+        return false;
+    }
+    use serde::Deserialize as _;
+    let mut de = serde_json::Deserializer::from_str(t);
+    match serde_json::Value::deserialize(&mut de) {
+        Ok(_) => true,
+        Err(e) => e.is_eof(),
+    }
+}
+
+/// `](` outside a JSON string on the first line: a markdown link or badge.
+fn first_line_has_markdown_link(t: &str) -> bool {
+    let line = t.lines().next().unwrap_or("").trim();
+    if !line.starts_with('[') {
+        return false;
+    }
+    let b = line.as_bytes();
+    let mut in_string = false;
+    let mut escape = false;
+    let mut i = 0;
+    while i < b.len() {
+        let c = b[i];
+        if in_string {
+            if escape {
+                escape = false;
+            } else if c == b'\\' {
+                escape = true;
+            } else if c == b'"' {
+                in_string = false;
+            }
+        } else if c == b'"' {
+            in_string = true;
+        } else if c == b']' && b.get(i + 1) == Some(&b'(') {
+            return true;
+        }
+        i += 1;
+    }
+    false
 }
 
 fn yaml_line_ratio(nonblank: &[&str]) -> f64 {
@@ -2311,6 +3013,16 @@ mod unity_sniff_tests {
         let path = dir.path().join(name);
         std::fs::write(&path, bytes).unwrap();
         sniff(&path).unwrap().family
+    }
+
+    /// #2732: the extension decides a component, not its leading `<template>`;
+    /// the same bytes in a `.xml` file are still XML.
+    #[test]
+    fn a_vue_or_svelte_component_is_code_not_xml() {
+        let src = b"<template>\n  <p>{{ msg }}</p>\n</template>\n<script>\nexport default { data() { return { msg: 'x' } } }\n</script>\n";
+        assert_eq!(sniff_file(src, "App.vue"), Family::Code);
+        assert_eq!(sniff_file(src, "App.svelte"), Family::Code);
+        assert_eq!(sniff_file(src, "App.xml"), Family::Xml);
     }
 
     /// Regression (round 2): a guard on "lossy windows-1252 AND over 30%
@@ -3652,7 +4364,7 @@ mod tests {
 
     fn classify(s: &str) -> Family {
         let lines: Vec<&str> = s.lines().filter(|l| !l.trim().is_empty()).collect();
-        classify_text(s, &lines)
+        classify_text(s, &lines, false)
     }
 
     #[test]
@@ -3679,6 +4391,305 @@ mod tests {
             classify("key: value\nother: 1\nnested:\n  a: 2\n"),
             Family::Yaml
         );
+    }
+
+    /// #1984 / #2337: a schema migration is DDL with no row data. The dump
+    /// extractor emits nothing for it, and `scan_file` then junks the file.
+    /// Content classification stays text (so a non-`.sql` name is not forced
+    /// into the code family). A `.sql` name is indexed as code: the table is
+    /// a symbol and the column text is in the body.
+    #[test]
+    fn schema_only_sql_migration_is_code_not_an_empty_dump() {
+        let migration = "-- add users\n\
+                         CREATE TABLE users (\n\
+                         id INTEGER PRIMARY KEY,\n\
+                         email TEXT NOT NULL,\n\
+                         created_at TIMESTAMP NOT NULL\n\
+                         );\n\
+                         \n\
+                         ALTER TABLE users ADD COLUMN name TEXT;\n\
+                         \n\
+                         CREATE INDEX idx_users_email ON users (email);\n";
+        assert_ne!(
+            classify(migration),
+            Family::SqlDump,
+            "DDL with no INSERT/COPY is not a dump"
+        );
+
+        // One statement per line, every line ending in `;`. That shape is a
+        // consistent `;`-delimited "CSV"; it must still not be a dump.
+        let one_liners = "CREATE TABLE users (id INTEGER PRIMARY KEY, email TEXT NOT NULL);\n\
+                          ALTER TABLE users ADD COLUMN name TEXT;\n\
+                          CREATE INDEX idx_users_email ON users (email);\n";
+        assert_ne!(
+            classify(one_liners),
+            Family::SqlDump,
+            "semicolon-terminated DDL classified {:?}",
+            classify(one_liners)
+        );
+
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("001_users.sql");
+        std::fs::write(&path, migration).unwrap();
+        let sn = sniff(&path).unwrap();
+        assert_eq!(sn.family, Family::Code);
+        let mut recs = Vec::new();
+        let stats = crate::extract::extract(&path, &sn, None, &mut |r| {
+            recs.push(r);
+            true
+        })
+        .unwrap();
+        assert!(
+            stats.records > 0,
+            "a migration must be indexed, not skipped"
+        );
+        assert!(
+            recs.iter().any(|r| {
+                r.fields.get("language").and_then(|v| v.as_str()) == Some("sql")
+                    && r.fields
+                        .get("defs")
+                        .and_then(|v| v.as_str())
+                        .is_some_and(|s| {
+                            s.contains("table users") && s.contains("index idx_users_email")
+                        })
+                    && r.fields
+                        .get("body")
+                        .and_then(|v| v.as_str())
+                        .is_some_and(|s| s.contains("email"))
+            }),
+            "the column definition must be searchable as code: {recs:?}"
+        );
+        assert!(
+            recs.iter().any(|r| {
+                r.fields.get("name").and_then(|v| v.as_str()) == Some("users")
+                    && r.fields.get("kind").and_then(|v| v.as_str()) == Some("table")
+                    && r.fields.get("line").is_some()
+            }),
+            "the table is its own declaration: {recs:?}"
+        );
+    }
+
+    /// #2337: a comment or a routine body that mentions `INSERT`/`COPY` is
+    /// not a dump. The rule-engine file in the field report is this shape.
+    #[test]
+    fn sql_routine_and_comment_inserts_are_code_not_junk() {
+        let rule = "-- backfill: INSERT INTO rules VALUES (1);\n\
+                     CREATE TABLE rules (\n\
+                     id integer primary key,\n\
+                     code text not null\n\
+                     );\n\
+                     CREATE OR REPLACE FUNCTION apply_slope(percent numeric)\n\
+                     RETURNS text LANGUAGE plpgsql AS $$\n\
+                     BEGIN\n\
+                       INSERT INTO audit(note) VALUES ('slope');\n\
+                       RETURN 'low';\n\
+                     END;\n\
+                     $$;\n";
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("30_rule_engine.sql");
+        std::fs::write(&path, rule).unwrap();
+        let sn = sniff(&path).unwrap();
+        assert_eq!(
+            sn.family,
+            Family::Code,
+            "routine DDL classified {:?}",
+            sn.family
+        );
+        let mut recs = Vec::new();
+        let stats = crate::extract::extract(&path, &sn, None, &mut |r| {
+            recs.push(r);
+            true
+        })
+        .unwrap();
+        assert!(stats.records > 0, "a routine file must not be junked");
+        let defs = recs
+            .iter()
+            .find_map(|r| r.fields.get("defs").and_then(|v| v.as_str()))
+            .unwrap_or("");
+        assert!(
+            defs.contains("table rules") && defs.contains("function apply_slope"),
+            "{defs}"
+        );
+        let body = recs
+            .iter()
+            .find_map(|r| r.fields.get("body").and_then(|v| v.as_str()))
+            .unwrap_or("");
+        assert!(
+            body.contains("apply_slope") && body.contains("'low'"),
+            "{body}"
+        );
+    }
+
+    /// #1984: `INSERT INTO … VALUES (` keeps the dump family, including the
+    /// `INSERT IGNORE` form MariaDB emits, and still yields a row.
+    #[test]
+    fn sql_dump_with_insert_values_stays_sqldump() {
+        assert_eq!(
+            classify("CREATE TABLE `t` (\n `a` int\n);\nINSERT INTO `t` VALUES (1);\n"),
+            Family::SqlDump
+        );
+        assert_eq!(
+            classify("insert ignore into t (a) values (1);\n"),
+            Family::SqlDump
+        );
+        // An INSERT … SELECT moves rows but is not a dump of literals.
+        assert_ne!(
+            classify("INSERT INTO t SELECT id FROM other;\n"),
+            Family::SqlDump
+        );
+
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("dump.sql");
+        std::fs::write(
+            &path,
+            "CREATE TABLE `users` (`id` int, `name` varchar(64));\n\
+             INSERT INTO `users` VALUES (1,'ann');\n",
+        )
+        .unwrap();
+        let sn = sniff(&path).unwrap();
+        assert_eq!(sn.family, Family::SqlDump);
+        let mut recs = Vec::new();
+        let stats = crate::extract::extract(&path, &sn, None, &mut |r| {
+            recs.push(r);
+            true
+        })
+        .unwrap();
+        assert_eq!(stats.records, 1, "{recs:?}");
+        assert_eq!(recs[0].fields["name"], serde_json::json!("ann"));
+    }
+
+    /// #1984: Postgres `COPY … FROM stdin` keeps the dump family.
+    #[test]
+    fn sql_dump_with_copy_from_stdin_stays_sqldump() {
+        let dump = "CREATE TABLE users (id int, name text);\n\
+                    COPY users (id, name) FROM stdin;\n\
+                    1\tann\n\
+                    \\.\n";
+        assert_eq!(classify(dump), Family::SqlDump);
+        assert_eq!(classify("COPY public.users FROM STDIN;\n"), Family::SqlDump);
+        // The letters have to be the keyword, not a longer identifier.
+        assert_ne!(
+            classify("COPYRIGHT notice; CREATE TABLE t (a int);\n"),
+            Family::SqlDump
+        );
+    }
+
+    /// Row data that begins past the 8 KiB sniff prefix still classifies as a
+    /// dump. pg_dump writes the whole schema first; deciding from the prefix
+    /// alone would index that file as text.
+    #[test]
+    fn sql_dump_whose_insert_starts_past_the_sniff_prefix_stays_sqldump() {
+        let mut body = String::from(
+            "CREATE TABLE users (\n  id INTEGER PRIMARY KEY,\n  email TEXT NOT NULL\n);\n",
+        );
+        while body.len() <= super::PREFIX {
+            body.push_str("ALTER TABLE users ADD COLUMN c_extra INTEGER;\n");
+        }
+        let dir = tempfile::tempdir().unwrap();
+
+        let schema = dir.path().join("schema.sql");
+        std::fs::write(&schema, &body).unwrap();
+        let schema_sn = sniff(&schema).unwrap();
+        assert_eq!(
+            schema_sn.family,
+            Family::Code,
+            "schema past the prefix classified {:?}",
+            schema_sn.family
+        );
+
+        body.push_str("INSERT INTO users (id, email) VALUES (1,'ann@example.com');\n");
+        let dump = dir.path().join("dump.sql");
+        std::fs::write(&dump, &body).unwrap();
+        assert_eq!(sniff(&dump).unwrap().family, Family::SqlDump);
+
+        // A COPY-only file whose data statement starts past the prefix.
+        let mut copy_body = String::from(
+            "CREATE TABLE users (\n  id INTEGER PRIMARY KEY,\n  email TEXT NOT NULL\n);\n",
+        );
+        while copy_body.len() <= super::PREFIX {
+            copy_body.push_str("ALTER TABLE users ADD COLUMN c_extra INTEGER;\n");
+        }
+        copy_body.push_str("COPY users (id, email) FROM stdin;\n1\tann\n\\.\n");
+        let copy = dir.path().join("copy.sql");
+        std::fs::write(&copy, copy_body).unwrap();
+        assert_eq!(sniff(&copy).unwrap().family, Family::SqlDump);
+    }
+
+    /// The row-data probe is a state machine over a byte stream. A keyword
+    /// split across reads (the file scan uses 64 KiB chunks) must still hit,
+    /// and a longer identifier must not.
+    #[test]
+    fn sql_row_probe_matches_across_chunk_boundaries() {
+        let positive = [
+            "INSERT INTO t VALUES (1)",
+            "insert ignore into t(a) values(1)",
+            "COPY users (id, name) FROM stdin;",
+            "COPY public.users FROM STDIN",
+            "INSERT\nINTO\nt\nVALUES\n(1)",
+            // #360: a README fence is backticks, not a MySQL identifier quote.
+            "# doc\n\n```sql\nCREATE TABLE t (id int);\nINSERT INTO t VALUES (1);\n```\n",
+        ];
+        // The opener and the tuple can be far apart: a wide column list, or
+        // pg_dump's schema section before the first COPY.
+        let mut wide_insert = String::from("INSERT INTO t (");
+        wide_insert.push_str(&"col,".repeat(80));
+        wide_insert.push_str(") VALUES (1)");
+        let mut wide_copy = String::from("COPY t (");
+        wide_copy.push_str(&"col,".repeat(80));
+        wide_copy.push_str(") FROM stdin;");
+        let wide = [wide_insert, wide_copy];
+        for sample in positive {
+            let bytes = sample.as_bytes();
+            for split in 0..=bytes.len() {
+                let mut probe = SqlRowProbe::default();
+                let hit =
+                    probe.push(&bytes[..split]) || probe.push(&bytes[split..]) || probe.finish();
+                assert!(hit, "missed {sample:?} split at {split}");
+            }
+        }
+        for sample in &wide {
+            assert!(
+                sql_dump_has_rows(sample.as_bytes()),
+                "wide column list must still be a dump"
+            );
+            let bytes = sample.as_bytes();
+            let mid = bytes.len() / 2;
+            let mut probe = SqlRowProbe::default();
+            let hit = probe.push(&bytes[..mid]) || probe.push(&bytes[mid..]) || probe.finish();
+            assert!(hit, "wide column list missed across a chunk split");
+        }
+        for sample in [
+            "CREATE TABLE t (a int);",
+            "INSERT INTO t SELECT id FROM other;",
+            "COPYRIGHT notice; FROM stdin;",
+            "INSERT INTO t VALUES 1;",
+            "REINSERT INTO t VALUES (1);",
+            "-- INSERT INTO t VALUES (1);\nCREATE TABLE t (a int);",
+            "/* COPY t FROM stdin; */\nCREATE TABLE t (a int);",
+            "CREATE FUNCTION f() AS $$\nBEGIN\n  INSERT INTO t VALUES (1);\nEND;\n$$;",
+            "CREATE FUNCTION f() AS $body$\n  INSERT INTO t VALUES (1);\n$body$;",
+            "CREATE PROCEDURE p() BEGIN INSERT INTO t VALUES (1); END;",
+            "SELECT 'INSERT INTO t VALUES (1)';",
+        ] {
+            assert!(
+                !sql_dump_has_rows(sample.as_bytes()),
+                "false hit on {sample:?}"
+            );
+        }
+        // The same INSERT after the routine is a real dump, even when the
+        // opening `$` of the dollar quote is the last byte of a chunk.
+        let mixed = "CREATE FUNCTION f() AS $$\n  INSERT INTO t VALUES (1);\n$$;\n\
+                     INSERT INTO real_rows VALUES (2);\n";
+        assert!(
+            sql_dump_has_rows(mixed.as_bytes()),
+            "top-level INSERT after a routine must stay a dump"
+        );
+        let bytes = mixed.as_bytes();
+        let dollar = mixed.find('$').unwrap();
+        let mut probe = SqlRowProbe::default();
+        let hit =
+            probe.push(&bytes[..dollar + 1]) || probe.push(&bytes[dollar + 1..]) || probe.finish();
+        assert!(hit, "dollar quote split across a chunk hid a later INSERT");
     }
 
     /// #1142 class 1: markdown opening with an HTML fragment (Hugo front-matter
@@ -3808,6 +4819,118 @@ mod tests {
         );
     }
 
+    /// #1983: a README that opens with a badge or link row starts with `[`
+    /// and contains `:`, so the old JSON-start test sniffed it as JSON and
+    /// the extractor junked the file. The name is irrelevant — sniffing
+    /// never trusts the extension — so the same shape must be prose with
+    /// and without `.md`. A pretty-printed JSON array, a JSON value cut off
+    /// by the sniff prefix, and a JSON string that merely *contains* a
+    /// badge stay JSON.
+    #[test]
+    fn readme_opening_with_a_badge_or_link_row_is_prose_not_json() {
+        let badge = "[![CI](https://example.com/badge.svg)](https://example.com/actions)\n\n\
+                     # Widget\n\n\
+                     Widget is a reference implementation of the widget protocol.\n\
+                     Agents should be able to quote this sentence from the index.\n";
+        let links = "[Docs](https://x) | [Discord](https://y)\n\n\
+                     # Widget\n\n\
+                     Widget is a reference implementation of the widget protocol.\n\
+                     Agents should be able to quote this sentence from the index.\n";
+        // `{` opener that is a note, not an object. Same failure mode.
+        let brace = "{this is a note, not a JSON object\n\n\
+                     # Widget\n\n\
+                     The opening brace is prose punctuation, not a document.\n";
+        // Same badge text under both names: the extension is not what decides.
+        for (name, text) in [
+            ("README.md", badge),
+            ("README", badge),
+            ("LINKS", links),
+            ("NOTE", brace),
+        ] {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join(name);
+            std::fs::write(&path, text).unwrap();
+            let sn = sniff(&path).unwrap();
+            assert!(
+                matches!(sn.family, Family::TxtProse | Family::TxtLines),
+                "{name} classified as {:?}, want prose",
+                sn.family
+            );
+            let mut recs = Vec::new();
+            let stats = crate::extract::extract(&path, &sn, None, &mut |r| {
+                recs.push(r);
+                true
+            })
+            .unwrap();
+            assert_eq!(stats.junk, 0, "{name} was junked");
+            assert!(!recs.is_empty(), "{name} produced no records");
+            let indexed = recs
+                .iter()
+                .filter_map(|r| {
+                    r.fields
+                        .get("body")
+                        .or_else(|| r.fields.get("text"))
+                        .and_then(|v| v.as_str())
+                })
+                .collect::<Vec<_>>()
+                .join("\n");
+            assert!(
+                indexed.contains("Widget"),
+                "{name} records lost the document text: {indexed}"
+            );
+        }
+
+        let pretty =
+            "[\n  {\"id\": 1, \"name\": \"alpha\"},\n  {\"id\": 2, \"name\": \"beta\"}\n]\n";
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("array.txt");
+        std::fs::write(&path, pretty).unwrap();
+        let sn = sniff(&path).unwrap();
+        assert_eq!(sn.family, Family::Json, "pretty-printed JSON array");
+        let mut n = 0usize;
+        let stats = crate::extract::extract(&path, &sn, None, &mut |_r| {
+            n += 1;
+            true
+        })
+        .unwrap();
+        assert_eq!(stats.junk, 0);
+        assert_eq!(n, 2, "one record per array element");
+
+        // A badge stored *inside* a JSON string is still a JSON array.
+        assert_eq!(
+            classify(
+                "[\n  \"[![CI](https://example.com/badge.svg)](https://example.com/actions)\"\n]\n"
+            ),
+            Family::Json
+        );
+        // Sniff prefix cut mid-value (the long-first-line JSONL shape).
+        assert_eq!(
+            classify("{\"id\":1,\"name\":\"alpha\",\"bio\":\"this value is cut off mid-string"),
+            Family::Json
+        );
+        // Under the JSONL line-ratio, but the file still opens with a JSON
+        // value, so it stays Json and the extractor's line fallback runs.
+        assert_eq!(
+            classify("{\"a\":1}\n{\"a\":2}\nnot json\nnot json\nnot json\n"),
+            Family::Json
+        );
+        // Link text that is itself a JSON value (`true`, `1`) is still a link.
+        assert!(
+            matches!(
+                classify("[true](https://example.com)\n\n# Widget\n\nA link, not an array.\n"),
+                Family::TxtProse | Family::TxtLines
+            ),
+            "keyword link text"
+        );
+        assert!(
+            matches!(
+                classify("[1](https://example.com)\n\n# Widget\n\nA link, not an array.\n"),
+                Family::TxtProse | Family::TxtLines
+            ),
+            "numeric link text"
+        );
+    }
+
     #[test]
     fn csv_dialect_semicolon_decimal_comma() {
         let lines = vec![
@@ -3836,7 +4959,64 @@ mod text_family_tests {
     /// through the real entry point rather than against `txt_kind` directly.
     fn classify_full(text: &str) -> Family {
         let nonblank: Vec<&str> = text.lines().filter(|l| !l.trim().is_empty()).collect();
-        classify_text(text, &nonblank)
+        classify_text(text, &nonblank, false)
+    }
+
+    /// Same, as a file whose name says markdown (#2447).
+    fn classify_full_named(text: &str, md_named: bool) -> Family {
+        let nonblank: Vec<&str> = text.lines().filter(|l| !l.trim().is_empty()).collect();
+        classify_text(text, &nonblank, md_named)
+    }
+
+    /// #2447: a short markdown file with YAML frontmatter was still sniffed as
+    /// YAML, so the YAML extractor kept the frontmatter mapping and dropped the
+    /// body — a docs corpus that is mostly short pages indexed nothing searchable.
+    ///
+    /// The line tier cannot decide this on its own: `- item` bullets and
+    /// `Key: value` prose are valid YAML. All four shapes below were `Yaml`
+    /// before this change, and a frontmatter-less twin of each was prose. The
+    /// name is what settles it, exactly as the code branch settles "code vs
+    /// prose" by extension.
+    #[test]
+    fn short_markdown_with_frontmatter_is_not_yaml() {
+        let bodies = [
+            "- npm\n- pnpm\n- yarn\n",
+            "- [Install](install.md)\n- [Usage](usage.md)\n",
+            "Note: read this first\nWarning: mind the gap\n",
+            "# Steps\n\n- one\n- two\n",
+        ];
+        for body in bodies {
+            let with_frontmatter = format!("---\ntitle: A page\ntags: [a, b]\n---\n\n{body}");
+            // The content-only decision is the bug, stated here so the test
+            // carries its own before/after: bullets and `Key: value` prose are
+            // valid YAML, so nothing in the text says markdown.
+            assert_eq!(
+                classify_full_named(&with_frontmatter, false),
+                Family::Yaml,
+                "content alone reads this as YAML, body was {body:?}"
+            );
+            assert_eq!(
+                classify_full_named(&with_frontmatter, true),
+                Family::TxtProse,
+                "a .md file with frontmatter must index its body, body was {body:?}"
+            );
+        }
+    }
+
+    /// The markdown name must not swallow a genuinely structured body: the
+    /// frontmatter-over-CSV case from #587 item 1 still resolves by the body.
+    #[test]
+    fn a_markdown_name_does_not_override_a_structured_body() {
+        let csv = "---\ntitle: Team roster\n---\n\nname,role\nalice,eng\nbob,design\n";
+        assert_eq!(classify_full_named(csv, true), Family::Csv);
+    }
+
+    /// A name that does not say markdown keeps the old content-only decision, so
+    /// a real YAML stream under `---` is still YAML.
+    #[test]
+    fn a_yaml_stream_keeps_yaml_when_the_name_does_not_say_markdown() {
+        let stream = "---\napiVersion: v1\nkind: List\n---\napiVersion: v1\nkind: Pod\n";
+        assert_eq!(classify_full_named(stream, false), Family::Yaml);
     }
 
     /// #1504: `journalctl -o short-iso` output and vsftpd `xferlog` transfer
@@ -3863,6 +5043,20 @@ mod text_family_tests {
                    Oct 16 09:07:01 pbx sshd[1235]: Accepted publickey for admin\n\
                    Oct 16 09:07:02 pbx pbx-phone[990]: SIP engine not registered\n";
         assert_eq!(classify_full(rfc), Family::Logs);
+
+        // Desk-phone syslog carries a `<PRI>` and often a space before the
+        // pid bracket. RFC 5424 puts a version digit between `<PRI>` and an
+        // ISO timestamp. Both used to miss every template and land in
+        // `TxtProse`, so timestamp, host and severity were not fields.
+        let phone = "<131>Oct 16 09:06:58 192.168.1.20 SIP [990]: registration failed\n\
+                     <134>Oct 16 09:07:01 192.168.1.20 SIP [990]: call cleared\n\
+                     <131>Oct 16 09:07:02 192.168.1.21 SIP[991]: SIP engine not registered\n";
+        assert_eq!(classify_full(phone), Family::Logs);
+
+        let rfc5424 = "<134>1 2026-10-16T09:06:58.123Z 10.0.0.50 sipd 4321 - - SIP engine not registered\n\
+                       <131>1 2026-10-16T09:07:01.000Z 10.0.0.50 sipd 4321 - - registration failed\n\
+                       <165>1 2003-10-11T22:14:15.003Z mymachine.example.com evntslog - ID47 [exampleSDID@32473 iut=\"3\"] An application event log entry\n";
+        assert_eq!(classify_full(rfc5424), Family::Logs);
     }
 
     /// #1504 review: the ISO-syslog template must not steal files from Csv or
@@ -3913,6 +5107,17 @@ mod text_family_tests {
             classify_full(notes),
             Family::Logs,
             "timestamped notes are prose, not Logs"
+        );
+
+        // A `<PRI>` prefix is not enough. Without the timestamp shape these
+        // stay prose — the new phone/RFC5424 templates must not claim them.
+        let pri_prose = "<134> this is not a timestamp host prog: msg\n\
+                         <131> notes from the retro about the release\n\
+                         <999> hello the configuration is invalid\n";
+        assert_ne!(
+            classify_full(pri_prose),
+            Family::Logs,
+            "a priority-looking prefix without a timestamp is prose"
         );
     }
 
@@ -4398,7 +5603,12 @@ mod mail_and_archive_sniff_tests {
             let text = advice(kind, gz);
             assert!(text.contains("extract it first"), "{kind}: {text}");
             assert!(text.contains(command), "{kind}: {text}");
-            assert!(text.contains("does not open archives"), "{kind}: {text}");
+            let opens = matches!(kind, "zip" | "tar");
+            assert_eq!(
+                text.contains("xerj autoindex <file>"),
+                opens,
+                "{kind}: {text}"
+            );
         }
         // Not an archive: no advice, the ordinary "binary content (…)" stands.
         for kind in ["png", "pdf", "unknown", "", "設計"] {
@@ -4709,5 +5919,103 @@ mod ole2_sniff_tests {
         .unwrap()
         .family;
         assert_eq!(fam, Family::Xml);
+    }
+}
+
+#[cfg(test)]
+mod template_sniff_tests {
+    use super::*;
+
+    fn family(body: &str, name: &str) -> Family {
+        sniff_bytes(body.as_bytes(), Path::new(name), Path::new(name), false)
+            .unwrap()
+            .family
+    }
+
+    /// #2740: an Angular-style partial has no `<html>` or `<body>`, so the
+    /// content check calls it XML; a `.html` or `.htm` name makes it HTML.
+    #[test]
+    fn an_html_fragment_is_html_not_xml() {
+        let fragment = "<div class=\"widget\" *ngIf=\"items.length > 0 && !loading\">\n\
+                        \x20 <input [(ngModel)]=\"query\" placeholder=\"search\">\n\
+                        \x20 <span>{{ label }}</span>\n\
+                        </div>\n";
+        assert_eq!(family(fragment, "widget.component.html"), Family::Html);
+        assert_eq!(family(fragment, "WIDGET.HTM"), Family::Html);
+        assert_eq!(family(fragment, "widget.html.gz"), Family::Html);
+        assert_eq!(family(fragment, "widget.xml"), Family::Xml);
+        let page =
+            "<!DOCTYPE html>\n<html><head><title>t</title></head><body><p>x</p></body></html>\n";
+        assert_eq!(family(page, "index.html"), Family::Html);
+    }
+
+    /// #2740: a markup-first template is text under its own name, and the
+    /// same bytes under a `.xml` name are still XML.
+    #[test]
+    fn a_markup_first_template_is_text_not_xml() {
+        let template = "<div class=\"profile\">\n\
+                        \x20 <% if @user && @user.admin? %>\n\
+                        \x20   <%= link_to \"Admin\", admin_path %>\n\
+                        \x20 <% end %>\n\
+                        \x20 {{#if author}}<h1>{{ name }}</h1>{{/if}}\n\
+                        \x20 {% for item in menu %}<a href=\"{{ item.url }}\">x</a><br>{% endfor %}\n\
+                        </div>\n";
+        assert_eq!(family(template, "profile.xml"), Family::Xml);
+        for ext in [
+            "hbs",
+            "handlebars",
+            "mustache",
+            "ejs",
+            "erb",
+            "jsp",
+            "aspx",
+            "cshtml",
+            "razor",
+            "twig",
+            "jinja",
+            "jinja2",
+            "j2",
+            "njk",
+            "liquid",
+            "astro",
+            "marko",
+            "riot",
+            "ERB",
+        ] {
+            let fam = family(template, &format!("profile.{ext}"));
+            assert!(
+                matches!(fam, Family::TxtLines | Family::TxtProse),
+                ".{ext} sniffed as {fam:?}"
+            );
+        }
+        let fam = family(template, "profile.html.erb.GZ");
+        assert!(
+            matches!(fam, Family::TxtLines | Family::TxtProse),
+            ".erb.gz sniffed as {fam:?}"
+        );
+    }
+
+    /// The name only replaces an XML verdict. A template that is a full page
+    /// keeps HTML, and one that opens with a directive keeps what it had.
+    #[test]
+    fn a_template_name_only_overrides_xml() {
+        let page = "<!DOCTYPE html>\n<html><body>{{ title }}</body></html>\n";
+        assert_eq!(family(page, "layout.hbs"), Family::Html);
+        let json = "{\n  \"name\": \"{{ app_name }}\",\n  \"port\": 8080\n}\n";
+        assert_eq!(family(json, "config.json.j2"), family(json, "config.json"));
+    }
+
+    /// Real XML keeps the XML path: data files, XAML, plain SVG. XHTML with
+    /// its `<html>` root is HTML, as before.
+    #[test]
+    fn real_xml_keeps_its_family() {
+        let xml = "<?xml version=\"1.0\"?>\n<settings>\n  <feature name=\"a\">on</feature>\n</settings>\n";
+        assert_eq!(family(xml, "settings.xml"), Family::Xml);
+        let xaml = "<Window x:Class=\"App.Main\"\n  xmlns=\"http://schemas.microsoft.com/winfx/2006/xaml/presentation\">\n  <Grid><Button Content=\"OK\"/></Grid>\n</Window>\n";
+        assert_eq!(family(xaml, "Main.xaml"), Family::Xml);
+        let svg = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\">\n  <path d=\"M12 2L2 7z\"/>\n  <title>logo</title>\n</svg>\n";
+        assert_eq!(family(svg, "logo.svg"), Family::Xml);
+        let xhtml = "<?xml version=\"1.0\"?>\n<html xmlns=\"http://www.w3.org/1999/xhtml\">\n<body><p>x</p></body>\n</html>\n";
+        assert_eq!(family(xhtml, "page.xhtml"), Family::Html);
     }
 }

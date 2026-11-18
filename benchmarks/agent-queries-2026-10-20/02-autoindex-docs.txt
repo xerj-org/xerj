@@ -1,0 +1,57 @@
+$ /workspace/engine/target/release/xerj autoindex --url http://127.0.0.1:9217 --yes --no-graph --progress plain --disable-feedback /workspace/docs --prefix docs --state-dir /tmp/xerj-aq-2026-10-20/state-docs
+# exit 3
+autoindex: 4 scan threads, 4 index workers, 4 pdf workers, --bulk-mb 8 [cores=4 ram_total_mib=16003 ram_available_mib=9733 safe_zone_mib=7733]
+autoindex: bulk HTTP request timeout: 300s
+xerj-bar [????????????????????????] pct unknown | walk | eta unknown
+xerj-progress phase=walk basis=none pct=unknown items=0/0 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=0.0
+autoindex: 294 files (5 MB) under /workspace/docs
+autoindex: ignore rules: skipped 10 files and pruned 0 directories; 1 ignore file read
+autoindex: ignore rules:   <built-in>:*.png — 8 files
+autoindex: ignore rules:   <built-in>:*.gif — 1 file
+autoindex: ignore rules:   hidden:dotfile — 1 file
+xerj-progress phase=hash basis=bytes pct=0.0 items=0/294 bytes=0/6273894 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=0.0
+autoindex: 1 byte-identical duplicate path(s) will reuse canonical content
+  duplicate: examples/google-ai/mock_embed_server.py → examples/external-embeddings/mock_embed_server.py
+xerj-progress phase=scan basis=bytes pct=0.0 items=0/293 bytes=0/6271934 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=0.0
+phase A: sniffing + sampling 293 files with 4 threads…
+dataset 'research-llms-txt-2026-09-llms-txt-urls' maps no text-searchable field — `xerj code` passage search will find nothing in it (sampled fields: col_1:keyword col_2:keyword col_3:keyword); structured queries over typed fields still work
+dataset 'research-writing-corpus-2026-09-reference-structure' maps no text-searchable field — `xerj code` passage search will find nothing in it (sampled fields: code_blocks:long emdash_per_1kw:double h2:long h3:long has_chart:keyword has_code:keyword …); structured queries over typed fields still work
+phase A: 11 datasets inferred, 3 junk/skipped files
+estimate: at least 0.1 s–0.1 s — a MEASURED FLOOR for client-side extraction, not a prediction of the whole run: server indexing, embedding and network time are not in it
+estimate: basis — measured on this machine during phase A: 289 file(s) / 5.3 MB read end to end across 5 family/families, scheduled over 4 worker(s). Covers 6.0 MB of the 6.0 MB planned (100% of planned bytes). Client-side extraction only.
+  estimate: code          91 files  558.7 KB at 4.5 MB/s measured over 91 files / 558.7 KB → 0.1 s
+  estimate: csv            2 files  665.7 KB at 11.8 MB/s measured over 1 file / 7.5 KB → 0.1 s
+  estimate: json          25 files    1.9 MB at 58.3 MB/s measured over 25 files / 1.9 MB → 0.0 s
+  estimate: txt-prose    151 files    2.6 MB at 98.9 MB/s measured over 151 files / 2.6 MB → 0.0 s
+  estimate: txt-lines     21 files  197.8 KB at 78.0 MB/s measured over 21 files / 197.8 KB → 0.0 s
+  estimate excludes: server-side indexing, embedding and merge time (autoindex cannot measure it without writing)
+  estimate excludes: network round trips to the endpoint
+  estimate excludes: relationship detection and edge writes (--no-graph removes these)
+  estimate excludes: families with no end-to-end read in phase A, listed under unmeasured_families
+work order: source-and-docs (242 files, 3.2 MB) → config (25 files, 1.9 MB) → data (2 files, 665.7 KB) → bulk (21 files, 197.8 KB) — biggest first inside each band at 4 worker(s); a file that outlasts everything above it starts first regardless of band
+  source-and-docs  source code and documents — what a person searches for first
+  config           configuration and small structured trees — dense, high signal per byte
+  data             structured data: rows, records and tables
+  bulk             logs and plain line files — voluminous, low signal per byte
+gate: not triggered — the measured extraction floor 0.1 s–0.1 s is under --max-minutes 10. That is NOT a promise the run finishes in 10 minutes: server, network and embedding time are not measured before indexing starts
+xerj-progress phase=prepare basis=items pct=0.0 items=0/11 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=0.6
+xerj-progress phase=snapshot basis=bytes pct=0.0 items=0/293 bytes=0/6271934 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=0.7
+xerj-progress phase=index basis=bytes pct=0.0 items=0/290 bytes=0/14859390 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=1.3
+xerj-bar [#####################---] 88.7% | index | 237/290 items | 3.4MB/s | eta unknown
+xerj-progress phase=index basis=bytes pct=88.7 items=237/290 bytes=13177241/14859390 rate=3586576.0 eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=3.7 elapsed_s=5.0
+xerj-progress phase=finalize-catalog basis=items pct=0.0 items=0/11 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=5.6
+xerj-bar [------------------------] 0.0% | finalize-catalog-readback | 0/306 items | eta unknown
+xerj-progress phase=finalize-catalog-readback basis=items pct=0.0 items=0/306 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=8.4
+xerj-progress phase=finalize-refresh basis=items pct=0.0 items=0/12 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=8.4
+xerj-progress phase=finalize-verify basis=items pct=0.0 items=0/20 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=8.4
+xerj-progress phase=finalize-verify basis=items pct=15.0 items=3/20 bytes=0/0 rate=1.9 eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=1.6 elapsed_s=10.0 waiting_on=docs-docs
+ok: indexed and searchable — exit 3 (completed-with-junk) is SUCCESS, not an error: 3 files recorded as junk (skipped, never fatal; `xerj autoindex map` lists them)
+generation 1 committed — 11 datasets, 9940 records live
+
+next: `xerj autoindex map --url http://127.0.0.1:9217` for the data map; search via `xerj search --url http://127.0.0.1:9217 --prefix docs "<what you need>"`
+      code was indexed — `xerj search` and `xerj def` ask for the matching
+        passage, so the header is a path and a line when the index has one:
+        xerj search --prefix docs "<what you need>"
+        xerj def --prefix docs <symbol>
+        (add the same --url and --api-key the map line above used)
+xerj-done ok=true exit=3 reason=completed-with-junk wall=14.3s files=290 records=9940 generation=1 code_files=91 code_files_indexed=91 code_files_junked=0

@@ -1,0 +1,8 @@
+xerj hub: pulling 'zstd' (20.1 MB) — one-time download, later questions answer locally
+xerj hub: pulled zstd 01b7154f 21038204 → 8 indices, 7874 definitions
+zstd  pin 2026-10-02 (18 days old)  mixed: BSD-3 (lib) / GPL-2.0 (cli)  zstd/lib/zstd.h:134
+#  define ZSTD_CLEVEL_DEFAULT 3
+value: 3
+  approach-only licence (mixed: BSD-3 (lib) / GPL-2.0 (cli)): read, do not copy
+answered from: local pack
+warning: approach-only licence (mixed: BSD-3 (lib) / GPL-2.0 (cli)): read, do not copy

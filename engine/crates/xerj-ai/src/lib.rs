@@ -38,6 +38,7 @@ pub mod microbatch;
 pub mod neural;
 #[cfg(feature = "onnx-experimental")]
 pub mod onnx;
+pub mod semantic_lexical;
 
 pub use chunker::{Chunk, TextChunker};
 pub use embed::{EmbeddingProxy, EmbeddingProxyConfig};

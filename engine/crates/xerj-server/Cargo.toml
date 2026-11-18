@@ -26,6 +26,7 @@ xerj-console-api     = { path = "../xerj-console-api" }
 xerj-autoindex = { path = "../xerj-autoindex" }
 # Corpus Hub v2 client: `xerj hub …` and the `--def` code path.
 xerj-hub     = { path = "../xerj-hub" }
+xerj-sources = { path = "../xerj-sources" }
 # `xerj mcp` — the MCP stdio server, in the one binary users install. Pulls in
 # only reqwest + serde_json, both already in this tree.
 xerj-mcp     = { path = "../xerj-mcp" }
@@ -44,6 +45,7 @@ tracing.workspace = true
 tracing-subscriber.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+toml.workspace = true
 rcgen.workspace = true
 rand.workspace = true
 anyhow.workspace = true
@@ -64,8 +66,9 @@ prost.workspace = true
 [features]
 # The shipped binary is batteries-included: the built-in neural BERT
 # embedder (candle + MiniLM) is ON by default, so end users just add
-# `--embed-mode neural` at runtime and the model downloads itself on first
-# use — no special build, no separate binary. Build with
+# `--embed-mode neural` at runtime and the model downloads and loads at
+# startup — a blocked Hub refuses to start, it does not fail every ingest.
+# No special build, no separate binary. Build with
 # `--no-default-features` for a slimmer binary without the neural backend
 # (the lexical + proxy backends still work).
 default = ["neural", "decide-local"]
@@ -94,6 +97,11 @@ debug-profiling = [
 [target.'cfg(not(target_env = "msvc"))'.dependencies]
 tikv-jemallocator = "0.6"
 tikv-jemalloc-ctl = { version = "0.6", features = ["stats"] }
+# `mallctl` itself, for the void `arena.<i>.purge` control that the ctl
+# crate's typed read/write helpers cannot call (see
+# `purge_all_jemalloc_arenas`). Already in the graph under
+# tikv-jemallocator and tikv-jemalloc-ctl, so this adds an edge, not a crate.
+tikv-jemalloc-sys = "0.6"
 libc = "0.2"
 
 [target.'cfg(all(target_os = "linux", not(target_env = "msvc")))'.dependencies]

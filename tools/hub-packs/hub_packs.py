@@ -29,6 +29,11 @@ Registry facts this relies on (tools/xerj-code/hub/):
     (A = git manifest, B = harvested pack recipe) and `refresh`
     (pinned|weekly|daily).  Only live lane-A rows have a manifest this pipeline
     can build.
+  * Live lane-B rows are RECORD packs (rust-vulns, agent-session-trajectories):
+    pack-publish.yml builds them as hubpacks (`xerj hub build-pack --from-pack`)
+    under the same `pack-<slug>-<pin8>` release names, with a CONTENT pin (no
+    commit exists), so `fetch-list` and `check-catalogue` take their pin from
+    the releases and the catalogue rather than from a manifest.
 """
 
 from __future__ import annotations
@@ -108,15 +113,22 @@ def load_manifest(path: pathlib.Path, refresh: str = "pinned") -> Corpus:
         data = json.loads(path.read_text())
     except (OSError, json.JSONDecodeError) as e:
         raise RegistryError(f"{path.name}: unreadable ({e})") from e
+    if not isinstance(data, dict):
+        raise RegistryError(f"{path.name}: manifest must be an object")
     slug = data.get("corpus")
     if slug != path.stem or not isinstance(slug, str) or not SLUG_RE.match(slug):
         raise RegistryError(f"{path.name}: corpus {slug!r} must equal the file name")
     repos = []
-    for i, r in enumerate(data.get("repos") or []):
+    raw_repos = data.get("repos", [])
+    if not isinstance(raw_repos, list):
+        raise RegistryError(f"{path.name}: repos must be an array")
+    for i, r in enumerate(raw_repos):
+        if not isinstance(r, dict):
+            raise RegistryError(f"{path.name}: repos[{i}] must be an object")
         sha = r.get("sha", "")
-        if not SHA_RE.match(sha):
+        if not isinstance(sha, str) or not SHA_RE.fullmatch(sha):
             raise RegistryError(f"{path.name}: repos[{i}].sha is not a 40-hex commit")
-        if not r.get("url") or not r.get("repo"):
+        if any(not isinstance(r.get(key), str) or not r[key] for key in ("url", "repo")):
             raise RegistryError(f"{path.name}: repos[{i}] lacks repo/url")
         repos.append(Repo(r["repo"], r["url"], sha))
     if not repos:
@@ -516,10 +528,10 @@ def apply_proposals(
             open_prs = _gh_json(
                 gh, ["pr", "list", "--state", "open", "--limit", "200", "--json", "number,headRefName"], repo_root
             ) or []
-            mine = f"{BRANCH_PREFIX}{p.slug}-"
+            mine = re.compile(re.escape(f"{BRANCH_PREFIX}{p.slug}-") + r"[0-9a-f]{8}")
             for other in open_prs:
                 head = other["headRefName"]
-                if head.startswith(mine) and head != p.branch:
+                if mine.fullmatch(head) and head != p.branch:
                     _run(
                         [gh, "pr", "close", str(other["number"]), "--delete-branch", "--comment", f"Superseded by {url}"],
                         cwd=repo_root,
@@ -554,11 +566,45 @@ def fetch_list(corpora: list[Corpus], published_tags: Iterable[str]) -> list[tup
     return out
 
 
+def load_record_slugs(backlog: pathlib.Path) -> list[str]:
+    """Live lane-B corpora: the record packs pack-publish.yml builds as hubpacks."""
+    rows = json.loads(backlog.read_text()).get("corpora", [])
+    return sorted(
+        r["slug"]
+        for r in rows
+        if r.get("status") == "live" and r.get("lane") == "B" and SLUG_RE.match(str(r.get("slug", "")))
+    )
+
+
+def record_fetch_list(
+    slugs: Iterable[str],
+    published_tags: Iterable[str],
+    published_at: Optional[dict[str, str]] = None,
+) -> list[tuple[str, str, str]]:
+    """`(slug, pin8, tag)` for the record packs' hubpack releases.  A record pack's
+    pin is a content pin, so no manifest names the current one: with
+    `published_at` (tag -> ISO time) only the most recently published pin of each
+    slug is listed, otherwise every published pin (build-catalogue then lists the
+    newest `built_at`).  The pack-publish JSON releases (`pack-<slug>-<date>`) never
+    match: a pin8 is 8 hex digits."""
+    tags = list(published_tags)
+    out = []
+    for slug in slugs:
+        rx = re.compile(re.escape(f"pack-{slug}-") + r"([0-9a-f]{8})(?:-r\d+)?")
+        pins = sorted({m.group(1) for t in tags if (m := rx.fullmatch(t))})
+        rows = [(slug, pin8, released_tag(tags, slug, pin8)) for pin8 in pins]
+        if published_at is not None and rows:
+            rows = [max(rows, key=lambda r: (published_at.get(r[2] or "", ""), r[1]))]
+        out.extend((s_, p, t) for s_, p, t in rows if t)
+    return out
+
+
 def check_catalogue(
     raw: bytes,
     corpora: list[Corpus],
     repo: str,
     previous: Optional[bytes] = None,
+    record_slugs: Iterable[str] = (),
 ) -> list[str]:
     """Everything that must hold before a freshly built catalogue replaces the live
     one; the list of violations (empty = fine).
@@ -582,26 +628,35 @@ def check_catalogue(
         return [*errors, "no corpora"]
 
     live = {c.slug: c for c in corpora}
+    records = set(record_slugs)
     listed: set[str] = set()
     for e in entries:
         slug = e.get("slug", "")
         c = live.get(slug)
-        if c is None:
+        if c is None and slug not in records:
             errors.append(f"{slug or '?'}: not a live lane-A corpus in the registry")
             continue
         if slug in listed:
             errors.append(f"{slug}: listed twice")
         listed.add(slug)
-        if e.get("pin_sha") != c.pin_sha:
-            errors.append(f"{slug}: pin_sha {str(e.get('pin_sha'))[:12]} is not the manifest's {c.pin8}")
+        if c is not None:
+            pin8 = c.pin8
+            if e.get("pin_sha") != c.pin_sha:
+                errors.append(f"{slug}: pin_sha {str(e.get('pin_sha'))[:12]} is not the manifest's {c.pin8}")
+        else:
+            # A record pack: its content pin is whatever the signed pack says, but
+            # it must have the shape of a pin and its URL must name that pin.
+            pin8 = str(e.get("pin_sha", ""))[:8]
+            if not SHA_RE.match(str(e.get("pin_sha", ""))):
+                errors.append(f"{slug}: pin_sha {str(e.get('pin_sha'))[:12]!r} is not 40 hex")
         url = e.get("pack_url", "")
         want = (
             r"^https://github\.com/" + re.escape(repo) + r"/releases/download/"
-            + re.escape(pack_tag(slug, c.pin8)) + r"(?:-r\d+)?/"
-            + re.escape(f"{slug}-{c.pin8}.hubpack.tar.zst") + "$"
+            + re.escape(pack_tag(slug, pin8)) + r"(?:-r\d+)?/"
+            + re.escape(f"{slug}-{pin8}.hubpack.tar.zst") + "$"
         )
         if not re.match(want, url):
-            errors.append(f"{slug}: pack_url {url!r} is not the release asset of pin {c.pin8}")
+            errors.append(f"{slug}: pack_url {url!r} is not the release asset of pin {pin8}")
         if e.get("sig_url") != url + ".sig":
             errors.append(f"{slug}: sig_url is not pack_url + '.sig'")
         if not re.fullmatch(r"[0-9a-f]{64}", str(e.get("pack_sha256", ""))):
@@ -624,7 +679,7 @@ def check_catalogue(
         if before_list is None or not all(isinstance(x, dict) for x in before_list):
             return [*errors, "the previous (live) catalogue is not a catalogue; cannot tell which corpora it lists"]
         before = {x.get("slug") for x in before_list}
-        for slug in sorted((before & set(live)) - listed):
+        for slug in sorted((before & (set(live) | records)) - listed):
             errors.append(f"{slug}: in the live catalogue and still live, but missing from the new one")
     return errors
 
@@ -750,9 +805,18 @@ def _cell(v) -> str:
     return s.replace("\\", "\\\\").replace("|", "\\|")
 
 
+# Results that count as "this corpus is fine": a published pack (hub-packs.yml), or a
+# whole-hub end-to-end pass (whole_hub_e2e.sh, spec §12.4; its rows carry kind "e2e").
+OK_RESULTS = ("published", "e2e passed")
+
+
+def _is_e2e(r: dict) -> bool:
+    return r.get("kind") == "e2e"
+
+
 def _row_table(rows: list[dict]) -> list[str]:
     out = ["| slug | pin8 | bytes | defs | result | error |", "|---|---|---:|---:|---|---|"]
-    for r in sorted(rows, key=lambda r: (r.get("result") == "published", r.get("slug", ""))):
+    for r in sorted(rows, key=lambda r: (r.get("result") in OK_RESULTS, r.get("slug", ""))):
         result = r.get("result", "")
         if r.get("tag"):
             result += f" `{r['tag']}`"
@@ -760,15 +824,19 @@ def _row_table(rows: list[dict]) -> list[str]:
             result += f" at `{r['stage']}`"
         out.append(
             f"| `{_cell(r.get('slug'))}` | `{_cell(r.get('pin8'))}` | {_cell(r.get('bytes'))} "
-            f"| {_cell(r.get('defs'))} | {_cell(result)} | {_cell(r.get('error'))} |"
+            f"| {_cell(r.get('defs'))} | {_cell(result)} | {_cell(r.get('error') or r.get('detail'))} |"
         )
     return out
 
 
 def render_report(history: list[dict], run_urls: Optional[dict] = None) -> str:
     """REPORT.md from every row so far: the corpora whose latest attempt did not
-    publish first, then each run's rows, newest run first."""
+    publish first, then each run's rows, newest run first. Whole-hub end-to-end
+    rows (kind "e2e") are kept apart: a passing e2e is not a publish, and an e2e
+    failure must not hide behind an older publish (or the reverse)."""
     run_urls = run_urls or {}
+    e2e = [r for r in history if _is_e2e(r)]
+    history = [r for r in history if not _is_e2e(r)]
     latest: dict[str, dict] = {}
     runs: dict[str, list[dict]] = {}
     order: list[str] = []
@@ -809,7 +877,40 @@ def render_report(history: list[dict], run_urls: Optional[dict] = None) -> str:
         out += [f"{title}, {date}: {n_ok} of {len(rows)} published", ""]
         out += _row_table(rows)
         out.append("")
+    if e2e:
+        out += _render_e2e(e2e, run_urls)
     return "\n".join(out)
+
+
+def _render_e2e(rows: list[dict], run_urls: dict) -> list[str]:
+    """The newest whole-hub end-to-end run in full, older ones as one line each."""
+    runs: dict[str, list[dict]] = {}
+    for r in rows:
+        runs.setdefault(r["run"], []).append(r)
+    order = list(runs)
+    newest = runs[order[-1]]
+    out = [
+        "## Whole-hub end-to-end (spec §12.4)",
+        "",
+        "Written by `tools/hub-packs/whole_hub_e2e.sh` (`.github/workflows/hub-e2e.yml`): for every",
+        "catalogued corpus, `xerj hub pull` + one `--def` + one question from an empty HOME. The",
+        "release gate is 100% of catalogued corpora.",
+        "",
+    ]
+    for run in reversed(order[-REPORT_RUNS_SHOWN:]):
+        rs = runs[run]
+        n_ok = sum(1 for r in rs if r.get("result") in OK_RESULTS)
+        url = run_urls.get(run) or rs[0].get("url", "")
+        title = f"[{run}]({url})" if url else run
+        line = f"{title}, {rs[0].get('date', '')}: {n_ok} of {len(rs)} corpora passed"
+        if rs is newest:
+            out += [f"### Run {line}", ""] + _row_table(rs) + [""]
+            if len(order) > 1:
+                out += ["### Earlier e2e runs", ""]
+        else:
+            out.append(f"- {line}")
+    out.append("")
+    return out
 
 
 def read_rows(path: pathlib.Path) -> list[dict]:
@@ -856,7 +957,17 @@ def cmd_fetch_list(a: argparse.Namespace) -> int:
     tags = pathlib.Path(a.published_tags).read_text().split()
     rows = fetch_list(corpora, tags)
     print(f"fetch-list: {len(rows)} of {len(corpora)} live corpora have a published pack", file=sys.stderr)
-    for slug, pin8, tag in rows:
+    published_at = None
+    if a.published_at:
+        published_at = {}
+        for line in pathlib.Path(a.published_at).read_text().splitlines():
+            tag, _, when = line.partition("\t")
+            if tag.strip():
+                published_at[tag.strip()] = when.strip()
+    records = load_record_slugs(pathlib.Path(a.backlog))
+    rec_rows = record_fetch_list(records, tags, published_at)
+    print(f"fetch-list: {len(rec_rows)} record-pack release(s) for {len(records)} live record corpora", file=sys.stderr)
+    for slug, pin8, tag in rows + rec_rows:
         print(f"{slug}\t{pin8}\t{tag}")
     return 0
 
@@ -865,7 +976,8 @@ def cmd_check_catalogue(a: argparse.Namespace) -> int:
     corpora, _ = load_live(pathlib.Path(a.registry), pathlib.Path(a.backlog))
     raw = pathlib.Path(a.catalogue).read_bytes()
     previous = pathlib.Path(a.previous).read_bytes() if a.previous else None
-    errors = check_catalogue(raw, corpora, a.repo, previous)
+    records = load_record_slugs(pathlib.Path(a.backlog))
+    errors = check_catalogue(raw, corpora, a.repo, previous, records)
     if a.allow_drops:
         errors = [e for e in errors if "missing from the new one" not in e]
     for e in errors:
@@ -951,9 +1063,10 @@ def cmd_report(a: argparse.Namespace) -> int:
         history_path.parent.mkdir(parents=True, exist_ok=True)
         history_path.write_text("".join(json.dumps(r, separators=(",", ":")) + "\n" for r in history))
         pathlib.Path(a.report).write_text(render_report(history))
-    bad = [r for r in rows if r.get("result") != "published"]
+    bad = [r for r in rows if r.get("result") not in OK_RESULTS]
+    verb = "passed end-to-end" if rows and all(_is_e2e(r) for r in rows) else "published"
     print(f"### backfill report: run {a.run_id}\n")
-    print(f"{len(rows) - len(bad)} of {len(rows)} corpora published in this run.\n")
+    print(f"{len(rows) - len(bad)} of {len(rows)} corpora {verb} in this run.\n")
     print("\n".join(_row_table(rows)))
     return 0
 
@@ -975,6 +1088,10 @@ def main(argv: Optional[list[str]] = None) -> int:
     f.add_argument("--registry", required=True)
     f.add_argument("--backlog", required=True)
     f.add_argument("--published-tags", required=True)
+    f.add_argument(
+        "--published-at",
+        help="tag<TAB>published-at lines; list only each record pack's newest pin",
+    )
     f.set_defaults(fn=cmd_fetch_list)
 
     k = sub.add_parser("check-catalogue", help="refuse a catalogue that disagrees with the registry")

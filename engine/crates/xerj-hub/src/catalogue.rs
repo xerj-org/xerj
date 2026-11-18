@@ -31,7 +31,8 @@ use anyhow::{anyhow, bail, Context, Result};
 use serde::Deserialize;
 use xerj_autoindex::harvest::sign::{sign_bytes, verify_bytes};
 use xerj_common::hub::{
-    hub_pubkey, Catalogue, CatalogueEntry, LicenceClass, CATALOGUE_FORMAT_VERSION,
+    catalogue_format_supported, hub_pubkey, Catalogue, CatalogueEntry, LicenceClass,
+    CATALOGUE_FORMAT_VERSION,
 };
 
 /// Path of the catalogue under the hub's API root.
@@ -109,9 +110,69 @@ struct Manifest {
 #[derive(Deserialize)]
 struct ManifestRepo {
     #[serde(default)]
+    repo: String,
+    #[serde(default)]
+    url: String,
+    #[serde(default)]
     sha: String,
     #[serde(default)]
     review: Option<ManifestReview>,
+}
+
+/// `owner/name` from a git remote, when the URL (or the `repo` field itself)
+/// records one. A bare repo name (`fabric`) is not an owner, so it is not
+/// returned: the slug already says that, and inventing an owner is worse than
+/// leaving the field empty.
+pub fn upstream_id(url: &str, repo: &str) -> Option<String> {
+    let repo = repo.trim().trim_end_matches(".git");
+    if let Some(id) = owner_name(repo) {
+        return Some(id);
+    }
+    let url = url.trim().trim_end_matches('/').trim_end_matches(".git");
+    let path = url
+        .strip_prefix("https://github.com/")
+        .or_else(|| url.strip_prefix("http://github.com/"))
+        .or_else(|| url.strip_prefix("git://github.com/"))
+        .or_else(|| url.strip_prefix("ssh://git@github.com/"))
+        .or_else(|| url.split_once("git@github.com:").map(|(_, p)| p));
+    path.and_then(owner_name)
+}
+
+/// The first two non-empty path segments, when both look like a GitHub
+/// owner and a repo name (no spaces, no scheme).
+fn owner_name(path: &str) -> Option<String> {
+    let parts: Vec<&str> = path
+        .split('/')
+        .map(str::trim)
+        .filter(|p| !p.is_empty())
+        .take(2)
+        .collect();
+    if parts.len() != 2 {
+        return None;
+    }
+    if parts.iter().any(|p| p.contains(' ') || p.contains(':')) {
+        return None;
+    }
+    // A path that is only `owner/name` — `owner_name` is also called on a
+    // longer URL path after the host is stripped, and extra segments (a
+    // `/tree/main` suffix) are dropped by `take(2)`.
+    Some(format!("{}/{}", parts[0], parts[1]))
+}
+
+/// `owner/name` values from `(url, repo)` pairs, first-seen order, at most four.
+pub fn upstream_list<'a>(pairs: impl Iterator<Item = (&'a str, &'a str)>) -> String {
+    let mut out = Vec::new();
+    for (url, repo) in pairs {
+        if let Some(id) = upstream_id(url, repo) {
+            if !out.contains(&id) {
+                out.push(id);
+            }
+        }
+        if out.len() == 4 {
+            break;
+        }
+    }
+    out.join(", ")
 }
 
 #[derive(Deserialize)]
@@ -239,12 +300,14 @@ fn build_entry(input: &CorpusBuildInput) -> Result<CatalogueEntry> {
         .map(str::to_ascii_lowercase)
         .collect();
     let term_sketch = crate::sketch::build_for_corpus(input.terms.iter().cloned(), &curated);
+    let upstream = upstream_list(m.repos.iter().map(|r| (r.url.as_str(), r.repo.as_str())));
 
     Ok(CatalogueEntry {
         slug: m.corpus,
         domain: input.domain.clone(),
         topics: m.topics,
         ask_for,
+        upstream,
         pin_sha,
         pin_date,
         refresh_cadence_days: input.refresh_cadence_days,
@@ -393,19 +456,37 @@ pub fn refresh_catalogue(hub_url: &str, cache_dir: &Path) -> Result<Catalogue> {
 }
 
 /// Read and validate the cached catalogue, or `None` if it is missing,
-/// unreadable, unparsable or a format version this client does not speak.
+/// unsigned, signature-invalid, unparsable, or a format version this client
+/// does not speak. The sibling `.sig` is checked on every read: a file that
+/// was verified when it was written is not still verified after it is replaced.
 fn read_cached(cache_file: &Path) -> Option<Catalogue> {
-    let raw = fs::read(cache_file).ok()?;
+    let raw = verified_cache_bytes(cache_file).ok()?;
     parse_catalogue(&raw).ok()
 }
 
-/// Parse catalogue bytes and refuse a format version this client does not equal.
+/// Catalogue bytes whose sibling detached signature verifies against the
+/// configured hub key. Missing key, missing signature, or a bad signature is
+/// an error, not a catalogue.
+fn verified_cache_bytes(cache_file: &Path) -> Result<Vec<u8>> {
+    let raw = fs::read(cache_file).with_context(|| format!("read {}", cache_file.display()))?;
+    let Some(pubkey) = hub_pubkey() else {
+        bail!("no hub public key is configured, so the cached catalogue cannot be verified");
+    };
+    let sig_path = sig_sibling(cache_file);
+    let sig =
+        fs::read_to_string(&sig_path).with_context(|| format!("read {}", sig_path.display()))?;
+    verify_bytes(&raw, sig.trim(), &pubkey).context("cached catalogue signature did not verify")?;
+    Ok(raw)
+}
+
+/// Parse catalogue bytes and refuse a format version this client does not read.
 fn parse_catalogue(bytes: &[u8]) -> Result<Catalogue> {
     let cat: Catalogue = serde_json::from_slice(bytes).context("parse catalogue JSON")?;
-    if cat.format_version != CATALOGUE_FORMAT_VERSION {
+    if !catalogue_format_supported(cat.format_version) {
         bail!(
-            "catalogue format_version {} is not the supported {}",
+            "catalogue format_version {} is not a supported version ({}..={})",
             cat.format_version,
+            xerj_common::hub::CATALOGUE_FORMAT_VERSION_MIN,
             CATALOGUE_FORMAT_VERSION
         );
     }
@@ -439,11 +520,22 @@ fn warn_if_old(cat: &Catalogue) {
     }
 }
 
-/// Fetch, verify and cache the catalogue. The signature guards the replacement:
-/// the fetched bytes are only written to the cache after they verify against
-/// [`hub_pubkey`]. With no key (`XERJ_HUB_PUBKEY=none`, or a build without one)
-/// nothing is fetched at all: there is no unverified path into the cache.
+/// Fetch, verify and cache the catalogue. The signature guards the replacement
+/// and every later read: fetched bytes are written only after they verify
+/// against [`hub_pubkey`], and a 304 re-checks the sibling signature before
+/// the on-disk file is treated as that response. With no key
+/// (`XERJ_HUB_PUBKEY=none`, or a build without one) nothing is fetched at all:
+/// there is no unverified path into the cache.
 fn fetch_and_store(hub_url: &str, cache_file: &Path, etag_file: &Path) -> Result<Catalogue> {
+    fetch_and_store_inner(hub_url, cache_file, etag_file, true)
+}
+
+fn fetch_and_store_inner(
+    hub_url: &str,
+    cache_file: &Path,
+    etag_file: &Path,
+    conditional: bool,
+) -> Result<Catalogue> {
     let Some(pubkey) = hub_pubkey() else {
         bail!(
             "no hub public key is configured, so the hub catalogue cannot be verified; \
@@ -466,19 +558,34 @@ fn fetch_and_store(hub_url: &str, cache_file: &Path, etag_file: &Path) -> Result
         .ok()
         .and_then(|s| non_empty(Some(&s)));
     let mut req = client.get(&cat_url);
-    if let Some(etag) = &prev_etag {
-        req = req.header(reqwest::header::IF_NONE_MATCH, etag.as_str());
+    if conditional {
+        if let Some(etag) = &prev_etag {
+            req = req.header(reqwest::header::IF_NONE_MATCH, etag.as_str());
+        }
     }
     let resp = req.send().with_context(|| format!("GET {cat_url}"))?;
 
     if resp.status() == reqwest::StatusCode::NOT_MODIFIED {
-        // The cached bytes are still current; re-touch them so the next 24 h are
-        // served from cache without re-asking.
-        let raw =
-            fs::read(cache_file).context("hub returned 304 Not Modified but the cache is gone")?;
-        let cat = parse_catalogue(&raw)?;
-        write_atomic(cache_file, &raw)?;
-        return Ok(cat);
+        // The hub says its copy is unchanged. That is not a signature over the
+        // file on disk: a replaced catalogue.json must not be re-touched and
+        // served. Verify the sibling signature first. If it does not verify,
+        // drop the cache and the ETag and fetch the current catalogue without
+        // If-None-Match, so a 304 cannot pin the client to the replacement.
+        match verified_cache_bytes(cache_file) {
+            Ok(raw) => {
+                let cat = parse_catalogue(&raw)?;
+                write_atomic(cache_file, &raw)?;
+                return Ok(cat);
+            }
+            Err(err) => {
+                let _ = fs::remove_file(cache_file);
+                let _ = fs::remove_file(sig_sibling(cache_file));
+                let _ = fs::remove_file(etag_file);
+                return fetch_and_store_inner(hub_url, cache_file, etag_file, false).with_context(
+                    || format!("cached catalogue did not verify ({err:#}); refetched"),
+                );
+            }
+        }
     }
     if !resp.status().is_success() {
         bail!("GET {cat_url} returned HTTP {}", resp.status());
@@ -525,6 +632,24 @@ fn fetch_and_store(hub_url: &str, cache_file: &Path, etag_file: &Path) -> Result
 
     // Only trusted bytes get parsed and cached.
     let cat = parse_catalogue(&body)?;
+
+    // Anti-rollback. A signature proves the hub made these bytes, not that they
+    // are the hub's CURRENT catalogue: every catalogue the hub ever signed
+    // verifies for ever. Whoever answers for the hub URL (a compromised mirror or
+    // CDN, a captive proxy, an `XERJ_HUB_URL` someone else chose) could otherwise
+    // replay an older signed catalogue, and `hub sync` would then "update" every
+    // cached pack back to an older pin and delete the newer one. A catalogue
+    // generated before the copy already cached is refused and the cache kept.
+    if let Some(prev) = read_cached(cache_file) {
+        if is_rollback(&cat.generated_at, &prev.generated_at) {
+            bail!(
+                "refusing a catalogue generated {} — older than the cached one ({}); a signed \
+                 but older catalogue is a rollback, so the cache was kept",
+                cat.generated_at,
+                prev.generated_at
+            );
+        }
+    }
     if let Some(parent) = cache_file.parent() {
         fs::create_dir_all(parent)
             .with_context(|| format!("create cache dir {}", parent.display()))?;
@@ -542,6 +667,20 @@ fn fetch_and_store(hub_url: &str, cache_file: &Path, etag_file: &Path) -> Result
         }
     }
     Ok(cat)
+}
+
+/// True when `fetched` was generated before `cached` — a rollback. Both are the
+/// signed `generated_at` (RFC 3339). An unparsable cached time cannot anchor a
+/// comparison, so it never blocks; an unparsable fetched time against a
+/// parsable cached one cannot be shown to be newer, so it is refused.
+fn is_rollback(fetched: &str, cached: &str) -> bool {
+    let Ok(cached) = chrono::DateTime::parse_from_rfc3339(cached.trim()) else {
+        return false;
+    };
+    match chrono::DateTime::parse_from_rfc3339(fetched.trim()) {
+        Ok(fetched) => fetched < cached,
+        Err(_) => true,
+    }
 }
 
 /// The response's `Content-Type`, or `no content type`.
@@ -592,14 +731,11 @@ fn write_atomic(path: &Path, bytes: &[u8]) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_support::HubPubkeyEnv;
     use std::io::{Read, Write};
-    use std::sync::Mutex;
     use std::time::SystemTime;
 
     use xerj_autoindex::harvest::sign::generate_keypair;
-
-    /// `XERJ_HUB_PUBKEY` is process-global; serialise the tests that set it.
-    static ENV_LOCK: Mutex<()> = Mutex::new(());
 
     /// A `.key`/`.pub` keypair for the tests (hex seed, hex public key).
     fn keypair() -> (String, String) {
@@ -815,6 +951,76 @@ mod tests {
         assert_eq!(e.pin_sha, "1111111111111111111111111111111111111111");
     }
 
+    #[test]
+    fn upstream_is_the_github_owner_and_repo_not_the_slug() {
+        let tmp = tempfile::tempdir().unwrap();
+        let p = tmp.path().join("fabric.json");
+        let json = serde_json::json!({
+            "corpus": "fabric",
+            "cloned_at": "2026-10-13T00:00:00Z",
+            "repos": [{
+                "repo": "fabric",
+                "url": "https://github.com/danielmiessler/fabric.git",
+                "sha": "177b3a9d284895c907d6eb3a64937d174add4cd5",
+                "review": {"spdx": "MIT", "use": "adapt-with-attribution", "at": "2026-10-13"}
+            }]
+        });
+        fs::write(&p, serde_json::to_vec(&json).unwrap()).unwrap();
+        let input = CorpusBuildInput {
+            manifest_path: p,
+            domain: "AI".into(),
+            refresh_cadence_days: 7,
+            pack_bytes: 1,
+            pack_url: "u".into(),
+            pack_sha256: "e".repeat(64),
+            sig_url: "s".into(),
+            quality_grade: None,
+            terms: vec![],
+            pin_sha: String::new(),
+            ask_for: "prompt patterns".into(),
+        };
+        let (seed, _public) = keypair();
+        let (cat, _sig) = build_catalogue(&[input], "2026-10-14T00:00:00Z", &seed).unwrap();
+        assert_eq!(cat.format_version, CATALOGUE_FORMAT_VERSION);
+        assert_eq!(cat.corpora[0].upstream, "danielmiessler/fabric");
+        // A non-github URL with no owner/name is left empty, not copied from the slug.
+        assert_eq!(upstream_id("https://example.test/fabric", "fabric"), None);
+        assert_eq!(
+            upstream_id("git@github.com:KhronosGroup/WebGL.git", "WebGL").as_deref(),
+            Some("KhronosGroup/WebGL")
+        );
+        assert_eq!(
+            upstream_list(
+                [
+                    ("https://github.com/huggingface/candle.git", "candle"),
+                    ("https://github.com/huggingface/candle", "candle"),
+                    ("https://github.com/other/extra", "extra"),
+                ]
+                .into_iter()
+            ),
+            "huggingface/candle, other/extra"
+        );
+    }
+
+    /// Format 1 has no `upstream` key. It still loads. A future version does not.
+    #[test]
+    fn format_1_without_upstream_loads_and_a_newer_version_is_refused() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (bytes, _sig, _public) = fixture_bytes(tmp.path());
+        let mut v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        v["format_version"] = serde_json::json!(1);
+        for entry in v["corpora"].as_array_mut().unwrap() {
+            entry.as_object_mut().unwrap().remove("upstream");
+        }
+        let parsed = parse_catalogue(&serde_json::to_vec(&v).unwrap()).unwrap();
+        assert_eq!(parsed.format_version, 1);
+        assert!(parsed.corpora.iter().all(|e| e.upstream.is_empty()));
+
+        v["format_version"] = serde_json::json!(CATALOGUE_FORMAT_VERSION + 1);
+        let err = parse_catalogue(&serde_json::to_vec(&v).unwrap()).unwrap_err();
+        assert!(err.to_string().contains("format_version"), "{err:#}");
+    }
+
     /// Build a catalogue, return `(bytes, sig, pubkey)` ready to seed a cache.
     fn fixture_bytes(dir: &Path) -> (Vec<u8>, String, String) {
         let inputs = two_inputs(dir);
@@ -842,27 +1048,68 @@ mod tests {
 
     #[test]
     fn load_offline_uses_fresh_cache_without_network() {
-        let _guard = ENV_LOCK.lock().unwrap();
+        let env = HubPubkeyEnv::lock();
         let fx = tempfile::tempdir().unwrap();
         let (bytes, sig, public) = fixture_bytes(fx.path());
 
         let cache = tempfile::tempdir().unwrap();
         seed_cache(cache.path(), &bytes, &sig);
 
-        std::env::set_var("XERJ_HUB_PUBKEY", &public);
+        env.set(&public);
         // the hub URL is unreachable on purpose — offline must never dial it
         let cat = load_catalogue("http://127.0.0.1:1", cache.path(), true).expect("offline load");
-        std::env::remove_var("XERJ_HUB_PUBKEY");
+        env.remove();
 
         assert_eq!(cat.corpora.len(), 2);
         assert_eq!(cat.corpora[0].slug, "alpha");
+    }
+
+    /// A cache file is not a signature. Replacing catalogue.json and stamping a
+    /// future mtime must not make `load_catalogue` serve the replacement: the
+    /// sibling `.sig` is what says the hub signed these bytes, and a future
+    /// mtime must not skip that check.
+    #[test]
+    fn a_tampered_cache_is_not_served_even_with_a_future_mtime() {
+        let env = HubPubkeyEnv::lock();
+        let fx = tempfile::tempdir().unwrap();
+        let (bytes, sig, public) = fixture_bytes(fx.path());
+        let cache = tempfile::tempdir().unwrap();
+        seed_cache(cache.path(), &bytes, &sig);
+
+        let mut tampered: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        tampered["corpora"][0]["licence_class"] = serde_json::json!("adapt-with-attribution");
+        tampered["corpora"][0]["slug"] = serde_json::json!("not-the-signed-slug");
+        let tampered_bytes = serde_json::to_vec(&tampered).unwrap();
+        assert_ne!(tampered_bytes, bytes);
+        fs::write(cache.path().join(CACHE_FILE), &tampered_bytes).unwrap();
+        // Far-future mtime: cache_is_fresh treats SystemTimeError as fresh.
+        let future = SystemTime::now()
+            .checked_add(Duration::from_secs(86400 * 365 * 10))
+            .unwrap();
+        std::fs::OpenOptions::new()
+            .write(true)
+            .open(cache.path().join(CACHE_FILE))
+            .unwrap()
+            .set_modified(future)
+            .unwrap();
+
+        env.set(&public);
+        let loaded = load_catalogue("http://127.0.0.1:1", cache.path(), true);
+        env.remove();
+        let err = loaded.expect_err("tampered cache was served");
+        let msg = format!("{err:#}");
+        assert!(
+            msg.contains("signature") || msg.contains("offline"),
+            "expected a signature or missing-cache refusal, got {msg}"
+        );
     }
 
     /// A one-shot localhost hub that answers exactly two GETs (catalogue, then
     /// signature) and then exits, so the test can join it. Each response says
     /// `Connection: close`, forcing a fresh TCP connection per GET.
     fn spawn_hub(cat_body: Vec<u8>, sig_body: String) -> (String, std::thread::JoinHandle<()>) {
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener =
+            xerj_common::loopback_test::expect_loopback(std::net::TcpListener::bind("127.0.0.1:0"));
         let addr = listener.local_addr().unwrap();
         let url = format!("http://{addr}");
         let handle = std::thread::spawn(move || {
@@ -894,7 +1141,7 @@ mod tests {
 
     #[test]
     fn load_rejects_tampered_network_replacement_and_keeps_cache() {
-        let _guard = ENV_LOCK.lock().unwrap();
+        let env = HubPubkeyEnv::lock();
         let fx = tempfile::tempdir().unwrap();
         let (good_bytes, good_sig, public) = fixture_bytes(fx.path());
 
@@ -908,9 +1155,9 @@ mod tests {
         tampered[good_bytes.len() / 2] ^= 0x01;
         let (url, handle) = spawn_hub(tampered, good_sig.clone());
 
-        std::env::set_var("XERJ_HUB_PUBKEY", &public);
+        env.set(&public);
         let cat = load_catalogue(&url, cache.path(), false).expect("falls back to cached copy");
-        std::env::remove_var("XERJ_HUB_PUBKEY");
+        env.remove();
         handle.join().unwrap();
 
         // the signature guarded the replacement: the GOOD cached copy is served,
@@ -924,7 +1171,7 @@ mod tests {
 
     #[test]
     fn load_accepts_verified_network_replacement_into_empty_cache() {
-        let _guard = ENV_LOCK.lock().unwrap();
+        let env = HubPubkeyEnv::lock();
         let fx = tempfile::tempdir().unwrap();
         let (good_bytes, good_sig, public) = fixture_bytes(fx.path());
 
@@ -932,9 +1179,9 @@ mod tests {
         let cache = tempfile::tempdir().unwrap();
         let (url, handle) = spawn_hub(good_bytes.clone(), good_sig.clone());
 
-        std::env::set_var("XERJ_HUB_PUBKEY", &public);
+        env.set(&public);
         let cat = load_catalogue(&url, cache.path(), false).expect("verified fetch");
-        std::env::remove_var("XERJ_HUB_PUBKEY");
+        env.remove();
         handle.join().unwrap();
 
         assert_eq!(cat.corpora.len(), 2);
@@ -945,33 +1192,33 @@ mod tests {
 
     #[test]
     fn refresh_ignores_a_young_cache_and_fetches_the_newer_catalogue() {
-        let _guard = ENV_LOCK.lock().unwrap();
+        let env = HubPubkeyEnv::lock();
         let fx = tempfile::tempdir().unwrap();
         let inputs = two_inputs(fx.path());
 
-        // A YOUNG cache holding yesterday's catalogue: `load_catalogue` trusts it.
-        let (old_seed, _old_public) = keypair();
-        let (old_cat, old_sig) =
-            build_catalogue(&inputs, "2026-10-13T00:00:00Z", &old_seed).unwrap();
+        // A YOUNG cache holding yesterday's catalogue, signed by the key the
+        // client trusts: `load_catalogue` serves it without asking the hub.
+        // A cache signed by some other key is not this case; that file does
+        // not verify and must not be served.
+        let (seed, public) = keypair();
+        let (old_cat, old_sig) = build_catalogue(&inputs, "2026-10-13T00:00:00Z", &seed).unwrap();
         let old_bytes = canonical_json(&old_cat).unwrap();
         let cache = tempfile::tempdir().unwrap();
         seed_cache(cache.path(), &old_bytes, &old_sig);
 
-        // The hub now serves a newer catalogue, signed by the key the client trusts.
-        let (new_seed, new_public) = keypair();
-        let (new_cat, new_sig) =
-            build_catalogue(&inputs, "2026-10-14T00:00:00Z", &new_seed).unwrap();
+        // The hub now serves a newer catalogue, signed by that same key.
+        let (new_cat, new_sig) = build_catalogue(&inputs, "2026-10-14T00:00:00Z", &seed).unwrap();
         let new_bytes = canonical_json(&new_cat).unwrap();
         let (url, handle) = spawn_hub(new_bytes.clone(), new_sig);
 
-        std::env::set_var("XERJ_HUB_PUBKEY", &new_public);
+        env.set(&public);
         let trusted = load_catalogue(&url, cache.path(), false).expect("young cache is served");
         assert_eq!(
             trusted.generated_at, "2026-10-13T00:00:00Z",
             "load_catalogue trusts a young cache without asking the hub"
         );
         let refreshed = refresh_catalogue(&url, cache.path()).expect("forced refresh");
-        std::env::remove_var("XERJ_HUB_PUBKEY");
+        env.remove();
         handle.join().unwrap();
 
         assert_eq!(
@@ -984,7 +1231,7 @@ mod tests {
 
     #[test]
     fn refresh_reports_a_tampered_catalogue_instead_of_serving_the_cache() {
-        let _guard = ENV_LOCK.lock().unwrap();
+        let env = HubPubkeyEnv::lock();
         let fx = tempfile::tempdir().unwrap();
         let (good_bytes, good_sig, public) = fixture_bytes(fx.path());
         let cache = tempfile::tempdir().unwrap();
@@ -994,10 +1241,10 @@ mod tests {
         tampered[good_bytes.len() / 2] ^= 0x01;
         let (url, handle) = spawn_hub(tampered, good_sig.clone());
 
-        std::env::set_var("XERJ_HUB_PUBKEY", &public);
+        env.set(&public);
         let err = refresh_catalogue(&url, cache.path())
             .expect_err("a refresh that cannot be verified is an error, not a stale answer");
-        std::env::remove_var("XERJ_HUB_PUBKEY");
+        env.remove();
         handle.join().unwrap();
 
         assert!(
@@ -1011,7 +1258,8 @@ mod tests {
     /// A localhost "static site" that answers every GET with the same HTML page
     /// and a 200, for `gets` requests.
     fn spawn_html_site(gets: usize) -> (String, std::thread::JoinHandle<()>) {
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener =
+            xerj_common::loopback_test::expect_loopback(std::net::TcpListener::bind("127.0.0.1:0"));
         let url = format!("http://{}", listener.local_addr().unwrap());
         let handle = std::thread::spawn(move || {
             for _ in 0..gets {
@@ -1035,16 +1283,16 @@ mod tests {
 
     #[test]
     fn an_html_page_served_as_the_catalogue_reads_as_unavailable() {
-        let _guard = ENV_LOCK.lock().unwrap();
+        let env = HubPubkeyEnv::lock();
         let fx = tempfile::tempdir().unwrap();
         let (_, _, public) = fixture_bytes(fx.path());
         let cache = tempfile::tempdir().unwrap();
         // One GET: the catalogue is refused before the signature is even asked for.
         let (url, handle) = spawn_html_site(1);
 
-        std::env::set_var("XERJ_HUB_PUBKEY", &public);
+        env.set(&public);
         let err = load_catalogue(&url, cache.path(), false).expect_err("HTML is not a catalogue");
-        std::env::remove_var("XERJ_HUB_PUBKEY");
+        env.remove();
         handle.join().unwrap();
 
         let msg = format!("{err:#}");
@@ -1058,17 +1306,18 @@ mod tests {
 
     #[test]
     fn load_with_no_key_fetches_nothing_and_caches_nothing() {
-        let _guard = ENV_LOCK.lock().unwrap();
+        let env = HubPubkeyEnv::lock();
         // The loader used to fail OPEN here (cache the fetched copy unverified,
         // with a warning). With no key it now refuses before dialing the hub.
-        std::env::set_var("XERJ_HUB_PUBKEY", xerj_common::hub::HUB_PUBKEY_NONE);
-        let hub = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        env.set(xerj_common::hub::HUB_PUBKEY_NONE);
+        let hub =
+            xerj_common::loopback_test::expect_loopback(std::net::TcpListener::bind("127.0.0.1:0"));
         hub.set_nonblocking(true).unwrap();
         let url = format!("http://{}", hub.local_addr().unwrap());
         let cache = tempfile::tempdir().unwrap();
 
         let err = load_catalogue(&url, cache.path(), false).unwrap_err();
-        std::env::remove_var("XERJ_HUB_PUBKEY");
+        env.remove();
 
         assert!(
             format!("{err:#}").contains("no hub public key"),
@@ -1083,11 +1332,11 @@ mod tests {
 
     #[test]
     fn the_compiled_in_key_verifies_and_refuses_a_test_signed_catalogue() {
-        let _guard = ENV_LOCK.lock().unwrap();
+        let env = HubPubkeyEnv::lock();
         // No override: the shipping key (HUB_PUBKEY_HEX) is what verifies. A
         // catalogue signed by any other key — here a throwaway test key — must be
         // refused and must not reach the cache.
-        std::env::remove_var("XERJ_HUB_PUBKEY");
+        env.remove();
         let fx = tempfile::tempdir().unwrap();
         let (good_bytes, good_sig, _public) = fixture_bytes(fx.path());
         let cache = tempfile::tempdir().unwrap();
@@ -1101,5 +1350,53 @@ mod tests {
         // as a 32-byte key in the very function the client verifies with.
         assert!(msg.contains("signature does not verify"), "{msg}");
         assert!(!cache.path().join(CACHE_FILE).exists(), "nothing cached");
+    }
+
+    #[test]
+    fn an_older_signed_catalogue_is_refused_as_a_rollback() {
+        let env = HubPubkeyEnv::lock();
+        let fx = tempfile::tempdir().unwrap();
+        let inputs = two_inputs(fx.path());
+        let (seed, public) = keypair();
+
+        // The client already holds today's catalogue (aged, so it would refresh).
+        let (new_cat, new_sig) = build_catalogue(&inputs, "2026-10-14T00:00:00Z", &seed).unwrap();
+        let new_bytes = canonical_json(&new_cat).unwrap();
+        let cache = tempfile::tempdir().unwrap();
+        seed_cache(cache.path(), &new_bytes, &new_sig);
+        age_file(&cache.path().join(CACHE_FILE), 48 * 3600);
+
+        // The hub URL answers with an OLDER catalogue, genuinely signed by the
+        // trusted key — a replay of what the hub published two weeks earlier.
+        let (old_cat, old_sig) = build_catalogue(&inputs, "2026-10-01T00:00:00Z", &seed).unwrap();
+        let old_bytes = canonical_json(&old_cat).unwrap();
+
+        env.set(&public);
+        let (url, handle) = spawn_hub(old_bytes.clone(), old_sig.clone());
+        let err = refresh_catalogue(&url, cache.path()).expect_err("a rollback is refused");
+        handle.join().unwrap();
+        let (url, handle) = spawn_hub(old_bytes, old_sig);
+        let served = load_catalogue(&url, cache.path(), false).expect("cached copy kept");
+        env.remove();
+        handle.join().unwrap();
+
+        assert!(format!("{err:#}").contains("rollback"), "{err:#}");
+        assert_eq!(served.generated_at, "2026-10-14T00:00:00Z");
+        let on_disk = fs::read(cache.path().join(CACHE_FILE)).unwrap();
+        assert_eq!(on_disk, new_bytes, "the newer cache is untouched");
+    }
+
+    #[test]
+    fn rollback_comparison_rules() {
+        assert!(is_rollback("2026-10-01T00:00:00Z", "2026-10-14T00:00:00Z"));
+        assert!(!is_rollback("2026-10-14T00:00:00Z", "2026-10-14T00:00:00Z"));
+        assert!(!is_rollback("2026-10-15T00:00:00Z", "2026-10-14T00:00:00Z"));
+        // Same instant, different offset: not older.
+        assert!(!is_rollback(
+            "2026-10-14T02:00:00+02:00",
+            "2026-10-14T00:00:00Z"
+        ));
+        assert!(is_rollback("not a time", "2026-10-14T00:00:00Z"));
+        assert!(!is_rollback("2026-10-01T00:00:00Z", "not a time"));
     }
 }

@@ -2,7 +2,7 @@
 
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::Arc;
 
 use regex::Regex;
@@ -21,9 +21,9 @@ use xerj_fts::search::{
     TermQuery as FtsTerm,
 };
 use xerj_query::ast::{
-    BoostMode, FieldValueFactor, Fuzziness, HighlightRequest, MinShouldMatch, Modifier, QueryNode,
-    RandomScore, RescoreQuery, SavingsMode, ScoreFunction, ScoreMode, SearchRequest, SourceFilter,
-    TrackTotalHits, WeightedQuery,
+    BoostMode, FieldValueFactor, Fuzziness, HighlightFieldOptions, HighlightRequest,
+    MinShouldMatch, Modifier, QueryNode, RandomScore, RescoreQuery, SavingsMode, ScoreFunction,
+    ScoreMode, SearchRequest, SourceFilter, TrackTotalHits, WeightedQuery,
 };
 use xerj_query::executor::{
     strip_internal_passage_metadata, Hit, PassageMatch, PayloadSavings, SavingsMethod,
@@ -36,7 +36,8 @@ use xerj_vector::distance::DistanceMetric;
 use xerj_vector::hnsw::{HnswIndex, HnswParams};
 use xerj_vector::{Sq8CodeStore, Sq8Params};
 
-use crate::aggs::run_aggs_with_all;
+use crate::aggs::run_aggs_with_schema;
+use crate::read_budget::{ReadPermit, ReadTransientBudget};
 use crate::segment_cache_budget::{
     CacheResident, SegmentCacheCategory, SegmentHydrationBudget, CATEGORY_COUNT,
 };
@@ -60,6 +61,88 @@ fn index_segment_hydration_budget(_config: &Config) -> Arc<SegmentHydrationBudge
     }
     #[cfg(not(test))]
     panic!("Index construction requires the process ResourceGovernor to be initialised");
+}
+
+/// Reserve `bytes` of transient read memory unless the hydration cache has
+/// room to keep the value (#2427/#1122). A value the cache admits is
+/// accounted there; only one it will refuse is a per-query allocation.
+fn transient_read_permit(
+    hydration: &SegmentHydrationBudget,
+    read_budget: &Arc<ReadTransientBudget>,
+    bytes: u64,
+) -> Option<ReadPermit> {
+    if hydration.has_headroom(bytes) {
+        None
+    } else {
+        Some(read_budget.acquire(bytes))
+    }
+}
+
+/// How long a rayon worker polls a segment's stored-decode flight lock
+/// before decoding on its own (#2427).
+const STORED_FLIGHT_WORKER_WAIT: std::time::Duration = std::time::Duration::from_millis(200);
+
+/// #2427: take a segment's stored-decode single-flight lock (`None`: decode
+/// without it).
+///
+/// The lock is held across a whole stored-section decode, and that decode
+/// fans its columns out on the global rayon pool. A rayon worker that
+/// blocked on the lock could therefore deadlock forever: while it waits in a
+/// `join` it steals a query's hydration job that wants the lock, so the
+/// decode job the holder is waiting for sits beneath a frame that never
+/// returns. A post-ingest node froze in exactly this cycle (a cold-stored
+/// warm held the lock; a query's `hydrate_deferred_cold_sources` job on
+/// `xerj-search-4` waited on it), and every later search touching the
+/// segment hung to the 30 s request deadline. Threads outside the pool keep
+/// the blocking single-flight; a worker polls for a bounded time, then pays
+/// a duplicate decode rather than block.
+fn lock_stored_flight(flight: &std::sync::Mutex<()>) -> Option<std::sync::MutexGuard<'_, ()>> {
+    if rayon::current_thread_index().is_none() {
+        return flight.lock().ok();
+    }
+    let deadline = std::time::Instant::now() + STORED_FLIGHT_WORKER_WAIT;
+    loop {
+        match flight.try_lock() {
+            Ok(guard) => return Some(guard),
+            Err(std::sync::TryLockError::Poisoned(_)) => return None,
+            Err(std::sync::TryLockError::WouldBlock) => {}
+        }
+        if std::time::Instant::now() >= deadline {
+            return None;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(2));
+    }
+}
+
+/// Retained-size bound of a `StoredSlices` built from `raw` (the framing-only
+/// estimator; a zstd frame without a content size falls back to 8x raw).
+fn stored_slices_bound(raw: &[u8], expect_docs: u64) -> u64 {
+    xerj_storage::stored_codec::stored_slices_retained_upper_bound(raw, expect_docs)
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| {
+            (raw.len() as u64)
+                .saturating_mul(8)
+                .saturating_add(expect_docs.saturating_mul(8))
+        })
+}
+
+/// #2427: whether a publish-time stored-slices warm whose retained size is
+/// at most `bound` may decode at all: the hydration cache must have room to
+/// keep it, and when the parent RSS watermark is armed (`rss_room` is the
+/// distance to it) keeping it must not carry the node over the watermark.
+fn publish_stored_warm_fits(
+    budget: &SegmentHydrationBudget,
+    bound: u64,
+    rss_room: Option<u64>,
+) -> bool {
+    budget.has_headroom(bound) && rss_room.is_none_or(|room| bound < room)
+}
+
+#[cfg(test)]
+thread_local! {
+    /// Publish-time stored-section decodes on this thread (#2427 tests).
+    static PUBLISH_STORED_WARM_DECODES: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
 }
 
 /// Wait for a publication test barrier, on the runtime and bounded.
@@ -102,6 +185,310 @@ async fn await_publication_barrier<T>(rx: tokio::sync::oneshot::Receiver<T>, wha
         Ok(Ok(v)) => v,
         Ok(Err(e)) => panic!("publication barrier `{what}` sender dropped ({e:?})"),
         Err(e) => panic!("publication barrier `{what}` never fired ({e:?})"),
+    }
+}
+
+/// Dead HNSW nodes below this count are never worth a rebuild (#2796).
+const HNSW_COMPACT_MIN_DEAD: usize = 1024;
+
+/// Whether a graph with `live` and `dead` nodes should be compacted:
+/// once dead nodes are at least as many as live ones (#2796).
+fn hnsw_compaction_due(live: usize, dead: usize) -> bool {
+    dead >= HNSW_COMPACT_MIN_DEAD && dead >= live
+}
+
+/// Heap held by the bucket arrays of the HNSW id maps (#2427). hashbrown
+/// keeps one `(K, V)` slot and one control byte per bucket, and its bucket
+/// count is the power of two above `capacity * 8 / 7`. The doc-id strings
+/// are counted separately by [`hnsw_id_key_bytes`].
+fn hnsw_id_table_bytes(map: &HashMap<HnswDocId, u64>, rev: &HashMap<u64, HnswDocId>) -> usize {
+    fn table(cap: usize, slot: usize) -> usize {
+        if cap == 0 {
+            return 0;
+        }
+        let buckets = (cap.saturating_mul(8) / 7).next_power_of_two();
+        buckets * (slot + 1)
+    }
+    table(map.capacity(), std::mem::size_of::<(HnswDocId, u64)>())
+        + table(rev.capacity(), std::mem::size_of::<(u64, HnswDocId)>())
+}
+
+/// A doc id held by the HNSW id maps. The forward map's key and the
+/// reverse map's value share one allocation (#2427: two `String` copies
+/// per graphed doc were ~half of the maps' heap).
+type HnswDocId = Arc<str>;
+
+/// `hnsw/ids.json`, serialized without an intermediate `serde_json::Value`
+/// (#2427). Field order matches the loader's historical `json!` layout.
+#[derive(serde::Serialize)]
+struct HnswIdsSnapshot<'a> {
+    next_id: u64,
+    map: HnswIdMapJson<'a>,
+    field: Option<String>,
+    seq_no: u64,
+    stale: bool,
+    passage_guard_version: u32,
+    passage_chunk_fields: Vec<String>,
+}
+
+/// The doc-id → node map of [`HnswIdsSnapshot`], streamed in map order.
+struct HnswIdMapJson<'a>(&'a HashMap<HnswDocId, u64>);
+
+impl serde::Serialize for HnswIdMapJson<'_> {
+    fn serialize<S: serde::Serializer>(
+        &self,
+        serializer: S,
+    ) -> std::result::Result<S::Ok, S::Error> {
+        serializer.collect_map(self.0.iter().map(|(doc_id, node)| (&**doc_id, *node)))
+    }
+}
+
+fn write_hnsw_ids_snapshot(
+    file: &mut std::fs::File,
+    snapshot: &HnswIdsSnapshot<'_>,
+) -> std::io::Result<()> {
+    let mut out = std::io::BufWriter::with_capacity(1024 * 1024, file);
+    serde_json::to_writer(&mut out, snapshot).map_err(std::io::Error::other)?;
+    std::io::Write::flush(&mut out)
+}
+
+#[cfg(test)]
+mod hnsw_ids_snapshot_tests {
+    use super::*;
+
+    /// The streamed ids.json must be byte-identical to the `json!` layout
+    /// it replaced, so old and new binaries read each other's files.
+    #[test]
+    fn streamed_ids_json_matches_value_layout() {
+        let mut id_map: HashMap<HnswDocId, u64> = HashMap::new();
+        for i in 0..64u64 {
+            id_map.insert(Arc::from(format!("doc-\"{i}\"\u{e9}").as_str()), i * 3);
+        }
+        for (field, chunks) in [
+            (
+                Some("body".to_string()),
+                vec!["a".to_string(), "b".to_string()],
+            ),
+            (None, Vec::new()),
+        ] {
+            let legacy = serde_json::json!({
+                "next_id": 192u64,
+                "map": id_map
+                    .iter()
+                    .map(|(doc_id, node)| (doc_id.to_string(), serde_json::Value::from(*node)))
+                    .collect::<serde_json::Map<String, serde_json::Value>>(),
+                "field": field.clone(),
+                "seq_no": 41u64,
+                "stale": true,
+                "passage_guard_version": 1,
+                "passage_chunk_fields": chunks.clone(),
+            });
+            let snapshot = HnswIdsSnapshot {
+                next_id: 192,
+                map: HnswIdMapJson(&id_map),
+                field,
+                seq_no: 41,
+                stale: true,
+                passage_guard_version: 1,
+                passage_chunk_fields: chunks,
+            };
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("ids.json");
+            xerj_common::fsio::write_file_durable_streaming(&path, |file| {
+                write_hnsw_ids_snapshot(file, &snapshot)
+            })
+            .unwrap();
+            assert_eq!(
+                std::fs::read(&path).unwrap(),
+                serde_json::to_vec(&legacy).unwrap()
+            );
+        }
+    }
+}
+
+/// Heap bytes of one shared doc id: the string plus the `Arc` counts.
+fn hnsw_id_key_cost(doc_id: &str) -> usize {
+    doc_id.len() + 2 * std::mem::size_of::<usize>()
+}
+
+/// Doc-id bytes held by the HNSW id maps: one shared allocation per id.
+fn hnsw_id_key_bytes(map: &HashMap<HnswDocId, u64>) -> usize {
+    map.keys().map(|k| hnsw_id_key_cost(k)).sum()
+}
+
+/// Build the forward and reverse id maps over shared doc ids.
+fn hnsw_id_maps_from(
+    pairs: impl IntoIterator<Item = (String, u64)>,
+    capacity: usize,
+) -> (HashMap<HnswDocId, u64>, HashMap<u64, HnswDocId>) {
+    let mut id_map: HashMap<HnswDocId, u64> = HashMap::with_capacity(capacity);
+    let mut id_rev: HashMap<u64, HnswDocId> = HashMap::with_capacity(capacity);
+    for (doc_id, nid) in pairs {
+        let key: HnswDocId = Arc::from(doc_id);
+        id_rev.insert(nid, Arc::clone(&key));
+        id_map.insert(key, nid);
+    }
+    (id_map, id_rev)
+}
+
+/// Forcemerge batch selection over segments sorted smallest first: chunks
+/// of at most `chunk_len` segments whose input stays under `cap` bytes
+/// (`0` = no cap, #948). Returns index lists into `sizes`.
+///
+/// Convergence: when every segment is already larger than half the cap,
+/// no chunk can hold two, and the old selection returned nothing — an
+/// explicit `max_num_segments=1` stopped at 2+ segments (seen on a 2 GiB
+/// cap: two 16-27 MB segments vs a 32 MiB batch cap). In that case the two
+/// smallest segments are merged anyway: one minimal batch is the least an
+/// explicit force-merge must do to make progress, and the caller loops
+/// passes until it reaches its target.
+pub(crate) fn forcemerge_chunks(sizes: &[u64], chunk_len: usize, cap: u64) -> Vec<Vec<usize>> {
+    let chunk_len = chunk_len.max(2);
+    let mut chunks: Vec<Vec<usize>> = Vec::new();
+    let mut batch: Vec<usize> = Vec::new();
+    let mut batch_bytes = 0u64;
+    for (i, &size) in sizes.iter().enumerate() {
+        if !batch.is_empty()
+            && (batch.len() >= chunk_len || (cap > 0 && batch_bytes.saturating_add(size) > cap))
+        {
+            chunks.push(std::mem::take(&mut batch));
+            batch_bytes = 0;
+        }
+        batch_bytes = batch_bytes.saturating_add(size);
+        batch.push(i);
+    }
+    if !batch.is_empty() {
+        chunks.push(batch);
+    }
+    chunks.retain(|c| c.len() >= 2);
+    if chunks.is_empty() && sizes.len() >= 2 {
+        chunks.push(vec![0, 1]);
+    }
+    chunks
+}
+
+#[cfg(test)]
+mod forcemerge_chunks_tests {
+    use super::forcemerge_chunks;
+    const MIB: u64 = 1024 * 1024;
+
+    #[test]
+    fn segments_over_the_cap_still_converge_to_one() {
+        // The corpus200 case: two segments, each over half a 32 MiB cap.
+        assert_eq!(
+            forcemerge_chunks(&[16 * MIB, 27 * MIB], 16, 32 * MIB),
+            vec![vec![0, 1]]
+        );
+        // Three oversized segments: merge the two smallest this pass.
+        assert_eq!(
+            forcemerge_chunks(&[40 * MIB, 50 * MIB, 60 * MIB], 16, 32 * MIB),
+            vec![vec![0, 1]]
+        );
+    }
+
+    #[test]
+    fn cap_and_count_still_split_batches() {
+        let sizes = [MIB; 5];
+        assert_eq!(
+            forcemerge_chunks(&sizes, 2, 0),
+            vec![vec![0, 1], vec![2, 3]]
+        );
+        assert_eq!(
+            forcemerge_chunks(&[10 * MIB, 10 * MIB, 10 * MIB, 10 * MIB], 16, 25 * MIB),
+            vec![vec![0, 1], vec![2, 3]]
+        );
+    }
+
+    #[test]
+    fn one_segment_is_nothing_to_do() {
+        assert!(forcemerge_chunks(&[MIB], 16, 32 * MIB).is_empty());
+        assert!(forcemerge_chunks(&[], 16, 32 * MIB).is_empty());
+    }
+}
+
+/// Whether a merge runs the level-19 long-effort stored encode
+/// (`encode_stored_v2_forcemerge_at_level`).
+///
+/// An explicit `_forcemerge` always does: the operator asked for the
+/// smallest index. A background (tiered) merge does only when the
+/// operator opts in with `XERJ_MERGE_MAX_EFFORT=true|1|yes|on`. Since
+/// rc.78 every background merge ran it, which made the stored encode ~35x
+/// slower and held the breaker latched (429 to ingest) for the whole merge.
+pub(crate) fn merge_uses_long_effort_stored_encode(
+    explicit_forcemerge: bool,
+    opt_in: Option<&str>,
+) -> bool {
+    if explicit_forcemerge {
+        return true;
+    }
+    matches!(
+        opt_in.map(|v| v.trim().to_ascii_lowercase()).as_deref(),
+        Some("1" | "true" | "yes" | "on")
+    )
+}
+
+#[cfg(test)]
+mod merge_long_effort_tests {
+    use super::merge_uses_long_effort_stored_encode as uses;
+
+    #[test]
+    fn background_merge_uses_fast_encode_by_default() {
+        assert!(!uses(false, None));
+        assert!(!uses(false, Some("")));
+        assert!(!uses(false, Some("false")));
+        assert!(!uses(false, Some("0")));
+    }
+
+    #[test]
+    fn forcemerge_always_uses_long_effort_encode() {
+        assert!(uses(true, None));
+        assert!(uses(true, Some("false")));
+    }
+
+    #[test]
+    fn background_long_effort_is_opt_in() {
+        for v in ["1", "true", "TRUE", " yes ", "on"] {
+            assert!(uses(false, Some(v)), "{v}");
+        }
+    }
+}
+
+#[cfg(test)]
+mod shared_memtable_source_tests {
+    use super::*;
+    use serde_json::json;
+
+    /// #2427: a document written through the per-document path used to be
+    /// deep-copied twice and both copies kept until the next flush, once in
+    /// the storage memtable and once in the FTS memtable. A late-run heap
+    /// profile of a 1 GB `_bulk` load had these two copies at ~470 MB of
+    /// ~1.75 GB in use. Both memtables now hold the same `Arc`.
+    #[tokio::test]
+    async fn per_doc_write_keeps_one_parsed_source_for_both_memtables_2427() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        let mut schema = Schema::empty();
+        schema
+            .add_field(FieldConfig::new("body", FieldType::Text))
+            .unwrap();
+        engine.create_index("shared-source-2427", schema).unwrap();
+        let idx = engine.get_index("shared-source-2427").unwrap();
+        idx.abort_background_tasks();
+        idx.index_document(Some("one".into()), json!({"body": "alpha beta"}))
+            .await
+            .unwrap();
+
+        let fts = idx.memtable.get_doc_source_arc("one").unwrap();
+        assert_eq!(fts["body"], "alpha beta");
+        // Owners: the FTS memtable, the storage memtable and `fts` itself.
+        // A private FTS copy would leave only two.
+        assert_eq!(
+            Arc::strong_count(&fts),
+            3,
+            "the FTS memtable must share the storage memtable's source, not deep-copy it"
+        );
     }
 }
 
@@ -544,6 +931,63 @@ mod collection_publication_fail_closed_tests {
     /// spellings, and a flush that lands them in ONE segment (the 2-core CI
     /// shape) built the lying column — `terms {b:["true"]}` then returned the
     /// pre-upgrade document and silently dropped the coerced one.
+    /// #2427: the merge builds doc-values from its merged stored JSON one
+    /// document at a time instead of holding every `_source` tree. The
+    /// columns must match what the held trees produced, ordinals included:
+    /// a document with no `_source`, a non-object `_source`, and one that
+    /// does not parse as an object each keep their row.
+    #[test]
+    fn merge_doc_value_sources_matches_held_source_trees() {
+        let docs = [
+            json!({"_id": "a", "_seq_no": 1, "_source": {"k": "x", "n": 1, "b": true}}),
+            json!({"_id": "b", "_seq_no": 2}),
+            json!({"_id": "c", "_seq_no": 3, "_source": {"k": "y", "n": 2.5, "arr": [1, 2]}}),
+            json!({"_id": "d", "_seq_no": 4, "_source": "not-an-object"}),
+            json!({"_id": "e", "_seq_no": 5, "_source": {"k": "z", "msg": "hello"}}),
+        ];
+        let mut merged = b"[".to_vec();
+        for (i, doc) in docs.iter().enumerate() {
+            if i > 0 {
+                merged.push(b',');
+            }
+            merged.extend_from_slice(serde_json::to_string(doc).unwrap().as_bytes());
+        }
+        // A raw element that is not an object takes a row too.
+        merged.extend_from_slice(b",42]");
+
+        let mut skip = std::collections::HashSet::new();
+        skip.insert("msg".to_string());
+
+        // The pre-#2427 input: one held `_source` tree per document.
+        let mut held: Vec<Value> = docs
+            .iter()
+            .map(|doc| doc.get("_source").cloned().unwrap_or(Value::Null))
+            .collect();
+        held.push(Value::Null);
+        let expected = super::build_doc_value_columns(held.iter().map(Some), &skip);
+
+        let streamed = super::build_doc_value_columns(
+            super::merge_doc_value_sources(&merged).expect("array parses"),
+            &skip,
+        );
+        assert_eq!(
+            format!("{streamed:?}"),
+            format!("{expected:?}"),
+            "streamed doc-values must equal the held-tree build"
+        );
+        assert!(streamed.contains_key("k") && streamed.contains_key("n"));
+        assert!(
+            !streamed.contains_key("arr"),
+            "multi-valued field ships no column"
+        );
+        assert_eq!(
+            super::merge_doc_value_sources(&merged).unwrap().count(),
+            docs.len() + 1,
+            "one item per merged document, in order"
+        );
+        assert!(super::merge_doc_value_sources(b"not json").is_err());
+    }
+
     #[test]
     fn build_doc_value_columns_ships_nothing_for_a_type_mixed_field() {
         let legacy = json!({"b": "true", "n": "5", "ok": "kw"});
@@ -561,6 +1005,60 @@ mod collection_publication_fail_closed_tests {
             cols.contains_key("ok"),
             "a single-typed field must still be shadowed (got {:?})",
             cols.keys().collect::<Vec<_>>()
+        );
+    }
+
+    /// `doc_values: false` fields (text, semantic_text) record presence, not
+    /// values. The bit must follow `value_present`: empty string and a
+    /// non-null array element are present; null, `[]`, and `[null]` are not.
+    /// An all-absent field still ships a column so `exists` can answer
+    /// "no" without a source scan.
+    #[test]
+    fn build_doc_value_columns_presence_matches_value_present() {
+        use xerj_storage::doc_values::Column;
+        let mut skip = std::collections::HashSet::new();
+        skip.insert("msg".to_string());
+        skip.insert("never".to_string());
+        let docs = [
+            json!({"ax_file": "a"}),
+            json!({"ax_file": "a", "msg": null}),
+            json!({"ax_file": "a", "msg": []}),
+            json!({"ax_file": "a", "msg": ""}),
+            json!({"ax_file": "a", "msg": [null]}),
+            json!({"ax_file": "a", "msg": "hello"}),
+            json!({"ax_file": "a", "msg": [null, "x"]}),
+        ];
+        let cols = super::build_doc_value_columns(docs.iter().map(Some), &skip);
+        let Some(Column::Presence(msg)) = cols.get("msg") else {
+            panic!("msg must be a presence column, got {:?}", cols.get("msg"));
+        };
+        assert_eq!(msg.doc_count, 7);
+        assert!(!msg.contains(0) && !msg.contains(1) && !msg.contains(2) && !msg.contains(4));
+        assert!(msg.contains(3) && msg.contains(5) && msg.contains(6));
+        assert_eq!(msg.count(), 3);
+        let Some(Column::Presence(never)) = cols.get("never") else {
+            panic!("an all-absent skipped field must still ship a presence column");
+        };
+        assert_eq!(never.doc_count, 7);
+        assert_eq!(never.count(), 0);
+        assert!(matches!(cols.get("ax_file"), Some(Column::Keyword(_))));
+    }
+
+    /// A dotted mapping name is an object sub-field. The builder only walks
+    /// top-level `_source` keys, so it cannot see `user.bio` inside
+    /// `{"user": {"bio": ..}}`. It must ship no presence column for it (the
+    /// reader then scans source) rather than an empty one that says no row
+    /// has the field.
+    #[test]
+    fn build_doc_value_columns_ships_no_presence_for_a_dotted_text_field() {
+        let mut skip = std::collections::HashSet::new();
+        skip.insert("user.bio".to_string());
+        let docs = [json!({"user": {"bio": "hello"}}), json!({"user": {}})];
+        let cols = super::build_doc_value_columns(docs.iter().map(Some), &skip);
+        assert!(
+            !cols.contains_key("user.bio"),
+            "a dotted field must not get a presence column: {:?}",
+            cols.get("user.bio")
         );
     }
 
@@ -858,6 +1356,142 @@ mod collection_publication_fail_closed_tests {
         assert_eq!(result.total.value, 5_050, "exact under churn");
     }
 
+    /// #1761 — finalize-verify's catalog query shares `autoindex-catalog` with
+    /// every other corpus build. Explicit-id catalog bulks publish one
+    /// document at a time, each bracket covering WAL + memtable insert, and
+    /// the next bracket opens immediately. A capture that clones the other
+    /// run's buffered rows never fits in that gap, so the verify search waits
+    /// out its deadline (`timed_out`, empty hits) and the phase sits at 0/N.
+    ///
+    /// This holds a tight `index_document` loop of another run's rows across
+    /// the exact verify filter (`terms file_key` AND `term run_id`) and
+    /// requires the search to return this run's count inside a short timeout.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn catalog_verify_search_completes_while_another_run_writes() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        let mut schema = Schema::empty();
+        schema
+            .add_field(FieldConfig::new("file_key", FieldType::Keyword))
+            .unwrap();
+        schema
+            .add_field(FieldConfig::new("run_id", FieldType::Keyword))
+            .unwrap();
+        engine.create_index("autoindex-catalog", schema).unwrap();
+        let idx = engine.get_index("autoindex-catalog").unwrap();
+
+        const THIS_RUN: usize = 24;
+        const OTHER_RUN: usize = 2_000;
+        let this_docs: Vec<(Option<String>, Value)> = (0..THIS_RUN)
+            .map(|i| {
+                (
+                    Some(format!("this-{i}")),
+                    json!({"file_key": format!("k{i}"), "run_id": "this-run"}),
+                )
+            })
+            .collect();
+        for r in idx.index_documents_batched(this_docs).await {
+            r.unwrap();
+        }
+        idx.flush().await.unwrap();
+        let other_docs: Vec<(Option<String>, Value)> = (0..OTHER_RUN)
+            .map(|i| {
+                (
+                    Some(format!("other-{i}")),
+                    json!({"file_key": format!("o{i}"), "run_id": "other-run"}),
+                )
+            })
+            .collect();
+        for r in idx.index_documents_batched(other_docs).await {
+            r.unwrap();
+        }
+
+        let stop = Arc::new(AtomicBool::new(false));
+        let wrote = Arc::new(AtomicU64::new(0));
+        let writer_idx = Arc::clone(&idx);
+        let writer_stop = Arc::clone(&stop);
+        let writer_wrote = Arc::clone(&wrote);
+        let writer = tokio::spawn(async move {
+            let mut n: u64 = 0;
+            while !writer_stop.load(Ordering::Relaxed) {
+                writer_idx
+                    .index_document(
+                        Some(format!("other-{}", n % OTHER_RUN as u64)),
+                        json!({
+                            "file_key": format!("o{}", n % OTHER_RUN as u64),
+                            "run_id": "other-run"
+                        }),
+                    )
+                    .await
+                    .expect("concurrent catalog write");
+                writer_wrote.fetch_add(1, Ordering::Relaxed);
+                n += 1;
+            }
+        });
+        tokio::time::timeout(std::time::Duration::from_secs(30), async {
+            while wrote.load(Ordering::Relaxed) < 8 {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("the other run never published a document");
+
+        let keys: Vec<String> = (0..THIS_RUN).map(|i| format!("k{i}")).collect();
+        let request = xerj_query::parse_request(&json!({
+            "query": {"bool": {"filter": [
+                {"terms": {"file_key": keys}},
+                {"term": {"run_id": "this-run"}}
+            ]}},
+            "size": THIS_RUN,
+            "track_total_hits": true,
+            "_source": ["file_key"],
+            "timeout": "2s"
+        }))
+        .unwrap();
+        let started = std::time::Instant::now();
+        let result = idx.search(&request).await.expect("verify search");
+        let elapsed = started.elapsed();
+        let buffered = idx.memtable.doc_count();
+        stop.store(true, Ordering::Relaxed);
+        tokio::time::timeout(std::time::Duration::from_secs(30), writer)
+            .await
+            .expect("writer did not stop")
+            .unwrap();
+
+        assert!(
+            !result.timed_out,
+            "finalize-verify catalog search timed out under a concurrent writer \
+             in {elapsed:?}: total={} hits={}",
+            result.total.value,
+            result.hits.len()
+        );
+        assert_eq!(
+            result.total.value, THIS_RUN as u64,
+            "the run_id filter must not count the other run's rows"
+        );
+        assert_eq!(
+            result.hits.len(),
+            THIS_RUN,
+            "the page must carry every match"
+        );
+        assert!(
+            buffered > THIS_RUN,
+            "the other run's rows must still be memtable-resident (buffered {buffered}); \
+             a flush would hide the publication stall this test exists for"
+        );
+        assert!(
+            elapsed < std::time::Duration::from_secs(2),
+            "the search must finish inside its timeout, took {elapsed:?}"
+        );
+        assert!(
+            result.hits.iter().all(|hit| hit.id.starts_with("this-")),
+            "a hit from the other run leaked into the page: {:?}",
+            result.hits.iter().map(|hit| &hit.id).collect::<Vec<_>>()
+        );
+    }
+
     #[tokio::test]
     async fn cache_and_singleflight_namespace_include_publication_generation() {
         let dir = tempfile::tempdir().unwrap();
@@ -937,6 +1571,110 @@ mod collection_publication_fail_closed_tests {
             .version_map
             .get("__fail_sync_before_publication")
             .is_none());
+    }
+
+    /// #2427: the raw batch path took its analyze reservation before the
+    /// parse and held it across the schema reads, schema evolution and the
+    /// WAL append. A batch parked on any of those waits kept its estimate
+    /// "reserved" without allocating it, and concurrent bulks were refused
+    /// with 429s far below the watermark. The parse and the analysis now
+    /// each hold a reservation only while they allocate.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn raw_batch_holds_no_analyze_reservation_across_waits() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        engine
+            .create_index("raw-reservation-scope", text_schema())
+            .unwrap();
+        let idx = engine.get_index("raw-reservation-scope").unwrap();
+        let governor = crate::governor::ResourceGovernor::with_analyze_headroom_for_test(1 << 40);
+        *idx.analyze_governor_override.write() = Some(Arc::clone(&governor));
+        let seen = Arc::new(parking_lot::Mutex::new(Vec::new()));
+        {
+            let governor = Arc::clone(&governor);
+            let seen = Arc::clone(&seen);
+            idx.set_publication_test_hook(Some(Arc::new(move |_, point| {
+                if matches!(
+                    point,
+                    PublicationTestPoint::RawBeforeCollectionBegin
+                        | PublicationTestPoint::RawAfterAnalyze
+                        | PublicationTestPoint::RawAfterWalVersionMap
+                ) {
+                    seen.lock()
+                        .push((point, governor.analyze_reserved_for_test()));
+                }
+            })));
+        }
+        idx.index_batch_turbo_raw(vec![
+            (
+                "one".into(),
+                Arc::<[u8]>::from(br#"{"body":"alpha beta gamma"}"#.as_slice()),
+            ),
+            (
+                "two".into(),
+                Arc::<[u8]>::from(br#"{"body":"delta epsilon"}"#.as_slice()),
+            ),
+        ])
+        .await
+        .unwrap();
+        idx.set_publication_test_hook(None);
+        assert_eq!(
+            *seen.lock(),
+            vec![
+                (PublicationTestPoint::RawBeforeCollectionBegin, 0),
+                (PublicationTestPoint::RawAfterAnalyze, 0),
+                (PublicationTestPoint::RawAfterWalVersionMap, 0),
+            ],
+            "no reservation may be held while the batch waits on the schema or the WAL"
+        );
+        assert_eq!(governor.analyze_reserved_for_test(), 0);
+        idx.refresh().await.unwrap();
+        assert!(idx.get_document("one").await.unwrap().is_some());
+        assert!(idx.get_document("two").await.unwrap().is_some());
+    }
+
+    /// #2427: the token reservation is now taken after the schema waits. When
+    /// memory filled up during those waits it refuses the batch with a 429,
+    /// and the refusal must leave nothing published or written to the WAL.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn raw_batch_refused_after_schema_wait_writes_nothing() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        engine
+            .create_index("raw-reservation-refused", text_schema())
+            .unwrap();
+        let idx = engine.get_index("raw-reservation-refused").unwrap();
+        let governor = crate::governor::ResourceGovernor::with_analyze_headroom_for_test(1 << 40);
+        *idx.analyze_governor_override.write() = Some(Arc::clone(&governor));
+        {
+            let governor = Arc::clone(&governor);
+            idx.set_publication_test_hook(Some(Arc::new(move |_, point| {
+                if point == PublicationTestPoint::RawBeforeCollectionBegin {
+                    // Memory filled up while this batch waited on the schema.
+                    governor.set_analyze_headroom_for_test(0);
+                }
+            })));
+        }
+        let error = idx
+            .index_batch_turbo_raw(vec![(
+                "late".into(),
+                Arc::<[u8]>::from(br#"{"body":"alpha"}"#.as_slice()),
+            )])
+            .await
+            .unwrap_err();
+        idx.set_publication_test_hook(None);
+        let EngineError::Common(error) = error else {
+            panic!("expected a 429, got {error:?}");
+        };
+        assert_eq!(error.http_status(), 429, "{error}");
+        assert_eq!(governor.analyze_reserved_for_test(), 0);
+        assert!(!idx.collection_publication.state().2);
+        assert!(idx.store.version_map.get("late").is_none());
+        assert!(idx.get_document("late").await.unwrap().is_none());
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -1310,6 +2048,105 @@ mod flush_publication_recovery_tests {
         schema
     }
 
+    /// #2427: after the graph's vectors, the doc-id <-> node-id maps beside
+    /// it were the next-largest live heap on the cap-2048 ingest run (about
+    /// 110 MB of 1.3 GB in a late heap profile) and no ledger category
+    /// counted them. They are part of `vector_graph` now, and a re-index of
+    /// the same ids must not count them twice.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn vector_graph_bytes_counts_hnsw_id_maps_2427() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        engine.create_index("vg-id-maps", vector_schema()).unwrap();
+        let idx = engine.get_index("vg-id-maps").unwrap();
+        idx.abort_background_tasks();
+        let n = 1500usize;
+        let id = |i: usize| format!("doc-{i:060}");
+        for round in 0..2 {
+            for i in 0..n {
+                idx.index_document(
+                    Some(id(i)),
+                    json!({"embedding": [1.0, i as f64, round as f64 + 0.5]}),
+                )
+                .await
+                .unwrap();
+            }
+        }
+        assert_eq!(idx.hnsw_id_map.read().await.len(), n);
+        let graph = idx
+            .hnsw
+            .read()
+            .await
+            .as_ref()
+            .map_or(0, HnswIndex::heap_bytes);
+        let key_bytes = n * hnsw_id_key_cost(&id(0));
+        let table_floor = n * (std::mem::size_of::<(HnswDocId, u64)>() + 1) * 2;
+        let reported = idx.vector_graph_bytes();
+        assert!(
+            reported >= graph + key_bytes + table_floor,
+            "vector_graph reports {reported} B; graph {graph} B + id keys {key_bytes} B + id tables >= {table_floor} B"
+        );
+        assert_eq!(
+            idx.hnsw_id_key_bytes.load(Ordering::Relaxed),
+            key_bytes,
+            "re-indexing the same ids must not grow the key bytes"
+        );
+    }
+
+    /// #2427: every graphed doc id was held as two `String`s — one key in
+    /// the forward map, one value in the reverse map. The two maps now share
+    /// one allocation per id, through inserts, re-indexes, deletes and a
+    /// reload from ids.json.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn hnsw_id_maps_share_one_doc_id_allocation_2427() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        engine.create_index("vg-id-share", vector_schema()).unwrap();
+        let idx = engine.get_index("vg-id-share").unwrap();
+        idx.abort_background_tasks();
+        let n = 300usize;
+        let id = |i: usize| format!("doc-{i:040}");
+        for round in 0..2 {
+            for i in 0..n {
+                idx.index_document(
+                    Some(id(i)),
+                    json!({"embedding": [1.0, i as f64, round as f64 + 0.5]}),
+                )
+                .await
+                .unwrap();
+            }
+        }
+        idx.delete_document(&id(0)).await.unwrap();
+        async fn assert_shared(idx: &Index, live: usize, what: &str) {
+            let id_map = idx.hnsw_id_map.read().await;
+            let id_rev = idx.hnsw_id_rev.read().await;
+            assert_eq!(id_map.len(), live, "{what}: forward map size");
+            assert_eq!(id_rev.len(), live, "{what}: reverse map size");
+            for (doc_id, node) in id_map.iter() {
+                let rev = id_rev.get(node).expect("reverse entry");
+                assert_eq!(**doc_id, **rev, "{what}: maps disagree");
+                assert_eq!(
+                    doc_id.as_ptr(),
+                    rev.as_ptr(),
+                    "{what}: doc id {doc_id} is stored twice (forward key and reverse value are separate allocations)"
+                );
+            }
+            assert_eq!(
+                idx.hnsw_id_key_bytes.load(Ordering::Relaxed),
+                hnsw_id_key_bytes(&id_map),
+                "{what}: key bytes ledger drifted"
+            );
+        }
+        assert_shared(&idx, n - 1, "after ingest").await;
+        idx.save_hnsw_to_disk().await.unwrap();
+        assert!(idx.load_hnsw_from_disk().await.unwrap(), "snapshot reloads");
+        assert_shared(&idx, n - 1, "after reload").await;
+    }
+
     #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
     async fn cancelling_flush_waiter_after_worker_start_still_restores() {
         let _fault_test = FLUSH_FAULT_TEST_LOCK.lock().await;
@@ -1646,6 +2483,871 @@ mod flush_publication_recovery_tests {
         assert_eq!(idx.search(&request).await.unwrap().hits[0].id, "survivor");
     }
 
+    /// #2427: publish-time warming must size a stored-slices warm BEFORE it
+    /// decompresses the section. A merged segment's section decodes to
+    /// hundreds of MB; when the hydration cache has no room the result is
+    /// refused right after the build, so the decode was nothing but a
+    /// transient RSS spike on an ingesting node.
+    ///
+    /// Fails before the fix: the full-budget warm still decodes the section
+    /// once (and the cache then refuses it).
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn publish_warm_skips_a_stored_decode_the_cache_would_refuse_2427() {
+        let dir = tempfile::tempdir().unwrap();
+        let engine = crate::Engine::new(topk_projection_config(dir.path())).unwrap();
+        engine
+            .create_index("publish-warm-fit", topk_projection_schema())
+            .unwrap();
+        let idx = engine.get_index("publish-warm-fit").unwrap();
+        idx.abort_background_tasks();
+        for i in 0..512u64 {
+            idx.index_document(
+                Some(format!("doc-{i}")),
+                json!({"title": format!("title {i}"), "body": format!("body text {i}"), "blob": "x".repeat(64)}),
+            )
+            .await
+            .unwrap();
+        }
+        idx.flush().await.unwrap();
+        let seg = idx.store.snapshot().segments[0].clone();
+        idx.release_memory();
+        assert!(
+            !idx.stored_slices_cache.contains_key(&seg.id),
+            "precondition: cold"
+        );
+        let segments_dir = idx.data_dir.join("segments");
+        let decodes = || PUBLISH_STORED_WARM_DECODES.with(|n| n.get());
+
+        // No room in the cache: the section is not decompressed at all.
+        let mut caches = idx.publish_warm_caches();
+        caches.budget = SegmentHydrationBudget::new(0);
+        let before = decodes();
+        warm_segment_at_publish(&idx.store, &segments_dir, &caches, &seg.id, seg.doc_count);
+        assert_eq!(
+            decodes() - before,
+            0,
+            "a warm the hydration cache would refuse must not decode the stored section"
+        );
+        assert!(!idx.stored_slices_cache.contains_key(&seg.id));
+
+        // Room in the cache: warmed and kept, exactly as before.
+        caches.budget = SegmentHydrationBudget::new(u64::MAX);
+        let before = decodes();
+        warm_segment_at_publish(&idx.store, &segments_dir, &caches, &seg.id, seg.doc_count);
+        assert_eq!(decodes() - before, 1);
+        assert!(idx.stored_slices_cache.contains_key(&seg.id));
+    }
+
+    /// #2427: the RSS side of the publish-warm fit — a warm that would carry
+    /// the node to the parent watermark is skipped even with cache room.
+    #[test]
+    fn publish_stored_warm_fit_respects_cache_room_and_rss_watermark_2427() {
+        let roomy = SegmentHydrationBudget::new(u64::MAX);
+        let full = SegmentHydrationBudget::new(0);
+        assert!(publish_stored_warm_fits(&roomy, 100, None), "watermark off");
+        assert!(publish_stored_warm_fits(&roomy, 100, Some(101)));
+        assert!(!publish_stored_warm_fits(&roomy, 100, Some(100)));
+        assert!(!publish_stored_warm_fits(&roomy, 100, Some(0)));
+        assert!(!publish_stored_warm_fits(&full, 100, None), "no cache room");
+    }
+
+    /// #2427/#1122: a stored-slices build the hydration cache cannot hold is
+    /// transient, and it must hold a read-budget reservation for as long as a
+    /// query holds the value — so concurrent cold queries are bounded by the
+    /// read budget instead of stacking whole stored sections. A build the
+    /// cache can hold reserves nothing (the cache accounts it).
+    ///
+    /// Fails before the fix (with `transient_read_permit` returning `None`):
+    /// the read budget never sees the transient bytes.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn transient_stored_slices_hold_a_read_reservation_until_dropped() {
+        let dir = tempfile::tempdir().unwrap();
+        let engine = crate::Engine::new(topk_projection_config(dir.path())).unwrap();
+        engine
+            .create_index("read-budget", topk_projection_schema())
+            .unwrap();
+        let idx = engine.get_index("read-budget").unwrap();
+        idx.abort_background_tasks();
+        for i in 0..512u64 {
+            idx.index_document(
+                Some(format!("doc-{i}")),
+                json!({"title": format!("title {i}"), "body": format!("body text {i}"), "blob": "x".repeat(64)}),
+            )
+            .await
+            .unwrap();
+        }
+        idx.flush().await.unwrap();
+        let seg = idx.store.snapshot().segments[0].clone();
+        let read = ReadTransientBudget::new(1 << 30, std::time::Duration::from_secs(5));
+        idx.release_memory();
+        assert!(
+            !idx.stored_slices_cache.contains_key(&seg.id),
+            "precondition: cold"
+        );
+
+        // No room in the cache: transient, reserved until the value drops.
+        let full = SegmentHydrationBudget::new(0);
+        let slices = idx
+            .stored_slices_for_with(&seg.id, seg.doc_count, &full, &read)
+            .expect("slices build");
+        assert!(!idx.stored_slices_cache.contains_key(&seg.id));
+        let held = read.snapshot().current;
+        assert!(
+            held >= slices.bytes.len() as u64,
+            "the transient build must reserve at least its decoded bytes ({} held, {} decoded)",
+            held,
+            slices.bytes.len()
+        );
+        let second = Arc::clone(&slices);
+        drop(slices);
+        assert_eq!(read.snapshot().current, held, "a live reader keeps it");
+        drop(second);
+        assert_eq!(read.snapshot().current, 0, "released with the last reader");
+
+        // Room in the cache: admitted, nothing reserved.
+        let roomy = SegmentHydrationBudget::new(u64::MAX);
+        let cached = idx
+            .stored_slices_for_with(&seg.id, seg.doc_count, &roomy, &read)
+            .expect("slices build");
+        assert!(idx.stored_slices_cache.contains_key(&seg.id));
+        assert_eq!(read.snapshot().current, 0);
+        assert_eq!(
+            read.snapshot().admitted,
+            1,
+            "only the transient build reserved"
+        );
+        drop(cached);
+    }
+
+    /// #2427: a doc-values decode the hydration cache refuses is rebuilt by
+    /// every query, and it must hold a read-budget reservation for as long
+    /// as a query holds it, the same as a transient stored-slices build. A
+    /// decode the cache keeps reserves nothing.
+    ///
+    /// Fails before the fix: the refused decode was served uncached with no
+    /// reservation, so the read budget saw 0 bytes.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn transient_doc_values_hold_a_read_reservation_until_dropped_2427() {
+        let dir = tempfile::tempdir().unwrap();
+        let engine = crate::Engine::new(topk_projection_config(dir.path())).unwrap();
+        let mut schema = Schema::empty();
+        schema
+            .add_field(FieldConfig::new("status", FieldType::Keyword))
+            .unwrap();
+        schema
+            .add_field(FieldConfig::new("bytes", FieldType::Long))
+            .unwrap();
+        engine.create_index("dv-read-budget", schema).unwrap();
+        let idx = engine.get_index("dv-read-budget").unwrap();
+        idx.abort_background_tasks();
+        for i in 0..2048u64 {
+            idx.index_document(
+                Some(format!("doc-{i}")),
+                json!({"status": format!("s{}", i % 37), "bytes": i * 7}),
+            )
+            .await
+            .unwrap();
+        }
+        idx.flush().await.unwrap();
+        let seg = idx.store.snapshot().segments[0].clone();
+        let segments_dir = idx.data_dir.join("segments");
+        assert!(
+            segments_dir.join(format!("{}.dv", seg.id)).exists(),
+            "precondition: the segment has a doc-values sidecar"
+        );
+        let read = ReadTransientBudget::new(1 << 30, std::time::Duration::from_secs(5));
+        idx.release_memory();
+        assert!(!idx.dv_cache.contains_key(&seg.id), "precondition: cold");
+
+        // No room in the cache: transient, reserved until the value drops.
+        let full = SegmentHydrationBudget::new(0);
+        let cols = idx
+            .dv_columns_for_with(&segments_dir, &seg.id, &full, &read)
+            .expect("doc values decode");
+        assert!(!idx.dv_cache.contains_key(&seg.id));
+        let decoded: u64 = cols
+            .value()
+            .values()
+            .map(|c| c.estimated_retained_bytes())
+            .sum();
+        let held = read.snapshot().current;
+        assert!(
+            decoded > 0 && held >= decoded,
+            "the transient decode must reserve at least its decoded bytes ({held} held, {decoded} decoded)"
+        );
+        let second = Arc::clone(&cols);
+        drop(cols);
+        assert_eq!(read.snapshot().current, held, "a live reader keeps it");
+        drop(second);
+        assert_eq!(read.snapshot().current, 0, "released with the last reader");
+
+        // Room in the cache: admitted, nothing reserved.
+        let roomy = SegmentHydrationBudget::new(u64::MAX);
+        let cached = idx
+            .dv_columns_for_with(&segments_dir, &seg.id, &roomy, &read)
+            .expect("doc values decode");
+        assert!(idx.dv_cache.contains_key(&seg.id));
+        assert_eq!(read.snapshot().current, 0);
+        assert_eq!(
+            read.snapshot().admitted,
+            1,
+            "only the transient decode reserved"
+        );
+        drop(cached);
+    }
+
+    fn topk_projection_config(dir: &std::path::Path) -> Config {
+        let mut config = Config::default();
+        config.server.data_dir = dir.to_string_lossy().into_owned();
+        // These tests exercise large, columnar segments. The CPU-dependent
+        // default can split the fixture below the row-window or ZBS2 threshold.
+        config.engine.ingest_shards = 1;
+        config
+    }
+
+    fn topk_projection_schema() -> Schema {
+        let mut schema = Schema::empty();
+        for f in ["title", "body", "blob"] {
+            schema
+                .add_field(FieldConfig::new(f, FieldType::Text))
+                .unwrap();
+        }
+        schema
+    }
+
+    /// #2422: a broad query (most rows of a segment match) on a cold
+    /// segment used to decode the whole stored section inline, because the
+    /// first segment a page meets has no score floor and every matching row
+    /// was a candidate. The walk must read only identities and hydrate the
+    /// page's winners, with or without a `_source` projection, and a walk
+    /// that rejects thousands of rows (here: the best ones are deleted) must
+    /// still see every row, so every answer equals the warm answer.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn cold_broad_topk_reads_identities_and_hydrates_only_winners() {
+        let dir = tempfile::tempdir().unwrap();
+        let engine = crate::Engine::new(topk_projection_config(dir.path())).unwrap();
+        engine
+            .create_index("broad-cold", topk_projection_schema())
+            .unwrap();
+        let idx = engine.get_index("broad-cold").unwrap();
+        idx.abort_background_tasks();
+        for i in 0..4096u64 {
+            let body = if i % 2 == 0 {
+                format!("needle stack report {i} needle")
+            } else {
+                format!("hay stack {i}")
+            };
+            idx.index_document(
+                Some(format!("doc-{i}")),
+                json!({"title": format!("title {i}"), "body": body, "blob": "x"}),
+            )
+            .await
+            .unwrap();
+        }
+        idx.flush().await.unwrap();
+        // Delete the best-scoring needle rows, more than the row window
+        // holds, so the walk rejects every row in the window and must read
+        // the live needle rows past it.
+        for i in (0..4000u64).step_by(2) {
+            assert!(idx.delete_document(&format!("doc-{i}")).await.unwrap());
+        }
+        idx.flush().await.unwrap();
+        drop(idx);
+        drop(engine);
+
+        let reopen = || {
+            let engine = crate::Engine::new(topk_projection_config(dir.path())).unwrap();
+            let idx = engine.get_index("broad-cold").unwrap();
+            idx.abort_background_tasks();
+            // Hold the background warm back so each query is observed alone.
+            let snapshot = idx.store.snapshot();
+            let segs: Vec<_> = snapshot.segments.clone();
+            drop(snapshot);
+            assert!(
+                segs.iter().any(|s| s.doc_count > 1024),
+                "precondition: a segment large enough to exceed the row window"
+            );
+            for s in &segs {
+                idx.cold_stored_warms.insert(s.id.to_string(), ());
+            }
+            (engine, idx, segs)
+        };
+        let all_cold = |idx: &Index, segs: &[xerj_storage::segment::SegmentMeta]| {
+            segs.iter().all(|s| {
+                !idx.stored_slices_cache.contains_key(&s.id)
+                    && !idx.decoded_stored_cache.contains_key(&s.id)
+            })
+        };
+        let key = |r: &xerj_query::executor::SearchResult| -> Vec<(String, u32, Value)> {
+            r.hits
+                .iter()
+                .map(|h| (h.id.clone(), h.score.to_bits(), h.source.clone()))
+                .collect()
+        };
+        let request = |q: &str, projected: bool| {
+            let mut body = json!({
+                "query": {"match": {"body": q}},
+                "size": 5,
+            });
+            if projected {
+                body["_source"] = json!(["title"]);
+            }
+            xerj_query::parse_request(&body).unwrap()
+        };
+        let mut requests = Vec::new();
+        for projected in [true, false] {
+            // Every document matches; the live hay rows score highest.
+            requests.push(request("hay stack", projected));
+            // Matches the needle rows only. The best ~2000 of them are
+            // deleted, so the walk rejects thousands of rows first.
+            requests.push(request("needle report", projected));
+        }
+
+        let (engine, idx, segs) = reopen();
+        let mut cold = Vec::new();
+        for r in &requests {
+            cold.push(idx.search(r).await.unwrap());
+            assert!(
+                all_cold(&idx, &segs),
+                "a 5-hit query must not decode the whole stored section"
+            );
+        }
+        assert!(idx.cold_row_hydrations.load(Ordering::Relaxed) > 0);
+        drop(idx);
+        drop(engine);
+
+        let (engine, idx, segs) = reopen();
+        // Warm every segment that can be warmed; the large one (the walk
+        // under test) must be, so the reference takes the full-decode path.
+        for s in &segs {
+            let warmed = idx.stored_slices_for(&s.id, s.doc_count).is_some();
+            assert!(warmed || s.doc_count <= 1024, "segment {} must warm", s.id);
+        }
+        for (r, cold) in requests.iter().zip(&cold) {
+            let warm = idx.search(r).await.unwrap();
+            assert_eq!(cold.hits.len(), 5);
+            assert_eq!(key(cold), key(&warm));
+            assert_eq!(cold.total.value, warm.total.value);
+            assert_eq!(
+                cold.hits
+                    .iter()
+                    .filter(|h| h.source["title"].is_string())
+                    .count(),
+                5
+            );
+        }
+        for (i, h) in [&cold[1], &cold[3]]
+            .iter()
+            .flat_map(|r| r.hits.iter())
+            .enumerate()
+        {
+            let n: u64 = h.id.trim_start_matches("doc-").parse().unwrap();
+            assert!(
+                n >= 4000 && n.is_multiple_of(2),
+                "live needle rows only: {i} {}",
+                h.id
+            );
+        }
+        // Unprojected hits carry the whole source.
+        assert!(cold[2].hits.iter().all(|h| h.source["body"].is_string()));
+        drop(idx);
+        drop(engine);
+    }
+
+    /// #2427: a cold query over a many-segment index must not start one
+    /// whole-section stored decode per segment at once. Before the fix every
+    /// cold segment the query hydrated from its winning rows spawned its own
+    /// background warm, all concurrently (54 on the 1 GB gate's pg-docs:
+    /// anon RSS ~1.0 -> ~4.7 GB after the query returned, cap 3 GiB). Now one
+    /// warm per index runs at a time and the rest are skipped, so one query
+    /// warms at most one segment; the answer is unchanged.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn cold_query_runs_at_most_one_stored_warm_2427() {
+        let dir = tempfile::tempdir().unwrap();
+        let engine = crate::Engine::new(topk_projection_config(dir.path())).unwrap();
+        engine
+            .create_index("warm-bound", topk_projection_schema())
+            .unwrap();
+        let idx = engine.get_index("warm-bound").unwrap();
+        idx.abort_background_tasks();
+        let blob = "0.125 33.9 -118.4 ".repeat(50);
+        for batch in 0..6u64 {
+            for i in 0..400u64 {
+                let n = batch * 400 + i;
+                // Later segments score higher, so every segment holds
+                // candidates for the page and is hydrated from its rows.
+                let body = if n % 7 == 0 {
+                    format!("{}report {n}", "needle ".repeat(batch as usize + 1))
+                } else {
+                    format!("hay stack {n}")
+                };
+                idx.index_document(
+                    Some(format!("doc-{n}")),
+                    json!({"title": format!("title {n}"), "body": body, "blob": blob}),
+                )
+                .await
+                .unwrap();
+            }
+            idx.flush().await.unwrap();
+        }
+        drop(idx);
+        drop(engine);
+
+        let engine = crate::Engine::new(topk_projection_config(dir.path())).unwrap();
+        let idx = engine.get_index("warm-bound").unwrap();
+        idx.abort_background_tasks();
+        let segs: Vec<String> = {
+            let snapshot = idx.store.snapshot();
+            snapshot.segments.iter().map(|s| s.id.to_string()).collect()
+        };
+        assert!(
+            segs.len() >= 4,
+            "precondition: many segments, got {}",
+            segs.len()
+        );
+        let warmed = |idx: &Index| {
+            segs.iter()
+                .filter(|id| {
+                    idx.stored_slices_cache.contains_key(id.as_str())
+                        || idx.decoded_stored_cache.contains_key(id.as_str())
+                })
+                .count()
+        };
+        assert_eq!(warmed(&idx), 0, "precondition: stored caches cold");
+
+        let request = xerj_query::parse_request(&json!({
+            "query": {"match": {"body": "needle"}},
+            "size": 5,
+            "_source": ["title"]
+        }))
+        .unwrap();
+        let cold = idx.search(&request).await.unwrap();
+        assert_eq!(cold.hits.len(), 5);
+        let hydrated = idx.cold_row_hydrations.load(Ordering::Relaxed);
+        assert!(
+            hydrated >= 3,
+            "precondition: the query hydrates several cold segments, got {hydrated}"
+        );
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+        while !idx.cold_stored_warms.is_empty() {
+            assert!(std::time::Instant::now() < deadline, "warm never settled");
+            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+        }
+        // Let any (pre-fix) straggler publish before counting.
+        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+        // The bound is on warms running at once. A warm that finishes while
+        // the query is still hydrating lets the next cold segment start
+        // one, so the total warmed can exceed one on a fast runner (CI saw
+        // 2 of 6); the number in flight never does.
+        let peak = idx.cold_stored_warm_peak.load(Ordering::Acquire);
+        assert!(
+            peak <= 1,
+            "one cold query ran {peak} stored warms at once over {} segments",
+            segs.len()
+        );
+
+        // The warm answer equals the cold answer.
+        let warm = idx.search(&request).await.unwrap();
+        let ids = |r: &xerj_query::executor::SearchResult| {
+            r.hits.iter().map(|h| h.id.clone()).collect::<Vec<_>>()
+        };
+        assert_eq!(ids(&cold), ids(&warm));
+        drop(idx);
+        drop(engine);
+    }
+
+    /// #2422/#2423: on a cold segment (after a restart, or evicted under the
+    /// cache budget) a top-k query that names its `_source` fields must read
+    /// only the winning rows and only the needed columns. Before the fix the
+    /// first query decoded the whole stored section — every column of every
+    /// document, ~3.2 s on a 300 MB corpus — to return 5 hits. The answer
+    /// must equal the full-decode answer, and the full stored caches must
+    /// stay cold.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn cold_topk_with_source_includes_reads_only_winning_rows() {
+        let dir = tempfile::tempdir().unwrap();
+        let engine = crate::Engine::new(topk_projection_config(dir.path())).unwrap();
+        engine
+            .create_index("topk-cold", topk_projection_schema())
+            .unwrap();
+        let idx = engine.get_index("topk-cold").unwrap();
+        idx.abort_background_tasks();
+        let blob = "0.125 33.9 -118.4 ".repeat(200);
+        for i in 0..4096u64 {
+            let body = if i % 97 == 0 {
+                format!("needle report {i} needle")
+            } else {
+                format!("hay stack {i}")
+            };
+            idx.index_document(
+                Some(format!("doc-{i}")),
+                json!({"title": format!("title {i}"), "body": body, "blob": blob}),
+            )
+            .await
+            .unwrap();
+        }
+        idx.flush().await.unwrap();
+        drop(idx);
+        drop(engine);
+
+        let reopen = || {
+            let engine = crate::Engine::new(topk_projection_config(dir.path())).unwrap();
+            let idx = engine.get_index("topk-cold").unwrap();
+            idx.abort_background_tasks();
+            (engine, idx)
+        };
+        let all_cold = |idx: &Index| {
+            let snapshot = idx.store.snapshot();
+            let segs: Vec<_> = snapshot.segments.clone();
+            drop(snapshot);
+            assert!(!segs.is_empty());
+            segs.iter().all(|s| {
+                !idx.stored_slices_cache.contains_key(&s.id)
+                    && !idx.decoded_stored_cache.contains_key(&s.id)
+            })
+        };
+
+        let projected = xerj_query::parse_request(&json!({
+            "query": {"match": {"body": "needle"}},
+            "size": 5,
+            "_source": ["title"]
+        }))
+        .unwrap();
+        assert_eq!(projected.savings, xerj_query::ast::SavingsMode::Off);
+        assert!(
+            fts_row_hydration_keep(&projected, &projected.query).is_some(),
+            "the request shape must be eligible for column projection"
+        );
+
+        let (engine, idx) = reopen();
+        assert!(
+            all_cold(&idx),
+            "precondition: stored caches cold after restart"
+        );
+        // Hold the background warm back so the query is observed alone.
+        let held: Vec<String> = {
+            let snapshot = idx.store.snapshot();
+            snapshot.segments.iter().map(|s| s.id.to_string()).collect()
+        };
+        for id in &held {
+            idx.cold_stored_warms.insert(id.clone(), ());
+        }
+        let cold = idx.search(&projected).await.unwrap();
+        assert!(
+            all_cold(&idx),
+            "a 5-hit query must not decode the whole stored section"
+        );
+        assert!(idx.cold_row_hydrations.load(Ordering::Relaxed) > 0);
+        // Released, the next cold visit warms the segment off the query path,
+        // so later queries with other winners read the warm cache.
+        idx.cold_stored_warms.clear();
+        let other = xerj_query::parse_request(&json!({
+            "query": {"match": {"body": "report"}},
+            "size": 5,
+            "_source": ["title"]
+        }))
+        .unwrap();
+        let again = idx.search(&other).await.unwrap();
+        assert_eq!(again.hits.len(), 5);
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+        while all_cold(&idx) || !idx.cold_stored_warms.is_empty() {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "background warm never landed"
+            );
+            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+        }
+        assert_eq!(cold.hits.len(), 5);
+        for h in &cold.hits {
+            let n: u64 = h.id.trim_start_matches("doc-").parse().unwrap();
+            assert_eq!(n % 97, 0, "hit {} does not match the query", h.id);
+            assert_eq!(h.source, json!({"title": format!("title {n}")}));
+        }
+        drop(idx);
+        drop(engine);
+
+        // Same query, every column, warm full decode: same ids, order and
+        // scores.
+        let full = xerj_query::parse_request(&json!({
+            "query": {"match": {"body": "needle"}},
+            "size": 5
+        }))
+        .unwrap();
+        let (_engine, idx) = reopen();
+        let warm_full = idx.search(&full).await.unwrap();
+        let warm_projected = idx.search(&projected).await.unwrap();
+        let key = |r: &xerj_query::executor::SearchResult| {
+            r.hits
+                .iter()
+                .map(|h| (h.id.clone(), (h.score * 1e4).round() as i64))
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(key(&cold), key(&warm_full));
+        assert_eq!(key(&cold), key(&warm_projected));
+        for (c, w) in cold.hits.iter().zip(&warm_full.hits) {
+            assert_eq!(c.source["title"], w.source["title"]);
+            assert_eq!(w.source["blob"], json!(blob));
+        }
+    }
+
+    /// #2427: a query the segment FTS declines (here a `range` should-clause
+    /// on a field no document has; #2467 lets the FTS skip unmapped
+    /// term/phrase leaves, but not `range`/`exists`) walks every cold
+    /// segment through the brute stored scan. That scan decoded
+    /// every column — on a semantic_text corpus ~85% embedding companions —
+    /// although the page can only observe the `_source` includes plus the
+    /// fields the query reads. With an include list the cold decode must
+    /// read only those columns, answer exactly like the full decode, and
+    /// never publish the partial section to `decoded_stored_cache`.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn cold_stored_scan_with_source_includes_decodes_only_kept_columns() {
+        let dir = tempfile::tempdir().unwrap();
+        let engine = crate::Engine::new(topk_projection_config(dir.path())).unwrap();
+        engine
+            .create_index("scan-cold", topk_projection_schema())
+            .unwrap();
+        let idx = engine.get_index("scan-cold").unwrap();
+        idx.abort_background_tasks();
+        let vector: Vec<f64> = (0..64).map(|d| d as f64 * 0.015625).collect();
+        for i in 0..1500u64 {
+            let body = if i % 31 == 0 {
+                format!("needle report {i} needle")
+            } else {
+                format!("hay stack {i}")
+            };
+            idx.index_document(
+                Some(format!("doc-{i}")),
+                json!({
+                    "title": format!("title {i}"),
+                    "body": body,
+                    "blob": "padding ".repeat(64),
+                    "body_vector": vector,
+                    "body_vector_chunks": [{"text": body, "vector": vector}],
+                }),
+            )
+            .await
+            .unwrap();
+        }
+        idx.flush().await.unwrap();
+        drop(idx);
+        drop(engine);
+
+        let reopen = || {
+            let engine = crate::Engine::new(topk_projection_config(dir.path())).unwrap();
+            let idx = engine.get_index("scan-cold").unwrap();
+            idx.abort_background_tasks();
+            let held: Vec<String> = {
+                let snapshot = idx.store.snapshot();
+                assert_eq!(snapshot.segments.len(), 1, "single-shard fixture");
+                assert_eq!(snapshot.segments[0].doc_count, 1500);
+                snapshot.segments.iter().map(|s| s.id.to_string()).collect()
+            };
+            for id in &held {
+                idx.cold_stored_warms.insert(id.clone(), ());
+            }
+            (engine, idx, held)
+        };
+        let body = |source: Option<serde_json::Value>| {
+            let mut body = json!({
+                "query": {"bool": {
+                    "should": [
+                        {"match": {"body": "needle"}},
+                        {"range": {"defs": {"gte": "a"}}}
+                    ],
+                    "minimum_should_match": 1
+                }},
+                "size": 10
+            });
+            if let Some(source) = source {
+                body["_source"] = source;
+            }
+            xerj_query::parse_request(&body).unwrap()
+        };
+        let projected = body(Some(json!(["title"])));
+        let full = body(None);
+        assert!(fts_row_hydration_keep(&projected, &projected.query).is_some());
+
+        // Full-source query: the stored scan decodes and caches the section.
+        let (engine, idx, segs) = reopen();
+        let full_res = idx.search(&full).await.unwrap();
+        assert!(
+            segs.iter()
+                .any(|s| idx.decoded_stored_cache.contains_key(s)),
+            "precondition: this query shape takes the stored-scan path"
+        );
+        drop(idx);
+        drop(engine);
+
+        let (engine, idx, segs) = reopen();
+        let cold = idx.search(&projected).await.unwrap();
+        assert!(
+            segs.iter()
+                .all(|s| !idx.decoded_stored_cache.contains_key(s)
+                    && !idx.stored_slices_cache.contains_key(s)),
+            "a projected decode must never be cached as the full section"
+        );
+        let key = |r: &xerj_query::executor::SearchResult| {
+            r.hits
+                .iter()
+                .map(|h| (h.id.clone(), (h.score * 1e4).round() as i64))
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(full_res.hits.len(), 10);
+        assert_eq!(key(&cold), key(&full_res));
+        assert_eq!(cold.total.value, full_res.total.value);
+        for (c, f) in cold.hits.iter().zip(&full_res.hits) {
+            assert_eq!(c.source, json!({"title": f.source["title"].clone()}));
+            assert!(f.source["body_vector"].is_array());
+        }
+
+        // The whole-document reader can still locate and restore every
+        // projected hit's full row.
+        let mut row_projected = HashMap::new();
+        let seg_of: HashMap<String, String> = cold
+            .hits
+            .iter()
+            .map(|h| (h.id.clone(), segs[0].clone()))
+            .collect();
+        idx.locate_scan_projected_rows(&cold.hits, &seg_of, &mut row_projected);
+        assert_eq!(row_projected.len(), cold.hits.len());
+        for h in &cold.hits {
+            let (seg, pos) = &row_projected[&h.id];
+            let mut rows = idx.hydrate_fts_rows_cold(seg, &[*pos], None).unwrap();
+            let doc = rows.remove(pos).unwrap();
+            assert_eq!(doc["_id"].as_str(), Some(h.id.as_str()));
+            assert!(doc["_source"]["body_vector_chunks"].is_array());
+        }
+        drop(idx);
+        drop(engine);
+    }
+
+    #[test]
+    fn row_projection_keep_set_covers_query_and_include_fields() {
+        let req = xerj_query::parse_request(&json!({
+            "query": {"bool": {
+                "must": [{"multi_match": {"query": "x", "fields": ["title^2", "body"]}}],
+                "filter": [{"term": {"kind": "a"}}]
+            }},
+            "_source": ["path"]
+        }))
+        .unwrap();
+        let keep = fts_row_hydration_keep(&req, &req.query).unwrap();
+        for f in ["body", "kind", "path", "title"] {
+            assert!(keep.iter().any(|k| k == f), "{f} missing from {keep:?}");
+        }
+        // A wildcard query field cannot be resolved to columns: no projection.
+        let wild = xerj_query::parse_request(&json!({
+            "query": {"multi_match": {"query": "x", "fields": ["*"]}},
+            "_source": ["path"]
+        }))
+        .unwrap();
+        assert!(fts_row_hydration_keep(&wild, &wild.query).is_none());
+        // `_savings` measures withheld bytes from the whole document.
+        let mut measured = req.clone();
+        measured.savings = xerj_query::ast::SavingsMode::Sampled;
+        assert!(fts_row_hydration_keep(&measured, &measured.query).is_none());
+        // No includes: the whole source is returned anyway.
+        let whole = xerj_query::parse_request(&json!({"query": {"match": {"body": "x"}}})).unwrap();
+        assert!(fts_row_hydration_keep(&whole, &whole.query).is_none());
+
+        let keep = vec!["meta".to_string(), "a.b".to_string(), "pre*".to_string()];
+        assert!(row_projection_keeps_column(&keep, "meta"));
+        assert!(row_projection_keeps_column(&keep, "meta.x"));
+        assert!(row_projection_keeps_column(&keep, "a"));
+        assert!(row_projection_keeps_column(&keep, "a.b"));
+        assert!(row_projection_keeps_column(&keep, "prefix"));
+        assert!(!row_projection_keeps_column(&keep, "metadata"));
+        assert!(!row_projection_keeps_column(&keep, "ab"));
+    }
+
+    /// #2427: a rayon worker must not block on a segment's stored-decode
+    /// flight lock. The holder (a cold-stored warm) waits on its own
+    /// rayon-parallel decode, so a worker parked on the lock can sit on top
+    /// of the very job the holder needs: a permanent deadlock that pinned
+    /// every later search of the segment at the 30 s request deadline.
+    /// Threads outside the pool still single-flight.
+    ///
+    /// Fails before the fix: the worker blocks on the held lock, so the
+    /// holder, which waits for the pool before it releases, times out.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn rayon_worker_never_blocks_on_a_held_stored_flight_lock() {
+        let dir = tempfile::tempdir().unwrap();
+        let engine = crate::Engine::new(topk_projection_config(dir.path())).unwrap();
+        engine
+            .create_index("flight-lock", topk_projection_schema())
+            .unwrap();
+        let idx = engine.get_index("flight-lock").unwrap();
+        idx.abort_background_tasks();
+        for i in 0..256u64 {
+            idx.index_document(
+                Some(format!("doc-{i}")),
+                json!({"title": format!("title {i}"), "body": format!("body text {i}")}),
+            )
+            .await
+            .unwrap();
+        }
+        idx.flush().await.unwrap();
+        let seg = idx.store.snapshot().segments[0].clone();
+        idx.release_memory();
+        assert!(
+            !idx.stored_slices_cache.contains_key(&seg.id),
+            "precondition: cold"
+        );
+
+        let flight = Arc::clone(
+            idx.stored_slices_build_locks
+                .entry(seg.id.clone())
+                .or_default()
+                .value(),
+        );
+        let held = flight.lock().unwrap();
+        let roomy = SegmentHydrationBudget::new(u64::MAX);
+        let read = ReadTransientBudget::new(1 << 30, std::time::Duration::from_secs(5));
+        let build = |idx: Arc<Index>,
+                     roomy: Arc<SegmentHydrationBudget>,
+                     read: Arc<ReadTransientBudget>| {
+            let (seg_id, docs) = (seg.id.clone(), seg.doc_count);
+            move || {
+                idx.stored_slices_for_with(&seg_id, docs, &roomy, &read)
+                    .is_some()
+            }
+        };
+
+        // Outside the pool: still single-flight, waits for the holder.
+        let (outside_tx, outside_rx) = std::sync::mpsc::channel();
+        let outside = build(Arc::clone(&idx), Arc::clone(&roomy), Arc::clone(&read));
+        let outside_thread = std::thread::spawn(move || outside_tx.send(outside()).unwrap());
+        assert!(
+            outside_rx
+                .recv_timeout(std::time::Duration::from_millis(500))
+                .is_err(),
+            "a caller outside the pool keeps the blocking single-flight"
+        );
+
+        // On a rayon worker: the holder waits for the pool, as a warm's
+        // parallel decode does; the worker must decode without the lock.
+        let pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(1)
+            .build()
+            .unwrap();
+        let (worker_tx, worker_rx) = std::sync::mpsc::channel();
+        let worker = build(Arc::clone(&idx), Arc::clone(&roomy), Arc::clone(&read));
+        pool.spawn(move || worker_tx.send(worker()).unwrap());
+        let worker_result = worker_rx.recv_timeout(std::time::Duration::from_secs(10));
+        drop(held);
+        assert_eq!(
+            worker_result,
+            Ok(true),
+            "a rayon worker must not block on a held stored flight lock"
+        );
+        assert_eq!(
+            outside_rx.recv_timeout(std::time::Duration::from_secs(10)),
+            Ok(true)
+        );
+        outside_thread.join().unwrap();
+        assert!(idx.stored_slices_cache.contains_key(&seg.id));
+    }
+
     /// #950: building the id→position map must NOT materialise the full
     /// stored section.  Before the fix, `id_pos_map_for` ran the complete
     /// `stored_slices_for` decode — every column of every stored document
@@ -1867,6 +3569,104 @@ mod flush_publication_recovery_tests {
         let result = idx.search(&request).await.unwrap();
         assert_eq!(result.total.value, 1);
         assert_eq!(result.hits[0].id, "survivor");
+    }
+
+    /// Issue #2254. `page_Id` is a portable literal under filename layout v2,
+    /// so on NTFS it is the same file as `page_id`. The flush must publish
+    /// layout v3, keep both fields searchable, and still open after restart.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn mixed_case_field_flush_publishes_v3_and_restarts_searchable() {
+        let _fault_test = FLUSH_FAULT_TEST_LOCK.lock().await;
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config.clone()).unwrap();
+        let mut schema = Schema::empty();
+        schema
+            .add_field(FieldConfig::new("page_Id", FieldType::Text))
+            .unwrap();
+        schema
+            .add_field(FieldConfig::new("page_id", FieldType::Text))
+            .unwrap();
+        schema
+            .add_field(FieldConfig::new("component", FieldType::Text))
+            .unwrap();
+        engine.create_index("case-field-publish", schema).unwrap();
+        let idx = engine.get_index("case-field-publish").unwrap();
+        idx.abort_background_tasks();
+        assert_eq!(data_dir_format_version(&idx), 1);
+        idx.index_document(
+            Some("jbar".into()),
+            json!({
+                "page_Id": "1212561321588641792",
+                "page_id": "other-page",
+                "component": "JBar3d"
+            }),
+        )
+        .await
+        .unwrap();
+        idx.index_document(
+            Some("jimg".into()),
+            json!({"component": "JImg", "page_id": "img-only"}),
+        )
+        .await
+        .unwrap();
+
+        idx.flush().await.unwrap();
+        assert_eq!(data_dir_format_version(&idx), 3);
+        assert_eq!(idx.memtable.doc_count(), 0);
+        let segment_names: Vec<String> = std::fs::read_dir(idx.data_dir.join("segments"))
+            .unwrap()
+            .flatten()
+            .map(|entry| entry.file_name().to_string_lossy().into_owned())
+            .collect();
+        assert!(
+            segment_names
+                .iter()
+                .any(|name| name.ends_with(".fts-layout-v3")),
+            "{segment_names:?}"
+        );
+        assert!(segment_names
+            .iter()
+            .all(|name| !name.ends_with(".fts-layout-v2")));
+        let mut case_keys = std::collections::HashSet::new();
+        for name in segment_names.iter().filter(|name| name.ends_with(".fst")) {
+            assert!(
+                case_keys.insert(name.to_ascii_lowercase()),
+                "case-folded FTS sidecar collision: {name}"
+            );
+        }
+
+        let request = xerj_query::parse_request(&json!({
+            "query": {"match": {"component": "JBar3d"}},
+            "size": 10,
+            "track_total_hits": true
+        }))
+        .unwrap();
+        let result = idx.search(&request).await.unwrap();
+        assert_eq!(result.total.value, 1);
+        assert_eq!(result.hits[0].id, "jbar");
+        let by_page = xerj_query::parse_request(&json!({
+            "query": {"match": {"page_Id": "1212561321588641792"}},
+            "size": 10
+        }))
+        .unwrap();
+        let result = idx.search(&by_page).await.unwrap();
+        assert_eq!(result.hits.len(), 1);
+        assert_eq!(result.hits[0].id, "jbar");
+        drop(idx);
+        drop(engine);
+
+        let restarted = crate::Engine::new(config).unwrap();
+        let idx = restarted.get_index("case-field-publish").unwrap();
+        idx.abort_background_tasks();
+        assert_eq!(data_dir_format_version(&idx), 3);
+        let result = idx.search(&request).await.unwrap();
+        assert_eq!(result.total.value, 1);
+        assert_eq!(result.hits[0].id, "jbar");
+        let result = idx.search(&by_page).await.unwrap();
+        assert_eq!(result.hits.len(), 1);
+        assert_eq!(result.hits[0].id, "jbar");
     }
 
     /// Build a one-date-field index whose `ts` field carries `precision`.
@@ -2793,6 +4593,234 @@ mod flush_publication_recovery_tests {
                  finalize should have been enqueued",
             )
             .expect("flush of an empty memtable must succeed");
+    }
+
+    #[test]
+    fn flush_timeout_override_keeps_the_configured_value_when_the_env_is_junk() {
+        assert_eq!(super::resolve_flush_timeout_secs("X", 120, None), 120);
+        assert_eq!(super::resolve_flush_timeout_secs("X", 120, Some("30")), 30);
+        assert_eq!(super::resolve_flush_timeout_secs("X", 120, Some("  ")), 120);
+        assert_eq!(super::resolve_flush_timeout_secs("X", 120, Some("0")), 120);
+        assert_eq!(
+            super::resolve_flush_timeout_secs("X", 120, Some("lots")),
+            120
+        );
+        assert_eq!(
+            super::resolve_flush_timeout_secs("X", 120, Some("999999")),
+            120
+        );
+    }
+
+    /// The #1635 admission deadline is wall-clock time. After #2129, a
+    /// paused-clock runtime waiting for a permit held elsewhere auto-advanced
+    /// straight to the 120 s deadline and failed at once. That is how every
+    /// `start_paused` flush test failed at default parallelism whenever
+    /// another test held the process-global finalize gate.
+    #[tokio::test(start_paused = true)]
+    async fn a_paused_clock_does_not_expire_a_flush_admission_wait() {
+        let sema = std::sync::Arc::new(tokio::sync::Semaphore::new(0));
+        let releaser = std::sync::Arc::clone(&sema);
+        let holder = std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(200));
+            releaser.add_permits(1);
+        });
+        let started = std::time::Instant::now();
+        let permit = super::wait_for_flush_permit(
+            "paused-admit",
+            "the finalize gate",
+            std::time::Duration::from_secs(120),
+            sema.acquire(),
+        )
+        .await
+        .expect("a permit released after 200ms of real time is inside a 120s budget");
+        assert!(permit.is_some());
+        assert!(
+            started.elapsed() >= std::time::Duration::from_millis(150),
+            "the wait must have lasted until the permit was really released"
+        );
+        holder.join().unwrap();
+    }
+
+    /// The other half: under a paused clock the deadlines still fire, on the
+    /// wall clock, for both the admission wait and a spawned flush task.
+    #[tokio::test(start_paused = true)]
+    async fn a_paused_clock_still_enforces_the_wall_clock_flush_deadlines() {
+        let sema = tokio::sync::Semaphore::new(0);
+        let started = std::time::Instant::now();
+        let err = super::wait_for_flush_permit(
+            "paused-admit",
+            "the finalize gate",
+            std::time::Duration::from_millis(100),
+            sema.acquire(),
+        )
+        .await
+        .expect_err("a permit that never comes must still time out");
+        assert!(err.to_string().contains("paused-admit"));
+        assert!(started.elapsed() >= std::time::Duration::from_millis(100));
+
+        // A flush task that never finishes. It is pending on the runtime, not
+        // parked on the blocking pool: tokio does not auto-advance a paused
+        // clock while blocking work is in flight, so no timer of any kind
+        // fires then (see `within_wall_clock`).
+        let (tx, rx) = tokio::sync::oneshot::channel::<()>();
+        let task = tokio::spawn(async move {
+            let _ = rx.await;
+            Ok(())
+        });
+        let started = std::time::Instant::now();
+        let err =
+            super::await_flush_task("paused-flush", std::time::Duration::from_millis(100), task)
+                .await
+                .expect_err("a flush task that never finishes must time out");
+        assert!(err.to_string().contains("paused-flush"));
+        assert!(started.elapsed() >= std::time::Duration::from_millis(100));
+        drop(tx);
+
+        let task = tokio::spawn(async move {
+            tokio::task::spawn_blocking(|| {
+                std::thread::sleep(std::time::Duration::from_millis(150))
+            })
+            .await
+            .unwrap();
+            Ok(())
+        });
+        super::await_flush_task("paused-flush", std::time::Duration::from_secs(300), task)
+            .await
+            .expect("a flush task that really finishes in 150ms is inside a 300s budget");
+    }
+
+    /// End to end, as CI hit it: a paused-clock index flushes while another
+    /// runtime holds every finalize-gate permit for a moment of real time.
+    #[tokio::test(start_paused = true)]
+    async fn a_paused_clock_flush_waits_for_a_finalize_gate_held_elsewhere() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        engine.create_index("paused-gate", Schema::empty()).unwrap();
+        let index = engine.get_index("paused-gate").unwrap();
+        index.abort_background_tasks();
+        index
+            .index_document(Some("p".into()), json!({"body": "paused"}))
+            .await
+            .unwrap();
+
+        let (held_tx, held_rx) = std::sync::mpsc::channel::<()>();
+        let holder = std::thread::spawn(move || {
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap();
+            rt.block_on(async {
+                let permits = crate::pools::sizing().flush_finalize as u32;
+                let _held = crate::flush_finalize_gate()
+                    .acquire_many(permits)
+                    .await
+                    .unwrap();
+                held_tx.send(()).unwrap();
+                std::thread::sleep(std::time::Duration::from_millis(200));
+            });
+        });
+        held_rx.recv().unwrap();
+        index
+            .flush()
+            .await
+            .expect("a healthy flush must wait for a gate held for 200ms, not time out");
+        assert_eq!(index.memtable.doc_count(), 0);
+        holder.join().unwrap();
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn a_flush_that_never_finishes_fails_that_index_and_the_run_continues() {
+        // #1635 — `finalize-refresh` sat at items=0 with no error because
+        // `flush_finalize_gate().acquire()` (and the per-index flush
+        // semaphore) waited forever, and one stuck index blocked the refresh
+        // of every later index. Hold every finalize-gate permit — a flush
+        // that took one and never returned — and require the waiting index
+        // to fail by name without freezing its memtable, then the next index
+        // to flush normally.
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        engine.create_index("stuck-docs", Schema::empty()).unwrap();
+        engine
+            .create_index("healthy-docs", Schema::empty())
+            .unwrap();
+        let stuck = engine.get_index("stuck-docs").unwrap();
+        let healthy = engine.get_index("healthy-docs").unwrap();
+        stuck.abort_background_tasks();
+        healthy.abort_background_tasks();
+        stuck
+            .index_document(Some("s".into()), json!({"body": "wedged"}))
+            .await
+            .unwrap();
+        healthy
+            .index_document(Some("h".into()), json!({"body": "fine"}))
+            .await
+            .unwrap();
+        assert_eq!(stuck.memtable.doc_count(), 1);
+        assert_eq!(healthy.memtable.doc_count(), 1);
+
+        stuck.flush_admit_timeout_ms.store(100, Ordering::Relaxed);
+
+        let permits_n = crate::pools::sizing().flush_finalize as u32;
+        let held = crate::flush_finalize_gate()
+            .acquire_many(permits_n)
+            .await
+            .expect("the test must be able to hold the finalize gate");
+        assert_eq!(
+            crate::flush_finalize_gate().available_permits(),
+            0,
+            "the simulated flush must be holding every finalize permit"
+        );
+
+        let started = std::time::Instant::now();
+        let outcome = tokio::time::timeout(std::time::Duration::from_secs(5), stuck.flush()).await;
+        let elapsed = started.elapsed();
+        let err = outcome
+            .expect("a flush waiting on a permit that never returns must not hang (#1635)")
+            .expect_err("a wedged finalize gate must fail the flush");
+        drop(held);
+
+        let message = err.to_string();
+        assert!(
+            message.contains("stuck-docs"),
+            "the failure must name the stuck index, got: {message}"
+        );
+        assert!(
+            message.contains("finalize gate"),
+            "the failure must name the wait that expired, got: {message}"
+        );
+        assert!(
+            message.contains("not frozen"),
+            "the timeout must be before the memtable freeze, got: {message}"
+        );
+        assert!(
+            elapsed < std::time::Duration::from_secs(4),
+            "admission timeout is 100ms; flush took {elapsed:?}"
+        );
+        assert_eq!(
+            stuck.memtable.doc_count(),
+            1,
+            "a timed-out admission must leave the memtable intact"
+        );
+
+        healthy
+            .flush()
+            .await
+            .expect("the next index must still flush after the stuck one failed");
+        assert_eq!(healthy.memtable.doc_count(), 0);
+
+        stuck
+            .flush_admit_timeout_ms
+            .store(30_000, Ordering::Relaxed);
+        stuck.flush_timeout_ms.store(30_000, Ordering::Relaxed);
+        stuck
+            .flush()
+            .await
+            .expect("retry after the wedge clears must succeed; the timeout did not freeze");
+        assert_eq!(stuck.memtable.doc_count(), 0);
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -4660,9 +6688,8 @@ mod merge_publication_transaction_tests {
     /// stopped.
     ///
     /// Same contract as `hand_driven_index`: the restart half of these tests
-    /// asserts on a recovered segment set, and `Index::open` schedules its
-    /// own open-time merge check too (`request_merge_check`, #871 — an
-    /// opened index may carry pre-existing merge debt).
+    /// asserts on a recovered segment set, and any flush after the reopen
+    /// arms a background merge check (#871).
     fn reopen_hand_driven(dir: &TempDir, name: &str) -> (Engine, Arc<Index>) {
         let engine = Engine::new(config(dir)).unwrap();
         let index = engine.get_index(name).unwrap();
@@ -4989,6 +7016,87 @@ mod merge_publication_transaction_tests {
         })
         .await
         .expect("merge did not reach the pre-apply gate");
+    }
+
+    /// #2234 — `_refresh` must publish a new write while a merge encode is
+    /// held, on a runtime whose tokio blocking pool has a single thread.
+    ///
+    /// The encode used to run inside `spawn_blocking` for its whole duration.
+    /// Refresh builds a segment on that same pool, so with one blocking thread
+    /// the refresh queued until the merge returned. The encode now runs on the
+    /// merge pool; this test parks it there and requires `refresh` to drain
+    /// the memtable before the park is released.
+    #[test]
+    fn refresh_publishes_while_a_merge_encode_is_held() {
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(4)
+            .max_blocking_threads(1)
+            .enable_all()
+            .build()
+            .expect("runtime");
+        runtime.block_on(async {
+            let dir = TempDir::new().unwrap();
+            let (_engine, index) = fixture(&dir).await;
+            // Releasing on drop covers an assertion failure: a parked merge
+            // thread must not outlive the test and pin the process-global
+            // merge pool.
+            struct ReleaseHold<'a>(&'a AtomicBool);
+            impl Drop for ReleaseHold<'_> {
+                fn drop(&mut self) {
+                    self.0.store(false, Ordering::Release);
+                }
+            }
+            index.test_hold_merge_encode.store(true, Ordering::Release);
+            let release = ReleaseHold(&index.test_hold_merge_encode);
+            let merge_index = Arc::clone(&index);
+            let merge = tokio::spawn(async move { merge_index.run_merge_once().await });
+            tokio::time::timeout(std::time::Duration::from_secs(10), async {
+                while !index.test_merge_encode_held.load(Ordering::Acquire) {
+                    tokio::task::yield_now().await;
+                }
+            })
+            .await
+            .expect("merge encode did not reach the hold");
+
+            index
+                .index_document(Some("c".into()), serde_json::json!({"value": "new-c"}))
+                .await
+                .unwrap();
+            assert_eq!(
+                index.memtable.doc_count(),
+                1,
+                "the new document must still be in the memtable"
+            );
+            let refreshed =
+                tokio::time::timeout(std::time::Duration::from_secs(8), index.refresh()).await;
+            assert!(
+                refreshed.is_ok(),
+                "refresh did not return within 8s while the merge encode was held"
+            );
+            refreshed
+                .expect("timeout already checked")
+                .expect("refresh");
+            assert_eq!(
+                index.memtable.doc_count(),
+                0,
+                "refresh must drain the memtable without waiting for the merge"
+            );
+            assert!(
+                index.test_merge_encode_held.load(Ordering::Acquire),
+                "the merge encode must still be parked after refresh returns"
+            );
+            assert_eq!(
+                index.get_document("c").await.unwrap().unwrap()["value"],
+                "new-c"
+            );
+
+            drop(release);
+            let merged = tokio::time::timeout(std::time::Duration::from_secs(30), merge)
+                .await
+                .expect("merge did not finish after the hold was released")
+                .expect("merge task");
+            assert_eq!(merged.expect("merge"), 1);
+        });
     }
 
     #[tokio::test]
@@ -5651,6 +7759,105 @@ mod merge_publication_transaction_tests {
         );
     }
 
+    /// Drive the paused clock past one debounce, and give the merge pool a
+    /// real turn so an encode can finish.
+    ///
+    /// #2234 runs that encode on the merge pool, off this runtime. A paused
+    /// `sleep` auto-advances while the pass is still awaiting the pool, so
+    /// the scheduler never looks idle and a later segment change is only a
+    /// bumped epoch on the in-flight pass — the evaluation counter does not
+    /// move until the encode returns. `std::thread::sleep` does not advance
+    /// the paused clock, so it cannot itself schedule a merge check.
+    async fn settle_merge_scheduler(index: &Index) {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        loop {
+            let before = index.merge_evaluation_count();
+            std::thread::sleep(std::time::Duration::from_millis(15));
+            tokio::task::yield_now().await;
+            tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+            tokio::task::yield_now().await;
+            let after = index.merge_evaluation_count();
+            if after == before && !index.is_merge_in_progress() {
+                // A second window with no real sleep: a still-armed debounce
+                // is the only thing that can move the counter.
+                tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+                if index.merge_evaluation_count() == after && !index.is_merge_in_progress() {
+                    return;
+                }
+            }
+            assert!(
+                std::time::Instant::now() < deadline,
+                "background merges did not quiesce (evaluations {}, in progress {})",
+                index.merge_evaluation_count(),
+                index.is_merge_in_progress()
+            );
+        }
+    }
+
+    async fn seed_segments_for_reopen(dir: &TempDir, name: &str, segments: usize) {
+        let (engine, index) = hand_driven_index(dir, name, Schema::empty());
+        for n in 0..segments {
+            index
+                .index_document(Some(format!("d{n}")), serde_json::json!({"value": n}))
+                .await
+                .unwrap();
+            index.flush().await.unwrap();
+        }
+        assert_eq!(index.store.snapshot().segments.len(), segments);
+        drop(index);
+        drop(engine);
+    }
+
+    /// #2427 — a restarted node that receives no writes runs no catch-up
+    /// merges. In the 1 GB release gate every index on the restarted
+    /// search-only node merged its inherited segments a few seconds after
+    /// boot, while it served reads above the breaker watermark on a
+    /// 3,072 MB cap. On the old code the open-time
+    /// `request_merge_check` evaluates (and merges) within the 5 s
+    /// debounce, so the first assertion fails.
+    #[tokio::test(start_paused = true)]
+    async fn a_reopened_index_without_writes_runs_no_catch_up_merge() {
+        const SEGMENTS: usize = 6;
+        let dir = TempDir::new().unwrap();
+        seed_segments_for_reopen(&dir, "no-catchup", SEGMENTS).await;
+
+        // Background scheduling stays running: it is the subject.
+        let engine = Engine::new(config(&dir)).unwrap();
+        let index = engine.get_index("no-catchup").unwrap();
+        for _ in 0..30 {
+            tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+            tokio::task::yield_now().await;
+        }
+        assert_eq!(
+            index.merge_evaluation_count(),
+            0,
+            "a reopened index with no writes evaluated a merge"
+        );
+        assert!(!index.is_merge_in_progress());
+        assert_eq!(index.store.snapshot().segments.len(), SEGMENTS);
+        let docs = index
+            .search(&SearchRequest::default())
+            .await
+            .unwrap()
+            .total
+            .value;
+        assert_eq!(docs, SEGMENTS as u64);
+
+        // The first write pays the inherited debt.
+        index
+            .index_document(Some("w".into()), serde_json::json!({"value": "w"}))
+            .await
+            .unwrap();
+        index.flush().await.unwrap();
+        settle_merge_scheduler(&index).await;
+        assert!(index.merge_evaluation_count() >= 1);
+        assert!(
+            index.store.snapshot().segments.len() < SEGMENTS,
+            "the first write did not pay the inherited merge debt"
+        );
+        index.abort_background_tasks();
+    }
+
     /// #871 — merge scheduling must be event-driven: after an index's merge
     /// work settles, ZERO further merge-policy evaluations may run until the
     /// segment set changes again.
@@ -5679,10 +7886,9 @@ mod merge_publication_transaction_tests {
         }
         // Let the scheduled checks and their cascading merges run to
         // quiescence (min/max_merge_count = 2 collapses two at a time).
-        for _ in 0..8 {
-            tokio::time::sleep(std::time::Duration::from_secs(30)).await;
-            tokio::task::yield_now().await;
-        }
+        // The encode is on the merge pool (#2234); paused sleeps do not
+        // wait for it.
+        settle_merge_scheduler(&index).await;
         let settled = index.merge_evaluation_count();
         assert!(
             settled >= 1,
@@ -5704,14 +7910,19 @@ mod merge_publication_transaction_tests {
             .await
             .unwrap();
         index.flush().await.unwrap();
-        for _ in 0..8 {
-            tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+        let wake_deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+        loop {
+            std::thread::sleep(std::time::Duration::from_millis(15));
             tokio::task::yield_now().await;
+            tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+            if index.merge_evaluation_count() > settled {
+                break;
+            }
+            assert!(
+                std::time::Instant::now() < wake_deadline,
+                "a published segment no longer schedules a merge check"
+            );
         }
-        assert!(
-            index.merge_evaluation_count() > settled,
-            "a published segment no longer schedules a merge check"
-        );
     }
 
     #[tokio::test]
@@ -6124,6 +8335,57 @@ mod semantic_deadline_regression_tests {
         );
     }
 
+    /// #2807: this server checks the per-document limit after it adds the
+    /// vectors, so autoindex sizes each record before it sends it with
+    /// `xerj_common::document_limit::semantic_vector_bytes`. A change to what
+    /// `apply_semantic_embeddings_batch` writes has to change that function.
+    #[tokio::test]
+    async fn semantic_vector_bytes_is_what_embedding_adds() {
+        let dir = TempDir::new().unwrap();
+        let engine_instance = engine(&dir);
+        let mut schema = Schema::empty();
+        let mut body = FieldConfig::new("body", FieldType::Text);
+        body.options.dimensions = Some(384);
+        body.options.similarity = Some("cosine".into());
+        body.embedding = Some(xerj_common::types::EmbeddingConfig {
+            endpoint: None,
+            model: None,
+            target_field: Some("body_vector".into()),
+        });
+        schema.add_field(body).unwrap();
+        let mut companion = FieldConfig::new("body_vector", FieldType::Vector);
+        companion.options.dimensions = Some(384);
+        companion.options.similarity = Some("cosine".into());
+        schema.add_field(companion).unwrap();
+        engine_instance
+            .create_index("sized-passages", schema)
+            .unwrap();
+        let idx = engine_instance.get_index("sized-passages").unwrap();
+
+        for text in [
+            "One short passage, caf\u{e9}.".to_string(),
+            "The quick brown fox jumps over the lazy dog. Pack my box with five dozen liquor jugs. "
+                .repeat(40),
+        ] {
+            let passages = xerj_ai::semantic_lexical::semantic_passage_offsets(&text);
+            let source = serde_json::json!({"title": "t", "body": text});
+            let before = serde_json::to_vec(&source).unwrap().len();
+            let embedded = idx.apply_semantic_embeddings(source).await.unwrap();
+            let after = serde_json::to_vec(&embedded).unwrap().len();
+            assert_eq!(
+                after - before,
+                xerj_common::document_limit::semantic_vector_bytes(
+                    "body",
+                    "body_vector",
+                    384,
+                    &passages
+                ),
+                "{} passages",
+                passages.len()
+            );
+        }
+    }
+
     #[tokio::test]
     async fn mixed_short_and_chunked_semantic_docs_use_exact_passage_winner() {
         let dir = TempDir::new().unwrap();
@@ -6412,6 +8674,167 @@ mod semantic_deadline_regression_tests {
         .expect("dedicated sync ingest thread panicked")
         .unwrap();
         assert!(sync_idx.passage_chunks_require_exact("body_vector"));
+    }
+
+    /// #2796: re-indexing the same ids tombstoned each old node and nothing
+    /// ever removed one, so `graph.bin` held every vector ever written
+    /// (87.7 MB for 1,000 live 1024-d vectors after 20 rounds). The graph
+    /// save now compacts once dead nodes reach the live count, so the node
+    /// count and the file stay within about twice the live set.
+    #[tokio::test]
+    async fn overwriting_the_same_ids_keeps_the_hnsw_graph_bounded_2796() {
+        const LIVE: usize = 1200;
+        const ROUNDS: usize = 6;
+        let dir = TempDir::new().unwrap();
+        let engine_instance = engine(&dir);
+        let mut schema = Schema::empty();
+        let mut vector = FieldConfig::new("v", FieldType::Vector);
+        vector.options.dimensions = Some(8);
+        vector.options.similarity = Some("cosine".into());
+        schema.add_field(vector).unwrap();
+        engine_instance
+            .create_index("overwrite-hnsw", schema)
+            .unwrap();
+        let idx = engine_instance.get_index("overwrite-hnsw").unwrap();
+
+        let vector_for = |doc: usize, round: usize| -> Vec<f32> {
+            (0..8u64)
+                .map(|d| {
+                    let seed = (round * LIVE + doc) as u64 * 8 + d + 1;
+                    let h = seed.wrapping_mul(0x9E37_79B9_7F4A_7C15);
+                    ((h >> 40) % 2001) as f32 / 1000.0 - 1.0
+                })
+                .collect()
+        };
+        let mut first_graph_bytes = 0;
+        for round in 0..ROUNDS {
+            let docs: Vec<(String, Value)> = (0..LIVE)
+                .map(|doc| {
+                    (
+                        format!("doc-{doc}"),
+                        serde_json::json!({ "text": "t", "v": vector_for(doc, round) }),
+                    )
+                })
+                .collect();
+            idx.index_batch_turbo(docs, true, false).await.unwrap();
+            idx.save_hnsw_to_disk().await.unwrap();
+
+            let (live, dead) = {
+                let guard = idx.hnsw.read().await;
+                guard.as_ref().expect("graph built").live_and_dead_counts()
+            };
+            assert_eq!(live, LIVE, "round {round}");
+            assert!(
+                dead < LIVE.max(HNSW_COMPACT_MIN_DEAD),
+                "round {round}: {dead} dead nodes for {live} live ones"
+            );
+            let graph_bytes = std::fs::metadata(idx.hnsw_graph_path()).unwrap().len();
+            if round == 0 {
+                first_graph_bytes = graph_bytes;
+            }
+            assert!(
+                graph_bytes < first_graph_bytes * 5 / 2,
+                "round {round}: graph.bin {graph_bytes} bytes, {first_graph_bytes} after round 0"
+            );
+        }
+
+        // Ids and vectors survive the rebuilds: the id maps still resolve,
+        // the heap gauge tracks the compacted graph, and kNN finds every
+        // probe by its latest vector, never by an overwritten one.
+        assert_eq!(idx.hnsw_id_map.read().await.len(), LIVE);
+        assert_eq!(idx.vector_doc_count.load(Ordering::Relaxed), LIVE as u64);
+        let heap = idx.hnsw.read().await.as_ref().unwrap().heap_bytes();
+        assert_eq!(idx.hnsw_heap_bytes.load(Ordering::Relaxed), heap);
+        for probe in [0usize, 599, LIVE - 1] {
+            let hits = idx.knn_search(&vector_for(probe, ROUNDS - 1), 1).await;
+            assert_eq!(
+                hits.first().map(|h| h.0.as_str()),
+                Some(format!("doc-{probe}").as_str())
+            );
+        }
+        let saved = HnswIndex::load_from(&idx.hnsw_graph_path()).unwrap();
+        assert_eq!(saved.live_and_dead_counts().0, LIVE);
+        assert!(!idx.hnsw_stale.load(Ordering::Acquire));
+    }
+
+    /// #2427: a vector-bearing batch goes into the graph through one
+    /// parallel-planned `insert_batch`. Every doc must still get exactly one
+    /// live node, a doc id repeated inside the batch must tombstone its
+    /// earlier node (the per-doc update semantics), and the graph must
+    /// answer exact nearest-neighbour queries.
+    #[tokio::test]
+    async fn batched_hnsw_inserts_keep_per_doc_semantics_2427() {
+        let dir = TempDir::new().unwrap();
+        let engine_instance = engine(&dir);
+        let mut schema = Schema::empty();
+        let mut vector = FieldConfig::new("v", FieldType::Vector);
+        vector.options.dimensions = Some(8);
+        vector.options.similarity = Some("cosine".into());
+        schema.add_field(vector).unwrap();
+        engine_instance
+            .create_index("batched-hnsw", schema)
+            .unwrap();
+        let idx = engine_instance.get_index("batched-hnsw").unwrap();
+
+        let vector_for = |i: usize| -> Vec<f32> {
+            (0..8u64)
+                .map(|d| {
+                    let h = (i as u64 * 8 + d + 1).wrapping_mul(0x9E37_79B9_7F4A_7C15);
+                    ((h >> 40) % 2001) as f32 / 1000.0 - 1.0
+                })
+                .collect()
+        };
+        let mut docs: Vec<(String, Value)> = (0..1500)
+            .map(|i| {
+                (
+                    format!("doc-{i}"),
+                    serde_json::json!({ "text": "t", "v": vector_for(i) }),
+                )
+            })
+            .collect();
+        // Re-index doc-7 later in the same batch with doc-1234's vector.
+        docs.push((
+            "doc-7".to_string(),
+            serde_json::json!({ "text": "t", "v": vector_for(1234) }),
+        ));
+        idx.index_batch_turbo(docs, true, false).await.unwrap();
+        // `knn_search` rescores graph candidates against their stored
+        // sources (the graph holds half-precision vectors), so make every
+        // doc readable before probing.
+        idx.refresh().await.unwrap();
+
+        let (graph_len, tombstones) = {
+            let guard = idx.hnsw.read().await;
+            let hnsw = guard.as_ref().expect("graph built");
+            (hnsw.len(), hnsw.tombstone_count())
+        };
+        assert_eq!(graph_len, 1501, "one node per inserted vector");
+        assert_eq!(
+            tombstones, 1,
+            "the in-batch update tombstones doc-7's first node"
+        );
+        let id_map = idx.hnsw_id_map.read().await.clone();
+        let id_rev = idx.hnsw_id_rev.read().await.clone();
+        assert_eq!(id_map.len(), 1500);
+        assert_eq!(id_rev.len(), 1500);
+        for (doc_id, node) in &id_map {
+            assert_eq!(id_rev.get(node), Some(doc_id));
+        }
+        assert_eq!(idx.vector_doc_count.load(Ordering::Relaxed), 1500);
+
+        for probe in [0usize, 333, 999, 1499] {
+            let hits = idx.knn_search(&vector_for(probe), 1).await;
+            assert_eq!(
+                hits.first().map(|h| h.0.as_str()),
+                Some(format!("doc-{probe}").as_str())
+            );
+        }
+        // doc-7 now carries doc-1234's vector; its old vector is gone.
+        let hits = idx.knn_search(&vector_for(1234), 2).await;
+        let ids: HashSet<&str> = hits.iter().map(|h| h.0.as_str()).collect();
+        assert_eq!(ids, HashSet::from(["doc-7", "doc-1234"]));
+        let hits = idx.knn_search(&vector_for(7), 1).await;
+        assert_ne!(hits.first().map(|h| h.0.as_str()), Some("doc-7"));
     }
 
     #[tokio::test]
@@ -8690,6 +11113,7 @@ enum PublicationTestPoint {
     AfterFts,
     AfterHnsw,
     RawBeforeCollectionBegin,
+    RawAfterAnalyze,
     RawAfterWalVersionMap,
     SyncBeforeCollectionBegin,
     MergeAfterRepoint,
@@ -8776,6 +11200,11 @@ pub struct Index {
     collection_publication: Arc<crate::collection_publication::CollectionPublication>,
     #[cfg(test)]
     publication_test_hook: Arc<parking_lot::RwLock<Option<PublicationTestHook>>>,
+    /// Test-only governor for the analyze reservations of this index, so a
+    /// test can watch its own reservations without the process-wide one.
+    #[cfg(test)]
+    analyze_governor_override:
+        Arc<parking_lot::RwLock<Option<Arc<crate::governor::ResourceGovernor>>>>,
     #[cfg(test)]
     test_panic_after_merge_publish: Arc<AtomicBool>,
     #[cfg(test)]
@@ -8784,6 +11213,23 @@ pub struct Index {
     test_pause_merge_before_apply: Arc<AtomicBool>,
     #[cfg(test)]
     test_merge_repoint_ready: Arc<AtomicBool>,
+    /// #2234 — park the merge encode on the merge pool, before any segment
+    /// bytes are written, so a test can prove `refresh` proceeds while that
+    /// encode is held. The park is a merge-pool thread, not a tokio blocking
+    /// thread: occupying the blocking pool here is the stall this hook exists
+    /// to catch.
+    #[cfg(test)]
+    test_hold_merge_encode: Arc<AtomicBool>,
+    #[cfg(test)]
+    test_merge_encode_held: Arc<AtomicBool>,
+    /// #2234 — park `refresh` before it looks at the memtable. Off in release
+    /// builds; `xerj-api` tests turn it on with the `refresh-test-hook` feature.
+    #[cfg(any(test, feature = "refresh-test-hook"))]
+    test_pause_refresh: Arc<AtomicBool>,
+    #[cfg(any(test, feature = "refresh-test-hook"))]
+    test_refresh_paused: Arc<AtomicBool>,
+    #[cfg(any(test, feature = "refresh-test-hook"))]
+    test_refresh_finished: Arc<AtomicU64>,
     /// #1212 — park the next search the instant its capture bracket
     /// validates (`test_pause_search_after_capture`), announcing via
     /// `test_search_capture_parked` so a test can publish a merge or flush
@@ -8876,10 +11322,21 @@ pub struct Index {
     /// Optional HNSW index for dense-vector KNN search.
     /// Lazily created on first vector document insertion.
     pub hnsw: Arc<RwLock<Option<HnswIndex>>>,
+    /// Last observed `HnswIndex::heap_bytes` (#2427), refreshed under the
+    /// `hnsw` write guard on every insert and reload so the ingest-memory
+    /// sampler can read it without contending for the graph lock.
+    hnsw_heap_bytes: Arc<AtomicUsize>,
+    /// Bucket arrays of `hnsw_id_map` + `hnsw_id_rev`, refreshed whenever an
+    /// insert or reload can have grown them (#2427). Part of `vector_graph`.
+    hnsw_id_table_bytes: Arc<AtomicUsize>,
+    /// Doc-id string bytes held by the two id maps (one shared allocation
+    /// per id). Part of `vector_graph`.
+    hnsw_id_key_bytes: Arc<AtomicUsize>,
     /// Maps string doc-id → u64 node-id used by HNSW.
-    hnsw_id_map: Arc<RwLock<HashMap<String, u64>>>,
-    /// Maps u64 node-id → string doc-id (reverse of hnsw_id_map).
-    hnsw_id_rev: Arc<RwLock<HashMap<u64, String>>>,
+    hnsw_id_map: Arc<RwLock<HashMap<HnswDocId, u64>>>,
+    /// Maps u64 node-id → string doc-id (reverse of hnsw_id_map). Values
+    /// share their allocation with `hnsw_id_map`'s keys.
+    hnsw_id_rev: Arc<RwLock<HashMap<u64, HnswDocId>>>,
     /// Monotonic counter for HNSW node IDs.
     hnsw_next_id: Arc<AtomicU64>,
     /// Number of distinct live docs that CARRY the pinned vector field (item
@@ -9032,6 +11489,16 @@ pub struct Index {
     /// just the handful rayon uses inside a single flush.
     flush_sema: Arc<tokio::sync::Semaphore>,
 
+    /// Milliseconds a shard flush may wait for `flush_sema` or the
+    /// process-global finalize gate before failing. The wait is before the
+    /// memtable freeze (#1635). Production sets this once from
+    /// `engine.flush_admit_timeout_secs`; tests shrink it.
+    flush_admit_timeout_ms: AtomicU64,
+    /// Milliseconds `flush` / `refresh` waits for one index before returning
+    /// an error that names the index. The publish coordinator is detached,
+    /// not aborted (#1015, #1635).
+    flush_timeout_ms: AtomicU64,
+
     /// Set to `true` while a segment merge is in progress.  Prevents the
     /// background merge thread from queueing overlapping merges.
     merge_in_progress: Arc<std::sync::atomic::AtomicBool>,
@@ -9135,6 +11602,27 @@ pub struct Index {
     /// decompress — one 30 ms decode became a ~1 s, 64-query stall
     /// episode at every flush/merge publish the warm hadn't reached yet.
     stored_slices_build_locks: Arc<dashmap::DashMap<String, Arc<std::sync::Mutex<()>>>>,
+    /// #2422/#2423: a weak handle to this index, so a query that answered a
+    /// cold segment from its winning rows alone can warm that segment's
+    /// stored slices off the query path (see `schedule_cold_stored_warm`).
+    self_ref: std::sync::OnceLock<std::sync::Weak<Index>>,
+    /// Segments with a background stored-slices warm queued or running.
+    cold_stored_warms: dashmap::DashMap<String, ()>,
+    /// #2427: set while a background stored-slices warm runs. At most one
+    /// warm per index decodes at a time (see `schedule_cold_stored_warm`).
+    cold_stored_warm_running: std::sync::atomic::AtomicBool,
+    /// Test-only: the most cold stored warms that ever ran at once (#2427).
+    #[cfg(test)]
+    cold_stored_warm_peak: std::sync::atomic::AtomicUsize,
+    #[cfg(test)]
+    cold_stored_warm_live: std::sync::atomic::AtomicUsize,
+    /// Background warms not started because one was already running for
+    /// this index, or because the hydration budget had no room for the
+    /// slices they would build (#2427/#1122).
+    cold_stored_warms_skipped: AtomicU64,
+    /// Cold segments answered by row-selective hydration (observability and
+    /// tests).
+    cold_row_hydrations: AtomicU64,
     /// Per-(segment, field, bounds) Range pre-filter position sets.
     /// `build_range_prefilter_cached` was cached in name only — it re-ran
     /// the O(matches) `range_doc_ids` walk + HashSet build per query per
@@ -9387,8 +11875,31 @@ pub struct Index {
     /// the fallback (an input the preflight refused, or
     /// `XERJ_MERGE_FTS_REANALYZE=1`). An index whose merges are silently
     /// paying the old O(text) cost shows it here and nowhere else.
-    /// `Arc` because the merge encode runs in `spawn_blocking`.
+    /// `Arc` because the merge encode runs on the merge pool, off the caller.
     merge_fts_reanalysed_docs: Arc<AtomicU64>,
+    /// Set for the pass that just finished when at least one selected
+    /// batch was left unmerged because its estimated working set would
+    /// cross the memory watermark (#1122). The debounced check retries;
+    /// a pass that merges everything leaves this false.
+    merge_batches_deferred: std::sync::atomic::AtomicBool,
+}
+
+/// Keeps one index's schema unavailable to statistics until dropped.
+#[cfg(any(test, feature = "lock-test-hook"))]
+#[doc(hidden)]
+pub struct TestSchemaWriteHold(
+    #[allow(dead_code)] tokio::sync::OwnedRwLockWriteGuard<ManagedSchema>,
+);
+
+/// Counts one `Index::refresh` that got past the test hold, on every exit.
+#[cfg(any(test, feature = "refresh-test-hook"))]
+struct TestRefreshFinished<'a>(&'a Index);
+
+#[cfg(any(test, feature = "refresh-test-hook"))]
+impl Drop for TestRefreshFinished<'_> {
+    fn drop(&mut self) {
+        self.0.test_refresh_finished.fetch_add(1, Ordering::Release);
+    }
 }
 
 impl Index {
@@ -9636,6 +12147,7 @@ impl Index {
             .iter()
             .any(|f| matches!(f.field_type, FieldType::Date));
         let segment_hydration_budget = index_segment_hydration_budget(config);
+        let (flush_admit_ms, flush_budget_ms) = configured_flush_timeouts_ms(config);
         let passage_chunk_fields_init = passage_chunk_fields_from_schema(&managed.schema);
         let date_field_scales_snapshot = date_field_scales(&managed.schema);
         // #392: kept back from the struct literal so the SQ8 handle setup at
@@ -9659,6 +12171,8 @@ impl Index {
             #[cfg(test)]
             publication_test_hook: Arc::new(parking_lot::RwLock::new(None)),
             #[cfg(test)]
+            analyze_governor_override: Arc::new(parking_lot::RwLock::new(None)),
+            #[cfg(test)]
             test_panic_after_merge_publish: Arc::new(AtomicBool::new(false)),
             #[cfg(test)]
             test_fail_merge_before_apply: Arc::new(AtomicBool::new(false)),
@@ -9666,6 +12180,16 @@ impl Index {
             test_pause_merge_before_apply: Arc::new(AtomicBool::new(false)),
             #[cfg(test)]
             test_merge_repoint_ready: Arc::new(AtomicBool::new(false)),
+            #[cfg(test)]
+            test_hold_merge_encode: Arc::new(AtomicBool::new(false)),
+            #[cfg(test)]
+            test_merge_encode_held: Arc::new(AtomicBool::new(false)),
+            #[cfg(any(test, feature = "refresh-test-hook"))]
+            test_pause_refresh: Arc::new(AtomicBool::new(false)),
+            #[cfg(any(test, feature = "refresh-test-hook"))]
+            test_refresh_paused: Arc::new(AtomicBool::new(false)),
+            #[cfg(any(test, feature = "refresh-test-hook"))]
+            test_refresh_finished: Arc::new(AtomicU64::new(0)),
             #[cfg(test)]
             test_pause_search_after_capture: Arc::new(AtomicBool::new(false)),
             #[cfg(test)]
@@ -9731,6 +12255,9 @@ impl Index {
             test_segment_cache_publish_ready_mask: Arc::new(AtomicU64::new(0)),
             enrichments: Arc::new(RwLock::new(HashMap::new())),
             hnsw: Arc::new(RwLock::new(None)),
+            hnsw_heap_bytes: Arc::new(AtomicUsize::new(0)),
+            hnsw_id_table_bytes: Arc::new(AtomicUsize::new(0)),
+            hnsw_id_key_bytes: Arc::new(AtomicUsize::new(0)),
             hnsw_id_map: Arc::new(RwLock::new(HashMap::new())),
             hnsw_id_rev: Arc::new(RwLock::new(HashMap::new())),
             hnsw_next_id: Arc::new(AtomicU64::new(1)),
@@ -9754,6 +12281,8 @@ impl Index {
             flush_sema: Arc::new(tokio::sync::Semaphore::new(
                 config.engine.ingest_shards.max(4),
             )),
+            flush_admit_timeout_ms: AtomicU64::new(flush_admit_ms),
+            flush_timeout_ms: AtomicU64::new(flush_budget_ms),
             merge_in_progress: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             merge_config: config.merge.clone(),
             compression_config: config.compression.clone(),
@@ -9797,8 +12326,19 @@ impl Index {
             merge_scheduling_stopped: std::sync::atomic::AtomicBool::new(false),
             merge_evaluations: AtomicU64::new(0),
             merge_fts_reanalysed_docs: Arc::new(AtomicU64::new(0)),
+            merge_batches_deferred: std::sync::atomic::AtomicBool::new(false),
             schema_persist_failures: AtomicU64::new(0),
+            self_ref: std::sync::OnceLock::new(),
+            cold_stored_warms: dashmap::DashMap::new(),
+            cold_stored_warm_running: std::sync::atomic::AtomicBool::new(false),
+            #[cfg(test)]
+            cold_stored_warm_peak: std::sync::atomic::AtomicUsize::new(0),
+            #[cfg(test)]
+            cold_stored_warm_live: std::sync::atomic::AtomicUsize::new(0),
+            cold_stored_warms_skipped: AtomicU64::new(0),
+            cold_row_hydrations: AtomicU64::new(0),
         });
+        let _ = index.self_ref.set(Arc::downgrade(&index));
         // #871 — event-driven merge scheduling: the store fires this hook on
         // every segment-set change (flush publication, merge application,
         // tombstone-only segment, orphan recovery) and the debounced check
@@ -10092,6 +12632,7 @@ impl Index {
             .iter()
             .any(|f| matches!(f.field_type, FieldType::Date));
         let segment_hydration_budget = index_segment_hydration_budget(config);
+        let (flush_admit_ms, flush_budget_ms) = configured_flush_timeouts_ms(config);
         let date_field_scales_snapshot = date_field_scales(&schema.schema);
         let index = Arc::new(Self {
             name,
@@ -10142,6 +12683,8 @@ impl Index {
             #[cfg(test)]
             publication_test_hook: Arc::new(parking_lot::RwLock::new(None)),
             #[cfg(test)]
+            analyze_governor_override: Arc::new(parking_lot::RwLock::new(None)),
+            #[cfg(test)]
             test_panic_after_merge_publish: Arc::new(AtomicBool::new(false)),
             #[cfg(test)]
             test_fail_merge_before_apply: Arc::new(AtomicBool::new(false)),
@@ -10149,6 +12692,16 @@ impl Index {
             test_pause_merge_before_apply: Arc::new(AtomicBool::new(false)),
             #[cfg(test)]
             test_merge_repoint_ready: Arc::new(AtomicBool::new(false)),
+            #[cfg(test)]
+            test_hold_merge_encode: Arc::new(AtomicBool::new(false)),
+            #[cfg(test)]
+            test_merge_encode_held: Arc::new(AtomicBool::new(false)),
+            #[cfg(any(test, feature = "refresh-test-hook"))]
+            test_pause_refresh: Arc::new(AtomicBool::new(false)),
+            #[cfg(any(test, feature = "refresh-test-hook"))]
+            test_refresh_paused: Arc::new(AtomicBool::new(false)),
+            #[cfg(any(test, feature = "refresh-test-hook"))]
+            test_refresh_finished: Arc::new(AtomicU64::new(0)),
             #[cfg(test)]
             test_pause_search_after_capture: Arc::new(AtomicBool::new(false)),
             #[cfg(test)]
@@ -10177,7 +12730,15 @@ impl Index {
             schema_hash_cache: Arc::new(std::sync::atomic::AtomicU64::new(0)),
             schema_hash_epoch: Arc::new(AtomicU64::new(0)),
             last_flush_doc_count: Arc::new(AtomicU64::new(0)),
+            hnsw_heap_bytes: Arc::new(AtomicUsize::new(
+                hnsw_init.as_ref().map_or(0, HnswIndex::heap_bytes),
+            )),
             hnsw: Arc::new(RwLock::new(hnsw_init)),
+            hnsw_id_table_bytes: Arc::new(AtomicUsize::new(hnsw_id_table_bytes(
+                &id_map_init,
+                &id_rev_init,
+            ))),
+            hnsw_id_key_bytes: Arc::new(AtomicUsize::new(hnsw_id_key_bytes(&id_map_init))),
             hnsw_id_map: Arc::new(RwLock::new(id_map_init)),
             hnsw_id_rev: Arc::new(RwLock::new(id_rev_init)),
             hnsw_next_id: Arc::new(AtomicU64::new(next_id_init)),
@@ -10201,6 +12762,8 @@ impl Index {
             flush_sema: Arc::new(tokio::sync::Semaphore::new(
                 config.engine.ingest_shards.max(4),
             )),
+            flush_admit_timeout_ms: AtomicU64::new(flush_admit_ms),
+            flush_timeout_ms: AtomicU64::new(flush_budget_ms),
             merge_in_progress: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             merge_config: config.merge.clone(),
             compression_config: config.compression.clone(),
@@ -10244,8 +12807,19 @@ impl Index {
             merge_scheduling_stopped: std::sync::atomic::AtomicBool::new(false),
             merge_evaluations: AtomicU64::new(0),
             merge_fts_reanalysed_docs: Arc::new(AtomicU64::new(0)),
+            merge_batches_deferred: std::sync::atomic::AtomicBool::new(false),
             schema_persist_failures: AtomicU64::new(0),
+            self_ref: std::sync::OnceLock::new(),
+            cold_stored_warms: dashmap::DashMap::new(),
+            cold_stored_warm_running: std::sync::atomic::AtomicBool::new(false),
+            #[cfg(test)]
+            cold_stored_warm_peak: std::sync::atomic::AtomicUsize::new(0),
+            #[cfg(test)]
+            cold_stored_warm_live: std::sync::atomic::AtomicUsize::new(0),
+            cold_stored_warms_skipped: AtomicU64::new(0),
+            cold_row_hydrations: AtomicU64::new(0),
         });
+        let _ = index.self_ref.set(Arc::downgrade(&index));
         // #871 — event-driven merge scheduling (see `Index::create` and
         // `request_merge_check`): wire the store's segments-changed hook.
         let merge_hook_index = Arc::downgrade(&index);
@@ -10256,12 +12830,20 @@ impl Index {
                     idx.on_segments_changed();
                 }
             })));
-        // An opened index can carry pre-existing merge debt — a crash
-        // mid-cascade, or merge config lowered since the segments were
-        // written — that no future event would pay off on a read-only
-        // index. Schedule one debounced check now; it quiesces after a
-        // single evaluation when there is nothing to do.
-        index.request_merge_check();
+        // #2427 — no open-time merge check. An opened index can carry
+        // merge debt (a crash mid-cascade, or merge config lowered since
+        // the segments were written). Paying it at open made every index
+        // on a restarted node evaluate (and merge) a few seconds after
+        // boot: in the 1 GB release gate the search-only node, which
+        // received no writes, started merging its inherited segments while
+        // it served reads above the breaker watermark. Merging exists to
+        // bound the segment count that writes create; the debt does not
+        // affect correctness, and the index's first segment-set change
+        // (a flush, a tombstone-only segment, orphan recovery) fires the
+        // segments-changed hook above, which evaluates it then. An
+        // operator who wants it paid on a read-only index runs
+        // `_forcemerge`. This supersedes #2492's open-time quiet period,
+        // which only delayed the same burst by 120 s.
         // RC4 W2 item 17: a flush-time-stale HNSW snapshot used to stay
         // stale for the rest of the process lifetime (ingest kept paying
         // full graph-maintenance cost while the ANN path never served).
@@ -10425,6 +13007,19 @@ impl Index {
         // Process-wide admission: disk flood-stage block (item 3) + parent
         // memory circuit breaker (item 1). Fires before any per-index work.
         self.governor_write_gate()?;
+        // Bodies that arrived already parsed (in-process callers, a pipeline
+        // rewrite) still have to be refused before semantic embedding and
+        // `analyze_doc`. HTTP `PUT`/`POST /_doc` and bulk NDJSON are refused
+        // on the raw bytes earlier.
+        if let Some(seen) =
+            xerj_common::document_limit::json_value_exceeds_indexed_document_limit(&source)
+        {
+            return Err(EngineError::Common(
+                xerj_common::XerjError::invalid_document_json(
+                    xerj_common::document_limit::indexed_document_refusal_at_least(seen),
+                ),
+            ));
+        }
         let index_start = std::time::Instant::now();
         let doc_id = id.unwrap_or_else(|| Uuid::new_v4().to_string());
 
@@ -10570,12 +13165,20 @@ impl Index {
         #[cfg(test)]
         if let Err(e) = self.wal_admission_test_fault(&doc_id) {
             collection_publication.cancel();
+            drop(collection_publication);
+            self.collection_publication.handoff_to_readers().await;
             return Err(e.into());
         }
-        let seq_no = match self.store.index(&doc_id, source.clone()) {
+        // One parsed tree, shared by the storage memtable and the FTS
+        // memtable below; each used to hold its own deep copy until the next
+        // flush (#2427).
+        let source = Arc::new(source);
+        let seq_no = match self.store.index_shared(&doc_id, Arc::clone(&source)) {
             Ok(seq_no) => seq_no,
             Err(e) => {
                 collection_publication.cancel();
+                drop(collection_publication);
+                self.collection_publication.handoff_to_readers().await;
                 return Err(e.into());
             }
         };
@@ -10594,7 +13197,12 @@ impl Index {
         {
             let mem = &*self.memtable;
             mem.remove(&doc_id);
-            mem.insert(doc_id.clone(), &source, &schema_guard.schema, seq_no);
+            mem.insert_shared(
+                doc_id.clone(),
+                Arc::clone(&source),
+                &schema_guard.schema,
+                seq_no,
+            );
         }
         drop(schema_guard);
         #[cfg(test)]
@@ -10618,6 +13226,9 @@ impl Index {
             .unwrap_or(1);
         collection_publication.commit();
         drop(collection_publication);
+        // The next document's bracket must not open until a search parked on
+        // this one has validated its capture (#1761). No shard lock is held.
+        self.collection_publication.handoff_to_readers().await;
         // Auto-evolve schema for new fields.
         // Fast path: skip the schema read lock every doc when schema is stable.
         // We cache a hash of the document field keys and only re-check schema
@@ -10975,6 +13586,7 @@ impl Index {
         drop(copy_schema);
         collection_publication.commit();
         drop(collection_publication);
+        self.collection_publication.handoff_to_readers().await;
         let t4_dur = t4.elapsed();
 
         if batch_len >= 1000 {
@@ -11047,24 +13659,32 @@ impl Index {
         }
 
         // Vector indexing is only meaningful when at least one document
-        // in the batch carries an array of numbers. Scan until the first
-        // candidate instead of inspecting only processed[0]: mixed batches
-        // may legitimately begin with an ordinary text/log document.
+        // in the batch carries a vector. Scan until the first candidate
+        // instead of inspecting only processed[0]: mixed batches may
+        // legitimately begin with an ordinary text/log document. A packed
+        // `xerj:f32:` string is that vector (#1940); treating only number
+        // arrays as candidates skipped HNSW for every semantic bulk batch.
         if processed.iter().any(|r| {
             r.source
                 .as_object()
                 .map(|obj| {
                     obj.values().any(|v| {
-                        v.as_array()
-                            .map(|arr| !arr.is_empty() && arr.iter().all(Value::is_number))
-                            .unwrap_or(false)
+                        v.as_str()
+                            .is_some_and(xerj_common::packed_f32::is_packed_f32)
+                            || v.as_array()
+                                .map(|arr| !arr.is_empty() && arr.iter().all(Value::is_number))
+                                .unwrap_or(false)
                     })
                 })
                 .unwrap_or(false)
         }) {
-            for ingest in &processed {
-                self.index_vectors(&ingest.id, &ingest.source).await;
-            }
+            self.index_vectors_batch(
+                processed
+                    .iter()
+                    .map(|ingest| (ingest.id.as_str(), ingest.source.as_ref()))
+                    .collect(),
+            )
+            .await;
         }
 
         // ── Step 5: check flush threshold ─────────────────────────────────
@@ -11084,6 +13704,93 @@ impl Index {
         debug!(batch = batch_len, elapsed_ms, "turbo batch indexed");
 
         Ok(responses)
+    }
+
+    /// Batch-index documents that carry caller-chosen `_id`s (#2427).
+    ///
+    /// `_bulk` used to publish every explicit-id `index` action through its
+    /// own [`Index::index_document`] call: one WAL lock and append, one deep
+    /// copy into the storage memtable, and one publication bracket per
+    /// document. At eight concurrent bulks the node used about two cores and
+    /// sat on those per-document locks. This runs the same group through the
+    /// [`Index::index_batch_turbo_raw`] batch instead and keeps the per-doc
+    /// answers the per-doc path gave:
+    ///
+    /// * every id is held in the write-publication registry (sorted, so two
+    ///   batches cannot deadlock) for the whole batch, so no other writer of
+    ///   these ids can change the version map in between;
+    /// * `created`/`updated` and the per-document `_version` are derived from
+    ///   the version map read under those locks, counting repeats of one id
+    ///   inside the batch in request order — the same values
+    ///   `VersionMap::set` assigns as the batch appends;
+    /// * default-format date validation still rejects a document on its own.
+    ///
+    /// The outer `Err` is a whole-batch failure (write block, breaker,
+    /// back-pressure); an inner `Err` belongs to that one document.
+    pub(crate) async fn index_batch_explicit_ids_raw(
+        &self,
+        docs: Vec<(String, Arc<[u8]>)>,
+    ) -> Result<Vec<Result<IndexResponse>>> {
+        let mut results: Vec<Option<Result<IndexResponse>>> =
+            (0..docs.len()).map(|_| None).collect();
+        let mut positions = Vec::with_capacity(docs.len());
+        let mut batch = Vec::with_capacity(docs.len());
+        let check_dates = self.has_date_fields.load(Ordering::Relaxed);
+        for (position, (id, bytes)) in docs.into_iter().enumerate() {
+            // One oversized document would fail the whole turbo batch; the
+            // per-doc path refused only that document, so refuse it here.
+            if xerj_common::document_limit::indexed_document_too_large(bytes.len()) {
+                results[position] = Some(Err(EngineError::Common(
+                    xerj_common::XerjError::invalid_document_json(
+                        xerj_common::document_limit::indexed_document_refusal(bytes.len()),
+                    ),
+                )));
+                continue;
+            }
+            if check_dates {
+                if let Ok(source) = serde_json::from_slice::<Value>(&bytes) {
+                    if let Err(e) = self.validate_default_format_dates(&source).await {
+                        results[position] = Some(Err(e));
+                        continue;
+                    }
+                }
+            }
+            positions.push(position);
+            batch.push((id, bytes));
+        }
+        if !batch.is_empty() {
+            let _publication_guards = self
+                .write_publication
+                .lock_many(batch.iter().map(|(id, _)| id.clone()))
+                .await;
+            // (live, version) per id before this batch, read under the locks.
+            let mut prior: HashMap<String, (bool, u64)> = HashMap::with_capacity(batch.len());
+            for (id, _) in &batch {
+                prior.entry(id.clone()).or_insert_with(|| {
+                    self.store
+                        .version_map
+                        .get(id)
+                        .map(|entry| (!entry.deleted, entry.version))
+                        .unwrap_or((false, 0))
+                });
+            }
+            self.dataset_version.fetch_add(1, Ordering::Release);
+            let responses = self.index_batch_turbo_raw(batch).await?;
+            for (position, mut response) in positions.into_iter().zip(responses) {
+                let (live, version) = prior
+                    .get_mut(&response.id)
+                    .expect("turbo responses keep the request ids");
+                response.result = if *live { "updated" } else { "created" }.to_string();
+                *version += 1;
+                *live = true;
+                response.version = *version;
+                results[position] = Some(Ok(response));
+            }
+        }
+        Ok(results
+            .into_iter()
+            .map(|result| result.expect("every document has a result"))
+            .collect())
     }
 
     /// M5.11 — ULTRA-turbo raw-bytes ingest.
@@ -11153,6 +13860,13 @@ impl Index {
             }
         }
 
+        // Charge the parse spike before the batch is parsed. Eight bulks can
+        // pass one RSS sample and then parse together; the reservation makes
+        // the second one 429 while the first is still allocating (#1122).
+        // It ends with the parse: the parsed values are live RSS from here on,
+        // and the batch is about to wait on schema locks it must not hold a
+        // reservation across (#2427).
+        let parse_reservation = self.reserve_batch_analyze(validated.docs())?;
         let dom_t = std::time::Instant::now();
         let validated = crate::ingest_pool()
             .install(|| xerj_storage::IndexStore::parse_validated_raw_batch(validated))
@@ -11162,6 +13876,7 @@ impl Index {
                 ),
                 error => EngineError::Storage(error),
             })?;
+        drop(parse_reservation);
         let raw_parse_elapsed = syntax_elapsed.saturating_add(dom_t.elapsed());
         let index_start = std::time::Instant::now();
         // THROWAWAY prof (XERJ_PROF): per-phase attribution of the turbo path.
@@ -11226,6 +13941,63 @@ impl Index {
         #[cfg(test)]
         if let Some((doc, _)) = validated.docs().first() {
             self.publication_test_point(doc, PublicationTestPoint::RawBeforeCollectionBegin);
+            tokio::task::yield_now().await;
+        }
+
+        // Analyze every doc OUTSIDE the shard locks and before the WAL write.
+        // The schema text-field extraction + dynamic-mapping tree walk +
+        // analyzer tokenisation are the dominant per-doc CPU cost of
+        // `insert` (~30 s of tokenize per 1 M docs) and are pure — running
+        // them here on the rayon pool instead of inside `with_shard_mut` cuts
+        // the lock-held work from ~39 µs/doc to ~9 µs/doc, which is what lets
+        // 8 concurrent bulk clients scale instead of convoying on the shard
+        // write locks. Uses the exact same analyzer lookup as
+        // `FtsMemtable::insert`, so the postings are bit-identical.
+        //
+        // #2427: the token reservation is taken here, after every schema
+        // await above, and released as soon as the tokens exist. It used to
+        // be taken before the parse and held across the schema reads, schema
+        // evolution, the WAL append and the shard inserts, so a batch waiting
+        // on a lock or on the log kept hundreds of MB "reserved" that were
+        // never allocated, and concurrent bulks were refused with 429s at a
+        // fraction of the watermark. A refusal here is still safe: nothing
+        // has been published or written to the WAL yet, and the schema work
+        // above is additive preparation (see the comment before
+        // `evolve_schema_from_docs`).
+        let analyze_reservation = self.reserve_batch_analyze(validated.docs())?;
+        let analyzed: Vec<Vec<(String, Vec<xerj_fts::analyzer::Token>)>> = {
+            let schema = &publication_schema.schema;
+            let analyzer = self
+                .memtable
+                .default_analyzer()
+                .expect("standard analyzer always present");
+            let excluded_fts_fields = crate::memtable::fts_excluded_fields(schema);
+            let p_t = std::time::Instant::now();
+            let analyzed = crate::ingest_pool().install(|| {
+                sources_for_prepare
+                    .par_iter()
+                    .map(|source| {
+                        crate::memtable::analyze_doc_excluding(
+                            source.as_ref(),
+                            schema,
+                            &analyzer,
+                            &excluded_fts_fields,
+                        )
+                    })
+                    .collect()
+            });
+            if prof {
+                p_analyze_us = p_t.elapsed().as_micros();
+            }
+            analyzed
+        };
+        // The tokens are allocated, so live RSS now counts them; keeping the
+        // estimate as well would charge them twice while the batch waits on
+        // the WAL and the shard locks.
+        drop(analyze_reservation);
+        #[cfg(test)]
+        if let Some((doc, _)) = validated.docs().first() {
+            self.publication_test_point(doc, PublicationTestPoint::RawAfterAnalyze);
             tokio::task::yield_now().await;
         }
 
@@ -11314,41 +14086,7 @@ impl Index {
         // rayon worker holding that shard's lock exactly once — the
         // DocumentsWriterPerThread analogue.
         {
-            let schema = &publication_schema.schema;
             let mem = &*self.memtable;
-
-            // 3a. Pre-analyze every doc OUTSIDE the shard locks.  The
-            // schema text-field extraction + dynamic-mapping tree walk
-            // + analyzer tokenisation are the dominant per-doc CPU cost
-            // of `insert` (~30 s of tokenize per 1 M docs) and are pure
-            // — running them here on the rayon pool instead of inside
-            // `with_shard_mut` cuts the lock-held work from ~39 µs/doc
-            // to ~9 µs/doc, which is what lets 8 concurrent bulk
-            // clients actually scale instead of convoying on the shard
-            // write locks.  Uses the exact same analyzer lookup as
-            // `FtsMemtable::insert`, so the postings are bit-identical.
-            let analyzer = mem
-                .default_analyzer()
-                .expect("standard analyzer always present");
-            let excluded_fts_fields = crate::memtable::fts_excluded_fields(schema);
-            let p_t = std::time::Instant::now();
-            let analyzed: Vec<Vec<(String, Vec<xerj_fts::analyzer::Token>)>> = crate::ingest_pool()
-                .install(|| {
-                    sources
-                        .par_iter()
-                        .map(|source| {
-                            crate::memtable::analyze_doc_excluding(
-                                source.as_ref(),
-                                schema,
-                                &analyzer,
-                                &excluded_fts_fields,
-                            )
-                        })
-                        .collect()
-                });
-            if prof {
-                p_analyze_us = p_t.elapsed().as_micros();
-            }
             let p_t = std::time::Instant::now();
 
             let n_shards = mem.shard_count().max(1);
@@ -11388,6 +14126,7 @@ impl Index {
                 p_insert_us = p_t.elapsed().as_micros();
             }
         }
+        drop(analyzed);
         drop(publication_schema);
 
         if prof {
@@ -11414,6 +14153,7 @@ impl Index {
             .collect();
         collection_publication.commit();
         drop(collection_publication);
+        self.collection_publication.handoff_to_readers().await;
         // The raw path already parsed every source for schema evolution and
         // FTS analysis. Publish those same authoritative values to HNSW before
         // the batch becomes observable to its caller.
@@ -11421,9 +14161,13 @@ impl Index {
         if let Some((doc, _)) = docs.first() {
             self.publication_test_point(doc, PublicationTestPoint::RawBeforeHnsw);
         }
-        for (doc, source) in docs.iter().zip(&sources) {
-            self.index_vectors(&doc.0, source).await;
-        }
+        self.index_vectors_batch(
+            docs.iter()
+                .zip(&sources)
+                .map(|(doc, source)| (doc.0.as_str(), source.as_ref()))
+                .collect(),
+        )
+        .await;
 
         self.maybe_spawn_flush().await;
 
@@ -11543,6 +14287,7 @@ impl Index {
             }
         }
 
+        let analyze_reservation = self.reserve_batch_analyze(validated.docs())?;
         let _hnsw_publication = has_vector_mapping.then(|| self.begin_hnsw_publication());
         let index_start = std::time::Instant::now();
         let wal_t = std::time::Instant::now();
@@ -11734,6 +14479,7 @@ impl Index {
                 })
                 .collect()
         });
+        drop(analyze_reservation);
         // Single batch-level atomic instead of one per doc.  At 1.7 M/s
         // × 10 k batch = 170 batches/s this cuts ~17 M atomic ops/s of
         // cache-line bouncing on `doc_count`.
@@ -11741,6 +14487,7 @@ impl Index {
             .fetch_add(batch_len as u64, Ordering::Relaxed);
         collection_publication.commit();
         drop(collection_publication);
+        self.collection_publication.handoff_to_readers_blocking();
 
         if !vector_sources.is_empty() {
             // This API runs on the CLI's Rayon workers. Cross into the cached
@@ -11749,11 +14496,14 @@ impl Index {
             #[cfg(test)]
             self.publication_test_point(&vector_sources[0].0, PublicationTestPoint::RawBeforeHnsw);
             let rt = self.flush_signal.runtime().expect("validated above");
-            rt.block_on(async {
-                for (id, source) in vector_sources {
-                    self.index_vectors(&id, &source).await;
-                }
-            });
+            rt.block_on(
+                self.index_vectors_batch(
+                    vector_sources
+                        .iter()
+                        .map(|(id, source)| (id.as_str(), source.as_ref()))
+                        .collect(),
+                ),
+            );
         }
 
         for shard in touched_shards {
@@ -11817,6 +14567,9 @@ impl Index {
         let permit_cell = Arc::new(permit_cell);
         let permit_cell_cb = Arc::clone(&permit_cell);
         let flush_signal_cb = Arc::clone(&self.flush_signal);
+        let index_name = self.name.as_str().to_string();
+        let admit_timeout =
+            std::time::Duration::from_millis(self.flush_admit_timeout_ms.load(Ordering::Relaxed));
         rt.spawn(async move {
             let on_drained = move || {
                 if let Ok(mut guard) = permit_cell_cb.lock() {
@@ -11837,6 +14590,8 @@ impl Index {
                 dv_skip,
                 on_drained,
                 warm_caches,
+                index_name,
+                admit_timeout,
                 #[cfg(test)]
                 None,
             )
@@ -11987,6 +14742,7 @@ impl Index {
         }
         collection_publication.commit();
         drop(collection_publication);
+        self.collection_publication.handoff_to_readers().await;
         // Step 5: schema evolution + vector indexing (post-lock).
         for ingest in &processed {
             self.evolve_schema_from_doc(&ingest.source).await;
@@ -12081,18 +14837,68 @@ impl Index {
         }
     }
 
+    /// Hold `refresh` until [`Self::test_set_pause_refresh`] clears.
+    ///
+    /// The flag is announced only after this call has entered, so a test can
+    /// wait until the index is actually inside refresh and not merely racing
+    /// the request.
+    #[cfg(any(test, feature = "refresh-test-hook"))]
+    async fn await_test_refresh_hold(&self) {
+        if !self.test_pause_refresh.load(Ordering::Acquire) {
+            return;
+        }
+        self.test_refresh_paused.store(true, Ordering::Release);
+        while self.test_pause_refresh.load(Ordering::Acquire) {
+            tokio::task::yield_now().await;
+        }
+        self.test_refresh_paused.store(false, Ordering::Release);
+    }
+
+    #[cfg(any(test, feature = "refresh-test-hook"))]
+    pub fn test_set_pause_refresh(&self, pause: bool) {
+        self.test_pause_refresh.store(pause, Ordering::Release);
+    }
+
+    #[cfg(any(test, feature = "refresh-test-hook"))]
+    pub fn test_refresh_is_paused(&self) -> bool {
+        self.test_refresh_paused.load(Ordering::Acquire)
+    }
+
+    #[cfg(any(test, feature = "refresh-test-hook"))]
+    pub fn test_refresh_finished_count(&self) -> u64 {
+        self.test_refresh_finished.load(Ordering::Acquire)
+    }
+
+    /// Make recent writes searchable.
+    ///
+    /// This is the body of HTTP `_refresh` (#2234). An empty memtable is
+    /// already searchable — return without verified WAL maintenance, which is
+    /// `flush` / `_flush` and is what used to sit behind a background segment
+    /// merge. A non-empty memtable is published to a segment. The HNSW graph
+    /// is persisted either way: background flushes skip that save, and an
+    /// explicit refresh is the checkpoint for it. `save_hnsw_to_disk` returns
+    /// immediately when the index has no graph.
     pub async fn refresh(&self) -> Result<()> {
+        #[cfg(any(test, feature = "refresh-test-hook"))]
+        self.await_test_refresh_hold().await;
+        // Count a refresh that actually returned, including the empty-memtable
+        // path and errors. The hold above is outside this guard so a paused
+        // index does not look finished.
+        #[cfg(any(test, feature = "refresh-test-hook"))]
+        let _refresh_finished = TestRefreshFinished(self);
         {
             let mem = &*self.memtable;
             if mem.doc_count() == 0 {
+                let _ = self.save_hnsw_to_disk().await;
                 return Ok(());
             }
         }
 
-        // Flush the memtable to a new segment on disk.  This drains the
-        // memtable, writes the segment file + FTS index, swaps the snapshot,
-        // and checkpoints the WAL.  The drained memtable is dropped, freeing
-        // all RAM.
+        // Publish the memtable to a new segment. This drains the memtable,
+        // writes the segment file + FTS index, and swaps the snapshot. The
+        // drained memtable is dropped, freeing its RAM. Verified WAL
+        // maintenance (snapshot fsync + prune) is `_flush` / `Index::flush`,
+        // not this path (#2234).
         let (field_configs, excluded_fts_fields, dv_skip) = {
             let schema = self.schema.read().await;
             (
@@ -12103,8 +14909,22 @@ impl Index {
         };
         // Explicit refresh: wait behind any in-flight concurrent flushes
         // (semaphore has 4 permits) so the user-visible flush sees a
-        // fully-drained memtable once the await returns.
-        let _permit = self.flush_sema.acquire().await.ok();
+        // fully-drained memtable once the await returns. The wait is
+        // bounded (#1635); a permit that never arrives fails this index
+        // instead of parking the caller.
+        let index_name = self.name.as_str().to_string();
+        let admit_timeout =
+            std::time::Duration::from_millis(self.flush_admit_timeout_ms.load(Ordering::Relaxed));
+        let flush_timeout =
+            std::time::Duration::from_millis(self.flush_timeout_ms.load(Ordering::Relaxed));
+        let deadline = std::time::Instant::now() + flush_timeout;
+        let _permit = wait_for_flush_permit(
+            &index_name,
+            "the flush semaphore",
+            admit_timeout.min(deadline.saturating_duration_since(std::time::Instant::now())),
+            self.flush_sema.acquire(),
+        )
+        .await?;
         // M5.2 — explicit refresh drains EVERY non-empty shard in
         // sequence (one shard per `do_flush_shard` call) so the
         // user-visible `refresh()` returns with zero unflushed
@@ -12122,7 +14942,14 @@ impl Index {
             if self.memtable.shard_load(shard_idx).0 == 0 {
                 continue;
             }
-            do_flush_shard(
+            let left = deadline.saturating_duration_since(std::time::Instant::now());
+            if left.is_zero() {
+                return Err(flush_budget_timeout_error(&index_name, flush_timeout));
+            }
+            // Spawn so a timeout detaches the shard task instead of
+            // cancelling a publication that has already frozen the
+            // memtable (#1015). The success path still waits for it.
+            let task = tokio::spawn(do_flush_shard(
                 shard_idx,
                 Arc::clone(&self.store),
                 Arc::clone(&self.memtable),
@@ -12134,10 +14961,12 @@ impl Index {
                 dv_skip.clone(),
                 || {}, // serial refresh path — no permit to drop early
                 self.publish_warm_caches(),
+                index_name.clone(),
+                admit_timeout,
                 #[cfg(test)]
                 None,
-            )
-            .await?;
+            ));
+            await_flush_task(&index_name, left, task).await?;
         }
 
         // Update the doc counter so maybe_auto_flush uses a fresh baseline.
@@ -12249,6 +15078,10 @@ impl Index {
 
             let flush_signal_cb = Arc::clone(&self.flush_signal);
             let collection_publication = Arc::clone(&self.collection_publication);
+            let index_name = self.name.as_str().to_string();
+            let admit_timeout = std::time::Duration::from_millis(
+                self.flush_admit_timeout_ms.load(Ordering::Relaxed),
+            );
             tokio::spawn(async move {
                 // Release permit after drain (Phase 1), not after Phase 2
                 // I/O — lets new flushes dispatch while segment writes
@@ -12274,6 +15107,8 @@ impl Index {
                     dv_skip,
                     on_drained,
                     warm_caches,
+                    index_name,
+                    admit_timeout,
                     #[cfg(test)]
                     None,
                 )
@@ -12431,6 +15266,18 @@ impl Index {
             let n = self.merge_pass_locked(Some(target)).await?;
             total += n;
             let seg_count = self.store.snapshot().segments.len();
+            // A small budget deferred every remaining batch. Waiting is
+            // not "already at `target`": the inputs are still there.
+            // The request timeout bounds the wait.
+            if n == 0
+                && seg_count > target
+                && self
+                    .merge_batches_deferred
+                    .load(std::sync::atomic::Ordering::Relaxed)
+            {
+                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                continue;
+            }
             if n == 0 || seg_count <= target {
                 break;
             }
@@ -12447,6 +15294,26 @@ impl Index {
         Ok(total)
     }
 
+    /// Process-memory budget the merge scheduler plans against, in bytes.
+    ///
+    /// A positive numeric `XERJ_MAX_PROCESS_MEMORY_MB` wins. Otherwise the
+    /// installed governor's resolved cap. `0` when neither is present
+    /// (engine unit tests that never call `Engine::new`): planning then
+    /// keeps the historical 512 MiB batch.
+    fn merge_process_budget_bytes() -> u64 {
+        const MB: u64 = 1024 * 1024;
+        if let Some(limit_mb) = std::env::var("XERJ_MAX_PROCESS_MEMORY_MB")
+            .ok()
+            .and_then(|raw| raw.trim().parse::<u64>().ok())
+            .filter(|mb| *mb > 0)
+        {
+            return limit_mb.saturating_mul(MB);
+        }
+        crate::governor::global()
+            .map(|governor| governor.process_memory_limit_bytes())
+            .unwrap_or(0)
+    }
+
     /// Upper bound on the total INPUT bytes of one merge batch.  Issue #948.
     ///
     /// The merge executor materialises decoded and re-encoded copies of
@@ -12461,17 +15328,33 @@ impl Index {
     /// `LogMergePolicy` filters candidates by size before batching
     /// (`max_docs_before_merge`, `src/indexer/log_merge_policy.rs:22,94`).
     ///
-    /// Derived: `clamp(process cap / 64, 32 MiB, 512 MiB)` — at #948's
-    /// 16 GiB auto-cap that is a 256 MiB batch, i.e. a worst-case merge
-    /// working set of ~1.5-2.4 GiB at the measured multipliers.
+    /// An explicit numeric `XERJ_MAX_PROCESS_MEMORY_MB` keeps
+    /// `clamp(cap / 64, 32 MiB, 512 MiB)` — at a 16 GiB cap that is a
+    /// 256 MiB batch. `auto`, `off`, and an unset variable read the
+    /// governor's resolved budget ([`crate::merge_budget`]). A budget
+    /// that still covers the historical 512 MiB batch keeps it, so a
+    /// 16 GiB host does not merge in smaller pieces. A 4 GiB budget
+    /// (the AUTO cap on an 8 GiB host) is 64 MiB.
     /// `XERJ_MERGE_BATCH_MAX_INPUT_MB` overrides (0 disables the bound).
-    /// A non-numeric cap (`auto`, `off`) falls back to the 512 MiB
-    /// default.
+    ///
+    /// #2427: a batch that had to yield under memory pressure narrows this
+    /// for every index through the governor's adaptive cap
+    /// (`merge_budget::effective_batch_cap_bytes`).
     fn merge_batch_cap_bytes() -> u64 {
+        let pressure_cap = crate::governor::global()
+            .map(|governor| governor.merge_pressure_cap_bytes())
+            .unwrap_or(0);
+        crate::merge_budget::effective_batch_cap_bytes(
+            Self::merge_static_batch_cap_bytes(),
+            pressure_cap,
+        )
+    }
+
+    fn merge_static_batch_cap_bytes() -> u64 {
         const MB: u64 = 1024 * 1024;
         if let Ok(raw) = std::env::var("XERJ_MERGE_BATCH_MAX_INPUT_MB") {
             if let Ok(mb) = raw.trim().parse::<u64>() {
-                return mb * MB;
+                return mb.saturating_mul(MB);
             }
         }
         match std::env::var("XERJ_MAX_PROCESS_MEMORY_MB")
@@ -12479,7 +15362,9 @@ impl Index {
             .and_then(|raw| raw.trim().parse::<u64>().ok())
         {
             Some(limit_mb) if limit_mb > 0 => (limit_mb / 64).clamp(32, 512) * MB,
-            _ => 512 * MB,
+            _ => {
+                crate::merge_budget::merge_batch_input_cap_bytes(Self::merge_process_budget_bytes())
+            }
         }
     }
 
@@ -12503,6 +15388,8 @@ impl Index {
         // so it is exactly what the counter measures. Background debounced
         // checks, hand-driven `run_merge_once`, and `_forcemerge` all count.
         self.merge_evaluations.fetch_add(1, AtomicOrdering::Relaxed);
+        self.merge_batches_deferred
+            .store(false, AtomicOrdering::Relaxed);
 
         // V4 M4.5 — larger merge batches so a bursty-ingest index with
         // thousands of small segments converges in far fewer passes.
@@ -12550,24 +15437,33 @@ impl Index {
                 let sizes: Vec<u64> = segs.iter().map(|s| s.size_bytes).collect();
                 let ids: Vec<SegmentId> = segs.into_iter().map(|s| s.id.clone()).collect();
                 let chunk_len = (mc.max_merge_count as usize).max(2);
-                let mut chunks: Vec<Vec<SegmentId>> = Vec::new();
-                let mut batch: Vec<SegmentId> = Vec::new();
-                let mut batch_bytes = 0u64;
-                for (id, size) in ids.into_iter().zip(sizes) {
-                    if !batch.is_empty()
-                        && (batch.len() >= chunk_len || (cap > 0 && batch_bytes + size > cap))
-                    {
-                        chunks.push(std::mem::take(&mut batch));
-                        batch_bytes = 0;
-                    }
-                    batch_bytes = batch_bytes.saturating_add(size);
-                    batch.push(id);
-                }
-                if !batch.is_empty() {
-                    chunks.push(batch);
-                }
-                chunks.retain(|c| c.len() >= 2);
-                chunks
+                forcemerge_chunks(&sizes, chunk_len, cap)
+                    .into_iter()
+                    .map(|chunk| chunk.into_iter().map(|i| ids[i].clone()).collect())
+                    .collect()
+            }
+            // #1122/#2433: at the target count, a forcemerge under
+            // XERJ_STORE_SEMANTIC_VECTORS still rewrites each segment that
+            // holds rows stored without their derived semantic vectors, so
+            // the documented pre-downgrade `_forcemerge` restores them on an
+            // index that is already one segment.
+            Some(_) if xerj_storage::stored_codec::derived_vectors::store_vectors_opt_out() => {
+                let segments_dir = self.data_dir.join("segments");
+                segments_snapshot_init
+                    .iter()
+                    .filter(|meta| {
+                        let Ok(reader) = SegmentReader::open(segments_dir.join(&meta.seg_path))
+                        else {
+                            return false;
+                        };
+                        matches!(
+                            reader.section(SectionType::Stored),
+                            Ok(Some(raw)) if xerj_storage::stored_codec::stored_has_derived_rows(raw)
+                                .unwrap_or(false)
+                        )
+                    })
+                    .map(|meta| vec![meta.id.clone()])
+                    .collect()
             }
             Some(_) => Vec::new(),
             None => policy.select_merges(&segments_snapshot_init),
@@ -12645,10 +15541,21 @@ impl Index {
         // each give ~2.4 GB peak and let the index converge in
         // predictable time without swapping.  Override via env var
         // for machines with more RAM.
-        let merge_parallelism: usize = std::env::var("XERJ_MERGE_PARALLELISM")
+        let configured_parallelism: usize = std::env::var("XERJ_MERGE_PARALLELISM")
             .ok()
             .and_then(|s| s.parse().ok())
             .unwrap_or(1);
+        let merge_parallelism = crate::merge_budget::merge_parallelism_under_budget(
+            configured_parallelism,
+            Self::merge_process_budget_bytes(),
+        );
+        if merge_parallelism < configured_parallelism.max(1) {
+            tracing::debug!(
+                configured = configured_parallelism.max(1),
+                running = merge_parallelism,
+                "merge parallelism reduced to stay inside the process memory budget"
+            );
+        }
         use tokio::task::JoinHandle;
         type MergeOutput = (
             Vec<xerj_storage::segment::SegmentId>,
@@ -12683,6 +15590,50 @@ impl Index {
             }
         }
 
+        // #1122 — on a small process budget, leave batches whose estimated
+        // working set would cross the watermark. The first batch still
+        // runs: merge is what retires per-segment caches. A budget that
+        // still uses the 512 MiB batch starts every batch, which is the
+        // path a 16 GiB host and larger already took.
+        let budget_bytes = Self::merge_process_budget_bytes();
+        let (rss_bytes, watermark_bytes) = match crate::governor::global() {
+            Some(governor) => (
+                governor.observed_rss_bytes(),
+                governor.memory_watermark_bytes(),
+            ),
+            None => (0, 0),
+        };
+        let input_bytes: Vec<u64> = launch_queue
+            .iter()
+            .map(|(_, metas)| metas.iter().map(|meta| meta.size_bytes).sum())
+            .collect();
+        let plan = crate::merge_budget::throttle_merge_batches(
+            &input_bytes,
+            budget_bytes,
+            rss_bytes,
+            watermark_bytes,
+        );
+        let mut deferred = 0usize;
+        let mut kept = Vec::with_capacity(launch_queue.len());
+        for (item, start) in launch_queue.into_iter().zip(plan) {
+            if start {
+                kept.push(item);
+            } else {
+                deferred += 1;
+            }
+        }
+        let launch_queue = kept;
+        if deferred > 0 {
+            self.merge_batches_deferred
+                .store(true, AtomicOrdering::Relaxed);
+            tracing::info!(
+                deferred,
+                rss_mb = rss_bytes / (1024 * 1024),
+                watermark_mb = watermark_bytes / (1024 * 1024),
+                "merge batches deferred: estimated working set would cross the memory watermark; inputs kept"
+            );
+        }
+
         // Derived once from the schema, then moved into each merge task: a
         // force-merge must not resurrect a doc-values column that flush
         // correctly skipped.
@@ -12711,9 +15662,40 @@ impl Index {
         // pass returns an ERROR so callers (forcemerge HTTP → 500, background
         // task → error log) hear about it loudly instead of losing data.
         let failed_batches = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        // #2427 — background batches that stopped because the breaker was
+        // engaged with RSS at the process limit. Not a failure: inputs stay,
+        // the pass is flagged deferred, and the governor narrows the next
+        // batches (`merge_budget::merge_must_yield`).
+        let yielded_batches = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+
+        // #2427 — process-wide admission. Every launch reserves the batch's
+        // estimated working set against the RSS watermark through the
+        // governor's merge ledger, so concurrent merges across indices see
+        // each other before they allocate, and background merges wait while
+        // the breaker is engaged. `None` = defer; `Some(None)` = no governor.
+        let forced_merge = force_max_segments.is_some();
+        let admit_merge = |metas: &[xerj_storage::segment::SegmentMeta]|
+         -> Option<Option<crate::governor::MergeReservation>> {
+            let Some(governor) = crate::governor::global() else {
+                return Some(None);
+            };
+            let input: u64 = metas.iter().map(|meta| meta.size_bytes).sum();
+            // #2427: reserve on the inputs' whole footprint. `size_bytes` is
+            // the segment file alone; the side-cars the merge decodes are
+            // usually several times larger (see
+            // `merge_budget::MERGE_ON_DISK_WORKING_SET_NUMERATOR`).
+            let ids: Vec<xerj_storage::segment::SegmentId> =
+                metas.iter().map(|meta| meta.id.clone()).collect();
+            let on_disk = self.store.segment_files_bytes(&ids);
+            governor
+                .try_reserve_merge_with_footprint(input, on_disk, forced_merge)
+                .map(Some)
+        };
+        let mut governor_deferred = 0usize;
 
         let spawn_one = |batch: Vec<xerj_storage::segment::SegmentId>,
-                         metas: Vec<xerj_storage::segment::SegmentMeta>|
+                         metas: Vec<xerj_storage::segment::SegmentMeta>,
+                         reservation: Option<crate::governor::MergeReservation>|
          -> JoinHandle<Option<MergeOutput>> {
             let store_for_task = Arc::clone(&self.store);
             let registry_for_task = Arc::clone(&self.registry);
@@ -12733,21 +15715,117 @@ impl Index {
             // is precisely why raising the effort here is safe and raising it
             // on flush was not.
             let merge_zstd_level = self.compression_config.level.zstd_level();
+            // Ingest-regression fix: only an explicit `_forcemerge` (or the
+            // `XERJ_MERGE_MAX_EFFORT` opt-in) pays for the level-19 stored
+            // chooser. A background merge holds RSS at the breaker
+            // watermark for as long as it runs, so its encode speed is
+            // ingest throughput.
+            let long_effort_merge = merge_uses_long_effort_stored_encode(
+                force_max_segments.is_some(),
+                std::env::var("XERJ_MERGE_MAX_EFFORT").ok().as_deref(),
+            );
             let batch_for_task = batch;
             let metas_for_task = metas;
             let failed_for_task = Arc::clone(&failed_batches);
+            let yielded_for_task = Arc::clone(&yielded_batches);
+            let forced_for_task = force_max_segments.is_some();
+            let input_bytes_for_task: u64 = metas_for_task.iter().map(|meta| meta.size_bytes).sum();
+            // Checked at each input segment, every 8192 surviving docs, and
+            // before the output segment is created — never after, so a
+            // yielded batch leaves no partial output behind.
+            let must_yield = move || -> bool {
+                let Some(governor) = crate::governor::global() else {
+                    return false;
+                };
+                if !governor.merge_must_yield_for(forced_for_task, input_bytes_for_task) {
+                    return false;
+                }
+                let cap = governor.note_merge_yield(input_bytes_for_task);
+                tracing::warn!(
+                    input_mb = input_bytes_for_task / (1024 * 1024),
+                    rss_mb = governor.observed_rss_bytes() / (1024 * 1024),
+                    limit_mb = governor.process_memory_limit_bytes() / (1024 * 1024),
+                    next_batch_cap_mb = cap / (1024 * 1024),
+                    "merge batch yielded: memory pressure with RSS at the merge-pool ceiling; \
+                     inputs kept, later batches narrowed"
+                );
+                true
+            };
+            // #2427 — the output-write step (doc-values build, stored
+            // encode, FTS side-car build) runs after the last `must_yield`
+            // checkpoint and is the batch's peak: large pg-docs merges took a
+            // 3,072 MB search node to 4.4–4.9 GB there, about 5 s before they
+            // completed. It is charged to the batch's merge reservation before
+            // it starts, and refused (the batch yields, inputs kept, later
+            // batches narrowed) when it would take RSS to the hard limit. See
+            // `ResourceGovernor::admit_merge_write`.
+            let admit_write = move |reservation: Option<&mut crate::governor::MergeReservation>,
+                                    held: u64,
+                                    extra: u64|
+                  -> bool {
+                let Some(governor) = crate::governor::global() else {
+                    return true;
+                };
+                // #2468 lets a small background batch run to completion
+                // after a streak of yields with nothing merged. When that
+                // rule is what waived this batch's yield, the write runs
+                // too, or refusing it would bring the stall back.
+                let exempt = governor.merge_write_exempt(forced_for_task, input_bytes_for_task);
+                if governor.admit_merge_write_for(
+                    reservation,
+                    held,
+                    extra,
+                    forced_for_task,
+                    exempt,
+                    input_bytes_for_task,
+                ) {
+                    return true;
+                }
+                let cap = governor.note_merge_yield(input_bytes_for_task);
+                tracing::warn!(
+                    input_mb = input_bytes_for_task / (1024 * 1024),
+                    write_mb = extra / (1024 * 1024),
+                    rss_mb = governor.observed_rss_bytes() / (1024 * 1024),
+                    limit_mb = governor.process_memory_limit_bytes() / (1024 * 1024),
+                    next_batch_cap_mb = cap / (1024 * 1024),
+                    "merge batch yielded before its output write: the write would take RSS \
+                     to the process limit; inputs kept, later batches narrowed"
+                );
+                false
+            };
+            // Held by the encode job until it ends, so the write step can
+            // grow it (see `admit_write`).
+            let mut reservation_for_encode = reservation;
+            #[cfg(test)]
+            let hold_merge_encode = Arc::clone(&self.test_hold_merge_encode);
+            #[cfg(test)]
+            let merge_encode_held = Arc::clone(&self.test_merge_encode_held);
 
-            tokio::task::spawn_blocking(move || -> Option<MergeOutput> {
-                // Entire merge encode runs on the dedicated SMALL merge
-                // pool (nice +15, ncores/8 threads): the decompress +
-                // byte-copy + FTS/DV rebuild below saturates its workers
-                // for seconds.  On the normal-priority blocking pool it
-                // stole scheduler time from foreground searches (read-
-                // under-write tail); on the shared ingest pool it queued
-                // every bulk request's parse/analyze/insert behind it,
-                // fully stalling 1 M×c8 ingest for ~13 s per merge pass
-                // (see `crate::merge_pool`).
-                crate::merge_pool().install(move || -> Option<MergeOutput> {
+            // #2234 — the encode used to run inside `spawn_blocking` +
+            // `merge_pool().install`, which parked one tokio blocking-pool
+            // thread for the whole encode (minutes on a large segment; the
+            // shutdown path still names that leftover job). `_refresh` builds
+            // its segment on that same blocking pool, so one in-progress
+            // merge stalled refresh behind it. Queue the encode on the merge
+            // pool and wait from this async driver. `spawn` returns as soon
+            // as the job is queued. The #1122 inline fallback (the pool
+            // cannot start a thread at all) still runs the encode on the
+            // caller — the same degradation `install` already had.
+            //
+            // The CPU work is unchanged: decompress + byte-copy + FTS/DV
+            // rebuild on the small nice-+15 merge pool (`crate::merge_pool`),
+            // off the ingest pool that a merge used to stall.
+            let (encode_tx, encode_rx) = tokio::sync::oneshot::channel();
+            crate::merge_pool().spawn(move || {
+                #[cfg(test)]
+                if hold_merge_encode.load(Ordering::Acquire) {
+                    merge_encode_held.store(true, Ordering::Release);
+                    while hold_merge_encode.load(Ordering::Acquire) {
+                        std::thread::sleep(std::time::Duration::from_millis(5));
+                    }
+                    merge_encode_held.store(false, Ordering::Release);
+                }
+                let encoded = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                     use serde_json::value::RawValue;
 
                     // V4 M4.8 — STREAMING BYTE-COPY MERGE.
@@ -12821,14 +15899,19 @@ impl Index {
                     // remapped, not re-derived). `retained_bytes` charges only
                     // what the reader OWNS (an mmap'd `.post` contributes 0),
                     // matching what this batch adds to the heap.
-                    let merge_reader_retained = merge_readers.as_ref().map(|readers| {
-                        let bytes: u64 = readers
-                            .iter()
-                            .map(|reader| reader.retained_bytes())
-                            .sum();
+                    let merge_reader_bytes: u64 = merge_readers
+                        .as_ref()
+                        .map(|readers| {
+                            readers
+                                .iter()
+                                .map(|reader| reader.retained_bytes())
+                                .sum::<u64>()
+                        })
+                        .unwrap_or(0);
+                    let merge_reader_retained = merge_readers.as_ref().map(|_| {
                         crate::ingest_memory::Retained::new(
                             crate::ingest_memory::Category::MergeDecoded,
-                            bytes as usize,
+                            merge_reader_bytes as usize,
                         )
                     });
 
@@ -12840,8 +15923,27 @@ impl Index {
                     let mut min_seq = u64::MAX;
                     let mut max_seq = 0u64;
 
-                    let mut merged_json_buf: Vec<u8> = Vec::with_capacity(60 * 1024 * 1024);
-                    merged_json_buf.push(b'[');
+                    // #1122: `Vec::with_capacity(60 MiB)` aborts the process
+                    // when the allocator refuses (`memory allocation of N
+                    // bytes failed`, no panic line). `try_reserve` of the
+                    // same 60 MiB keeps the success path and turns a refusal
+                    // into an aborted batch. Inputs stay on disk.
+                    let mut merged_json_buf: Vec<u8> = Vec::new();
+                    if let Err(error) = crate::merge_reserve::reserve_merge_output_buffer(
+                        &mut merged_json_buf,
+                        crate::merge_reserve::MERGE_OUTPUT_RESERVE_BYTES,
+                    ) {
+                        tracing::error!("{error}");
+                        failed_for_task.fetch_add(1, Ordering::Relaxed);
+                        return None;
+                    }
+                    if let Err(error) =
+                        crate::merge_reserve::extend_merge_output(&mut merged_json_buf, b"[")
+                    {
+                        tracing::error!("{error}");
+                        failed_for_task.fetch_add(1, Ordering::Relaxed);
+                        return None;
+                    }
                     let mut first_doc = true;
                     let mut live_doc_count: u64 = 0;
 
@@ -12862,10 +15964,20 @@ impl Index {
                     // for the doc-values pass.  Drops `dv_sources` entirely.
                     // Halves merge working memory and frees the Arc<Value>
                     // immediately after both passes complete.
+                    // #2427: the third slot used to carry each surviving
+                    // document's whole `_source` `Value` tree for the
+                    // doc-values pass, held from the drain loop through the
+                    // stored encode (which parses the same batch into a
+                    // second `Vec<Value>` of its own), the FTS build and the
+                    // doc-values build. Two full Value trees of the batch
+                    // were live at once after the last yield point. The
+                    // doc-values columns are now built from `merged_json_buf`
+                    // one document at a time (`merge_doc_value_sources`), so
+                    // the slot is empty.
                     let mut fts_input: Vec<(
                         String,
                         HashMap<String, xerj_fts::index::FieldValues>,
-                        Value,
+                        (),
                     )> = Vec::new();
                     // (seq_no, doc_id) for every surviving doc — kept exactly
                     // aligned with the stored-section byte copy (pushed right
@@ -12916,6 +16028,10 @@ impl Index {
                     let mut tomb_union: HashMap<String, u64> = HashMap::new();
 
                     for (source_index, meta) in metas_for_task.iter().enumerate() {
+                        if must_yield() {
+                            yielded_for_task.fetch_add(1, Ordering::Relaxed);
+                            return None;
+                        }
                         min_seq = min_seq.min(meta.min_seq_no);
                         max_seq = max_seq.max(meta.max_seq_no);
                         let seg_path = segments_dir_for_task.join(&meta.seg_path);
@@ -13016,7 +16132,13 @@ impl Index {
                             }
                         };
                         let stored_bytes =
-                            match xerj_storage::stored_codec::decode_stored(stored_bytes_raw) {
+                            // #1122/#2433: keep stripped semantic vectors
+                                // stripped (the merged encode would only
+                                // re-derive and drop them again), unless
+                                // XERJ_STORE_SEMANTIC_VECTORS restores them.
+                            match xerj_storage::stored_codec::decode_stored_for_rewrite(
+                                stored_bytes_raw,
+                            ) {
                                 Ok(b) => b,
                                 Err(e) => {
                                     tracing::error!(
@@ -13065,9 +16187,35 @@ impl Index {
 
                         // The FTS/doc-values ordinal space of a segment is the
                         // order of its stored documents, so the map is exactly as
-                        // long as this vector.
-                        doc_maps[source_index] = vec![None; raw_docs.len()];
+                        // long as this vector. `vec![None; n]` aborts if that
+                        // allocation is refused (#1122); `try_reserve` does not.
+                        let mut ordinals = Vec::new();
+                        if ordinals.try_reserve(raw_docs.len()).is_err() {
+                            tracing::error!(
+                                ?seg_path,
+                                docs = raw_docs.len(),
+                                "merge aborted: not enough memory to reserve the document map; \
+                                 input segments were preserved and the node stayed up"
+                            );
+                            failed_for_task.fetch_add(1, Ordering::Relaxed);
+                            return None;
+                        }
+                        ordinals.resize(raw_docs.len(), None);
+                        doc_maps[source_index] = ordinals;
                         for (source_ordinal, raw) in raw_docs.iter().enumerate() {
+                            // #2427 — the survivor scan copies each input's
+                            // live docs, so a batch can grow hundreds of MB
+                            // inside one input. Check the governor every
+                            // `MERGE_YIELD_CHECKPOINT_DOCS` docs, not only
+                            // between inputs.
+                            if source_ordinal > 0
+                                && (source_ordinal as u64)
+                                    .is_multiple_of(crate::merge_budget::MERGE_YIELD_CHECKPOINT_DOCS)
+                                && must_yield()
+                            {
+                                yielded_for_task.fetch_add(1, Ordering::Relaxed);
+                                return None;
+                            }
                             let raw_str = raw.get();
                             let id_seq: IdSeq = match serde_json::from_str(raw_str) {
                                 Ok(v) => v,
@@ -13096,14 +16244,23 @@ impl Index {
                             }
 
                             // Survives — hold (seq, id, raw) for the global
-                            // _seq_no-ordered build below.
-                            survivors.push((
-                                id_seq.seq_no,
-                                id_seq.id.to_string(),
-                                raw_str.to_string(),
-                                source_index as u32,
-                                source_ordinal as u32,
-                            ));
+                            // _seq_no-ordered build below. Growth is fallible:
+                            // `push` aborts the process when the allocator
+                            // refuses (#1122).
+                            if let Err(error) = crate::merge_reserve::try_push_merge(
+                                &mut survivors,
+                                (
+                                    id_seq.seq_no,
+                                    id_seq.id.to_string(),
+                                    raw_str.to_string(),
+                                    source_index as u32,
+                                    source_ordinal as u32,
+                                ),
+                            ) {
+                                tracing::error!("{error}");
+                                failed_for_task.fetch_add(1, Ordering::Relaxed);
+                                return None;
+                            }
                             survivor_bytes = survivor_bytes.saturating_add(
                                 raw_str.len()
                                     + id_seq.id.len()
@@ -13133,14 +16290,35 @@ impl Index {
                     let mut fts_input_bytes: usize = 0;
                     for (seq_no, id_str, raw_str, source_index, source_ordinal) in survivors {
                         if !first_doc {
-                            merged_json_buf.push(b',');
+                            if let Err(error) = crate::merge_reserve::extend_merge_output(
+                                &mut merged_json_buf,
+                                b",",
+                            ) {
+                                tracing::error!("{error}");
+                                failed_for_task.fetch_add(1, Ordering::Relaxed);
+                                return None;
+                            }
                         }
                         first_doc = false;
-                        merged_json_buf.extend_from_slice(raw_str.as_bytes());
+                        if let Err(error) = crate::merge_reserve::extend_merge_output(
+                            &mut merged_json_buf,
+                            raw_str.as_bytes(),
+                        ) {
+                            tracing::error!("{error}");
+                            failed_for_task.fetch_add(1, Ordering::Relaxed);
+                            return None;
+                        }
                         live_doc_count += 1;
                         // The .ids side-car must cover every stored doc
                         // (alignment invariant, see above).
-                        ids_pairs.push((seq_no, id_str.clone()));
+                        if let Err(error) = crate::merge_reserve::try_push_merge(
+                            &mut ids_pairs,
+                            (seq_no, id_str.clone()),
+                        ) {
+                            tracing::error!("{error}");
+                            failed_for_task.fetch_add(1, Ordering::Relaxed);
+                            return None;
+                        }
 
                         // Per-doc Value parse for FTS / DV builders.
                         //
@@ -13154,44 +16332,59 @@ impl Index {
                         // addresses a document by. An empty `_source` indexes and
                         // columnises nothing for it, which is the same as the
                         // skip minus the shift.
-                        let doc_value: Value =
-                            serde_json::from_str(&raw_str).unwrap_or_else(|error| {
-                                tracing::warn!(
-                                    doc = %id_str,
-                                    "merge: surviving doc failed its re-parse, indexing it empty: {error}"
-                                );
-                                Value::Null
-                            });
-                        let source = doc_value.get("_source").cloned().unwrap_or(Value::Null);
                         // The merged FTS/doc-values ordinal is this document's
                         // index in `fts_input`.
                         doc_maps[source_index as usize][source_ordinal as usize] =
                             Some(fts_input.len() as u32);
                         // The re-analysis input. `merge_postings` replays the
                         // inputs' posting lists instead, so it needs no field
-                        // values at all — only the `_source` the doc-values
-                        // builder reads below. An empty `HashMap` allocates
-                        // nothing.
+                        // values and no per-document parse at all (#2427: the
+                        // doc-values pass re-reads `merged_json_buf`). An
+                        // empty `HashMap` allocates nothing. The `Value` the
+                        // rebuild parses drops at the end of this iteration.
                         let fields = if merge_postings {
                             HashMap::new()
                         } else {
-                            extract_fts_fields_excluding(&source, &excluded_fts_fields_for_task)
+                            let doc_value: Value =
+                                serde_json::from_str(&raw_str).unwrap_or_else(|error| {
+                                    tracing::warn!(
+                                        doc = %id_str,
+                                        "merge: surviving doc failed its re-parse, indexing it empty: {error}"
+                                    );
+                                    Value::Null
+                                });
+                            let source = doc_value.get("_source").unwrap_or(&Value::Null);
+                            // #948 attribution: the transient parse, per doc,
+                            // only when tracing is enabled.
+                            if crate::ingest_memory::enabled() {
+                                fts_input_bytes = fts_input_bytes
+                                    .saturating_add(crate::ingest_memory::estimated_json_heap(source));
+                            }
+                            extract_fts_fields_excluding(source, &excluded_fts_fields_for_task)
                         };
-                        // #948 attribution: the Value tree the FTS/DV passes
-                        // hold until the end of the batch. The walk is
-                        // per-document but only when tracing is enabled.
-                        if crate::ingest_memory::enabled() {
-                            fts_input_bytes = fts_input_bytes
-                                .saturating_add(crate::ingest_memory::estimated_json_heap(
-                                    doc_value.get("_source").unwrap_or(&Value::Null),
-                                ));
+                        if let Err(error) =
+                            crate::merge_reserve::try_push_merge(&mut fts_input, (id_str, fields, ()))
+                        {
+                            tracing::error!("{error}");
+                            failed_for_task.fetch_add(1, Ordering::Relaxed);
+                            return None;
                         }
-                        fts_input.push((id_str, fields, source));
                         // Sampled checkpoints every 8192 drained docs: the
                         // survivor set shrinks as `merged_json_buf` and
                         // `fts_input` grow, so the crossover IS the batch's
                         // stored-side peak.
                         drain_checkpoint += 1;
+                        // #2427 — the yield check runs every
+                        // `MERGE_YIELD_CHECKPOINT_DOCS` docs. At 8192 a pg-docs
+                        // batch on the 1 GB gate grew RSS 300+ MB past the
+                        // watermark between two checks.
+                        if drain_checkpoint
+                            .is_multiple_of(crate::merge_budget::MERGE_YIELD_CHECKPOINT_DOCS)
+                            && must_yield()
+                        {
+                            yielded_for_task.fetch_add(1, Ordering::Relaxed);
+                            return None;
+                        }
                         if drain_checkpoint.is_multiple_of(8192) {
                             crate::ingest_memory::observe_checkpoint(
                                 crate::ingest_memory::Category::MergeJsonBuffer,
@@ -13212,7 +16405,13 @@ impl Index {
                     if live_doc_count == 0 {
                         return None;
                     }
-                    merged_json_buf.push(b']');
+                    if let Err(error) =
+                        crate::merge_reserve::extend_merge_output(&mut merged_json_buf, b"]")
+                    {
+                        tracing::error!("{error}");
+                        failed_for_task.fetch_add(1, Ordering::Relaxed);
+                        return None;
+                    }
                     crate::ingest_memory::observe_checkpoint(
                         crate::ingest_memory::Category::MergeJsonBuffer,
                         merged_json_buf.len(),
@@ -13222,6 +16421,53 @@ impl Index {
                         fts_input_bytes,
                     );
 
+                    if must_yield() {
+                        yielded_for_task.fetch_add(1, Ordering::Relaxed);
+                        return None;
+                    }
+                    // #2427 — last chance to stop: everything below allocates
+                    // on top of what the batch holds now and cannot yield.
+                    // Charge it to the merge budget first, or yield.
+                    {
+                        let json_bytes = merged_json_buf.len() as u64;
+                        let fts_bytes = fts_input_bytes as u64;
+                        let write_fts_bytes = if merge_postings {
+                            merge_reader_bytes
+                        } else {
+                            fts_bytes
+                        };
+                        let held = json_bytes
+                            .saturating_add(fts_bytes)
+                            .saturating_add(merge_reader_bytes);
+                        let extra = crate::merge_budget::merge_write_phase_bytes(
+                            json_bytes,
+                            write_fts_bytes,
+                        );
+                        if !admit_write(reservation_for_encode.as_mut(), held, extra) {
+                            yielded_for_task.fetch_add(1, Ordering::Relaxed);
+                            return None;
+                        }
+                    }
+                    // Doc-values columns, built here from the merged stored
+                    // JSON one document at a time (#2427) and written once the
+                    // merged segment id exists, below. The columns are what
+                    // survives; the per-document `_source` trees do not.
+                    // Before, those trees were held in `fts_input` for the
+                    // whole batch, through the stored encode that parses the
+                    // same documents into a second `Vec<Value>`: two decoded
+                    // copies of the batch at once, past the last yield point.
+                    let dv_timer = std::time::Instant::now();
+                    let dv_columns = match merge_doc_value_sources(&merged_json_buf) {
+                        Ok(sources) => Some(build_doc_value_columns(sources, &dv_skip_for_merge)),
+                        Err(e) => {
+                            tracing::warn!(
+                                "merge: merged stored JSON did not re-parse for doc-values, \
+                                 segment ships no doc-values side-car: {e}"
+                            );
+                            None
+                        }
+                    };
+                    let dv_build_us = dv_timer.elapsed().as_micros();
                     // Write merged stored section using the columnar v2 codec.
                     let mut writer = match SegmentWriter::new(&segments_dir_for_task, 1, 0, 0) {
                         Ok(w) => w,
@@ -13233,11 +16479,19 @@ impl Index {
                     };
                     let stored_timer = std::time::Instant::now();
                     // The merge entry also runs the per-column long-effort
-                    // zstd chooser (#1038) — background-only by contract.
-                    let encoded = xerj_storage::stored_codec::encode_stored_v2_merge_at_level(
-                        &merged_json_buf,
-                        merge_zstd_level,
-                    );
+                    // zstd chooser (#1038) only on an explicit `_forcemerge`
+                    // or the opt-in; background merges use the plain level.
+                    let encoded = if long_effort_merge {
+                        xerj_storage::stored_codec::encode_stored_v2_forcemerge_at_level(
+                            &merged_json_buf,
+                            merge_zstd_level,
+                        )
+                    } else {
+                        xerj_storage::stored_codec::encode_stored_v2_merge_at_level(
+                            &merged_json_buf,
+                            merge_zstd_level,
+                        )
+                    };
                     // #948 attribution: the compressed output buffer is an
                     // exact owned length; it coexists with the drained buffer
                     // for one encode call.
@@ -13357,37 +16611,67 @@ impl Index {
                                         fts_writer.add_documents_parallel(&fts_input)
                                     }
                                 }
-                                if fts_writer.uses_encoded_field_filename_components() {
+                                if fts_writer
+                                    .uses_case_distinguished_field_filename_components()
+                                {
+                                    if let Err(e) = store_for_task
+                                        .ensure_fts_case_distinguished_field_component_format()
+                                    {
+                                        return degrade_fts_publish(
+                                            &segments_dir_for_task,
+                                            merged_meta.id.as_str(),
+                                            &format!("{e:#}"),
+                                        )
+                                        .map_err(|error| error.to_string());
+                                    }
+                                    if let Err(e) = fts_writer
+                                        .publish_case_distinguished_filename_layout()
+                                    {
+                                        return degrade_fts_publish(
+                                            &segments_dir_for_task,
+                                            merged_meta.id.as_str(),
+                                            &format!("{e:#}"),
+                                        )
+                                        .map_err(|error| error.to_string());
+                                    }
+                                } else if fts_writer.uses_encoded_field_filename_components() {
                                     if let Err(e) = store_for_task
                                         .ensure_fts_encoded_field_component_format()
                                     {
-                                        tracing::warn!(
-                                            "merge: encoded FTS filename format preflight failed: {e}"
-                                        );
-                                        return Ok(());
+                                        return degrade_fts_publish(
+                                            &segments_dir_for_task,
+                                            merged_meta.id.as_str(),
+                                            &format!("{e:#}"),
+                                        )
+                                        .map_err(|error| error.to_string());
                                     }
                                     if let Err(e) =
                                         fts_writer.publish_encoded_filename_layout()
                                     {
-                                        tracing::warn!(
-                                            "merge: FTS filename-layout publication failed: {e}"
-                                        );
-                                        return Ok(());
+                                        return degrade_fts_publish(
+                                            &segments_dir_for_task,
+                                            merged_meta.id.as_str(),
+                                            &format!("{e:#}"),
+                                        )
+                                        .map_err(|error| error.to_string());
                                     }
                                 }
                                 if let Err(e) = fts_writer.finish() {
-                                    tracing::warn!("merge: FTS build failed: {e}");
+                                    degrade_fts_publish(
+                                        &segments_dir_for_task,
+                                        merged_meta.id.as_str(),
+                                        &format!("{e:#}"),
+                                    )
+                                    .map_err(|error| error.to_string())?;
                                 }
                                 Ok(())
                             });
-                            // LOSS FIREWALL: the preflight already refused every
-                            // input it could not reproduce exactly, so a failure
-                            // here means an input's own side-cars contradict
-                            // themselves. Committing a merged segment whose FTS
-                            // data is missing would silently stop its documents
-                            // matching, so abort the batch — the inputs stay
-                            // live and untouched, exactly as for an unreadable
-                            // stored section.
+                            // A postings-merge failure, or a side-car publish
+                            // failure whose leftover files could not be removed,
+                            // aborts the batch: the inputs stay live. A publish
+                            // failure that left no FTS files does not: the
+                            // merged segment is searched by stored scan until a
+                            // later merge rebuilds full text (#2349).
                             if let Err(message) = built {
                                 tracing::error!(
                                     "merge ABORTED: postings merge failed (inputs \
@@ -13435,14 +16719,10 @@ impl Index {
                     version_repoint_intents
                         .extend(tomb_carry.iter().map(|(seq, id)| (*seq, id.clone(), true)));
 
-                    // Doc-values side-car — reuse the same `Value`s we
-                    // stashed in fts_input above (M5.22).
+                    // Doc-values side-car — the columns were built before the
+                    // stored encode (#2427, see `dv_columns`).
                     let dv_timer = std::time::Instant::now();
-                    {
-                        let columns = build_doc_value_columns(
-                            fts_input.iter().map(|(_, _, v)| Some(v)),
-                            &dv_skip_for_merge,
-                        );
+                    if let Some(columns) = dv_columns {
                         if !columns.is_empty() {
                             if let Err(e) = write_doc_values_sidecar_at_level(
                                 &segments_dir_for_task,
@@ -13450,15 +16730,16 @@ impl Index {
                                 &columns,
                                 merge_zstd_level,
                             ) {
-                                tracing::warn!("merge: doc-values write failed: {e}");
+                                tracing::warn!("merge: doc-values write failed: {e:#}");
                             }
                         }
                     }
 
-                    let dv_us = dv_timer.elapsed().as_micros();
-                    // `fts_input` (raw ids + the per-doc `_source` Value
-                    // trees) survives its last reader here — the batch's
-                    // parsed-side attribution ends with it.
+                    let dv_us = dv_build_us + dv_timer.elapsed().as_micros();
+                    // `fts_input` (raw ids + the re-analysis field values;
+                    // no `_source` trees since #2427) survives its last
+                    // reader here — the batch's parsed-side attribution ends
+                    // with it.
                     crate::ingest_memory::observe_checkpoint(
                         crate::ingest_memory::Category::MergeParsed,
                         0,
@@ -13479,26 +16760,66 @@ impl Index {
                         ids_pairs,
                         version_repoint_intents,
                     ))
-                })
+                }));
+                // Held until the encode (the allocation-heavy part: stored
+                // decode, FST and doc-values build) has finished.
+                drop(reservation_for_encode);
+                let _ = encode_tx.send(encoded);
+            });
+            tokio::spawn(async move {
+                match encode_rx.await {
+                    Ok(Ok(value)) => {
+                        if value.is_some() && !forced_for_task {
+                            if let Some(governor) = crate::governor::global() {
+                                governor.note_merge_completed(input_bytes_for_task);
+                            }
+                        }
+                        value
+                    }
+                    Ok(Err(payload)) => std::panic::resume_unwind(payload),
+                    // The encode task vanished without a result. Panic so the
+                    // driver counts a failed batch (the `JoinError` arm)
+                    // instead of treating a lost encode as an empty output
+                    // and dropping its inputs.
+                    Err(_closed) => panic!("merge encode dropped its result"),
+                }
             })
         };
+
+        // Launch the pending batch if the governor admits it (#2427). A
+        // refusal leaves it and every later batch of this pass unmerged and
+        // flags the pass deferred, so the scheduler retries after the drain.
+        macro_rules! launch_next {
+            () => {
+                match pending.take() {
+                    Some((batch, metas)) => match admit_merge(&metas) {
+                        Some(reservation) => {
+                            in_flight.push(spawn_one(batch, metas, reservation));
+                            pending = queue_iter.next();
+                            true
+                        }
+                        None => {
+                            governor_deferred += 1 + queue_iter.by_ref().count();
+                            false
+                        }
+                    },
+                    None => false,
+                }
+            };
+        }
 
         // Fill in_flight up to the cap, then drain one-by-one as they
         // complete, launching replacements from `queue_iter`.
         while in_flight.len() < merge_parallelism {
-            match pending.take() {
-                Some((batch, metas)) => {
-                    in_flight.push(spawn_one(batch, metas));
-                    pending = queue_iter.next();
-                }
-                None => break,
+            if !launch_next!() {
+                break;
             }
         }
         while !in_flight.is_empty() {
             // Await the first handle in the queue.  tokio doesn't provide
             // a built-in "select any", but for small parallelism this FIFO
-            // drain is fine — all spawn_blocking tasks run concurrently
-            // anyway, we're just reaping their results in submission
+            // drain is fine — the encodes run concurrently on the merge
+            // pool anyway, we're just reaping their results in submission
             // order.
             let handle = in_flight.remove(0);
             match handle.await {
@@ -13686,6 +17007,7 @@ impl Index {
                         }
                     }
                     drop(collection_publication);
+                    self.collection_publication.handoff_to_readers().await;
                     if let Err(e) = apply_result {
                         tracing::warn!("merge: apply_merge failed: {e:?}");
                         failed_batches.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
@@ -13697,10 +17019,7 @@ impl Index {
                         // `continue` bypasses the common top-up below. Launch
                         // the next disjoint batch first so one failed apply
                         // does not silently suppress the rest of this pass.
-                        if let Some((batch, metas)) = pending.take() {
-                            in_flight.push(spawn_one(batch, metas));
-                            pending = queue_iter.next();
-                        }
+                        launch_next!();
                         continue;
                     }
                     // `apply_merge` has made the output authoritative. No
@@ -13762,10 +17081,7 @@ impl Index {
                             // Same pipeline rule as the failed-apply path: the
                             // `continue` below bypasses the loop's bottom
                             // top-up, so launch the next disjoint batch here.
-                            if let Some((batch, metas)) = pending.take() {
-                                in_flight.push(spawn_one(batch, metas));
-                                pending = queue_iter.next();
-                            }
+                            launch_next!();
                             continue;
                         }
                         // Disk-space fix (2026-07): the input segments are
@@ -13826,14 +17142,37 @@ impl Index {
                 }
                 Ok(None) => {}
                 Err(e) => {
-                    tracing::error!("merge: spawn_blocking panicked: {e}");
+                    tracing::error!("merge: encode task panicked: {e}");
                     failed_batches.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                 }
             }
             // Top up in_flight.
-            if let Some((batch, metas)) = pending.take() {
-                in_flight.push(spawn_one(batch, metas));
-                pending = queue_iter.next();
+            launch_next!();
+        }
+        let yielded = yielded_batches.load(AtomicOrdering::Relaxed);
+        if yielded > 0 {
+            self.merge_batches_deferred
+                .store(true, AtomicOrdering::Relaxed);
+            tracing::info!(
+                index = %self.name,
+                yielded,
+                "merge batches yielded under memory pressure; inputs kept"
+            );
+        }
+        if governor_deferred > 0 {
+            self.merge_batches_deferred
+                .store(true, AtomicOrdering::Relaxed);
+            if let Some(governor) = crate::governor::global() {
+                tracing::info!(
+                    index = %self.name,
+                    deferred = governor_deferred,
+                    rss_mb = governor.observed_rss_bytes() / (1024 * 1024),
+                    watermark_mb = governor.memory_watermark_bytes() / (1024 * 1024),
+                    merge_reserved_mb = governor.merge_reserved_bytes() / (1024 * 1024),
+                    merges_in_flight = governor.merges_in_flight(),
+                    breaker_engaged = governor.memory_breaker_engaged(),
+                    "merge batches deferred by the memory governor; inputs kept"
+                );
             }
         }
 
@@ -13892,9 +17231,10 @@ impl Index {
             return Err(EngineError::Common(xerj_common::XerjError::internal(
                 format!(
                     "merge pass aborted {failed} batch(es): an input segment could not \
-                     be fully read or the output could not be written; input segments \
-                     were preserved (no documents dropped, {merged_batches} other \
-                     batch(es) merged)"
+                     be fully read, the output could not be written, or there was not \
+                     enough memory to build the merged segment; input segments \
+                     were preserved (no documents dropped, the node stayed up, \
+                     {merged_batches} other batch(es) merged)"
                 ),
             )));
         }
@@ -14017,7 +17357,12 @@ impl Index {
                         if *n > 0 {
                             tracing::debug!(batches = n, "merge pass ran");
                         }
-                        false
+                        // Batches left behind under a small budget need
+                        // another check after the debounce sleep. A pass
+                        // that merged something already bumps
+                        // `merge_events`; this covers the pass that
+                        // started nothing because every extra batch waited.
+                        idx.merge_batches_deferred.load(AtomicOrdering::Relaxed)
                     }
                 };
                 if retry || idx.merge_events.load(AtomicOrdering::SeqCst) != seen {
@@ -14340,20 +17685,53 @@ impl Index {
     /// node before inserting the fresh vector — otherwise the graph would
     /// keep serving the pre-update vector forever.
     async fn index_vectors(&self, doc_id: &str, source: &Value) {
+        if let Some(vector) = self.graph_vector_for(doc_id, source).await {
+            self.hnsw_insert_vector(doc_id, vector).await;
+        }
+    }
+
+    /// [`index_vectors`](Self::index_vectors) for a whole batch (#2427):
+    /// every doc's SQ8 codes and graph field are handled in order exactly as
+    /// the per-doc path does, but the graph inserts go through one
+    /// [`hnsw_insert_vectors`](Self::hnsw_insert_vectors) call, whose
+    /// construction searches run in parallel. A doc id repeated inside the
+    /// batch flushes the inserts collected so far first, so the later
+    /// version still tombstones the earlier one.
+    ///
+    /// Takes a collected `Vec`, not an iterator: a borrowing iterator held
+    /// across the `.await`s makes the future not provably `Send`.
+    async fn index_vectors_batch(&self, docs: Vec<(&str, &Value)>) {
+        let mut pending: Vec<(String, Vec<f32>)> = Vec::new();
+        let mut pending_ids: HashSet<&str> = HashSet::new();
+        for (doc_id, source) in docs {
+            let Some(vector) = self.graph_vector_for(doc_id, source).await else {
+                continue;
+            };
+            if !pending_ids.insert(doc_id) {
+                self.hnsw_insert_vectors(std::mem::take(&mut pending)).await;
+                pending_ids.clear();
+                pending_ids.insert(doc_id);
+            }
+            pending.push((doc_id.to_string(), vector));
+        }
+        self.hnsw_insert_vectors(pending).await;
+    }
+
+    /// SQ8-ingest one doc and return the vector it contributes to the HNSW
+    /// graph (pinning the graph field on the first vector-bearing doc), or
+    /// `None` when it contributes none.
+    async fn graph_vector_for(&self, doc_id: &str, source: &Value) -> Option<Vec<f32>> {
         // #392: SQ8 code stores are maintained for EVERY scalar8 field on
         // every write, independent of the single field the HNSW graph pins.
         self.sq8_ingest(doc_id, source).await;
         let obj = match source.as_object() {
             Some(o) => o,
-            None => return,
+            None => return None,
         };
         let pinned: Option<String> = self.hnsw_field.read().unwrap().clone();
         if let Some(field) = pinned {
             // Enforced path: only the pinned field ever enters the graph.
-            if let Some(vector) = extract_numeric_vector(source, &field) {
-                self.hnsw_insert_vector(doc_id, vector).await;
-            }
-            return;
+            return extract_numeric_vector(source, &field);
         }
 
         // No pinned field yet. Cheap sync pre-screen: bail before any async
@@ -14367,20 +17745,19 @@ impl Index {
         // (see the load gate in `Index::open`), so a live graph always has
         // a pinned dense_vector field and takes the fast path above.)
         let has_candidate = obj.values().any(|v| {
-            v.as_array()
-                .map(|arr| !arr.is_empty() && arr.iter().all(Value::is_number))
-                .unwrap_or(false)
+            v.as_str()
+                .is_some_and(xerj_common::packed_f32::is_packed_f32)
+                || v.as_array()
+                    .map(|arr| !arr.is_empty() && arr.iter().all(Value::is_number))
+                    .unwrap_or(false)
         });
         if !has_candidate {
-            return;
+            return None;
         }
 
         // First vector-bearing doc: decide the field, then pin it under the
         // write lock (re-checking, so concurrent deciders agree on one).
-        let decided = match self.choose_hnsw_field(source).await {
-            Some(f) => f,
-            None => return,
-        };
+        let decided = self.choose_hnsw_field(source).await?;
         let field = {
             let mut fg = self.hnsw_field.write().unwrap();
             match fg.as_ref() {
@@ -14391,9 +17768,7 @@ impl Index {
                 }
             }
         };
-        if let Some(vector) = extract_numeric_vector(source, &field) {
-            self.hnsw_insert_vector(doc_id, vector).await;
-        }
+        extract_numeric_vector(source, &field)
     }
 
     /// Pick the field the HNSW graph will index, given the first
@@ -14432,54 +17807,145 @@ impl Index {
     /// insert error) — the doc then has no `hnsw_id_map` entry, so the
     /// coverage guard keeps the kNN query path on brute force.
     async fn hnsw_insert_vector(&self, doc_id: &str, vector: Vec<f32>) -> bool {
-        let dim = vector.len();
-        if dim == 0 {
-            return false;
+        self.hnsw_insert_vectors(vec![(doc_id.to_string(), vector)])
+            .await
+            .first()
+            .copied()
+            .unwrap_or(false)
+    }
+
+    /// Insert several docs' vectors (distinct doc ids) into the HNSW graph
+    /// under one write-guard hold, with the per-doc semantics of
+    /// [`hnsw_insert_vector`](Self::hnsw_insert_vector). Returns, per item,
+    /// whether it went in.
+    ///
+    /// #2427: the graph inserts go through [`HnswIndex::insert_batch`] on the
+    /// ingest pool, which runs the construction searches (the
+    /// `ef_construction` beams — ~a quarter of node CPU in the 1 GB gate) in
+    /// parallel and keeps only the link writes serial. Before, each doc's
+    /// whole insert ran serially on one runtime thread under the graph
+    /// write guard, so a vector-bearing bulk was bounded by one core no
+    /// matter how idle the rest of the machine was, and concurrent bulks
+    /// into one index queued behind each other. Inserts now hold the outer
+    /// guard shared, so concurrent batches also plan in parallel.
+    async fn hnsw_insert_vectors(&self, items: Vec<(String, Vec<f32>)>) -> Vec<bool> {
+        let mut inserted = vec![false; items.len()];
+        if items.iter().all(|(_, vector)| vector.is_empty()) {
+            return inserted;
         }
         // UPDATE staleness fix: a doc_id that already has a node must have
         // that node tombstoned before the fresh vector goes in (fresh
         // node_id; the old node is never unmarked).
-        let old_node: Option<u64> = self.hnsw_id_map.read().await.get(doc_id).copied();
-        if old_node.is_none() {
-            // Item 8: a new vector-bearing doc-id. Counted on ATTEMPT (here),
-            // not on success below: if the insert then fails (dim mismatch /
-            // graph error), `id_map.len()` stays behind `vector_doc_count`,
-            // which holds the coverage gate on brute force — the safe
-            // direction (a doc that isn't in the graph must not be answered
-            // from it). An update (old_node.is_some()) is already counted.
-            self.vector_doc_count.fetch_add(1, Ordering::Relaxed);
-        }
-        let node_id = self.hnsw_next_id.fetch_add(1, Ordering::Relaxed);
-        {
-            let mut hnsw_guard = self.hnsw.write().await;
-            if hnsw_guard.is_none() {
-                let params = HnswParams::new(dim, DistanceMetric::Cosine);
-                *hnsw_guard = Some(HnswIndex::new(params));
+        let old_nodes: Vec<Option<u64>> = {
+            let id_map = self.hnsw_id_map.read().await;
+            items
+                .iter()
+                .map(|(doc_id, _)| id_map.get(doc_id.as_str()).copied())
+                .collect()
+        };
+        let mut node_ids = Vec::with_capacity(items.len());
+        for ((_, vector), old_node) in items.iter().zip(&old_nodes) {
+            if vector.is_empty() {
+                node_ids.push(None);
+                continue;
             }
-            if let Some(ref hnsw) = *hnsw_guard {
-                if hnsw.params().dim != dim {
-                    // Mismatched dimension — skip (no id_map entry → the
-                    // coverage guard keeps queries on brute force).
-                    return false;
+            if old_node.is_none() {
+                // Item 8: a new vector-bearing doc-id. Counted on ATTEMPT
+                // (here), not on success below: if the insert then fails (dim
+                // mismatch / graph error), `id_map.len()` stays behind
+                // `vector_doc_count`, which holds the coverage gate on brute
+                // force — the safe direction (a doc that isn't in the graph
+                // must not be answered from it). An update (old_node.is_some())
+                // is already counted.
+                self.vector_doc_count.fetch_add(1, Ordering::Relaxed);
+            }
+            node_ids.push(Some(self.hnsw_next_id.fetch_add(1, Ordering::Relaxed)));
+        }
+        let mut items = items;
+        {
+            // Inserts share the outer guard (#2427): `HnswIndex` serializes
+            // its own link writes under its inner lock, so concurrent batches
+            // only overlap in the read-only construction searches. The
+            // exclusive guard is taken once, to create the graph. Save and
+            // the ANN query paths stay fail-closed against a concurrent
+            // insert through the publication guard every vector write holds
+            // (`hnsw_publications_in_flight` / `hnsw_publication_generation`),
+            // not through this lock.
+            let hnsw_guard = {
+                let read = self.hnsw.read().await;
+                if read.is_some() {
+                    read
+                } else {
+                    drop(read);
+                    let mut write = self.hnsw.write().await;
+                    if write.is_none() {
+                        let dim = items
+                            .iter()
+                            .map(|(_, vector)| vector.len())
+                            .find(|&dim| dim > 0)
+                            .unwrap_or(0);
+                        let params = HnswParams::new(dim, DistanceMetric::Cosine);
+                        *write = Some(HnswIndex::new(params));
+                    }
+                    write.downgrade()
                 }
-                if let Some(old) = old_node {
+            };
+            let Some(ref hnsw) = *hnsw_guard else {
+                return inserted;
+            };
+            let dim = hnsw.params().dim;
+            let mut batch = Vec::with_capacity(items.len());
+            for (i, (_, vector)) in items.iter_mut().enumerate() {
+                // Mismatched dimension — skip (no id_map entry → the coverage
+                // guard keeps queries on brute force).
+                let Some(node_id) = node_ids[i] else { continue };
+                if vector.len() != dim {
+                    continue;
+                }
+                if let Some(old) = old_nodes[i] {
                     hnsw.mark_deleted(old);
                 }
-                if let Err(e) = hnsw.insert(node_id, vector) {
-                    warn!(doc_id, error = %e, "HNSW insert failed");
-                    return false;
+                batch.push((node_id, std::mem::take(vector)));
+                inserted[i] = true;
+            }
+            if !batch.is_empty() {
+                let result = crate::ingest_pool().install(|| hnsw.insert_batch(batch));
+                self.hnsw_heap_bytes
+                    .store(hnsw.heap_bytes(), Ordering::Relaxed);
+                if let Err(e) = result {
+                    // Unreachable after the dim filter above; fail safe by
+                    // leaving every item of the batch out of the id maps.
+                    warn!(error = %e, "HNSW batch insert failed");
+                    return vec![false; items.len()];
                 }
             }
         }
         // Update id maps.
         let mut id_map = self.hnsw_id_map.write().await;
         let mut id_rev = self.hnsw_id_rev.write().await;
-        if let Some(old) = old_node {
-            id_rev.remove(&old);
+        for (i, (doc_id, _)) in items.iter().enumerate() {
+            if !inserted[i] {
+                continue;
+            }
+            let node_id = node_ids[i].expect("inserted items have a node id");
+            if let Some(old) = old_nodes[i] {
+                id_rev.remove(&old);
+            }
+            // A re-index keeps the map's existing key and points the reverse
+            // entry at that same allocation; only a new doc allocates one.
+            let key: HnswDocId = match id_map.get_key_value(doc_id.as_str()) {
+                Some((existing, _)) => Arc::clone(existing),
+                None => Arc::from(doc_id.as_str()),
+            };
+            if id_map.insert(Arc::clone(&key), node_id).is_none() {
+                self.hnsw_id_key_bytes
+                    .fetch_add(hnsw_id_key_cost(doc_id), Ordering::Relaxed);
+            }
+            id_rev.insert(node_id, key);
         }
-        id_map.insert(doc_id.to_string(), node_id);
-        id_rev.insert(node_id, doc_id.to_string());
-        true
+        self.hnsw_id_table_bytes
+            .store(hnsw_id_table_bytes(&id_map, &id_rev), Ordering::Relaxed);
+        inserted
     }
 
     // ── SQ8 ingest-time code stores (#392) ──────────────────────────────
@@ -14802,25 +18268,71 @@ impl Index {
     /// Perform KNN search over the HNSW index.
     ///
     /// Returns the top-`k` (doc_id, distance) pairs.
+    ///
+    /// The graph orders candidates by half-precision distances (#2427), so
+    /// the candidates that could be in the exact top-`k` are rescored
+    /// against the stored source vectors before truncating. If any of them
+    /// has no readable source yet, the answer keeps the graph order.
     pub async fn knn_search(&self, query_vector: &[f32], k: usize) -> Vec<(String, f32)> {
-        let hnsw_guard = self.hnsw.read().await;
-        let hnsw = match hnsw_guard.as_ref() {
-            Some(h) => h,
-            None => return vec![],
-        };
-        let ef = (k * 2).max(64);
-        let results = match hnsw.search(query_vector, k, ef) {
-            Ok(r) => r,
-            Err(e) => {
-                warn!(error = %e, "HNSW search failed");
-                return vec![];
+        // Hold the graph guard only for the beam search (see the lock
+        // discipline note in the ANN query path).
+        let (results, metric) = {
+            let hnsw_guard = self.hnsw.read().await;
+            let hnsw = match hnsw_guard.as_ref() {
+                Some(h) => h,
+                None => return vec![],
+            };
+            let ef = (k * 2).max(64);
+            match hnsw.search_rescore_candidates(query_vector, k, ef) {
+                Ok(r) => (r, hnsw.params().metric),
+                Err(e) => {
+                    warn!(error = %e, "HNSW search failed");
+                    return vec![];
+                }
             }
         };
-        let id_rev = self.hnsw_id_rev.read().await;
-        results
-            .into_iter()
-            .filter_map(|(node_id, dist)| id_rev.get(&node_id).map(|doc_id| (doc_id.clone(), dist)))
-            .collect()
+        let mut mapped: Vec<(String, f32)> = {
+            let id_rev = self.hnsw_id_rev.read().await;
+            results
+                .into_iter()
+                .filter_map(|(node_id, dist)| {
+                    id_rev
+                        .get(&node_id)
+                        .map(|doc_id| (doc_id.to_string(), dist))
+                })
+                .collect()
+        };
+        if mapped.len() <= k {
+            return mapped;
+        }
+        let Some(field) = self.hnsw_field.read().unwrap().clone() else {
+            mapped.truncate(k);
+            return mapped;
+        };
+        let mut rescored = Vec::with_capacity(mapped.len());
+        for (doc_id, _) in &mapped {
+            let exact = match self.get_document_uncounted(doc_id).await {
+                Ok(Some(source)) => extract_numeric_vector(&source, &field)
+                    .filter(|vector| vector.len() == query_vector.len())
+                    .map(|vector| exact_hnsw_distance(metric, query_vector, &vector)),
+                _ => None,
+            };
+            match exact {
+                Some(exact) => rescored.push((doc_id.clone(), exact)),
+                // A candidate whose source is not readable (not yet
+                // visible to GET) cannot be rescored. Mixing graph and
+                // exact distances would compare different frames, so keep
+                // the graph order for the whole answer.
+                None => {
+                    mapped.truncate(k);
+                    return mapped;
+                }
+            }
+        }
+        // Stable: exact ties keep graph order.
+        rescored.sort_by(|a, b| a.1.total_cmp(&b.1));
+        rescored.truncate(k);
+        rescored
     }
 
     /// Spawn the background stale-HNSW heal (RC4 W2 item 17) if the loaded
@@ -15049,12 +18561,12 @@ impl Index {
 
             // Prune graphed docs that are no longer live — WAL-tail deletes
             // the flush-time id_map still carries.
-            let prune_candidates: Vec<(String, u64)> = {
+            let prune_candidates: Vec<(HnswDocId, u64)> = {
                 let id_map = self.hnsw_id_map.read().await;
                 id_map
                     .iter()
-                    .filter(|(doc_id, _)| !seen.contains(*doc_id))
-                    .map(|(doc_id, node)| (doc_id.clone(), *node))
+                    .filter(|(doc_id, _)| !seen.contains(doc_id.as_ref()))
+                    .map(|(doc_id, node)| (Arc::clone(doc_id), *node))
                     .collect()
             };
             let mut pruned = 0u64;
@@ -15074,10 +18586,13 @@ impl Index {
                     // a concurrent re-index replaces the mapping and must
                     // keep its fresh node.
                     let mut id_map = self.hnsw_id_map.write().await;
-                    if id_map.get(&doc_id) != Some(&node_id) {
+                    if id_map.get(doc_id.as_ref()) != Some(&node_id) {
                         continue;
                     }
-                    id_map.remove(&doc_id);
+                    if id_map.remove(doc_id.as_ref()).is_some() {
+                        self.hnsw_id_key_bytes
+                            .fetch_sub(hnsw_id_key_cost(&doc_id), Ordering::Relaxed);
+                    }
                 }
                 self.hnsw_id_rev.write().await.remove(&node_id);
                 if let Some(h) = self.hnsw.read().await.as_ref() {
@@ -15123,6 +18638,53 @@ impl Index {
             );
         }
         Ok(false)
+    }
+
+    /// Rebuild the HNSW graph without its dead nodes once they are at least
+    /// as many as the live ones (#2796).
+    ///
+    /// Every overwrite or delete of a graphed doc tombstones its node, and
+    /// nothing else ever removed one: re-indexing the same 1,000 ids 20
+    /// times left a 87.7 MB `graph.bin` for 1,000 live vectors, and the
+    /// dead nodes' vectors and edges stayed in RSS as well. Rebuilding when
+    /// dead >= live keeps the graph within about twice its live size and
+    /// costs at most one extra insert per overwrite, amortised. The rebuild
+    /// runs on the deprioritised background pool while searches and inserts
+    /// keep using the old graph (`HnswIndex::compact`).
+    async fn maybe_compact_hnsw(&self) {
+        let hnsw = Arc::clone(&self.hnsw);
+        let heap_bytes = Arc::clone(&self.hnsw_heap_bytes);
+        let outcome = tokio::task::spawn_blocking(move || {
+            let guard = hnsw.blocking_read();
+            let graph = guard.as_ref()?;
+            let (live, dead) = graph.live_and_dead_counts();
+            if !hnsw_compaction_due(live, dead) {
+                return None;
+            }
+            let result = crate::background_pool().install(|| graph.compact());
+            heap_bytes.store(graph.heap_bytes(), Ordering::Relaxed);
+            Some(result)
+        })
+        .await;
+        match outcome {
+            Ok(Some(Ok(Some(stats)))) => info!(
+                index = self.name.as_str(),
+                nodes_before = stats.nodes_before,
+                nodes_after = stats.nodes_after,
+                "HNSW graph compacted"
+            ),
+            Ok(Some(Ok(None))) => debug!(
+                index = self.name.as_str(),
+                "HNSW compaction skipped: concurrent compaction or writes outpaced it"
+            ),
+            Ok(Some(Err(error))) => {
+                warn!(index = self.name.as_str(), %error, "HNSW compaction failed")
+            }
+            Err(error) => {
+                warn!(index = self.name.as_str(), %error, "HNSW compaction task failed")
+            }
+            Ok(None) => {}
+        }
     }
 
     /// True when `doc_id` has a graph node whose stored vector bit-matches
@@ -15298,11 +18860,11 @@ impl Index {
             .max(HNSW_EF_FLOOR);
 
         // LOCK DISCIPLINE: hold the graph read guard only for the sync
-        // sub-ms beam search and copy the results out — index_vectors takes
-        // `hnsw.write().await` per ingested doc, so holding this guard
-        // across the doc-fetch awaits below would head-of-line-block vector
-        // ingest (and, via writer preference, subsequent readers): exactly
-        // the mixed-read-under-write failure class.
+        // sub-ms beam search and copy the results out — graph creation and
+        // snapshot load take `hnsw.write().await`, so holding this guard
+        // across the doc-fetch awaits below would head-of-line-block them
+        // (and, via writer preference, every later reader and vector
+        // insert): exactly the mixed-read-under-write failure class.
         let raw: Vec<(u64, f32)> = {
             let hnsw_guard = self.hnsw.read().await;
             let hnsw = hnsw_guard.as_ref()?;
@@ -15310,7 +18872,7 @@ impl Index {
             if params.metric != DistanceMetric::Cosine || params.dim != query_vec.len() {
                 return None;
             }
-            match hnsw.search(query_vec, k, ef) {
+            match hnsw.search_rescore_candidates(query_vec, k, ef) {
                 Ok(r) => r,
                 Err(_) => return None,
             }
@@ -15327,11 +18889,11 @@ impl Index {
         // race can briefly leave two live nodes for one doc.
         let doc_ids: Vec<String> = {
             let id_rev = self.hnsw_id_rev.read().await;
-            let mut seen: HashSet<&str> = HashSet::with_capacity(raw.len());
+            let mut seen: HashSet<&HnswDocId> = HashSet::with_capacity(raw.len());
             raw.iter()
                 .filter_map(|(node_id, _)| id_rev.get(node_id))
-                .filter(|doc_id| seen.insert(doc_id.as_str()))
-                .cloned()
+                .filter(|doc_id| seen.insert(*doc_id))
+                .map(|doc_id| doc_id.to_string())
                 .collect()
         };
 
@@ -15357,13 +18919,12 @@ impl Index {
             if get_field_value(&src, &chunk_field).is_some() {
                 return None;
             }
-            let doc_vec: Vec<f32> = match get_field_value(&src, field) {
-                Some(Value::Array(arr)) => arr
-                    .iter()
-                    .filter_map(|v| v.as_f64().map(|f| f as f32))
-                    .collect(),
-                _ => return None,
-            };
+            // Packed embeddings are the retained source form (#1940). A
+            // number array is still valid for segments written before that.
+            // `extract_numeric_vector` reads both. Any other shape, or a
+            // vector whose length is not the query's, is an extract anomaly:
+            // hand the whole request back to the exact scan.
+            let doc_vec = extract_numeric_vector(&src, field)?;
             if doc_vec.len() != query_vec.len() {
                 return None;
             }
@@ -15402,9 +18963,15 @@ impl Index {
             candidates = scored.len(),
             "knn served via HNSW (coverage gate passed)"
         );
-        let generated_companion_fields = {
+        let (generated_companion_fields, knn_schema) = {
             let schema = self.schema.read().await;
-            generated_embedding_companion_fields(&schema.schema)
+            (
+                generated_embedding_companion_fields(&schema.schema),
+                // #1745: filter/filters aggs evaluate their clauses with the
+                // query matcher; only clone the mapping when this request
+                // actually carries aggregations.
+                request.aggs.as_ref().map(|_| schema.schema.clone()),
+            )
         };
         Some(knn_result_from_scored(
             self,
@@ -15414,6 +18981,7 @@ impl Index {
             k,
             started,
             &generated_companion_fields,
+            knn_schema.as_ref(),
         ))
     }
 
@@ -15692,9 +19260,15 @@ impl Index {
             return None;
         }
 
-        let generated_companion_fields = {
+        let (generated_companion_fields, knn_schema) = {
             let schema = self.schema.read().await;
-            generated_embedding_companion_fields(&schema.schema)
+            (
+                generated_embedding_companion_fields(&schema.schema),
+                // #1745: filter/filters aggs evaluate their clauses with the
+                // query matcher; only clone the mapping when this request
+                // actually carries aggregations.
+                request.aggs.as_ref().map(|_| schema.schema.clone()),
+            )
         };
         Some(knn_result_from_scored(
             self,
@@ -15704,6 +19278,7 @@ impl Index {
             k,
             started,
             &generated_companion_fields,
+            knn_schema.as_ref(),
         ))
     }
 
@@ -15942,6 +19517,324 @@ impl Index {
         .await
     }
 
+    /// #2422/#2423: `{"_id", "_source"}` docs for the scored FTS walk of a
+    /// segment whose stored offset index is NOT resident, decoded
+    /// row-selectively for `positions` only — and, when `keep` names the
+    /// source fields the request can observe, only those columns.
+    ///
+    /// The legacy cold path (`stored_slices_for`) decompressed and
+    /// brace-walked the WHOLE stored section to read the top-k: a size-45
+    /// query on a 30k-doc autoindex segment spent ~3 s there, and on a
+    /// flight-trace index whose rows carry a ~72 KB `trace` field, 650 ms for
+    /// five hits. Segments are immutable, so a row decode of the same
+    /// positions yields the same document; `None` (legacy LZ4 layout,
+    /// unsupported column shape, open/decode error, a missing row) sends the
+    /// caller back to the full decode, so nothing is lost.
+    /// Warm a segment's full stored slices on the blocking pool after a query
+    /// answered it from its winning rows (#2422/#2423). Later queries with
+    /// other winners then read the warm cache instead of each paying a
+    /// projected decode, and the query that found the segment cold no longer
+    /// waits for the whole-section decompress. `stored_slices_for` keeps its
+    /// single-flight, budget and retirement rules.
+    ///
+    /// #2427: at most ONE warm per index runs at a time, and a warm whose
+    /// decoded section cannot fit the hydration budget is not started. Each
+    /// warm is a full stored-section decompress plus brace walk; a cold query
+    /// over a many-segment index used to spawn one per segment at once (54 on
+    /// the 1 GB gate's pg-docs), which drove the node from ~1 GB to ~4.7 GB
+    /// anon RSS *after* the query returned, against a 3 GiB cap, and most of
+    /// the decoded sections were then refused by the budget at publish and
+    /// thrown away. A skipped warm costs nothing: the query that triggered it
+    /// already has its rows, and a later cold visit schedules it again.
+    fn schedule_cold_stored_warm(&self, segment_id: &str, doc_count: u64) {
+        let Some(index) = self.self_ref.get().and_then(std::sync::Weak::upgrade) else {
+            return;
+        };
+        let Ok(runtime) = tokio::runtime::Handle::try_current() else {
+            return;
+        };
+        if crate::governor::global().is_some_and(|g| g.memory_breaker_engaged()) {
+            return;
+        }
+        if self
+            .cold_stored_warms
+            .insert(segment_id.to_string(), ())
+            .is_some()
+        {
+            return;
+        }
+        if self
+            .cold_stored_warm_running
+            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+            .is_err()
+        {
+            self.cold_stored_warms.remove(segment_id);
+            self.cold_stored_warms_skipped
+                .fetch_add(1, Ordering::Relaxed);
+            return;
+        }
+        let segment_id = segment_id.to_string();
+        runtime.spawn_blocking(move || {
+            #[cfg(test)]
+            {
+                let live = index.cold_stored_warm_live.fetch_add(1, Ordering::AcqRel) + 1;
+                index
+                    .cold_stored_warm_peak
+                    .fetch_max(live, Ordering::AcqRel);
+            }
+            // #2427/#1122: a warm exists to leave the slices cached. When the
+            // hydration budget has no room for them the cache would refuse
+            // the result, so the warm would only decompress a whole stored
+            // section to drop it — on every cold query, the transient spike
+            // that kept a search-only node above the breaker watermark.
+            let fits = index
+                .stored_slices_bound_for(&segment_id, doc_count)
+                .is_some_and(|bound| index.segment_hydration_budget.has_headroom(bound));
+            if !fits {
+                index
+                    .cold_stored_warms_skipped
+                    .fetch_add(1, Ordering::Relaxed);
+            } else if !index.stored_slices_cache.contains_key(segment_id.as_str()) {
+                let _ = index.stored_slices_for(&segment_id, doc_count);
+            }
+            index.cold_stored_warms.remove(segment_id.as_str());
+            #[cfg(test)]
+            index.cold_stored_warm_live.fetch_sub(1, Ordering::AcqRel);
+            index
+                .cold_stored_warm_running
+                .store(false, Ordering::Release);
+        });
+    }
+
+    /// #2427: find the row of every `hits` entry whose `_source` came from a
+    /// column-projected stored scan (`scan_projected`: id → segment) and
+    /// record it in `row_projected`, so the whole-document reader (TF-IDF
+    /// fallback) can restore the full source. Decodes only the identity
+    /// columns of each segment involved; rare path.
+    fn locate_scan_projected_rows(
+        &self,
+        hits: &[Hit],
+        scan_projected: &HashMap<String, String>,
+        row_projected: &mut HashMap<String, (String, u32)>,
+    ) {
+        let mut wanted: HashMap<&str, HashSet<&str>> = HashMap::new();
+        for hit in hits {
+            if let Some(segment) = scan_projected.get(&hit.id) {
+                wanted
+                    .entry(segment.as_str())
+                    .or_default()
+                    .insert(hit.id.as_str());
+            }
+        }
+        for (segment, ids) in wanted {
+            let Some(reader) = self.store.open_segment_arc(segment).ok() else {
+                continue;
+            };
+            let Some(bytes) = reader.section(SectionType::Stored).ok().flatten() else {
+                continue;
+            };
+            let Some(identity) =
+                xerj_storage::stored_codec::decode_stored_keeping(bytes, &|_: &str| false)
+                    .ok()
+                    .flatten()
+            else {
+                continue;
+            };
+            let Ok(rows) = serde_json::from_slice::<Vec<Value>>(&identity) else {
+                continue;
+            };
+            for (position, row) in rows.iter().enumerate() {
+                let Some(id) = row.get("_id").and_then(Value::as_str) else {
+                    continue;
+                };
+                if ids.contains(id) {
+                    if let Ok(position) = u32::try_from(position) {
+                        row_projected.insert(id.to_string(), (segment.to_string(), position));
+                    }
+                }
+            }
+        }
+    }
+
+    fn hydrate_fts_rows_cold(
+        &self,
+        segment_id: &str,
+        positions: &[u32],
+        keep: Option<&[String]>,
+    ) -> Option<HashMap<u32, Value>> {
+        use xerj_storage::stored_codec::{
+            decode_stored_v2_rows_projected_parallel, stored_v2_source_column_names,
+            StoredV2RowHydrationResult,
+        };
+        let reader = self.store.open_segment_arc(segment_id).ok()?;
+        let bytes = reader.section(SectionType::Stored).ok()??;
+        let ordinals: Vec<usize> = positions.iter().map(|&p| p as usize).collect();
+        // Columns decode concurrently: a handful of rows still streams every
+        // wanted column, so the serial sum was the cost of a cold page.
+        let hydrated = match keep {
+            Some(keep) => {
+                let names = stored_v2_source_column_names(bytes).ok()??;
+                let include: Vec<&str> = names
+                    .iter()
+                    .map(String::as_str)
+                    .filter(|column| row_projection_keeps_column(keep, column))
+                    .collect();
+                decode_stored_v2_rows_projected_parallel(bytes, &ordinals, Some(&include)).ok()?
+            }
+            None => decode_stored_v2_rows_projected_parallel(bytes, &ordinals, None).ok()?,
+        };
+        let StoredV2RowHydrationResult::Hydrated { rows, .. } = hydrated else {
+            return None;
+        };
+        let mut out: HashMap<u32, Value> = HashMap::with_capacity(rows.len());
+        for row in rows {
+            let id = row.id.as_str()?.to_string();
+            let mut doc = serde_json::Map::with_capacity(2);
+            doc.insert("_id".to_string(), Value::String(id));
+            doc.insert("_source".to_string(), Value::Object(row.source));
+            out.insert(u32::try_from(row.ordinal).ok()?, Value::Object(doc));
+        }
+        // Every requested position must come back; a short answer means the
+        // section and the FTS doc ids disagree, which the full decode path
+        // already knows how to handle.
+        if positions.iter().any(|p| !out.contains_key(p)) {
+            return None;
+        }
+        Some(out)
+    }
+
+    /// `_id` per row for `positions` of a cold segment, decoded from the
+    /// identity columns alone (no `_source` column is read). `None` (legacy
+    /// layout, open/decode error, a missing row) sends the caller back to
+    /// the full decode.
+    fn cold_fts_row_ids(
+        &self,
+        segment_id: &str,
+        positions: &[u32],
+    ) -> Option<HashMap<u32, String>> {
+        use xerj_storage::stored_codec::{
+            decode_stored_v2_rows_projected, StoredV2RowHydrationResult,
+        };
+        let reader = self.store.open_segment_arc(segment_id).ok()?;
+        let bytes = reader.section(SectionType::Stored).ok()??;
+        let ordinals: Vec<usize> = positions.iter().map(|&p| p as usize).collect();
+        let StoredV2RowHydrationResult::Hydrated { rows, .. } =
+            decode_stored_v2_rows_projected(bytes, &ordinals, &[]).ok()?
+        else {
+            return None;
+        };
+        let mut out: HashMap<u32, String> = HashMap::with_capacity(rows.len());
+        for row in rows {
+            out.insert(
+                u32::try_from(row.ordinal).ok()?,
+                row.id.as_str()?.to_string(),
+            );
+        }
+        if positions.iter().any(|p| !out.contains_key(p)) {
+            return None;
+        }
+        Some(out)
+    }
+
+    /// Fill the `_source` of the cold FTS hits the segment loop kept with
+    /// identity only (`deferred`: `_id` -> (segment, row, doc count)). Only
+    /// the page's winners are read, row-selectively and per segment in
+    /// parallel. A segment whose rows cannot be hydrated that way falls back
+    /// to the full decode, as the walk itself used to; a hit whose document
+    /// cannot be read at all is dropped, as the walk skipped an unreadable
+    /// row. Projected hits are recorded in `row_projected` so the TF-IDF
+    /// fallback can restore their whole source.
+    fn hydrate_deferred_cold_sources(
+        &self,
+        hits: Vec<Hit>,
+        deferred: &HashMap<String, (String, u32, u64)>,
+        keep: Option<&[String]>,
+        row_projected: &mut HashMap<String, (String, u32)>,
+    ) -> Vec<Hit> {
+        use rayon::prelude::*;
+        let mut by_segment: HashMap<&str, (Vec<u32>, u64)> = HashMap::new();
+        for hit in &hits {
+            if let Some((seg, pos, doc_count)) = deferred.get(&hit.id) {
+                by_segment
+                    .entry(seg.as_str())
+                    .or_insert_with(|| (Vec::new(), *doc_count))
+                    .0
+                    .push(*pos);
+            }
+        }
+        if by_segment.is_empty() {
+            return hits;
+        }
+        let segments: Vec<(&str, Vec<u32>, u64)> = by_segment
+            .into_iter()
+            .map(|(seg, (positions, doc_count))| (seg, positions, doc_count))
+            .collect();
+        // (segment, docs by row, projected?)
+        let loaded: Vec<(&str, HashMap<u32, Value>, bool)> = segments
+            .par_iter()
+            .map(|(seg, positions, doc_count)| {
+                if let Some(rows) = self.hydrate_fts_rows_cold(seg, positions, keep) {
+                    return (*seg, rows, keep.is_some());
+                }
+                let mut docs: HashMap<u32, Value> = HashMap::with_capacity(positions.len());
+                if let Some(slices) = self.stored_slices_for(seg, *doc_count) {
+                    for &pos in positions {
+                        let doc = slices
+                            .offsets
+                            .get(pos as usize)
+                            .and_then(|&(start, end)| {
+                                slices.bytes.get(start as usize..end as usize)
+                            })
+                            .and_then(|slice| serde_json::from_slice::<Value>(slice).ok());
+                        if let Some(doc) = doc {
+                            docs.insert(pos, doc);
+                        }
+                    }
+                } else if let Some(all) = self.store.open_segment_arc(seg).ok().and_then(|reader| {
+                    match reader.section(SectionType::Stored) {
+                        Ok(Some(raw)) => xerj_storage::stored_codec::decode_stored(raw)
+                            .ok()
+                            .and_then(|b| serde_json::from_slice::<Vec<Value>>(&b).ok()),
+                        _ => None,
+                    }
+                }) {
+                    for &pos in positions {
+                        if let Some(doc) = all.get(pos as usize) {
+                            docs.insert(pos, doc.clone());
+                        }
+                    }
+                }
+                (*seg, docs, false)
+            })
+            .collect();
+        let mut docs_by_segment: HashMap<&str, (HashMap<u32, Value>, bool)> = loaded
+            .into_iter()
+            .map(|(seg, docs, projected)| (seg, (docs, projected)))
+            .collect();
+        let mut out = Vec::with_capacity(hits.len());
+        for mut hit in hits {
+            let Some((seg, pos, _)) = deferred.get(&hit.id) else {
+                out.push(hit);
+                continue;
+            };
+            let Some((docs, projected)) = docs_by_segment.get_mut(seg.as_str()) else {
+                continue;
+            };
+            let Some(mut doc) = docs.remove(pos) else {
+                continue;
+            };
+            hit.source = doc
+                .get_mut("_source")
+                .map(Value::take)
+                .unwrap_or(Value::Null);
+            if *projected {
+                row_projected.insert(hit.id.clone(), (seg.clone(), *pos));
+            }
+            out.push(hit);
+        }
+        out
+    }
+
     #[allow(clippy::too_many_arguments)]
     async fn run_knn_brute_force_with_deadline(
         &self,
@@ -15955,45 +19848,76 @@ impl Index {
         boost: Option<f32>,
         min_similarity: Option<f32>,
     ) -> Result<SearchResult> {
-        // #1091: an unfiltered scan first ranks from vector columns alone and
-        // hydrates only the winners. It hands the request back (`None`) when a
-        // winner's segment can no longer be read — a merge retired it between
-        // scoring and hydration — and the scan below then answers from the
-        // stored documents, exactly as it always did.
-        if filter.is_none() {
-            if let Some(result) = self
+        // #2473: the scan brackets its capture (#1220) and answers a straddling
+        // publication with the typed recapture signal `search()`'s admission
+        // loop handles (#1013). This entry point has no such loop, and the
+        // signal is deliberately opaque to callers — `CollectionCaptureCrossedPublication`
+        // and `is_collection_capture_retry` are both private — so the only
+        // documented failure of `run_knn_brute_force` under a concurrent flush
+        // or merge was an unactionable `Fts(collection capture crossed a
+        // publication)`. That is the intermittent failure in #2473, where the
+        // exact-scan test fails 7 runs in 10 inside its group and passes alone:
+        // a background flush straddles the capture, nothing in the test can
+        // recognise the signal, and the run dies. Wait the bracket out here,
+        // bounded by the request deadline, exactly as `search()` does.
+        loop {
+            // #1091: an unfiltered scan first ranks from vector columns alone
+            // and hydrates only the winners. It hands the request back (`None`)
+            // when a winner's segment can no longer be read — a merge retired
+            // it between scoring and hydration — and the scan below then
+            // answers from the stored documents, exactly as it always did.
+            if filter.is_none() {
+                match self
+                    .run_knn_exact_scan(
+                        request,
+                        deadline,
+                        field,
+                        query_vec,
+                        k,
+                        None,
+                        similarity,
+                        boost,
+                        min_similarity,
+                        true,
+                    )
+                    .await
+                {
+                    Ok(Some(result)) => return Ok(result),
+                    Ok(None) => {}
+                    Err(e) if is_collection_capture_retry(&e) => {
+                        if !wait_out_crossed_capture(deadline).await {
+                            return Err(e);
+                        }
+                        continue;
+                    }
+                    Err(e) => return Err(e),
+                }
+            }
+            let result = match self
                 .run_knn_exact_scan(
                     request,
                     deadline,
                     field,
                     query_vec,
                     k,
-                    None,
+                    filter.clone(),
                     similarity,
                     boost,
                     min_similarity,
-                    true,
+                    false,
                 )
-                .await?
+                .await
             {
-                return Ok(result);
-            }
+                Err(e) if is_collection_capture_retry(&e) => {
+                    if !wait_out_crossed_capture(deadline).await {
+                        return Err(e);
+                    }
+                    continue;
+                }
+                other => other?,
+            };
+            return Ok(result.expect("a scan over stored documents always answers"));
         }
-        let result = self
-            .run_knn_exact_scan(
-                request,
-                deadline,
-                field,
-                query_vec,
-                k,
-                filter,
-                similarity,
-                boost,
-                min_similarity,
-                false,
-            )
-            .await?;
-        Ok(result.expect("a scan over stored documents always answers"))
     }
 
     /// The exact kNN scan. With `columns_only` (honoured only unfiltered and
@@ -16129,6 +20053,7 @@ impl Index {
             if generation != capture_generation || in_flight != 0 {
                 return Err(collection_capture_crossed());
             }
+            self.collection_publication.note_capture_validated();
         }
         // #1220 regression hook: park the scan the instant its capture
         // validates, so a test can publish a write, merge or flush into the
@@ -16577,9 +20502,15 @@ impl Index {
                 }
             }
         }
-        let generated_companion_fields = {
+        let (generated_companion_fields, knn_schema) = {
             let schema = self.schema.read().await;
-            generated_embedding_companion_fields(&schema.schema)
+            (
+                generated_embedding_companion_fields(&schema.schema),
+                // #1745: filter/filters aggs evaluate their clauses with the
+                // query matcher; only clone the mapping when this request
+                // actually carries aggregations.
+                request.aggs.as_ref().map(|_| schema.schema.clone()),
+            )
         };
         // The default `_source` drops the generated embedding companions from
         // every hit without reporting it (`apply_source_filter_measured`), and
@@ -16587,15 +20518,28 @@ impl Index {
         // them the companions are not hydrated at all. Anything else — an
         // explicit `_source`, aggregations over the neighbours, `fields`,
         // scripts, sort, collapse, rescore — gets the whole document.
+        //
+        // #1947: a semantic highlight against an active embedder scores the
+        // stored per-chunk vectors. Those columns are normally omitted (they
+        // are the expensive ones). Keep `<target>_chunks` and still omit the
+        // pooled vector. The lexical embedder re-embeds chunk text instead
+        // and does not need the columns.
+        let mut companion_omit = generated_companion_fields.clone();
+        if SEMANTIC_HIGHLIGHT_PLAN
+            .try_with(|plan| !plan.lexical)
+            .unwrap_or(false)
+        {
+            companion_omit.retain(|name| !name.ends_with("_chunks"));
+        }
         let omit_companions = (matches!(request.source, SourceFilter::Default)
-            && !generated_companion_fields.is_empty()
+            && !companion_omit.is_empty()
             && request.aggs.is_none()
             && request.fields.is_empty()
             && request.script_fields.is_none()
             && request.sort.is_empty()
             && request.collapse.is_none()
             && request.rescore.is_empty())
-        .then(|| Arc::new(generated_companion_fields.clone()));
+        .then(|| Arc::new(companion_omit));
         let mut column_hits: HashMap<(usize, usize), (String, Value)> = HashMap::new();
         for (view, positions) in by_view {
             let hydrate_started = std::time::Instant::now();
@@ -16660,6 +20604,10 @@ impl Index {
             };
             ranked.push((id, score, source, ordinal));
         }
+        // #3017: the cap above kept tied candidates in scan order (memtable,
+        // then segments), which moves when a memtable flushes; the page itself
+        // is put in the one score-ranked order every executor shares.
+        order_knn_pool_page_order(self, &mut ranked);
 
         // (result shaping is shared with the HNSW path so hits format / total
         // semantics cannot drift between the exact and approximate executors)
@@ -16670,6 +20618,7 @@ impl Index {
             ranked,
             started,
             &generated_companion_fields,
+            knn_schema.as_ref(),
         );
         result.timed_out = timed_out;
         if timed_out {
@@ -16753,9 +20702,15 @@ impl Index {
         // passage metadata. Child clauses retain ordinary ranking semantics;
         // provenance is intentionally omitted until per-clause ownership is
         // represented in the merged winner.
-        let generated_companion_fields = {
+        let (generated_companion_fields, knn_schema) = {
             let schema = self.schema.read().await;
-            generated_embedding_companion_fields(&schema.schema)
+            (
+                generated_embedding_companion_fields(&schema.schema),
+                // #1745: filter/filters aggs evaluate their clauses with the
+                // query matcher; only clone the mapping when this request
+                // actually carries aggregations.
+                request.aggs.as_ref().map(|_| schema.schema.clone()),
+            )
         };
         let mut result = knn_result_from_scored(
             self,
@@ -16765,6 +20720,7 @@ impl Index {
             k_sum,
             started,
             &generated_companion_fields,
+            knn_schema.as_ref(),
         );
         result.timed_out = any_timed_out;
         if any_timed_out {
@@ -16846,9 +20802,14 @@ impl Index {
     /// Early-exits on the first hit; only invoked on an empty nested-knn result.
     async fn index_has_any_nested_vector_at(&self, nested_path: &str, subfield: &str) -> bool {
         fn elem_has_vector(elem: &Value, subfield: &str) -> bool {
-            elem.get(subfield)
-                .and_then(Value::as_array)
-                .is_some_and(|a| !a.is_empty() && a.iter().all(Value::is_number))
+            match elem.get(subfield) {
+                Some(Value::String(text)) => xerj_common::packed_f32::unpack_f32_vector(text)
+                    .is_some_and(|values| !values.is_empty()),
+                Some(value) => value
+                    .as_array()
+                    .is_some_and(|a| !a.is_empty() && a.iter().all(Value::is_number)),
+                None => false,
+            }
         }
         fn doc_has(source: &Value, nested_path: &str, subfield: &str) -> bool {
             match get_field_value(source, nested_path) {
@@ -17011,6 +20972,10 @@ impl Index {
         if trace_phases {
             tracing::info!(index=%self.name, field, k, "semantic_phase=embed_start");
         }
+        // Captured before the embed so the highlighter scores chunks in the
+        // same space as `query_vec` (#1947). An active backend's vectors are
+        // already stored; the lexical fallback re-embeds chunk text.
+        let lexical_embedder = !embedder.is_active();
         let query_vec = if embedder.is_active() {
             // `embed_batch` takes Vec<String>; we only have one text but
             // batching keeps the wire format stable for callers.
@@ -17036,6 +21001,11 @@ impl Index {
             xerj_ai::local::local_embed(text, dims)
         } else {
             // #530: name the offending field, symmetric with the knn 400 (#498).
+            // A concrete index keeps this 400. A wildcard, `_all`, or alias
+            // expansion is isolated by the search coordinator (#2305): those
+            // indices contribute no hits instead of failing the request.
+            // Do not soften this error here — the explicit-index contract is
+            // the 400, and the coordinator matches this reason text.
             return Err(EngineError::Common(xerj_common::XerjError::invalid_query(
                 format!(
                     "semantic query on field [{field}]: it is not a `semantic_text` field, so \
@@ -17053,51 +21023,81 @@ impl Index {
             tracing::info!(index=%self.name, elapsed_ms=semantic_started.elapsed().as_millis() as u64, "semantic_phase=embed_complete");
         }
 
+        // #1947: the semantic highlighter reads this plan from the task that
+        // runs the kNN executors. Threading it through every executor
+        // signature would touch the plain-knn call sites for a post-pass
+        // those queries do not use. The plan is set only when this request
+        // actually asks to highlight a `semantic_text` field.
+        let highlight_plan = if request.highlight.is_some() {
+            let schema = self.schema.read().await;
+            let resolved = resolve_field_alias(&schema.schema, field);
+            let fields = collect_semantic_highlight_fields(&schema.schema, field, &resolved);
+            drop(schema);
+            request.highlight.as_ref().and_then(|hl| {
+                semantic_highlight_plan(
+                    hl,
+                    fields,
+                    query_vec.clone(),
+                    dims,
+                    similarity.clone(),
+                    lexical_embedder,
+                )
+            })
+        } else {
+            None
+        };
+
         // Match the top-level kNN serving policy: plain, unfiltered semantic
         // queries may use the fully covered HNSW graph and are exact-rescored
         // against stored vectors. Filters and aggregations remain exact scans
         // so approximation cannot change filter/analytics membership.
-        let result = if filter.is_none() && request.aggs.is_none() {
-            match Box::pin(self.run_knn_hnsw(
-                request,
-                deadline,
-                &knn_field,
-                &query_vec,
-                k,
-                None,
-                &similarity,
-            ))
-            .await
-            {
-                Some(result) => Ok(result),
-                None => {
-                    Box::pin(self.run_knn_brute_force_with_deadline(
-                        request,
-                        deadline,
-                        &knn_field,
-                        &query_vec,
-                        k,
-                        filter,
-                        &similarity,
-                        None,
-                        None,
-                    ))
-                    .await
+        let searched = async {
+            if filter.is_none() && request.aggs.is_none() {
+                match Box::pin(self.run_knn_hnsw(
+                    request,
+                    deadline,
+                    &knn_field,
+                    &query_vec,
+                    k,
+                    None,
+                    &similarity,
+                ))
+                .await
+                {
+                    Some(result) => Ok(result),
+                    None => {
+                        Box::pin(self.run_knn_brute_force_with_deadline(
+                            request,
+                            deadline,
+                            &knn_field,
+                            &query_vec,
+                            k,
+                            filter,
+                            &similarity,
+                            None,
+                            None,
+                        ))
+                        .await
+                    }
                 }
+            } else {
+                Box::pin(self.run_knn_brute_force_with_deadline(
+                    request,
+                    deadline,
+                    &knn_field,
+                    &query_vec,
+                    k,
+                    filter,
+                    &similarity,
+                    None,
+                    None,
+                ))
+                .await
             }
-        } else {
-            Box::pin(self.run_knn_brute_force_with_deadline(
-                request,
-                deadline,
-                &knn_field,
-                &query_vec,
-                k,
-                filter,
-                &similarity,
-                None,
-                None,
-            ))
-            .await
+        };
+        let result = match highlight_plan {
+            Some(plan) => SEMANTIC_HIGHLIGHT_PLAN.scope(plan, searched).await,
+            None => searched.await,
         };
         if trace_phases {
             tracing::info!(index=%self.name, elapsed_ms=semantic_started.elapsed().as_millis() as u64, ok=result.is_ok(), "semantic_phase=request_complete");
@@ -17282,6 +21282,11 @@ impl Index {
         let mut outputs: Vec<Option<Vec<Vec<f32>>>> = vec![None; jobs.len()];
         let mut failures = pre_failures;
         let mut admission_rejections = vec![false; sources.len()];
+        // #2191: a backend that answers with the wrong vector WIDTH is a
+        // mapping contradiction, not a transient fault — retrying the same
+        // document can never succeed. Those failures surface as a per-item
+        // 400 (`invalid mapping`) instead of a retryable 500.
+        let mut width_mismatches = vec![false; sources.len()];
 
         let embedder = self.embedder.read().await;
         if embedder.is_active() {
@@ -17370,6 +21375,7 @@ impl Index {
                                 .iter()
                                 .find(|vector| vector.len() != jobs[job_idx].dims)
                             {
+                                width_mismatches[jobs[job_idx].source_idx] = true;
                                 failures[jobs[job_idx].source_idx] = Some(format!(
                                     "field [{}]: embedding backend returned width {}, mapping requires {}",
                                     jobs[job_idx].field,
@@ -17413,6 +21419,10 @@ impl Index {
                                         .iter()
                                         .map(Vec::len)
                                         .collect::<std::collections::BTreeSet<_>>();
+                                    // Only a width error when every text got a
+                                    // vector; a short answer is a backend fault.
+                                    width_mismatches[jobs[job_idx].source_idx] =
+                                        v.len() == jobs[job_idx].texts.len();
                                     failures[jobs[job_idx].source_idx] = Some(format!(
                                         "field [{}]: embedding backend returned {} vectors with widths {:?} for {} texts; mapping requires width {}",
                                         jobs[job_idx].field,
@@ -17423,6 +21433,7 @@ impl Index {
                                     ));
                                 }
                                 Err(e) => {
+                                    width_mismatches[jobs[job_idx].source_idx] = false;
                                     admission_rejections[jobs[job_idx].source_idx] =
                                         is_embedding_admission_rejection(&e);
                                     failures[jobs[job_idx].source_idx] =
@@ -17469,8 +21480,20 @@ impl Index {
                 1 => chunk_vecs[0].clone(),
                 _ => mean_pool_normalize(&chunk_vecs),
             };
-            let arr: Vec<Value> = pooled.into_iter().map(|f| Value::from(f as f64)).collect();
-            obj.insert(job.target.clone(), Value::Array(arr));
+            // #1940: a 384-d `Vec<Value>` is tens of KB of retained heap per
+            // record (two memtables plus any later stored-source parse) for
+            // ~1.5 KB of f32s. Keep the packed string in the source; readers
+            // unpack it, and response paths expand it back to a number array.
+            match xerj_common::packed_f32::pack_f32_vector(&pooled) {
+                Some(packed) => {
+                    obj.insert(job.target.clone(), Value::String(packed));
+                }
+                None => {
+                    let arr: Vec<Value> =
+                        pooled.into_iter().map(|f| Value::from(f as f64)).collect();
+                    obj.insert(job.target.clone(), Value::Array(arr));
+                }
+            }
             // Compact, durable passage provenance. Text is deliberately NOT
             // duplicated: the response reconstructs only the winning page
             // slice from the original semantic field using these UTF-8 byte
@@ -17498,9 +21521,30 @@ impl Index {
             if chunk_vecs.len() > 1 {
                 let chunks_json: Vec<Value> = chunk_vecs
                     .iter()
-                    .map(|cv| Value::Array(cv.iter().map(|f| Value::from(*f as f64)).collect()))
+                    .map(|cv| match xerj_common::packed_f32::pack_f32_vector(cv) {
+                        Some(packed) => Value::String(packed),
+                        None => Value::Array(cv.iter().map(|f| Value::from(*f as f64)).collect()),
+                    })
                     .collect();
                 obj.insert(format!("{}_chunks", job.target), Value::Array(chunks_json));
+            }
+        }
+
+        // Caller-supplied vectors skip the job loop above and would otherwise
+        // stay as number arrays — the same retained-heap shape. Pack those
+        // too, field by field, after every generated vector is in place.
+        for source in sources.iter_mut() {
+            let Some(obj) = source.as_object_mut() else {
+                continue;
+            };
+            for (_, target, _) in &specs {
+                if let Some(value) = obj.get_mut(target) {
+                    xerj_common::packed_f32::compact_vector_value(value);
+                }
+                let chunks_name = format!("{target}_chunks");
+                if let Some(value) = obj.get_mut(&chunks_name) {
+                    xerj_common::packed_f32::compact_vector_value(value);
+                }
             }
         }
 
@@ -17513,6 +21557,9 @@ impl Index {
                         "semantic_text batch embed rejected before tokenization: {error}"
                     )),
                 )),
+                Some(error) if width_mismatches[idx] => {
+                    Err(EngineError::Common(semantic_width_mismatch_error(&error)))
+                }
                 Some(error) => Err(EngineError::Common(embed_backend_error(
                     anyhow::anyhow!(error),
                     "semantic_text batch embed failed",
@@ -17988,6 +22035,7 @@ impl Index {
             if generation != capture_generation || in_flight != 0 {
                 return Err(collection_capture_crossed());
             }
+            self.collection_publication.note_capture_validated();
         }
         let captured_segment_ids: std::collections::HashSet<&str> =
             snap.segments.iter().map(|meta| meta.id.as_str()).collect();
@@ -18101,6 +22149,9 @@ impl Index {
                         .iter()
                         .filter_map(|v| v.as_f64().map(|f| f as f32))
                         .collect(),
+                    Value::String(text) => {
+                        xerj_common::packed_f32::unpack_f32_vector(text).unwrap_or_default()
+                    }
                     _ => continue,
                 };
                 if doc_vec.len() != query_vec.len() {
@@ -18228,6 +22279,10 @@ impl Index {
     /// `self.hnsw` is None (no vector field has been indexed yet).
     /// Called on flush completion and graceful shutdown.
     pub async fn save_hnsw_to_disk(&self) -> Result<()> {
+        // Drop dead nodes first so the file written below is the compacted
+        // graph (#2796). Ids and vectors are unchanged, so this cannot move
+        // the freshness stamp taken next.
+        self.maybe_compact_hnsw().await;
         let publication_generation_before =
             self.hnsw_publication_generation.load(Ordering::Acquire);
         // This stamp brackets graph, identity-map, and passage-guard
@@ -18296,15 +22351,15 @@ impl Index {
             || seq_after != seq_before
             || publication_in_flight != 0
             || publication_generation_before != publication_generation_after;
-        let snapshot = serde_json::json!({
-            "next_id": self.hnsw_next_id.load(Ordering::Relaxed),
-            "map": *id_map,
-            "field": hnsw_field,
-            "seq_no": seq_before,
-            "stale": snapshot_stale,
-            "passage_guard_version": 1,
-            "passage_chunk_fields": passage_chunk_fields,
-        });
+        let snapshot = HnswIdsSnapshot {
+            next_id: self.hnsw_next_id.load(Ordering::Relaxed),
+            map: HnswIdMapJson(&id_map),
+            field: hnsw_field,
+            seq_no: seq_before,
+            stale: snapshot_stale,
+            passage_guard_version: 1,
+            passage_chunk_fields,
+        };
         // Durable atomic publish (RC4 W2 item 19 — same treatment as
         // graph.bin in HnswIndex::save_to): fsync file + rename + fsync
         // parent dir, so power loss can't leave a torn/evaporating
@@ -18313,10 +22368,14 @@ impl Index {
         // stamp then mismatches the replayed WAL position → the loader
         // marks the pair stale and the rebuild path re-derives it (never
         // serves a mixed pair).
-        if let Err(e) = xerj_common::fsio::write_file_durable(
-            &self.hnsw_ids_path(),
-            &serde_json::to_vec(&snapshot).unwrap_or_default(),
-        ) {
+        //
+        // Serialized straight into the temp file (#2427): building a
+        // `serde_json::Value` map of every id first cost ~6x the file size.
+        if let Err(e) =
+            xerj_common::fsio::write_file_durable_streaming(&self.hnsw_ids_path(), |file| {
+                write_hnsw_ids_snapshot(file, &snapshot)
+            })
+        {
             warn!(error = %e, "HNSW save: ids.json write failed");
             return Ok(());
         }
@@ -18347,6 +22406,10 @@ impl Index {
         let mut id_rev = self.hnsw_id_rev.write().await;
         *id_map = loaded.id_map;
         *id_rev = loaded.id_rev;
+        self.hnsw_id_table_bytes
+            .store(hnsw_id_table_bytes(&id_map, &id_rev), Ordering::Relaxed);
+        self.hnsw_id_key_bytes
+            .store(hnsw_id_key_bytes(&id_map), Ordering::Relaxed);
         // Item 8: re-seed the coverage-gate denominator from the reloaded
         // graph (every graphed doc is a vector doc). Staleness is handled
         // separately by `hnsw_stale`.
@@ -18376,7 +22439,9 @@ impl Index {
         self.hnsw_stale
             .store(stale, std::sync::atomic::Ordering::Release);
         let nodes = loaded.graph.len();
+        let graph_bytes = loaded.graph.heap_bytes();
         *self.hnsw.write().await = Some(loaded.graph);
+        self.hnsw_heap_bytes.store(graph_bytes, Ordering::Relaxed);
         info!(
             nodes,
             stale, "HNSW reloaded from disk — skipping WAL replay rebuild"
@@ -18674,6 +22739,14 @@ impl Index {
         }
     }
 
+    /// Live document ids, sorted by id.
+    ///
+    /// A tombstone is not included. The id is present once the index call
+    /// has returned, including before refresh.
+    pub fn live_document_ids(&self) -> Vec<String> {
+        self.store.version_map.live_ids()
+    }
+
     /// Retrieve a document by its string ID.
     ///
     /// Checks the memtable first, then searches on-disk segments.
@@ -18707,6 +22780,9 @@ impl Index {
         };
         if let Ok(Some(source)) = &mut res {
             strip_internal_passage_metadata(source);
+            // The stored source keeps embeddings packed (#1940). GET returns
+            // the number array callers already see.
+            xerj_common::packed_f32::expand_packed_f32_values(source);
         }
         match &res {
             Ok(Some(_)) => {
@@ -19003,6 +23079,8 @@ impl Index {
             Ok(deleted_seq) => deleted_seq,
             Err(e) => {
                 collection_publication.cancel();
+                drop(collection_publication);
+                self.collection_publication.handoff_to_readers().await;
                 return Err(e.into());
             }
         };
@@ -19033,6 +23111,7 @@ impl Index {
             let seq_no = self.store.current_seq_no().saturating_sub(1);
             collection_publication.commit();
             drop(collection_publication);
+            self.collection_publication.handoff_to_readers().await;
             #[cfg(test)]
             self.publication_test_point(id, PublicationTestPoint::BeforeRelease);
             return Ok(DeleteDocOutcome {
@@ -19050,6 +23129,7 @@ impl Index {
         let seq_no = deleted_seq.unwrap_or_else(|| self.store.current_seq_no().saturating_sub(1));
         collection_publication.commit();
         drop(collection_publication);
+        self.collection_publication.handoff_to_readers().await;
         // v0.6.2 — propagate the delete into the HNSW graph. Pre-fix
         // a deleted doc was unfindable via _get / _search but the
         // vector still showed up in kNN results forever (the node
@@ -19068,7 +23148,10 @@ impl Index {
             drop(hnsw_guard);
             // Remove from id maps so a re-index of the same doc_id
             // gets a fresh node_id (the old one stays tombstoned).
-            self.hnsw_id_map.write().await.remove(id);
+            if self.hnsw_id_map.write().await.remove(id).is_some() {
+                self.hnsw_id_key_bytes
+                    .fetch_sub(hnsw_id_key_cost(id), Ordering::Relaxed);
+            }
             self.hnsw_id_rev.write().await.remove(&node_id);
             // Item 8: this doc leaves the coverage-gate denominator.
             self.vector_doc_count
@@ -19486,7 +23569,7 @@ impl Index {
                             .or_default();
                         std::sync::Arc::clone(entry.value())
                     };
-                    let _flight_guard = flight.lock().ok();
+                    let _flight_guard = lock_stored_flight(&flight);
                     // Re-check under the flight lock — another thread may
                     // have decoded and published while we waited.
                     let rechecked: Option<Vec<u8>> = self
@@ -19816,6 +23899,29 @@ impl Index {
     }
 
     /// Execute a search request against this index.
+    /// #1504. Autoindex writes `index.query.default_match_operator: and` on a
+    /// logs dataset so an omitted `match` requires every token. The key is
+    /// stored the way the create body sent it (a flat dotted key, or nested
+    /// under `index.query`). Any other value, including absence, keeps ES's
+    /// OR default.
+    fn match_operator_defaults_to_and(settings: &Value) -> bool {
+        let is_and = |v: &Value| v.as_str().is_some_and(|s| s.eq_ignore_ascii_case("and"));
+        if settings
+            .pointer("/index/query/default_match_operator")
+            .is_some_and(is_and)
+        {
+            return true;
+        }
+        [Some(settings), settings.get("index")]
+            .into_iter()
+            .flatten()
+            .any(|container| {
+                container
+                    .get("index.query.default_match_operator")
+                    .is_some_and(is_and)
+            })
+    }
+
     pub async fn search(&self, request: &SearchRequest) -> Result<SearchResult> {
         use crate::collection_publication::ReadAdmission;
 
@@ -19842,6 +23948,12 @@ impl Index {
                     // admission never captured a view — `total.relation`
                     // is `gte`, so the page is a bound, not an empty corpus.
                     ReadAdmission::WriterActive => {
+                        // Park visibly so the writer, after it drops this
+                        // bracket, can keep the next one closed until we
+                        // capture (#1761). The guard disarms on timeout and
+                        // on the wake.
+                        self.collection_publication.arm_reader();
+                        let _waiting = ReaderWaitGuard(&self.collection_publication);
                         if tokio::time::timeout_at(
                             tokio::time::Instant::from_std(deadline),
                             notified,
@@ -19854,6 +23966,12 @@ impl Index {
                     }
                 }
             };
+            // Hold a capture reservation until this attempt returns. The
+            // snapshot check inside `search_inner` publishes
+            // `note_capture_validated` as soon as the pair is stable, which
+            // is what lets the writer open its next bracket while the scan
+            // of that snapshot is still running.
+            let _capture = ReaderCapture::begin(&self.collection_publication);
             let result = self
                 .search_at_generation(request, token.generation(), deadline)
                 .await;
@@ -19913,6 +24031,22 @@ impl Index {
                 savings: None,
             }
         };
+        // #1504: a logs index resolves an omitted match operator to AND
+        // before the cache key is hashed, so a cached page cannot be the OR
+        // hit list. Indices without the setting keep the request as parsed
+        // (Omitted executes as OR). Explicit `"operator": "or"` is untouched.
+        let default_match_and = {
+            let settings = self.settings.read().await;
+            Self::match_operator_defaults_to_and(&settings)
+        };
+        let rewritten = if default_match_and {
+            let mut owned = request.clone();
+            xerj_query::apply_default_match_operator(&mut owned, xerj_query::BoolOperator::And);
+            Some(owned)
+        } else {
+            None
+        };
+        let request = rewritten.as_ref().unwrap_or(request);
         // M3 framework: response cache.  Hash the request shape and the
         // current dataset version; on a hit return the cloned `Arc<SearchResult>`
         // immediately, skipping the semaphore, search_inner, locks, and
@@ -20342,6 +24476,19 @@ impl Index {
         }
     }
 
+    /// Validate a query exactly as [`Index::search`] will build it, without
+    /// executing it. One definition of "buildable": the alias and
+    /// keyword-full-text rewrites, then the unsearchable-field (#204) and
+    /// non-numeric-value (#1284) checks. `_validate/query` uses this so its
+    /// `valid` flag cannot disagree with `_search` on the same body.
+    pub async fn validate_query(
+        &self,
+        query: &QueryNode,
+    ) -> std::result::Result<(), xerj_common::XerjError> {
+        let schema = self.schema.read().await;
+        check_buildable_query(query, &schema.schema).map(|_| ())
+    }
+
     /// Inner search implementation (without timeout wrapper).
     async fn search_inner(
         &self,
@@ -20466,26 +24613,11 @@ impl Index {
         // from `_source` (#204 — accepted means honoured).
         let resolved_query = {
             let schema = self.schema.read().await;
-            let resolved = rewrite_keyword_full_text_to_term(
-                &rewrite_query_aliases(&request.query, &schema.schema),
-                &schema.schema,
-            );
-            if let Some(field) = unsearchable_query_field(&resolved, &schema.schema) {
-                return Err(EngineError::Common(xerj_common::XerjError::invalid_query(
-                    format!(
-                        "failed to create query: Cannot search on field [{field}] \
-                         since it is not indexed nor has doc values."
-                    ),
-                )));
-            }
-            // #1284: a non-numeric value against a numeric field is a query
-            // that cannot be built, and ES fails it (`query_shard_exception` /
-            // `number_format_exception`) rather than answering a 0-hit.
-            if let Some(value) = non_numeric_term_value(&resolved, &schema.schema) {
-                return Err(EngineError::Common(xerj_common::XerjError::invalid_query(
-                    format!("failed to create query: For input string: \"{value}\""),
-                )));
-            }
+            // One definition of "buildable" (alias/keyword rewrites + the
+            // unsearchable-field and #1284 numeric checks), shared with
+            // `_validate/query`; see `check_buildable_query`.
+            let resolved = check_buildable_query(&request.query, &schema.schema)
+                .map_err(EngineError::Common)?;
             // #437: a sort field this engine cannot resolve (any of 11 ES
             // meta-field names besides the ones handled below, or an
             // unmapped/misspelled field) fell through to `_source` lookup
@@ -21775,6 +25907,58 @@ impl Index {
                         uncollected,
                     )
                 }
+            } else if let Some((bf_field, bf_text, bf_must, bf_gate)) =
+                bool_filter_mem_fts_must(query)
+            {
+                // #2403: `bool{must:[match], filter|must_not:[..]}` used to
+                // fall through to the stored-doc scan, which scored every
+                // buffered match with the IDF-less `1 + ln(1 + tf)` while the
+                // bare `match` took the BM25 arm below, so the ranking changed
+                // at flush. `filter` and `must_not` are non-scoring
+                // (`BooleanClause.isScoring()`, BooleanClause.java:84-87), so
+                // score the `must` clause through the SAME memtable BM25 path
+                // the bare `match` takes, then keep only the hits the gate
+                // admits. UNCAPPED: the gate runs after scoring, so a capped
+                // list could drop a hit the gate would keep, and the consume
+                // arm's ghost-window liveness filter needs every hit anyway.
+                let mut field_boosts: std::collections::HashMap<String, f32> =
+                    std::collections::HashMap::new();
+                collect_field_boosts(bf_must, &mut field_boosts);
+                let mem_stats = collection_stats();
+                let (hits, _) = mem.search_text_boosted_with_total_using(
+                    bf_text,
+                    &[bf_field],
+                    usize::MAX,
+                    &field_boosts,
+                    mem_stats.as_deref(),
+                );
+                // Same conservative `_id` detection as the doc-scan arm: only
+                // a gate that can read `_id` pays for injecting it.
+                let gate_may_read_id: bool = serde_json::to_string(&bf_gate)
+                    .map(|s| s.contains("_id") || s.contains("Ids") || s.contains("ids"))
+                    .unwrap_or(true);
+                let kept: Vec<(String, f32)> = hits
+                    .into_iter()
+                    .filter(|h| {
+                        let Some(source) = mem.get_doc_source_arc(&h.doc_id) else {
+                            return false;
+                        };
+                        if !gate_may_read_id || source.get("_id").is_some() {
+                            return doc_matches_query_typed(&bf_gate, &source, &dmq_schema);
+                        }
+                        let mut with_id = (*source).clone();
+                        if let Some(obj) = with_id.as_object_mut() {
+                            obj.insert("_id".to_string(), Value::String(h.doc_id.clone()));
+                        }
+                        doc_matches_query_typed(&bf_gate, &with_id, &dmq_schema)
+                    })
+                    .map(|h| (h.doc_id, h.score))
+                    .collect();
+                if kept.is_empty() {
+                    MemSnapshot::Empty
+                } else {
+                    MemSnapshot::FtsHits(kept, 0)
+                }
             } else if is_doc_scan_query(query) {
                 // count_only + Term/Range short-circuits BEFORE
                 // `try_doc_values_query` because the DV-term path walks
@@ -22004,6 +26188,7 @@ impl Index {
             if generation != capture_generation || in_flight != 0 {
                 return Err(collection_capture_crossed());
             }
+            self.collection_publication.note_capture_validated();
         }
         // #1212 — the captured world's segment ids, scoping every LIVE
         // version-map read the walk performs below. The scan's segments are
@@ -22129,7 +26314,16 @@ impl Index {
                 // direction, the same argument the segment walk's `page_worst`
                 // relies on.
                 let mut scan_worst: Option<(f32, u64, String)> = None;
-                for (seq_no, doc_id, source) in docs {
+                for (scanned, (seq_no, doc_id, source)) in docs.into_iter().enumerate() {
+                    // Cooperative deadline (#2431): this per-document walk
+                    // of the whole memtable is the `mem_admit` phase that
+                    // ran 115 s on rc.97 with no check at all. Stop like the
+                    // segment walk does: partial hits, `timed_out: true`.
+                    // Checked on the first document and every 256 after.
+                    if scanned % 256 == 0 && std::time::Instant::now() >= search_deadline {
+                        deadline_exceeded = true;
+                        break;
+                    }
                     let matched = if let QueryNode::Ids { values } = query {
                         values.iter().any(|v| v == doc_id.as_str())
                     } else if !query_may_read_id || source.get("_id").is_some() {
@@ -22493,6 +26687,19 @@ impl Index {
         // different `_id`s and different `_score`s.  The merge now selects the
         // global top-k by score (see the FTS admission below), so the cap
         // controls only how much work is done, never which hits win.
+        // #2422/#2423 — the source columns a cold scored FTS page needs.
+        let fts_row_keep: Option<Vec<String>> = fts_row_hydration_keep(request, query);
+        // Hits whose `_source` came back column-projected, by id → (segment,
+        // position), so the one post-page reader that looks at the WHOLE
+        // document (the TF-IDF fallback below) can restore it.
+        let mut row_projected: HashMap<String, (String, u32)> = HashMap::new();
+        // #2427: stored-scan hits whose `_source` came from a column-projected
+        // cold decode, by id → segment (row located lazily, see
+        // `locate_scan_projected_rows`).
+        let mut scan_projected: HashMap<String, String> = HashMap::new();
+        // Cold score-ordered FTS hits whose `_source` is read only once the
+        // segment loop has settled the page: `_id` -> (segment, row).
+        let mut deferred_sources: HashMap<String, (String, u32, u64)> = HashMap::new();
         let materialisation_limit: usize = if mem_doc_count == 0
             && !deletes_present
             && size > 0
@@ -22806,7 +27013,7 @@ impl Index {
                 // Cooperative deadline: stop fanning into further segments
                 // once the request timeout has elapsed — partial results
                 // with `timed_out: true`, exactly like ES.
-                if std::time::Instant::now() >= search_deadline {
+                if fanout_deadline_armed() && std::time::Instant::now() >= search_deadline {
                     deadline_exceeded = true;
                     break;
                 }
@@ -22869,7 +27076,7 @@ impl Index {
                     // `timed_out: false`).
                     let searcher =
                         FtsSearcher::new(Arc::clone(&reader), Arc::clone(&self.registry))
-                            .with_deadline(Some(search_deadline))
+                            .with_deadline(fanout_deadline_armed().then_some(search_deadline))
                             // #188: index-wide BM25 statistics — one union of
                             // avgdl/N/df over every segment plus the memtable,
                             // so `_score` stops depending on which segment a
@@ -23080,7 +27287,13 @@ impl Index {
                                                 .and_then(|d| d.get(pos as usize).cloned())
                                         }
                                     };
-                                    for sh in &seg_hits {
+                                    for (scanned, sh) in seg_hits.iter().enumerate() {
+                                        // #2431: per-hit source reads + full
+                                        // query re-test over O(matches) hits.
+                                        if segment_deadline_hit(scanned, Some(search_deadline)) {
+                                            deadline_exceeded = true;
+                                            break;
+                                        }
                                         let doc = match fetch(sh.doc_id) {
                                             Some(d) => d,
                                             None => continue,
@@ -23306,6 +27519,8 @@ impl Index {
                                                 sort_topk.as_mut().expect("gated on is_some"),
                                                 &mut seen_ids,
                                                 &mut discard,
+                                                Some(search_deadline),
+                                                &mut deadline_exceeded,
                                                 score_doc,
                                             );
                                             fts_sorted_handled = true;
@@ -23452,8 +27667,121 @@ impl Index {
                                     // to simd_json here (the M7 raw-bytes
                                     // payload corruption noted below still
                                     // applies).
-                                    let slices_opt =
-                                        self.stored_slices_for(seg_id.as_str(), meta.doc_count);
+                                    //
+                                    // #2422/#2423 — but only when that offset
+                                    // index is already RESIDENT. Building it
+                                    // cold decompresses and brace-walks the
+                                    // whole section (every row, every column)
+                                    // to read the page, which is what a
+                                    // freshly started node, or one whose cache
+                                    // budget evicted the segment, paid on
+                                    // every query: seconds on a 30k-doc
+                                    // autoindex segment. Cold, decode only
+                                    // the rows the walk below can visit — the
+                                    // score-ordered prefix not already beaten
+                                    // by the page's entry worst (the walk's
+                                    // threshold only tightens, so this is a
+                                    // superset) — and only the columns the
+                                    // request can observe.
+                                    // #2422: set when the cold row window
+                                    // below was cut short; the walk then
+                                    // falls back to the full decode for any
+                                    // row past it instead of skipping it.
+                                    let mut cold_window_truncated = false;
+                                    // Cold score-ordered top-k: the walk
+                                    // reads only each candidate's `_id`
+                                    // (version-map check, dedup, page key),
+                                    // so decode the identity columns for
+                                    // every candidate and defer `_source`
+                                    // until the segment loop has picked the
+                                    // page's winners (see the hydration
+                                    // after the loop). The first segment a
+                                    // page meets has no score floor, so
+                                    // without this a broad query decoded the
+                                    // whole stored section inline to show
+                                    // five hits (~1.45 s on a 131 MB
+                                    // section).
+                                    let mut cold_ids: Option<HashMap<u32, String>> = None;
+                                    let cold_rows: Option<HashMap<u32, Value>> = if self
+                                        .stored_slices_cache
+                                        .contains_key(seg_id.as_str())
+                                        || self.decoded_stored_cache.contains_key(seg_id.as_str())
+                                    {
+                                        None
+                                    } else if sort_topk.is_none() {
+                                        let entry_worst = page_worst.as_ref().map(|worst| worst.0);
+                                        // A superset of the rows the walk can
+                                        // visit: the threshold only tightens.
+                                        let candidates: Vec<u32> = seg_hits
+                                            .iter()
+                                            .take_while(|sh| {
+                                                entry_worst.is_none_or(|worst| sh.score >= worst)
+                                            })
+                                            .map(|sh| sh.doc_id)
+                                            .collect();
+                                        if !candidates.is_empty() {
+                                            cold_ids =
+                                                self.cold_fts_row_ids(seg_id.as_str(), &candidates);
+                                        }
+                                        if cold_ids.is_some() {
+                                            self.cold_row_hydrations
+                                                .fetch_add(1, Ordering::Relaxed);
+                                            self.schedule_cold_stored_warm(
+                                                seg_id.as_str(),
+                                                meta.doc_count,
+                                            );
+                                        }
+                                        None
+                                    } else {
+                                        // A field sort offers every match to
+                                        // the top-N heap, so its candidates
+                                        // are all matches: decode a bounded
+                                        // score-ordered window and read any
+                                        // row past it from the full decode.
+                                        let mut candidates: Vec<u32> =
+                                            seg_hits.iter().map(|sh| sh.doc_id).collect();
+                                        let window =
+                                            materialisation_limit.saturating_mul(4).max(256);
+                                        if candidates.len() > window {
+                                            candidates.truncate(window);
+                                            cold_window_truncated = true;
+                                        }
+                                        // Only with a column projection: the
+                                        // stored columns are whole-stream
+                                        // zstd, so an unprojected row decode
+                                        // decompresses every column anyway —
+                                        // the full cost — without leaving the
+                                        // offset index behind, and the
+                                        // background warm then pays it a
+                                        // second time (measured: a `_savings`
+                                        // request's first cold query went
+                                        // 2.3 s -> 6.6 s). The full decode
+                                        // below caches for the next query.
+                                        let worth_it = fts_row_keep.is_some();
+                                        if worth_it && !candidates.is_empty() {
+                                            let rows = self.hydrate_fts_rows_cold(
+                                                seg_id.as_str(),
+                                                &candidates,
+                                                fts_row_keep.as_deref(),
+                                            );
+                                            if rows.is_some() {
+                                                self.cold_row_hydrations
+                                                    .fetch_add(1, Ordering::Relaxed);
+                                                self.schedule_cold_stored_warm(
+                                                    seg_id.as_str(),
+                                                    meta.doc_count,
+                                                );
+                                            }
+                                            rows
+                                        } else {
+                                            None
+                                        }
+                                    };
+                                    let slices_opt = if cold_rows.is_some() || cold_ids.is_some() {
+                                        None
+                                    } else {
+                                        self.stored_slices_for(seg_id.as_str(), meta.doc_count)
+                                    };
                                     // Legacy whole-section fallback ONLY when the
                                     // offset index can't be built (open/decode
                                     // failure or a malformed/incomplete section).
@@ -23464,6 +27792,8 @@ impl Index {
                                     // guaranteed present, so an open error is
                                     // real corruption.
                                     let whole_fallback: Option<Vec<Value>> = if slices_opt.is_some()
+                                        || cold_rows.is_some()
+                                        || cold_ids.is_some()
                                     {
                                         None
                                     } else {
@@ -23486,14 +27816,54 @@ impl Index {
                                             _ => None,
                                         }
                                     };
-                                    if slices_opt.is_some() || whole_fallback.is_some() {
+                                    if cold_rows.is_some()
+                                        || cold_ids.is_some()
+                                        || slices_opt.is_some()
+                                        || whole_fallback.is_some()
+                                    {
                                         // Owned parsed doc for a stored position,
                                         // shared by both source layouts.  The
                                         // slice arm parses one object on demand;
                                         // the fallback clones from the fully
                                         // decoded Vec.
+                                        let past_window: std::cell::OnceCell<
+                                            Option<Resident<StoredSlices>>,
+                                        > = std::cell::OnceCell::new();
                                         let fetch_doc = |pos: u32| -> Option<Value> {
-                                            if let Some(slices) = slices_opt.as_deref() {
+                                            if let Some(ids) = cold_ids.as_ref() {
+                                                // Identity only: `_source` is
+                                                // hydrated for the winners
+                                                // after the segment loop.
+                                                let id = ids.get(&pos)?;
+                                                let mut doc = serde_json::Map::with_capacity(1);
+                                                doc.insert(
+                                                    "_id".to_string(),
+                                                    Value::String(id.clone()),
+                                                );
+                                                return Some(Value::Object(doc));
+                                            }
+                                            if let Some(rows) = cold_rows.as_ref() {
+                                                if let Some(doc) = rows.get(&pos) {
+                                                    return Some(doc.clone());
+                                                }
+                                                if !cold_window_truncated {
+                                                    return None;
+                                                }
+                                                let slices = past_window
+                                                    .get_or_init(|| {
+                                                        self.stored_slices_for(
+                                                            seg_id.as_str(),
+                                                            meta.doc_count,
+                                                        )
+                                                    })
+                                                    .as_deref()?;
+                                                let &(start, end) =
+                                                    slices.offsets.get(pos as usize)?;
+                                                let slice = slices
+                                                    .bytes
+                                                    .get(start as usize..end as usize)?;
+                                                serde_json::from_slice::<Value>(slice).ok()
+                                            } else if let Some(slices) = slices_opt.as_deref() {
                                                 let &(start, end) =
                                                     slices.offsets.get(pos as usize)?;
                                                 let slice = slices
@@ -23523,7 +27893,14 @@ impl Index {
                                         ) {
                                             self.trim_page_to_cap(hits, materialisation_limit)
                                         };
-                                        for sh in &seg_hits {
+                                        for (scanned, sh) in seg_hits.iter().enumerate() {
+                                            // #2431: source decode per hit; under
+                                            // a sort this walks every match.
+                                            if segment_deadline_hit(scanned, Some(search_deadline))
+                                            {
+                                                deadline_exceeded = true;
+                                                break;
+                                            }
                                             // `seg_hits` descends by score, so once
                                             // a hit's score is STRICTLY below the
                                             // worst kept score, neither it nor any
@@ -23631,6 +28008,18 @@ impl Index {
                                             let source =
                                                 doc.get("_source").cloned().unwrap_or(Value::Null);
                                             seen_ids.insert(id.clone());
+                                            if cold_ids.is_some() {
+                                                deferred_sources.insert(
+                                                    id.clone(),
+                                                    (seg_id.to_string(), sh.doc_id, meta.doc_count),
+                                                );
+                                            } else if cold_rows.is_some() && fts_row_keep.is_some()
+                                            {
+                                                row_projected.insert(
+                                                    id.clone(),
+                                                    (seg_id.to_string(), sh.doc_id),
+                                                );
+                                            }
                                             let hit = Hit {
                                                 id,
                                                 score: sh.score,
@@ -23933,7 +28322,12 @@ impl Index {
                         sort_cand
                             .as_ref()
                             .map(|sc| Arc::new(PrefilterSet::from_set(sc.set.clone())))
-                    } else if let QueryNode::Regexp { field, pattern } = query {
+                    } else if let QueryNode::Regexp {
+                        field,
+                        pattern,
+                        case_insensitive,
+                    } = query
+                    {
                         // Dictionary-expansion pre-filter (mirrors the
                         // `try_shortcut_count` Regexp arm).  When the
                         // exact total comes from the shortcut
@@ -23963,15 +28357,37 @@ impl Index {
                         } else {
                             None
                         };
-                        self.build_regexp_prefilter_cached(
-                            &segments_dir,
-                            &seg_id,
-                            field,
-                            pattern,
-                            cap,
-                            regexp_field_is_keyword,
-                        )
-                        .map(|s| Arc::new(PrefilterSet::from_set(s)))
+                        // #1812: the dictionary expansion compiles this same
+                        // pattern, so it must carry the inline `(?i)` flag too
+                        // — a case-sensitive expansion would pre-filter away
+                        // exactly the hits the (case-insensitive) doc-scan arm
+                        // would have matched.  This arm is a CANDIDATE filter:
+                        // the scan re-checks every position against
+                        // `doc_matches_query`, so a folded (wider) candidate
+                        // set is safe for any field type, and required for
+                        // keyword (where the doc-scan folds too).
+                        if *case_insensitive {
+                            let folded = format!("(?i){}", pattern);
+                            self.build_regexp_prefilter_cached(
+                                &segments_dir,
+                                &seg_id,
+                                field,
+                                &folded,
+                                cap,
+                                regexp_field_is_keyword,
+                            )
+                            .map(|s| Arc::new(PrefilterSet::from_set(s)))
+                        } else {
+                            self.build_regexp_prefilter_cached(
+                                &segments_dir,
+                                &seg_id,
+                                field,
+                                pattern,
+                                cap,
+                                regexp_field_is_keyword,
+                            )
+                            .map(|s| Arc::new(PrefilterSet::from_set(s)))
+                        }
                     } else {
                         None
                     };
@@ -24035,6 +28451,8 @@ impl Index {
                                     sort_topk.as_mut().expect("gated on is_some"),
                                     &mut seen_ids,
                                     &mut total_count,
+                                    Some(search_deadline),
+                                    &mut deadline_exceeded,
                                     score_doc,
                                 );
                                 dbg_scan_ms += t_scan.elapsed().as_millis() as u64;
@@ -24122,6 +28540,8 @@ impl Index {
                                     &mut total_count,
                                     &mut all_hits,
                                     &mut seen_ids,
+                                    Some(search_deadline),
+                                    &mut deadline_exceeded,
                                     score_doc,
                                     &dmq_schema,
                                 );
@@ -24177,43 +28597,92 @@ impl Index {
                                 .or_default();
                             Arc::clone(entry.value())
                         };
-                        let _flight_guard = flight.lock().ok();
+                        let _flight_guard = lock_stored_flight(&flight);
                         // Re-check both caches now that we hold this
                         // segment's flight lock — another thread may have
                         // decoded and published while we waited.
-                        let cached_bytes: Option<Vec<u8>> = self
+                        // #2427: hold the cached entry by `Arc` instead of
+                        // cloning the whole decoded section (hundreds of MB
+                        // per waiter on a large segment).
+                        enum ColdBytes<D, S> {
+                            Decoded(D),
+                            Slices(S),
+                            // `bool`: column-projected (never cached).
+                            Fresh(Vec<u8>, bool),
+                        }
+                        let cached = self
                             .decoded_stored_cache
                             .get(seg_id.as_str())
-                            .map(|e| e.value().value().clone())
+                            .map(|e| ColdBytes::Decoded(Arc::clone(e.value())))
                             .or_else(|| {
                                 self.stored_slices_cache
                                     .get(seg_id.as_str())
-                                    .map(|e| e.value().bytes.clone())
+                                    .map(|e| ColdBytes::Slices(Arc::clone(e.value())))
                             });
-                        let stored_bytes_opt = if let Some(bytes) = cached_bytes {
-                            Some(bytes)
+                        // #2427: an unsorted scan whose page can observe only
+                        // a known column set (`fts_row_keep`: the `_source`
+                        // includes plus every field the query reads) decodes
+                        // just those columns. On a semantic_text corpus the
+                        // generated `*_vector` / `*_vector_chunks` / passage
+                        // metadata columns are ~85% of a full decode and of
+                        // its transient peak (20k-doc segment: ~716 MB peak
+                        // full vs ~82 MB projected), none of which the
+                        // response can return. Projected bytes are never
+                        // published to `decoded_stored_cache`.
+                        let scan_keep: Option<&[String]> =
+                            if sorted_candidates_path || sort_topk.is_some() {
+                                None
+                            } else {
+                                fts_row_keep.as_deref()
+                            };
+                        let stored_src = if cached.is_some() {
+                            cached
                         } else {
                             let seg_reader = self.store.open_segment_arc(&seg_id)?;
                             match seg_reader.section(SectionType::Stored) {
                                 Ok(Some(stored_bytes_raw)) => {
-                                    xerj_storage::stored_codec::decode_stored(stored_bytes_raw).ok()
+                                    let projected = scan_keep.and_then(|keep| {
+                                        xerj_storage::stored_codec::decode_stored_keeping(
+                                            stored_bytes_raw,
+                                            &|column: &str| {
+                                                row_projection_keeps_column(keep, column)
+                                            },
+                                        )
+                                        .ok()
+                                        .flatten()
+                                    });
+                                    match projected {
+                                        Some(bytes) => Some(ColdBytes::Fresh(bytes, true)),
+                                        None => xerj_storage::stored_codec::decode_stored(
+                                            stored_bytes_raw,
+                                        )
+                                        .ok()
+                                        .map(|bytes| ColdBytes::Fresh(bytes, false)),
+                                    }
                                 }
                                 _ => None,
                             }
                         };
                         dbg_decode_ms += t_dec.elapsed().as_millis() as u64;
-                        if let Some(stored_bytes) = stored_bytes_opt {
+                        if let Some(stored_src) = stored_src {
                             {
                                 let t_scan = std::time::Instant::now();
+                                let stored_bytes: &[u8] = match &stored_src {
+                                    ColdBytes::Decoded(entry) => entry.value(),
+                                    ColdBytes::Slices(slices) => &slices.bytes,
+                                    ColdBytes::Fresh(bytes, _) => bytes,
+                                };
+                                let projected = matches!(stored_src, ColdBytes::Fresh(_, true));
                                 // Record per-doc offsets on the sorted path so
                                 // the decompressed section can be cached for
                                 // the next query (subject to the budget).
                                 let mut offsets: Vec<(u32, u32)> = Vec::new();
                                 let want_cache = sorted_candidates_path
+                                    && !projected
                                     && stored_bytes.len() <= u32::MAX as usize
                                     && !self.stored_slices_cache.contains_key(seg_id.as_str());
                                 self.scan_stored_section_into(
-                                    &stored_bytes,
+                                    stored_bytes,
                                     query,
                                     is_match_all,
                                     ids_only,
@@ -24234,12 +28703,23 @@ impl Index {
                                     &dmq_schema,
                                 );
                                 dbg_scan_ms += t_scan.elapsed().as_millis() as u64;
+                                if projected {
+                                    for hit in all_hits.iter().skip(hits_before_segment) {
+                                        scan_projected.insert(hit.id.clone(), seg_id.clone());
+                                    }
+                                }
                                 // Cache only a COMPLETE offsets map (a
                                 // malformed section bails early) and only
                                 // within the retained-bytes budget.
                                 if want_cache && offsets.len() as u64 == meta.doc_count {
                                     let slices = StoredSlices {
-                                        bytes: stored_bytes,
+                                        bytes: match stored_src {
+                                            ColdBytes::Fresh(bytes, _) => bytes,
+                                            // Promote a decoded-cache entry
+                                            // into the sorted-path cache.
+                                            ColdBytes::Decoded(entry) => entry.value().clone(),
+                                            ColdBytes::Slices(slices) => slices.bytes.clone(),
+                                        },
                                         offsets,
                                     };
                                     let bytes = cache_estimates::stored_slices_bytes(
@@ -24256,12 +28736,18 @@ impl Index {
                                         bytes,
                                         slices,
                                     );
-                                } else if !want_cache {
+                                } else if let (false, ColdBytes::Fresh(stored_bytes, false)) =
+                                    (want_cache, stored_src)
+                                {
                                     // Unsorted path: retain the decompressed
                                     // section so the NEXT query on this
                                     // segment skips the decompress (the
                                     // read-under-write match_all/bool/range
                                     // tail fix — see `decoded_stored_cache`).
+                                    // Only a fresh FULL decode: a cache hit
+                                    // is already resident, and projected
+                                    // bytes would serve other queries a
+                                    // partial `_source`.
                                     let bytes = cache_estimates::decoded_stored_bytes(
                                         &seg_id,
                                         std::mem::size_of::<CacheResident<Vec<u8>>>(),
@@ -24317,6 +28803,14 @@ impl Index {
                     all_hits = decorated.into_iter().map(|(_, h)| h).collect();
                 }
             }
+        }
+        if !deferred_sources.is_empty() {
+            all_hits = self.hydrate_deferred_cold_sources(
+                all_hits,
+                &deferred_sources,
+                fts_row_keep.as_deref(),
+                &mut row_projected,
+            );
         }
         drop(snap);
 
@@ -24640,6 +29134,30 @@ impl Index {
                     })
                     .unwrap_or_default();
                 if !query_terms.is_empty() {
+                    // This heuristic reads the whole serialized document, so
+                    // a column-projected cold hit gets its full source back
+                    // first (#2422/#2423); rare path, a handful of rows.
+                    if !scan_projected.is_empty() {
+                        self.locate_scan_projected_rows(
+                            &final_hits,
+                            &scan_projected,
+                            &mut row_projected,
+                        );
+                    }
+                    if !row_projected.is_empty() {
+                        for hit in final_hits.iter_mut() {
+                            let Some((seg, pos)) = row_projected.get(&hit.id) else {
+                                continue;
+                            };
+                            if let Some(source) = self
+                                .hydrate_fts_rows_cold(seg, &[*pos], None)
+                                .and_then(|mut rows| rows.remove(pos))
+                                .and_then(|mut doc| doc.get_mut("_source").map(Value::take))
+                            {
+                                hit.source = source;
+                            }
+                        }
+                    }
                     let n_docs = final_hits.len() as f32;
                     // Pre-compute lowercased source strings to avoid double-borrowing.
                     let src_strings: Vec<String> = final_hits
@@ -24990,6 +29508,7 @@ impl Index {
                         )));
                     }
                 };
+                let mut segment_hydrated: u64 = 0;
                 for d in arr.iter() {
                     // Skip tombstoned docs.
                     let id_ref = d.get("_id").and_then(Value::as_str).unwrap_or("");
@@ -25014,7 +29533,9 @@ impl Index {
                         }
                     }
                     docs.push(src);
+                    segment_hydrated = segment_hydrated.saturating_add(1);
                 }
+                crate::aggs::note_corpus_hydration(segment_hydrated);
             }
             // Enrich corpus docs with hit-level metadata so score/seq-sensitive
             // sub-aggs reproduce ES semantics: `top_hits` default-sorts by
@@ -25159,7 +29680,7 @@ impl Index {
                         } else {
                             &all_docs[..]
                         };
-                        run_aggs_with_all(aggs_def, fg, bg)
+                        run_aggs_with_schema(aggs_def, fg, bg, &dmq_schema)
                     } else {
                         // Safety net: corpus not built — aggregate the hit window.
                         let sources: Vec<Value> = final_hits
@@ -25197,7 +29718,7 @@ impl Index {
                         } else {
                             &all_docs[..]
                         };
-                        run_aggs_with_all(aggs_def, &sources, bg)
+                        run_aggs_with_schema(aggs_def, &sources, bg, &dmq_schema)
                     }
                 };
                 Some(agg_result)
@@ -25402,6 +29923,25 @@ impl Index {
 
     /// Flush the memtable to a new segment on disk, then build the FTS index.
     pub async fn flush(self: &Arc<Self>) -> Result<()> {
+        self.flush_with(FlushFanout::Parallel).await
+    }
+
+    /// [`Self::flush`] with one shard building at a time (#2427).
+    ///
+    /// A shard flush parses the drained documents, builds columns, postings
+    /// and the stored blocks, and none of that working set is charged to the
+    /// memtable budget. The parallel flush builds every non-empty shard at
+    /// once (bounded only by the finalize gate), so a breaker drain on a
+    /// 1,536 MB-capped node took RSS from 1,460 MB to 2,323 MB in about a
+    /// second while four shards built together. A memory-release caller
+    /// wants the peak bounded more than it wants the drain short: each
+    /// shard's segment publishes and its working set is freed before the
+    /// next shard starts.
+    pub async fn flush_one_shard_at_a_time(self: &Arc<Self>) -> Result<()> {
+        self.flush_with(FlushFanout::Serial).await
+    }
+
+    async fn flush_with(self: &Arc<Self>, fanout: FlushFanout) -> Result<()> {
         // #873: this flush is about to take whatever the memtable holds, so
         // every idle-probe observation about it is stale from here on. Clear
         // the pair at the ONE coordinator every flush path runs through
@@ -25452,11 +29992,20 @@ impl Index {
         let data_dir = self.data_dir.clone();
         let warm_caches = self.publish_warm_caches();
         let index = Arc::clone(self);
+        let index_name = self.name.as_str().to_string();
+        let admit_timeout =
+            std::time::Duration::from_millis(self.flush_admit_timeout_ms.load(Ordering::Relaxed));
+        let flush_timeout =
+            std::time::Duration::from_millis(self.flush_timeout_ms.load(Ordering::Relaxed));
+        let coordinator_name = index_name.clone();
         // This coordinator is the cancellation boundary for the whole flush.
         // If the request future is dropped, its JoinHandle detaches and the
         // coordinator continues owning every shard publication transaction.
+        // The await below uses the same detach on timeout (#1635): the
+        // coordinator is not aborted (#1015).
         let coordinator = tokio::spawn(async move {
             let mut shard_futures = Vec::with_capacity(n_shards);
+            let mut result: Result<()> = Ok(());
             for shard_idx in 0..n_shards {
                 // #1226 — do not fan a finalize out for an EMPTY shard.
                 //
@@ -25487,10 +30036,23 @@ impl Index {
                 let excluded_fts_fields = excluded_fts_fields.clone();
                 let dv_skip = dv_skip.clone();
                 let warm_caches = warm_caches.clone();
+                let shard_index_name = coordinator_name.clone();
                 #[cfg(test)]
                 let test_hook = flush_test_hook.clone();
-                shard_futures.push(tokio::spawn(async move {
-                    let permit = sema.acquire_owned().await.ok();
+                let shard_task = tokio::spawn(async move {
+                    #[cfg(test)]
+                    let _in_flight = FlushShardProbe::enter(&shard_index_name).await;
+                    let permit = match wait_for_flush_permit(
+                        &shard_index_name,
+                        "the flush semaphore",
+                        admit_timeout,
+                        sema.acquire_owned(),
+                    )
+                    .await
+                    {
+                        Ok(permit) => permit,
+                        Err(error) => return Err(error),
+                    };
                     let permit_cell = Arc::new(std::sync::Mutex::new(permit));
                     let permit_cell_cb = Arc::clone(&permit_cell);
                     let on_drained = move || {
@@ -25510,6 +30072,8 @@ impl Index {
                         dv_skip,
                         on_drained,
                         warm_caches,
+                        shard_index_name,
+                        admit_timeout,
                         #[cfg(test)]
                         test_hook,
                     )
@@ -25519,19 +30083,14 @@ impl Index {
                         let _ = guard.take();
                     }
                     result
-                }));
-            }
-            let mut result: Result<()> = Ok(());
-            for fut in shard_futures {
-                match fut.await {
-                    Ok(Ok(())) => {}
-                    Ok(Err(e)) => result = Err(e),
-                    Err(error) => {
-                        result = Err(EngineError::Common(xerj_common::XerjError::internal(
-                            format!("flush shard task failed: {error}"),
-                        )));
-                    }
+                });
+                match fanout {
+                    FlushFanout::Parallel => shard_futures.push(shard_task),
+                    FlushFanout::Serial => fold_shard_flush(&mut result, shard_task.await),
                 }
+            }
+            for fut in shard_futures {
+                fold_shard_flush(&mut result, fut.await);
             }
             // Publication completion must invalidate results even when the
             // request that initiated the flush was cancelled. The coordinator
@@ -25553,13 +30112,7 @@ impl Index {
             index.query_cache.clear();
             result
         });
-        let result = match coordinator.await {
-            Ok(result) => result,
-            Err(error) => Err(EngineError::Common(xerj_common::XerjError::internal(
-                format!("flush coordinator failed: {error}"),
-            ))),
-        };
-        result
+        await_flush_task(&index_name, flush_timeout, coordinator).await
     }
 
     /// Check if the memtable exceeds the configured thresholds.
@@ -25645,6 +30198,31 @@ impl Index {
         self.memtable.size_bytes()
     }
 
+    /// Estimated heap held by this index's in-memory HNSW graph and the
+    /// doc-id <-> node-id maps beside it (#2427). Lock-free: reads values
+    /// cached on the last insert, delete or reload.
+    pub fn vector_graph_bytes(&self) -> usize {
+        self.hnsw_heap_bytes.load(Ordering::Relaxed)
+            + self.hnsw_id_table_bytes.load(Ordering::Relaxed)
+            + self.hnsw_id_key_bytes.load(Ordering::Relaxed)
+    }
+
+    /// Estimated heap held by this index's document version map (#2427).
+    pub fn version_map_bytes(&self) -> usize {
+        self.store.version_map.heap_bytes()
+    }
+
+    /// Retained JSON-heap estimate of every live memtable source. Test-only
+    /// so a regression can bound #1940 without sampling process RSS.
+    #[cfg(test)]
+    pub(crate) fn memtable_source_heaps_for_test(&self) -> Vec<usize> {
+        self.memtable
+            .all_docs_with_sources_arc()
+            .into_iter()
+            .map(|(_, source)| crate::ingest_memory::estimated_json_heap(&source))
+            .collect()
+    }
+
     /// #948 — entries currently resident in the STORAGE memtable
     /// (`IndexStore::memtable_shards`).  Diagnostic twin of
     /// [`Self::memtable_bytes`]: the FTS memtable drains on every flush,
@@ -25721,6 +30299,28 @@ impl Index {
         self.store.version_map.live_count() as u64
     }
 
+    /// Documents physically present but not live: superseded versions left by
+    /// updates and documents killed by deletes, until a merge folds them away.
+    /// This is the pre-merge meaning ES gives `docs.deleted`, derived from
+    /// segment metadata + the memtable + the version map, so a listing does not
+    /// decode every segment's tombstone section.
+    ///
+    /// It is NOT the same number as `Σ segment_rows().deleted_doc_count`:
+    /// xerj writes tombstones only for explicit deletes, while an update
+    /// supersedes the old version through the version map without tombstoning
+    /// it. Both kinds are absent from search, so both belong here.
+    #[inline]
+    pub fn deleted_doc_count(&self) -> u64 {
+        let snap = self.store.snapshot();
+        let physical: u64 = snap
+            .segments
+            .iter()
+            .map(|segment| segment.doc_count)
+            .sum::<u64>()
+            + self.memtable.doc_count() as u64;
+        physical.saturating_sub(self.live_doc_count())
+    }
+
     /// Real per-segment rows for `_cat/segments` (#1202): one entry per LIVE
     /// segment in the durable snapshot — its id, its docs, its deleted docs,
     /// its on-disk bytes. The predecessor endpoint fabricated a single `_0`
@@ -25765,6 +30365,13 @@ impl Index {
             });
         }
         out
+    }
+
+    /// Deterministic stand-in for a stalled schema update (#2405).
+    #[cfg(any(test, feature = "lock-test-hook"))]
+    #[doc(hidden)]
+    pub async fn test_hold_schema_write(&self) -> TestSchemaWriteHold {
+        TestSchemaWriteHold(Arc::clone(&self.schema).write_owned().await)
     }
 
     pub async fn stats(&self) -> IndexStats {
@@ -25977,9 +30584,43 @@ impl Index {
         if let Some(g) = crate::governor::global() {
             g.check_disk_block(self.name.as_str())
                 .map_err(EngineError::Common)?;
-            g.check_ingest_admission().map_err(EngineError::Common)?;
+            if let Err(error) = g.check_ingest_admission() {
+                // The rejection does not free the memtable or the RSS that
+                // tripped it. Request the drain on this 429, not only on the
+                // sampler's next tick (#2321, #948).
+                crate::engine::request_memory_pressure_drain();
+                return Err(EngineError::Common(error));
+            }
         }
         Ok(())
+    }
+
+    /// Reserve headroom for the token spike of `docs` before they are parsed
+    /// (#1122). See [`crate::governor::analyze_reserve_bytes_for_doc`]. No
+    /// governor reserves nothing, so an `Index` built directly in a unit test
+    /// is unchanged.
+    fn reserve_batch_analyze(
+        &self,
+        docs: &[xerj_storage::RawJsonDoc],
+    ) -> Result<crate::governor::AnalyzeReservation> {
+        #[cfg(test)]
+        let governor = self
+            .analyze_governor_override
+            .read()
+            .clone()
+            .or_else(crate::governor::global);
+        #[cfg(not(test))]
+        let governor = crate::governor::global();
+        let Some(governor) = governor else {
+            return Ok(crate::governor::AnalyzeReservation::none());
+        };
+        let reserve = docs
+            .iter()
+            .map(|(_, bytes)| crate::governor::analyze_reserve_bytes_for_doc(bytes))
+            .fold(0u64, u64::saturating_add);
+        governor
+            .reserve_analyze(reserve)
+            .map_err(EngineError::Common)
     }
 
     /// Every block name the `_block` API and `index.blocks.*` settings accept.
@@ -26974,6 +31615,38 @@ pub fn doc_values_skip_set(schema: &Schema) -> std::collections::HashSet<String>
     skip
 }
 
+/// The doc-values input of a merge batch, read back from the batch's
+/// merged stored JSON one document at a time (#2427).
+///
+/// `merged_json` is the `[doc,doc,...]` array the merge byte-copies its
+/// survivors into, in merged ordinal order. Each item is that document's
+/// `_source` (or `Null` when it has none or does not parse, the same
+/// fallback the merge used when it held the trees), and is dropped by
+/// [`build_doc_value_columns`] before the next one is parsed. Only one
+/// `_source` tree is alive at a time; before #2427 the merge held one per
+/// surviving document from the drain loop to the end of the batch, on top
+/// of the stored encoder's own `Vec<Value>` of the same documents.
+///
+/// `Err` means the buffer is not a JSON array (it is built from documents
+/// that already parsed as `RawValue`, so this does not happen in practice).
+fn merge_doc_value_sources(
+    merged_json: &[u8],
+) -> std::result::Result<impl Iterator<Item = Option<Value>> + '_, serde_json::Error> {
+    #[derive(serde::Deserialize)]
+    struct SourceOnly {
+        #[serde(rename = "_source", default)]
+        source: Value,
+    }
+    let docs: Vec<&serde_json::value::RawValue> = serde_json::from_slice(merged_json)?;
+    Ok(docs.into_iter().map(|raw| {
+        Some(
+            serde_json::from_str::<SourceOnly>(raw.get())
+                .map(|doc| doc.source)
+                .unwrap_or(Value::Null),
+        )
+    }))
+}
+
 /// Build the per-segment doc-values columns.
 ///
 /// `skip` names fields whose declared mapping says they must not have
@@ -26987,18 +31660,34 @@ pub fn doc_values_skip_set(schema: &Schema) -> std::collections::HashSet<String>
 /// and 35.6% of the whole index. It is much smaller where `_source` dominates
 /// (6.97% across the `xc-*` code corpora), so the saving is corpus-dependent and
 /// must always be quoted as a range.
-fn build_doc_value_columns<'a>(
-    sources: impl Iterator<Item = Option<&'a Value>>,
+fn build_doc_value_columns<V: std::borrow::Borrow<Value>>(
+    sources: impl Iterator<Item = Option<V>>,
     skip: &std::collections::HashSet<String>,
 ) -> std::collections::BTreeMap<String, xerj_storage::doc_values::Column> {
     use std::collections::BTreeMap;
-    use xerj_storage::doc_values::{Column, KeywordColumn, NumericColumn};
+    use xerj_storage::doc_values::{Column, KeywordColumn, NumericColumn, PresenceColumn};
 
     // Collect per-field per-doc raw values.  We materialise into vectors
     // so we can decide column-type once we've seen all values.  This is
     // O(docs × fields) memory but much smaller than the segment itself.
     let mut numeric: BTreeMap<String, Vec<Option<i64>>> = BTreeMap::new();
     let mut keyword: BTreeMap<String, Vec<Option<String>>> = BTreeMap::new();
+    // `doc_values: false` fields (text, semantic_text) get a presence
+    // bitmap instead of a value column. Pre-seed every skipped name so a
+    // segment where the field is absent still has a column: `exists` then
+    // answers "no row" without parsing source, and a missing column stays
+    // reserved for segments written before this bitmap existed.
+    //
+    // Only top-level names. The loop below sees `_source`'s top-level keys,
+    // so a dotted mapping name (`user.bio`, an object sub-field) never gets a
+    // bit set; seeding it would ship an all-absent bitmap and `exists` would
+    // answer "no row" for documents that have the field. Those fields get
+    // no column and keep the source scan.
+    let mut presence: BTreeMap<String, PresenceColumn> = skip
+        .iter()
+        .filter(|name| !name.contains('.'))
+        .map(|name| (name.clone(), PresenceColumn::empty()))
+        .collect();
     // Fields that carry an ARRAY value in ANY doc of this segment.  The
     // one-slot-per-row column cannot represent a multi-valued doc, and
     // filing it as null makes the column LIE: every consumer (count
@@ -27017,7 +31706,10 @@ fn build_doc_value_columns<'a>(
     for src in sources {
         let doc_idx = total_docs;
         total_docs += 1;
-        let Some(obj) = src.and_then(|v| v.as_object()) else {
+        let Some(obj) = src
+            .as_ref()
+            .and_then(|v| <V as std::borrow::Borrow<Value>>::borrow(v).as_object())
+        else {
             continue;
         };
         for (field, val) in obj {
@@ -27026,9 +31718,15 @@ fn build_doc_value_columns<'a>(
             if field.starts_with('_') {
                 continue;
             }
-            // Honour the declared mapping. Checked before any allocation so a
-            // skipped field costs nothing per doc.
+            // Honour the declared mapping. A skipped field records presence
+            // only — one bit, not the value — so `exists` does not need the
+            // stored JSON. Checked before any value allocation.
             if skip.contains(field.as_str()) {
+                if value_present(val) {
+                    if let Some(bits) = presence.get_mut(field.as_str()) {
+                        bits.insert(doc_idx as u32);
+                    }
+                }
                 continue;
             }
             // Lookup-first (`get_mut` before `entry`) so the common case
@@ -27053,6 +31751,14 @@ fn build_doc_value_columns<'a>(
                     col.push(Some(v));
                 }
                 Value::String(s) => {
+                    // A packed embedding is not a keyword term. Filing it
+                    // would put one multi-kilobyte dictionary entry per
+                    // document into the `.dv` sidecar (#1940). Absence of a
+                    // column is the same outcome the number-array form
+                    // already had: arrays are multi-valued and ship no column.
+                    if xerj_common::packed_f32::is_packed_f32(s) {
+                        continue;
+                    }
                     if !keyword.contains_key(field) {
                         keyword.insert(field.clone(), Vec::new());
                     }
@@ -27130,6 +31836,10 @@ fn build_doc_value_columns<'a>(
                 tracing::warn!("doc-values keyword build failed for one field: {e}");
             }
         }
+    }
+    for (name, mut present) in presence {
+        present.set_doc_count(total_docs as u32);
+        out.insert(name, Column::Presence(present));
     }
     out
 }
@@ -27243,6 +31953,27 @@ fn build_fts_field_configs(
         );
     }
     out
+}
+
+/// Log `error` and remove this segment's FTS artifacts.
+///
+/// `Ok` means nothing FTS-shaped remains, so publishing the stored segment
+/// is safe: a query that finds no side-cars scans the stored section, and a
+/// later merge rebuilds full text (#2349). `Err` means a leftover file could
+/// not be removed; that partial family must not be published. The error
+/// string keeps the original publish failure (path and OS error) and the
+/// cleanup failure.
+fn degrade_fts_publish(segment_dir: &Path, segment_id: &str, error: &str) -> std::io::Result<()> {
+    tracing::error!(
+        segment_id,
+        "FTS side-car publish failed; this segment stays searchable by stored scan until a merge rebuilds full text: {error}"
+    );
+    if let Err(cleanup) = xerj_fts::index::discard_segment_fts_files(segment_dir, segment_id) {
+        return Err(std::io::Error::other(format!(
+            "FTS side-car publish failed ({error}); leftover side-cars could not be removed: {cleanup}"
+        )));
+    }
+    Ok(())
 }
 
 /// Open a full FTS reader over every input segment of a merge batch, or
@@ -27768,7 +32499,8 @@ impl Index {
                                     n.null_bitmap.is_empty(),
                                 ));
                             }
-                            None => {
+                            // Presence answers `exists`, not term equality.
+                            Some(xerj_storage::doc_values::Column::Presence(_)) | None => {
                                 abandoned = true;
                                 break;
                             }
@@ -28005,6 +32737,15 @@ impl Index {
                 (None, None) => (f64::INFINITY, true),
             };
             let field_str = field.as_str();
+            // #1750 — the memtable numeric column keeps only an array's
+            // first element, so `for_each_numeric_value` below would count a
+            // multi-valued doc by that element alone. Abandon to the counting
+            // scan, whose matcher checks every element. (Segments already
+            // abandon: a field that is an array anywhere in a segment gets no
+            // dv column, which is the `None` arm below.)
+            if self.memtable.range_column_unusable(field_str) {
+                return None;
+            }
 
             let segments_dir = self.data_dir.join("segments");
             let mut seg_matches: u64 = 0;
@@ -28045,7 +32786,8 @@ impl Index {
                             shadow, slo, shi, slo_incl, shi_incl,
                         ));
                     }
-                    None => return None, // abandon — field absent in this segment
+                    // A presence bitmap has no numeric or date values.
+                    Some(xerj_storage::doc_values::Column::Presence(_)) | None => return None,
                 }
             }
 
@@ -28114,7 +32856,12 @@ impl Index {
         // segment has neither source (dotted / nested fields, pre-FTS
         // segments) or when deletes are present (both dictionaries tally
         // physical docs, not live ones).
-        if let QueryNode::Regexp { field, pattern } = query {
+        if let QueryNode::Regexp {
+            field,
+            pattern,
+            case_insensitive,
+        } = query
+        {
             // Delete-blind guard — same conservative signal as the F1
             // `deletes_present` gate in `search_inner`.
             let seg_physical: u64 = snap.segments.iter().map(|m| m.doc_count).sum();
@@ -28144,6 +32891,20 @@ impl Index {
                 // per query after that.  `None` (no usable dictionary /
                 // non-keyword field / pathological pattern) abandons to
                 // the stored-doc scan.
+                //
+                // #1812: this shortcut's segment total is used VERBATIM (no
+                // doc-scan re-check), so a `case_insensitive` pattern must
+                // also fold inside the dictionary expansion — otherwise the
+                // count would silently drop the case-variant matches the
+                // doc-scan arm would return.  Gated on `field_is_keyword`,
+                // the same gate the doc-scan arm applies.
+                let folded;
+                let pattern: &str = if *case_insensitive && field_is_keyword {
+                    folded = format!("(?i){}", pattern);
+                    &folded
+                } else {
+                    pattern
+                };
                 let exp = self.regexp_segment_expansion(
                     &segments_dir,
                     &meta.id,
@@ -28211,19 +32972,22 @@ impl Index {
                             }
                         }
                     }
-                    None => return None, // no dv column → can't count safely
+                    // Presence is not a term dictionary.
+                    Some(Column::Presence(_)) | None => return None,
                 }
             }
             return Some(seg_matches);
         }
 
-        // `exists` — provable only for the DENSE case: a field whose column
-        // has no nulls and covers every doc means every doc has a scalar value
-        // (arrays / objects / json-null leave the null bitmap non-empty), so
-        // all docs match.  Any null / partial coverage / missing column, or a
-        // non-empty memtable, abandons to the scan — which resolves
-        // `get_field_value(...).is_some()` exactly (incl. arrays, dotted
-        // paths).  Meta fields are always present.
+        // `exists` — keyword and numeric columns answer only the DENSE case:
+        // no nulls and full coverage means every doc has a scalar value
+        // (arrays poison the column, so a present column has no hidden
+        // multi-values). A presence bitmap answers any density, because it
+        // records `value_present` per row — the same predicate the source
+        // scan uses — including empty strings and excluding null / `[]` /
+        // `[null]`. A missing column, a column that does not cover the
+        // segment, or a non-empty memtable abandons to the scan. Meta
+        // fields are always present.
         if let QueryNode::Exists { field } = query {
             use xerj_storage::doc_values::Column;
             if self.store.version_map.ghost_events() > 0 || self.memtable.doc_count() > 0 {
@@ -28242,15 +33006,28 @@ impl Index {
                     continue;
                 }
                 let cols = self.dv_columns_for(&segments_dir, &meta.id)?;
-                let (null_empty, dcount) = match cols.get(field.as_str()) {
-                    Some(Column::Keyword(k)) => (k.null_bitmap.is_empty(), k.doc_count as u64),
-                    Some(Column::Numeric(n)) => (n.null_bitmap.is_empty(), n.doc_count as u64),
-                    None => return None, // can't prove presence → scan
+                let add = match cols.get(field.as_str()) {
+                    Some(Column::Keyword(k)) => {
+                        if !k.null_bitmap.is_empty() || k.doc_count as u64 != meta.doc_count {
+                            return None;
+                        }
+                        meta.doc_count
+                    }
+                    Some(Column::Numeric(n)) => {
+                        if !n.null_bitmap.is_empty() || n.doc_count as u64 != meta.doc_count {
+                            return None;
+                        }
+                        meta.doc_count
+                    }
+                    Some(Column::Presence(p)) => {
+                        if p.doc_count as u64 != meta.doc_count {
+                            return None;
+                        }
+                        p.count()
+                    }
+                    None => return None,
                 };
-                if !null_empty || dcount != meta.doc_count {
-                    return None; // sparse / partial → scan (may still match arrays)
-                }
-                seg_matches = seg_matches.saturating_add(meta.doc_count);
+                seg_matches = seg_matches.saturating_add(add);
             }
             return Some(seg_matches);
         }
@@ -28383,7 +33160,11 @@ impl Index {
                             served_by_dv = true;
                         }
                     }
-                    None => {}
+                    // Presence is not a term dictionary. Leave `served_by_dv`
+                    // false so the caller abandons to the source scan (#362):
+                    // a `term` on text must agree with `_search`, which
+                    // compares the whole source value, not a bit.
+                    Some(xerj_storage::doc_values::Column::Presence(_)) | None => {}
                 }
             }
 
@@ -28517,6 +33298,32 @@ impl Index {
         value: T,
         budget: &Arc<SegmentHydrationBudget>,
     ) -> Resident<T> {
+        self.publish_current_permitted(map, segment_id, key, category, bytes, value, budget, None)
+    }
+
+    /// [`Self::publish_current_with_budget`] for a value built under a
+    /// transient read reservation (#2427/#1122). Admitted to the cache, the
+    /// reservation is returned at once — the hydration budget now accounts
+    /// the bytes. Refused, the value is served uncached and keeps the
+    /// reservation until its last reader drops it, so concurrent transient
+    /// builds stay inside the read budget.
+    #[allow(clippy::too_many_arguments)]
+    fn publish_current_permitted<T>(
+        &self,
+        map: &dashmap::DashMap<String, Resident<T>>,
+        segment_id: &str,
+        key: String,
+        category: SegmentCacheCategory,
+        bytes: u64,
+        value: T,
+        budget: &Arc<SegmentHydrationBudget>,
+        mut permit: Option<ReadPermit>,
+    ) -> Resident<T> {
+        // The permit was sized from a pre-build estimate; account the
+        // measured size while the transient lives.
+        if let Some(permit) = permit.as_mut() {
+            permit.true_up(bytes);
+        }
         #[cfg(test)]
         {
             let bit = 1_u64 << category as usize;
@@ -28539,14 +33346,14 @@ impl Index {
             .iter()
             .any(|meta| meta.id == segment_id)
         {
-            return CacheResident::uncached(value);
+            return CacheResident::uncached_with_permit(value, permit);
         }
         use dashmap::mapref::entry::Entry;
         match map.entry(key) {
             Entry::Occupied(entry) => Arc::clone(entry.get()),
             Entry::Vacant(entry) => {
                 let Some(charge) = budget.try_charge(category, bytes) else {
-                    return CacheResident::uncached(value);
+                    return CacheResident::uncached_with_permit(value, permit);
                 };
                 let resident = CacheResident::admitted(value, charge, category, bytes);
                 entry.insert(Arc::clone(&resident));
@@ -28629,15 +33436,23 @@ impl Index {
             return Some(Arc::clone(hit.value()));
         }
 
+        // #2427/#1122: a reader the cache cannot hold is built per query and
+        // decompresses every requested field's postings; reserve that in the
+        // read budget before paying it (see `stored_slices_for_with`).
+        let read_budget = crate::read_budget::global();
+        let estimate = FtsIndexReader::estimate_open_bytes(fts_dir, segment_id, fields);
+        let permit = transient_read_permit(&self.segment_hydration_budget, read_budget, estimate);
         let reader = Arc::new(FtsIndexReader::open(fts_dir, segment_id, fields).ok()?);
         let bytes = reader.retained_bytes();
-        Some(self.publish_current(
+        Some(self.publish_current_permitted(
             &self.fts_reader_cache,
             segment_id,
             key,
             SegmentCacheCategory::FtsReader,
             bytes,
             reader,
+            &self.segment_hydration_budget,
+            permit,
         ))
     }
 
@@ -28646,10 +33461,45 @@ impl Index {
         segments_dir: &std::path::Path,
         segment_id: &str,
     ) -> Option<Resident<DocValueMap>> {
+        self.dv_columns_for_with(
+            segments_dir,
+            segment_id,
+            &self.segment_hydration_budget,
+            crate::read_budget::global(),
+        )
+    }
+
+    /// [`Self::dv_columns_for`] against explicit budgets (#2427). A decode
+    /// the hydration cache cannot keep is rebuilt by every query that needs
+    /// it; it reserves its size in the read budget before decoding and
+    /// holds the reservation until its last reader drops it, like the
+    /// stored-slices and FTS-reader builds. Before this, a refused decode
+    /// was neither cached nor reserved, so concurrent searches stacked
+    /// whole decoded sidecars (~100 MB late in the cap-2048 ingest run)
+    /// that no budget saw.
+    fn dv_columns_for_with(
+        &self,
+        segments_dir: &std::path::Path,
+        segment_id: &str,
+        hydration: &Arc<SegmentHydrationBudget>,
+        read_budget: &Arc<ReadTransientBudget>,
+    ) -> Option<Resident<DocValueMap>> {
         if let Some(entry) = self.dv_cache.get(segment_id) {
             return Some(Arc::clone(entry.value()));
         }
-        let cols = read_doc_values_sidecar(segments_dir, segment_id);
+        let raw = std::fs::read(segments_dir.join(format!("{segment_id}.dv"))).ok()?;
+        let doc_count = self
+            .store
+            .snapshot()
+            .segments
+            .iter()
+            .find(|meta| meta.id == segment_id)
+            .map_or(0, |meta| meta.doc_count);
+        let estimate = xerj_storage::doc_values::estimate_decoded_bytes(&raw, doc_count)
+            .saturating_add(raw.len() as u64);
+        let permit = transient_read_permit(hydration, read_budget, estimate);
+        let cols = xerj_storage::doc_values::decode_columns(&raw).unwrap_or_default();
+        drop(raw);
         if cols.is_empty() {
             return None;
         }
@@ -28659,13 +33509,15 @@ impl Index {
             std::mem::size_of::<CacheResident<DocValueMap>>(),
             &cols,
         );
-        Some(self.publish_current(
+        Some(self.publish_current_permitted(
             &self.dv_cache,
             segment_id,
             key,
             SegmentCacheCategory::DocValues,
             bytes,
             cols,
+            hydration,
+            permit,
         ))
     }
 
@@ -28996,9 +33848,16 @@ impl Index {
         // any token the segment projection never named (per-field analyzers
         // can differ) joins `pairs` and gets its segment-side df in the single
         // pass below, instead of the memtable silently keeping a local df.
+        // A filtered `bool` (#2403) has no query text of its own, but its
+        // memtable arm scores the one `must` match: count that clause, or a
+        // mixed index scores its segment hits against a union that left the
+        // unflushed docs out.
+        let mem_text = match bool_filter_mem_fts_must(query) {
+            Some((_, text, _, _)) => Some(text.to_string()),
+            None => extract_query_text(query),
+        };
         let mem_stats: Option<xerj_fts::CollectionStats> = if mem_doc_count > 0 {
-            extract_query_text(query)
-                .and_then(|text| self.memtable.collection_stats(&text, &field_refs))
+            mem_text.and_then(|text| self.memtable.collection_stats(&text, &field_refs))
         } else {
             None
         };
@@ -29927,6 +34786,17 @@ impl Index {
                         });
                     }
                     ScoredFilterLeaf::SourceExists { field } => {
+                        // A presence bitmap answers `exists` without parsing
+                        // stored JSON. Segments written before the bitmap
+                        // existed still fall through to the source slices.
+                        if let Some(xerj_storage::doc_values::Column::Presence(p)) =
+                            cols.get(field.as_str())
+                        {
+                            if p.doc_count == meta.doc_count as u32 {
+                                fev.push(FilterEval::Presence { col: p });
+                                continue;
+                            }
+                        }
                         // Cache-backed stored slices for this segment; the
                         // `?` bails the whole columnar path (brute answers).
                         let slices = self.stored_slices_for(meta.id.as_str(), meta.doc_count)?;
@@ -30561,6 +35431,15 @@ impl Index {
         Some((hits, total, from_applied))
     }
 
+    /// Stored sections this index currently holds decoded: the decompressed
+    /// byte cache, the per-doc slice cache, and the parsed-document cache.
+    /// A presence-backed `exists` leaves all three untouched.
+    pub fn stored_sections_cached(&self) -> usize {
+        self.decoded_stored_cache.len()
+            + self.stored_slices_cache.len()
+            + self.stored_value_cache.len()
+    }
+
     /// Cache-backed reader for a segment's parsed stored section.
     ///
     /// First call for a segment opens the segment, decodes the Stored
@@ -30916,7 +35795,7 @@ impl Index {
                 }
                 shadow_range_positions(shadow, slo, shi, slo_incl, shi_incl)
             }
-            None => return None,
+            Some(Column::Presence(_)) | None => return None,
         };
         let built: Arc<PrefilterSet> = Arc::new(PrefilterSet::from_vec(matching));
         if self.range_prefilter_cache.len() >= 32 {
@@ -30979,7 +35858,13 @@ impl Index {
                 Some(Arc::new(PrefilterSet::from_set(set)))
             }
             Column::Keyword(k) => {
-                let mut set: HashSet<u32> = HashSet::new();
+                // One pass over `ords` for every value in the window. The
+                // previous loop scanned the whole ordinal column once per
+                // terms value, so a 1,024-value finalize-verify window walked
+                // a large shared catalog 1,024 times (the seg-loop in #1761).
+                // Duplicate values share an ordinal and are counted once.
+                let mut wanted: HashSet<u32> = HashSet::new();
+                let mut card: usize = 0;
                 for v in values {
                     let term = match v {
                         Value::String(s) => {
@@ -31000,18 +35885,27 @@ impl Index {
                     let Some(ord) = k.ord_for_term(&term) else {
                         continue; // term absent in this segment → contributes 0
                     };
-                    let card = k.per_ord_count.get(ord as usize).copied().unwrap_or(0) as usize;
-                    if set.len() + card > TERM_PREFILTER_CAP {
+                    if !wanted.insert(ord) {
+                        continue;
+                    }
+                    let n = k.per_ord_count.get(ord as usize).copied().unwrap_or(0) as usize;
+                    if card + n > TERM_PREFILTER_CAP {
                         return None;
                     }
+                    card += n;
+                }
+                let mut set: HashSet<u32> = HashSet::with_capacity(card);
+                if !wanted.is_empty() {
                     for (pos, &o) in k.ords.iter().enumerate() {
-                        if o == ord && !k.null_bitmap.contains(pos as u32) {
+                        if wanted.contains(&o) && !k.null_bitmap.contains(pos as u32) {
                             set.insert(pos as u32);
                         }
                     }
                 }
                 Some(Arc::new(PrefilterSet::from_set(set)))
             }
+            // No ordinals to enumerate. A full scan stays correct.
+            Column::Presence(_) => None,
         }
     }
 
@@ -31658,6 +36552,7 @@ impl Index {
                     },
                 )
             }
+            Column::Presence(_) => None,
         }
     }
 
@@ -31756,6 +36651,29 @@ impl Index {
     /// malformed section (offsets incomplete) — caller falls back to the
     /// legacy scan.
     fn stored_slices_for(&self, seg_id: &str, expect_docs: u64) -> Option<Resident<StoredSlices>> {
+        self.stored_slices_for_with(
+            seg_id,
+            expect_docs,
+            &self.segment_hydration_budget,
+            crate::read_budget::global(),
+        )
+    }
+
+    /// [`Self::stored_slices_for`] against explicit budgets (tests pin them).
+    ///
+    /// #2427/#1122: when the hydration cache has no room for this segment the
+    /// build is transient — decoded, used by this query, dropped. It reserves
+    /// its retained-size bound in `read_budget` *before* the decompress and
+    /// keeps the reservation until the last reader drops the value, so
+    /// concurrent cold queries queue for read memory instead of stacking
+    /// whole stored sections until the shared breaker engages.
+    fn stored_slices_for_with(
+        &self,
+        seg_id: &str,
+        expect_docs: u64,
+        hydration: &Arc<SegmentHydrationBudget>,
+        read_budget: &Arc<ReadTransientBudget>,
+    ) -> Option<Resident<StoredSlices>> {
         if let Some(entry) = self.stored_slices_cache.get(seg_id) {
             return Some(Arc::clone(entry.value()));
         }
@@ -31772,18 +36690,30 @@ impl Index {
                 .or_default();
             Arc::clone(entry.value())
         };
-        let _flight_guard = flight.lock().ok()?;
+        let _flight_guard = lock_stored_flight(&flight);
         if let Some(entry) = self.stored_slices_cache.get(seg_id) {
             return Some(Arc::clone(entry.value()));
         }
         // Reuse already-decompressed bytes from `decoded_stored_cache`
         // before paying a fresh open + decompress.
-        let bytes: Vec<u8> = if let Some(entry) = self.decoded_stored_cache.get(seg_id) {
-            entry.value().value().clone()
+        let decoded = self
+            .decoded_stored_cache
+            .get(seg_id)
+            .map(|entry| Arc::clone(entry.value()));
+        let (bytes, permit): (Vec<u8>, Option<ReadPermit>) = if let Some(decoded) = decoded {
+            let bound =
+                (decoded.value().len() as u64).saturating_add(expect_docs.saturating_mul(8));
+            let permit = transient_read_permit(hydration, read_budget, bound);
+            (decoded.value().clone(), permit)
         } else {
             let reader = self.store.open_segment_arc(seg_id).ok()?;
             let raw = reader.section(SectionType::Stored).ok()??;
-            xerj_storage::stored_codec::decode_stored(raw).ok()?
+            let permit = transient_read_permit(
+                hydration,
+                read_budget,
+                stored_slices_bound(raw, expect_docs),
+            );
+            (xerj_storage::stored_codec::decode_stored(raw).ok()?, permit)
         };
         if bytes.len() > u32::MAX as usize {
             return None;
@@ -31800,14 +36730,34 @@ impl Index {
             slices.bytes.capacity(),
             slices.offsets.capacity(),
         );
-        Some(self.publish_current(
+        Some(self.publish_current_permitted(
             &self.stored_slices_cache,
             seg_id,
             key,
             SegmentCacheCategory::StoredSlices,
             bytes,
             slices,
+            hydration,
+            permit,
         ))
+    }
+
+    /// Retained-size bound of this segment's `StoredSlices`, from framing
+    /// only (no decompress). `None` when the segment or section is missing.
+    fn stored_slices_bound_for(&self, seg_id: &str, expect_docs: u64) -> Option<u64> {
+        let reader = self.store.open_segment_arc(seg_id).ok()?;
+        let raw = reader.section(SectionType::Stored).ok()??;
+        Some(stored_slices_bound(raw, expect_docs))
+    }
+
+    /// `_id` of every row of a segment's columnar stored section, read from
+    /// its identity columns only. `None` (legacy layout, read error, a row
+    /// count other than `expect_docs`) sends the caller to the full decode.
+    fn cold_segment_ids(&self, seg_id: &str, expect_docs: u64) -> Option<Vec<Value>> {
+        let reader = self.store.open_segment_arc(seg_id).ok()?;
+        let bytes = reader.section(SectionType::Stored).ok()??;
+        let ids = xerj_storage::stored_codec::decode_stored_v2_ids(bytes).ok()??;
+        (ids.len() as u64 == expect_docs).then_some(ids)
     }
 
     /// Per-segment GHOST-position bitmap (b7 DEFECT 1c): bit `pos` set ⇔
@@ -31830,21 +36780,39 @@ impl Index {
                 return Some(Arc::clone(&entry.value().1));
             }
         }
-        let slices = self.stored_slices_for(seg_id, expect_docs)?;
-        let mut bm = vec![0u64; slices.offsets.len().div_ceil(64)];
-        for (pos, &(start, end)) in slices.offsets.iter().enumerate() {
-            let slice = slices.bytes.get(start as usize..end as usize)?;
-            let doc: Value = serde_json::from_slice(slice).ok()?;
-            let id = doc.get("_id").and_then(Value::as_str).unwrap_or("");
-            let ghost = match self.store.version_map.get(id) {
-                Some(ver) => ver.deleted || ver.segment_id.as_ref() != seg_id,
-                // Not in the version map → nothing has ever superseded it.
-                None => false,
-            };
-            if ghost {
-                bm[pos / 64] |= 1u64 << (pos % 64);
+        let is_ghost = |id: &str| match self.store.version_map.get(id) {
+            Some(ver) => ver.deleted || ver.segment_id.as_ref() != seg_id,
+            // Not in the version map → nothing has ever superseded it.
+            None => false,
+        };
+        // A cold segment reads its `_id` column alone: decoding (and
+        // caching) the whole stored section here made the first query
+        // under deletes pay for every row's `_source`.
+        let cold = !self.stored_slices_cache.contains_key(seg_id)
+            && !self.decoded_stored_cache.contains_key(seg_id);
+        let cold_ids = cold
+            .then(|| self.cold_segment_ids(seg_id, expect_docs))
+            .flatten();
+        let bm = if let Some(ids) = cold_ids {
+            let mut bm = vec![0u64; ids.len().div_ceil(64)];
+            for (pos, id) in ids.iter().enumerate() {
+                if is_ghost(id.as_str().unwrap_or("")) {
+                    bm[pos / 64] |= 1u64 << (pos % 64);
+                }
             }
-        }
+            bm
+        } else {
+            let slices = self.stored_slices_for(seg_id, expect_docs)?;
+            let mut bm = vec![0u64; slices.offsets.len().div_ceil(64)];
+            for (pos, &(start, end)) in slices.offsets.iter().enumerate() {
+                let slice = slices.bytes.get(start as usize..end as usize)?;
+                let doc: Value = serde_json::from_slice(slice).ok()?;
+                if is_ghost(doc.get("_id").and_then(Value::as_str).unwrap_or("")) {
+                    bm[pos / 64] |= 1u64 << (pos % 64);
+                }
+            }
+            bm
+        };
         let bm = Arc::new(bm);
         // Bounded like `shortcut_count_cache`: wholesale clear — entries
         // are per-segment (not query-shaped) so the cap is generous.
@@ -31871,6 +36839,10 @@ impl Index {
         topk: &mut SortTopK,
         seen_ids: &mut HashSet<String>,
         total_count: &mut u64,
+        // #2431: cooperative deadline, polled every 256 candidates; on
+        // expiry the walk stops and sets `*timed_out` (partial page).
+        deadline: Option<std::time::Instant>,
+        timed_out: &mut bool,
         // Per-doc scorer from `search_inner` (`score_doc`): single-applies
         // any peeled function_score and resolves `_id` for ids clauses.
         scorer: &(dyn Fn(&Value, &str) -> f32 + Send + Sync),
@@ -31882,7 +36854,11 @@ impl Index {
         // is also rejected — break WITHOUT parsing.  After the heap warms
         // up this makes each additional segment O(ties) parses instead of
         // O(cap).
-        for &(key_bits, pos) in &candidates.ordered {
+        for (scanned, &(key_bits, pos)) in candidates.ordered.iter().enumerate() {
+            if segment_deadline_hit(scanned, deadline) {
+                *timed_out = true;
+                break;
+            }
             if topk.primary_f64_rejects(f64::from_bits(key_bits as u64)) {
                 break;
             }
@@ -32055,6 +37031,9 @@ impl Index {
         total_count: &mut u64,
         all_hits: &mut Vec<Hit>,
         seen_ids: &mut HashSet<String>,
+        // #2431: cooperative deadline, polled every 256 positions.
+        deadline: Option<std::time::Instant>,
+        timed_out: &mut bool,
         // Per-doc scorer from `search_inner` (`score_doc`): single-applies
         // any peeled function_score and resolves `_id` for ids clauses.
         scorer: &(dyn Fn(&Value, &str) -> f32 + Send + Sync),
@@ -32070,7 +37049,11 @@ impl Index {
         // order.  Pre-fix this function collected the whole `HashSet` into
         // a Vec and `select_nth`ed it PER QUERY — a stable ~0.17 ms tax on
         // a 10-doc page over a 100k-position cached set.
-        for &pos in pre_filter.sorted.iter() {
+        for (scanned, &pos) in pre_filter.sorted.iter().enumerate() {
+            if segment_deadline_hit(scanned, deadline) {
+                *timed_out = true;
+                break;
+            }
             if count_authoritative && !count_only && all_hits.len() >= materialisation_limit {
                 break;
             }
@@ -33014,9 +37997,113 @@ tokio::task_local! {
     static FLUSH_PUBLISHER_TEST_HOOK: FlushPublisherTestHook;
 }
 
+/// How [`Index::flush_with`] runs its shard flushes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum FlushFanout {
+    /// Every non-empty shard at once (M5.15): the shortest flush.
+    Parallel,
+    /// One shard after another: the smallest uncharged working set (#2427).
+    Serial,
+}
+
+/// Keep the last shard error, as the parallel join always has.
+fn fold_shard_flush(
+    result: &mut Result<()>,
+    joined: std::result::Result<Result<()>, tokio::task::JoinError>,
+) {
+    match joined {
+        Ok(Ok(())) => {}
+        Ok(Err(e)) => *result = Err(e),
+        Err(error) => {
+            *result = Err(EngineError::Common(xerj_common::XerjError::internal(
+                format!("flush shard task failed: {error}"),
+            )));
+        }
+    }
+}
+
+/// Test-only count of shard-flush tasks in flight per index, with the peak.
+#[cfg(test)]
+static FLUSH_SHARD_PROBE: std::sync::LazyLock<
+    dashmap::DashMap<
+        String,
+        (
+            Arc<std::sync::atomic::AtomicUsize>,
+            Arc<std::sync::atomic::AtomicUsize>,
+        ),
+    >,
+> = std::sync::LazyLock::new(dashmap::DashMap::new);
+
+#[cfg(test)]
+pub(crate) struct FlushShardProbe(Arc<std::sync::atomic::AtomicUsize>);
+
+#[cfg(test)]
+impl FlushShardProbe {
+    /// Count this shard task in, then yield so sibling tasks of a parallel
+    /// flush get scheduled while it is still counted.
+    async fn enter(index: &str) -> Self {
+        use std::sync::atomic::Ordering;
+        let (in_flight, peak) = FLUSH_SHARD_PROBE
+            .entry(index.to_string())
+            .or_default()
+            .value()
+            .clone();
+        let now = in_flight.fetch_add(1, Ordering::SeqCst) + 1;
+        peak.fetch_max(now, Ordering::SeqCst);
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+        FlushShardProbe(in_flight)
+    }
+
+    /// Peak shard-flush tasks in flight at once for `index` so far.
+    pub(crate) fn peak(index: &str) -> usize {
+        FLUSH_SHARD_PROBE
+            .get(index)
+            .map(|e| e.value().1.load(std::sync::atomic::Ordering::SeqCst))
+            .unwrap_or(0)
+    }
+}
+
+#[cfg(test)]
+impl Drop for FlushShardProbe {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
+    }
+}
+
 // This deliberately remains a free function so background tasks can own every
 // flush dependency without retaining `Index`; grouping the values would only
 // hide the same pipeline dependency set behind an uninformative bag of fields.
+/// Disarms a reader wait on drop, including the deadline-timeout return.
+struct ReaderWaitGuard<'a>(&'a crate::collection_publication::CollectionPublication);
+
+impl Drop for ReaderWaitGuard<'_> {
+    fn drop(&mut self) {
+        self.0.disarm_reader();
+    }
+}
+
+/// Reserves a capture slot for one `search()` attempt. Dropped when that
+/// attempt returns. `note_capture_validated` is what releases a waiting
+/// writer, and it fires at the capture check, not here.
+struct ReaderCapture {
+    publication: Arc<crate::collection_publication::CollectionPublication>,
+}
+
+impl ReaderCapture {
+    fn begin(publication: &Arc<crate::collection_publication::CollectionPublication>) -> Self {
+        publication.begin_capture();
+        Self {
+            publication: Arc::clone(publication),
+        }
+    }
+}
+
+impl Drop for ReaderCapture {
+    fn drop(&mut self) {
+        self.publication.end_capture();
+    }
+}
+
 fn collection_publication_interrupted() -> EngineError {
     EngineError::Fts(anyhow::anyhow!(
         "collection publication was interrupted; reopen the index so WAL recovery can rebuild a consistent searchable state"
@@ -33040,6 +38127,24 @@ fn is_collection_capture_retry(e: &EngineError) -> bool {
         e,
         EngineError::Fts(err) if err.downcast_ref::<CollectionCaptureCrossedPublication>().is_some()
     )
+}
+
+/// #2473: wait for the bracket that straddled a capture to close, and report
+/// whether there is deadline left to recapture. Polls rather than awaiting
+/// [`CollectionPublication::notified`] because the notification has to be
+/// registered before the generation is read to be race-free, and the read
+/// happens several frames down inside the scan; a 1 ms poll of a bracket that a
+/// flush or merge holds for milliseconds costs nothing and cannot miss a wake.
+/// Returns `false` once the deadline is gone, so the caller surfaces the last
+/// real error instead of inventing an empty result.
+async fn wait_out_crossed_capture(deadline: std::time::Instant) -> bool {
+    const POLL: std::time::Duration = std::time::Duration::from_millis(1);
+    let now = std::time::Instant::now();
+    if now >= deadline {
+        return false;
+    }
+    tokio::time::sleep(POLL.min(deadline - now)).await;
+    std::time::Instant::now() < deadline
 }
 
 /// #1212 — the verdict of one LIVE version-map entry read during a scan whose
@@ -33238,6 +38343,232 @@ mod captured_entry_verdict_table {
     }
 }
 
+/// Resolve the two flush deadlines for one index.
+///
+/// Environment overrides win over the config file, matching `XERJ_FIN_CONC`.
+/// A value that is not a whole number of seconds in `1..=86_400` is ignored
+/// and reported; an override that would make the caller give up before
+/// admission can finish is raised to the admission bound.
+fn configured_flush_timeouts_ms(config: &Config) -> (u64, u64) {
+    let admit = resolve_flush_timeout_secs(
+        "XERJ_FLUSH_ADMIT_TIMEOUT_SECS",
+        config.engine.flush_admit_timeout_secs,
+        std::env::var("XERJ_FLUSH_ADMIT_TIMEOUT_SECS")
+            .ok()
+            .as_deref(),
+    );
+    let mut overall = resolve_flush_timeout_secs(
+        "XERJ_FLUSH_TIMEOUT_SECS",
+        config.engine.flush_timeout_secs,
+        std::env::var("XERJ_FLUSH_TIMEOUT_SECS").ok().as_deref(),
+    );
+    if overall < admit {
+        warn!(
+            admit_secs = admit,
+            flush_secs = overall,
+            "flush timeout is shorter than the admission timeout; raising it so a flush \
+             can finish waiting for a permit"
+        );
+        overall = admit;
+    }
+    (admit.saturating_mul(1000), overall.saturating_mul(1000))
+}
+
+/// `configured` is the validated config value. `env_value` is the raw
+/// override, already read by the caller so tests can pass it without
+/// touching the process environment.
+fn resolve_flush_timeout_secs(name: &str, configured: u64, env_value: Option<&str>) -> u64 {
+    let Some(raw) = env_value.map(str::trim).filter(|s| !s.is_empty()) else {
+        return configured;
+    };
+    let max = xerj_common::config::EngineConfig::MAX_FLUSH_TIMEOUT_SECS;
+    match raw.parse::<u64>() {
+        Ok(secs) if (1..=max).contains(&secs) => secs,
+        _ => {
+            warn!(
+                "{name}={raw} is not a whole number of seconds from 1 to {max}; using {configured}s"
+            );
+            configured
+        }
+    }
+}
+
+fn flush_admit_timeout_error(index: &str, what: &str, budget: std::time::Duration) -> EngineError {
+    warn!(
+        index,
+        wait = what,
+        budget_ms = budget.as_millis() as u64,
+        "flush timed out waiting for admission; the memtable was not frozen"
+    );
+    EngineError::Common(xerj_common::XerjError::internal(format!(
+        "index [{index}] flush timed out after {budget:?} waiting for {what}; \
+         the memtable was not frozen, so this flush can be retried"
+    )))
+}
+
+fn flush_budget_timeout_error(index: &str, budget: std::time::Duration) -> EngineError {
+    warn!(
+        index,
+        budget_ms = budget.as_millis() as u64,
+        "flush timed out; the publish coordinator was left running"
+    );
+    EngineError::Common(xerj_common::XerjError::internal(format!(
+        "index [{index}] flush timed out after {budget:?}; the publish coordinator was left \
+         running so a publication already past the freeze can finish, and this refresh can be \
+         retried"
+    )))
+}
+
+/// Wait for a flush-admission permit.
+///
+/// A closed semaphore still yields `Ok(None)`, which is what the old
+/// `.ok()` did. A timeout is an error and does not hold a permit: the
+/// acquire future is dropped, so the wait is cancelled before the freeze.
+async fn wait_for_flush_permit<T>(
+    index: &str,
+    what: &str,
+    budget: std::time::Duration,
+    acquire: impl std::future::Future<Output = std::result::Result<T, tokio::sync::AcquireError>>,
+) -> Result<Option<T>> {
+    match within_wall_clock(budget, acquire).await {
+        Some(Ok(permit)) => Ok(Some(permit)),
+        Some(Err(_)) => Ok(None),
+        None => Err(flush_admit_timeout_error(index, what, budget)),
+    }
+}
+
+/// Await `fut` for at most `budget` of wall-clock time.
+///
+/// The flush deadlines (#1635) are operator budgets in real seconds, so they
+/// are measured with [`std::time::Instant`], not tokio's clock. The two differ
+/// when the clock is paused (`#[tokio::test(start_paused = true)]`): a paused
+/// runtime that goes idle auto-advances to its next timer. A flush waiting on
+/// the process-global finalize gate, whose permit another runtime holds, is
+/// idle on its own runtime, so a plain `tokio::time::timeout(120s)` fired at
+/// once and failed a healthy flush with "timed out after 120s". A tokio timer
+/// never fires before the wall-clock deadline on a running clock, so the
+/// early-fire branch below is only taken when the clock is paused. It waits a
+/// real slice on the blocking pool (no timer, so no auto-advance) and tries
+/// again. `None` means the wall-clock budget ran out; the future is dropped.
+/// While blocking-pool work is in flight a paused clock does not advance at
+/// all, so the deadline is only checked once that work (or the future)
+/// makes progress; a running clock has no such gap.
+async fn within_wall_clock<F: std::future::Future>(
+    budget: std::time::Duration,
+    fut: F,
+) -> Option<F::Output> {
+    let deadline = std::time::Instant::now() + budget;
+    tokio::pin!(fut);
+    loop {
+        let left = deadline.saturating_duration_since(std::time::Instant::now());
+        if let Ok(output) = tokio::time::timeout(left, &mut fut).await {
+            return Some(output);
+        }
+        let left = deadline.saturating_duration_since(std::time::Instant::now());
+        if left.is_zero() {
+            return None;
+        }
+        let nap = left.min(std::time::Duration::from_millis(5));
+        tokio::select! {
+            biased;
+            output = &mut fut => return Some(output),
+            _ = tokio::task::spawn_blocking(move || std::thread::sleep(nap)) => {}
+        }
+    }
+}
+
+/// Bound one spawned flush task.
+///
+/// Dropping the [`JoinHandle`] on timeout detaches the task. It does not
+/// abort it, so a publication that has already frozen the memtable keeps
+/// its non-cancellable worker (#1015).
+async fn await_flush_task(
+    index: &str,
+    budget: std::time::Duration,
+    task: tokio::task::JoinHandle<Result<()>>,
+) -> Result<()> {
+    match within_wall_clock(budget, task).await {
+        Some(Ok(result)) => result,
+        Some(Err(error)) => Err(EngineError::Common(xerj_common::XerjError::internal(
+            format!("index [{index}] flush task failed: {error}"),
+        ))),
+        None => Err(flush_budget_timeout_error(index, budget)),
+    }
+}
+
+/// Working set of one memtable flush build, in percent of the frozen
+/// memtable bytes it starts from (#2427). `XERJ_FLUSH_WORKING_SET_PCT`
+/// overrides it; `0` turns the flush reservation off.
+const FLUSH_WORKING_SET_PCT_DEFAULT: u64 = 200;
+
+/// RSS, in percent of the watermark, above which a finished flush build
+/// returns its freed pages to the OS at once (#2427).
+const FLUSH_PURGE_RSS_PCT: u64 = 70;
+
+fn flush_working_set_pct() -> u64 {
+    static PCT: std::sync::OnceLock<u64> = std::sync::OnceLock::new();
+    *PCT.get_or_init(|| {
+        std::env::var("XERJ_FLUSH_WORKING_SET_PCT")
+            .ok()
+            .and_then(|v| v.trim().parse::<u64>().ok())
+            .unwrap_or(FLUSH_WORKING_SET_PCT_DEFAULT)
+    })
+}
+
+/// Estimated working set of a flush build over `memtable_bytes` of frozen
+/// memtable (#2427). The build re-parses every source into a `Value`, builds
+/// postings and doc-value columns, and encodes the stored section from a
+/// JSON copy of the sources, all at once; see [`FLUSH_WORKING_SET_PCT_DEFAULT`].
+fn flush_working_set_bytes(memtable_bytes: usize) -> u64 {
+    (memtable_bytes as u64).saturating_mul(flush_working_set_pct()) / 100
+}
+
+/// Release a finished build's reservation, then return its freed pages to
+/// the OS when the process is close to the watermark (#2427).
+///
+/// jemalloc keeps freed pages resident for `dirty_decay_ms` (1 s). A build
+/// frees several hundred MB at once, and on the gate those pages were still
+/// resident when the next burst allocated: 454 MB of the 3,364 MB peak was
+/// free pages. Purging right away hands them back before the next build
+/// starts; under the threshold the decay alone is enough.
+fn release_flush_build(reservation: crate::governor::FlushBuildReservation) {
+    drop(reservation);
+    let Some(governor) = crate::governor::global() else {
+        return;
+    };
+    let watermark = governor.memory_watermark_bytes();
+    if flush_build_should_purge(governor.observed_rss_bytes(), watermark) {
+        crate::engine::purge_allocator_pages();
+    }
+}
+
+fn flush_build_should_purge(rss: u64, watermark: u64) -> bool {
+    watermark > 0 && rss.saturating_mul(100) >= watermark.saturating_mul(FLUSH_PURGE_RSS_PCT)
+}
+
+#[cfg(test)]
+mod flush_working_set_tests {
+    use super::*;
+
+    #[test]
+    fn purge_only_near_the_watermark() {
+        assert!(!flush_build_should_purge(1 << 30, 0));
+        assert!(!flush_build_should_purge(69, 100));
+        assert!(flush_build_should_purge(70, 100));
+        assert!(flush_build_should_purge(150, 100));
+    }
+
+    #[test]
+    fn working_set_scales_with_the_frozen_bytes() {
+        let pct = flush_working_set_pct();
+        assert_eq!(flush_working_set_bytes(0), 0);
+        assert_eq!(
+            flush_working_set_bytes(100 << 20),
+            (100u64 << 20) * pct / 100
+        );
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 async fn do_flush_shard(
     shard_idx: usize,
@@ -33257,6 +38588,8 @@ async fn do_flush_shard(
     // read-path caches, threaded through because this is a free fn without
     // access to `Index`.
     warm_caches: PublishWarmCaches,
+    index_name: String,
+    admit_timeout: std::time::Duration,
     #[cfg(test)] test_hook: Option<FlushPublisherTestHook>,
 ) -> Result<()> {
     // #1226 — re-check emptiness BEFORE the process-global finalize gate.
@@ -33282,8 +38615,100 @@ async fn do_flush_shard(
     let fin_permit = if bypass_finalize_gate {
         None
     } else {
-        crate::flush_finalize_gate().acquire().await.ok()
+        // #1635 — this acquire used to wait forever. A finalize that holds
+        // the process-global permit and never returns parked every later
+        // `_refresh` with no error. Timing out here is before the freeze,
+        // so the memtable is unchanged and the caller can retry.
+        match wait_for_flush_permit(
+            &index_name,
+            "the finalize gate",
+            admit_timeout,
+            crate::flush_finalize_gate().acquire(),
+        )
+        .await
+        {
+            Ok(permit) => permit,
+            Err(error) => {
+                on_drained();
+                return Err(error);
+            }
+        }
     };
+    // #2427 — while the parent RSS breaker is engaged, finalizes run one at
+    // a time (see `flush_pressure_gate`). Same deadline and same
+    // before-the-freeze failure as the finalize gate above.
+    let pressure_permit = if !bypass_finalize_gate
+        && crate::governor::global().is_some_and(|g| g.memory_breaker_engaged())
+    {
+        match wait_for_flush_permit(
+            &index_name,
+            "the memory-pressure flush gate",
+            admit_timeout,
+            crate::flush_pressure_gate().acquire(),
+        )
+        .await
+        {
+            Ok(permit) => permit,
+            Err(error) => {
+                drop(fin_permit);
+                on_drained();
+                return Err(error);
+            }
+        }
+    } else {
+        None
+    };
+    // #2427 — reserve this build's working set before the freeze. The build
+    // (JSON re-parse, postings, doc-value columns, stored encode) allocates a
+    // multiple of the frozen memtable bytes, and nothing charged it: each
+    // flush burst on the gate was ~550 MB of untracked memory that pushed RSS
+    // past the cap. A build that does not fit next to the ones in flight
+    // waits for them here; the reservation also counts against ingest
+    // admission until the segment is published. Same deadline and same
+    // before-the-freeze failure as the gates above.
+    let flush_reservation = match crate::governor::global() {
+        Some(governor) if !bypass_finalize_gate && flush_working_set_pct() > 0 => {
+            let shard_bytes = memtable.shard_load(shard_idx).1;
+            let bytes = flush_working_set_bytes(shard_bytes);
+            let wait_started = std::time::Instant::now();
+            match within_wall_clock(admit_timeout, governor.reserve_flush_build(bytes)).await {
+                Some(reservation) => {
+                    tracing::debug!(
+                        index = %index_name,
+                        shard = shard_idx,
+                        shard_bytes,
+                        reserved = bytes,
+                        wait_ms = wait_started.elapsed().as_millis() as u64,
+                        "flush build working set reserved"
+                    );
+                    if std::env::var_os("XERJ_PROF").is_some() {
+                        eprintln!(
+                            "XERJ_PROF flush-reserve shard={shard_idx} shard_bytes={shard_bytes} reserved={bytes} wait_us={}",
+                            wait_started.elapsed().as_micros()
+                        );
+                    }
+                    Some(reservation)
+                }
+                None => {
+                    drop(pressure_permit);
+                    drop(fin_permit);
+                    on_drained();
+                    return Err(flush_admit_timeout_error(
+                        &index_name,
+                        "the flush memory budget",
+                        admit_timeout,
+                    ));
+                }
+            }
+        }
+        _ => None,
+    };
+    let flush_build_trace = flush_reservation.as_ref().map(|reservation| {
+        crate::ingest_memory::Retained::new(
+            crate::ingest_memory::Category::FlushBuild,
+            reservation.bytes() as usize,
+        )
+    });
     // #1015 — NO collection-publication guard here.  The drain below is a
     // FREEZE, not a removal: the claimed docs stay reader-visible in the
     // shard's frozen generations for the whole segment build, so there is
@@ -33492,7 +38917,9 @@ async fn do_flush_shard(
     let segments_dir = data_dir.join("segments");
     let registry_for_build = Arc::clone(&registry);
     let fts_doc_count = drained_fts.len();
-    let drained_fts_for_build = Arc::clone(&drained_fts);
+    // Moved, not cloned: the build closure is the last owner, so the parsed
+    // payload is freed as soon as the side-cars are written (#2427).
+    let drained_fts_for_build = drained_fts;
     let segments_dir_for_dv = segments_dir.clone();
     let store_for_warm = Arc::clone(&store);
     // POV battery (B-3) caught that gating FTS+DV on the raw-bytes path
@@ -33544,14 +38971,14 @@ async fn do_flush_shard(
                 let columns = build_doc_value_columns(
                     drained_fts_for_build
                         .iter()
-                        .map(|(_id, _fields, src)| Some(src.as_ref())),
+                        .map(|(_id, _fields, src)| Some(&**src)),
                     &dv_skip_for_flush,
                 );
                 if !columns.is_empty() {
                     write_doc_values_sidecar(&segments_dir_for_dv, meta.id.as_str(), &columns)
                         .map_err(|error| {
                             xerj_storage::StorageError::Io(std::io::Error::other(format!(
-                                "doc-values side-car write failed: {error}"
+                                "doc-values side-car write failed: {error:#}"
                             )))
                         })?;
                 }
@@ -33573,21 +39000,40 @@ async fn do_flush_shard(
                 fts_writer.add_documents_parallel(&drained_fts_for_build);
                 fts_add_us = t_add.elapsed().as_micros();
                 let t_fin = std::time::Instant::now();
-                if fts_writer.uses_encoded_field_filename_components() {
+                // The data-dir format marker is a fence, not a side-car. If
+                // that preflight fails, this flush must fail and leave the
+                // documents uncommitted: a retry then writes the marker and
+                // the encoded side-cars. Publishing a no-FTS segment here
+                // would clear the memtable and skip that recovery.
+                let case_distinguished =
+                    fts_writer.uses_case_distinguished_field_filename_components();
+                let encoded =
+                    !case_distinguished && fts_writer.uses_encoded_field_filename_components();
+                if case_distinguished {
+                    store_for_warm.ensure_fts_case_distinguished_field_component_format()?;
+                } else if encoded {
                     store_for_warm.ensure_fts_encoded_field_component_format()?;
-                    fts_writer
-                        .publish_encoded_filename_layout()
-                        .map_err(|error| {
-                            xerj_storage::StorageError::Io(std::io::Error::other(format!(
-                                "FTS filename-layout publication failed: {error}"
-                            )))
-                        })?;
                 }
-                fts_writer.finish().map_err(|error| {
-                    xerj_storage::StorageError::Io(std::io::Error::other(format!(
-                        "FTS side-car build failed: {error}"
-                    )))
-                })?;
+                // #2349 — a side-car publish that fails on a case-folding
+                // volume used to fail this flush, and the aggregate `-docs`
+                // refresh then aborted the whole autoindex. When the partial
+                // files can be removed, keep the stored segment: search scans
+                // it, and a later merge rebuilds full text. The error logged
+                // by `degrade_fts_publish` names the path and the OS error.
+                let segment_id_for_fts = meta.id.clone();
+                let publish_result = (move || -> anyhow::Result<()> {
+                    if case_distinguished {
+                        fts_writer.publish_case_distinguished_filename_layout()?;
+                    } else if encoded {
+                        fts_writer.publish_encoded_filename_layout()?;
+                    }
+                    fts_writer.finish()?;
+                    Ok(())
+                })();
+                if let Err(error) = publish_result {
+                    degrade_fts_publish(&segments_dir, &segment_id_for_fts, &format!("{error:#}"))
+                        .map_err(xerj_storage::StorageError::Io)?;
+                }
                 fts_finish_us = t_fin.elapsed().as_micros();
             }
             if prof {
@@ -33643,7 +39089,7 @@ async fn do_flush_shard(
     //      dispatch.
     let t_finalize = std::time::Instant::now();
     let store_for_finalize = Arc::clone(&store);
-    let storage_drained_for_finalize = Arc::clone(&storage_drained);
+    let storage_drained_for_finalize = storage_drained;
     // #1015 — the claim rides the coordinator into the worker: the build
     // holds it (frozen generations stay reader-visible), publish RETIRES it
     // inside the bracket, and every failure path releases it.
@@ -33659,114 +39105,133 @@ async fn do_flush_shard(
         }
         let joined = tokio::task::spawn_blocking(move || {
             let _fin_permit = fin_permit;
-            // This lease lives in the blocking worker, not either async waiter.
-            // It spans build→publish exactly as before: it tracks the caches
-            // `build_fts` warms so a failed publication can evict them.
-            let lease =
-                PrePublicationLease::tracked(failed_warm_caches, Arc::clone(&warmed_segment_id));
-            // ── BUILD — NO publication bracket (#1015).  The frozen
-            // generations keep the drained docs fully reader-visible
-            // (postings, doc-values, sources) while the segment and its
-            // side-cars are written; a search racing the build sees the
-            // exact same doc set as before the flush started.  ──
-            let built = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                crate::background_pool().install(|| {
-                    store_for_finalize.build_flush_segment(&storage_drained_for_finalize, build_fts)
-                })
-            }));
-            let meta = match built {
-                Ok(Ok(meta)) => meta,
-                Ok(Err(error)) => {
-                    // Build failed before anything reader-visible happened:
-                    // release the claim — the frozen generations stay
-                    // readable and unclaimed, so the next flush of this
-                    // shard recycles them.  This pointer-flag flip replaces
-                    // the old `restore_failed_flush` re-insert entirely
-                    // (the docs never left the view, so there is nothing to
-                    // re-insert and no version-map resurrection guard to
-                    // re-check).
-                    claim_for_finalize.release();
-                    return Ok(Err(error));
-                }
-                Err(payload) => {
-                    claim_for_finalize.release();
-                    std::panic::resume_unwind(payload);
-                }
-            };
-            // ── PUBLISH — the ONLY reader-visible instant (#1015).  The
-            // bracket opened here spans: version-map repoint, the snapshot
-            // rcu, the frozen-generation retire, and the guard commit —
-            // millisecond-scale.  A capture that straddles any part of it
-            // fails the #1014 evenness check and retries on the next
-            // instant, instead of retrying against the full drain+build
-            // (~600 ms) window the old pre-drain bracket held.  ──
-            let mut collection_publication_guard = match collection_publication.begin() {
-                Ok(guard) => guard,
-                Err(_) => {
-                    claim_for_finalize.release();
-                    return Err(collection_publication_interrupted());
-                }
-            };
-            let published = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                crate::background_pool().install(|| {
-                    store_for_finalize.publish_flush_segment(&storage_drained_for_finalize, &meta)
-                })
-            }));
-            let outcome = match published {
-                Ok(Ok(
-                    outcome @ xerj_storage::index_store::FlushFinalizeOutcome::Published { .. },
-                )) => {
-                    // Retire INSIDE the bracket, immediately after the
-                    // snapshot swap: "the segment is in the snapshot" and
-                    // "the frozen docs left the memtable" are one atomic
-                    // instant for capturing readers.  The freed bytes leave
-                    // the memtable aggregate here (they were resident — and
-                    // charged — for the whole build).
-                    let _retained = claim_for_finalize.retire();
-                    collection_publication_guard.commit();
-                    // finalize published the snapshot before it returned;
-                    // commit the lease while still in the worker, no await.
-                    lease.commit();
-                    outcome
-                }
-                Ok(Ok(xerj_storage::index_store::FlushFinalizeOutcome::Empty)) => {
-                    // publish_flush_segment never returns Empty on a
-                    // non-empty drain set (build_flush_segment errors
-                    // first); handle it defensively as a failure.
-                    claim_for_finalize.release();
-                    collection_publication_guard.cancel();
-                    xerj_storage::index_store::FlushFinalizeOutcome::Empty
-                }
-                Ok(Err(error)) => {
-                    // Publication failed and was rolled back (failpoints
-                    // included): the segment is abandoned, the version map
-                    // is restored, and the docs must stay visible — release
-                    // the claim so the next flush retries them.
-                    claim_for_finalize.release();
-                    collection_publication_guard.cancel();
-                    return Ok(Err(error));
-                }
-                Err(payload) => {
-                    claim_for_finalize.release();
-                    collection_publication_guard.cancel();
-                    std::panic::resume_unwind(payload);
-                }
-            };
-            // ── POST-publish maintenance — OUTSIDE the bracket (#1015):
-            // the bucket catalog PUT is network I/O and the WAL
-            // checkpoint/prune takes locks; neither belongs between
-            // `begin()` and `commit()`.  Deferred failures are warn-only —
-            // the segment is already published.  ──
-            if let Err(error) =
-                store_for_finalize.after_flush_publish(&storage_drained_for_finalize, &meta)
-            {
-                tracing::warn!(
-                    error = %error,
-                    segment_id = %meta.id,
-                    "flush maintenance deferred after publication"
+            let _pressure_permit = pressure_permit;
+            let flush_reservation = flush_reservation;
+            let flush_build_trace = flush_build_trace;
+            // The build, publish and maintenance run in this inner closure so
+            // every payload it owns (drained docs, segment buffers) is freed
+            // before the reservation is released below (#2427).
+            let result = (move || {
+                // This lease lives in the blocking worker, not either async waiter.
+                // It spans build→publish exactly as before: it tracks the caches
+                // `build_fts` warms so a failed publication can evict them.
+                let lease = PrePublicationLease::tracked(
+                    failed_warm_caches,
+                    Arc::clone(&warmed_segment_id),
                 );
+                // ── BUILD — NO publication bracket (#1015).  The frozen
+                // generations keep the drained docs fully reader-visible
+                // (postings, doc-values, sources) while the segment and its
+                // side-cars are written; a search racing the build sees the
+                // exact same doc set as before the flush started.  ──
+                let built = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    crate::background_pool().install(|| {
+                        store_for_finalize
+                            .build_flush_segment(&storage_drained_for_finalize, build_fts)
+                    })
+                }));
+                let meta = match built {
+                    Ok(Ok(meta)) => meta,
+                    Ok(Err(error)) => {
+                        // Build failed before anything reader-visible happened:
+                        // release the claim — the frozen generations stay
+                        // readable and unclaimed, so the next flush of this
+                        // shard recycles them.  This pointer-flag flip replaces
+                        // the old `restore_failed_flush` re-insert entirely
+                        // (the docs never left the view, so there is nothing to
+                        // re-insert and no version-map resurrection guard to
+                        // re-check).
+                        claim_for_finalize.release();
+                        return Ok(Err(error));
+                    }
+                    Err(payload) => {
+                        claim_for_finalize.release();
+                        std::panic::resume_unwind(payload);
+                    }
+                };
+                // ── PUBLISH — the ONLY reader-visible instant (#1015).  The
+                // bracket opened here spans: version-map repoint, the snapshot
+                // rcu, the frozen-generation retire, and the guard commit —
+                // millisecond-scale.  A capture that straddles any part of it
+                // fails the #1014 evenness check and retries on the next
+                // instant, instead of retrying against the full drain+build
+                // (~600 ms) window the old pre-drain bracket held.  ──
+                let mut collection_publication_guard = match collection_publication.begin() {
+                    Ok(guard) => guard,
+                    Err(_) => {
+                        claim_for_finalize.release();
+                        return Err(collection_publication_interrupted());
+                    }
+                };
+                let published = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    crate::background_pool().install(|| {
+                        store_for_finalize
+                            .publish_flush_segment(&storage_drained_for_finalize, &meta)
+                    })
+                }));
+                let outcome = match published {
+                    Ok(Ok(
+                        outcome @ xerj_storage::index_store::FlushFinalizeOutcome::Published {
+                            ..
+                        },
+                    )) => {
+                        // Retire INSIDE the bracket, immediately after the
+                        // snapshot swap: "the segment is in the snapshot" and
+                        // "the frozen docs left the memtable" are one atomic
+                        // instant for capturing readers.  The freed bytes leave
+                        // the memtable aggregate here (they were resident — and
+                        // charged — for the whole build).
+                        let _retained = claim_for_finalize.retire();
+                        collection_publication_guard.commit();
+                        // finalize published the snapshot before it returned;
+                        // commit the lease while still in the worker, no await.
+                        lease.commit();
+                        outcome
+                    }
+                    Ok(Ok(xerj_storage::index_store::FlushFinalizeOutcome::Empty)) => {
+                        // publish_flush_segment never returns Empty on a
+                        // non-empty drain set (build_flush_segment errors
+                        // first); handle it defensively as a failure.
+                        claim_for_finalize.release();
+                        collection_publication_guard.cancel();
+                        xerj_storage::index_store::FlushFinalizeOutcome::Empty
+                    }
+                    Ok(Err(error)) => {
+                        // Publication failed and was rolled back (failpoints
+                        // included): the segment is abandoned, the version map
+                        // is restored, and the docs must stay visible — release
+                        // the claim so the next flush retries them.
+                        claim_for_finalize.release();
+                        collection_publication_guard.cancel();
+                        return Ok(Err(error));
+                    }
+                    Err(payload) => {
+                        claim_for_finalize.release();
+                        collection_publication_guard.cancel();
+                        std::panic::resume_unwind(payload);
+                    }
+                };
+                // ── POST-publish maintenance — OUTSIDE the bracket (#1015):
+                // the bucket catalog PUT is network I/O and the WAL
+                // checkpoint/prune takes locks; neither belongs between
+                // `begin()` and `commit()`.  Deferred failures are warn-only —
+                // the segment is already published.  ──
+                if let Err(error) =
+                    store_for_finalize.after_flush_publish(&storage_drained_for_finalize, &meta)
+                {
+                    tracing::warn!(
+                        error = %error,
+                        segment_id = %meta.id,
+                        "flush maintenance deferred after publication"
+                    );
+                }
+                Ok(Ok(outcome))
+            })();
+            drop(flush_build_trace);
+            if let Some(reservation) = flush_reservation {
+                release_flush_build(reservation);
             }
-            Ok(Ok(outcome))
+            result
         })
         .await;
         match joined {
@@ -34505,8 +39970,20 @@ fn apply_source_filter_measured(
             );
         }
         // The caller explicitly asked for the whole document — MORE than the
-        // default projection, not less. Nothing was withheld.
-        SourceFilter::Enabled(true) => return (hits, None),
+        // default projection, not less. Nothing was withheld. Expand packed
+        // embeddings here, on the page only, so the wire form stays a number
+        // array (#1940).
+        SourceFilter::Enabled(true) => {
+            return (
+                hits.into_iter()
+                    .map(|mut hit| {
+                        xerj_common::packed_f32::expand_packed_f32_values(&mut hit.source);
+                        hit
+                    })
+                    .collect(),
+                None,
+            );
+        }
         // `_source: false`: keep the raw source so the response layer can
         // still resolve `fields` / `_ignored` / `highlight` against it —
         // `_source` emission is suppressed in es_compat.rs.
@@ -34542,6 +40019,10 @@ fn apply_source_filter_measured(
                     .then(|| default_projection_len(&h.source, generated_companion_fields, mode));
                 let sentinels = take_collapse_sentinels(&h.source);
                 h.source = filter_object(&h.source, fields, &[]);
+                // Expand before the savings measurement so a caller who asked
+                // for the companion is billed for the number array on the wire,
+                // not the packed string it was stored as.
+                xerj_common::packed_f32::expand_packed_f32_values(&mut h.source);
                 if let Some(baseline) = baseline {
                     // Saturating: a caller who explicitly projects a generated
                     // companion gets MORE than the default, and more is not a
@@ -34559,6 +40040,7 @@ fn apply_source_filter_measured(
                     .then(|| default_projection_len(&h.source, generated_companion_fields, mode));
                 let sentinels = take_collapse_sentinels(&h.source);
                 h.source = filter_object(&h.source, includes, excludes);
+                xerj_common::packed_f32::expand_packed_f32_values(&mut h.source);
                 if let Some(baseline) = baseline {
                     acc.record(&h.id, baseline.saturating_sub(json_len(&h.source, mode)));
                 }
@@ -36388,6 +41870,356 @@ fn field_matches(field: &str, pattern: &str) -> bool {
     }
 }
 
+/// One `semantic_text` field the semantic highlighter can read.
+///
+/// `name` is what a highlight request may say (the mapped name, or the alias
+/// the semantic query used). `source_field` is the `_source` key holding the
+/// text. `vector_field` is the companion the ingest path stored chunk vectors
+/// under.
+#[derive(Clone)]
+struct SemanticFieldRef {
+    name: String,
+    source_field: String,
+    vector_field: String,
+}
+
+/// Query embedding and field map for one semantic search that asked for
+/// highlights (#1947).
+///
+/// Lives in a task-local rather than on [`SearchRequest`]: the kNN executors
+/// already take the request, and plain `knn` must not grow a parameter it
+/// never reads. `run_semantic_with_deadline` sets the scope; result shaping
+/// reads it. A search that is not inside that scope highlights nothing here.
+#[derive(Clone)]
+struct SemanticHighlightPlan {
+    query_vec: Vec<f32>,
+    dims: usize,
+    similarity: String,
+    fields: Vec<SemanticFieldRef>,
+    /// Re-embed chunk text with the built-in lexical embedder. When `false`,
+    /// an active backend produced the stored chunk vectors and those are
+    /// scored instead — re-embedding with the lexical embedder would compare
+    /// vectors from two different spaces.
+    lexical: bool,
+}
+
+tokio::task_local! {
+    static SEMANTIC_HIGHLIGHT_PLAN: SemanticHighlightPlan;
+}
+
+fn collect_semantic_highlight_fields(
+    schema: &Schema,
+    query_field: &str,
+    resolved_field: &str,
+) -> Vec<SemanticFieldRef> {
+    let mut fields = Vec::new();
+    for fc in &schema.fields {
+        let Some(emb) = fc.embedding.as_ref() else {
+            continue;
+        };
+        let vector_field = emb
+            .target_field
+            .clone()
+            .unwrap_or_else(|| format!("{}_vector", fc.name));
+        fields.push(SemanticFieldRef {
+            name: fc.name.clone(),
+            source_field: fc.name.clone(),
+            vector_field,
+        });
+    }
+    // A query on an alias highlights either the alias or the concrete field.
+    if query_field != resolved_field {
+        if let Some(src) = fields
+            .iter()
+            .find(|f| f.source_field == resolved_field)
+            .cloned()
+        {
+            fields.push(SemanticFieldRef {
+                name: query_field.to_string(),
+                source_field: src.source_field,
+                vector_field: src.vector_field,
+            });
+        }
+    }
+    fields
+}
+
+fn semantic_highlight_plan(
+    hl: &HighlightRequest,
+    fields: Vec<SemanticFieldRef>,
+    query_vec: Vec<f32>,
+    dims: usize,
+    similarity: String,
+    lexical: bool,
+) -> Option<SemanticHighlightPlan> {
+    if fields.is_empty() || query_vec.is_empty() {
+        return None;
+    }
+    let wanted = hl.fields.iter().any(|(name, opts)| {
+        semantic_highlighter_selected(opts, hl)
+            && fields
+                .iter()
+                .any(|field| name_selects_semantic_field(name, field))
+    });
+    if !wanted {
+        return None;
+    }
+    Some(SemanticHighlightPlan {
+        query_vec,
+        dims,
+        similarity,
+        fields,
+        lexical,
+    })
+}
+
+fn name_selects_semantic_field(pattern: &str, field: &SemanticFieldRef) -> bool {
+    if pattern.contains('*') {
+        field_matches(&field.name, pattern) || field_matches(&field.source_field, pattern)
+    } else {
+        pattern == field.name || pattern == field.source_field
+    }
+}
+
+/// `None` and `"semantic"` select the semantic highlighter. Any other
+/// explicit type (`unified`, `plain`, `fvh`) stays on the lexical pass.
+fn semantic_highlighter_selected(opts: &HighlightFieldOptions, hl: &HighlightRequest) -> bool {
+    match opts
+        .highlighter_type
+        .as_deref()
+        .or(hl.highlighter_type.as_deref())
+    {
+        Some("semantic") | None => true,
+        Some(_) => false,
+    }
+}
+
+fn semantic_highlight_hit(
+    source: &Value,
+    hl: &HighlightRequest,
+    plan: &SemanticHighlightPlan,
+) -> std::collections::HashMap<String, Vec<String>> {
+    let mut out = std::collections::HashMap::new();
+    let mut seen = HashSet::new();
+    // Explicit names win over a pattern that covers the same field, matching
+    // `expand_highlight_field_patterns`.
+    let mut patterns = Vec::new();
+    for (name, opts) in &hl.fields {
+        if name.contains('*') {
+            patterns.push((name, opts));
+            continue;
+        }
+        if !semantic_highlighter_selected(opts, hl) {
+            continue;
+        }
+        let Some(field) = find_semantic_field(name, &plan.fields) else {
+            continue;
+        };
+        seen.insert(field.name.clone());
+        let fragments = semantic_fragments(source, field, opts, hl, plan);
+        if !fragments.is_empty() {
+            out.insert(name.clone(), fragments);
+        }
+    }
+    for (pattern, opts) in patterns {
+        if !semantic_highlighter_selected(opts, hl) {
+            continue;
+        }
+        for field in plan
+            .fields
+            .iter()
+            .filter(|field| name_selects_semantic_field(pattern, field))
+        {
+            if !seen.insert(field.name.clone()) {
+                continue;
+            }
+            let fragments = semantic_fragments(source, field, opts, hl, plan);
+            if !fragments.is_empty() {
+                out.insert(field.name.clone(), fragments);
+            }
+        }
+    }
+    out
+}
+
+fn find_semantic_field<'a>(
+    name: &str,
+    fields: &'a [SemanticFieldRef],
+) -> Option<&'a SemanticFieldRef> {
+    fields
+        .iter()
+        .find(|field| field.name == name)
+        .or_else(|| fields.iter().find(|field| field.source_field == name))
+}
+
+/// Best-scoring chunks of one `semantic_text` field.
+///
+/// Elasticsearch's semantic highlighter (the default for `semantic_text`)
+/// returns the chunks produced at ingest, ordered by similarity to the query,
+/// without `<em>` tags. Approach only — the chunk text and vectors are this
+/// engine's, scored with [`compute_vector_similarity`]. `number_of_fragments`
+/// limits how many chunks are kept (default 5; `0` is the whole field).
+/// `order: none` emits that selection in document order; anything else,
+/// including the default, emits it by score. Ties keep the earlier chunk,
+/// the same rule as [`choose_passage_winner`].
+fn semantic_fragments(
+    source: &Value,
+    field: &SemanticFieldRef,
+    opts: &HighlightFieldOptions,
+    hl: &HighlightRequest,
+    plan: &SemanticHighlightPlan,
+) -> Vec<String> {
+    let Some(text_val) = get_field_value(source, &field.source_field) else {
+        return Vec::new();
+    };
+    let Some(text) = text_val.as_str() else {
+        return Vec::new();
+    };
+    if text.is_empty() {
+        return Vec::new();
+    }
+    let n = opts
+        .number_of_fragments
+        .or(hl.number_of_fragments)
+        .unwrap_or(5);
+    if n == 0 {
+        return vec![text.to_string()];
+    }
+    let passages = semantic_passages(text, source, &field.vector_field);
+    if passages.is_empty() {
+        return Vec::new();
+    }
+    let stored = if plan.lexical {
+        Vec::new()
+    } else {
+        stored_chunk_vectors(source, &field.vector_field)
+    };
+    let mut scored: Vec<(u32, f32, String)> = passages
+        .into_iter()
+        .map(|(ordinal, raw)| {
+            let score = chunk_score(plan, &raw, ordinal, &stored);
+            (ordinal, score, raw)
+        })
+        .collect();
+    scored.sort_by(|a, b| {
+        b.1.partial_cmp(&a.1)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then(a.0.cmp(&b.0))
+    });
+    scored.truncate(n);
+    let order = opts
+        .order
+        .as_deref()
+        .or(hl.order.as_deref())
+        .unwrap_or("score");
+    if order == "none" {
+        scored.sort_by_key(|chunk| chunk.0);
+    }
+    scored
+        .into_iter()
+        .map(|(_, _, raw)| raw.trim().to_string())
+        .filter(|fragment| !fragment.is_empty())
+        .collect()
+}
+
+fn chunk_score(plan: &SemanticHighlightPlan, text: &str, ordinal: u32, stored: &[Vec<f32>]) -> f32 {
+    let vector = if plan.lexical {
+        xerj_ai::local::local_embed(text, plan.dims)
+    } else {
+        let Some(stored) = stored.get(ordinal as usize) else {
+            return f32::NEG_INFINITY;
+        };
+        stored.clone()
+    };
+    if vector.len() != plan.query_vec.len() {
+        return f32::NEG_INFINITY;
+    }
+    compute_vector_similarity(&plan.similarity, &plan.query_vec, &vector)
+}
+
+/// Ingest chunk slices when passage metadata is present and valid, otherwise
+/// the same chunker ingest uses. A single short value is one passage covering
+/// the whole field, matching `local_chunk_vectors`.
+fn semantic_passages(text: &str, source: &Value, vector_field: &str) -> Vec<(u32, String)> {
+    if let Some(passages) = passages_from_metadata(text, source, vector_field) {
+        return passages;
+    }
+    let chunks = semantic_chunker().chunk(text, None);
+    if chunks.len() <= 1 {
+        return vec![(0, text.to_string())];
+    }
+    chunks
+        .into_iter()
+        .enumerate()
+        .map(|(ordinal, chunk)| (ordinal as u32, chunk.text))
+        .collect()
+}
+
+fn passages_from_metadata(
+    text: &str,
+    source: &Value,
+    vector_field: &str,
+) -> Option<Vec<(u32, String)>> {
+    let chunks = source
+        .get(passage_metadata_field(vector_field))?
+        .as_object()?
+        .get("chunks")?
+        .as_array()?;
+    if chunks.is_empty() {
+        return None;
+    }
+    let mut passages = Vec::with_capacity(chunks.len());
+    for (ordinal, pair) in chunks.iter().enumerate() {
+        let pair = pair.as_array()?;
+        if pair.len() != 2 {
+            return None;
+        }
+        let start = usize::try_from(pair[0].as_u64()?).ok()?;
+        let end = usize::try_from(pair[1].as_u64()?).ok()?;
+        if start > end
+            || end > text.len()
+            || !text.is_char_boundary(start)
+            || !text.is_char_boundary(end)
+        {
+            return None;
+        }
+        passages.push((ordinal as u32, text[start..end].to_string()));
+    }
+    Some(passages)
+}
+
+fn stored_chunk_vectors(source: &Value, vector_field: &str) -> Vec<Vec<f32>> {
+    let Some(Value::Array(rows)) = source.get(format!("{vector_field}_chunks")) else {
+        return Vec::new();
+    };
+    let mut vectors = Vec::with_capacity(rows.len());
+    for row in rows {
+        let Some(vector) = json_f32_vector(row) else {
+            return Vec::new();
+        };
+        vectors.push(vector);
+    }
+    vectors
+}
+
+fn json_f32_vector(value: &Value) -> Option<Vec<f32>> {
+    // #1940 stores each chunk as a `xerj:f32:` string. A number array is
+    // still valid for segments written before that. Non-finite components
+    // in a number array keep the previous `as_f64() as f32` read.
+    if value
+        .as_str()
+        .is_some_and(xerj_common::packed_f32::is_packed_f32)
+    {
+        return xerj_common::packed_f32::unpack_f32_vector(value.as_str()?);
+    }
+    let row = value.as_array()?;
+    let mut vector = Vec::with_capacity(row.len());
+    for component in row {
+        vector.push(component.as_f64()? as f32);
+    }
+    Some(vector)
+}
+
 /// Apply highlight to hits, generating fragments per requested field.
 ///
 /// For each field listed in `highlight.fields`, the stored field value is
@@ -36399,6 +42231,10 @@ fn apply_highlight(hits: Vec<Hit>, hl: &HighlightRequest, query: &QueryNode) -> 
     }
     // Pre-compute query terms ONCE before iterating hits (Opt 3).
     let query_terms = extract_highlight_terms(query);
+    // A `semantic` query has no lexical terms. Its highlights are the
+    // best-scoring chunks of the `semantic_text` field, attached in
+    // `knn_result_from_ranked` (#1947). This lexical pass correctly
+    // leaves those hits alone.
     if query_terms.is_empty() {
         return hits;
     }
@@ -36436,7 +42272,9 @@ fn apply_highlight(hits: Vec<Hit>, hl: &HighlightRequest, query: &QueryNode) -> 
                     // so matches can be translated back to original-text char
                     // boundaries (fixes the multibyte highlight SIGABRT).
                     let (text_lower, lower_map) = build_lower_offset_map(&text);
-                    let has_any = query_terms.iter().any(|t| text_lower.contains(t.as_str()));
+                    let has_any = query_terms
+                        .iter()
+                        .any(|t| next_term_match(&text_lower, t, 0).is_some());
                     if !has_any {
                         continue;
                     }
@@ -36622,14 +42460,29 @@ fn collect_highlight_terms(query: &QueryNode, out: &mut Vec<String>) {
     match query {
         QueryNode::Match { query, .. }
         | QueryNode::MatchPhrase { query, .. }
-        | QueryNode::MultiMatch { query, .. }
-        | QueryNode::QueryString { query, .. } => {
+        | QueryNode::MultiMatch { query, .. } => {
             for tok in query.split_whitespace() {
                 let tok = tok
                     .trim_matches(|c: char| !c.is_alphanumeric())
                     .to_lowercase();
                 if !tok.is_empty() {
                     out.push(tok);
+                }
+            }
+        }
+        QueryNode::QueryString { query, .. } => {
+            for tok in query.split_whitespace() {
+                // `wild*` keeps its star so it highlights `wildcard` as a
+                // prefix match; every other term matches whole words only.
+                let prefix = tok
+                    .trim_start_matches(|c: char| !c.is_alphanumeric())
+                    .trim_end_matches(|c: char| !c.is_alphanumeric() && c != '*')
+                    .ends_with('*');
+                let tok = tok
+                    .trim_matches(|c: char| !c.is_alphanumeric())
+                    .to_lowercase();
+                if !tok.is_empty() {
+                    out.push(if prefix { format!("{tok}*") } else { tok });
                 }
             }
         }
@@ -36655,6 +42508,112 @@ fn collect_highlight_terms(query: &QueryNode, out: &mut Vec<String>) {
         }
         _ => {}
     }
+}
+
+/// A character that continues a word, for highlight boundaries.
+fn is_word_char(c: char) -> bool {
+    c.is_alphanumeric() || c == '_'
+}
+
+/// The next occurrence of highlight `term` in `text_lower` at or after byte
+/// `from` that stands as a whole word: the characters on either side are not
+/// word characters. A term ending in `*` (a `query_string` prefix) needs a
+/// boundary before it only and extends to the end of the word it starts.
+///
+/// Plain substring search (#1948) highlighted `or` inside `for`, `no` inside `not`
+/// and `OR` inside `SECTOR`, and a phrase's short words then claimed the
+/// fragment away from the phrase itself.
+fn next_term_match(text_lower: &str, term: &str, from: usize) -> Option<(usize, usize)> {
+    let (needle, prefix) = match term.strip_suffix('*') {
+        Some(stem) => (stem, true),
+        None => (term, false),
+    };
+    if needle.is_empty() || from > text_lower.len() {
+        return None;
+    }
+    let mut start = from;
+    while let Some(pos) = text_lower[start..].find(needle) {
+        let abs = start + pos;
+        let mut end = abs + needle.len();
+        let before_ok = !text_lower[..abs]
+            .chars()
+            .next_back()
+            .is_some_and(is_word_char);
+        if prefix {
+            end += text_lower[end..]
+                .char_indices()
+                .find(|&(_, c)| !is_word_char(c))
+                .map(|(i, _)| i)
+                .unwrap_or(text_lower.len() - end);
+        }
+        let after_ok = prefix || !text_lower[end..].chars().next().is_some_and(is_word_char);
+        if before_ok && after_ok {
+            return Some((abs, end));
+        }
+        // Step one character, not one byte, past this candidate.
+        start = abs + text_lower[abs..].chars().next().map_or(1, char::len_utf8);
+    }
+    None
+}
+
+/// Wrap every whole-word occurrence of every term inside `text[win_start..
+/// win_end]` with `pre`/`post`. Overlapping spans merge into one tag pair.
+#[allow(clippy::too_many_arguments)]
+fn tag_terms_in_window(
+    text: &str,
+    text_lower: &str,
+    lower_map: &[(usize, usize, usize)],
+    terms: &[String],
+    win_start: usize,
+    win_end: usize,
+    pre: &str,
+    post: &str,
+) -> String {
+    let orig_len = text.len();
+    // Start the scan at the window, not at the top of a large document.
+    let window_lower_start = lower_map
+        .get(lower_map.partition_point(|e| e.1 < win_start))
+        .map_or(text_lower.len(), |e| e.0);
+    let mut spans: Vec<(usize, usize)> = Vec::new();
+    for term in terms {
+        let mut from = window_lower_start;
+        while let Some((ls, le)) = next_term_match(text_lower, term, from) {
+            let (oa, ob) = lower_span_to_orig(lower_map, orig_len, ls, le);
+            if oa >= win_end {
+                break;
+            }
+            if oa >= win_start && ob <= win_end && ob > oa {
+                spans.push((oa, ob));
+            }
+            from = le.max(ls + 1);
+        }
+    }
+    spans.sort_unstable();
+    let mut out = String::with_capacity(win_end - win_start + spans.len() * 9);
+    let mut cursor = win_start;
+    let mut open: Option<(usize, usize)> = None;
+    let flush = |out: &mut String, cursor: &mut usize, (s, e): (usize, usize)| {
+        out.push_str(&text[*cursor..s]);
+        out.push_str(pre);
+        out.push_str(&text[s..e]);
+        out.push_str(post);
+        *cursor = e;
+    };
+    for (s, e) in spans {
+        match open {
+            Some((os, oe)) if s <= oe => open = Some((os, oe.max(e))),
+            Some(span) => {
+                flush(&mut out, &mut cursor, span);
+                open = Some((s, e));
+            }
+            None => open = Some((s, e)),
+        }
+    }
+    if let Some(span) = open {
+        flush(&mut out, &mut cursor, span);
+    }
+    out.push_str(&text[cursor..win_end]);
+    out
 }
 
 /// Build highlighted fragments for a single field value.
@@ -36736,15 +42695,14 @@ fn highlight_full_text(
             continue;
         }
         let mut start = 0;
-        while let Some(pos) = text_lower[start..].find(term.as_str()) {
-            let abs = start + pos;
+        while let Some((ls, le)) = next_term_match(text_lower, term, start) {
             // Translate the lowercased-text match offsets back to original
             // text char boundaries before recording the span.
-            let (oa, ob) = lower_span_to_orig(lower_map, orig_len, abs, abs + term.len());
+            let (oa, ob) = lower_span_to_orig(lower_map, orig_len, ls, le);
             if ob > oa {
                 spans.push((oa, ob));
             }
-            start = abs + term.len();
+            start = le.max(ls + 1);
         }
     }
     spans.sort_by_key(|&(s, _)| s);
@@ -36810,14 +42768,13 @@ fn build_highlight_fragments(
         // highlighting and downloaded whole documents instead.
         let mut per_term = 0usize;
         let per_term_cap = (num_frags * 4).max(4);
-        while let Some(pos) = text_lower[start..].find(term.as_str()) {
-            let abs = start + pos;
-            let (oa, ob) = lower_span_to_orig(lower_map, orig_len, abs, abs + term.len());
+        while let Some((ls, le)) = next_term_match(text_lower, term, start) {
+            let (oa, ob) = lower_span_to_orig(lower_map, orig_len, ls, le);
             if ob > oa {
                 match_positions.push((oa, ob));
-                lower_positions.push((abs, abs + term.len()));
+                lower_positions.push((ls, le));
             }
-            start = abs + term.len();
+            start = le.max(ls + 1);
             per_term += 1;
             if per_term >= per_term_cap {
                 break; // enough candidates FOR THIS TERM; keep scanning others
@@ -36855,7 +42812,10 @@ fn build_highlight_fragments(
                 .find(|&i| text_lower.is_char_boundary(i))
                 .unwrap_or(lower_len);
             let window = &text_lower[lo..hi];
-            let distinct = terms.iter().filter(|t| window.contains(t.as_str())).count();
+            let distinct = terms
+                .iter()
+                .filter(|t| next_term_match(window, t, 0).is_some())
+                .count();
             (distinct, orig)
         })
         .collect();
@@ -36891,7 +42851,7 @@ fn build_highlight_fragments(
     let mut fragments: Vec<String> = Vec::new();
     let mut last_win_end: usize = 0;
 
-    for (byte_start, byte_end) in &match_positions {
+    for (byte_start, _) in &match_positions {
         if fragments.len() >= num_frags {
             break;
         }
@@ -36913,28 +42873,16 @@ fn build_highlight_fragments(
         }
         last_win_end = win_end;
 
-        // Clamp match offsets to the window.
-        let match_start = (*byte_start).max(win_start).min(win_end);
-        let match_end = (*byte_end).max(win_start).min(win_end);
-
-        // Build the fragment: prefix + pre-tag + matched span + post-tag + suffix.
+        // Build the fragment: every query term inside the window is tagged,
+        // not only the match the window is centred on, so a phrase reads as
+        // its words tagged in place (original casing kept).
         let mut frag = String::with_capacity(frag_size + pre.len() + post.len() + 6);
         if win_start > 0 {
             frag.push_str("...");
         }
-        // Text before the match (within the window).
-        if match_start > win_start {
-            // Use the original text casing for the context surrounding the match.
-            frag.push_str(&text[win_start..match_start]);
-        }
-        frag.push_str(pre);
-        // The matched span (from original text, not lowercased).
-        frag.push_str(&text[match_start..match_end]);
-        frag.push_str(post);
-        // Text after the match (within the window).
-        if match_end < win_end {
-            frag.push_str(&text[match_end..win_end]);
-        }
+        frag.push_str(&tag_terms_in_window(
+            text, text_lower, lower_map, terms, win_start, win_end, pre, post,
+        ));
         if win_end < total_bytes {
             frag.push_str("...");
         }
@@ -36942,6 +42890,18 @@ fn build_highlight_fragments(
     }
 
     fragments
+}
+
+/// #2191: the embedding backend answered with vectors whose width contradicts
+/// the `semantic_text` field's mapped `dimensions`. The backend's width is
+/// fixed, so a retry cannot succeed: report it as a mapping error (HTTP 400,
+/// `mapper_parsing_exception` on `_bulk`) rather than a retryable backend 500.
+fn semantic_width_mismatch_error(detail: &str) -> xerj_common::XerjError {
+    xerj_common::XerjError::invalid_mapping(format!(
+        "{detail}; the embedding backend's vector width is fixed, so retrying cannot \
+         succeed: set the semantic_text field's `dimensions` to the backend's width, \
+         or point the field at a backend that returns the mapped width"
+    ))
 }
 
 /// Build the effective [`xerj_ai::Embedder`] from `Config.embedding`.
@@ -37157,6 +43117,9 @@ fn configured_neural_config(
         model_id,
         cache_dir: (!cfg.model_cache_dir.is_empty()).then(|| cfg.model_cache_dir.clone().into()),
         local_dir: (!cfg.local_model_dir.is_empty()).then(|| cfg.local_model_dir.clone().into()),
+        // The mirror URL is `HF_ENDPOINT`, read inside the hub client. There
+        // is no config field for it; tests inject one on `NeuralConfig` directly.
+        hub_endpoint: None,
     }
 }
 
@@ -37243,6 +43206,181 @@ fn configured_neural_identity(
     unreachable!("the neural backend is not compiled into this build")
 }
 
+/// Probe text sent once per process to learn a proxy model's vector width.
+///
+/// Kept distinct from document text so a resume test can tell the probe apart
+/// from a re-embedded document.
+const PROXY_WIDTH_PROBE_TEXT: &str = "xerj-proxy-identity-probe";
+
+/// On-disk copy of the last confirmed proxy width, under the data directory.
+///
+/// A restart whose endpoint is briefly down reuses this instead of reporting
+/// a different identity and refusing to resume. It is not an index directory
+/// (`Engine::new` only opens subdirectories that contain a `wal`).
+const PROXY_WIDTH_CACHE_FILE: &str = "proxy-embedding-probe.json";
+
+fn proxy_width_unconfirmed_reason() -> String {
+    "the proxy embedding endpoint has not confirmed a vector width, so semantic \
+     resume cannot reuse already-embedded documents. The embedder identity is the \
+     backend, the configured model, the endpoint, and the vector width; without a \
+     confirmed width a rerun cannot tell this model from a different one. Make the \
+     embedding endpoint reachable and rerun — documents already indexed are kept and \
+     are not re-embedded once the same width is confirmed. Rebuild with a new \
+     --state-dir and a new --prefix only to discard this corpus and start over"
+        .to_string()
+}
+
+fn confirmed_proxy_width(cfg: &xerj_common::config::EmbeddingConfig) -> Option<usize> {
+    let guard = cfg
+        .runtime_proxy_width
+        .read()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    guard.as_ref().and_then(|confirmed| {
+        (confirmed.endpoint == cfg.default_endpoint
+            && confirmed.model == cfg.default_model
+            && confirmed.dimensions > 0)
+            .then_some(confirmed.dimensions)
+    })
+}
+
+fn remember_proxy_width(cfg: &xerj_common::config::EmbeddingConfig, dimensions: usize) {
+    let mut guard = cfg
+        .runtime_proxy_width
+        .write()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    *guard = Some(xerj_common::config::ConfirmedProxyWidth {
+        endpoint: cfg.default_endpoint.clone(),
+        model: cfg.default_model.clone(),
+        dimensions,
+    });
+}
+
+fn proxy_mode_selected(cfg: &xerj_common::config::EmbeddingConfig) -> bool {
+    let requested = cfg.mode.trim().to_ascii_lowercase();
+    match requested.as_str() {
+        "proxy" => !cfg.default_endpoint.is_empty(),
+        "neural" | "lexical" | "onnx-experimental" => false,
+        _ => !cfg.default_endpoint.is_empty(),
+    }
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+struct ProxyWidthCacheFile {
+    endpoint: String,
+    model: String,
+    dimensions: usize,
+}
+
+fn load_proxy_width_cache(
+    data_dir: &Path,
+    cfg: &xerj_common::config::EmbeddingConfig,
+) -> Option<usize> {
+    let bytes = std::fs::read(data_dir.join(PROXY_WIDTH_CACHE_FILE)).ok()?;
+    let cached: ProxyWidthCacheFile = serde_json::from_slice(&bytes).ok()?;
+    (cached.endpoint == cfg.default_endpoint
+        && cached.model == cfg.default_model
+        && cached.dimensions > 0)
+        .then_some(cached.dimensions)
+}
+
+fn store_proxy_width_cache(
+    data_dir: &Path,
+    cfg: &xerj_common::config::EmbeddingConfig,
+    dimensions: usize,
+) {
+    if let Err(error) = std::fs::create_dir_all(data_dir) {
+        warn!(
+            error = %error,
+            "could not create the data directory for the proxy width cache"
+        );
+        return;
+    }
+    let bytes = match serde_json::to_vec(&ProxyWidthCacheFile {
+        endpoint: cfg.default_endpoint.clone(),
+        model: cfg.default_model.clone(),
+        dimensions,
+    }) {
+        Ok(bytes) => bytes,
+        Err(error) => {
+            warn!(error = %error, "could not encode the proxy width cache");
+            return;
+        }
+    };
+    if let Err(error) = write_file_atomic(&data_dir.join(PROXY_WIDTH_CACHE_FILE), &bytes) {
+        warn!(error = %error, "could not store the confirmed proxy vector width");
+    }
+}
+
+fn probe_proxy_width(
+    cfg: &xerj_common::config::EmbeddingConfig,
+) -> std::result::Result<usize, String> {
+    let proxy =
+        xerj_ai::embed::EmbeddingProxy::new(proxy_config(cfg)).map_err(|e| e.to_string())?;
+    let probed = proxy.embed(PROXY_WIDTH_PROBE_TEXT.to_string());
+    let vector = if let Ok(handle) = tokio::runtime::Handle::try_current() {
+        tokio::task::block_in_place(|| handle.block_on(probed))
+    } else {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .map_err(|e| e.to_string())?;
+        runtime.block_on(probed)
+    }
+    .map_err(|e| e.to_string())?;
+    if vector.is_empty() {
+        return Err("embedding endpoint returned an empty vector".to_string());
+    }
+    Ok(vector.len())
+}
+
+/// Confirm the proxy model's vector width once per process (#2306).
+///
+/// A successful probe is remembered in memory and under `data_dir`, and the
+/// identity that follows reports `resumable: true` with that width. A failed
+/// probe reuses the on-disk width for the same endpoint and model so a restart
+/// while the endpoint is down does not look like a different embedder. With
+/// neither, the identity stays non-resumable and names what to do.
+///
+/// No-op unless this config actually resolves to the proxy backend. Called from
+/// the identity request, not from index open.
+pub(crate) fn confirm_proxy_embedding_width(
+    cfg: &xerj_common::config::EmbeddingConfig,
+    data_dir: &Path,
+) {
+    if !proxy_mode_selected(cfg) || confirmed_proxy_width(cfg).is_some() {
+        return;
+    }
+    // An endpoint this process cannot even construct a client for is the
+    // identity function's error (explicit proxy) or its lexical fallback
+    // (auto). Probing it would only repeat that failure.
+    if xerj_ai::embed::EmbeddingProxy::new(proxy_config(cfg)).is_err() {
+        return;
+    }
+    match probe_proxy_width(cfg) {
+        Ok(dimensions) => {
+            remember_proxy_width(cfg, dimensions);
+            store_proxy_width_cache(data_dir, cfg, dimensions);
+        }
+        Err(error) => {
+            if let Some(dimensions) = load_proxy_width_cache(data_dir, cfg) {
+                warn!(
+                    error = %error,
+                    dimensions,
+                    "proxy width probe failed; reusing the last confirmed width for this \
+                     endpoint and model"
+                );
+                remember_proxy_width(cfg, dimensions);
+            } else {
+                warn!(
+                    error = %error,
+                    "proxy embedding width could not be confirmed; semantic autoindex cannot \
+                     resume until the endpoint answers a probe"
+                );
+            }
+        }
+    }
+}
+
 pub(crate) fn embedding_execution_identity(
     cfg: &xerj_common::config::EmbeddingConfig,
 ) -> Result<crate::engine::EmbeddingExecutionIdentity> {
@@ -37290,9 +43428,10 @@ pub(crate) fn embedding_execution_identity(
     }
     // Only report a width for the backends whose width this server actually
     // pins. `neural` reads it from the resolved model's `config.json`
-    // (`hidden_size`, the same number `NeuralEmbedder::dims` reports) and
-    // `proxy` gets whatever the remote returns, so only the latter is omitted
-    // rather than reported as 384.
+    // (`hidden_size`, the same number `NeuralEmbedder::dims` reports). An
+    // unconfirmed `proxy` omits the width rather than reporting 384; once a
+    // probe (or the on-disk fallback) has confirmed one, that width is
+    // reported (#2306). It is not part of the digest.
     let (material, resumable, reason, dimensions) = match backend {
         "lexical" => (
             format!(
@@ -37326,26 +43465,49 @@ pub(crate) fn embedding_execution_identity(
             )
         }
         "neural" => configured_neural_identity(cfg),
-        "proxy" => (
+        "proxy" => {
             // #533: the endpoint is part of the embedder identity — the same
             // model name behind a different `default_endpoint` is a DIFFERENT
             // embedder, and omitting it let the endpoint change silently past the
             // #434 guard (a missed detection). `api_key` is deliberately left out
             // (a rotated key over the same endpoint+model is the same embedder).
-            format!(
+            //
+            // #2306: the digest stays that model+endpoint string. Folding the
+            // probed width into it would change the hash the moment a probe
+            // succeeds and refuse to open every index recorded before the probe
+            // (or recorded while the endpoint was down). The width travels in
+            // `dimensions` instead, and autoindex compares it on resume. A
+            // provider that swaps weights without changing the name, the
+            // endpoint, or the width is not detectable from here.
+            // #2355 completes a `/v1` base (and a bare host) to an embeddings
+            // URL on the HTTP request only. The digest stays this configured
+            // string: folding the resolved URL in would move identity_sha256
+            // for every proxy index recorded before that completion and refuse
+            // to open it. `/v1` and `/v1/embeddings` therefore remain distinct
+            // identities even when they POST to the same path.
+            let material = format!(
                 "proxy-unpinned.v1;configured-model={};endpoint={}",
                 cfg.default_model, cfg.default_endpoint
-            ),
-            false,
-            Some(
-                "the remote provider does not attest immutable model assets; semantic resume is unsafe"
-                    .to_string(),
-            ),
-            None,
-        ),
+            );
+            match confirmed_proxy_width(cfg) {
+                Some(width) => (material, true, None, Some(width)),
+                None => (
+                    material,
+                    false,
+                    Some(proxy_width_unconfirmed_reason()),
+                    None,
+                ),
+            }
+        }
         _ => unreachable!(),
     };
     let canonical = format!("{CONTRACT};backend={backend};{material}");
+    // The probe is a rate sample, not an input to the digest above. Folding
+    // it in would make every boot look like a different embedder.
+    let probe = (backend == "neural")
+        .then(|| cfg.neural_ingest_probe.get().copied().flatten())
+        .flatten()
+        .filter(|probe| probe.bytes > 0 && probe.passages > 0 && probe.millis > 0);
     Ok(crate::engine::EmbeddingExecutionIdentity {
         // This is the WIRE/API version the autoindex client pins on
         // (esclient.rs requires == 1); it is NOT the on-disk migration marker.
@@ -37360,6 +43522,9 @@ pub(crate) fn embedding_execution_identity(
         semantic_contract: CONTRACT.to_string(),
         resumable,
         non_resumable_reason: reason,
+        ingest_probe_bytes: probe.map(|probe| probe.bytes),
+        ingest_probe_passages: probe.map(|probe| probe.passages),
+        ingest_probe_millis: probe.map(|probe| probe.millis),
     })
 }
 
@@ -37674,6 +43839,31 @@ mod embedding_identity_tests {
         let encoded = serde_json::to_string(&identity).unwrap();
         assert!(!encoded.contains("endpoint"));
         assert!(!encoded.contains("path"));
+        assert!(
+            !encoded.contains("ingest_probe"),
+            "an unmeasured probe must stay off the wire: {encoded}"
+        );
+        assert!(identity.ingest_probe_millis.is_none());
+    }
+
+    /// A stored probe must not move `identity_sha256`. The digest is what
+    /// resume pins; a rate sample changes every boot.
+    #[test]
+    fn an_ingest_probe_does_not_change_the_identity_digest() {
+        let cfg = xerj_common::config::EmbeddingConfig::default();
+        let before = embedding_execution_identity(&cfg).unwrap();
+        cfg.neural_ingest_probe
+            .set(Some(xerj_common::config::NeuralIngestProbe {
+                bytes: 16_384,
+                passages: 32,
+                millis: 800,
+            }))
+            .unwrap();
+        let after = embedding_execution_identity(&cfg).unwrap();
+        assert_eq!(before.identity_sha256, after.identity_sha256);
+        assert!(after.ingest_probe_bytes.is_none());
+        let encoded = serde_json::to_string(&after).unwrap();
+        assert!(!encoded.contains("ingest_probe"), "{encoded}");
     }
 
     #[test]
@@ -37740,9 +43930,17 @@ mod embedding_identity_tests {
         let identity = embedding_execution_identity(&proxy).unwrap();
         assert_eq!(identity.backend, "proxy");
         assert!(!identity.resumable);
-        // A remote provider returns whatever width its model has; this server
-        // never sees it, so it is omitted rather than asserted.
+        // No probe has confirmed a width, so it is omitted rather than asserted.
         assert_eq!(identity.dimensions, None);
+        let reason = identity.non_resumable_reason.clone().unwrap();
+        assert!(
+            reason.contains("vector width") && reason.contains("reachable"),
+            "an unconfirmed proxy must say why resume is refused and how to retry: {reason}"
+        );
+        assert!(
+            !reason.contains("secret.example") && !reason.contains("private-alias"),
+            "the endpoint and model must not reach a remote client: {reason}"
+        );
         let encoded = serde_json::to_string(&identity).unwrap();
         assert!(!encoded.contains("secret.example"));
         assert!(!encoded.contains("private-alias"));
@@ -37915,6 +44113,148 @@ mod embedding_identity_tests {
         let err = validate_embedding_execution(index_dir, &b, false, true)
             .expect_err("#533: a swapped proxy endpoint over a populated index must be refused");
         assert!(format!("{err}").contains("holds vectors produced by embedding backend"));
+    }
+
+    /// #2306: confirming a proxy width makes the backend resumable and publishes
+    /// that width. The digest stays the model+endpoint string, so a probe
+    /// cannot change the hash an existing index was recorded under.
+    #[test]
+    fn confirmed_proxy_width_makes_semantic_resume_possible() {
+        let cfg = xerj_common::config::EmbeddingConfig {
+            mode: "proxy".into(),
+            default_endpoint: "https://secret.example/v1".into(),
+            default_model: "private-alias".into(),
+            ..Default::default()
+        };
+        let unconfirmed = embedding_execution_identity(&cfg).unwrap();
+        assert!(!unconfirmed.resumable);
+        assert_eq!(unconfirmed.dimensions, None);
+
+        let confirmed_cfg = cfg.clone();
+        *confirmed_cfg.runtime_proxy_width.write().unwrap() =
+            Some(xerj_common::config::ConfirmedProxyWidth {
+                endpoint: confirmed_cfg.default_endpoint.clone(),
+                model: confirmed_cfg.default_model.clone(),
+                dimensions: 384,
+            });
+        let confirmed = embedding_execution_identity(&confirmed_cfg).unwrap();
+        assert!(confirmed.resumable);
+        assert_eq!(confirmed.dimensions, Some(384));
+        assert!(confirmed.non_resumable_reason.is_none());
+        assert_eq!(
+            confirmed.identity_sha256, unconfirmed.identity_sha256,
+            "the probed width must not move the digest"
+        );
+        let encoded = serde_json::to_string(&confirmed).unwrap();
+        assert!(!encoded.contains("secret.example"));
+        assert!(!encoded.contains("private-alias"));
+
+        *confirmed_cfg.runtime_proxy_width.write().unwrap() =
+            Some(xerj_common::config::ConfirmedProxyWidth {
+                endpoint: confirmed_cfg.default_endpoint.clone(),
+                model: confirmed_cfg.default_model.clone(),
+                dimensions: 768,
+            });
+        let wider = embedding_execution_identity(&confirmed_cfg).unwrap();
+        assert_eq!(wider.dimensions, Some(768));
+        assert_eq!(wider.identity_sha256, unconfirmed.identity_sha256);
+
+        // A cached width for a different endpoint is not this embedder.
+        *confirmed_cfg.runtime_proxy_width.write().unwrap() =
+            Some(xerj_common::config::ConfirmedProxyWidth {
+                endpoint: "https://other.example/v1".into(),
+                model: confirmed_cfg.default_model.clone(),
+                dimensions: 384,
+            });
+        let mismatched = embedding_execution_identity(&confirmed_cfg).unwrap();
+        assert!(!mismatched.resumable);
+        assert_eq!(mismatched.dimensions, None);
+    }
+
+    /// #2306: one successful probe confirms the width and stores it. A later
+    /// probe that cannot reach the endpoint reuses that store for the same
+    /// model. A store for a different model is ignored.
+    #[test]
+    fn proxy_width_probe_confirms_dimensions_and_falls_back_to_the_last_confirmation() {
+        let endpoint = serve_proxy_embeddings(8, 200);
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = xerj_common::config::EmbeddingConfig {
+            mode: "proxy".into(),
+            default_endpoint: endpoint,
+            default_model: "mock-embed".into(),
+            timeout_ms: 2_000,
+            ..Default::default()
+        };
+        confirm_proxy_embedding_width(&cfg, dir.path());
+        let identity = embedding_execution_identity(&cfg).unwrap();
+        assert!(identity.resumable, "{identity:?}");
+        assert_eq!(identity.dimensions, Some(8));
+        assert!(dir.path().join(PROXY_WIDTH_CACHE_FILE).is_file());
+        let encoded = serde_json::to_string(&identity).unwrap();
+        assert!(!encoded.contains("127.0.0.1"));
+        assert!(!encoded.contains("mock-embed"));
+
+        let down = xerj_common::config::EmbeddingConfig {
+            mode: "proxy".into(),
+            default_endpoint: "http://127.0.0.1:1/v1/embeddings".into(),
+            default_model: "m".into(),
+            timeout_ms: 200,
+            ..Default::default()
+        };
+        let cache_dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            cache_dir.path().join(PROXY_WIDTH_CACHE_FILE),
+            serde_json::json!({
+                "endpoint": "http://127.0.0.1:1/v1/embeddings",
+                "model": "m",
+                "dimensions": 32
+            })
+            .to_string(),
+        )
+        .unwrap();
+        confirm_proxy_embedding_width(&down, cache_dir.path());
+        let reused = embedding_execution_identity(&down).unwrap();
+        assert!(reused.resumable, "{reused:?}");
+        assert_eq!(reused.dimensions, Some(32));
+        let reused_encoded = serde_json::to_string(&reused).unwrap();
+        assert!(!reused_encoded.contains("127.0.0.1"));
+        assert!(!reused_encoded.contains("\"m\""));
+
+        let other_model = xerj_common::config::EmbeddingConfig {
+            default_model: "other".into(),
+            ..down.clone()
+        };
+        confirm_proxy_embedding_width(&other_model, cache_dir.path());
+        let ignored = embedding_execution_identity(&other_model).unwrap();
+        assert!(!ignored.resumable);
+        assert_eq!(ignored.dimensions, None);
+    }
+
+    /// One HTTP embedding response, then the socket closes. `status` is 200 or 400.
+    fn serve_proxy_embeddings(width: usize, status: u16) -> String {
+        let listener =
+            xerj_common::loopback_test::expect_loopback(std::net::TcpListener::bind("127.0.0.1:0"));
+        let addr = listener.local_addr().unwrap();
+        std::thread::spawn(move || {
+            let _ = listener.set_nonblocking(false);
+            if let Ok((mut sock, _)) = listener.accept() {
+                let mut buf = [0u8; 8192];
+                let _ = std::io::Read::read(&mut sock, &mut buf);
+                let embedding: Vec<f64> = (0..width).map(|i| (i as f64) * 0.01).collect();
+                let body = if status == 200 {
+                    serde_json::json!({"data":[{"index":0,"embedding":embedding}]}).to_string()
+                } else {
+                    "{\"error\":\"refused\"}".to_string()
+                };
+                let reason = if status == 200 { "OK" } else { "Bad Request" };
+                let resp = format!(
+                    "HTTP/1.1 {status} {reason}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                    body.len()
+                );
+                let _ = std::io::Write::write_all(&mut sock, resp.as_bytes());
+            }
+        });
+        format!("http://{addr}/v1/embeddings")
     }
 
     /// #533 migration: a record persisted at version 1 (before the endpoint was
@@ -38130,6 +44470,35 @@ mod embedding_identity_tests {
         let encoded = serde_json::to_string(&identity).unwrap();
         assert!(!encoded.contains(&first_dir.path().to_string_lossy().into_owned()));
         assert!(!encoded.contains("MiniLM"), "{encoded}");
+        assert!(
+            !encoded.contains("ingest_probe"),
+            "a neural identity with no probe must omit the rate fields: {encoded}"
+        );
+
+        let probed = neural(&first_dir);
+        probed
+            .neural_ingest_probe
+            .set(Some(xerj_common::config::NeuralIngestProbe {
+                bytes: 16_384,
+                passages: 32,
+                millis: 800,
+            }))
+            .unwrap();
+        let with_probe = embedding_execution_identity(&probed).unwrap();
+        assert_eq!(
+            with_probe.identity_sha256, identity.identity_sha256,
+            "the probe is not an embedder input"
+        );
+        assert_eq!(with_probe.ingest_probe_bytes, Some(16_384));
+        assert_eq!(with_probe.ingest_probe_passages, Some(32));
+        assert_eq!(with_probe.ingest_probe_millis, Some(800));
+        let probed_json = serde_json::to_string(&with_probe).unwrap();
+        assert!(
+            probed_json.contains("\"ingest_probe_millis\":800"),
+            "{probed_json}"
+        );
+        assert!(!probed_json.contains("endpoint"), "{probed_json}");
+        assert!(!probed_json.contains(&first_dir.path().to_string_lossy().into_owned()));
 
         // Same bytes in a DIFFERENT directory → same identity. This is the
         // property the fix exists for: it is a different `NeuralConfig`, so it
@@ -38571,7 +44940,7 @@ fn make_embedder(cfg: &xerj_common::config::EmbeddingConfig) -> Result<xerj_ai::
         || (mode != "neural" && mode != "lexical" && !cfg.default_endpoint.is_empty());
 
     if mode == "neural" {
-        return Ok(make_neural_embedder(cfg));
+        return make_neural_embedder(cfg);
     }
 
     if mode == "onnx-experimental" {
@@ -38595,7 +44964,11 @@ fn make_embedder(cfg: &xerj_common::config::EmbeddingConfig) -> Result<xerj_ai::
         }
         return match xerj_ai::embed::EmbeddingProxy::new(proxy_config(cfg)) {
             Ok(p) => {
-                info!(endpoint = %cfg.default_endpoint, "embedding backend: external proxy");
+                info!(
+                    endpoint = %p.request_url(),
+                    configured = %cfg.default_endpoint,
+                    "embedding backend: external proxy"
+                );
                 Ok(xerj_ai::Embedder::proxy(p))
             }
             Err(e) => {
@@ -38707,27 +45080,97 @@ fn make_onnx_embedder(_cfg: &xerj_common::config::EmbeddingConfig) -> Result<xer
     )))
 }
 
-/// Construct the built-in neural embedder when compiled in; otherwise warn
-/// and fall back to lexical so a `mode=neural` config never bricks startup.
+/// Load the neural model when this binary can, before any ingest.
+///
+/// Explicit `mode=neural` fails closed (#1840), the same shape as explicit
+/// `mode=proxy` (#1189): a download or file error is returned, and the lexical
+/// embedder is not installed in its place. Those vectors are not comparable.
+/// The server calls this at startup so the failure happens once, before it
+/// listens. A slim build without the `neural` feature still returns `Ok` —
+/// `make_neural_embedder` warns and substitutes lexical, and identity reports
+/// lexical, because there is no model to load.
+pub fn ensure_neural_ready(cfg: &xerj_common::config::EmbeddingConfig) -> Result<()> {
+    if !cfg.mode.trim().eq_ignore_ascii_case("neural") {
+        return Ok(());
+    }
+    #[cfg(feature = "neural")]
+    {
+        let neural_cfg = configured_neural_config(cfg);
+        if let Err(error) = xerj_ai::Embedder::preload_neural(&neural_cfg) {
+            return Err(EngineError::Common(xerj_common::XerjError::embedding(
+                xerj_ai::neural::startup_failure_message(&neural_cfg.model_id, &error),
+            )));
+        }
+        record_neural_ingest_probe(cfg);
+        Ok(())
+    }
+    #[cfg(not(feature = "neural"))]
+    {
+        Ok(())
+    }
+}
+
+/// Time one ingest-shaped batch and store it on `cfg` for identity reporting.
+///
+/// A probe failure does not fail startup: the model loaded, and autoindex
+/// prints "not measured" rather than a made-up rate. The cell is filled
+/// either way so a later index open does not probe again.
 #[cfg(feature = "neural")]
-fn make_neural_embedder(cfg: &xerj_common::config::EmbeddingConfig) -> xerj_ai::Embedder {
+fn record_neural_ingest_probe(cfg: &xerj_common::config::EmbeddingConfig) {
+    if cfg.neural_ingest_probe.get().is_some() {
+        return;
+    }
+    let neural_cfg = configured_neural_config(cfg);
+    let Some(embedder) = xerj_ai::Embedder::preload_neural(&neural_cfg).ok() else {
+        let _ = cfg.neural_ingest_probe.set(None);
+        return;
+    };
+    let probe = xerj_ai::neural::measure_ingest_probe(&embedder);
+    match probe {
+        Some(probe) => info!(
+            bytes = probe.bytes,
+            passages = probe.passages,
+            millis = probe.millis,
+            "neural ingest probe (512-character passages, one untimed warmup excluded)"
+        ),
+        None => warn!(
+            "neural ingest probe did not produce a rate; autoindex will not print a time estimate"
+        ),
+    }
+    let _ = cfg.neural_ingest_probe.set(probe);
+}
+
+/// Construct the built-in neural embedder when compiled in.
+///
+/// The model is loaded here (and at server startup via [`ensure_neural_ready`]).
+/// A failure is an error, not a lexical embedder. A slim build without the
+/// feature warns and returns lexical so a `mode=neural` config on that binary
+/// still starts; identity reports lexical for that case.
+#[cfg(feature = "neural")]
+fn make_neural_embedder(cfg: &xerj_common::config::EmbeddingConfig) -> Result<xerj_ai::Embedder> {
     // Exactly the resolution the execution identity content-addresses — see
     // `configured_neural_config`. Duplicating it here once let the reported
     // identity describe a different model than the one that loads.
+    ensure_neural_ready(cfg)?;
     let neural_cfg = configured_neural_config(cfg);
-    info!(model = %neural_cfg.model_id, "embedding backend: built-in neural BERT (loads on first use)");
-    xerj_ai::Embedder::neural(neural_cfg)
+    info!(
+        model = %neural_cfg.model_id,
+        "embedding backend: built-in neural BERT (loaded)"
+    );
+    Ok(xerj_ai::Embedder::neural(neural_cfg))
 }
 
 #[cfg(not(feature = "neural"))]
-fn make_neural_embedder(_cfg: &xerj_common::config::EmbeddingConfig) -> xerj_ai::Embedder {
+fn make_neural_embedder(_cfg: &xerj_common::config::EmbeddingConfig) -> Result<xerj_ai::Embedder> {
+    // Identity reports lexical for this build. The warning is the whole
+    // signal: there is no model download that can fail later.
     warn!(
         "embedding.mode=neural requested but this is a slim build (compiled with \
          `--no-default-features`, no neural backend) — falling back to the built-in lexical \
          embedder. The standard release binary ships the neural embedder; use it, or rebuild \
          xerj-server with default features."
     );
-    xerj_ai::Embedder::lexical()
+    Ok(xerj_ai::Embedder::lexical())
 }
 
 // ── HNSW persistence helpers (module-level, called from sync `Index::open`)
@@ -38739,8 +45182,8 @@ fn make_neural_embedder(_cfg: &xerj_common::config::EmbeddingConfig) -> xerj_ai:
 
 struct LoadedHnsw {
     graph: xerj_vector::HnswIndex,
-    id_map: HashMap<String, u64>,
-    id_rev: HashMap<u64, String>,
+    id_map: HashMap<HnswDocId, u64>,
+    id_rev: HashMap<u64, HnswDocId>,
     next_id: u64,
     /// Pinned field identity stamped into ids.json at save time.
     /// `None` = legacy snapshot (pre-field-stamp): the HNSW query path
@@ -38821,14 +45264,12 @@ fn load_hnsw_artifacts_sync(
             return None;
         }
     };
-    let mut id_map: HashMap<String, u64> = HashMap::with_capacity(map_obj.len());
-    let mut id_rev: HashMap<u64, String> = HashMap::with_capacity(map_obj.len());
-    for (doc_id, node_id_v) in map_obj.iter() {
-        if let Some(nid) = node_id_v.as_u64() {
-            id_map.insert(doc_id.clone(), nid);
-            id_rev.insert(nid, doc_id.clone());
-        }
-    }
+    let (id_map, id_rev) = hnsw_id_maps_from(
+        map_obj
+            .iter()
+            .filter_map(|(doc_id, node_id_v)| node_id_v.as_u64().map(|nid| (doc_id.clone(), nid))),
+        map_obj.len(),
+    );
     let graph = match xerj_vector::HnswIndex::load_from(&graph_path) {
         Ok(g) => g,
         Err(e) => {
@@ -39812,6 +46253,147 @@ fn choose_passage_winner(best: &mut Option<(f32, u32)>, score: f32, ordinal: u32
     }
 }
 
+/// Source fields the lexical `_passage` builder reads beyond the query's own
+/// fields: the autoindex code-document signature
+/// ([`is_autoindex_code_document`], [`refine_code_passage`]) and the PDF page
+/// identity ([`passage_page_from_source`]).
+const ROW_PROJECTION_PASSAGE_FIELDS: &[&str] = &[
+    "symbol_count",
+    "name",
+    "kind",
+    "code",
+    "language",
+    "line",
+    "body",
+    "page",
+    "page_number",
+    "metadata",
+];
+
+/// #2422/#2423: the source fields a scored FTS page can observe, when the
+/// request makes that set knowable — `None` means "every column".
+///
+/// A narrowing `_source` include list is the caller saying which fields it
+/// wants back; the engine itself still reads the query's fields for the
+/// heuristic IDF rescore and for `_passage`. Everything else on the request
+/// that can read an arbitrary source field (aggs, sort, scripts, collapse,
+/// rescore, explain, highlight, `fields` other than `_passage`, the
+/// `_savings` measurement that counts the bytes a filter withheld, a query
+/// clause this walker does not know) keeps the whole document.
+fn fts_row_hydration_keep(request: &SearchRequest, query: &QueryNode) -> Option<Vec<String>> {
+    let includes = match &request.source {
+        SourceFilter::Includes(includes) => includes,
+        SourceFilter::Fields { includes, .. } => includes,
+        // `Enabled(false)` still needs the raw source: the response layer
+        // resolves `fields` from it and suppresses it later.
+        SourceFilter::Default | SourceFilter::Enabled(_) => return None,
+    };
+    if includes.is_empty()
+        || request.aggs.is_some()
+        || !request.sort.is_empty()
+        || request.script_fields.is_some()
+        || request.collapse.is_some()
+        || !request.rescore.is_empty()
+        || request.explain
+        || request.highlight.is_some()
+        || request.leaf_ts_field.is_some()
+        || !matches!(request.savings, xerj_query::ast::SavingsMode::Off)
+        || request
+            .fields
+            .iter()
+            .any(|field| field != PASSAGE_RESPONSE_FIELD)
+    {
+        return None;
+    }
+    let mut keep: Vec<String> = includes.clone();
+    if !collect_row_projection_query_fields(query, &mut keep) {
+        return None;
+    }
+    if passage_requested(request) {
+        keep.extend(
+            ROW_PROJECTION_PASSAGE_FIELDS
+                .iter()
+                .map(|f| (*f).to_string()),
+        );
+    }
+    keep.sort();
+    keep.dedup();
+    Some(keep)
+}
+
+/// Push every field `query` reads; `false` for a clause whose source reads
+/// are not knowable from the tree (scripts, field-less `multi_match`,
+/// `query_string` syntax, vectors, nested, …).
+fn collect_row_projection_query_fields(query: &QueryNode, out: &mut Vec<String>) -> bool {
+    let mut push = |field: &str| {
+        let (name, _boost) = parse_field_boost(field);
+        out.push(name.to_string());
+    };
+    match query {
+        QueryNode::MatchAll | QueryNode::MatchNone | QueryNode::Ids { .. } => true,
+        QueryNode::Match { field, .. }
+        | QueryNode::MatchPhrase { field, .. }
+        | QueryNode::Term { field, .. }
+        | QueryNode::Terms { field, .. }
+        | QueryNode::Range { field, .. }
+        | QueryNode::Prefix { field, .. }
+        | QueryNode::Wildcard { field, .. }
+        | QueryNode::Exists { field } => {
+            if field.contains('*') {
+                return false;
+            }
+            push(field);
+            true
+        }
+        QueryNode::MultiMatch { fields, .. } => {
+            if fields.is_empty() || fields.iter().any(|f| f.contains('*')) {
+                return false;
+            }
+            for field in fields {
+                push(field);
+            }
+            true
+        }
+        QueryNode::Bool {
+            must,
+            should,
+            must_not,
+            filter,
+            ..
+        } => must
+            .iter()
+            .chain(should)
+            .chain(must_not)
+            .chain(filter)
+            .all(|q| collect_row_projection_query_fields(q, out)),
+        QueryNode::Constant { query, .. } | QueryNode::Boosted { query, .. } => {
+            collect_row_projection_query_fields(query, out)
+        }
+        _ => false,
+    }
+}
+
+/// Whether the stored top-level `column` can hold a value of one of the
+/// `keep` field paths (`keep` entries may be dotted paths or `prefix*`
+/// patterns; a column may itself be a flattened dotted key).
+fn row_projection_keeps_column(keep: &[String], column: &str) -> bool {
+    keep.iter().any(|field| {
+        if let Some(prefix) = field.strip_suffix('*') {
+            if prefix.contains('*') {
+                return true;
+            }
+            return column.starts_with(prefix)
+                || prefix.starts_with(column) && prefix[column.len()..].starts_with('.');
+        }
+        if field.contains('*') {
+            return true;
+        }
+        column == field
+            || field.starts_with(column) && field[column.len()..].starts_with('.')
+            || column.starts_with(field.as_str()) && column[field.len()..].starts_with('.')
+    })
+}
+
 fn passage_requested(request: &SearchRequest) -> bool {
     request
         .fields
@@ -40398,10 +46980,35 @@ fn apply_lexical_passages(hits: Vec<Hit>, query: &QueryNode) -> Vec<Hit> {
         .collect()
 }
 
+/// Exact distance in the HNSW graph's convention (smaller is nearer).
+fn exact_hnsw_distance(metric: DistanceMetric, query: &[f32], vector: &[f32]) -> f32 {
+    let dot: f32 = query.iter().zip(vector).map(|(a, b)| a * b).sum();
+    match metric {
+        DistanceMetric::Cosine => {
+            let qn = query.iter().map(|x| x * x).sum::<f32>().sqrt();
+            let vn = vector.iter().map(|x| x * x).sum::<f32>().sqrt();
+            if qn > 0.0 && vn > 0.0 {
+                1.0 - dot / (qn * vn)
+            } else {
+                1.0
+            }
+        }
+        DistanceMetric::DotProduct => -dot,
+        DistanceMetric::L2 => query
+            .iter()
+            .zip(vector)
+            .map(|(a, b)| (a - b) * (a - b))
+            .sum(),
+    }
+}
+
 /// Shared tail of every top-level kNN executor (brute force and HNSW):
 /// rank by score desc, cap the candidate pool at `k`, window with
 /// `from`/`size`, and shape the response. Centralised so the exact and
 /// approximate paths cannot drift on hits format or total semantics.
+// `schema` is the one parameter the aggregation tail needs beyond the kNN
+// executor's own tuple; a struct for it would exist only here.
+#[allow(clippy::too_many_arguments)]
 fn knn_result_from_scored(
     index: &Index,
     request: &SearchRequest,
@@ -40410,8 +47017,10 @@ fn knn_result_from_scored(
     k: usize,
     started: std::time::Instant,
     generated_companion_fields: &HashSet<String>,
+    schema: Option<&Schema>,
 ) -> SearchResult {
-    rank_knn_pool(&mut scored, k, |entry| entry.1);
+    order_knn_pool_page_order(index, &mut scored);
+    scored.truncate(k.max(1));
     knn_result_from_ranked(
         index,
         request,
@@ -40419,7 +47028,45 @@ fn knn_result_from_scored(
         scored,
         started,
         generated_companion_fields,
+        schema,
     )
+}
+
+/// #3017: order a hydrated kNN pool into THE score-ranked page order,
+/// `score DESC, seq_no ASC (arrival, ES `_doc`), _id ASC` — the same key
+/// [`Index::sort_hits_page_order`] and hybrid fusion (`fuse_finish`) use.
+///
+/// Equal scores used to keep the order the executor collected them in. For
+/// the HNSW path that is the graph's traversal order, and the graph's layers
+/// come from `thread_rng`, so a graph built while indexing and the one a
+/// restarted process loads or rebuilds visit tied neighbours differently: the
+/// kNN page and every RRF rank fed from it changed across server processes
+/// (#3017 repro on a synthetic corpus of 5,000 docs carrying 2,500 distinct
+/// 384-dim vectors: 116 of 160 kNN and 118 of 160 hybrid rankings identical
+/// between the indexing process and a restart).
+///
+/// The seq_no is resolved once per candidate (a pool is at most `k` plus a
+/// few rescore candidates on the ANN path), and a NaN score sorts last as in
+/// `fuse_finish`, so the comparator is a total order.
+fn order_knn_pool_page_order(index: &Index, pool: &mut Vec<(String, f32, Value, Option<u32>)>) {
+    fn key(score: f32) -> f32 {
+        if score.is_nan() {
+            f32::NEG_INFINITY
+        } else {
+            score
+        }
+    }
+    let mut decorated: Vec<(u64, (String, f32, Value, Option<u32>))> = std::mem::take(pool)
+        .into_iter()
+        .map(|entry| (index.lookup_seq_no(&entry.0).unwrap_or(u64::MAX), entry))
+        .collect();
+    decorated.sort_by(|a, b| {
+        key(b.1 .1)
+            .total_cmp(&key(a.1 .1))
+            .then_with(|| a.0.cmp(&b.0))
+            .then_with(|| a.1 .0.cmp(&b.1 .0))
+    });
+    *pool = decorated.into_iter().map(|(_, entry)| entry).collect();
 }
 
 /// Rank a kNN candidate pool by score, descending, and cap it at `k` — the one
@@ -40446,6 +47093,8 @@ fn rank_knn_pool<T>(pool: &mut Vec<T>, k: usize, score: impl Fn(&T) -> f32) {
 
 /// Shape an already ranked, already `k`-capped pool (see [`rank_knn_pool`])
 /// into the response.
+// Same parameter set as `knn_result_from_scored`, minus the ranking pool.
+#[allow(clippy::too_many_arguments)]
 fn knn_result_from_ranked(
     index: &Index,
     request: &SearchRequest,
@@ -40453,6 +47102,7 @@ fn knn_result_from_ranked(
     scored: Vec<(String, f32, Value, Option<u32>)>,
     started: std::time::Instant,
     generated_companion_fields: &HashSet<String>,
+    schema: Option<&Schema>,
 ) -> SearchResult {
     // ES reports `hits.total.value` for a knn/semantic query as the size
     // of the retrieved neighbor pool (min(k, matches)), NOT the number of
@@ -40475,9 +47125,18 @@ fn knn_result_from_ranked(
             .iter()
             .map(|(_, _, source, _)| source.clone())
             .collect();
-        crate::aggs::run_aggs(aggs_def, &sources)
+        // #1745: filter/filters aggs see the real mapping, so their clauses
+        // are evaluated by the query matcher instead of the `_source`
+        // approximation (`doc_matches_filter`).
+        match schema {
+            Some(s) => crate::aggs::run_aggs_with_schema(aggs_def, &sources, &sources, s),
+            None => crate::aggs::run_aggs(aggs_def, &sources),
+        }
     });
 
+    // #1947: present only while `run_semantic_with_deadline` is scoring this
+    // request. Plain kNN leaves it unset and highlights nothing here.
+    let semantic_plan = SEMANTIC_HIGHLIGHT_PLAN.try_with(|plan| plan.clone()).ok();
     let hits: Vec<Hit> = if request.size == 0 {
         Vec::new()
     } else {
@@ -40489,6 +47148,17 @@ fn knn_result_from_ranked(
     }
     .into_iter()
     .map(|(id, score, mut source, ordinal)| {
+        // Before passage metadata is stripped and before `_source` filtering,
+        // so a highlight still resolves when the caller excluded the field.
+        let highlight = semantic_plan
+            .as_ref()
+            .and_then(|plan| {
+                request
+                    .highlight
+                    .as_ref()
+                    .map(|hl| semantic_highlight_hit(&source, hl, plan))
+            })
+            .filter(|fragments| !fragments.is_empty());
         let passage = passage_requested(request)
             .then(|| passage_match_from_source(&source, vector_field, ordinal))
             .flatten();
@@ -40510,7 +47180,7 @@ fn knn_result_from_ranked(
             version,
             sort: Vec::new(),
             explain: None,
-            highlight: None,
+            highlight,
             matched_queries: Vec::new(),
             passage,
         }
@@ -40777,14 +47447,20 @@ fn push_field_root_keys(field: &str, out: &mut Vec<String>) -> bool {
 /// Returns `None` when the field is absent, not an array, empty, or holds
 /// any non-number element.
 fn extract_numeric_vector(source: &Value, field: &str) -> Option<Vec<f32>> {
-    match get_field_value(source, field) {
-        Some(Value::Array(arr)) if !arr.is_empty() && arr.iter().all(|v| v.is_number()) => Some(
-            arr.iter()
-                .filter_map(|v| v.as_f64().map(|f| f as f32))
-                .collect(),
-        ),
-        _ => None,
+    let value = get_field_value(source, field)?;
+    // Packed strings are the retained form (#1940). Number arrays remain
+    // valid for segments written before that, and for a caller that raced
+    // a vector in before compaction.
+    if value
+        .as_str()
+        .is_some_and(xerj_common::packed_f32::is_packed_f32)
+        || value
+            .as_array()
+            .is_some_and(|arr| !arr.is_empty() && arr.iter().all(Value::is_number))
+    {
+        return xerj_common::packed_f32::json_to_f32_vector(&value);
     }
+    None
 }
 
 /// Collect every dense_vector-mapped field in schema order (dotted paths
@@ -41600,16 +48276,27 @@ fn lookup_vector_quantization(schema: &Schema, field: &str) -> Option<String> {
 /// `FieldConfig::fields` (object sub-paths and multi-fields). Returns `None`
 /// for anything the schema does not declare — dynamic fields have no declared
 /// mapping options to honour.
-fn declared_field<'a>(schema: &'a Schema, field: &str) -> Option<&'a FieldConfig> {
+pub(crate) fn declared_field<'a>(schema: &'a Schema, field: &str) -> Option<&'a FieldConfig> {
     fn find<'a>(fields: &'a [FieldConfig], path: &[&str]) -> Option<&'a FieldConfig> {
-        let head = *path.first()?;
-        let tail = &path[1..];
-        for fc in fields {
-            if fc.name == head {
-                if tail.is_empty() {
-                    return Some(fc);
+        if path.is_empty() {
+            return None;
+        }
+        // Prefer the longest dotted-key match starting at this level, matching
+        // `get_field_value_parts` so literal dotted field names in `Schema::fields`
+        // (such as `files_manifest.json_recorded_at` or its `.keyword`
+        // multi-field) resolve instead of failing with `No mapping found`.
+        for take in (1..=path.len()).rev() {
+            let candidate = path[..take].join(".");
+            let tail = &path[take..];
+            for fc in fields {
+                if fc.name == candidate {
+                    if tail.is_empty() {
+                        return Some(fc);
+                    }
+                    if let Some(found) = find(&fc.fields, tail) {
+                        return Some(found);
+                    }
                 }
-                return find(&fc.fields, tail);
             }
         }
         None
@@ -41726,6 +48413,37 @@ fn has_analyzed_text_term_leaf(q: &QueryNode, schema: &Schema) -> bool {
 
 /// The first field in `q` that the mapping has made completely unsearchable.
 ///
+/// The schema checks that make a query unbuildable, shared by `search` and
+/// `_validate/query`. Applies the same two rewrites execution does (field
+/// aliases, then keyword full-text → term) before checking:
+///
+/// - a field declared `"index": false` with no doc values has neither postings
+///   nor a column to scan, so ES rejects the query (#204);
+/// - a non-numeric value against a numeric field cannot be built (#1284).
+///
+/// Returns the rewritten tree `search` should execute, or the same error
+/// `_search` would return. `_validate/query` calls this through
+/// [`Index::validate_query`]; before that it answered from the parse alone and
+/// reported `valid: true` for a body `_search` refused.
+fn check_buildable_query(
+    query: &QueryNode,
+    schema: &Schema,
+) -> std::result::Result<QueryNode, xerj_common::XerjError> {
+    let resolved = rewrite_keyword_full_text_to_term(&rewrite_query_aliases(query, schema), schema);
+    if let Some(field) = unsearchable_query_field(&resolved, schema) {
+        return Err(xerj_common::XerjError::invalid_query(format!(
+            "failed to create query: Cannot search on field [{field}] \
+             since it is not indexed nor has doc values."
+        )));
+    }
+    if let Some(value) = non_numeric_term_value(&resolved, schema) {
+        return Err(xerj_common::XerjError::invalid_query(format!(
+            "failed to create query: For input string: \"{value}\""
+        )));
+    }
+    Ok(resolved)
+}
+
 /// A field is unsearchable when its mapping declares BOTH `"index": false`
 /// (no postings) and no doc values (nothing to scan instead) — for example
 /// `{"type": "text", "index": false}`, since `text` has no doc values by
@@ -41784,9 +48502,11 @@ fn has_analyzed_text_term_leaf(q: &QueryNode, schema: &Schema) -> bool {
 /// only in an unsearchable field still matches when no field is named at all.
 /// `query_string {"query": "…"}` and a `more_like_this` with no `fields` both
 /// still return the document — and so does a *wildcard* spec in
-/// `query_string` / `simple_query_string`, because `fields: ["*"]` lowers to
-/// that same field-less `"*"` placeholder rather than to an expansion over the
-/// searchable fields. Measured, not assumed. That divergence from the FTS
+/// `query_string`, because `fields: ["*"]` lowers to that same field-less
+/// `"*"` placeholder rather than to an expansion over the searchable fields.
+/// (`simple_query_string` `["*"]` now lowers like an absent `fields` (#2427),
+/// so a flushed segment answers it from the FTS projection, which applies the
+/// searchable-field rule; only memtable documents still see the scan arm.) Measured, not assumed. That divergence from the FTS
 /// projection predates this change and is called out in its own comment in
 /// `doc_matches_query`; making it schema-aware means threading a schema
 /// through ~79 call sites and is left as its own change.
@@ -41801,12 +48521,9 @@ fn has_analyzed_text_term_leaf(q: &QueryNode, schema: &Schema) -> bool {
 /// which it raises whether or not `index: false` was declared — a wider
 /// divergence than this change, and one this error message would misreport.
 ///
-/// And one surface never reaches this function at all: `_validate/query`
-/// (`xerj-api/src/es_compat.rs::validate_query`) answers from the parse alone
-/// and never opens the index, so it still reports `{"valid": true}` for a body
-/// `_search` refuses. That is its behaviour on `main` too — this change did
-/// not alter it — but it now disagrees with `_search`, so it is written down
-/// here and in the CHANGELOG instead of being left to surprise someone.
+/// `_validate/query` reaches this check through [`check_buildable_query`]
+/// (via `Index::validate_query`), so its `valid` flag is the same answer
+/// `_search` gives for the same body.
 fn unsearchable_query_field(q: &QueryNode, schema: &Schema) -> Option<String> {
     let check = |field: &str| -> Option<String> {
         let fc = declared_field(schema, field)?;
@@ -42608,6 +49325,7 @@ mod lexically_typeless_lowering_tests {
                 value: "0".into(),
                 boost: None,
                 constant_score: true,
+                case_insensitive: false,
             },
             QueryNode::Wildcard {
                 field: "emb".into(),
@@ -43953,11 +50671,13 @@ fn strip_nested_path_in_query(q: &QueryNode, path: &str) -> QueryNode {
             value,
             boost,
             constant_score,
+            case_insensitive,
         } => QueryNode::Prefix {
             field: strip(field),
             value: value.clone(),
             boost: *boost,
             constant_score: *constant_score,
+            case_insensitive: *case_insensitive,
         },
         QueryNode::Wildcard {
             field,
@@ -44031,9 +50751,14 @@ fn strip_nested_path_in_query(q: &QueryNode, path: &str) -> QueryNode {
             case_insensitive: *case_insensitive,
             prefix_length: *prefix_length,
         },
-        QueryNode::Regexp { field, pattern } => QueryNode::Regexp {
+        QueryNode::Regexp {
+            field,
+            pattern,
+            case_insensitive,
+        } => QueryNode::Regexp {
             field: strip(field),
             pattern: pattern.clone(),
+            case_insensitive: *case_insensitive,
         },
         QueryNode::MultiMatch {
             fields,
@@ -44875,7 +51600,7 @@ fn mem_bool_preds(q: &QueryNode) -> Option<Vec<crate::memtable::MemBoolPred>> {
     // `doc_values_range_query` paths would pay (~all-matching doc_id
     // String clones per query at a 200 k-doc memtable).
     let children: Vec<&QueryNode> = match q {
-        QueryNode::Term { .. } | QueryNode::Range { .. } => vec![q],
+        QueryNode::Term { .. } | QueryNode::Range { .. } | QueryNode::Terms { .. } => vec![q],
         QueryNode::Bool {
             must,
             should,
@@ -44917,6 +51642,33 @@ fn mem_bool_preds(q: &QueryNode) -> Option<Vec<crate::memtable::MemBoolPred>> {
                 preds.push(MemBoolPred::Term {
                     field: field.clone(),
                     value: val_str,
+                    num: value.as_f64(),
+                });
+            }
+            QueryNode::Terms { field, values, .. } => {
+                // Same lowering (and CIDR bailout) as the Term arm. An empty
+                // list is a real predicate that matches nothing; returning
+                // None would send the caller through `DocsForScan` and clone
+                // every buffered document (#1761).
+                let mut lowered: Vec<String> = Vec::with_capacity(values.len());
+                for value in values {
+                    let val_str = match value {
+                        Value::String(s) => {
+                            if s.contains('/') {
+                                return None;
+                            }
+                            s.clone()
+                        }
+                        Value::Number(n) => n.to_string(),
+                        Value::Bool(b) => b.to_string(),
+                        _ => return None,
+                    };
+                    lowered.push(val_str);
+                }
+                preds.push(MemBoolPred::Terms {
+                    field: field.clone(),
+                    values: lowered,
+                    nums: values.iter().filter_map(Value::as_f64).collect(),
                 });
             }
             QueryNode::Range {
@@ -44968,6 +51720,18 @@ fn try_doc_values_query(
     limit: usize,
 ) -> Option<(Vec<(String, usize)>, u64)> {
     match q {
+        // A JSON-number needle must match by value, which the keyword-column
+        // walks below cannot do (they compare the needle's string form with
+        // the document's own spelling, so `10` missed a stored `10.0`). The
+        // fused walk carries the typed needle; it has the same array, dotted
+        // path and analyzed-text bailouts.
+        QueryNode::Term {
+            value: Value::Number(_),
+            ..
+        } => mem.doc_values_bool_query(&mem_bool_preds(q)?, limit),
+        QueryNode::Terms { values, .. } if values.iter().any(Value::is_number) => {
+            mem.doc_values_bool_query(&mem_bool_preds(q)?, limit)
+        }
         QueryNode::Term { field, value, .. } => {
             // Skip if the value is complex or the field uses CIDR notation.
             let val_str = match value {
@@ -45179,6 +51943,57 @@ fn dis_max_mem_fts_subs(q: &QueryNode) -> Option<(Vec<(&str, &str, f32)>, f32)> 
             .map(|subs| (subs, *tie_breaker)),
         _ => None,
     }
+}
+
+/// The lone `must` match's `(field, query)` and the non-scoring gate of a
+/// `bool{must:[match], filter:[..], must_not:[..]}` whose `must` clause would
+/// take the standalone-`Match` memtable FTS arm on its own (#2403): same
+/// carve-outs as that arm (`is_doc_scan_query` and `extract_query_text`), no
+/// per-query `analyzer`, no `should`, no `minimum_should_match`, and at least
+/// one `filter` or `must_not` clause (a lone `must` is already erased by
+/// `unwrap_single_clause_bool`). The gate is a `bool` holding only the
+/// `filter` and `must_not` clauses, evaluated per hit by the stored-doc
+/// matcher, so membership stays what the doc-scan route enforced. Any other
+/// shape answers `None` and keeps its existing route.
+fn bool_filter_mem_fts_must(q: &QueryNode) -> Option<(&str, &str, &QueryNode, QueryNode)> {
+    let QueryNode::Bool {
+        must,
+        should,
+        must_not,
+        filter,
+        minimum_should_match: None,
+    } = q
+    else {
+        return None;
+    };
+    if must.len() != 1 || !should.is_empty() || (filter.is_empty() && must_not.is_empty()) {
+        return None;
+    }
+    let clause = &must[0];
+    // A per-query `analyzer` declines: the memtable FTS path tokenizes with
+    // the index default, while the stored-doc matcher and the segment
+    // projection honour it, so taking this arm would change the hit set at
+    // flush.
+    let QueryNode::Match {
+        field,
+        query,
+        analyzer: None,
+        ..
+    } = clause
+    else {
+        return None;
+    };
+    if is_doc_scan_query(clause) || extract_query_text(clause).is_none() {
+        return None;
+    }
+    let gate = QueryNode::Bool {
+        must: Vec::new(),
+        should: Vec::new(),
+        must_not: must_not.clone(),
+        filter: filter.clone(),
+        minimum_should_match: None,
+    };
+    Some((field.as_str(), query.as_str(), clause, gate))
 }
 
 /// Erase `bool` wrappers whose only clause is a single SCORING clause.
@@ -45863,7 +52678,7 @@ pub(crate) fn value_present(v: &Value) -> bool {
     }
 }
 
-fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Schema) -> bool {
+pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Schema) -> bool {
     match q {
         QueryNode::MatchAll => true,
         QueryNode::MatchNone => false,
@@ -45930,69 +52745,12 @@ fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Schema) -> bo
             lte,
             lt,
             ..
-        } => {
-            let doc_val = get_field_value(source, field);
-            match doc_val {
-                Some(dv) => {
-                    // Check if we're comparing IP addresses.
-                    let doc_is_ip = dv
-                        .as_str()
-                        .map(|s| parse_ip_to_u128(s).is_some())
-                        .unwrap_or(false);
-                    let bound_is_ip = gte
-                        .as_ref()
-                        .or(gt.as_ref())
-                        .or(lte.as_ref())
-                        .or(lt.as_ref())
-                        .and_then(|b| b.as_str())
-                        .map(|s| parse_ip_to_u128(s).is_some())
-                        .unwrap_or(false);
-
-                    if doc_is_ip && bound_is_ip {
-                        // IP address comparison using numeric ordering.
-                        let doc_ip = parse_ip_to_u128(dv.as_str().unwrap_or("")).unwrap_or(0);
-                        let passes_lower = match (gte, gt) {
-                            (Some(b), _) => {
-                                let bound = b.as_str().and_then(parse_ip_to_u128).unwrap_or(0);
-                                doc_ip >= bound
-                            }
-                            (None, Some(b)) => {
-                                let bound = b.as_str().and_then(parse_ip_to_u128).unwrap_or(0);
-                                doc_ip > bound
-                            }
-                            (None, None) => true,
-                        };
-                        let passes_upper = match (lte, lt) {
-                            (Some(b), _) => {
-                                let bound =
-                                    b.as_str().and_then(parse_ip_to_u128).unwrap_or(u128::MAX);
-                                doc_ip <= bound
-                            }
-                            (None, Some(b)) => {
-                                let bound =
-                                    b.as_str().and_then(parse_ip_to_u128).unwrap_or(u128::MAX);
-                                doc_ip < bound
-                            }
-                            (None, None) => true,
-                        };
-                        passes_lower && passes_upper
-                    } else {
-                        let passes_lower = match (gte, gt) {
-                            (Some(b), _) => json_compare(&dv, b) >= 0,
-                            (None, Some(b)) => json_compare(&dv, b) > 0,
-                            (None, None) => true,
-                        };
-                        let passes_upper = match (lte, lt) {
-                            (Some(b), _) => json_compare(&dv, b) <= 0,
-                            (None, Some(b)) => json_compare(&dv, b) < 0,
-                            (None, None) => true,
-                        };
-                        passes_lower && passes_upper
-                    }
-                }
-                None => false,
+        } => match get_field_value(source, field) {
+            Some(dv) => {
+                range_value_matches(&dv, gte.as_ref(), gt.as_ref(), lte.as_ref(), lt.as_ref())
             }
-        }
+            None => false,
+        },
 
         QueryNode::Exists { field } => match field.as_str() {
             "_id" | "_index" | "_seq_no" | "_version" | "_primary_term" => true,
@@ -46005,11 +52763,16 @@ fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Schema) -> bo
             _ => get_field_value(source, field).is_some_and(|v| value_present(&v)),
         },
 
-        QueryNode::Prefix { field, value, .. } => {
+        QueryNode::Prefix {
+            field,
+            value,
+            case_insensitive,
+            ..
+        } => {
             // #396: prefix semantics depend on the field's mapping, and ES never
             // analyses the prefix VALUE itself.
-            //  - keyword: match the RAW stored value, case-SENSITIVE ("Hello"
-            //    does not start with "hel").
+            //  - keyword: match the RAW stored value, case-SENSITIVE by default
+            //    ("Hello" does not start with "hel") unless `case_insensitive` true.
             //  - analysed text: match the analysed (lower-cased) token stream
             //    against the RAW query ("hel" prefixes "hello"; "Hel" does not).
             //  - unknown field (schemaless shim caller — no `Schema` in scope):
@@ -46021,7 +52784,11 @@ fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Schema) -> bo
             let value_lc = value.to_lowercase();
             let matches_str = |s: &str| -> bool {
                 if is_keyword {
-                    s.starts_with(value.as_str())
+                    if *case_insensitive {
+                        s.to_lowercase().starts_with(&value_lc)
+                    } else {
+                        s.starts_with(value.as_str())
+                    }
                 } else if is_text {
                     s.split(|c: char| !c.is_alphanumeric()).any(|tok| {
                         !tok.is_empty() && tok.to_lowercase().starts_with(value.as_str())
@@ -46364,15 +53131,18 @@ fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Schema) -> bo
                 }
                 let need = match operator {
                     xerj_query::ast::BoolOperator::And => q_tokens.len(),
-                    xerj_query::ast::BoolOperator::Or => match minimum_should_match {
-                        None => 1,
-                        Some(MinShouldMatch::Fixed(n)) => *n as usize,
-                        Some(MinShouldMatch::Percentage(pct)) => {
-                            ((q_tokens.len() as f32 * (*pct as f32 / 100.0)).floor() as usize)
-                                .max(1)
+                    // Omitted is OR until a log index rewrites it (#1504).
+                    xerj_query::ast::BoolOperator::Or | xerj_query::ast::BoolOperator::Omitted => {
+                        match minimum_should_match {
+                            None => 1,
+                            Some(MinShouldMatch::Fixed(n)) => *n as usize,
+                            Some(MinShouldMatch::Percentage(pct)) => {
+                                ((q_tokens.len() as f32 * (*pct as f32 / 100.0)).floor() as usize)
+                                    .max(1)
+                            }
+                            Some(other) => other.required(q_tokens.len()).unwrap_or(1),
                         }
-                        Some(other) => other.required(q_tokens.len()).unwrap_or(1),
-                    },
+                    }
                 };
                 let raw_values: Vec<String> = match get_field_value(source, field) {
                     Some(Value::String(value)) => vec![value],
@@ -46486,17 +53256,21 @@ fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Schema) -> bo
             // so the threshold applies across the union.
             let need: usize = match operator {
                 xerj_query::ast::BoolOperator::And => q_tokens.len(),
-                xerj_query::ast::BoolOperator::Or => match minimum_should_match {
-                    None => 1,
-                    Some(MinShouldMatch::Fixed(n)) => *n as usize,
-                    Some(MinShouldMatch::Percentage(pct)) => {
-                        ((q_tokens.len() as f32 * (*pct as f32 / 100.0)).floor() as usize).max(1)
+                // Omitted is OR until a log index rewrites it (#1504).
+                xerj_query::ast::BoolOperator::Or | xerj_query::ast::BoolOperator::Omitted => {
+                    match minimum_should_match {
+                        None => 1,
+                        Some(MinShouldMatch::Fixed(n)) => *n as usize,
+                        Some(MinShouldMatch::Percentage(pct)) => {
+                            ((q_tokens.len() as f32 * (*pct as f32 / 100.0)).floor() as usize)
+                                .max(1)
+                        }
+                        // #846: negative / negative-% / combination resolve against
+                        // the token count; terms_set field/script counts aren't
+                        // valid on a plain match, so degrade those to OR (need 1).
+                        Some(other) => other.required(q_tokens.len()).unwrap_or(1),
                     }
-                    // #846: negative / negative-% / combination resolve against
-                    // the token count; terms_set field/script counts aren't
-                    // valid on a plain match, so degrade those to OR (need 1).
-                    Some(other) => other.required(q_tokens.len()).unwrap_or(1),
-                },
+                }
             };
             let count_matched = |field_tokens: &[String]| -> usize {
                 q_tokens
@@ -46883,13 +53657,28 @@ fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Schema) -> bo
                 .unwrap_or(false)
         }
 
-        QueryNode::Regexp { field, pattern } => {
+        QueryNode::Regexp {
+            field,
+            pattern,
+            case_insensitive,
+        } => {
             get_field_value(source, field)
                 .and_then(|v| match v {
                     Value::String(s) => {
                         // Compile-once (thread-local cache) — this arm runs
                         // per candidate doc and used to recompile every time.
-                        compiled_anchored_regex(pattern).map(|re| re.is_match(&s))
+                        // #1812: `case_insensitive` on a KEYWORD field compiles
+                        // the same anchored pattern with the inline `(?i)` flag
+                        // (still full-string match — the anchored wrapper is
+                        // unchanged, so complex patterns keep ES semantics).
+                        let ft = declared_field(schema, field).map(|f| &f.field_type);
+                        let is_keyword = matches!(ft, Some(FieldType::Keyword));
+                        if is_keyword && *case_insensitive {
+                            compiled_anchored_regex(&format!("(?i){}", pattern))
+                                .map(|re| re.is_match(&s))
+                        } else {
+                            compiled_anchored_regex(pattern).map(|re| re.is_match(&s))
+                        }
                     }
                     _ => None,
                 })
@@ -49158,6 +55947,7 @@ fn seg_term_positions(
             }
             Some(set)
         }
+        Column::Presence(_) => None,
     }
 }
 
@@ -49323,7 +56113,7 @@ fn build_sort_shadow(
             });
             Some(Arc::new(sorted))
         }
-        None => None,
+        Some(Column::Presence(_)) | None => None,
     }
 }
 
@@ -49628,7 +56418,10 @@ fn warm_segment_at_publish(
     // the worst moment (the breaker only rejects; it cannot reclaim what
     // warming keeps re-adding). Skip when engaged — the next read
     // re-hydrates on demand, and warming resumes once memory frees up.
-    if crate::governor::global().is_some_and(|g| g.memory_breaker_engaged()) {
+    // #2427: also skip above the breaker's release level, so warming does
+    // not push a still-ingesting node back over the watermark
+    // (`ResourceGovernor::publish_warm_allowed`).
+    if crate::governor::global().is_some_and(|g| !g.publish_warm_allowed()) {
         return;
     }
     // 1. Stored slices.
@@ -49636,6 +56429,25 @@ fn warm_segment_at_publish(
         let built: Option<StoredSlices> = (|| {
             let reader = store.open_segment_arc(seg_id).ok()?;
             let raw = reader.section(SectionType::Stored).ok()??;
+            // #2427: size the warm BEFORE decompressing. A merged segment's
+            // stored section decodes to hundreds of MB (332 MB live in one
+            // late-ingest heap profile of the 1 GB gate) plus the column
+            // materialisation on top while it runs. When the hydration cache
+            // has no room the result is refused right after it is built, so
+            // the whole decode was a pure transient spike; and when the node
+            // is already within that many bytes of the RSS watermark, keeping
+            // it trips the parent breaker on the next sample. Either way the
+            // first query re-hydrates on demand (the pre-warm status quo).
+            let bound = stored_slices_bound(raw, expect_docs);
+            let rss_room = crate::governor::global().and_then(|g| {
+                let watermark = g.memory_watermark_bytes();
+                (watermark > 0).then(|| watermark.saturating_sub(g.observed_rss_bytes()))
+            });
+            if !publish_stored_warm_fits(&caches.budget, bound, rss_room) {
+                return None;
+            }
+            #[cfg(test)]
+            PUBLISH_STORED_WARM_DECODES.with(|n| n.set(n.get() + 1));
             let bytes = xerj_storage::stored_codec::decode_stored(raw).ok()?;
             if bytes.len() > u32::MAX as usize {
                 return None;
@@ -50322,6 +57134,85 @@ fn compute_sort_values(
     sort_vals
 }
 
+/// `_source` matcher for one `range` clause against a field value.
+///
+/// #1750 — a multi-valued field matches when ANY single element satisfies
+/// EVERY bound, which is Lucene's per-value point semantics and what ES 8.13
+/// returns. Comparing the array itself sent `json_compare` to its serialized
+/// text (`["alpha","mid"]`, `[22,8080]`), and because `'['` sorts after every
+/// digit and before every lowercase letter, an array passed any numeric/date
+/// lower bound, failed any upper bound, and failed a keyword `gte "m"` —
+/// whatever its elements were. The bounds are deliberately NOT split across
+/// elements: `["2020-01-01","2024-06-01"]` is outside
+/// `[2021-01-01, 2023-01-01)` even though one element clears each bound.
+/// Nested arrays flatten (ES indexes `[[1,2],3]` as three values) and `null`
+/// elements are skipped, as ES does not index them.
+fn range_value_matches(
+    dv: &Value,
+    gte: Option<&Value>,
+    gt: Option<&Value>,
+    lte: Option<&Value>,
+    lt: Option<&Value>,
+) -> bool {
+    if let Value::Array(arr) = dv {
+        return arr
+            .iter()
+            .any(|elem| !elem.is_null() && range_value_matches(elem, gte, gt, lte, lt));
+    }
+    // Check if we're comparing IP addresses.
+    let doc_is_ip = dv
+        .as_str()
+        .map(|s| parse_ip_to_u128(s).is_some())
+        .unwrap_or(false);
+    let bound_is_ip = gte
+        .or(gt)
+        .or(lte)
+        .or(lt)
+        .and_then(|b| b.as_str())
+        .map(|s| parse_ip_to_u128(s).is_some())
+        .unwrap_or(false);
+
+    if doc_is_ip && bound_is_ip {
+        // IP address comparison using numeric ordering.
+        let doc_ip = parse_ip_to_u128(dv.as_str().unwrap_or("")).unwrap_or(0);
+        let passes_lower = match (gte, gt) {
+            (Some(b), _) => {
+                let bound = b.as_str().and_then(parse_ip_to_u128).unwrap_or(0);
+                doc_ip >= bound
+            }
+            (None, Some(b)) => {
+                let bound = b.as_str().and_then(parse_ip_to_u128).unwrap_or(0);
+                doc_ip > bound
+            }
+            (None, None) => true,
+        };
+        let passes_upper = match (lte, lt) {
+            (Some(b), _) => {
+                let bound = b.as_str().and_then(parse_ip_to_u128).unwrap_or(u128::MAX);
+                doc_ip <= bound
+            }
+            (None, Some(b)) => {
+                let bound = b.as_str().and_then(parse_ip_to_u128).unwrap_or(u128::MAX);
+                doc_ip < bound
+            }
+            (None, None) => true,
+        };
+        passes_lower && passes_upper
+    } else {
+        let passes_lower = match (gte, gt) {
+            (Some(b), _) => json_compare(dv, b) >= 0,
+            (None, Some(b)) => json_compare(dv, b) > 0,
+            (None, None) => true,
+        };
+        let passes_upper = match (lte, lt) {
+            (Some(b), _) => json_compare(dv, b) <= 0,
+            (None, Some(b)) => json_compare(dv, b) < 0,
+            (None, None) => true,
+        };
+        passes_lower && passes_upper
+    }
+}
+
 pub(crate) fn get_field_value(source: &Value, field: &str) -> Option<Value> {
     // Fast path: literal dotted key at the source root (subobjects:false).
     if let Value::Object(obj) = source {
@@ -50555,6 +57446,17 @@ fn json_scalar_equal(dv: &Value, query_val: &Value) -> bool {
     }
     // Cross-type: number stored as string or vice versa.
     match (dv, query_val) {
+        // Two JSON numbers compare by value: serde_json's `Number` equality
+        // is representational, so a stored `10.0` was not equal to a queried
+        // `10`. Integers compare exactly (above 2^53 an f64 round-trip would
+        // merge neighbours); anything else compares as f64.
+        (Value::Number(a), Value::Number(b)) => match (a.as_i64(), b.as_i64()) {
+            (Some(x), Some(y)) => x == y,
+            _ => match (a.as_u64(), b.as_u64()) {
+                (Some(x), Some(y)) => x == y,
+                _ => a.as_f64() == b.as_f64(),
+            },
+        },
         (Value::String(s), Value::Number(n)) => s.parse::<f64>().ok() == n.as_f64(),
         (Value::Number(n), Value::String(s)) => n.as_f64() == s.parse::<f64>().ok(),
         // Cross-type: a boolean and its string spelling name the same
@@ -50879,6 +57781,42 @@ fn multi_match_field_is_mapped(
     false
 }
 
+/// Is `q` a single-field term-level or phrase leaf whose field is UNMAPPED
+/// in this index (no schema field anywhere on its dotted prefix chain, by
+/// the same rule as [`multi_match_field_is_mapped`])?
+///
+/// Such a leaf matches no document, so the FTS projection may skip it as a
+/// `should` child. Declines (returns `false`) when the index has no schema
+/// fields at all — an unmapped index keeps the stored-doc scan, as before —
+/// and for every other node shape, including `range` / `exists`, whose
+/// unmapped semantics this does not need to change.
+fn should_leaf_targets_unmapped_field(
+    q: &QueryNode,
+    text_fields: &[String],
+    exact_fields: &std::collections::HashSet<String>,
+) -> bool {
+    if text_fields.is_empty() && exact_fields.is_empty() {
+        return false;
+    }
+    let field = match q {
+        QueryNode::Term { field, .. }
+        | QueryNode::Terms { field, .. }
+        | QueryNode::MatchPhrase { field, .. }
+        | QueryNode::MatchPhrasePrefix { field, .. }
+        | QueryNode::Prefix { field, .. }
+        | QueryNode::Wildcard { field, .. }
+        | QueryNode::Fuzzy { field, .. }
+        | QueryNode::Regexp { field, .. } => field.as_str(),
+        _ => return false,
+    };
+    // Metadata fields (`_id`, `_index`, …) are never schema fields but are
+    // always "mapped"; leave them on their existing path.
+    if field.starts_with('_') {
+        return false;
+    }
+    !multi_match_field_is_mapped(field, text_fields, exact_fields)
+}
+
 /// Collect every field name referenced by an FTS query tree.
 ///
 /// Used to (a) extend the set of side-car fields `FtsIndexReader::open`
@@ -50942,6 +57880,7 @@ fn collect_fts_query_fields(q: &FtsQuery, out: &mut Vec<String>) {
         // queried field" gate to check.
         FtsQuery::DocScores(_) => {}
         FtsQuery::MatchAll => {}
+        FtsQuery::ConstantScore(c) => collect_fts_query_fields(&c.query, out),
     }
 }
 
@@ -51003,6 +57942,9 @@ fn collect_fts_query_terms(q: &FtsQuery, out: &mut Vec<(String, String)>) {
                 collect_fts_query_terms(sub, out);
             }
         }
+        // Non-scoring like `filter`, but still executed: collected for the
+        // same reason.
+        FtsQuery::ConstantScore(c) => collect_fts_query_terms(&c.query, out),
     }
 }
 
@@ -51317,18 +58259,27 @@ fn query_node_to_fts_projected(
         }
         QueryNode::MatchNone => None,
         // `constant_score`: MATCHING is the inner query's (so text filters
-        // keep the inverted-index path); the wrapper's constant score is
-        // applied post-hoc by the top-level override in `search` (the
-        // keyword-schema shape is served bit-exactly by `scored_columnar`
-        // before this projection is ever consulted).
-        QueryNode::Constant { query, .. } => query_node_to_fts_projected(
+        // keep the inverted-index path), and every match scores exactly the
+        // wrapper's boost. #2654: this used to return the inner projection
+        // bare and rely on the top-level override in `search`, which only
+        // sees a top-level `constant_score`; nested in a `bool` on flushed
+        // segments, the clause added the inner BM25 instead of the boost.
+        // (The keyword-schema shape is served bit-exactly by
+        // `scored_columnar` before this projection is ever consulted.)
+        QueryNode::Constant { query, score } => query_node_to_fts_projected(
             query,
             text_fields,
             exact_fields,
             keyword_fields,
             binding,
             pinned,
-        ),
+        )
+        .map(|inner| {
+            FtsQuery::ConstantScore(Box::new(xerj_fts::search::ConstantScoreQuery {
+                query: inner,
+                score: *score,
+            }))
+        }),
         QueryNode::Match {
             field,
             query,
@@ -51817,6 +58768,21 @@ fn query_node_to_fts_projected(
                 }
             }
             for sub in should {
+                // A term-level / phrase leaf on a field this index does not
+                // map at all matches NO document (ES rewrites it to
+                // `MatchNoDocsQuery`), so as a `should` child it can neither
+                // add a hit nor change a score — skip it instead of letting
+                // its `None` abort the whole projection. Without this, the
+                // CLI's code-shaped body (`term` on `name`, `match_phrase` on
+                // `defs`) sent across a mixed code+docs prefix pushed every
+                // docs index onto the full stored-doc scan (`needs_fts=false`,
+                // every row decoded): 13 s on 93k docs, the 30 s search
+                // deadline on larger ones. `minimum_should_match` was already
+                // resolved above against the ORIGINAL clause count, which is
+                // what ES does too (the no-docs clause still counts).
+                if should_leaf_targets_unmapped_field(sub, text_fields, exact_fields) {
+                    continue;
+                }
                 // A `should` clause that can't be projected to FTS (e.g.
                 // MatchPhrase over indexed phrases) must NOT be silently
                 // dropped — dropping it makes the bool LESS permissive and
@@ -52063,6 +59029,7 @@ fn query_node_to_fts_projected(
             value,
             boost,
             constant_score,
+            case_insensitive,
         } => {
             // `prefix` on a KEYWORD field: whole-value, case-sensitive prefix
             // match over the keyword FST term dictionary — byte-identical to ES
@@ -52079,7 +59046,17 @@ fn query_node_to_fts_projected(
             // exact.  TEXT fields keep the doc-scan (None): their prefix runs
             // against analyzed tokens, which the FST-whole-value route can't
             // reproduce.
+            //
+            // #1812: `case_insensitive: true` makes the KEYWORD FST route
+            // bail to the brute scan — that route expands CASE-SENSITIVELY
+            // and can't fold, while the doc-scan arm folds both sides for
+            // keyword fields.  TEXT keeps its route: analyzed terms are
+            // already lowercased and the pattern is matched raw (flag
+            // irrelevant on text, per ES).
             if exact_fields.contains(field.as_str()) {
+                if *case_insensitive {
+                    return None;
+                }
                 return Some(FtsQuery::Prefix(xerj_fts::search::PrefixQuery {
                     field: field.clone(),
                     prefix: value.clone(),
@@ -52599,9 +59576,16 @@ enum FilterEval<'a> {
     /// presence from the segment's cached stored slices, using the SAME
     /// `get_field_value` + `value_present` predicate as the brute scan.
     /// Owned `Resident` so the eval outlives the segment iteration.
+    /// Reached only when the segment has no presence bitmap.
     Source {
         field: String,
         slices: Resident<StoredSlices>,
+    },
+    /// `exists` answered from the segment's presence bitmap. No stored
+    /// bytes are decoded. `col.doc_count` was checked against the segment
+    /// length before this leaf was built.
+    Presence {
+        col: &'a xerj_storage::doc_values::PresenceColumn,
     },
 }
 impl FilterEval<'_> {
@@ -52650,6 +59634,7 @@ impl FilterEval<'_> {
                 let source = doc.get("_source").unwrap_or(&doc);
                 get_field_value(source, field).is_some_and(|v| value_present(&v))
             }
+            FilterEval::Presence { col } => col.contains(row),
         }
     }
 
@@ -52699,6 +59684,10 @@ impl FilterEval<'_> {
             FilterEval::Source { .. } => {
                 unreachable!("source-backed exists has no closed-form count")
             }
+            // Bitmap cardinality. Ghosts are excluded by the caller that
+            // walks rows; `constant_plan` still refuses SourceExists, so
+            // this arm is the exhaustive match, not the closed-form lane.
+            FilterEval::Presence { col } => col.count(),
         }
     }
 }
@@ -52914,21 +59903,14 @@ enum ScoredFilterLeaf {
         min_inc: bool,
         max_inc: bool,
     },
-    /// `exists` on a field with NO doc-values column (text /
-    /// semantic_text): per-row presence is only observable in the stored
-    /// source.  Evaluated from the segment's cached stored slices — the
-    /// SAME `get_field_value` + `value_present` predicate the brute scan
-    /// applies, so the hit set cannot drift — but only reached on rows
-    /// that already passed every cheaper conjunct in the same loop (each
-    /// row walk short-circuits in fev order), which is what turns
-    /// `bool.filter: [term, exists]` from a whole-index source scan into
-    /// a term-column walk plus a handful of source parses.  #1183's
-    /// finalize-verify query (`term: ax_file` + `exists: <semantic
-    /// field>`) measured took=9638ms / 0 hits on a 91k-doc segment
-    /// because `exists` in a bool forced the brute path; this leaf makes
-    /// it columnar.  Keyword/numeric `exists` does NOT come here — those
-    /// lower to the empty-prefix dictionary range / unbounded window
-    /// above and never touch the source.
+    /// `exists` on a field with no value column (text / semantic_text,
+    /// `doc_values: false`). A segment that carries a presence bitmap
+    /// answers from that bitmap. Older segments fall back to the cached
+    /// stored slices and the SAME `get_field_value` + `value_present`
+    /// predicate the brute scan applies. The leaf is only reached on rows
+    /// that already passed every cheaper conjunct in the same loop.
+    /// Keyword/numeric `exists` does NOT come here — those lower to the
+    /// empty-prefix dictionary range / unbounded window above.
     SourceExists { field: String },
 }
 
@@ -53601,14 +60583,25 @@ fn scored_fast_plan(
             value,
             boost,
             constant_score: true,
-        } if fs.kw.contains(field) => Some(ScoredPlan::Filtered {
-            filter: vec![ScoredFilterLeaf::KeywordPrefix {
-                field: field.clone(),
-                prefix: value.clone(),
-            }],
-            must_not: Vec::new(),
-            score: scoring_boost(boost)?,
-        }),
+            case_insensitive,
+        } if fs.kw.contains(field) => {
+            // #1812: the keyword-ordinal prefix filter is case-SENSITIVE —
+            // a `case_insensitive` prefix must fall through to the brute
+            // scan (which folds both sides), like the `Wildcard` arm below
+            // threads the flag into its filter instead.
+            if *case_insensitive {
+                None
+            } else {
+                Some(ScoredPlan::Filtered {
+                    filter: vec![ScoredFilterLeaf::KeywordPrefix {
+                        field: field.clone(),
+                        prefix: value.clone(),
+                    }],
+                    must_not: Vec::new(),
+                    score: scoring_boost(boost)?,
+                })
+            }
+        }
         QueryNode::Wildcard {
             field,
             value,
@@ -53720,12 +60713,12 @@ fn scored_fast_plan(
     }
 }
 
-/// Default chunk size (characters) for auto-embed-on-ingest chunking.
-/// `EmbeddingConfig` has no per-field chunk parameter yet, so this is a
-/// sensible fixed default (roughly a paragraph).
-const SEMANTIC_CHUNK_SIZE: usize = 512;
-/// Default overlap (characters) between consecutive chunks.
-const SEMANTIC_CHUNK_OVERLAP: usize = 64;
+// #1122/#2433: the lexical chunk/embed/pool recipe lives in xerj-ai so the
+// stored-section codec can regenerate the derived vectors bit-identically
+// instead of persisting them in every stored `_source`.
+#[cfg(test)]
+use xerj_ai::semantic_lexical::SEMANTIC_CHUNK_SIZE;
+use xerj_ai::semantic_lexical::{local_chunk_vectors, mean_pool_normalize, semantic_chunker};
 
 /// Select one order-preserving caller-side embedding window. One oversized
 /// document-field job remains whole so the planner always makes progress.
@@ -54063,67 +61056,6 @@ mod semantic_embedding_window_tests {
             );
         }
     }
-}
-
-/// The chunker used by the auto-embed-on-ingest path.
-fn semantic_chunker() -> xerj_ai::TextChunker {
-    xerj_ai::TextChunker::new(SEMANTIC_CHUNK_SIZE, SEMANTIC_CHUNK_OVERLAP)
-}
-
-/// L2-normalize each input vector, mean-pool across all of them, then
-/// re-normalize the pooled result. Produces a unit-norm vector of the same
-/// dimensionality as the inputs (empty input => empty vec). Vectors whose
-/// length differs from the first are skipped.
-fn mean_pool_normalize(vectors: &[Vec<f32>]) -> Vec<f32> {
-    let dims = match vectors.first() {
-        Some(v) => v.len(),
-        None => return Vec::new(),
-    };
-    let mut acc = vec![0.0f32; dims];
-    let mut used = 0usize;
-    for v in vectors {
-        if v.len() != dims {
-            continue;
-        }
-        let norm = v.iter().map(|x| x * x).sum::<f32>().sqrt();
-        if norm > 0.0 {
-            for (a, x) in acc.iter_mut().zip(v.iter()) {
-                *a += x / norm;
-            }
-            used += 1;
-        }
-    }
-    if used > 0 {
-        let inv = 1.0 / used as f32;
-        for a in acc.iter_mut() {
-            *a *= inv;
-        }
-    }
-    // Re-normalize the pooled vector to unit length.
-    let norm = acc.iter().map(|x| x * x).sum::<f32>().sqrt();
-    if norm > 0.0 {
-        for a in acc.iter_mut() {
-            *a /= norm;
-        }
-    }
-    acc
-}
-
-/// Chunk `text` and embed each overlapping chunk with the built-in *local*
-/// embedder, returning one unit-norm vector per passage. Short text
-/// (<= chunk_size) produces a single chunk, so the result is
-/// `vec![local_embed(text, dims)]`. This is the per-chunk primitive used by
-/// the auto-embed-on-ingest path to persist passage vectors for max-sim
-/// semantic scoring.
-fn local_chunk_vectors(text: &str, dims: usize) -> Vec<Vec<f32>> {
-    let chunks = semantic_chunker().chunk(text, None);
-    if chunks.len() <= 1 {
-        return vec![xerj_ai::local::local_embed(text, dims)];
-    }
-    chunks
-        .iter()
-        .map(|c| xerj_ai::local::local_embed(&c.text, dims))
-        .collect()
 }
 
 /// Chunk `text` and mean-pool the per-chunk *local* embeddings into a single
@@ -55598,6 +62530,122 @@ mod fts_projection_tests {
         .is_none());
     }
 
+    /// A `should` `term` / `match_phrase` on a field this index does not map
+    /// matches nothing, so it must not abort the projection (which sent the
+    /// CLI's code-shaped body onto the full stored-doc scan of every docs
+    /// index). The projection equals the same bool without those clauses.
+    #[test]
+    fn bool_should_unmapped_term_and_phrase_are_skipped() {
+        let text_fields = vec!["body".to_string()];
+        let exact = kw(&["title"]);
+        let mapped = QueryNode::Match {
+            field: "body".into(),
+            query: "span context".into(),
+            operator: xerj_query::ast::BoolOperator::Or,
+            boost: None,
+            analyzer: None,
+            minimum_should_match: None,
+            lenient: false,
+        };
+        let ghost_term = QueryNode::Term {
+            field: "name".into(),
+            value: serde_json::json!("span context"),
+            boost: Some(10.0),
+        };
+        let ghost_phrase = QueryNode::MatchPhrase {
+            field: "defs".into(),
+            query: "span context".into(),
+            slop: 0,
+            analyzer: None,
+            boost: Some(8.0),
+            lenient: false,
+        };
+        let bool_of = |should: Vec<QueryNode>| QueryNode::Bool {
+            must: vec![],
+            should,
+            filter: vec![],
+            must_not: vec![],
+            minimum_should_match: None,
+        };
+        let with_ghosts = query_node_to_fts(
+            &bool_of(vec![
+                mapped.clone(),
+                ghost_term.clone(),
+                ghost_phrase.clone(),
+            ]),
+            &text_fields,
+            &exact,
+        )
+        .expect("unmapped should leaves must not abort the projection");
+        let control = query_node_to_fts(&bool_of(vec![mapped.clone()]), &text_fields, &exact)
+            .expect("control projects");
+        assert_eq!(format!("{with_ghosts:?}"), format!("{control:?}"));
+        let mut fields = Vec::new();
+        collect_fts_query_fields(&with_ghosts, &mut fields);
+        assert_eq!(fields, vec!["body".to_string()]);
+
+        // Only unmapped leaves: nothing positive projects, so the projection
+        // still declines (stored scan answers, as before).
+        assert!(query_node_to_fts(
+            &bool_of(vec![ghost_term, ghost_phrase]),
+            &text_fields,
+            &exact
+        )
+        .is_none());
+    }
+
+    /// The skip is for UNMAPPED fields only: a `should` `term` on a mapped
+    /// TEXT field (not projectable as a term) still declines the projection,
+    /// a dotted sub-field of a mapped parent is still treated as mapped, and
+    /// a schema-less index never skips anything.
+    #[test]
+    fn bool_should_skip_is_limited_to_unmapped_fields() {
+        let text_fields = vec!["body".to_string(), "path".to_string()];
+        let exact = kw(&[]);
+        let mapped = QueryNode::Match {
+            field: "body".into(),
+            query: "span".into(),
+            operator: xerj_query::ast::BoolOperator::Or,
+            boost: None,
+            analyzer: None,
+            minimum_should_match: None,
+            lenient: false,
+        };
+        let term_on = |f: &str| QueryNode::Term {
+            field: f.into(),
+            value: serde_json::json!("x"),
+            boost: None,
+        };
+        let bool_of = |should: Vec<QueryNode>| QueryNode::Bool {
+            must: vec![],
+            should,
+            filter: vec![],
+            must_not: vec![],
+            minimum_should_match: None,
+        };
+        for f in ["body", "path.keyword", "_id"] {
+            assert!(
+                query_node_to_fts(
+                    &bool_of(vec![mapped.clone(), term_on(f)]),
+                    &text_fields,
+                    &exact
+                )
+                .is_none(),
+                "term on {f} must keep the stored-scan route"
+            );
+        }
+        assert!(!should_leaf_targets_unmapped_field(
+            &term_on("ghost"),
+            &[],
+            &kw(&[])
+        ));
+        assert!(should_leaf_targets_unmapped_field(
+            &term_on("ghost"),
+            &text_fields,
+            &exact
+        ));
+    }
+
     /// Dotted sub-paths under a mapped parent (`title.keyword`, `user.name`)
     /// are NOT unmapped — they have no top-level FTS side-car and are served
     /// by the stored scan's multi-field/_source fallback, so their clause
@@ -55874,6 +62922,7 @@ mod fts_projection_tests {
             value: "run".into(),
             boost: None,
             constant_score: true,
+            case_insensitive: false,
         };
         match query_node_to_fts(&q, &tf, &kw(&[])).expect("text prefix projects") {
             FtsQuery::Prefix(p) => {
@@ -56538,6 +63587,45 @@ mod highlight_multibyte_tests {
         );
     }
 
+    /// #1948: a phrase query highlighted `or` inside `for` and `no` inside
+    /// `not`, and only the one match each fragment was centred on, so the
+    /// phrase itself came back untagged.
+    #[test]
+    fn highlight_tags_whole_words_and_every_term_in_the_fragment() {
+        let text = "Pricing is per-node for Professional, custom for Enterprise. \
+                    No per-doc, per-vector, or per-query fees. Binary delivery \
+                    does not require a sector license.";
+        let (lower, map) = build_lower_offset_map(text);
+        let mut terms: Vec<String> = ["no", "per-doc", "per-vector", "or", "per-query", "fees"]
+            .iter()
+            .map(|t| t.to_string())
+            .collect();
+        terms.sort();
+        let frags = build_highlight_fragments(text, &lower, &map, &terms, "<em>", "</em>", 150, 1);
+        assert_eq!(frags.len(), 1, "{frags:?}");
+        let f = &frags[0];
+        assert!(
+            f.contains("<em>No</em> <em>per-doc</em>, <em>per-vector</em>, <em>or</em> <em>per-query</em> <em>fees</em>"),
+            "every phrase word is tagged in place: {f}"
+        );
+        assert!(!f.contains("f<em>or</em>"), "no match inside `for`: {f}");
+        assert!(!f.contains("<em>no</em>t"), "no match inside `not`: {f}");
+
+        let full = highlight_full_text(text, &lower, &map, &terms, "<em>", "</em>");
+        assert!(
+            !full.contains("f<em>or</em>") && !full.contains("<em>no</em>t"),
+            "{full}"
+        );
+        assert!(!full.contains("sect<em>or</em>"), "{full}");
+
+        // A `query_string` prefix term still reaches into the word.
+        let (lower, map) = build_lower_offset_map("a wildcard and wild cats");
+        let prefix = vec!["wild*".to_string()];
+        let full = highlight_full_text("a wildcard and wild cats", &lower, &map, &prefix, "[", "]");
+        assert_eq!(full, "a [wildcard] and [wild] cats");
+        assert_eq!(next_term_match("rewild", "wild*", 0), None);
+    }
+
     #[test]
     fn fragment_highlight_after_multibyte_does_not_panic() {
         let text = "İstanbul cafe";
@@ -56724,6 +63812,77 @@ mod lexical_passage_tests {
             "ordinal = line index of window start"
         );
         assert!(passage.ordinal > 0, "window must not hug the file head");
+    }
+
+    /// #2327: a nested test callback under the 16 KiB AST cap used to be
+    /// returned whole. The passage stays inside the lexical window and keeps
+    /// the line ordinal of that window.
+    #[test]
+    fn nested_test_callback_passage_stays_inside_the_lexical_window() {
+        let mut callback = String::from("() => {\n  const CALLBACK_START_SENTINEL = 1;\n");
+        for i in 0..70 {
+            callback.push_str(&format!(
+                "  const pad_{i:03} = \"session-token-handler-pad\";\n"
+            ));
+        }
+        callback.push_str("  const refreshMarker = sessionTokenHandler();\n}\n");
+        assert!(callback.len() > LEXICAL_PASSAGE_MAX_BYTES);
+        assert!(callback.len() < crate::code_blocks::DEFAULT_MAX_BLOCK_BYTES);
+        let body = format!(
+            "{}\ndescribe(\"session token\", () => {{\n  it(\"refreshes the handler\", {callback});\n}});\n",
+            "// preamble\n".repeat(8)
+        );
+        let query = QueryNode::MultiMatch {
+            fields: vec!["body".into()],
+            query: "refreshMarker sessionTokenHandler".into(),
+            match_type: Default::default(),
+            operator: None,
+            analyzer: None,
+            boost: None,
+            slop: 0,
+            max_expansions: 50,
+            lenient: false,
+        };
+        let hit = Hit {
+            id: "doc-1".into(),
+            score: 1.0,
+            source: json!({
+                "body": body,
+                "language": "typescript",
+                "symbol_count": 2
+            }),
+            seq_no: None,
+            version: None,
+            sort: Vec::new(),
+            explain: None,
+            highlight: None,
+            matched_queries: Vec::new(),
+            passage: None,
+        };
+        let out = apply_lexical_passages(vec![hit], &query);
+        let passage = out[0].passage.as_ref().expect("lexical passage filled");
+        assert!(
+            passage.text.contains("refreshMarker"),
+            "the window must contain the match: {}",
+            passage.text
+        );
+        assert!(
+            passage.text.len() <= LEXICAL_PASSAGE_MAX_BYTES,
+            "a nested callback must not be returned whole ({} bytes)",
+            passage.text.len()
+        );
+        assert!(
+            !passage.text.contains("CALLBACK_START_SENTINEL"),
+            "the callback head is outside the window: {}",
+            passage.text
+        );
+        let start = passage.start_offset as usize;
+        assert_eq!(
+            passage.ordinal as usize,
+            body[..start].matches('\n').count(),
+            "ordinal is the file line of the bounded window"
+        );
+        assert!(passage.ordinal > 0, "the preamble keeps a real line");
     }
 
     /// A short symbol-list field must not capture the passage from the body:
@@ -58774,6 +65933,8 @@ mod flush_memory_integration_tests {
             dv_skip,
             || {},
             warm_caches,
+            idx.name.as_str().to_string(),
+            std::time::Duration::from_secs(30),
             Some(hook),
         )
         .await;
@@ -58981,8 +66142,37 @@ mod unwrap_single_clause_643_wrapper_tests {
     }
 }
 
+/// #2431: in-segment cooperative deadline poll. The segment walk checks the
+/// request deadline between segments, but one large segment is otherwise an
+/// uninterruptible unit, so every per-segment hydration / collection loop
+/// polls this on its first item and every 256 after (the same cadence as
+/// `scan_stored_section_into` and the memtable scan).
+#[inline]
+fn segment_deadline_hit(scanned: usize, deadline: Option<std::time::Instant>) -> bool {
+    scanned & 0xFF == 0 && deadline.is_some_and(|dl| std::time::Instant::now() >= dl)
+}
+
+/// Whether the between-segment deadline gate (and the FTS searcher's own
+/// deadline) are armed. Always true outside tests; the #2431 tests switch it
+/// off with `INNER_DEADLINE_ONLY` so an expired request reaches the
+/// in-segment loops and the test proves THOSE polls stop it.
+#[inline]
+fn fanout_deadline_armed() -> bool {
+    #[cfg(test)]
+    {
+        !INNER_DEADLINE_ONLY.with(|c| c.get())
+    }
+    #[cfg(not(test))]
+    {
+        true
+    }
+}
+
 #[cfg(test)]
 thread_local! {
+    /// #2431 test hook: see [`fanout_deadline_armed`].
+    pub(crate) static INNER_DEADLINE_ONLY: std::cell::Cell<bool> =
+        const { std::cell::Cell::new(false) };
     /// #577 fail-before instrument: the high-water mark of `all_hits.len()`
     /// reached inside the `residual_gate` per-segment loop.
     pub(crate) static RESIDUAL_HITS_PEAK: std::cell::Cell<usize> =
@@ -58996,6 +66186,109 @@ thread_local! {
         const { std::cell::Cell::new(0) };
     pub(crate) static SEG_STORED_SCANS: std::cell::Cell<usize> =
         const { std::cell::Cell::new(0) };
+}
+
+#[cfg(test)]
+mod segment_inner_deadline_2431_tests {
+    use super::*;
+    use serde_json::json;
+
+    /// Disarms the between-segment gate and the FTS searcher deadline for the
+    /// guard's lifetime, so only the in-segment loop polls can stop a search.
+    struct InnerDeadlineOnly;
+    impl InnerDeadlineOnly {
+        fn arm() -> Self {
+            INNER_DEADLINE_ONLY.with(|c| c.set(true));
+            InnerDeadlineOnly
+        }
+    }
+    impl Drop for InnerDeadlineOnly {
+        fn drop(&mut self) {
+            INNER_DEADLINE_ONLY.with(|c| c.set(false));
+        }
+    }
+
+    async fn flushed_index(name: &str, n: usize) -> (tempfile::TempDir, crate::Engine) {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        engine.create_index(name, Schema::empty()).unwrap();
+        let idx = engine.get_index(name).unwrap();
+        for i in 0..n {
+            idx.index_document(Some(format!("d{i}")), json!({"body": "alpha beta", "n": i}))
+                .await
+                .unwrap();
+        }
+        idx.flush().await.unwrap();
+        (dir, engine)
+    }
+
+    /// #2431: an expired request that gets past the segment fan-out must be
+    /// stopped by the residual-gate loop itself (per-hit source read + query
+    /// re-test), not walk every match. Fail-before: with the hook on, the loop
+    /// had no poll, so the search ran to completion with `timed_out: false`.
+    #[tokio::test]
+    async fn residual_gate_loop_stops_at_the_search_deadline() {
+        let (_dir, engine) = flushed_index("deadline-2431-residual", 2000).await;
+        let idx = engine.get_index("deadline-2431-residual").unwrap();
+        let body = json!({
+            "size": 10,
+            "query": {"bool": {
+                "must": [{"match": {"body": "alpha"}}],
+                "filter": [{"range": {"n": {"gte": 0}}}]
+            }}
+        });
+        let _hook = InnerDeadlineOnly::arm();
+
+        RESIDUAL_HITS_PEAK.with(|c| c.set(0));
+        let mut expired = xerj_query::parse_request(&body).unwrap();
+        expired.timeout_ms = Some(0);
+        let partial = idx.search(&expired).await.unwrap();
+        assert!(
+            partial.timed_out,
+            "an expired deadline must stop the residual-gate loop and report timed_out"
+        );
+        assert_eq!(
+            RESIDUAL_HITS_PEAK.with(|c| c.get()),
+            0,
+            "the loop must stop before admitting any hit"
+        );
+
+        let mut live = xerj_query::parse_request(&body).unwrap();
+        live.timeout_ms = Some(60_000);
+        let full = idx.search(&live).await.unwrap();
+        assert!(!full.timed_out, "a live deadline must not trip");
+        assert_eq!(full.total.value, 2000);
+        assert_eq!(full.hits.len(), 10);
+    }
+
+    /// #2431: the same for the sorted paths (dv-sorted candidate hydration /
+    /// FTS hit hydration under a sort), which walk every match of a segment.
+    #[tokio::test]
+    async fn sorted_segment_paths_stop_at_the_search_deadline() {
+        let (_dir, engine) = flushed_index("deadline-2431-sorted", 2000).await;
+        let idx = engine.get_index("deadline-2431-sorted").unwrap();
+        let _hook = InnerDeadlineOnly::arm();
+        for body in [
+            json!({"size": 10, "query": {"range": {"n": {"gte": 0}}}, "sort": [{"n": "asc"}]}),
+            json!({"size": 10, "query": {"match": {"body": "alpha"}}, "sort": [{"n": "desc"}]}),
+        ] {
+            let mut expired = xerj_query::parse_request(&body).unwrap();
+            expired.timeout_ms = Some(0);
+            let partial = idx.search(&expired).await.unwrap();
+            assert!(
+                partial.timed_out,
+                "expired deadline must report timed_out for {body}"
+            );
+
+            let mut live = xerj_query::parse_request(&body).unwrap();
+            live.timeout_ms = Some(60_000);
+            let full = idx.search(&live).await.unwrap();
+            assert!(!full.timed_out, "a live deadline must not trip for {body}");
+            assert_eq!(full.hits.len(), 10, "full page for {body}");
+        }
+    }
 }
 
 #[cfg(test)]
@@ -59717,6 +67010,14 @@ mod exact_scan_hydration_tests {
         }
         scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
         scored.truncate(k.max(1));
+        // #3017: the capped page is in score DESC, seq_no ASC, _id ASC order.
+        let seq_of = |id: &str| idx.lookup_seq_no(id).unwrap_or(u64::MAX);
+        scored.sort_by(|a, b| {
+            b.1.partial_cmp(&a.1)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| seq_of(&a.0).cmp(&seq_of(&b.0)))
+                .then_with(|| a.0.cmp(&b.0))
+        });
         scored
             .into_iter()
             .map(|(id, score, src, ordinal)| (id, score.to_bits(), ordinal, src))
@@ -60043,6 +67344,67 @@ mod exact_scan_hydration_tests {
             "columns were never published"
         );
         assert_scan_matches_legacy(&idx, "body_vector", false).await;
+    }
+
+    /// #2473: the exact scan answered a straddling publication with the typed
+    /// recapture signal, which only `search()`'s admission loop knows how to
+    /// consume — the signal and its predicate are private to this module, so a
+    /// caller of `run_knn_brute_force` could not recognise it and retry. A
+    /// background flush that straddled the capture therefore failed the run
+    /// with `Fts(collection capture crossed a publication)`, which is exactly
+    /// how `exact_scan_is_bit_identical_to_the_clone_everything_scan` failed 7
+    /// runs in 10 inside its group while passing alone.
+    #[tokio::test]
+    async fn an_exact_scan_waits_out_a_publication_bracket_instead_of_failing() {
+        let dir = TempDir::new().unwrap();
+        let engine = engine(&dir);
+        engine
+            .create_index("scan-crossed", vector_schema(None))
+            .unwrap();
+        let idx = engine.get_index("scan-crossed").unwrap();
+        idx.schema.write().await.dynamic = xerj_common::schema::DynamicMapping::Runtime;
+        seed(&idx).await;
+        let query = Lcg(7).vector();
+        let request = SearchRequest {
+            size: 10,
+            ..SearchRequest::default()
+        };
+
+        // A writer bracket open across the scan's capture: the generation it
+        // reads before the memtable capture cannot be the one it validates
+        // after the segment snapshot. `cancel` (not a bare drop) keeps the
+        // index unpoisoned.
+        let mut bracket = idx.collection_publication.begin().unwrap();
+        let scan = {
+            let idx = Arc::clone(&idx);
+            tokio::spawn(async move {
+                idx.run_knn_brute_force(
+                    &request,
+                    "body_vector",
+                    &query,
+                    10,
+                    None,
+                    "cosine",
+                    None,
+                    None,
+                )
+                .await
+            })
+        };
+        // Long enough for the scan to reach the capture check and lose it.
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        bracket.cancel();
+        drop(bracket);
+
+        let hits = scan
+            .await
+            .unwrap()
+            .expect("a bracket that closed inside the deadline is recaptured, not surfaced");
+        assert_eq!(
+            hits.hits.len(),
+            10,
+            "the retried scan answers the same page it would have without the bracket"
+        );
     }
 
     #[tokio::test]
@@ -60459,6 +67821,7 @@ mod exact_scan_hydration_tests {
                 value: "t".into(),
                 boost: None,
                 constant_score: false,
+                case_insensitive: false,
             },
             QueryNode::Bool {
                 must: vec![exists("tag")],
@@ -60582,6 +67945,8 @@ mod exact_scan_hydration_tests {
                 std::collections::HashSet::new(),
                 move || drained_flag.store(true, std::sync::atomic::Ordering::SeqCst),
                 idx.publish_warm_caches(),
+                idx.name.as_str().to_string(),
+                std::time::Duration::from_secs(30),
                 None,
             ),
         )
@@ -60594,5 +67959,286 @@ mod exact_scan_hydration_tests {
             drained.load(std::sync::atomic::Ordering::SeqCst),
             "on_drained must fire on the empty-shard fast path"
         );
+    }
+}
+
+#[cfg(test)]
+mod packed_vector_doc_values_tests {
+    use super::build_doc_value_columns;
+    use serde_json::json;
+
+    #[test]
+    fn packed_embedding_is_not_filed_as_a_keyword() {
+        let src = json!({
+            "msg": "hello",
+            "msg_vector": xerj_common::packed_f32::pack_f32_vector(&[1.0, 0.0, -1.0]).unwrap(),
+        });
+        let cols = build_doc_value_columns(
+            std::iter::once(Some(&src)),
+            &std::collections::HashSet::new(),
+        );
+        assert!(cols.contains_key("msg"));
+        assert!(
+            !cols.contains_key("msg_vector"),
+            "a packed embedding must not become a per-doc keyword term"
+        );
+    }
+}
+
+/// #1504: a logs index's omitted `match` requires every token. The same
+/// query on an index without the setting stays ES's OR, and an explicit
+/// `"operator": "or"` on the logs index stays OR too.
+#[cfg(test)]
+mod log_match_operator_tests {
+    use super::*;
+    use serde_json::json;
+
+    fn message_schema() -> Schema {
+        let mut schema = Schema::empty();
+        schema
+            .add_field(FieldConfig::new("message", FieldType::Text))
+            .unwrap();
+        schema
+    }
+
+    fn english() -> Value {
+        json!({"analysis": {"analyzer": {"default": {"type": "english"}}}})
+    }
+
+    async fn index_lines(idx: &Index, lines: &[(&str, &str)]) {
+        idx.abort_background_tasks();
+        for (id, message) in lines {
+            idx.index_document(Some((*id).to_string()), json!({"message": message}))
+                .await
+                .unwrap();
+        }
+    }
+
+    fn hit_ids(result: &SearchResult) -> Vec<String> {
+        let mut ids: Vec<String> = result.hits.iter().map(|hit| hit.id.clone()).collect();
+        ids.sort();
+        ids
+    }
+
+    const LINES: &[(&str, &str)] = &[
+        ("sip-only", "SIP engine not registered"),
+        ("forbidden", "SIP/2.0 403 Forbidden"),
+        ("is-only", "device is online"),
+        ("both-words", "invalid configuration detected"),
+    ];
+
+    #[test]
+    fn the_setting_is_read_from_a_flat_key_or_a_nested_object() {
+        assert!(Index::match_operator_defaults_to_and(&json!({
+            "index.query.default_match_operator": "and"
+        })));
+        assert!(Index::match_operator_defaults_to_and(&json!({
+            "index": {"query": {"default_match_operator": "AND"}}
+        })));
+        assert!(!Index::match_operator_defaults_to_and(&json!({
+            "analysis": {"analyzer": {"default": {"type": "english"}}}
+        })));
+        assert!(!Index::match_operator_defaults_to_and(&json!({
+            "index.query.default_match_operator": "or"
+        })));
+    }
+
+    #[tokio::test]
+    async fn a_log_index_match_requires_every_token_and_a_plain_index_does_not() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+
+        let mut logs_settings = english();
+        logs_settings["index.query.default_match_operator"] = json!("and");
+        engine
+            .create_index_with_settings("logs", message_schema(), logs_settings)
+            .unwrap();
+        engine
+            .create_index_with_settings("plain", message_schema(), english())
+            .unwrap();
+        let logs = engine.get_index("logs").unwrap();
+        let plain = engine.get_index("plain").unwrap();
+        index_lines(&logs, LINES).await;
+        index_lines(&plain, LINES).await;
+
+        let sip = xerj_query::parse_request(&json!({
+            "query": {"match": {"message": "SIP 403 Forbidden"}},
+            "size": 10
+        }))
+        .unwrap();
+        let sip_or = xerj_query::parse_request(&json!({
+            "query": {"match": {"message": {"query": "SIP 403 Forbidden", "operator": "or"}}},
+            "size": 10
+        }))
+        .unwrap();
+
+        // Memtable path (operator AND is a stored scan) and the flushed FTS
+        // path must agree: a line that only says SIP is not the phrase.
+        for idx in [&logs, &plain] {
+            let before = hit_ids(&idx.search(&sip).await.unwrap());
+            idx.flush().await.unwrap();
+            let after = hit_ids(&idx.search(&sip).await.unwrap());
+            assert_eq!(before, after, "flush must not change the hit set");
+        }
+        assert_eq!(
+            hit_ids(&logs.search(&sip).await.unwrap()),
+            vec!["forbidden".to_string()],
+            "SIP 403 Forbidden must not hit a line that only contains SIP"
+        );
+        assert_eq!(
+            hit_ids(&logs.search(&sip_or).await.unwrap()),
+            vec!["forbidden".to_string(), "sip-only".to_string()],
+            "an explicit operator or still matches any token"
+        );
+        let plain_hits = hit_ids(&plain.search(&sip).await.unwrap());
+        assert!(
+            plain_hits.contains(&"sip-only".to_string())
+                && plain_hits.contains(&"forbidden".to_string()),
+            "without the setting, match stays OR: {plain_hits:?}"
+        );
+
+        let phrase = xerj_query::parse_request(&json!({
+            "query": {"match": {"message": "configuration is invalid"}},
+            "size": 10
+        }))
+        .unwrap();
+        assert_eq!(
+            hit_ids(&logs.search(&phrase).await.unwrap()),
+            vec!["both-words".to_string()],
+            "is is not a term, and the other two words must both be present"
+        );
+        assert!(
+            !hit_ids(&plain.search(&phrase).await.unwrap()).contains(&"is-only".to_string()),
+            "the english analyzer already drops is, on a non-log index too"
+        );
+    }
+
+    #[test]
+    fn declared_field_resolves_literal_dotted_field_names_and_multifields() {
+        use xerj_common::types::{FieldConfig, FieldOptions, FieldType, Schema};
+
+        let mut schema = Schema::empty();
+        schema.fields.push(FieldConfig {
+            name: "files_manifest.json_recorded_at".to_string(),
+            field_type: FieldType::Date,
+            options: FieldOptions::default(),
+            embedding: None,
+            fields: vec![FieldConfig {
+                name: "keyword".to_string(),
+                field_type: FieldType::Keyword,
+                options: FieldOptions::default(),
+                embedding: None,
+                fields: vec![],
+            }],
+        });
+
+        let found = declared_field(&schema, "files_manifest.json_recorded_at")
+            .expect("literal dotted field name in Schema::fields must resolve");
+        assert!(matches!(found.field_type, FieldType::Date));
+
+        let kw = declared_field(&schema, "files_manifest.json_recorded_at.keyword")
+            .expect("multi-field under literal dotted field name must resolve");
+        assert!(matches!(kw.field_type, FieldType::Keyword));
+        assert!(
+            declared_field(&schema, "files_manifest.json_missing").is_none(),
+            "undeclared dotted sibling must still return None"
+        );
+    }
+}
+
+#[cfg(test)]
+mod sqs_wildcard_fields_2427_tests {
+    use super::*;
+    use serde_json::json;
+
+    /// #2427 (raw-surface p95 ≈ 30 s on the 1 GB gate):
+    /// `simple_query_string {"fields": ["*"]}` must be answered from the
+    /// inverted index, exactly like the same query with no `fields` at all.
+    ///
+    /// FAIL-BEFORE (watched): on `main` the parser lowered `["*"]` to
+    /// `Match { field: "*" }`, which has no FTS projection, so every flushed
+    /// segment was answered by parsing its stored section — this test saw
+    /// `fts=0 stored_scans=8` (same 200 hits) — and on the gate corpus that walk is what ran
+    /// into the 30 s request deadline. The hit set is asserted too, so the
+    /// faster route cannot quietly change the answer.
+    #[tokio::test]
+    async fn wildcard_fields_simple_query_string_uses_the_inverted_index() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        let mut schema = Schema::empty();
+        schema
+            .add_field(FieldConfig::new("title", FieldType::Text))
+            .unwrap();
+        schema
+            .add_field(FieldConfig::new("body", FieldType::Text))
+            .unwrap();
+        engine.create_index("sqs2427", schema).unwrap();
+        let idx = engine.get_index("sqs2427").unwrap();
+
+        // Two segments: the term lives in `title` in one and in `body` in the
+        // other, so a projection onto a single field would under-match.
+        for i in 0..300 {
+            let (title, body) = match i % 3 {
+                0 => ("raft leader", "nothing here"),
+                1 => ("unrelated", "the raft election timed out"),
+                _ => ("unrelated", "nothing here"),
+            };
+            idx.index_document(
+                Some(format!("a{i}")),
+                json!({ "title": title, "body": body }),
+            )
+            .await
+            .unwrap();
+            if i == 149 {
+                idx.flush().await.unwrap();
+            }
+        }
+        idx.flush().await.unwrap();
+
+        let run = |q: serde_json::Value| {
+            let idx = idx.clone();
+            async move {
+                SEG_FTS_HANDLED.with(|c| c.set(0));
+                SEG_STORED_SCANS.with(|c| c.set(0));
+                let req = xerj_query::parse_request(&json!({
+                    "size": 5, "track_total_hits": true, "query": q
+                }))
+                .unwrap();
+                let res = idx.search(&req).await.unwrap();
+                let fts = SEG_FTS_HANDLED.with(|c| c.get());
+                let scans = SEG_STORED_SCANS.with(|c| c.get());
+                (res.total.value, fts, scans)
+            }
+        };
+
+        let (total_star, fts, scans) = run(json!({"simple_query_string": {
+            "query": "raft", "fields": ["*"], "lenient": true
+        }}))
+        .await;
+        assert_eq!(
+            total_star, 200,
+            "every document with `raft` in title OR body must match"
+        );
+        assert!(
+            fts > 0 && scans == 0,
+            "#2427: `fields: [\"*\"]` must be served by the FTS path on every \
+             segment, not by the stored-section scan: fts={fts} stored_scans={scans}"
+        );
+
+        // Same answer as the field-less spelling ES treats it as.
+        let (total_none, _, _) = run(json!({"simple_query_string": {"query": "raft"}})).await;
+        assert_eq!(total_star, total_none);
+
+        // Multi-token, the gate's raw-surface shape.
+        let (total_multi, fts, scans) = run(json!({"simple_query_string": {
+            "query": "leader election", "fields": ["*"], "lenient": true
+        }}))
+        .await;
+        assert_eq!(total_multi, 200);
+        assert!(fts > 0 && scans == 0, "fts={fts} stored_scans={scans}");
     }
 }

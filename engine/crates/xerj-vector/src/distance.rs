@@ -1,7 +1,11 @@
 //! Distance metrics for vector similarity search.
 //!
-//! All functions are written with explicit loops that the compiler can
-//! auto-vectorize with SSE/AVX/NEON, avoiding any unsafe code.
+//! These are single-accumulator loops. LLVM does not reassociate f32
+//! addition, so `x86-64-v3` does not vectorize them (measured: the
+//! assembly stays scalar `mulss`/`addss`, and a v3 build is not faster
+//! than v2). The beam-search hot path is the eight-accumulator kernel in
+//! `hnsw`, which dispatches to AVX2 at runtime. Widening the reductions
+//! here would change bits that callers treat as exact.
 
 use serde::{Deserialize, Serialize};
 
@@ -34,7 +38,6 @@ pub fn cosine(a: &[f32], b: &[f32]) -> f32 {
     let mut norm_a = 0.0f32;
     let mut norm_b = 0.0f32;
 
-    // Single-pass — compiler will auto-vectorize this loop
     for (&ai, &bi) in a.iter().zip(b.iter()) {
         dot += ai * bi;
         norm_a += ai * ai;
@@ -164,22 +167,40 @@ mod tests {
         // Should not panic, returns 0
         assert_eq!(cosine(&a, &b), 0.0);
     }
-}
 
-// TODO(v1.0.2): Add explicit SIMD implementations with runtime dispatch.
-//
-// Current: pure Rust loops, compiler auto-vectorizes to SSE2/NEON.
-// Target: explicit AVX2 (x86_64) + NEON (aarch64) + SVE2 (Graviton3+)
-//         via `pulp` crate or `std::arch` intrinsics.
-//
-// Expected speedup: 3-10× on kNN search hot path.
-//
-// ARM-specific notes:
-// - NEON: 128-bit SIMD, available on all ARMv8 (Graviton2+)
-// - SVE/SVE2: scalable vector extension, 128-2048 bit, Graviton3+
-// - LSE atomics: better fetch_add/CAS on high-core-count ARM
-//
-// #[cfg(target_arch = "x86_64")]
-// mod avx2 { ... }
-// #[cfg(target_arch = "aarch64")]
-// mod neon { ... }
+    /// The committed x86_64 rustflags must not force AVX2. Release builds
+    /// pin `x86-64-v2` and pick AVX2 up at runtime in the HNSW kernel.
+    /// `RUSTFLAGS` can still override this file for a local native build;
+    /// this test locks the file, not the ambient flags.
+    #[test]
+    fn x86_64_release_baseline_is_v2_not_v3() {
+        let config = include_str!("../../../.cargo/config.toml");
+        let code = config
+            .lines()
+            .filter(|line| {
+                let trimmed = line.trim();
+                !trimmed.is_empty() && !trimmed.starts_with('#')
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert!(
+            !code.contains("x86-64-v3"),
+            "non-comment rustflags must not force x86-64-v3:\n{code}"
+        );
+        for target in [
+            "x86_64-unknown-linux-gnu",
+            "x86_64-unknown-linux-musl",
+            "x86_64-apple-darwin",
+            "x86_64-pc-windows-msvc",
+        ] {
+            let section = code
+                .split("[target.")
+                .find(|part| part.starts_with(target))
+                .unwrap_or_else(|| panic!("missing [target.{target}]"));
+            assert!(
+                section.contains("target-cpu=x86-64-v2"),
+                "{target} must pin x86-64-v2, section was:\n{section}"
+            );
+        }
+    }
+}

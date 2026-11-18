@@ -15,7 +15,13 @@
 //!
 //! Bearer authentication lives in `sessions.rs`: it hashes a presented
 //! `Authorization: Bearer <secret>` and looks up the non-revoked row minted
-//! here, then authenticates as the token's owner.
+//! here, then authenticates as the token's owner for ordinary console
+//! calls. Minting (`create`) and revoking (`revoke`) take [`PasskeySession`].
+//! A bearer token is 403 on both, before any write. That is the whole of
+//! the lineage story for CVE-2026-97406: this module is the only place a
+//! new `ApiToken` row is inserted, and the insert cannot be reached from
+//! a token, so a revoked token has no descendants to cascade. There is no
+//! `parent_id` column because that path does not exist.
 
 use axum::{extract::State, response::Response, Json};
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
@@ -23,7 +29,11 @@ use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use crate::auth::{audit, sessions::AuthSession, store};
+use crate::auth::{
+    audit,
+    sessions::{AuthSession, PasskeySession},
+    store,
+};
 use crate::bootstrap::sha256_hex;
 use crate::error::{ConsoleApiError, ConsoleResult};
 use crate::indices;
@@ -62,7 +72,7 @@ pub struct CreatedToken {
 
 pub async fn create(
     State(state): State<ConsoleState>,
-    sess: AuthSession,
+    sess: PasskeySession,
     Json(body): Json<CreateBody>,
 ) -> ConsoleResult<Response> {
     let name = body.name.trim().to_string();
@@ -149,7 +159,7 @@ pub async fn list(State(state): State<ConsoleState>, sess: AuthSession) -> Conso
 
 pub async fn revoke(
     State(state): State<ConsoleState>,
-    sess: AuthSession,
+    sess: PasskeySession,
     axum::extract::Path(id): axum::extract::Path<String>,
 ) -> ConsoleResult<Response> {
     // Look the token up by id (= hash). A token that does not exist, or one

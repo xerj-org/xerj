@@ -1,0 +1,36 @@
+<figure class="vz" id="fig-mem-lab" aria-labelledby="fig-mem-lab-cap">
+  <span class="vz-label">Try it: default recall</span>
+  <p class="vz-title">What a word match can and cannot recall</p>
+  <div class="vz-check" data-vz-search data-vz-bm25-only>
+    <p class="vz-d">Three stored memories:</p>
+    <ol class="vz-docs">
+      <li>User prefers pnpm over npm</li>
+      <li>The API runs on port 9200</li>
+      <li>Deploys go out on Fridays after review</li>
+    </ol>
+    <div class="vz-q">
+      <label class="vz-d" for="mem-lab-q">Recall</label>
+      <input type="text" id="mem-lab-q" value="which package manager" spellcheck="false" aria-describedby="mem-lab-out">
+    </div>
+    <div class="vz-js-only">
+      <div class="vz-q">
+        <button type="button" class="vz-btn" data-q="which package manager">which package manager</button>
+        <button type="button" class="vz-btn" data-q="pnpm">pnpm</button>
+        <button type="button" class="vz-btn" data-q="what port does the API use">what port does the API use</button>
+        <button type="button" class="vz-btn" data-q="deploy day">deploy day</button>
+      </div>
+      <div class="vz-card"><span class="vz-k">BM25 recall, top 3</span><ol class="vz-hits" data-out="bm25"></ol></div>
+      <p class="vz-out" id="mem-lab-out" aria-live="polite"></p>
+    </div>
+    <div class="vz-nojs">
+      <p class="vz-out">With JavaScript off, here is what a local XERJ node returned for these recalls:</p>
+      <ul class="vz-hits">
+        <li>"which package manager": no hits</li>
+        <li>"pnpm": memory 1 at 1.0526</li>
+        <li>"what port does the API use": memory 2 at 2.9425</li>
+        <li>"deploy day": no hits</li>
+      </ul>
+    </div>
+  </div>
+  <figcaption id="fig-mem-lab-cap">Runs in your browser and sends nothing. A local XERJ v1.0.0-rc.97 node returned the same hits and scores for all four recalls on 2026-10-30. "which package manager" and "deploy day" come back empty because no stored word matches; "deploy" is not "Deploys". That gap is what semantic recall is for: start the node with --embed-mode neural and send semantic or hybrid set to true.</figcaption>
+</figure>

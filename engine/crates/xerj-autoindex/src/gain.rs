@@ -208,6 +208,7 @@ pub fn run_gain_cli() -> i32 {
             "--url" => url = it.next().unwrap_or(url),
             "--api-key" => api_key = it.next(),
             "--json" => as_json = true,
+            "--disable-feedback" => {}
             other => {
                 eprintln!("xerj gain: unexpected argument '{other}'\n\n{USAGE}");
                 return 2;

@@ -2,11 +2,15 @@
 ---
 title: "Does XERJ support S3, alerting or custom plugins?"
 canonical: "https://xerj.org/answers/does-xerj-support-s3-alerting-plugins"
-updated: "2026-09-30"
+updated: "2026-10-23"
 source: "content/answers/does-xerj-support-s3-alerting-plugins.md"
 ---
 
 # Does XERJ support S3 storage, alerting or custom plugins yet?
+
+**Short answer** (updated 2026-10-23): Can XERJ store its index in S3, send alerts, or run my own ingest plugin? Partly. Since v1.0.0-rc.77 an index can live in an S3-compatible bucket. Since rc.80 _watcher evaluates exactly one watch shape and refuses every other with a 501. User-supplied ingest plugins are not supported; transforms are built-in only.
+
+**Key number:** XERJ passes 1444 of 1454 Elasticsearch YAML conformance cases, with 0 failures and 10 skipped. (as of 2026-10-23; source: [README.md](https://github.com/xerj-org/xerj/blob/main/README.md))
 
 **TL;DR** — The scoreboard moved twice since this page was written: an index can live in an S3-compatible bucket since v1.0.0-rc.77, record corpus packs shipped in rc.78, and alerting became PARTIAL in rc.80 (`_watcher` evaluates exactly one watch shape and refuses every other loudly). User-supplied ingest plugins remain built-in-only. This page says exactly what exists, with the file that proves it. The authoritative list is [`ROADMAP.md`](https://github.com/xerj-org/xerj/blob/main/ROADMAP.md).
 
@@ -161,3 +165,6 @@ Record packs, yes, since v1.0.0-rc.78: `xerj corpus build` turns a recipe into a
 - [Why did my filtered vector search get slower when I added a filter?](/answers/filter-knn-exact-scan-caveat)
 - [What can I use for low-volume log search?](/answers/cheap-low-volume-log-search)
 - [I want local search that works offline, no cloud embeddings. What are my options?](/answers/local-embeddings-without-openai-api)
+- [Is there an Elasticsearch-compatible engine that isn't Elasticsearch?](/compare/xerj-vs-elasticsearch-local) (same intent: search engine alternatives)
+- [Is there a single-binary local search engine I can just run?](/answers/search-engine-without-docker) (same intent: search engine alternatives)
+- [The best lightweight Elasticsearch-compatible search servers in 2026](/compare/best-lightweight-elasticsearch-compatible-server-2026) (same intent: search engine alternatives)

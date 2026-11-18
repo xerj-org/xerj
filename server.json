@@ -1,0 +1,37 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.xerj-org/xerj",
+  "title": "XERJ",
+  "description": "The search engine for AI agents: cited answers from your local code, docs, specs and logs.",
+  "version": "1.0.0-rc.100",
+  "websiteUrl": "https://xerj.org",
+  "repository": {
+    "url": "https://github.com/xerj-org/xerj",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/xerj-org/xerj/releases/download/mcpb-v1.0.0-rc.100/xerj-mcp-1.0.0-rc.100.mcpb",
+      "fileSha256": "753024ab77027fd807667e442555c88749d20d5a9ae49ff9ca9da623f20a7156",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "XERJ_URL",
+          "description": "ES-compatible listener of a running XERJ node (start one with `xerj --insecure --data-dir ~/xerj-data`).",
+          "default": "http://localhost:9200",
+          "isRequired": false
+        },
+        {
+          "name": "XERJ_AUTH",
+          "description": "Authorization header for a node with auth on, e.g. 'ApiKey <key>'. Optional for a loopback node: the key is read from <data-dir>/admin.key.",
+          "isRequired": false,
+          "isSecret": true
+        }
+      ],
+      "version": "1.0.0-rc.100"
+    }
+  ]
+}

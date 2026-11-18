@@ -1,0 +1,34 @@
+$ /workspace/engine/target/release/xerj autoindex --url http://127.0.0.1:9217 --yes --no-graph --progress plain --disable-feedback /tmp/xerj-aq-2026-10-20/epoch --prefix epoch --state-dir /tmp/xerj-aq-2026-10-20/state-epoch
+# exit 0
+autoindex: 4 scan threads, 4 index workers, 4 pdf workers, --bulk-mb 8 [cores=4 ram_total_mib=16003 ram_available_mib=9154 safe_zone_mib=7153]
+autoindex: bulk HTTP request timeout: 300s
+xerj-bar [????????????????????????] pct unknown | walk | eta unknown
+xerj-progress phase=walk basis=none pct=unknown items=0/0 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=0.0
+autoindex: 1 files (0 MB) under /tmp/xerj-aq-2026-10-20/epoch
+xerj-progress phase=hash basis=bytes pct=0.0 items=0/1 bytes=0/2610 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=0.0
+xerj-progress phase=scan basis=bytes pct=0.0 items=0/1 bytes=0/2610 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=0.0
+phase A: sniffing + sampling 1 files with 4 threads…
+dataset 'jsonl' maps no text-searchable field — `xerj code` passage search will find nothing in it (sampled fields: id:keyword text:keyword ts:double); structured queries over typed fields still work
+phase A: 1 dataset inferred, 0 junk/skipped files
+estimate: at least 0.0 s–0.0 s — a MEASURED FLOOR for client-side extraction, not a prediction of the whole run: server indexing, embedding and network time are not in it
+estimate: basis — measured on this machine during phase A: 1 file(s) / 2.5 KB read end to end across 1 family/families, scheduled over 4 worker(s). Covers 2.5 KB of the 2.5 KB planned (100% of planned bytes). Client-side extraction only.
+  estimate: jsonl          1 file     2.5 KB at 2.0 MB/s measured over 1 file / 2.5 KB → 0.0 s
+  estimate excludes: server-side indexing, embedding and merge time (autoindex cannot measure it without writing)
+  estimate excludes: network round trips to the endpoint
+  estimate excludes: relationship detection and edge writes (--no-graph removes these)
+  estimate excludes: families with no end-to-end read in phase A, listed under unmeasured_families
+work order: data (1 file, 2.5 KB) — biggest first inside each band at 4 worker(s); a file that outlasts everything above it starts first regardless of band
+  data             structured data: rows, records and tables
+gate: not triggered — the measured extraction floor 0.0 s–0.0 s is under --max-minutes 10. That is NOT a promise the run finishes in 10 minutes: server, network and embedding time are not measured before indexing starts
+xerj-progress phase=prepare basis=items pct=0.0 items=0/1 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=0.5
+xerj-progress phase=snapshot basis=bytes pct=0.0 items=0/1 bytes=0/2610 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=0.5
+xerj-progress phase=index basis=bytes pct=0.0 items=0/1 bytes=0/13823 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=0.5
+xerj-progress phase=finalize-catalog basis=items pct=0.0 items=0/1 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=0.5
+xerj-progress phase=finalize-catalog-readback basis=items pct=0.0 items=0/3 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=0.6
+xerj-progress phase=finalize-refresh basis=items pct=0.0 items=0/2 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=0.6
+xerj-progress phase=finalize-verify basis=items pct=0.0 items=0/2 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=0.6
+ok: indexed and searchable (exit 0, completed)
+generation 1 committed — 1 dataset, 40 records live
+
+next: `xerj autoindex map --url http://127.0.0.1:9217` for the data map; search via `xerj search --url http://127.0.0.1:9217 --prefix epoch "<what you need>"`
+xerj-done ok=true exit=0 reason=completed wall=0.6s files=1 records=40 generation=1 code_files=0 code_files_indexed=0 code_files_junked=0

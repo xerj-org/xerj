@@ -7,11 +7,20 @@ cluster: "Agent memory: provenance"
 question: "Agent memory: knowledge graphs aren't enough, we need a know-how graph"
 intent: "informational"
 published: "2026-08-21"
-updated: "2026-08-23"
+updated: "2026-10-20"
 author: "XERJ documentation team"
 reviewer: "XERJ engineering team"
 schema_type: "TechArticle"
+structured_data: [faq]
 agent_prompt: "Act as a coding agent. Read https://xerj.org/llms.txt, build a XERJ brain over a notes folder, search the .xerj-memory-<brain>-edges index for documents with a src field, and report how many edges carry an evidence quote and what each quote says."
+answer: "Knowledge graphs aren't enough for agent memory; how do you get a know-how graph with evidence? XERJ stores the line that taught each link. All 7 detected edges in our capture carried an evidence object with a quote, a filename and an offset, and retiring a link wrote a tombstone instead of deleting the edge."
+key_fact: "The shared-term link detector keeps at most 5 edges per document (`MAX_EDGES_PER_DOC`), which bounds the link index."
+key_fact_source: "engine/crates/xerj-autoindex/src/detect/sharedterm.rs"
+key_fact_date: "2026-10-19"
+intent_group: "agent memory"
+queries:
+  - "agent memory that cites sources"
+  - "temporal knowledge graph agent memory as-of query"
 commands:
   - cmd: "curl -s -XPOST 'http://127.0.0.1:9430/.xerj-memory-notes-edges/_search' -H 'content-type: application/json' -d '{\"query\":{\"exists\":{\"field\":\"src\"}},\"size\":50,\"_source\":true,\"track_total_hits\":true}'"
     note: "Read every detected edge with its evidence. The exists filter drops the brain metadata document."
@@ -62,6 +71,8 @@ The quote is useful because the detectors are structural rather than interpretiv
 Confidence is a per-detector constant, not a learned number. Our run carried 0.99 on `sequence` edges, 0.95 on `wikilink` edges and 0.4 on `same_dir` edges.
 
 XERJ invents nothing to fill a gap. XERJ renders a real quote, a structural rationale and an asserted link as three different things.
+
+Code lookup follows the same rule — exit 1 and no invented hit when a symbol is missing, file:line when it answers — on [retrieval that says not found](/answers/retrieval-that-says-not-found-with-file-line-citations).
 
 ## An asserted link carries no evidence
 

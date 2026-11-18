@@ -45,6 +45,18 @@ const FILES_JSONL: &str = "files.jsonl";
 const SNAPSHOT_DIR: &str = "snapshot";
 /// zstd level for the archive — 9 matches the builder recipe (§2 step 5).
 const ZSTD_LEVEL: i32 = 9;
+/// Largest decompressed tar a reader accepts. The archive itself is capped by
+/// `AUTO_PULL_MAX_BYTES` (50 MiB) before it is read, but zstd reaches ratios of
+/// several thousand to one on repetitive input (1 GiB of zeros is ~32 KiB at
+/// level 9), so a capped archive could still expand to terabytes in memory. A
+/// signature only says who made the pack, not that the maker's key was never
+/// stolen or its build never fed a bad snapshot: the reader bounds what it
+/// allocates whatever the signature says. 1 GiB is twenty times the pull cap —
+/// far above what a snapshot of already-compressed segment files expands to.
+const MAX_UNPACKED_BYTES: u64 = 1 << 30;
+/// Largest number of tar entries a reader accepts (a pack holds four fixed
+/// members plus the snapshot's files — a few hundred in practice).
+const MAX_MEMBERS: usize = 100_000;
 
 /// One line of `files.jsonl`: an indexed source file with its per-path licence.
 /// `read_and_verify_pack` does not parse this (it is extracted verbatim); it is
@@ -147,6 +159,26 @@ pub fn read_and_verify_pack(
     pubkey_hex: &str,
     dest: &Path,
 ) -> Result<PackManifest> {
+    read_and_verify_pack_bounded(
+        archive,
+        sig,
+        expected_sha256,
+        pubkey_hex,
+        dest,
+        MAX_UNPACKED_BYTES,
+    )
+}
+
+/// [`read_and_verify_pack`] with the decompressed-size bound as a parameter, so
+/// a test can prove the bound with a small archive.
+fn read_and_verify_pack_bounded(
+    archive: &Path,
+    sig: &Path,
+    expected_sha256: &str,
+    pubkey_hex: &str,
+    dest: &Path,
+    max_unpacked: u64,
+) -> Result<PackManifest> {
     // The whole archive is read into memory because the detached signature is over
     // the complete archive bytes (ed25519 verifies a contiguous message); the hub's
     // auto-pull packs are capped well below that cost (AUTO_PULL_MAX_BYTES).
@@ -164,7 +196,8 @@ pub fn read_and_verify_pack(
     verify_bytes(&archive_bytes, sig_hex.trim(), pubkey_hex).context("pack signature")?;
 
     // 3. Decompress and load the members (still nothing written to dest).
-    let tar_bytes = zstd::decode_all(archive_bytes.as_slice()).context("zstd decompress")?;
+    //    Bounded: never allocate more than `max_unpacked` however well it compresses.
+    let tar_bytes = decompress_bounded(&archive_bytes, max_unpacked)?;
     drop(archive_bytes);
     let members = read_members(&tar_bytes)?;
 
@@ -293,11 +326,30 @@ fn rel_to_forward_slash(rel: &Path) -> Result<String> {
     Ok(parts.join("/"))
 }
 
+/// zstd-decompress `archive`, refusing output larger than `max` bytes. Reads at
+/// most `max + 1` bytes from the decoder, so a decompression bomb costs at most
+/// that much memory before it is refused.
+fn decompress_bounded(archive: &[u8], max: u64) -> Result<Vec<u8>> {
+    let decoder = zstd::stream::read::Decoder::new(archive).context("zstd decompress")?;
+    let mut out = Vec::new();
+    decoder
+        .take(max.saturating_add(1))
+        .read_to_end(&mut out)
+        .context("zstd decompress")?;
+    if out.len() as u64 > max {
+        bail!("pack decompresses to more than {max} bytes; refusing to extract it");
+    }
+    Ok(out)
+}
+
 /// Read every regular tar entry into a map, keyed by a sanitised archive path.
 fn read_members(tar_bytes: &[u8]) -> Result<BTreeMap<String, Vec<u8>>> {
     let mut archive = tar::Archive::new(std::io::Cursor::new(tar_bytes));
     let mut members: BTreeMap<String, Vec<u8>> = BTreeMap::new();
-    for entry in archive.entries().context("read tar entries")? {
+    for (n, entry) in archive.entries().context("read tar entries")?.enumerate() {
+        if n >= MAX_MEMBERS {
+            bail!("pack holds more than {MAX_MEMBERS} entries; refusing to extract it");
+        }
         let mut entry = entry.context("read tar entry")?;
         if entry.header().entry_type().is_dir() {
             continue;
@@ -453,6 +505,119 @@ pub fn build_defs_and_files(
     Ok((defs, files))
 }
 
+/// [`build_defs_and_files`] for a RECORD corpus (a record pack `xerj corpus add`
+/// materialized as `<source>/records.jsonl`, one canonical JSON record per
+/// line). A record pack has no source code to parse; its definitions are what
+/// its recipe declares:
+///
+/// - every record is one definition of its `id` (kind `record`), so
+///   `--def RUSTSEC-2021-0003` or `--def GHSA-…` lands on the line holding it;
+/// - every identifier the recipe's `defs_from` put in the record's `defs` field
+///   (rust-vulns: the advisory's affected functions, `smallvec::SmallVec::insert_many`)
+///   is a definition of kind `record_def` at the same line. Only tokens shaped
+///   like identifiers or paths count; `defs` is space-joined, so free text a
+///   recipe routed there splits into words, and words are not definitions.
+///
+/// `file` is the records file and `line` the record's 1-based line in it, so a
+/// hit opens at the record. The inventory lists each records file.
+pub fn record_defs_and_files(
+    corpus_root: &Path,
+    licence_of: &dyn Fn(&str) -> String,
+) -> Result<(Vec<DefRecord>, Vec<PackFileEntry>)> {
+    let mut found: Vec<(String, PathBuf)> = Vec::new();
+    walk_corpus(corpus_root, corpus_root, &mut found)?;
+    let mut defs: Vec<DefRecord> = Vec::new();
+    let mut files: Vec<PackFileEntry> = Vec::new();
+    for (rel, abs) in &found {
+        if rel == "corpus.json" {
+            continue;
+        }
+        let bytes = fs::metadata(abs).map(|m| m.len()).unwrap_or(0);
+        files.push(PackFileEntry {
+            path: rel.clone(),
+            lang: String::new(),
+            bytes,
+            licence: licence_of(rel),
+        });
+        if !rel.ends_with("/records.jsonl") {
+            continue;
+        }
+        let text = fs::read_to_string(abs).with_context(|| format!("read {rel}"))?;
+        for (n, line) in text.lines().enumerate() {
+            if line.trim().is_empty() {
+                continue;
+            }
+            let v: serde_json::Value = serde_json::from_str(line)
+                .with_context(|| format!("{rel} line {}: not JSON", n + 1))?;
+            let field = |k: &str| v.get(k).and_then(serde_json::Value::as_str).unwrap_or("");
+            let id = field("id").trim();
+            if id.is_empty() {
+                continue;
+            }
+            let title = field("title").trim();
+            let line_no = u32::try_from(n + 1).unwrap_or(u32::MAX);
+            let summary = if title.is_empty() || title == id {
+                id.to_string()
+            } else {
+                format!("{id}: {title}")
+            };
+            let summary = truncate_chars(&summary, 400);
+            defs.push(DefRecord {
+                symbol: id.to_string(),
+                kind: "record".into(),
+                lang: String::new(),
+                file: rel.clone(),
+                line: line_no,
+                text: summary.clone(),
+                value: None,
+            });
+            let mut seen: Vec<&str> = vec![id];
+            for tok in field("defs").split_whitespace() {
+                if is_symbol_token(tok) && !seen.contains(&tok) {
+                    seen.push(tok);
+                    defs.push(DefRecord {
+                        symbol: tok.to_string(),
+                        kind: "record_def".into(),
+                        lang: String::new(),
+                        file: rel.clone(),
+                        line: line_no,
+                        text: summary.clone(),
+                        value: None,
+                    });
+                }
+            }
+        }
+    }
+    defs.sort_by(|a, b| {
+        a.file
+            .cmp(&b.file)
+            .then(a.line.cmp(&b.line))
+            .then(a.symbol.cmp(&b.symbol))
+    });
+    files.sort_by(|a, b| a.path.cmp(&b.path));
+    Ok((defs, files))
+}
+
+/// An identifier (`insert_many`) or a `::`/`.`-separated path of identifiers
+/// (`smallvec::SmallVec::insert_many`, `os.path.join`), at most 200 bytes.
+fn is_symbol_token(tok: &str) -> bool {
+    if tok.is_empty() || tok.len() > 200 {
+        return false;
+    }
+    tok.split("::").flat_map(|p| p.split('.')).all(|part| {
+        let mut chars = part.chars();
+        matches!(chars.next(), Some(c) if c.is_ascii_alphabetic() || c == '_')
+            && chars.all(|c| c.is_ascii_alphanumeric() || c == '_')
+    })
+}
+
+fn truncate_chars(s: &str, max: usize) -> String {
+    match s.char_indices().nth(max) {
+        Some((i, _)) => s[..i].to_string(),
+        None => s.to_string(),
+    }
+}
+
 /// Recursively collect regular files as `(relative-forward-slash path, abs)`,
 /// skipping `.git`. Mirrors the snapshot walker but keyed on a corpus root.
 fn walk_corpus(base: &Path, dir: &Path, out: &mut Vec<(String, PathBuf)>) -> Result<()> {
@@ -510,7 +675,7 @@ fn lang_for_ext(ext: &str, text: &str) -> Option<&'static str> {
         "swift" => "swift",
         "scala" | "sc" => "scala",
         "dart" => "dart",
-        "lua" => "lua",
+        "lua" | "luau" => "lua",
         "pl" | "pm" => "perl",
         "r" => "r",
         "jl" => "julia",
@@ -957,10 +1122,10 @@ mod tests {
         let claimed = [
             "py", "pyi", "js", "jsx", "mjs", "cjs", "ts", "mts", "cts", "tsx", "rs", "go", "java",
             "c", "h", "cpp", "cc", "cxx", "hpp", "hh", "hxx", "rb", "php", "cs", "sh", "bash",
-            "kt", "kts", "swift", "scala", "sc", "dart", "lua", "pl", "pm", "r", "jl", "hs", "ex",
-            "exs", "erl", "hrl", "ml", "mli", "zig", "m", "mm", "groovy", "gradle", "ps1", "psm1",
-            "psd1", "fs", "fsx", "nix", "f90", "f95", "f03", "sol", "clj", "cljs", "cljc", "scm",
-            "ss", "sld", "sps",
+            "kt", "kts", "swift", "scala", "sc", "dart", "lua", "luau", "pl", "pm", "r", "jl",
+            "hs", "ex", "exs", "erl", "hrl", "ml", "mli", "zig", "m", "mm", "groovy", "gradle",
+            "ps1", "psm1", "psd1", "fs", "fsx", "nix", "f90", "f95", "f03", "sol", "clj", "cljs",
+            "cljc", "scm", "ss", "sld", "sps",
         ];
         for ext in claimed {
             assert!(
@@ -1019,5 +1184,42 @@ mod tests {
                  registry() row (a rename would silently zero out every .{ext} file's defs)"
             );
         }
+    }
+
+    #[test]
+    fn a_pack_that_decompresses_past_the_bound_is_refused_before_extraction() {
+        // A validly signed pack whose snapshot is 8 MiB of zeros: the archive is a
+        // few KiB (zstd's ratio on repetitive input is in the thousands), so the
+        // 50 MiB download cap alone does not bound what the reader allocates.
+        // Before the bound, `zstd::decode_all` inflated whatever the archive held.
+        let tmp = tempfile::tempdir().unwrap();
+        let snap = make_snapshot(tmp.path());
+        fs::write(snap.join("idx/zeros.bin"), vec![0u8; 8 << 20]).unwrap();
+        let out = tmp.path().join("bomb.hubpack.tar.zst");
+        let (seed, public) = generate_keypair().unwrap();
+        let (sha, bytes) = write_pack(
+            &out,
+            &sample_manifest(),
+            &sample_defs(),
+            &sample_files(),
+            &snap,
+            &seed,
+        )
+        .unwrap();
+        assert!(bytes < 64 * 1024, "the archive is tiny: {bytes} bytes");
+        let sig = sig_path_for(&out);
+
+        let dest = tmp.path().join("dest");
+        let err =
+            read_and_verify_pack_bounded(&out, &sig, &sha, &public, &dest, 1 << 20).unwrap_err();
+        assert!(
+            format!("{err:#}").contains("decompresses to more than"),
+            "{err:#}"
+        );
+        assert!(dir_is_empty_or_absent(&dest), "nothing extracted");
+
+        // The same pack under a bound it fits in still verifies and extracts.
+        read_and_verify_pack_bounded(&out, &sig, &sha, &public, &dest, 16 << 20).unwrap();
+        assert!(dest.join("snapshot/idx/zeros.bin").exists());
     }
 }

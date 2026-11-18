@@ -22,7 +22,8 @@ fn every_hub_surface_says_the_build_has_no_key() {
     std::env::set_var("XERJ_HUB_HOME", home.path());
     // A hub that serves a 200 HTML page for every path, like hub.xerj.org's
     // site fallback does for the unpublished API — the case that misled.
-    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let listener =
+        xerj_common::loopback_test::expect_loopback(std::net::TcpListener::bind("127.0.0.1:0"));
     let hub_url = format!("http://{}", listener.local_addr().unwrap());
     std::thread::spawn(move || {
         use std::io::{Read, Write};

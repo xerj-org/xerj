@@ -1,0 +1,17 @@
+<figure class="vz" id="fig-cc-steps" aria-labelledby="fig-cc-steps-cap">
+  <span class="vz-label">Try it: step through a session start</span>
+  <p class="vz-title">What Claude Code reads, in order</p>
+  <div data-vz-steps>
+    <ol class="vz-steps">
+      <li class="vz-step"><p class="vz-t">1. Managed policy</p><p class="vz-d">An admin can place a CLAUDE.md for the whole machine, for example /etc/claude-code/CLAUDE.md on Linux. You cannot turn it off.</p></li>
+      <li class="vz-step"><p class="vz-t">2. Your user file</p><p class="vz-d">~/.claude/CLAUDE.md holds your own habits for every project. Example: "Explain shell commands before running them."</p></li>
+      <li class="vz-step"><p class="vz-t">3. The project file</p><p class="vz-d">./CLAUDE.md or ./.claude/CLAUDE.md is shared with your team in git. Example: "Run tests with make test." Keep it under 200 lines.</p></li>
+      <li class="vz-step"><p class="vz-t">4. Your local notes and rules</p><p class="vz-d">./CLAUDE.local.md holds private notes for this project. Files in .claude/rules/ can apply only to some paths.</p></li>
+      <li class="vz-step"><p class="vz-t">5. Auto memory index</p><p class="vz-d">Claude reads the first 200 lines or 25KB of MEMORY.md from ~/.claude/projects/&lt;project&gt;/memory/. Example entry: "always use pnpm, not npm".</p></li>
+      <li class="vz-step"><p class="vz-t">6. Topic files, on demand</p><p class="vz-d">Notes Claude moved out of MEMORY.md are read only when they look relevant, so they do not fill the context at start.</p></li>
+      <li class="vz-step"><p class="vz-t">7. Memory server, when called</p><p class="vz-d">Nothing loads at start. When the agent needs an old fact, it calls a tool such as xerj_memory_recall and gets the best matches back.</p></li>
+    </ol>
+    <p class="vz-stepnav vz-js-only"><button type="button" class="vz-btn" data-step="-1">Back</button><button type="button" class="vz-btn" data-step="1">Next</button><output></output></p>
+  </div>
+  <figcaption id="fig-cc-steps-cap">Steps 1 to 6 come from the Claude Code memory docs (code.claude.com/docs/en/memory), checked 2026-10-30. Step 7 is optional and only happens if you add an MCP memory server.</figcaption>
+</figure>

@@ -21,7 +21,7 @@ use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use crate::auth::{audit, rate_limit, store, AuthSession};
+use crate::auth::{audit, rate_limit, store, PasskeySession};
 use crate::bootstrap::sha256_hex;
 use crate::client_ip::ClientIp;
 use crate::error::{ConsoleApiError, ConsoleResult};
@@ -70,9 +70,15 @@ pub struct IssueResponse {
 /// single-use invite link for `email`. When no user with that email exists
 /// we provision a `pending` row so the invitee flips to `active` the moment
 /// they redeem the link and enrol a passkey (`redeem` → `passkey/finish`).
+///
+/// The caller must be a [`PasskeySession`]. A bearer API token is 403
+/// before any user or magic-link row is written (CVE-2026-97406): issuing
+/// an invite was how a stolen owner token enrolled an attacker's passkey.
+/// `redeem` stays unauthenticated — the link itself is the credential, and
+/// the invitee has no session yet.
 pub async fn issue(
     State(state): State<ConsoleState>,
-    session: AuthSession,
+    session: PasskeySession,
     ClientIp(ip): ClientIp,
     Json(body): Json<IssueBody>,
 ) -> ConsoleResult<Response> {

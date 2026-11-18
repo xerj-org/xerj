@@ -2,11 +2,15 @@
 ---
 title: "Find every place a config key is set in a repo"
 canonical: "https://xerj.org/answers/search-yaml-xml-config-repository"
-updated: "2026-08-21"
+updated: "2026-10-19"
 source: "content/answers/search-yaml-xml-config-repository.md"
 ---
 
 # How do I find every place a config key is set across YAML and XML in a repo?
+
+**Short answer** (updated 2026-10-19): How do I find every place a config key is set across YAML and XML in a repo? Run xerj autoindex on the folder; it needs no schema file. In our capture 1 cluster.yaml and 1 service.xml became 4 documents in one cfg-docs index, and one bool query returned 2 hits, one from each format.
+
+**Key number:** The captured run mapped 9 fields, including body and title, across 4 documents from 2 config files. (as of 2026-08-21; source: the captured run documented on this page)
 
 **TL;DR** — XERJ `autoindex` indexes a folder of YAML and XML config files with no schema file. In our capture 1 `cluster.yaml` and 1 `service.xml` became 4 documents in one `cfg-docs` index. One bool query returned 2 hits, one from each format.
 
@@ -139,3 +143,6 @@ The whole-file cap is 64 MiB and the longest line is 16 MiB. One document holds 
 - [How do I index Markdown into the Elasticsearch API?](/answers/index-markdown-into-elasticsearch-api)
 - [How do I run syntax-aware code search?](/answers/syntax-aware-code-search-refactoring)
 - [My agent needs to look up endpoints in a big OpenAPI spec and the SDK markdown. What's the right way?](/answers/search-openapi-spec-for-agent)
+- [How do I stop my agent from reading the whole repo into context?](/answers/index-monorepo-for-agent) (same intent: code search for agents)
+- [How do I audit a PHP codebase with an index instead of grepping 1,400 files?](/answers/audit-php-codebase-with-an-index) (same intent: code search for agents)
+- [How do I set up reference coding so the agent retrieves a mechanism before writing code?](/answers/index-reference-library-for-coding-agent) (same intent: code search for agents)

@@ -33,7 +33,9 @@ xerj --insecure --data-dir ./data --config embeddinggemma.toml
 ```
 
 `embeddinggemma.toml` points XERJ's proxy at `http://127.0.0.1:11434/v1/embeddings`,
-model `embeddinggemma`.
+model `embeddinggemma`. A base of `http://127.0.0.1:11434/v1` (trailing slash
+optional) is the same request: `/embeddings` is appended. A bare host gets
+`/embeddings`. Any other path refuses to start and names the URL to set.
 
 **Verified end-to-end in this repo.** Four docs indexed through EmbeddingGemma,
 then three semantic queries with *no shared words* with their answers:
@@ -57,8 +59,9 @@ xerj --insecure --data-dir ./data --config gemini-embeddings.toml
 
 `gemini-embeddings.toml` uses the endpoint from Google's OpenAI-compatibility
 docs — `https://generativelanguage.googleapis.com/v1beta/openai/embeddings`,
-model `gemini-embedding-001`. XERJ sends the key as `Authorization: Bearer`,
-which is exactly what that endpoint expects.
+model `gemini-embedding-001`. That path already ends in `/embeddings`, so it
+is used unchanged; a `/v1` base would not reach this route. XERJ sends the key
+as `Authorization: Bearer`, which is exactly what that endpoint expects.
 
 > Verified structurally: the config matches Google's documented contract, and
 > that contract is proven working by `run-offline-test.sh` (a mock speaking the

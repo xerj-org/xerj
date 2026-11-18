@@ -549,10 +549,11 @@ impl CatalogueData {
         let parsed = serde_json::from_slice::<Catalogue>(&bytes)
             .map_err(|e| e.to_string())
             .and_then(|c| {
-                if c.format_version != CATALOGUE_FORMAT_VERSION {
+                if !xerj_common::hub::catalogue_format_supported(c.format_version) {
                     return Err(format!(
-                        "catalogue format_version {} (this build reads {CATALOGUE_FORMAT_VERSION})",
-                        c.format_version
+                        "catalogue format_version {} (this build reads {}..={CATALOGUE_FORMAT_VERSION})",
+                        c.format_version,
+                        xerj_common::hub::CATALOGUE_FORMAT_VERSION_MIN
                     ));
                 }
                 Ok(c)

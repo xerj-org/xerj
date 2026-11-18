@@ -1,0 +1,272 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "hub-pov/score/1",
+ "title": "One scored cell (arm x task(s) x repeat) of the Corpus Hub v2 proof-of-value run",
+ "description": "Written by `pov.py score` to <run>/results/<run_id>/<arm>/<cell>/r<n>/score.json and appended to scores.jsonl. Metric definitions: PLAN.md \u00a76.",
+ "type": "object",
+ "required": [
+  "schema",
+  "run_id",
+  "arm",
+  "tasks",
+  "repeat",
+  "valid",
+  "correct",
+  "grades",
+  "cost_usd",
+  "output_tokens",
+  "turns",
+  "n_result_events",
+  "wall_s",
+  "load_before",
+  "bytes_downloaded",
+  "fetches",
+  "failed_fetches",
+  "xerj_calls",
+  "routing",
+  "contamination"
+ ],
+ "properties": {
+  "schema": {
+   "const": "hub-pov/score/1"
+  },
+  "run_id": {
+   "type": "string"
+  },
+  "arm": {
+   "enum": [
+    "A0",
+    "A1",
+    "A2",
+    "A3",
+    "A4",
+    "A5",
+    "A6",
+    "A7"
+   ]
+  },
+  "tasks": {
+   "type": "array",
+   "items": {
+    "type": "string",
+    "pattern": "^C[1-4]:[^:]+:[^:]+$"
+   },
+   "minItems": 1,
+   "description": "one ref = single-question cell; >1 = a C4 session in one agent run"
+  },
+  "repeat": {
+   "type": "integer",
+   "minimum": 1
+  },
+  "model": {
+   "type": [
+    "string",
+    "null"
+   ],
+   "description": "resolved model id from the transcript init event"
+  },
+  "model_requested": {
+   "type": "string"
+  },
+  "valid": {
+   "type": "boolean",
+   "description": "no contamination violation, >=1 result event, claude exit 0. An invalid cell is excluded from comparisons and reported."
+  },
+  "correct": {
+   "type": [
+    "number",
+    "null"
+   ],
+   "minimum": 0,
+   "maximum": 1,
+   "description": "fraction of the cell's tasks passed; null when any grade is unscored (PLAN \u00a76)"
+  },
+  "grades": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "required": [
+     "ref",
+     "grader",
+     "status"
+    ],
+    "properties": {
+     "ref": {
+      "type": "string"
+     },
+     "grader": {
+      "type": "string"
+     },
+     "status": {
+      "enum": [
+       "pass",
+       "fail",
+       "unscored"
+      ]
+     },
+     "status_raw": {
+      "enum": [
+       "pass",
+       "fail",
+       "unscored"
+      ]
+     },
+     "misroute_override": {
+      "type": "boolean",
+      "description": "H2: a pass turned into fail because the v2 router picked the wrong corpus"
+     }
+    }
+   }
+  },
+  "cost_usd": {
+   "type": "number",
+   "description": "sum of total_cost_usd over ALL result events"
+  },
+  "output_tokens": {
+   "type": "integer",
+   "description": "sum of usage.output_tokens over ALL result events"
+  },
+  "input_tokens_all": {
+   "type": "integer"
+  },
+  "turns": {
+   "type": "integer",
+   "description": "sum of num_turns over result events"
+  },
+  "n_result_events": {
+   "type": "integer",
+   "minimum": 0
+  },
+  "claude_rc": {
+   "type": [
+    "integer",
+    "null"
+   ]
+  },
+  "wall_s": {
+   "type": [
+    "number",
+    "null"
+   ],
+   "description": "the agent process only (A7's pre-pull is in setup)"
+  },
+  "load_before": {
+   "type": [
+    "array",
+    "null"
+   ],
+   "items": {
+    "type": "string"
+   },
+   "description": "1/5/15-min load average at agent start"
+  },
+  "load_after": {
+   "type": [
+    "array",
+    "null"
+   ],
+   "items": {
+    "type": "string"
+   }
+  },
+  "bytes_downloaded": {
+   "type": [
+    "integer",
+    "null"
+   ],
+   "description": "bytes received by the jail's interface while the agent ran, minus model-API bytes (nft counter on 160.79.104.0/21)"
+  },
+  "bytes_rx_iface": {
+   "type": [
+    "integer",
+    "null"
+   ]
+  },
+  "bytes_model_api": {
+   "type": "integer"
+  },
+  "bytes_rx_jail_total": {
+   "type": [
+    "integer",
+    "null"
+   ]
+  },
+  "pack_bytes_cached": {
+   "type": "integer",
+   "description": "size of ~/.xerj/hub/packs at the end (A6 pull / A7 pre-pull)"
+  },
+  "fetches": {
+   "type": "integer"
+  },
+  "failed_fetches": {
+   "type": "integer",
+   "description": "HEURISTIC: empty, error, captcha/bot page, 403/429 (PLAN \u00a76)"
+  },
+  "xerj_calls": {
+   "type": "integer",
+   "description": "invocations seen by the logging shim"
+  },
+  "answered_from": {
+   "type": "array",
+   "items": {
+    "type": "string"
+   }
+  },
+  "routing": {
+   "type": [
+    "object",
+    "null"
+   ],
+   "description": "A6/A7 only: first v2 question's routing (H2)",
+   "properties": {
+    "status": {
+     "type": "string"
+    },
+    "ok": {
+     "type": "boolean"
+    }
+   }
+  },
+  "setup": {
+   "type": [
+    "object",
+    "null"
+   ],
+   "description": "A7 only: the pre-pull (rc, seconds, rx_bytes) \u2014 excluded from bytes_downloaded, reported for the first-use disclosure (PLAN \u00a77)"
+  },
+  "contamination": {
+   "type": "object",
+   "required": [
+    "violations",
+    "notes",
+    "tools_used"
+   ],
+   "properties": {
+    "violations": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     }
+    },
+    "notes": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     }
+    },
+    "tools_used": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     }
+    },
+    "xerj_call_kinds": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     }
+    }
+   }
+  }
+ }
+}

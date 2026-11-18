@@ -2,11 +2,15 @@
 ---
 title: "Why did xerj autoindex say a dataset was REFUSED?"
 canonical: "https://xerj.org/answers/autoindex-dataset-refused-by-server"
-updated: "2026-09-20"
+updated: "2026-10-19"
 source: "content/answers/autoindex-dataset-refused-by-server.md"
 ---
 
 # One dataset was REFUSED by the server. Did I lose the whole index?
+
+**Short answer** (updated 2026-10-19): Why did xerj autoindex say a dataset was refused by the server? The server answered HTTP 400 to that dataset's mapping. autoindex records the dataset's files as junk, indexes every other dataset, and exits 3 with datasets_refused on the terminal line. Re-running does not fix it; fix the cause and rebuild under a new prefix.
+
+**Key number:** A forced refusal on a 3-file corpus recorded the CSV dataset's 2 files as junk and still indexed the other dataset. (as of 2026-10-19; source: [benchmarks/autoindex-resilience/refusal-e2e.run1.stderr.txt](https://github.com/xerj-org/xerj/blob/main/benchmarks/autoindex-resilience/refusal-e2e.run1.stderr.txt))
 
 **TL;DR** — No. When the server refuses one dataset's mapping, `xerj autoindex` records that dataset's files as junk, indexes every other dataset, and exits 3. The terminal line carries `datasets_refused` and `files_refused`. Only HTTP 400 counts as a refusal. Re-running does not fix it; rebuild under a new prefix after you fix the cause.
 
@@ -163,3 +167,6 @@ The create-index call can succeed before the mapping update is refused. `xerj au
 - [Why would a folder search miss files that I can see on disk?](/answers/why-autoindex-skipped-files)
 - [My codebase indexer says indexed but I don't see my code. How do I check it actually finished?](/answers/check-codebase-index-is-complete)
 - [How do I read autoindex progress?](/answers/read-autoindex-progress)
+- [The server pushed back with HTTP 429. Did xerj autoindex lose the run?](/answers/autoindex-server-back-pressure-429) (same intent: operating autoindex)
+- [xerj autoindex recorded my Takeout .zip as junk and said to extract it first. Why?](/answers/autoindex-says-extract-the-archive-first) (same intent: operating autoindex)
+- [Reindexing my files is taking forever. What usually causes that?](/answers/reindex-taking-forever) (same intent: operating autoindex)

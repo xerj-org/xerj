@@ -2,11 +2,15 @@
 ---
 title: "XERJ vs Omnisearch for an Obsidian vault"
 canonical: "https://xerj.org/compare/xerj-vs-obsidian-omnisearch"
-updated: "2026-08-23"
+updated: "2026-10-28"
 source: "content/compare/xerj-vs-obsidian-omnisearch.md"
 ---
 
 # How do I search an Obsidian vault from outside Obsidian?
+
+**Short answer** (updated 2026-10-28): How do I search an Obsidian vault from outside Obsidian? Index the vault folder with XERJ; it reads it with Obsidian closed and answers an agent. Inside Obsidian, Omnisearch wins: an instant search interface, BM25 ranking, and PDFs and images through the Text Extractor plugin. No head-to-head was run.
+
+**Key number:** Omnisearch has 2,169 GitHub stars, is GPL-3.0, and released 1.31.0 on 2026-09-05. (as of 2026-10-19; source: [github.com/scambier/obsidian-omnisearch](https://github.com/scambier/obsidian-omnisearch))
 
 **TL;DR** — Omnisearch wins inside Obsidian: an instant search interface, BM25 ranking, and PDFs and images reached through the Text Extractor plugin. XERJ reads the same folder with Obsidian closed and answers an agent. No head-to-head was run for this page.
 
@@ -76,7 +80,7 @@ The Omnisearch README points at a third-party MCP server that detects Omnisearch
 
 The difference is what it depends on. That route needs Obsidian running and the local HTTP server enabled.
 
-`xerj mcp` is a stdio MCP server in the same binary as the engine. It serves 10 tools, and it needs no editor at all.
+`xerj mcp` is a stdio MCP server in the same binary as the engine. It serves 24 tools, and it needs no editor at all.
 
 ## What XERJ reads in a vault, and how
 
@@ -164,3 +168,6 @@ Yes, and that is the usual answer. Omnisearch serves you inside the editor, and 
 - [Can ChatGPT search a folder on my laptop, or do I need something else?](/answers/give-chatgpt-claude-local-file-access)
 - [How do I search through a folder of contracts in .docx?](/answers/search-word-documents-in-a-folder)
 - [I have a folder of PDFs, Word docs, and markdown. How do I search all of them at once?](/answers/search-file-contents-in-a-folder)
+- [How do I index Markdown into the Elasticsearch API?](/answers/index-markdown-into-elasticsearch-api) (same intent: logs and docs)
+- [Why does my Notion export duplicate titles?](/answers/notion-export-duplicate-search-results) (same intent: logs and docs)
+- [What can I use for low-volume log search?](/answers/cheap-low-volume-log-search) (same intent: logs and docs)

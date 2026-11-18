@@ -70,7 +70,8 @@
 //! * form `0` — the payload is a zstd frame written at the encode-time level
 //!   (the only form ZBS2 segments can carry);
 //! * form `1` — `[0x01][level: u8][window_log: u8][zstd frame]`, written by
-//!   the merge-path effort chooser (see [`RAW_LONG_LEVEL`]): level 19 +
+//!   the merge-path effort chooser (see [`RAW_LONG_LEVEL`]): level 19 on an
+//!   explicit `_forcemerge` (background merges do not run it), plus
 //!   long-distance matching + an explicit window, which finds repeats tens
 //!   of MB apart that a default window cannot.  `level`/`window_log` are
 //!   informational — the zstd frame is self-describing.
@@ -83,10 +84,12 @@ use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use std::collections::HashMap;
 use std::io::{Cursor, Read, Write};
 
+pub mod derived_vectors;
 mod row_hydration;
 pub use row_hydration::{
-    decode_stored_v2_rows, decode_stored_v2_rows_controlled, decode_stored_v2_rows_projected,
-    decode_stored_v2_rows_projected_controlled, StoredV2HydratedRow, StoredV2RowHydrationResult,
+    decode_stored_v2_ids, decode_stored_v2_rows, decode_stored_v2_rows_controlled,
+    decode_stored_v2_rows_projected, decode_stored_v2_rows_projected_controlled,
+    decode_stored_v2_rows_projected_parallel, StoredV2HydratedRow, StoredV2RowHydrationResult,
     StoredV2RowHydrationStats,
 };
 
@@ -127,6 +130,19 @@ where
         rows_processed,
     })
     .is_break()
+}
+
+/// Read buffer for the streaming JSON column parsers (#2422).
+pub(crate) const JSON_STREAM_READ_BUFFER: usize = 64 * 1024;
+
+/// Buffer a reader before `serde_json::Deserializer::from_reader`, which
+/// pulls ONE byte per `read` call. Over zstd's streaming `Decoder` that was
+/// one `ZSTD_decompressStream` call per byte of column JSON: hydrating one
+/// row of a 20k-row, 87 MB stored section took ~1.3 s, five times the full
+/// decode it exists to avoid. Buffering keeps the bounded memory of
+/// streaming (one 64 KiB buffer) and drops that cost to the parse itself.
+pub(crate) fn buffered_json_stream<R: std::io::Read>(reader: R) -> std::io::BufReader<R> {
+    std::io::BufReader::with_capacity(JSON_STREAM_READ_BUFFER, reader)
 }
 
 // ── V1: flat LZ4 over JSON (legacy) ───────────────────────────────────────
@@ -269,6 +285,17 @@ impl ColCodec {
 /// column; the chooser keeps whichever candidate is smaller, so a column
 /// that level 3 already answers (e.g. short ids) is stored exactly as
 /// before.
+///
+/// Level 19 is reserved for an explicit `_forcemerge`
+/// ([`encode_stored_v2_forcemerge_at_level`]) or an operator opt-in.
+/// Background merges skip this candidate: zstd 19 encodes at ~2 MB/s per
+/// thread, and on a 1M-doc / 200 MB corpus at a 2 GiB cap the stored
+/// encode was 98% of every background merge (`XERJ_PROF merge-batch`:
+/// stored_us 94-107 s vs 2.4-3.3 s before this chooser existed, rc.77).
+/// While a merge runs its working set keeps RSS above the governor
+/// watermark, so the parent breaker answered 429 to ingest for the whole
+/// merge: bulk throughput fell from ~41k docs/s (rc.77) to ~5-14k docs/s
+/// (rc.78-rc.99).
 const RAW_LONG_LEVEL: i32 = 19;
 const RAW_LONG_WINDOW_LOG_MAX: u32 = 24;
 
@@ -294,31 +321,51 @@ pub fn encode_stored_v2(stored_docs_json: &[u8]) -> Vec<u8> {
 /// operator changes `compression.level` interleave with no migration and no
 /// format flag.
 pub fn encode_stored_v2_at_level(stored_docs_json: &[u8], level: i32) -> Vec<u8> {
-    encode_stored_v2_at_level_inner(stored_docs_json, level, false)
+    encode_stored_v2_at_level_inner(stored_docs_json, level, None)
 }
 
-/// Merge-path variant of [`encode_stored_v2_at_level`]: in addition to the
-/// operator's level, each JSON fallback column is also compressed at
-/// [`RAW_LONG_LEVEL`] with long-distance matching, and the smaller payload is
-/// kept (the same measured-chooser rule the `.dv` ZNV2 codec uses).  Merges
-/// are background work, so the extra encode pass is not on any
-/// back-pressure-critical path; flush never calls this.
+/// Background-merge entry. Encodes exactly like [`encode_stored_v2_at_level`]
+/// at the operator's level: **no** long-effort candidate. Background merges
+/// are on the back-pressure path — their working set holds RSS at the
+/// breaker watermark while they run, so their encode speed is ingest
+/// throughput (see [`RAW_LONG_LEVEL`]). Use
+/// [`encode_stored_v2_forcemerge_at_level`] for the max-effort encode.
 pub fn encode_stored_v2_merge_at_level(stored_docs_json: &[u8], level: i32) -> Vec<u8> {
-    encode_stored_v2_at_level_inner(stored_docs_json, level, true)
+    encode_stored_v2_at_level_inner(stored_docs_json, level, None)
+}
+
+/// Explicit-`_forcemerge` (or operator opt-in) variant: in addition to the
+/// operator's level, each JSON fallback column is also compressed at
+/// [`RAW_LONG_LEVEL`] (19) with long-distance matching, and the smaller
+/// payload is kept (the same measured-chooser rule the `.dv` ZNV2 codec
+/// uses). A force-merge is an operator request for the smallest index.
+pub fn encode_stored_v2_forcemerge_at_level(stored_docs_json: &[u8], level: i32) -> Vec<u8> {
+    encode_stored_v2_at_level_inner(stored_docs_json, level, Some(RAW_LONG_LEVEL))
 }
 
 fn encode_stored_v2_at_level_inner(
     stored_docs_json: &[u8],
     level: i32,
-    long_effort_chooser: bool,
+    long_effort_level: Option<i32>,
 ) -> Vec<u8> {
     // Parse the JSON array of documents.  Failure → v1 fallback.
-    let docs: Vec<serde_json::Value> = match serde_json::from_slice(stored_docs_json) {
+    let mut docs: Vec<serde_json::Value> = match serde_json::from_slice(stored_docs_json) {
         Ok(v) => v,
         Err(_) => return encode_stored_lz4(stored_docs_json),
     };
     if docs.len() < V2_MIN_DOCS {
         return encode_stored_lz4(stored_docs_json);
+    }
+    // #1122/#2433: drop regenerable semantic_text vectors (see
+    // `derived_vectors`). Must match `encode_stored_v2_from_values_inner`.
+    {
+        use rayon::prelude::*;
+        docs.par_iter_mut().for_each(|doc| {
+            let stripped = doc.get("_source").and_then(derived_vectors::strip_source);
+            if let (Some(stripped), Some(obj)) = (stripped, doc.as_object_mut()) {
+                obj.insert("_source".into(), stripped);
+            }
+        });
     }
 
     // Flatten each doc into (id, seq_no, source-fields).  Anything non-JSON
@@ -381,7 +428,7 @@ fn encode_stored_v2_at_level_inner(
             &columns,
             Some(stored_docs_json),
             level,
-            long_effort_chooser,
+            long_effort_level,
         ),
         present_nulls,
     )
@@ -456,6 +503,21 @@ fn encode_stored_v2_from_values_inner(
     let num_docs = docs.len();
     let prof = std::env::var_os("XERJ_PROF").is_some();
     let t_build = std::time::Instant::now();
+
+    // #1122/#2433: drop regenerable semantic_text vectors (see
+    // `derived_vectors`); identical to the JSON entry point's pass.
+    let stripped: Vec<Option<serde_json::Value>> = {
+        use rayon::prelude::*;
+        docs.par_iter()
+            .map(|(_, _, src)| derived_vectors::strip_source(src))
+            .collect()
+    };
+    let stripped_docs: Vec<(&str, u64, &serde_json::Value)> = docs
+        .iter()
+        .zip(&stripped)
+        .map(|((id, seq, src), stripped)| (*id, *seq, stripped.as_ref().unwrap_or(src)))
+        .collect();
+    let docs: &[(&str, u64, &serde_json::Value)] = &stripped_docs;
 
     // Synthetic __id / __seq_no columns need owned Values to borrow from.
     let ids: Vec<serde_json::Value> = docs
@@ -545,7 +607,7 @@ fn encode_stored_v2_from_values_inner(
             &columns,
             stored_docs_json,
             STORED_ZSTD_LEVEL,
-            false,
+            None,
         ),
         present_nulls,
     )
@@ -559,15 +621,16 @@ fn encode_stored_v2_from_values_inner(
 /// fast path on large segments where the columnar form always wins and
 /// serialising a multi-MB JSON array per flush is measurable CPU).
 ///
-/// `long_effort_chooser` adds a second, higher-effort zstd candidate for
-/// each JSON fallback column (see [`RAW_LONG_LEVEL`]) — merge only.
+/// `long_effort_level` adds a second, higher-effort zstd candidate (LDM +
+/// explicit window) at that level for each JSON fallback column (see
+/// [`RAW_LONG_LEVEL`]) — force-merge only.
 fn encode_v2_columns(
     num_docs: usize,
     col_order: &[String],
     columns: &[Vec<&serde_json::Value>],
     stored_docs_json: Option<&[u8]>,
     level: i32,
-    long_effort_chooser: bool,
+    long_effort_level: Option<i32>,
 ) -> Vec<u8> {
     // THROWAWAY prof (XERJ_PROF): encode-phase breakdown.
     let prof = std::env::var_os("XERJ_PROF").is_some();
@@ -731,8 +794,8 @@ fn encode_v2_columns(
         let col_json = serde_json::to_vec(col).unwrap_or_default();
         let zstd_payload =
             zstd::encode_all(Cursor::new(&col_json), level).unwrap_or_else(|_| col_json.clone());
-        let (zstd_payload, zstd_form) = if long_effort_chooser {
-            try_long_effort_zstd(&col_json, zstd_payload)
+        let (zstd_payload, zstd_form) = if let Some(long_level) = long_effort_level {
+            try_long_effort_zstd_at(&col_json, zstd_payload, long_level)
         } else {
             (zstd_payload, 0u8)
         };
@@ -879,18 +942,58 @@ fn split_stored_v3(bytes: &[u8]) -> Result<StoredV3Parts<'_>> {
 /// Returns the canonical JSON-array payload that every upstream caller
 /// expects (`[{"_id", "_seq_no", "_source": {...}}, ...]`).
 pub fn decode_stored(bytes: &[u8]) -> Result<Vec<u8>> {
+    decode_stored_inner(bytes, true)
+}
+
+/// [`decode_stored`] without rebuilding derived `semantic_text` vectors
+/// (#1122/#2433): stripped rows keep their marker and stay vector-less.
+/// For a rewrite that re-encodes the documents (merge), so a stripped row
+/// is not regenerated only to be verified and dropped again. Never hand
+/// this output to a reader.
+pub fn decode_stored_preserving_derived(bytes: &[u8]) -> Result<Vec<u8>> {
+    decode_stored_inner(bytes, false)
+}
+
+/// Decode for a merge that re-encodes the documents (#1122/#2433).
+///
+/// By default stripped rows stay stripped ([`decode_stored_preserving_derived`]).
+/// With `XERJ_STORE_SEMANTIC_VECTORS` set the rows are rehydrated instead, so
+/// the merged segment stores full vectors: that is how `force_merge` restores
+/// vectors written before the opt-out was turned on.
+pub fn decode_stored_for_rewrite(bytes: &[u8]) -> Result<Vec<u8>> {
+    decode_stored_inner(bytes, derived_vectors::store_vectors_opt_out())
+}
+
+/// Whether a stored section holds rows whose derived `semantic_text`
+/// vectors were stripped (#1122/#2433). `force_merge` under
+/// `XERJ_STORE_SEMANTIC_VECTORS` rewrites such a segment even when the
+/// index is already at its target segment count.
+pub fn stored_has_derived_rows(bytes: &[u8]) -> Result<bool> {
+    Ok(derived_vectors::contains_marker(
+        &decode_stored_preserving_derived(bytes)?,
+    ))
+}
+
+fn decode_stored_inner(bytes: &[u8], rehydrate: bool) -> Result<Vec<u8>> {
     if bytes.len() >= 4 && &bytes[..4] == STORED_V3_MAGIC {
         let (present_nulls, inner) = split_stored_v3(bytes)?;
-        return decode_stored_v2(&inner[4..], &present_nulls);
+        return decode_stored_v2_filtered(&inner[4..], &present_nulls, None, rehydrate);
     }
     if is_columnar_stored_magic(bytes) {
-        return decode_stored_v2(&bytes[4..], &[]);
+        return decode_stored_v2_filtered(&bytes[4..], &[], None, rehydrate);
     }
-    if bytes.len() >= 4 && &bytes[..4] == STORED_LZ4_MAGIC {
-        return lz4_flex::decompress_size_prepended(&bytes[4..])
-            .map_err(|e| StorageError::Other(anyhow::anyhow!("LZ4 decompress failed: {e}")));
+    let raw = if bytes.len() >= 4 && &bytes[..4] == STORED_LZ4_MAGIC {
+        lz4_flex::decompress_size_prepended(&bytes[4..])
+            .map_err(|e| StorageError::Other(anyhow::anyhow!("LZ4 decompress failed: {e}")))?
+    } else {
+        bytes.to_vec()
+    };
+    // A merge can write marker-bearing rows through the LZ4 fallback.
+    if rehydrate {
+        derived_vectors::rehydrate_canonical(raw)
+    } else {
+        Ok(raw)
     }
-    Ok(bytes.to_vec())
 }
 
 /// Column-projected decode over any supported stored payload (#950).
@@ -1079,6 +1182,40 @@ fn zstd_frame_content_size(payload: &[u8], context: &str) -> Result<Option<u64>>
     }
     zstd::zstd_safe::get_frame_content_size(payload)
         .map_err(|_| StorageError::Other(anyhow::anyhow!("{context} zstd frame header is invalid")))
+}
+
+/// Largest output `zstd_decode_presized` reserves up front from a frame
+/// header. A header is untrusted input; above this the decode falls back to
+/// growing the buffer as data actually arrives.
+const ZSTD_PRESIZE_CAP: u64 = 1 << 30;
+
+/// Decode a zstd column payload into a buffer sized from the frame header
+/// (#2422). `zstd::decode_all` has no size hint, so a 50 MB embedding column
+/// grew its buffer by repeated reallocation and copying (13.75% of a cold
+/// search's CPU was `rallocx`). Payloads that are not exactly one frame with
+/// a declared size, or that declare more than `ZSTD_PRESIZE_CAP`, keep the
+/// `decode_all` path, as does any frame the one-shot decode rejects, so the
+/// output and the errors are those of `decode_all`.
+fn zstd_decode_presized(frame: &[u8]) -> std::io::Result<Vec<u8>> {
+    let single_frame =
+        zstd::zstd_safe::find_frame_compressed_size(frame).is_ok_and(|size| size == frame.len());
+    let declared = zstd::zstd_safe::get_frame_content_size(frame)
+        .ok()
+        .flatten();
+    if let (true, Some(size)) = (single_frame, declared) {
+        if size <= ZSTD_PRESIZE_CAP {
+            let mut out = Vec::new();
+            if out.try_reserve_exact(size as usize).is_ok() {
+                let decoded = zstd::bulk::Decompressor::new().and_then(|mut decompressor| {
+                    decompressor.decompress_to_buffer(frame, &mut out)
+                });
+                if decoded.is_ok() && out.len() as u64 == size {
+                    return Ok(out);
+                }
+            }
+        }
+    }
+    zstd::decode_all(frame)
 }
 
 fn decode_zstd_exact(payload: &[u8], expected: usize, context: &str) -> Result<Vec<u8>> {
@@ -1331,14 +1468,28 @@ pub fn stored_v2_source_column_names(bytes: &[u8]) -> Result<Option<Vec<String>>
         return Ok(None);
     }
     let directory = parse_v2_directory(&bytes[4..])?;
-    Ok(Some(
-        directory
-            .columns
-            .iter()
-            .filter(|column| column.name != "__id" && column.name != "__seq_no")
-            .map(|column| column.name.to_string())
-            .collect(),
-    ))
+    let mut names: Vec<String> = directory
+        .columns
+        .iter()
+        .filter(|column| column.name != "__id" && column.name != "__seq_no")
+        .map(|column| column.name.to_string())
+        .collect();
+    // #1122/#2433: derived semantic vectors may be stripped from every row
+    // and so have no column; they are still `_source` fields a projection
+    // can ask for (the row decoders rebuild them).
+    let targets: Vec<String> = names
+        .iter()
+        .filter_map(|name| derived_vectors::metadata_target(name))
+        .map(str::to_string)
+        .collect();
+    for target in targets {
+        for name in [derived_vectors::chunks_name(&target), target] {
+            if !names.contains(&name) {
+                names.push(name);
+            }
+        }
+    }
+    Ok(Some(names))
 }
 
 /// Decode only named columns from a V2 stored section.
@@ -1510,18 +1661,6 @@ fn decode_projected_column<'a>(
     Ok(decoded[index].as_ref().unwrap())
 }
 
-fn finite_f32_vector(values: Vec<f64>) -> Option<Vec<f32>> {
-    let mut out = Vec::with_capacity(values.len());
-    for value in values {
-        let value = value as f32;
-        if !value.is_finite() {
-            return None;
-        }
-        out.push(value);
-    }
-    Some(out)
-}
-
 struct TypedVectorRowsVisitor<'a> {
     expected_rows: usize,
     column_index: usize,
@@ -1548,32 +1687,19 @@ impl<'de> serde::de::Visitor<'de> for TypedVectorRowsVisitor<'_> {
             let Some(value) = seq.next_element::<serde_json::Value>()? else {
                 return Err(serde::de::Error::custom("vector column ended early"));
             };
-            let typed = match value {
-                serde_json::Value::Null => None,
-                serde_json::Value::Array(values) => {
-                    let values = values
-                        .into_iter()
-                        .map(|value| value.as_f64())
-                        .collect::<Option<Vec<_>>>()
-                        .and_then(finite_f32_vector);
-                    let Some(values) = values else {
+            // Null is a supported absence. A packed `xerj:f32:` string is the
+            // retained embedding form (#1940); a number array is the form
+            // segments wrote before that. Anything else cannot be scored as
+            // a vector and drops the whole column to the stored-document scan.
+            let typed = if value.is_null() {
+                None
+            } else {
+                match xerj_common::packed_f32::json_to_f32_vector(&value) {
+                    Some(values) => Some(values),
+                    None => {
                         supported = false;
-                        out.push(None);
-                        if checkpoint_decoded_row(
-                            row,
-                            self.column_index,
-                            self.checkpoint,
-                            self.cancelled,
-                        ) {
-                            return Err(serde::de::Error::custom("stored decode cancelled"));
-                        }
-                        continue;
-                    };
-                    Some(values)
-                }
-                _ => {
-                    supported = false;
-                    None
+                        None
+                    }
                 }
             };
             out.push(typed);
@@ -1649,18 +1775,10 @@ fn decode_typed_vector_rows_controlled(
             .map_err(|error| StorageError::Other(anyhow::anyhow!("constant decode: {error}")))?
         {
             serde_json::Value::Null => None,
-            serde_json::Value::Array(values) => {
-                let Some(values) = values
-                    .into_iter()
-                    .map(|value| value.as_f64())
-                    .collect::<Option<Vec<_>>>()
-                    .and_then(finite_f32_vector)
-                else {
-                    return Ok(Ok(None));
-                };
-                Some(values)
-            }
-            _ => return Ok(Ok(None)),
+            other => match xerj_common::packed_f32::json_to_f32_vector(&other) {
+                Some(values) => Some(values),
+                None => return Ok(Ok(None)),
+            },
         };
         return repeat_constant_rows_controlled(row, num_docs, column_index, checkpoint)
             .map(|result| result.map(Some));
@@ -1690,7 +1808,7 @@ fn parse_typed_vector_reader<R: std::io::Read>(
 ) -> Result<std::result::Result<Option<StoredVectorRows>, ()>> {
     use serde::de::Deserializer as _;
     let cancelled = std::cell::Cell::new(false);
-    let mut deserializer = serde_json::Deserializer::from_reader(reader);
+    let mut deserializer = serde_json::Deserializer::from_reader(buffered_json_stream(reader));
     let value = match deserializer.deserialize_seq(TypedVectorRowsVisitor {
         expected_rows: num_docs,
         column_index,
@@ -1733,15 +1851,7 @@ fn decode_typed_vector_chunk_rows_controlled(
                     ))
                 })?;
                 for chunk in chunks {
-                    let serde_json::Value::Array(values) = chunk else {
-                        return Ok(Ok(None));
-                    };
-                    let Some(vector) = values
-                        .into_iter()
-                        .map(|value| value.as_f64())
-                        .collect::<Option<Vec<_>>>()
-                        .and_then(finite_f32_vector)
-                    else {
+                    let Some(vector) = xerj_common::packed_f32::json_to_f32_vector(&chunk) else {
                         return Ok(Ok(None));
                     };
                     typed.push(vector);
@@ -1805,16 +1915,8 @@ fn parse_typed_chunk_reader<R: std::io::Read>(
                     serde_json::Value::Array(chunks) => {
                         let mut result = Vec::with_capacity(chunks.len());
                         for chunk in chunks {
-                            let serde_json::Value::Array(values) = chunk else {
-                                supported = false;
-                                continue;
-                            };
-                            let vector = values
-                                .into_iter()
-                                .map(|value| value.as_f64())
-                                .collect::<Option<Vec<_>>>()
-                                .and_then(finite_f32_vector);
-                            let Some(vector) = vector else {
+                            let Some(vector) = xerj_common::packed_f32::json_to_f32_vector(&chunk)
+                            else {
                                 supported = false;
                                 continue;
                             };
@@ -1848,7 +1950,7 @@ fn parse_typed_chunk_reader<R: std::io::Read>(
         }
     }
     let cancelled = std::cell::Cell::new(false);
-    let mut deserializer = serde_json::Deserializer::from_reader(reader);
+    let mut deserializer = serde_json::Deserializer::from_reader(buffered_json_stream(reader));
     let value = match deserializer.deserialize_seq(Visitor {
         rows: num_docs,
         column: column_index,
@@ -1912,14 +2014,39 @@ where
         ));
     }
     let directory = parse_v2_directory(&bytes[4..])?;
+    // #1122/#2433: stripped rows rebuild their vectors from the text.
+    let metadata_column = format!("{}{vector_field}", derived_vectors::PASSAGE_METADATA_PREFIX);
+    let has_metadata = directory
+        .columns
+        .iter()
+        .any(|column| column.name == metadata_column);
     let Some(vector_column) = directory
         .columns
         .iter()
         .find(|column| column.name == vector_field)
     else {
-        return Ok(StoredDecodeRun::Complete(
-            StoredV2KnnProjectionResult::MissingVectorColumn,
-        ));
+        if !has_metadata {
+            return Ok(StoredDecodeRun::Complete(
+                StoredV2KnnProjectionResult::MissingVectorColumn,
+            ));
+        }
+        if decode_cancelled(&mut checkpoint, StoredDecodePhase::BeforeColumn, 0, 0) {
+            return Ok(StoredDecodeRun::Cancelled);
+        }
+        let mut vectors: StoredVectorRows = vec![None; directory.num_docs];
+        let mut vector_chunks: Option<StoredVectorChunkRows> = None;
+        if !fill_derived_knn_rows(
+            bytes,
+            &metadata_column,
+            vector_chunks_field.is_some(),
+            &mut vectors,
+            &mut vector_chunks,
+        )? {
+            return Ok(StoredDecodeRun::Complete(
+                StoredV2KnnProjectionResult::UnsupportedVectorShape,
+            ));
+        }
+        return knn_projection_with_identity(bytes, vectors, vector_chunks, &mut checkpoint);
     };
     let vector_index = directory
         .columns
@@ -1993,8 +2120,109 @@ where
         },
         None => None,
     };
+    let mut vectors = vectors;
+    let mut vector_chunks = vector_chunks;
+    if has_metadata
+        && vectors.iter().any(Option::is_none)
+        && !fill_derived_knn_rows(
+            bytes,
+            &metadata_column,
+            vector_chunks_field.is_some(),
+            &mut vectors,
+            &mut vector_chunks,
+        )?
+    {
+        return Ok(StoredDecodeRun::Complete(
+            StoredV2KnnProjectionResult::UnsupportedVectorShape,
+        ));
+    }
+    knn_projection_with_identity(bytes, vectors, vector_chunks, &mut checkpoint)
+}
+
+/// Rebuild the typed vectors of every stripped row (`vectors[row] == None`
+/// with a lexical marker in its passage metadata) from its text.
+/// `Ok(false)` when the rows cannot be read selectively.
+fn fill_derived_knn_rows(
+    bytes: &[u8],
+    metadata_column: &str,
+    want_chunks: bool,
+    vectors: &mut StoredVectorRows,
+    vector_chunks: &mut Option<StoredVectorChunkRows>,
+) -> Result<bool> {
+    let ordinals: Vec<usize> = (0..vectors.len())
+        .filter(|&row| vectors[row].is_none())
+        .collect();
+    if ordinals.is_empty() {
+        return Ok(true);
+    }
+    let StoredV2RowHydrationResult::Hydrated {
+        rows: meta_rows, ..
+    } = decode_stored_v2_rows_projected(bytes, &ordinals, &[metadata_column])?
+    else {
+        return Ok(false);
+    };
+    let mut fields: Vec<String> = Vec::new();
+    for row in &meta_rows {
+        if let Some(field) = row
+            .source
+            .get(metadata_column)
+            .filter(|meta| derived_vectors::is_stripped(meta))
+            .and_then(derived_vectors::metadata_field)
+        {
+            if !fields.iter().any(|known| known == field) {
+                fields.push(field.to_string());
+            }
+        }
+    }
+    if fields.is_empty() {
+        return Ok(true);
+    }
+    let field_refs: Vec<&str> = fields.iter().map(String::as_str).collect();
+    let StoredV2RowHydrationResult::Hydrated {
+        rows: text_rows, ..
+    } = decode_stored_v2_rows_projected(bytes, &ordinals, &field_refs)?
+    else {
+        return Ok(false);
+    };
+    let texts: HashMap<usize, serde_json::Map<String, serde_json::Value>> = text_rows
+        .into_iter()
+        .map(|row| (row.ordinal, row.source))
+        .collect();
+    let rebuilt: Vec<(usize, Option<derived_vectors::LexicalSemanticVectors>)> = {
+        use rayon::prelude::*;
+        meta_rows
+            .par_iter()
+            .map(|row| {
+                let rebuilt = row.source.get(metadata_column).and_then(|meta| {
+                    let text = derived_vectors::metadata_field(meta)
+                        .and_then(|field| texts.get(&row.ordinal)?.get(field))
+                        .and_then(serde_json::Value::as_str);
+                    derived_vectors::regenerate(meta, text)
+                });
+                (row.ordinal, rebuilt)
+            })
+            .collect()
+    };
+    for (ordinal, rebuilt) in rebuilt {
+        let Some((pooled, chunks)) = rebuilt else {
+            continue;
+        };
+        vectors[ordinal] = Some(pooled);
+        if let (true, Some(chunks)) = (want_chunks, chunks) {
+            vector_chunks.get_or_insert_with(|| vec![None; vectors.len()])[ordinal] = Some(chunks);
+        }
+    }
+    Ok(true)
+}
+
+fn knn_projection_with_identity(
+    bytes: &[u8],
+    vectors: StoredVectorRows,
+    vector_chunks: Option<StoredVectorChunkRows>,
+    checkpoint: &mut dyn FnMut(StoredDecodeCheckpoint) -> std::ops::ControlFlow<()>,
+) -> Result<StoredDecodeRun<StoredV2KnnProjectionResult>> {
     let (identity_num_docs, id_values, seq_values) =
-        match row_hydration::decode_v2_identity_columns_controlled(bytes, &mut checkpoint)? {
+        match row_hydration::decode_v2_identity_columns_controlled(bytes, checkpoint)? {
             StoredDecodeRun::Complete(Some(values)) => values,
             StoredDecodeRun::Complete(None) => {
                 return Ok(StoredDecodeRun::Complete(
@@ -2019,7 +2247,41 @@ where
     ))
 }
 
-fn decode_stored_v2(body: &[u8], present_nulls: &[(u32, u32)]) -> Result<Vec<u8>> {
+/// Decode a stored section like [`decode_stored`], but emit only the
+/// `_source` columns `keep` accepts (`_id` and `_seq_no` are always
+/// emitted). Same canonical `[{"_id","_seq_no","_source":{…}}, …]` framing,
+/// with the dropped fields absent from every `_source` — byte-identical to
+/// running `decode_stored` and deleting those keys.
+///
+/// A column that is not kept is not decompressed at all, unless a kept
+/// `COPY_OF` / `CROSS_DEP` column is derived from it, in which case it is
+/// decoded as a dependency and still left out of the output.
+///
+/// #2427: a brute stored scan decoded EVERY column of a cold segment to
+/// evaluate a lexical query, and on a semantic_text corpus the generated
+/// embedding companions (`*_vector`, `*_vector_chunks`, passage metadata)
+/// are ~85% of the decoded bytes and of the transient peak (a 20k-doc
+/// segment: 342 MB decoded, ~720 MB peak, ~600 MB of it vectors).
+///
+/// `Ok(None)` for a legacy (non-columnar) section; the caller falls back to
+/// [`decode_stored`].
+pub fn decode_stored_keeping(bytes: &[u8], keep: &dyn Fn(&str) -> bool) -> Result<Option<Vec<u8>>> {
+    if bytes.len() >= 4 && &bytes[..4] == STORED_V3_MAGIC {
+        let (present_nulls, inner) = split_stored_v3(bytes)?;
+        return decode_stored_v2_filtered(&inner[4..], &present_nulls, Some(keep), true).map(Some);
+    }
+    if is_columnar_stored_magic(bytes) {
+        return decode_stored_v2_filtered(&bytes[4..], &[], Some(keep), true).map(Some);
+    }
+    Ok(None)
+}
+
+fn decode_stored_v2_filtered(
+    body: &[u8],
+    present_nulls: &[(u32, u32)],
+    keep: Option<&dyn Fn(&str) -> bool>,
+    rehydrate: bool,
+) -> Result<Vec<u8>> {
     // Positions that were a *present* explicit `_source` null (issue #415).
     // Empty for plain ZBS2 segments; populated by `split_stored_v3` for ZBS3.
     let present_null_set: std::collections::HashSet<(u32, u32)> =
@@ -2034,11 +2296,9 @@ fn decode_stored_v2(body: &[u8], present_nulls: &[(u32, u32)]) -> Result<Vec<u8>
         .map_err(|e| StorageError::Other(anyhow::anyhow!("v2 num_cols: {e}")))?
         as usize;
 
-    // First pass: decode each column into Vec<Value>.  Store the name
-    // alongside so we can re-assemble the docs.
-    let mut col_names: Vec<String> = Vec::with_capacity(num_cols);
-    let mut col_data: Vec<Vec<serde_json::Value>> = Vec::with_capacity(num_cols);
-
+    // First pass: walk the column directory, then decode each column into
+    // Vec<Value>.  Store the name alongside so we can re-assemble the docs.
+    let mut entries: Vec<(String, ColCodec, &[u8])> = Vec::with_capacity(num_cols.min(4096));
     for _ in 0..num_cols {
         let name_len = cur
             .read_u16::<LittleEndian>()
@@ -2068,50 +2328,135 @@ fn decode_stored_v2(body: &[u8], present_nulls: &[(u32, u32)]) -> Result<Vec<u8>
         }
         let payload = &body[pos..pos + payload_len];
         cur.set_position((pos + payload_len) as u64);
+        entries.push((name, codec, payload));
+    }
 
-        let values = match codec {
-            ColCodec::RawJson => decode_raw_json(payload)?,
-            ColCodec::Lz4Json => decode_lz4_json(payload)?,
-            ColCodec::Constant => decode_constant(payload, num_docs)?,
-            ColCodec::DictBitpack => decode_dict_bitpack(payload, num_docs)?,
-            ColCodec::TypedInt => decode_typed_int(payload, num_docs)?,
-            // CROSS_DEP and COPY_OF both require their source column to be
-            // materialised first.  We emit a placeholder here and revisit
-            // both in the deferred fixpoint below — COPY_OF is written with
-            // an earlier pass-1 source by construction, but decode treats a
-            // crafted segment's references the same way instead of trusting
-            // that.
-            ColCodec::CopyOf | ColCodec::CrossDep => {
-                let (key, value) = match codec {
-                    ColCodec::CopyOf => (
-                        "__deferred_copy_of__",
-                        serde_json::Value::Number((copy_of_source_index(payload)? as u64).into()),
-                    ),
-                    _ => (
-                        "__deferred_cross_dep__",
-                        serde_json::Value::Array(
-                            payload
-                                .iter()
-                                .map(|b| serde_json::Value::Number((*b).into()))
-                                .collect(),
-                        ),
-                    ),
+    // #2422: the columns are independent zstd/JSON streams, so decode them
+    // in parallel. One embedding column (`*_vector_chunks`) is ~30% of a
+    // 100 MB autoindex section's decode; serially every other column queued
+    // behind it on the first (cold) search of a segment. Errors surface in
+    // column order, as the serial loop reported them.
+    // #2427: which columns are emitted, and which must be decoded (the
+    // emitted ones plus whatever a kept COPY_OF / CROSS_DEP derives from).
+    // #1122/#2433: rows whose derived semantic vectors were stripped get
+    // them rebuilt from the text. A reader that keeps those vectors needs
+    // every column decoded (the text and metadata they derive from); the
+    // `allowed` set then trims the rebuilt row back to what `keep` asked.
+    let has_metadata = rehydrate
+        && entries
+            .iter()
+            .any(|(name, _, _)| derived_vectors::metadata_target(name).is_some());
+    let wants_derived = has_metadata
+        && keep.is_none_or(|keep| {
+            derived_vectors::keep_wants_derived(entries.iter().map(|(n, _, _)| n.as_str()), keep)
+        });
+    let allowed: Option<std::collections::HashSet<String>> = match keep {
+        Some(keep) if wants_derived => {
+            let mut names: std::collections::HashSet<String> = entries
+                .iter()
+                .map(|(name, _, _)| name.clone())
+                .filter(|name| keep(name))
+                .collect();
+            for target in entries
+                .iter()
+                .filter_map(|(name, _, _)| derived_vectors::metadata_target(name))
+            {
+                for name in [target.to_string(), derived_vectors::chunks_name(target)] {
+                    if keep(&name) {
+                        names.insert(name);
+                    }
+                }
+            }
+            Some(names)
+        }
+        _ => None,
+    };
+    let keep = if wants_derived { None } else { keep };
+    let emit: Vec<bool> = entries
+        .iter()
+        .map(|(name, _, _)| {
+            keep.is_none_or(|keep| name == "__id" || name == "__seq_no" || keep(name))
+        })
+        .collect();
+    let mut needed = emit.clone();
+    if keep.is_some() {
+        loop {
+            let mut grew = false;
+            for ix in 0..entries.len() {
+                if !needed[ix] {
+                    continue;
+                }
+                let (_, codec, payload) = &entries[ix];
+                let source = match codec {
+                    ColCodec::CopyOf => Some(copy_of_source_index(payload)?),
+                    ColCodec::CrossDep => Some(cross_dep_source_index(payload, num_docs)?),
+                    _ => None,
                 };
-                col_names.push(name);
-                col_data.push(Vec::new());
-                col_data
-                    .last_mut()
-                    .unwrap()
-                    .push(serde_json::Value::Object({
+                if let Some(source) = source {
+                    if source < needed.len() && !needed[source] {
+                        needed[source] = true;
+                        grew = true;
+                    }
+                }
+            }
+            if !grew {
+                break;
+            }
+        }
+    }
+    let decoded: Vec<Result<Vec<serde_json::Value>>> = {
+        use rayon::prelude::*;
+        entries
+            .par_iter()
+            .zip(needed.par_iter())
+            .map(|((_, codec, payload), needed)| {
+                if !*needed {
+                    return Ok(Vec::new());
+                }
+                let payload = *payload;
+                Ok(match codec {
+                    ColCodec::RawJson => decode_raw_json(payload)?,
+                    ColCodec::Lz4Json => decode_lz4_json(payload)?,
+                    ColCodec::Constant => decode_constant(payload, num_docs)?,
+                    ColCodec::DictBitpack => decode_dict_bitpack(payload, num_docs)?,
+                    ColCodec::TypedInt => decode_typed_int(payload, num_docs)?,
+                    // CROSS_DEP and COPY_OF both require their source column
+                    // to be materialised first.  We emit a placeholder here
+                    // and revisit both in the deferred fixpoint below —
+                    // COPY_OF is written with an earlier pass-1 source by
+                    // construction, but decode treats a crafted segment's
+                    // references the same way instead of trusting that.
+                    ColCodec::CopyOf | ColCodec::CrossDep => {
+                        let (key, value) = match codec {
+                            ColCodec::CopyOf => (
+                                "__deferred_copy_of__",
+                                serde_json::Value::Number(
+                                    (copy_of_source_index(payload)? as u64).into(),
+                                ),
+                            ),
+                            _ => (
+                                "__deferred_cross_dep__",
+                                serde_json::Value::Array(
+                                    payload
+                                        .iter()
+                                        .map(|b| serde_json::Value::Number((*b).into()))
+                                        .collect(),
+                                ),
+                            ),
+                        };
                         let mut m = serde_json::Map::new();
                         m.insert(key.into(), value);
-                        m
-                    }));
-                continue;
-            }
-        };
+                        vec![serde_json::Value::Object(m)]
+                    }
+                })
+            })
+            .collect()
+    };
+    let mut col_names: Vec<String> = Vec::with_capacity(entries.len());
+    let mut col_data: Vec<Vec<serde_json::Value>> = Vec::with_capacity(entries.len());
+    for ((name, _, _), values) in entries.into_iter().zip(decoded) {
         col_names.push(name);
-        col_data.push(values);
+        col_data.push(values?);
     }
 
     // Second pass: resolve deferred CROSS_DEP columns now that the pass-1
@@ -2226,45 +2571,101 @@ fn decode_stored_v2(body: &[u8], present_nulls: &[(u32, u32)]) -> Result<Vec<u8>
             ))
         })?;
     out.push(b'[');
-    for d in 0..num_docs {
-        if d > 0 {
-            out.push(b',');
+    // #2422: rows are independent, so serialise them in parallel row chunks
+    // and append the chunks in order — byte-identical to the serial loop.
+    // Each cell is moved out of `col_data` (it is used exactly once) instead
+    // of cloned: the clone of every embedding array was half the reassembly
+    // cost, and moving lets each row's memory go as soon as it is written.
+    // Chunks are produced in bounded waves so the transient buffers stay a
+    // small fraction of the output rather than a second full copy (#950).
+    const ROWS_PER_CHUNK: usize = 256;
+    let n_chunks = num_docs.div_ceil(ROWS_PER_CHUNK);
+    let mut per_chunk: Vec<Vec<&mut [serde_json::Value]>> = (0..n_chunks)
+        .map(|_| Vec::with_capacity(col_data.len()))
+        .collect();
+    for column in col_data.iter_mut() {
+        let mut rest: &mut [serde_json::Value] = column.as_mut_slice();
+        for chunk_cols in per_chunk.iter_mut() {
+            let take = ROWS_PER_CHUNK.min(rest.len());
+            let (head, tail) = std::mem::take(&mut rest).split_at_mut(take);
+            chunk_cols.push(head);
+            rest = tail;
         }
-        let mut source_map = serde_json::Map::new();
-        for (cix, name) in col_names.iter().enumerate() {
-            if cix == id_col_ix || cix == seq_col_ix {
-                continue;
-            }
-            let v = col_data[cix]
-                .get(d)
-                .cloned()
-                .unwrap_or(serde_json::Value::Null);
-            if !v.is_null() {
-                source_map.insert(name.clone(), v);
-            } else if present_null_set.contains(&(d as u32, cix as u32)) {
-                // Present explicit null (#415): re-insert in column order, as
-                // opposed to an absent field, which stays dropped.
-                source_map.insert(name.clone(), serde_json::Value::Null);
+    }
+    let wave = rayon::current_num_threads().max(1) * 2;
+    let mut chunks = per_chunk.into_iter().enumerate();
+    let mut done_chunks = 0usize;
+    loop {
+        let batch: Vec<(usize, Vec<&mut [serde_json::Value]>)> =
+            chunks.by_ref().take(wave).collect();
+        if batch.is_empty() {
+            break;
+        }
+        let bufs: Vec<Result<Vec<u8>>> = {
+            use rayon::prelude::*;
+            batch
+                .into_par_iter()
+                .map(|(chunk_ix, mut cols)| {
+                    let start = chunk_ix * ROWS_PER_CHUNK;
+                    let end = (start + ROWS_PER_CHUNK).min(num_docs);
+                    let mut buf = Vec::new();
+                    for d in start..end {
+                        let local = d - start;
+                        let mut cell = |cix: usize| {
+                            cols[cix]
+                                .get_mut(local)
+                                .map(std::mem::take)
+                                .unwrap_or(serde_json::Value::Null)
+                        };
+                        if d > 0 {
+                            buf.push(b',');
+                        }
+                        let mut source_map = serde_json::Map::new();
+                        for (cix, name) in col_names.iter().enumerate() {
+                            if cix == id_col_ix || cix == seq_col_ix || !emit[cix] {
+                                continue;
+                            }
+                            let v = cell(cix);
+                            if !v.is_null() {
+                                source_map.insert(name.clone(), v);
+                            } else if present_null_set.contains(&(d as u32, cix as u32)) {
+                                // Present explicit null (#415): re-insert in
+                                // column order, as opposed to an absent
+                                // field, which stays dropped.
+                                source_map.insert(name.clone(), serde_json::Value::Null);
+                            }
+                        }
+                        if wants_derived {
+                            derived_vectors::rehydrate_source_map(&mut source_map);
+                        }
+                        if let Some(allowed) = allowed.as_ref() {
+                            source_map.retain(|name, _| allowed.contains(name));
+                        }
+                        let mut doc = serde_json::Map::new();
+                        doc.insert("_id".into(), cell(id_col_ix));
+                        doc.insert("_seq_no".into(), cell(seq_col_ix));
+                        doc.insert("_source".into(), serde_json::Value::Object(source_map));
+                        serde_json::to_writer(&mut buf, &serde_json::Value::Object(doc)).map_err(
+                            |e| StorageError::Other(anyhow::anyhow!("v2 reassemble: {e}")),
+                        )?;
+                    }
+                    Ok(buf)
+                })
+                .collect()
+        };
+        for buf in bufs {
+            out.extend_from_slice(&buf?);
+        }
+        // After the first wave, size the output from the bytes actually
+        // produced so far instead of doubling (and copying) up to ~100 MB.
+        if done_chunks == 0 && n_chunks > wave {
+            let estimate = out.len() / wave.min(n_chunks) * n_chunks;
+            let estimate = estimate + estimate / 16;
+            if estimate > out.capacity() {
+                let _ = out.try_reserve_exact(estimate - out.len());
             }
         }
-        let mut doc = serde_json::Map::new();
-        doc.insert(
-            "_id".into(),
-            col_data[id_col_ix]
-                .get(d)
-                .cloned()
-                .unwrap_or(serde_json::Value::Null),
-        );
-        doc.insert(
-            "_seq_no".into(),
-            col_data[seq_col_ix]
-                .get(d)
-                .cloned()
-                .unwrap_or(serde_json::Value::Null),
-        );
-        doc.insert("_source".into(), serde_json::Value::Object(source_map));
-        serde_json::to_writer(&mut out, &serde_json::Value::Object(doc))
-            .map_err(|e| StorageError::Other(anyhow::anyhow!("v2 reassemble: {e}")))?;
+        done_chunks += wave;
     }
     out.push(b']');
     Ok(out)
@@ -2762,10 +3163,16 @@ fn zigzag_varint_decode(cur: &mut Cursor<&[u8]>) -> Result<i64> {
 /// [`RAW_LONG_WINDOW_LOG_MAX`] and the input's own size (a window larger
 /// than the payload cannot match anything and only inflates the decode
 /// buffer).
+#[cfg(test)]
 fn compress_long_effort(input: &[u8]) -> Option<(Vec<u8>, u32)> {
+    compress_long_effort_at(input, RAW_LONG_LEVEL)
+}
+
+/// [`compress_long_effort`] at a caller-chosen zstd level.
+fn compress_long_effort_at(input: &[u8], long_level: i32) -> Option<(Vec<u8>, u32)> {
     let size_log = 64 - (input.len() as u64).saturating_sub(1).leading_zeros();
     let window_log = RAW_LONG_WINDOW_LOG_MAX.min(size_log);
-    let mut compressor = zstd::bulk::Compressor::new(RAW_LONG_LEVEL).ok()?;
+    let mut compressor = zstd::bulk::Compressor::new(long_level).ok()?;
     use zstd::zstd_safe::CParameter;
     compressor
         .set_parameter(CParameter::WindowLog(window_log))
@@ -2781,12 +3188,19 @@ fn compress_long_effort(input: &[u8]) -> Option<(Vec<u8>, u32)> {
 /// payload is smaller.  Form 1 carries the 3-byte `[1][level][window_log]`
 /// prefix; when the plain form wins, the caller's original payload is
 /// returned untouched so the segment can stay byte-identical ZBS2.
+#[cfg(test)]
 fn try_long_effort_zstd(col_json: &[u8], plain: Vec<u8>) -> (Vec<u8>, u8) {
-    match compress_long_effort(col_json) {
+    try_long_effort_zstd_at(col_json, plain, RAW_LONG_LEVEL)
+}
+
+/// [`try_long_effort_zstd`] at a caller-chosen level; the level byte of
+/// the form-1 prefix records it (informational — decode ignores it).
+fn try_long_effort_zstd_at(col_json: &[u8], plain: Vec<u8>, long_level: i32) -> (Vec<u8>, u8) {
+    match compress_long_effort_at(col_json, long_level) {
         Some((long, window_log)) if long.len() + 3 < plain.len() => {
             let mut payload = Vec::with_capacity(3 + long.len());
             payload.push(1u8);
-            payload.push(RAW_LONG_LEVEL as u8);
+            payload.push(long_level.clamp(0, u8::MAX as i32) as u8);
             payload.push(window_log as u8);
             payload.extend_from_slice(&long);
             (payload, 1u8)
@@ -2859,7 +3273,7 @@ fn decode_dict_bitpack(payload: &[u8], num_docs: usize) -> Result<Vec<serde_json
             "dict bitpack truncated"
         )));
     }
-    let dict_json = zstd::decode_all(&payload[pos..pos + dict_zstd_len])
+    let dict_json = zstd_decode_presized(&payload[pos..pos + dict_zstd_len])
         .map_err(|e| StorageError::Other(anyhow::anyhow!("dict zstd decode: {e}")))?;
     let entries: Vec<serde_json::Value> = serde_json::from_slice(&dict_json)
         .map_err(|e| StorageError::Other(anyhow::anyhow!("dict json decode: {e}")))?;
@@ -3128,7 +3542,7 @@ fn decode_cross_dep(
 
 fn decode_raw_json(payload: &[u8]) -> Result<Vec<serde_json::Value>> {
     let frame = decode_raw_payload(payload)?;
-    let raw = zstd::decode_all(frame)
+    let raw = zstd_decode_presized(frame)
         .map_err(|e| StorageError::Other(anyhow::anyhow!("raw zstd decode: {e}")))?;
     serde_json::from_slice(&raw)
         .map_err(|e| StorageError::Other(anyhow::anyhow!("raw json decode: {e}")))
@@ -3252,6 +3666,170 @@ fn read_zigzag_i64(data: &[u8], pos: &mut usize) -> Result<i64> {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    // ── #1122/#2433: derived semantic vectors are not persisted ──────────
+
+    fn semantic_docs(n: usize) -> Vec<serde_json::Value> {
+        (0..n)
+            .map(|i| {
+                let text = if i.is_multiple_of(9) {
+                    format!("doc {i} {}", "storage vectors merge segment ".repeat(40))
+                } else {
+                    format!("doc {i} quarterly liquidity ledger {}", i * 31)
+                };
+                let mut source = derived_vectors::tests::ingested(&text, 16);
+                source["n"] = json!(i);
+                json!({"_id": i.to_string(), "_seq_no": i, "_source": source})
+            })
+            .collect()
+    }
+
+    fn sources(json_bytes: &[u8]) -> Vec<serde_json::Value> {
+        let docs: Vec<serde_json::Value> = serde_json::from_slice(json_bytes).unwrap();
+        docs.into_iter().map(|d| d["_source"].clone()).collect()
+    }
+
+    #[test]
+    fn derived_vectors_round_trip_through_both_encoders() {
+        let docs = semantic_docs(300);
+        let raw = serde_json::to_vec(&docs).unwrap();
+        let refs: Vec<(String, u64)> = (0..docs.len()).map(|i| (i.to_string(), i as u64)).collect();
+        let tuples: Vec<(&str, u64, &serde_json::Value)> = docs
+            .iter()
+            .zip(&refs)
+            .map(|(d, (id, seq))| (id.as_str(), *seq, &d["_source"]))
+            .collect();
+        let from_json = encode_stored_v2(&raw);
+        let from_values = encode_stored_v2_from_values_nojson(&tuples);
+        let unstripped_len = raw.len();
+        for encoded in [&from_json, &from_values] {
+            assert!(is_columnar_stored_magic(encoded));
+            let names = stored_v2_source_column_names(encoded).unwrap().unwrap();
+            assert!(names.iter().any(|n| n == "body_vector"));
+            assert!(names.iter().any(|n| n == "body_vector_chunks"));
+            assert_eq!(sources(&decode_stored(encoded).unwrap()), sources(&raw));
+            let preserved = decode_stored_preserving_derived(encoded).unwrap();
+            assert!(preserved.len() < unstripped_len);
+            for source in sources(&preserved) {
+                assert!(source.get("body_vector").is_none());
+                assert!(source.get("body_vector_chunks").is_none());
+                assert!(derived_vectors::is_stripped(
+                    &source[&format!("{}body_vector", derived_vectors::PASSAGE_METADATA_PREFIX)]
+                ));
+            }
+        }
+        assert_eq!(
+            decode_stored(&from_json).unwrap(),
+            decode_stored(&from_values).unwrap()
+        );
+    }
+
+    #[test]
+    fn derived_vectors_keep_projection_rows_and_knn() {
+        let docs = semantic_docs(200);
+        let raw = serde_json::to_vec(&docs).unwrap();
+        let encoded = encode_stored_v2(&raw);
+        let originals = sources(&raw);
+
+        let with_vec = decode_stored_keeping(&encoded, &|n| n == "body_vector" || n == "n")
+            .unwrap()
+            .unwrap();
+        for (got, want) in sources(&with_vec).iter().zip(&originals) {
+            assert_eq!(got.as_object().unwrap().len(), 2, "{got}");
+            assert_eq!(got["body_vector"], want["body_vector"]);
+        }
+        let without = decode_stored_keeping(&encoded, &|n| n == "n")
+            .unwrap()
+            .unwrap();
+        for got in sources(&without) {
+            assert_eq!(got.as_object().unwrap().len(), 1, "{got}");
+        }
+
+        let ordinals = [0usize, 5, 9, 199];
+        match row_hydration::decode_stored_v2_rows(&encoded, &ordinals).unwrap() {
+            row_hydration::StoredV2RowHydrationResult::Hydrated { rows, .. } => {
+                for row in rows {
+                    assert_eq!(
+                        serde_json::Value::Object(row.source),
+                        originals[row.ordinal]
+                    );
+                }
+            }
+            other => panic!("unexpected {other:?}"),
+        }
+        match row_hydration::decode_stored_v2_rows_projected(
+            &encoded,
+            &ordinals,
+            &["body_vector_chunks"],
+        )
+        .unwrap()
+        {
+            row_hydration::StoredV2RowHydrationResult::Hydrated { rows, .. } => {
+                for row in rows {
+                    let want = originals[row.ordinal].get("body_vector_chunks");
+                    assert_eq!(row.source.get("body_vector_chunks"), want);
+                    assert!(row.source.len() <= 1, "{:?}", row.source);
+                }
+            }
+            other => panic!("unexpected {other:?}"),
+        }
+
+        match decode_stored_v2_knn_projection(&encoded, "body_vector", Some("body_vector_chunks"))
+            .unwrap()
+        {
+            StoredV2KnnProjectionResult::Projected(projection) => {
+                assert_eq!(projection.num_docs, 200);
+                let chunks = projection.vector_chunks.unwrap();
+                for (i, want) in originals.iter().enumerate() {
+                    assert_eq!(projection.ids[i].as_deref(), Some(i.to_string().as_str()));
+                    assert_eq!(
+                        projection.vectors[i],
+                        derived_vectors::vector_f32(&want["body_vector"])
+                    );
+                    let want_chunks = want.get("body_vector_chunks").map(|c| {
+                        c.as_array()
+                            .unwrap()
+                            .iter()
+                            .map(|v| derived_vectors::vector_f32(v).unwrap())
+                            .collect::<Vec<_>>()
+                    });
+                    assert_eq!(chunks[i], want_chunks);
+                }
+            }
+            other => panic!("unexpected {other:?}"),
+        }
+    }
+
+    #[test]
+    fn derived_vectors_legacy_and_foreign_rows_are_untouched() {
+        // A segment written before the strip (or with the opt-out) has the
+        // vectors as ordinary columns and decodes unchanged.
+        let mut docs = semantic_docs(150);
+        // Foreign vector: not what the lexical embedder derives.
+        docs[3]["_source"]["body_vector"] = json!([0.5, 0.5]);
+        let raw = serde_json::to_vec(&docs).unwrap();
+        let encoded = encode_stored_v2(&raw);
+        let preserved = sources(&decode_stored_preserving_derived(&encoded).unwrap());
+        assert_eq!(preserved[3]["body_vector"], json!([0.5, 0.5]));
+        assert!(preserved[4].get("body_vector").is_none());
+        assert_eq!(sources(&decode_stored(&encoded).unwrap()), sources(&raw));
+
+        // Small (LZ4) sections keep vectors and pass through unchanged.
+        let small = serde_json::to_vec(&semantic_docs(3)).unwrap();
+        let lz4 = encode_stored_v2(&small);
+        assert_eq!(decode_stored(&lz4).unwrap(), small);
+        // A marked LZ4 section (merge output of stripped rows) rehydrates.
+        let marked: Vec<serde_json::Value> =
+            sources(&decode_stored_preserving_derived(&encoded).unwrap())
+                .into_iter()
+                .take(3)
+                .enumerate()
+                .map(|(i, s)| json!({"_id": i.to_string(), "_seq_no": i, "_source": s}))
+                .collect();
+        let marked_lz4 = encode_stored_lz4(&serde_json::to_vec(&marked).unwrap());
+        let want: Vec<serde_json::Value> = sources(&raw).into_iter().take(3).collect();
+        assert_eq!(sources(&decode_stored(&marked_lz4).unwrap()), want);
+    }
 
     #[test]
     fn lz4_roundtrip() {
@@ -4849,6 +5427,62 @@ mod tests {
         }
     }
 
+    /// #2427: the kept-column decode equals the full decode with the dropped
+    /// fields deleted — including a kept COPY_OF whose source is dropped
+    /// (decoded as a dependency, not emitted) and explicit nulls (ZBS3/V3
+    /// present-null set) on both kept and dropped columns.
+    #[test]
+    fn decode_stored_keeping_matches_filtered_full_decode() {
+        let docs: Vec<serde_json::Value> = (0..300u64)
+            .map(|i| {
+                let long = format!("source-text-{i}-padded-so-copy-of-wins-over-dict");
+                let mut source = json!({
+                    "title": format!("title {}", i % 7),
+                    "long_a": long.clone(),
+                    "long_b": long,
+                    "body_vector": [i as f64 * 0.5, 1.25, -2.0],
+                    "body_vector_chunks": [{ "text": "chunk", "vector": [0.1, 0.2] }],
+                    "__xerj_passage_meta__body_vector": { "n": i },
+                    "line": i,
+                });
+                if i % 5 == 0 {
+                    source["title"] = serde_json::Value::Null;
+                    source["body_vector"] = serde_json::Value::Null;
+                }
+                json!({ "_id": format!("d{i}"), "_seq_no": i, "_source": source })
+            })
+            .collect();
+        let encoded = encode_stored_v2(&serde_json::to_vec(&docs).unwrap());
+        let full: Vec<serde_json::Value> =
+            serde_json::from_slice(&decode_stored(&encoded).unwrap()).unwrap();
+        assert_eq!(full.len(), docs.len());
+
+        let kept = ["title", "long_b", "line"];
+        let keep = |name: &str| kept.contains(&name);
+        let projected_bytes = decode_stored_keeping(&encoded, &keep)
+            .unwrap()
+            .expect("columnar section");
+        let projected: Vec<serde_json::Value> = serde_json::from_slice(&projected_bytes).unwrap();
+        assert_eq!(projected.len(), full.len());
+        for (i, (got, mut want)) in projected.into_iter().zip(full).enumerate() {
+            want["_source"]
+                .as_object_mut()
+                .unwrap()
+                .retain(|key, _| kept.contains(&key.as_str()));
+            assert_eq!(got, want, "row {i}");
+            assert!(got["_source"].get("long_a").is_none(), "row {i}");
+            assert!(got["_source"].get("body_vector").is_none(), "row {i}");
+        }
+        assert!(
+            projected_bytes.len() * 2 < decode_stored(&encoded).unwrap().len(),
+            "dropping the vector columns must shrink the decode"
+        );
+
+        // A legacy LZ4 section is not columnar: the caller falls back.
+        let legacy = encode_stored_lz4(&serde_json::to_vec(&docs).unwrap());
+        assert!(decode_stored_keeping(&legacy, &keep).unwrap().is_none());
+    }
+
     /// The `_id` ↔ `doc_id` echo: the later column stores a 4-byte reference
     /// to the earlier one and decode materialises both.
     #[test]
@@ -5152,6 +5786,72 @@ mod tests {
         assert_eq!(kept, incumbent);
     }
 
+    /// Ingest-regression fix: a background merge encodes at the operator's
+    /// level with no long-effort candidate (byte-identical to the plain
+    /// encode), an explicit force-merge runs the level-19 candidate (form-1
+    /// level byte 19 and a smaller section on LDM-friendly text), and both
+    /// decode to exactly the documents the flush encoding holds.
+    #[test]
+    fn background_merge_skips_long_effort_forcemerge_keeps_level_19() {
+        let corpus: Vec<u8> = "the quick brown fox jumps over the lazy dog. "
+            .repeat(5000)
+            .into_bytes();
+        let (fm, form) = try_long_effort_zstd_at(&corpus, corpus.clone(), RAW_LONG_LEVEL);
+        assert_eq!(form, 1);
+        assert_eq!(fm[1], RAW_LONG_LEVEL as u8);
+        assert_eq!(zstd::decode_all(&fm[3..]).unwrap(), corpus);
+
+        // A free-text column whose sentences repeat at long distance (what
+        // the LDM candidate exists for).
+        let pool: Vec<String> = (0..400u64)
+            .map(|i| {
+                format!(
+                    "sentence {i} about shard {} replica {} and segment merge {} with payload {}",
+                    i * 7919 % 1013,
+                    i * 104_729 % 997,
+                    i * 31 % 89,
+                    i.wrapping_mul(0x9E37_79B9_7F4A_7C15) >> 20
+                )
+            })
+            .collect();
+        // More distinct bodies than DICT_MAX_CARDINALITY, so `body` is a
+        // JSON fallback column rather than a dict.
+        let docs: Vec<serde_json::Value> = (0..(DICT_MAX_CARDINALITY as u64 + 2000))
+            .map(|i| {
+                let a = &pool[(i * 37 % 400) as usize];
+                let b = &pool[(i * 101 % 400) as usize];
+                let c = &pool[(i * 211 % 400) as usize];
+                json!({
+                    "_id": format!("doc-{i}"),
+                    "_seq_no": i,
+                    "_source": { "body": format!("{a} {b} {c} doc {i}"), "n": i }
+                })
+            })
+            .collect();
+        let raw = serde_json::to_vec(&docs).unwrap();
+        let level = 6;
+        let plain = encode_stored_v2_at_level(&raw, level);
+        let background = encode_stored_v2_merge_at_level(&raw, level);
+        let forcemerge = encode_stored_v2_forcemerge_at_level(&raw, level);
+        assert_eq!(
+            background, plain,
+            "a background merge must not run the long-effort candidate"
+        );
+        assert!(
+            forcemerge.len() < background.len(),
+            "force-merge keeps the max-effort encode ({} vs {})",
+            forcemerge.len(),
+            background.len()
+        );
+        let want: serde_json::Value =
+            serde_json::from_slice(&decode_stored(&encode_stored_v2(&raw)).unwrap()).unwrap();
+        for (name, enc) in [("background", &background), ("forcemerge", &forcemerge)] {
+            let got: serde_json::Value =
+                serde_json::from_slice(&decode_stored(enc).unwrap()).unwrap();
+            assert_eq!(got, want, "{name} merge encode must round-trip");
+        }
+    }
+
     /// A handcrafted form-1 `RAW_JSON` column (what the merge-path chooser
     /// writes) must decode everywhere a form-0 column does: full decode,
     /// column projection, the kNN typed-vector path, and the estimator.
@@ -5194,5 +5894,78 @@ mod tests {
             .unwrap();
         let actual = decode_stored(&encoded).unwrap().len() as u64;
         assert!(bound >= actual, "bound {bound} < actual {actual}");
+    }
+
+    /// #2422: the columnar decode runs its columns and its row chunks in
+    /// parallel. The result must stay byte-identical to the input across
+    /// several row chunks and waves, with present nulls (#415), absent
+    /// fields, embedding arrays and strings that need escaping.
+    #[test]
+    fn v2_parallel_decode_is_byte_identical_across_row_chunks() {
+        let mut docs: Vec<serde_json::Value> = Vec::new();
+        for i in 0..9000u64 {
+            let mut source = serde_json::Map::new();
+            source.insert("a".into(), json!(["x", "y", "z"][(i % 3) as usize]));
+            // Doc 0 carries every field, so the decoder's first-seen column
+            // order matches each document's key order.
+            if i % 7 == 3 {
+                source.insert("b".into(), serde_json::Value::Null);
+            } else if i % 5 != 4 {
+                source.insert("b".into(), json!(i * 3));
+            }
+            if i % 11 != 10 {
+                source.insert("c".into(), json!(format!("line \"{i}\"\n\ttab")));
+            }
+            source.insert(
+                "vec".into(),
+                // Eighths are exact in f32, which the stored vector path keeps.
+                json!((0..8).map(|k| (i * 8 + k) as f64 / 8.0).collect::<Vec<_>>()),
+            );
+            docs.push(json!({ "_id": i.to_string(), "_seq_no": i, "_source": source }));
+        }
+        let raw = serde_json::to_vec(&docs).unwrap();
+        let encoded = encode_stored_v2(&raw);
+        assert!(
+            is_columnar_stored_magic(&encoded) || &encoded[..4] == STORED_V3_MAGIC,
+            "fixture must take the columnar codec"
+        );
+        let decoded = decode_stored(&encoded).unwrap();
+        assert!(decoded == raw, "parallel columnar decode changed the bytes");
+    }
+
+    /// #2422: `zstd_decode_presized` must return exactly what
+    /// `zstd::decode_all` does, including for frames without a declared
+    /// size and for concatenated frames, which keep the `decode_all` path.
+    #[test]
+    fn presized_zstd_decode_matches_decode_all() {
+        let data: Vec<u8> = (0..200_000u32)
+            .flat_map(|i| (i % 251).to_le_bytes())
+            .collect();
+        let sized = zstd::bulk::compress(&data, 3).unwrap();
+        assert!(zstd::zstd_safe::get_frame_content_size(&sized)
+            .unwrap()
+            .is_some());
+        let mut unsized_frame = Vec::new();
+        {
+            let mut encoder = zstd::stream::write::Encoder::new(&mut unsized_frame, 3).unwrap();
+            encoder.include_contentsize(false).unwrap();
+            std::io::Write::write_all(&mut encoder, &data).unwrap();
+            encoder.finish().unwrap();
+        }
+        assert!(zstd::zstd_safe::get_frame_content_size(&unsized_frame)
+            .unwrap()
+            .is_none());
+        let mut concatenated = sized.clone();
+        concatenated.extend_from_slice(&sized);
+        for frame in [&sized, &unsized_frame, &concatenated] {
+            assert_eq!(
+                zstd_decode_presized(frame).unwrap(),
+                zstd::decode_all(frame.as_slice()).unwrap()
+            );
+        }
+        let mut corrupt = sized.clone();
+        let mid = corrupt.len() / 2;
+        corrupt.truncate(mid);
+        assert!(zstd_decode_presized(&corrupt).is_err());
     }
 }

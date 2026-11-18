@@ -1,0 +1,30 @@
+name: Batch retrieval harness
+
+on:
+  pull_request:
+    paths:
+      - 'tools/benchmarks/batch-retrieval/**'
+      - '.github/workflows/batch-retrieval.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'tools/benchmarks/batch-retrieval/**'
+      - '.github/workflows/batch-retrieval.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: batch-retrieval-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  harness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python3 tools/benchmarks/batch-retrieval/test_run.py

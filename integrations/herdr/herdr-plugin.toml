@@ -1,0 +1,16 @@
+id = "xerj.herdr"
+name = "XERJ for Herdr"
+version = "0.1.0"
+min_herdr_version = "0.7.0"
+description = "Initialize Herdr worktrees with XERJ and expose a one-command workspace indexing action."
+platforms = ["linux"]
+
+[[events]]
+on = "worktree.created"
+command = ["bash", "scripts/on-worktree-created"]
+
+[[actions]]
+id = "index-workspace"
+title = "Index this workspace"
+contexts = ["pane"]
+command = ["bash", "scripts/index-workspace"]

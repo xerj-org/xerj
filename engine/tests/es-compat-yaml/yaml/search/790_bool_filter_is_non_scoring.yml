@@ -1,0 +1,108 @@
+---
+setup:
+  - do:
+      indices.create:
+          index: bool_filter_scoring
+          body:
+              settings:
+                  number_of_shards: 1
+              mappings:
+                  properties:
+                      tag:
+                          type: keyword
+                      body:
+                          type: text
+  - do:
+      bulk:
+          refresh: true
+          body:
+              - '{"index": {"_index": "bool_filter_scoring", "_id": "1"}}'
+              - '{"tag": "x", "body": "alpha alpha alpha alpha"}'
+              - '{"index": {"_index": "bool_filter_scoring", "_id": "2"}}'
+              - '{"tag": "x", "body": "alpha"}'
+              - '{"index": {"_index": "bool_filter_scoring", "_id": "3"}}'
+              - '{"tag": "x", "body": "alpha beta gamma delta epsilon zeta eta theta"}'
+              - '{"index": {"_index": "bool_filter_scoring", "_id": "4"}}'
+              - '{"tag": "x", "body": "beta"}'
+              - '{"index": {"_index": "bool_filter_scoring", "_id": "5"}}'
+              - '{"tag": "x", "body": "gamma"}'
+              - '{"index": {"_index": "bool_filter_scoring", "_id": "6"}}'
+              - '{"tag": "y", "body": "alpha beta"}'
+
+---
+"filter removes hits without changing the must clause's scores":
+  # The bare match fixes the reference scores: 1, 2, 6, 3 by BM25. It runs
+  # in each test, not in setup: the runner keeps no stash across them.
+  - do:
+      search:
+          rest_total_hits_as_int: true
+          index: bool_filter_scoring
+          body:
+              query: { match: { body: alpha } }
+
+  - match: { hits.total: 4 }
+  - match: { hits.hits.0._id: "1" }
+  - match: { hits.hits.1._id: "2" }
+  - match: { hits.hits.2._id: "6" }
+  - match: { hits.hits.3._id: "3" }
+  - set: { hits.hits.0._score: score_1 }
+  - set: { hits.hits.1._score: score_2 }
+  - set: { hits.hits.3._score: score_3 }
+
+  # #2403: before a flush, a filter clause switched scoring to an IDF-less
+  # tf heuristic, so 2 and 3 tied and the order changed at flush.
+  - do:
+      search:
+          rest_total_hits_as_int: true
+          index: bool_filter_scoring
+          body:
+              query:
+                  bool:
+                      must: [ { match: { body: alpha } } ]
+                      filter: [ { term: { tag: x } } ]
+
+  - match: { hits.total: 3 }
+  - match: { hits.hits.0._id: "1" }
+  - match: { hits.hits.0._score: $score_1 }
+  - match: { hits.hits.1._id: "2" }
+  - match: { hits.hits.1._score: $score_2 }
+  - match: { hits.hits.2._id: "3" }
+  - match: { hits.hits.2._score: $score_3 }
+
+---
+"must_not removes hits without changing the must clause's scores":
+  # The bare match fixes the reference scores: 1, 2, 6, 3 by BM25. It runs
+  # in each test, not in setup: the runner keeps no stash across them.
+  - do:
+      search:
+          rest_total_hits_as_int: true
+          index: bool_filter_scoring
+          body:
+              query: { match: { body: alpha } }
+
+  - match: { hits.total: 4 }
+  - match: { hits.hits.0._id: "1" }
+  - match: { hits.hits.1._id: "2" }
+  - match: { hits.hits.2._id: "6" }
+  - match: { hits.hits.3._id: "3" }
+  - set: { hits.hits.0._score: score_1 }
+  - set: { hits.hits.1._score: score_2 }
+  - set: { hits.hits.3._score: score_3 }
+
+  - do:
+      search:
+          rest_total_hits_as_int: true
+          index: bool_filter_scoring
+          body:
+              query:
+                  bool:
+                      must: [ { match: { body: alpha } } ]
+                      must_not: [ { term: { tag: y } } ]
+
+  - match: { hits.total: 3 }
+  - match: { hits.hits.0._id: "1" }
+  - match: { hits.hits.0._score: $score_1 }
+  - match: { hits.hits.1._id: "2" }
+  - match: { hits.hits.1._score: $score_2 }
+  - match: { hits.hits.2._id: "3" }
+  - match: { hits.hits.2._score: $score_3 }

@@ -51,6 +51,26 @@ client, the request parser and the failure policy are the leaf crate
 `engine/crates/xerj-rerank`. The end-to-end tests are
 `engine/crates/xerj-api/tests/rerank_stage_http.rs`.
 
+## Local lexical `judge` and CJK text
+
+The separate opt-in `judge` block can run a deterministic lexical scorer on
+the returned candidate page. It keeps `_score` and adds `_p_relevant`; the
+response identifies this scorer as `judged.scorer: "lexical"`. The lexical
+arm needs no hosted provider or model. A node configured with a local judge
+model uses that model's own tokenizer instead.
+
+The lexical arm splits CJK runs into single characters and adjacent pairs.
+For example, a query containing `雷同` can match inside `内容存在雷同需要核查`;
+the pair contributes evidence beyond two isolated or reversed characters.
+Punctuation, non-CJK runs and the title/body boundary break pairs. Non-CJK
+alphanumeric runs retain their existing lowercase word tokens. This is
+character n-gram overlap, not dictionary segmentation or semantic relevance.
+
+CJK scores and `judge.min_p` filtering can change with this tokenizer; no
+cross-language calibration is claimed. The judge only reorders/filters the
+candidates it receives. It cannot recover a document missed by the first
+stage, and this change does not change index analyzers or require reindexing.
+
 ## Set it up
 
 A node needs a provider key. There are two places to put it, and **a value in
@@ -75,6 +95,52 @@ endpoint = "https://api.typesafe.ai/v1/systemone"  # or TYPESAFE_ENDPOINT; this 
 The settings are resolved once, at startup. Changing the environment of a
 running node does nothing; restart it.
 
+### Cohere Rerank as the provider
+
+A search can use Cohere Rerank instead of the default judge by saying
+`"provider": "cohere"` in its `rerank` block. The operator configures it the
+same way, under its own block, with the same precedence rule:
+
+```toml
+[rerank.cohere]
+api_key  = "co-..."                             # or COHERE_API_KEY
+endpoint = "https://api.cohere.com/v2/rerank"   # or COHERE_ENDPOINT; this is the default
+```
+
+```sh
+curl -s -XPOST localhost:9200/docs/_search -H 'content-type: application/json' -d '{
+  "query": {"match": {"body": "vitamin d and bone density"}},
+  "rerank": {"provider": "cohere", "model": "rerank-v5.0-fast", "window": 50}
+}'
+```
+
+Expected: the hits in Cohere's order, `_score` set to Cohere's
+`relevance_score`, and a `_rerank` block with `"provider": "cohere"`,
+`"applied": true` and `usage.search_units`.
+
+- **Models:** `rerank-v5.0-fast` (the default), `rerank-v5.0-pro`,
+  `rerank-v3.5`. Any other name is a 400 before anything is sent.
+- **Not supported with Cohere, refused with a 400:** `instructions` (Cohere
+  Rerank judges against the query only) and `min_score` (Cohere's scores are
+  not calibrated on this engine's data; we have not measured them, so the node
+  does not prune by them).
+- **Batching:** up to 100 documents per Cohere call (`max_docs_per_call` in
+  `GET /_xerj/rerank` under `by_provider.cohere`); a window of 300 is three
+  calls.
+- **Keeping text inside your network:** point `endpoint` (or
+  `COHERE_ENDPOINT`) at a private Cohere deployment. The default endpoint is
+  Cohere's public API, and then the question and the hits' text leave the
+  node.
+- **Billing:** Cohere bills rerank in search units. The node reports what
+  Cohere reported in `_rerank.usage.search_units`; input/output token counts
+  are 0 for this provider.
+- **Status:** `GET /_xerj/rerank` keeps its top-level `api_key`/`endpoint` for
+  the default provider and adds `by_provider.jev` and `by_provider.cohere`,
+  each saying whether a key is set and where it came from, never the key.
+- **Tested against:** a local stub that speaks Cohere's documented
+  `/v2/rerank` request and response shape. No live Cohere numbers are
+  published for this provider yet.
+
 There is deliberately **no per-request key**. A key in a search body would land
 in slow-query logs, audit trails and client-side request dumps.
 
@@ -88,7 +154,7 @@ curl -s -H "Authorization: ApiKey $ADMIN_KEY" http://localhost:9200/_xerj/rerank
 {
   "enabled": true,
   "configured": true,
-  "providers": ["jev"],
+  "providers": ["jev", "cohere"],
   "api_key":  { "set": true, "source": "config" },
   "endpoint": { "url": "https://api.typesafe.ai/v1/systemone", "source": "default" },
   "defaults": { "provider": "jev", "model": "jev-latest", "window": 30, "batch": 30,
@@ -353,16 +419,19 @@ client appears in a source file this list does not account for:
 | Path | What leaves the node | When | Default |
 |---|---|---|---|
 | **Rerank provider** — `[rerank]`, `TYPESAFE_API_KEY` / `TYPESAFE_ENDPOINT` | The question, `rerank.instructions`, the model name, and the returned text of up to `window` hits (above) | A search that carries a `rerank` block | Off: no key is configured |
+| **Cohere Rerank** — `[rerank.cohere]`, `COHERE_API_KEY` / `COHERE_ENDPOINT` | The question, the model name, and the returned text of up to `window` hits, to `api.cohere.com` unless `endpoint` names a private Cohere deployment | A search whose `rerank` block says `"provider": "cohere"` | Off: no key is configured |
 | **Proxy embeddings** — `[embedding] default_endpoint`, `--embed-mode proxy` | Document text of the fields it embeds, and the text of queries it embeds | Document text at write time (index, `_bulk`, update, reindex); query text at search time, for every query it embeds (`semantic`, hybrid, semantic memory recall) | Off: `default_endpoint` is empty |
 | **WAL tap** — `[wal_tap]`, `PUT /_xerj/wal_tap` | Every write on the tapped indices (indexed documents and deletes), as `_bulk` to `{target_url}/_bulk`; never system indices | Continuously, every `poll_interval_ms` | Off: `enabled = false` |
 | **Neural model download** — `--embed-mode neural` | HTTPS requests to the HuggingFace Hub naming the model (`config.json`, `tokenizer.json`, `model.safetensors`); no document or query text | The first time the neural embedder loads without `embedding.local_model_dir`; later starts read the local cache | Off: the default embedder is lexical |
 | **Cluster transport** — `[cluster] enabled = true` | Raft messages to the configured `peers`: index names, mappings, shard assignments, node addresses, cluster settings; no document text and no queries | While cluster mode runs | Off: single node |
+| **Live database sources** — `xerj connect`, `PUT /_xerj/sources/{name}` | A Postgres connection to the database you register: the user name and the password read from the environment variable or file you referenced, the `SELECT`s of the first snapshot, and logical-replication commands (replication slot, `START_REPLICATION`, standby status updates carrying the applied LSN). Rows travel INTO the machine; no document text from other indices and no query text is sent | While a source is registered: the snapshot once, then a continuous replication stream (or polling, when replication is not permitted) | Off: no source is registered |
 | **Object storage backend** — `[storage]`, `S3Backend` | S3 requests to the configured endpoint: bucket and key names, ranged reads, and the credentials from the environment. The index bundles it writes when it is the active home DO carry stored document text — no query text ever leaves | Since v1.0.0-rc.77 ([#1008](https://github.com/xerj-org/xerj/pull/1008) closing [#965](https://github.com/xerj-org/xerj/issues/965)): one immutable ZBM1 bundle per segment family plus `snapshot.json`, when `storage.backend = "s3"` and `storage.s3_bucket` names an existing bucket | Off: the default backend is `local` |
 | **`xerj autoindex s3://`** (client, not the node) — `--endpoint-url`, `AWS_*` | S3 requests to the configured endpoint: bucket and key names and the credentials; the objects travel INTO the machine, and their text then goes to the node URL you gave the client | While that command runs | Off: only when you pass an `s3://` root |
 | **`xerj autoindex s3:// --watch`** (client, not the node) — `--poll-interval`, `--endpoint-url`, `AWS_*` | The same S3 requests as above, repeated every poll interval: a `ListObjectsV2` page per cycle plus a GET per changed object. Billed to the operator's object-store account, so the run keeps a spend ledger and stops at its budget | Every `--poll-interval` (default 300 s) while the watch runs | Off: only with `--watch` on an `s3://` root |
 | **`xerj corpus build`** (client, not the node) — recipe `[[sources]]` `url` | HTTPS GETs to the source URLs your recipe names (one per `http-zip` source per build, plus the `git clone`/`fetch` a `git` source runs). Records travel INTO the machine; no document text and no credentials are sent upstream — it is a read-only fetch | While `xerj corpus build` runs | Off: only when a recipe declares an `http-zip` or `git` source |
 | **`xerj hub pull`** (client, not the node) — `XERJ_HUB_URL` | GETs to the hub (`https://hub.xerj.org` unless `XERJ_HUB_URL` names another): the signed corpus catalogue (a conditional GET that carries the ETag of your cached copy, when there is one) and its `.sig`, then the one pack you named and its `.sig`. The requests name the catalogue and that pack, so the hub can see which corpus you pulled. Packs travel INTO the machine; no document text, no query text and no credentials are sent upstream — it is a read-only fetch. The pack is then restored into the node URL you gave the client | While `xerj hub pull` runs; a catalogue cached within the last 24 hours is reused without a request | Off: only when you run `xerj hub pull` |
 | **`xerj hub sync`** (client, not the node) — `XERJ_HUB_URL`, `--install-timer` | The signed corpus catalogue and its `.sig` from the hub, as for `xerj hub pull` but on every run (a conditional GET that carries the ETag of your cached copy, when there is one), not reused for 24 hours. For each pack you already hold whose pin moved, `xerj hub sync` then runs `xerj hub pull`: the new pack and its `.sig`, from the `pack_url` the signed catalogue names (a GitHub release asset in the published catalogue). The requests name the catalogue and the packs you update, so the hub and GitHub can see which corpora you hold. Packs travel INTO the machine; no document text, no query text and no credentials are sent upstream — it is a read-only fetch | While `xerj hub sync` runs: once when you run it, and every 6 hours for as long as the systemd user timer or launchd agent that `xerj hub sync --install-timer` writes is enabled | Off: only when you run `xerj hub sync`, or enable the timer it wrote (the command writes the file and enables nothing) |
+| **`xerj hub feedback`** and the automatic corpus reviews (client, not the node) — `XERJ_CORPUS_FEEDBACK_URL`, `--disable-feedback` / `XERJ_DISABLE_FEEDBACK` | One JSON POST to the hub (`https://hub.xerj.org/api/corpus-feedback` unless `XERJ_CORPUS_FEEDBACK_URL` names another): the corpus slug and pack pin, the agent family and version, scores (usefulness, found, freshness), problem kinds and a short note, coverage gaps, the query's shape with every word outside the template replaced by `<term>`, and a random install id made on the machine. No document text, no query text and no credentials | Automatically after `xerj hub pull` (whether it worked and whether it was slow) and after the MCP hub tools answer, at most once per corpus per week and never holding the command longer than 4 s; on demand from `xerj hub feedback` and the `xerj_corpus_feedback` MCP tool | On for the hub commands above; `--disable-feedback` or `XERJ_DISABLE_FEEDBACK=true` sends nothing |
 
 A node started with the defaults opens none of these connections, and makes no
 telemetry, update-check or licence call. Two things outside the node complete
@@ -373,8 +442,27 @@ the picture:
   [air-gapped recipe](./recipes/air-gapped-deployment.md) names the three pages
   that link the fonts, and a blocked request falls back to system fonts.
 - **The command-line clients in the same binary** (`xerj autoindex`,
-  `xerj mcp`, `xerj search`, `xerj hub` and the others) send what they read to
-  the node URL you give them, `http://localhost:9200` unless you say otherwise.
+  `xerj autoindex --facts`, `xerj mcp`, `xerj connect`, `xerj sources`, `xerj batch-search`, `xerj search`, `xerj code`, `xerj corpus list`,
+  `xerj hub` and the others) send what they read to the node URL you give them,
+  `http://localhost:9200` unless you say otherwise. On an empty corpus ledger,
+  `xerj code` and `xerj corpus list` also POST one catalog search to that same
+  node URL (autoindex run prefixes, and the API key when one is configured);
+  no document text and no user query. After a successful search, `xerj search`
+  and MCP `xerj_search` POST one catalog search to that same node URL (the
+  autoindex run for the prefix, and the API key when one is configured) so a
+  folder older than its files can be named; no document text and no user query.
+  `xerj batch-search` sends the batch's queries or identifiers to `/_msearch`
+  and optionally reads index mappings at that node, with the configured API
+  key when present (`--url` / `--auth` override `XERJ_URL` / `XERJ_AUTH`).
+  `xerj sessions hook` (installed only by `xerj init --memory`) sends redacted
+  transcript exports and short excerpts to its configured loopback node for
+  indexing/memory storage, and reads memories back for SessionStart. It refuses
+  remote URLs and disables redirects and proxies; it adds no node-side egress.
+  Runtime authentication is sent only to that loopback node.
+  `xerj init hook` (installed only by `xerj init --hooks`) reads bounded catalog
+  run metadata from its configured loopback node with runtime authentication.
+  Tool inputs, patterns, tool results and session IDs are never sent. Proxies
+  and redirects are disabled. It adds no node-side egress.
   `xerj feedback --open-pr` runs your `gh` to open a GitHub pull request with
   the report it drafted; without that flag it does nothing over the network.
 

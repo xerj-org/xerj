@@ -44,7 +44,8 @@ fn write_fixture(dir: &Path) {
 /// A free (P, P+1, P+2) triple — the booted server needs es/rest/grpc.
 fn free_port_triple() -> u16 {
     for _ in 0..64 {
-        let probe = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        let probe =
+            xerj_common::loopback_test::expect_loopback(TcpListener::bind(("127.0.0.1", 0)));
         let p = probe.local_addr().unwrap().port();
         drop(probe);
         if !(1025..=u16::MAX - 2).contains(&p) {

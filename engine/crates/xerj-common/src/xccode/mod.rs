@@ -318,6 +318,7 @@ pub fn run_code_query(
                             {
                                 *hits_arr = h.clone();
                             }
+                            set_fused_page_total(&mut r, h.len(), fetch);
                             rrf_scores = true;
                             note = Some(format!("BM25 file+symbol RRF(k={RRF_K})"));
                         }
@@ -542,8 +543,17 @@ pub fn run_code_query(
     //    that shrank says so in the note, naming only the caps that fired.
     // #1504: translation catalogs and minified bundles repeat every UI phrase
     // and win natural-language queries. They stay searchable, behind source.
-    let hits = demote_catalog_noise(hits);
+    let mut hits = hits;
+    render::demote_sparse_definition_hits(&mut hits, &query);
+    let mut hits = demote_catalog_noise(hits);
+    // #2426: a compound identifier (`LabPanoAdapter`) is a lookup. Its
+    // definition goes first, and a page that only shares parts of the name
+    // says so instead of passing a different symbol off as the answer.
+    render::promote_exact_identifier_hits(&mut hits, &query);
     let (hits, file_dropped, index_dropped) = diversify(hits, params.k);
+    if let Some(miss) = render::exact_identifier_miss(&hits, &query) {
+        warnings.push(miss);
+    }
     if file_dropped > 0 || index_dropped > 0 {
         let mut caps = Vec::new();
         if file_dropped > 0 {
@@ -607,6 +617,10 @@ pub fn run_code_query(
     // 6. Licence map: ALWAYS from the corpus's own corpus.json — never
     //    re-derived at query time, never from prose.
     let licences = manifest::licence_map(root, &corpus);
+    let checkout = root.join("corpora").join(&corpus);
+    // #2339: first-party marker lives on corpus.json, beside the licence
+    // record. It does not change the licence string the header prints.
+    let own = manifest::corpus_is_own(root, &corpus);
 
     let text = render::render(
         &hits,
@@ -620,6 +634,10 @@ pub fn run_code_query(
             rrf_scores,
             age_days,
             strict_licence: params.strict_licence,
+            lexical_lines: params.mode == Mode::Bm25
+                || note.as_deref().is_some_and(|n| n.starts_with("BM25 only")),
+            checkout: Some(&checkout),
+            own,
         },
         note.as_deref(),
     );
@@ -661,6 +679,18 @@ pub(crate) fn hit_list(resp: &Value) -> Vec<Value> {
         .unwrap_or_default()
 }
 
+/// The fused file+symbol list replaces the file leg's page, so its total
+/// must describe that list rather than the original file-only response.
+fn set_fused_page_total(response: &mut Value, fused_len: usize, fetch: usize) {
+    if let Some(hits) = response.get_mut("hits").and_then(Value::as_object_mut) {
+        let relation = if fused_len >= fetch { "gte" } else { "eq" };
+        hits.insert(
+            "total".into(),
+            serde_json::json!({ "value": fused_len, "relation": relation }),
+        );
+    }
+}
+
 /// Top-k diversity cap (#1137): at most this many records per source FILE in
 /// a result page. The autoindex chunker (`SECTION_CHARS` = 2 KB, 200-char
 /// overlap) turns one lexically dominant file into a wall of near-identical
@@ -699,7 +729,7 @@ pub(crate) fn diversity_fetch(k: usize) -> usize {
 /// Stable partition: hits whose path is a translation catalog or a minified
 /// bundle move behind every other hit, keeping their relative order. A page
 /// that is only catalogs is unchanged. Hits with no path stay where they are.
-pub(crate) fn demote_catalog_noise(hits: Vec<Value>) -> Vec<Value> {
+pub fn demote_catalog_noise(hits: Vec<Value>) -> Vec<Value> {
     let mut primary = Vec::with_capacity(hits.len());
     let mut catalogs = Vec::new();
     for hit in hits {
@@ -717,8 +747,16 @@ pub(crate) fn demote_catalog_noise(hits: Vec<Value>) -> Vec<Value> {
 /// ones a multilingual repo uses for key→string tables, not a general
 /// "prose file" filter: `lang/*.php`, `values*/strings.xml`, `*.lproj/*.strings`,
 /// `*.po` / `*.pot`, and `*.min.js` / `*.min.mjs` / `*.min.css`.
-pub(crate) fn is_catalog_noise(path: &str) -> bool {
-    let name = path.rsplit(['/', '\\']).next().unwrap_or(path);
+///
+/// This is the index-time predicate. Autoindex does not put the phrase text
+/// of these files into `body` — a post-fetch reorder cannot help when the
+/// catalogs fill the whole fetch window, and a one-line bundle that is not
+/// named `*.min.js` is caught separately by content. `.pyi` stubs are NOT
+/// in this set: they stay indexed so `xerj def` can still resolve a name
+/// that exists only as a stub, and [`is_catalog_noise`] ranks them behind
+/// the implementation at query time.
+pub fn is_translation_or_bundle(path: &str) -> bool {
+    let name = file_name(path);
     if name.ends_with(".min.js") || name.ends_with(".min.mjs") || name.ends_with(".min.css") {
         return true;
     }
@@ -735,6 +773,18 @@ pub(crate) fn is_catalog_noise(path: &str) -> bool {
         return true;
     }
     parent.ends_with(".lproj") && name.ends_with(".strings")
+}
+
+/// Translation catalogs, minified bundles, and type stubs (#1504, #1651).
+pub fn is_catalog_noise(path: &str) -> bool {
+    // Type stubs repeat the public signature and outrank the implementation
+    // on a natural-language query (candle field report 2026-10-17: `.pyi`
+    // files were the top hits). They stay searchable, behind source.
+    file_name(path).ends_with(".pyi") || is_translation_or_bundle(path)
+}
+
+fn file_name(path: &str) -> &str {
+    path.rsplit(['/', '\\']).next().unwrap_or(path)
 }
 
 fn parent_segment(path: &str) -> Option<&str> {
@@ -825,7 +875,16 @@ pub(crate) fn bm25_body(query: &str, k: usize, lang: &Option<String>, fields: &[
     if let Some(lg) = lang {
         must.push(serde_json::json!({ "match": { "language": lg } }));
     }
-    serde_json::json!({ "size": k, "query": { "bool": { "must": must } } })
+    let mut body = serde_json::json!({
+        "size": k,
+        "query": { "bool": { "must": must } },
+        // Response-only. `_passage.ordinal` is the 0-based line of a lexical
+        // window (#174). It is not a highlight block, which changes ranking
+        // (#177). The scored fast path does not serve text `multi_match`.
+        "fields": ["_passage"]
+    });
+    attach_coverage_clauses(&mut body, query, fields);
+    body
 }
 
 /// #1237: second BM25 leg over symbol-record `impl` fields. Excludes `impl`
@@ -839,11 +898,29 @@ pub(crate) fn symbol_bm25_body(query: &str, k: usize, lang: &Option<String>) -> 
     if let Some(lg) = lang {
         must.push(serde_json::json!({ "match": { "language": lg } }));
     }
-    serde_json::json!({
+    let fields = vec!["impl".to_string()];
+    let mut body = serde_json::json!({
         "size": k,
         "_source": { "excludes": ["impl", "body"] },
         "query": { "bool": { "must": must } }
-    })
+    });
+    attach_coverage_clauses(&mut body, query, &fields);
+    body
+}
+
+/// `should` coverage clauses for a multi-term question (#2327). A one-token
+/// lookup leaves the body untouched, so the measured BM25 shape stays.
+fn attach_coverage_clauses(body: &mut Value, query: &str, fields: &[String]) {
+    let clauses = crate::code_query::coverage_match_clauses(query, fields);
+    if clauses.is_empty() {
+        return;
+    }
+    if let Some(obj) = body
+        .pointer_mut("/query/bool")
+        .and_then(Value::as_object_mut)
+    {
+        obj.insert("should".into(), Value::Array(clauses));
+    }
 }
 
 fn hit_file_key(hit: &Value) -> Option<String> {
@@ -1341,7 +1418,8 @@ mod tests {
                 "query": { "bool": { "must": [
                     { "multi_match": { "query": "addReplyNull",
                         "fields": ["body", "defs", "title"] } }
-                ]}}
+                ]}},
+                "fields": ["_passage"]
             }),
             "mapping-resolved fields (defs_expanded dropped); no highlight, no _source \
              projection; size is the #1137 diversity fetch (10x k=5), cut back to k after"
@@ -1419,6 +1497,77 @@ mod tests {
         assert!(out
             .text
             .contains("!! AGPL: adapt the APPROACH, do not copy the code"));
+    }
+
+    /// #2339: the CLI pipeline (`xerj code` calls this) and the MCP tool share
+    /// this function. An own corpus keeps the unidentified licence in the
+    /// header and drops the banner. The same corpus without the marker, and
+    /// a named restricted licence, still warn.
+    #[test]
+    fn own_corpus_query_omits_the_unidentified_banner_and_keeps_the_licence() {
+        let root = root_with_state();
+        std::fs::write(
+            root.join("corpora/kv/corpus.json"),
+            "{\"corpus\":\"kv\",\"own\":true,\"repos\":[{\"repo\":\"valkey\",\"url\":\"u\",\"licence\":\"UNKNOWN\"}]}",
+        )
+        .unwrap();
+        let out = run_code_query(
+            &root,
+            &FakeHttp::new(),
+            "u",
+            &CodeParams::new("kv", "q"),
+            "`--stale-ok`",
+        );
+        assert_eq!(out.exit, 0, "{}", out.text);
+        assert!(out.text.contains(", UNKNOWN)"), "{text}", text = out.text);
+        assert!(out.text.contains("void addReplyNull"), "{}", out.text);
+        assert!(!out.text.contains("!!"), "{}", out.text);
+        assert!(!out.text.contains("do not copy"), "{}", out.text);
+
+        let mut strict = CodeParams::new("kv", "q");
+        strict.strict_licence = true;
+        let out = run_code_query(&root, &FakeHttp::new(), "u", &strict, "`--stale-ok`");
+        assert!(out.text.contains("void addReplyNull"), "{}", out.text);
+        assert!(!out.text.contains("!!"), "{}", out.text);
+
+        std::fs::write(
+            root.join("corpora/kv/corpus.json"),
+            "{\"corpus\":\"kv\",\"repos\":[{\"repo\":\"valkey\",\"url\":\"u\",\"licence\":\"UNKNOWN\"}]}",
+        )
+        .unwrap();
+        let out = run_code_query(
+            &root,
+            &FakeHttp::new(),
+            "u",
+            &CodeParams::new("kv", "q"),
+            "`--stale-ok`",
+        );
+        assert!(
+            out.text
+                .contains("!! UNKNOWN: adapt the APPROACH, do not copy the code"),
+            "{}",
+            out.text
+        );
+        assert!(out.text.contains(", UNKNOWN)"), "{}", out.text);
+
+        std::fs::write(
+            root.join("corpora/kv/corpus.json"),
+            "{\"corpus\":\"kv\",\"own\":true,\"repos\":[{\"repo\":\"valkey\",\"url\":\"u\",\"licence\":\"AGPL\"}]}",
+        )
+        .unwrap();
+        let out = run_code_query(
+            &root,
+            &FakeHttp::new(),
+            "u",
+            &CodeParams::new("kv", "q"),
+            "`--stale-ok`",
+        );
+        assert!(
+            out.text
+                .contains("!! AGPL: adapt the APPROACH, do not copy the code"),
+            "own does not silence a detected AGPL: {}",
+            out.text
+        );
     }
 
     #[test]
@@ -1609,6 +1758,39 @@ mod tests {
         );
     }
 
+    /// Candle field report 2026-10-17: natural-language search put `.pyi`
+    /// stubs above the implementation. Stubs stay in the page, after source.
+    /// A page that is only stubs keeps its order.
+    #[test]
+    fn pyi_stubs_rank_behind_the_implementation() {
+        let hit = |path: &str, score: f64| {
+            serde_json::json!({
+                "_score": score,
+                "_source": { "ax_path": path }
+            })
+        };
+        let demoted = demote_catalog_noise(vec![
+            hit("candle/pyo3/quantized.pyi", 9.0),
+            hit("candle/quantized.py", 2.0),
+            hit("candle/pyo3/tensor.pyi", 8.0),
+        ]);
+        let paths: Vec<&str> = demoted
+            .iter()
+            .map(|h| h["_source"]["ax_path"].as_str().unwrap())
+            .collect();
+        assert_eq!(
+            paths,
+            [
+                "candle/quantized.py",
+                "candle/pyo3/quantized.pyi",
+                "candle/pyo3/tensor.pyi",
+            ]
+        );
+        let only = demote_catalog_noise(vec![hit("a.pyi", 3.0), hit("b.pyi", 1.0)]);
+        assert_eq!(only[0]["_source"]["ax_path"], "a.pyi");
+        assert_eq!(only[1]["_source"]["ax_path"], "b.pyi");
+    }
+
     /// #1504: lang catalogs, Android strings, Apple .strings, gettext, and
     /// minified bundles sort behind an implementing source file. A page that
     /// is only catalogs keeps its order. A PHP service file is not a catalog
@@ -1669,11 +1851,26 @@ mod tests {
         assert_eq!(only[0]["_source"]["ax_path"], "web/lang/hr.php");
         assert_eq!(only[1]["_source"]["ax_path"], "web/lang/en.php");
 
+        assert!(is_catalog_noise("candle/quantized.pyi"));
+        assert!(!is_catalog_noise("candle/quantized.py"));
         assert!(!is_catalog_noise("src/main.rs"));
         assert!(!is_catalog_noise("res/layout/activity.xml"));
         assert!(is_catalog_noise("web/lang/en.php"));
         assert!(is_catalog_noise("res/values/strings.xml"));
         assert!(is_catalog_noise("assets/app.min.css"));
+        // `.pyi` is query-time noise only. Stripping it at index time would
+        // hide a name that exists only as a stub from `xerj def`.
+        assert!(!is_translation_or_bundle("candle/quantized.pyi"));
+        assert!(is_translation_or_bundle("web/lang/en.php"));
+        assert!(is_translation_or_bundle("assets/jssip.min.js"));
+        // A huge one-line bundle that is not named `*.min.js` (the report's
+        // `quill.js`) is not a path match. Index-time content detection
+        // catches it; this predicate must not pretend the name is enough.
+        assert!(!is_translation_or_bundle("assets/quill.js"));
+        assert!(!is_catalog_noise("assets/quill.js"));
+        assert!(!is_translation_or_bundle(
+            "web/src/services/phones/NecTemplate.php"
+        ));
     }
 
     /// #1146: with a mixed mapping the fused request may only go to the
@@ -2109,6 +2306,29 @@ mod tests {
             })
             .collect();
         assert_eq!(files, vec!["file1", "fileX"], "fileX's slot was not burned");
+    }
+
+    #[test]
+    fn fused_symbol_page_reports_its_own_total() {
+        let mut response = serde_json::json!({
+            "hits": {
+                "total": { "value": 17, "relation": "eq" },
+                "hits": [{ "_id": "file-a" }, { "_id": "symbol-b" }]
+            }
+        });
+
+        set_fused_page_total(&mut response, 2, 50);
+
+        assert_eq!(
+            response.pointer("/hits/total"),
+            Some(&serde_json::json!({ "value": 2, "relation": "eq" }))
+        );
+
+        set_fused_page_total(&mut response, 50, 50);
+        assert_eq!(
+            response.pointer("/hits/total"),
+            Some(&serde_json::json!({ "value": 50, "relation": "gte" }))
+        );
     }
 
     #[test]

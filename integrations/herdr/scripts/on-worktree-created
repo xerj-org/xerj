@@ -1,0 +1,110 @@
+#!/usr/bin/env bash
+set -u
+
+if [[ "${HERDR_PLUGIN_EVENT:-}" != "worktree.created" ]]; then
+  printf 'herdr-xerj: refusing unexpected event %s\n' "${HERDR_PLUGIN_EVENT:-<unset>}" >&2
+  exit 64
+fi
+
+if [[ -z "${HERDR_PLUGIN_EVENT_JSON:-}" ]]; then
+  printf 'herdr-xerj: HERDR_PLUGIN_EVENT_JSON is required\n' >&2
+  exit 65
+fi
+
+workspace_path=$(
+  EVENT_JSON="$HERDR_PLUGIN_EVENT_JSON" python3 - <<'PY'
+import json
+import os
+import pathlib
+import sys
+
+try:
+    payload = json.loads(os.environ["EVENT_JSON"])
+except (KeyError, json.JSONDecodeError) as exc:
+    print(f"invalid HERDR_PLUGIN_EVENT_JSON: {exc}", file=sys.stderr)
+    raise SystemExit(65)
+
+if not isinstance(payload, dict):
+    print("event payload must be a JSON object", file=sys.stderr)
+    raise SystemExit(65)
+if payload.get("event") != "worktree_created":
+    print("event payload is not worktree_created", file=sys.stderr)
+    raise SystemExit(65)
+
+data = payload.get("data")
+if not isinstance(data, dict) or data.get("type") != "worktree_created":
+    print("event payload data is not worktree_created", file=sys.stderr)
+    raise SystemExit(65)
+
+workspace = data.get("workspace")
+worktree = data.get("worktree")
+workspace_worktree = workspace.get("worktree") if isinstance(workspace, dict) else None
+checkout_path = (
+    workspace_worktree.get("checkout_path")
+    if isinstance(workspace_worktree, dict)
+    else None
+)
+worktree_path = worktree.get("path") if isinstance(worktree, dict) else None
+
+if not isinstance(checkout_path, str) or not checkout_path:
+    print("event payload is missing data.workspace.worktree.checkout_path", file=sys.stderr)
+    raise SystemExit(65)
+if not isinstance(worktree_path, str) or not worktree_path:
+    print("event payload is missing data.worktree.path", file=sys.stderr)
+    raise SystemExit(65)
+
+checkout = pathlib.Path(checkout_path)
+worktree_dir = pathlib.Path(worktree_path)
+if not checkout.is_absolute() or not worktree_dir.is_absolute():
+    print("worktree paths must be absolute", file=sys.stderr)
+    raise SystemExit(65)
+
+try:
+    same_path = checkout.resolve(strict=False) == worktree_dir.resolve(strict=False)
+except OSError as exc:
+    print(f"cannot resolve worktree path: {exc}", file=sys.stderr)
+    raise SystemExit(65)
+if not same_path:
+    print(
+        "event payload workspace and worktree paths disagree: "
+        f"{checkout} != {worktree_dir}",
+        file=sys.stderr,
+    )
+    raise SystemExit(65)
+if not checkout.is_dir():
+    print(f"worktree path is not an existing directory: {checkout}", file=sys.stderr)
+    raise SystemExit(66)
+
+print(checkout)
+PY
+)
+parse_status=$?
+if (( parse_status != 0 )); then
+  exit "$parse_status"
+fi
+
+xerj_bin=${XERJ_BIN:-xerj}
+if [[ "$xerj_bin" == */* ]]; then
+  [[ -x "$xerj_bin" ]] || {
+    printf 'herdr-xerj: XERJ executable is not executable: %s\n' "$xerj_bin" >&2
+    exit 67
+  }
+else
+  command -v "$xerj_bin" >/dev/null 2>&1 || {
+    printf 'herdr-xerj: XERJ executable not found on PATH: %s\n' "$xerj_bin" >&2
+    exit 67
+  }
+fi
+
+printf 'herdr-xerj: initializing created worktree %s\n' "$workspace_path" >&2
+(
+  cd -- "$workspace_path" || exit 66
+  "$xerj_bin" init
+)
+status=$?
+if (( status == 0 )); then
+  printf 'herdr-xerj: worktree initialization completed: %s\n' "$workspace_path" >&2
+else
+  printf 'herdr-xerj: xerj init failed with exit %s: %s\n' "$status" "$workspace_path" >&2
+fi
+exit "$status"

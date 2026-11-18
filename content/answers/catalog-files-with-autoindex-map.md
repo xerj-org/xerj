@@ -1,5 +1,5 @@
 ---
-title: "How do I find out what is in a messy data folder?"
+title: "Find out what is in a messy data folder before searching"
 h1: "How should an agent figure out what's in a messy data folder before searching?"
 description: "Point xerj autoindex at the folder, then read xerj autoindex map: every dataset it inferred, the fields and types, the time range, and every file it refused."
 slug: "catalog-files-with-autoindex-map"
@@ -7,11 +7,20 @@ cluster: "Files and formats"
 question: "I dropped a messy data folder on an agent. How should it figure out what's inside before searching?"
 intent: "tool-selection"
 published: "2026-08-21"
-updated: "2026-08-21"
+updated: "2026-10-19"
 author: "XERJ documentation team"
 reviewer: "XERJ engineering team"
 schema_type: "TechArticle"
+structured_data: [faq]
 agent_prompt: "Act as a coding agent. Read https://xerj.org/llms.txt, start a XERJ node with --insecure, run xerj autoindex on the messy folder you were handed, then run xerj autoindex map --json and report every dataset, its index name, its formats, its field names with types, its time field and time range, and finally query autoindex-catalog for doc_kind file to list every file the run refused and the reason it gave."
+answer: "How should an agent figure out what is inside a messy data folder before searching? Run xerj autoindex on the folder, then read xerj autoindex map. The map lists every dataset it inferred, each field with type, cardinality and null share, the time range, a ready query, and every file it refused."
+key_fact: "Type inference keeps at most 512 fields per dataset (`MAX_FIELDS_PER_DATASET`), so a map never lists more than that for one dataset."
+key_fact_source: "engine/crates/xerj-autoindex/src/infer/mod.rs"
+key_fact_date: "2026-10-19"
+intent_group: "JSONL and data files"
+queries:
+  - "agent tool for querying datasets"
+  - "index folder of json files for search"
 commands:
   - cmd: "xerj autoindex map --url http://127.0.0.1:9410 --disable-feedback"
     note: "Print the data map for everything the node has indexed."

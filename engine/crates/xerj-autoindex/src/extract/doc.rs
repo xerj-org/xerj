@@ -97,7 +97,15 @@ pub fn extract(path: &Path, name: &Path, sink: Sink) -> Result<ExtractStats> {
                 .unwrap_or_else(|| "untitled".into())
         });
 
-    emit_document(&title, &[], body, MAX_RECORDS_PER_FILE, sink, &mut stats);
+    emit_document(
+        &title,
+        &[],
+        body,
+        None,
+        MAX_RECORDS_PER_FILE,
+        sink,
+        &mut stats,
+    );
     Ok(stats)
 }
 

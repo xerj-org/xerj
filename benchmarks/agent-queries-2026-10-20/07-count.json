@@ -1,0 +1,2 @@
+HTTP 200 POST /sessions-*/_count
+{"count":8,"_shards":{"total":2,"successful":2,"skipped":0,"failed":0}}

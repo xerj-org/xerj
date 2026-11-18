@@ -1,0 +1,10 @@
+<figure class="vz" id="fig-hy-beir" aria-labelledby="fig-hy-beir-cap">
+  <span class="vz-label">Recorded run: BEIR SciFact, 300 queries</span>
+  <p class="vz-title">nDCG@10, higher is better</p>
+  <ul class="vz-bars">
+    <li class="vz-bar"><span>BM25 only</span><span class="vz-track"><span class="vz-fill is-cmp" style="width:65.72%"></span></span><span class="vz-v">0.6572</span></li>
+    <li class="vz-bar"><span>Vectors only (MiniLM)</span><span class="vz-track"><span class="vz-fill is-cmp" style="width:67.64%"></span></span><span class="vz-v">0.6764</span></li>
+    <li class="vz-bar"><span>Hybrid, RRF</span><span class="vz-track"><span class="vz-fill" style="width:69.93%"></span></span><span class="vz-v">0.6993</span></li>
+  </ul>
+  <figcaption id="fig-hy-beir-cap">From benchmarks/beir-hybrid/results/scifact.txt in the XERJ repository: xerj v1.0.0-rc.74 with --embed-mode neural (all-MiniLM-L6-v2), one node, run on 2026-09-18. Bars start at 0 and the full width is 1.0. The <a href="/answers/hybrid-search-quality-measured-ndcg">measured nDCG page</a> has the NFCorpus run and the method.</figcaption>
+</figure>

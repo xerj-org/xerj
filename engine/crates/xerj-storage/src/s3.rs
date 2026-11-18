@@ -1065,7 +1065,9 @@ mod tests {
         /// `tokens` is cycled; `None` means "a fresh token every page".
         fn start(tokens: Option<Vec<&'static str>>) -> Self {
             use std::io::{BufRead, BufReader, Write};
-            let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+            let listener = xerj_common::loopback_test::expect_loopback(
+                std::net::TcpListener::bind("127.0.0.1:0"),
+            );
             let address = listener.local_addr().unwrap();
             let pages = Arc::new(AtomicU64::new(0));
             let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));

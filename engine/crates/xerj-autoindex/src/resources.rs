@@ -18,9 +18,11 @@
 //!   workers, so cores are not the constraint there; memory is. Each worker
 //!   holds a bulk buffer plus the batch it is building, so the count is capped
 //!   by the memory safe zone.
-//! * **PDF workers** — separate processes, each allowed 1536 MiB of address
-//!   space (`extract::pdf::WORKER_ADDRESS_SPACE`), so the cap is whatever the
-//!   safe zone can actually pay for, never more than the measured 4.
+//! * **PDF workers** — separate processes, each budgeted 1536 MiB of address
+//!   space (`extract::pdf::WORKER_ADDRESS_SPACE`). The OS cap is installed
+//!   where `setrlimit(RLIMIT_AS)` is accepted (#2336); a refusal does not
+//!   raise this budget. The count is whatever the safe zone can pay for,
+//!   never more than the measured 4.
 //!
 //! Two rules keep the memory arithmetic from doing damage of its own:
 //!

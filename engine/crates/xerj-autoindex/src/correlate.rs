@@ -7,7 +7,7 @@
 use crate::esclient::Es;
 use anyhow::Result;
 use serde_json::{json, Value};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 pub struct Candidate {
     pub slug: String,
@@ -68,6 +68,90 @@ impl KeyCorr {
             "caveat": "overlap computed on bounded samples (≤8192 distinct values/field); confirmation queries ran against the fully indexed data",
         })
     }
+}
+
+/// What end-of-run key correlation needs from one sampled field, kept in
+/// place of the field's full phase-A accumulator.
+#[derive(Debug, Clone, PartialEq)]
+pub struct KeyFieldStats {
+    pub n: u64,
+    pub distinct: usize,
+    pub overflow: bool,
+    pub int_range: Option<(i64, i64)>,
+    pub values: HashSet<String>,
+}
+
+/// dataset slug → field name → stats.
+pub type KeyStats = HashMap<String, HashMap<String, KeyFieldStats>>;
+
+/// Fewest distinct sampled values [`is_candidate`] accepts for any type.
+const MIN_CANDIDATE_DISTINCT: usize = 10;
+
+/// Keep only the correlation inputs of every cluster's fields, so the phase-A
+/// accumulators (byte histograms, length/token samples, hashed distinct sets)
+/// can be dropped once the plan is built instead of living to the end of the
+/// run. Fields with too few distinct values to ever be a candidate are left
+/// out; the type-dependent checks run at the end against the final specs.
+pub fn key_stats(clusters: &[crate::dataset::Cluster]) -> KeyStats {
+    let mut out = KeyStats::new();
+    for c in clusters {
+        let fields: HashMap<String, KeyFieldStats> = c
+            .fields
+            .iter()
+            .filter(|(_, acc)| acc.distinct.len() >= MIN_CANDIDATE_DISTINCT)
+            .map(|(name, acc)| {
+                (
+                    name.clone(),
+                    KeyFieldStats {
+                        n: acc.n,
+                        distinct: acc.distinct.len(),
+                        overflow: acc.distinct_overflow,
+                        int_range: (acc.long_ok > 0).then_some((acc.int_min, acc.int_max)),
+                        values: acc.raw_values.clone(),
+                    },
+                )
+            })
+            .collect();
+        if !fields.is_empty() {
+            out.insert(c.slug.clone(), fields);
+        }
+    }
+    out
+}
+
+/// Key-overlap candidates among `datasets`' fields, from stats captured by
+/// [`key_stats`]. Looked up by slug, so datasets refused after planning
+/// simply drop out.
+pub fn candidates(stats: &KeyStats, datasets: &[crate::state::PlanDataset]) -> Vec<Candidate> {
+    let mut cands = Vec::new();
+    for d in datasets {
+        let Some(fields) = stats.get(&d.slug) else {
+            continue;
+        };
+        for spec in &d.specs {
+            let Some(st) = fields.get(&spec.name) else {
+                continue;
+            };
+            if is_candidate(
+                &spec.es_type,
+                spec.semantic.as_deref(),
+                st.distinct,
+                st.n,
+                st.overflow,
+                st.int_range,
+            ) {
+                cands.push(Candidate {
+                    slug: d.slug.clone(),
+                    index: d.index.clone(),
+                    field: spec.name.clone(),
+                    kind: spec.es_type.clone(),
+                    values: st.values.clone(),
+                    sampled_n: st.n,
+                });
+            }
+        }
+    }
+    cands
 }
 
 /// Key-like candidate filter. Deviations from the design draft (recorded):
@@ -350,6 +434,110 @@ pub fn time_alignment(series: &[TimeSeries]) -> Vec<Value> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn spec(name: &str, es_type: &str) -> crate::infer::FieldSpec {
+        crate::infer::FieldSpec {
+            name: name.into(),
+            es_type: es_type.into(),
+            date_enc: None,
+            semantic: None,
+            cardinality_est: 0,
+            cardinality_overflow: false,
+            null_ratio: 0.0,
+            avg_len: 0.0,
+            coverage: 1.0,
+            examples: vec![],
+            notes: vec![],
+            date_min: None,
+            date_max: None,
+            date_evidence: vec![],
+            num_min: None,
+            num_max: None,
+        }
+    }
+
+    fn plan_dataset(slug: &str, specs: Vec<crate::infer::FieldSpec>) -> crate::state::PlanDataset {
+        crate::state::PlanDataset {
+            slug: slug.into(),
+            index: format!("ax-{slug}"),
+            family: "jsonl".into(),
+            group: None,
+            specs,
+            time_field: None,
+            semantic_field: None,
+            text_analyzer: None,
+            scope: None,
+            sampled_records: 1,
+            file_count: 1,
+        }
+    }
+
+    fn cluster(
+        slug: &str,
+        field: &str,
+        values: impl Iterator<Item = String>,
+    ) -> crate::dataset::Cluster {
+        let mut acc = crate::infer::FieldAcc::default();
+        for v in values {
+            acc.add(&serde_json::Value::String(v));
+        }
+        let mut few = crate::infer::FieldAcc::default();
+        few.add(&serde_json::Value::String("only".into()));
+        crate::dataset::Cluster {
+            family: crate::sniff::Family::Jsonl,
+            group: None,
+            members: vec![0],
+            fields: [(field.to_string(), acc), ("level".to_string(), few)]
+                .into_iter()
+                .collect(),
+            key_fields: Default::default(),
+            records: 100,
+            population: 100,
+            slug: slug.into(),
+            scope: String::new(),
+            is_docs: false,
+            demoted: Vec::new(),
+        }
+    }
+
+    /// The compact stats give the same candidates the full accumulators did,
+    /// drop fields that can never be keys, and follow datasets by slug — so
+    /// a dataset refused after planning does not shift its neighbours' fields.
+    #[test]
+    fn key_stats_match_the_accumulators_and_follow_datasets_by_slug() {
+        let ids = || (0..50).map(|i| format!("user-{i}"));
+        let clusters = vec![
+            cluster("refused", "user_id", ids()),
+            cluster("orders", "user_id", ids()),
+            cluster("users", "id", ids()),
+        ];
+        let stats = key_stats(&clusters);
+        assert!(
+            !stats["orders"].contains_key("level"),
+            "1 distinct value is never a key"
+        );
+        let acc = &clusters[1].fields["user_id"];
+        let st = &stats["orders"]["user_id"];
+        assert_eq!(st.n, acc.n);
+        assert_eq!(st.distinct, acc.distinct.len());
+        assert_eq!(st.values, acc.raw_values);
+
+        // "refused" is no longer in the plan.
+        let datasets = vec![
+            plan_dataset(
+                "orders",
+                vec![spec("user_id", "keyword"), spec("level", "keyword")],
+            ),
+            plan_dataset("users", vec![spec("id", "keyword")]),
+        ];
+        let cands = candidates(&stats, &datasets);
+        let got: Vec<(&str, &str)> = cands
+            .iter()
+            .map(|c| (c.slug.as_str(), c.field.as_str()))
+            .collect();
+        assert_eq!(got, vec![("orders", "user_id"), ("users", "id")]);
+        assert_eq!(key_overlaps(&cands).len(), 1);
+    }
 
     fn sample_corr() -> KeyCorr {
         KeyCorr {

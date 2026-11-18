@@ -1,0 +1,33 @@
+{
+  "name": "xerj-dsh",
+  "version": "1.0.0-rc.100",
+  "description": "DeepSeek Harness (dsh) profile bundle that inserts the xerj MCP server over stdio.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xerj-org/xerj.git",
+    "directory": "dsh"
+  },
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "mcp",
+    "search"
+  ],
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "dependencies": {
+    "@deepseek-ai/dsh-mcp-client": "0.2.1-rc.3"
+  },
+  "files": [
+    "cordis.patch.yml",
+    "README.md"
+  ],
+  "private": false
+}

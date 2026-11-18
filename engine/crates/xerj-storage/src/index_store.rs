@@ -39,10 +39,13 @@ use crate::{Result, SeqNo, StorageError};
 
 /// Highest on-disk data-directory format this binary can read.
 ///
-/// Version 2 reserves digest-derived FTS field filename components. A v2
-/// binary can read v1 raw side-cars, but a v1 binary must refuse a directory
-/// after the first v2 side-car can be created.
-const DATA_DIR_FORMAT_VERSION: u32 = 2;
+/// Version 2 reserves digest-derived FTS field filename components. Version 3
+/// reserves digest components for field names whose Windows case-identity is
+/// not the name itself (`page_Id` versus `page_id`, `ı` versus `i`, `ß`
+/// versus `ss`). A v3 binary reads v1 raw side-cars and v2 encoded side-cars.
+/// A v2 binary must refuse the directory once a v3 side-car can be created:
+/// it would look `page_Id` up as a literal filename and silently skip it.
+const DATA_DIR_FORMAT_VERSION: u32 = 3;
 
 /// Baseline written for fresh and pre-marker directories.
 ///
@@ -53,6 +56,10 @@ const DATA_DIR_BASE_FORMAT_VERSION: u32 = 1;
 
 /// First layout version that permits digest-derived FTS field components.
 const DATA_DIR_FTS_ENCODED_FIELD_COMPONENT_VERSION: u32 = 2;
+
+/// First layout version that digest-encodes field names which collide under
+/// NTFS case folding but were portable literals in layout v2.
+const DATA_DIR_FTS_CASE_DISTINGUISHED_FIELD_COMPONENT_VERSION: u32 = 3;
 
 #[cfg(any(test, feature = "test-hooks"))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -549,10 +556,18 @@ pub struct IndexStore {
     /// directory-sync shim. The format lock serializes the false -> true
     /// transition so concurrent flush/merge retries cannot bypass confirmation.
     fts_v2_marker_durability_confirmed: AtomicBool,
+    /// Process-local proof that format version 3 has crossed the same
+    /// durable-publication boundary as the v2 flag. A confirmed v2 marker is
+    /// not proof of v3: the next case-distinguished field must still advance
+    /// 2 → 3. Confirming v3 also latches the v2 flag so a later v2 preflight
+    /// cannot rewrite the marker back down.
+    fts_v3_marker_durability_confirmed: AtomicBool,
     #[cfg(any(test, feature = "test-hooks"))]
     data_dir_format_write_failpoint: std::sync::atomic::AtomicU8,
     #[cfg(any(test, feature = "test-hooks"))]
     fts_v2_marker_durability_confirmations: AtomicU64,
+    #[cfg(any(test, feature = "test-hooks"))]
+    fts_v3_marker_durability_confirmations: AtomicU64,
     /// Actual memtable shard count, derived at open time from
     /// `IndexStoreConfig.num_wal_shards.max(1).next_power_of_two()`.
     num_shards: usize,
@@ -759,9 +774,13 @@ fn segment_bundle_key(segment_id: &str) -> String {
 ///   this.
 /// - OFF the runtime entirely: the engine runs flush finalizers on plain std
 ///   threads (`xerj-bg-*`), where `Handle::current()` has no answer. There
-///   the future is driven on a process-global dedicated runtime, created on
-///   first use and shared for the lifetime of the store — one idle worker
-///   thread in Local mode (never created), one per process in object mode.
+///   the future is driven on a process-global current-thread runtime, created
+///   on first use and shared for the lifetime of the process. It spawns no
+///   worker thread: a multi-thread runtime's worker is `std::thread::Builder`,
+///   which panics in the child when the alternate signal stack cannot be
+///   mapped and aborts the node (#1122). Callers take turns on a mutex.
+///   Local mode never creates it. A build failure is an error from this
+///   call, and the next call tries again.
 ///
 /// The futures driven here are plain backend I/O and never re-enter
 /// `block_on_backend`, so the dedicated runtime cannot nest `block_on`.
@@ -770,24 +789,76 @@ fn block_on_backend<T>(
 ) -> crate::Result<T> {
     match tokio::runtime::Handle::try_current() {
         Ok(handle) => tokio::task::block_in_place(|| handle.block_on(fut)),
-        Err(_) => object_io_runtime().block_on(fut),
+        Err(_) => {
+            let runtime = object_io_runtime()?;
+            let guard = runtime
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner());
+            guard.block_on(fut)
+        }
     }
 }
 
 /// The off-runtime driver described on [`block_on_backend`].
-fn object_io_runtime() -> &'static tokio::runtime::Runtime {
-    static RUNTIME: std::sync::OnceLock<tokio::runtime::Runtime> = std::sync::OnceLock::new();
-    RUNTIME.get_or_init(|| {
-        tokio::runtime::Builder::new_multi_thread()
-            .worker_threads(1)
-            .thread_name("xerj-obj-io")
-            .enable_all()
-            .build()
-            .expect("object-store I/O runtime")
-    })
+/// `true` when opening `path` fails because it is not there.
+///
+/// Any other error (permission, I/O) leaves the snapshot entry in place
+/// so a later open reports that error instead of dropping a segment whose
+/// file may still exist.
+fn segment_file_missing(path: &Path) -> bool {
+    match std::fs::File::open(path) {
+        Ok(_) => false,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => true,
+        Err(_) => false,
+    }
+}
+
+fn object_io_runtime() -> crate::Result<&'static std::sync::Mutex<tokio::runtime::Runtime>> {
+    static RUNTIME: std::sync::OnceLock<std::sync::Mutex<tokio::runtime::Runtime>> =
+        std::sync::OnceLock::new();
+    if let Some(runtime) = RUNTIME.get() {
+        return Ok(runtime);
+    }
+    // Current-thread: `block_on` drives the future on the caller. A
+    // multi-thread build would spawn a worker with `std::thread::Builder`
+    // and abort the process if that child's signal stack could not be
+    // mapped (#1122). `.expect` did the same for a `build()` error.
+    // Blocking threads, if a backend future asks for one, stop at 4 and
+    // are not reaped after 10 seconds (that reap is a later spawn).
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .max_blocking_threads(4)
+        .thread_keep_alive(std::time::Duration::from_secs(24 * 60 * 60))
+        .thread_name("xerj-obj-io")
+        .build()
+        .map_err(|error| {
+            crate::StorageError::Backend(format!(
+                "could not start the object-store I/O runtime ({error}); \
+                 the index stays open and this object operation fails (#1122)"
+            ))
+        })?;
+    Ok(RUNTIME.get_or_init(|| std::sync::Mutex::new(runtime)))
 }
 
 const WAL_MAINTENANCE_INTERVAL_MS: u64 = 1_000;
+
+/// Refuse one raw document before `IgnoredAny` or `from_slice` builds a DOM
+/// (#1122). Bulk filters the same ceiling per item so a mixed batch does not
+/// reach here; this is the backstop for `index_batch_turbo_raw`.
+fn reject_oversized_indexed_document(
+    doc_id: &str,
+    position: usize,
+    source_bytes: &[u8],
+) -> Result<()> {
+    if xerj_common::document_limit::indexed_document_too_large(source_bytes.len()) {
+        return Err(StorageError::RawBatchValidation {
+            doc_id: doc_id.to_string(),
+            position,
+            reason: xerj_common::document_limit::indexed_document_refusal(source_bytes.len()),
+        });
+    }
+    Ok(())
+}
 
 impl IndexStore {
     /// Open (or create) an index at `data_dir`.
@@ -874,10 +945,13 @@ impl IndexStore {
             config,
             data_dir_format_lock: Mutex::new(()),
             fts_v2_marker_durability_confirmed: AtomicBool::new(false),
+            fts_v3_marker_durability_confirmed: AtomicBool::new(false),
             #[cfg(any(test, feature = "test-hooks"))]
             data_dir_format_write_failpoint: std::sync::atomic::AtomicU8::new(0),
             #[cfg(any(test, feature = "test-hooks"))]
             fts_v2_marker_durability_confirmations: AtomicU64::new(0),
+            #[cfg(any(test, feature = "test-hooks"))]
+            fts_v3_marker_durability_confirmations: AtomicU64::new(0),
             num_shards,
             snapshot: ArcSwap::from_pointee(snapshot),
             wal_shards,
@@ -915,6 +989,12 @@ impl IndexStore {
 
         // Rebuild version map from flushed segments first (so WAL replay can
         // correctly override segment entries for recently re-indexed docs).
+        //
+        // Do this only after a missing local segment file has been taken
+        // out of the snapshot. A surviving `.ids` sidecar is enough for the
+        // rebuild to point live docs at that id, and the next `_search`
+        // then fails the whole query with `Segment … not found`.
+        store.drop_local_segments_missing_files()?;
         store.rebuild_version_map_from_segments()?;
 
         // V4 M4.5 — snapshot GC on open.  Any file in the segments directory
@@ -1032,6 +1112,94 @@ impl IndexStore {
 
         info!(data_dir = ?data_dir, "IndexStore opened");
         Ok(store)
+    }
+
+    /// Remove snapshot entries whose segment file is already gone.
+    ///
+    /// Orphan recovery covers the opposite hole: a `.seg` that exists but
+    /// was never named by `snapshot.json`. This is the hole a partial
+    /// delete leaves behind. `snapshot.json` still names the segment, and
+    /// often the `.ids` sidecar does too, but the `.seg` was unlinked.
+    /// The live case is `xerj brain --fresh` after the data directory was
+    /// wiped while the previous process was still creating files: `rm`
+    /// removes `autoindex-catalog/<id>.seg` and then fails with "Directory
+    /// not empty", the new process opens that directory, and the catalog
+    /// read-back searches a snapshot that still lists the missing id.
+    /// `open_segment_arc` maps the missing file to `SegmentNotFound`, and
+    /// the search path treats that as a query error so it does not
+    /// undercount. Retries cannot help — the id stays in the snapshot.
+    ///
+    /// The bytes are already gone. Keeping the id makes every search fail,
+    /// including one whose new rows sit in a segment that is present.
+    /// Drop the id before the version map is rebuilt, and persist the
+    /// repaired snapshot so the next open does not rediscover it. Local
+    /// mode only: object-store boot hydrates a missing family from the
+    /// bucket, and a catalogue whose bundle is gone refuses to open
+    /// rather than shrinking the view.
+    ///
+    /// `max_seq_no` is not lowered. Sequence numbers from the missing
+    /// segment stay reserved so a later write does not reuse them.
+    fn drop_local_segments_missing_files(&self) -> Result<usize> {
+        if self.is_object_store_mode() {
+            return Ok(0);
+        }
+        let snap = self.snapshot.load();
+        if snap.segments.is_empty() {
+            return Ok(0);
+        }
+        let segments_dir = self.data_dir.join("segments");
+        let missing: Vec<String> = snap
+            .segments
+            .iter()
+            .filter(|meta| segment_file_missing(&segments_dir.join(&meta.seg_path)))
+            .map(|meta| meta.id.clone())
+            .collect();
+        if missing.is_empty() {
+            return Ok(0);
+        }
+        let missing_set: std::collections::HashSet<&str> =
+            missing.iter().map(String::as_str).collect();
+        let segments: Vec<SegmentMeta> = snap
+            .segments
+            .iter()
+            .filter(|meta| !missing_set.contains(meta.id.as_str()))
+            .cloned()
+            .collect();
+        // Keep the previous high-water mark. The missing segment's seqs
+        // must not be handed out again.
+        let max_seq_no = segments
+            .iter()
+            .map(|meta| meta.max_seq_no)
+            .max()
+            .unwrap_or(0)
+            .max(snap.max_seq_no);
+        let removed = missing.len();
+        let generation = snap.generation.saturating_add(1);
+        drop(snap);
+        self.snapshot.store(Arc::new(IndexSnapshot {
+            segments,
+            generation,
+            max_seq_no,
+        }));
+        if let Err(error) = self.save_snapshot() {
+            // The in-memory view is already repaired. Failing open would
+            // refuse the index, which is the 500 this pass exists to
+            // avoid. The on-disk manifest is unchanged, so the next open
+            // runs the same pass again.
+            warn!(
+                error = %error,
+                removed,
+                segments = ?missing,
+                "dropped snapshot segments whose files are gone, but could not persist the repaired snapshot"
+            );
+            return Ok(removed);
+        }
+        warn!(
+            removed,
+            segments = ?missing,
+            "dropped snapshot segments whose files are gone; searches no longer fail closed on them"
+        );
+        Ok(removed)
     }
 
     /// Try to add orphan segment files back to the snapshot before
@@ -1526,10 +1694,38 @@ impl IndexStore {
         crate::bundle::valid_flush_artifact_set(segment_id, &declared) && declared == actual
     }
 
+    /// Bytes on disk of every local file belonging to `segment_ids`: the
+    /// segment file and all its side-cars (FTS, doc-values, ids, ...), matched
+    /// by the same `<36-char id>.<suffix>` rule [`Self::delete_segment_files`]
+    /// uses. Read-only. `0` when the directory cannot be listed (#2427: merge
+    /// admission reserves against this footprint).
+    pub fn segment_files_bytes(&self, segment_ids: &[SegmentId]) -> u64 {
+        let ids: std::collections::HashSet<&str> = segment_ids.iter().map(|s| s.as_str()).collect();
+        if ids.is_empty() {
+            return 0;
+        }
+        let Ok(entries) = std::fs::read_dir(self.data_dir.join("segments")) else {
+            return 0;
+        };
+        let mut bytes = 0u64;
+        for entry in entries.flatten() {
+            let name = entry.file_name();
+            let name_str = name.to_string_lossy();
+            if name_str.len() < 37 || !name_str.is_char_boundary(36) {
+                continue;
+            }
+            if !ids.contains(&name_str[..36]) {
+                continue;
+            }
+            bytes = bytes.saturating_add(entry.metadata().map(|m| m.len()).unwrap_or(0));
+        }
+        bytes
+    }
+
     /// Unlink every on-disk file belonging to the given segment ids — the
     /// primary `.seg` plus all side-cars (`.sidx`, `.ids`, `.dv`,
     /// `.<field>.post` / `.fst` / `.meta` / `.norms`) and the optional
-    /// `.fts-layout-v2` discriminator.
+    /// `.fts-layout-v2` / `.fts-layout-v3` discriminator.
     ///
     /// Disk-space fix (2026-07): called by the engine merge task right
     /// after `apply_merge` commits, so merged-away input segments are
@@ -1833,10 +2029,24 @@ impl IndexStore {
 
     /// Index a document.  Returns the assigned sequence number.
     pub fn index(&self, doc_id: impl Into<String>, source: serde_json::Value) -> Result<SeqNo> {
+        self.index_shared(doc_id, std::sync::Arc::new(source))
+    }
+
+    /// Index a document whose parsed source the caller also keeps.
+    ///
+    /// The storage memtable holds `source` until the next flush. Taking an
+    /// `Arc` lets a caller that also puts the document in the engine's FTS
+    /// memtable share one parsed tree between the two, instead of each
+    /// holding its own deep copy until the flush (#2427).
+    pub fn index_shared(
+        &self,
+        doc_id: impl Into<String>,
+        source: std::sync::Arc<serde_json::Value>,
+    ) -> Result<SeqNo> {
         let doc_id = doc_id.into();
         let entry = WalEntry::Index {
             doc_id: doc_id.clone(),
-            source: source.clone(),
+            source: (*source).clone(),
         };
 
         let seq_no = {
@@ -1855,7 +2065,7 @@ impl IndexStore {
         mem.push(MemEntry {
             seq_no,
             doc_id,
-            source: Some(std::sync::Arc::new(source)),
+            source: Some(source),
             source_bytes,
             charge,
         });
@@ -4167,11 +4377,31 @@ impl IndexStore {
     /// and merge callers inside that one supported writer process; opening
     /// multiple raw `IndexStore`s on the same directory remains unsupported.
     pub fn ensure_fts_encoded_field_component_format(&self) -> Result<()> {
+        self.ensure_fts_filename_component_format(DATA_DIR_FTS_ENCODED_FIELD_COMPONENT_VERSION)
+    }
+
+    /// Durably fence a writer before it creates a case-distinguished FTS
+    /// filename (`page_Id` and the other NTFS case-fold literals layout v2
+    /// kept). Advances the marker to v3 and does not return early on a
+    /// previously confirmed v2 marker — that confirmation must not skip the
+    /// 2 → 3 upgrade. Confirming v3 latches the v2 flag as well, so a later
+    /// v2 preflight cannot rewrite the marker downwards.
+    pub fn ensure_fts_case_distinguished_field_component_format(&self) -> Result<()> {
+        self.ensure_fts_filename_component_format(
+            DATA_DIR_FTS_CASE_DISTINGUISHED_FIELD_COMPONENT_VERSION,
+        )
+    }
+
+    fn ensure_fts_filename_component_format(&self, target: u32) -> Result<()> {
         let _format_guard = self.data_dir_format_lock.lock().unwrap();
-        if self
-            .fts_v2_marker_durability_confirmed
-            .load(Ordering::Acquire)
-        {
+        let already = if target >= DATA_DIR_FTS_CASE_DISTINGUISHED_FIELD_COMPONENT_VERSION {
+            self.fts_v3_marker_durability_confirmed
+                .load(Ordering::Acquire)
+        } else {
+            self.fts_v2_marker_durability_confirmed
+                .load(Ordering::Acquire)
+        };
+        if already {
             return Ok(());
         }
         let path = Self::data_dir_meta_path(&self.data_dir);
@@ -4203,12 +4433,14 @@ impl IndexStore {
                     DATA_DIR_FORMAT_VERSION
                 )));
             }
-            if meta.format_version >= DATA_DIR_FTS_ENCODED_FIELD_COMPONENT_VERSION {
+            if meta.format_version >= target {
                 // Do not trust visibility as proof of durability. A previous
-                // attempt may have renamed v2 into place and then failed its
-                // durability confirmation. Re-establish that proof now, while
-                // still holding the transition lock, before permitting any
-                // encoded FTS filename to be created.
+                // attempt may have renamed the marker into place and then
+                // failed its durability confirmation. Re-establish that proof
+                // now, while still holding the transition lock, before
+                // permitting any encoded FTS filename to be created. A higher
+                // version than `target` is confirmed and left in place — v2
+                // preflight must not downgrade a v3 marker.
                 #[cfg(not(windows))]
                 if let Some(parent) = path.parent() {
                     xerj_common::fsio::fsync_dir(parent)?;
@@ -4220,7 +4452,7 @@ impl IndexStore {
                 // Windows directory-sync shim was a no-op.
                 #[cfg(windows)]
                 xerj_common::fsio::write_file_durable(&path, &std::fs::read(&path)?)?;
-                self.note_fts_v2_marker_durability_confirmed();
+                self.note_fts_filename_format_confirmed(target);
                 return Ok(());
             }
         }
@@ -4234,7 +4466,7 @@ impl IndexStore {
         })?;
         object.insert(
             "format_version".to_string(),
-            serde_json::Value::from(DATA_DIR_FTS_ENCODED_FIELD_COMPONENT_VERSION),
+            serde_json::Value::from(target),
         );
         object.insert(
             "xerj_version".to_string(),
@@ -4271,8 +4503,25 @@ impl IndexStore {
         }
         #[cfg(not(any(test, feature = "test-hooks")))]
         xerj_common::fsio::write_file_durable(&path, &bytes)?;
-        self.note_fts_v2_marker_durability_confirmed();
+        self.note_fts_filename_format_confirmed(target);
         Ok(())
+    }
+
+    fn note_fts_filename_format_confirmed(&self, target: u32) {
+        if target >= DATA_DIR_FTS_CASE_DISTINGUISHED_FIELD_COMPONENT_VERSION {
+            #[cfg(any(test, feature = "test-hooks"))]
+            self.fts_v3_marker_durability_confirmations
+                .fetch_add(1, Ordering::AcqRel);
+            self.fts_v3_marker_durability_confirmed
+                .store(true, Ordering::Release);
+            // Latch v2 without counting a v2 confirmation. The v2 counter is
+            // the number of times the v2 preflight itself proved durability;
+            // setting the flag stops that preflight from rewriting v3 as v2.
+            self.fts_v2_marker_durability_confirmed
+                .store(true, Ordering::Release);
+            return;
+        }
+        self.note_fts_v2_marker_durability_confirmed();
     }
 
     fn note_fts_v2_marker_durability_confirmed(&self) {
@@ -4295,6 +4544,12 @@ impl IndexStore {
     #[cfg(any(test, feature = "test-hooks"))]
     pub fn fts_v2_marker_durability_confirmations_for_test(&self) -> u64 {
         self.fts_v2_marker_durability_confirmations
+            .load(Ordering::Acquire)
+    }
+
+    #[cfg(any(test, feature = "test-hooks"))]
+    pub fn fts_v3_marker_durability_confirmations_for_test(&self) -> u64 {
+        self.fts_v3_marker_durability_confirmations
             .load(Ordering::Acquire)
     }
 
@@ -4390,13 +4645,16 @@ impl IndexStore {
                 Ok(Some(b)) => b,
                 _ => continue,
             };
-            let stored_bytes = match crate::stored_codec::decode_stored(stored_bytes_raw) {
-                Ok(b) => b,
-                Err(e) => {
-                    warn!(segment = %meta.id, error = %e, "cannot decode stored section");
-                    continue;
-                }
-            };
+            // Only (id, seq_no) are read and nothing is re-encoded, so the
+            // opt-out does not apply: skip rebuilding derived vectors.
+            let stored_bytes =
+                match crate::stored_codec::decode_stored_preserving_derived(stored_bytes_raw) {
+                    Ok(b) => b,
+                    Err(e) => {
+                        warn!(segment = %meta.id, error = %e, "cannot decode stored section");
+                        continue;
+                    }
+                };
 
             let docs: Vec<serde_json::Value> = match serde_json::from_slice(&stored_bytes) {
                 Ok(d) => d,
@@ -4850,6 +5108,7 @@ impl IndexStore {
         docs.par_iter()
             .enumerate()
             .map(|(position, (doc_id, source_bytes))| {
+                reject_oversized_indexed_document(doc_id, position + 1, source_bytes)?;
                 validate_raw_json_nesting(source_bytes).map_err(|reason| {
                     StorageError::RawBatchValidation {
                         doc_id: doc_id.clone(),
@@ -4877,6 +5136,7 @@ impl IndexStore {
             .par_iter()
             .enumerate()
             .map(|(position, (doc_id, source_bytes))| {
+                reject_oversized_indexed_document(doc_id, position + 1, source_bytes)?;
                 validate_raw_json_nesting(source_bytes).map_err(|reason| {
                     StorageError::RawBatchValidation {
                         doc_id: doc_id.clone(),
@@ -5464,6 +5724,35 @@ mod tests {
                 .file_name()
                 .to_string_lossy()
                 .starts_with(&format!("{segment_id}."))));
+    }
+
+    #[test]
+    fn fts_layout_v3_discriminator_is_a_valid_flush_artifact() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = open_test_store(dir.path());
+        let segment_id = "12345678-1234-1234-1234-123456789abd";
+        let segments = dir.path().join("segments");
+        for (role, bytes) in [
+            ("seg", b"segment".as_slice()),
+            ("sidx", b"sidx".as_slice()),
+            ("ids", b"ids".as_slice()),
+            ("fts-layout-v3", b"XERJ_FTS_FILENAME_LAYOUT_V3\n".as_slice()),
+        ] {
+            std::fs::write(segments.join(format!("{segment_id}.{role}")), bytes).unwrap();
+        }
+        let meta = SegmentMeta {
+            id: segment_id.to_owned(),
+            doc_count: 1,
+            size_bytes: 7,
+            min_seq_no: 1,
+            max_seq_no: 1,
+            created_at_ms: 0,
+            has_tombstones: false,
+            seg_path: format!("{segment_id}.seg"),
+            sidx_path: format!("{segment_id}.sidx"),
+        };
+        store.write_flush_completion_manifest(&meta).unwrap();
+        assert!(store.validate_flush_completion_manifest(segment_id, 1, 1, 1));
     }
 
     #[test]
@@ -6660,6 +6949,90 @@ mod tests {
         assert_eq!(snap.segments.len(), 1);
     }
 
+    /// A partial delete of the index directory leaves `snapshot.json` naming
+    /// a segment whose `.seg` is gone and whose `.ids` sidecar survived.
+    /// Reopening used to rebuild the version map from that sidecar and then
+    /// fail every `_search` with `Segment … not found` — the `--fresh`
+    /// catalog read-back after a wiped brain data dir. The missing id is
+    /// dropped; a sibling segment that is still on disk stays readable.
+    #[test]
+    fn reopen_drops_a_snapshot_segment_whose_file_is_gone() {
+        let dir = tempfile::tempdir().unwrap();
+        let kept_id;
+        let missing_id;
+        {
+            let store = open_test_store(dir.path());
+            store.index("kept", serde_json::json!({"k": 1})).unwrap();
+            kept_id = store.flush().unwrap().unwrap().id;
+            store.index("gone", serde_json::json!({"k": 2})).unwrap();
+            let gone = store.flush().unwrap().unwrap();
+            missing_id = gone.id.clone();
+            store.force_wal_maintenance().unwrap();
+            let snap = store.snapshot();
+            assert!(
+                snap.segments.iter().any(|meta| meta.id == missing_id),
+                "the segment must be published before its file is removed"
+            );
+            let seg_path = dir.path().join("segments").join(&gone.seg_path);
+            std::fs::remove_file(&seg_path).unwrap();
+            assert!(
+                dir.path()
+                    .join("segments")
+                    .join(format!("{missing_id}.ids"))
+                    .exists(),
+                "the sidecar that used to resurrect the dangling id must still be there"
+            );
+        }
+
+        let store = open_test_store(dir.path());
+        {
+            let snap = store.snapshot();
+            let ids: Vec<&str> = snap.segments.iter().map(|meta| meta.id.as_str()).collect();
+            assert!(
+                ids.iter().all(|id| *id != missing_id.as_str()),
+                "a missing segment file must not stay in the snapshot: {ids:?}"
+            );
+            assert!(
+                snap.segments.iter().any(|meta| meta.id == kept_id),
+                "a sibling segment whose file is present must stay"
+            );
+        }
+        let kept = store.version_map.get("kept").expect("kept doc");
+        assert_eq!(&*kept.segment_id, kept_id.as_str());
+        assert!(!kept.deleted, "the surviving document must still be live");
+        match store.version_map.get("gone") {
+            None => {}
+            Some(entry) => {
+                assert_ne!(
+                    &*entry.segment_id,
+                    missing_id.as_str(),
+                    "the version map must not point at the missing segment"
+                );
+            }
+        }
+        store
+            .open_segment_arc(&kept_id)
+            .expect("the surviving segment file opens");
+        store.index("fresh", serde_json::json!({"k": 3})).unwrap();
+        let fresh = store.flush().unwrap().unwrap();
+        store
+            .open_segment_arc(&fresh.id)
+            .expect("a segment written after the repair opens");
+
+        drop(store);
+        let again = open_test_store(dir.path());
+        assert!(
+            again
+                .snapshot()
+                .segments
+                .iter()
+                .all(|meta| meta.id != missing_id),
+            "the repaired snapshot must stay repaired across a second open"
+        );
+        assert!(again.version_map.get("kept").is_some());
+        assert!(again.version_map.get("fresh").is_some());
+    }
+
     #[test]
     fn open_segment_reader() {
         let dir = tempfile::tempdir().unwrap();
@@ -7722,6 +8095,60 @@ mod tests {
         );
     }
 
+    #[test]
+    fn case_distinguished_fts_preflight_advances_to_v3_and_v2_does_not_downgrade() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = open_test_store(dir.path());
+        let marker = dir.path().join(DATA_DIR_META_FILE);
+
+        store
+            .ensure_fts_case_distinguished_field_component_format()
+            .unwrap();
+        store
+            .ensure_fts_case_distinguished_field_component_format()
+            .unwrap();
+        assert_eq!(store.fts_v3_marker_durability_confirmations_for_test(), 1);
+
+        let meta: DataDirMeta = serde_json::from_slice(&std::fs::read(&marker).unwrap()).unwrap();
+        assert_eq!(
+            meta.format_version,
+            DATA_DIR_FTS_CASE_DISTINGUISHED_FIELD_COMPONENT_VERSION
+        );
+        assert!(IndexStore::check_data_dir_version_with_max(dir.path(), 2).is_err());
+        assert!(IndexStore::check_data_dir_version(dir.path()).is_ok());
+
+        store.ensure_fts_encoded_field_component_format().unwrap();
+        let meta: DataDirMeta = serde_json::from_slice(&std::fs::read(&marker).unwrap()).unwrap();
+        assert_eq!(
+            meta.format_version, DATA_DIR_FTS_CASE_DISTINGUISHED_FIELD_COMPONENT_VERSION,
+            "a v2 preflight must not rewrite a v3 marker"
+        );
+        assert_eq!(
+            store.fts_v2_marker_durability_confirmations_for_test(),
+            0,
+            "latching the v2 flag from v3 is not a v2 confirmation"
+        );
+    }
+
+    #[test]
+    fn case_distinguished_fts_preflight_upgrades_a_confirmed_v2_marker() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = open_test_store(dir.path());
+        store.ensure_fts_encoded_field_component_format().unwrap();
+        assert_eq!(store.fts_v2_marker_durability_confirmations_for_test(), 1);
+
+        store
+            .ensure_fts_case_distinguished_field_component_format()
+            .unwrap();
+        let marker = dir.path().join(DATA_DIR_META_FILE);
+        let meta: DataDirMeta = serde_json::from_slice(&std::fs::read(&marker).unwrap()).unwrap();
+        assert_eq!(meta.format_version, 3);
+        store.ensure_fts_encoded_field_component_format().unwrap();
+        let meta: DataDirMeta = serde_json::from_slice(&std::fs::read(&marker).unwrap()).unwrap();
+        assert_eq!(meta.format_version, 3);
+        assert_eq!(store.fts_v2_marker_durability_confirmations_for_test(), 1);
+    }
+
     /// THE UPGRADE PATH: an rc3-vintage data dir has NO format marker (rc3
     /// never wrote one). Reopening under this (rc4) binary must serve every
     /// doc AND stamp a marker so subsequent opens are versioned. This is the
@@ -8046,5 +8473,25 @@ mod tests {
         );
         let resident = store.resident_memtable_entries();
         assert_eq!(resident, 2, "the live write and the tombstone stay");
+    }
+}
+
+#[cfg(test)]
+mod object_io_runtime_tests {
+    /// #1122: the off-runtime object driver used to `.expect` a multi-thread
+    /// runtime into existence. `build()` failing, or the worker's signal-stack
+    /// mmap failing, aborted the node. The driver now runs on the caller.
+    #[test]
+    fn an_off_runtime_object_call_finishes_and_a_second_caller_does_too() {
+        let first = super::block_on_backend(async { Ok::<u32, crate::StorageError>(7) }).unwrap();
+        assert_eq!(first, 7);
+        let left = std::thread::spawn(|| {
+            super::block_on_backend(async { Ok::<u32, crate::StorageError>(1) })
+        });
+        let right = std::thread::spawn(|| {
+            super::block_on_backend(async { Ok::<u32, crate::StorageError>(2) })
+        });
+        assert_eq!(left.join().unwrap().unwrap(), 1);
+        assert_eq!(right.join().unwrap().unwrap(), 2);
     }
 }

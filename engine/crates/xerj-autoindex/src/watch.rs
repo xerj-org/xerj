@@ -49,7 +49,7 @@
 //! count at "one per indexed directory" instead of "one per directory on disk".
 
 use crate::cli::IndexCfg;
-use crate::ignore_rules::{is_hidden_name, GITIGNORE, XERJIGNORE};
+use crate::ignore_rules::{is_hidden_name, IgnoreOptions, IgnoreStack, GITIGNORE, XERJIGNORE};
 use crate::progress::{self, Progress};
 use crate::walk::FileEntry;
 use anyhow::{Context, Result};
@@ -268,9 +268,10 @@ impl ChangeSet {
 /// the index should have seen. `.gitignore`/`.xerjignore` are hidden names and
 /// are deliberately NOT dropped: editing one changes what the tree contains.
 ///
-/// Everything else is kept and decided by the pass's own walk, which is the
-/// only thing that applies the full ignore stack. Ignored directories cost
-/// nothing here because they are never watched in the first place.
+/// Everything else is kept here; the ignore rules are applied next, by
+/// [`RuleProbe`], and the pass's own walk remains the final word. Ignored
+/// directories cost nothing at either step because they are never watched in
+/// the first place.
 fn is_interesting(root: &Path, path: &Path) -> bool {
     let rel = match path.strip_prefix(root) {
         Ok(rel) => rel,
@@ -291,6 +292,93 @@ fn is_interesting(root: &Path, path: &Path) -> bool {
         }
     }
     true
+}
+
+/// The ignore stack, asked one event path at a time (#2180).
+///
+/// [`is_interesting`] applies the hidden-name rule only; the walk is what
+/// applies `.gitignore`/`.xerjignore` and the built-in defaults. Ignored
+/// *directories* never reach here, because they are never watched. An ignored
+/// *file* inside a watched directory — `app.log` under a `*.log` rule, a
+/// lockfile, a build artefact written next to the sources — is a different
+/// matter: its writes are reported by the watch on its parent, and before this
+/// probe every one of them started a pass that walked the tree, hashed
+/// nothing and published nothing (field report #2162). A tool that keeps
+/// rewriting such a file made the watcher cycle through no-op passes.
+///
+/// The rules are the walk's rules, from the same [`IgnoreStack`]: the probe
+/// enters the path's ancestors root-first exactly as the walk would, so an
+/// ignore file in a subdirectory, a negation (`!keep.log`), the
+/// `.xerjignore` > `.gitignore` precedence and the repository boundary all
+/// decide here the way they decide there. A fresh probe is built for every
+/// burst, so an ignore file edited between bursts is re-read; an edit within
+/// a burst is itself an interesting event and starts a pass regardless.
+///
+/// A path that no longer exists is judged as a file. A pattern that ignores
+/// it as a file (`*.log`, `foo`) would have ignored it as a directory too; a
+/// directory-only pattern (`build/`) does not match it, and the pass runs —
+/// conservative, and the case is rare (an ignored directory removed from a
+/// watched one).
+struct RuleProbe {
+    root: PathBuf,
+    stack: IgnoreStack,
+    /// The directories currently entered, below the root, in order.
+    entered: Vec<PathBuf>,
+}
+
+impl RuleProbe {
+    fn new(root: &Path, opts: IgnoreOptions) -> Self {
+        let mut stack = IgnoreStack::new(root, opts);
+        stack.enter_dir(root, 0);
+        Self {
+            root: root.to_path_buf(),
+            stack,
+            entered: Vec::new(),
+        }
+    }
+
+    /// Would the indexing walk skip this path under the ignore rules?
+    fn ignored(&mut self, path: &Path) -> bool {
+        let Ok(rel) = path.strip_prefix(&self.root) else {
+            return false;
+        };
+        let mut ancestors: Vec<PathBuf> = Vec::new();
+        let mut dir = self.root.clone();
+        let mut parts = rel.components().peekable();
+        while let Some(part) = parts.next() {
+            if parts.peek().is_none() {
+                break;
+            }
+            dir.push(part);
+            ancestors.push(dir.clone());
+        }
+        // Re-use the layers already on the stack for the common prefix: a
+        // burst is mostly siblings, and every directory entered is up to
+        // three ignore files read.
+        let common = self
+            .entered
+            .iter()
+            .zip(&ancestors)
+            .take_while(|(a, b)| a == b)
+            .count();
+        self.entered.truncate(common);
+        self.stack.truncate_to(common + 1);
+        for (i, ancestor) in ancestors.iter().enumerate().skip(common) {
+            // The walk prunes an ignored directory before entering it, so
+            // nothing below one is ever judged; neither is it here.
+            if self.stack.skip_dir(ancestor).is_some() {
+                return true;
+            }
+            self.stack.enter_dir(ancestor, i + 1);
+            self.entered.push(ancestor.clone());
+        }
+        let is_dir = std::fs::symlink_metadata(path).is_ok_and(|md| md.is_dir());
+        if is_dir {
+            self.stack.skip_dir(path).is_some()
+        } else {
+            self.stack.skip_file(path).is_some()
+        }
+    }
 }
 
 /// What one event kind means for the digest cache.
@@ -349,6 +437,7 @@ fn fold(
     change: &mut ChangeSet,
     message: notify::Result<notify::Event>,
     root: &Path,
+    rules: &mut RuleProbe,
     pr: &Progress,
 ) {
     change.events += 1;
@@ -366,7 +455,7 @@ fn fold(
                 Signal::Ignored => change.filtered += event.paths.len() as u64,
                 signal => {
                     for path in &event.paths {
-                        if !is_interesting(root, path) {
+                        if !is_interesting(root, path) || rules.ignored(path) {
                             change.filtered += 1;
                             continue;
                         }
@@ -652,11 +741,17 @@ pub(crate) fn one_pass(
 fn next_burst(
     rx: &Receiver<notify::Result<notify::Event>>,
     root: &Path,
+    ignore: IgnoreOptions,
     debounce: Duration,
     pr: &Progress,
 ) -> Option<ChangeSet> {
     let mut change = ChangeSet::default();
-    fold(&mut change, rx.recv().ok()?, root, pr);
+    let first = rx.recv().ok()?;
+    // Built after the first event arrives, not while idle, so an idle
+    // watcher still costs nothing; rebuilt per burst so edited ignore files
+    // are re-read.
+    let mut rules = RuleProbe::new(root, ignore);
+    fold(&mut change, first, root, &mut rules, pr);
     let opened = Instant::now();
     let cap = max_hold(debounce);
     loop {
@@ -665,7 +760,7 @@ fn next_burst(
             return Some(change);
         }
         match rx.recv_timeout(debounce.min(hold_left)) {
-            Ok(message) => fold(&mut change, message, root, pr),
+            Ok(message) => fold(&mut change, message, root, &mut rules, pr),
             // Either the tree went quiet for a full debounce window (the save
             // dance is over) or the hold cap ran out; both mean "index now".
             Err(RecvTimeoutError::Timeout) => return Some(change),
@@ -842,7 +937,7 @@ pub fn run(cfg: IndexCfg) -> Result<i32> {
             ));
         }
         pass_number += 1;
-        match next_burst_or_idle(&rx, &root, cfg.debounce, &pr) {
+        match next_burst_or_idle(&rx, &root, cfg.ignore, cfg.debounce, &pr) {
             Some(next) => change = next,
             None => {
                 pr.note("watch: the filesystem watcher stopped; exiting");
@@ -857,11 +952,12 @@ pub fn run(cfg: IndexCfg) -> Result<i32> {
 fn next_burst_or_idle(
     rx: &Receiver<notify::Result<notify::Event>>,
     root: &Path,
+    ignore: IgnoreOptions,
     debounce: Duration,
     pr: &Progress,
 ) -> Option<ChangeSet> {
     loop {
-        let burst = next_burst(rx, root, debounce, pr)?;
+        let burst = next_burst(rx, root, ignore, debounce, pr)?;
         if !burst.is_empty() {
             return Some(burst);
         }
@@ -982,7 +1078,14 @@ mod tests {
         ] {
             tx.send(event(kind, &[&target])).unwrap();
         }
-        let burst = next_burst(&rx, &root, Duration::from_millis(30), &pr).unwrap();
+        let burst = next_burst(
+            &rx,
+            &root,
+            IgnoreOptions::default(),
+            Duration::from_millis(30),
+            &pr,
+        )
+        .unwrap();
         assert!(
             burst.is_empty(),
             "a pass's own reads must not ask for another pass: {burst:?}"
@@ -1021,7 +1124,14 @@ mod tests {
         let pr = silent();
         let mut change = ChangeSet::default();
         let rescan = notify::Event::new(EventKind::Other).set_flag(notify::event::Flag::Rescan);
-        fold(&mut change, Ok(rescan), Path::new("/corpus"), &pr);
+        let mut rules = RuleProbe::new(Path::new("/corpus"), IgnoreOptions::default());
+        fold(
+            &mut change,
+            Ok(rescan),
+            Path::new("/corpus"),
+            &mut rules,
+            &pr,
+        );
         assert!(change.is_full(), "dropped events must invalidate the cache");
         assert!(change.touches(Path::new("/corpus/anything")));
     }
@@ -1079,6 +1189,162 @@ mod tests {
         assert!(change.files.is_empty(), "the cap must bound memory");
     }
 
+    /// Send one content-change event per path and return the burst.
+    fn burst_for(root: &Path, ignore: IgnoreOptions, paths: &[&Path]) -> ChangeSet {
+        use notify::event::DataChange;
+        let pr = silent();
+        let (tx, rx) = channel();
+        for path in paths {
+            tx.send(event(
+                EventKind::Modify(ModifyKind::Data(DataChange::Content)),
+                &[path],
+            ))
+            .unwrap();
+        }
+        next_burst(&rx, root, ignore, Duration::from_millis(30), &pr).unwrap()
+    }
+
+    /// #2180: a write to an ignored file is reported by the watch on its
+    /// (indexed) parent directory, and used to start a pass that hashed
+    /// nothing. The walk would skip the file; so does the burst.
+    #[test]
+    fn a_write_to_an_ignored_file_in_a_watched_directory_is_not_worth_a_pass() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().canonicalize().unwrap();
+        fs::write(root.join(".gitignore"), b"*.log\n").unwrap();
+        fs::create_dir(root.join("sub")).unwrap();
+        for f in ["README.md", "app.log", "sub/notes.md", "sub/debug.log"] {
+            fs::write(root.join(f), b"x\n").unwrap();
+        }
+        let burst = burst_for(
+            &root,
+            IgnoreOptions::default(),
+            &[&root.join("app.log"), &root.join("sub/debug.log")],
+        );
+        assert!(
+            burst.is_empty(),
+            "an ignored file at the root or in a watched subdirectory must not start a pass: \
+             {burst:?}"
+        );
+        assert_eq!(burst.filtered, 2);
+
+        let burst = burst_for(
+            &root,
+            IgnoreOptions::default(),
+            &[&root.join("app.log"), &root.join("sub/notes.md")],
+        );
+        assert!(
+            burst.touches(&root.join("sub/notes.md")),
+            "the indexed file still does"
+        );
+        assert!(!burst.touches(&root.join("app.log")));
+        assert_eq!(burst.filtered, 1);
+    }
+
+    /// The probe applies the walk's rules, not a second implementation: a
+    /// negation re-includes, a nested ignore file governs its own directory
+    /// only, and `--no-ignore` keeps everything.
+    #[test]
+    fn the_burst_applies_the_same_ignore_rules_as_the_walk() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().canonicalize().unwrap();
+        fs::write(root.join(".gitignore"), b"*.log\n!keep.log\n").unwrap();
+        fs::create_dir(root.join("sub")).unwrap();
+        fs::write(root.join("sub/.gitignore"), b"*.tmp\n").unwrap();
+        for f in ["keep.log", "drop.log", "x.tmp", "sub/x.tmp", "sub/y.log"] {
+            fs::write(root.join(f), b"x\n").unwrap();
+        }
+        let paths = [
+            root.join("keep.log"),
+            root.join("drop.log"),
+            root.join("x.tmp"),
+            root.join("sub/x.tmp"),
+            root.join("sub/y.log"),
+        ];
+        let refs: Vec<&Path> = paths.iter().map(|p| p.as_path()).collect();
+        let burst = burst_for(&root, IgnoreOptions::default(), &refs);
+        assert!(
+            burst.touches(&root.join("keep.log")),
+            "a negated pattern re-includes"
+        );
+        assert!(!burst.touches(&root.join("drop.log")));
+        assert!(
+            burst.touches(&root.join("x.tmp")),
+            "sub/.gitignore has no say over the root"
+        );
+        assert!(!burst.touches(&root.join("sub/x.tmp")));
+        assert!(
+            !burst.touches(&root.join("sub/y.log")),
+            "the root rule reaches down"
+        );
+        assert_eq!(burst.filtered, 3);
+
+        let burst = burst_for(&root, IgnoreOptions::off(), &refs);
+        assert_eq!(burst.filtered, 0, "--no-ignore: every path is a candidate");
+        assert!(burst.touches(&root.join("drop.log")));
+    }
+
+    /// An ignored directory is never watched, but its creation or removal
+    /// inside a watched directory is still an event on the parent's watch;
+    /// so is the removal of an ignored file. Neither changes the index.
+    #[test]
+    fn an_ignored_directory_or_a_vanished_ignored_file_is_not_worth_a_pass() {
+        use notify::event::{CreateKind, RemoveKind};
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().canonicalize().unwrap();
+        fs::write(root.join(".gitignore"), b"*.log\n").unwrap();
+        fs::create_dir(root.join("node_modules")).unwrap();
+        fs::create_dir(root.join("docs")).unwrap();
+        let pr = silent();
+        let (tx, rx) = channel();
+        tx.send(event(
+            EventKind::Create(CreateKind::Folder),
+            &[&root.join("node_modules")],
+        ))
+        .unwrap();
+        // Removed before the burst is read: judged as a file, and `*.log`
+        // ignores it either way.
+        tx.send(event(
+            EventKind::Remove(RemoveKind::File),
+            &[&root.join("old.log")],
+        ))
+        .unwrap();
+        tx.send(event(
+            EventKind::Create(CreateKind::Folder),
+            &[&root.join("docs")],
+        ))
+        .unwrap();
+        let burst = next_burst(
+            &rx,
+            &root,
+            IgnoreOptions::default(),
+            Duration::from_millis(30),
+            &pr,
+        )
+        .unwrap();
+        assert!(
+            !burst.touches(&root.join("node_modules/x.js")),
+            "a built-in default"
+        );
+        assert!(!burst.touches(&root.join("old.log")));
+        assert!(
+            burst.touches(&root.join("docs/new.md")),
+            "a new indexed directory"
+        );
+        assert_eq!(burst.filtered, 2);
+
+        // Without the defaults, node_modules is an ordinary directory.
+        let burst = burst_for(
+            &root,
+            IgnoreOptions {
+                defaults: false,
+                ..IgnoreOptions::default()
+            },
+            &[&root.join("node_modules")],
+        );
+        assert!(burst.touches(&root.join("node_modules/x.js")));
+    }
+
     #[test]
     fn the_debouncer_coalesces_a_save_dance_into_one_burst() {
         let pr = silent();
@@ -1105,7 +1371,14 @@ mod tests {
             &[&target],
         ))
         .unwrap();
-        let burst = next_burst(&rx, &root, Duration::from_millis(30), &pr).unwrap();
+        let burst = next_burst(
+            &rx,
+            &root,
+            IgnoreOptions::default(),
+            Duration::from_millis(30),
+            &pr,
+        )
+        .unwrap();
         assert_eq!(burst.events, 3, "one burst, not three passes");
         assert!(burst.touches(&target));
         assert!(burst.touches(&temp));
@@ -1132,7 +1405,14 @@ mod tests {
             }
         });
         let started = Instant::now();
-        let burst = next_burst(&rx, &root, Duration::from_millis(400), &pr).unwrap();
+        let burst = next_burst(
+            &rx,
+            &root,
+            IgnoreOptions::default(),
+            Duration::from_millis(400),
+            &pr,
+        )
+        .unwrap();
         let waited = started.elapsed();
         assert!(
             waited < MAX_HOLD_FLOOR + Duration::from_millis(1500),

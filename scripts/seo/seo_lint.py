@@ -45,6 +45,7 @@ import xml.etree.ElementTree as ET
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import audit as audit_mod  # noqa: E402  (reuse the auditor's HTML parser)
+import gen_sitemap  # noqa: E402  (the sitemap is a deploy artifact, not a file)
 import pagedata  # noqa: E402
 import urlmap  # noqa: E402
 
@@ -56,8 +57,13 @@ SITEMAP_NS = "{http://www.sitemaps.org/schemas/sitemap/0.9}"
 #: change.  Rule 55 exists to stop someone "fixing" that non-problem by
 #: widening the policy.  The `'unsafe-inline'` here predates this work and is
 #: something to remove later, not to build on.
+#:
+#: ``https://*.googletagmanager.com`` is the GA4 gtag.js host emitted by
+#: ``seo_head.ga4_snippet()``.  It is a real script, not a JSON-LD workaround.
+#: The inline config block uses the ``'unsafe-inline'`` token already listed.
 ALLOWED_SCRIPT_SRC = frozenset({
     "'self'", "blob:", "'unsafe-inline'", "https://static.cloudflareinsights.com",
+    "https://*.googletagmanager.com",
 })
 
 #: Internal links that are known-broken and consciously left that way.
@@ -247,11 +253,13 @@ class Lint:
     def check_sitemap(self) -> None:
         sm = self.root / "sitemap.xml"
         p = "sitemap.xml"
-        if not sm.exists():
-            self.gate("sitemap.missing", p, "landing/sitemap.xml does not exist")
-            return
-
-        data = sm.read_bytes()
+        if sm.exists():
+            data = sm.read_bytes()
+        else:
+            # sitemap.xml is a deploy artifact (deploy-pages.yml writes it into
+            # landing/ before the upload); it is not committed. Lint the bytes
+            # that deploy would ship instead of gating on the file's absence.
+            data = gen_sitemap.sitemap_for(self.root).encode("utf-8")
         if data.startswith(b"\xef\xbb\xbf"):
             self.gate("sitemap.bom", p, "file starts with a UTF-8 BOM (rule 13)")
         try:
@@ -327,7 +335,6 @@ class Lint:
                       f"{missing} is an indexable page but is not listed (rule 1)")
 
         # rule 4 — the file must be generated, not hand-edited
-        import gen_sitemap
         dates = urlmap.DateSource(self.repo)
         if text != gen_sitemap.build(self.root, dates):
             self.gate("sitemap.stale", p,
@@ -337,8 +344,11 @@ class Lint:
         # rule 12 — XSD validation, when xmllint is available
         xsd = self.repo / "schemas" / "sitemap.xsd"
         if shutil.which("xmllint") and xsd.exists():
-            r = subprocess.run(["xmllint", "--noout", "--schema", str(xsd), str(sm)],
-                               capture_output=True, text=True)
+            # Validate the bytes under test, not the path: when the sitemap is
+            # generated in memory (it is a deploy artifact, not a committed
+            # file) there is no file for xmllint to open.
+            r = subprocess.run(["xmllint", "--noout", "--schema", str(xsd), "-"],
+                               input=text, capture_output=True, text=True)
             if r.returncode != 0:
                 self.gate("sitemap.xsd", p, f"xmllint: {r.stderr.strip()} (rule 12)")
 
@@ -614,6 +624,17 @@ class Lint:
             if not page.viewport:
                 self.gate("viewport.missing", rel, "no viewport meta (rule 34)")
 
+            # -- Day/Night toggle (#1973): one shared script remembers the choice.
+            if 'class="theme"' in src:
+                if '<script src="/theme.js"></script>' not in head:
+                    self.gate("theme.script_missing", rel,
+                              "page has the DAY/NIGHT toggle but <head> does not load "
+                              "/theme.js, so the choice is lost on the next page (#1973)")
+                if "root.setAttribute('data-theme'" in src:
+                    self.gate("theme.inline_toggle", rel,
+                              "inline DAY/NIGHT handler duplicates /theme.js and never "
+                              "saves the choice; remove it (#1973)")
+
             # -- Open Graph + Twitter (30, 31, 32)
             for k in ("og:title", "og:type", "og:url", "og:image", "og:description"):
                 if not self._meta(page, k):
@@ -741,6 +762,29 @@ class Lint:
                 self.gate("fonts.display_swap", rel,
                           "Google Fonts URL lacks display=swap (rule 57)")
 
+    def _visible_text(self, rel: str) -> str:
+        raw = (self.root / rel).read_text(encoding="utf-8")
+        raw = re.sub(r"(?is)<head\b.*?</head>", " ", raw)
+        raw = re.sub(r"(?is)<(script|style)\b.*?</\1>", " ", raw)
+        raw = re.sub(r"(?i)</?(?:a|b|code|em|i|kbd|span|strong)\b[^>]*>", "", raw)
+        raw = re.sub(r"(?s)<[^>]+>", " ", raw)
+        return re.sub(r"\s+", " ", html.unescape(raw)).strip()
+
+    def _check_faq_visible(self, rel: str, line: int, node: dict) -> None:
+        """Rule 46b: an opted-in FAQPage must mirror questions shown on the page."""
+        text = self._visible_text(rel)
+        for q in node.get("mainEntity") or []:
+            name = (q or {}).get("name", "")
+            answer = ((q or {}).get("acceptedAnswer") or {}).get("text", "")
+            if not name or name not in text:
+                self.gate("jsonld.faq_not_visible", rel,
+                          f"line {line}: FAQPage question {name[:60]!r} is not "
+                          f"visible on the page (rule 46b)")
+            elif not answer or answer[:80] not in text:
+                self.gate("jsonld.faq_not_visible", rel,
+                          f"line {line}: FAQPage answer to {name[:60]!r} does not "
+                          f"match the visible answer (rule 46b)")
+
     def _check_jsonld(self, rel: str, page: audit_mod.Page, url: str,
                       title: str, desc: str) -> None:
         if not page.jsonld:
@@ -773,9 +817,18 @@ class Lint:
                     continue
                 types.add(t)
                 if t in ("FAQPage", "HowTo"):
-                    self.gate("jsonld.deprecated_type", rel,
-                              f"line {line}: {t} — FAQ rich results end 7 May 2026 "
-                              f"and HowTo was removed outright (rule 46)")
+                    # Opt-in only (README trap 6): a page whose article source
+                    # lists the type under `structured_data:` may carry it.
+                    opted = pagedata.entry(rel).get("structured_data") or ()
+                    kind = "faq" if t == "FAQPage" else "howto"
+                    if kind not in opted:
+                        self.gate("jsonld.deprecated_type", rel,
+                                  f"line {line}: {t} — FAQ rich results end 7 May 2026 "
+                                  f"and HowTo was removed outright (rule 46); a page "
+                                  f"may carry it only by listing `{kind}` under "
+                                  f"structured_data: in its content source")
+                    elif t == "FAQPage":
+                        self._check_faq_visible(rel, line, node)
                 if "aggregateRating" in node or "review" in node:
                     self.gate("jsonld.fabricated_rating", rel,
                               f"line {line}: aggregateRating/review without a real "
@@ -860,6 +913,10 @@ class Lint:
                               f"served URL instead (rule 21)")
                 target = self._resolve(path, src_dir)
                 if target is None:
+                    if path == "/sitemap.xml":
+                        # Written by deploy-pages.yml just before the upload, so
+                        # it is never a file in the tree; the artifact has it.
+                        continue
                     if path in KNOWN_BROKEN:
                         self.warn("link.known_broken", rel,
                                   f"line {line}: {path} — {KNOWN_BROKEN[path]}")

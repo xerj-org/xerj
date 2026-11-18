@@ -7,11 +7,20 @@ cluster: "Coding agents: reference retrieval"
 question: "How do I set up reference coding so the agent retrieves a mechanism before writing code?"
 intent: "how-to"
 published: "2026-08-22"
-updated: "2026-08-23"
+updated: "2026-10-20"
 author: "XERJ documentation team"
 reviewer: "XERJ engineering team"
 schema_type: "TechArticle"
+structured_data: [faq]
 agent_prompt: "Act as a coding agent about to write against an unfamiliar library. Read https://xerj.org/llms.txt, clone the library into ./ref, start a XERJ node with --insecure, run xerj autoindex ./ref --prefix ref, read xerj autoindex map, then answer with a defs query and quote the retrieved passage with its ax_path before you write any code."
+answer: "How do I set up reference coding so the agent retrieves a mechanism before writing code? Clone the library you are about to write against, index it with xerj autoindex, and have the agent retrieve the passage before it writes. A published study measured a gain on code the model cannot recall, and a loss on code it knows."
+key_fact: "Across 16 runs in four languages, the xerj arm solved 16/16 with 9,982 output tokens at $1.58."
+key_fact_source: "docs/case-studies/reference-coding/data/results-multilang-final.json"
+key_fact_date: "2026-10-19"
+intent_group: "code search for agents"
+queries:
+  - "find reference implementation in open source repos"
+  - "search open source repos for how others solved X"
 commands:
   - cmd: "git clone --depth 1 https://github.com/serde-rs/serde ./ref/serde"
     note: "Put the reference source on local disk. A shallow clone is enough to read from."
@@ -29,7 +38,7 @@ links_out:
   - "syntax-aware-code-search-refactoring"
   - "compare/xerj-vs-ripgrep-for-code-agents"
 evidence:
-  - claim: "Across five languages, 16 runs: the xerj arm solved 16/16 with 9,982 output tokens at $1.58, the native arm solved 16/16 with 26,477 output tokens at $3.27, and the bare arm solved 11/16 at $11.18."
+  - claim: "Across four languages (Python, JavaScript, C and Java), 16 runs: the xerj arm solved 16/16 with 9,982 output tokens at $1.58, the native arm solved 16/16 with 26,477 output tokens at $3.27, and the bare arm solved 11/16 at $11.18."
     source: "docs/case-studies/reference-coding/data/results-multilang-final.json"
   - claim: "On the seven domains with an unrecallable runtime contract, 21 runs: the bare arm solved 1/21 at $21.90, the native arm 21/21 at $4.26, and the xerj arm 21/21 at $3.38."
     source: "docs/case-studies/reference-coding/CASE_STUDY.md:569"
@@ -94,7 +103,7 @@ The study ran the same Claude Code three ways against 13 reference libraries in 
 
 The verdict was objective: the generated code had to compile and pass a hidden test the model never saw.
 
-**Across five languages, 16 runs.** The native and xerj arms both solved 16/16. The xerj arm spent 9,982 output tokens at $1.58; the native arm spent 26,477 output tokens at $3.27. The bare arm solved 11/16 at $11.18.
+**Across four languages (Python, JavaScript, C and Java), 16 runs.** The native and xerj arms both solved 16/16. The xerj arm spent 9,982 output tokens at $1.58; the native arm spent 26,477 output tokens at $3.27. The bare arm solved 11/16 at $11.18.
 
 **On seven domains carrying a runtime contract the compiler cannot warn about, 21 runs.** The bare arm solved 1/21 while burning $21.90. The native arm solved 21/21 at $4.26 and the xerj arm solved 21/21 at $3.38.
 
@@ -118,6 +127,8 @@ Do not run this workflow against a popular open-source library the model can alr
 Both workflows start with `xerj autoindex`, and they answer different questions.
 
 Indexing your own tree is about context budget: the agent stops opening every file and queries the index instead. That walkthrough, with the captured ignore accounting, is on [how to stop an agent reading the whole repo](/answers/index-monorepo-for-agent).
+
+A pinned public repository that already ships as a signed pack can be queried without a clone: [ask a repo without cloning](/answers/ask-questions-about-a-github-repo-without-cloning).
 
 Reference coding is about knowledge the agent does not have. The tree is somebody else's library, cloned for the purpose, and the point is the passage that describes the mechanism, not the size of the context.
 

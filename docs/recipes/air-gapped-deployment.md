@@ -9,12 +9,19 @@ an optional, separately staged path.
 
 - The default embedding mode is **lexical feature hashing**. It needs no model,
   no embedding service, and no network connection.
-- Neural mode is optional. Without `embedding.local_model_dir`, the first
-  operation that needs an embedding downloads `config.json`, `tokenizer.json`,
-  and `model.safetensors` for `sentence-transformers/all-MiniLM-L6-v2` from the
-  Hugging Face Hub. With that directory set, XERJ reads those files locally.
+- Neural mode is optional. The model is loaded when the process starts, not
+  on the first embed. Without `embedding.local_model_dir`, startup downloads
+  `config.json`, `tokenizer.json`, and `model.safetensors` for
+  `sentence-transformers/all-MiniLM-L6-v2` from the Hugging Face Hub
+  (`HF_ENDPOINT` selects a mirror). If that download fails, the process
+  refuses to start rather than indexing with the lexical embedder. With
+  `local_model_dir` set, XERJ reads those files locally and does not contact
+  the Hub.
 - `proxy` calls only the configured OpenAI-compatible
-  `embedding.default_endpoint`. The experimental `onnx-experimental` backend
+  `embedding.default_endpoint`. A base ending in `/v1` (trailing slash
+  optional) or a bare host has `/embeddings` appended; a path that already
+  ends in `/embeddings` is used unchanged; any other path refuses to start
+  in `mode = "proxy"` and names the URL to set. The experimental `onnx-experimental` backend
   needs an ONNX-enabled build and explicit local assets; neither is the base
   release path.
 
@@ -37,8 +44,11 @@ those two files before entering the enclave.
 | Rerank provider | Inert: no key is configured | The only search-time feature that POSTs document text to a third party. The external proxy and WAL tap rows above also send text off the node when enabled; the neural model download and the cluster transport carry no document text; all of them are off by default. It stays inert with no `rerank.api_key` and no `TYPESAFE_API_KEY` in the service environment, and a search must carry a `rerank` block to trigger it. Set `[rerank] enabled = false` to refuse it outright, whatever the environment holds; `GET /_xerj/rerank` confirms `"enabled": false`. See [RERANK.md](../RERANK.md#every-way-data-leaves-a-xerj-node) for every outbound connection a node can open |
 | Object storage backend | `local`: the index lives on the node's own disk | Since v1.0.0-rc.77 (#1008 closing #965) `storage.backend = "s3"` works and the segment path writes index bundles to the bucket — bundles that carry stored document text, so an air-gapped deployment keeps the `local` default or points the backend at an on-prem, S3-compatible endpoint, which is then the only host contacted |
 | `xerj autoindex s3://` (with or without `--watch`) | Off: only when you pass an `s3://` root | A client, not the node. It contacts the endpoint you name (`--endpoint-url`) and nothing else; a folder root contacts nothing |
+| `xerj hub feedback` and automatic corpus reviews | On for `xerj hub pull` and the MCP hub tools | A client, not the node. It POSTs a structured review (scores, corpus slug, agent family, a random install id; no document or query text) to `XERJ_CORPUS_FEEDBACK_URL`, default `https://hub.xerj.org/api/corpus-feedback`. Set `XERJ_DISABLE_FEEDBACK=true` (or pass `--disable-feedback`) to send nothing |
 | Cluster | Disabled | Single-node startup does not initialize the Raft transport |
 | REST / ES-compatible listeners | `127.0.0.1` | The default is loopback-only |
+| `xerj sessions hook` (opt-in `xerj init --memory`) | Off until installed | Sends redacted session exports/excerpts and runtime auth to the configured loopback node, reads memories back; remote URLs, redirects and proxies are refused. No external service or model is required |
+| `xerj init hook` (opt-in `xerj init --hooks`, either host) | Off until installed | Reads catalog run metadata using runtime auth from the configured loopback node; no tool input, query, tool result or session ID is sent. Proxies and redirects are disabled |
 | `autoindex` and MCP clients | Localhost defaults | They connect to `localhost`; they do not create a public listener |
 | Runtime telemetry/update/license activation | None | No outbound call is made by the running binary for these purposes |
 

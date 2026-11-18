@@ -1,0 +1,105 @@
+#!/usr/bin/env bash
+set -u
+
+usage() {
+  printf 'usage: %s [WORKSPACE_DIR]\n' "${0##*/}" >&2
+  printf '  With no argument, use Herdr focused_pane_cwd or workspace_cwd context.\n' >&2
+}
+
+fail() {
+  printf 'herdr-xerj: %s\n' "$1" >&2
+  exit "${2:-64}"
+}
+
+if (( $# > 1 )); then
+  usage
+  exit 64
+fi
+
+workspace_path=""
+if (( $# == 1 )); then
+  workspace_path=$1
+elif [[ -n "${HERDR_PLUGIN_CONTEXT_JSON:-}" ]]; then
+  workspace_path=$(
+    CONTEXT_JSON="$HERDR_PLUGIN_CONTEXT_JSON" python3 - <<'PY'
+import json
+import os
+import sys
+
+try:
+    context = json.loads(os.environ["CONTEXT_JSON"])
+except (KeyError, json.JSONDecodeError) as exc:
+    print(f"invalid HERDR_PLUGIN_CONTEXT_JSON: {exc}", file=sys.stderr)
+    raise SystemExit(65)
+
+if not isinstance(context, dict):
+    print("plugin context must be a JSON object", file=sys.stderr)
+    raise SystemExit(65)
+
+path = context.get("focused_pane_cwd") or context.get("workspace_cwd")
+if not isinstance(path, str) or not path:
+    print(
+        "plugin context is missing focused_pane_cwd and workspace_cwd",
+        file=sys.stderr,
+    )
+    raise SystemExit(65)
+print(path)
+PY
+  )
+  context_status=$?
+  if (( context_status != 0 )); then
+    exit "$context_status"
+  fi
+else
+  fail "a workspace argument or Herdr plugin context is required" 65
+fi
+
+if [[ -z "$workspace_path" ]]; then
+  usage
+  exit 64
+fi
+
+if [[ "$workspace_path" != /* ]]; then
+  fail "workspace path must be absolute: $workspace_path" 64
+fi
+
+if [[ ! -d "$workspace_path" ]]; then
+  fail "workspace path is not an existing directory: $workspace_path" 66
+fi
+
+if [[ ! -r "$workspace_path" || ! -x "$workspace_path" ]]; then
+  fail "workspace path is not readable: $workspace_path" 66
+fi
+
+xerj_bin=${XERJ_BIN:-xerj}
+if [[ "$xerj_bin" == */* ]]; then
+  [[ -x "$xerj_bin" ]] || fail "XERJ executable is not executable: $xerj_bin" 67
+else
+  command -v "$xerj_bin" >/dev/null 2>&1 || fail "XERJ executable not found on PATH: $xerj_bin" 67
+fi
+
+printf 'herdr-xerj: running %s autoindex . in %s\n' "$xerj_bin" "$workspace_path" >&2
+(
+  cd -- "$workspace_path" || exit 66
+  "$xerj_bin" autoindex .
+)
+status=$?
+
+case "$status" in
+  0)
+    printf 'herdr-xerj: workspace indexed successfully: %s\n' "$workspace_path" >&2
+    exit 0
+    ;;
+  3)
+    printf 'herdr-xerj: workspace indexed with skipped/junk files (XERJ exit 3): %s\n' "$workspace_path" >&2
+    exit 3
+    ;;
+  1|2|4)
+    printf 'herdr-xerj: XERJ indexing failed or needs a decision (exit %s): %s\n' "$status" "$workspace_path" >&2
+    exit "$status"
+    ;;
+  *)
+    printf 'herdr-xerj: XERJ indexing exited unexpectedly with status %s: %s\n' "$status" "$workspace_path" >&2
+    exit "$status"
+    ;;
+esac

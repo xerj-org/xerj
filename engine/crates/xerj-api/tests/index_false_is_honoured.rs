@@ -617,15 +617,31 @@ async fn documented_gaps_are_still_open_and_still_documented() {
 
     // GAP 3 — GAP 2 reached through a WILDCARD `fields` spec. A pattern is
     // never an error (that half is ES's rule and is deliberate), but in
-    // `query_string` / `simple_query_string` a pattern lowers to the same
-    // field-less `"*"` placeholder as GAP 2, so it is answered by the
-    // schema-free scan and still matches through `note`. Identical on `main`:
-    // this change neither introduced nor closed it, and the CHANGELOG says so
-    // instead of claiming a pattern is "answered over the searchable fields".
-    for query in [
+    // `query_string` a pattern lowers to the field-less `"*"` placeholder,
+    // so it is answered by the schema-free scan and still matches through
+    // `note`. Identical on `main`, and the CHANGELOG says so instead of
+    // claiming a pattern is "answered over the searchable fields".
+    //
+    // `simple_query_string` with `["*"]` no longer belongs here (#2427): it
+    // now lowers to the same node as an ABSENT `fields`, which the segment's
+    // FTS projection answers over the mapped searchable text fields — the
+    // fix for its 30 s stored-scan walk — so on a flushed segment it finds
+    // nothing in `note`, like `multi_match` below. (A document still in the
+    // memtable is answered by the field-less scan arm, exactly as the
+    // field-less spelling always was; that is GAP 2, not a new gap.)
+    let (status, body) = search(
+        &app,
         json!({ "simple_query_string": { "query": "zzquagga", "fields": ["*"] } }),
-        json!({ "query_string": { "query": "zzquagga", "fields": ["*"] } }),
-    ] {
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(
+        body.pointer("/hits/total/value").and_then(Value::as_u64),
+        Some(0),
+        "#2427: a flushed `simple_query_string` `[\"*\"]` is answered over the \
+         searchable fields and must not reach `note`: {body}"
+    );
+    for query in [json!({ "query_string": { "query": "zzquagga", "fields": ["*"] } })] {
         let (status, body) = search(&app, query.clone()).await;
         assert_eq!(status, StatusCode::OK, "GAP 3 changed for {query}: {body}");
         assert_eq!(
@@ -681,10 +697,9 @@ async fn documented_gaps_are_still_open_and_still_documented() {
          fallback: {body}"
     );
 
-    // GAP 5 — `_validate/query` never opens the index, so it answers on the
-    // parse alone and says a query `_search` refuses is valid. Pre-existing
-    // and identical on `main`, but it now disagrees with `_search` on the same
-    // body, so it is stated rather than left for a user to trip over.
+    // GAP 5 CLOSED — `_validate/query` now asks every resolved index the same
+    // buildability question `_search` asks, so it no longer says a query
+    // `_search` refuses is valid.
     let (status, body) = json_req(
         &app,
         "POST",
@@ -692,12 +707,40 @@ async fn documented_gaps_are_still_open_and_still_documented() {
         json!({ "query": { "match": { "note": "pelicans" } } }),
     )
     .await;
-    assert_eq!(status, StatusCode::OK, "GAP 5 changed: {body}");
+    assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(
         body.get("valid").and_then(Value::as_bool),
-        Some(true),
-        "GAP 5 changed — `_validate/query` now consults the mapping, \
-         update the CHANGELOG: {body}"
+        Some(false),
+        "GAP 5 closed: {body}"
+    );
+    let reason = body
+        .get("error")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    assert!(
+        reason.contains("Cannot search on field [note]"),
+        "got {reason:?}: {body}"
+    );
+
+    // `explain=true` reports the refusal per index instead of one top-level
+    // sentence.
+    let (status, body) = json_req(
+        &app,
+        "POST",
+        "/t/_validate/query?explain=true",
+        json!({ "query": { "match": { "note": "pelicans" } } }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["valid"], false, "{body}");
+    assert_eq!(body["explanations"][0]["index"], "t");
+    assert_eq!(body["explanations"][0]["valid"], false);
+    assert!(
+        body["explanations"][0]["error"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("Cannot search on field [note]"),
+        "{body}"
     );
 }
 

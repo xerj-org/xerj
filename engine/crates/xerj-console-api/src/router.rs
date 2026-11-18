@@ -55,7 +55,8 @@ pub fn xerj_console_router(state: ConsoleState) -> Router {
             "/_xerj-console/api/v1/auth/magic/redeem",
             post(auth::magic::redeem),
         )
-        // ── API: invite issue (owner/admin session required) ───────────────
+        // ── API: invite issue (owner/admin passkey session required) ───────
+        // A bearer API token is 403. See `PasskeySession`.
         .route(
             "/_xerj-console/api/v1/auth/magic/issue",
             post(auth::magic::issue),
@@ -77,6 +78,9 @@ pub fn xerj_console_router(state: ConsoleState) -> Router {
             post(auth::login::finish),
         )
         // ── API: session-protected ─────────────────────────────────────────
+        // `PasskeySession` (bearer token → 403): logout, passkey delete,
+        // api-token create and revoke. List routes and every data route
+        // below accept a bearer token. See `auth::sessions::PasskeySession`.
         .route(
             "/_xerj-console/api/v1/auth/logout",
             post(auth::login::logout),

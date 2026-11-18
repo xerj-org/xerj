@@ -1,0 +1,161 @@
+# Release performance budgets for `scripts/perf/autoindex_release_gate.sh`.
+#
+# Every key is a hard ceiling (max_*) or floor (min_*). A run fails when ANY
+# budget is broken; the gate prints which, as a markdown table, and exits 1.
+# Tiers are picked by --tier (default: "1gb"). Values are proposals sized
+# from the rc.99 regressions found on 2026-10-25 (#2421-#2428); each comment
+# says why the number is where it is. Change a number here, in a reviewed PR,
+# never by editing the workflow.
+
+[tier.smoke]
+# A ~200 MB corpus for a quick local check. Same shape, looser absolute
+# time floors (fixed per-run overheads dominate at this size).
+corpus_mb                     = 200
+node_memory_cap_mb            = 2048
+autoindex_timeout_min         = 6
+min_throughput_mb_s           = 1.5
+max_node_peak_rss_mb          = 2048
+max_client_peak_rss_mb        = 768
+max_state_to_source_ratio     = 1.2
+max_index_plus_state_mb       = 250
+max_indices_per_prefix        = 40
+max_search_p95_ms             = 1000
+max_search_max_ms             = 2000
+max_breaker_trips             = 0
+max_bulk_retries              = 20
+max_restart_s                 = 60
+min_queries_with_hits_pct     = 90
+max_regression_pct            = 20
+
+[tier.1gb]
+# The PR / nightly tier. Runnable in < 20 min on 4 cores.
+corpus_mb                     = 1024
+# Node cap. 3 GB is the cap #2427 was measured with (node hit 3.9 GB). A
+# 1 GB corpus must fit with room to spare; the gate sets
+# XERJ_MAX_PROCESS_MEMORY_MB to this and the RSS ceiling below equals it:
+# the cap is a promise, so exceeding it at all is a failure.
+node_memory_cap_mb            = 3072
+# Hard wall-clock stop for `xerj autoindex` (a hang counts as a failure).
+# 15 min > 1024 MB / 3 MB/s (5.7 min) * 2.5, so only a real stall hits it.
+autoindex_timeout_min         = 15
+# Source MB / autoindex wall seconds. rc.99 on the 5 GB folder managed
+# ~0.2 MB/s (748 MB in 68 min, #2423). The #2423 ask (5 GB in 20 min) is
+# 4.3 MB/s; 3 MB/s at 1 GB leaves headroom for 4-core CI runners and the
+# fixed per-run startup/finalize costs that weigh more on a smaller corpus.
+min_throughput_mb_s           = 3.0
+max_node_peak_rss_mb          = 3072
+# Client RSS. #2424: phase A held several GB; after #2417 the client should
+# be a streaming pipeline, so 1 GB for 1 GB of input is generous.
+max_client_peak_rss_mb        = 1024
+# (state dir bytes) / (source bytes) after the run commits. rc.99: >= 1.6x
+# (8.4 GB for 5 GB, #2421). Resume metadata + journal must stay well under
+# a full copy; 1.2x is the ceiling the release issue asks for.
+max_state_to_source_ratio     = 1.2
+# Absolute backstop on (node data dir + autoindex state dir) in MiB:
+# 1.3 GB, about 1.2x the 1 GB source. ES 9.5.5 force-merged = 1.42x source on
+# this corpus (perf-floor results.md), so this is stricter than ES. It holds
+# even when no engine baseline is available.
+max_index_plus_state_mb       = 1300
+# rc.99 made 454 indices for one folder (#2422). #2430 adds a run cap of
+# 32 datasets plus docs/code indices; 40 leaves slack for those.
+max_indices_per_prefix        = 40
+# Uncached search latency (wall-clock incl. client start for the CLI, HTTP
+# round-trip for raw _search, tools/call round-trip for MCP). rc.99:
+# 13-23 s on 5 GB (#2422). 1 s p95 / 2 s max is what an agent tolerates
+# per call; #2422 targets p95 < 500 ms on 5 GB once fan-out is fixed.
+max_search_p95_ms             = 1000
+max_search_max_ms             = 2000
+# Parent memory circuit breaker engagements in the node log (writes -> 429).
+# #2427: rc.99 tripped it at 7.6 GB, then was OOM-killed. A release build on
+# a 1 GB corpus under a 3 GB cap must never need it.
+max_breaker_trips             = 0
+# Bulk back-pressure events reported by autoindex (bulk_congestion_events,
+# i.e. 429/overload retries) + retry lines in its stderr. A few are normal
+# adaptive-concurrency probing; dozens mean the node cannot keep up.
+max_bulk_retries              = 20
+# Node restart before the search phase (replay/open of every index).
+max_restart_s                 = 60
+# Sanity floor: every query is built from phrases planted in the corpus, so
+# a "fast" search that finds nothing is a failure, not a win.
+min_queries_with_hits_pct     = 90
+# With --baseline: fail when the candidate is worse than the previous
+# release binary by more than this on throughput, search p95, peak RSS
+# (node and client), or state ratio, on the same corpus and machine.
+max_regression_pct            = 20
+
+[tier.5gb]
+# The pre-release tier (v* tags). Mirrors the 5 GB folder of #2421-#2428.
+corpus_mb                     = 5120
+# Same 3 GB cap as 1gb (the #2427 cap). #2423 asked "under 4 GB" for 5 GB;
+# the floor review (2026-10-25) holds the release to 3 GB. rc.99 reached
+# 5.6 GB RSS under a 3072 MB cap in bulk ingest (#2427).
+node_memory_cap_mb            = 3072
+# #2423 ask: "finish in under 20 min"; 30 min is the hard stop.
+autoindex_timeout_min         = 30
+# Absolute backstop. ES default mapping is estimated at 6-9 MiB/s on a 4-vCPU
+# runner, so 3.0 sits at about 0.5x of its low end. The ES ratio below is the real floor.
+min_throughput_mb_s           = 3.0
+max_node_peak_rss_mb          = 3072
+max_client_peak_rss_mb        = 1536
+max_state_to_source_ratio     = 1.2
+# 6.4 GB, about 1.2x of 5 GB source.
+max_index_plus_state_mb       = 6400
+max_indices_per_prefix        = 40
+max_search_p95_ms             = 1000
+max_search_max_ms             = 2000
+max_breaker_trips             = 0
+max_bulk_retries              = 50
+max_restart_s                 = 120
+min_queries_with_hits_pct     = 90
+max_regression_pct            = 20
+
+# ---------------------------------------------------------------------------
+# Engine-relative floors (Ivan, 2026-10-25): index size and indexing time are
+# floored against Lucene/Elasticsearch on the SAME corpus and the SAME runner,
+# so a slower or smaller CI machine moves both sides together.
+#
+# Enabled when the gate gets `--engine-baseline <file.json>`, a JSON object
+# measured on the same corpus (seed + size) and machine:
+#   { "engine": "elasticsearch-8.x", "corpus_mb": 1024, "seed": 2421,
+#     "index_bytes": <store.size after force-merge or final refresh>,
+#     "ingest_mb_s": <source MB / wall seconds to index + refresh>,
+#     "search_p95_ms": <optional, same 60 queries> }
+# scripts/perf/es_baseline.py produces exactly that from a live ES (the
+# workflow runs it against an ES service container), or point it at a
+# results.json written by the floor-measurement harness.
+#
+# Each ratio is xerj / baseline. Values are per tier below; a key left out
+# (or the whole table) disables that check.
+# Measured floor (perf-floor results.md, 2026-10-25, 1 GB seed 2421, 4 cores):
+#   ES 9.5.5 default dynamic mapping, 4 GB heap: 9.05 MiB/s, 1.77x source
+#   refreshed, 1.42x source after force-merge to 1 segment.
+#   Lucene 10.5.1 stored fields on: 25.4 MiB/s, 0.78x source.
+#   xerj rc.99: 0.37-0.59 MiB/s, about 0.04-0.07x ES.
+# index_bytes of the baseline MUST be measured after a force-merge to one
+# segment (es_baseline.py does that). The pre-merge size swings with the
+# segment count.
+[ratio.default]
+# xerj_index_bytes (node data dir) <= k * es_index_bytes (force-merged).
+# 1.0: an index may not cost more disk than ES on the same data.
+max_index_bytes_vs_baseline   = 1.0
+# xerj_ingest_MBps >= k * es_ingest_MBps (ES default mapping, to refreshed
+# and flushed). autoindex does discovery and inference that a bulk load does not,
+# so parity is not required. Stretch goal is 0.8.
+min_ingest_mb_s_vs_baseline   = 0.5
+# xerj search p95 <= k * es search p95 (only if the baseline reports it).
+max_search_p95_vs_baseline    = 1.5
+
+[ratio.smoke]
+# Fixed per-index overhead weighs more at 200 MB.
+max_index_bytes_vs_baseline   = 1.25
+min_ingest_mb_s_vs_baseline   = 0.3
+
+[ratio."1gb"]
+max_index_bytes_vs_baseline   = 1.0
+min_ingest_mb_s_vs_baseline   = 0.5
+max_search_p95_vs_baseline    = 1.5
+
+[ratio."5gb"]
+max_index_bytes_vs_baseline   = 1.0
+min_ingest_mb_s_vs_baseline   = 0.5
+max_search_p95_vs_baseline    = 1.5

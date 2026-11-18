@@ -30,6 +30,8 @@
 use std::collections::{HashMap, HashSet};
 
 use serde_json::{json, Map, Value};
+use xerj_common::types::{FieldType, Schema};
+use xerj_query::ast::QueryNode;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Capability manifest — the single source of truth for "what aggregations exist"
@@ -108,6 +110,7 @@ pub const SUPPORTED_AGG_TYPES: &[&str] = &[
     "top_metrics",
     "value_count",
     "variable_width_histogram",
+    "weighted_avg",
 ];
 
 // ── Field value cache ─────────────────────────────────────────────────────────
@@ -176,6 +179,106 @@ impl<'d> FieldCache<'d> {
 /// ```
 pub fn run_aggs(aggs_def: &Value, docs: &[Value]) -> Value {
     run_aggs_with_all(aggs_def, docs, docs)
+}
+
+thread_local! {
+    /// Mapping/analyzer context for the `filter` and `filters` aggregations
+    /// (#1745), installed by [`run_aggs_with_schema`] for one synchronous
+    /// aggregation. `None` means no schema was supplied and those aggs fall
+    /// back to the legacy `_source`-only matcher.
+    ///
+    /// Scoped to the calling thread for the same reason as
+    /// `BUCKET_CAP_OVERRIDE`: the whole agg evaluator is synchronous and runs
+    /// on the caller's thread, so the value covers exactly the call it was
+    /// installed for and is invisible to a concurrent aggregation elsewhere.
+    static FILTER_SCHEMA: std::cell::RefCell<Option<Schema>> =
+        const { std::cell::RefCell::new(None) };
+}
+
+/// Restores the previous value on drop, so nested calls compose.
+struct FilterSchemaScope(Option<Schema>);
+
+impl FilterSchemaScope {
+    fn install(schema: Option<&Schema>) -> Self {
+        let previous =
+            FILTER_SCHEMA.with(|cell| std::mem::replace(&mut *cell.borrow_mut(), schema.cloned()));
+        Self(previous)
+    }
+}
+
+impl Drop for FilterSchemaScope {
+    fn drop(&mut self) {
+        FILTER_SCHEMA.with(|cell| *cell.borrow_mut() = self.0.take());
+    }
+}
+
+/// [`run_aggs_with_all`] with the index's mapping available to `filter` and
+/// `filters` aggregations (#1745).
+///
+/// Those two aggs evaluate their clauses per document. Without a schema they
+/// used `doc_matches_filter`'s `_source` approximation — `match` was a
+/// substring test, `match: "a b"` was AND rather than ES's default OR, and
+/// `match_phrase` ignored adjacency — so the same clause counted differently
+/// as an aggregation than as a query. With the schema in scope the clause is
+/// evaluated by `doc_matches_query_typed`, the matcher `_search`/`_count`
+/// use, so the two surfaces agree.
+pub fn run_aggs_with_schema(
+    aggs_def: &Value,
+    docs: &[Value],
+    all_docs: &[Value],
+    schema: &Schema,
+) -> Value {
+    let _scope = FilterSchemaScope::install(Some(schema));
+    run_aggs_with_all(aggs_def, docs, all_docs)
+}
+
+/// True when every field the clause targets is a declared `text` field.
+///
+/// Only then does `filter`/`filters` evaluate the clause with the query
+/// matcher; every other clause keeps `doc_matches_filter`. Two boundaries are
+/// deliberate:
+///
+/// * Keyword / numeric / boolean / date / ip clauses are already rewritten by
+///   the API layer's mapping-aware `match` → exact `term`/`terms` rewrite
+///   (`es_compat`), which is the form the legacy matcher answers correctly.
+///   Sending them through the query matcher tokenizes keyword values — the
+///   `filters_bucket.yml` `split_queries_on_whitespace` case counts 5 instead
+///   of ES's 4 that way.
+/// * Aggregation targets resolve field names with the agg-side rule
+///   (`get_nested_field` strips one suffix segment), while
+///   `doc_matches_query_typed` uses the recursive query-side rule. A suffix
+///   alias is not a declared field, so it stays on the agg-side matcher —
+///   `fast_aggs_multifield_suffix` pins that split.
+///
+/// `Bool` and the score wrappers recurse, so a clause that mixes a text leaf
+/// with an exact leaf stays on the legacy matcher rather than evaluating half
+/// of itself with each rule.
+fn clause_targets_only_text(node: &QueryNode, schema: &Schema) -> bool {
+    match node {
+        QueryNode::Match { field, .. }
+        | QueryNode::MatchPhrase { field, .. }
+        | QueryNode::MatchPhrasePrefix { field, .. }
+        | QueryNode::Term { field, .. }
+        | QueryNode::Terms { field, .. } => crate::index::declared_field(schema, field)
+            .is_some_and(|f| matches!(f.field_type, FieldType::Text)),
+        QueryNode::Bool {
+            must,
+            should,
+            must_not,
+            filter,
+            ..
+        } => must
+            .iter()
+            .chain(should)
+            .chain(must_not)
+            .chain(filter)
+            .all(|q| clause_targets_only_text(q, schema)),
+        QueryNode::Constant { query, .. }
+        | QueryNode::Boosted { query, .. }
+        | QueryNode::Named { query, .. } => clause_targets_only_text(query, schema),
+        QueryNode::Boosting { positive, .. } => clause_targets_only_text(positive, schema),
+        _ => false,
+    }
 }
 
 // ── Aggregation bucket cap ────────────────────────────────────────────────────
@@ -279,6 +382,25 @@ pub fn fast_path_aggs_served() -> u64 {
 /// Record that the columnar fast path answered one aggregation request.
 pub(crate) fn note_fast_path_agg() {
     FAST_PATH_AGGS_SERVED.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+}
+
+/// Documents cloned out of segment stored sections into the brute
+/// aggregation corpus. Memtable docs are not counted: that buffer is
+/// flush-bounded. A verify query that stays on the columnar path leaves
+/// this unchanged no matter how many documents the index holds.
+static CORPUS_DOCS_HYDRATED: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+/// Segment documents copied into an owned aggregation corpus since process
+/// start. Read two of these around a search to see whether that search
+/// materialised stored documents.
+pub fn corpus_docs_hydrated() -> u64 {
+    CORPUS_DOCS_HYDRATED.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+pub(crate) fn note_corpus_hydration(n: u64) {
+    if n > 0 {
+        CORPUS_DOCS_HYDRATED.fetch_add(n, std::sync::atomic::Ordering::Relaxed);
+    }
 }
 
 /// Per-call aggregation limits. Passed to [`run_aggs_with_limits`] by callers
@@ -2999,6 +3121,7 @@ fn execute_agg_with_all_cached<'d>(
         "string_stats" => run_string_stats(agg_params, docs),
         "boxplot" => run_boxplot(agg_params, docs),
         "top_metrics" => run_top_metrics(agg_params, docs),
+        "weighted_avg" => run_weighted_avg(agg_params, cache),
         // nested — flatten each parent doc's nested-path array so that
         // doc_count reflects the number of nested objects, and sub-aggs
         // (like `terms` on `courses.name`) see one "doc" per nested entry.
@@ -6539,7 +6662,7 @@ fn run_date_histogram(
 fn run_value_count<'d>(params: &Value, _docs: &'d [Value], cache: &mut FieldCache<'d>) -> Value {
     let field = match params.get("field").and_then(Value::as_str) {
         Some(f) => f,
-        None => return json!({"value": 0}),
+        None => return json!({"value": 0, "__xy_agg__": "value_count"}),
     };
 
     // Count the *number of values* (not docs): a multi-valued field with
@@ -6556,7 +6679,7 @@ fn run_value_count<'d>(params: &Value, _docs: &'d [Value], cache: &mut FieldCach
             count += v.len();
         }
     }
-    json!({ "value": count })
+    json!({ "value": count, "__xy_agg__": "value_count" })
 }
 
 fn get_missing_value(params: &Value) -> Option<f64> {
@@ -6581,6 +6704,110 @@ fn run_avg<'d>(params: &Value, docs: &'d [Value], cache: &mut FieldCache<'d>) ->
         return json!({ "value": avg, "value_as_string": s, "__xy_count__": count, "__xy_sum__": sum });
     }
     json!({ "value": avg, "__xy_count__": count, "__xy_sum__": sum })
+}
+
+/// `weighted_avg`: `sum(value × weight) / sum(weight)` over the bucket.
+///
+/// Both sides are field configs — `{ "field": ..., "missing": <number> }`.
+/// A document with no value for a side is skipped unless that side declares
+/// `missing`. A multi-valued value field contributes every value, each
+/// paired with the document's weight, so the weight enters the denominator
+/// once per value (ES-YAML `aggregations/weighted_avg.yml`, "Multi value
+/// field": `(1+2+3)*2 + (0+1+4)*4` over `3*2 + 3*4` = 16/9).
+///
+/// `sum(weights) == 0` and an empty bucket both yield `value: null`, as ES
+/// does.
+///
+/// A document with a value and more than one weight fails the aggregation,
+/// as ES's `WeightedAvgAggregator#collect` does: there is no single weight to
+/// pair the value with. The failure is embedded in this slot of the result
+/// (`{"error", "__error_status__"}`), which the API turns into the 400 ES
+/// answers. ES only reads the weights of a document that has a value, so a
+/// multi-weight document without one (and no `value.missing`) is skipped.
+/// The API layer still rejects a `weighted_avg` that has no `field`, a
+/// non-numeric `missing`, or a `script` (see `find_invalid_agg_params`).
+fn run_weighted_avg<'d>(params: &Value, cache: &mut FieldCache<'d>) -> Value {
+    let (Some(value_cfg), Some(weight_cfg)) = (params.get("value"), params.get("weight")) else {
+        return weighted_avg_result(0.0, 0.0);
+    };
+    let (Some(value_field), Some(weight_field)) = (
+        value_cfg.get("field").and_then(Value::as_str),
+        weight_cfg.get("field").and_then(Value::as_str),
+    ) else {
+        return weighted_avg_result(0.0, 0.0);
+    };
+    let value_missing = get_missing_value(value_cfg);
+    let weight_missing = get_missing_value(weight_cfg);
+
+    // Both slices are indexed by document. The cache borrows mutably per
+    // lookup, so materialise the value side before asking for the weight side.
+    let values_per_doc: Vec<Vec<f64>> = cache.get_numeric_multi(value_field).to_vec();
+    let weights_per_doc = cache.get_numeric_multi(weight_field);
+
+    let mut weighted_sum = 0.0f64;
+    let mut weight_sum = 0.0f64;
+    for (values, weights) in values_per_doc.iter().zip(weights_per_doc) {
+        if weights.len() > 1 {
+            if values.is_empty() && value_missing.is_none() {
+                continue;
+            }
+            return json!({
+                "error": "Encountered more than one weight for a single document. Use a \
+                          script to combine multiple weights-per-doc into a single value.",
+                "__error_status__": 400u32,
+            });
+        }
+        let value_placeholder: [f64; 1];
+        let values: &[f64] = if values.is_empty() {
+            match value_missing {
+                Some(m) => {
+                    value_placeholder = [m];
+                    &value_placeholder
+                }
+                None => continue,
+            }
+        } else {
+            values
+        };
+        let weight_placeholder: [f64; 1];
+        let weights: &[f64] = if weights.is_empty() {
+            match weight_missing {
+                Some(m) => {
+                    weight_placeholder = [m];
+                    &weight_placeholder
+                }
+                None => continue,
+            }
+        } else {
+            weights
+        };
+        let weight = weights[0];
+        for value in values {
+            weighted_sum += value * weight;
+            weight_sum += weight;
+        }
+    }
+
+    weighted_avg_result(weighted_sum, weight_sum)
+}
+
+/// The response shape for `weighted_avg`.
+///
+/// The internal sums let the API combine this metric across indices
+/// (`merge_metric_agg`): averaging two already-averaged values would be wrong.
+/// `strip_internal_tracking` removes them before the response.
+fn weighted_avg_result(weighted_sum: f64, weight_sum: f64) -> Value {
+    let value = if weight_sum == 0.0 {
+        Value::Null
+    } else {
+        json!(weighted_sum / weight_sum)
+    };
+    json!({
+        "value": value,
+        "__xy_agg__": "weighted_avg",
+        "__xy_weight_sum__": weight_sum,
+        "__xy_weighted_sum__": weighted_sum,
+    })
 }
 
 fn run_sum<'d>(params: &Value, docs: &'d [Value], cache: &mut FieldCache<'d>) -> Value {
@@ -6766,14 +6993,33 @@ fn run_filter(
     // terms lookups are already resolved to concrete arrays before the
     // aggs run (es_compat `resolve_terms_lookups` walks the aggs subtree),
     // so an unresolved lookup object is also correctly caught here.
-    if let Err(e) = xerj_query::parser::parse_query(filter_query) {
-        return json!({"error": format!("failed to parse `filter` aggregation query: {e}")});
-    }
-    let filtered_docs: Vec<Value> = docs
-        .iter()
-        .filter(|doc| doc_matches_filter(doc, filter_query))
-        .cloned()
-        .collect();
+    //
+    // #1745: the parsed AST is reused as the matcher when the index schema
+    // is in scope, so the bucket count and `_search`/`_count` for the same
+    // clause cannot disagree.
+    let parsed = match xerj_query::parser::parse_query(filter_query) {
+        Ok(node) => node,
+        Err(e) => {
+            return json!({"error": format!("failed to parse `filter` aggregation query: {e}")})
+        }
+    };
+    // #1745: only a clause whose targets are all declared text fields uses
+    // the query matcher (see `clause_targets_only_text`).
+    let use_schema = FILTER_SCHEMA.with(|cell| {
+        cell.borrow()
+            .as_ref()
+            .is_some_and(|s| clause_targets_only_text(&parsed, s))
+    });
+    let filtered_docs: Vec<Value> = FILTER_SCHEMA.with(|cell| {
+        let schema = cell.borrow();
+        docs.iter()
+            .filter(|doc| match (use_schema, schema.as_ref()) {
+                (true, Some(s)) => crate::index::doc_matches_query_typed(&parsed, doc, s),
+                _ => doc_matches_filter(doc, filter_query),
+            })
+            .cloned()
+            .collect()
+    });
 
     let doc_count = sum_doc_count(&filtered_docs);
     let mut result = serde_json::Map::new();
@@ -6818,20 +7064,61 @@ fn run_filters(
         None => return json!({"buckets": {}}),
     };
 
-    // #959: same entry validation as `run_filter` — a clause the query
-    // parser rejects must surface as an error, never as a bucket that
-    // counts every document (the old catch-all behaviour). Applies to both
-    // the named map and the anonymous array form.
-    let clauses: Vec<&Value> = match filters_val {
-        Value::Object(map) => map.values().collect(),
-        Value::Array(arr) => arr.iter().collect(),
-        _ => Vec::new(),
-    };
-    for q in clauses {
-        if let Err(e) = xerj_query::parser::parse_query(q) {
-            return json!({"error": format!("failed to parse `filters` aggregation query: {e}")});
+    // #959 (entry validation) and #1745 (one parse serves the rejection and
+    // the schema-aware matcher): reject a clause the query parser rejects
+    // instead of counting it, and keep the AST for the match below.
+    let mut named: Vec<(&String, &Value, QueryNode, bool)> = Vec::new();
+    let mut anonymous: Vec<(&Value, QueryNode, bool)> = Vec::new();
+    match filters_val {
+        Value::Object(map) => {
+            for (name, query) in map {
+                match xerj_query::parser::parse_query(query) {
+                    Ok(node) => named.push((name, query, node, false)),
+                    Err(e) => {
+                        return json!({"error": format!("failed to parse `filters` aggregation query: {e}")})
+                    }
+                }
+            }
         }
+        Value::Array(arr) => {
+            for query in arr {
+                match xerj_query::parser::parse_query(query) {
+                    Ok(node) => anonymous.push((query, node, false)),
+                    Err(e) => {
+                        return json!({"error": format!("failed to parse `filters` aggregation query: {e}")})
+                    }
+                }
+            }
+        }
+        _ => {}
     }
+
+    // Decide once per clause whether the query matcher applies.
+    FILTER_SCHEMA.with(|cell| {
+        if let Some(s) = cell.borrow().as_ref() {
+            for (_, _, node, flag) in named.iter_mut() {
+                *flag = clause_targets_only_text(node, s);
+            }
+            for (_, node, flag) in anonymous.iter_mut() {
+                *flag = clause_targets_only_text(node, s);
+            }
+        }
+    });
+
+    // #1745: with the index schema in scope, a text clause is evaluated by the
+    // same matcher `_search`/`_count` use, so a bucket's doc_count equals the
+    // count of the same clause as a query. Exact-field clauses keep the legacy
+    // `_source` matcher (see `clause_targets_only_text`), and without a schema
+    // (unit tests, the public `run_aggs*` entry points) everything does.
+    let clause_matches = |doc: &Value, raw: &Value, node: &QueryNode, use_schema: bool| -> bool {
+        if !use_schema {
+            return doc_matches_filter(doc, raw);
+        }
+        FILTER_SCHEMA.with(|cell| match cell.borrow().as_ref() {
+            Some(s) => crate::index::doc_matches_query_typed(node, doc, s),
+            None => doc_matches_filter(doc, raw),
+        })
+    };
 
     // ES `keyed` defaults to true for a named `filters` map and false for
     // an anonymous array. `keyed:false` on a named map rewrites to an
@@ -6867,14 +7154,14 @@ fn run_filters(
 
     match filters_val {
         // Named filters: { "name1": { query }, "name2": { query } }
-        Value::Object(map) => {
+        Value::Object(_) => {
             let keyed = keyed_override.unwrap_or(true);
             if keyed {
                 let mut buckets = serde_json::Map::new();
-                for (name, query) in map {
+                for (name, query, node, use_schema) in &named {
                     let filtered: Vec<Value> = docs
                         .iter()
-                        .filter(|doc| doc_matches_filter(doc, query))
+                        .filter(|doc| clause_matches(doc, query, node, *use_schema))
                         .cloned()
                         .collect();
                     let mut bucket = serde_json::Map::new();
@@ -6888,12 +7175,12 @@ fn run_filters(
                             }
                         }
                     }
-                    buckets.insert(name.clone(), Value::Object(bucket));
+                    buckets.insert(name.to_string(), Value::Object(bucket));
                 }
                 if let Some(ok) = &other_key {
                     let other: Vec<Value> = docs
                         .iter()
-                        .filter(|d| !map.values().any(|q| doc_matches_filter(d, q)))
+                        .filter(|d| !named.iter().any(|(_, q, n, u)| clause_matches(d, q, n, *u)))
                         .cloned()
                         .collect();
                     buckets.insert(ok.clone(), Value::Object(other_body(&other)));
@@ -6901,14 +7188,14 @@ fn run_filters(
                 json!({"buckets": buckets})
             } else {
                 let mut buckets: Vec<Value> = Vec::new();
-                for (name, query) in map {
+                for (name, query, node, use_schema) in &named {
                     let filtered: Vec<Value> = docs
                         .iter()
-                        .filter(|doc| doc_matches_filter(doc, query))
+                        .filter(|doc| clause_matches(doc, query, node, *use_schema))
                         .cloned()
                         .collect();
                     let mut bucket = serde_json::Map::new();
-                    bucket.insert("key".to_string(), Value::String(name.clone()));
+                    bucket.insert("key".to_string(), Value::String(name.to_string()));
                     bucket.insert("doc_count".to_string(), json!(sum_doc_count(&filtered)));
                     if let Some(sub) = sub_aggs {
                         let sr =
@@ -6924,7 +7211,7 @@ fn run_filters(
                 if let Some(ok) = &other_key {
                     let other: Vec<Value> = docs
                         .iter()
-                        .filter(|d| !map.values().any(|q| doc_matches_filter(d, q)))
+                        .filter(|d| !named.iter().any(|(_, q, n, u)| clause_matches(d, q, n, *u)))
                         .cloned()
                         .collect();
                     let mut bucket = serde_json::Map::new();
@@ -6938,12 +7225,12 @@ fn run_filters(
             }
         }
         // Anonymous filters: [ { query1 }, { query2 } ]
-        Value::Array(arr) => {
+        Value::Array(_) => {
             let mut buckets: Vec<Value> = Vec::new();
-            for query in arr {
+            for (query, node, use_schema) in &anonymous {
                 let filtered: Vec<Value> = docs
                     .iter()
-                    .filter(|doc| doc_matches_filter(doc, query))
+                    .filter(|doc| clause_matches(doc, query, node, *use_schema))
                     .cloned()
                     .collect();
                 let mut bucket = serde_json::Map::new();
@@ -6961,7 +7248,11 @@ fn run_filters(
             if let Some(ok) = &other_key {
                 let other: Vec<Value> = docs
                     .iter()
-                    .filter(|d| !arr.iter().any(|q| doc_matches_filter(d, q)))
+                    .filter(|d| {
+                        !anonymous
+                            .iter()
+                            .any(|(q, n, u)| clause_matches(d, q, n, *u))
+                    })
                     .cloned()
                     .collect();
                 let mut bucket = serde_json::Map::new();
@@ -7051,13 +7342,27 @@ pub(crate) fn doc_matches_filter(doc: &Value, filter: &Value) -> bool {
                 if let Some(field_map) = query_body.as_object() {
                     for (field, expected) in field_map {
                         let actual_values = extract_field_values(doc, field);
-                        let prefix = match expected {
-                            Value::Object(o) => {
-                                o.get("value").map(value_to_string).unwrap_or_default()
-                            }
-                            other => value_to_string(other),
+                        let (prefix, case_insensitive) = match expected {
+                            Value::Object(o) => (
+                                o.get("value").map(value_to_string).unwrap_or_default(),
+                                o.get("case_insensitive")
+                                    .and_then(Value::as_bool)
+                                    .unwrap_or(false),
+                            ),
+                            other => (value_to_string(other), false),
                         };
-                        if !actual_values.iter().any(|v| v.starts_with(&prefix)) {
+                        // #1812: fold both sides when `case_insensitive` is
+                        // set, mirroring the `wildcard` arm above and the
+                        // keyword branch of `QueryNode::Prefix` (index.rs).
+                        let matched = if case_insensitive {
+                            let prefix_lc = prefix.to_lowercase();
+                            actual_values
+                                .iter()
+                                .any(|v| v.to_lowercase().starts_with(&prefix_lc))
+                        } else {
+                            actual_values.iter().any(|v| v.starts_with(&prefix))
+                        };
+                        if !matched {
                             return false;
                         }
                     }
@@ -7107,11 +7412,14 @@ pub(crate) fn doc_matches_filter(doc: &Value, filter: &Value) -> bool {
                 if let Some(field_map) = query_body.as_object() {
                     for (field, expected) in field_map {
                         let actual_values = extract_field_values(doc, field);
-                        let pattern = match expected {
-                            Value::Object(o) => {
-                                o.get("value").map(value_to_string).unwrap_or_default()
-                            }
-                            other => value_to_string(other),
+                        let (pattern, case_insensitive) = match expected {
+                            Value::Object(o) => (
+                                o.get("value").map(value_to_string).unwrap_or_default(),
+                                o.get("case_insensitive")
+                                    .and_then(Value::as_bool)
+                                    .unwrap_or(false),
+                            ),
+                            other => (value_to_string(other), false),
                         };
                         // #959: `regexp` had no arm at all and fell through
                         // the catch-all ("unknown filter type — pass
@@ -7123,6 +7431,15 @@ pub(crate) fn doc_matches_filter(doc: &Value, filter: &Value) -> bool {
                         // multi-valued field — mirroring `QueryNode::Regexp`
                         // (index.rs). An invalid pattern matches nothing,
                         // same as the doc-scan arm.
+                        // #1812: `case_insensitive` prepends the inline
+                        // `(?i)` flag inside the same anchored compile —
+                        // still a full-string match, mirroring the query
+                        // path's keyword branch.
+                        let pattern = if case_insensitive {
+                            format!("(?i){}", pattern)
+                        } else {
+                            pattern
+                        };
                         let matched = crate::index::compiled_anchored_regex(&pattern)
                             .map(|re| actual_values.iter().any(|v| re.is_match(v)))
                             .unwrap_or(false);
@@ -7157,97 +7474,108 @@ pub(crate) fn doc_matches_filter(doc: &Value, filter: &Value) -> bool {
                         if values.is_empty() {
                             return false;
                         }
-                        // Try numeric range check.
-                        let num_val: Option<f64> = values.first().and_then(|s| s.parse().ok());
-                        if let Some(n) = num_val {
-                            if let Some(gte) = bounds.get("gte").and_then(Value::as_f64) {
-                                if n < gte {
-                                    return false;
-                                }
-                            }
-                            if let Some(gt) = bounds.get("gt").and_then(Value::as_f64) {
-                                if n <= gt {
-                                    return false;
-                                }
-                            }
-                            if let Some(lte) = bounds.get("lte").and_then(Value::as_f64) {
-                                if n > lte {
-                                    return false;
-                                }
-                            }
-                            if let Some(lt) = bounds.get("lt").and_then(Value::as_f64) {
-                                if n >= lt {
-                                    return false;
-                                }
-                            }
-                        } else {
-                            // Non-numeric value — a date or a keyword.  Before
-                            // this branch existed the `if let Some(n)` above
-                            // simply fell through, so a range over a DATE field
-                            // matched **every** document unconditionally: no
-                            // bound was ever compared. That silently inflated
-                            // any date-filtered agg served over memtable-
-                            // resident docs (measured: a one-day window on a
-                            // 1.12 M-doc index reported 135,972 hits instead of
-                            // 40,000 — the whole 95,972-doc memtable admitted
-                            // wholesale).
-                            //
-                            // Dates compare as instants (so `2026-06-17` and
-                            // `2026-06-17T00:00:00.000Z` are the same point);
-                            // anything that is not a date on both sides falls
-                            // back to lexicographic comparison, which is ES's
-                            // keyword-range semantics.
-                            let raw = Value::String(values[0].clone());
-                            let doc_ms = parse_date_ms(&raw);
-                            let bound_ms =
-                                |k: &str| -> Option<i64> { bounds.get(k).and_then(parse_date_ms) };
-                            if let Some(v) = doc_ms {
-                                if let Some(b) = bound_ms("gte") {
-                                    if v < b {
+                        // #1750 — a multi-valued field matches when ANY one
+                        // of its values satisfies EVERY bound (Lucene's
+                        // per-value semantics). Checking only `values[0]`
+                        // dropped a doc whose in-range value was not first.
+                        let in_range = |value: &str| -> bool {
+                            // Try numeric range check.
+                            let num_val: Option<f64> = value.parse().ok();
+                            if let Some(n) = num_val {
+                                if let Some(gte) = bounds.get("gte").and_then(Value::as_f64) {
+                                    if n < gte {
                                         return false;
                                     }
                                 }
-                                if let Some(b) = bound_ms("gt") {
-                                    if v <= b {
+                                if let Some(gt) = bounds.get("gt").and_then(Value::as_f64) {
+                                    if n <= gt {
                                         return false;
                                     }
                                 }
-                                if let Some(b) = bound_ms("lte") {
-                                    if v > b {
+                                if let Some(lte) = bounds.get("lte").and_then(Value::as_f64) {
+                                    if n > lte {
                                         return false;
                                     }
                                 }
-                                if let Some(b) = bound_ms("lt") {
-                                    if v >= b {
+                                if let Some(lt) = bounds.get("lt").and_then(Value::as_f64) {
+                                    if n >= lt {
                                         return false;
                                     }
                                 }
                             } else {
-                                let s = values[0].as_str();
-                                let bound_str = |k: &str| -> Option<&str> {
-                                    bounds.get(k).and_then(Value::as_str)
+                                // Non-numeric value — a date or a keyword.  Before
+                                // this branch existed the `if let Some(n)` above
+                                // simply fell through, so a range over a DATE field
+                                // matched **every** document unconditionally: no
+                                // bound was ever compared. That silently inflated
+                                // any date-filtered agg served over memtable-
+                                // resident docs (measured: a one-day window on a
+                                // 1.12 M-doc index reported 135,972 hits instead of
+                                // 40,000 — the whole 95,972-doc memtable admitted
+                                // wholesale).
+                                //
+                                // Dates compare as instants (so `2026-06-17` and
+                                // `2026-06-17T00:00:00.000Z` are the same point);
+                                // anything that is not a date on both sides falls
+                                // back to lexicographic comparison, which is ES's
+                                // keyword-range semantics.
+                                let raw = Value::String(value.to_string());
+                                let doc_ms = parse_date_ms(&raw);
+                                let bound_ms = |k: &str| -> Option<i64> {
+                                    bounds.get(k).and_then(parse_date_ms)
                                 };
-                                if let Some(b) = bound_str("gte") {
-                                    if s < b {
-                                        return false;
+                                if let Some(v) = doc_ms {
+                                    if let Some(b) = bound_ms("gte") {
+                                        if v < b {
+                                            return false;
+                                        }
                                     }
-                                }
-                                if let Some(b) = bound_str("gt") {
-                                    if s <= b {
-                                        return false;
+                                    if let Some(b) = bound_ms("gt") {
+                                        if v <= b {
+                                            return false;
+                                        }
                                     }
-                                }
-                                if let Some(b) = bound_str("lte") {
-                                    if s > b {
-                                        return false;
+                                    if let Some(b) = bound_ms("lte") {
+                                        if v > b {
+                                            return false;
+                                        }
                                     }
-                                }
-                                if let Some(b) = bound_str("lt") {
-                                    if s >= b {
-                                        return false;
+                                    if let Some(b) = bound_ms("lt") {
+                                        if v >= b {
+                                            return false;
+                                        }
+                                    }
+                                } else {
+                                    let s = value;
+                                    let bound_str = |k: &str| -> Option<&str> {
+                                        bounds.get(k).and_then(Value::as_str)
+                                    };
+                                    if let Some(b) = bound_str("gte") {
+                                        if s < b {
+                                            return false;
+                                        }
+                                    }
+                                    if let Some(b) = bound_str("gt") {
+                                        if s <= b {
+                                            return false;
+                                        }
+                                    }
+                                    if let Some(b) = bound_str("lte") {
+                                        if s > b {
+                                            return false;
+                                        }
+                                    }
+                                    if let Some(b) = bound_str("lt") {
+                                        if s >= b {
+                                            return false;
+                                        }
                                     }
                                 }
                             }
+                            true
+                        };
+                        if !values.iter().any(|v| in_range(v)) {
+                            return false;
                         }
                     }
                 }
@@ -7424,23 +7752,31 @@ fn run_range(
             let bucket_docs: Vec<Value> = docs
                 .iter()
                 .filter(|doc| {
-                    let num = if is_date_range {
+                    // A multi-valued field contributes the document to a bucket
+                    // when ANY of its values falls in range (ES value-source
+                    // semantics). This used to read the first value only
+                    // (`extract_numeric`/`.first()`), so [22, 8080] counted in
+                    // `[.., 100)` and vanished from `[8000, 9000)`.
+                    let mut values: Vec<f64> = if is_date_range {
                         extract_date_ms_values(doc, field)
-                            .first()
-                            .copied()
+                            .into_iter()
                             .map(|ms| ms as f64)
+                            .collect()
                     } else {
-                        extract_numeric(doc, field)
+                        extract_numeric_values(doc, field)
                     };
-                    // Fall back to `missing` for docs without a value.
-                    let num = num.or(missing_val);
-                    match (num, from, to) {
-                        (Some(n), Some(f), Some(t)) => n >= f && n < t,
-                        (Some(n), Some(f), None) => n >= f,
-                        (Some(n), None, Some(t)) => n < t,
-                        (Some(_), None, None) => true,
-                        _ => false,
+                    // `missing` applies only to a document with NO value.
+                    if values.is_empty() {
+                        if let Some(m) = missing_val {
+                            values.push(m);
+                        }
                     }
+                    values.iter().any(|n| match (from, to) {
+                        (Some(f), Some(t)) => *n >= f && *n < t,
+                        (Some(f), None) => *n >= f,
+                        (None, Some(t)) => *n < t,
+                        (None, None) => true,
+                    })
                 })
                 .cloned()
                 .collect();
@@ -7669,14 +8005,20 @@ fn run_histogram(
     } else {
         let data_min = buckets.keys().min().copied();
         let data_max = buckets.keys().max().copied();
-        let min_key = extended_min
-            .map(|v| ((v - offset) / interval).floor() as i64)
-            .or(data_min)
-            .unwrap_or(0);
-        let max_key = extended_max
-            .map(|v| ((v - offset) / interval).floor() as i64)
-            .or(data_max)
-            .unwrap_or(0);
+        // #1819: `extended_bounds` only ADDS empty buckets — the fill range
+        // is the wider of the bounds and the data, so a bound inside the data
+        // never drops a bucket that holds documents (only `hard_bounds`, below,
+        // does). `date_histogram` widens the same way (`range_min.min(key)`).
+        let ext_min_key = extended_min.map(|v| ((v - offset) / interval).floor() as i64);
+        let ext_max_key = extended_max.map(|v| ((v - offset) / interval).floor() as i64);
+        let min_key = match (ext_min_key, data_min) {
+            (Some(e), Some(d)) => e.min(d),
+            (e, d) => e.or(d).unwrap_or(0),
+        };
+        let max_key = match (ext_max_key, data_max) {
+            (Some(e), Some(d)) => e.max(d),
+            (e, d) => e.or(d).unwrap_or(0),
+        };
         // Guard against pathological inputs (tiny intervals with a wide
         // numeric span — a few billion buckets would DoS the process).
         // ES rejects aggs that exceed `search.max_buckets` (default 65536).
@@ -7910,7 +8252,12 @@ fn run_percentiles(params: &Value, docs: &[Value]) -> Value {
         .get("hdr")
         .and_then(|v| v.get("number_of_significant_value_digits"))
         .and_then(Value::as_u64)
-        .unwrap_or(3) as u32;
+        .unwrap_or(3)
+        // ES bounds this to 0..=5. Past 18 `10^digits` overflows `u64` (it
+        // wraps in release) and the power-of-two loop below never ends, so
+        // clamp here too: agg definitions also reach the engine without the
+        // HTTP validator (MCP, msearch, async search, watchers).
+        .min(5) as u32;
     // subBucketCount = 2^ceil(log2(2 * 10^digits)). For digits=3 that's 2048.
     let sub_bucket_count: u64 = {
         let target = 2u64 * 10u64.pow(hdr_digits);
@@ -8446,44 +8793,60 @@ fn run_composite(
             parts.next().unwrap_or(0),
         )
     }
-    let mut sorted_keys: Vec<Vec<String>> = bucket_map.keys().cloned().collect();
-    sorted_keys.sort_by(|a, b| {
+    // Use exactly the same ordering for the initial sort and cursor filtering.
+    // Explicit missing_order is absolute; only the default follows direction.
+    let cmp_parts = |a: &[String], b: &[String]| -> std::cmp::Ordering {
         use std::cmp::Ordering;
         for i in 0..a.len().min(b.len()) {
             let (av, bv) = (&a[i], &b[i]);
-            let null_cmp = match missing_orders.get(i).copied().unwrap_or("default") {
-                "first" => (Ordering::Less, Ordering::Greater),
-                "last" => (Ordering::Greater, Ordering::Less),
-                _ => (Ordering::Less, Ordering::Greater), // "default" — first
+            let asc = orders.get(i).copied().unwrap_or(true);
+            let null_first = match missing_orders.get(i).copied().unwrap_or("default") {
+                "first" => true,
+                "last" => false,
+                _ => asc,
             };
-            let cmp = if av == "__null__" && bv == "__null__" {
-                Ordering::Equal
-            } else if av == "__null__" {
-                null_cmp.0
-            } else if bv == "__null__" {
-                null_cmp.1
-            } else if geotile_src.get(i).copied().unwrap_or(false) {
-                // Geotile keys sort by (zoom, x, y) numerically.
-                geotile_parse(av).cmp(&geotile_parse(bv))
-            } else {
-                composite_part_cmp(
-                    kinds.get(i).copied().unwrap_or(CompositeKeyKind::Heuristic),
-                    numeric_src.get(i).copied().unwrap_or(false),
-                    av,
-                    bv,
-                )
-            };
-            let cmp = if orders.get(i).copied().unwrap_or(true) {
-                cmp
-            } else {
-                cmp.reverse()
+            let cmp = match (av == "__null__", bv == "__null__") {
+                (true, true) => Ordering::Equal,
+                (true, false) => {
+                    if null_first {
+                        Ordering::Less
+                    } else {
+                        Ordering::Greater
+                    }
+                }
+                (false, true) => {
+                    if null_first {
+                        Ordering::Greater
+                    } else {
+                        Ordering::Less
+                    }
+                }
+                (false, false) => {
+                    let cmp = if geotile_src.get(i).copied().unwrap_or(false) {
+                        geotile_parse(av).cmp(&geotile_parse(bv))
+                    } else {
+                        composite_part_cmp(
+                            kinds.get(i).copied().unwrap_or(CompositeKeyKind::Heuristic),
+                            numeric_src.get(i).copied().unwrap_or(false),
+                            av,
+                            bv,
+                        )
+                    };
+                    if asc {
+                        cmp
+                    } else {
+                        cmp.reverse()
+                    }
+                }
             };
             if cmp != Ordering::Equal {
                 return cmp;
             }
         }
         a.len().cmp(&b.len())
-    });
+    };
+    let mut sorted_keys: Vec<Vec<String>> = bucket_map.keys().cloned().collect();
+    sorted_keys.sort_by(|a, b| cmp_parts(a, b));
 
     // Filter by `after` param for pagination: drop every key <= after-key.
     if let Some(after_obj) = params.get("after").and_then(Value::as_object) {
@@ -8561,40 +8924,6 @@ fn run_composite(
                     .unwrap_or_default()
             })
             .collect();
-        // Compare keys against `after` using the same per-source
-        // numeric/lex semantics as the sort — otherwise `after: {long: 20}`
-        // would keep keys like `"100"` before `"20"` lexicographically.
-        let cmp_parts = |a: &[String], b: &[String]| -> std::cmp::Ordering {
-            use std::cmp::Ordering;
-            for i in 0..a.len().min(b.len()) {
-                let (av, bv) = (&a[i], &b[i]);
-                let c = if av == "__null__" && bv == "__null__" {
-                    Ordering::Equal
-                } else if av == "__null__" {
-                    Ordering::Less
-                } else if bv == "__null__" {
-                    Ordering::Greater
-                } else if geotile_src.get(i).copied().unwrap_or(false) {
-                    geotile_parse(av).cmp(&geotile_parse(bv))
-                } else {
-                    composite_part_cmp(
-                        kinds.get(i).copied().unwrap_or(CompositeKeyKind::Heuristic),
-                        numeric_src.get(i).copied().unwrap_or(false),
-                        av,
-                        bv,
-                    )
-                };
-                let c = if orders.get(i).copied().unwrap_or(true) {
-                    c
-                } else {
-                    c.reverse()
-                };
-                if c != Ordering::Equal {
-                    return c;
-                }
-            }
-            a.len().cmp(&b.len())
-        };
         sorted_keys.retain(|k| cmp_parts(k, &after_key) == std::cmp::Ordering::Greater);
     }
     sorted_keys.truncate(size);
@@ -8691,9 +9020,29 @@ fn run_composite(
                 }
             }
 
+            // Keep a canonical, typed identity for cross-index reduction.
+            // Formatted date keys may be non-monotone or even lossy; the HTTP
+            // layer removes this internal field before returning the result.
+            let raw_key: Vec<Value> = source_defs
+                .iter()
+                .enumerate()
+                .map(|(i, (_, src_type, _, _))| {
+                    let val = &key[i];
+                    if val == "__null__" {
+                        Value::Null
+                    } else if src_type == "date_histogram" || src_type == "histogram" {
+                        composite_typed_key_value(CompositeKeyKind::Heuristic, val)
+                    } else if src_type == "terms" {
+                        composite_typed_key_value(kinds[i], val)
+                    } else {
+                        Value::String(val.clone())
+                    }
+                })
+                .collect();
             let mut bucket = json!({
                 "key": Value::Object(key_obj),
-                "doc_count": doc_count
+                "doc_count": doc_count,
+                "__xy_composite_key__": raw_key
             });
 
             if let Some(sub) = sub_aggs {
@@ -11783,11 +12132,12 @@ pub fn run_agg_fast_filtered(
 /// `extended_stats` — same as `stats` plus `std_deviation`, `variance`,
 /// `std_deviation_bounds` (upper/lower), and `sum_of_squares`.
 fn run_extended_stats<'d>(params: &Value, _docs: &'d [Value], cache: &mut FieldCache<'d>) -> Value {
+    let sigma = params.get("sigma").and_then(Value::as_f64).unwrap_or(2.0);
     let field = match params.get("field").and_then(Value::as_str) {
         Some(f) => f,
         None => {
             return json!({
-                "count": 0, "min": Value::Null, "max": Value::Null,
+                "__xy_sigma__": sigma, "count": 0, "min": Value::Null, "max": Value::Null,
                 "avg": Value::Null, "sum": 0.0, "sum_of_squares": 0.0,
                 "variance": Value::Null, "std_deviation": Value::Null,
                 "std_deviation_bounds": { "upper": Value::Null, "lower": Value::Null }
@@ -11806,7 +12156,7 @@ fn run_extended_stats<'d>(params: &Value, _docs: &'d [Value], cache: &mut FieldC
         // order moment as null when there are no values to compute it
         // from. Note: sum_of_squares is null, not 0, per ES.
         return json!({
-            "count": 0, "min": Value::Null, "max": Value::Null,
+            "__xy_sigma__": sigma, "count": 0, "min": Value::Null, "max": Value::Null,
             "avg": Value::Null, "sum": 0.0, "sum_of_squares": Value::Null,
             "variance": Value::Null, "variance_population": Value::Null,
             "variance_sampling": Value::Null,
@@ -11839,9 +12189,8 @@ fn run_extended_stats<'d>(params: &Value, _docs: &'d [Value], cache: &mut FieldC
     };
     let std_deviation = variance_pop.max(0.0).sqrt();
     let std_deviation_samp = variance_samp.max(0.0).sqrt();
-    let sigma = params.get("sigma").and_then(Value::as_f64).unwrap_or(2.0);
-
     json!({
+        "__xy_sigma__": sigma,
         "count": count,
         "min": min,
         "max": max,
@@ -12263,6 +12612,11 @@ fn run_date_range(
     // RFC3339/ISO-ish strings, so formats like `dd-MM-yyyy` need
     // format-aware parsing to yield a valid ms timestamp.
     let parse_with_fmt = |val: &Value| -> Option<i64> {
+        // `now-30d/d` is date math, which parse_date_ms doesn't read.
+        if let Some(math) = val.as_str().filter(|s| s.trim_start().starts_with("now")) {
+            let resolved = xerj_query::dates::resolve_date_bound_str(math, false, None).ok()??;
+            return parse_date_ms(&Value::String(resolved));
+        }
         // Epoch formats interpret raw numbers as seconds / milliseconds.
         // parse_date_ms would otherwise return the number as-is (always
         // treating it as millis), which for `format: epoch_second` is
@@ -12338,13 +12692,27 @@ fn run_date_range(
                 // Doc values honor the field-declared format too: a doc
                 // stored as `{date: 1000}` under `format: epoch_second`
                 // means 1000 seconds = 1 000 000 ms.
-                let doc_ms = match v.and_then(&parse_with_fmt).or(missing_ms) {
-                    Some(m) => m,
-                    None => return false,
+                //
+                // A multi-valued field contributes the document when ANY of
+                // its values falls in range (ES value-source semantics); the
+                // array used to be handed to `parse_with_fmt` whole, which
+                // could not parse it, so every array-valued document was
+                // silently missed.
+                let mut values: Vec<i64> = match v {
+                    Some(Value::Array(arr)) => arr.iter().filter_map(&parse_with_fmt).collect(),
+                    Some(single) => parse_with_fmt(single).into_iter().collect(),
+                    None => Vec::new(),
                 };
-                let passes_from = from_ms.map(|f| doc_ms >= f).unwrap_or(true);
-                let passes_to = to_ms.map(|t| doc_ms < t).unwrap_or(true);
-                passes_from && passes_to
+                if values.is_empty() {
+                    if let Some(m) = missing_ms {
+                        values.push(m);
+                    }
+                }
+                values.iter().any(|ms| {
+                    let passes_from = from_ms.map(|f| *ms >= f).unwrap_or(true);
+                    let passes_to = to_ms.map(|t| *ms < t).unwrap_or(true);
+                    passes_from && passes_to
+                })
             })
             .cloned()
             .collect();
@@ -13985,21 +14353,27 @@ fn run_ip_range(
                 let val = doc
                     .get(field)
                     .or_else(|| doc.get("_source").and_then(|s| s.get(field)));
-                let ip_str = match val.and_then(Value::as_str) {
-                    Some(s) => s,
-                    None => return false,
+                // A multi-valued ip field contributes the document when ANY
+                // of its addresses falls in range (ES value-source
+                // semantics); the previous `Value::as_str` read returned None
+                // for an array, so array-valued documents were missed.
+                let addrs: Vec<&str> = match val {
+                    Some(Value::Array(arr)) => arr.iter().filter_map(Value::as_str).collect(),
+                    Some(Value::String(s)) => vec![s.as_str()],
+                    _ => Vec::new(),
                 };
-                if let Some(m) = mask {
-                    cidr_matches(ip_str, m)
-                } else {
-                    let ip_u = match ip_as_u128(ip_str) {
-                        Some(v) => v,
-                        None => return false,
-                    };
-                    let passes_from = from_u.map(|f| ip_u >= f).unwrap_or(true);
-                    let passes_to = to_u.map(|t| ip_u < t).unwrap_or(true);
-                    passes_from && passes_to
-                }
+                addrs.iter().any(|ip_str| {
+                    if let Some(m) = mask {
+                        cidr_matches(ip_str, m)
+                    } else {
+                        let Some(ip_u) = ip_as_u128(ip_str) else {
+                            return false;
+                        };
+                        let passes_from = from_u.map(|f| ip_u >= f).unwrap_or(true);
+                        let passes_to = to_u.map(|t| ip_u < t).unwrap_or(true);
+                        passes_from && passes_to
+                    }
+                })
             })
             .cloned()
             .collect();
@@ -14066,6 +14440,24 @@ mod tests {
     use super::*;
     use serde_json::json;
 
+    /// FAIL-BEFORE: `2 * 10^20` wraps `u64` to a value above 2^63, so the
+    /// power-of-two rounding loop shifted `p` to 0 and spun forever. Run on a
+    /// side thread so a regression fails on the timeout instead of hanging.
+    #[test]
+    fn hdr_out_of_range_digits_terminate() {
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let docs = vec![json!({ "n": 1 }), json!({ "n": 51 }), json!({ "n": 151 })];
+            let params = json!({"field": "n", "percents": [50],
+                                "hdr": {"number_of_significant_value_digits": 20}});
+            let _ = tx.send(run_percentiles(&params, &docs));
+        });
+        let out = rx
+            .recv_timeout(std::time::Duration::from_secs(10))
+            .expect("run_percentiles must return for out-of-range hdr digits");
+        assert!(out.get("values").is_some(), "{out}");
+    }
+
     #[test]
     fn multivalued_numeric_metric_aggs_use_all_values() {
         // ES aggregates over EVERY value of a multi-valued field; the old path
@@ -14109,6 +14501,109 @@ mod tests {
             rd["mn"]["value_as_string"].is_string(),
             "date min_as_string: {rd:?}"
         );
+    }
+
+    /// FAIL-BEFORE: `weighted_avg` was accepted by the request path and fell
+    /// through to the dispatch catch-all, so the response carried
+    /// `{"error": "unsupported aggregation type 'weighted_avg'"}` inside a
+    /// 200. The ES-YAML cases only asserted `close_to`, which treats a missing
+    /// value as NaN and passes vacuously — so the suite was green while the
+    /// aggregation did nothing. These assertions are the same arithmetic the
+    /// fixture expects, computed for real.
+    #[test]
+    fn weighted_avg_matches_es_semantics() {
+        // aggregations/weighted_avg.yml "Basic test" corpus.
+        let docs = vec![
+            json!({"double_field": 1.0, "long_field": 6, "integer_field": 10,
+                   "multi_value_field": [1, 2, 3], "weight": 2}),
+            json!({"double_field": 3.0, "long_field": 2,
+                   "multi_value_field": [0, 1, 4], "weight": 4}),
+            json!({"double_field": 1.0, "long_field": 1}),
+            json!({"double_field": 5.0, "long_field": 3, "integer_field": 4, "weight": 3}),
+        ];
+        let close = |a: Option<f64>, b: f64| a.is_some_and(|v| (v - b).abs() < 1e-6);
+        let wa = |value: Value, weight: Value| {
+            run_aggs(
+                &json!({"w": {"weighted_avg": {"value": value, "weight": weight}}}),
+                &docs,
+            )
+        };
+
+        // (6*2 + 2*4 + 3*3) / (2+4+3); doc 3 has no weight and is skipped.
+        let r = wa(json!({"field": "long_field"}), json!({"field": "weight"}));
+        assert!(close(r["w"]["value"].as_f64(), 29.0 / 9.0), "{r}");
+
+        // (10*2 + 4*3) / (2+3); integer_field is absent on docs 2 and 3.
+        let r = wa(
+            json!({"field": "integer_field"}),
+            json!({"field": "weight"}),
+        );
+        assert!(close(r["w"]["value"].as_f64(), 6.4), "{r}");
+
+        // value.missing substitutes 2 for docs 2 and 3.
+        let r = wa(
+            json!({"field": "integer_field", "missing": 2}),
+            json!({"field": "weight"}),
+        );
+        assert!(close(r["w"]["value"].as_f64(), 40.0 / 9.0), "{r}");
+
+        // weight.missing makes doc 3 contribute (1*4); denominator 13.
+        let r = wa(
+            json!({"field": "long_field"}),
+            json!({"field": "weight", "missing": 4}),
+        );
+        assert!(close(r["w"]["value"].as_f64(), 33.0 / 13.0), "{r}");
+
+        // Multi-valued value: each value is paired with the doc weight and the
+        // weight enters the denominator once per value.
+        let r = wa(
+            json!({"field": "multi_value_field"}),
+            json!({"field": "weight"}),
+        );
+        assert!(close(r["w"]["value"].as_f64(), 32.0 / 18.0), "{r}");
+
+        // Every weight is zero (unknown field + missing 0) -> null, not NaN.
+        let r = wa(
+            json!({"field": "integer_field"}),
+            json!({"field": "unknown", "missing": 0}),
+        );
+        assert_eq!(r["w"]["value"], Value::Null, "{r}");
+
+        // Empty bucket -> null.
+        let empty = run_aggs(
+            &json!({"w": {"weighted_avg": {"value": {"field": "n"},
+                                           "weight": {"field": "weight"}}}}),
+            &[],
+        );
+        assert_eq!(empty["w"]["value"], Value::Null, "{empty}");
+    }
+
+    /// FAIL-BEFORE: the document carrying several weights was skipped and
+    /// the aggregation answered 10 (from the one single-weight document).
+    #[test]
+    fn weighted_avg_refuses_a_multi_valued_weight() {
+        let wa = |value: Value, docs: &[Value]| {
+            run_aggs(
+                &json!({"w": {"weighted_avg": {"value": value, "weight": {"field": "w"}}}}),
+                docs,
+            )
+        };
+        let reason = "Encountered more than one weight for a single document. Use a script \
+                      to combine multiple weights-per-doc into a single value.";
+
+        let docs = [json!({"n": 1, "w": [1, 2]}), json!({"n": 10, "w": 3})];
+        let r = wa(json!({"field": "n"}), &docs);
+        assert_eq!(r["w"]["error"], reason, "{r}");
+        assert_eq!(r["w"]["__error_status__"], json!(400), "{r}");
+
+        // ES only reads the weights of a document that has a value, so one
+        // without a value is skipped as before ...
+        let docs = [json!({"w": [1, 2]}), json!({"n": 10, "w": 3})];
+        let r = wa(json!({"field": "n"}), &docs);
+        assert_eq!(r["w"]["value"].as_f64(), Some(10.0), "{r}");
+        // ... unless `value.missing` gives it one.
+        let r = wa(json!({"field": "n", "missing": 5}), &docs);
+        assert_eq!(r["w"]["error"], reason, "{r}");
     }
 
     #[test]
@@ -15139,7 +15634,151 @@ mod tests {
         assert_eq!(result["t"]["sum_other_doc_count"], 6);
     }
 
+    #[test]
+    fn multi_index_metric_primitives_survive_slow_execution() {
+        let docs = [json!({"n": 1.0}), json!({"n": 2.0})];
+        for docs in [&docs[..], &[][..]] {
+            let result = run_aggs(
+                &json!({
+                    "e": {"extended_stats": {"field": "n", "sigma": 3.0}},
+                    "v": {"value_count": {"field": "n"}},
+                    "missing": {"value_count": {"field": "absent"}}
+                }),
+                docs,
+            );
+            assert_eq!(result["e"]["__xy_sigma__"], 3.0);
+            assert_eq!(result["v"]["__xy_agg__"], "value_count");
+            assert_eq!(result["v"]["value"], docs.len());
+            assert_eq!(result["missing"]["__xy_agg__"], "value_count");
+            assert_eq!(result["missing"]["value"], 0);
+        }
+    }
+
     // ── RC4-W2 item 7: composite key typing from the field mapping ──────
+
+    #[test]
+    fn composite_canonical_keys_preserve_formatted_date_identity() {
+        let docs = vec![
+            json!({"ts":"2024-01-02T00:00:00Z"}),
+            json!({"ts":"2023-12-31T00:00:00Z"}),
+        ];
+        let result = run_aggs(
+            &json!({"c":{"composite":{"sources":[{"d":{"date_histogram":{"field":"ts","calendar_interval":"1d","format":"dd-MM-yyyy"}}}]}}}),
+            &docs,
+        );
+        let buckets = result["c"]["buckets"].as_array().unwrap();
+        assert_eq!(buckets.len(), 2);
+        assert_eq!(buckets[0]["key"]["d"], "31-12-2023");
+        assert_eq!(buckets[0]["__xy_composite_key__"][0], 1703980800000i64);
+        assert_eq!(buckets[1]["key"]["d"], "02-01-2024");
+        assert_eq!(buckets[1]["__xy_composite_key__"][0], 1704153600000i64);
+    }
+
+    #[test]
+    fn composite_missing_order_is_absolute_and_pages_match_full_result() {
+        let docs = vec![json!({"tag":"1"}), json!({"tag":"2"}), json!({})];
+        for order in ["asc", "desc"] {
+            for missing_order in ["first", "last", "default"] {
+                let mut spec = json!({"size":10,"sources":[{"tag":{"terms":{
+                    "field":"tag","order":order,"missing_bucket":true,"missing_order":missing_order
+                }}}],"__xy_field_types__":{"tag":"keyword"}});
+                let result = run_aggs(&json!({"c":{"composite":spec}}), &docs);
+                let full: Vec<Value> = result["c"]["buckets"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|b| b["key"]["tag"].clone())
+                    .collect();
+                let mut expected = if order == "asc" {
+                    vec![json!("1"), json!("2")]
+                } else {
+                    vec![json!("2"), json!("1")]
+                };
+                if missing_order == "first" || (missing_order == "default" && order == "asc") {
+                    expected.insert(0, Value::Null);
+                } else {
+                    expected.push(Value::Null);
+                }
+                assert_eq!(full, expected, "{order}/{missing_order}");
+                spec["size"] = json!(1);
+                let mut paged = Vec::new();
+                for _ in 0..4 {
+                    let page = run_aggs(&json!({"c":{"composite":spec}}), &docs);
+                    let buckets = page["c"]["buckets"].as_array().unwrap();
+                    if buckets.is_empty() {
+                        break;
+                    }
+                    paged.push(buckets[0]["key"]["tag"].clone());
+                    spec["after"] = page["c"]["after_key"].clone();
+                }
+                assert_eq!(paged, expected, "pagination {order}/{missing_order}");
+            }
+        }
+    }
+
+    #[test]
+    fn composite_missing_order_multisource_pages_preserve_lexicographic_order() {
+        let values = [Value::Null, json!(2), json!(10)];
+        let mut docs = Vec::new();
+        for a in &values {
+            for b in &values {
+                let mut doc = json!({});
+                if !a.is_null() {
+                    doc["a"] = a.clone();
+                }
+                if !b.is_null() {
+                    doc["b"] = b.clone();
+                }
+                docs.push(doc);
+            }
+        }
+        fn ordered(order: &str, missing: &str) -> Vec<Value> {
+            let mut v = if order == "asc" {
+                vec![json!(2), json!(10)]
+            } else {
+                vec![json!(10), json!(2)]
+            };
+            if missing == "first" || (missing == "default" && order == "asc") {
+                v.insert(0, Value::Null);
+            } else {
+                v.push(Value::Null);
+            }
+            v
+        }
+        for oa in ["asc", "desc"] {
+            for ob in ["asc", "desc"] {
+                for ma in ["first", "last", "default"] {
+                    for mb in ["first", "last", "default"] {
+                        let mut expected = Vec::new();
+                        for a in ordered(oa, ma) {
+                            for b in ordered(ob, mb) {
+                                expected.push(json!({"a": a, "b": b}));
+                            }
+                        }
+                        for size in [1, 2, 4, 20] {
+                            let mut spec = json!({"size": size, "sources": [
+                                {"a": {"terms": {"field":"a", "order":oa,
+                                    "missing_bucket":true, "missing_order":ma}}},
+                                {"b": {"terms": {"field":"b", "order":ob,
+                                    "missing_bucket":true, "missing_order":mb}}}
+                            ], "__xy_field_types__": {"a":"long", "b":"long"}});
+                            let mut found = Vec::new();
+                            for _ in 0..11 {
+                                let page = run_aggs(&json!({"c":{"composite":spec}}), &docs);
+                                let buckets = page["c"]["buckets"].as_array().unwrap();
+                                if buckets.is_empty() {
+                                    break;
+                                }
+                                found.extend(buckets.iter().map(|b| b["key"].clone()));
+                                spec["after"] = page["c"]["after_key"].clone();
+                            }
+                            assert_eq!(found, expected, "{oa}/{ma}, {ob}/{mb}, size {size}");
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     #[test]
     fn composite_keyword_keys_stay_strings_and_sort_lexicographically() {
@@ -15373,6 +16012,31 @@ mod tests {
             Some(5),
             "a span exactly at the cap must still be served, got {ok}"
         );
+    }
+}
+
+#[cfg(test)]
+mod date_range_math_tests {
+    use super::run_date_range;
+    use serde_json::json;
+
+    #[test]
+    fn date_math_bounds_split_the_documents() {
+        let now = chrono::Utc::now();
+        let old = (now - chrono::Duration::days(40)).to_rfc3339();
+        let recent = (now - chrono::Duration::days(2)).to_rfc3339();
+        let docs = vec![json!({"ts": old}), json!({"ts": recent})];
+        let params = json!({"field": "ts", "ranges": [{"to": "now-30d/d"}, {"from": "now-30d/d"}]});
+
+        let out = run_date_range(&params, None, &docs, &docs);
+
+        let counts: Vec<i64> = out["buckets"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|b| b["doc_count"].as_i64().unwrap())
+            .collect();
+        assert_eq!(counts, vec![1, 1]);
     }
 }
 
@@ -15633,6 +16297,131 @@ mod wildcard_regexp_filter_tests {
             filters_out.get("error").is_some(),
             "run_filters must return an error object, got {filters_out}"
         );
+    }
+}
+
+/// #1745: filter / filters aggs must apply the same analyzer token rules as
+/// `_count` for match / term / match_phrase. Cases from #1748
+/// (@gyanu2507), run through the mapping-aware path from #1752: only clauses
+/// on declared `text` fields are analyzed, while `keyword` values are matched
+/// whole, so a multi-word keyword value never matches one of its words.
+#[cfg(test)]
+mod match_term_phrase_filter_tests {
+    use super::run_aggs_with_schema;
+    use serde_json::{json, Value};
+    use xerj_common::types::{FieldConfig, FieldType, Schema};
+
+    fn schema() -> Schema {
+        let mut schema = Schema::empty();
+        schema
+            .fields
+            .push(FieldConfig::new("title", FieldType::Text));
+        schema
+            .fields
+            .push(FieldConfig::new("tag", FieldType::Keyword));
+        schema
+    }
+
+    fn books() -> Vec<Value> {
+        vec![
+            json!({"title": "lazy dog sleeps", "tag": "new york"}),
+            json!({"title": "Quick dogs run", "tag": "york"}),
+            json!({"title": "the fox and the dog", "tag": "New York"}),
+        ]
+    }
+
+    /// `doc_count` of a single `filter` agg over `books()`.
+    fn filter_count(clause: Value) -> Option<u64> {
+        let docs = books();
+        let out = run_aggs_with_schema(&json!({"f": {"filter": clause}}), &docs, &docs, &schema());
+        out["f"]["doc_count"].as_u64()
+    }
+
+    #[test]
+    fn match_on_text_is_token_equality_not_substring() {
+        // "dogs" is its own token: `dog` must not match it.
+        assert_eq!(filter_count(json!({"match": {"title": "dog"}})), Some(2));
+        assert_eq!(filter_count(json!({"match": {"title": "DOG"}})), Some(2));
+    }
+
+    #[test]
+    fn match_multi_term_defaults_to_or_and_honours_operator_and() {
+        assert_eq!(
+            filter_count(json!({"match": {"title": "quick fox"}})),
+            Some(2)
+        );
+        assert_eq!(
+            filter_count(json!({"match": {"title": {"query": "quick fox", "operator": "and"}}})),
+            Some(0)
+        );
+        assert_eq!(
+            filter_count(json!({"match": {"title": {"query": "fox dog", "operator": "and"}}})),
+            Some(1)
+        );
+    }
+
+    #[test]
+    fn match_phrase_requires_adjacency_and_honours_slop() {
+        assert_eq!(
+            filter_count(json!({"match_phrase": {"title": "fox dog"}})),
+            Some(0),
+            "fox … and the … dog is not adjacent"
+        );
+        assert_eq!(
+            filter_count(json!({"match_phrase": {"title": "fox and"}})),
+            Some(1)
+        );
+        assert_eq!(
+            filter_count(json!({"match_phrase": {"title": "the fox and the dog"}})),
+            Some(1)
+        );
+        // fox is position 1 and dog position 4: two moves are needed.
+        assert_eq!(
+            filter_count(json!({"match_phrase": {"title": {"query": "fox dog", "slop": 1}}})),
+            Some(0)
+        );
+        assert_eq!(
+            filter_count(json!({"match_phrase": {"title": {"query": "fox dog", "slop": 2}}})),
+            Some(1)
+        );
+    }
+
+    #[test]
+    fn term_on_keyword_matches_the_whole_value_only() {
+        // A multi-word keyword value is one term: `york` must not match
+        // "new york", and the comparison is case-sensitive.
+        assert_eq!(filter_count(json!({"term": {"tag": "york"}})), Some(1));
+        assert_eq!(filter_count(json!({"term": {"tag": "new york"}})), Some(1));
+        assert_eq!(filter_count(json!({"term": {"tag": "New York"}})), Some(1));
+        assert_eq!(filter_count(json!({"term": {"tag": "new"}})), Some(0));
+        assert_eq!(
+            filter_count(json!({"terms": {"tag": ["york", "new york"]}})),
+            Some(2)
+        );
+    }
+
+    #[test]
+    fn filters_agg_buckets_and_other_bucket_match_issue_1745_counts() {
+        let docs = books();
+        let out = run_aggs_with_schema(
+            &json!({"f": {"filters": {
+                "other_bucket_key": "rest",
+                "filters": {
+                    "dog": {"match": {"title": "dog"}},
+                    "phrase": {"match_phrase": {"title": "fox dog"}},
+                    "ny": {"term": {"tag": "new york"}},
+                }
+            }}}),
+            &docs,
+            &docs,
+            &schema(),
+        );
+        let buckets = &out["f"]["buckets"];
+        assert_eq!(buckets["dog"]["doc_count"].as_u64(), Some(2), "{out}");
+        assert_eq!(buckets["phrase"]["doc_count"].as_u64(), Some(0), "{out}");
+        assert_eq!(buckets["ny"]["doc_count"].as_u64(), Some(1), "{out}");
+        // Only "Quick dogs run" (tag `york`) matches none of the three.
+        assert_eq!(buckets["rest"]["doc_count"].as_u64(), Some(1), "{out}");
     }
 }
 

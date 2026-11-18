@@ -86,7 +86,9 @@ async fn spawn_node(data_dir: &Path, allowlist: Vec<String>) -> String {
     let engine = xerj_engine::Engine::new(config.clone()).unwrap();
     let state = xerj_api::state::AppState::new(config, engine, metrics);
     let app = xerj_api::router::build_es_compat_router(state);
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let listener = xerj_common::loopback_test::expect_loopback(
+        tokio::net::TcpListener::bind("127.0.0.1:0").await,
+    );
     let port = listener.local_addr().unwrap().port();
     tokio::spawn(async move {
         let _ = axum::serve(listener, app.into_make_service()).await;
@@ -278,6 +280,7 @@ fn catalogue_entry(
         domain: "DEV".into(),
         topics: vec!["c".into()],
         ask_for: "a tiny C fixture corpus".into(),
+        upstream: String::new(),
         pin_sha: pin_sha.into(),
         pin_date: pin_date.into(),
         refresh_cadence_days: 7,
@@ -322,7 +325,8 @@ struct TinyHub {
 
 impl TinyHub {
     fn start(initial: (Vec<u8>, String)) -> TinyHub {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener =
+            xerj_common::loopback_test::expect_loopback(TcpListener::bind("127.0.0.1:0"));
         let addr = listener.local_addr().unwrap();
         let body = Arc::new(Mutex::new(initial));
         let stop = Arc::new(AtomicBool::new(false));
@@ -501,11 +505,12 @@ async fn sync_replaces_the_pack_with_a_newer_pin_and_the_old_dir_is_gone() {
     // The first pull is the ordinary one: nothing cached yet, so sync has no
     // part in it. Seed the catalogue cache the way a first `ask` would.
     {
-        let (bytes, _) = signed_catalogue(
+        let (bytes, sig) = signed_catalogue(
             catalogue_entry(OLD.pin_sha, OLD.pin_date, &old_archive, &old_sha),
             &seed,
         );
         std::fs::write(hub_home.join("catalogue.json"), bytes).unwrap();
+        std::fs::write(hub_home.join("catalogue.json.sig"), format!("{sig}\n")).unwrap();
     }
     let rc = {
         let client = client.clone();

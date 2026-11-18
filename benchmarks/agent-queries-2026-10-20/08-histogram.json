@@ -1,0 +1,2 @@
+HTTP 200 POST /gh-jsonl/_search
+{"took":630,"timed_out":false,"_shards":{"total":1,"successful":1,"skipped":0,"failed":0},"hits":{"total":{"value":88,"relation":"eq"},"max_score":null,"hits":[]},"aggregations":{"per_month":{"buckets":[{"key":1782864000000,"key_as_string":"2026-07-01T00:00:00.000Z","doc_count":1},{"key":1785542400000,"key_as_string":"2026-08-01T00:00:00.000Z","doc_count":50},{"key":1788220800000,"key_as_string":"2026-09-01T00:00:00.000Z","doc_count":11},{"key":1790812800000,"key_as_string":"2026-10-01T00:00:00.000Z","doc_count":26}]}}}

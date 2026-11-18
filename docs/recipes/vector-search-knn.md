@@ -260,9 +260,10 @@ vectors.**
   *Honest caveat:* the built-in embedder is **lexical, not neural** —
   excellent for demos and keyword-semantic overlap, but for
   production-grade semantic quality point XERJ at an external
-  OpenAI-compatible `/v1/embeddings` endpoint
-  (`embedding.default_endpoint`), after which both ingest and query use
-  that higher-quality model.
+  OpenAI-compatible embeddings endpoint
+  (`embedding.default_endpoint`: a `/v1` base, a bare host, or the full
+  `/v1/embeddings` URL; any other path refuses to start), after which both
+  ingest and query use that higher-quality model.
 
 Rule of thumb: **already have embeddings → raw `knn`. Have text and want
 it embedded for you → `semantic_text`.** Need to blend keyword relevance

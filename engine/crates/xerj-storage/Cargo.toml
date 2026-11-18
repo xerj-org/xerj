@@ -12,6 +12,9 @@ test-hooks = []
 
 [dependencies]
 xerj-common = { path = "../xerj-common" }
+# Default features only (no candle/ort): the lexical semantic_text recipe the
+# stored codec uses to regenerate derived vectors (#1122, #2433).
+xerj-ai = { path = "../xerj-ai", default-features = false }
 
 # Async runtime
 tokio = { workspace = true }
@@ -20,6 +23,7 @@ tokio = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 rayon = { workspace = true }
+memchr = { workspace = true }
 
 # Binary I/O
 bytes = { workspace = true }
@@ -27,6 +31,7 @@ byteorder = { workspace = true }
 memmap2 = { workspace = true }
 
 # Concurrent data structures
+compact_str = "0.9"
 dashmap = { workspace = true }
 arc-swap = { workspace = true }
 crossbeam = { workspace = true }

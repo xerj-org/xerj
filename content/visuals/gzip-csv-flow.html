@@ -1,0 +1,31 @@
+<figure class="vz" id="fig-gzip-flow" aria-labelledby="fig-gzip-flow-cap">
+  <span class="vz-label">How a .csv.gz is read</span>
+  <p class="vz-title">The wrapper comes off once. The columns stay.</p>
+  <ol class="vz-flow">
+    <li><span class="vz-k">01 file</span><span class="vz-t"><code>sales.csv.gz</code></span><span class="vz-d">A compressed export in your folder. You do not unzip it.</span></li>
+    <li><span class="vz-k">02 unwrap</span><span class="vz-t">Gzip is stripped</span><span class="vz-d">Once, during the <code>xerj autoindex</code> run. No query reads the archive again.</span></li>
+    <li><span class="vz-k">03 sniff</span><span class="vz-t">First 8,192 bytes</span><span class="vz-d">The family comes from the content, not from the file extension.</span></li>
+    <li class="is-hi"><span class="vz-k">04 index</span><span class="vz-t">Typed columns</span><span class="vz-d">The CSV dialect is sniffed. <code>ax_path</code> keeps the <code>.gz</code> name.</span></li>
+  </ol>
+  <div class="vz-tabs" data-vz-tabs>
+    <div class="vz-tablist" role="tablist" aria-label="Two ways to read a compressed CSV">
+      <button type="button" class="vz-tab" role="tab" id="gz-tab-text" aria-controls="gz-panel-text" aria-selected="false">Read as text: zgrep, rga</button>
+      <button type="button" class="vz-tab" role="tab" id="gz-tab-data" aria-controls="gz-panel-data" aria-selected="true">Read as data: xerj autoindex</button>
+    </div>
+    <div class="vz-panel" role="tabpanel" id="gz-panel-text" aria-labelledby="gz-tab-text" tabindex="0">
+      <p class="vz-panel-h">Read as text: zgrep, rga</p>
+      <div class="vz-cols">
+        <div class="vz-card"><span class="vz-k">what you get</span><span class="vz-t">Matching lines</span><span class="vz-d">The archive is expanded for every search. A number in a column is a string of characters.</span></div>
+        <div class="vz-card"><span class="vz-k">good for</span><span class="vz-t">One question, asked once</span><span class="vz-d">No node and no index. Also the right tool for a <code>.tar.gz</code> or a <code>.zip</code>.</span></div>
+      </div>
+    </div>
+    <div class="vz-panel" role="tabpanel" id="gz-panel-data" aria-labelledby="gz-tab-data" tabindex="0">
+      <p class="vz-panel-h">Read as data: xerj autoindex</p>
+      <div class="vz-cols">
+        <div class="vz-card is-hi"><span class="vz-k">what you get</span><span class="vz-t">A dataset with named columns</span><span class="vz-d">A numeric column takes a range query. A keyword column takes a filter and an aggregation.</span></div>
+        <div class="vz-card is-hi"><span class="vz-k">good for</span><span class="vz-t">Many questions, or an agent</span><span class="vz-d">The agent asks over HTTP or MCP and reads fields, not lines.</span></div>
+      </div>
+    </div>
+  </div>
+  <figcaption id="fig-gzip-flow-cap">The path a compressed CSV takes through <code>xerj autoindex</code>. The 8,192-byte sniff window is the <code>PREFIX</code> constant in <a href="https://github.com/xerj-org/xerj/blob/main/engine/crates/xerj-autoindex/src/sniff.rs">sniff.rs</a>. A <code>.json.gz</code> takes the same path and lands as documents with fields.</figcaption>
+</figure>

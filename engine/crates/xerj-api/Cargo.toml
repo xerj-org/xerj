@@ -30,8 +30,13 @@ xerj-rerank = { path = "../xerj-rerank" }
 # state ledger lives. `xerj-hub` dev-depends on this crate (its pack roundtrip
 # test boots a node); Cargo accepts a cycle that runs through a dev-dependency.
 xerj-hub     = { path = "../xerj-hub" }
+xerj-sources = { path = "../xerj-sources" }
 xerj-autoindex = { path = "../xerj-autoindex" }
 xerj-wasm    = { path = "../xerj-wasm" }
+# Shard routing: the ES document and search handlers forward to the
+# owner named by the Raft shard plan. The cluster crate does not depend
+# on this one.
+xerj-cluster = { path = "../xerj-cluster" }
 # Local decision head (feature `decide-local`); no other purpose, so the
 # dependency itself is optional.
 xerj-ai      = { path = "../xerj-ai", optional = true }
@@ -71,5 +76,8 @@ sha2         = "0.10"
 
 [dev-dependencies]
 tempfile     = { workspace = true }
+# HTTP refresh and deletion tests hold one index's refresh/schema lock.
+# These hooks stay off the release graph (resolver v2, dev-dependency only).
+xerj-engine  = { path = "../xerj-engine", features = ["refresh-test-hook", "lock-test-hook"] }
 tower        = { workspace = true, features = ["util"] }
 http-body-util = "0.1"

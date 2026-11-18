@@ -1,0 +1,77 @@
+{
+  "manifest_version": "0.3",
+  "name": "xerj",
+  "display_name": "XERJ",
+  "version": "@VERSION@",
+  "description": "XERJ: the search engine for AI agents. One local Rust binary that indexes your code, docs, specs and logs, plus Corpus Hub packs, and returns cited answers.",
+  "long_description": "A new way for AI to search for data: one local Rust binary that indexes your code, docs, specs and logs, plus Corpus Hub packs, and returns cited answers.\n\nThis bundle runs `xerj mcp`, a stdio MCP server that proxies search, memory, code-map and Corpus Hub tools to a XERJ node. Start a node first with `xerj --insecure --data-dir ~/xerj-data` (install: https://xerj.org/docs/install), or point XERJ URL at a node you already run. The Corpus Hub tools work without a local index.",
+  "author": {
+    "name": "xerj-org",
+    "email": "git@xerj.org",
+    "url": "https://xerj.org"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/xerj-org/xerj"
+  },
+  "homepage": "https://xerj.org",
+  "documentation": "https://xerj.org/for-agents",
+  "support": "https://github.com/xerj-org/xerj/issues",
+  "license": "Apache-2.0",
+  "keywords": [
+    "search",
+    "code-search",
+    "rag",
+    "bm25",
+    "vector-search",
+    "agent-memory",
+    "elasticsearch",
+    "local-first"
+  ],
+  "server": {
+    "type": "binary",
+    "entry_point": "server/xerj",
+    "mcp_config": {
+      "command": "${__dirname}/server/xerj",
+      "args": [
+        "mcp"
+      ],
+      "env": {
+        "XERJ_URL": "${user_config.xerj_url}",
+        "XERJ_AUTH": "${user_config.xerj_auth}"
+      },
+      "platform_overrides": {
+        "win32": {
+          "command": "${__dirname}/server/xerj.exe"
+        },
+        "linux": {
+          "command": "${__dirname}/server/linux/xerj"
+        }
+      }
+    }
+  },
+  "user_config": {
+    "xerj_url": {
+      "type": "string",
+      "title": "XERJ node URL",
+      "description": "ES-compatible listener of a running XERJ node.",
+      "default": "http://localhost:9200",
+      "required": false
+    },
+    "xerj_auth": {
+      "type": "string",
+      "title": "Authorization header",
+      "description": "For a node with auth on, for example 'ApiKey <key>'. Leave empty for a loopback node: the key is read from <data-dir>/admin.key.",
+      "sensitive": true,
+      "required": false
+    }
+  },
+  "tools_generated": true,
+  "compatibility": {
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  }
+}

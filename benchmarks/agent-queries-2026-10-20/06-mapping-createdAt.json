@@ -1,0 +1,2 @@
+HTTP 404 GET /gh-issues/_mapping
+{"error":{"root_cause":[{"type":"index_not_found_exception","reason":"no such index [gh-issues]","resource.type":"index_or_alias","resource.id":"gh-issues","index_uuid":"_na_","index":"gh-issues"}],"type":"index_not_found_exception","reason":"no such index [gh-issues]","resource.type":"index_or_alias","resource.id":"gh-issues","index_uuid":"_na_","index":"gh-issues"},"status":404}

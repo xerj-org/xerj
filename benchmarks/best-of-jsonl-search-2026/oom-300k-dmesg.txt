@@ -1,0 +1,2 @@
+[110606.947045] oom-kill:constraint=CONSTRAINT_NONE,nodemask=(null),cpuset=interactive,mems_allowed=0,global_oom,task_memcg=/agent,task=xerj,pid=1866152,uid=1000
+[110606.947897] Out of memory: Killed process 1866152 (xerj) total-vm:55006680kB, anon-rss:9972316kB, file-rss:2128kB, shmem-rss:0kB, UID:1000 pgtables:90184kB oom_score_adj:0

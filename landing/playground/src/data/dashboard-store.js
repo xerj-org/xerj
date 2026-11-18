@@ -85,13 +85,19 @@ export function mergedDashboards(defaults, { includeHidden = false } = {}) {
       });
     } else if (user) {
       // A user-created dashboard — borrow the render from its template.
-      const source = user.clonedFrom ? byId[user.clonedFrom] : null;
+      let templateId = user.clonedFrom;
+      const visited = new Set([id]);
+      while (templateId && custom[templateId] && !visited.has(templateId)) {
+        visited.add(templateId);
+        templateId = custom[templateId].clonedFrom;
+      }
+      const source = templateId ? byId[templateId] : null;
       out.push({
         id,
         name: names[id] || user.name,
         render: source?.render || blankRender(user.name),
         isUser: true,
-        clonedFrom: user.clonedFrom,
+        clonedFrom: source ? source.id : user.clonedFrom,
         dataSource: user.dataSource,
         hidden: hidden.has(id),
       });

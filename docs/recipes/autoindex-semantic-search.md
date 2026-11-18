@@ -29,8 +29,16 @@ downloads once on first use, then runs from a local cache (air-gap friendly via
 xerj --insecure --data-dir ./data --embed-mode neural
 ```
 
-Drop `--embed-mode neural` and everything below still works — it just uses the
-built-in lexical embedder instead. Nothing else in the recipe changes.
+`--embed-mode` is fixed per index at ingest. Documents keep the vectors written
+when they were indexed. Starting a later process without the flag does not
+re-embed this folder: the index keeps its neural vectors until you re-index
+into a new index (a new `--data-dir`, or `xerj autoindex remove` and a fresh
+run). Omitting the flag is the lexical embedder, which is much faster and is
+not neural. Before a neural `xerj autoindex` run the client prints an estimated
+embedding time from a probe this server measured at startup and the bytes of
+files that feed a `semantic_text` dataset. That line is embedding time only.
+If the probe did not run, the client says the rate was not measured and prints
+no duration.
 
 ## 2. Discover and index the folder — zero config
 

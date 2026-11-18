@@ -5,12 +5,13 @@
    ============================================================ */
 
 :root {
-  /* Color — five values, no more */
-  --z-paper:  #0D0D0D;
-  --z-ink:    #E0E0E0;
-  --z-mute:   #555555;
-  --z-faint:  #2A2A2A;
-  --z-accent: #EEBB00;
+  /* Color — five values, no more. Light (day) is the default since the
+     2026-10 readability pass; ratios are against --z-paper. */
+  --z-paper:  #FBFAF6;
+  --z-ink:    #141414;  /* 17.6:1 */
+  --z-mute:   #4A4843;  /* 8.8:1 (was #7A7671, 4.3:1) */
+  --z-faint:  #E6E4DC;  /* hairlines only */
+  --z-accent: #6B4400;  /* 8.2:1 — #EEBB00 is unreadable on paper */
 
   /* Type families */
   --font-display: 'Big Shoulders Display', 'Impact', 'Helvetica Neue Condensed', sans-serif;
@@ -52,16 +53,17 @@
 :root[data-theme='night'] {
   --z-paper:  #0D0D0D;
   --z-ink:    #E0E0E0;
-  --z-mute:   #555555;
+  --z-mute:   #A0A0A0;  /* 7.4:1 (was #555555, 2.6:1) */
   --z-faint:  #2A2A2A;
+  --z-accent: #EEBB00;
 }
 :root[data-theme='day'] {
   --z-paper:  #FBFAF6;
   --z-ink:    #141414;
-  --z-mute:   #7A7671;
+  --z-mute:   #4A4843;
   --z-faint:  #E6E4DC;
   /* Day accent — darker ochre in the same yellow family.
      The night accent (#EEBB00) is 1.7:1 on paper — unreadable.
-     #A06800 is 5.7:1, passes AA body text. Same hue family. */
-  --z-accent: #A06800;
+     #A06800 measured 3.9:1 (failed AA); #6B4400 is 8.2:1. */
+  --z-accent: #6B4400;
 }

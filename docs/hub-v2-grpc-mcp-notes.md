@@ -12,6 +12,39 @@ This PR (branch `feat/hub-v2-grpc-contract`, based on `feat/hub-v2-base`) does
 `add_service` registration in `grpc.rs`/`main.rs`, and the MCP tools are
 **deferred to step 5/7**. Generated-but-unimplemented scaffolding is intentional.
 
+## Opt-in answer evidence receipts (#1789, #1786)
+
+The implemented MCP `xerj_hub_ask` and `xerj_hub_def` tools accept an optional
+`evidence` object with required `session_id` and `tool_call_id` strings and an
+optional `p_min` probability (default `0.8`). Identities are caller supplied;
+each result is a standalone, one-entry report, not a persisted session log.
+When an answer is available, this adds only `structuredContent.evidence_receipt`,
+a `xerj-trace-evidence/v1` report; omitting the option preserves the entire
+existing result. Routing hints and errors without an answer remain unchanged.
+The receipt records the exact MCP text, including notices.
+
+The shared Rust bridge is `Answer::evidence_report(AnswerEvidence, resolve)`;
+`Hit::pinned_citation` anchors an exact excerpt on its declared one-based line.
+The resolver must provide original UTF-8 bytes from the answer's immutable
+`pin_sha` and hit file, plus the repository identity. Byte offsets and SHA-256
+hashes retain CRLF and multibyte characters without normalization. A mismatched
+excerpt, invalid pin/path or resolver error returns an error. An unavailable
+source is represented by `None` and yields an explicit coverage gap.
+`TraceEvidenceReport::to_jcs` emits RFC 8785 canonical JSON; `verify` rechecks the
+receipt and resolves each citation against the pinned file bytes.
+
+Claims bind retrieved excerpt text, not semantic entailment. Callers must
+separately assess question coverage and provide a held-out, in-domain
+`Confidence`; ranking scores are never converted to probabilities.
+Empty hits, missing source/calibration, low calibrated confidence, coverage
+gaps, truncated answers, and separately rendered values without an assessment
+abstain and escalate. Current MCP index records do not contain original pinned
+files or an in-domain calibration assessment, so MCP receipts conservatively
+abstain and escalate even when hits exist. MCP does not read working-tree
+files, fetch source files, or accept caller-supplied confidence/bytes.
+This is additive wiring, not a new calibration study or completion of either
+issue's evaluation gates. No gRPC field or default `Answer`/`Hit` field changes.
+
 ## Why the fields are frozen
 
 Proto field numbers are a permanent wire contract. Step 11 of the plan lists

@@ -10,16 +10,24 @@ buger's #166). These tests pin the trailer-aware behaviour.
 Run: python3 scripts/test_cla_coauthors.py
 """
 
+import argparse
+import base64
+import contextlib
+import io
 import pathlib
 import re
+import subprocess
 import sys
 import unittest
+from unittest import mock
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
+import check_cla_coauthors
 from check_cla_coauthors import (
     FIELD_REPORT_DIR,
     check_commits,
+    is_contributors_only_change,
     is_field_report_only,
     is_self_cla_signature,
     noreply_login,
@@ -217,6 +225,195 @@ class FieldReportExemptionTests(unittest.TestCase):
 CONTRIB = {"filename": ".contributors", "status": "modified"}
 
 
+class SelfClaSignatureExitCodeTests(unittest.TestCase):
+    """The one branch the workflow's `case` depends on: a `.contributors`-only
+    PR whose head file does not parse exits 2 (loud), everything else 1."""
+
+    BASE_SHA = "a" * 40
+    HEAD_SHA = "b" * 40
+
+    def _run(self, files, head_contributors, broken_base=False, merge_parent=None,
+             ancestry=None):
+        base_contributors = None if broken_base else ["xerj-org", "dependabot[bot]"]
+        pr = {
+            "head": {"sha": self.HEAD_SHA},
+            "state": "open",
+            "user": {"login": "todie"},
+        }
+        cmp = {
+            "total_commits": 1,
+            "merge_base_commit": {"sha": self.BASE_SHA},
+            "commits": [
+                {
+                    "sha": "c" * 40,
+                    "commit": {"message": "chore: sign the CLA"},
+                    "author": {"login": "todie"},
+                }
+            ],
+            "files": files,
+        }
+        if merge_parent is not None:
+            cmp["commits"].append({
+                "sha": self.HEAD_SHA,
+                "commit": {"message": "Merge main"},
+                "author": {"login": "xerj-org"},
+                "parents": [{"sha": "c" * 40}, {"sha": merge_parent}],
+            })
+            cmp["total_commits"] += 1
+        args = argparse.Namespace(
+            pr=1, base_sha=self.BASE_SHA, head_sha=self.HEAD_SHA, repo="o/r"
+        )
+        with mock.patch.object(
+            check_cla_coauthors, "_gh_api_one", side_effect=[pr, cmp, ancestry]
+        ), mock.patch.object(
+            check_cla_coauthors,
+            "_fetch_contributors_at",
+            side_effect=lambda _repo, sha: (
+                base_contributors if sha == self.BASE_SHA else head_contributors
+            ),
+        ), contextlib.redirect_stderr(io.StringIO()) as err:
+            rc = check_cla_coauthors._self_cla_signature_main(args)
+        return rc, err.getvalue()
+
+    def test_broken_contributors_on_a_signature_pr_exits_2(self):
+        rc, err = self._run([CONTRIB], None)
+        self.assertEqual(rc, 2)
+        self.assertIn("::error::", err)
+
+    def test_broken_contributors_on_a_mixed_pr_exits_1(self):
+        rc, err = self._run(
+            [CONTRIB, {"filename": "x", "status": "modified"}], None
+        )
+        self.assertEqual(rc, 1)
+        self.assertNotIn("::error::", err)
+
+    def test_a_valid_signature_exits_0(self):
+        rc, _ = self._run([CONTRIB], ["xerj-org", "dependabot[bot]", "todie"])
+        self.assertEqual(rc, 0)
+
+    def test_signature_with_maintainer_base_merge_exits_0(self):
+        rc, _ = self._run([CONTRIB], ["xerj-org", "dependabot[bot]", "todie"],
+                          merge_parent=self.BASE_SHA)
+        self.assertEqual(rc, 0)
+
+    def test_foreign_branch_merge_does_not_get_a_success_status(self):
+        rc, _ = self._run([CONTRIB], ["xerj-org", "dependabot[bot]", "todie"],
+                          merge_parent="d" * 40,
+                          ancestry={"status": "diverged"})
+        self.assertEqual(rc, 1)
+
+    def test_a_broken_base_file_is_not_this_pr_fault(self):
+        # The merge base is `main`'s own file: a defect there is not something
+        # the contributor's diff can repair, so the job must not fail on it.
+        rc, err = self._run(
+            [CONTRIB],
+            ["xerj-org", "dependabot[bot]", "todie"],
+            broken_base=True,
+        )
+        self.assertEqual(rc, 1)
+        self.assertNotIn("::error::", err)
+
+
+class BaseMergeProofTests(unittest.TestCase):
+    BASE = "a" * 40
+    PARENT = "b" * 40
+    COMMIT = {"parents": [{"sha": "c" * 40}, {"sha": PARENT}]}
+
+    def test_exact_pinned_base_needs_no_lookup(self):
+        with mock.patch.object(check_cla_coauthors, "_gh_api_one") as api:
+            self.assertTrue(check_cla_coauthors._merges_pinned_base(
+                "o/r", self.COMMIT, self.PARENT))
+            api.assert_not_called()
+
+    def test_ancestor_is_proven_with_pinned_comparison(self):
+        result = {"status": "ahead", "merge_base_commit": {"sha": self.PARENT}}
+        with mock.patch.object(check_cla_coauthors, "_gh_api_one", return_value=result) as api:
+            self.assertTrue(check_cla_coauthors._merges_pinned_base(
+                "o/r", self.COMMIT, self.BASE))
+            api.assert_called_once_with(f"repos/o/r/compare/{self.PARENT}...{self.BASE}")
+
+    def test_non_ancestor_and_missing_proof_refuse(self):
+        for result in (None, {}, {"status": "ahead"},
+                       {"status": "ahead", "merge_base_commit": {"sha": self.BASE}},
+                       {"status": "diverged", "merge_base_commit": {"sha": self.PARENT}},
+                       {"status": "behind", "merge_base_commit": {"sha": self.PARENT}}):
+            with self.subTest(result=result), mock.patch.object(
+                    check_cla_coauthors, "_gh_api_one", return_value=result):
+                self.assertFalse(check_cla_coauthors._merges_pinned_base(
+                    "o/r", self.COMMIT, self.BASE))
+
+    def test_bad_parent_metadata_never_gets_an_exception(self):
+        for parents in (None, [], [{"sha": self.PARENT}], self.COMMIT["parents"] * 2,
+                        [None, {"sha": self.BASE}], [{"sha": self.BASE}, {"sha": "main"}]):
+            with self.subTest(parents=parents), mock.patch.object(
+                    check_cla_coauthors, "_gh_api_one") as api:
+                self.assertFalse(check_cla_coauthors._merges_pinned_base(
+                    "o/r", {"parents": parents}, self.BASE))
+                api.assert_not_called()
+
+    def test_lookup_error_refuses(self):
+        with mock.patch.object(check_cla_coauthors, "_gh_api_one",
+                               side_effect=subprocess.CalledProcessError(1, "gh")):
+            self.assertFalse(check_cla_coauthors._merges_pinned_base(
+                "o/r", self.COMMIT, self.BASE))
+
+
+class ContributorsOnlyChangeTests(unittest.TestCase):
+    """The CLI separates "a signature PR whose file is broken" (exit 2, loud)
+    from "some other PR" (exit 1, cla-bot's call). That split is this shape
+    test, so it has to be exact: one file, `.contributors`, modified."""
+
+    def test_one_modified_contributors_is_the_signature_shape(self):
+        self.assertTrue(is_contributors_only_change([CONTRIB]))
+
+    def test_any_second_changed_file_breaks_the_shape(self):
+        self.assertFalse(
+            is_contributors_only_change(
+                [CONTRIB, {"filename": "engine/src/lib.rs", "status": "modified"}]
+            )
+        )
+
+    def test_another_status_is_not_the_signature_shape(self):
+        for status in ("added", "removed", "renamed", "copied"):
+            self.assertFalse(
+                is_contributors_only_change(
+                    [{"filename": ".contributors", "status": status}]
+                )
+            )
+
+    def test_a_malformed_file_list_is_not_the_signature_shape(self):
+        for files in (None, [], "x", [".contributors"], [None], {}):
+            self.assertFalse(is_contributors_only_change(files))
+
+
+class FetchContributorsTests(unittest.TestCase):
+    """`_fetch_contributors_at` returning None is what the CLI turns into the
+    loud exit 2 when `.contributors` is the whole diff."""
+
+    def _fetch(self, raw):
+        item = {
+            "encoding": "base64",
+            "content": base64.b64encode(raw).decode("ascii"),
+        }
+        with mock.patch.object(
+            check_cla_coauthors, "_gh_api_one", return_value=item
+        ):
+            return check_cla_coauthors._fetch_contributors_at("o/r", "0" * 40)
+
+    def test_invalid_json_returns_none(self):
+        # The #1619 file once a merge resolution dropped the comma.
+        self.assertIsNone(self._fetch(b'[\n  "a",\n  "b"\n  "c"\n]'))
+
+    def test_a_json_value_that_is_not_a_list_still_parses(self):
+        # Shape is the predicate's business, not the fetcher's: a dict parses
+        # and is rejected later, which is exit 1, not exit 2.
+        self.assertEqual(self._fetch(b'{"a": 1}'), {"a": 1})
+
+    def test_a_valid_list_round_trips(self):
+        self.assertEqual(self._fetch(b'["a", "b"]'), ["a", "b"])
+
+
+
 class SelfClaSignatureTests(unittest.TestCase):
     """Self-signing .contributors PRs (e.g. #1375, #1366, #1355, #1342) deadlock
     on cla-bot because cla-bot reads .contributors from `main`. The narrow
@@ -407,6 +604,36 @@ class SelfClaSignatureTests(unittest.TestCase):
 
     def test_too_many_commits_is_rejected(self):
         self.assertFalse(self._ok(commits=self.COMMITS * 21))
+
+    def test_signed_base_merge_preserves_the_contributors_signature(self):
+        merge = dict(sha="deadbeef", message="Merge main to resolve signature conflict",
+                     author_login="xerj-org", merges_base=True)
+        self.assertTrue(self._ok(commits=self.COMMITS + [merge]))
+
+    def test_base_merge_cannot_replace_the_contributors_own_commit(self):
+        merge = dict(sha="deadbeef", message="Merge main",
+                     author_login="xerj-org", merges_base=True)
+        self.assertFalse(self._ok(commits=[merge]))
+
+    def test_base_merge_exception_still_requires_a_signed_author(self):
+        merge = dict(sha="deadbeef", message="Merge main",
+                     author_login="unsigned", merges_base=True)
+        self.assertFalse(self._ok(commits=self.COMMITS + [merge]))
+
+    def test_signed_author_without_proven_base_merge_is_rejected(self):
+        merge = dict(sha="deadbeef", message="Merge main",
+                     author_login="xerj-org")
+        for proof in (None, False, "true", 1):
+            self.assertFalse(self._ok(commits=self.COMMITS + [dict(merge, merges_base=proof)]))
+
+    def test_base_merge_does_not_exempt_mixed_diff_or_unsigned_trailers(self):
+        merge = dict(sha="deadbeef", message="Merge main",
+                     author_login="xerj-org", merges_base=True)
+        self.assertFalse(self._ok(
+            commits=self.COMMITS + [merge],
+            files=[CONTRIB, {"filename": "x.rs", "status": "modified"}]))
+        merge["message"] += "\n\nCo-authored-by: Unsigned <unsigned@users.noreply.github.com>"
+        self.assertFalse(self._ok(commits=self.COMMITS + [merge]))
 
     def test_invalid_pr_author_is_rejected(self):
         self.assertFalse(self._ok(pr_author=""))

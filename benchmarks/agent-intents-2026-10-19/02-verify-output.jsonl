@@ -1,0 +1,5 @@
+{"field":"pricing_unit","value":"per-node","found":true,"source":"xerj_org_pricing.html#s0","evidence":" · Terraform module PER-NODE CONTACT FOR QUOTE → TIER 03 ENTERPRISE Multi-region · r"}
+{"field":"usage_fees","value":"No per-doc, per-vector, or per-query fees","found":true,"source":"xerj_org_pricing.html#s2","evidence":"custom for Enterprise. No per-doc, per-vector, or per-query fees. Self-hosted means you own your compute. TALK TO SALES "}
+{"field":"compliance_addon","value":"HIPAA BAA","found":true,"source":"xerj_org_pricing.html#s1","evidence":"SM + solutions architect HIPAA BAA · custom compliance Private roadmap inp"}
+{"field":"free_trial","value":"14-day free trial","found":false,"source":null,"evidence":null}
+{"field":"telemetry","value":"makes no runtime telemetry","found":true,"source":"xerj_org_security.html#s3","evidence":". RUNTIME BOUNDARY The running binary makes no runtime telemetry, update, or license-activation calls. T"}

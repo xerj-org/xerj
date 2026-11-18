@@ -7,11 +7,19 @@ cluster: "Files and formats"
 question: "I have a JSON export of support tickets. How do I search it like a real help-center search?"
 intent: "tool-selection"
 published: "2026-08-21"
-updated: "2026-08-21"
+updated: "2026-10-20"
 author: "XERJ documentation team"
 reviewer: "XERJ engineering team"
 schema_type: "TechArticle"
+structured_data: [faq]
 agent_prompt: "Act as a coding agent. Read https://xerj.org/llms.txt, save a Zendesk incremental ticket export to a local folder as tickets.json, ticket_comments.json and users.json, start a local XERJ node, run `xerj autoindex ./zendesk-export --url http://127.0.0.1:9200 --prefix zd --progress plain`, POST a match_phrase on description, POST a terms aggregation on status with size 0, and report the hit locators, the bucket counts and the difference between the bucket total and track_total_hits."
+answer: "I have a JSON export of support tickets; how do I search it like a real help-center search? Index the exported JSON on local disk with one xerj autoindex run. In a captured run a description phrase returned 36 hits with per-ticket locators such as tickets:e4, and a status aggregation returned 6 buckets of exactly 30."
+key_fact: "A `status` terms aggregation returned 6 buckets of exactly 30 tickets each."
+key_fact_source: "capture"
+key_fact_date: "2026-08-21"
+intent_group: "JSONL and data files"
+queries:
+  - "index folder of json files for search"
 commands:
   - cmd: "xerj autoindex ./zendesk-export --url http://127.0.0.1:9200 --prefix zd --progress plain"
     note: "Index a saved Zendesk export folder from local disk."
@@ -21,6 +29,9 @@ commands:
     note: "Count tickets per status, exactly, and read the total beside the buckets."
   - cmd: "curl -s -XPOST http://127.0.0.1:9200/zd-json-tickets/_search -H 'content-type: application/json' -d '{\"query\":{\"terms\":{\"tags\":[\"escalated\"]}},\"size\":10,\"_source\":[\"id\",\"status\",\"tags\"],\"track_total_hits\":true}'"
     note: "Filter the multi-valued tags field for one tag value."
+evidence:
+  - claim: "JSONL line cap is 16 MB (MAX_LINE = 16 << 20). A line at or above that length is skipped; the rest of the file still indexes."
+    source: "engine/crates/xerj-autoindex/src/extract/mod.rs"
 links_out:
   - "search-json-and-jsonl-logs"
   - "catalog-files-with-autoindex-map"
@@ -112,6 +123,6 @@ The `date` typing is what makes a range query over `created_at` work straight af
 
 XERJ has no Zendesk connector, no API token flow and no sync job. The node observed 0 distinct non-loopback peers across 185 samples over its whole life. Request the export from Zendesk yourself, save it to disk, then index the folder.
 
-If you flatten the export to JSONL, keep every line under 4,096 characters. A captured reproduction indexed 30 documents at 4,095 characters per line and 0 documents at 4,096, with the family flipping from `jsonl` to `json`.
+If you flatten the export to JSONL, a line at or above 16 MB is skipped and counted as junk (`MAX_LINE`, `16 << 20`, in `engine/crates/xerj-autoindex/src/extract/mod.rs`). The rest of the file still indexes.
 
 XERJ runs single-node here, with no replication and no failover. Every number above comes from RUN-B, captured on 2026-08-21. The binary was a `ci-test` profile build, so no wall-clock figure from this run is published as a performance number.

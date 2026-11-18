@@ -1,10 +1,14 @@
 # Cloudflare Pages headers — applied to all routes.
+#
+# GA4 gtag.js (G-Z77ETCDJYL). The /* policy follows Google's GA4 rules
+# without Google Signals or ads hosts. The tag host must stay listed in
+# seo_lint.ALLOWED_SCRIPT_SRC.
 /*
   X-Frame-Options: SAMEORIGIN
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: interest-cohort=()
-  Content-Security-Policy: default-src 'self' blob:; style-src 'self' blob: https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' blob: https://fonts.gstatic.com; img-src 'self' blob: data:; script-src 'self' blob: 'unsafe-inline' https://static.cloudflareinsights.com; connect-src 'self' blob: https://cloudflareinsights.com https://api.github.com; frame-ancestors 'self';
+  Content-Security-Policy: default-src 'self' blob:; style-src 'self' blob: https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' blob: https://fonts.gstatic.com; img-src 'self' blob: data: https://*.google-analytics.com https://*.googletagmanager.com; script-src 'self' blob: 'unsafe-inline' https://static.cloudflareinsights.com https://*.googletagmanager.com; connect-src 'self' blob: https://cloudflareinsights.com https://api.github.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com; frame-ancestors 'self';
 
 # Site-wide stylesheet changes with the design — must revalidate on
 # every deploy (ETag 304s keep this cheap). A stale copy here breaks
@@ -26,10 +30,17 @@
 # The root index.html IS the encrypted payload — it changes every
 # deploy and must never be served stale. no-cache forces the browser
 # to revalidate with the server on every navigation.
+# Advertise the existing agent guide, API docs and partial OpenAPI description
+# using RFC 8631 relations, so agents can discover the local-node contract
+# from a GET or HEAD without parsing the homepage. These are documentation
+# links, not a claim that xerj.org hosts a public search API.
+# https://www.rfc-editor.org/rfc/rfc8631.html
 /
   Cache-Control: no-cache
+  Link: </llms.txt>; rel="describedby"; type="text/plain", </openapi.json>; rel="service-desc"; type="application/json", </docs/agents/endpoints>; rel="service-doc"; type="text/html"
 /index.html
   Cache-Control: no-cache
+  Link: </llms.txt>; rel="describedby"; type="text/plain", </openapi.json>; rel="service-desc"; type="application/json", </docs/agents/endpoints>; rel="service-doc"; type="text/html"
 
 # The one-line installer: curl -fsSL https://xerj.org/get | sh
 # Serve as plain text so browsers display it (auditable) and curl gets
@@ -50,21 +61,51 @@
 /get
   Content-Type: text/plain; charset=utf-8
   Cache-Control: public, max-age=300
+  X-Robots-Tag: noindex
 
 # Windows installer: powershell -ExecutionPolicy Bypass -c "irm https://xerj.org/get.ps1 | iex"
 /get.ps1
   Content-Type: text/plain; charset=utf-8
   Cache-Control: public, max-age=300
+  X-Robots-Tag: noindex
 
 # /get.sh alias (#740): text/plain so the Functions-off fallback rewrite to /get
 # serves the installer as plain text, never HTML.
 /get.sh
   Content-Type: text/plain; charset=utf-8
   Cache-Control: public, max-age=300
+  X-Robots-Tag: noindex
 
 # Agent-readable Markdown twins are alternate representations of the HTML
 # articles, not HTML pages. Keep the charset explicit for direct fetches.
+# X-Robots-Tag: noindex keeps the twin out of the search index while leaving
+# it fetchable (HTTP 200, no robots.txt Disallow). Cloudflare Pages applies
+# every matching _headers rule and joins a repeated header with a comma;
+# these rules are the only X-Robots-Tag on the path, and one `*` splat is
+# the documented matcher (https://developers.cloudflare.com/pages/configuration/headers/).
 /answers/*.md
   Content-Type: text/markdown; charset=utf-8
+  X-Robots-Tag: noindex
 /compare/*.md
   Content-Type: text/markdown; charset=utf-8
+  X-Robots-Tag: noindex
+
+# Demo videos are page assets, not search results of their own. Same reason
+# as the installer scripts: fetchable, just not indexed as standalone URLs.
+/xerj-biz-demo.mp4
+  X-Robots-Tag: noindex
+/aise-demo.mp4
+  X-Robots-Tag: noindex
+
+# Public Agent Skills Discovery v0.2.0. Keep the single-file skill's bytes
+# unchanged: index.json carries its SHA-256 digest. Revalidate both artifacts
+# so clients can detect updates without a long-lived cache of either side.
+/.well-known/agent-skills/index.json
+  Content-Type: application/json; charset=utf-8
+  Access-Control-Allow-Origin: *
+  Cache-Control: no-cache, no-transform
+/.well-known/agent-skills/xerj/SKILL.md
+  Content-Type: text/markdown; charset=utf-8
+  Access-Control-Allow-Origin: *
+  Cache-Control: no-cache, no-transform
+  X-Robots-Tag: noindex

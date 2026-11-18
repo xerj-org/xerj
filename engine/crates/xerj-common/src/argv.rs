@@ -32,11 +32,20 @@ pub fn subcommand() -> Option<String> {
 /// Arguments after the subcommand word. A hoist appends the flags that
 /// preceded it, so `xerj --url U corpus index name` is seen as
 /// `index name --url U`.
+///
+/// `--disable-feedback` is removed here. `feedback::enabled` still sees it
+/// on the raw process arguments (it turns the help invitation off), and a
+/// subcommand parser must not reject it as unknown. Parsers that also match
+/// the flag themselves keep working: it is simply absent from this list.
 pub fn args_after_subcommand() -> Vec<String> {
-    if let Some(v) = hoisted() {
-        return v.into_iter().skip(1).collect();
-    }
-    std::env::args().skip(2).collect()
+    let raw = if let Some(v) = hoisted() {
+        v.into_iter().skip(1).collect::<Vec<_>>()
+    } else {
+        std::env::args().skip(2).collect::<Vec<_>>()
+    };
+    raw.into_iter()
+        .filter(|a| a != crate::feedback::DISABLE_FLAG)
+        .collect()
 }
 
 /// Move flags that precede a command word to the end of the list.
@@ -112,6 +121,32 @@ mod tests {
         assert!(
             reorder_flags_before_command(&v(&["--url", "http://127.0.0.1:9200"]), is_top).is_none()
         );
+    }
+
+    #[test]
+    fn disable_feedback_is_stripped_before_a_subcommand_parser_sees_argv() {
+        let _guard = HoistGuard;
+        install_hoist(Some(v(&[
+            "init",
+            "--disable-feedback",
+            "--dry-run",
+            "--url",
+            "http://127.0.0.1:9",
+        ])));
+        assert_eq!(
+            args_after_subcommand(),
+            v(&["--dry-run", "--url", "http://127.0.0.1:9"])
+        );
+        install_hoist(Some(v(&["search", "--disable-feedback", "needle"])));
+        assert_eq!(args_after_subcommand(), v(&["needle"]));
+    }
+
+    /// Clears the process-global hoist even when the test fails.
+    struct HoistGuard;
+    impl Drop for HoistGuard {
+        fn drop(&mut self) {
+            install_hoist(None);
+        }
     }
 
     #[test]

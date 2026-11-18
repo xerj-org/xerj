@@ -31,3 +31,4 @@ subtle = "2"
 [dev-dependencies]
 tokio = { version = "1", features = ["full", "test-util"] }
 tempfile.workspace = true
+async-trait = "0.1"

@@ -384,6 +384,8 @@ enum Target {
     Brain(String),
     /// `/_memory/{namespace}[/…]`
     Memory(String),
+    /// `/_memory` (namespace listing)
+    MemoryRoot,
     /// One or more index expressions, plus where the op segment starts.
     Indices(Vec<String>, usize),
     /// A cluster/global endpoint whose path names no index: `/_cat/*`,
@@ -520,7 +522,7 @@ fn classify(path: &str) -> Target {
         },
         "_memory" => match segs.get(1) {
             Some(ns) => Target::Memory(ns.clone()),
-            None => Target::Exempt,
+            None => Target::MemoryRoot,
         },
         // Native router (`build_native_router`, :8080). Same engine, same
         // indices, different spelling — and therefore the same boundary:
@@ -1448,7 +1450,7 @@ fn guest_route_allowed(
     let is_read_verb = is_get || method == Method::POST;
     match target {
         Target::Exempt => true,
-        Target::Cluster | Target::Memory(_) => false,
+        Target::Cluster | Target::Memory(_) | Target::MemoryRoot => false,
         Target::Brain(_) => {
             is_get
                 && segs.len() == 3
@@ -1565,6 +1567,7 @@ fn decide(
         Target::Memory(ns) => {
             authorize_memory_namespace(principal, ns, reserved_api_privilege(method, segs))
         }
+        Target::MemoryRoot => Ok(()),
         Target::Indices(expressions, op_start) => {
             let privilege = required_privilege(method, segs, *op_start);
             for expr in expressions {
@@ -2374,6 +2377,7 @@ mod tests {
             classify("/_memory/alice/_recall"),
             Target::Memory("alice".into())
         );
+        assert_eq!(classify("/_memory"), Target::MemoryRoot);
         assert_eq!(classify("/_search"), Target::Cluster);
         assert_eq!(classify("/_bulk"), Target::Cluster);
         assert_eq!(classify("/_mapping"), Target::Cluster);
@@ -2406,6 +2410,8 @@ mod tests {
         let cases: &[(&str, &str, BodyShape)] = &[
             ("POST", "/_bulk", BodyShape::Bulk),
             ("POST", "/logs/_bulk", BodyShape::Bulk),
+            ("PUT", "/_bulk", BodyShape::Bulk),
+            ("PUT", "/logs/_bulk", BodyShape::Bulk),
             ("POST", "/_msearch", BodyShape::MsearchHeaders),
             ("POST", "/logs/_msearch", BodyShape::MsearchHeaders),
             ("POST", "/_msearch/template", BodyShape::MsearchHeaders),
@@ -2640,6 +2646,16 @@ mod tests {
         // is the default write path for every ES client and must work.
         let ok = "{\"index\":{\"_index\":\".xerj-memory-alice-edges\",\"_id\":\"a\"}}\n{\"src\":\"x\"}\n";
         assert!(check(&alice, Method::POST, "/_bulk", ok));
+        // PUT is the same door (#3036): the Python client sends it.
+        assert!(!check(&alice, Method::PUT, "/_bulk", forge));
+        assert!(!check(
+            &alice,
+            Method::PUT,
+            "/.xerj-memory-alice-edges/_bulk",
+            forge
+        ));
+        assert!(!check(&alice, Method::PUT, "/_bulk", destroy));
+        assert!(check(&alice, Method::PUT, "/_bulk", ok));
 
         // _mget: docs[]._index overrides the path index.
         let mget = "{\"docs\":[{\"_index\":\".xerj-memory-bob-edges\",\"_id\":\"1\"}]}";

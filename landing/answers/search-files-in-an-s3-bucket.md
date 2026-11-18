@@ -2,11 +2,15 @@
 ---
 title: "How do I search files that live in an S3 bucket?"
 canonical: "https://xerj.org/answers/search-files-in-an-s3-bucket"
-updated: "2026-09-19"
+updated: "2026-10-19"
 source: "content/answers/search-files-in-an-s3-bucket.md"
 ---
 
 # How do I search files that live in an S3 bucket?
+
+**Short answer** (updated 2026-10-19): How do I search files that live in an S3 bucket? Run xerj autoindex s3://bucket/prefix against a running node. XERJ lists the prefix, streams in only the objects whose ETag or size changed, and indexes them with the same extractors it uses for a folder. Credentials come from the environment; the index stays local.
+
+**Key number:** Measured against MinIO: an unchanged re-run over 4 keys cost 1 LIST and 0 GET requests, 0 bytes. (as of 2026-10-19; source: [engine/crates/xerj-autoindex/src/objsource_minio_tests.rs](https://github.com/xerj-org/xerj/blob/main/engine/crates/xerj-autoindex/src/objsource_minio_tests.rs))
 
 **TL;DR** — Run `xerj autoindex s3://bucket/prefix` against a running node. XERJ lists the prefix, streams in only the objects whose ETag or size changed, and indexes them with the same extractors it uses for a folder. Credentials come from the environment. The index stays on local disk.
 
@@ -235,3 +239,6 @@ Yes. A multipart ETag is a digest of digests with a `-N` suffix, so it is not an
 - [Why would a folder search miss files that I can see on disk?](/answers/why-autoindex-skipped-files)
 - [The indexer exited 3 (or 4). Did it fail?](/answers/autoindex-exit-codes)
 - [I have a folder of PDFs, Word docs, and markdown. How do I search all of them at once?](/answers/search-file-contents-in-a-folder)
+- [How do I keep an index current when the files live in an object store?](/answers/keep-s3-bucket-index-current) (same intent: operating autoindex)
+- [How do I keep a search index up to date as files change, without re-indexing everything?](/answers/keep-index-current-as-files-change) (same intent: operating autoindex)
+- [Reindexing my files is taking forever. What usually causes that?](/answers/reindex-taking-forever) (same intent: operating autoindex)

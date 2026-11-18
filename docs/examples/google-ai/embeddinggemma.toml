@@ -2,6 +2,8 @@
 # OpenAI-compatible endpoint. Fully local, no API key, no cloud.
 [embedding]
 mode = "proxy"
+# Full path, used unchanged. `http://127.0.0.1:11434/v1` also works
+# (`/embeddings` is appended). A bare host gets `/embeddings`.
 default_endpoint = "http://127.0.0.1:11434/v1/embeddings"
 default_model = "embeddinggemma"
 batch_size = 32

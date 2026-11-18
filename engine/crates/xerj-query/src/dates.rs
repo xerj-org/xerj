@@ -47,6 +47,9 @@ pub enum DateResolveError {
     /// the math substring for ES's
     /// `operator not supported for date math [-5ms]` message.
     BadDateMath(String),
+    /// The range query's `time_zone` is not a zone id or offset ES accepts.
+    /// Carries the value as given.
+    UnknownTimeZone(String),
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -99,6 +102,12 @@ impl DateParts {
     /// Resolve to epoch milliseconds.  `round_up` selects the ES round-up
     /// fill for missing fields (month/day → 1, time-of-day → max).
     fn to_epoch_ms(&self, round_up: bool) -> Option<i64> {
+        self.to_epoch_ms_in(round_up, None)
+    }
+
+    /// Like `to_epoch_ms`, but a value without its own offset is local time
+    /// in `tz` (the range query's `time_zone`).
+    fn to_epoch_ms_in(&self, round_up: bool, tz: Option<&TimeZone>) -> Option<i64> {
         let year = self.year.unwrap_or(1970);
         let month = self.month.unwrap_or(1);
         let day = self.day.unwrap_or(1);
@@ -142,8 +151,103 @@ impl DateParts {
             NaiveDate::from_ymd_opt(year, month, day)?
         };
         let dt = date.and_hms_milli_opt(hour, minute, second, milli)?;
+        if let (None, Some(tz)) = (self.tz_secs, tz) {
+            return tz.local_to_utc_ms(dt);
+        }
         let ms = dt.and_utc().timestamp_millis();
         Some(ms - i64::from(self.tz_secs.unwrap_or(0)) * 1000)
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Range `time_zone`
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// A range query's `time_zone`: the zone a bound without its own offset is
+/// read in, and the zone date math rounds in.  Epoch numbers are instants and
+/// are not shifted.
+#[derive(Debug, Clone, Copy)]
+pub enum TimeZone {
+    /// Seconds east of UTC.
+    Fixed(i32),
+    Named(chrono_tz::Tz),
+}
+
+impl TimeZone {
+    /// Parse a zone the way ES (`java.time.ZoneId.of`) does: `Z`, `UTC`,
+    /// `GMT`, `UT`, an offset (`±hh`, `±hhmm`, `±hh:mm`, up to ±18:00),
+    /// one of those prefixes followed by an offset, or a region id such as
+    /// `Asia/Kolkata`.  Region ids are case-sensitive, as in ES.
+    pub fn parse(s: &str) -> Result<Self, DateResolveError> {
+        let unknown = || DateResolveError::UnknownTimeZone(s.to_string());
+        let offset = |t: &str| -> Option<i32> {
+            let sign = match t.as_bytes().first()? {
+                b'+' => 1,
+                b'-' => -1,
+                _ => return None,
+            };
+            let rest = &t[1..];
+            if !rest.bytes().all(|b| b.is_ascii_digit() || b == b':') {
+                return None;
+            }
+            let (h, m) = match rest.len() {
+                1 | 2 => (rest, "0"),
+                4 => rest.split_at(2),
+                5 if rest.as_bytes()[2] == b':' => (&rest[..2], &rest[3..]),
+                _ => return None,
+            };
+            let (h, m): (i32, i32) = (h.parse().ok()?, m.parse().ok()?);
+            let secs = h * 3600 + m * 60;
+            (m < 60 && secs <= 18 * 3600).then_some(sign * secs)
+        };
+        if matches!(s, "Z" | "UTC" | "GMT" | "UT") {
+            return Ok(Self::Fixed(0));
+        }
+        if s.starts_with('+') || s.starts_with('-') {
+            return offset(s).map(Self::Fixed).ok_or_else(unknown);
+        }
+        for prefix in ["UTC", "GMT", "UT"] {
+            if let Some(rest) = s.strip_prefix(prefix) {
+                if rest.starts_with('+') || rest.starts_with('-') {
+                    return offset(rest).map(Self::Fixed).ok_or_else(unknown);
+                }
+            }
+        }
+        s.parse::<chrono_tz::Tz>()
+            .map(Self::Named)
+            .map_err(|_| unknown())
+    }
+
+    /// The instant of wall-clock time `local` in this zone.  Like java.time,
+    /// a time in a DST gap moves forward by the gap, and a time in an overlap
+    /// takes the earlier offset.
+    fn local_to_utc_ms(&self, local: NaiveDateTime) -> Option<i64> {
+        use chrono::{LocalResult, Offset, TimeZone as _};
+        let wall = local.and_utc().timestamp_millis();
+        match self {
+            Self::Fixed(secs) => Some(wall - i64::from(*secs) * 1000),
+            Self::Named(tz) => match tz.from_local_datetime(&local) {
+                LocalResult::Single(dt) | LocalResult::Ambiguous(dt, _) => {
+                    Some(dt.timestamp_millis())
+                }
+                LocalResult::None => {
+                    let before = tz
+                        .offset_from_utc_datetime(&(local - Duration::days(1)))
+                        .fix();
+                    Some(wall - i64::from(before.local_minus_utc()) * 1000)
+                }
+            },
+        }
+    }
+
+    fn utc_ms_to_local(&self, ms: i64) -> Option<NaiveDateTime> {
+        let utc = chrono::DateTime::from_timestamp_millis(ms)?;
+        match self {
+            Self::Fixed(secs) => utc
+                .naive_utc()
+                .checked_add_signed(Duration::seconds(i64::from(*secs))),
+            Self::Named(tz) => Some(utc.with_timezone(tz).naive_local()),
+        }
     }
 }
 
@@ -720,6 +824,15 @@ fn push_literal(toks: &mut Vec<PatTok>, text: &str) {
 /// Parse a value against one compiled format.  Returns epoch-ms with the
 /// round mode applied to missing components.
 fn parse_with_format(fmt: &DateFmt, value: &str, round_up: bool) -> Option<i64> {
+    parse_with_format_in(fmt, value, round_up, None)
+}
+
+fn parse_with_format_in(
+    fmt: &DateFmt,
+    value: &str,
+    round_up: bool,
+    tz: Option<&TimeZone>,
+) -> Option<i64> {
     match fmt {
         DateFmt::EpochMillis => {
             let v: i64 = value.parse().ok()?;
@@ -729,8 +842,8 @@ fn parse_with_format(fmt: &DateFmt, value: &str, round_up: bool) -> Option<i64> 
             let v: i64 = value.parse().ok()?;
             v.checked_mul(1000)
         }
-        DateFmt::IsoOptionalTime => parse_iso_partial(value)?.to_epoch_ms(round_up),
-        DateFmt::Pattern(toks) => parse_pattern(toks, value)?.to_epoch_ms(round_up),
+        DateFmt::IsoOptionalTime => parse_iso_partial(value)?.to_epoch_ms_in(round_up, tz),
+        DateFmt::Pattern(toks) => parse_pattern(toks, value)?.to_epoch_ms_in(round_up, tz),
     }
 }
 
@@ -1156,7 +1269,21 @@ fn parse_tz(s: &str) -> Option<(i32, usize)> {
 /// Errors carry the *whole* math substring, mirroring ES's
 /// `operator not supported for date math [-5ms]`.
 pub fn apply_date_math(base_ms: i64, math: &str, round_up: bool) -> Result<i64, DateResolveError> {
-    let mut dt = ms_to_naive(base_ms).ok_or_else(|| DateResolveError::BadDateMath(math.into()))?;
+    apply_date_math_in(base_ms, math, round_up, None)
+}
+
+/// Like `apply_date_math`, but units add and round in local time of `tz`.
+fn apply_date_math_in(
+    base_ms: i64,
+    math: &str,
+    round_up: bool,
+    tz: Option<&TimeZone>,
+) -> Result<i64, DateResolveError> {
+    let base = match tz {
+        Some(tz) => tz.utc_ms_to_local(base_ms),
+        None => ms_to_naive(base_ms),
+    };
+    let mut dt = base.ok_or_else(|| DateResolveError::BadDateMath(math.into()))?;
     let b = math.as_bytes();
     let mut i = 0usize;
     let err = || DateResolveError::BadDateMath(math.to_string());
@@ -1200,7 +1327,10 @@ pub fn apply_date_math(base_ms: i64, math: &str, round_up: bool) -> Result<i64, 
             _ => return Err(err()),
         }
     }
-    Ok(dt.and_utc().timestamp_millis())
+    match tz {
+        Some(tz) => tz.local_to_utc_ms(dt).ok_or_else(err),
+        None => Ok(dt.and_utc().timestamp_millis()),
+    }
 }
 
 fn ms_to_naive(ms: i64) -> Option<NaiveDateTime> {
@@ -1302,12 +1432,22 @@ pub fn resolve_date_bound_str(
     round_up: bool,
     formats: Option<&[DateFmt]>,
 ) -> Result<Option<String>, DateResolveError> {
+    resolve_date_bound_str_in(value, round_up, formats, None)
+}
+
+/// [`resolve_date_bound_str`] with the range query's `time_zone`.
+pub fn resolve_date_bound_str_in(
+    value: &str,
+    round_up: bool,
+    formats: Option<&[DateFmt]>,
+    tz: Option<&TimeZone>,
+) -> Result<Option<String>, DateResolveError> {
     let v = value.trim();
 
     // `now`-anchored math (never subject to `format`).
     if let Some(math) = v.strip_prefix("now") {
         let base = chrono::Utc::now().timestamp_millis();
-        let ms = apply_date_math(base, math, round_up)?;
+        let ms = apply_date_math_in(base, math, round_up, tz)?;
         return Ok(ms_to_iso(ms));
     }
 
@@ -1315,14 +1455,14 @@ pub fn resolve_date_bound_str(
     // round-up; verified live against ES 8.13.4), then math applies with
     // per-operator rounding.
     if let Some((anchor, math)) = v.split_once("||") {
-        let anchor_ms = parse_anchor_min(anchor, formats);
+        let anchor_ms = parse_anchor_min(anchor, formats, tz);
         let Some(anchor_ms) = anchor_ms else {
             // A `||` value is unambiguously date math — unparseable anchors
             // are hard errors (ES: failed to parse date field), even under
             // the default format.
             return Err(DateResolveError::UnparseableValue(v.to_string()));
         };
-        let ms = apply_date_math(anchor_ms, math, round_up)?;
+        let ms = apply_date_math_in(anchor_ms, math, round_up, tz)?;
         return Ok(ms_to_iso(ms));
     }
 
@@ -1330,7 +1470,7 @@ pub fn resolve_date_bound_str(
     match formats {
         Some(fmts) => {
             for f in fmts {
-                if let Some(ms) = parse_with_format(f, v, round_up) {
+                if let Some(ms) = parse_with_format_in(f, v, round_up, tz) {
                     return Ok(ms_to_iso(ms));
                 }
             }
@@ -1340,7 +1480,7 @@ pub fn resolve_date_bound_str(
             // Default format: only the ISO half rewrites; anything else
             // (bare numbers, keyword data) keeps its existing comparator
             // semantics.
-            match parse_iso_partial(v).and_then(|p| p.to_epoch_ms(round_up)) {
+            match parse_iso_partial(v).and_then(|p| p.to_epoch_ms_in(round_up, tz)) {
                 Some(ms) => Ok(ms_to_iso(ms)),
                 None => Ok(None),
             }
@@ -1349,15 +1489,19 @@ pub fn resolve_date_bound_str(
 }
 
 /// Parse a date-math anchor with min fill under `formats` (or the default).
-fn parse_anchor_min(anchor: &str, formats: Option<&[DateFmt]>) -> Option<i64> {
+fn parse_anchor_min(
+    anchor: &str,
+    formats: Option<&[DateFmt]>,
+    tz: Option<&TimeZone>,
+) -> Option<i64> {
     match formats {
         Some(fmts) => fmts
             .iter()
-            .find_map(|f| parse_with_format(f, anchor, false)),
+            .find_map(|f| parse_with_format_in(f, anchor, false, tz)),
         None => {
             // Default `strict_date_optional_time||epoch_millis`.
             if let Some(p) = parse_iso_partial(anchor) {
-                return p.to_epoch_ms(false);
+                return p.to_epoch_ms_in(false, tz);
             }
             anchor.parse::<i64>().ok()
         }
@@ -1373,6 +1517,16 @@ pub fn resolve_date_bound_num(
     value: &serde_json::Number,
     round_up: bool,
     formats: &[DateFmt],
+) -> Result<Option<String>, DateResolveError> {
+    resolve_date_bound_num_in(value, round_up, formats, None)
+}
+
+/// [`resolve_date_bound_num`] with the range query's `time_zone`.
+pub fn resolve_date_bound_num_in(
+    value: &serde_json::Number,
+    round_up: bool,
+    formats: &[DateFmt],
+    tz: Option<&TimeZone>,
 ) -> Result<Option<String>, DateResolveError> {
     for f in formats {
         match f {
@@ -1390,7 +1544,7 @@ pub fn resolve_date_bound_num(
             }
             other => {
                 let s = value.to_string();
-                if let Some(ms) = parse_with_format(other, &s, round_up) {
+                if let Some(ms) = parse_with_format_in(other, &s, round_up, tz) {
                     return Ok(ms_to_iso(ms));
                 }
             }
@@ -2493,5 +2647,114 @@ mod ampm_twelve_hour_tests {
             resolve("01:30 PM").as_deref(),
             Some("1970-01-01T13:30:00.000Z")
         );
+    }
+}
+
+#[cfg(test)]
+mod range_time_zone_tests {
+    //! Expected instants are what ES 8.13.4 resolves each range bound to
+    //! (`_validate/query?explain=true`).
+    use super::{compile_formats, resolve_date_bound_str_in, TimeZone};
+
+    fn resolve(value: &str, round_up: bool, tz: &str) -> String {
+        let tz = TimeZone::parse(tz).unwrap();
+        resolve_date_bound_str_in(value, round_up, None, Some(&tz))
+            .unwrap()
+            .unwrap()
+    }
+
+    #[test]
+    fn bounds_without_an_offset_are_local_time() {
+        assert_eq!(
+            resolve("2024-03-10", false, "+05:30"),
+            "2024-03-09T18:30:00.000Z"
+        );
+        assert_eq!(
+            resolve("2024-03-11", false, "+05:30"),
+            "2024-03-10T18:30:00.000Z"
+        );
+        assert_eq!(
+            resolve("2024-03-10T05:00:00", false, "+05:30"),
+            "2024-03-09T23:30:00.000Z"
+        );
+        assert_eq!(
+            resolve("2024-03-10", true, "America/New_York"),
+            "2024-03-11T03:59:59.999Z"
+        );
+        assert_eq!(
+            resolve("2024-03-10", false, "+0530"),
+            "2024-03-09T18:30:00.000Z"
+        );
+        assert_eq!(
+            resolve("2024-03-10", false, "+05"),
+            "2024-03-09T19:00:00.000Z"
+        );
+        assert_eq!(
+            resolve("2024-03-10", false, "GMT+05:30"),
+            "2024-03-09T18:30:00.000Z"
+        );
+        assert_eq!(
+            resolve("2024-03-10", false, "Z"),
+            "2024-03-10T00:00:00.000Z"
+        );
+        assert_eq!(
+            resolve("2024-03-10", false, "UTC"),
+            "2024-03-10T00:00:00.000Z"
+        );
+    }
+
+    #[test]
+    fn an_explicit_offset_wins_over_time_zone() {
+        assert_eq!(
+            resolve("2024-03-10T05:00:00Z", false, "+05:30"),
+            "2024-03-10T05:00:00.000Z"
+        );
+        assert_eq!(
+            resolve("2024-03-10T05:00:00+01:00", false, "+05:30"),
+            "2024-03-10T04:00:00.000Z"
+        );
+    }
+
+    #[test]
+    fn dst_gap_moves_forward_and_overlap_takes_the_earlier_offset() {
+        assert_eq!(
+            resolve("2024-03-10T02:30:00", false, "America/New_York"),
+            "2024-03-10T07:30:00.000Z"
+        );
+        assert_eq!(
+            resolve("2024-11-03T01:30:00", false, "America/New_York"),
+            "2024-11-03T05:30:00.000Z"
+        );
+    }
+
+    #[test]
+    fn date_math_rounds_in_local_time() {
+        assert_eq!(
+            resolve("2024-03-10||/d", false, "+05:30"),
+            "2024-03-09T18:30:00.000Z"
+        );
+        assert_eq!(
+            resolve("2024-03-10T20:00:00||+1d/d", false, "-08:00"),
+            "2024-03-11T08:00:00.000Z"
+        );
+    }
+
+    #[test]
+    fn explicit_formats_use_time_zone() {
+        let fmts = compile_formats("dd/MM/yyyy").unwrap();
+        let tz = TimeZone::parse("+05:30").unwrap();
+        assert_eq!(
+            resolve_date_bound_str_in("10/03/2024", false, Some(&fmts), Some(&tz))
+                .unwrap()
+                .as_deref(),
+            Some("2024-03-09T18:30:00.000Z")
+        );
+    }
+
+    #[test]
+    fn unknown_zones_are_rejected() {
+        for tz in ["utc", "Mars/Base", "+25:00", "+05:60", "+5:30", ""] {
+            assert!(TimeZone::parse(tz).is_err(), "{tz} should be rejected");
+        }
     }
 }

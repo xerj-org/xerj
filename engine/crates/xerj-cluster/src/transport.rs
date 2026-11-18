@@ -54,6 +54,7 @@ use tracing::{debug, info, warn};
 use crate::auth::{tags_match, ClusterSecret, CHALLENGE_LEN, TAG_LEN, WIRE_MAGIC, WIRE_VERSION};
 use crate::node::ClusterTransport;
 use crate::raft::RaftMessage;
+use crate::shard::{ShardError, ShardHandler, ShardOp, ShardResult, ShardRpc};
 
 /// Largest accepted frame payload (10 MiB).
 const MAX_FRAME_BYTES: usize = 10 * 1024 * 1024;
@@ -66,6 +67,12 @@ const MAX_NODE_ID_BYTES: usize = 256;
 /// Without this, a peer that connects and then goes silent pins an accept task
 /// (and its buffers) indefinitely — cheap for an attacker, expensive for us.
 const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
+
+/// How long a shard RPC waits for the owner's response, including connect.
+///
+/// Distinct from [`SEND_TIMEOUT`]: a document index can outlast a heartbeat
+/// frame, and a timeout here is a failed write, not a dropped heartbeat.
+const SHARD_RPC_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// How long a send may take once the TCP connection is established.
 ///
@@ -317,6 +324,20 @@ pub struct TcpTransport {
     // background listener task terminates.
     #[allow(dead_code)]
     sender: mpsc::Sender<(String, RaftMessage)>,
+    /// Document/search RPC. Shared with the accept loop, which answers
+    /// [`RaftMessage::ShardRequest`] on the connection that brought it.
+    shard_rpc: Arc<TcpShardRpc>,
+}
+
+/// Authenticated request/response for one shard operation.
+///
+/// Not the Raft outbound queue. Each call opens a connection, writes one
+/// request frame, and reads one response frame.
+struct TcpShardRpc {
+    node_id: String,
+    peers: Arc<HashMap<String, SocketAddr>>,
+    secret: ClusterSecret,
+    handler: std::sync::Mutex<Option<Arc<dyn ShardHandler>>>,
 }
 
 impl TcpTransport {
@@ -373,14 +394,22 @@ impl TcpTransport {
             outbound.insert(peer_id.clone(), peer_tx);
         }
 
+        let peers = Arc::new(peers);
+        let shard_rpc = Arc::new(TcpShardRpc {
+            node_id: node_id.clone(),
+            peers: Arc::clone(&peers),
+            secret: secret.clone(),
+            handler: std::sync::Mutex::new(None),
+        });
         let transport = TcpTransport {
             node_id: node_id.clone(),
             listen_addr,
-            peers: Arc::new(peers),
+            peers,
             secret,
             incoming: Arc::new(Mutex::new(rx)),
             outbound,
             sender: tx.clone(),
+            shard_rpc,
         };
 
         // Spawn the background listener task.
@@ -397,6 +426,7 @@ impl TcpTransport {
 
         let node_id = self.node_id.clone();
         let secret = self.secret.clone();
+        let shard_rpc = Arc::clone(&self.shard_rpc);
         info!(node = %node_id, addr = %self.listen_addr, "TCP transport listening (authenticated)");
 
         tokio::spawn(async move {
@@ -407,8 +437,10 @@ impl TcpTransport {
                         let tx2 = tx.clone();
                         let nid = node_id.clone();
                         let secret = secret.clone();
+                        let shard_rpc = Arc::clone(&shard_rpc);
                         tokio::spawn(async move {
-                            if let Err(e) = handle_connection(stream, secret, tx2).await {
+                            if let Err(e) = handle_connection(stream, secret, tx2, shard_rpc).await
+                            {
                                 debug!(node = %nid, %peer_addr, error = %e, "TCP connection closed");
                             }
                         });
@@ -525,6 +557,74 @@ async fn peer_sender_task(
 }
 
 #[async_trait]
+impl ShardRpc for TcpShardRpc {
+    async fn call(&self, to: &str, op: ShardOp) -> Result<ShardResult, ShardError> {
+        if to == self.node_id {
+            let handler = self
+                .handler
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .clone();
+            return match handler {
+                Some(handler) => Ok(handler.handle(op).await),
+                None => Err(ShardError::Unavailable {
+                    to: to.to_string(),
+                    reason: "no shard handler registered on this node".to_string(),
+                }),
+            };
+        }
+        let Some(addr) = self.peers.get(to).copied() else {
+            return Err(ShardError::Unavailable {
+                to: to.to_string(),
+                reason: "unknown peer".to_string(),
+            });
+        };
+        match tokio::time::timeout(
+            SHARD_RPC_TIMEOUT,
+            shard_exchange(&self.node_id, to, addr, &self.secret, op),
+        )
+        .await
+        {
+            Ok(Ok(result)) => Ok(result),
+            Ok(Err(e)) => Err(ShardError::Unavailable {
+                to: to.to_string(),
+                reason: e.to_string(),
+            }),
+            Err(_) => Err(ShardError::Timeout { to: to.to_string() }),
+        }
+    }
+
+    fn set_handler(&self, handler: Arc<dyn ShardHandler>) {
+        *self.handler.lock().unwrap_or_else(|e| e.into_inner()) = Some(handler);
+    }
+
+    fn clear_handler(&self) {
+        *self.handler.lock().unwrap_or_else(|e| e.into_inner()) = None;
+    }
+}
+
+async fn shard_exchange(
+    node_id: &str,
+    peer_id: &str,
+    addr: SocketAddr,
+    secret: &ClusterSecret,
+    op: ShardOp,
+) -> Result<ShardResult> {
+    let mut stream = TcpStream::connect(addr)
+        .await
+        .with_context(|| format!("connect to shard peer {peer_id} at {addr}"))?;
+    let challenge = read_handshake(&mut stream).await?;
+    write_hello(&mut stream, secret, &challenge, node_id).await?;
+    let request = RaftMessage::ShardRequest { request_id: 1, op };
+    write_frame(&mut stream, secret, &challenge, node_id, 0, &request).await?;
+    match read_frame(&mut stream, secret, &challenge, peer_id, 0).await? {
+        Some(RaftMessage::ShardResponse { result, .. }) => Ok(result),
+        Some(_) => anyhow::bail!("peer {peer_id} answered a shard call with a raft frame"),
+        None => anyhow::bail!("peer {peer_id} closed before the shard response"),
+    }
+}
+
+#[async_trait]
 impl ClusterTransport for TcpTransport {
     /// Enqueue `msg` on the peer's outbound queue — returns as soon as the
     /// message is accepted for delivery, never after the TCP exchange.
@@ -558,6 +658,10 @@ impl ClusterTransport for TcpTransport {
             .await
             .ok_or_else(|| anyhow::anyhow!("TCP transport incoming channel closed"))
     }
+
+    fn shard_rpc(&self) -> Arc<dyn ShardRpc> {
+        Arc::clone(&self.shard_rpc) as Arc<dyn ShardRpc>
+    }
 }
 
 // ── Connection handler ────────────────────────────────────────────────────────
@@ -571,6 +675,7 @@ async fn handle_connection(
     mut stream: TcpStream,
     secret: ClusterSecret,
     tx: mpsc::Sender<(String, RaftMessage)>,
+    shard_rpc: Arc<TcpShardRpc>,
 ) -> Result<()> {
     let challenge = write_handshake(&mut stream).await?;
 
@@ -586,6 +691,33 @@ async fn handle_connection(
     let mut seq: u64 = 0;
     loop {
         match read_frame(&mut stream, &secret, &challenge, &from, seq).await {
+            Ok(Some(RaftMessage::ShardRequest { request_id, op })) => {
+                let handler = shard_rpc
+                    .handler
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner())
+                    .clone();
+                let result = match handler {
+                    Some(handler) => handler.handle(op).await,
+                    None => ShardResult::http(
+                        503,
+                        r#"{"error":{"type":"shard_not_ready","reason":"no shard handler registered"},"status":503}"#,
+                    ),
+                };
+                let response = RaftMessage::ShardResponse { request_id, result };
+                // seq 0 on the way back: the caller reads the first frame this
+                // socket writes. The tag is over this node's id.
+                write_frame(
+                    &mut stream,
+                    &secret,
+                    &challenge,
+                    &shard_rpc.node_id,
+                    0,
+                    &response,
+                )
+                .await?;
+                break;
+            }
             Ok(Some(msg)) => {
                 if tx.send((from.clone(), msg)).await.is_err() {
                     break; // receiver dropped

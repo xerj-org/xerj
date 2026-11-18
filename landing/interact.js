@@ -22,15 +22,17 @@
      The value is read from the attribute so HTML-escaped quotes are restored
      before it reaches the clipboard. */
   $$('[data-copy]').forEach(btn => {
+    const label = btn.textContent;
+    let resetTimer;
     btn.addEventListener('click', () => {
       const text = btn.getAttribute('data-copy');
-      const done = () => {
-        const orig = btn.textContent;
-        btn.textContent = 'COPIED';
-        setTimeout(() => { btn.textContent = orig; }, 1400);
+      const done = copied => {
+        clearTimeout(resetTimer);
+        btn.textContent = copied ? 'COPIED' : 'COPY FAILED';
+        resetTimer = setTimeout(() => { btn.textContent = label; }, 1400);
       };
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(done, done);
+        navigator.clipboard.writeText(text).then(() => done(true), () => done(false));
       } else {
         const ta = document.createElement('textarea');
         ta.value = text;
@@ -39,9 +41,10 @@
         ta.style.left = '-9999px';
         document.body.appendChild(ta);
         ta.select();
-        try { document.execCommand('copy'); } catch (_) {}
+        let copied = false;
+        try { copied = document.execCommand('copy'); } catch (_) {}
         document.body.removeChild(ta);
-        done();
+        done(copied);
       }
     });
   });

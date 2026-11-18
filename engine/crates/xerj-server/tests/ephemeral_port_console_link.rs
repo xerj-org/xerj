@@ -48,7 +48,7 @@ disk_flood_stage_percent = 0
 
 fn two_free_ports() -> (u16, u16) {
     let held: Vec<TcpListener> = (0..2)
-        .map(|_| TcpListener::bind("127.0.0.1:0").unwrap())
+        .map(|_| xerj_common::loopback_test::expect_loopback(TcpListener::bind("127.0.0.1:0")))
         .collect();
     let p: Vec<u16> = held
         .iter()

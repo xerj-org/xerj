@@ -1,0 +1,17 @@
+{
+  "_fixture_provenance": {
+    "kind": "synthetic serialized field slice, not a measured benchmark run",
+    "upstream_version": "v0.21.0",
+    "upstream_commit": "64afbbcb62165950301e1a6407c729aa26d844ff",
+    "models": [
+      "https://github.com/harbor-framework/harbor/blob/64afbbcb62165950301e1a6407c729aa26d844ff/src/harbor/models/verifier/result.py",
+      "https://github.com/harbor-framework/harbor/blob/64afbbcb62165950301e1a6407c729aa26d844ff/src/harbor/models/agent/context.py",
+      "https://github.com/harbor-framework/harbor/blob/64afbbcb62165950301e1a6407c729aa26d844ff/src/harbor/models/trial/result.py"
+    ]
+  },
+  "task_name": "fixture-task",
+  "verifier_result": {"rewards": {"reward": 1}},
+  "agent_result": {"cost_usd": 0.125, "n_input_tokens": 120, "n_cache_tokens": 20, "n_output_tokens": 30},
+  "started_at": "2026-01-01T01:00:00+01:00",
+  "finished_at": "2026-01-01T00:00:05Z"
+}

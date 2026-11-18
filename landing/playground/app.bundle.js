@@ -3486,7 +3486,7 @@ When the engine grows a \`/v1/users/me\` endpoint, this store syncs up.`
         (byGroup[g] = byGroup[g] || []).push(d);
       }
       const activeDashObj = dashboards.find((d) => d.id === activeDash);
-      const activeGroup = activeDashObj?.group || (groups[0]?.id || "other");
+      const activeGroup = activeDashObj ? activeDashObj.group || "other" : groups[0]?.id || "other";
       const orderedGroups = [];
       const seen = /* @__PURE__ */ new Set();
       for (const g of groups) {
@@ -5048,6 +5048,31 @@ borrows the accent color.`
     clone.setAttribute("height", String(h));
     const cs = getComputedStyle(svgEl);
     clone.setAttribute("color", cs.color);
+    const properties = [
+      "color",
+      "fill",
+      "fill-opacity",
+      "stroke",
+      "stroke-width",
+      "stroke-opacity",
+      "stroke-dasharray",
+      "opacity",
+      "font-family",
+      "font-size",
+      "font-weight",
+      "letter-spacing",
+      "text-anchor",
+      "dominant-baseline"
+    ];
+    const originals = [svgEl, ...svgEl.querySelectorAll("*")];
+    const copies = [clone, ...clone.querySelectorAll("*")];
+    originals.forEach((element, index) => {
+      const computed = getComputedStyle(element);
+      for (const property of properties) {
+        const value = computed.getPropertyValue(property);
+        if (value) copies[index].style.setProperty(property, value);
+      }
+    });
     if (!clone.getAttribute("xmlns")) {
       clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
     }
@@ -5121,13 +5146,19 @@ borrows the accent color.`
           hidden: hidden.has(id)
         });
       } else if (user) {
-        const source = user.clonedFrom ? byId[user.clonedFrom] : null;
+        let templateId = user.clonedFrom;
+        const visited = /* @__PURE__ */ new Set([id]);
+        while (templateId && custom[templateId] && !visited.has(templateId)) {
+          visited.add(templateId);
+          templateId = custom[templateId].clonedFrom;
+        }
+        const source = templateId ? byId[templateId] : null;
         out.push({
           id,
           name: names[id] || user.name,
           render: source?.render || blankRender(user.name),
           isUser: true,
-          clonedFrom: user.clonedFrom,
+          clonedFrom: source ? source.id : user.clonedFrom,
           dataSource: user.dataSource,
           hidden: hidden.has(id)
         });
@@ -5272,7 +5303,7 @@ borrows the accent color.`
     loading: false,
     filters: loadAllFilters(),
     // { [dashId]: { field: value } }
-    theme: document.documentElement.getAttribute("data-theme") || "night",
+    theme: document.documentElement.getAttribute("data-theme") || "day",
     edit: localStorage.getItem(LS.edit) === "1",
     mobile: localStorage.getItem("xerj.mobile") === "1",
     layouts: loadAllLayouts(),
@@ -5461,6 +5492,7 @@ borrows the accent color.`
       name,
       dashId,
       time: state.time,
+      timeCustom: state.time === "CUSTOM" ? { ...state.timeCustom } : null,
       cluster: state.cluster,
       filters: currentFilters(),
       savedAt: (/* @__PURE__ */ new Date()).toISOString()
@@ -5474,11 +5506,21 @@ borrows the accent color.`
     const v = loadViews().find((x) => x.id === id);
     if (!v) return;
     state.time = v.time;
+    if (v.timeCustom) {
+      state.timeCustom = { ...v.timeCustom };
+      localStorage.setItem("xerj.timeFrom", state.timeCustom.from || "");
+      localStorage.setItem("xerj.timeTo", state.timeCustom.to || "");
+    }
     state.cluster = v.cluster || state.cluster;
     state.filters[v.dashId] = { ...v.filters || {} };
     saveFilters(v.dashId);
     localStorage.setItem(LS.time, state.time);
-    location.hash = "#/dashboards/" + v.dashId;
+    state.section = "dashboards";
+    state.route = v.dashId;
+    writeUrlState();
+    const hash = "#/dashboards/" + v.dashId;
+    if (location.hash === hash) render();
+    else location.hash = hash;
   }
   function relTime(iso) {
     if (!iso) return "";
@@ -5575,7 +5617,7 @@ borrows the accent color.`
   }
   function loadAllLayouts() {
     const out = {};
-    for (const id of Object.keys(registry)) {
+    for (const { id } of mergedDashboards(defaults, { includeHidden: true })) {
       try {
         const raw = localStorage.getItem(LS.layout(id));
         if (raw) out[id] = JSON.parse(raw);
@@ -5650,6 +5692,9 @@ borrows the accent color.`
     fn(ov);
     saveLayout(dashId);
   }
+  function editableDashboard(id) {
+    return mergedDashboards(defaults, { includeHidden: true }).find((d) => d.id === id);
+  }
   var SIZES = [2, 3, 4, 6, 8, 12];
   function renderEditChrome(p) {
     const sizes = SIZES.map(
@@ -5715,7 +5760,7 @@ borrows the accent color.`
     const dash = allDash.find((d) => d.id === state.route) || dashboardsInSection(state.section, allDash)[0] || registry["ai-overview"];
     const navDash = mergedDashboards(defaults);
     const dashboardsForSection = dashboardsInSection("dashboards", navDash);
-    if (dash.id === "search-discover" && !state.search.result) {
+    if ((dash.clonedFrom || dash.id) === "search-discover" && !state.search.result) {
       runSearchNow();
     }
     const activeFilters = currentFilters();
@@ -5732,7 +5777,7 @@ borrows the accent color.`
       state.loading = true;
       try {
         const result = await query({
-          dashId: dash.id,
+          dashId: dash.clonedFrom || dash.id,
           range: state.time,
           customRange: state.time === "CUSTOM" ? state.timeCustom : null,
           cluster: state.cluster,
@@ -5988,7 +6033,7 @@ borrows the accent color.`
     if (sz) {
       const pid = sz.getAttribute("data-panel");
       const cols = parseInt(sz.getAttribute("data-size"), 10);
-      const dash = registry[state.route];
+      const dash = editableDashboard(state.route);
       const view = dash.render({ data: {}, time: state.time });
       mutate(state.route, view.panels, (ov) => {
         ov.cols[pid] = cols;
@@ -5999,7 +6044,7 @@ borrows the accent color.`
     const rm = e.target.closest("[data-remove]");
     if (rm) {
       const pid = rm.getAttribute("data-panel");
-      const dash = registry[state.route];
+      const dash = editableDashboard(state.route);
       const view = dash.render({ data: {}, time: state.time });
       mutate(state.route, view.panels, (ov) => {
         if (!ov.hidden.includes(pid)) ov.hidden.push(pid);
@@ -6188,7 +6233,7 @@ borrows the accent color.`
       const typeId = add.getAttribute("data-add");
       const t = chartTypes[typeId];
       if (!t) return;
-      const dash = registry[state.route];
+      const dash = editableDashboard(state.route);
       const view = dash.render({ data: {}, time: state.time });
       mutate(state.route, view.panels, (ov) => {
         ov.added = ov.added || [];
@@ -6314,7 +6359,7 @@ borrows the accent color.`
     const insertAfter = sec.classList.contains("drop-after");
     document.querySelectorAll(".drop-before, .drop-after").forEach((el) => el.classList.remove("drop-before", "drop-after"));
     if (!targetId || targetId === dragSrcId) return;
-    const dash = registry[state.route];
+    const dash = editableDashboard(state.route);
     const view = dash.render({ data: {}, time: state.time });
     mutate(state.route, view.panels, (ov) => {
       const fullOrder = ov.order && ov.order.length ? ov.order.slice() : view.panels.map((p) => p.id);

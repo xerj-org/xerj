@@ -40,7 +40,10 @@ FUZZ_SECONDS="${FUZZ_SECONDS:-20}"
 FUZZ_TIMEOUT="${FUZZ_TIMEOUT:-25}"
 FUZZ_RSS_MB="${FUZZ_RSS_MB:-4096}"
 
-if ! cargo +nightly fuzz --version >/dev/null 2>&1; then
+# CI may pin a dated nightly (see ci.yml); locally this floats.
+FUZZ_TOOLCHAIN="${FUZZ_TOOLCHAIN:-nightly}"
+
+if ! cargo +"$FUZZ_TOOLCHAIN" fuzz --version >/dev/null 2>&1; then
     echo "fuzz-smoke: needs a nightly toolchain and cargo-fuzz." >&2
     echo "  rustup toolchain install nightly" >&2
     echo "  cargo install cargo-fuzz --locked" >&2
@@ -63,12 +66,12 @@ if [ ! -f fuzz/Cargo.lock ]; then
 fi
 
 echo "==> building fuzz targets (ASan + libFuzzer)"
-cargo +nightly fuzz build
+cargo +"$FUZZ_TOOLCHAIN" fuzz build
 
 # The target list comes from the crate, never from a list pasted into this
 # script: a target that is added and not wired up here would otherwise be
 # claimed-but-not-run, which is the whole reason this file exists.
-mapfile -t TARGETS < <(cargo +nightly fuzz list)
+mapfile -t TARGETS < <(cargo +"$FUZZ_TOOLCHAIN" fuzz list)
 if [ "${#TARGETS[@]}" -eq 0 ]; then
     echo "fuzz-smoke: no fuzz targets found in engine/fuzz — refusing to pass." >&2
     exit 1
@@ -89,7 +92,7 @@ for target in "${TARGETS[@]}"; do
     cp -f "$seeds"/* "$corpus"/
 
     echo "--- $target ($(ls -1 "$seeds" | wc -l) seeds)"
-    cargo +nightly fuzz run "$target" -- \
+    cargo +"$FUZZ_TOOLCHAIN" fuzz run "$target" -- \
         -max_total_time="$FUZZ_SECONDS" \
         -timeout="$FUZZ_TIMEOUT" \
         -rss_limit_mb="$FUZZ_RSS_MB" \

@@ -33,7 +33,7 @@ use serde::{Deserialize, Serialize};
 use tracing::{debug, trace};
 use xerj_common::XerjError;
 
-use crate::distance::{compute_distance, DistanceMetric};
+use crate::distance::DistanceMetric;
 
 /// Result alias.
 pub type Result<T> = std::result::Result<T, XerjError>;
@@ -79,39 +79,178 @@ fn corrupt(msg: &str) -> XerjError {
     XerjError::storage(format!("HNSW graph corrupt: {msg}"))
 }
 
-/// Dot product with eight independent accumulators.
+// ─────────────────────────────────────────────────────────────────────────────
+// Half-precision vector storage (#2427)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Round an `f32` to the nearest IEEE 754 binary16 (ties to even), as bits.
+fn f32_to_half_bits(value: f32) -> u16 {
+    let bits = value.to_bits();
+    let sign = ((bits >> 16) & 0x8000) as u16;
+    let exponent = ((bits >> 23) & 0xff) as i32;
+    let mantissa = bits & 0x007f_ffff;
+    if exponent == 0xff {
+        let nan = if mantissa != 0 { 0x0200 } else { 0 };
+        return sign | 0x7c00 | nan;
+    }
+    let half_exponent = exponent - 127 + 15;
+    if half_exponent >= 0x1f {
+        return sign | 0x7c00;
+    }
+    if half_exponent <= 0 {
+        if half_exponent < -10 {
+            return sign;
+        }
+        // Subnormal half: value / 2^-24, rounded.
+        let significand = mantissa | 0x0080_0000;
+        let shift = (14 - half_exponent) as u32;
+        let halfway = 1u32 << (shift - 1);
+        let rest = significand & ((1u32 << shift) - 1);
+        let mut rounded = significand >> shift;
+        if rest > halfway || (rest == halfway && rounded & 1 == 1) {
+            rounded += 1;
+        }
+        return sign | rounded as u16;
+    }
+    let mut rounded = ((half_exponent as u32) << 10) | (mantissa >> 13);
+    let rest = mantissa & 0x1fff;
+    if rest > 0x1000 || (rest == 0x1000 && rounded & 1 == 1) {
+        // A carry out of the mantissa bumps the exponent, up to infinity.
+        rounded += 1;
+    }
+    sign | rounded as u16
+}
+
+/// Exact `f32` value of binary16 `bits` (the same value F16C produces).
+#[inline(always)]
+fn half_bits_to_f32(bits: u16) -> f32 {
+    let sign = ((bits & 0x8000) as u32) << 16;
+    let exponent = ((bits >> 10) & 0x1f) as u32;
+    let mantissa = (bits & 0x03ff) as u32;
+    if exponent == 0 {
+        let magnitude = mantissa as f32 * (1.0 / 16_777_216.0);
+        return f32::from_bits(magnitude.to_bits() | sign);
+    }
+    let out = if exponent == 0x1f {
+        sign | 0x7f80_0000 | (mantissa << 13)
+    } else {
+        sign | ((exponent + 112) << 23) | (mantissa << 13)
+    };
+    f32::from_bits(out)
+}
+
+/// Power-of-two scale that maps a vector into `[-1, 1)` before it is
+/// rounded to half precision, so components of any magnitude fit binary16
+/// and the scaling itself is exact.
+fn half_scale(vector: &[f32]) -> f32 {
+    let largest = vector
+        .iter()
+        .filter(|value| value.is_finite())
+        .fold(0.0f32, |acc, value| acc.max(value.abs()));
+    let exponent = (largest.to_bits() >> 23) & 0xff;
+    if exponent == 0 {
+        1.0
+    } else {
+        f32::from_bits((exponent + 1).min(254) << 23)
+    }
+}
+
+/// `query · decode(codes)` without the scale, for one 8-wide decoder, with
+/// eight independent accumulators.
 ///
-/// A single-accumulator `for` loop is a strict serial FP dependency chain
-/// that rustc must NOT auto-vectorize (float addition is not associative),
-/// so the beam search was spending ~5 ns/dim in scalar fmadds. Eight
-/// independent chains let LLVM keep multiple SIMD lanes busy; the exact
-/// f32 sum differs from the serial order only in rounding, which is fine
-/// here — graph distances only decide beam ORDER and callers rescore
-/// exact similarities downstream.
+/// A single-accumulator `for` loop is a strict serial f32 dependency chain.
+/// LLVM will not reassociate it, so it stays scalar even at `x86-64-v3`.
+/// Eight independent chains are what the beam-search inner loop actually
+/// vectorizes. The release baseline is `x86-64-v2` (no AVX2; #2161), and
+/// the same body is compiled again in [`dot_half_avx2`] with AVX2, FMA and
+/// F16C. The half decode is exact either way, and Rust does not contract
+/// `acc += x * y` into an FMA, so the two compilations are bit-identical;
+/// only the instruction width changes. Callers rescore exact similarities
+/// downstream — this value only orders the beam.
+macro_rules! half_dot_body {
+    ($a:expr, $b:expr, $decode8:expr) => {{
+        let (a, b): (&[f32], &[u16]) = ($a, $b);
+        let mut acc = [0.0f32; 8];
+        let (ca, ra) = a.as_chunks::<8>();
+        let (cb, rb) = b.as_chunks::<8>();
+        for (x, h) in ca.iter().zip(cb.iter()) {
+            let y: [f32; 8] = $decode8(h);
+            acc[0] += x[0] * y[0];
+            acc[1] += x[1] * y[1];
+            acc[2] += x[2] * y[2];
+            acc[3] += x[3] * y[3];
+            acc[4] += x[4] * y[4];
+            acc[5] += x[5] * y[5];
+            acc[6] += x[6] * y[6];
+            acc[7] += x[7] * y[7];
+        }
+        let mut s =
+            ((acc[0] + acc[4]) + (acc[1] + acc[5])) + ((acc[2] + acc[6]) + (acc[3] + acc[7]));
+        for (x, &h) in ra.iter().zip(rb.iter()) {
+            s += x * half_bits_to_f32(h);
+        }
+        s
+    }};
+}
+
+#[inline(always)]
+fn decode8_scalar(h: &[u16; 8]) -> [f32; 8] {
+    h.map(half_bits_to_f32)
+}
+
+#[inline(always)]
+fn dot_half_scalar(a: &[f32], b: &[u16]) -> f32 {
+    half_dot_body!(a, b, decode8_scalar)
+}
+
+/// [`dot_half_scalar`] with the decode done by F16C.
+///
+/// # Safety
+///
+/// The current CPU must support AVX2, FMA and F16C; the `*_avx2` entry
+/// points check all three before calling in.
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[target_feature(enable = "avx2,fma,f16c")]
 #[inline]
-fn dot_unrolled(a: &[f32], b: &[f32]) -> f32 {
-    let mut acc = [0.0f32; 8];
-    // `as_chunks::<8>()` yields the same 8-wide windows + remainder as
-    // `chunks_exact(8)` (the `x`/`y` are now `&[f32; 8]`, so the fixed
-    // indexing below is bounds-check-free); required by clippy 1.98's
-    // `chunks_exact_to_as_chunks`.
-    let (ca, ra) = a.as_chunks::<8>();
-    let (cb, rb) = b.as_chunks::<8>();
-    for (x, y) in ca.iter().zip(cb.iter()) {
-        acc[0] += x[0] * y[0];
-        acc[1] += x[1] * y[1];
-        acc[2] += x[2] * y[2];
-        acc[3] += x[3] * y[3];
-        acc[4] += x[4] * y[4];
-        acc[5] += x[5] * y[5];
-        acc[6] += x[6] * y[6];
-        acc[7] += x[7] * y[7];
+unsafe fn dot_half_avx2(a: &[f32], b: &[u16]) -> f32 {
+    #[cfg(target_arch = "x86")]
+    use std::arch::x86::{__m128i, _mm256_cvtph_ps, _mm256_storeu_ps, _mm_loadu_si128};
+    #[cfg(target_arch = "x86_64")]
+    use std::arch::x86_64::{__m128i, _mm256_cvtph_ps, _mm256_storeu_ps, _mm_loadu_si128};
+    let decode8 = |h: &[u16; 8]| -> [f32; 8] {
+        let mut out = [0.0f32; 8];
+        // SAFETY: `h` is 16 readable bytes and `out` 32 writable bytes; the
+        // enclosing function requires F16C and AVX.
+        unsafe {
+            let packed = _mm_loadu_si128(h.as_ptr() as *const __m128i);
+            _mm256_storeu_ps(out.as_mut_ptr(), _mm256_cvtph_ps(packed));
+        }
+        out
+    };
+    half_dot_body!(a, b, decode8)
+}
+
+/// `query · vector` for a stored half-precision vector, `scale` applied.
+#[inline(always)]
+fn dot_half<const AVX2: bool>(a: &[f32], b: &[u16], scale: f32) -> f32 {
+    if AVX2 && cfg!(any(target_arch = "x86", target_arch = "x86_64")) {
+        #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+        {
+            // SAFETY: the corresponding `*_avx2` wrapper checked the features
+            // and carries `target_feature(enable = "avx2,fma,f16c")`.
+            return unsafe { dot_half_avx2(a, b) } * scale;
+        }
     }
-    let mut s = ((acc[0] + acc[4]) + (acc[1] + acc[5])) + ((acc[2] + acc[6]) + (acc[3] + acc[7]));
-    for (x, y) in ra.iter().zip(rb.iter()) {
-        s += x * y;
-    }
-    s
+    dot_half_scalar(a, b) * scale
+}
+
+/// True when the AVX2 kernels (AVX2 + FMA + F16C) can run on this CPU.
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[inline]
+fn avx2_kernels_available() -> bool {
+    std::is_x86_feature_detected!("avx2")
+        && std::is_x86_feature_detected!("fma")
+        && std::is_x86_feature_detected!("f16c")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -146,6 +285,147 @@ impl HnswParams {
 // Flat slab storage
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// Upper bound on one vector-storage chunk (#2427).
+///
+/// The slab used to keep every vector in one contiguous `Vec<f32>`, which
+/// grows by doubling. With 384-dim embeddings a 1 GB autoindex corpus
+/// reaches ~393K vectors: the next grow is a single 384 MiB -> 768 MiB
+/// `realloc`, so old and new buffers are both live during the copy
+/// (~1.15 GB for one index) and the freed half stays dirty in the
+/// allocator afterwards. The heap profile of the 1 GB gate attributed the
+/// largest untracked allocation on the ingest node to exactly that grow.
+/// Fixed-size chunks never move existing vectors, never copy, and leave at
+/// most one partly filled chunk of slack.
+const VECTOR_CHUNK_BYTES: usize = 4 << 20;
+
+/// Append-only vector storage in fixed-size chunks. `vector(slot)` stays a
+/// shift + mask + slice, and a vector never straddles two chunks.
+///
+/// Vectors are held in half precision (#2427): each one is scaled by a power
+/// of two into `[-1, 1)` and rounded to binary16, with the scale kept per
+/// slot. The graph only uses them to order its beams (callers rescore exact
+/// similarities downstream), and they were ~85% of the resident graph: on
+/// the 1 GB gate the 384-d `audit` graph grew to ~1 GB and stayed resident
+/// after a restart. Half precision halves that.
+struct ChunkedVectors {
+    dim: usize,
+    /// log2(vectors per chunk).
+    chunk_shift: u32,
+    chunks: Vec<Vec<u16>>,
+    /// slot → power-of-two scale of the stored codes.
+    scales: Vec<f32>,
+    /// slot → `‖v − decode(slot)‖`, rounded up: bounds how far any graph
+    /// distance to the slot can be from the exact one, so callers that
+    /// rescore exactly can fetch every candidate that might be in the true
+    /// top-k (see [`HnswIndex::search_rescore_candidates`]).
+    errors: Vec<f32>,
+    len: usize,
+}
+
+impl ChunkedVectors {
+    fn new(dim: usize) -> Self {
+        let per_vector = dim.max(1) * std::mem::size_of::<u16>();
+        let per_chunk = (VECTOR_CHUNK_BYTES / per_vector).max(1);
+        // Largest power of two <= per_chunk, so slot -> chunk is a shift.
+        let chunk_shift = usize::BITS - 1 - per_chunk.leading_zeros();
+        Self {
+            dim,
+            chunk_shift,
+            chunks: Vec::new(),
+            scales: Vec::new(),
+            errors: Vec::new(),
+            len: 0,
+        }
+    }
+
+    #[inline(always)]
+    fn per_chunk(&self) -> usize {
+        1usize << self.chunk_shift
+    }
+
+    fn push(&mut self, vector: &[f32]) {
+        debug_assert_eq!(vector.len(), self.dim);
+        if self.len & (self.per_chunk() - 1) == 0 {
+            // Exact capacity: the chunk is filled by `extend_from_slice`
+            // and never reallocates.
+            self.chunks
+                .push(Vec::with_capacity(self.per_chunk() * self.dim));
+        }
+        let scale = half_scale(vector);
+        let inverse = 1.0 / scale;
+        let chunk = self.chunks.last_mut().expect("chunk allocated above");
+        let mut error = 0.0f64;
+        chunk.extend(vector.iter().map(|&value| {
+            let code = f32_to_half_bits(value * inverse);
+            let delta = f64::from(value) - f64::from(half_bits_to_f32(code) * scale);
+            error += delta * delta;
+            code
+        }));
+        self.scales.push(scale);
+        // Round the norm up a hair so f32 storage never understates it.
+        let error = error.sqrt();
+        self.errors
+            .push((error * (1.0 + 1e-6)) as f32 + f32::MIN_POSITIVE);
+        self.len += 1;
+    }
+
+    /// Half-precision codes of `slot`; multiply by [`Self::scale`] to decode.
+    #[inline(always)]
+    fn get(&self, slot: u32) -> &[u16] {
+        let slot = slot as usize;
+        let chunk = &self.chunks[slot >> self.chunk_shift];
+        let start = (slot & (self.per_chunk() - 1)) * self.dim;
+        &chunk[start..start + self.dim]
+    }
+
+    #[inline(always)]
+    fn scale(&self, slot: u32) -> f32 {
+        self.scales[slot as usize]
+    }
+
+    /// Upper bound on `‖v − decode(slot)‖` for the vector stored at `slot`.
+    #[inline(always)]
+    fn error(&self, slot: u32) -> f32 {
+        self.errors[slot as usize]
+    }
+
+    /// True when `vector` encodes to exactly what `slot` stores.
+    fn matches(&self, slot: u32, vector: &[f32]) -> bool {
+        if vector.len() != self.dim {
+            return false;
+        }
+        let scale = half_scale(vector);
+        let inverse = 1.0 / scale;
+        scale == self.scale(slot)
+            && self
+                .get(slot)
+                .iter()
+                .zip(vector)
+                .all(|(&code, &value)| code == f32_to_half_bits(value * inverse))
+    }
+
+    /// Bytes reserved for vector data (capacity, not length).
+    fn reserved_bytes(&self) -> usize {
+        self.chunks
+            .iter()
+            .map(|c| c.capacity() * std::mem::size_of::<u16>())
+            .sum::<usize>()
+            + self.chunks.capacity() * std::mem::size_of::<Vec<u16>>()
+            + self.scales.capacity() * std::mem::size_of::<f32>()
+            + self.errors.capacity() * std::mem::size_of::<f32>()
+    }
+
+    /// Largest single allocation backing the vectors.
+    #[cfg(test)]
+    fn largest_allocation_bytes(&self) -> usize {
+        self.chunks
+            .iter()
+            .map(|c| c.capacity() * std::mem::size_of::<u16>())
+            .max()
+            .unwrap_or(0)
+    }
+}
+
 /// Slot-indexed node storage. A `slot` is a dense `u32` handle assigned in
 /// insertion order; all hot-path state is `slot`-addressed so beam search
 /// runs on contiguous arrays with no per-node locks or hashing.
@@ -156,8 +436,8 @@ struct SlabGraphStorage {
     ids: Vec<u64>,
     /// external node id → slot.
     slot_of: HashMap<u64, u32>,
-    /// Contiguous vector data, `slot * dim ..= slot * dim + dim`.
-    vectors: Vec<f32>,
+    /// Vector data by slot, in fixed-size chunks (#2427).
+    vectors: ChunkedVectors,
     /// slot → 1/‖v‖ (cosine metric only; 1.0 placeholder otherwise,
     /// 0.0 for zero-norm vectors so their cosine similarity is 0 — the
     /// same value the previous `cosine()` helper produced).
@@ -171,7 +451,81 @@ struct SlabGraphStorage {
     tomb_ids: HashSet<u64>,
     entry_slot: Option<u32>,
     entry_layer: usize,
+    /// Sum of `node_level` over all slots (layers above 0), for the O(1)
+    /// heap estimate in [`SlabGraphStorage::heap_bytes`].
+    upper_layer_slots: usize,
+    /// Ids mutated while [`HnswIndex::compact`] rebuilds this graph
+    /// (#2796); `None` when no compaction is running.
+    journal: Option<CompactionJournal>,
 }
+
+/// Ids inserted or (un)tombstoned while a compaction rebuilds the graph
+/// (#2796). Recorded under the graph write lock, so every mutation the
+/// rebuild's snapshot missed is in here, and replayed onto the rebuilt
+/// graph before it replaces this one.
+#[derive(Default)]
+struct CompactionJournal {
+    inserted: Vec<u64>,
+    flagged: Vec<u64>,
+}
+
+impl CompactionJournal {
+    fn len(&self) -> usize {
+        self.inserted.len() + self.flagged.len()
+    }
+}
+
+/// One journaled id brought up to date on the rebuilt graph: its current
+/// vector when it was (re)inserted, and whether it is tombstoned now.
+struct CompactionReplay {
+    id: u64,
+    vector: Option<Vec<f32>>,
+    deleted: bool,
+}
+
+impl CompactionReplay {
+    fn collect(graph: &SlabGraphStorage, journal: &CompactionJournal) -> Vec<Self> {
+        let view = graph.read_view();
+        let inserted: HashSet<u64> = journal.inserted.iter().copied().collect();
+        let mut seen = HashSet::new();
+        journal
+            .inserted
+            .iter()
+            .chain(&journal.flagged)
+            .copied()
+            .filter(|id| seen.insert(*id))
+            .map(|id| CompactionReplay {
+                id,
+                vector: inserted
+                    .contains(&id)
+                    .then(|| view.current_slot(id).map(|slot| decode_vector(&view, slot)))
+                    .flatten(),
+                deleted: graph.tomb_ids.contains(&id),
+            })
+            .collect()
+    }
+}
+
+/// A node's external id and vector, as fed to [`HnswIndex::insert_batch`].
+type IdVector = (u64, Vec<f32>);
+
+/// What [`HnswIndex::compact`] did (#2796).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CompactStats {
+    /// Nodes before the rebuild, dead ones included.
+    pub nodes_before: usize,
+    /// Nodes in the rebuilt graph that replaced it.
+    pub nodes_after: usize,
+}
+
+/// A compaction swaps in the rebuilt graph once the mutations journaled
+/// since its last catch-up round are at most this many. The final round
+/// replays them serially under the write lock, so this bounds how long
+/// searches and inserts wait on the swap.
+const COMPACT_FINAL_ROUND_MAX: usize = 256;
+/// Unlocked catch-up rounds before a compaction under sustained writes
+/// gives up (the graph is left as it was; a later call tries again).
+const COMPACT_MAX_CATCH_UP_ROUNDS: usize = 8;
 
 /// Read-only, slot-stable graph storage consumed by HNSW traversal and
 /// persistence.
@@ -190,7 +544,10 @@ trait GraphStorageRead {
     fn node_count(&self) -> usize;
     fn external_id(&self, slot: u32) -> u64;
     fn current_slot(&self, id: u64) -> Option<u32>;
-    fn vector(&self, slot: u32) -> &[f32];
+    /// Half-precision codes of `slot`; see [`ChunkedVectors`].
+    fn vector(&self, slot: u32) -> &[u16];
+    /// Scale that decodes [`Self::vector`]: `value = half(code) * scale`.
+    fn vector_scale(&self, slot: u32) -> f32;
     fn inverse_norm(&self, slot: u32) -> f32;
     fn layer_count(&self, slot: u32) -> usize;
     fn neighbors(&self, slot: u32, layer: usize) -> &[u32];
@@ -241,9 +598,13 @@ impl GraphStorageRead for SlabGraphRead<'_> {
     }
 
     #[inline(always)]
-    fn vector(&self, slot: u32) -> &[f32] {
-        let start = slot as usize * self.slab.dim;
-        &self.slab.vectors[start..start + self.slab.dim]
+    fn vector(&self, slot: u32) -> &[u16] {
+        self.slab.vectors.get(slot)
+    }
+
+    #[inline(always)]
+    fn vector_scale(&self, slot: u32) -> f32 {
+        self.slab.vectors.scale(slot)
     }
 
     #[inline(always)]
@@ -268,11 +629,7 @@ impl GraphStorageRead for SlabGraphRead<'_> {
             use core::arch::x86_64::{_mm_prefetch, _MM_HINT_T0};
             // Preserve the slab hot path exactly: neighbor lists contain
             // allocated slots, so this direct address calculation is valid.
-            let base = self
-                .slab
-                .vectors
-                .as_ptr()
-                .add(slot as usize * self.slab.dim) as *const i8;
+            let base = self.slab.vectors.get(slot).as_ptr() as *const i8;
             _mm_prefetch(base, _MM_HINT_T0);
             if self.slab.dim > 16 {
                 _mm_prefetch(base.add(64), _MM_HINT_T0);
@@ -322,14 +679,36 @@ impl SlabGraphStorage {
             metric,
             ids: Vec::new(),
             slot_of: HashMap::new(),
-            vectors: Vec::new(),
+            vectors: ChunkedVectors::new(dim),
             inv_norms: Vec::new(),
             neighbors: Vec::new(),
             tomb: Vec::new(),
             tomb_ids: HashSet::new(),
             entry_slot: None,
             entry_layer: 0,
+            upper_layer_slots: 0,
+            journal: None,
         }
+    }
+
+    /// O(1) estimate of the heap this graph holds (#2427). Vector storage is
+    /// exact (reserved capacity); neighbour lists are bounded by the layer
+    /// degree caps (`2m` on layer 0, `m` above), which is what pruning keeps
+    /// them at; hash tables count one control byte per entry slot.
+    fn heap_bytes(&self, m: usize) -> usize {
+        use std::mem::size_of;
+        let nodes = self.ids.len();
+        let layer_slots = nodes + self.upper_layer_slots;
+        let neighbor_ids = nodes * 2 * m + self.upper_layer_slots * m;
+        self.vectors.reserved_bytes()
+            + self.ids.capacity() * size_of::<u64>()
+            + self.inv_norms.capacity() * size_of::<f32>()
+            + self.tomb.capacity()
+            + self.neighbors.capacity() * size_of::<Vec<Vec<u32>>>()
+            + layer_slots * size_of::<Vec<u32>>()
+            + neighbor_ids * size_of::<u32>()
+            + self.slot_of.capacity() * (size_of::<(u64, u32)>() + 1)
+            + self.tomb_ids.capacity() * (size_of::<u64>() + 1)
     }
 
     #[inline(always)]
@@ -352,7 +731,7 @@ impl SlabGraphStorage {
         };
         self.ids.push(id);
         self.slot_of.insert(id, slot);
-        self.vectors.extend_from_slice(&vector);
+        self.vectors.push(&vector);
         self.inv_norms.push(inv);
         self.neighbors.push(
             (0..=node_level)
@@ -360,7 +739,67 @@ impl SlabGraphStorage {
                 .collect(),
         );
         self.tomb.push(self.tomb_ids.contains(&id));
+        self.upper_layer_slots += node_level;
         slot
+    }
+}
+
+/// A plan reused at commit time may have been searched on a graph up to
+/// `1 / PLAN_STALENESS_DIVISOR` smaller than the one it is linked into.
+const PLAN_STALENESS_DIVISOR: usize = 8;
+/// Upper bound on the inserts planned concurrently in one wave.
+const MAX_PLAN_WAVE: usize = 256;
+
+/// The read-only half of one insert (#2427): the neighbours chosen for a
+/// vector, searched under the shared lock, waiting to be linked.
+struct PlannedInsert {
+    id: u64,
+    vector: Vec<f32>,
+    level: usize,
+    /// Node count of the graph the plan was searched on.
+    nodes: usize,
+    /// Entry point `(slot, layer)` of that graph.
+    entry: Option<(u32, usize)>,
+    /// Selected neighbours per layer (index = layer) for layers
+    /// `0..=min(level, entry layer)`; `None` when the graph was empty.
+    links: Option<Vec<Vec<(f32, u32)>>>,
+}
+
+impl SlabGraphStorage {
+    /// Greedy descent plus the `ef`-beam and diverse selection on every
+    /// layer the new node links into. Reads the graph only. `None` when the
+    /// graph has no entry point yet.
+    fn plan_links(
+        &self,
+        query: &[f32],
+        level: usize,
+        m: usize,
+        ef: usize,
+    ) -> Option<Vec<Vec<(f32, u32)>>> {
+        let graph = self.read_view();
+        let ep_slot = self.entry_slot?;
+        let ep_layer = self.entry_layer;
+        let q_inv = query_inverse(&graph, query);
+
+        // Greedy descent from the top layer down to level+1.
+        let mut curr_ep = ep_slot;
+        for layer in (level + 1..=ep_layer).rev() {
+            curr_ep = greedy_layer(&graph, query, q_inv, curr_ep, layer).0;
+        }
+
+        // Search from min(level, ep_layer) down to 0, selecting up to M
+        // diverse nearest per layer (Algorithm 4 heuristic).
+        let top = level.min(ep_layer);
+        let mut links = vec![Vec::new(); top + 1];
+        for layer in (0..=top).rev() {
+            let m_layer = if layer == 0 { 2 * m } else { m };
+            let candidates = beam(&graph, query, q_inv, curr_ep, ef, layer, &|_| true);
+            links[layer] = select_diverse(&graph, &candidates, m_layer);
+            if let Some(&(_, nearest)) = candidates.first() {
+                curr_ep = nearest;
+            }
+        }
+        Some(links)
     }
 }
 
@@ -378,19 +817,78 @@ fn query_inverse(graph: &impl GraphStorageRead, query: &[f32]) -> f32 {
     }
 }
 
+/// Upper bound on `|graph distance − exact distance|` for one candidate,
+/// given `error = ‖v − decode(v)‖` (Cauchy–Schwarz), with slack for the f32
+/// arithmetic of both distances.
+fn distance_error_bound(
+    metric: DistanceMetric,
+    graph_distance: f32,
+    query_norm: f32,
+    error: f32,
+    inverse_norm: f32,
+) -> f32 {
+    let bound = match metric {
+        // Unit query: |q̂·(v − ṽ)| / ‖v‖ <= error / ‖v‖.
+        DistanceMetric::Cosine => {
+            if query_norm > 0.0 {
+                error * inverse_norm
+            } else {
+                0.0
+            }
+        }
+        DistanceMetric::DotProduct => query_norm * error,
+        // Squared L2: ‖q − v‖ <= ‖q − ṽ‖ + error.
+        DistanceMetric::L2 => {
+            let root = graph_distance.max(0.0).sqrt();
+            2.0 * root * error + error * error
+        }
+    };
+    bound * (1.0 + 1e-3) + 1e-6 * (1.0 + graph_distance.abs())
+}
+
+/// Decode `slot`'s stored vector into `out` (cleared first).
+fn decode_vector_into(graph: &impl GraphStorageRead, slot: u32, out: &mut Vec<f32>) {
+    let scale = graph.vector_scale(slot);
+    out.clear();
+    out.extend(
+        graph
+            .vector(slot)
+            .iter()
+            .map(|&code| half_bits_to_f32(code) * scale),
+    );
+}
+
+/// `slot`'s stored vector, decoded to `f32`.
+fn decode_vector(graph: &impl GraphStorageRead, slot: u32) -> Vec<f32> {
+    let mut out = Vec::with_capacity(graph.dimension());
+    decode_vector_into(graph, slot, &mut out);
+    out
+}
+
 #[inline(always)]
-fn slot_distance(
+fn slot_distance<const AVX2: bool>(
     graph: &impl GraphStorageRead,
     query: &[f32],
     query_inverse_norm: f32,
     slot: u32,
 ) -> f32 {
-    let vector = graph.vector(slot);
+    let codes = graph.vector(slot);
+    let scale = graph.vector_scale(slot);
     match graph.metric() {
         DistanceMetric::Cosine => {
-            1.0 - dot_unrolled(query, vector) * query_inverse_norm * graph.inverse_norm(slot)
+            1.0 - dot_half::<AVX2>(query, codes, scale)
+                * query_inverse_norm
+                * graph.inverse_norm(slot)
         }
-        metric => compute_distance(metric, query, vector),
+        DistanceMetric::DotProduct => -dot_half::<AVX2>(query, codes, scale),
+        DistanceMetric::L2 => query
+            .iter()
+            .zip(codes)
+            .map(|(&q, &code)| {
+                let d = q - half_bits_to_f32(code) * scale;
+                d * d
+            })
+            .sum(),
     }
 }
 
@@ -401,15 +899,45 @@ fn greedy_layer(
     start: u32,
     layer: usize,
 ) -> (u32, f32) {
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    {
+        if avx2_kernels_available() {
+            // SAFETY: both features are present; `greedy_layer_avx2` enables them.
+            return unsafe { greedy_layer_avx2(graph, query, query_inverse_norm, start, layer) };
+        }
+    }
+    greedy_layer_impl::<false>(graph, query, query_inverse_norm, start, layer)
+}
+
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[target_feature(enable = "avx2,fma,f16c")]
+unsafe fn greedy_layer_avx2(
+    graph: &impl GraphStorageRead,
+    query: &[f32],
+    query_inverse_norm: f32,
+    start: u32,
+    layer: usize,
+) -> (u32, f32) {
+    greedy_layer_impl::<true>(graph, query, query_inverse_norm, start, layer)
+}
+
+#[inline(always)]
+fn greedy_layer_impl<const AVX2: bool>(
+    graph: &impl GraphStorageRead,
+    query: &[f32],
+    query_inverse_norm: f32,
+    start: u32,
+    layer: usize,
+) -> (u32, f32) {
     let mut best = start;
-    let mut best_distance = slot_distance(graph, query, query_inverse_norm, start);
+    let mut best_distance = slot_distance::<AVX2>(graph, query, query_inverse_norm, start);
     loop {
         let mut improved = false;
         if layer >= graph.layer_count(best) {
             break;
         }
         for &neighbor in graph.neighbors(best, layer) {
-            let distance = slot_distance(graph, query, query_inverse_norm, neighbor);
+            let distance = slot_distance::<AVX2>(graph, query, query_inverse_norm, neighbor);
             if distance < best_distance {
                 best_distance = distance;
                 best = neighbor;
@@ -436,6 +964,48 @@ where
     G: GraphStorageRead,
     A: Fn(u32) -> bool + ?Sized,
 {
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    {
+        if avx2_kernels_available() {
+            // SAFETY: both features are present; `beam_avx2` enables them.
+            return unsafe { beam_avx2(graph, query, query_inverse_norm, entry, ef, layer, admit) };
+        }
+    }
+    beam_impl::<G, A, false>(graph, query, query_inverse_norm, entry, ef, layer, admit)
+}
+
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[target_feature(enable = "avx2,fma,f16c")]
+unsafe fn beam_avx2<G, A>(
+    graph: &G,
+    query: &[f32],
+    query_inverse_norm: f32,
+    entry: u32,
+    ef: usize,
+    layer: usize,
+    admit: &A,
+) -> Vec<(f32, u32)>
+where
+    G: GraphStorageRead,
+    A: Fn(u32) -> bool + ?Sized,
+{
+    beam_impl::<G, A, true>(graph, query, query_inverse_norm, entry, ef, layer, admit)
+}
+
+#[inline(always)]
+fn beam_impl<G, A, const AVX2: bool>(
+    graph: &G,
+    query: &[f32],
+    query_inverse_norm: f32,
+    entry: u32,
+    ef: usize,
+    layer: usize,
+    admit: &A,
+) -> Vec<(f32, u32)>
+where
+    G: GraphStorageRead,
+    A: Fn(u32) -> bool + ?Sized,
+{
     let node_count = graph.node_count();
     if entry as usize >= node_count {
         return vec![];
@@ -449,7 +1019,7 @@ where
         seen
     }
 
-    let entry_distance = slot_distance(graph, query, query_inverse_norm, entry);
+    let entry_distance = slot_distance::<AVX2>(graph, query, query_inverse_norm, entry);
     let mut candidates: BinaryHeap<Reverse<(ordered_float::OrderedFloat, u32)>> =
         BinaryHeap::with_capacity(ef * 4);
     let mut results: BinaryHeap<(ordered_float::OrderedFloat, u32)> =
@@ -484,7 +1054,7 @@ where
             if test_and_set(&mut visited, neighbor) {
                 continue;
             }
-            let distance = slot_distance(graph, query, query_inverse_norm, neighbor);
+            let distance = slot_distance::<AVX2>(graph, query, query_inverse_norm, neighbor);
             let farthest = results
                 .peek()
                 .map(|&(distance, _)| distance.0)
@@ -514,17 +1084,44 @@ fn select_diverse(
     candidates: &[(f32, u32)],
     max_neighbors: usize,
 ) -> Vec<(f32, u32)> {
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    {
+        if avx2_kernels_available() {
+            // SAFETY: both features are present; `select_diverse_avx2` enables them.
+            return unsafe { select_diverse_avx2(graph, candidates, max_neighbors) };
+        }
+    }
+    select_diverse_impl::<false>(graph, candidates, max_neighbors)
+}
+
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[target_feature(enable = "avx2,fma,f16c")]
+unsafe fn select_diverse_avx2(
+    graph: &impl GraphStorageRead,
+    candidates: &[(f32, u32)],
+    max_neighbors: usize,
+) -> Vec<(f32, u32)> {
+    select_diverse_impl::<true>(graph, candidates, max_neighbors)
+}
+
+#[inline(always)]
+fn select_diverse_impl<const AVX2: bool>(
+    graph: &impl GraphStorageRead,
+    candidates: &[(f32, u32)],
+    max_neighbors: usize,
+) -> Vec<(f32, u32)> {
     let mut sorted = candidates.to_vec();
     sorted.sort_unstable_by(|left, right| left.0.partial_cmp(&right.0).unwrap());
     let mut kept = Vec::with_capacity(max_neighbors);
+    let mut vector = Vec::with_capacity(graph.dimension());
     for &(candidate_distance, candidate) in &sorted {
         if kept.len() >= max_neighbors {
             break;
         }
-        let vector = graph.vector(candidate);
+        decode_vector_into(graph, candidate, &mut vector);
         let inverse_norm = graph.inverse_norm(candidate);
         let diverse = kept.iter().all(|&(_, retained)| {
-            slot_distance(graph, vector, inverse_norm, retained) >= candidate_distance
+            slot_distance::<AVX2>(graph, &vector, inverse_norm, retained) >= candidate_distance
         });
         if diverse {
             kept.push((candidate_distance, candidate));
@@ -534,14 +1131,40 @@ fn select_diverse(
 }
 
 fn backlink_distances(graph: &impl GraphStorageRead, base: u32, layer: usize) -> Vec<(f32, u32)> {
-    let vector = graph.vector(base);
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    {
+        if avx2_kernels_available() {
+            // SAFETY: both features are present; `backlink_distances_avx2` enables them.
+            return unsafe { backlink_distances_avx2(graph, base, layer) };
+        }
+    }
+    backlink_distances_impl::<false>(graph, base, layer)
+}
+
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[target_feature(enable = "avx2,fma,f16c")]
+unsafe fn backlink_distances_avx2(
+    graph: &impl GraphStorageRead,
+    base: u32,
+    layer: usize,
+) -> Vec<(f32, u32)> {
+    backlink_distances_impl::<true>(graph, base, layer)
+}
+
+#[inline(always)]
+fn backlink_distances_impl<const AVX2: bool>(
+    graph: &impl GraphStorageRead,
+    base: u32,
+    layer: usize,
+) -> Vec<(f32, u32)> {
+    let vector = decode_vector(graph, base);
     let inverse_norm = graph.inverse_norm(base);
     graph
         .neighbors(base, layer)
         .iter()
         .map(|&neighbor| {
             (
-                slot_distance(graph, vector, inverse_norm, neighbor),
+                slot_distance::<AVX2>(graph, &vector, inverse_norm, neighbor),
                 neighbor,
             )
         })
@@ -581,11 +1204,90 @@ fn highest_live_entry(graph: &impl GraphStorageRead) -> Option<(u32, usize)> {
     best
 }
 
+/// Feeds every byte read through it into a CRC32 hasher.
+struct CrcReader<R> {
+    inner: R,
+    hasher: crc32fast::Hasher,
+}
+
+impl<R: Read> Read for CrcReader<R> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let n = self.inner.read(buf)?;
+        self.hasher.update(&buf[..n]);
+        Ok(n)
+    }
+}
+
+#[cfg(test)]
 fn encode_graph_bytes(
     params: &HnswParams,
     graph: &impl GraphStorageRead,
 ) -> Result<(Vec<u8>, usize)> {
-    let mut buffer = Vec::with_capacity(1024 * 1024);
+    encode_graph_to(params, graph, Vec::with_capacity(1024 * 1024))
+}
+
+/// Feeds every byte written through it into a CRC32 hasher.
+struct CrcWriter<W> {
+    inner: W,
+    hasher: crc32fast::Hasher,
+}
+
+impl<W: Write> Write for CrcWriter<W> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        let n = self.inner.write(buf)?;
+        self.hasher.update(&buf[..n]);
+        Ok(n)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.inner.flush()
+    }
+}
+
+/// Counts the bytes written through it.
+struct CountingWriter<W> {
+    inner: W,
+    count: u64,
+}
+
+impl<W> CountingWriter<W> {
+    fn new(inner: W) -> Self {
+        Self { inner, count: 0 }
+    }
+}
+
+impl<W: Write> Write for CountingWriter<W> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        let n = self.inner.write(buf)?;
+        self.count += n as u64;
+        Ok(n)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.inner.flush()
+    }
+}
+
+/// Encode the graph into `out` and return it with the live node count.
+///
+/// This is the whole on-disk format; nothing proportional to the graph is held in memory. Saving a
+/// graph used to build the whole file in a `Vec` that grew by doubling, so
+/// every save — each flush, including the memory-pressure drain — added
+/// one to two times the graph size to RSS (#2427: +1.0 GB for a 0.93 GB
+/// graph). Writes go through a 1 MiB buffer and the CRC is computed over
+/// the same stream.
+fn encode_graph_to<W: Write>(
+    params: &HnswParams,
+    graph: &impl GraphStorageRead,
+    out: W,
+) -> Result<(W, usize)> {
+    let mut buffer = std::io::BufWriter::with_capacity(
+        1024 * 1024,
+        CrcWriter {
+            inner: out,
+            hasher: crc32fast::Hasher::new(),
+        },
+    );
     buffer.write_all(HNSW_MAGIC).map_err(io_to_xerj)?;
     buffer
         .write_u32::<LittleEndian>(HNSW_FORMAT_VERSION)
@@ -630,7 +1332,7 @@ fn encode_graph_bytes(
         buffer
             .write_u32::<LittleEndian>(graph.layer_count(slot).saturating_sub(1) as u32)
             .map_err(io_to_xerj)?;
-        for &value in graph.vector(slot) {
+        for value in decode_vector(graph, slot) {
             buffer
                 .write_f32::<LittleEndian>(value)
                 .map_err(io_to_xerj)?;
@@ -656,9 +1358,13 @@ fn encode_graph_bytes(
             .write_u64::<LittleEndian>(tombstone)
             .map_err(io_to_xerj)?;
     }
-    let crc = crc32fast::hash(&buffer);
-    buffer.write_u32::<LittleEndian>(crc).map_err(io_to_xerj)?;
-    Ok((buffer, live.len()))
+    let CrcWriter { mut inner, hasher } = buffer
+        .into_inner()
+        .map_err(|e| io_to_xerj(e.into_error()))?;
+    inner
+        .write_u32::<LittleEndian>(hasher.finalize())
+        .map_err(io_to_xerj)?;
+    Ok((inner, live.len()))
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -668,34 +1374,56 @@ fn encode_graph_bytes(
 /// A thread-safe HNSW approximate nearest-neighbor index.
 ///
 /// Soft deletes: deleting a doc removes its entry from the caller's id
-/// maps but the node and its neighbour edges stay in the graph until a
-/// graph compaction (planned v0.7+). Tombstoned nodes are skipped as
-/// results but still traversed. Tombstones persist with the graph
-/// (format v2+).
+/// maps but the node and its neighbour edges stay in the graph until
+/// [`HnswIndex::compact`] rebuilds it from the live nodes (#2796).
+/// Tombstoned nodes are skipped as results but still traversed.
+/// Tombstones persist with the graph (format v2+).
 pub struct HnswIndex {
     params: HnswParams,
     inner: RwLock<SlabGraphStorage>,
+    /// Test probe: how many construction searches ran at once (#2427).
+    #[cfg(test)]
+    plan_probe: PlanProbe,
+}
+
+#[cfg(test)]
+#[derive(Default)]
+struct PlanProbe {
+    in_flight: std::sync::atomic::AtomicUsize,
+    max_in_flight: std::sync::atomic::AtomicUsize,
 }
 
 impl HnswIndex {
+    /// Estimated heap bytes held by this graph (vectors, neighbour lists,
+    /// id maps, tombstones). O(1); takes the read lock briefly. Reported as
+    /// the `vector_graph` ingest-memory category (#2427).
+    pub fn heap_bytes(&self) -> usize {
+        self.inner.read().unwrap().heap_bytes(self.params.m)
+    }
+
     /// Create a new empty index.
     pub fn new(params: HnswParams) -> Self {
         let inner = SlabGraphStorage::new(params.dim, params.metric);
         Self {
             params,
             inner: RwLock::new(inner),
+            #[cfg(test)]
+            plan_probe: PlanProbe::default(),
         }
     }
 
     /// Mark `id` as deleted. Search will skip the node and never
     /// return it as a hit. The node and its neighbour edges remain
-    /// until a graph compaction (planned v0.7+). Idempotent.
+    /// until [`Self::compact`] (#2796). Idempotent.
     pub fn mark_deleted(&self, id: u64) {
         let mut g = self.inner.write().unwrap();
         if let Some(&slot) = g.slot_of.get(&id) {
             g.tomb[slot as usize] = true;
         }
         g.tomb_ids.insert(id);
+        if let Some(journal) = g.journal.as_mut() {
+            journal.flagged.push(id);
+        }
     }
 
     /// Reverse of `mark_deleted` — used in tests and on un-delete /
@@ -706,6 +1434,9 @@ impl HnswIndex {
             g.tomb[slot as usize] = false;
         }
         g.tomb_ids.remove(&id);
+        if let Some(journal) = g.journal.as_mut() {
+            journal.flagged.push(id);
+        }
     }
 
     /// True if `id` has been tombstoned via `mark_deleted`.
@@ -723,8 +1454,138 @@ impl HnswIndex {
         self.inner.read().unwrap().read_view().tombstone_count()
     }
 
-    /// True when node `id` exists and stores exactly `v` (bit-exact f32
-    /// compare). Used by the stale-graph rebuild (RC4 W2 item 17) to skip
+    /// `(live, dead)` node counts (#2796). A node is dead when it is
+    /// tombstoned or was superseded by a later insert under the same id;
+    /// dead nodes keep their vector and edges in memory and in the saved
+    /// graph until [`Self::compact`] drops them. O(live).
+    pub fn live_and_dead_counts(&self) -> (usize, usize) {
+        let g = self.inner.read().unwrap();
+        let live = g
+            .slot_of
+            .values()
+            .filter(|&&slot| !g.tomb[slot as usize])
+            .count();
+        (live, g.ids.len() - live)
+    }
+
+    /// Rebuild the graph from its live nodes only, dropping every
+    /// tombstoned or superseded node and the tombstone list (#2796).
+    ///
+    /// External ids and vectors are unchanged, so callers' id maps stay
+    /// valid. The rebuild runs without holding the graph lock, planning
+    /// inserts in parallel on the caller's rayon pool; searches and
+    /// inserts continue against the old graph meanwhile. Mutations made
+    /// during the rebuild are journaled and replayed onto the new graph,
+    /// in unlocked rounds until at most `COMPACT_FINAL_ROUND_MAX` remain,
+    /// and the final round and the swap happen under the write lock.
+    ///
+    /// Peak memory is the old graph plus the new one (live nodes only).
+    /// Returns `Ok(None)` without changing anything when another
+    /// compaction is running, or when writes outpace the catch-up rounds.
+    /// Tombstones of dropped nodes are forgotten: re-inserting such an id
+    /// later makes it live, as on a graph that never held it.
+    pub fn compact(&self) -> Result<Option<CompactStats>> {
+        let Some((nodes_before, items)) = self.compact_begin() else {
+            return Ok(None);
+        };
+        let fresh = HnswIndex::new(self.params.clone());
+        let outcome = self.compact_into(&fresh, items, nodes_before);
+        if !matches!(outcome, Ok(Some(_))) {
+            self.inner.write().unwrap().journal = None;
+        }
+        outcome
+    }
+
+    /// Start journaling and snapshot the live nodes in slot order.
+    /// `None` when a compaction is already running.
+    fn compact_begin(&self) -> Option<(usize, Vec<IdVector>)> {
+        {
+            let mut g = self.inner.write().unwrap();
+            if g.journal.is_some() {
+                return None;
+            }
+            g.journal = Some(CompactionJournal::default());
+        }
+        // Journaling is on before the snapshot, so a write landing between
+        // the two is replayed (at worst twice, which leaves a dead node).
+        let g = self.inner.read().unwrap();
+        let view = g.read_view();
+        let items = (0..view.node_count() as u32)
+            .filter(|&slot| is_live_slot(&view, slot) && !view.tombstoned(slot))
+            .map(|slot| (view.external_id(slot), decode_vector(&view, slot)))
+            .collect();
+        Some((view.node_count(), items))
+    }
+
+    fn compact_into(
+        &self,
+        fresh: &HnswIndex,
+        items: Vec<IdVector>,
+        nodes_before: usize,
+    ) -> Result<Option<CompactStats>> {
+        fresh.insert_batch(items)?;
+        for _ in 0..=COMPACT_MAX_CATCH_UP_ROUNDS {
+            let journal = {
+                let mut g = self.inner.write().unwrap();
+                let pending = g.journal.as_ref().map_or(0, CompactionJournal::len);
+                if pending <= COMPACT_FINAL_ROUND_MAX {
+                    // Final round: serial inserts only. A rayon wait here
+                    // could steal a job that needs this graph's lock.
+                    let journal = g.journal.take().unwrap_or_default();
+                    for replay in CompactionReplay::collect(&g, &journal) {
+                        fresh.apply_replay(replay, false)?;
+                    }
+                    let slab = std::mem::replace(
+                        &mut *fresh.inner.write().unwrap(),
+                        SlabGraphStorage::new(self.params.dim, self.params.metric),
+                    );
+                    let nodes_after = slab.ids.len();
+                    let old = std::mem::replace(&mut *g, slab);
+                    drop(g);
+                    drop(old);
+                    debug!(nodes_before, nodes_after, "HNSW graph compacted");
+                    return Ok(Some(CompactStats {
+                        nodes_before,
+                        nodes_after,
+                    }));
+                }
+                std::mem::take(g.journal.as_mut().expect("journal checked above"))
+            };
+            let replays = {
+                let g = self.inner.read().unwrap();
+                CompactionReplay::collect(&g, &journal)
+            };
+            let (with_vectors, flags_only): (Vec<_>, Vec<_>) =
+                replays.into_iter().partition(|r| r.vector.is_some());
+            fresh.insert_batch(
+                with_vectors
+                    .iter()
+                    .map(|r| (r.id, r.vector.clone().expect("partitioned on vector")))
+                    .collect(),
+            )?;
+            for replay in with_vectors.into_iter().chain(flags_only) {
+                fresh.apply_replay(replay, true)?;
+            }
+        }
+        Ok(None)
+    }
+
+    /// Bring one journaled id up to date on a graph being rebuilt by
+    /// [`Self::compact`]. `inserted` says the vector is already in.
+    fn apply_replay(&self, replay: CompactionReplay, inserted: bool) -> Result<()> {
+        if let Some(vector) = replay.vector.filter(|_| !inserted) {
+            self.insert(replay.id, vector)?;
+        }
+        if replay.deleted {
+            self.mark_deleted(replay.id);
+        } else {
+            self.unmark_deleted(replay.id);
+        }
+        Ok(())
+    }
+
+    /// True when node `id` exists and stores exactly what `v` encodes to
+    /// (bit-exact compare of the half-precision codes and scale). Used by the stale-graph rebuild (RC4 W2 item 17) to skip
     /// re-inserting docs whose graph vector already matches the document
     /// source, making a rebuild pass O(N·dim) compares + O(changed·log N)
     /// inserts instead of a full O(N·log N) reconstruction.
@@ -732,7 +1593,7 @@ impl HnswIndex {
         let g = self.inner.read().unwrap();
         let graph = g.read_view();
         match graph.current_slot(id) {
-            Some(slot) => graph.vector(slot) == v,
+            Some(slot) => g.vectors.matches(slot, v),
             None => false,
         }
     }
@@ -770,6 +1631,13 @@ impl HnswIndex {
     }
 
     fn insert_at_level(&self, id: u64, vector: Vec<f32>, node_level: usize) -> Result<()> {
+        self.check_dim(&vector)?;
+        let plan = self.plan_insert(id, vector, node_level);
+        self.commit_planned(plan);
+        Ok(())
+    }
+
+    fn check_dim(&self, vector: &[f32]) -> Result<()> {
         if vector.len() != self.params.dim {
             return Err(XerjError::invalid_mapping(format!(
                 "HNSW insert: vector dim {} != index dim {}",
@@ -777,59 +1645,100 @@ impl HnswIndex {
                 self.params.dim
             )));
         }
+        Ok(())
+    }
 
+    /// Phase 1 of an insert (#2427): the construction search — greedy
+    /// descent, the `ef_construction` beam on every linked layer and the
+    /// diverse-neighbour selection — runs under the SHARED read lock and
+    /// touches nothing. This is where nearly all insert CPU goes, so plans
+    /// for different vectors can be computed concurrently.
+    fn plan_insert(&self, id: u64, vector: Vec<f32>, level: usize) -> PlannedInsert {
+        #[cfg(test)]
+        {
+            use std::sync::atomic::Ordering;
+            let now = self.plan_probe.in_flight.fetch_add(1, Ordering::SeqCst) + 1;
+            self.plan_probe
+                .max_in_flight
+                .fetch_max(now, Ordering::SeqCst);
+        }
+        let g = self.inner.read().unwrap();
+        let links = g.plan_links(&vector, level, self.params.m, self.params.ef_construction);
+        #[cfg(test)]
+        self.plan_probe
+            .in_flight
+            .fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
+        PlannedInsert {
+            id,
+            vector,
+            level,
+            nodes: g.ids.len(),
+            entry: g.entry_slot.map(|slot| (slot, g.entry_layer)),
+            links,
+        }
+    }
+
+    /// Phase 2 of an insert: allocate the slot and wire the planned links
+    /// and back-links under the exclusive write lock. All graph mutation
+    /// stays serial, so neighbour lists never race. A plan searched on a
+    /// graph that has since grown by more than `nodes / PLAN_STALENESS_DIVISOR`
+    /// (or whose entry point moved above the plan's top layer) is searched
+    /// again here, so a stale snapshot can never cost link quality beyond
+    /// what a bounded number of concurrent in-flight inserts would.
+    fn commit_planned(&self, plan: PlannedInsert) {
         let m = self.params.m;
         let ef = self.params.ef_construction;
+        let PlannedInsert {
+            id,
+            vector,
+            level,
+            nodes,
+            entry,
+            links,
+        } = plan;
 
         let mut g = self.inner.write().unwrap();
+        if let Some(journal) = g.journal.as_mut() {
+            journal.inserted.push(id);
+        }
+        let current_entry = g.entry_slot.map(|slot| (slot, g.entry_layer));
+        let grown = g.ids.len().saturating_sub(nodes);
+        let entry_rose =
+            current_entry != entry && entry.is_none_or(|(_, planned_layer)| level > planned_layer);
+        let links = if links.is_none() || entry_rose || grown > nodes / PLAN_STALENESS_DIVISOR {
+            g.plan_links(&vector, level, m, ef)
+        } else {
+            links
+        };
+
         let reuses_entry_identity = g
             .entry_slot
             .is_some_and(|entry| g.ids[entry as usize] == id);
 
-        // Query view of the new vector for the construction beams (the
-        // slab owns the canonical copy after alloc).
-        let q = vector.clone();
-        let q_inv = query_inverse(&g.read_view(), &q);
-
-        // The new slot has no in-edges yet, so allocating it before the
-        // beams run cannot perturb them — and it means the back-link
-        // re-selection below can score the new node like any other
-        // neighbor (the pre-slab code dropped the fresh back-link on the
-        // floor here, disconnecting the graph: layer-0 BFS from the entry
-        // reached 34 of 50k nodes and recall@10 was 0.000).
-        let slot = g.alloc_slot(id, vector, node_level, m);
+        // The new slot has no in-edges yet, and the plan was searched without
+        // it, so allocating it now cannot perturb the planned links — and it
+        // means the back-link re-selection below can score the new node like
+        // any other neighbor (the pre-slab code dropped the fresh back-link
+        // on the floor here, disconnecting the graph: layer-0 BFS from the
+        // entry reached 34 of 50k nodes and recall@10 was 0.000).
+        let slot = g.alloc_slot(id, vector, level, m);
 
         // Handle first insertion.
-        let (ep_slot, ep_layer) = match g.entry_slot {
-            None => {
-                g.entry_slot = Some(slot);
-                g.entry_layer = node_level;
-                debug!("HNSW: first node id={id} level={node_level}");
-                return Ok(());
-            }
-            Some(ep) => (ep, g.entry_layer),
+        let Some(links) = links else {
+            g.entry_slot = Some(slot);
+            g.entry_layer = level;
+            debug!("HNSW: first node id={id} level={level}");
+            return;
         };
 
-        // Greedy descent from the top layer down to node_level+1.
-        let mut curr_ep = ep_slot;
-        for layer in (node_level + 1..=ep_layer).rev() {
-            curr_ep = greedy_layer(&g.read_view(), &q, q_inv, curr_ep, layer).0;
-        }
-
-        // Search and connect from min(node_level, ep_layer) down to 0.
-        for layer in (0..=node_level.min(ep_layer)).rev() {
+        for (layer, selected) in links.iter().enumerate().rev() {
             let m_layer = if layer == 0 { 2 * m } else { m };
-            let candidates = beam(&g.read_view(), &q, q_inv, curr_ep, ef, layer, &|_| true);
-
-            // Select up to M diverse nearest (Algorithm 4 heuristic).
-            let selected = select_diverse(&g.read_view(), &candidates, m_layer);
-
             // Connect new node → selected.
             g.neighbors[slot as usize][layer] = selected.iter().map(|&(_, s)| s).collect();
 
             // Back-links: add new node to each selected neighbor, and
             // re-select when a neighbor exceeds its link budget.
-            for &(_, sel) in &selected {
+            for &(_, sel) in selected {
                 g.neighbors[sel as usize][layer].push(slot);
                 if g.neighbors[sel as usize][layer].len() > m_layer {
                     let dists = backlink_distances(&g.read_view(), sel, layer);
@@ -837,24 +1746,19 @@ impl HnswIndex {
                     g.neighbors[sel as usize][layer] = pruned.iter().map(|&(_, s)| s).collect();
                 }
             }
-
-            if !candidates.is_empty() {
-                curr_ep = candidates[0].1;
-            }
         }
 
         // Update entry point if the new node reached a higher layer.
         if reuses_entry_identity {
-            let (entry, layer) = highest_live_entry(&g.read_view()).unwrap_or((slot, node_level));
+            let (entry, layer) = highest_live_entry(&g.read_view()).unwrap_or((slot, level));
             g.entry_slot = Some(entry);
             g.entry_layer = layer;
-        } else if node_level > g.entry_layer {
+        } else if level > g.entry_layer {
             g.entry_slot = Some(slot);
-            g.entry_layer = node_level;
+            g.entry_layer = level;
         }
 
-        trace!("HNSW: inserted id={id} level={node_level}");
-        Ok(())
+        trace!("HNSW: inserted id={id} level={level}");
     }
 
     /// K-nearest neighbor search.
@@ -876,6 +1780,60 @@ impl HnswIndex {
         ef: usize,
         filter: &dyn Fn(u64) -> bool,
     ) -> Result<Vec<(u64, f32)>> {
+        Ok(self
+            .search_bounded(query, k, ef, filter)?
+            .into_iter()
+            .take(k)
+            .map(|(id, distance, _)| (id, distance))
+            .collect())
+    }
+
+    /// Candidates for a caller that rescores exactly and keeps the best `k`.
+    ///
+    /// Graph distances are computed against half-precision vectors (#2427),
+    /// so the graph's own top-`k` can differ from the exact top-`k` among
+    /// near-ties. This returns the graph top-`k` plus every other admitted
+    /// beam candidate whose distance error bound means it could still beat
+    /// the `k`-th: `distance − bound <= kth(distance + bound)`. Rescoring
+    /// these exactly and truncating to `k` gives the same answer exact
+    /// storage would for the candidates the beam reached. Sorted by graph
+    /// distance ascending; usually only a few longer than `k`.
+    pub fn search_rescore_candidates(
+        &self,
+        query: &[f32],
+        k: usize,
+        ef: usize,
+    ) -> Result<Vec<(u64, f32)>> {
+        let candidates = self.search_bounded(query, k, ef, &|_| true)?;
+        if candidates.len() <= k || k == 0 {
+            return Ok(candidates
+                .into_iter()
+                .map(|(id, distance, _)| (id, distance))
+                .collect());
+        }
+        let mut uppers: Vec<f32> = candidates
+            .iter()
+            .map(|&(_, distance, bound)| distance + bound)
+            .collect();
+        let (_, kth, _) = uppers.select_nth_unstable_by(k - 1, |a, b| a.total_cmp(b));
+        let kth = *kth;
+        Ok(candidates
+            .into_iter()
+            .enumerate()
+            .filter(|&(rank, (_, distance, bound))| rank < k || distance - bound <= kth)
+            .map(|(_, (id, distance, _))| (id, distance))
+            .collect())
+    }
+
+    /// Beam search returning every admitted candidate (up to `ef.max(k)`),
+    /// sorted by graph distance, with each one's distance error bound.
+    fn search_bounded(
+        &self,
+        query: &[f32],
+        k: usize,
+        ef: usize,
+        filter: &dyn Fn(u64) -> bool,
+    ) -> Result<Vec<(u64, f32, f32)>> {
         if query.len() != self.params.dim {
             return Err(XerjError::invalid_query(format!(
                 "HNSW search: query dim {} != index dim {}",
@@ -908,33 +1866,74 @@ impl HnswIndex {
         };
         let candidates = beam(&graph, query, q_inv, curr_ep, ef.max(k), 0, &admit);
 
+        let query_norm = query.iter().map(|value| value * value).sum::<f32>().sqrt();
         Ok(candidates
             .into_iter()
             .filter(|&(_, s)| admit(s))
-            .take(k)
-            .map(|(dist, slot)| (graph.external_id(slot), dist))
+            .map(|(dist, slot)| {
+                let bound = distance_error_bound(
+                    graph.metric(),
+                    dist,
+                    query_norm,
+                    g.vectors.error(slot),
+                    graph.inverse_norm(slot),
+                );
+                (graph.external_id(slot), dist, bound)
+            })
             .collect())
     }
 
-    /// Insert a batch of `(id, vector)` items **serially**, one after another.
+    /// Insert a batch of `(id, vector)` items.
     ///
-    /// This is a thin convenience wrapper over [`insert`](Self::insert): it
-    /// forwards each item in order and returns on the first error. It offers
-    /// no parallel speedup over calling `insert` in a loop yourself — despite
-    /// this crate depending on `rayon`, no parallelism happens here.
+    /// The batch goes in waves (#2427). Each wave's construction searches
+    /// ([`plan_insert`](Self::plan_insert), read-only) run in parallel on
+    /// the caller's rayon pool against the same graph snapshot; the plans
+    /// are then committed one by one under the write lock, so every
+    /// neighbour-list mutation stays serial and the graph stays consistent.
+    /// A wave is at most `len / PLAN_STALENESS_DIVISOR` items (capped at
+    /// `MAX_PLAN_WAVE`, at least one), so an item never misses more than
+    /// that fraction of the graph as candidate neighbours — on a small
+    /// graph the waves are single items and insertion is exactly serial.
     ///
-    /// Insertion is kept serial on purpose: concurrent HNSW graph mutation
-    /// races on neighbour-list updates and can corrupt connectivity/recall,
-    /// so the batch API trades throughput for a provably consistent graph.
-    ///
-    /// Each item is validated by `insert` (dimension check); a mismatch
-    /// returns `Err` and leaves already-inserted items in the graph (this
-    /// API is not transactional).
+    /// Items are validated in order (dimension check); on a mismatch the
+    /// items before it are inserted and `Err` is returned (this API is not
+    /// transactional).
     pub fn insert_batch(&self, items: Vec<(u64, Vec<f32>)>) -> Result<()> {
-        for (id, vector) in items {
-            self.insert(id, vector)?;
+        use rayon::prelude::*;
+
+        let mut items = items;
+        let invalid = items
+            .iter()
+            .position(|(_, vector)| vector.len() != self.params.dim);
+        let error = invalid.map(|at| self.check_dim(&items[at].1).unwrap_err());
+        if let Some(at) = invalid {
+            items.truncate(at);
         }
-        Ok(())
+
+        let mut pending = items
+            .into_iter()
+            .map(|(id, vector)| (id, vector, self.random_level()))
+            .peekable();
+        while pending.peek().is_some() {
+            let wave_len = (self.len() / PLAN_STALENESS_DIVISOR).clamp(1, MAX_PLAN_WAVE);
+            let wave: Vec<(u64, Vec<f32>, usize)> = pending.by_ref().take(wave_len).collect();
+            let plans: Vec<PlannedInsert> = if wave.len() == 1 {
+                wave.into_iter()
+                    .map(|(id, vector, level)| self.plan_insert(id, vector, level))
+                    .collect()
+            } else {
+                wave.into_par_iter()
+                    .map(|(id, vector, level)| self.plan_insert(id, vector, level))
+                    .collect()
+            };
+            for plan in plans {
+                self.commit_planned(plan);
+            }
+        }
+        match error {
+            Some(error) => Err(error),
+            None => Ok(()),
+        }
     }
 
     // ── Persistence ──────────────────────────────────────────────────────
@@ -975,10 +1974,6 @@ impl HnswIndex {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent).map_err(io_to_xerj)?;
         }
-        let g = self.inner.read().unwrap();
-        let (buf, node_count) = encode_graph_bytes(&self.params, &g.read_view())?;
-        drop(g);
-
         // Atomic + durable publish (RC4 W2 item 19). The previous
         // fs::write + rename left both the file bytes and the directory
         // entry in the volatile page cache: a power loss shortly after a
@@ -986,12 +1981,27 @@ impl HnswIndex {
         // the next open) or no file at all — and because the id-map/graph
         // pair then fails to load or fails its freshness stamp, every kNN
         // after recovery silently degraded to permanent-stale/brute.
-        // write_file_durable fsyncs the temp file, renames, then fsyncs
+        // write_file_durable_streaming fsyncs the temp file, renames, then fsyncs
         // the parent directory so the rename itself survives power loss.
-        xerj_common::fsio::write_file_durable(path, &buf).map_err(io_to_xerj)?;
+        // Stream straight into the temp file (#2427): the read lock is held
+        // while the bytes go to the page cache, and released before fsync.
+        let mut written = (0u64, 0usize);
+        xerj_common::fsio::write_file_durable_streaming(path, |file| {
+            let g = self.inner.read().unwrap();
+            let (mut out, node_count) =
+                encode_graph_to(&self.params, &g.read_view(), CountingWriter::new(file))
+                    .map_err(|e| std::io::Error::other(e.to_string()))?;
+            drop(g);
+            out.flush()?;
+            written = (out.count, node_count);
+            Ok(())
+        })
+        .map_err(io_to_xerj)?;
+        let (bytes, node_count) = written;
+
         debug!(
             path = %path.display(),
-            bytes = buf.len(),
+            bytes,
             nodes = node_count,
             "HNSW graph persisted"
         );
@@ -1002,23 +2012,26 @@ impl HnswIndex {
     /// Returns `Err(...)` on any inconsistency so the caller can fall
     /// back to WAL replay rather than silently load a corrupt graph.
     pub fn load_from(path: &Path) -> Result<Self> {
-        let bytes = std::fs::read(path).map_err(io_to_xerj)?;
-        if bytes.len() < HNSW_MAGIC.len() + 4 + 4 {
+        // Stream the file instead of reading it whole (#2427): the old
+        // `fs::read` held a copy of the graph file next to the graph being
+        // built, ~1 GB extra at startup for a 0.93 GB graph. The CRC is
+        // computed while parsing and checked before the graph is returned,
+        // and every allocation sized by a file field is capped by the bytes
+        // actually left, so a corrupt count fails as a short read instead of
+        // a huge allocation.
+        let file = std::fs::File::open(path).map_err(io_to_xerj)?;
+        let file_len = file.metadata().map_err(io_to_xerj)?.len();
+        if file_len < (HNSW_MAGIC.len() + 4 + 4) as u64 {
             return Err(corrupt("file too small"));
         }
-        // Verify CRC over everything before the trailing u32.
-        let payload_len = bytes.len() - 4;
-        let stored_crc = (&bytes[payload_len..])
-            .read_u32::<LittleEndian>()
-            .map_err(io_to_xerj)?;
-        let computed_crc = crc32fast::hash(&bytes[..payload_len]);
-        if stored_crc != computed_crc {
-            return Err(corrupt(&format!(
-                "CRC mismatch: stored={stored_crc:#x} computed={computed_crc:#x}"
-            )));
-        }
-
-        let mut cur = std::io::Cursor::new(&bytes[..payload_len]);
+        let payload_len = file_len - 4;
+        let mut cur = CrcReader {
+            inner: std::io::BufReader::with_capacity(1024 * 1024, file).take(payload_len),
+            hasher: crc32fast::Hasher::new(),
+        };
+        let budget = |c: &CrcReader<std::io::Take<std::io::BufReader<std::fs::File>>>| {
+            c.inner.limit() as usize
+        };
         let mut magic = [0u8; 8];
         cur.read_exact(&mut magic).map_err(io_to_xerj)?;
         if &magic != HNSW_MAGIC {
@@ -1050,21 +2063,35 @@ impl HnswIndex {
 
         // Pass 1: read raw nodes (neighbors keyed by external id).
         let mut g = SlabGraphStorage::new(dim, metric);
-        let mut raw_neighbors: Vec<Vec<Vec<u64>>> = Vec::with_capacity(num_nodes);
+        if dim.saturating_mul(4) > budget(&cur) {
+            return Err(corrupt(&format!("dimension {dim} exceeds file size")));
+        }
+        // A node is at least id + layer + vector + one neighbour count.
+        let min_node = 8 + 4 + dim * 4 + 4;
+        let mut raw_neighbors: Vec<Vec<Vec<u64>>> =
+            Vec::with_capacity(num_nodes.min(budget(&cur) / min_node));
         for _ in 0..num_nodes {
             let id = cur.read_u64::<LittleEndian>().map_err(io_to_xerj)?;
             let max_layer = cur.read_u32::<LittleEndian>().map_err(io_to_xerj)? as usize;
             let mut vector = vec![0f32; dim];
-            for v in vector.iter_mut() {
-                *v = cur.read_f32::<LittleEndian>().map_err(io_to_xerj)?;
+            cur.read_f32_into::<LittleEndian>(&mut vector)
+                .map_err(io_to_xerj)?;
+            if max_layer >= budget(&cur) / 4 {
+                return Err(corrupt(&format!(
+                    "node {id}: layer {max_layer} exceeds file size"
+                )));
             }
             let mut neighbors: Vec<Vec<u64>> = Vec::with_capacity(max_layer + 1);
             for _ in 0..=max_layer {
                 let nn = cur.read_u32::<LittleEndian>().map_err(io_to_xerj)? as usize;
-                let mut layer = Vec::with_capacity(nn);
-                for _ in 0..nn {
-                    layer.push(cur.read_u64::<LittleEndian>().map_err(io_to_xerj)?);
+                if nn > budget(&cur) / 8 {
+                    return Err(corrupt(&format!(
+                        "node {id}: {nn} neighbours exceed file size"
+                    )));
                 }
+                let mut layer = vec![0u64; nn];
+                cur.read_u64_into::<LittleEndian>(&mut layer)
+                    .map_err(io_to_xerj)?;
                 neighbors.push(layer);
             }
             g.alloc_slot(id, vector, max_layer, m);
@@ -1109,9 +2136,26 @@ impl HnswIndex {
             }
         }
 
+        // The CRC covers the whole payload, including any bytes this
+        // version does not parse; hash the rest, then compare.
+        std::io::copy(&mut cur, &mut std::io::sink()).map_err(io_to_xerj)?;
+        let CrcReader { inner, hasher } = cur;
+        let computed_crc = hasher.finalize();
+        let stored_crc = inner
+            .into_inner()
+            .read_u32::<LittleEndian>()
+            .map_err(io_to_xerj)?;
+        if stored_crc != computed_crc {
+            return Err(corrupt(&format!(
+                "CRC mismatch: stored={stored_crc:#x} computed={computed_crc:#x}"
+            )));
+        }
+
         Ok(Self {
             params,
             inner: RwLock::new(g),
+            #[cfg(test)]
+            plan_probe: PlanProbe::default(),
         })
     }
 
@@ -1151,7 +2195,7 @@ impl HnswIndex {
         let ep = graph.entry_slot()?;
         let q_inv = query_inverse(&graph, query);
         let mut curr = ep;
-        let mut curr_dist = slot_distance(&graph, query, q_inv, curr);
+        let mut curr_dist = slot_distance::<false>(&graph, query, q_inv, curr);
         for layer in (1..=graph.entry_layer()).rev() {
             let (s, d) = greedy_layer(&graph, query, q_inv, curr, layer);
             curr = s;
@@ -1236,10 +2280,132 @@ mod ordered_float {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::distance::compute_distance;
+
+    /// What the slab stores for `v`: its half codes and scale (#2427).
+    fn half_encode(v: &[f32]) -> (Vec<u16>, f32) {
+        let scale = half_scale(v);
+        let inverse = 1.0 / scale;
+        (
+            v.iter().map(|&x| f32_to_half_bits(x * inverse)).collect(),
+            scale,
+        )
+    }
+
+    /// `v` after the slab's half-precision round trip.
+    fn half_round_trip(v: &[f32]) -> Vec<f32> {
+        let (codes, scale) = half_encode(v);
+        codes.iter().map(|&c| half_bits_to_f32(c) * scale).collect()
+    }
+
+    /// #2427: the software binary16 conversion rounds to nearest-even and
+    /// decodes exactly, including subnormals, signed zero and infinities.
+    #[test]
+    fn half_conversion_round_trips_and_rounds_to_even() {
+        for bits in 0..=u16::MAX {
+            let value = half_bits_to_f32(bits);
+            if value.is_nan() {
+                assert!(half_bits_to_f32(f32_to_half_bits(value)).is_nan());
+                continue;
+            }
+            assert_eq!(f32_to_half_bits(value), bits, "bits {bits:#06x}");
+        }
+        assert_eq!(f32_to_half_bits(1.0), 0x3c00);
+        assert_eq!(f32_to_half_bits(-2.0), 0xc000);
+        assert_eq!(f32_to_half_bits(65504.0), 0x7bff);
+        assert_eq!(f32_to_half_bits(65520.0), 0x7c00);
+        assert_eq!(f32_to_half_bits(1.0e-9), 0);
+        // Halfway between 1.0 and the next half (1 + 2^-10): ties to even.
+        assert_eq!(f32_to_half_bits(1.0 + 2f32.powi(-11)), 0x3c00);
+        assert_eq!(f32_to_half_bits(1.0 + 3.0 * 2f32.powi(-11)), 0x3c02);
+        // Smallest subnormal and halfway below it.
+        assert_eq!(f32_to_half_bits(2f32.powi(-24)), 0x0001);
+        assert_eq!(f32_to_half_bits(2f32.powi(-25)), 0x0000);
+        assert_eq!(f32_to_half_bits(3.0 * 2f32.powi(-25)), 0x0002);
+    }
+
+    /// #2427: scaling keeps any magnitude inside binary16, and the stored
+    /// vector stays within half-precision error of the original.
+    #[test]
+    fn half_storage_keeps_large_and_small_vectors_accurate() {
+        for magnitude in [1.0e-30f32, 1.0e-3, 1.0, 1.0e3, 1.0e6, 1.0e30] {
+            let v: Vec<f32> = (0..64)
+                .map(|i| magnitude * ((i as f32 * 0.37).sin()))
+                .collect();
+            let back = half_round_trip(&v);
+            let largest = v.iter().fold(0.0f32, |a, x| a.max(x.abs()));
+            for (x, y) in v.iter().zip(&back) {
+                assert!(y.is_finite());
+                assert!(
+                    (x - y).abs() <= largest * 2f32.powi(-10),
+                    "magnitude {magnitude}: {x} -> {y}"
+                );
+            }
+            assert_eq!(half_round_trip(&back), back, "re-encoding is stable");
+        }
+        assert_eq!(half_round_trip(&[0.0; 4]), vec![0.0; 4]);
+    }
+
+    /// #2427: the slab's vector storage must grow in bounded chunks. One
+    /// contiguous `Vec<f32>` doubled on every grow; at the 1 GB gate's ~393K
+    /// 384-dim vectors that is a single 384 MiB -> 768 MiB realloc with both
+    /// buffers live, the largest untracked allocation in the ingest heap
+    /// profile. Chunks keep every allocation <= VECTOR_CHUNK_BYTES and the
+    /// unused tail <= one chunk, and vectors read back intact across chunk
+    /// boundaries.
+    #[test]
+    fn slab_vector_storage_grows_in_bounded_chunks_2427() {
+        let dim = 384;
+        let per_vector = dim * std::mem::size_of::<u16>();
+        let n = 3 * (VECTOR_CHUNK_BYTES / per_vector) + 7;
+        let mut slab = SlabGraphStorage::new(dim, DistanceMetric::Cosine);
+        let vector_of = |i: usize| -> Vec<f32> { (0..dim).map(|d| (i * dim + d) as f32).collect() };
+        for i in 0..n {
+            slab.alloc_slot(i as u64, vector_of(i), 0, 16);
+        }
+        let view = slab.read_view();
+        for i in (0..n).step_by(97).chain([n - 1]) {
+            assert_eq!(view.vector(i as u32).len(), dim);
+            let v = decode_vector(&view, i as u32);
+            assert_eq!(v, half_round_trip(&vector_of(i)), "slot {i}");
+            assert!(slab.vectors.matches(i as u32, &vector_of(i)), "slot {i}");
+        }
+        let largest = slab.vectors.largest_allocation_bytes();
+        assert!(
+            largest <= VECTOR_CHUNK_BYTES,
+            "largest vector allocation {largest} B exceeds the {VECTOR_CHUNK_BYTES} B chunk bound"
+        );
+        let used = n * per_vector;
+        let slack = slab.vectors.reserved_bytes() - used;
+        assert!(
+            slack <= VECTOR_CHUNK_BYTES + 4096,
+            "vector storage reserves {slack} B beyond the {used} B in use"
+        );
+        assert!(slab.heap_bytes(16) >= used);
+    }
+
+    /// #2427: `HnswIndex::heap_bytes` is what the `vector_graph` trace
+    /// category reports; it must cover the vectors and grow with inserts.
+    #[test]
+    fn hnsw_heap_bytes_tracks_inserted_vectors_2427() {
+        let dim = 16;
+        let index = HnswIndex::new(HnswParams::new(dim, DistanceMetric::Cosine));
+        let empty = index.heap_bytes();
+        for i in 0..200u64 {
+            let v: Vec<f32> = (0..dim)
+                .map(|d| ((i as usize * 31 + d) % 17) as f32 + 1.0)
+                .collect();
+            index.insert(i, v).unwrap();
+        }
+        let full = index.heap_bytes();
+        assert!(full > empty);
+        assert!(full >= 200 * dim * std::mem::size_of::<u16>());
+    }
 
     struct FragmentedTestGraph {
         ids: Vec<u64>,
-        vectors: Vec<Vec<f32>>,
+        /// Half codes and scale per slot, as the slab stores them.
+        vectors: Vec<(Vec<u16>, f32)>,
         inverse_norms: Vec<f32>,
         neighbors: Vec<Vec<Vec<u32>>>,
         tombstones: Vec<u64>,
@@ -1253,7 +2419,7 @@ mod tests {
             Self: 'a;
 
         fn dimension(&self) -> usize {
-            self.vectors.first().map_or(0, Vec::len)
+            self.vectors.first().map_or(0, |(codes, _)| codes.len())
         }
 
         fn metric(&self) -> DistanceMetric {
@@ -1275,8 +2441,12 @@ mod tests {
                 .map(|slot| slot as u32)
         }
 
-        fn vector(&self, slot: u32) -> &[f32] {
-            &self.vectors[slot as usize]
+        fn vector(&self, slot: u32) -> &[u16] {
+            &self.vectors[slot as usize].0
+        }
+
+        fn vector_scale(&self, slot: u32) -> f32 {
+            self.vectors[slot as usize].1
         }
 
         fn inverse_norm(&self, slot: u32) -> f32 {
@@ -1383,8 +2553,7 @@ mod tests {
             buffer
                 .write_u32::<LittleEndian>(layers.len().saturating_sub(1) as u32)
                 .unwrap();
-            let start = slot as usize * graph.dim;
-            for &value in &graph.vectors[start..start + graph.dim] {
+            for value in decode_vector(&graph.read_view(), slot) {
                 buffer.write_f32::<LittleEndian>(value).unwrap();
             }
             for neighbors in layers {
@@ -1430,15 +2599,15 @@ mod tests {
             1.0
         };
         let distance = |slot: u32| {
-            let start = slot as usize * graph.dim;
-            let vector = &graph.vectors[start..start + graph.dim];
+            let vector = decode_vector(&graph.read_view(), slot);
             match graph.metric {
                 DistanceMetric::Cosine => {
-                    1.0 - dot_unrolled(query, vector)
+                    1.0 - dot_half_scalar(query, graph.vectors.get(slot))
+                        * graph.vectors.scale(slot)
                         * query_inverse_norm
                         * graph.inv_norms[slot as usize]
                 }
-                metric => compute_distance(metric, query, vector),
+                metric => compute_distance(metric, query, &vector),
             }
         };
         for layer in (1..=graph.entry_layer).rev() {
@@ -1571,6 +2740,128 @@ mod tests {
             .unwrap_err();
         assert!(matches!(err, XerjError::InvalidMapping { .. }));
         assert_eq!(idx.len(), 1, "only the pre-error item was inserted");
+    }
+
+    /// #2427: a batch's construction searches run concurrently on the
+    /// caller's rayon pool (only the link writes are serial), and the
+    /// resulting graph keeps the recall of a serial build.
+    #[test]
+    fn insert_batch_plans_in_parallel_and_keeps_recall_2427() {
+        let dim = 16;
+        let n = 4000usize;
+        let vector_for = |i: usize| -> Vec<f32> {
+            (0..dim as u64)
+                .map(|d| {
+                    let h = (i as u64 * dim as u64 + d + 1).wrapping_mul(0x9E37_79B9_7F4A_7C15);
+                    ((h >> 40) % 2001) as f32 / 1000.0 - 1.0
+                })
+                .collect()
+        };
+        let idx = make_index(dim);
+        let items: Vec<(u64, Vec<f32>)> = (0..n).map(|i| (i as u64, vector_for(i))).collect();
+        let pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(4)
+            .build()
+            .unwrap();
+        pool.install(|| idx.insert_batch(items)).unwrap();
+        assert_eq!(idx.len(), n);
+        let max_in_flight = idx
+            .plan_probe
+            .max_in_flight
+            .load(std::sync::atomic::Ordering::SeqCst);
+        assert!(
+            max_in_flight > 1,
+            "construction searches never overlapped (max in flight {max_in_flight})"
+        );
+
+        let cosine = |a: &[f32], b: &[f32]| compute_distance(DistanceMetric::Cosine, a, b);
+        let mut hits = 0usize;
+        let queries = 50usize;
+        for q in 0..queries {
+            let query = vector_for(n + q);
+            let mut exact: Vec<(f32, u64)> = (0..n)
+                .map(|i| (cosine(&query, &vector_for(i)), i as u64))
+                .collect();
+            exact.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+            let truth: HashSet<u64> = exact.iter().take(10).map(|&(_, id)| id).collect();
+            let found = idx.search(&query, 10, 100).unwrap();
+            hits += found.iter().filter(|(id, _)| truth.contains(id)).count();
+        }
+        let recall = hits as f64 / (queries * 10) as f64;
+        assert!(recall >= 0.95, "recall@10 {recall:.3} < 0.95");
+    }
+
+    /// #2427: inserts from many threads at once (plans racing other
+    /// threads' commits, including stale-plan re-searches) leave a
+    /// consistent graph: every node is present, neighbour lists are in
+    /// bounds and within their degree caps, and recall holds.
+    #[test]
+    fn concurrent_inserts_keep_the_graph_consistent_2427() {
+        let dim = 16;
+        let threads = 8usize;
+        let per_thread = 400usize;
+        let n = threads * per_thread;
+        let vector_for = |i: usize| -> Vec<f32> {
+            (0..dim as u64)
+                .map(|d| {
+                    let h = (i as u64 * dim as u64 + d + 7).wrapping_mul(0x9E37_79B9_7F4A_7C15);
+                    ((h >> 40) % 2001) as f32 / 1000.0 - 1.0
+                })
+                .collect()
+        };
+        let idx = std::sync::Arc::new(make_index(dim));
+        std::thread::scope(|scope| {
+            for t in 0..threads {
+                let idx = std::sync::Arc::clone(&idx);
+                scope.spawn(move || {
+                    for i in (t * per_thread)..((t + 1) * per_thread) {
+                        idx.insert(i as u64, vector_for(i)).unwrap();
+                    }
+                });
+            }
+        });
+        assert_eq!(idx.len(), n);
+        {
+            let g = idx.inner.read().unwrap();
+            let m = idx.params.m;
+            for (slot, layers) in g.neighbors.iter().enumerate() {
+                for (layer, list) in layers.iter().enumerate() {
+                    let cap = if layer == 0 { 2 * m } else { m };
+                    assert!(list.len() <= cap, "slot {slot} layer {layer} over cap");
+                    for &neighbor in list {
+                        assert!((neighbor as usize) < n);
+                        assert_ne!(neighbor as usize, slot, "self link");
+                        assert!(g.neighbors[neighbor as usize].len() > layer);
+                    }
+                }
+            }
+        }
+        let cosine = |a: &[f32], b: &[f32]| compute_distance(DistanceMetric::Cosine, a, b);
+        let mut hits = 0usize;
+        let queries = 50usize;
+        for q in 0..queries {
+            let query = vector_for(n + q);
+            let mut exact: Vec<(f32, u64)> = (0..n)
+                .map(|i| (cosine(&query, &vector_for(i)), i as u64))
+                .collect();
+            exact.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+            let truth: HashSet<u64> = exact.iter().take(10).map(|&(_, id)| id).collect();
+            let found = idx.search(&query, 10, 100).unwrap();
+            hits += found.iter().filter(|(id, _)| truth.contains(id)).count();
+        }
+        let recall = hits as f64 / (queries * 10) as f64;
+        assert!(recall >= 0.95, "recall@10 {recall:.3} < 0.95");
+        for i in (0..n).step_by(97) {
+            let found = idx.search(&vector_for(i), 1, 64).unwrap();
+            // Half-precision storage (11-bit significand) cannot order the
+            // generator's near-duplicates, which sit within ~1e-4 cosine
+            // distance of each other; any of them is a hit.
+            let nearest = found[0].0 as usize;
+            assert!(
+                nearest == i || cosine(&vector_for(i), &vector_for(nearest)) < 5e-4,
+                "node {i} not found as its own nearest (got {nearest})"
+            );
+        }
     }
 
     #[test]
@@ -1771,8 +3062,7 @@ mod tests {
                     view.current_slot(view.external_id(slot)),
                     slab.slot_of.get(&slab.ids[slot as usize]).copied()
                 );
-                let start = slot as usize * slab.dim;
-                assert_eq!(view.vector(slot), &slab.vectors[start..start + slab.dim]);
+                assert_eq!(view.vector(slot), slab.vectors.get(slot));
                 assert_eq!(view.inverse_norm(slot), slab.inv_norms[slot as usize]);
                 assert_eq!(view.layer_count(slot), slab.neighbors[slot as usize].len());
                 assert_eq!(view.tombstoned(slot), slab.tomb[slot as usize]);
@@ -1792,10 +3082,42 @@ mod tests {
     }
 
     #[test]
+    fn streamed_save_writes_legacy_bytes_and_round_trips() {
+        let index = HnswIndex::new(HnswParams::new(8, DistanceMetric::Cosine));
+        for id in 0..600u64 {
+            let v: Vec<f32> = (0..8)
+                .map(|d| ((id * 31 + d * 7) % 97) as f32 + 1.0)
+                .collect();
+            index.insert(id + (1 << 40), v).unwrap();
+        }
+        for id in (0..600u64).step_by(7) {
+            index.mark_deleted(id + (1 << 40));
+        }
+        let expected = {
+            let slab = index.inner.read().unwrap();
+            legacy_encode_graph_bytes(&index.params, &slab)
+        };
+        // Bigger than the 1 MiB write buffer would be ideal, but the CRC and
+        // byte layout are what can break; 600 nodes span many buffer refills
+        // of the BufWriter's partial-write path through CountingWriter.
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("graph.bin");
+        index.save_to(&path).unwrap();
+        assert_eq!(std::fs::read(&path).unwrap(), expected);
+        let loaded = HnswIndex::load_from(&path).unwrap();
+        assert_eq!(loaded.len(), index.len());
+        let leftovers = std::fs::read_dir(dir.path()).unwrap().count();
+        assert_eq!(leftovers, 1, "temp file left behind");
+    }
+
+    #[test]
     fn generic_read_boundary_accepts_fragmented_backend() {
         let graph = FragmentedTestGraph {
             ids: vec![17, (1u64 << 48) + 5, 91],
-            vectors: vec![vec![1.0, 0.0], vec![0.8, 0.2], vec![0.0, 1.0]],
+            vectors: [[1.0, 0.0], [0.8, 0.2], [0.0, 1.0]]
+                .iter()
+                .map(|v| half_encode(v))
+                .collect(),
             inverse_norms: vec![1.0, 1.0 / 0.68f32.sqrt(), 1.0],
             neighbors: vec![vec![vec![1]], vec![vec![0, 2]], vec![vec![1]]],
             tombstones: vec![91],
@@ -1879,6 +3201,55 @@ mod tests {
         let path = dir.path().join("hnsw.bin");
         std::fs::write(&path, b"garbage").unwrap();
         assert!(HnswIndex::load_from(&path).is_err());
+    }
+
+    #[test]
+    fn streamed_load_rejects_every_single_byte_flip_and_truncation() {
+        let index = HnswIndex::new(HnswParams::new(3, DistanceMetric::Cosine));
+        for id in 0..12u64 {
+            let f = id as f32;
+            index.insert(id + 100, vec![f + 1.0, 7.0 - f, 0.5]).unwrap();
+        }
+        index.mark_deleted(104);
+        let dir = tempfile::tempdir().unwrap();
+        let good = dir.path().join("good.bin");
+        index.save_to(&good).unwrap();
+        let bytes = std::fs::read(&good).unwrap();
+        let reloaded = HnswIndex::load_from(&good).unwrap();
+        assert_eq!(reloaded.len(), index.len());
+
+        let bad = dir.path().join("bad.bin");
+        for pos in 0..bytes.len() {
+            let mut flipped = bytes.clone();
+            flipped[pos] ^= 0x41;
+            std::fs::write(&bad, &flipped).unwrap();
+            assert!(
+                HnswIndex::load_from(&bad).is_err(),
+                "flip at {pos} accepted"
+            );
+        }
+        for len in 0..bytes.len() {
+            std::fs::write(&bad, &bytes[..len]).unwrap();
+            assert!(
+                HnswIndex::load_from(&bad).is_err(),
+                "truncation to {len} accepted"
+            );
+        }
+        // A huge node count / dimension / layer must not allocate its claim.
+        for (offset, value) in [
+            (21usize, u32::MAX),
+            (8 + 4 + 4 + 4 + 1 + 4 + 8 + 4, u32::MAX),
+        ] {
+            let mut forged = bytes[..bytes.len() - 4].to_vec();
+            forged[offset..offset + 4].copy_from_slice(&value.to_le_bytes());
+            let crc = crc32fast::hash(&forged);
+            forged.extend_from_slice(&crc.to_le_bytes());
+            std::fs::write(&bad, &forged).unwrap();
+            assert!(
+                HnswIndex::load_from(&bad).is_err(),
+                "forged u32 at {offset} accepted"
+            );
+        }
     }
 
     #[test]
@@ -1990,5 +3361,208 @@ mod tests {
             recall >= 0.9,
             "recall@10 regression: got {recall:.3}, expected >= 0.9"
         );
+    }
+
+    /// The AVX2 compilation of the beam-search dot product must return the
+    /// same bits as the scalar compilation. Lengths cover the 8-wide chunk,
+    /// the remainder, and an unaligned window.
+    #[test]
+    fn avx2_dot_matches_scalar_bits() {
+        #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+        {
+            if !avx2_kernels_available() {
+                return;
+            }
+            let mut state = 0xC0FFEE_u64;
+            let mut next = || {
+                state = state.wrapping_mul(6364136223846793005).wrapping_add(1);
+                let unit = ((state >> 33) as u32 as f32) / 2147483648.0;
+                unit * 4.0 - 2.0
+            };
+            let mut data = Vec::with_capacity(2048);
+            for _ in 0..2048 {
+                data.push(next());
+            }
+            data[3] = 0.0;
+            data[4] = -0.0;
+            data[10] = 1.0e20;
+            data[11] = -1.0e-20;
+            for &len in &[0usize, 1, 7, 8, 9, 15, 16, 17, 31, 32, 63, 64, 768] {
+                for &off in &[0usize, 1] {
+                    if off + len * 2 > data.len() {
+                        continue;
+                    }
+                    let a = &data[off..off + len];
+                    let (b, _) = half_encode(&data[off + len..off + len * 2]);
+                    let scalar = dot_half_scalar(a, &b);
+                    // SAFETY: the feature check above succeeded.
+                    let avx = unsafe { dot_half_avx2(a, &b) };
+                    assert_eq!(
+                        scalar.to_bits(),
+                        avx.to_bits(),
+                        "len {len} off {off}: scalar {scalar} avx2 {avx}"
+                    );
+                }
+            }
+        }
+    }
+
+    /// Production search (AVX2 kernel on this host, scalar otherwise) must
+    /// agree bit-for-bit with the scalar eight-accumulator formula.
+    #[test]
+    fn search_cosine_distance_matches_scalar_dot() {
+        let dim = 32usize;
+        let idx = make_index(dim);
+        let mut state = 0xA11CE_u64;
+        let mut next = || {
+            state = state.wrapping_mul(6364136223846793005).wrapping_add(1);
+            (((state >> 33) as u32) as f32) / 2147483648.0 * 2.0 - 1.0
+        };
+        let mut vecs = Vec::new();
+        for i in 0..40u64 {
+            let v: Vec<f32> = (0..dim).map(|_| next()).collect();
+            idx.insert(i, v.clone()).unwrap();
+            vecs.push(v);
+        }
+        let q = vecs[0].clone();
+        let q_norm = q.iter().map(|x| x * x).sum::<f32>().sqrt();
+        let q_inv = if q_norm > 0.0 { 1.0 / q_norm } else { 0.0 };
+        let hits = idx.search(&q, 8, 64).unwrap();
+        assert!(!hits.is_empty());
+        for (id, dist) in hits {
+            let v = &vecs[id as usize];
+            let n = v.iter().map(|x| x * x).sum::<f32>().sqrt();
+            let inv = if n > 0.0 { 1.0 / n } else { 0.0 };
+            let (codes, scale) = half_encode(v);
+            let expect = 1.0 - dot_half_scalar(&q, &codes) * scale * q_inv * inv;
+            assert_eq!(
+                dist.to_bits(),
+                expect.to_bits(),
+                "id {id}: search {dist} scalar {expect}"
+            );
+        }
+    }
+
+    fn spread_vec(seed: u64, dim: usize) -> Vec<f32> {
+        (0..dim as u64)
+            .map(|d| {
+                let h = (seed * dim as u64 + d + 1).wrapping_mul(0x9E37_79B9_7F4A_7C15);
+                ((h >> 40) % 2001) as f32 / 1000.0 - 1.0
+            })
+            .collect()
+    }
+
+    /// #2796: overwriting docs the way the engine does (a fresh node id
+    /// per write, the old node tombstoned) left every old vector in the
+    /// graph and in `graph.bin` forever. `compact` must drop them and keep
+    /// every live node findable under its id.
+    #[test]
+    fn compact_drops_dead_nodes_and_keeps_live_ones_2796() {
+        const DIM: usize = 16;
+        const LIVE: usize = 200;
+        const ROUNDS: u64 = 5;
+        let idx = make_index(DIM);
+        let mut next_id = 0u64;
+        let mut current: Vec<(u64, Vec<f32>)> = Vec::new();
+        for doc in 0..LIVE {
+            let v = spread_vec(doc as u64, DIM);
+            idx.insert(next_id, v.clone()).unwrap();
+            current.push((next_id, v));
+            next_id += 1;
+        }
+        let mut superseded = Vec::new();
+        for round in 1..=ROUNDS {
+            for (doc, slot) in current.iter_mut().enumerate() {
+                let v = spread_vec(round * 10_000 + doc as u64, DIM);
+                idx.mark_deleted(slot.0);
+                superseded.push((slot.0, slot.1.clone()));
+                idx.insert(next_id, v.clone()).unwrap();
+                *slot = (next_id, v);
+                next_id += 1;
+            }
+        }
+        // A same-id re-insert orphans the earlier slot, which is dead too.
+        idx.insert(current[0].0, current[0].1.clone()).unwrap();
+
+        let dead_before = LIVE * ROUNDS as usize + 1;
+        assert_eq!(idx.live_and_dead_counts(), (LIVE, dead_before));
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("graph.bin");
+        idx.save_to(&path).unwrap();
+        let bytes_before = std::fs::metadata(&path).unwrap().len();
+
+        let stats = idx.compact().unwrap().expect("no concurrent writer");
+        assert_eq!(stats.nodes_before, LIVE + dead_before);
+        assert_eq!(stats.nodes_after, LIVE);
+        assert_eq!(idx.live_and_dead_counts(), (LIVE, 0));
+        assert_eq!(idx.len(), LIVE);
+        assert_eq!(idx.tombstone_count(), 0);
+
+        idx.save_to(&path).unwrap();
+        let bytes_after = std::fs::metadata(&path).unwrap().len();
+        assert!(
+            bytes_after * 5 < bytes_before,
+            "graph.bin {bytes_before} -> {bytes_after} bytes for {LIVE} live of {} nodes",
+            LIVE + dead_before
+        );
+
+        for (id, v) in &current {
+            assert!(idx.vector_matches(*id, v));
+            assert_eq!(idx.search(v, 1, 64).unwrap()[0].0, *id);
+        }
+        for (id, v) in &superseded {
+            assert!(!idx.vector_matches(*id, v), "dead node {id} survived");
+        }
+        let reloaded = HnswIndex::load_from(&path).unwrap();
+        assert_eq!(reloaded.live_and_dead_counts(), (LIVE, 0));
+        let (id, v) = &current[LIVE / 2];
+        assert_eq!(reloaded.search(v, 1, 64).unwrap()[0].0, *id);
+    }
+
+    /// #2796: writes landing while `compact` rebuilds must not be lost.
+    /// More than `COMPACT_FINAL_ROUND_MAX` of them force an unlocked
+    /// catch-up round before the locked final one.
+    #[test]
+    fn compact_replays_writes_made_during_the_rebuild_2796() {
+        const DIM: usize = 16;
+        let idx = make_index(DIM);
+        for id in 0..300u64 {
+            idx.insert(id, spread_vec(id, DIM)).unwrap();
+        }
+        idx.mark_deleted(3);
+
+        let (nodes_before, items) = idx.compact_begin().expect("not running");
+        assert_eq!(items.len(), 299, "the snapshot skips the dead node");
+        // Writes made between the snapshot and the swap.
+        let added = 300..300 + COMPACT_FINAL_ROUND_MAX as u64 * 2;
+        for id in added.clone() {
+            idx.insert(id, spread_vec(id, DIM)).unwrap();
+        }
+        idx.mark_deleted(5);
+        idx.mark_deleted(400);
+        let moved = spread_vec(99_999, DIM);
+        idx.insert(7, moved.clone()).unwrap();
+        assert!(idx.compact().unwrap().is_none(), "one compaction at a time");
+
+        let fresh = HnswIndex::new(idx.params.clone());
+        let stats = idx
+            .compact_into(&fresh, items, nodes_before)
+            .unwrap()
+            .expect("catch-up converges without further writes");
+        assert_eq!(stats.nodes_before, 300);
+        assert!(idx.inner.read().unwrap().journal.is_none());
+
+        let live = 300 - 1 + added.clone().count() - 2;
+        assert_eq!(idx.live_and_dead_counts().0, live);
+        assert!(!idx.is_deleted(3), "dropped node's tombstone is gone");
+        assert!(idx.is_deleted(5) && idx.is_deleted(400));
+        assert!(idx.vector_matches(7, &moved));
+        assert_eq!(idx.search(&moved, 1, 64).unwrap()[0].0, 7);
+        for id in [0u64, 299, 300, 555, added.end - 1] {
+            assert_eq!(idx.search(&spread_vec(id, DIM), 1, 64).unwrap()[0].0, id);
+        }
+        for (id, _) in idx.search(&spread_vec(5, DIM), 10, 64).unwrap() {
+            assert!(id != 5 && id != 400, "tombstoned node {id} returned");
+        }
     }
 }

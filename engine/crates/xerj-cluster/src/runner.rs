@@ -18,6 +18,13 @@ use tracing::{info, warn};
 
 use crate::node::ClusterNode;
 
+/// How often a member asks primaries to fill replica shards it is missing.
+///
+/// The first pass runs as soon as the runner starts. Later passes wait this
+/// long, or less when shutdown is signalled. A pass that finds nothing out
+/// of sync does not call a peer.
+const REPLICA_BACKFILL_INTERVAL: Duration = Duration::from_millis(200);
+
 // ── ClusterRunner ─────────────────────────────────────────────────────────────
 
 /// Drives the Raft state machine in a background async task.
@@ -96,6 +103,7 @@ impl ClusterRunner {
         );
 
         let tick = self.tick_interval;
+        let backfill = self.spawn_replica_backfill();
         loop {
             // Fast path: already asked to shut down before we start a step.
             if *self.shutdown.borrow() {
@@ -124,7 +132,36 @@ impl ClusterRunner {
             }
         }
 
+        backfill.abort();
         info!(node = %self.node.raft.id, "ClusterRunner stopped");
+    }
+
+    /// Copy documents onto replica shards this node does not have in sync.
+    ///
+    /// Runs beside the Raft step so a copy does not delay an election. The
+    /// task stops when this runner stops.
+    fn spawn_replica_backfill(&self) -> tokio::task::JoinHandle<()> {
+        let applier = self.node.applier();
+        let mut shutdown = self.shutdown.clone();
+        tokio::spawn(async move {
+            let Some(applier) = applier else {
+                return;
+            };
+            loop {
+                if *shutdown.borrow() {
+                    break;
+                }
+                applier.backfill_local_replicas().await;
+                tokio::select! {
+                    changed = shutdown.changed() => {
+                        if changed.is_err() || *shutdown.borrow() {
+                            break;
+                        }
+                    }
+                    _ = tokio::time::sleep(REPLICA_BACKFILL_INTERVAL) => {}
+                }
+            }
+        })
     }
 
     /// Whether the node currently believes itself to be the Raft leader.

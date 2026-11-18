@@ -1,0 +1,26 @@
+$ /workspace/engine/target/release/xerj init --url http://127.0.0.1:9217 --disable-feedback
+# exit 0
+xerj init — wiring XERJ into this project:
+
+  wrote    /tmp/xerj-aq-2026-10-20/initproj/.mcp.json
+  wrote    /tmp/xerj-aq-2026-10-20/initproj/.cursor/mcp.json
+  wrote    /tmp/xerj-aq-2026-10-20/initproj/.cursor/rules/xerj.mdc
+  wrote    /tmp/xerj-aq-2026-10-20/initproj/.cursor/rules/xerj-hub.mdc
+  appended /tmp/xerj-aq-2026-10-20/initproj/.codex/config.toml
+  wrote    /tmp/xerj-aq-2026-10-20/initproj/AGENTS.md
+  auth     no --auth given and no local admin key found; if the node at http://127.0.0.1:9217 runs with auth on, add "XERJ_AUTH": "ApiKey <key>" to the .mcp.json env — the key is the node's <data-dir>/admin.key
+
+done. Restart the agent session to pick up the tools, then
+`xerj autoindex <folder> --prefix <name>` anything you want searchable.
+Pass that same `--prefix <name>` to `xerj search` and `xerj def`
+(without it they search the default `ax` prefix).
+
+Public libraries, standards and advisories need no indexing: ask the hub with
+`xerj "<question>"` (the xerj-hub skill says when).
+
+MCP registration for other clients (restart the session after; success: `xerj_search` is in the tool list):
+  Claude Code, every project:  claude mcp add --scope user xerj -e XERJ_URL='http://127.0.0.1:9217' -- '/workspace/engine/target/release/xerj' mcp
+  Cursor:  `.cursor/mcp.json` when that directory exists (init writes it; root key "mcpServers")
+  Windsurf, Claude Desktop, Cline:  copy the "xerj" entry from .mcp.json; the root key is "mcpServers"
+  VS Code (.vscode/mcp.json):  root key "servers", not "mcpServers"; the entry needs "type": "stdio"
+  Codex (.codex/config.toml, trusted projects only; xerj init writes it when .codex/ exists): [mcp_servers.xerj]

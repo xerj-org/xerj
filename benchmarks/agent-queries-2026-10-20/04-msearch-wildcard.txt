@@ -1,0 +1,2 @@
+HTTP 200
+{"took":0,"responses":[{"error":{"root_cause":[{"type":"index_not_found_exception","reason":"no such index [gh-*]","resource.type":"index_or_alias","resource.id":"gh-*","index_uuid":"_na_","index":"gh-*"}],"type":"index_not_found_exception","reason":"no such index [gh-*]","resource.type":"index_or_alias","resource.id":"gh-*","index_uuid":"_na_","index":"gh-*"},"status":404}]}

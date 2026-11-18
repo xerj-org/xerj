@@ -61,8 +61,13 @@
 //! `network` → `net`, `life expectancy` → `lifeExp`, `GDP per capita` →
 //! `gdpPercap`, …) resolve field phrases by scored name matching against
 //! the index's real fields; equality values resolve against the live value
-//! map built by the batched agg. It is NOT an LLM and not fuzzy retrieval:
-//! anything it cannot ground in the index is refused by name. `confidence`
+//! map built by the batched agg. A slash-bearing token (`crates/app/src`) is
+//! a path constraint: a keyword `prefix` on `ax_path` (then `path`,
+//! `filepath`, `file`, `ax_file`), with a trailing slash when the last
+//! segment is a directory so `src` does not also match `src2`. No such
+//! field is a 422 naming the path — it is not dropped as decoration. It is
+//! NOT an LLM and not fuzzy retrieval: anything it cannot ground in the
+//! index is refused by name. `confidence`
 //! reports how much soft matching the plan needed — 0.9 for a fully exact
 //! plan, lower per fallback, 0.5 for a bare `match_all`.
 //!
@@ -237,10 +242,23 @@ pub async fn ask(State(state): State<AppState>, Json(body): Json<Value>) -> Resp
             }
         }
     }
+    // `count` is every top-level mapping field (the set a filter can name).
+    // `xerj_map`'s `field_count` is that same set: catalog specs union the
+    // live mapping, which is what surfaces `ax_*` locators the profiler
+    // never sampled (#2120). `provenance_fields` names the `ax_*` ones so a
+    // caller can see them without a second request.
+    let mut provenance_fields: Vec<&str> = fields
+        .iter()
+        .filter(|f| f.name.starts_with("ax_"))
+        .map(|f| f.name.as_str())
+        .collect();
+    provenance_fields.sort_unstable();
     plan_steps.push(json!({
         "step": plan_steps.len() + 1,
         "action": "fields",
         "count": fields.len(),
+        "counted": "top-level mapping fields",
+        "provenance_fields": provenance_fields,
         "source": if spec.is_some() { "catalog+mapping" } else { "mapping" },
     }));
     if fields.is_empty() {
@@ -796,6 +814,14 @@ fn range_clause_1(field: &str, op: &str, value: Value) -> Value {
     inner.insert(field.to_string(), Value::Object(bound));
     let mut outer = Map::new();
     outer.insert("range".to_string(), Value::Object(inner));
+    Value::Object(outer)
+}
+
+fn prefix_clause(field: &str, value: &str) -> Value {
+    let mut inner = Map::new();
+    inner.insert(field.to_string(), json!(value));
+    let mut outer = Map::new();
+    outer.insert("prefix".to_string(), Value::Object(inner));
     Value::Object(outer)
 }
 
@@ -1526,6 +1552,11 @@ async fn plan_prompt(
     numeric_pass(toks, fields, used, ctx)?;
     // Pass A: date literals and bare years.
     date_pass(toks, fields, time_field_hint, used, ctx)?;
+    // Pass P: a slash-bearing token is a path prefix, not a value. Claim it
+    // before the value pass so `norm_text` (which strips `/`) cannot fold it
+    // into an unrelated keyword, and before leftovers so it is not reported
+    // as a dropped lowercase modifier (#2120).
+    path_pass(toks, fields, used, ctx);
     // Pass C: equality from the value map (field+value splits, then values).
     let mut probes = 0usize;
     let leftovers = value_pass(toks, fields, used, ctx, idx, &mut probes).await;
@@ -2250,6 +2281,110 @@ fn year_context(toks: &[Tok], used: &[bool], i: usize) -> bool {
     (i > 0 && check(i - 1)) || (i + 1 < toks.len() && check(i + 1))
 }
 
+/// Keyword fields a path constraint may filter, most-specific first.
+///
+/// `ax_path` is the full root-relative path autoindex stamps on every
+/// record. Code indexes also map `path`, but that value is the file name
+/// (`worktree.rs`), so a directory prefix has to land on `ax_path` when
+/// both exist.
+const PATH_FIELDS: &[&str] = &["ax_path", "path", "filepath", "file", "ax_file"];
+
+/// The keyword field a path prefix filters, or `None` when this index has
+/// none of [`PATH_FIELDS`].
+fn path_field(fields: &[FieldView]) -> Option<usize> {
+    PATH_FIELDS.iter().find_map(|name| {
+        fields
+            .iter()
+            .position(|f| f.name == *name && f.categorical())
+    })
+}
+
+/// A filesystem path named by one prompt token, as the `prefix` value to
+/// query, or `None` when `raw` is not a path.
+///
+/// Whitespace is the only token split, so `crates/herdr-gpui/src` arrives
+/// whole. `norm_text` then deletes the slashes, which is why the value pass
+/// cannot see it. A directory (last segment has no `.`) gets a trailing
+/// slash: prefix `crates/app/src/` matches `crates/app/src/lib.rs` and not
+/// `crates/app/src2/lib.rs`. A file (last segment contains `.`) is prefixed
+/// as written. `and/or` is grammar, not a path. `http://…` is left for the
+/// ordinary passes.
+fn path_prefix(raw: &str) -> Option<String> {
+    if !raw.contains('/') && !raw.contains('\\') {
+        return None;
+    }
+    let lower = raw.to_ascii_lowercase();
+    if lower.starts_with("http://") || lower.starts_with("https://") || lower.starts_with("file://")
+    {
+        return None;
+    }
+    let normalized = raw.replace('\\', "/");
+    let trimmed = normalized.trim_matches('/');
+    let trimmed = trimmed.strip_prefix("./").unwrap_or(trimmed);
+    if trimmed.is_empty() {
+        return None;
+    }
+    let segments: Vec<&str> = trimmed.split('/').filter(|s| !s.is_empty()).collect();
+    if segments.len() < 2 || !trimmed.chars().any(|c| c.is_ascii_alphabetic()) {
+        return None;
+    }
+    let contentful = segments.iter().any(|seg| {
+        let n = norm_text(seg);
+        !n.is_empty()
+            && !FUNCTION_WORDS.contains(&n.as_str())
+            && !GENERIC_WORDS.contains(&n.as_str())
+    });
+    if !contentful {
+        return None;
+    }
+    let last = segments[segments.len() - 1];
+    // Two bare words joined by a slash (`tcp/ip`, `client/server`,
+    // `north/south`) are prose, not a path. Only take a token as a path when
+    // it says so: three or more segments, a file extension on the last
+    // segment, or a leading `./` `/` `~/` or trailing slash.
+    let has_ext = last.rsplit_once('.').is_some_and(|(stem, ext)| {
+        !stem.is_empty() && !ext.is_empty() && ext.chars().all(|c| c.is_ascii_alphanumeric())
+    });
+    let anchored = normalized.starts_with("./")
+        || normalized.starts_with('/')
+        || normalized.starts_with("~/")
+        || normalized.ends_with('/');
+    if segments.len() < 3 && !has_ext && !anchored {
+        return None;
+    }
+    if last.contains('.') {
+        Some(trimmed.to_string())
+    } else {
+        Some(format!("{trimmed}/"))
+    }
+}
+
+/// Pass P: ground each path token as a keyword prefix. Tokens stay unused
+/// when the index has no path field, so [`settle_leftovers`] can refuse
+/// them by name instead of filing them as decoration.
+fn path_pass(toks: &[Tok], fields: &[FieldView], used: &mut [bool], ctx: &mut PlanCtx) {
+    let Some(fpos) = path_field(fields) else {
+        return;
+    };
+    let field = fields[fpos].name.clone();
+    for (i, t) in toks.iter().enumerate() {
+        if used[i] {
+            continue;
+        }
+        let Some(prefix) = path_prefix(&t.raw) else {
+            continue;
+        };
+        ctx.constraints.push(Constraint {
+            clause: prefix_clause(&field, &prefix),
+            phrase: t.raw.clone(),
+            via: "path-prefix",
+            is_range: false,
+            pos: i,
+        });
+        used[i] = true;
+    }
+}
+
 /// Pass C: equality against the live value map. Returns the leftover runs
 /// it could not ground, for the decoration/refusal decision.
 async fn value_pass(
@@ -2387,6 +2522,23 @@ fn settle_leftovers(
         return Ok(());
     }
     for run in unresolved {
+        // A path is a constraint the caller asked for. Dropping it as a
+        // lowercase modifier returns a different document set and says only
+        // that a modifier was ignored (#2120).
+        if let Some(path) = run
+            .iter()
+            .find_map(|&k| path_prefix(&toks[k].raw).map(|_| toks[k].raw.clone()))
+        {
+            return Err((
+                vec![path.clone()],
+                format!(
+                    "phrase `{path}` looks like a file path, but this index has no keyword \
+                     field named ax_path, path, filepath, file, or ax_file to filter on — \
+                     refusing rather than dropping the path. Map one of those fields, or \
+                     remove the path from the prompt"
+                ),
+            ));
+        }
         let single = run.len() == 1;
         let capitalized = toks[run[0]].capitalized;
         if capitalized || !single || !grounded {
@@ -2481,6 +2633,58 @@ mod tests {
         assert_eq!(concept_for("population"), Some(&["pop"][..]));
         assert_eq!(concept_for("gdppercapita"), Some(&["gdppercap"][..]));
         assert_eq!(concept_for("nothingknown"), None);
+    }
+
+    #[test]
+    fn path_prefix_is_a_directory_or_a_file() {
+        assert_eq!(
+            path_prefix("crates/herdr-gpui/src"),
+            Some("crates/herdr-gpui/src/".into())
+        );
+        // A trailing slash is the same directory. A sibling prefix is not.
+        assert_eq!(
+            path_prefix("crates/herdr-gpui/src/"),
+            Some("crates/herdr-gpui/src/".into())
+        );
+        assert_eq!(
+            path_prefix(r"crates\herdr-gpui\src"),
+            Some("crates/herdr-gpui/src/".into())
+        );
+        assert_eq!(
+            path_prefix("crates/herdr-gpui/src/worktree.rs"),
+            Some("crates/herdr-gpui/src/worktree.rs".into())
+        );
+        assert_eq!(path_prefix("./src/lib.rs"), Some("src/lib.rs".into()));
+        // Grammar, dates, and URLs are not paths.
+        assert_eq!(path_prefix("and/or"), None);
+        assert_eq!(path_prefix("2026/09/01"), None);
+        assert_eq!(path_prefix("https://example.com/a"), None);
+        assert_eq!(path_prefix("rust"), None);
+        // Two bare words joined by a slash are prose, not a path.
+        assert_eq!(path_prefix("tcp/ip"), None);
+        assert_eq!(path_prefix("client/server"), None);
+        assert_eq!(path_prefix("src/lib.rs"), Some("src/lib.rs".into()));
+        assert_eq!(path_prefix("app/src/"), Some("app/src/".into()));
+    }
+
+    #[test]
+    fn path_field_prefers_ax_path_over_the_filename_field() {
+        let fields = vec![
+            FieldView::new("path".into(), "keyword"),
+            FieldView::new("ax_path".into(), "keyword"),
+            FieldView::new("language".into(), "keyword"),
+            FieldView::new("body".into(), "text"),
+        ];
+        assert_eq!(fields[path_field(&fields).unwrap()].name, "ax_path");
+        let filename_only = vec![FieldView::new("path".into(), "keyword")];
+        assert_eq!(fields_name(&filename_only), "path");
+        assert!(path_field(&[FieldView::new("language".into(), "keyword")]).is_none());
+        // A text `path` is not a keyword prefix target.
+        assert!(path_field(&[FieldView::new("path".into(), "text")]).is_none());
+    }
+
+    fn fields_name(fields: &[FieldView]) -> &str {
+        &fields[path_field(fields).unwrap()].name
     }
 
     #[test]

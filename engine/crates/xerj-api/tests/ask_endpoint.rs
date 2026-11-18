@@ -700,3 +700,152 @@ async fn native_router_serves_the_same_handler() {
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["query"], json!({ "term": { "net": "ak" } }));
 }
+
+/// #2120: "rust files in crates/herdr-gpui/src with more than 10 symbols"
+/// must keep the path. `ax_path` wins over the filename `path` field, a
+/// directory prefix does not match a sibling (`src` vs `src2`), and a path
+/// with no keyword path field is a 422 that names it — not an ignored
+/// lowercase modifier.
+#[tokio::test]
+async fn a_path_constraint_becomes_a_prefix_on_ax_path() {
+    let (app, _dir) = app().await;
+    let (status, body) = json_req(
+        &app,
+        "PUT",
+        "/ax-code",
+        json!({ "mappings": { "properties": {
+            "language": { "type": "keyword" },
+            "symbol_count": { "type": "long" },
+            "path": { "type": "keyword" },
+            "ax_path": { "type": "keyword" }
+        } } }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let docs = [
+        (
+            "in",
+            "rust",
+            12,
+            "worktree.rs",
+            "crates/herdr-gpui/src/worktree.rs",
+        ),
+        ("out", "rust", 12, "lib.rs", "crates/other/src/lib.rs"),
+        (
+            "few",
+            "rust",
+            3,
+            "small.rs",
+            "crates/herdr-gpui/src/small.rs",
+        ),
+        ("py", "python", 20, "py.rs", "crates/herdr-gpui/src/py.rs"),
+        ("sib", "rust", 11, "mod.rs", "crates/herdr-gpui/src2/mod.rs"),
+    ];
+    let mut ndjson = String::new();
+    for (id, language, symbols, path, ax_path) in docs {
+        ndjson.push_str(&format!(
+            "{{\"index\":{{\"_index\":\"ax-code\",\"_id\":\"{id}\"}}}}\n{}\n",
+            json!({
+                "language": language,
+                "symbol_count": symbols,
+                "path": path,
+                "ax_path": ax_path,
+            })
+        ));
+    }
+    let (status, body) = raw_req(&app, "POST", "/_bulk", ndjson).await;
+    assert_eq!(status, StatusCode::OK, "bulk failed: {body}");
+    assert_eq!(body["errors"], false, "{body}");
+    let (status, body) = json_req(&app, "POST", "/ax-code/_refresh", json!({})).await;
+    assert_eq!(status, StatusCode::OK, "refresh: {body}");
+
+    let prompt = "rust files in crates/herdr-gpui/src with more than 10 symbols";
+    let (status, body) = ask(&app, "ax-code", prompt).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(
+        body["query"],
+        json!({ "bool": { "filter": [
+            { "term": { "language": "rust" } },
+            { "prefix": { "ax_path": "crates/herdr-gpui/src/" } },
+            { "range": { "symbol_count": { "gt": 10 } } }
+        ] } }),
+        "{body}"
+    );
+    let plan = body["plan"].as_array().unwrap();
+    let fields = plan.iter().find(|s| s["action"] == "fields").unwrap();
+    assert_eq!(fields["counted"], "top-level mapping fields");
+    assert_eq!(fields["count"], 4);
+    assert!(
+        fields["provenance_fields"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|n| n == "ax_path"),
+        "{fields}"
+    );
+    assert!(
+        !plan.iter().any(|s| {
+            s["action"] == "ignored" && s["phrase"].as_str().unwrap_or("").contains("crates/")
+        }),
+        "the path must not be logged as an ignored modifier: {plan:?}"
+    );
+
+    let (status, found) = json_req(
+        &app,
+        "POST",
+        "/ax-code/_search",
+        json!({ "query": body["query"], "size": 10 }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{found}");
+    let ids: Vec<&str> = found["hits"]["hits"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|h| h["_id"].as_str())
+        .collect();
+    assert_eq!(
+        ids,
+        ["in"],
+        "directory prefix must miss src2, other crates, non-rust, and symbol_count <= 10: {found}"
+    );
+
+    // No path field: the path is named in a 422, not silently dropped while
+    // the language and symbol_count constraints succeed.
+    let (status, body) = json_req(
+        &app,
+        "PUT",
+        "/ax-plain",
+        json!({ "mappings": { "properties": {
+            "language": { "type": "keyword" },
+            "symbol_count": { "type": "long" }
+        } } }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let (status, body) = json_req(
+        &app,
+        "POST",
+        "/ax-plain/_doc/p1",
+        json!({ "language": "rust", "symbol_count": 12 }),
+    )
+    .await;
+    assert!(status.is_success(), "{body}");
+    let (status, body) = json_req(&app, "POST", "/ax-plain/_refresh", json!({})).await;
+    assert_eq!(status, StatusCode::OK, "refresh: {body}");
+    let (status, body) = ask(&app, "ax-plain", prompt).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+    let reason = body["error"]["reason"].as_str().unwrap_or("");
+    assert!(
+        reason.contains("crates/herdr-gpui/src"),
+        "the refusal must name the path: {body}"
+    );
+    assert!(
+        reason.contains("ax_path"),
+        "the refusal must say which fields would have grounded it: {body}"
+    );
+    assert!(
+        !reason.contains("lowercase modifier"),
+        "a path is not decoration: {body}"
+    );
+}

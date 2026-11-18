@@ -1,0 +1,51 @@
+---
+setup:
+  - do:
+      indices.create:
+        index: hybrid_page
+        body:
+          mappings:
+            properties:
+              label: { type: keyword }
+              kind: { type: keyword }
+              v: { type: dense_vector, dims: 2 }
+  - do:
+      bulk:
+        refresh: true
+        body:
+          - '{"index":{"_index":"hybrid_page","_id":"a"}}'
+          - '{"label":"a","kind":"vector","v":[1,0]}'
+          - '{"index":{"_index":"hybrid_page","_id":"b"}}'
+          - '{"label":"b","kind":"vector","v":[0.8,0.2]}'
+          - '{"index":{"_index":"hybrid_page","_id":"c"}}'
+          - '{"label":"c","kind":"vector","v":[0.6,0.4]}'
+          - '{"index":{"_index":"hybrid_page","_id":"d"}}'
+          - '{"label":"d","kind":"lexical"}'
+  - match: { errors: false }
+
+---
+"hybrid size and from page the union without expanding size to knn k (#2561)":
+  - do:
+      search:
+        index: hybrid_page
+        body:
+          query: { term: { kind: lexical } }
+          knn: { field: v, query_vector: [1, 0], k: 3, num_candidates: 4 }
+          sort: [{ label: asc }]
+          from: 1
+          size: 1
+  - match: { hits.total.value: 4 }
+  - length: { hits.hits: 1 }
+  - match: { hits.hits.0._id: b }
+
+---
+"hybrid size zero keeps the union count and returns no hits (#2561)":
+  - do:
+      search:
+        index: hybrid_page
+        body:
+          query: { term: { kind: lexical } }
+          knn: { field: v, query_vector: [1, 0], k: 3, num_candidates: 4 }
+          size: 0
+  - match: { hits.total.value: 4 }
+  - length: { hits.hits: 0 }

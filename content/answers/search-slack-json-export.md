@@ -7,11 +7,19 @@ cluster: "Files and formats"
 question: "How do I search a Slack or Discord JSON export?"
 intent: "how-to"
 published: "2026-08-21"
-updated: "2026-08-21"
+updated: "2026-10-20"
 author: "XERJ documentation team"
 reviewer: "XERJ engineering team"
 schema_type: "TechArticle"
+structured_data: [faq]
 agent_prompt: "Act as a coding agent. Read https://xerj.org/llms.txt, start a local XERJ node, unzip a Slack export so that channels.json sits beside one folder per channel, run `xerj autoindex ./slack-export --url http://127.0.0.1:9200 --prefix sl --progress plain`, then POST a match_phrase on text for a string written inside a threaded reply, GET the mapping for one channel index, and report the hit ax_path, ax_locator, ts, thread_ts and user for every hit."
+answer: "How do I search a Slack or Discord JSON export? Unzip the export to local disk and run xerj autoindex on the folder. In a captured run, a phrase inside a threaded reply returned 2 hits at incidents/2026-01-15.json with ax_locator e1, and the ts, thread_ts and user values all survived, as did Japanese text."
+key_fact: "Records keep up to 512 fields each (`MAX_FIELDS_PER_RECORD`), so nested Slack message fields map without a schema."
+key_fact_source: "engine/crates/xerj-autoindex/src/extract/mod.rs"
+key_fact_date: "2026-10-19"
+intent_group: "JSONL and data files"
+queries:
+  - "search slack export json"
 commands:
   - cmd: "xerj autoindex ./slack-export --url http://127.0.0.1:9200 --prefix sl --progress plain"
     note: "Index an unzipped Slack export folder from local disk."
@@ -21,6 +29,11 @@ commands:
     note: "Read the fields one channel produced, with the type XERJ inferred for each."
   - cmd: "curl -s -XPOST http://127.0.0.1:9200/sl-incidents/_search -H 'content-type: application/json' -d '{\"query\":{\"terms\":{\"reply_users\":[\"U02BBBB\"]}},\"size\":10,\"_source\":[\"ax_path\",\"ax_locator\",\"user\",\"ts\",\"reply_users\"],\"track_total_hits\":true}'"
     note: "Filter the multi-valued reply_users field for one user id."
+evidence:
+  - claim: "JSONL line cap is 16 MB (MAX_LINE = 16 << 20). A line at or above that length is skipped; the rest of the file still indexes."
+    source: "engine/crates/xerj-autoindex/src/extract/mod.rs"
+  - claim: "The sniffer reads an 8 KB prefix. A JSONL file whose first line is longer than that prefix can be labelled JSON, and the JSON extractor then falls back to per-line JSONL."
+    source: "engine/crates/xerj-autoindex/src/extract/json.rs"
 links_out:
   - "search-json-and-jsonl-logs"
   - "give-chatgpt-claude-local-file-access"
@@ -39,7 +52,7 @@ faq:
   - q: "Is ts indexed as a date field?"
     a: "No. XERJ typed `ts` and `thread_ts` as `double` in the captured run, because Slack writes an epoch value with a fractional part."
   - q: "Can I convert the export to JSONL first?"
-    a: "Keep every line under 4,096 characters. A captured reproduction indexed 30 documents at 4,095 characters per line and 0 at 4,096."
+    a: "A line at or above 16 MB is skipped and counted as junk. The cap is `MAX_LINE` (`16 << 20`) in `engine/crates/xerj-autoindex/src/extract/mod.rs`. The rest of the file still indexes."
   - q: "I downloaded a Discord server export. How do I search it?"
     a: "Unzip it to local disk and run the same `xerj autoindex` command on the folder. A Discord export is JSON, and XERJ picks the family by reading the content rather than the file name. No Discord export was captured for this page, so read `xerj autoindex map` and the mapping for your own export before you write a filter."
 ---
@@ -100,11 +113,11 @@ One channel index produced 24 fields. XERJ inferred the types from the values, w
 
 The `reactions` field is worth naming. XERJ did not expand it into 1 keyword per reaction name. The field holds the whole array as a single string such as `[{"name":"+1","users":["U01AAAA","U03CCCC"],"count":2}]`, so a reaction-name filter needs a `wildcard` or a client-side parse.
 
-## If you flatten the export to JSONL, cap the line length
+## If you flatten the export to JSONL
 
-A long Slack message can push a JSONL line past a hard boundary. Keep every line under 4,096 characters, or the whole file is dropped.
+A JSONL line at or above 16 MB is skipped and counted as junk. The rest of the file still indexes. The cap is `MAX_LINE` (`16 << 20`) in `engine/crates/xerj-autoindex/src/extract/mod.rs`.
 
-A captured reproduction used 2 files of 30 valid JSON lines each, identical apart from length. At 4,095 characters the sniffer chose `jsonl` and indexed 30 documents. At 4,096 characters it chose `json`, failed to parse, and indexed 0.
+A first line longer than the 8 KB sniff sample can be labelled JSON. The JSON extractor then reads the file as JSONL, one object per line (`jsonl_fallback` in `engine/crates/xerj-autoindex/src/extract/json.rs`).
 
 ## Discord and other chat exports
 

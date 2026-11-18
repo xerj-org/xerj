@@ -14,7 +14,10 @@
 //! report title, a "prepared by" line) are not part of the table and are not
 //! indexed. A sheet with no such row — a form, a key/value assumptions tab,
 //! free-form notes — is indexed as a document instead: one line per row with
-//! cells joined by ` | `, so its text stays searchable.
+//! cells joined by ` | `, so its text stays searchable. The exception is a
+//! sheet with no text at all whose scanned rows fill the same two or more
+//! columns (an all-numbers export, #2720): it is a table whose columns are
+//! named by letter, `col_A`, `col_B`, one typed record per row.
 //!
 //! A cell merged DOWN over several rows (a pandas MultiIndex export, a
 //! category label beside its group of line items) stores its value only in
@@ -910,6 +913,26 @@ fn is_header_candidate(row: &Row) -> bool {
         && row.cells.iter().any(|c| c.kind == Kind::Text)
 }
 
+/// #2720: rows with no header among them that still form a table: at least
+/// two rows, each filling the same two or more columns, and not one text cell.
+/// A number grid read as a document loses its types and, past the section
+/// cap, most of its rows; a text cell anywhere keeps the document reading,
+/// since forms, key/value tabs and notes all hold text.
+fn is_headerless_grid(rows: &[Row]) -> bool {
+    let Some(first) = rows.first() else {
+        return false;
+    };
+    rows.len() >= 2
+        && first.cells.len() >= 2
+        && rows.iter().all(|r| {
+            r.cells
+                .iter()
+                .map(|c| c.col)
+                .eq(first.cells.iter().map(|c| c.col))
+                && r.cells.iter().all(|c| c.kind != Kind::Text)
+        })
+}
+
 /// Index of the header row among the rows read so far, once it can be told
 /// (a header needs a row after it). A candidate followed by a WIDER candidate
 /// is a title line (`Prepared by | Finance`) above the real header and is
@@ -983,6 +1006,16 @@ fn group_prefixes(upper: &Row, header: &Row, merges: &[Merge]) -> HashMap<u32, S
 }
 
 impl Table {
+    /// A table without a header row (#2720): every column takes the
+    /// `col_{letter}` name an unheaded column already gets.
+    fn headerless() -> Self {
+        Table {
+            names: HashMap::new(),
+            header: Vec::new(),
+            emitted: 0,
+        }
+    }
+
     /// `upper` is the row read just before the header, if any.
     fn new(header: &Row, upper: Option<&Row>, merges: &[Merge]) -> Self {
         let prefixes = upper
@@ -1061,12 +1094,19 @@ impl SheetState {
                     }
                 } else if rows.len() >= HEADER_SCAN_ROWS {
                     let rows = std::mem::take(rows);
-                    self.mode = Mode::Doc {
-                        body: String::new(),
-                        last_row: 0,
+                    self.mode = if is_headerless_grid(&rows) {
+                        Mode::Table(Table::headerless())
+                    } else {
+                        Mode::Doc {
+                            body: String::new(),
+                            last_row: 0,
+                        }
                     };
                     for r in rows {
-                        self.push(r, sink, stats);
+                        let flow = self.push(r, sink, stats);
+                        if flow != Flow::Continue {
+                            return flow;
+                        }
                     }
                 }
                 Flow::Continue
@@ -1139,6 +1179,17 @@ impl SheetState {
     fn finish(mut self, stem: &str, sink: Sink, stats: &mut ExtractStats) -> bool {
         if let Mode::Probe(rows) = &mut self.mode {
             let rows = std::mem::take(rows);
+            if is_headerless_grid(&rows) {
+                self.mode = Mode::Table(Table::headerless());
+                for r in rows {
+                    match self.push(r, sink, stats) {
+                        Flow::Continue => {}
+                        Flow::NextSheet => break,
+                        Flow::Stop => return false,
+                    }
+                }
+                return true;
+            }
             self.mode = Mode::Doc {
                 body: String::new(),
                 last_row: 0,
@@ -1664,7 +1715,8 @@ mod tests {
     }
 
     /// A number-only grid has no header row anywhere in the scan window, and a
-    /// header-like row past the window does not count.
+    /// header-like row past the window does not count: it is a data row of the
+    /// unnamed table the grid is read as (#2720).
     #[test]
     fn a_header_is_only_looked_for_in_the_first_rows() {
         let dir = tempfile::tempdir().unwrap();
@@ -1683,13 +1735,12 @@ mod tests {
         ));
         let path = book(&dir, &[("Grid", rows)], &[], false);
         let (stats, recs) = run(&path);
-        assert_eq!(stats.records, 1);
-        assert_eq!(recs[0].group, None);
-        let body = recs[0].fields["body"].as_str().unwrap();
-        assert!(
-            body.starts_with("1 | 2\n1 | 2") && body.ends_with("x | y\n3 | 4"),
-            "{body}"
-        );
+        assert_eq!(stats.records, HEADER_SCAN_ROWS as u64 + 2);
+        assert!(recs.iter().all(|r| r.group.as_deref() == Some("Grid")));
+        assert_eq!(fields(&recs[0]), json!({"col_A": 1, "col_B": 2}));
+        let late = HEADER_SCAN_ROWS;
+        assert_eq!(fields(&recs[late]), json!({"col_A": "x", "col_B": "y"}));
+        assert_eq!(fields(&recs[late + 1]), json!({"col_A": 3, "col_B": 4}));
     }
 
     #[test]
@@ -2326,5 +2377,109 @@ mod tests {
         let plain = vec!["Feb", "Feb_2", "Jan", "Jan_2", "col_A"];
         assert_eq!(names(Some(10), large), plain);
         assert_eq!(names(None, large), plain);
+    }
+
+    /// #2720: a sheet of only numbers, booleans and dates with no header row
+    /// (an all-numbers export) is a table with columns named by letter, one
+    /// typed record per row, not one text document the section cap cuts off.
+    #[test]
+    fn a_headerless_number_grid_is_a_table_named_by_column_letter() {
+        let dir = tempfile::tempdir().unwrap();
+        let total = HEADER_SCAN_ROWS as u32 + 5;
+        let rows: Vec<String> = (1..=total)
+            .map(|i| {
+                row(
+                    i,
+                    &[
+                        n(&format!("A{i}"), &i.to_string()),
+                        n(&format!("B{i}"), "2.5"),
+                        b(&format!("C{i}"), i.is_multiple_of(2)),
+                    ],
+                )
+            })
+            .collect();
+        let path = book(&dir, &[("Readings", rows)], &[], false);
+        let (stats, recs) = run(&path);
+        assert_eq!(stats.records, total as u64);
+        assert!(!stats.truncated);
+        assert!(recs
+            .iter()
+            .all(|r| r.group.as_deref() == Some("Readings") && r.origin == FieldOrigin::Data));
+        assert_eq!(recs[0].locator, "Readings!r1");
+        assert_eq!(
+            fields(&recs[0]),
+            json!({"col_A": 1, "col_B": 2.5, "col_C": false})
+        );
+        let last = recs.last().unwrap();
+        assert_eq!(last.locator, format!("Readings!r{total}"));
+        assert_eq!(
+            fields(last),
+            json!({"col_A": total, "col_B": 2.5, "col_C": total.is_multiple_of(2)})
+        );
+    }
+
+    /// A grid shorter than the scan window is read the same way once the sheet
+    /// ends (#2720).
+    #[test]
+    fn a_short_headerless_number_grid_is_a_table() {
+        let dir = tempfile::tempdir().unwrap();
+        let rows = vec![
+            row(1, &[n("A1", "10"), n("B1", "20")]),
+            row(2, &[n("A2", "30"), n("B2", "40")]),
+            row(3, &[n("A3", "50"), n("B3", "60")]),
+        ];
+        let path = book(&dir, &[("Short", rows)], &[], false);
+        let (stats, recs) = run(&path);
+        assert_eq!(stats.records, 3);
+        assert!(recs.iter().all(|r| r.group.as_deref() == Some("Short")));
+        assert_eq!(fields(&recs[2]), json!({"col_A": 50, "col_B": 60}));
+    }
+
+    /// Only an even grid of non-text cells is read as an unnamed table
+    /// (#2720): a text cell, uneven rows, a single column or a single row
+    /// keep the document reading meant for forms, key/value tabs and notes.
+    #[test]
+    fn text_uneven_or_single_column_sheets_stay_documents() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = book(
+            &dir,
+            &[
+                (
+                    "WithText",
+                    vec![
+                        row(1, &[n("A1", "1"), n("B1", "2")]),
+                        row(2, &[n("A2", "3"), inl("B2", "pending")]),
+                    ],
+                ),
+                (
+                    "Uneven",
+                    vec![
+                        row(1, &[n("A1", "1"), n("B1", "2")]),
+                        row(2, &[n("A2", "3"), n("B2", "4"), n("C2", "5")]),
+                    ],
+                ),
+                (
+                    "Gap",
+                    vec![
+                        row(1, &[n("A1", "1"), n("B1", "2")]),
+                        row(2, &[n("A2", "3"), n("C2", "4")]),
+                    ],
+                ),
+                (
+                    "OneColumn",
+                    vec![row(1, &[n("A1", "1")]), row(2, &[n("A2", "2")])],
+                ),
+                ("OneRow", vec![row(1, &[n("A1", "1"), n("B1", "2")])]),
+            ],
+            &[],
+            false,
+        );
+        let (stats, recs) = run(&path);
+        assert_eq!(stats.records, 5);
+        assert!(
+            recs.iter().all(|r| r.group.is_none()),
+            "every sheet joins the document dataset: {:?}",
+            recs.iter().map(|r| &r.locator).collect::<Vec<_>>()
+        );
     }
 }

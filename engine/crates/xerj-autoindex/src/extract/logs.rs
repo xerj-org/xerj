@@ -1,6 +1,8 @@
 //! Server-log families: CLF/combined access logs, app logs
-//! (`YYYY-MM-DD HH:MM:SS,ms LEVEL [thread] message`), RFC3164 syslog, and —
-//! since #1504 — ISO-prefixed syslog (`journalctl -o short-iso` and friends:
+//! (`YYYY-MM-DD HH:MM:SS,ms LEVEL [thread] message`), RFC3164 syslog (with an
+//! optional `<PRI>`, the form desk phones actually send), RFC5424
+//! (`<PRI>VERSION TS host app procid msgid SD msg`), and — since #1504 —
+//! ISO-prefixed syslog (`journalctl -o short-iso` and friends:
 //! `TS host prog[pid]: message`, with an optional `<PRI>` whose severity is
 //! decoded) and `xferlog` (`vsftpd`/wu-ftpd transfer records, 14 fields).
 //! One template is elected per file from the first 200 lines; unmatched
@@ -20,6 +22,7 @@ struct Templates {
     clf: Regex,
     applog: Regex,
     syslog: Regex,
+    rfc5424: Regex,
     isosyslog: Regex,
     xferlog: Regex,
     kv: Regex,
@@ -36,8 +39,23 @@ fn templates() -> &'static Templates {
             r"^(\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:[.,]\d{1,9})?)\s+(?:\[([^\]]+)\]\s+)?(TRACE|DEBUG|INFO|WARN(?:ING)?|ERROR|FATAL|CRITICAL)\s*(?:\[([^\]]+)\]\s*)?[:\-]?\s*(.*)$",
         )
         .unwrap(),
+        // Optional `<PRI>`: desk-phone and BSD syslog write
+        // `<PRI>Mon dd hh:mm:ss host tag[pid]: msg` and the PRI-less form
+        // already recognised. A single space before `[pid]` is accepted
+        // (`SIP [990]:`) because that is how several phone stacks print the
+        // tag; the space is part of the bracket, so `host notes: prose`
+        // still parses as a tag with no pid, the same as before.
         syslog: Regex::new(
-            r"^([A-Z][a-z]{2} +\d+ \d{2}:\d{2}:\d{2}) (\S+) ([\w./-]+)(?:\[(\d+)\])?: (.*)$",
+            r"^(?:<(\d{1,3})>)?([A-Z][a-z]{2} +\d+ \d{2}:\d{2}:\d{2}) (\S+) ([\w./-]+)(?: ?\[(\d+)\])?: (.*)$",
+        )
+        .unwrap(),
+        // RFC 5424: `<PRI>VERSION SP TIMESTAMP SP HOST SP APP SP PROCID SP
+        // MSGID SP STRUCTURED-DATA [SP MSG]`. VERSION is what separates this
+        // from PRI-prefixed ISO syslog (`<PRI>TS host tag[pid]: msg`), which
+        // has no version digit between the priority and the timestamp.
+        // NILVALUE `-` is allowed for APP, PROCID, MSGID and STRUCTURED-DATA.
+        rfc5424: Regex::new(
+            r"^<(\d{1,3})>(\d+) (\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})?) (\S+) (\S+) (\S+) (\S+) (?:-|\[(?:\\.|[^\]])*\])(?: (.*))?$",
         )
         .unwrap(),
         // #1504: `journalctl -o short-iso` / rsyslog ISO templates —
@@ -83,6 +101,7 @@ enum Kind {
     Clf,
     App,
     Syslog,
+    Rfc5424,
     IsoSyslog,
     Xferlog,
 }
@@ -93,18 +112,20 @@ impl Kind {
     /// resolves the way an ambiguous LINE does — most specific first. The app
     /// template demands an ISO timestamp *and* a level keyword; CLF demands a
     /// quoted request line *and* a 3-digit status; xferlog demands the fixed
-    /// 14-field record shape; the ISO-syslog template demands an ISO timestamp
-    /// *and* the `prog[pid]:` colon form; the RFC3164 pattern is by far the
-    /// loosest (`Mon dd HH:MM:SS host prog: rest`) and will claim lines the
-    /// others describe better. Every variant has a distinct rank, which is
-    /// what makes the ordering total.
+    /// 14-field record shape; RFC5424 demands `<PRI>`, a version and an ISO
+    /// timestamp; the ISO-syslog template demands an ISO timestamp *and* the
+    /// `prog[pid]:` colon form; the RFC3164 pattern is by far the loosest
+    /// (`Mon dd HH:MM:SS host prog: rest`, optional `<PRI>`) and will claim
+    /// lines the others describe better. Every variant has a distinct rank,
+    /// which is what makes the ordering total.
     fn specificity(self) -> u8 {
         match self {
             Kind::App => 0,
             Kind::Clf => 1,
             Kind::Xferlog => 2,
-            Kind::IsoSyslog => 3,
-            Kind::Syslog => 4,
+            Kind::Rfc5424 => 3,
+            Kind::IsoSyslog => 4,
+            Kind::Syslog => 5,
         }
     }
 }
@@ -143,6 +164,8 @@ fn parse_kind(line: &str) -> Option<Kind> {
         Some(Kind::Clf)
     } else if t.xferlog.is_match(line) {
         Some(Kind::Xferlog)
+    } else if t.rfc5424.is_match(line) {
+        Some(Kind::Rfc5424)
     } else if t.isosyslog.is_match(line) {
         Some(Kind::IsoSyslog)
     } else if t.syslog.is_match(line) {
@@ -150,6 +173,26 @@ fn parse_kind(line: &str) -> Option<Kind> {
     } else {
         None
     }
+}
+
+/// `<PRI>` = facility*8 + severity (RFC 5424 §6.2.1). Only call this when
+/// the writer emitted a priority. The domain is 0..=191 (facility 0..=23 ×
+/// 8 + severity 0..=7); `<999>` is not a priority, so it stays unrecorded
+/// rather than decoding into a facility of 124. A line with no `<PRI>`
+/// (journalctl short-iso, classic RFC3164) must not call this — inventing
+/// a severity the file does not contain is a lie about the data.
+fn record_priority(pri: u16, m: &mut Map<String, Value>) {
+    if pri > 191 {
+        return;
+    }
+    const SEVERITY: [&str; 8] = [
+        "emerg", "alert", "crit", "err", "warning", "notice", "info", "debug",
+    ];
+    m.insert(
+        "severity".into(),
+        Value::String(SEVERITY[(pri & 7) as usize].to_string()),
+    );
+    m.insert("facility".into(), Value::Number((pri >> 3).into()));
 }
 
 fn parse_line(line: &str, kind: Kind) -> Option<Map<String, Value>> {
@@ -204,41 +247,49 @@ fn parse_line(line: &str, kind: Kind) -> Option<Map<String, Value>> {
         }
         Kind::Syslog => {
             let c = t.syslog.captures(line)?;
-            m.insert("ts".into(), Value::String(c.get(1)?.as_str().to_string()));
-            m.insert("host".into(), Value::String(c.get(2)?.as_str().to_string()));
+            if let Some(pri) = c.get(1).and_then(|p| p.as_str().parse::<u16>().ok()) {
+                record_priority(pri, &mut m);
+            }
+            m.insert("ts".into(), Value::String(c.get(2)?.as_str().to_string()));
+            m.insert("host".into(), Value::String(c.get(3)?.as_str().to_string()));
             m.insert(
                 "program".into(),
-                Value::String(c.get(3)?.as_str().to_string()),
+                Value::String(c.get(4)?.as_str().to_string()),
             );
-            if let Some(pid) = c.get(4) {
+            if let Some(pid) = c.get(5) {
                 if let Ok(n) = pid.as_str().parse::<i64>() {
                     m.insert("pid".into(), Value::Number(n.into()));
                 }
             }
-            let msg = c.get(5)?.as_str().to_string();
+            let msg = c.get(6)?.as_str().to_string();
+            lift_kv(&msg, &mut m);
+        }
+        Kind::Rfc5424 => {
+            let c = t.rfc5424.captures(line)?;
+            if let Some(pri) = c.get(1).and_then(|p| p.as_str().parse::<u16>().ok()) {
+                record_priority(pri, &mut m);
+            }
+            m.insert("ts".into(), Value::String(c.get(3)?.as_str().to_string()));
+            m.insert("host".into(), Value::String(c.get(4)?.as_str().to_string()));
+            let program = c.get(5)?.as_str();
+            if program != "-" {
+                m.insert("program".into(), Value::String(program.to_string()));
+            }
+            if let Some(pid) = c.get(6).filter(|p| p.as_str() != "-") {
+                if let Ok(n) = pid.as_str().parse::<i64>() {
+                    m.insert("pid".into(), Value::Number(n.into()));
+                }
+            }
+            if let Some(msgid) = c.get(7).filter(|p| p.as_str() != "-") {
+                m.insert("msgid".into(), Value::String(msgid.as_str().to_string()));
+            }
+            let msg = c.get(8).map(|x| x.as_str().to_string()).unwrap_or_default();
             lift_kv(&msg, &mut m);
         }
         Kind::IsoSyslog => {
             let c = t.isosyslog.captures(line)?;
-            // Optional `<PRI>`: facility*8 + severity (RFC 5424 §6.2.1). Only
-            // recorded when the writer actually emitted one — `journalctl -o
-            // short-iso` has no priority field, and inventing one would be a
-            // lie about the data. PRI's domain is 0..=191 (facility 0..=23 × 8
-            // + severity 0..=7); `<999>` is not a priority, so it stays
-            // unrecorded rather than decoding into a facility of 124.
-            if let Some(pri) = c
-                .get(1)
-                .and_then(|p| p.as_str().parse::<u16>().ok())
-                .filter(|p| *p <= 191)
-            {
-                const SEVERITY: [&str; 8] = [
-                    "emerg", "alert", "crit", "err", "warning", "notice", "info", "debug",
-                ];
-                m.insert(
-                    "severity".into(),
-                    Value::String(SEVERITY[(pri & 7) as usize].to_string()),
-                );
-                m.insert("facility".into(), Value::Number((pri >> 3).into()));
+            if let Some(pri) = c.get(1).and_then(|p| p.as_str().parse::<u16>().ok()) {
+                record_priority(pri, &mut m);
             }
             m.insert("ts".into(), Value::String(c.get(2)?.as_str().to_string()));
             m.insert("host".into(), Value::String(c.get(3)?.as_str().to_string()));
@@ -709,6 +760,101 @@ mod tests {
                 .into_iter()
                 .collect();
         assert_eq!(elect_kind(&votes), Some(Kind::Xferlog));
+    }
+
+    /// #1504, still open after the ISO/xferlog templates: desk-phone syslog
+    /// is `<PRI>Mon dd hh:mm:ss host tag[pid]: msg` (often with a space
+    /// before the pid bracket), and modern syslog is RFC 5424. Neither
+    /// matched, so the file fell through to `txt-prose` and the lines were
+    /// merged into chunks with no timestamp, host or severity.
+    #[test]
+    fn pri_rfc3164_and_rfc5424_are_one_record_per_line() {
+        let phone = "<131>Oct 16 09:06:58 192.168.1.20 SIP [990]: registration failed";
+        assert_eq!(parse_kind(phone), Some(Kind::Syslog));
+        let m = parse_line(phone, Kind::Syslog).unwrap();
+        assert_eq!(m["ts"], serde_json::json!("Oct 16 09:06:58"));
+        assert_eq!(m["host"], serde_json::json!("192.168.1.20"));
+        assert_eq!(m["program"], serde_json::json!("SIP"));
+        assert_eq!(m["pid"], serde_json::json!(990));
+        // 131 = facility 16, severity 3 (err). Not invented when PRI is absent.
+        assert_eq!(m["severity"], serde_json::json!("err"));
+        assert_eq!(m["facility"], serde_json::json!(16));
+        assert_eq!(m["message"], serde_json::json!("registration failed"));
+
+        let classic = "Oct 16 09:06:58 pbx syslogd: restart.";
+        let m = parse_line(classic, Kind::Syslog).unwrap();
+        assert!(
+            m.get("severity").is_none(),
+            "a line with no <PRI> does not grow a severity"
+        );
+        assert_eq!(m["program"], serde_json::json!("syslogd"));
+
+        let over = "<999>Oct 16 09:06:58 phone sipd[1]: ignored priority";
+        let m = parse_line(over, Kind::Syslog).unwrap();
+        assert!(m.get("severity").is_none());
+        assert!(m.get("facility").is_none());
+
+        let rfc =
+            "<134>1 2026-10-16T09:06:58.123Z 10.0.0.50 sipd 4321 - - SIP engine not registered";
+        assert_eq!(parse_kind(rfc), Some(Kind::Rfc5424));
+        let m = parse_line(rfc, Kind::Rfc5424).unwrap();
+        assert_eq!(m["ts"], serde_json::json!("2026-10-16T09:06:58.123Z"));
+        assert_eq!(m["host"], serde_json::json!("10.0.0.50"));
+        assert_eq!(m["program"], serde_json::json!("sipd"));
+        assert_eq!(m["pid"], serde_json::json!(4321));
+        // 134 = facility 16, severity 6 (info).
+        assert_eq!(m["severity"], serde_json::json!("info"));
+        assert_eq!(m["message"], serde_json::json!("SIP engine not registered"));
+        assert!(m.get("msgid").is_none(), "`-` msgid is omitted");
+
+        let sd = "<165>1 2003-10-11T22:14:15.003Z mymachine.example.com evntslog - ID47 [exampleSDID@32473 iut=\"3\" eventSource=\"Application\" eventID=\"1011\"] An application event log entry";
+        assert_eq!(parse_kind(sd), Some(Kind::Rfc5424));
+        let m = parse_line(sd, Kind::Rfc5424).unwrap();
+        assert_eq!(m["program"], serde_json::json!("evntslog"));
+        assert!(m.get("pid").is_none(), "`-` procid is omitted");
+        assert_eq!(m["msgid"], serde_json::json!("ID47"));
+        assert_eq!(
+            m["message"],
+            serde_json::json!("An application event log entry")
+        );
+
+        // PRI-prefixed ISO syslog stays the ISO template, not RFC5424: there
+        // is no version digit between the priority and the timestamp.
+        let iso = "<50>2026-10-16T09:06:58Z pbx app[7]: message";
+        assert_eq!(parse_kind(iso), Some(Kind::IsoSyslog));
+
+        // Not a log: a priority-looking prefix without the timestamp shape.
+        assert!(!probe_line("<134> this is not a timestamp host prog: msg"));
+        assert!(!probe_line("Oct 16 the notes from the retro"));
+
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path().join("phones.log");
+        std::fs::write(
+            &p,
+            "<131>Oct 16 09:06:58 192.168.1.20 SIP [990]: registration failed\n\
+             <134>Oct 16 09:07:01 192.168.1.20 SIP [990]: call cleared\n\
+             <131>Oct 16 09:07:02 192.168.1.21 SIP[991]: SIP engine not registered\n\
+             Oct 16 09:07:03 pbx pbx-phone[990]: watchdog reconnect\n",
+        )
+        .unwrap();
+        let mut recs = Vec::new();
+        extract(&p, false, None, &mut |r| {
+            recs.push(r);
+            true
+        })
+        .unwrap();
+        assert_eq!(recs.len(), 4, "each phone line is its own record");
+        assert!(recs.iter().all(|r| r.fields.get("ts").is_some()));
+        assert!(recs.iter().all(|r| r.fields.get("host").is_some()));
+        assert_eq!(recs[0].fields["severity"], serde_json::json!("err"));
+        assert!(
+            recs[3].fields.get("severity").is_none(),
+            "the line without <PRI> does not inherit one"
+        );
+        assert_eq!(
+            recs[2].fields["message"],
+            serde_json::json!("SIP engine not registered")
+        );
     }
 
     const APP_LINE: &str = r#"2026-03-17 00:00:13,529 INFO  [ingest-svc] tenant=t-n user=u-1153 latency_ms=221 msg="Segment merge.""#;

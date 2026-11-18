@@ -1,4 +1,13 @@
+# XERJ defaults action.destructive_requires_name to true (ES 8). This file
+# opts out so the wildcard-expansion cases below stay the expansion tests
+# they were written as. The runner's cleanup puts the setting back to null.
 setup:
+  - do:
+      cluster.put_settings:
+        body:
+          persistent:
+            action.destructive_requires_name: "false"
+        flat_settings: true
   - do:
       indices.create:
         index: index
@@ -104,3 +113,11 @@ setup:
         catch: missing
         indices.delete:
             index: nonexistent_index
+---
+teardown:
+  - do:
+      cluster.put_settings:
+        body:
+          persistent:
+            action.destructive_requires_name: null
+        flat_settings: true

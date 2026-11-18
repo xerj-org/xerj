@@ -2,11 +2,15 @@
 ---
 title: "Why autoindex refuses a .zip and asks you to extract it"
 canonical: "https://xerj.org/answers/autoindex-says-extract-the-archive-first"
-updated: "2026-09-20"
+updated: "2026-10-19"
 source: "content/answers/autoindex-says-extract-the-archive-first.md"
 ---
 
 # xerj autoindex recorded my Takeout .zip as junk and said to extract it first. Why?
+
+**Short answer** (updated 2026-10-19): Why does xerj autoindex say to extract a zip first? Because autoindex never opens archives. A .zip, .tgz, .7z, .rar or .xz is marked as junk with a reason that quotes the extraction command, the rest of the folder is indexed, and the run exits 3. Extract the archive and run the same command again.
+
+**Key number:** autoindex classifies a file from its first 8,192 bytes (`PREFIX` in the sniffer), which is how an archive is recognised by magic bytes rather than by its extension. (as of 2026-10-19; source: [engine/crates/xerj-autoindex/src/sniff.rs](https://github.com/xerj-org/xerj/blob/main/engine/crates/xerj-autoindex/src/sniff.rs))
 
 **TL;DR** — autoindex does not open archives. When it meets a `.zip`, `.tgz`, `.7z`, `.rar` or `.xz`, it marks the file as junk with a reason that quotes the extraction command, and prints that under the run's summary. The run finishes with exit code 3 and the rest of the folder is indexed. Extract the archive and run the same command on the extracted folder.
 
@@ -98,3 +102,6 @@ A plain gzip-compressed file is streamed through decompression and sniffed like 
 - [I exported my Gmail with Google Takeout. How do I search that mbox file locally?](/answers/search-gmail-takeout-mbox-locally)
 - [The indexer exited 3 (or 4). Did it fail?](/answers/autoindex-exit-codes)
 - [Why would a folder search miss files that I can see on disk?](/answers/why-autoindex-skipped-files)
+- [One dataset was REFUSED by the server. Did I lose the whole index?](/answers/autoindex-dataset-refused-by-server) (same intent: operating autoindex)
+- [The server pushed back with HTTP 429. Did xerj autoindex lose the run?](/answers/autoindex-server-back-pressure-429) (same intent: operating autoindex)
+- [How do I read autoindex progress?](/answers/read-autoindex-progress) (same intent: operating autoindex)

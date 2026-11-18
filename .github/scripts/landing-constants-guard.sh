@@ -26,7 +26,7 @@
 #
 # USAGE
 #   .github/scripts/landing-constants-guard.sh          # check
-#   CONFORMANCE=1366/1369 .github/scripts/landing-constants-guard.sh
+#   CONFORMANCE=1444/1454 .github/scripts/landing-constants-guard.sh
 #
 # ENV OVERRIDES
 #   LANDING       root of the site tree            (default: landing)
@@ -40,7 +40,7 @@ LANDING="${LANDING:-landing}"
 # Canonical ES-YAML conformance. Source of truth is main's own CI job
 # ("ES-compat YAML conformance"), NOT any doc — per CLAUDE.md the pass count grows
 # as cases are added and only "0 failed" is invariant. Update this line when CI does.
-CONFORMANCE="${CONFORMANCE:-1366/1369}"
+CONFORMANCE="${CONFORMANCE:-1444/1454}"
 CONF_PASS="${CONFORMANCE%%/*}"
 CONF_TOTAL="${CONFORMANCE##*/}"
 

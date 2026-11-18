@@ -1,0 +1,42 @@
+xerj search: these hits are lexical; this command does not consult the embedding.
+
+─── tests/test_requests.py  (score 32.70)
+    function test_redirect_history_no_self_reference
+    function test_HTTP_307_ALLOW_REDIRECT_POST
+    function test_HTTP_307_ALLOW_REDIRECT_POST_WITH_SEEKABLE
+    function test_HTTP_302_TOO_MANY_REDIRECTS
+    function test_HTTP_302_TOO_MANY_REDIRECTS_WITH_PARAMS
+    function test_http_301_changes_post_to_get
+    function test_http_301_doesnt_change_head_to_get
+    function test_http_302_changes_post_to_get
+    function test_http_3
+    … (--full 800 to see more)
+
+─── src/requests/sessions.py:370  (score 30.39)
+    def rebuild_method(
+            self, prepared_request: PreparedRequest, response: Response
+        ) -> None:
+            """When being redirected we may want to change the method of the request
+            based on certain specs or browser behavior.
+            """
+            method = prepared_request.method
+    
+            # https://tools.ietf.org/html/rfc7231#section-6.4.4
+            if response.status_code == codes.see_other
+    … (--full 800 to see more)
+
+─── src/requests/utils.py:1139  (score 25.31)
+    def rewind_body(prepared_request: PreparedRequest) -> None:
+        """Move file pointer back to its recorded starting position
+        so it can be read again on redirect.
+        """
+        body_seek = getattr(prepared_request.body, "seek", None)
+        if body_seek is not None and isinstance(
+            prepared_request._body_position,
+            integer_types,
+        ):
+            try:
+                body_seek(prepared_reques
+    … (--full 800 to see more)
+
+3 passage(s) from 'req-*'. Cite ax_path:line for anything you rely on.

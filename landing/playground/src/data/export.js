@@ -78,6 +78,21 @@ export async function svgToPng(svgEl, { scale = 2, filename = 'chart.png' } = {}
   // Inline computed color so currentColor resolves
   const cs = getComputedStyle(svgEl);
   clone.setAttribute('color', cs.color);
+  // A detached SVG image cannot inherit the page stylesheet or custom
+  // properties. Snapshot computed paint on every node so query markers,
+  // highlighted series and labels survive rasterization.
+  const properties = ['color', 'fill', 'fill-opacity', 'stroke', 'stroke-width',
+    'stroke-opacity', 'stroke-dasharray', 'opacity', 'font-family', 'font-size',
+    'font-weight', 'letter-spacing', 'text-anchor', 'dominant-baseline'];
+  const originals = [svgEl, ...svgEl.querySelectorAll('*')];
+  const copies = [clone, ...clone.querySelectorAll('*')];
+  originals.forEach((element, index) => {
+    const computed = getComputedStyle(element);
+    for (const property of properties) {
+      const value = computed.getPropertyValue(property);
+      if (value) copies[index].style.setProperty(property, value);
+    }
+  });
   // Add namespace
   if (!clone.getAttribute('xmlns')) {
     clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');

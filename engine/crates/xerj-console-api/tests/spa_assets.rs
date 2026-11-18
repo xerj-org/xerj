@@ -57,6 +57,22 @@ async fn setup_html_is_bundled_and_served() {
         body.contains("token") && body.contains("redeemMagic"),
         "setup page must include the magic-link consumption logic"
     );
+    assert!(
+        body.contains("one-time setup link") && body.contains("still unclaimed"),
+        "a setup URL with no #token= must say where the link was printed"
+    );
+    assert!(
+        body.contains("a new link is printed on boot"),
+        "an expired link must say that a restart prints a new one: {body}"
+    );
+    assert!(
+        body.contains("/_xerj-console/login"),
+        "an expired link must point an existing owner at login"
+    );
+    assert!(
+        body.contains("ask the admin who sent it for a new one"),
+        "an expired invite must not be told to restart the node: an invitee cannot"
+    );
 }
 
 #[tokio::test]
@@ -71,6 +87,14 @@ async fn login_html_is_bundled_and_served() {
     assert!(
         body.contains("beginLogin"),
         "login page must include the WebAuthn login logic"
+    );
+    assert!(
+        body.contains("one-time setup link") && body.contains("#token="),
+        "login must point at the boot-time setup link"
+    );
+    assert!(
+        !body.contains("href=\"/_xerj-console/setup\""),
+        "a bare /setup link has no token and dead-ends"
     );
 }
 

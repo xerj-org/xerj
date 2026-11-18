@@ -4,6 +4,17 @@ use std::fs;
 use std::process::Command;
 use std::time::{Duration, Instant};
 
+// XERJ_PDF_WORKER_BIN is process-global and inherited by the worker child.
+// cargo runs these tests on parallel threads, so one test's set_var/remove_var
+// races another's run_worker spawn (and trips std's set_var concurrency abort).
+// Every test that reads or writes that env var holds this lock for its body.
+// Poison-tolerant: these tests assert and may panic while holding it.
+static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+fn env_guard() -> std::sync::MutexGuard<'static, ()> {
+    ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner())
+}
+
 fn write_prose_pdf(path: &std::path::Path) {
     let prose = "Quarterly financial results show revenue increased twelve percent while operating margin improved. International customers and subscription renewals drove durable growth across the reporting period.";
     let stream = format!("BT /F1 12 Tf 72 720 Td ({prose}) Tj ET");
@@ -77,6 +88,7 @@ fn run_worker(path: &std::path::Path) -> std::process::Output {
 
 #[test]
 fn pdf_worker_is_fresh_process_deterministic_and_preserves_page_provenance() {
+    let _env = env_guard();
     let temp = tempfile::tempdir().unwrap();
     let pdf = temp.path().join("quarterly-report.pdf");
     write_prose_pdf(&pdf);
@@ -119,6 +131,7 @@ fn pdf_worker_is_fresh_process_deterministic_and_preserves_page_provenance() {
 
 #[test]
 fn corrupt_pdf_failure_is_actionable_and_emits_no_records() {
+    let _env = env_guard();
     let temp = tempfile::tempdir().unwrap();
     let pdf = temp.path().join("corrupt.pdf");
     fs::write(&pdf, b"%PDF-1.4\nnot a PDF").unwrap();
@@ -134,6 +147,7 @@ fn corrupt_pdf_failure_is_actionable_and_emits_no_records() {
 
 #[test]
 fn mixed_text_and_empty_pages_disclose_ocr_coverage_without_dropping_good_text() {
+    let _env = env_guard();
     let temp = tempfile::tempdir().unwrap();
     let pdf = temp.path().join("mixed.pdf");
     write_mixed_text_blank_pdf(&pdf);
@@ -157,6 +171,7 @@ fn mixed_text_and_empty_pages_disclose_ocr_coverage_without_dropping_good_text()
 #[cfg(unix)]
 #[test]
 fn parent_drains_overflow_and_timeout_kills_worker_process_group() {
+    let _env = env_guard();
     use std::os::unix::fs::PermissionsExt;
 
     let temp = tempfile::tempdir().unwrap();
@@ -221,6 +236,7 @@ fn parent_drains_overflow_and_timeout_kills_worker_process_group() {
 #[cfg(unix)]
 #[test]
 fn pdf_worker_accepts_non_utf8_unix_paths() {
+    let _env = env_guard();
     use std::os::unix::ffi::OsStringExt;
 
     let temp = tempfile::tempdir().unwrap();
@@ -236,4 +252,48 @@ fn pdf_worker_accepts_non_utf8_unix_paths() {
     );
     let response: Value = serde_json::from_slice(&output.stdout).unwrap();
     assert_eq!(response["records"][0]["fields"]["page"], 1);
+}
+
+/// The parent spawn path (`extract` → `pre_exec`) is what #2336 broke: a
+/// refused `RLIMIT_AS` failed `Command::spawn` before `exec`, so
+/// `XERJ_PDF_WORKER_BIN` never ran. This calls that path with the real
+/// worker. On Linux the 1536 MiB cap is applied; on a kernel that returns
+/// `EINVAL` or `EPERM` the worker still starts.
+#[cfg(unix)]
+#[test]
+fn parent_spawn_extracts_a_small_pdf_when_the_address_space_cap_is_refused_or_applied() {
+    let _env = env_guard();
+    let previous = std::env::var_os("XERJ_PDF_WORKER_BIN");
+    std::env::set_var("XERJ_PDF_WORKER_BIN", env!("CARGO_BIN_EXE_xerj"));
+    struct Restore(Option<std::ffi::OsString>);
+    impl Drop for Restore {
+        fn drop(&mut self) {
+            match self.0.take() {
+                Some(value) => std::env::set_var("XERJ_PDF_WORKER_BIN", value),
+                None => std::env::remove_var("XERJ_PDF_WORKER_BIN"),
+            }
+        }
+    }
+    let _restore = Restore(previous);
+
+    let temp = tempfile::tempdir().unwrap();
+    let pdf = temp.path().join("quarterly-report.pdf");
+    write_prose_pdf(&pdf);
+
+    let mut bodies = Vec::new();
+    let mut sink = |record: xerj_autoindex::extract::RawRecord| {
+        if let Some(body) = record.fields.get("body").and_then(|value| value.as_str()) {
+            bodies.push(body.to_string());
+        }
+        true
+    };
+    let stats = xerj_autoindex::extract::pdf::extract(&pdf, &mut sink)
+        .expect("isolated PDF parser starts even if RLIMIT_AS is refused");
+    assert!(stats.records >= 1, "records={}", stats.records);
+    assert!(
+        bodies
+            .iter()
+            .any(|body| body.contains("operating margin improved")),
+        "{bodies:?}"
+    );
 }

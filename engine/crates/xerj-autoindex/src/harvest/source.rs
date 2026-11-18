@@ -141,11 +141,18 @@ fn git_checkout(target: &Path, url: &str, rev: &str, slug: &str) -> Result<Strin
     } else {
         // `rev` works directly as the refspec: a branch/tag name fetches that
         // ref, and the literal "HEAD" fetches the remote's default HEAD.
-        if !ok(crate::xc::git(
-            Some(target),
-            &["fetch", "--depth", "1", "origin", rev],
-        )) {
-            bail!("source '{slug}': git fetch {rev} from {url} failed");
+        match crate::xc::git(Some(target), &["fetch", "--depth", "1", "origin", rev]) {
+            Ok((0, _)) => {}
+            Ok((_, output)) => {
+                bail!(
+                    "source '{slug}': {}",
+                    crate::xc::git_fetch_failure(rev, &output)
+                )
+            }
+            Err(e) => bail!(
+                "source '{slug}': {}",
+                crate::xc::git_fetch_failure(rev, &e.to_string())
+            ),
         }
         if !ok(crate::xc::git(
             Some(target),

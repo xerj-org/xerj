@@ -2,18 +2,22 @@
 ---
 title: "What do the xerj autoindex exit codes mean?"
 canonical: "https://xerj.org/answers/autoindex-exit-codes"
-updated: "2026-09-20"
+updated: "2026-10-28"
 source: "content/answers/autoindex-exit-codes.md"
 ---
 
 # The indexer exited 3 (or 4). Did it fail?
 
-**TL;DR** — Exit 3 is a success. `xerj autoindex` exits 0 when the run completed, and 3 when it completed and recorded junk. Exit 4 means the estimate exceeded `--max-minutes` and nothing was indexed. Exit 2 is a usage error, and exit 1 is an endpoint or journal failure. Only 4 is a question.
+**Short answer** (updated 2026-10-28): Exit 3 means the run finished with an outcome to inspect. Completed-with-junk is success; stale-resume-plan carries ok=false because new files were not indexed and needs a --fresh rebuild. Exit 0 is completion or cancellation, 4 needs approval, 2 is usage, and 1 is a real failure. Read the terminal reason and refusal counts before reporting coverage.
+
+**Key number:** The decision gate that produces exit 4 defaults to 10 minutes of estimated work (`DEFAULT_MAX_MINUTES`). (as of 2026-10-19; source: [engine/crates/xerj-autoindex/src/gate.rs](https://github.com/xerj-org/xerj/blob/main/engine/crates/xerj-autoindex/src/gate.rs))
+
+**TL;DR** — Read the terminal reason as well as the exit code. Exit 3 with `completed-with-junk` is success. With `stale-resume-plan`, `ok=false` means new files were not indexed.
 
 ## Agent prompt
 
 ```text
-Act as a coding agent. Read https://xerj.org/llms.txt, run xerj autoindex on the folder, then branch on the process exit code before you report anything: 0 and 3 are finished runs, 4 is a decision request on stdout that you answer with --approve, 2 is a bad command line, and 1 is a real failure to retry or escalate.
+Read https://xerj.org/llms.txt, then inspect the terminal reason as well as the exit code. Exit 3 with stale-resume-plan has ok=false and needs --fresh; completed-with-junk requires reading the refusal list. Answer exit 4 with --approve, correct usage on 2, and investigate the error on 1.
 ```
 
 ## Commands
@@ -28,7 +32,7 @@ xerj autoindex --help
 
 ### Command 2
 
-Note: A normal run. Exit 0 means nothing was refused; exit 3 means it finished and refused something.
+Note: A normal run. Inspect the terminal reason and refusal counters; exit 3 may also mean a stale resume plan.
 
 ```sh
 xerj autoindex ./corpus --url http://127.0.0.1:9200 --prefix ax --state-dir ./state --progress plain
@@ -58,14 +62,18 @@ Note: Read the journal when the process is gone and you have no terminal line.
 xerj autoindex status --url http://127.0.0.1:9200 --state-dir ./state
 ```
 
+Rebuild with `--fresh` to include new files after `stale-resume-plan`. Exit 0 means the run completed; exit 3 means it completed with a reported limitation or junk. Exit 4 means the estimate exceeded `--max-minutes` and nothing was indexed.
+
+Exit 2 is a usage error, and exit 1 is a runtime failure. Only 4 is a question.
+
 ## The codes, as the binary states them
 
-The list below is quoted from `xerj autoindex --help` on the installed binary. Run that command yourself before you write a branch on any of these numbers.
+The table summarizes `xerj autoindex --help`; the terminal reason distinguishes partial outcomes. Run that command yourself before you write a branch on any of these numbers.
 
 | Exit | Name in `--help` | What it means for the corpus |
 | --- | --- | --- |
 | 0 | complete | The run finished and refused nothing. A gate answered with `--approve cancel` also exits 0. |
-| 3 | completed-with-junk | The run finished. At least one file was refused and recorded. Never fatal. This includes a whole dataset whose mapping the server refused. |
+| 3 | completed with a reported outcome | Read `reason`: completed-with-junk is success with refusals to inspect; stale-resume-plan means new files were skipped and needs `--fresh`. Refused datasets can leave an entire dataset missing. |
 | 4 | NEEDS A DECISION | The estimate exceeded `--max-minutes`. Nothing was indexed. A JSON decision request is on stdout. |
 | 2 | usage | The command line was wrong. Nothing ran. |
 | 1 | endpoint/journal failure | The node or the resume journal failed, a corpus removal was refused, or an unsafe state transition was refused. |
@@ -74,13 +82,22 @@ Read the table in that order rather than in numeric order. It is the order the h
 
 ## Exit 3 is a finished run
 
-`3 completed-with-junk (junk recorded, never fatal)` is the phrase in the help text, and `never fatal` is doing the work in that sentence.
+`3 completed-with-junk (junk recorded, never fatal) — SUCCESS` is the phrase in the help text, and it says to treat 0 and 3 alike as a finished run. That describes completed-with-junk. For `reason=stale-resume-plan`, the run instead reports `ok=false` and leads with `not ok:`: new files were left out of its frozen plan.
 
 A folder of real files almost always contains something XERJ will not parse. An unknown binary, an image, a file above `--max-file-gb`. Those files are recorded in the catalog with a reason, and the rest of the folder is indexed and queryable.
 
 An agent that treats a non-zero exit as a failure will therefore throw away a perfectly good index. Branch on the specific value.
 
 The companion check is the refusal list, not the exit code: read `autoindex-catalog` and match each refused path to its reason. The [skipped-files page](/answers/why-autoindex-skipped-files) covers that query.
+
+## Exit 3 with a stale resume plan needs a rebuild
+
+With `reason=stale-resume-plan`, `skipped_appeared` counts files that arrived
+after the saved plan was frozen. The terminal event carries `ok=false`, names
+the skipped paths, and gives a `--fresh` recovery command. Existing indexed
+files remain searchable. Re-run the same indexing command with `--fresh` to
+rebuild the plan and include the new files; an unchanged resume still uses the
+old plan. This outcome is not a junk classification.
 
 ## Exit 3 can also mean a whole dataset is missing
 
@@ -96,7 +113,9 @@ So an exit 3 is still a finished run, but it is not always a small gap. Read `da
 
 Only a 400 is a refusal. A 401, 403, 404, 408, 429 or 5xx on the same request says nothing about that dataset, so it still exits 1.
 
-A 429 *on a bulk* is different, whether it is the whole request or some of its items marked `status: 429`. When the node's memory circuit breaker answers that way, the run re-sends the rejected items after a backoff and carries on; it exits 1 only after 600 seconds of re-sends the node never takes, with an error line that begins `the server kept rejecting`. The terminal line of a run that met back-pressure and finished carries `bulk_retries=N`. The [back-pressure page](/answers/autoindex-server-back-pressure-429) covers it.
+A 429 *on a bulk* is different, whether it is the whole request or some of its items marked `status: 429`. When the node's memory circuit breaker answers that way, the run re-sends the rejected items after a backoff and carries on. It exits 1 only after 600 seconds of re-sends the node never takes.
+
+The error line begins `the server kept rejecting`. The terminal line of a run that met back-pressure and finished carries `bulk_retries=N`. The [back-pressure page](/answers/autoindex-server-back-pressure-429) covers it.
 
 ## Exit 4 is a question, and nothing was written
 
@@ -110,13 +129,13 @@ A person at a terminal is prompted instead, but only when the question can actua
 
 `xerj autoindex` never waits on stdin for a question it did not print.
 
-## Exit 1 and exit 2 are narrower than "any error"
+## Read the error before retrying exit 1 or 2
 
-The common shorthand is that 1 means any error. The binary is more specific, and the difference matters to a retry policy.
+Exit 1 covers runtime failures. Exit 2 identifies a usage error. The diagnostic identifies the required change.
 
 `2 usage` is a bad command line. Nothing ran, and a retry of the same command will fail the same way.
 
-`1` is an endpoint or journal failure, a refused corpus removal, or a refused unsafe state transition. The last two are refusals by design, not crashes: removing an indexed file is refused before any remote mutation, because its documents are already live and nothing on that path deletes them.
+`1` covers runtime failures, including node or journal errors, refused unsafe operations, unavailable parser workers, and missing-data verification failures. A refusal need not mean a crash. Follow its recovery message; an unchanged retry does not correct missing or incompatible state.
 
 So a 1 is not always something to retry. Read the error line first.
 
@@ -129,7 +148,7 @@ autoindex: stopped by server back-pressure while applying <file>: N operation(s)
 xerj-done ok=false exit=1 reason=server-backpressure wall=… ops_applied=N ops_remaining=M
 ```
 
-Forced on a real node with a 64 MiB memory cap, that line read `xerj-done ok=false exit=1 reason=server-backpressure wall=609.1s ops_applied=0 ops_remaining=231`. The applied operations are journaled, so the same command resumes with the `M` that remain once the node accepts writes again. On that node, restarted on its default cap, it did. It is exit 1 and not 3 on purpose: 3 means a finished run with nothing to retry, and this generation is not finished. The [back-pressure page](/answers/autoindex-server-back-pressure-429) covers the node side.
+Forced on a real node with a 64 MiB memory cap, that line read `xerj-done ok=false exit=1 reason=server-backpressure wall=609.1s ops_applied=0 ops_remaining=231`. The applied operations are journaled, so the same command resumes with the `M` that remain once the node accepts writes again. On that node, restarted on its default cap, it did. It is exit 1 and not 3 on purpose: the completed-with-junk outcome is finished, while this generation is not finished. The [back-pressure page](/answers/autoindex-server-back-pressure-429) covers the node side.
 
 A request the node calls too large is no longer an exit 1 at all. Until issue #955, both indexing paths sent the catalog as one `_bulk` request, one document per file, per dataset and per run. A corpus whose catalog held more than the engine's `limits.max_actions_per_bulk` (50,000 by default) applied every operation and then failed at the very end. On a 48,533-file corpus the `--no-graph` run ended 10,336 seconds in:
 
@@ -138,13 +157,13 @@ xerj-done ok=false exit=1 reason=aborted wall=10336.0s
 error: prepared bulk contained 1 rejected items: {"type":"engine_exception","reason":"bulk request contains 102258 lines (~51129 actions); exceeds max_actions_per_bulk of 50000","status":413}
 ```
 
-Every `_bulk` body now goes out in windows of at most 10,000 actions. A request the node still refuses for its size is cut in two and sent again, and the terminal line carries `bulk_splits=N` when that happened. Against real nodes with `max_actions_per_bulk = 64` and with `max_body_bytes = 98304`, each run ended `ok=true exit=3 records=1663 bulk_splits=1`, the same records as a control run. Resuming that same generation with the change committed it:
+Every `_bulk` body now goes out in windows of at most 10,000 actions. A request the node still refuses for its size is cut in two and sent again, and the terminal line carries `bulk_splits=N` when that happened. Against real nodes with `max_actions_per_bulk = 64` and with `max_body_bytes = 98304`, each run ended `ok=true exit=3 records=1663 bulk_splits=1`, the same documents as a control run. Resuming that same generation with the change committed it:
 
 ```text
 xerj-done ok=true exit=3 reason=completed-with-junk wall=415.0s files=47444 records=821840 generation=1 code_files=34324 code_files_indexed=34324 code_files_junked=0
 ```
 
-One record that is larger than the node's `limits.max_body_bytes` cannot be cut, and it still ends the run with exit 1 and an error that names that setting.
+One document that is larger than the node's `limits.max_body_bytes` cannot be cut, and it still ends the run with exit 1 and an error that names that setting.
 
 ## Do not read the code alone
 
@@ -174,17 +193,21 @@ Pair this with the four-number reconciliation on the [completeness page](/answer
 
 The codes above were read from `xerj autoindex --help` on a built binary and cross-checked against the help string in `engine/crates/xerj-autoindex/src/cli.rs`. Both agree.
 
-One code was forced for this page: the exit 3 of a refused dataset, on a throwaway node, by pre-creating the dataset's index with a conflicting field type. That capture is committed under `benchmarks/autoindex-resilience/`, together with the full-corpus exit 1 in `finalize-catalog`, the exit 3 of the same generation resumed after issue #955 was fixed (`before-955.stderr.txt`, `after-955.full-corpus-resume.stderr.txt`), and a `reason=server-backpressure` exit 1 forced with a 64 MiB memory cap (`limits-real-node.txt`). The other codes were not forced, so there is no capture for them here and no timing. If you want the codes on your own build, `xerj autoindex --help` prints them in one screen.
+One code was forced for this page. It is the exit 3 of a refused dataset, on a throwaway node, by pre-creating the dataset's index with a conflicting field type. That capture is committed under `benchmarks/autoindex-resilience/`.
+
+The folder also holds the full-corpus exit 1 in `finalize-catalog`. It holds the exit 3 of the same generation resumed after issue #955 was fixed (`before-955.stderr.txt`, `after-955.full-corpus-resume.stderr.txt`). It holds a `reason=server-backpressure` exit 1 forced with a 64 MiB memory cap (`limits-real-node.txt`).
+
+The other codes were not forced, so there is no capture for them here and no timing. If you want the codes on your own build, `xerj autoindex --help` prints them in one screen.
 
 ## FAQ
 
 ### What does indexer exit code 3 mean?
 
-It means the run completed and recorded junk. `xerj autoindex --help` states it as `3 completed-with-junk (junk recorded, never fatal)`. Treat it as a success with a refusal list to read.
+It means the run completed and recorded junk. `xerj autoindex --help` states it as `3 completed-with-junk (junk recorded, never fatal) — SUCCESS` and says to treat 0 and 3 alike as a finished run. For completed-with-junk, read the refusal list. For reason=stale-resume-plan, ok=false means new files were not indexed; rebuild with --fresh.
 
 ### The indexer exited 3 (or 4). Did it fail?
 
-3 did not fail. 4 did not fail either, and it did not index anything: it is a decision request waiting for `--approve`. Only 1 and 2 are failures.
+3 requires checking its reason: a stale resume plan leaves new files unindexed. 4 did not index anything: it is a decision request waiting for `--approve`. Only 1 and 2 are failures.
 
 ### Why did folder indexing stop and ask me to approve?
 
@@ -192,11 +215,11 @@ The measured phase-A estimate for the indexing phase was longer than `--max-minu
 
 ### How do I tell a failed index from a completed one with junk files?
 
-Read the exit code, not the log volume. 0 and 3 are both finished runs; 3 additionally refused at least one file, or a whole dataset whose mapping the server answered HTTP 400 to, in which case the `xerj-done` line carries `datasets_refused` and `files_refused`. 1 is an endpoint or journal failure and nothing about it is a junk report.
+Read the exit code and terminal reason. A stale-resume-plan outcome is incomplete and needs --fresh; otherwise 0 and 3 are finished runs; 3 additionally refused at least one file, or a whole dataset whose mapping the server answered HTTP 400 to, in which case the `xerj-done` line carries `datasets_refused` and `files_refused`. 1 is a runtime failure and nothing about it is a junk report.
 
 ### Is exit 1 the code for any error?
 
-No, and that shorthand is wrong. `--help` scopes 1 to an endpoint or journal failure, a refused corpus removal, or a refused unsafe state transition. A bad command line is 2. On the `--no-graph` path, an exit 1 whose terminal line reads `reason=server-backpressure` means the node rejected every write for the whole 600 s a bulk waits; the line carries `ops_applied` and `ops_remaining`.
+Exit 1 covers runtime errors, including verification failures, node or journal problems, and refused unsafe operations. A bad command line is 2. On the `--no-graph` path, an exit 1 whose terminal line reads `reason=server-backpressure` means the node rejected every write for the whole 600 s a bulk waits; the line carries `ops_applied` and `ops_remaining`.
 
 ### Does exit 0 always mean the folder was indexed?
 
@@ -208,12 +231,12 @@ Either `--quiet` or `--progress none` was in force, which prints no terminal lin
 
 ### Which codes should an agent retry?
 
-Retry nothing on 0 or 3. Re-run with `--approve` on 4. Fix the command line on 2. Investigate the endpoint and the journal on 1, because a blind retry repeats the same refusal. The one exit 1 to rerun unchanged is `reason=server-backpressure`, once the node accepts writes again: it resumes with the operations that remain.
+Do not blindly retry 0 or 3. Exit 3 with stale-resume-plan requires a --fresh rebuild to include the new files. Re-run with `--approve` on 4. Fix the command line on 2. Investigate the endpoint and the journal on 1, because a blind retry repeats the same refusal. The one exit 1 to rerun unchanged is `reason=server-backpressure`, once the node accepts writes again: it resumes with the operations that remain.
 
 ## Evidence
 
-- EXIT CODES: 0 complete (also: gate answered with --approve cancel); 3 completed-with-junk (junk recorded, never fatal) - this includes a dataset whose mapping the server REFUSED: its files are recorded as junk with the server's reason, the xerj-done line carries datasets_refused / files_refused, and every other dataset is indexed; 4 NEEDS A DECISION - the estimate exceeded --max-minutes and nothing was indexed, a JSON decision request is on stdout; 2 usage; 1 endpoint/journal failure, a refused corpus removal, or a refused unsafe state transition. — `engine/crates/xerj-autoindex/src/cli.rs:395`
-- Exit 4 is a code of its own; 1 is the catch-all for real failures, and the decision request is answered by re-running the same command with --approve proceed, fast or cancel. — `engine/crates/xerj-autoindex/src/cli.rs:395`
+- Exit 3 completed-with-junk is success. The separate stale-resume-plan outcome carries ok=false and requires --fresh to include new files. Dataset refusal counters name missing datasets even when ok=true. Exit 1 reports real errors; usage is 2 and a decision request is 4. — `engine/crates/xerj-autoindex/src/cli.rs:771`
+- Exit 4 is a code of its own; 1 is the catch-all for real failures, and the decision request is answered by re-running the same command with --approve proceed, fast or cancel. — `engine/crates/xerj-autoindex/src/cli.rs:771`
 - A forced mapping refusal ended xerj-done ok=true exit=3 reason=completed-with-junk wall=0.7s files=1 records=1 generation=1 datasets_refused=1 files_refused=2, with the other dataset indexed. — `benchmarks/autoindex-resilience/refusal-e2e.run1.stderr.txt`
 - Before issue #955 was fixed, a 48,533-file --no-graph run applied every operation and then ended xerj-done ok=false exit=1 reason=aborted wall=10336.0s, because the catalog went out as one bulk request of 51,129 actions and the engine's max_actions_per_bulk is 50,000. — `benchmarks/autoindex-resilience/before-955.stderr.txt`
 - Resuming that same generation with the fix ended xerj-done ok=true exit=3 reason=completed-with-junk wall=415.0s files=47444 records=821840 generation=1. — `benchmarks/autoindex-resilience/after-955.full-corpus-resume.stderr.txt`
@@ -229,3 +252,6 @@ Retry nothing on 0 or 3. Re-run with `--approve` on 4. Fix the command line on 2
 - [Why would a folder search miss files that I can see on disk?](/answers/why-autoindex-skipped-files)
 - [One dataset was REFUSED by the server. Did I lose the whole index?](/answers/autoindex-dataset-refused-by-server)
 - [The server pushed back with HTTP 429. Did xerj autoindex lose the run?](/answers/autoindex-server-back-pressure-429)
+- [xerj autoindex recorded my Takeout .zip as junk and said to extract it first. Why?](/answers/autoindex-says-extract-the-archive-first) (same intent: operating autoindex)
+- [How do I keep a search index up to date as files change, without re-indexing everything?](/answers/keep-index-current-as-files-change) (same intent: operating autoindex)
+- [How do I keep an index current when the files live in an object store?](/answers/keep-s3-bucket-index-current) (same intent: operating autoindex)

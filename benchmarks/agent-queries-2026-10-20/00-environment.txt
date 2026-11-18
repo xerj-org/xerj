@@ -1,0 +1,6 @@
+date 2026-10-20
+binary /workspace/engine/target/release/xerj
+Linux REDACTED 6.12.94+ #1 SMP PREEMPT_DYNAMIC Mon Oct 19 22:12:29 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux
+MemTotal:       16387280 kB
+nproc 4
+XERJ_MAX_PROCESS_MEMORY_MB=4096

@@ -213,29 +213,68 @@ BRAIN_URL="http://localhost:$BRAIN_PORT"
 brain_run() { "$XERJ_BIN" brain "$BRAIN_ROOT/vault" --brain vault --url "$BRAIN_URL" \
                 --data-dir "$BRAIN_DATA" --no-open "$@" 2>&1; }
 
-[ -s "$BRAIN_DATA/server.pid" ] && kill "$(cat "$BRAIN_DATA/server.pid")" 2>/dev/null
-for _ in $(seq 1 60); do
-  curl -s -o /dev/null -m 5 "$BRAIN_URL/health/ready" || break
-  sleep 1
-done
-rm -rf "$BRAIN_DATA"
+# SIGTERM stops /health/ready once the listener drains (up to 10s). The
+# process then still runs the final flush (up to 10s) and the runtime's 5s
+# shutdown, both of which write segment files. Deleting the data dir on the
+# first failed health check races that flush: rm removes segment files, the
+# dying process rewrites the catalog directory, and the next boot opens a
+# snapshot that names a segment whose file is gone. Catalog read-back then
+# 500s with `Segment … not found` and the client's six retries see the same
+# torn snapshot. Wait until the pid is gone, then delete.
+wipe_brain_data() {
+  local pidfile="$BRAIN_DATA/server.pid"
+  local pid=""
+  if [ -s "$pidfile" ]; then
+    pid="$(cat "$pidfile")"
+  fi
+  if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+    kill "$pid" 2>/dev/null || true
+    local _
+    for _ in $(seq 1 60); do
+      kill -0 "$pid" 2>/dev/null || break
+      sleep 0.5
+    done
+    if kill -0 "$pid" 2>/dev/null; then
+      kill -9 "$pid" 2>/dev/null || true
+      for _ in $(seq 1 20); do
+        kill -0 "$pid" 2>/dev/null || break
+        sleep 0.25
+      done
+    fi
+    if kill -0 "$pid" 2>/dev/null; then
+      echo "::error::brain server pid $pid was still alive after SIGKILL; refusing to delete $BRAIN_DATA under it"
+      return 1
+    fi
+  fi
+  rm -rf "$BRAIN_DATA"
+  if [ -e "$BRAIN_DATA" ]; then
+    echo "::error::wiping $BRAIN_DATA left files behind:"
+    find "$BRAIN_DATA" -print | head -20
+    return 1
+  fi
+  return 0
+}
 
-REFUSAL="$(brain_run)"; REFUSAL_RC=$?
-if [ "$REFUSAL_RC" != 0 ] \
-   && grep -q "resume journal and server disagree" <<<"$REFUSAL" \
-   && grep -q -- "--fresh" <<<"$REFUSAL"; then
-  ok "a journal/server disagreement refuses (exit $REFUSAL_RC) and names a recovery"
+if ! wipe_brain_data; then
+  bad "could not stop the brain server and wipe its data dir before the resume check"
 else
-  bad "expected a nonzero refusal naming the disagreement, got exit $REFUSAL_RC"
-  echo "$REFUSAL" | tail -20
-fi
+  REFUSAL="$(brain_run)"; REFUSAL_RC=$?
+  if [ "$REFUSAL_RC" != 0 ] \
+     && grep -q "resume journal and server disagree" <<<"$REFUSAL" \
+     && grep -q -- "--fresh" <<<"$REFUSAL"; then
+    ok "a journal/server disagreement refuses (exit $REFUSAL_RC) and names a recovery"
+  else
+    bad "expected a nonzero refusal naming the disagreement, got exit $REFUSAL_RC"
+    echo "$REFUSAL" | tail -20
+  fi
 
-RECOVERY="$(brain_run --fresh)"; RECOVERY_RC=$?
-if [ "$RECOVERY_RC" = 0 ] || [ "$RECOVERY_RC" = 3 ]; then
-  ok "the --fresh rebuild the refusal names recovers the brain (exit $RECOVERY_RC)"
-else
-  bad "the --fresh recovery named by the refusal failed with exit $RECOVERY_RC"
-  echo "$RECOVERY" | tail -20
+  RECOVERY="$(brain_run --fresh)"; RECOVERY_RC=$?
+  if [ "$RECOVERY_RC" = 0 ] || [ "$RECOVERY_RC" = 3 ]; then
+    ok "the --fresh rebuild the refusal names recovers the brain (exit $RECOVERY_RC)"
+  else
+    bad "the --fresh recovery named by the refusal failed with exit $RECOVERY_RC"
+    echo "$RECOVERY" | tail -20
+  fi
 fi
 
 # ── summary ───────────────────────────────────────────────────────────────

@@ -37,10 +37,24 @@ the endpoint in your config). The API key is read from the
 `XERJ_EMBEDDING_API_KEY` environment variable and sent as
 `Authorization: Bearer <key>`.
 
-The wire contract is the standard one:
+`default_endpoint` is not always the request URL. Accepted forms, trailing
+slash optional:
+
+| configured | request URL |
+|---|---|
+| `http://127.0.0.1:8900/v1` or `…/v1/` | `http://127.0.0.1:8900/v1/embeddings` |
+| `http://127.0.0.1:8900` or `…/` | `http://127.0.0.1:8900/embeddings` |
+| `http://127.0.0.1:8900/v1/embeddings` | unchanged |
+
+Any other path refuses to start when `mode = "proxy"`. The error names the
+URL that was set and suggests `{origin}/v1/embeddings`. The string in the
+config stays the embedder identity, so switching a corpus from the full path
+to the `/v1` base is a different embedder.
+
+The wire contract is the standard one, posted to that request URL:
 
 ```
-POST {default_endpoint}
+POST {request URL}
 {"input": ["text one", "text two"], "model": "<default_model>"}
 → {"data": [{"embedding": [ ... ], "index": 0}, { ... }]}
 ```
@@ -55,9 +69,9 @@ Any endpoint that speaks the contract above works — just change
 
 | provider | `default_endpoint` |
 |---|---|
-| OpenAI | `https://api.openai.com/v1/embeddings` |
+| OpenAI | `https://api.openai.com/v1/embeddings` or `https://api.openai.com/v1` |
 | Gemini (OpenAI-compatible mode) | `https://generativelanguage.googleapis.com/v1beta/openai/embeddings` |
-| Local (text-embeddings-inference, LM Studio, llama.cpp server, …) | `http://localhost:PORT/v1/embeddings` |
+| Local vLLM, Ollama, text-embeddings-inference, LM Studio, llama.cpp server, … | `http://localhost:PORT/v1` or `http://localhost:PORT/v1/embeddings` |
 
 > Verified in this repo against the reproducible mock, which implements the
 > exact request/response shape XERJ sends. Real providers that speak the same

@@ -471,10 +471,7 @@ fn takeout_noise_is_skipped_and_archives_say_extract_me_first() {
         assert_eq!(s(row, "status"), "junk");
         let reason = s(row, "reason");
         assert!(reason.contains("extract it first"), "{name}: {reason}");
-        assert!(
-            reason.contains("does not open archives"),
-            "{name}: {reason}"
-        );
+        assert!(reason.contains("xerj autoindex <file>"), "{name}: {reason}");
         assert!(!paths.contains(name), "{name} was not indexed as content");
     }
     let tgz = ix

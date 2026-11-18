@@ -1,5 +1,5 @@
 ---
-title: "Point a tool at a folder and ask about the files"
+title: "Point a tool at a folder and ask questions about the files"
 h1: "I want to point something at a folder and then ask questions about what's in it. What should I use?"
 description: "Index the folder with one command, read the map of what XERJ found, then let an agent query it over MCP instead of opening the files one by one."
 slug: "how-xerj-autoindexes-a-folder"
@@ -7,11 +7,21 @@ cluster: "Folder indexing"
 question: "I want to point something at a folder and then ask questions about what's in it. What should I use?"
 intent: "informational"
 published: "2026-08-21"
-updated: "2026-09-26"
+updated: "2026-10-28"
 author: "XERJ documentation team"
 reviewer: "XERJ engineering team"
 schema_type: "Article"
+structured_data: [faq]
 agent_prompt: "Act as a coding agent. Read https://xerj.org/llms.txt, start a node with `xerj --insecure --data-dir ./.xerj-data`, run `xerj autoindex ./notes --url http://127.0.0.1:9200 --prefix notes --progress plain --dry-run` to read the plan, run the same command without --dry-run, then run `xerj autoindex map --url http://127.0.0.1:9200` and answer the user question with one match_phrase query against a real index and a real field, citing the ax_path of every hit."
+answer: "What should I use to point something at a folder and then ask questions about what is in it? Run xerj autoindex on the folder: it detects file types, builds typed indices and needs no configuration. Then xerj autoindex map shows which index and field to query, and an agent asks over HTTP or xerj mcp."
+key_fact: "The README's sample run indexed 25,329 files into 593 datasets and 83,103 records in 158.1 s with 8 workers."
+key_fact_source: "README.md"
+key_fact_date: "2026-10-19"
+intent_group: "JSONL and data files"
+queries:
+  - "search csv and jsonl folder one command"
+  - "index folder of json files for search"
+  - "ask questions about a GitHub repo MCP server"
 commands:
   - cmd: "xerj --insecure --data-dir ./.xerj-data"
     note: "Start a local node. Nothing is indexed yet and nothing leaves the machine."
@@ -31,6 +41,10 @@ links_out:
   - "give-chatgpt-claude-local-file-access"
   - "catalog-files-with-autoindex-map"
   - "/compare/xerj-vs-web-agent-search"
+  - "/answers/autoindex-exit-codes"
+  - "/answers/autoindex-dataset-refused-by-server"
+  - "/answers/autoindex-says-extract-the-archive-first"
+  - "/answers/autoindex-server-back-pressure-429"
 faq:
   - q: "I want to point something at a folder and then ask questions about what's in it. What should I use?"
     a: "Index the folder with `xerj autoindex`, read `xerj autoindex map` to see what it found, then let the agent query the index over MCP. No configuration file is involved."
@@ -81,7 +95,7 @@ An agent answers from the returned passage and cites `ax_path`, rather than read
 
 ## Hand the indexed folder to an agent
 
-`xerj mcp` exposes the indexed folder to an agent host as a stdio tool server, serving 10 tools against a node that is already running. The agent sends a query and reads hits with file paths, instead of opening files one by one.
+`xerj mcp` exposes the indexed folder to an agent host as a stdio tool server, serving 24 tools against a node that is already running. The agent sends a query and reads hits with file paths, instead of opening files one by one.
 
 The node and the MCP server both run on your machine. No file content is uploaded, because the agent host calls a local process rather than a hosted API.
 

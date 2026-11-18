@@ -13,6 +13,22 @@ pub fn extract(
     limit_bytes: Option<u64>,
     sink: Sink,
 ) -> Result<ExtractStats> {
+    extract_limited(
+        path,
+        gzip,
+        limit_bytes,
+        sink,
+        xerj_common::document_limit::MAX_INDEXED_DOCUMENT_BYTES,
+    )
+}
+
+fn extract_limited(
+    path: &Path,
+    gzip: bool,
+    limit_bytes: Option<u64>,
+    sink: Sink,
+    doc_limit: usize,
+) -> Result<ExtractStats> {
     let mut r = super::open_reader(path, gzip, limit_bytes)?;
     let mut stats = ExtractStats::default();
     let mut offset: u64 = 0;
@@ -31,6 +47,12 @@ pub fn extract(
         }
         if line.len() >= MAX_LINE {
             stats.junk += 1;
+            continue;
+        }
+        // A line under the 16 MB read cap can still be one document large
+        // enough to blow the node when it is tokenized (#1122).
+        if trimmed.len() > doc_limit {
+            stats.oversize_values += 1;
             continue;
         }
         match serde_json::from_slice::<Value>(trimmed) {
@@ -55,6 +77,16 @@ pub fn extract(
                 stats.junk += 1;
             }
         }
+    }
+    if stats.records == 0 && stats.oversize_values > 0 && stats.refusal.is_none() {
+        let name = path
+            .file_name()
+            .map(|s| s.to_string_lossy().into_owned())
+            .unwrap_or_else(|| path.display().to_string());
+        stats.refusal = Some(format!(
+            "{name} is over the {doc_limit}-byte limit for one JSON document; {} JSON value(s) were not indexed. Split the file into smaller documents",
+            stats.oversize_values,
+        ));
     }
     Ok(stats)
 }
@@ -106,14 +138,32 @@ mod tests {
     use super::*;
 
     fn run(bytes: &[u8], limit: Option<u64>) -> (ExtractStats, Vec<RawRecord>) {
+        run_capped(
+            bytes,
+            limit,
+            xerj_common::document_limit::MAX_INDEXED_DOCUMENT_BYTES,
+        )
+    }
+
+    fn run_capped(
+        bytes: &[u8],
+        limit: Option<u64>,
+        doc_limit: usize,
+    ) -> (ExtractStats, Vec<RawRecord>) {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("t.jsonl");
         std::fs::write(&path, bytes).unwrap();
         let mut recs = Vec::new();
-        let stats = extract(&path, false, limit, &mut |r| {
-            recs.push(r);
-            true
-        })
+        let stats = extract_limited(
+            &path,
+            false,
+            limit,
+            &mut |r| {
+                recs.push(r);
+                true
+            },
+            doc_limit,
+        )
         .unwrap();
         (stats, recs)
     }
@@ -200,6 +250,29 @@ mod tests {
         assert_eq!(stats.junk, 1);
         assert_eq!(stats.records, 1, "the stream continues after the cap");
         assert_eq!(recs[0].fields["id"], serde_json::json!(2));
+    }
+
+    /// A line between the per-document ceiling and the 16 MB read cap used to
+    /// be parsed and indexed (#1122).
+    #[test]
+    fn a_line_over_the_document_limit_is_not_indexed() {
+        let blob = "q".repeat(80);
+        let data = format!("{{\"id\":1}}\n{{\"blob\":\"{blob}\"}}\n");
+        let (stats, recs) = run_capped(data.as_bytes(), None, 40);
+        assert_eq!(stats.records, 1);
+        assert_eq!(stats.junk, 0);
+        assert_eq!(stats.oversize_values, 1);
+        assert_eq!(recs[0].fields["id"], serde_json::json!(1));
+        assert!(stats.refusal.is_none(), "the small line was indexed");
+
+        let only = format!("{{\"blob\":\"{blob}\"}}\n");
+        let (stats, recs) = run_capped(only.as_bytes(), None, 40);
+        assert!(recs.is_empty());
+        assert_eq!(stats.oversize_values, 1);
+        let reason = stats.refusal.expect("names the file");
+        assert!(reason.contains("t.jsonl"), "{reason}");
+        assert!(reason.contains("40"), "{reason}");
+        assert!(reason.contains("not indexed"), "{reason}");
     }
 
     /// #1158: a JSONL record with no prose gains a `text` passage from its

@@ -1,8 +1,8 @@
 use std::io::Write;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{mpsc, Arc, Condvar, Mutex, Weak};
-use std::thread::JoinHandle;
 use std::time::Duration;
+use xerj_common::thread_spawn::SpawnedThread;
 
 use xerj_engine::ingest_memory::{
     self, AllocatorSnapshot, EventKind, ProcessSnapshot, TraceMode, LEDGER,
@@ -14,8 +14,8 @@ const CHANNEL_CAPACITY: usize = 256;
 pub struct TraceRuntime {
     stop: Arc<AtomicBool>,
     wake: Arc<(Mutex<()>, Condvar)>,
-    sampler: Option<JoinHandle<()>>,
-    writer: Option<JoinHandle<()>>,
+    sampler: Option<SpawnedThread>,
+    writer: Option<SpawnedThread>,
     dropped: Arc<AtomicU64>,
 }
 
@@ -62,20 +62,29 @@ pub fn spawn(engine: &Arc<Engine>) -> Option<TraceRuntime> {
     let stop = Arc::new(AtomicBool::new(false));
     let dropped = Arc::new(AtomicU64::new(0));
     let writer_dropped = Arc::clone(&dropped);
-    let writer = std::thread::Builder::new()
-        .name("xerj-ingest-memory-writer".into())
-        .spawn(move || writer_loop(rx, writer_dropped))
-        .map_err(|error| trace_spawn_failed("writer", &error))
-        .ok()?;
+    // #1122: Builder::spawn panics in the child when the alternate signal
+    // stack cannot be mapped. This trace is diagnostics; a failed spawn
+    // disables it instead of aborting the node (`panic = "abort"`).
+    let writer = match xerj_common::thread_spawn::try_spawn_unguarded(
+        "xerj-ingest-memory-writer",
+        move || writer_loop(rx, writer_dropped),
+    ) {
+        Ok(handle) => handle,
+        Err(failure) => {
+            trace_spawn_failed("writer", &failure.error);
+            drop(failure.job);
+            return None;
+        }
+    };
 
     let weak = Arc::downgrade(engine);
     let sampler_stop = Arc::clone(&stop);
     let wake = Arc::new((Mutex::new(()), Condvar::new()));
     let sampler_wake = Arc::clone(&wake);
     let sampler_dropped = Arc::clone(&dropped);
-    let sampler = std::thread::Builder::new()
-        .name("xerj-ingest-memory-sampler".into())
-        .spawn(move || {
+    let sampler = match xerj_common::thread_spawn::try_spawn_unguarded(
+        "xerj-ingest-memory-sampler",
+        move || {
             send_snapshot(&tx, &sampler_dropped, EventKind::TraceStart, false);
             sample_loop(
                 weak,
@@ -85,11 +94,17 @@ pub fn spawn(engine: &Arc<Engine>) -> Option<TraceRuntime> {
                 sampler_dropped,
                 Duration::from_millis(config.sample_ms),
             );
-        })
+        },
+    ) {
+        Ok(handle) => handle,
         // The writer exits on its own: the sender it reads from was moved
         // into the closure the failed spawn just dropped.
-        .map_err(|error| trace_spawn_failed("sampler", &error))
-        .ok()?;
+        Err(failure) => {
+            trace_spawn_failed("sampler", &failure.error);
+            drop(failure.job);
+            return None;
+        }
+    };
 
     Some(TraceRuntime {
         stop,
@@ -131,6 +146,8 @@ fn sample_loop(
 fn refresh_snapshot_state(engine: &Engine) {
     refresh_snapshot_state_with(
         engine.total_memtable_bytes(),
+        engine.total_vector_graph_bytes(),
+        engine.total_version_map_bytes(),
         allocator_snapshot(),
         xerj_engine::governor::current_rss_bytes(),
         process_cpu_time_ns(),
@@ -139,6 +156,8 @@ fn refresh_snapshot_state(engine: &Engine) {
 
 fn refresh_snapshot_state_with(
     memtable_bytes: u64,
+    vector_graph_bytes: u64,
+    version_map_bytes: u64,
     allocator: AllocatorSnapshot,
     rss: u64,
     cpu_time_ns: Option<u64>,
@@ -146,6 +165,14 @@ fn refresh_snapshot_state_with(
     LEDGER.observe(
         ingest_memory::Category::MemtableActive,
         memtable_bytes as usize,
+    );
+    LEDGER.observe(
+        ingest_memory::Category::VectorGraph,
+        vector_graph_bytes as usize,
+    );
+    LEDGER.observe(
+        ingest_memory::Category::VersionMap,
+        version_map_bytes as usize,
     );
     let process = ProcessSnapshot {
         rss: (rss != 0).then_some(rss),
@@ -360,6 +387,8 @@ mod tests {
         let started = std::time::Instant::now();
         refresh_snapshot_state_with(
             0,
+            4096,
+            2048,
             AllocatorSnapshot {
                 allocated: Some(11),
                 active: Some(12),
@@ -376,6 +405,16 @@ mod tests {
             ingest_memory::Measurement::Estimated,
         );
         assert_eq!(memtable.current, 0);
+        let vector_graph = LEDGER.gauge(
+            ingest_memory::Category::VectorGraph,
+            ingest_memory::Measurement::Estimated,
+        );
+        assert_eq!(vector_graph.current, 4096);
+        let version_map = LEDGER.gauge(
+            ingest_memory::Category::VersionMap,
+            ingest_memory::Measurement::Estimated,
+        );
+        assert_eq!(version_map.current, 2048);
     }
 
     #[cfg(unix)]

@@ -396,6 +396,32 @@ transport encryption; your platform provides the rest.
 | Secrets written `0600` (admin key, auto-generated TLS key) | ✅ |
 | Client identity from the TCP peer, not `X-Forwarded-For` | ✅ (`server.trusted_proxies`, empty by default) |
 
+### Memory limits and what "process memory" means
+
+The memory breaker compares the node's own memory against one cap. These
+`[limits]` keys set it (all MiB, `0` = automatic):
+
+| Key | Env override | Default | What it does |
+|---|---|---|---|
+| `max_process_memory_mb` | `XERJ_MAX_PROCESS_MEMORY_MB` | `0` (tier from total RAM or the cgroup limit) | The cap. Writes get `429` above the watermark below; searches get `429` only after waiting for a drain that did not bring memory under the cap. |
+| `memory_watermark_percent` | – | `95` | Percent of the cap where writes start to get `429`. |
+| `max_total_memtable_mb` | – | `0` (25% of the limit, floor 2 GiB, at most 50%) | Unflushed write buffers across all indices. |
+| `max_segment_hydration_cache_mb` | `XERJ_SEGMENT_HYDRATION_CACHE_MB` | `0` (20% of the limit) | See the next section. |
+
+"Process memory" (`rss_mb` in breaker log lines) is memory the node itself
+allocated and that only it can give back. On Linux that is `RssAnon +
+RssShmem` from `/proc/self/status`, not the `RSS` column `top` shows: segment
+files are memory-mapped, and the pages of those files a search reads stay in
+the process's RSS as page cache until the kernel needs the RAM back. The node
+cannot release those pages itself, so counting them made a node whose
+mapped segments were larger than its cap answer every search with `429`
+until it was restarted (#2574). Expect `top` to show more than `rss_mb`.
+
+The automatic cap is sized from total RAM, not from what is free. If other
+processes already hold most of the RAM, the startup log adds a
+`memory: only … is available right now` warning. In that case set
+`max_process_memory_mb` to fit what is left.
+
 ### Bound retained segment hydration
 
 Every index shares one process-wide admission authority for the seven
@@ -467,9 +493,14 @@ in-process BERT sentence encoder (default `all-MiniLM-L6-v2`, 384-dim, ~90 MB),
 no Python, no external service. Select it per node with `[embedding] mode =
 "neural"` (or `--embed-mode neural`, or `XERJ_EMBED_MODE=neural`).
 
-On a connected host the model downloads itself **once, on first use**, from the
-HuggingFace Hub and is cached for every later start. On an **air-gapped** host
-there is no Hub to reach, so stage the model files yourself.
+On a connected host the model is downloaded from the HuggingFace Hub and loaded
+**at startup**, then cached for every later start. If that load fails the
+process **refuses to start** with one error that names the cause, the command
+`xerj --embed-mode lexical`, `embedding.local_model_dir`, and `HF_ENDPOINT`
+(a Hub mirror). It does not stay up and fail every ingest, and it does not
+substitute lexical vectors — those are not comparable with neural vectors.
+Explicit `proxy` already fails closed the same way. On an **air-gapped** host
+there is no Hub to reach, so stage the model files yourself before starting.
 
 ### Step 1 — download the three files on a connected machine
 
@@ -505,26 +536,21 @@ local_model_dir = "/opt/xerj/models/all-MiniLM-L6-v2"   # holds the 3 files abov
 ```
 
 When `local_model_dir` is set it takes precedence over the Hub — XERJ makes
-**no outbound network call** for the model. Selecting the neural backend logs a
-line when the semantic index is built:
+**no outbound network call** for the model. The weights load at startup, before
+the data directory is opened. A correct staging just works and makes no network
+call. A **missing or wrong file refuses startup** with the offending path:
 
 ```
-INFO  embedding backend: built-in neural BERT (loads on first use)
+embedding.mode=neural failed to load model sentence-transformers/all-MiniLM-L6-v2: local model dir /opt/xerj/models/... is missing tokenizer.json
+… has no model.safetensors (candle requires safetensors, not pytorch_model.bin).
+Refusing to start. …
+To index without a model, restart with: xerj --embed-mode lexical
 ```
 
-The weights themselves load lazily, from your staged directory, on the first
-`semantic_text` ingest (not at boot). A correct staging just works — the local
-path is silent on success and makes no network call. A **missing or wrong file
-fails loud** with the offending path, which is your signal to fix the staging:
-
-```
-local model dir /opt/xerj/models/... is missing tokenizer.json
-… has no model.safetensors (candle requires safetensors, not pytorch_model.bin)
-```
-
-(The `neural embedder: model ready` log line you may have seen elsewhere is the
-*Hub-download* path's completion message; the offline `local_model_dir` path
-does not print it.)
+(The `neural embedder: model ready` log line is the *Hub-download* path's
+completion message; the offline `local_model_dir` path does not print it.
+After a successful load, opening a semantic index logs
+`embedding backend: built-in neural BERT (loaded)`.)
 
 > **Slim builds.** A `--no-default-features` build omits the neural backend;
 > `mode = "neural"` on such a binary logs a warning and falls back to the
@@ -547,7 +573,7 @@ Elasticsearch**, use the scroll + bulk pattern below.
 **fails loud** instead of silently doing the wrong thing (verified):
 
 ```bash
-curl -k -H "Authorization: ApiKey $KEY" -X POST https://xerj:9200/_reindex -d '{
+curl -k -H "Authorization: ApiKey $KEY" -H "Content-Type: application/json" -X POST https://xerj:9200/_reindex -d '{
   "source": { "remote": { "host": "http://old-es:9200" }, "index": "src" },
   "dest":   { "index": "dst" } }'
 # HTTP 400

@@ -287,6 +287,43 @@ def segment(lines, offset):
     return paras
 
 
+# A body fence whose language is `visual` names a figure in content/visuals/<name>.html
+# (build_articles.py inlines it). Its visible text is what a reader sees, so it is
+# checked as prose: every figure on the page goes through the same rules as a sentence.
+_VISUAL_FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})\s*visual\s*$")
+_VISUAL_BLOCK_END = re.compile(r"</(?:p|li|figcaption|caption|tr|h[2-6]|text|title|desc|summary|div|dd|dt|button|label|th|td)>", re.I)
+
+
+def _visual_text(name):
+    path = os.path.join(REPO_ROOT, "content", "visuals", name + ".html")
+    try:
+        with open(path, encoding="utf-8") as fh:
+            html = fh.read()
+    except OSError:
+        return []
+    out = []
+    for chunk in _VISUAL_BLOCK_END.split(html):
+        text = re.sub(r"<[^>]+>", " ", chunk)
+        text = (text.replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", '"')
+                .replace("&#39;", "'").replace("&amp;", "&").replace("&nbsp;", " "))
+        text = " ".join(text.split())
+        if text:
+            out.append(text)
+    return out
+
+
+def expand_visuals(paras):
+    out = []
+    for p in paras:
+        lines = p.raw.split("\n")
+        if p.is_code and lines and _VISUAL_FENCE.match(lines[0]) and len(lines) >= 2:
+            for text in _visual_text(lines[1].strip()):
+                out.append(Para(p.start_line, text, False, False))
+            continue
+        out.append(p)
+    return out
+
+
 # ======================================================================================
 # Rule evaluation
 # ======================================================================================
@@ -317,7 +354,7 @@ class Article:
         self.path = path
         self.lines = text.splitlines()
         self.meta, self.evidence, self.body_start, self.meta_lineno = parse_frontmatter(self.lines)
-        self.paras = segment(self.lines[self.body_start:], self.body_start)
+        self.paras = expand_visuals(segment(self.lines[self.body_start:], self.body_start))
         self.prose = [p for p in self.paras if not p.is_code]
         # A flat normalised document with paragraph offsets, for window/document scopes.
         chunks, self.offsets = [], {}

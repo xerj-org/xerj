@@ -617,6 +617,8 @@ fn index_cfg(cfg: &BrainCfg, brain: &str, api_key: Option<String>) -> IndexCfg {
         bulk_timeout_secs: 300,
         snapshot_max_bytes: 64u64 << 30,
         prefix: "ax".into(),
+        replace_prefix: false,
+        prefix_note: None,
         state_dir: None,
         fresh: cfg.fresh,
         follow_symlinks: false,
@@ -633,6 +635,7 @@ fn index_cfg(cfg: &BrainCfg, brain: &str, api_key: Option<String>) -> IndexCfg {
         brain: Some(brain.to_string()),
         no_graph: false,
         dry_run: false,
+        walk_only: false,
         // The estimate/decision gate is an `xerj autoindex` CLI feature, and
         // `xerj brain` has no `--approve` of its own to answer it with. Arming
         // it here would stop the run with exit 4 and instructions the caller
@@ -640,6 +643,9 @@ fn index_cfg(cfg: &BrainCfg, brain: &str, api_key: Option<String>) -> IndexCfg {
         // grows its own answer flag. The estimate itself is still printed.
         max_minutes: 0,
         approve: None,
+        max_index_bytes: None,
+        budget_plan: None,
+        drop_indexed: false,
         json: false,
         quiet: false,
         // `xerj brain` is a foreground command a human watches; it gets the
@@ -650,6 +656,8 @@ fn index_cfg(cfg: &BrainCfg, brain: &str, api_key: Option<String>) -> IndexCfg {
         label: None,
         debounce: std::time::Duration::from_millis(0),
         exclude_rels: Vec::new(),
+        exclude: Vec::new(),
+        skip_corpus_data: false,
     }
 }
 

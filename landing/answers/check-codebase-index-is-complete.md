@@ -2,11 +2,15 @@
 ---
 title: "How do I check my code index actually finished?"
 canonical: "https://xerj.org/answers/check-codebase-index-is-complete"
-updated: "2026-08-23"
+updated: "2026-10-24"
 source: "content/answers/check-codebase-index-is-complete.md"
 ---
 
 # My codebase indexer says indexed but I don't see my code. How do I check it actually finished?
+
+**Short answer** (updated 2026-10-24): My codebase indexer says indexed but I don't see my code: how do I check it actually finished? Reconcile four numbers: files on disk, the --dry-run plan, xerj autoindex status, and the document count in _cat/indices. A captured run turned 64 non-hidden files into a 3-file plan, naming an ignore rule for every gap.
+
+**Key number:** Source files above 2 MiB are not parsed for symbols (`CODE_CAP`), one of the documented reasons a file can be missing from the code fields. (as of 2026-10-19; source: [engine/crates/xerj-autoindex/src/extract/code.rs](https://github.com/xerj-org/xerj/blob/main/engine/crates/xerj-autoindex/src/extract/code.rs))
 
 **TL;DR** — Reconcile 4 numbers before you trust an "indexed" status: files on disk, the `--dry-run` plan, `xerj autoindex status`, and the document count in `_cat/indices`. A captured XERJ run turned 64 non-hidden files into a 3-file plan, and every missing file had a named ignore rule.
 
@@ -135,7 +139,7 @@ Query for a symbol you know exists. The captured query on the defs field for mer
 
 ### The indexer exited. Did it finish or just stop?
 
-Read the terminal line and then the journal. Exit 0 with reason=completed means nothing was refused, and exit 3 with reason=completed-with-junk means the run finished and refused at least one file.
+Read the terminal line and then the journal. Exit 0 with reason=completed means nothing was refused. Exit 3 with reason=completed-with-junk is success: the run finished and refused at least one file. Do not treat exit 3 as a failure.
 
 ### Why does the index hold more documents than files?
 
@@ -154,3 +158,6 @@ No. Even with bytes=b it returned human-formatted values such as 58.5kb, so read
 - [How do I stop my agent from reading the whole repo into context?](/answers/index-monorepo-for-agent)
 - [How should an agent figure out what's in a messy data folder before searching?](/answers/catalog-files-with-autoindex-map)
 - [How do I read autoindex progress?](/answers/read-autoindex-progress)
+- [How do I audit a PHP codebase with an index instead of grepping 1,400 files?](/answers/audit-php-codebase-with-an-index) (same intent: code search for agents)
+- [I need my agent to find a passage and cite the file, not dump the whole tree. How?](/answers/code-search-mcp-for-claude-code) (same intent: code search for agents)
+- [How do I set up reference coding so the agent retrieves a mechanism before writing code?](/answers/index-reference-library-for-coding-agent) (same intent: code search for agents)

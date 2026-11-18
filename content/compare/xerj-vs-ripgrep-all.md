@@ -7,11 +7,19 @@ cluster: "Comparison: desktop search"
 question: "How do I grep PDFs and Word docs from the command line?"
 intent: "comparison"
 published: "2026-08-22"
-updated: "2026-09-26"
+updated: "2026-10-28"
 author: "XERJ documentation team"
 reviewer: "XERJ engineering team"
 schema_type: "TechArticle"
+structured_data: [faq]
 agent_prompt: "Act as a coding agent with a folder of PDFs and Word documents. Read https://xerj.org/llms.txt, decide between a one-shot rga search and an index, then start a local XERJ node, run xerj autoindex on the folder and answer with a match_phrase query that cites the ax_path of every hit."
+answer: "How do I grep PDFs and Word docs from the command line? For one question today, ripgrep-all: it converts PDFs and Office files as it goes, walks into archives, and needs no daemon or index. For an agent asking many questions, XERJ indexes the folder once. No head-to-head benchmark was run."
+key_fact: "ripgrep-all has 9,883 GitHub stars and its latest release is v0.10.10 (2025-11-09)."
+key_fact_source: "https://github.com/phiresky/ripgrep-all"
+key_fact_date: "2026-10-19"
+intent_group: "logs and docs"
+queries:
+  - "grep pdf and docx from command line"
 commands:
   - cmd: "xerj autoindex ./documents --url http://127.0.0.1:9200 --prefix docs --progress plain"
     note: "Index the folder once, so later questions do not parse the PDFs again."
@@ -102,7 +110,7 @@ The command takes no configuration file and no mapping. It also needs no helper 
 
 The node answers the Elasticsearch REST API. `xerj autoindex map` prints a data map of what the folder became. An agent reads that map, then names a real index and a real field.
 
-`xerj mcp` is a stdio MCP server in the same binary. It serves 10 tools against a node you already started. Agent memory lives in the engine under `/_memory/{namespace}`.
+`xerj mcp` is a stdio MCP server in the same binary. It serves 24 tools against a node you already started. Agent memory lives in the engine under `/_memory/{namespace}`.
 
 XERJ is single-node. There is no replication and no failover. The default embedder is lexical feature hashing, not a neural model, and neural retrieval is opt-in through `--embed-mode neural`.
 
@@ -124,7 +132,7 @@ Every row is a documented capability of each tool. No row is a measured result.
 | ranking of results | none, matches in file order | BM25 over the extracted text |
 | filter by file family or path | shell globs and ripgrep flags | keyword fields, `ax_format` and `ax_path` |
 | HTTP query API | none | yes, Elasticsearch REST API |
-| MCP server for an agent | none | yes, `xerj mcp`, 10 tools |
+| MCP server for an agent | none | yes, `xerj mcp`, 24 tools |
 | catalog of refused files | messages on standard error | `autoindex-catalog`, one reason per file |
 | agent memory in the engine | none | yes, `/_memory/{namespace}` |
 
@@ -158,7 +166,7 @@ Choose Elasticsearch instead when the documents must live on more than one host.
 
 Choose XERJ when the same folder answers many questions. The parse happens once, and every later query reads the index rather than the PDFs.
 
-Choose XERJ when the caller is a program. An agent that speaks HTTP or MCP needs no wrapper and no output parser. `xerj mcp` serves 10 tools.
+Choose XERJ when the caller is a program. An agent that speaks HTTP or MCP needs no wrapper and no output parser. `xerj mcp` serves 24 tools.
 
 Choose XERJ when the order of the answers matters. rga returns every match in file order. BM25 puts the best documents first.
 

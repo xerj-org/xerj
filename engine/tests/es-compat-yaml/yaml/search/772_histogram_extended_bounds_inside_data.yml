@@ -1,0 +1,66 @@
+# #1819: `extended_bounds` only ADDS empty buckets. Buckets that hold data
+# outside the bounds stay; only `hard_bounds` drops them. Expected keys and
+# counts are Elasticsearch 8.13.4's for the requests in #1819.
+setup:
+  - do:
+      indices.create:
+        index: hist_eb
+        body:
+          mappings:
+            properties:
+              v: { type: double }
+  - do:
+      bulk:
+        refresh: true
+        body:
+          - '{"index": {"_index": "hist_eb", "_id": "1"}}'
+          - '{"v": -2}'
+          - '{"index": {"_index": "hist_eb", "_id": "2"}}'
+          - '{"v": 1}'
+          - '{"index": {"_index": "hist_eb", "_id": "3"}}'
+          - '{"v": 3}'
+          - '{"index": {"_index": "hist_eb", "_id": "4"}}'
+          - '{"v": 12}'
+          - '{"index": {"_index": "hist_eb", "_id": "5"}}'
+          - '{"v": 27}'
+
+---
+"extended_bounds inside the data keeps the data buckets on both sides":
+  - do:
+      search:
+        index: hist_eb
+        body:
+          size: 0
+          aggs:
+            h:
+              histogram:
+                field: v
+                interval: 5
+                extended_bounds: { min: 0, max: 10 }
+  - length: { aggregations.h.buckets: 7 }
+  - match: { aggregations.h.buckets.0.key: -5.0 }
+  - match: { aggregations.h.buckets.0.doc_count: 1 }
+  - match: { aggregations.h.buckets.1.key: 0.0 }
+  - match: { aggregations.h.buckets.1.doc_count: 2 }
+  - match: { aggregations.h.buckets.2.doc_count: 0 }
+  - match: { aggregations.h.buckets.3.key: 10.0 }
+  - match: { aggregations.h.buckets.3.doc_count: 1 }
+  - match: { aggregations.h.buckets.6.key: 25.0 }
+  - match: { aggregations.h.buckets.6.doc_count: 1 }
+
+---
+"hard_bounds still drops the buckets outside it":
+  - do:
+      search:
+        index: hist_eb
+        body:
+          size: 0
+          aggs:
+            h:
+              histogram:
+                field: v
+                interval: 5
+                hard_bounds: { min: 0, max: 10 }
+  - length: { aggregations.h.buckets: 3 }
+  - match: { aggregations.h.buckets.0.key: 0.0 }
+  - match: { aggregations.h.buckets.2.key: 10.0 }

@@ -8,7 +8,7 @@ use super::*;
 use std::collections::{BTreeMap, HashMap};
 use std::fs;
 use std::io::{BufRead, BufReader, Read, Write};
-use std::net::{TcpListener, TcpStream};
+use std::net::TcpStream;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -25,6 +25,12 @@ struct HttpState {
     search_bodies: Vec<Value>,
     data_bulk_requests: usize,
     fail_next_data_bulk: bool,
+    /// #2807: refuse the first `index` action of the next data bulk as over
+    /// the per-document byte limit, echoing its `_id` as the server does.
+    refuse_next_data_item_as_too_large: bool,
+    /// #2807: refuse any record longer than this many bytes, as the server
+    /// refuses a record that the vectors it adds push over its limit.
+    refuse_documents_over: Option<usize>,
     /// Apply the first half of the next data bulk's items and *then* report
     /// `errors: true`. This is the dangerous backend shape the legacy
     /// replacement transaction was hardened against (visibility changed, but
@@ -32,6 +38,13 @@ struct HttpState {
     /// executor now, so the shape has to be proven here too.
     partially_apply_next_data_bulk: bool,
     fail_embedding_identity: bool,
+    /// #1971: answer semantic `exists` read-backs with no matches while
+    /// retaining the published records and catalog for refusal/resume checks.
+    hide_semantic_matches: bool,
+    /// #2669: answer the finalize-verify record windows (an `ax_file` terms
+    /// aggregation with no `exists` filter) with no buckets, so the record
+    /// count reads as zero while the published records stay in place.
+    hide_record_counts: bool,
     stop: bool,
     embedding_identity_sha256: String,
     saw_dataset_mapping_update: bool,
@@ -67,6 +80,14 @@ struct HttpState {
     unavailable_dataset_mappings: Vec<String>,
     /// Every dataset index a `_mapping` PUT was attempted for, in order.
     dataset_mapping_puts: Vec<String>,
+    /// Properties installed for a dataset index: the create body the first
+    /// time the index is seen, then additive `_mapping` merges. A later
+    /// `_mapping` whose `type` disagrees with what is already stored is the
+    /// engine's type-change refusal (`field [X] already exists as [old],
+    /// cannot add [new]`). A create of an index that already exists is
+    /// ignored, the way `Es::ensure_index` swallows "exists" without
+    /// re-sending the body.
+    installed_dataset_properties: HashMap<String, serde_json::Map<String, Value>>,
     /// Opt-in (#931): fail the Nth data bulk (1-based) the way
     /// `fail_next_data_bulk` fails the next one. Lets a replay be interrupted
     /// AFTER some operations committed, which is the only state in which
@@ -105,6 +126,11 @@ struct HttpState {
     /// a serial index phase.
     in_flight_data_bulks: usize,
     max_concurrent_data_bulks: usize,
+    /// #2314: the next N catalog searches that filter on `file_key` omit the
+    /// last hit and report that shorter total. The visibility race four
+    /// identical files hit. The counter, not refresh, clears it, so the
+    /// recount after refresh sees the full set.
+    short_catalog_file_key_pages: usize,
 }
 
 struct HttpEndpoint {
@@ -115,7 +141,7 @@ struct HttpEndpoint {
 
 impl HttpEndpoint {
     fn start() -> Self {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         listener.set_nonblocking(true).unwrap();
         let url = format!("http://{}", listener.local_addr().unwrap());
         let state = Arc::new(Mutex::new(HttpState {
@@ -185,6 +211,16 @@ impl HttpEndpoint {
         self.state.lock().unwrap().data_bulk_requests
     }
 
+    /// Properties the fake has installed for one dataset index (#2176).
+    fn dataset_properties(&self, index: &str) -> Option<Value> {
+        self.state
+            .lock()
+            .unwrap()
+            .installed_dataset_properties
+            .get(index)
+            .map(|properties| Value::Object(properties.clone()))
+    }
+
     /// #755: the catalog mapping the endpoint finally acknowledged.
     fn installed_catalog_properties(&self) -> Value {
         self.state
@@ -248,7 +284,9 @@ fn handle_http(mut stream: TcpStream, state: &Arc<Mutex<HttpState>>) {
         .requests
         .push((method.to_owned(), path.to_owned()));
 
-    let (status, response) = if method == "GET" && path == "/v1/embedding/identity" {
+    let (status, response) = if method == "GET" && path == "/" {
+        (200, crate::test_loopback::xerj_root())
+    } else if method == "GET" && path == "/v1/embedding/identity" {
         let locked = state.lock().unwrap();
         if locked.fail_embedding_identity {
             (
@@ -273,8 +311,21 @@ fn handle_http(mut stream: TcpStream, state: &Arc<Mutex<HttpState>>) {
         }
     } else if method == "POST" && path == "/_bulk" {
         let locked = state.lock().unwrap();
+        let writes_data = body.split(|byte| *byte == b'\n').any(|line| {
+            serde_json::from_slice::<Value>(line)
+                .ok()
+                .and_then(|action| {
+                    action
+                        .pointer("/index/_index")
+                        .or_else(|| action.pointer("/update/_index"))
+                        .and_then(Value::as_str)
+                        .map(|index| index != catalog::CATALOG_INDEX)
+                })
+                .unwrap_or(false)
+        });
         assert!(
-            locked.saw_dataset_mapping_update && locked.saw_catalog_mapping_update,
+            locked.saw_catalog_mapping_update
+                && (!writes_data || locked.saw_dataset_mapping_update),
             "bulk publication preceded exact generation mapping updates"
         );
         drop(locked);
@@ -282,6 +333,8 @@ fn handle_http(mut stream: TcpStream, state: &Arc<Mutex<HttpState>>) {
     } else if method == "POST" && path.contains("/_delete_by_query") {
         let deleted = delete_http(path, &body, state);
         (200, json!({"deleted": deleted, "failures": []}))
+    } else if method == "POST" && path.ends_with("/_mget") {
+        (200, mget_http(path, &body, state))
     } else if method == "POST" && path.ends_with("/_search") {
         if let Ok(query) = serde_json::from_slice::<Value>(&body) {
             state.lock().unwrap().search_bodies.push(query);
@@ -305,6 +358,7 @@ fn handle_http(mut stream: TcpStream, state: &Arc<Mutex<HttpState>>) {
         let mut conflict: Option<String> = None;
         let mut unavailable = false;
         let mut refused_dataset: Option<String> = None;
+        let mut type_conflict: Option<String> = None;
         if path.ends_with("/_mapping") {
             assert!(value.get("properties").is_some());
             assert!(value.get("mappings").is_none());
@@ -334,11 +388,19 @@ fn handle_http(mut stream: TcpStream, state: &Arc<Mutex<HttpState>>) {
                 if selected(&locked.refused_dataset_mappings) {
                     refused_dataset = Some(index.clone());
                 }
+                if refused_dataset.is_none() && !unavailable {
+                    let incoming = value["properties"].as_object().cloned().unwrap_or_default();
+                    type_conflict = apply_dataset_mapping(&mut locked, &index, &incoming);
+                }
                 locked.dataset_mapping_puts.push(index);
             }
         } else {
             assert!(value.pointer("/mappings/properties").is_some());
             assert!(value.get("properties").is_none());
+            let index = path.trim_start_matches('/');
+            if !index.is_empty() && index != catalog::CATALOG_INDEX {
+                remember_dataset_create(&mut locked, index, &value);
+            }
         }
         if let Some(index) = refused_dataset {
             // Byte for byte the shape of the refusal in #929.
@@ -375,6 +437,23 @@ fn handle_http(mut stream: TcpStream, state: &Arc<Mutex<HttpState>>) {
                     "status": 400
                 }),
             )
+        } else if let Some(reason) = type_conflict {
+            // Same shape as the catalog conflict above, and the same words
+            // `xerj-api` uses when `PUT /_mapping` changes a field's type
+            // (`es_compat.rs`). `update_mapping` does not swallow a body that
+            // contains "exists"; `ensure_index` does, which is why a create
+            // of an existing index never reaches this branch.
+            (
+                400,
+                json!({
+                    "error": {
+                        "root_cause": [{"type": "mapper_parsing_exception", "reason": reason}],
+                        "type": "mapper_parsing_exception",
+                        "reason": reason
+                    },
+                    "status": 400
+                }),
+            )
         } else {
             (200, json!({"acknowledged": true}))
         }
@@ -397,6 +476,60 @@ fn handle_http(mut stream: TcpStream, state: &Arc<Mutex<HttpState>>) {
         bytes
     )
     .unwrap();
+}
+
+/// Store the create-body properties the first time an index is seen.
+/// A later create is the "index exists" case: the body is not applied.
+fn remember_dataset_create(state: &mut HttpState, index: &str, body: &Value) {
+    if state.installed_dataset_properties.contains_key(index) {
+        return;
+    }
+    let Some(properties) = body
+        .pointer("/mappings/properties")
+        .and_then(Value::as_object)
+        .cloned()
+    else {
+        return;
+    };
+    state
+        .installed_dataset_properties
+        .insert(index.to_owned(), properties);
+}
+
+/// Merge a dataset `_mapping` into the stored properties, or refuse a type
+/// change. Returns the engine's reason when a stored field's `type` would
+/// change; the stored map is left untouched in that case.
+fn apply_dataset_mapping(
+    state: &mut HttpState,
+    index: &str,
+    incoming: &serde_json::Map<String, Value>,
+) -> Option<String> {
+    if let Some(existing) = state.installed_dataset_properties.get(index) {
+        for (name, spec) in incoming {
+            let (Some(old), Some(new)) = (
+                existing
+                    .get(name)
+                    .and_then(|value| value.get("type"))
+                    .and_then(Value::as_str),
+                spec.get("type").and_then(Value::as_str),
+            ) else {
+                continue;
+            };
+            if old != new {
+                return Some(format!(
+                    "field [{name}] already exists as [{old}], cannot add [{new}]"
+                ));
+            }
+        }
+    }
+    let slot = state
+        .installed_dataset_properties
+        .entry(index.to_owned())
+        .or_default();
+    for (name, spec) in incoming {
+        slot.entry(name.clone()).or_insert_with(|| spec.clone());
+    }
+    None
 }
 
 fn bulk_http(body: &[u8], state: &Arc<Mutex<HttpState>>) -> (u16, Value) {
@@ -466,6 +599,59 @@ fn bulk_http(body: &[u8], state: &Arc<Mutex<HttpState>>) -> (u16, Value) {
         let numbered = locked.fail_data_bulk_number == Some(locked.data_bulk_requests);
         if numbered {
             locked.fail_data_bulk_number = None;
+        }
+        if std::mem::take(&mut locked.refuse_next_data_item_as_too_large) {
+            let action: Value = serde_json::from_slice(lines[0]).unwrap();
+            let id = action["index"]["_id"]
+                .as_str()
+                .unwrap_or_default()
+                .to_owned();
+            return (
+                200,
+                json!({
+                    "errors": true,
+                    "items": [{"index": {
+                        "_id": id,
+                        "status": 413,
+                        "error": {
+                            "type": "engine_exception",
+                            "reason": "document is 16590136 bytes, over the 8388608 byte limit for one indexed JSON document; it was not indexed. Split it into smaller documents",
+                            "status": 413
+                        }
+                    }}]
+                }),
+            );
+        }
+        if let Some(limit) = locked.refuse_documents_over {
+            // Pair each action with its source line; a `delete` has none.
+            let mut refused = None;
+            let mut rest = lines.iter();
+            while let Some(line) = rest.next() {
+                let action: Value = serde_json::from_slice(line).unwrap();
+                if action.get("delete").is_none()
+                    && rest.next().is_some_and(|source| source.len() > limit)
+                {
+                    refused = Some(action);
+                    break;
+                }
+            }
+            if let Some(action) = refused {
+                return (
+                    200,
+                    json!({
+                        "errors": true,
+                        "items": [{"index": {
+                            "_id": action["index"]["_id"],
+                            "status": 413,
+                            "error": {
+                                "type": "engine_exception",
+                                "reason": "document is 16590136 bytes, over the 8388608 byte limit for one indexed JSON document; it was not indexed. Split it into smaller documents",
+                                "status": 413
+                            }
+                        }}]
+                    }),
+                );
+            }
         }
         if std::mem::take(&mut locked.fail_next_data_bulk) || numbered {
             return (
@@ -723,6 +909,40 @@ fn delete_http(path: &str, body: &[u8], state: &Arc<Mutex<HttpState>>) -> usize 
     before - locked.docs.len()
 }
 
+/// `POST /{index}/_mget` `{"ids":[...]}` — the catalog read-back (#1267).
+/// A missing id is `found: false`, not an error, matching the engine.
+fn mget_http(path: &str, body: &[u8], state: &Arc<Mutex<HttpState>>) -> Value {
+    let index = path
+        .trim_start_matches('/')
+        .trim_end_matches("/_mget")
+        .to_owned();
+    let query: Value = serde_json::from_slice(body).unwrap_or(Value::Null);
+    let ids = query
+        .get("ids")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    let locked = state.lock().unwrap();
+    let docs: Vec<Value> = ids
+        .iter()
+        .map(|id| {
+            let Some(id) = id.as_str() else {
+                return json!({"_index": index, "found": false});
+            };
+            match locked.docs.get(&(index.clone(), id.to_owned())) {
+                Some(source) => json!({
+                    "_index": index,
+                    "_id": id,
+                    "found": true,
+                    "_source": source
+                }),
+                None => json!({"_index": index, "_id": id, "found": false}),
+            }
+        })
+        .collect();
+    json!({"docs": docs})
+}
+
 fn search_http(path: &str, body: &[u8], state: &Arc<Mutex<HttpState>>) -> Value {
     let indices = path
         .trim_start_matches('/')
@@ -753,7 +973,23 @@ fn search_http(path: &str, body: &[u8], state: &Arc<Mutex<HttpState>>) -> Value 
     let must_not_exists = query
         .pointer("/query/bool/must_not/0/exists/field")
         .and_then(Value::as_str);
-    let locked = state.lock().unwrap();
+    // #1977: the catalog gate reads rows back with `query.ids`. Dropping that
+    // clause made the search a match-all, and `size` (the published id count)
+    // then kept the `ds:` rows plus the `file:` rows that sort between `ds:`
+    // and `run:`. The run document was in the store and still looked missing.
+    // An id that was never written stays out of the hits, which is the case
+    // the gate exists to fail.
+    let ids: Option<Vec<String>> = query
+        .pointer("/query/ids/values")
+        .and_then(Value::as_array)
+        .map(|values| {
+            values
+                .iter()
+                .filter_map(Value::as_str)
+                .map(str::to_owned)
+                .collect()
+        });
+    let mut locked = state.lock().unwrap();
     // #890: a catalog field an older build left as `text` is ANALYZED, so a
     // `term` on it matches tokens, not the raw value. `legacy` is empty for
     // every other index, which keeps every other search byte-exact.
@@ -768,8 +1004,9 @@ fn search_http(path: &str, body: &[u8], state: &Arc<Mutex<HttpState>>) -> Value 
     let mut matching: Vec<_> = locked
         .docs
         .iter()
-        .filter(|((index, _), doc)| {
+        .filter(|((index, id), doc)| {
             indices.contains(&index.as_str())
+                && ids.as_ref().is_none_or(|wanted| wanted.contains(id))
                 && term
                     .map(|(field, value)| term_matches(doc, field, value, legacy_for(index)))
                     .unwrap_or(true)
@@ -810,7 +1047,9 @@ fn search_http(path: &str, body: &[u8], state: &Arc<Mutex<HttpState>>) -> Value 
                             .get("exists")
                             .and_then(|exists| exists.get("field"))
                             .and_then(Value::as_str)
-                            .is_none_or(|field| doc.get(field).is_some())
+                            .is_none_or(|field| {
+                                !locked.hide_semantic_matches && doc.get(field).is_some()
+                            })
                 })
                 && exists.map(|field| doc.get(field).is_some()).unwrap_or(true)
                 && must_not_exists
@@ -855,6 +1094,18 @@ fn search_http(path: &str, body: &[u8], state: &Arc<Mutex<HttpState>>) -> Value 
         Some((field, _)) => matching.sort_by(|(_, a), (_, b)| cmp_docs_by_field(a, b, field)),
         None => matching.sort_by_key(|(key, _)| *key),
     }
+    // #2314: one short catalog page, internally consistent (total matches the
+    // hits actually returned). The per-group equality then falls short and
+    // the retry after refresh must see the document that was held back.
+    let catalog_file_key_page = indices.contains(&catalog::CATALOG_INDEX)
+        && filters
+            .iter()
+            .any(|filter| filter.pointer("/terms/file_key").is_some());
+    let mut shorten = false;
+    if catalog_file_key_page && locked.short_catalog_file_key_pages > 0 && matching.len() > 1 {
+        matching.pop();
+        shorten = true;
+    }
     let total = matching.len();
     let from = query
         .get("from")
@@ -881,6 +1132,10 @@ fn search_http(path: &str, body: &[u8], state: &Arc<Mutex<HttpState>>) -> Value 
         .and_then(Value::as_object)
         .map(|aggs| {
             let mut body = serde_json::Map::new();
+            let semantic_window = query
+                .pointer("/query/bool/filter")
+                .and_then(Value::as_array)
+                .is_some_and(|filter| filter.iter().any(|clause| clause.get("exists").is_some()));
             for (name, spec) in aggs {
                 let Some(field) = spec
                     .get("terms")
@@ -889,6 +1144,10 @@ fn search_http(path: &str, body: &[u8], state: &Arc<Mutex<HttpState>>) -> Value 
                 else {
                     continue;
                 };
+                if locked.hide_record_counts && field == "ax_file" && !semantic_window {
+                    body.insert(name.clone(), json!({"buckets": []}));
+                    continue;
+                }
                 let mut counts: std::collections::BTreeMap<&str, u64> =
                     std::collections::BTreeMap::new();
                 for (_, doc) in &matching {
@@ -907,6 +1166,10 @@ fn search_http(path: &str, body: &[u8], state: &Arc<Mutex<HttpState>>) -> Value 
             Value::Object(body)
         })
         .unwrap_or_else(|| json!({}));
+    drop(matching);
+    if shorten {
+        locked.short_catalog_file_key_pages -= 1;
+    }
     json!({
         "hits": {
             "total": {"value": total, "relation": "eq"},
@@ -948,6 +1211,8 @@ fn cfg(root: &Path, state_dir: &Path, url: &str, semantic: bool) -> IndexCfg {
         bulk_timeout_secs: 30,
         snapshot_max_bytes: 64 << 30,
         prefix: "incremental-http".into(),
+        replace_prefix: false,
+        prefix_note: None,
         state_dir: Some(state_dir.to_owned()),
         fresh: false,
         follow_symlinks: false,
@@ -963,7 +1228,11 @@ fn cfg(root: &Path, state_dir: &Path, url: &str, semantic: bool) -> IndexCfg {
         // timing-derived stop. See `gate_tests` and `cli::tests`.
         max_minutes: 0,
         approve: None,
+        max_index_bytes: None,
+        budget_plan: None,
+        drop_indexed: false,
         dry_run: false,
+        walk_only: false,
         json: false,
         quiet: true,
         progress: crate::progress::ProgressMode::None,
@@ -972,6 +1241,8 @@ fn cfg(root: &Path, state_dir: &Path, url: &str, semantic: bool) -> IndexCfg {
         label: None,
         debounce: std::time::Duration::from_millis(0),
         exclude_rels: Vec::new(),
+        exclude: Vec::new(),
+        skip_corpus_data: false,
     }
 }
 
@@ -1453,6 +1724,11 @@ fn dataset_read_back_bounds_time_by_sort_and_no_materialising_agg() {
     );
     for body in &sorted {
         assert_eq!(body.get("size"), Some(&json!(1)), "size-1 query: {body}");
+        assert_eq!(
+            body.pointer("/sort/0/cloned_at/unmapped_type"),
+            Some(&json!("date")),
+            "bound query carries unmapped_type: date so dotted time fields never abort finalize-catalog: {body}"
+        );
         assert!(
             body.pointer("/query/bool/filter").is_some(),
             "bound query keeps the dataset filter: {body}"
@@ -1767,6 +2043,143 @@ fn code_file_reindex_does_not_abort_on_absent_symbols_field() {
     );
 }
 
+/// #2139: re-indexing a changed code file must drop documents for symbols that
+/// no longer exist, including when a declaration moves to a new line.
+///
+/// Per-symbol `_id`s are `code:<line>:<name>` (#500). A signature edit that
+/// also shifts the declaration does not overwrite the old symbol document, so
+/// the file-level delete on `ax_file` is what has to remove it. The sibling
+/// code reindex above changes a field type without moving the declaration, so
+/// the same locator is overwritten and a missed delete still looks clean.
+///
+/// `--no-graph` (this module). The graph-enabled twin lives in
+/// `failure_resume_http_tests`.
+#[test]
+fn changed_code_file_reindex_drops_shifted_and_removed_symbols() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _replay_guard = sync_executor::REPLAY_FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    let source = corpus.path().join("jobs.rs");
+    fs::write(&source, CODE_V1).unwrap();
+    let endpoint = HttpEndpoint::start();
+    let config = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
+    assert_eq!(run_index(config.clone()).unwrap(), 0);
+    let first = endpoint.data_docs();
+    assert!(
+        symbol_rows(&first).iter().any(|(name, _, code)| {
+            name == "query_job" && code.contains("group_id") && !code.contains("&self")
+        }),
+        "genesis must index the original query_job symbol: {}",
+        serde_json::to_string(&symbol_rows(&first)).unwrap()
+    );
+    assert!(
+        symbol_rows(&first)
+            .iter()
+            .any(|(name, _, _)| name == "gone_symbol"),
+        "genesis must index gone_symbol: {}",
+        serde_json::to_string(&symbol_rows(&first)).unwrap()
+    );
+
+    fs::write(&source, CODE_V2).unwrap();
+    assert_eq!(
+        run_index(config).unwrap(),
+        0,
+        "an ordinary incremental reindex of an edited code file must succeed"
+    );
+    let live = endpoint.data_docs();
+    assert_code_matches_fresh(&live, "no-graph incremental reindex");
+}
+
+/// A from-scratch index of [`CODE_V2`], the oracle for #2139: the edited file's
+/// live documents must match this, not a superset that still holds v1 symbols.
+fn fresh_code_v2_docs() -> Vec<Value> {
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    fs::write(corpus.path().join("jobs.rs"), CODE_V2).unwrap();
+    let endpoint = HttpEndpoint::start();
+    let config = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
+    assert_eq!(run_index(config).unwrap(), 0);
+    endpoint.data_docs()
+}
+
+fn assert_code_matches_fresh(live: &[Value], label: &str) {
+    let rendered = serde_json::to_string(live).unwrap();
+    assert!(
+        !rendered.contains("gone_symbol"),
+        "{label}: removed symbol gone_symbol is still indexed: {rendered}"
+    );
+    assert!(
+        !rendered.contains("pub fn query_job(group_id"),
+        "{label}: the pre-edit query_job signature is still indexed: {rendered}"
+    );
+    assert!(
+        rendered.contains("pub fn query_job(&self"),
+        "{label}: the current query_job signature is missing: {rendered}"
+    );
+    let fresh = fresh_code_v2_docs();
+    assert_eq!(
+        symbol_rows(live),
+        symbol_rows(&fresh),
+        "{label}: symbol documents (name, line, code) must match a fresh index of the edited file"
+    );
+    assert_eq!(
+        live.len(),
+        fresh.len(),
+        "{label}: document count must match a fresh index of the edited file\n\
+         live={rendered}\nfresh={}",
+        serde_json::to_string(&fresh).unwrap()
+    );
+}
+
+/// `(name, line, code)` of per-symbol documents, in a stable order.
+fn symbol_rows(docs: &[Value]) -> Vec<(String, u64, String)> {
+    let mut rows: Vec<(String, u64, String)> = docs
+        .iter()
+        .filter(|doc| doc.get("defs").is_none())
+        .filter_map(|doc| {
+            Some((
+                doc.get("name")?.as_str()?.to_string(),
+                doc.get("line")?.as_u64()?,
+                doc.get("code")?.as_str()?.to_string(),
+            ))
+        })
+        .collect();
+    rows.sort();
+    rows
+}
+
+/// v1: `gone_symbol` plus a two-argument `query_job`.
+const CODE_V1: &str = "\
+struct Jobs;\n\
+\n\
+impl Jobs {\n\
+    pub fn gone_symbol() -> i32 {\n\
+        1\n\
+    }\n\
+\n\
+    pub fn query_job(group_id: &str, raw: &str) -> bool {\n\
+        !raw.is_empty()\n\
+    }\n\
+}\n\
+";
+
+/// v2: `gone_symbol` removed, `query_job` gains `&self` and moves down.
+const CODE_V2: &str = "\
+struct Jobs;\n\
+\n\
+impl Jobs {\n\
+    // the signature gained &self and the declaration moved down\n\
+\n\
+\n\
+    pub fn query_job(&self, group_id: &str, raw: &str) -> bool {\n\
+        !raw.is_empty()\n\
+    }\n\
+}\n\
+";
+
 #[test]
 fn pending_generation_replays_sealed_source_after_live_source_mutates() {
     let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
@@ -1941,6 +2354,113 @@ fn no_graph_committed_corpus_is_refused_on_the_graph_path_with_a_clear_message()
 }
 
 #[test]
+fn semantic_count_mismatch_reports_counts_and_datasets_and_resumes() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    fs::write(
+        corpus.path().join("report.rs"),
+        "pub fn quarterly_report() -> &'static str { \"Durable subscription revenue and operating income\" }\n",
+    )
+    .unwrap();
+    let endpoint = HttpEndpoint::start();
+    endpoint.state.lock().unwrap().hide_semantic_matches = true;
+    let config = cfg(corpus.path(), state_dir.path(), &endpoint.url, true);
+
+    let error = run_index(config.clone()).expect_err("semantic read-back must refuse the run");
+    let message = format!("{error:#}");
+    let journal = fs::read_to_string(state_dir.path().join("journal.ndjson")).unwrap();
+    let begin: Value = journal
+        .lines()
+        .map(|line| serde_json::from_str::<Value>(line).unwrap())
+        .find(|event| event["kind"] == "sync_begin")
+        .unwrap();
+    let desired: crate::sync::GenerationManifest =
+        serde_json::from_value(begin["desired"].clone()).unwrap();
+    assert_eq!(desired.groups.len(), 1);
+    let group = &desired.groups[0];
+    assert!(group.expected_passages > 0);
+    assert!(group.expected_vectors > 0);
+    assert!(!group.dataset_slugs.is_empty());
+    for expected in [
+        format!(
+            "live semantic count disagrees with desired group {}",
+            group.group_id
+        ),
+        "live_semantic_records=0".into(),
+        format!("expected_passages={}", group.expected_passages),
+        format!("expected_vectors={}", group.expected_vectors),
+        format!("datasets={:?}", group.dataset_slugs),
+    ] {
+        assert!(
+            message.contains(&expected),
+            "missing {expected:?}: {message}"
+        );
+    }
+    assert_eq!(journal_events(state_dir.path(), "sync_validated"), 0);
+    assert_eq!(journal_events(state_dir.path(), "sync_commit"), 0);
+    let published = endpoint.data_docs();
+    assert!(
+        !published.is_empty(),
+        "the mismatch happens after publication"
+    );
+
+    // Restore truthful read-backs: the same durable generation must resume
+    // without duplicating or changing the documents it already published.
+    endpoint.state.lock().unwrap().hide_semantic_matches = false;
+    assert_eq!(run_index(config).unwrap(), 0);
+    assert_eq!(endpoint.data_docs(), published);
+    assert_eq!(journal_events(state_dir.path(), "sync_commit"), 1);
+}
+
+#[test]
+fn record_count_mismatch_names_the_remove_that_rebuilds_the_folder() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    fs::write(
+        corpus.path().join("report.txt"),
+        "Quarterly report discusses durable subscription revenue and operating income.",
+    )
+    .unwrap();
+    let endpoint = HttpEndpoint::start();
+    endpoint.state.lock().unwrap().hide_record_counts = true;
+    let config = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
+
+    let error = run_index(config.clone()).expect_err("record read-back must refuse the run");
+    let message = format!("{error:#}");
+    assert!(
+        message.contains("live record count disagrees with desired group"),
+        "{message}"
+    );
+    assert_eq!(journal_events(state_dir.path(), "sync_commit"), 0);
+    // The advice must name this folder exactly as the run identified it, and
+    // carry the non-default URL and the explicit state dir, or `remove`
+    // selects nothing and the next resume stops at the same check (#2669).
+    let root = corpus.path().canonicalize().unwrap();
+    let command = message
+        .split("To rebuild them, run `")
+        .nth(1)
+        .and_then(|rest| rest.split('`').next())
+        .unwrap_or_else(|| panic!("no repair command: {message}"));
+    assert!(
+        message.ends_with(&format!("`{command}`, then rerun this command")),
+        "{message}"
+    );
+    let argv = shell_words(command);
+    assert_eq!(argv[..3], ["xerj", "autoindex", "remove"]);
+    let remove = match cli::parse(argv[2..].to_vec()).expect("the repair command must parse") {
+        cli::Cmd::Remove(remove) => remove,
+        other => panic!("expected autoindex remove, got {other:?}"),
+    };
+    assert_eq!(remove.prefix, config.prefix);
+    assert_eq!(remove.root.as_deref(), Some(root.to_str().unwrap()));
+    assert_eq!(remove.url, endpoint.url);
+    assert_eq!(remove.state_dir.as_deref(), Some(state_dir.path()));
+    assert!(remove.yes);
+}
+
+#[test]
 fn pending_semantic_identity_drift_rejects_before_any_further_bulk() {
     let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
     let _replay_guard = sync_executor::REPLAY_FAILPOINT_TEST_LOCK
@@ -2043,8 +2563,11 @@ fn fresh_cannot_destroy_a_committed_generation() {
     let attempted = endpoint.state.lock().unwrap().requests[requests_before..].to_vec();
     assert_eq!(
         attempted,
-        [("GET".to_owned(), "/".to_owned())],
-        "a refused --fresh may perform only the endpoint-readiness GET"
+        [
+            ("GET".to_owned(), "/".to_owned()),
+            ("GET".to_owned(), "/_cat/allocation?format=json".to_owned(),),
+        ],
+        "a refused --fresh may perform only the readiness GET and the read-only flood-stage probe"
     );
 
     // The surviving authority still reconciles the real folder change.
@@ -2151,8 +2674,11 @@ fn fresh_cannot_destroy_a_pending_generation() {
     let attempted = endpoint.state.lock().unwrap().requests[requests_before..].to_vec();
     assert_eq!(
         attempted,
-        [("GET".to_owned(), "/".to_owned())],
-        "a refused --fresh may perform only the endpoint-readiness GET"
+        [
+            ("GET".to_owned(), "/".to_owned()),
+            ("GET".to_owned(), "/_cat/allocation?format=json".to_owned(),),
+        ],
+        "a refused --fresh may perform only the readiness GET and the read-only flood-stage probe"
     );
 
     // The pending transaction is still resumable from its sealed source.
@@ -2630,8 +3156,9 @@ fn a_two_table_sqlite_file_commits_its_generation() {
 /// The shape #360 was actually reported against, and the one that reaches the
 /// fan-out through the *sniffer* rather than through an extension: ordinary
 /// markdown prose with SQL blocks in it, as in `unum-cloud/usearch`'s
-/// `sqlite/README.md`. `sniff` routes any text containing `CREATE TABLE` and a
-/// `;` to the `sqldump` family, so a README documenting two tables is one
+/// `sqlite/README.md`. The SQL blocks contain `INSERT INTO … VALUES`, which
+/// is what `sniff` routes to the `sqldump` family (#1984: `CREATE TABLE`
+/// alone is schema, not a dump), so a README documenting two tables is one
 /// content group feeding two datasets — no dump and no database file involved.
 /// Worth pinning separately: the reporter's corpus contained neither.
 #[test]
@@ -4941,10 +5468,9 @@ fn the_generated_path_reports_indexing_as_indexing_not_as_a_stalled_scan() {
         "each long step of the generated route is its own phase, in order:\n{stream}"
     );
 
-    // #1267: that read-back phase opens with the engine's own match total as
-    // its denominator — a moving bar with an ETA from the first page, not a
-    // count with no total. The two-dataset generation writes at least its run
-    // document, so the denominator is non-zero.
+    // #1267: that read-back phase opens at zero with a real denominator — the
+    // number of catalog documents this generation publishes (at least the run
+    // document), read by id. A count with no total is the frozen ticker.
     let readback_opened = lines
         .iter()
         .find(|line| line["phase"] == "finalize-catalog-readback")
@@ -5513,6 +6039,65 @@ impl Rng {
 }
 
 #[test]
+fn a_watch_edit_can_join_an_existing_content_group() {
+    watch_edit_joins_existing_content(false);
+}
+
+#[test]
+fn joining_an_existing_content_group_resumes_after_a_publish_failure() {
+    watch_edit_joins_existing_content(true);
+}
+
+fn watch_edit_joins_existing_content(fail_publish: bool) {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    let root = corpus.path().canonicalize().unwrap();
+    fs::write(root.join("a.csv"), "id,value\n1,alpha\n").unwrap();
+    fs::write(root.join("b.csv"), "id,value\n2,beta\n").unwrap();
+    let endpoint = HttpEndpoint::start();
+    let config = cfg(&root, state_dir.path(), &endpoint.url, false);
+    let mut carry = crate::watch::Carry::default();
+    crate::watch::one_pass(&config, &root, &mut carry, &crate::watch::ChangeSet::full())
+        .0
+        .unwrap();
+
+    fs::copy(root.join("b.csv"), root.join("a.csv")).unwrap();
+    endpoint.state.lock().unwrap().fail_next_data_bulk = fail_publish;
+    let burst = crate::watch::ChangeSet::from_paths(&[root.join("a.csv")]);
+    let (outcome, _) = crate::watch::one_pass(&config, &root, &mut carry, &burst);
+    if fail_publish {
+        assert!(
+            outcome.is_err(),
+            "the injected publish failure must be observed"
+        );
+        let mut restarted = crate::watch::Carry::default();
+        assert_eq!(
+            crate::watch::one_pass(
+                &config,
+                &root,
+                &mut restarted,
+                &crate::watch::ChangeSet::full(),
+            )
+            .0
+            .unwrap()
+            .0,
+            0
+        );
+    } else {
+        assert_eq!(outcome.unwrap().0, 0);
+    }
+    let docs = endpoint.data_docs();
+    assert_eq!(docs.len(), 1, "converged content must have one data record");
+    assert_eq!(docs[0]["value"], "beta");
+    assert_eq!(paths(&docs), vec!["a.csv"]);
+    assert_eq!(docs[0]["ax_paths"], serde_json::json!(["a.csv", "b.csv"]));
+    let (reference, _reference_state) = fresh_full_index(&root);
+    assert_eq!(published(&endpoint), published(&reference));
+    a_rerun_changes_nothing(&config, &endpoint, "edit joining existing content");
+}
+
+#[test]
 fn a_watch_pass_rehashes_only_what_changed_and_publishes_it() {
     let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
     let corpus = tempfile::tempdir().unwrap();
@@ -5573,6 +6158,189 @@ fn a_watch_pass_rehashes_only_what_changed_and_publishes_it() {
         published(&endpoint),
         published(&reference),
         "a watched index must equal a fresh full index"
+    );
+}
+
+fn joined_docs(endpoint: &HttpEndpoint) -> String {
+    endpoint
+        .data_docs()
+        .iter()
+        .map(|doc| doc.to_string())
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// #2176: a Python file indexed as a comment and an import freezes `docs`
+/// without a `code` field. Adding a function while `--watch` is running must
+/// publish the new source, install `code` on the dataset, and still index a
+/// sibling file that changed in the same pass. On the failing build this
+/// pass returns the frozen-schema error and neither edit lands.
+#[test]
+fn adding_a_python_function_under_watch_indexes_the_new_field_and_sibling_edits() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    let root = corpus.path().canonicalize().unwrap();
+    fs::write(
+        root.join("module.py"),
+        "# The birchbefore marker identifies the cancellation module.\nimport math\n",
+    )
+    .unwrap();
+    fs::write(root.join("notes.md"), "birchdoc-before\n").unwrap();
+    let endpoint = HttpEndpoint::start();
+    let config = cfg(&root, state_dir.path(), &endpoint.url, false);
+    let mut carry = crate::watch::Carry::default();
+    let (outcome, _) =
+        crate::watch::one_pass(&config, &root, &mut carry, &crate::watch::ChangeSet::full());
+    assert_eq!(outcome.unwrap().0, 0, "the symbol-less file must index");
+    let first = joined_docs(&endpoint);
+    assert!(
+        first.contains("birchbefore"),
+        "the first pass must publish the original source: {first}"
+    );
+    assert!(first.contains("birchdoc-before"), "{first}");
+
+    fs::write(
+        root.join("module.py"),
+        "# The birchafter marker identifies the cancellation module.\n\
+         import math\n\
+         \n\
+         def cancel_request():\n\
+             return \"birchfunction\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("notes.md"), "birchdoc-after\n").unwrap();
+    let burst =
+        crate::watch::ChangeSet::from_paths(&[root.join("module.py"), root.join("notes.md")]);
+    let (outcome, _) = crate::watch::one_pass(&config, &root, &mut carry, &burst);
+    let (code, _) = outcome
+        .expect("adding `code` to a frozen docs dataset must not fail the watch pass (#2176)");
+    assert_eq!(code, 0, "both files are compatible once the mapping grows");
+    let indexed = joined_docs(&endpoint);
+    assert!(
+        indexed.contains("birchafter"),
+        "the rewritten file must be live: {indexed}"
+    );
+    assert!(
+        indexed.contains("birchfunction"),
+        "the function body must be searchable: {indexed}"
+    );
+    assert!(
+        indexed.contains("birchdoc-after"),
+        "a sibling edit in the same pass must still be indexed: {indexed}"
+    );
+    assert!(
+        !indexed.contains("birchbefore"),
+        "the old source must not stay searchable: {indexed}"
+    );
+    assert!(
+        !indexed.contains("birchdoc-before"),
+        "the old note must not stay searchable: {indexed}"
+    );
+    assert!(
+        endpoint.data_docs().iter().any(|doc| {
+            doc.get("code")
+                .and_then(Value::as_str)
+                .is_some_and(|code| code.contains("cancel_request"))
+        }),
+        "a symbol document must carry the new `code` field: {indexed}"
+    );
+    let properties = endpoint
+        .dataset_properties("incremental-http-docs")
+        .expect("the docs index mapping must have been installed");
+    let code_type = properties["code"]["type"]
+        .as_str()
+        .expect("code must be a mapped field");
+    assert!(
+        code_type == "text" || code_type == "keyword",
+        "code must be a searchable scalar, got {code_type}"
+    );
+    a_rerun_changes_nothing(&config, &endpoint, "function added under watch");
+}
+
+/// A type change cannot be applied to a frozen field. Only that file is
+/// skipped; the other file in the pass is published, and the printed rebuild
+/// command is a real `autoindex` of a new state dir and prefix.
+#[test]
+fn a_type_change_skips_one_file_and_the_printed_rebuild_indexes_it() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    let root = corpus.path().canonicalize().unwrap();
+    fs::write(root.join("good.csv"), "id,value\n2,beta\n").unwrap();
+    fs::write(root.join("bad.csv"), "id,value\n1,alpha\n").unwrap();
+    let endpoint = HttpEndpoint::start();
+    let config = cfg(&root, state_dir.path(), &endpoint.url, false);
+    let mut carry = crate::watch::Carry::default();
+    assert_eq!(
+        crate::watch::one_pass(&config, &root, &mut carry, &crate::watch::ChangeSet::full())
+            .0
+            .unwrap()
+            .0,
+        0
+    );
+
+    // The data row keeps a number so the sniffer still treats the first line
+    // as a header. `id` stays the frozen `long` field and the string is a
+    // type conflict, not a new `col_1` schema.
+    fs::write(root.join("good.csv"), "id,value\n2,good-new\n").unwrap();
+    fs::write(root.join("bad.csv"), "id,value\nnot-a-number,2\n").unwrap();
+    let burst = crate::watch::ChangeSet::from_paths(&[root.join("good.csv"), root.join("bad.csv")]);
+    let (outcome, _) = crate::watch::one_pass(&config, &root, &mut carry, &burst);
+    let (code, summary) = outcome.expect("a type change must not fail the rest of the pass");
+    assert_eq!(code, 3, "the unmappable file is junk, and junk exits 3");
+    let skipped = summary.expect("the pass must report the skipped file")["skipped"].clone();
+    let rendered = skipped.to_string();
+    let command = incremental_schema_rebuild_command(&config, state_dir.path());
+    assert!(
+        rendered.contains("incompatible"),
+        "the reason must name the type conflict: {rendered}"
+    );
+    assert!(
+        rendered.contains("bad.csv"),
+        "the reason must name the file: {rendered}"
+    );
+    assert!(
+        rendered.contains(&command),
+        "the reason must print the rebuild command\nreason: {rendered}\ncommand: {command}"
+    );
+    assert!(
+        rendered.contains("Documents already indexed for this file are dropped"),
+        "{rendered}"
+    );
+    let indexed = joined_docs(&endpoint);
+    assert!(
+        indexed.contains("good-new"),
+        "the sibling file must be published: {indexed}"
+    );
+    assert!(
+        !indexed.contains("not-a-number"),
+        "the type-changed file must not be published: {indexed}"
+    );
+    assert!(
+        !indexed.contains("alpha"),
+        "documents already indexed for the skipped file are dropped: {indexed}"
+    );
+
+    let journal_before = fs::read(state_dir.path().join("journal.ndjson")).unwrap();
+    let rebuild_state = PathBuf::from(format!("{}-reindex", state_dir.path().display()));
+    fs::create_dir_all(&rebuild_state).unwrap();
+    let mut rebuild = config.clone();
+    rebuild.prefix = format!("{}-reindex", config.prefix);
+    rebuild.state_dir = Some(rebuild_state);
+    assert!(
+        matches!(run_index(rebuild).unwrap(), 0 | 3),
+        "the printed destination must accept a fresh index of the same folder"
+    );
+    let rebuilt = joined_docs(&endpoint);
+    assert!(
+        rebuilt.contains("not-a-number"),
+        "the rebuild must index the file the watcher skipped: {rebuilt}"
+    );
+    assert_eq!(
+        fs::read(state_dir.path().join("journal.ndjson")).unwrap(),
+        journal_before,
+        "the rebuild uses its own state dir and must not rewrite the watcher journal"
     );
 }
 
@@ -6215,6 +6983,7 @@ mod delete_gate {
                     digest: "prepared".into(),
                 }),
                 prepared_identity: None,
+                blob_released: false,
             }],
             snapshot_digest: "snapshot".into(),
         };
@@ -6335,6 +7104,343 @@ mod delete_gate {
         assert!(landed, "the replayed document landed");
     }
 
+    /// A cap between the measured `code-and-docs` estimate and the default
+    /// estimate stops before any data bulk (exit 4). `--plan code-and-docs`
+    /// is the plan that fits, and the csv it drops is not indexed. The sizes
+    /// come from `budget::MEASURED`. An empty table fails here: skipping would
+    /// hide a gate that can no longer tell the plans apart.
+    #[test]
+    fn a_budget_too_small_for_the_default_plan_accepts_a_smaller_one() {
+        let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let corpus = tempfile::tempdir().unwrap();
+        fs::write(
+            corpus.path().join("main.rs"),
+            "fn main() { println!(\"budget\"); }\n",
+        )
+        .unwrap();
+        let mut csv = String::from("id,value\n");
+        for i in 0..2000 {
+            csv.push_str(&format!("{i},row-{i}-budget-padding\n"));
+        }
+        fs::write(corpus.path().join("big.csv"), csv).unwrap();
+
+        let (files, _) = walk::walk_reporting_opts(
+            corpus.path(),
+            false,
+            false,
+            crate::ignore_rules::IgnoreOptions::default(),
+        )
+        .unwrap();
+        let priced = budget::assess(&budget::Request {
+            root: corpus.path().to_str().unwrap_or("/corpus"),
+            files: &files,
+            volume: None,
+            max_index_bytes: Some(u64::MAX),
+            no_semantic: true,
+            plan: None,
+            approve: None,
+            duplicate_prefixes: &[],
+            memory_budget: None,
+        });
+        let plan_bytes = |name: &str| -> u64 {
+            let plan = priced.body["plans"]
+                .as_array()
+                .and_then(|plans| plans.iter().find(|plan| plan["name"] == name))
+                .unwrap_or_else(|| panic!("missing plan {name} in {}", priced.body));
+            plan["index_bytes"].as_u64().unwrap_or_else(|| {
+                panic!(
+                    "plan {name} has no measured index size. Fill budget::MEASURED from a real \
+                     xerj run; an unmeasured kind must not be given a guessed ratio. {}",
+                    priced.body
+                )
+            })
+        };
+        let default_bytes = plan_bytes("default");
+        let reduced_bytes = plan_bytes("code-and-docs");
+        assert!(
+            reduced_bytes < default_bytes,
+            "code-and-docs ({reduced_bytes}) has to be smaller than default ({default_bytes}) \
+             so the cap can sit between them"
+        );
+
+        let endpoint = HttpEndpoint::start();
+        let refused_state = tempfile::tempdir().unwrap();
+        let mut refused = cfg(corpus.path(), refused_state.path(), &endpoint.url, false);
+        refused.prefix = "budget-http".into();
+        refused.max_index_bytes = Some(reduced_bytes);
+        assert_eq!(run_index(refused).unwrap(), gate::EXIT_NEEDS_DECISION);
+        assert_eq!(
+            endpoint.data_bulk_requests(),
+            0,
+            "a plan that does not fit must not bulk-index"
+        );
+
+        let accepted_state = tempfile::tempdir().unwrap();
+        let mut accepted = cfg(corpus.path(), accepted_state.path(), &endpoint.url, false);
+        accepted.prefix = "budget-http".into();
+        accepted.max_index_bytes = Some(reduced_bytes);
+        accepted.budget_plan = Some("code-and-docs".into());
+        assert_eq!(run_index(accepted).unwrap(), 0);
+        let indexed = paths(&endpoint.data_docs());
+        assert!(
+            indexed.iter().any(|path| path.ends_with("main.rs")),
+            "the code file is the part the plan keeps: {indexed:?}"
+        );
+        assert!(
+            indexed.iter().all(|path| !path.ends_with("big.csv")),
+            "the csv is the part the plan drops: {indexed:?}"
+        );
+    }
+
+    /// A folder that was indexed in full, then re-run under a reduced plan.
+    ///
+    /// `--plan code-and-docs` (and `--yes`, when it selects that plan) filters
+    /// the walk before reconcile. The csv is still on disk and already
+    /// published, but it is absent from the inventory, so the generation's
+    /// `Delete` operations would remove its documents. The same filter is what
+    /// the graph path's exclusion sweep would treat as a widened ignore. A
+    /// reduced plan must not do that unless `--drop-indexed` confirms it.
+    ///
+    /// The refusal is before the journal is opened for write and before any
+    /// delete or bulk, so the committed generation and the live documents are
+    /// unchanged and a later full re-run still reconciles.
+    #[test]
+    fn a_reduced_plan_does_not_delete_datasets_already_indexed() {
+        let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let corpus = tempfile::tempdir().unwrap();
+        fs::write(
+            corpus.path().join("main.rs"),
+            "fn main() { println!(\"kept\"); }\n",
+        )
+        .unwrap();
+        fs::write(corpus.path().join("notes.md"), "# notes\n\nstill indexed\n").unwrap();
+        fs::write(corpus.path().join("rows.csv"), "id,value\n1,alpha\n").unwrap();
+
+        let endpoint = HttpEndpoint::start();
+        let state_dir = tempfile::tempdir().unwrap();
+        let mut full = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
+        full.prefix = "plan-removal".into();
+        assert_eq!(run_index(full).unwrap(), 0, "the full folder indexes");
+        let indexed = paths(&endpoint.data_docs());
+        assert!(
+            indexed.iter().any(|path| path.ends_with("main.rs")),
+            "code indexed: {indexed:?}"
+        );
+        assert!(
+            indexed.iter().any(|path| path.ends_with("notes.md")),
+            "prose indexed: {indexed:?}"
+        );
+        assert!(
+            indexed.iter().any(|path| path.ends_with("rows.csv")),
+            "the csv dataset indexed: {indexed:?}"
+        );
+
+        let journal_before = fs::read(state_dir.path().join("journal.ndjson")).unwrap();
+        let snapshots_before = snapshot_names(state_dir.path());
+        let deletes_before = endpoint
+            .state
+            .lock()
+            .unwrap()
+            .requests
+            .iter()
+            .filter(|(method, path)| method == "POST" && path.contains("/_delete_by_query"))
+            .count();
+        let bulks_before = endpoint.data_bulk_requests();
+
+        let mut reduced = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
+        reduced.prefix = "plan-removal".into();
+        reduced.budget_plan = Some("code-and-docs".into());
+        assert_eq!(
+            run_index(reduced).unwrap(),
+            gate::EXIT_NEEDS_DECISION,
+            "a reduced plan must stop before it deletes indexed data"
+        );
+        assert_eq!(
+            paths(&endpoint.data_docs()),
+            indexed,
+            "the csv dataset is still live"
+        );
+        assert_eq!(
+            fs::read(state_dir.path().join("journal.ndjson")).unwrap(),
+            journal_before,
+            "the refusal must not commit a generation"
+        );
+        assert_eq!(
+            snapshot_names(state_dir.path()),
+            snapshots_before,
+            "the refusal must not seal or drop a snapshot"
+        );
+        let deletes_after = endpoint
+            .state
+            .lock()
+            .unwrap()
+            .requests
+            .iter()
+            .filter(|(method, path)| method == "POST" && path.contains("/_delete_by_query"))
+            .count();
+        assert_eq!(
+            deletes_after, deletes_before,
+            "the refusal must not delete_by_query"
+        );
+        assert_eq!(
+            endpoint.data_bulk_requests(),
+            bulks_before,
+            "the refusal must not bulk"
+        );
+
+        let mut again = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
+        again.prefix = "plan-removal".into();
+        assert_eq!(
+            run_index(again).unwrap(),
+            0,
+            "after the refusal a full re-run still reconciles"
+        );
+        assert_eq!(
+            paths(&endpoint.data_docs()),
+            indexed,
+            "the full re-run keeps the csv dataset"
+        );
+
+        let mut confirmed = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
+        confirmed.prefix = "plan-removal".into();
+        confirmed.budget_plan = Some("code-and-docs".into());
+        confirmed.drop_indexed = true;
+        assert_eq!(
+            run_index(confirmed).unwrap(),
+            0,
+            "--drop-indexed is the confirmation that removes the plan's files"
+        );
+        let after = paths(&endpoint.data_docs());
+        assert!(
+            after.iter().any(|path| path.ends_with("main.rs"))
+                && after.iter().any(|path| path.ends_with("notes.md")),
+            "the plan keeps code and prose: {after:?}"
+        );
+        assert!(
+            after.iter().all(|path| !path.ends_with("rows.csv")),
+            "the confirmed plan deletes the csv dataset: {after:?}"
+        );
+
+        let mut repeat = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
+        repeat.prefix = "plan-removal".into();
+        repeat.budget_plan = Some("code-and-docs".into());
+        assert_eq!(
+            run_index(repeat).unwrap(),
+            0,
+            "once the csv is gone, the same plan has nothing indexed left to delete"
+        );
+        assert_eq!(paths(&endpoint.data_docs()), after);
+    }
+
+    /// The graph path (the default, `no_graph: false`) has no generated
+    /// manifest; the prior plan is the legacy `plan.json`. A reduced plan
+    /// would make its exclusion sweep delete the csv documents. Same contract
+    /// as the `--no-graph` test above: exit 4 and nothing changed, then
+    /// `--drop-indexed` removes exactly the files the plan leaves out.
+    #[test]
+    fn a_reduced_plan_on_the_graph_path_does_not_delete_indexed_data() {
+        let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let corpus = tempfile::tempdir().unwrap();
+        fs::write(
+            corpus.path().join("main.rs"),
+            "fn main() { println!(\"kept\"); }\n",
+        )
+        .unwrap();
+        fs::write(corpus.path().join("notes.md"), "# notes\n\nstill indexed\n").unwrap();
+        fs::write(corpus.path().join("rows.csv"), "id,value\n1,alpha\n").unwrap();
+
+        let endpoint = HttpEndpoint::start();
+        let state_dir = tempfile::tempdir().unwrap();
+        let graph_cfg = || {
+            let mut c = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
+            c.prefix = "plan-removal-graph".into();
+            c.no_graph = false;
+            c
+        };
+        assert_eq!(
+            run_index(graph_cfg()).unwrap(),
+            0,
+            "the full folder indexes"
+        );
+        let indexed = paths(&endpoint.data_docs());
+        assert!(
+            indexed.iter().any(|path| path.ends_with("rows.csv")),
+            "the csv dataset indexed: {indexed:?}"
+        );
+        let deletes = |endpoint: &HttpEndpoint| {
+            endpoint
+                .state
+                .lock()
+                .unwrap()
+                .requests
+                .iter()
+                .filter(|(method, path)| {
+                    method == "DELETE" || (method == "POST" && path.contains("/_delete_by_query"))
+                })
+                .count()
+        };
+        let deletes_before = deletes(&endpoint);
+
+        let mut reduced = graph_cfg();
+        reduced.budget_plan = Some("code-and-docs".into());
+        assert_eq!(
+            run_index(reduced).unwrap(),
+            gate::EXIT_NEEDS_DECISION,
+            "a reduced plan on the graph path must stop before it deletes indexed data"
+        );
+        assert_eq!(
+            paths(&endpoint.data_docs()),
+            indexed,
+            "the csv is still live"
+        );
+        assert_eq!(
+            deletes(&endpoint),
+            deletes_before,
+            "the refusal must not delete"
+        );
+
+        let mut yes = graph_cfg();
+        yes.budget_plan = Some("code-and-docs".into());
+        yes.approve = Some(crate::gate::Approval::Proceed);
+        assert_eq!(
+            run_index(yes).unwrap(),
+            gate::EXIT_NEEDS_DECISION,
+            "--yes does not agree to the deletion"
+        );
+        assert_eq!(paths(&endpoint.data_docs()), indexed);
+
+        let mut confirmed = graph_cfg();
+        confirmed.budget_plan = Some("code-and-docs".into());
+        confirmed.drop_indexed = true;
+        assert_eq!(run_index(confirmed).unwrap(), 0, "--drop-indexed confirms");
+        let after = paths(&endpoint.data_docs());
+        assert!(
+            after.iter().any(|path| path.ends_with("main.rs"))
+                && after.iter().any(|path| path.ends_with("notes.md")),
+            "the plan keeps code and prose: {after:?}"
+        );
+        assert!(
+            after.iter().all(|path| !path.ends_with("rows.csv")),
+            "the confirmed plan removes the csv: {after:?}"
+        );
+
+        // A repeated confirmed exclusion, then excluding everything, must not
+        // be mistaken for a lost destination merely because the journal keeps
+        // the old per-file completion records.
+        let mut repeat = graph_cfg();
+        repeat.budget_plan = Some("code-and-docs".into());
+        repeat.drop_indexed = true;
+        assert_eq!(run_index(repeat).unwrap(), 0);
+        assert_eq!(paths(&endpoint.data_docs()), after);
+        fs::write(corpus.path().join(".xerjignore"), "*\n").unwrap();
+        assert_eq!(run_index(graph_cfg()).unwrap(), 0);
+        assert!(
+            paths(&endpoint.data_docs()).is_empty(),
+            "all source-file records were deliberately excluded: {:?}",
+            paths(&endpoint.data_docs())
+        );
+    }
+
     fn base() -> CommittedManifest {
         CommittedManifest {
             generation: 0,
@@ -6344,4 +7450,509 @@ mod delete_gate {
             execution: None,
         }
     }
+}
+
+/// #2314: four identical empty files must not abort on the catalog
+/// canonical/alias count. They are junk (no rows), recorded, and a rerun
+/// confirms instead of failing the equality that a one-shot read used to
+/// trip.
+#[test]
+fn four_identical_empty_files_do_not_fail_the_catalog_count() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _replay_guard = sync_executor::REPLAY_FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    for name in ["a.txt", "b.txt", "c.txt", "d.txt"] {
+        fs::write(corpus.path().join(name), "").unwrap();
+    }
+    let endpoint = HttpEndpoint::start();
+    let config = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
+    let result = run_index_report(config.clone());
+    let message = match &result {
+        Ok((code, summary)) => format!("code={code} summary={summary:?}"),
+        Err(error) => format!("{error:#}"),
+    };
+    assert!(
+        !message.contains("catalog canonical/alias count disagrees"),
+        "{message}"
+    );
+    let (code, _) = result.expect("four identical empty files must not abort the run");
+    assert_eq!(code, 3, "empty files are recorded junk, not a failure");
+    assert_eq!(run_index(config).unwrap(), 3);
+}
+
+/// #2314: the catalog canonical/alias read can come back one document
+/// short, the race a folder of identical files hit. The check refreshes
+/// and recounts; the run completes and the alias documents stay.
+#[test]
+fn a_short_catalog_alias_page_is_recounted_instead_of_aborting() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _replay_guard = sync_executor::REPLAY_FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    let body = "id,value\n1,same\n";
+    for name in ["a.csv", "b.csv", "c.csv", "d.csv"] {
+        fs::write(corpus.path().join(name), body).unwrap();
+    }
+    let endpoint = HttpEndpoint::start();
+    endpoint.state.lock().unwrap().short_catalog_file_key_pages = 1;
+    let config = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
+    let (code, summary) = run_index_report(config)
+        .expect("a one-document-short catalog page must be recounted, not abort the generation");
+    assert_eq!(code, 0, "{summary:?}");
+    let summary = summary.expect("the generation commits");
+    assert_eq!(summary["duplicate_files"], 3, "{summary}");
+    assert_eq!(
+        endpoint.state.lock().unwrap().short_catalog_file_key_pages,
+        0,
+        "the short page must have been consumed by the first count"
+    );
+    let refreshes = endpoint
+        .state
+        .lock()
+        .unwrap()
+        .requests
+        .iter()
+        .filter(|(method, path)| {
+            method == "POST" && path.contains("/_refresh") && path.contains(catalog::CATALOG_INDEX)
+        })
+        .count();
+    assert!(
+        refreshes >= 1,
+        "the short count refreshes the catalog before recounting"
+    );
+}
+
+/// #2314: a file that changes size between the hash and the snapshot seal
+/// is skipped. The rest of the folder is indexed, the run exits 3, and
+/// the next run indexes the file's current bytes.
+#[test]
+fn a_file_that_changes_size_during_snapshot_seal_is_skipped() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _replay_guard = sync_executor::REPLAY_FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    fs::write(corpus.path().join("stable.csv"), "id,value\n1,stable\n").unwrap();
+    let changing = corpus.path().join("live.csv");
+    fs::write(&changing, "id,value\n1,before\n").unwrap();
+    let endpoint = HttpEndpoint::start();
+    let config = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
+    let grow = changing.clone();
+    sync_executor::arm_snapshot_source_hook(state_dir.path(), move || {
+        let mut file = fs::OpenOptions::new().append(true).open(&grow).unwrap();
+        file.write_all(b"2,after\n").unwrap();
+    });
+    let (code, summary) = run_index_report(config.clone())
+        .expect("one file changing size during the seal must not abort the run");
+    assert_eq!(
+        code, 3,
+        "the changing file is junk, not a failure: {summary:?}"
+    );
+    let indexed = paths(&endpoint.data_docs());
+    assert!(
+        indexed.iter().any(|path| path == "stable.csv"),
+        "{indexed:?}"
+    );
+    assert!(
+        indexed.iter().all(|path| path != "live.csv"),
+        "the changing file must not be published from a torn read: {indexed:?}"
+    );
+
+    let (again, _) = run_index_report(config).expect("the settled file indexes on the rerun");
+    assert_eq!(again, 0);
+    let indexed = paths(&endpoint.data_docs());
+    assert!(indexed.iter().any(|path| path == "live.csv"), "{indexed:?}");
+    assert!(
+        endpoint
+            .data_docs()
+            .iter()
+            .any(|doc| doc.get("value").and_then(Value::as_str) == Some("after")),
+        "the rerun indexes the bytes the file settled on"
+    );
+}
+
+/// #2577: a `--no-graph` run whose options differ from the committed
+/// generation is refused before anything is copied, and the refusal names the
+/// option. It used to seal the whole corpus and then report the durable state
+/// as "not internally consistent", which it was not: the original options
+/// still continue the corpus.
+#[test]
+fn changed_option_is_refused_before_sealing_and_named() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _replay_guard = sync_executor::REPLAY_FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    fs::write(corpus.path().join("a.csv"), "id,value\n1,alpha\n").unwrap();
+    let endpoint = HttpEndpoint::start();
+    let config = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
+    assert_eq!(run_index(config.clone()).unwrap(), 0);
+
+    let mut sample = config.clone();
+    sample.sample += 1;
+    let mut symlinks = config.clone();
+    symlinks.follow_symlinks = true;
+    let cases = [
+        (sample, "build fingerprints them differently (--sample"),
+        (symlinks, "--follow-symlinks was off and is now on"),
+    ];
+    for (round, (changed, named)) in cases.into_iter().enumerate() {
+        // Both reconcile arms: an unchanged folder and an edited one.
+        for edit in [false, true] {
+            if edit {
+                fs::write(
+                    corpus.path().join("a.csv"),
+                    format!("id,value\n1,alpha\n2,edit{round}\n"),
+                )
+                .unwrap();
+            }
+            let snapshots = snapshot_names(state_dir.path());
+            let bulks = endpoint.data_bulk_requests();
+            let begins = journal_events(state_dir.path(), "sync_begin");
+            let error = format!("{:#}", run_index(changed.clone()).unwrap_err());
+            let context = format!("edit={edit}: {error}");
+            assert!(
+                error.contains("execution configuration changed since the committed generation"),
+                "{context}"
+            );
+            assert!(error.contains(named), "{context}");
+            assert!(error.contains("Nothing was copied"), "{context}");
+            assert!(!error.contains("not internally consistent"), "{context}");
+            assert_eq!(snapshot_names(state_dir.path()), snapshots, "{context}");
+            assert_eq!(endpoint.data_bulk_requests(), bulks, "{context}");
+            assert_eq!(
+                journal_events(state_dir.path(), "sync_begin"),
+                begins,
+                "{context}"
+            );
+        }
+        // The committed state was never damaged: the original options
+        // continue it and publish the edit.
+        let commits = journal_events(state_dir.path(), "sync_commit");
+        assert_eq!(run_index(config.clone()).unwrap(), 0);
+        assert_eq!(journal_events(state_dir.path(), "sync_commit"), commits + 1);
+    }
+    assert_eq!(endpoint.data_docs().len(), 2);
+}
+
+/// #2684: the `--dry-run` preview of a `--no-graph` rerun must refuse a
+/// changed option the way the real run does. It used to print the plan (or
+/// "already describes this folder") and exit 0 for a run that the real
+/// command then refused, although this route's `--max-minutes` note points
+/// callers at `--dry-run` to check a plan first.
+#[test]
+fn dry_run_refuses_a_changed_option_like_the_real_run() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _replay_guard = sync_executor::REPLAY_FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    fs::write(corpus.path().join("a.csv"), "id,value\n1,alpha\n").unwrap();
+    let endpoint = HttpEndpoint::start();
+    let config = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
+    assert_eq!(run_index(config.clone()).unwrap(), 0);
+    let bulks = endpoint.data_bulk_requests();
+    let snapshots = snapshot_names(state_dir.path());
+    let journal_before = fs::read(state_dir.path().join("journal.ndjson")).unwrap();
+
+    let mut sample = config.clone();
+    sample.sample += 1;
+    sample.dry_run = true;
+    let mut symlinks = config.clone();
+    symlinks.follow_symlinks = true;
+    symlinks.dry_run = true;
+    let cases = [
+        (sample, "build fingerprints them differently (--sample"),
+        (symlinks, "--follow-symlinks was off and is now on"),
+    ];
+    for (changed, named) in cases {
+        // Both preview arms: an unchanged folder and an edited one.
+        for edit in [false, true] {
+            let rows = if edit {
+                "1,alpha\n2,edit\n"
+            } else {
+                "1,alpha\n"
+            };
+            fs::write(corpus.path().join("a.csv"), format!("id,value\n{rows}")).unwrap();
+            let error = format!("{:#}", run_index(changed.clone()).unwrap_err());
+            let context = format!("edit={edit}: {error}");
+            assert!(
+                error.contains("execution configuration changed since the committed generation"),
+                "{context}"
+            );
+            assert!(error.contains(named), "{context}");
+            assert_eq!(endpoint.data_bulk_requests(), bulks, "{context}");
+            assert_eq!(snapshot_names(state_dir.path()), snapshots, "{context}");
+            assert_eq!(
+                fs::read(state_dir.path().join("journal.ndjson")).unwrap(),
+                journal_before,
+                "{context}"
+            );
+        }
+    }
+
+    // The preview with the committed options still works on both arms.
+    let mut dry = config.clone();
+    dry.dry_run = true;
+    assert_eq!(run_index(dry.clone()).unwrap(), 0);
+    fs::write(corpus.path().join("a.csv"), "id,value\n1,alpha\n").unwrap();
+    assert_eq!(run_index(dry).unwrap(), 0);
+    assert_eq!(endpoint.data_bulk_requests(), bulks);
+    assert_eq!(journal_events(state_dir.path(), "sync_commit"), 1);
+}
+
+/// #2720: a workbook rerun whose edit gives it a part the frozen datasets do
+/// not have cannot join them. That file is set aside with the rebuild command
+/// and every other file is still indexed; it used to abort the whole run with
+/// "frozen assignment has 0 matches for group", as if the journal were corrupt.
+fn sheet_edit_is_set_aside(edited: &[(&str, Vec<Vec<String>>)], part: &str) {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _replay_guard = sync_executor::REPLAY_FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    let endpoint = HttpEndpoint::start();
+    let config = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
+    let book = corpus.path().join("book.xlsx");
+    let write = |sheets: &[(&str, Vec<Vec<String>>)]| {
+        let rows: Vec<Vec<Vec<&str>>> = sheets
+            .iter()
+            .map(|(_, rows)| {
+                rows.iter()
+                    .map(|row| row.iter().map(String::as_str).collect())
+                    .collect()
+            })
+            .collect();
+        let slices: Vec<Vec<&[&str]>> = rows
+            .iter()
+            .map(|rows| rows.iter().map(Vec::as_slice).collect())
+            .collect();
+        let named: Vec<(&str, &[&[&str]])> = sheets
+            .iter()
+            .zip(&slices)
+            .map(|((name, _), rows)| (*name, rows.as_slice()))
+            .collect();
+        crate::phase_a_grouping_tests::write_xlsx(&book, &named);
+    };
+    fs::write(corpus.path().join("a.csv"), "id,value\n1,alpha\n").unwrap();
+    write(&[("Sales", sales_rows(false))]);
+    assert_eq!(run_index(config.clone()).unwrap(), 0);
+    assert_eq!(journal_events(state_dir.path(), "sync_commit"), 1);
+
+    write(edited);
+    fs::write(corpus.path().join("a.csv"), "id,value\n1,alpha\n2,beta\n").unwrap();
+    let code = run_index(config.clone()).unwrap_or_else(|error| panic!("{error:#}"));
+    assert_eq!(code, 3, "a set-aside file is completed-with-junk");
+    assert_eq!(journal_events(state_dir.path(), "sync_commit"), 2);
+
+    let catalog = endpoint.catalog_docs();
+    let junk: Vec<&Value> = catalog
+        .iter()
+        .filter(|doc| doc["doc_kind"] == "file" && doc["status"] == "junk")
+        .collect();
+    assert_eq!(junk.len(), 1, "{junk:#?}");
+    assert_eq!(
+        junk[0]["path"].as_str().or(junk[0]["rel"].as_str()),
+        Some("book.xlsx")
+    );
+    let reason = junk[0]["reason"].as_str().unwrap();
+    for needle in [
+        format!("part {part:?} of this file is new or changed shape"),
+        "This file was not indexed; every other file in this pass still is".to_string(),
+        "rebuild".to_string(),
+    ] {
+        assert!(
+            reason.contains(&needle),
+            "{needle:?} missing from: {reason}"
+        );
+    }
+    let docs = serde_json::to_string(&endpoint.data_docs()).unwrap();
+    assert!(docs.contains("beta"), "the edited CSV is still indexed");
+    assert!(
+        !docs.contains("region 59"),
+        "the set-aside workbook's old document is dropped with this generation"
+    );
+}
+
+/// 60 rows of text and numbers with no header: a document, not a table.
+fn sales_rows(header: bool) -> Vec<Vec<String>> {
+    let mut rows = Vec::new();
+    if header {
+        rows.push(vec!["region".to_string(), "amount".to_string()]);
+    }
+    rows.extend((0..60).map(|i| vec![format!("region {i}"), (i * 10).to_string()]));
+    rows
+}
+
+/// A header row turns the sheet from a document into a table.
+#[test]
+fn a_sheet_that_changes_shape_is_set_aside_not_fatal() {
+    sheet_edit_is_set_aside(&[("Sales", sales_rows(true))], "Sales");
+}
+
+/// A new table sheet has no frozen dataset either.
+#[test]
+fn a_new_sheet_in_an_indexed_workbook_is_set_aside_not_fatal() {
+    let q4 = vec![
+        vec!["region".to_string(), "amount".to_string()],
+        vec!["north".to_string(), "5".to_string()],
+    ];
+    sheet_edit_is_set_aside(&[("Sales", sales_rows(false)), ("Q4", q4)], "Q4");
+}
+
+/// #2740: a views folder holds dozens of similar templates. Sixteen or more
+/// form an XML dataset of their own (`dataset::MIN_DATASET_RECORDS`), where
+/// the strict XML reader junked every one at its first `<%` or unclosed tag
+/// and dropped the text after it. Twenty ERB views and twenty HTML partials
+/// must index cleanly, end of file included.
+#[test]
+fn a_folder_of_templates_and_html_fragments_is_indexed_not_junked() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _replay_guard = sync_executor::REPLAY_FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    fs::create_dir_all(corpus.path().join("views")).unwrap();
+    fs::create_dir_all(corpus.path().join("partials")).unwrap();
+    for i in 1..=20 {
+        fs::write(
+            corpus.path().join(format!("views/view{i}.erb")),
+            format!(
+                "<div class=\"profile\">\n  <% if @user && @user.admin? %>\n    \
+                 <%= link_to \"Admin\", admin_path %>\n  <% end %>\n</div>\n\
+                 <p>lateerb{i}</p>\n"
+            ),
+        )
+        .unwrap();
+        fs::write(
+            corpus.path().join(format!("partials/card{i}.html")),
+            format!(
+                "<div class=\"card\" *ngIf=\"items.length > 0 && !loading\">\n  \
+                 <input [(ngModel)]=\"query\">\n  <span>{{{{ label }}}}</span>\n</div>\n\
+                 <p>latehtml{i}</p>\n"
+            ),
+        )
+        .unwrap();
+    }
+    let endpoint = HttpEndpoint::start();
+    let config = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
+
+    let (code, summary) = run_index_report(config).unwrap();
+    let summary = summary.expect("the run commits a generation");
+    assert_eq!(summary["junk_records_total"], 0, "{summary}");
+    assert_eq!(summary["files_junk"], 0, "{summary}");
+    assert_eq!(code, 0, "{summary}");
+    let docs: Vec<String> = endpoint.data_docs().iter().map(Value::to_string).collect();
+    for needle in ["lateerb7", "latehtml7"] {
+        assert!(
+            docs.iter().any(|d| d.contains(needle)),
+            "{needle} is not in any indexed record"
+        );
+    }
+}
+
+/// #2807 on the generated (`--no-graph`) path, which `xerj corpus index` uses.
+/// That path seals the generation before it sends, so a file the server
+/// refuses for size cannot be set aside there. The abort must at least name
+/// the file and a way out that works; it used to say only "prepared bulk
+/// contained 1 rejected items".
+#[test]
+fn a_record_refused_for_size_on_the_generated_path_names_its_file() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _replay_guard = sync_executor::REPLAY_FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    fs::write(corpus.path().join("a.csv"), "id,value\n1,alpha\n").unwrap();
+    let endpoint = HttpEndpoint::start();
+    endpoint
+        .state
+        .lock()
+        .unwrap()
+        .refuse_next_data_item_as_too_large = true;
+    let config = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
+
+    let error = format!("{:#}", run_index(config).unwrap_err());
+    assert!(
+        error.contains("from a.csv"),
+        "the file must be named: {error}"
+    );
+    assert!(error.contains("16590136 bytes"), "{error}");
+    assert!(
+        error.contains("--no-semantic") && error.contains("--exclude"),
+        "the abort must give a way out that works: {error}"
+    );
+    assert!(!error.contains("prepared bulk contained"), "{error}");
+}
+
+/// #2807: the server adds the semantic vectors to a record before it checks
+/// the per-document limit, so a 2 MB generated `.d.ts` grows past it. The
+/// generated (`--no-graph`) path, which `xerj corpus index` uses, seals before
+/// it sends, so a refusal there stopped every rerun of the same generation.
+/// Preparation now sizes each record as the server will see it and sets the
+/// one that would not fit aside as a junk record: the run completes with
+/// junk, the file's other records are indexed, and reruns complete too.
+#[test]
+fn a_record_too_large_once_vectors_are_added_is_set_aside_before_sealing() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _replay_guard = sync_executor::REPLAY_FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    fs::write(corpus.path().join("a.csv"), "id,value\n1,alpha\n").unwrap();
+    fs::create_dir(corpus.path().join("src")).unwrap();
+    let mut generated = String::from("declare namespace Generated {\n");
+    let mut n = 0;
+    while generated.len() < 2_000_000 {
+        generated.push_str(&format!(
+            "  interface Shape{n} {{ id: number; label: string; parent?: Shape{}; tags: string[] }}\n",
+            n.max(1) - 1
+        ));
+        n += 1;
+    }
+    generated.push_str("}\n");
+    fs::write(corpus.path().join("src/generated.d.ts"), generated).unwrap();
+    let endpoint = HttpEndpoint::start();
+    // Stands in for the server: the whole-file record is about 2.6 MB as
+    // sent, and the vectors take it past 8 MiB. Every other record is small.
+    endpoint.state.lock().unwrap().refuse_documents_over = Some(1 << 20);
+    let config = cfg(corpus.path(), state_dir.path(), &endpoint.url, true);
+
+    let (code, summary) =
+        run_index_report(config.clone()).unwrap_or_else(|error| panic!("{error:#}"));
+    let summary = summary.expect("the generation commits");
+    assert_eq!(code, 3, "completed-with-junk: {summary}");
+    assert_eq!(summary["junk_records_total"], 1, "{summary}");
+    let docs = serde_json::to_string(&endpoint.data_docs()).unwrap();
+    assert!(docs.contains("alpha"), "the other file is indexed");
+    assert!(
+        docs.contains("Shape1"),
+        "the file's symbol records are indexed"
+    );
+    let file_doc = endpoint
+        .catalog_docs()
+        .into_iter()
+        .find(|doc| doc["doc_kind"] == "file" && doc["path"] == "src/generated.d.ts")
+        .expect("the file keeps its catalog document");
+    assert_eq!(file_doc["junk"], 1, "{file_doc}");
+
+    // The rerun replays nothing stuck: it completes, and an edit lands.
+    fs::write(corpus.path().join("a.csv"), "id,value\n1,beta\n").unwrap();
+    let code = run_index(config).unwrap_or_else(|error| panic!("{error:#}"));
+    assert_eq!(code, 3);
+    let docs = serde_json::to_string(&endpoint.data_docs()).unwrap();
+    assert!(docs.contains("beta"), "the edit is indexed");
+    assert_eq!(journal_events(state_dir.path(), "sync_commit"), 2);
 }

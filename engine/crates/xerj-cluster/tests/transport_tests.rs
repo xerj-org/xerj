@@ -19,7 +19,9 @@ use xerj_cluster::transport::TcpTransport;
 // ── Helper: find a free port ──────────────────────────────────────────────────
 
 async fn free_addr() -> SocketAddr {
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let listener = xerj_common::loopback_test::expect_loopback(
+        tokio::net::TcpListener::bind("127.0.0.1:0").await,
+    );
     listener.local_addr().unwrap()
 }
 
@@ -294,7 +296,9 @@ async fn black_hole_peer() -> (SocketAddr, std::sync::Arc<std::sync::atomic::Ato
     use std::sync::atomic::AtomicUsize;
     use std::sync::Arc;
 
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let listener = xerj_common::loopback_test::expect_loopback(
+        tokio::net::TcpListener::bind("127.0.0.1:0").await,
+    );
     let addr = listener.local_addr().unwrap();
     let accepts = Arc::new(AtomicUsize::new(0));
 

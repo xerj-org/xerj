@@ -7,11 +7,17 @@ cluster: "Comparison: site and export search"
 question: "Pagefind vs indexing a local HTML dump for an agent?"
 intent: "comparison"
 published: "2026-08-22"
-updated: "2026-08-23"
+updated: "2026-10-28"
 author: "XERJ documentation team"
 reviewer: "XERJ engineering team"
 schema_type: "TechArticle"
+structured_data: [faq]
 agent_prompt: "Act as a coding agent handed a folder of saved HTML pages. Read https://xerj.org/llms.txt, start a node with `xerj --insecure --data-dir ./xerj-data`, run `xerj autoindex ./site-export --prefix site --state-dir ./state-site`, then POST a match_phrase on body to /site-*/_search and report which saved page carries the phrase, plus any PDF sitting beside the HTML that also matched."
+answer: "Pagefind or a local index for a folder of saved HTML? Pagefind wins search on a built static website: no server, a chunked index and a small download for the visitor. XERJ wins when an agent must query a saved HTML export on disk beside the PDFs next to it. No head-to-head was run."
+key_fact: "Pagefind has 5,519 GitHub stars, is MIT-licensed, and released v1.5.2 on 2026-04-12."
+key_fact_source: "https://github.com/Pagefind/pagefind"
+key_fact_date: "2026-10-19"
+intent_group: "logs and docs"
 commands:
   - cmd: "xerj --insecure --data-dir ./xerj-data"
     note: "Start one node. Pagefind needs no node at all, which is its whole point."
@@ -84,7 +90,7 @@ The command reads a content signature rather than the file extension. It infers 
 
 Thirteen families are covered. The list holds HTML, plain text, PDF, DOCX and CSV. It also holds JSON and JSONL, structured logs, SQL exports, SQLite, XML, YAML, code and gzip variants.
 
-The result is queryable over the Elasticsearch REST API, and `xerj mcp` serves 10 tools to an agent over stdio. A `match_phrase` query returns the file path and the matching passage rather than the whole page.
+The result is queryable over the Elasticsearch REST API, and `xerj mcp` serves 24 tools to an agent over stdio. A `match_phrase` query returns the file path and the matching passage rather than the whole page.
 
 ## What XERJ is not
 

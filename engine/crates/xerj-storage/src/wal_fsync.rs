@@ -242,17 +242,30 @@ impl WalFsyncScheduler {
         }
         let mut spawned = 0usize;
         for _ in st.workers..want {
-            match std::thread::Builder::new()
-                .name("xerj-wal-fsync".into())
-                .spawn(move || self.worker_loop())
-            {
-                Ok(_) => spawned += 1,
-                Err(e) => {
-                    // Retried on the next arm; if none ever succeeds the
-                    // shard still gets fsynced by flush / rotate / shutdown,
-                    // exactly as it would have when the old per-index thread
-                    // failed to spawn.
-                    warn!("could not start WAL fsync worker: {e}");
+            // #1122: `std::thread::Builder::spawn` panics inside the child
+            // when the alternate signal stack cannot be mapped, and the
+            // release profile is panic=abort. `try_spawn_unguarded` returns
+            // that failure as `Err` (the watermark gate is not consulted:
+            // this thread is what bounds the durability window, and a soft
+            // RSS watermark must not refuse it). The worker loop is
+            // infinite, so the job is dropped rather than run inline; the
+            // shard is still fsynced by flush / rotate / shutdown, and the
+            // next arm retries. Logged once so a write storm does not emit
+            // a line per attempt.
+            match xerj_common::thread_spawn::try_spawn_unguarded("xerj-wal-fsync", move || {
+                self.worker_loop()
+            }) {
+                Ok(_detached) => spawned += 1,
+                Err(failure) => {
+                    static LOGGED: AtomicBool = AtomicBool::new(false);
+                    xerj_common::thread_spawn::warn_best_effort_degraded(
+                        &LOGGED,
+                        "xerj-wal-fsync",
+                        &failure.error,
+                    );
+                    // The closure only captures `&self` (Copy). Ignoring it
+                    // skips the infinite worker loop; flush still fsyncs.
+                    let _ = failure.job;
                     break;
                 }
             }

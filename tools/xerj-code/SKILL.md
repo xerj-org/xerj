@@ -90,6 +90,8 @@ of question:
 | add it | `xerj corpus add --from ./<slug>.json`, then `xerj corpus index <slug>` | `xerj autoindex <folder>` |
 | query it | `xerj code <slug> "<question>"` · MCP `xerj_code_search` | `xerj search "<words>"` · `xerj def "<symbol>"` · MCP `xerj_search` |
 
+A folder indexed with `xerj autoindex --prefix <p>` is the local path in that table, not a `xerj code` corpus: `xerj corpus list` reads `~/.xerj-code` and does not list `<p>` until `xerj corpus add` registers the folder, and the commands that search it are `xerj search --prefix <p>` and `xerj def --prefix <p>`.
+
 Use neither for a fact you can already state exactly: on memorised content
 retrieval is overhead (see the status note above).
 
@@ -241,6 +243,11 @@ Three rules that keep the choice honest:
   answers during a rebuild.
 - **During a rebuild both builds exist**, so the node briefly holds the corpus
   twice. Budget disk for it on a large corpus.
+- **Wait for `xerj-done` before deleting an index a mapping scan flagged.**
+  A JSON fixture the tabular sniffer turned into its own index is removed with
+  `DELETE /{exact-name}` after `finalize-verify` has finished. Deleting one
+  while that phase is still reading it ends the run with
+  `index <name> was deleted during verify`, and the generation does not commit.
 - Always verify: `curl -s "$URL/xc-<corpus>*/_count"` must be > 0. The command
   does this itself and says so; do it again if you are scripting around it.
 
@@ -287,9 +294,14 @@ xerj corpus add async-rust \
 ```
 
 Clones are shallow (`--depth 1`) and land in `~/.xerj-code/corpora/<name>/`.
-Every build writes a `corpus.json` beside them — URLs, full commit SHAs and
-licences, a few hundred bytes, no source. That file *is* the shareable corpus
-definition: hand it to someone else and
+A local path is a valid `<git-url>`. Its root `.xerjignore` is copied into the
+clone when that file is untracked or has uncommitted edits — `git clone` would
+drop it, and the index would then see only built-in ignore rules. Running
+`corpus add` again refreshes the copy. A pinned `--from` rebuild does not copy
+it and says so; nested `.xerjignore` files are not carried. Every build writes
+a `corpus.json` beside the clones — URLs, full commit SHAs and licences, a few
+hundred bytes, no source. That file *is* the shareable corpus definition: hand
+it to someone else and
 
 ```sh
 xerj corpus add --from their-corpus.json
@@ -429,7 +441,15 @@ search with a 400 and takes every other index in the wildcard with it. `xerj
 code` reads the mapping first and aims the vector arm only at capable indices.
 Hybrid also runs a BM25 size-1 preflight: if the lexical arm finds nothing, the
 answer is an honest miss (exit 1) — with the lexical embedder, vector
-nearest-neighbours are not evidence of a match.
+nearest-neighbours are not evidence of a match. A hybrid page that does
+return passages can still be neighbours rather than coverage, because RRF
+scores a rank-1 miss the same as a rank-1 hit. That page prints
+`weak match: the corpus may not cover this` and marks each passage `weak`
+when the best passage contains fewer than half of the query's content terms
+(at least three, function words dropped), or when the top RRF score is
+strictly below `1/(k+1)`. A passage under half the page's top score is
+marked `weak` by itself; the stronger passages stay as they were. Exit
+stays 0. Fall back to grep or another corpus.
 
 **`xerj code` never requests `highlight`.** On this engine a highlight block
 changes `_score` and reorders hits (issue #177): identical query, top-1 **6/6**
@@ -441,7 +461,7 @@ highlighter bought nothing and cost ranking.
 Not every agent can run commands. The same pipeline is the eleventh MCP tool,
 `xerj_code_search` (see `xerj mcp`; registration snippets per client live in the
 llms docs, not here). Its text output is byte-identical to `xerj code`'s prose —
-same hits, same `!!` licence warnings, same footer — with the exit triangle
+same hits, same `!!` licence warnings, same weak-match line, same footer — with the exit triangle
 mapped onto MCP's boolean: refusals (30-day staleness, corpus not in the ledger,
 corpus not loaded on this server, transport failure) are `isError: true` with
 the remediation in the text, while **a no-match is `isError: false`** — a miss
@@ -464,6 +484,15 @@ passage. Copying a GPL implementation into a permissively licensed project is a
 real problem, not a technicality. Adapt the approach and write your own code
 when the licences are incompatible.
 
+A corpus of the user's own first-party code is marked with `xerj corpus add --own`
+or `xerj corpus own <name>` (`--off` clears it). `"own": true` in that corpus's
+`corpus.json` keeps an unidentified licence (`UNKNOWN`, `NONE-FOUND`) in the hit
+header and omits the do-not-copy banner for that unidentified licence, in
+`xerj code` and in `xerj_code_search`. A licence the detector named still warns.
+Do not pass `--own` for someone else's repository. A local path is not marked
+own on its own, and a `--from` manifest cannot set the marker. Hub pack licence
+classes are unchanged.
+
 **A stale index is worse than none.** It returns code that no longer exists and
 sends the agent down a dead path with false confidence. `xerj code` refuses to
 answer from an index older than 30 days unless you pass `--stale-ok`; re-run
@@ -482,10 +511,11 @@ text: prose to a person stays prose. A summary compressed into arrow chains
 costs the reader more than it saves the budget. The grammar:
 
 ```
-@ok f=<file>:<line> score=<12.34>[ why=<licence>]   # one per hit
-@ok f=<file>:<line> rrf=<0.1234>[ why=<licence>]    # native-hybrid scores
-@no q="<query>" why=no-match-in-corpus              # a miss (exit 1)
-@mode <arms-ran note>                               # hybrid/semantic note line
+@ok f=<file>:<line> score=<12.34>[ why=<licence>][ weak]   # one per hit
+@ok f=<file>:<line> rrf=<0.1234>[ why=<licence>][ weak]    # native-hybrid scores
+@no q="<query>" why=no-match-in-corpus                    # a miss (exit 1)
+@weak why=corpus-may-not-cover                            # weak page (exit 0)
+@mode <arms-ran note>                                     # hybrid/semantic note line
 ```
 
 `f` is the provenance locator `path:line` exactly as the prose block prints it;

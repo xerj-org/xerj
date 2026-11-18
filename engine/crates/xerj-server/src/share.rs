@@ -1468,15 +1468,19 @@ impl Tunnel {
             readers.push(spawn_reader(pipe, tx.clone(), tunnel.log.clone()).map_err(spawn_failed)?);
         }
         // When both pipes close, the process is gone.
-        std::thread::Builder::new()
-            .name("xerj-share-tunnel-wait".into())
-            .spawn(move || {
-                for r in readers {
-                    let _ = r.join();
-                }
-                let _ = tx.send(TunnelEvent::Exited);
-            })
-            .map_err(spawn_failed)?;
+        // #1122: Builder::spawn panics in the child on a signal-stack ENOMEM.
+        // A failed spawn fails the open (local link) instead of aborting.
+        xerj_common::thread_spawn::try_spawn_unguarded("xerj-share-tunnel-wait", move || {
+            for r in readers {
+                let _ = r.join();
+            }
+            let _ = tx.send(TunnelEvent::Exited);
+        })
+        .map_err(|failure| {
+            let error = failure.error;
+            drop(failure.job);
+            spawn_failed(error)
+        })?;
         let deadline = std::time::Instant::now() + TUNNEL_URL_TIMEOUT;
         loop {
             if let Some(why) = interrupts.fired() {
@@ -1577,26 +1581,31 @@ fn spawn_reader<R: std::io::Read + Send + 'static>(
     pipe: R,
     tx: mpsc::Sender<TunnelEvent>,
     log: TunnelLog,
-) -> std::io::Result<std::thread::JoinHandle<()>> {
-    std::thread::Builder::new()
-        .name("xerj-share-tunnel-log".into())
-        .spawn(move || {
-            let mut sent_url = false;
-            for line in BufReader::new(pipe).lines() {
-                let Ok(line) = line else { break };
-                remember_tunnel_line(&log, &line);
-                if !sent_url {
-                    if let Some(u) = parse_tunnel_url(&line) {
-                        sent_url = true;
-                        let _ = tx.send(TunnelEvent::Url(u));
-                        continue;
-                    }
-                }
-                if tunnel_line_means_connected(&line) {
-                    let _ = tx.send(TunnelEvent::Connected);
+) -> std::io::Result<xerj_common::thread_spawn::SpawnedThread> {
+    // #1122: a signal-stack allocation failure must come back as `Err`,
+    // not as a panic in the child (`panic = "abort"` kills the process).
+    xerj_common::thread_spawn::try_spawn_unguarded("xerj-share-tunnel-log", move || {
+        let mut sent_url = false;
+        for line in BufReader::new(pipe).lines() {
+            let Ok(line) = line else { break };
+            remember_tunnel_line(&log, &line);
+            if !sent_url {
+                if let Some(u) = parse_tunnel_url(&line) {
+                    sent_url = true;
+                    let _ = tx.send(TunnelEvent::Url(u));
+                    continue;
                 }
             }
-        })
+            if tunnel_line_means_connected(&line) {
+                let _ = tx.send(TunnelEvent::Connected);
+            }
+        }
+    })
+    .map_err(|failure| {
+        let error = failure.error;
+        drop(failure.job);
+        error
+    })
 }
 
 /// Keep `line` as one of the last [`TUNNEL_LOG_LINES`]; long lines are cut.

@@ -1,5 +1,5 @@
 ---
-title: "How do I rebuild a reference-coding corpus index from scratch?"
+title: "How do I rebuild a reference-coding corpus index?"
 h1: "xerj corpus index --fresh failed. How do I rebuild a corpus index?"
 description: "xerj corpus index --fresh builds a replacement index beside the old one, verifies it has records, switches the state file, and only then retires the old index. A failed build costs nothing."
 slug: "rebuild-reference-corpus-index"
@@ -7,11 +7,19 @@ cluster: "Coding agents: reference retrieval"
 question: "How do I rebuild a reference-coding corpus index from scratch?"
 intent: "how-to"
 published: "2026-09-18"
-updated: "2026-09-21"
+updated: "2026-10-19"
 author: "XERJ documentation team"
 reviewer: "XERJ engineering team"
 schema_type: "TechArticle"
+structured_data: [faq]
 agent_prompt: "Act as a coding agent maintaining a reference-coding corpus. Read https://xerj.org/llms.txt. When xerj code reports an index older than 30 days, or a plain `xerj corpus index` run says the state directory cannot become generation authority, run `xerj corpus index <corpus> --fresh`. Do not delete the old indices yourself and do not pass --fresh to xerj autoindex directly. Read the command's last lines: it states the record count of the verified replacement, or that the existing index was NOT touched."
+answer: "How do I rebuild a reference-coding corpus index from scratch? Run xerj corpus index with --fresh. It builds a replacement beside the existing index, checks that it holds records, switches the state file, and only then deletes the old indices by exact name. A failed build costs you nothing; the old index keeps serving."
+key_fact: "On v1.0.0-rc.74, xerj autoindex --fresh over a committed generation aborted with exit 1; --fresh now swaps instead of discarding."
+key_fact_source: "benchmarks/autoindex-resilience/fresh-before-rc74.committed-generation.txt"
+key_fact_date: "2026-10-19"
+intent_group: "code search for agents"
+queries:
+  - "find reference implementation in open source repos"
 commands:
   - cmd: "xerj corpus index xerj-storage"
     note: "Index a corpus, or update in place the build an earlier run recorded."

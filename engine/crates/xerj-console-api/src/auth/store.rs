@@ -276,6 +276,12 @@ pub struct ApiToken {
     pub revoked_at: Option<String>,
 }
 
+/// Persist an API token row.
+///
+/// A new secret is inserted only from `tokens::create`, which takes a
+/// `PasskeySession` and returns 403 for a bearer token before this runs
+/// (CVE-2026-97406). `tokens::revoke` and [`revoke_api_tokens_for_user`]
+/// call it to stamp `revoked_at` on a row that already exists.
 pub async fn put_api_token(engine: &Engine, token: &ApiToken) -> ConsoleResult<()> {
     let idx = engine.get_index(indices::API_TOKENS)?;
     let doc = serde_json::to_value(token)?;

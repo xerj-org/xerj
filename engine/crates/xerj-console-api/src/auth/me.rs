@@ -2,15 +2,19 @@
 //!
 //! These need the smallest possible auth surface to be usable: as soon
 //! as a session cookie exists, the SPA wants `/me` so it can render the
-//! "logged in as …" header. Listing/deleting passkeys is here too
-//! because a freshly-enrolled user immediately sees their credential
-//! list on the settings screen.
+//! "logged in as …" header. Listing passkeys is a metadata read and
+//! accepts a bearer token. Deleting one is an identity change and
+//! requires a passkey-backed browser session (CVE-2026-97406).
 
 use axum::{extract::State, response::Response};
 use serde::Serialize;
 use serde_json::json;
 
-use crate::auth::{audit, sessions::AuthSession, store};
+use crate::auth::{
+    audit,
+    sessions::{AuthSession, PasskeySession},
+    store,
+};
 use crate::error::{ConsoleApiError, ConsoleResult};
 use crate::indices;
 use crate::response::{no_content, ok};
@@ -53,7 +57,7 @@ pub async fn list_passkeys(
 
 pub async fn delete_passkey(
     State(state): State<ConsoleState>,
-    sess: AuthSession,
+    sess: PasskeySession,
     axum::extract::Path(credential_id): axum::extract::Path<String>,
 ) -> ConsoleResult<Response> {
     // Caller can only delete their own passkeys.

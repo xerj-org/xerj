@@ -6,7 +6,7 @@ use axum::{
     body::Bytes,
     extract::{Path, State},
     http::StatusCode,
-    response::IntoResponse,
+    response::{IntoResponse, Response},
     Json,
 };
 use chrono::{Datelike as _, Utc};
@@ -184,7 +184,22 @@ pub async fn create_index(
         }
     }
 
-    if let Err(e) = state.engine.create_index(&name_str, schema) {
+    let create_result = if state.engine.has_cluster() {
+        state
+            .engine
+            .replicate_index_create(xerj_engine::ReplicatedIndexSpec {
+                name: name_str.clone(),
+                schema,
+                settings: Value::Null,
+                mappings: Value::Null,
+                index_settings: Value::Null,
+                aliases: Value::Null,
+            })
+            .await
+    } else {
+        state.engine.create_index(&name_str, schema)
+    };
+    if let Err(e) = create_result {
         let xerj_err: xerj_common::XerjError = e.into();
         return native_error(
             xerj_err,
@@ -282,6 +297,211 @@ pub async fn delete_index(
 // Handler: POST /v1/indices/{name}/docs — ingest doc(s)
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// Index one native document.
+///
+/// With a cluster handle and a shard plan, the document is stored on the
+/// primary the plan names and copied to the in-sync replicas.
+/// The caller still gets the native envelope: `seq_no` is the engine's
+/// 1-based value, and a successful update is HTTP 201 with `result:
+/// "updated"`, the same as a local write. No plan, and
+/// `[cluster] enabled = false`, index on this node and do not replicate.
+async fn index_one_doc(
+    state: &AppState,
+    idx: &xerj_engine::Index,
+    name: &str,
+    doc: Value,
+    request_id: &str,
+    started: Instant,
+) -> Result<NativeIngestResponse, Response> {
+    let id = extract_or_gen_id(&doc);
+    match crate::cluster_shard::dispatch_index(
+        state, name, &id, &doc, "index", None, None, None, None,
+    )
+    .await
+    {
+        crate::cluster_shard::Dispatch::Done(response) => {
+            let (status, body) = read_dispatch_body(response).await;
+            return native_ingest_from_es(name, status, &body).map_err(|(status, body)| {
+                native_from_es_error(
+                    status,
+                    &body,
+                    request_id,
+                    started.elapsed().as_millis() as u64,
+                )
+            });
+        }
+        crate::cluster_shard::Dispatch::Local => {}
+    }
+    match idx.index_document(Some(id), doc).await {
+        Ok(resp) => {
+            state.metrics.record_doc_indexed(name);
+            Ok(NativeIngestResponse {
+                index: name.to_string(),
+                id: resp.id,
+                result: resp.result,
+                seq_no: resp.seq_no,
+            })
+        }
+        Err(e) => {
+            let xerj_err: xerj_common::XerjError = e.into();
+            Err(native_error(
+                xerj_err,
+                Some(request_id),
+                started.elapsed().as_millis() as u64,
+            )
+            .into_response())
+        }
+    }
+}
+
+/// `Ok(())` when the primary applied the delete (including a document that
+/// was already absent). Native delete has always answered 200 `deleted` for
+/// that case. `Err` is an ES-shaped body to render as a native error.
+async fn route_native_delete(
+    state: &AppState,
+    index: &str,
+    id: &str,
+) -> Option<Result<(), (StatusCode, Value)>> {
+    match crate::cluster_shard::dispatch_delete(state, index, id, None, None).await {
+        crate::cluster_shard::Dispatch::Local => None,
+        crate::cluster_shard::Dispatch::Done(response) => {
+            let (status, body) = read_dispatch_body(response).await;
+            Some(native_delete_from_es(status, &body))
+        }
+    }
+}
+
+async fn read_dispatch_body(response: Response) -> (StatusCode, Value) {
+    let status = response.status();
+    let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap_or_default();
+    let body = serde_json::from_slice(&bytes).unwrap_or(Value::Null);
+    (status, body)
+}
+
+/// Translate a primary's index response into the native ingest body.
+///
+/// ES `_seq_no` is the engine sequence minus one. This envelope returns the
+/// engine sequence, which is what a local `index_document` puts in `seq_no`.
+fn native_ingest_from_es(
+    index: &str,
+    status: StatusCode,
+    body: &Value,
+) -> Result<NativeIngestResponse, (StatusCode, Value)> {
+    if status.is_success() {
+        if let Some(id) = body.get("_id").and_then(Value::as_str) {
+            let result = body
+                .get("result")
+                .and_then(Value::as_str)
+                .unwrap_or("created");
+            let seq_no = body
+                .get("_seq_no")
+                .and_then(Value::as_u64)
+                .unwrap_or(0)
+                .saturating_add(1);
+            return Ok(NativeIngestResponse {
+                index: index.to_string(),
+                id: id.to_string(),
+                result: result.to_string(),
+                seq_no,
+            });
+        }
+    }
+    Err((status, body.clone()))
+}
+
+fn native_delete_from_es(status: StatusCode, body: &Value) -> Result<(), (StatusCode, Value)> {
+    if status.is_success() {
+        return Ok(());
+    }
+    // The ES delete of a missing document is 404 `result: not_found`, not an
+    // error object. Native delete reports that as `deleted`.
+    if status == StatusCode::NOT_FOUND
+        && body.get("error").is_none()
+        && body.get("result").and_then(Value::as_str) == Some("not_found")
+    {
+        return Ok(());
+    }
+    Err((status, body.clone()))
+}
+
+fn native_from_es_error(
+    status: StatusCode,
+    body: &Value,
+    request_id: &str,
+    took_ms: u64,
+) -> Response {
+    let error = body.get("error");
+    let error_type = error
+        .and_then(|value| value.get("type"))
+        .and_then(Value::as_str)
+        .unwrap_or("cluster_write_failed");
+    let reason = error
+        .and_then(|value| value.get("reason"))
+        .and_then(Value::as_str)
+        .map(str::to_owned)
+        .unwrap_or_else(|| format!("document write failed with HTTP {}", status.as_u16()));
+    (
+        status,
+        Json(crate::error::NativeErrorResponse {
+            error: error_type.to_string(),
+            reason,
+            status: status.as_u16(),
+            request_id: Some(request_id.to_string()),
+            took_ms,
+        }),
+    )
+        .into_response()
+}
+
+#[cfg(test)]
+mod native_cluster_envelope {
+    use super::*;
+
+    #[test]
+    fn engine_seq_no_is_the_es_wire_value_plus_one() {
+        let body = serde_json::json!({"_id": "1", "result": "created", "_seq_no": 0});
+        let got = native_ingest_from_es("orders", StatusCode::CREATED, &body).unwrap();
+        assert_eq!(got.id, "1");
+        assert_eq!(got.index, "orders");
+        assert_eq!(got.result, "created");
+        assert_eq!(got.seq_no, 1);
+    }
+
+    #[test]
+    fn an_update_keeps_the_engine_sequence() {
+        let body = serde_json::json!({"_id": "1", "result": "updated", "_seq_no": 4});
+        let got = native_ingest_from_es("orders", StatusCode::OK, &body).unwrap();
+        assert_eq!(got.result, "updated");
+        assert_eq!(got.seq_no, 5);
+    }
+
+    #[test]
+    fn a_quorum_miss_is_not_a_native_success() {
+        let body = serde_json::json!({
+            "error": {"type": "replica_not_acknowledged", "reason": "no"},
+            "status": 503
+        });
+        assert!(native_ingest_from_es("orders", StatusCode::SERVICE_UNAVAILABLE, &body).is_err());
+    }
+
+    #[test]
+    fn a_missing_document_delete_stays_success() {
+        let body = serde_json::json!({"_index": "orders", "_id": "1", "result": "not_found"});
+        assert!(native_delete_from_es(StatusCode::NOT_FOUND, &body).is_ok());
+    }
+
+    #[test]
+    fn an_index_not_found_delete_is_an_error() {
+        let body = serde_json::json!({
+            "error": {"type": "index_not_found_exception", "reason": "no"},
+            "status": 404
+        });
+        assert!(native_delete_from_es(StatusCode::NOT_FOUND, &body).is_err());
+    }
+}
+
 pub async fn ingest_docs(
     State(state): State<AppState>,
     Path(name): Path<String>,
@@ -303,75 +523,48 @@ pub async fn ingest_docs(
         }
     };
 
-    match req {
+    // `Single` is deserialized first, and `Value` accepts an array, so a
+    // JSON array arrives here rather than as `Batch`. It is still a batch:
+    // one document per element, each routed by its own `_id`.
+    let docs = match req {
+        IngestRequest::Single(Value::Array(docs)) | IngestRequest::Batch(docs) => docs,
         IngestRequest::Single(doc) => {
-            let id = extract_or_gen_id(&doc);
-            match idx.index_document(Some(id.clone()), doc).await {
-                Ok(resp) => {
+            return match index_one_doc(&state, &idx, &name, doc, &request_id, started).await {
+                Ok(data) => {
                     let took_ms = started.elapsed().as_millis() as u64;
-                    state.metrics.record_doc_indexed(&name);
-                    let response = NativeResponse::new(
-                        NativeIngestResponse {
-                            index: name,
-                            id: resp.id,
-                            result: resp.result,
-                            seq_no: resp.seq_no,
-                        },
-                        took_ms,
-                        &request_id,
-                    );
+                    let response = NativeResponse::new(data, took_ms, &request_id);
                     (StatusCode::CREATED, Json(response)).into_response()
                 }
-                Err(e) => {
-                    let xerj_err: xerj_common::XerjError = e.into();
-                    native_error(
-                        xerj_err,
-                        Some(&request_id),
-                        started.elapsed().as_millis() as u64,
-                    )
-                    .into_response()
-                }
-            }
+                Err(response) => response,
+            };
         }
-        IngestRequest::Batch(docs) => {
-            let count = docs.len() as u64;
-            let mut ids = Vec::with_capacity(docs.len());
-            let mut last_seq_no = 0u64;
+    };
+    let count = docs.len() as u64;
+    let mut ids = Vec::with_capacity(docs.len());
+    let mut last_seq_no = 0u64;
 
-            for doc in docs {
-                let id = extract_or_gen_id(&doc);
-                match idx.index_document(Some(id.clone()), doc).await {
-                    Ok(r) => {
-                        last_seq_no = r.seq_no;
-                        ids.push(r.id);
-                        state.metrics.record_doc_indexed(&name);
-                    }
-                    Err(e) => {
-                        let xerj_err: xerj_common::XerjError = e.into();
-                        return native_error(
-                            xerj_err,
-                            Some(&request_id),
-                            started.elapsed().as_millis() as u64,
-                        )
-                        .into_response();
-                    }
-                }
+    for doc in docs {
+        match index_one_doc(&state, &idx, &name, doc, &request_id, started).await {
+            Ok(data) => {
+                last_seq_no = data.seq_no;
+                ids.push(data.id);
             }
-
-            let took_ms = started.elapsed().as_millis() as u64;
-            let resp = NativeResponse::new(
-                serde_json::json!({
-                    "index": name,
-                    "indexed": count,
-                    "ids": ids,
-                    "last_seq_no": last_seq_no,
-                }),
-                took_ms,
-                &request_id,
-            );
-            (StatusCode::CREATED, Json(resp)).into_response()
+            Err(response) => return response,
         }
     }
+
+    let took_ms = started.elapsed().as_millis() as u64;
+    let resp = NativeResponse::new(
+        serde_json::json!({
+            "index": name,
+            "indexed": count,
+            "ids": ids,
+            "last_seq_no": last_seq_no,
+        }),
+        took_ms,
+        &request_id,
+    );
+    (StatusCode::CREATED, Json(resp)).into_response()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -447,6 +640,26 @@ pub async fn delete_doc(
             .into_response();
         }
     };
+
+    if let Some(routed) = route_native_delete(&state, &name, &id).await {
+        return match routed {
+            Ok(()) => {
+                let took_ms = started.elapsed().as_millis() as u64;
+                let resp = NativeResponse::new(
+                    serde_json::json!({ "index": name, "id": id, "result": "deleted" }),
+                    took_ms,
+                    &request_id,
+                );
+                Json(resp).into_response()
+            }
+            Err((status, body)) => native_from_es_error(
+                status,
+                &body,
+                &request_id,
+                started.elapsed().as_millis() as u64,
+            ),
+        };
+    }
 
     match idx.delete_document(&id).await {
         Ok(_) => {
@@ -1345,10 +1558,11 @@ pub async fn bulk_ingest(
     let mut indexed = 0u64;
 
     for doc in req.docs {
-        let id = extract_or_gen_id(&doc);
-        if idx.index_document(Some(id), doc).await.is_ok() {
+        if index_one_doc(&state, &idx, &name, doc, &request_id, started)
+            .await
+            .is_ok()
+        {
             indexed += 1;
-            state.metrics.record_doc_indexed(&name);
         }
     }
 

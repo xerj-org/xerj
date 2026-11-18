@@ -2,11 +2,15 @@
 ---
 title: "XERJ vs Meilisearch for local and agent search"
 canonical: "https://xerj.org/compare/xerj-vs-meilisearch"
-updated: "2026-08-23"
+updated: "2026-10-28"
 source: "content/compare/xerj-vs-meilisearch.md"
 ---
 
 # What's a local alternative to Meilisearch that indexes a folder by itself?
+
+**Short answer** (updated 2026-10-28): What's a local alternative to Meilisearch that indexes a folder by itself? XERJ reads a folder of mixed files with one command, where Meilisearch expects you to build and POST the documents. Meilisearch wins typo-tolerant instant search, and its own defaults document that win. No head-to-head was run.
+
+**Key number:** Meilisearch has 59,612 GitHub stars and released v1.55.0 on 2026-10-12. (as of 2026-10-19; source: [github.com/meilisearch/meilisearch](https://github.com/meilisearch/meilisearch))
 
 **TL;DR** — Meilisearch wins typo-tolerant instant search, and its own defaults document the win. XERJ wins the step before the query: it reads a folder of mixed files with one command, where Meilisearch expects you to build and POST the documents. No head-to-head was run for this page.
 
@@ -112,7 +116,7 @@ Choose Meilisearch when you want a managed plan. XERJ has none.
 
 Choose XERJ when the corpus is a folder on a disk and nobody has built a pipeline for it. One command turns mixed formats into typed indices.
 
-Choose XERJ when the caller is an agent rather than a person. The same binary also holds namespaced agent memory and an MCP server that serves 10 tools.
+Choose XERJ when the caller is an agent rather than a person. The same binary also holds namespaced agent memory and an MCP server that serves 24 tools.
 
 Choose XERJ when the files hold shapes Meilisearch never accepts. A SQLite database, a hostile CSV with a decimal comma and a folder of DOCX contracts all qualify.
 
@@ -171,3 +175,6 @@ Call Meilisearch when a person types into a search field. Call XERJ when an agen
 - [I want to point something at a folder and then ask questions about what's in it. What should I use?](/answers/how-xerj-autoindexes-a-folder)
 - [I have a folder of PDFs, Word docs, and markdown. How do I search all of them at once?](/answers/search-file-contents-in-a-folder)
 - [When should I turn on neural embeddings, and when is the lexical default enough?](/answers/do-search-embeddings-help)
+- [Do I need Typesense for an agent to search my docs?](/compare/xerj-vs-typesense) (same intent: search engine alternatives)
+- [Is there an Elasticsearch-compatible engine that isn't Elasticsearch?](/compare/xerj-vs-elasticsearch-local) (same intent: search engine alternatives)
+- [Does XERJ support S3 storage, alerting or custom plugins yet?](/answers/does-xerj-support-s3-alerting-plugins) (same intent: search engine alternatives)

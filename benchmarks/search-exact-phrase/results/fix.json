@@ -1,0 +1,2130 @@
+{
+ "label": "fix",
+ "idx_x": 3,
+ "idx_x_s": 13.2,
+ "sets": {
+  "A_exact_string": {
+   "n": 100,
+   "r1": 91,
+   "top5": 95,
+   "top10": 95,
+   "err": 0
+  },
+  "B_words_of_symbol": {
+   "n": 100,
+   "r1": 15,
+   "top5": 32,
+   "top10": 38,
+   "err": 0
+  },
+  "C_identifier": {
+   "n": 100,
+   "r1": 92,
+   "top5": 92,
+   "top10": 92,
+   "err": 0
+  }
+ },
+ "rows": [
+  {
+   "set": "A_exact_string",
+   "q": "self entry carries roles",
+   "gt": "crates/xerj-api/src/es_compat.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "frozen plan lists a refused dataset twice, or both refuses and publishes one",
+   "gt": "crates/xerj-autoindex/src/reconcile_plan.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "same version as this client",
+   "gt": "crates/xerj-autoindex/src/sync_executor.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "only keys owned by the caller",
+   "gt": "crates/xerj-api/src/es_compat.rs",
+   "rank": 3,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "unrelated key must not wait",
+   "gt": "crates/xerj-engine/src/write_publication.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "legacy state records no build",
+   "gt": "crates/xerj-autoindex/src/xc.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "short bound must bail",
+   "gt": "crates/xerj-engine/src/fast_aggs.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "first boot must mint a link",
+   "gt": "crates/xerj-console-api/tests/phase1_boot_and_cluster_info.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "a watch with no condition",
+   "gt": "crates/xerj-api/src/es_compat.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "only survivors are sent to the judge",
+   "gt": "crates/xerj-api/tests/rerank_stage_http.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "search is always real",
+   "gt": "crates/xerj-console-api/tests/knowledge_surface.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "credentials were not provided",
+   "gt": "crates/xerj-autoindex/src/objsource.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "an emptied slug directory is dropped too",
+   "gt": "crates/xerj-hub/src/sync/tests.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "key came from plan.files",
+   "gt": "crates/xerj-autoindex/src/lib.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "an ordinary corpus with nothing stranded says nothing",
+   "gt": "crates/xerj-autoindex/src/incremental_reconcile_http_tests.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "key must be stable across boots",
+   "gt": "crates/xerj-console-api/src/bootstrap.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "must remain searchable after a successful refresh",
+   "gt": "crates/xerj-api/tests/refresh_reports_flush_failure.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "Discover which hub corpora can answer a question. Returns candidate corpora",
+   "gt": "crates/xerj-mcp/src/hub.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "new doc should be created by create action",
+   "gt": "crates/xerj-engine/tests/es_compat_tests.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "the attempt loop returns on its final iteration",
+   "gt": "crates/xerj-autoindex/src/esclient.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "a freshly opened index must hold no WAL descriptors",
+   "gt": "crates/xerj-engine/src/index.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "partial must never broaden",
+   "gt": "crates/xerj-fts/src/search.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "is not a bare type name",
+   "gt": "crates/xerj-engine/tests/docs_capability_lists.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "no header row means no row is consumed",
+   "gt": "crates/xerj-autoindex/src/extract/html.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "keep the caller's existing window",
+   "gt": "crates/xerj-engine/src/code_blocks.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "a multipart ETag must not force a re-download",
+   "gt": "crates/xerj-autoindex/src/objsource_s3_tests.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "the data directory must be gone",
+   "gt": "crates/xerj-engine/tests/corrupt_index_metadata.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "age should be included",
+   "gt": "crates/xerj-engine/tests/integration.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "the prose line is body text of some record",
+   "gt": "crates/xerj-autoindex/src/detect/e2e_mail.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "AND all tokens present",
+   "gt": "crates/xerj-engine/tests/multi_match_flush_parity.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "public without a catalogue must be refused at boot",
+   "gt": "crates/xerj-common/src/config.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "urgent wire transfer from an unknown prince, act now",
+   "gt": "crates/xerj-api/src/es_compat.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "a graph left unpruned becomes densely clustered near the entry node",
+   "gt": "crates/xerj-api/src/es_compat.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "the live document must have moved on once the node loaded cleanly",
+   "gt": "crates/xerj-api/tests/cluster_metadata_survives_restart.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "nothing has been charged yet",
+   "gt": "crates/xerj-engine/src/painless.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "security.html still says the key is printed",
+   "gt": "crates/xerj-common/tests/admin_key_not_printed.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "segment should persist after reopen",
+   "gt": "crates/xerj-engine/tests/integration.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "the program that replaced the node must not be SIGKILLed",
+   "gt": "crates/xerj-hub/src/node.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "CPU-time probe support changed within one process",
+   "gt": "crates/xerj-server/src/ingest_memory_trace.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "predates embedding identity pinning",
+   "gt": "crates/xerj-autoindex/src/state.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "should plan at least one move",
+   "gt": "crates/xerj-cluster/tests/region_tests.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "first put is within budget",
+   "gt": "crates/xerj-storage/tests/s3_object_store.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "Must find payment-service errors",
+   "gt": "crates/xerj-engine/tests/product_experience.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "the ledger is written",
+   "gt": "crates/xerj-hub/tests/ask_flow.rs",
+   "rank": 4,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "Cumulative internal query-result cache hits across all indices",
+   "gt": "crates/xerj-common/src/metrics.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "all quarry blast events",
+   "gt": "crates/xerj-api/tests/ask_endpoint.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "remote alias can drift",
+   "gt": "crates/xerj-autoindex/src/state.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "field source must be dropped",
+   "gt": "crates/xerj-autoindex/src/extract/doc.rs",
+   "rank": 2,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "attachments are not replies",
+   "gt": "crates/xerj-autoindex/src/detect/emailthread.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "restore the removed file",
+   "gt": "crates/xerj-autoindex/src/lib.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "a dry run emits nothing",
+   "gt": "crates/xerj-autoindex/tests/objwatch_minio.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "restart must recover exactly once",
+   "gt": "crates/xerj-storage/src/index_store.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "HMAC accepts keys of any length",
+   "gt": "crates/xerj-cluster/src/auth.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "the log says the port was taken",
+   "gt": "crates/xerj-hub/src/node.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "obj must be included",
+   "gt": "crates/xerj-engine/tests/es_compat_tests.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "cannot decode stored section",
+   "gt": "crates/xerj-storage/src/index_store.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "mid-file-corrupt generation must be frozen, not appended to",
+   "gt": "crates/xerj-storage/src/wal.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "re-indexed doc must have the correct id",
+   "gt": "crates/xerj-engine/tests/es_compat_tests.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "profile document not found",
+   "gt": "crates/xerj-api/src/es_compat.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "Fanning out search to remote node",
+   "gt": "crates/xerj-cluster/src/coordinator.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "generated run summary query has no hits",
+   "gt": "crates/xerj-autoindex/src/lib.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "deleted rows must leave their bucket",
+   "gt": "crates/xerj-engine/tests/verify_window_terms_perf.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "the replayed document landed",
+   "gt": "crates/xerj-autoindex/src/incremental_reconcile_http_tests.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "both pages saved bytes",
+   "gt": "crates/xerj-engine/src/index.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "a crash mid-burst must not lose or duplicate documents",
+   "gt": "crates/xerj-autoindex/src/incremental_reconcile_http_tests.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "per-hit attribution is what lets the API layer re-sum over the page it really emits",
+   "gt": "crates/xerj-engine/src/index.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "bundle object not found",
+   "gt": "crates/xerj-storage/src/index_store.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "term score must be positive",
+   "gt": "crates/xerj-fts/src/search.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "is on main and ships",
+   "gt": "crates/xerj-engine/tests/docs_do_not_promise_the_next_release.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "both bulk docs must be immediately searchable",
+   "gt": "crates/xerj-engine/tests/es_compat_tests.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "kiwi AND lime OR plum",
+   "gt": "crates/xerj-query/src/parser.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "snapshot source byte overflow",
+   "gt": "crates/xerj-autoindex/src/sync_executor.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "not supported, denormalize the relationship",
+   "gt": "crates/xerj-query/src/parser.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "no segments exist pre-flush",
+   "gt": "crates/xerj-engine/tests/graph_expand.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "storage snapshot entry under root",
+   "gt": "crates/xerj-api/tests/cluster_metadata_survives_restart.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "ghosted rows must leave the filtered total",
+   "gt": "crates/xerj-engine/tests/verify_window_terms_perf.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "plan alias projection disagrees with manifest groups",
+   "gt": "crates/xerj-autoindex/src/sync.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "split the expression into smaller statements",
+   "gt": "crates/xerj-engine/src/painless.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "snapshot.json must be in the bucket the moment the flush returns",
+   "gt": "crates/xerj-storage/src/index_store.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "a clean definition replays",
+   "gt": "crates/xerj-wasm/src/pipeline.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "refund money back request",
+   "gt": "crates/xerj-api/tests/decide_flywheel.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "stored column exceeds declared row count",
+   "gt": "crates/xerj-storage/src/stored_codec/row_hydration.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "hash live malformed state",
+   "gt": "crates/xerj-api/tests/cluster_metadata_survives_restart.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "and nothing was fetched",
+   "gt": "crates/xerj-autoindex/src/objwatch/tests.rs",
+   "rank": 2,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "no second generation may be committed by the refused cross-path re-run",
+   "gt": "crates/xerj-autoindex/src/incremental_reconcile_http_tests.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "cluster auth secret rejected",
+   "gt": "crates/xerj-server/src/main.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "source snapshot footprint does not match its sealed artifacts",
+   "gt": "crates/xerj-autoindex/src/sync_executor.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "post-publication maintenance is deferred, not a flush error",
+   "gt": "crates/xerj-storage/src/index_store.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "how does chlorophyll drive photosynthesis in a chloroplast",
+   "gt": "crates/xerj-engine/src/index.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "the same query at two page sizes must not report two different shapes",
+   "gt": "crates/xerj-api/tests/savings_stat_is_honest.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "desired generation index identity disagrees with its frozen mappings",
+   "gt": "crates/xerj-autoindex/src/sync_executor.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "reversed phrase should not match",
+   "gt": "crates/xerj-fts/src/search.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "script source is required",
+   "gt": "crates/xerj-api/src/es_compat.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "Sort must contain at least one field.",
+   "gt": "crates/xerj-api/src/es_compat.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "no doc left un-incremented",
+   "gt": "crates/xerj-api/tests/update_by_query_updates_entire_index.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "every record landed once the node accepted the re-send",
+   "gt": "crates/xerj-autoindex/src/incremental_reconcile_http_tests.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "the line directly above",
+   "gt": "crates/xerj-autoindex/src/extract/code.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "a second opener must not pass the held preflight lock",
+   "gt": "crates/xerj-autoindex/src/state.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "async replication send failed",
+   "gt": "crates/xerj-cluster/src/replication.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "A_exact_string",
+   "q": "dead optional clause dropped",
+   "gt": "crates/xerj-engine/src/index.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "get rollup job",
+   "gt": "crates/xerj-api/src/es_compat.rs",
+   "rank": 2,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "charged params read",
+   "gt": "crates/xerj-engine/src/painless.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "run reverse nested",
+   "gt": "crates/xerj-engine/src/aggs.rs",
+   "rank": 2,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "without a workbook part worksheets are read in numeric order",
+   "gt": "crates/xerj-autoindex/src/extract/xlsx.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "published schemas match the server exactly",
+   "gt": "crates/xerj-mcp/tests/published_schema_drift.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "prefix keyword case is flush invariant",
+   "gt": "crates/xerj-engine/tests/prefix_keyword_case_flush_parity.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "batch limits split the stream instead of dropping it",
+   "gt": "crates/xerj-engine/tests/wal_tap_push.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "write one frame recovered",
+   "gt": "crates/xerj-storage/src/wal.rs",
+   "rank": 4,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "hash all field names recurses into array elements",
+   "gt": "crates/xerj-engine/src/index.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "hybrid keeps lexical only indices in the bm25 leg",
+   "gt": "crates/xerj-common/src/xccode/mod.rs",
+   "rank": 3,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "live and deleted",
+   "gt": "crates/xerj-api/tests/cat_common_params_and_real_segments.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "is public path",
+   "gt": "crates/xerj-api/src/hub_api.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "aggregate bytes matches full recount after every mutator",
+   "gt": "crates/xerj-engine/src/memtable.rs",
+   "rank": 2,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "decode unique durable json",
+   "gt": "crates/xerj-autoindex/src/sync.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "is takeout root",
+   "gt": "crates/xerj-autoindex/src/walk.rs",
+   "rank": 3,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "read search fields",
+   "gt": "crates/xerj-api/src/hub_api.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "swift var is static not const",
+   "gt": "crates/xerj-autoindex/src/extract/code.rs",
+   "rank": 2,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "encode block freqs",
+   "gt": "crates/xerj-fts/src/postings.rs",
+   "rank": 2,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "index documents batched",
+   "gt": "crates/xerj-engine/src/index.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "string param cannot inject query structure",
+   "gt": "crates/xerj-api/src/es_compat.rs",
+   "rank": 6,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "free port search skips a busy triple",
+   "gt": "crates/xerj-hub/src/node.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "by query matches anything",
+   "gt": "crates/xerj-api/src/es_compat.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "for this os",
+   "gt": "crates/xerj-hub/src/sync.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "local directory is adopted into an empty bucket",
+   "gt": "crates/xerj-storage/src/index_store.rs",
+   "rank": 4,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "durable dataset stats",
+   "gt": "crates/xerj-autoindex/src/lib.rs",
+   "rank": 8,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "the operator tier is owner and admin",
+   "gt": "crates/xerj-console-api/tests/console_graph_read.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "bootstrap replay accepts only exact empty genesis",
+   "gt": "crates/xerj-autoindex/src/sync.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "hubpack state carries source pin and licence and pins the build",
+   "gt": "crates/xerj-common/src/xccode/state.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "prune drops only the clauses a segment cannot serve",
+   "gt": "crates/xerj-engine/src/index.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "sweep expired async searches",
+   "gt": "crates/xerj-engine/src/engine.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "worker stack actually exceeds the 2mib default",
+   "gt": "crates/xerj-server/src/main.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "object store read path hydrates the whole family",
+   "gt": "crates/xerj-storage/src/index_store.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "run matrix stats",
+   "gt": "crates/xerj-engine/src/aggs.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "the auto id and create endpoints enforce the same rules",
+   "gt": "crates/xerj-api/tests/numeric_fields_enforce_their_type.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "detection watch body",
+   "gt": "crates/xerj-api/src/es_compat.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "query workbench datasources is an honest empty list not 404",
+   "gt": "crates/xerj-api/src/es_compat.rs",
+   "rank": 4,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "run ip range",
+   "gt": "crates/xerj-engine/src/aggs.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "re escalating the same question keeps one cached answer",
+   "gt": "crates/xerj-api/tests/decide_flywheel.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "a miss on a real prefix stays exit zero and lists the others",
+   "gt": "crates/xerj-autoindex/src/search.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "a per item 429 on a data bulk is resent and the run completes",
+   "gt": "crates/xerj-autoindex/src/failure_resume_http_tests.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "build sort shadow",
+   "gt": "crates/xerj-engine/src/index.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "auto date pick interval",
+   "gt": "crates/xerj-engine/src/aggs.rs",
+   "rank": 7,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "the identity probe still blames the capability for a non auth failure",
+   "gt": "crates/xerj-autoindex/src/esclient.rs",
+   "rank": 3,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "lexical passage never uses a field the query did not target",
+   "gt": "crates/xerj-engine/src/index.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "qs resolve bound",
+   "gt": "crates/xerj-query/src/parser.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "run multi terms",
+   "gt": "crates/xerj-engine/src/aggs.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "unfiltered exact scan never parses stored documents",
+   "gt": "crates/xerj-engine/src/index.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "empty finish produces no bytes",
+   "gt": "crates/xerj-compress/src/block.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "single should bool",
+   "gt": "crates/xerj-engine/src/index.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "week and ordinal dates resolve to the right instant",
+   "gt": "crates/xerj-query/src/dates.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "cat pending tasks",
+   "gt": "crates/xerj-api/src/es_compat.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "scores are descending",
+   "gt": "crates/xerj-vector/src/search.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "error policy split matches the documented rule",
+   "gt": "crates/xerj-rerank/src/lib.rs",
+   "rank": 3,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "instruction wording does not change the answer",
+   "gt": "crates/xerj-api/tests/systemone_http.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "multivalued numeric metric aggs use all values",
+   "gt": "crates/xerj-engine/src/aggs.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "collect array values",
+   "gt": "crates/xerj-engine/src/memtable.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "a slash ending an unquoted attribute value does not read as self closing",
+   "gt": "crates/xerj-autoindex/src/extract/html.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "grok nginx combined",
+   "gt": "crates/xerj-wasm/src/builtins.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "exec auto date histogram",
+   "gt": "crates/xerj-engine/src/fast_aggs.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "threshold can be updated",
+   "gt": "crates/xerj-engine/src/slow_query.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "a semantic clause that never reached the vector is still flagged",
+   "gt": "crates/xerj-api/src/es_compat.rs",
+   "rank": 6,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "tls listener exposes the real peer not the header",
+   "gt": "crates/xerj-server/src/main.rs",
+   "rank": 5,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "parse span term",
+   "gt": "crates/xerj-query/src/parser.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "chunk vectors are per passage and pool consistently",
+   "gt": "crates/xerj-engine/src/index.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "unlink recovery markers",
+   "gt": "crates/xerj-storage/src/index_store.rs",
+   "rank": 3,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "exponential call tree is bounded not a hang",
+   "gt": "crates/xerj-engine/src/painless.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "the guest script never parses document text as markup",
+   "gt": "crates/xerj-console-api/src/spa.rs",
+   "rank": 5,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "glob matches star and exact",
+   "gt": "crates/xerj-api/src/ask_api.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "parse and expr",
+   "gt": "crates/xerj-engine/src/sql.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "invalid mcp json is left alone",
+   "gt": "crates/xerj-autoindex/src/init.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "a rare term outweighs a term every document shares",
+   "gt": "crates/xerj-rerank/src/judge.rs",
+   "rank": 6,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "querying a field with no postings and no doc values is rejected",
+   "gt": "crates/xerj-api/tests/index_false_is_honoured.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "separator lines from real writers are recognised",
+   "gt": "crates/xerj-autoindex/src/extract/mbox.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "xerj console auth module is bundled",
+   "gt": "crates/xerj-console-api/tests/spa_assets.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "mode is how for prose and flags force the rest",
+   "gt": "crates/xerj-hub/src/ask.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "elastic caller gets no empty warning header",
+   "gt": "crates/xerj-api/src/router.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "run median absolute deviation",
+   "gt": "crates/xerj-engine/src/aggs.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "isotonic interpolates and clamps",
+   "gt": "crates/xerj-common/src/calibration.rs",
+   "rank": 2,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "seg with cols",
+   "gt": "crates/xerj-engine/src/fast_aggs.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "this endpoint and a legacy journal keep the old words",
+   "gt": "crates/xerj-autoindex/src/lib.rs",
+   "rank": 6,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "provenance contract changes only upsert ax run",
+   "gt": "crates/xerj-autoindex/src/generation_catalog.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "empty bucket is refused with the shape to type",
+   "gt": "crates/xerj-autoindex/src/source.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "count tries env defaults are the scripts values",
+   "gt": "crates/xerj-autoindex/src/xc.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "describe field diff",
+   "gt": "crates/xerj-autoindex/src/generation_catalog.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "a request that exhausts its retries reports all of them",
+   "gt": "crates/xerj-autoindex/src/objsource_s3_tests.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "status empty hub says no packs",
+   "gt": "crates/xerj-hub/src/lockfile.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "watch baselines at max seq no existing docs do not fire",
+   "gt": "crates/xerj-api/src/es_compat.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "xferlog lines parse to fields",
+   "gt": "crates/xerj-autoindex/src/extract/logs.rs",
+   "rank": 5,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "an empty catalog keeps the autoindex hint",
+   "gt": "crates/xerj-autoindex/src/search.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "every old pin of the slug goes once the new one has restored",
+   "gt": "crates/xerj-hub/src/sync/tests.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "new segment id",
+   "gt": "crates/xerj-storage/src/segment.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "residual filter still excludes nonmatching docs",
+   "gt": "crates/xerj-engine/tests/bool_filter_is_non_scoring.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "c const and file scope",
+   "gt": "crates/xerj-autoindex/src/extract/code.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "a two field projection reads differently from withholding source",
+   "gt": "crates/xerj-api/tests/savings_stat_is_honest.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "admin allows all on all indices",
+   "gt": "crates/xerj-engine/src/rbac.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "apply get doc source filter",
+   "gt": "crates/xerj-api/src/es_compat.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "run scripted metric",
+   "gt": "crates/xerj-engine/src/aggs.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "inject bbq rescore defaults",
+   "gt": "crates/xerj-api/src/es_compat.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "pack build pull def roundtrip",
+   "gt": "crates/xerj-hub/tests/pack_roundtrip.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "B_words_of_symbol",
+   "q": "decode raw payload",
+   "gt": "crates/xerj-storage/src/stored_codec.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "get_rollup_job",
+   "gt": "crates/xerj-api/src/es_compat.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "charged_params_read",
+   "gt": "crates/xerj-engine/src/painless.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "run_reverse_nested",
+   "gt": "crates/xerj-engine/src/aggs.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "without_a_workbook_part_worksheets_are_read_in_numeric_order",
+   "gt": "crates/xerj-autoindex/src/extract/xlsx.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "published_schemas_match_the_server_exactly",
+   "gt": "crates/xerj-mcp/tests/published_schema_drift.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "prefix_keyword_case_is_flush_invariant",
+   "gt": "crates/xerj-engine/tests/prefix_keyword_case_flush_parity.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "batch_limits_split_the_stream_instead_of_dropping_it",
+   "gt": "crates/xerj-engine/tests/wal_tap_push.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "write_one_frame_recovered",
+   "gt": "crates/xerj-storage/src/wal.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "hash_all_field_names_recurses_into_array_elements",
+   "gt": "crates/xerj-engine/src/index.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "hybrid_keeps_lexical_only_indices_in_the_bm25_leg",
+   "gt": "crates/xerj-common/src/xccode/mod.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "live_and_deleted",
+   "gt": "crates/xerj-api/tests/cat_common_params_and_real_segments.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "is_public_path",
+   "gt": "crates/xerj-api/src/hub_api.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "aggregate_bytes_matches_full_recount_after_every_mutator",
+   "gt": "crates/xerj-engine/src/memtable.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "decode_unique_durable_json",
+   "gt": "crates/xerj-autoindex/src/sync.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "is_takeout_root",
+   "gt": "crates/xerj-autoindex/src/walk.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "read_search_fields",
+   "gt": "crates/xerj-api/src/hub_api.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "swift_var_is_static_not_const",
+   "gt": "crates/xerj-autoindex/src/extract/code.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "encode_block_freqs",
+   "gt": "crates/xerj-fts/src/postings.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "index_documents_batched",
+   "gt": "crates/xerj-engine/src/index.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "string_param_cannot_inject_query_structure",
+   "gt": "crates/xerj-api/src/es_compat.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "free_port_search_skips_a_busy_triple",
+   "gt": "crates/xerj-hub/src/node.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "by_query_matches_anything",
+   "gt": "crates/xerj-api/src/es_compat.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "for_this_os",
+   "gt": "crates/xerj-hub/src/sync.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "local_directory_is_adopted_into_an_empty_bucket",
+   "gt": "crates/xerj-storage/src/index_store.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "durable_dataset_stats",
+   "gt": "crates/xerj-autoindex/src/lib.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "the_operator_tier_is_owner_and_admin",
+   "gt": "crates/xerj-console-api/tests/console_graph_read.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "bootstrap_replay_accepts_only_exact_empty_genesis",
+   "gt": "crates/xerj-autoindex/src/sync.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "hubpack_state_carries_source_pin_and_licence_and_pins_the_build",
+   "gt": "crates/xerj-common/src/xccode/state.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "prune_drops_only_the_clauses_a_segment_cannot_serve",
+   "gt": "crates/xerj-engine/src/index.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "sweep_expired_async_searches",
+   "gt": "crates/xerj-engine/src/engine.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "worker_stack_actually_exceeds_the_2mib_default",
+   "gt": "crates/xerj-server/src/main.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "object_store_read_path_hydrates_the_whole_family",
+   "gt": "crates/xerj-storage/src/index_store.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "run_matrix_stats",
+   "gt": "crates/xerj-engine/src/aggs.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "the_auto_id_and_create_endpoints_enforce_the_same_rules",
+   "gt": "crates/xerj-api/tests/numeric_fields_enforce_their_type.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "detection_watch_body",
+   "gt": "crates/xerj-api/src/es_compat.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "query_workbench_datasources_is_an_honest_empty_list_not_404",
+   "gt": "crates/xerj-api/src/es_compat.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "run_ip_range",
+   "gt": "crates/xerj-engine/src/aggs.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "re_escalating_the_same_question_keeps_one_cached_answer",
+   "gt": "crates/xerj-api/tests/decide_flywheel.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "a_miss_on_a_real_prefix_stays_exit_zero_and_lists_the_others",
+   "gt": "crates/xerj-autoindex/src/search.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "a_per_item_429_on_a_data_bulk_is_resent_and_the_run_completes",
+   "gt": "crates/xerj-autoindex/src/failure_resume_http_tests.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "build_sort_shadow",
+   "gt": "crates/xerj-engine/src/index.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "auto_date_pick_interval",
+   "gt": "crates/xerj-engine/src/aggs.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "the_identity_probe_still_blames_the_capability_for_a_non_auth_failure",
+   "gt": "crates/xerj-autoindex/src/esclient.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "lexical_passage_never_uses_a_field_the_query_did_not_target",
+   "gt": "crates/xerj-engine/src/index.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "qs_resolve_bound",
+   "gt": "crates/xerj-query/src/parser.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "run_multi_terms",
+   "gt": "crates/xerj-engine/src/aggs.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "unfiltered_exact_scan_never_parses_stored_documents",
+   "gt": "crates/xerj-engine/src/index.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "empty_finish_produces_no_bytes",
+   "gt": "crates/xerj-compress/src/block.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "single_should_bool",
+   "gt": "crates/xerj-engine/src/index.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "week_and_ordinal_dates_resolve_to_the_right_instant",
+   "gt": "crates/xerj-query/src/dates.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "cat_pending_tasks",
+   "gt": "crates/xerj-api/src/es_compat.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "scores_are_descending",
+   "gt": "crates/xerj-vector/src/search.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "error_policy_split_matches_the_documented_rule",
+   "gt": "crates/xerj-rerank/src/lib.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "instruction_wording_does_not_change_the_answer",
+   "gt": "crates/xerj-api/tests/systemone_http.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "multivalued_numeric_metric_aggs_use_all_values",
+   "gt": "crates/xerj-engine/src/aggs.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "collect_array_values",
+   "gt": "crates/xerj-engine/src/memtable.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "a_slash_ending_an_unquoted_attribute_value_does_not_read_as_self_closing",
+   "gt": "crates/xerj-autoindex/src/extract/html.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "grok_nginx_combined",
+   "gt": "crates/xerj-wasm/src/builtins.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "exec_auto_date_histogram",
+   "gt": "crates/xerj-engine/src/fast_aggs.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "threshold_can_be_updated",
+   "gt": "crates/xerj-engine/src/slow_query.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "a_semantic_clause_that_never_reached_the_vector_is_still_flagged",
+   "gt": "crates/xerj-api/src/es_compat.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "tls_listener_exposes_the_real_peer_not_the_header",
+   "gt": "crates/xerj-server/src/main.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "parse_span_term",
+   "gt": "crates/xerj-query/src/parser.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "chunk_vectors_are_per_passage_and_pool_consistently",
+   "gt": "crates/xerj-engine/src/index.rs",
+   "rank": null,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "unlink_recovery_markers",
+   "gt": "crates/xerj-storage/src/index_store.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "exponential_call_tree_is_bounded_not_a_hang",
+   "gt": "crates/xerj-engine/src/painless.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "the_guest_script_never_parses_document_text_as_markup",
+   "gt": "crates/xerj-console-api/src/spa.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "glob_matches_star_and_exact",
+   "gt": "crates/xerj-api/src/ask_api.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "parse_and_expr",
+   "gt": "crates/xerj-engine/src/sql.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "invalid_mcp_json_is_left_alone",
+   "gt": "crates/xerj-autoindex/src/init.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "a_rare_term_outweighs_a_term_every_document_shares",
+   "gt": "crates/xerj-rerank/src/judge.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "querying_a_field_with_no_postings_and_no_doc_values_is_rejected",
+   "gt": "crates/xerj-api/tests/index_false_is_honoured.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "separator_lines_from_real_writers_are_recognised",
+   "gt": "crates/xerj-autoindex/src/extract/mbox.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "xerj_console_auth_module_is_bundled",
+   "gt": "crates/xerj-console-api/tests/spa_assets.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "mode_is_how_for_prose_and_flags_force_the_rest",
+   "gt": "crates/xerj-hub/src/ask.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "elastic_caller_gets_no_empty_warning_header",
+   "gt": "crates/xerj-api/src/router.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "run_median_absolute_deviation",
+   "gt": "crates/xerj-engine/src/aggs.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "isotonic_interpolates_and_clamps",
+   "gt": "crates/xerj-common/src/calibration.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "seg_with_cols",
+   "gt": "crates/xerj-engine/src/fast_aggs.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "this_endpoint_and_a_legacy_journal_keep_the_old_words",
+   "gt": "crates/xerj-autoindex/src/lib.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "provenance_contract_changes_only_upsert_ax_run",
+   "gt": "crates/xerj-autoindex/src/generation_catalog.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "empty_bucket_is_refused_with_the_shape_to_type",
+   "gt": "crates/xerj-autoindex/src/source.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "count_tries_env_defaults_are_the_scripts_values",
+   "gt": "crates/xerj-autoindex/src/xc.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "describe_field_diff",
+   "gt": "crates/xerj-autoindex/src/generation_catalog.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "a_request_that_exhausts_its_retries_reports_all_of_them",
+   "gt": "crates/xerj-autoindex/src/objsource_s3_tests.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "status_empty_hub_says_no_packs",
+   "gt": "crates/xerj-hub/src/lockfile.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "watch_baselines_at_max_seq_no_existing_docs_do_not_fire",
+   "gt": "crates/xerj-api/src/es_compat.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "xferlog_lines_parse_to_fields",
+   "gt": "crates/xerj-autoindex/src/extract/logs.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "an_empty_catalog_keeps_the_autoindex_hint",
+   "gt": "crates/xerj-autoindex/src/search.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "every_old_pin_of_the_slug_goes_once_the_new_one_has_restored",
+   "gt": "crates/xerj-hub/src/sync/tests.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "new_segment_id",
+   "gt": "crates/xerj-storage/src/segment.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "residual_filter_still_excludes_nonmatching_docs",
+   "gt": "crates/xerj-engine/tests/bool_filter_is_non_scoring.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "c_const_and_file_scope",
+   "gt": "crates/xerj-autoindex/src/extract/code.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "a_two_field_projection_reads_differently_from_withholding_source",
+   "gt": "crates/xerj-api/tests/savings_stat_is_honest.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "admin_allows_all_on_all_indices",
+   "gt": "crates/xerj-engine/src/rbac.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "apply_get_doc_source_filter",
+   "gt": "crates/xerj-api/src/es_compat.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "run_scripted_metric",
+   "gt": "crates/xerj-engine/src/aggs.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "inject_bbq_rescore_defaults",
+   "gt": "crates/xerj-api/src/es_compat.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "pack_build_pull_def_roundtrip",
+   "gt": "crates/xerj-hub/tests/pack_roundtrip.rs",
+   "rank": 1,
+   "err": null
+  },
+  {
+   "set": "C_identifier",
+   "q": "decode_raw_payload",
+   "gt": "crates/xerj-storage/src/stored_codec.rs",
+   "rank": 1,
+   "err": null
+  }
+ ]
+}

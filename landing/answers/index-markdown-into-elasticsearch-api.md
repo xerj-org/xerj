@@ -2,11 +2,15 @@
 ---
 title: "How do I index Markdown into Elasticsearch?"
 canonical: "https://xerj.org/answers/index-markdown-into-elasticsearch-api"
-updated: "2026-08-21"
+updated: "2026-10-23"
 source: "content/answers/index-markdown-into-elasticsearch-api.md"
 ---
 
 # How do I index Markdown into the Elasticsearch API?
+
+**Short answer** (updated 2026-10-23): What is the best way to index Markdown documents into Elasticsearch? XERJ indexes a Markdown folder with xerj autoindex and serves it on the Elasticsearch REST API. Markdown lands in the txt-prose family; in our capture XERJ mapped 9 fields, kept the title as the literal '# Runbook', and produced no headings array.
+
+**Key number:** XERJ passes 1444 of 1454 Elasticsearch YAML conformance cases, so ES clients query the Markdown index unchanged. (as of 2026-10-23; source: [README.md](https://github.com/xerj-org/xerj/blob/main/README.md))
 
 **TL;DR** — XERJ indexes a Markdown folder with `xerj autoindex` and serves it on the Elasticsearch REST API. Markdown lands in the `txt-prose` family, not in a Markdown family. In our capture XERJ mapped 9 fields, extracted the title as the literal `# Runbook`, and produced no `headings` array.
 
@@ -136,3 +140,6 @@ Send a `match_phrase` query on `body` for the heading text. No `headings` field 
 - [What's the best way to search markdown notes and PDFs in the same vault?](/answers/search-obsidian-pdf-docx-attachments)
 - [Can ChatGPT search a folder on my laptop, or do I need something else?](/answers/give-chatgpt-claude-local-file-access)
 - [ES-compatible API](/docs/api-es-compat)
+- [Why does my Notion export duplicate titles?](/answers/notion-export-duplicate-search-results) (same intent: logs and docs)
+- [How do I search an Obsidian vault from outside Obsidian?](/compare/xerj-vs-obsidian-omnisearch) (same intent: logs and docs)
+- [What's the best local desktop search for a folder of PDFs and docs?](/compare/xerj-vs-recoll) (same intent: logs and docs)

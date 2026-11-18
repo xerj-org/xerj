@@ -58,7 +58,7 @@ Errors echo xerj's existing `XerjError` shape (HTTP-aligned status + structured 
 
 ### 2.3 Auth
 
-All `_xerj-console/api/v1` routes (except the bootstrap and login endpoints documented in §3) require an authenticated session — passkey-backed by default, optionally upgraded to SSO/SAML/OIDC for enterprise. Bearer API tokens are accepted, but a token can only be minted by a session that has already enrolled a passkey. There is no password authentication anywhere, ever. The full flow — first-launch CLI magic link, passkey enrollment, login, admin-issued invites, API tokens, SSO — lives in **§3 · Authentication & Identity** below. Every write writes the calling principal into the audit log (`who`, `when`, `before`, `after`).
+All `_xerj-console/api/v1` routes (except the bootstrap and login endpoints documented in §3) require an authenticated caller — a passkey-backed browser session by default, optionally an SSO/SAML/OIDC session for enterprise. Bearer API tokens are accepted on ordinary data routes. A token cannot mint another token, an invitation, or any other credential: those handlers require the passkey session cookie itself and answer `403` to `Authorization: Bearer`, even when the token is valid and its owner has a passkey enrolled (CVE-2026-97406, [CERT VU#645818](https://kb.cert.org/vuls/id/645818), published 2026-10-20). There is no password authentication anywhere, ever. The full flow — first-launch CLI magic link, passkey enrollment, login, admin-issued invites, API tokens, SSO — lives in **§3 · Authentication & Identity** below. Every write writes the calling principal into the audit log (`who`, `when`, `before`, `after`).
 
 ### 2.4 Multi-tenancy
 
@@ -134,7 +134,7 @@ The first frame is always a snapshot of the current state so the client doesn't 
 * Default flow is **dead simple**: install xerj, run it, click the magic link the CLI prints, enroll a passkey, you're in.
 * **No passwords**, anywhere, ever. Not as a fallback, not for "service accounts", not in any form. The data model has no `password_hash` column.
 * **Enterprise upgrade** is OIDC / SAML / OAuth2 ("SSO"). Once the org admin wires SSO, new users no longer need a magic-link round-trip — the IdP becomes the issuer of identity.
-* **API tokens** exist for scripting and CI, but a user can only mint one *after* they have enrolled at least one passkey. This stops the "I emailed myself a token from a brand-new account" bypass.
+* **API tokens** exist for scripting and CI. Minting one requires the caller's passkey-backed browser session (the `xerj_session` cookie whose `.xerj_sessions` row has `idp: "passkey"`), not merely that the account has a passkey enrolled. `Authorization: Bearer <api token>` on `POST /auth/api-tokens` is `403`. A token therefore cannot mint a successor that would survive revocation of the parent (CVE-2026-97406, [CERT VU#645818](https://kb.cert.org/vuls/id/645818)). The passkey enrollment requirement still stops the "I emailed myself a token from a brand-new account" bypass: there is no password, and no token exists until a passkey session mints one.
 * **Inviting users** is a passkey-holder-only action. The invitation is itself a magic link, scoped to "set up your passkey", nothing else. An invite never grants access — it grants the right to enroll a credential that grants access.
 * Non-goal: TOTP / SMS / hardware-OTP fallbacks. Passkeys cover the device-bound and platform-bound cases already; adding more factors is more code, more compliance scope, and more user pain.
 
@@ -180,7 +180,7 @@ POST /_xerj-console/api/v1/auth/magic/issue                  { email, role, ttl_
    → { id, link, expires_at }
 ```
 
-* Caller must hold an `admin` (or `owner`) role and an active passkey-backed session.
+* Caller must hold an `admin` (or `owner`) role and an active passkey-backed browser session (the `xerj_session` cookie, `idp: "passkey"`). A bearer API token is `403` here even for an owner. Issuing an invite is how a stolen owner token used to enroll an attacker's own passkey (CVE-2026-97406, [CERT VU#645818](https://kb.cert.org/vuls/id/645818)). `POST /auth/magic/redeem` stays unauthenticated: the link is the credential, and the invitee has no session yet.
 * `role` is one of `admin` / `editor` / `viewer` (see §3.6).
 * The server creates `.xerj_users` with `status: "pending"` and `.xerj_magic_links` with `purpose: "invite"`. The invitee's first action via the link is to enroll a passkey (same `passkey/begin` + `passkey/finish` dance as bootstrap), which flips their status to `active`.
 * A pending user with no enrolled passkey **cannot log in** — there is no other credential to authenticate with. If the invite expires, the admin re-issues; the user record stays pending.
@@ -224,9 +224,10 @@ DELETE /_xerj-console/api/v1/auth/api-tokens/:id               revoke
 ```
 
 Gating:
-* The caller must be authenticated by passkey **and** must have at least one passkey credential currently enrolled. If they later revoke their last passkey, all their API tokens are also revoked (cascading delete in `.xerj_api_tokens`).
-* `scopes` is a subset of the caller's role — a `viewer` can only mint read-scoped tokens.
-* Tokens are sent as `Authorization: Bearer xy_<id>_<secret>`. The server hashes the secret at write time; the row stores `sha256(secret)`, never the secret itself.
+* `POST` (mint) and `DELETE` (revoke) require a passkey-backed browser session: the `xerj_session` cookie for a `.xerj_sessions` row with `idp: "passkey"`. `Authorization: Bearer <api token>` is `403` on both, including a valid token whose owner has a passkey enrolled. `GET` (metadata only, no secret) still accepts a bearer token. There is no `parent_id`: a bearer token is refused before any new row is written, so revoking a token cannot leave a working descendant minted from it (CVE-2026-97406, [CERT VU#645818](https://kb.cert.org/vuls/id/645818), published 2026-10-20). The same passkey-session rule applies to `POST /auth/magic/issue`, `DELETE /auth/passkeys/:id`, and `POST /auth/logout`.
+* A browser session whose `idp` is not `passkey` (a future SSO session) is also `403` on these routes. Deleting the last passkey is refused (`409` — "cannot revoke your last passkey"). `store::revoke_api_tokens_for_user` exists and is not called from that path; the last-passkey refusal is what keeps an account from holding API tokens with no passkey.
+* `scopes` is intended to be a subset of the caller's role — a `viewer` should only mint read-scoped tokens. The handler stores the `scopes` array it is given and does not check that subset today.
+* Tokens are sent as `Authorization: Bearer <secret>`. The server hashes the secret at write time; the row's `_id` is `sha256(secret)`, never the secret itself. The secret is returned once, on `POST`.
 
 CLI binding: `xerj` reads a `XERJ_TOKEN` env var or `~/.xerj/credentials` for non-interactive contexts (CI, ops scripts, the runbook in `demo/`).
 

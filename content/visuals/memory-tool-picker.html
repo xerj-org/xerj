@@ -1,0 +1,36 @@
+<figure class="vz" id="fig-cm-pick" aria-labelledby="fig-cm-pick-cap">
+  <span class="vz-label">Try it: which one fits you</span>
+  <p class="vz-title">Answer four questions</p>
+  <div data-vz-pick>
+    <div class="vz-js-only">
+      <fieldset class="vz-ask">
+        <legend>What should memory keep?</legend>
+        <label><input type="radio" name="cmp-keep" data-fit="cm"> Short summaries a model writes</label>
+        <label><input type="radio" name="cmp-keep" data-fit="mp"> Every message, word for word</label>
+        <label><input type="radio" name="cmp-keep" data-fit="xj"> Only what my agent chooses to save</label>
+      </fieldset>
+      <fieldset class="vz-ask">
+        <legend>How should saving happen?</legend>
+        <label><input type="radio" name="cmp-save" data-fit="cm mp"> On its own, through hooks</label>
+        <label><input type="radio" name="cmp-save" data-fit="xj"> When the agent calls a tool</label>
+      </fieldset>
+      <fieldset class="vz-ask">
+        <legend>A language model writing your memories?</legend>
+        <label><input type="radio" name="cmp-model" data-fit="cm"> Fine, if it keeps context short</label>
+        <label><input type="radio" name="cmp-model" data-fit="mp xj"> No, keep my words</label>
+      </fieldset>
+      <fieldset class="vz-ask">
+        <legend>What else should it search?</legend>
+        <label><input type="radio" name="cmp-more" data-fit="cm mp"> Just my sessions</label>
+        <label><input type="radio" name="cmp-more" data-fit="xj"> Also logs, docs and code</label>
+      </fieldset>
+      <p class="vz-out" aria-live="polite"></p>
+    </div>
+    <div class="vz-cols vz-cols-3">
+      <div class="vz-card" data-opt="cm"><span class="vz-k">Pick</span><p class="vz-t">claude-mem</p><p class="vz-d">You want Claude Code to remember on its own and start each session with a short, model-written recap.</p></div>
+      <div class="vz-card" data-opt="mp"><span class="vz-k">Pick</span><p class="vz-t">MemPalace</p><p class="vz-d">You want every conversation kept word for word, saved by hooks, searched by meaning, with no summaries.</p></div>
+      <div class="vz-card" data-opt="xj"><span class="vz-k">Pick</span><p class="vz-t">XERJ</p><p class="vz-d">You want the agent to decide what to save, and one local engine that also searches your logs, docs and code.</p></div>
+    </div>
+  </div>
+  <figcaption id="fig-cm-pick-cap">Runs in your browser and sends nothing. Each answer adds a point to the tools it matches; the highest total is highlighted. It is a rule of thumb from the designs above, not a benchmark.</figcaption>
+</figure>

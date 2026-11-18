@@ -2,11 +2,15 @@
 ---
 title: "XERJ vs ast-grep — syntax search and an index"
 canonical: "https://xerj.org/compare/xerj-vs-ast-grep"
-updated: "2026-08-23"
+updated: "2026-10-28"
 source: "content/compare/xerj-vs-ast-grep.md"
 ---
 
 # ast-grep vs a code index for an agent?
+
+**Short answer** (updated 2026-10-28): Should an agent use ast-grep or a code index? Use both. ast-grep matches and rewrites code by syntax pattern, and XERJ rewrites nothing. XERJ answers where a symbol is defined and what its contract says across a tree it already indexed. No head-to-head was run, and none is needed to split these jobs.
+
+**Key number:** ast-grep has 16,288 GitHub stars and released 0.51.0 on 2026-10-15. (as of 2026-10-19; source: [github.com/ast-grep/ast-grep](https://github.com/ast-grep/ast-grep))
 
 **TL;DR** — ast-grep changes code by syntax pattern, and XERJ does no rewriting at all. XERJ answers where a symbol is defined and what its contract says, across a tree it has already indexed. Install both. No head-to-head was run, and none is needed to split these jobs.
 
@@ -36,7 +40,7 @@ curl -s -XPOST 'http://127.0.0.1:9200/code-*/_search' -H 'content-type: applicat
 
 ### Command 3
 
-Note: Serve the 10 tools an agent calls before it decides what to change. Start the node first; this command does not start one.
+Note: Serve the 24 tools an agent calls before it decides what to change. Start the node first; this command does not start one.
 
 ```sh
 xerj mcp --url http://127.0.0.1:9200
@@ -72,7 +76,7 @@ XERJ pays that cost once:
 xerj autoindex ./repo --prefix code --state-dir ./state-code
 ```
 
-After that, a code document carries `title`, `language`, a `defs` field with one line per definition, a `symbols` list with names, kinds and line numbers, and the full body. One query finds where a symbol is defined, and it is the same query in every one of 34 languages.
+After that, a code document carries `title`, `language`, a `defs` field with one line per definition, a `symbols` list with names, kinds and line numbers, and the full body. One query finds where a symbol is defined, and it is the same query in every one of 36 languages.
 
 ```json
 { "query": { "match": { "defs": "parse_config" } }, "_source": ["ax_path"] }
@@ -124,6 +128,8 @@ Choose it when the question is about symbols rather than bytes. One definition q
 
 Choose it when an agent needs the answer as a cited passage. The same binary also holds agent memory and an MCP tool list.
 
+What that returns, against the lines grep prints, is [local code search over MCP](/answers/local-code-search-mcp-fewer-tokens-than-grep).
+
 ## The limits you inherit with XERJ
 
 XERJ is single-node only. There is no data-plane replication and no failover, so one host is the whole deployment.
@@ -150,7 +156,7 @@ No. XERJ performs no abstract syntax tree rewriting and no codemod of any kind. 
 
 ### What does XERJ extract from code?
 
-Definitions. Each code document carries a defs field and a symbols list with names, kinds and line numbers, across 34 languages.
+Definitions. Each code document carries a defs field and a symbols list with names, kinds and line numbers, across 36 languages.
 
 ### Does ast-grep keep an index?
 
@@ -188,3 +194,6 @@ No. No head-to-head was run. Every ast-grep fact here comes from its own documen
 - [I need my agent to find a passage and cite the file, not dump the whole tree. How?](/answers/code-search-mcp-for-claude-code)
 - [How do I stop my agent from reading the whole repo into context?](/answers/index-monorepo-for-agent)
 - [Is ripgrep enough for a coding agent, or do I need a code index?](/compare/xerj-vs-ripgrep-for-code-agents)
+- [How do I audit a PHP codebase with an index instead of grepping 1,400 files?](/answers/audit-php-codebase-with-an-index) (same intent: code search for agents)
+- [The best grep and ripgrep alternatives for AI coding agents in 2026](/compare/best-grep-alternative-for-ai-coding-agents-2026) (same intent: code search for agents)
+- [My codebase indexer says indexed but I don't see my code. How do I check it actually finished?](/answers/check-codebase-index-is-complete) (same intent: code search for agents)

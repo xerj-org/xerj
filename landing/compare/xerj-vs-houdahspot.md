@@ -2,11 +2,15 @@
 ---
 title: "HoudahSpot compared with XERJ for file search"
 canonical: "https://xerj.org/compare/xerj-vs-houdahspot"
-updated: "2026-09-26"
+updated: "2026-10-28"
 source: "content/compare/xerj-vs-houdahspot.md"
 ---
 
 # XERJ vs HoudahSpot — Spotlight GUI vs an agent index
+
+**Short answer** (updated 2026-10-28): HoudahSpot or a local search engine I can script? HoudahSpot is a power-user front end for the Mac's own Spotlight index, with hundreds of attribute filters and saved templates. XERJ is a folder index a program calls over HTTP or MCP. No head-to-head was run, and nothing on this page was tested on macOS.
+
+**Key number:** XERJ's tree-sitter registry covers 36 languages, one of the extractor families a Spotlight importer does not provide. (as of 2026-10-19; source: [engine/crates/xerj-autoindex/src/extract/code.rs](https://github.com/xerj-org/xerj/blob/main/engine/crates/xerj-autoindex/src/extract/code.rs))
 
 **TL;DR** — HoudahSpot is a power-user front end for the Mac's own Spotlight index, with hundreds of attribute filters and saved templates. XERJ is a folder index a program calls over HTTP or MCP. No head-to-head was run and nothing here was tested on macOS.
 
@@ -80,7 +84,7 @@ XERJ is a single Rust binary that runs one search node. `xerj autoindex <folder>
 
 The streaming extractors cover JSON and JSONL, CSV with dialect sniffing, structured logs, `sqldump` files, SQLite, PDF, DOCX, HTML, XML, YAML, plain text and gzip variants of those. XERJ builds its own index. It does not read the operating system's.
 
-The node answers the Elasticsearch REST API, and `xerj autoindex map` prints a data map of what the folder became. The `xerj mcp` subcommand is a stdio MCP server in the same binary, and it serves 10 tools against a running node.
+The node answers the Elasticsearch REST API, and `xerj autoindex map` prints a data map of what the folder became. The `xerj mcp` subcommand is a stdio MCP server in the same binary, and it serves 24 tools against a running node.
 
 XERJ is single-node, with no replication and no failover. The default embedder is lexical feature hashing rather than a neural model; neural retrieval is opt-in through `--embed-mode neural`. There is no OCR.
 
@@ -99,7 +103,7 @@ Every row is a documented capability of each tool. **No row is a measured result
 | multiple search folders, excluded folders | yes | one folder per run, plus ignore rules |
 | scripting surface | AppleScript, launcher integrations | Elasticsearch REST API and MCP |
 | HTTP query API | not advertised | yes |
-| MCP server for an agent | none | yes, `xerj mcp`, 10 tools |
+| MCP server for an agent | none | yes, `xerj mcp`, 24 tools |
 | typed columns from a CSV, a `sqldump` file or SQLite | not advertised | yes, a dataset per file shape |
 | per-file refusal reason | not advertised | `autoindex-catalog`, one reason per file |
 | agent memory in the engine | none | yes, `/_memory/{namespace}` |
@@ -153,7 +157,7 @@ HoudahSpot is a GUI over the Mac's metadata store, scriptable through AppleScrip
 
 ### What's better than HoudahSpot if I want an API for an agent?
 
-An engine with an API. XERJ answers the Elasticsearch REST API and serves 10 MCP tools from the same binary, so the agent sends a query rather than driving an interface.
+An engine with an API. XERJ answers the Elasticsearch REST API and serves 24 MCP tools from the same binary, so the agent sends a query rather than driving an interface.
 
 ### Advanced Mac file search that a coding agent can call?
 
@@ -195,3 +199,6 @@ Yes. HoudahSpot for a person refining a search by hand, XERJ for the folder a pr
 - [What's a free DocFetcher alternative that an agent can call?](/compare/xerj-vs-docfetcher)
 - [I have a folder of PDFs, Word docs, and markdown. How do I search all of them at once?](/answers/search-file-contents-in-a-folder)
 - [Can ChatGPT search a folder on my laptop, or do I need something else?](/answers/give-chatgpt-claude-local-file-access)
+- [What can I use for low-volume log search?](/answers/cheap-low-volume-log-search) (same intent: logs and docs)
+- [How do I index Markdown into the Elasticsearch API?](/answers/index-markdown-into-elasticsearch-api) (same intent: logs and docs)
+- [Is it efficient to index PDF files?](/answers/is-pdf-indexing-efficient) (same intent: logs and docs)

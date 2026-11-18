@@ -2,11 +2,15 @@
 ---
 title: "ripgrep-all compared with XERJ for PDFs and docs"
 canonical: "https://xerj.org/compare/xerj-vs-ripgrep-all"
-updated: "2026-09-26"
+updated: "2026-10-28"
 source: "content/compare/xerj-vs-ripgrep-all.md"
 ---
 
 # How do I grep PDFs and Word docs from the command line?
+
+**Short answer** (updated 2026-10-28): How do I grep PDFs and Word docs from the command line? For one question today, ripgrep-all: it converts PDFs and Office files as it goes, walks into archives, and needs no daemon or index. For an agent asking many questions, XERJ indexes the folder once. No head-to-head benchmark was run.
+
+**Key number:** ripgrep-all has 9,883 GitHub stars and its latest release is v0.10.10 (2025-11-09). (as of 2026-10-19; source: [github.com/phiresky/ripgrep-all](https://github.com/phiresky/ripgrep-all))
 
 **TL;DR** — ripgrep-all is the better choice for one question, today. It converts PDFs and Office files as it goes, walks into archives, and wants no daemon and no index. XERJ indexes the same folder once for an agent to query many times. No head-to-head benchmark was run.
 
@@ -89,7 +93,7 @@ The command takes no configuration file and no mapping. It also needs no helper 
 
 The node answers the Elasticsearch REST API. `xerj autoindex map` prints a data map of what the folder became. An agent reads that map, then names a real index and a real field.
 
-`xerj mcp` is a stdio MCP server in the same binary. It serves 10 tools against a node you already started. Agent memory lives in the engine under `/_memory/{namespace}`.
+`xerj mcp` is a stdio MCP server in the same binary. It serves 24 tools against a node you already started. Agent memory lives in the engine under `/_memory/{namespace}`.
 
 XERJ is single-node. There is no replication and no failover. The default embedder is lexical feature hashing, not a neural model, and neural retrieval is opt-in through `--embed-mode neural`.
 
@@ -111,7 +115,7 @@ Every row is a documented capability of each tool. No row is a measured result.
 | ranking of results | none, matches in file order | BM25 over the extracted text |
 | filter by file family or path | shell globs and ripgrep flags | keyword fields, `ax_format` and `ax_path` |
 | HTTP query API | none | yes, Elasticsearch REST API |
-| MCP server for an agent | none | yes, `xerj mcp`, 10 tools |
+| MCP server for an agent | none | yes, `xerj mcp`, 24 tools |
 | catalog of refused files | messages on standard error | `autoindex-catalog`, one reason per file |
 | agent memory in the engine | none | yes, `/_memory/{namespace}` |
 
@@ -145,7 +149,7 @@ Choose Elasticsearch instead when the documents must live on more than one host.
 
 Choose XERJ when the same folder answers many questions. The parse happens once, and every later query reads the index rather than the PDFs.
 
-Choose XERJ when the caller is a program. An agent that speaks HTTP or MCP needs no wrapper and no output parser. `xerj mcp` serves 10 tools.
+Choose XERJ when the caller is a program. An agent that speaks HTTP or MCP needs no wrapper and no output parser. `xerj mcp` serves 24 tools.
 
 Choose XERJ when the order of the answers matters. rga returns every match in file order. BM25 puts the best documents first.
 
@@ -214,3 +218,6 @@ Not with the shipped adapters. Its config file accepts custom subprocess adapter
 - [How do I full-text search a SQLite database I just copied onto disk?](/answers/full-text-search-sqlite-database)
 - [What's the best local desktop search for a folder of PDFs and docs?](/compare/xerj-vs-recoll)
 - [Is ripgrep enough for a coding agent, or do I need a code index?](/compare/xerj-vs-ripgrep-for-code-agents)
+- [I indexed a folder of email and PDFs. How do I actually read what it found?](/answers/read-indexed-email-and-pdf-folder) (same intent: logs and docs)
+- [How do I search through a folder of contracts in .docx?](/answers/search-word-documents-in-a-folder) (same intent: logs and docs)
+- [Is it efficient to index PDF files?](/answers/is-pdf-indexing-efficient) (same intent: logs and docs)

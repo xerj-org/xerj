@@ -8,6 +8,15 @@
 #              Cloudflare dashboard (R2 → Create bucket → `xerj-installs`);
 #              until it exists the function serves the installer normally and
 #              simply does not count. Fail-open is deliberate.
+#   FIELD_REPORTS — functions/api/field-report.js stores each accepted agent
+#              field report as a small JSON object under reports/<date>/. This
+#              is the GitHub-unavailable FALLBACK to `xerj feedback --open-pr`;
+#              the PR path stays primary. R2 bucket `xerj-field-reports` (the
+#              cheapest storage already granted to the Pages token; the same
+#              account's LEADS/INSTALLS Functions use R2). A per-IP rate limit
+#              and a daily cap keep writes far inside the R2 free tier. Until
+#              the bucket exists the function accepts requests but does not
+#              store (fail-open, like get.js).
 #
 #   HUB_STARS — functions/api/hub-stars.js keeps hub-native stars for
 #              contributors and corpora on hub.xerj.org (R2 bucket
@@ -44,9 +53,9 @@
 #   HF_OAUTH_CLIENT_ID / HF_OAUTH_CLIENT_SECRET.
 # Any missing → /api/me says enabled:false and the pages hide Sign in.
 #
-# Routing: landing/_routes.json pins Function invocation to /get, /get.ps1 and
-# /lead. A NEW FUNCTION ADDED UNDER functions/ WILL NOT BE ROUTED until its
-# path is added to that include list.
+# Routing: landing/_routes.json pins Function invocation to /get, /get.ps1,
+# /lead and /api/field-report. A NEW FUNCTION ADDED UNDER functions/ WILL NOT
+# BE ROUTED until its path is added to that include list.
 name = "xerj"
 pages_build_output_dir = "landing"
 compatibility_date = "2024-09-01"
@@ -80,3 +89,11 @@ bucket_name = "xerj-corpus-feedback"
 [[r2_buckets]]
 binding = "HUB_REPO_REQUESTS"
 bucket_name = "xerj-hub-repo-requests"
+
+# Agent field reports filed via the HTTP fallback POST /api/field-report
+# (functions/api/field-report.js). R2 is the cheapest storage already granted
+# to the Pages deploy token. Reports land under reports/<date>/; a per-IP
+# rate limit and a daily cap keep writes far inside the R2 free tier.
+[[r2_buckets]]
+binding = "FIELD_REPORTS"
+bucket_name = "xerj-field-reports"

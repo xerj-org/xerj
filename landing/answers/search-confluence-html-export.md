@@ -2,11 +2,15 @@
 ---
 title: "How do I search a Confluence export?"
 canonical: "https://xerj.org/answers/search-confluence-html-export"
-updated: "2026-08-21"
+updated: "2026-10-19"
 source: "content/answers/search-confluence-html-export.md"
 ---
 
 # How do I search a Confluence export?
+
+**Short answer** (updated 2026-10-19): How do I search my Confluence export? Unzip the Confluence HTML space export to local disk and run xerj autoindex on the folder. A captured run kept page titles, nested page bodies and the attachment tree: body text on a nested page returned 1 hit, titled as Confluence writes it, PLAT : Recovery procedure.
+
+**Key number:** One body-text query on a nested page returned 1 hit at `Recovery-procedure_262146.html` in the captured run. (as of 2026-08-21; source: the captured run documented on this page)
 
 **TL;DR** — Unzip the Confluence space export to local disk, then run `xerj autoindex` on the folder. In a captured run, body text on a nested page returned 1 hit at `Recovery-procedure_262146.html`. The title came back as Confluence writes it: `PLAT : Recovery procedure`.
 
@@ -148,3 +152,6 @@ All results come from run RUN-B, captured on 2026-08-21 on a 16-core AMD EPYC 96
 - [I saved a help-center as HTML. How do I search it like the real help-center search?](/answers/search-html-export)
 - [How should an agent figure out what's in a messy data folder before searching?](/answers/catalog-files-with-autoindex-map)
 - [Can ChatGPT search a folder on my laptop, or do I need something else?](/answers/give-chatgpt-claude-local-file-access)
+- [What can I use for low-volume log search?](/answers/cheap-low-volume-log-search) (same intent: logs and docs)
+- [Why does my Notion export duplicate titles?](/answers/notion-export-duplicate-search-results) (same intent: logs and docs)
+- [I downloaded a bunch of papers as PDFs. How do I search across them?](/answers/search-all-pdfs-in-a-folder) (same intent: logs and docs)

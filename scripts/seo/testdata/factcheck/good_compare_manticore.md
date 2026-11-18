@@ -6,7 +6,7 @@ evidence:
     source: "https://manual.manticoresearch.com/Searching/KNN"
   - claim: "Manticore fuses BM25 and KNN with OPTION fusion_method='rrf' in one query"
     source: "https://manual.manticoresearch.com/Searching/Hybrid_search"
-  - claim: "XERJ publishes 1,366 of 1,369 ES-YAML conformance cases on a curated subset"
+  - claim: "XERJ publishes 1,444 of 1,454 ES-YAML conformance cases on a curated subset"
     source: "Tier A: .github/workflows/ci.yml"
 ---
 
@@ -19,7 +19,7 @@ type, and its neural embedder is opt-in behind `--embed-mode neural` while the
 default embedder is lexical feature hashing.
 
 What XERJ adds is a published, machine-checked Elasticsearch conformance number:
-99.8% of the ES-YAML suite, on a curated 200-file subset. It also adds
+99.3% of the ES-YAML suite, on a curated 229-file subset. It also adds
 zero-config typed folder ingest, tree-sitter symbol extraction, and an agent
 memory API with an MCP server in the same process. XERJ is Apache-2.0;
 Manticore is GPL-3.0, which matters if you embed the engine in a commercial

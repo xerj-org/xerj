@@ -55,7 +55,7 @@ use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, bail, Context, Result};
 use serde_json::Value;
-use xerj_common::localauth::{discover_local_admin_key_for_url, url_is_loopback};
+use xerj_common::localauth::{discover_local_admin_key_for_url_with_origin, url_is_loopback};
 use xerj_common::xccode::XcHttp;
 
 use crate::flock::{held_by, FileLock, LockError};
@@ -77,7 +77,8 @@ pub fn resolve_url(explicit: Option<&str>) -> String {
 /// probe to the proxy, and the proxy's own `502 Bad Gateway` page then reads as
 /// "an HTTP answer, so a node is running" — the hub would decline to start the
 /// node it needs, or talk to a proxy believing it is one. A remote `--url` keeps
-/// the system proxy settings.
+/// the system proxy settings. `xerj mcp` and the autoindex node client use the
+/// same loopback bypass (#2379).
 fn client_builder(url: &str) -> reqwest::blocking::ClientBuilder {
     let builder = reqwest::blocking::Client::builder();
     if url_is_loopback(url) {
@@ -114,12 +115,16 @@ impl HubNode {
             None => match std::env::var("XERJ_API_KEY").ok().filter(|k| !k.is_empty()) {
                 Some(k) => Some(k),
                 None if url_is_loopback(&base) => {
-                    discover_local_admin_key_for_url(&base).map(|(k, path)| {
+                    discover_local_admin_key_for_url_with_origin(&base).map(|found| {
                         eprintln!(
-                            "xerj hub: no --api-key/XERJ_API_KEY given; using the admin key at {}",
-                            path.display()
-                        );
-                        k
+                        "xerj hub: no --api-key/XERJ_API_KEY given; using the admin key at {} ({})",
+                        found.path.display(),
+                        found.provenance()
+                    );
+                        if let Some(warning) = found.foreign_warning("--api-key or XERJ_API_KEY") {
+                            eprintln!("xerj hub: warning: {warning}");
+                        }
+                        found.key
                     })
                 }
                 None => None,
@@ -557,6 +562,43 @@ fn ensure_node_with(
         }
         drop(lock);
     }
+}
+
+/// The node a PULLED corpus (a `source: "hubpack"` ledger) is queried on when
+/// the caller named none (no `--url`, no `XERJ_URL`).
+///
+/// `xerj hub pull` restores into whatever [`ensure_node`] resolved — on a
+/// machine with nothing on `localhost:9200`, the automatic node on 9300+ — and
+/// records that URL in the ledger. A bare `xerj code <slug>` used to ignore the
+/// ledger and query `localhost:9200`, so the corpus `pull` had just restored was
+/// unreachable from the command `pull` tells the user to run next.
+///
+/// The recorded URL takes the place `--url` has in [`ensure_node`]: used when it
+/// answers; refused when it is remote and silent; and when it is local and
+/// silent (the automatic node was stopped, or its port changed), the automatic
+/// node is reused or restarted on its own data directory, where the restored
+/// indices persist. `localhost:9200` is NOT probed: a node there that never held
+/// the pack would answer "not loaded" for a corpus that is one restart away.
+/// A ledger with no URL falls back to plain [`ensure_node`].
+pub fn resolve_pulled_node(
+    hub_home: &Path,
+    recorded: Option<&str>,
+    launcher: &NodeLauncher,
+) -> Result<ResolvedNode> {
+    resolve_pulled_node_with(hub_home, recorded, launcher, NODE_BOOT_TIMEOUT)
+}
+
+/// [`resolve_pulled_node`] with the boot timeout spelled out (tests shorten it).
+fn resolve_pulled_node_with(
+    hub_home: &Path,
+    recorded: Option<&str>,
+    launcher: &NodeLauncher,
+    boot_timeout: Duration,
+) -> Result<ResolvedNode> {
+    let recorded = recorded
+        .map(|u| u.trim().trim_end_matches('/'))
+        .filter(|u| !u.is_empty());
+    ensure_node_with(hub_home, recorded, launcher, boot_timeout)
 }
 
 fn unconfirmed_message(hub_home: &Path, rec: &NodeRecord) -> String {
@@ -1717,7 +1759,8 @@ mod tests {
     fn fake_server(
         handler: impl Fn(&str) -> (&'static str, String) + Send + Sync + 'static,
     ) -> u16 {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener =
+            xerj_common::loopback_test::expect_loopback(TcpListener::bind("127.0.0.1:0"));
         let port = listener.local_addr().unwrap().port();
         let handler = std::sync::Arc::new(handler);
         std::thread::spawn(move || {
@@ -1770,8 +1813,7 @@ mod tests {
 
     /// A loopback port with nothing on it.
     fn silent_port() -> u16 {
-        TcpListener::bind("127.0.0.1:0")
-            .unwrap()
+        xerj_common::loopback_test::expect_loopback(TcpListener::bind("127.0.0.1:0"))
             .local_addr()
             .unwrap()
             .port()
@@ -1832,9 +1874,38 @@ mod tests {
         assert!(!hub.path().join("node.pid").exists());
     }
 
+    // ── resolve_pulled_node: a bare `xerj code <pulled slug>` ────────────────
+
+    #[test]
+    fn a_pulled_corpus_is_queried_on_the_node_its_ledger_recorded() {
+        // The bug: `pull` restored into the automatic node (9300+) and recorded
+        // its URL; a bare `xerj code` then queried localhost:9200 instead.
+        let hub = tempfile::tempdir().unwrap();
+        let port = fake_node("200 OK", r#"{"status":"green"}"#);
+        let recorded = format!("http://127.0.0.1:{port}/");
+        let r = resolve_pulled_node(hub.path(), Some(&recorded), &forbidden_launcher()).unwrap();
+        assert_eq!(r.url, format!("http://127.0.0.1:{port}"));
+        assert!(!r.started_now, "an answering node is never started over");
+        assert!(!hub.path().join("node.pid").exists());
+    }
+
+    #[test]
+    fn a_pulled_corpus_on_a_silent_remote_node_is_an_error_not_a_local_node() {
+        let hub = tempfile::tempdir().unwrap();
+        let err = resolve_pulled_node(
+            hub.path(),
+            Some("http://nonexistent.invalid:9200"),
+            &forbidden_launcher(),
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(err.contains("not a local address"), "{err}");
+        assert!(!hub.path().join("node.pid").exists());
+    }
+
     #[test]
     fn free_port_search_skips_a_busy_triple() {
-        let held = TcpListener::bind("127.0.0.1:0").unwrap();
+        let held = xerj_common::loopback_test::expect_loopback(TcpListener::bind("127.0.0.1:0"));
         let busy = held.local_addr().unwrap().port();
         let found = pick_free_port(busy, 50).expect("some free triple above");
         // Candidates step by three from the start, so a busy start is passed over.
@@ -2395,6 +2466,24 @@ mod tests {
             // The default-ish URL is silent (a closed loopback port), so the
             // recorded node is the one used.
             let r = ensure_node(hub.path(), Some(&silent_url()), &forbidden_launcher()).unwrap();
+            assert_eq!(r.url, format!("http://127.0.0.1:{port}"));
+            assert!(r.managed && !r.started_now);
+            live.kill().unwrap();
+            live.wait().unwrap();
+        }
+
+        #[test]
+        fn a_pulled_corpus_whose_recorded_node_moved_finds_the_automatic_node() {
+            // `xerj hub stop` + a later restart put the automatic node on another
+            // port than the one `pull` recorded. The ledger URL is silent and
+            // local, so the automatic node is the answer — and localhost:9200 is
+            // never consulted (a node there never held the pack).
+            let hub = tempfile::tempdir().unwrap();
+            let mut live = spawn_node_like(&node_data_dir(hub.path()));
+            let port = fake_node_with_pid(live.id());
+            record(hub.path(), live.id(), Some(port));
+            let r = resolve_pulled_node(hub.path(), Some(&silent_url()), &forbidden_launcher())
+                .unwrap();
             assert_eq!(r.url, format!("http://127.0.0.1:{port}"));
             assert!(r.managed && !r.started_now);
             live.kill().unwrap();

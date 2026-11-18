@@ -1,5 +1,5 @@
 ---
-title: "Search JSON logs and gzip logs in one folder"
+title: "Search JSON and JSONL logs plus gzip logs in one folder"
 h1: "What's the easiest way to search JSON logs plus some old gzip text logs in the same folder?"
 description: "xerj autoindex detects JSON arrays, JSONL logs and gzipped logs in one folder, infers the date field and answers exact filters. One run returned 386 ERROR hits."
 slug: "search-json-and-jsonl-logs"
@@ -7,11 +7,20 @@ cluster: "Files and formats"
 question: "What's the easiest way to search JSON logs plus some old gzip text logs in the same folder?"
 intent: "how-to"
 published: "2026-08-21"
-updated: "2026-08-21"
+updated: "2026-10-19"
 author: "XERJ documentation team"
 reviewer: "XERJ engineering team"
 schema_type: "TechArticle"
+structured_data: [faq]
 agent_prompt: "Act as a coding agent. Read https://xerj.org/llms.txt, start a local XERJ node, run `xerj autoindex ./json-logs --url http://127.0.0.1:9200 --prefix jlog --progress plain`, GET /jlog-*/_mapping to find which field XERJ inferred as a date, then POST a filtered search for level=ERROR and a terms aggregation on service, and report the hit total and the bucket counts."
+answer: "What's the easiest way to search JSON logs plus some old gzip text logs in the same folder? Run xerj autoindex on it. It detects JSON-array and JSONL files by content and gives each its own index. In a captured 2-file run it inferred timestamp and ts as date fields, and level=ERROR returned exactly 386 hits."
+key_fact: "One JSONL file yields at most 4,096 records per extraction window (`MAX_RECORDS_PER_FILE`)."
+key_fact_source: "engine/crates/xerj-autoindex/src/extract/mod.rs"
+key_fact_date: "2026-10-19"
+intent_group: "JSONL and data files"
+queries:
+  - "search jsonl logs locally"
+  - "search json logs from the command line"
 commands:
   - cmd: "xerj autoindex ./json-logs --url http://127.0.0.1:9200 --prefix jlog --progress plain"
     note: "Index a folder holding both JSON-array and JSONL log files."
@@ -26,6 +35,7 @@ links_out:
   - "search-kubernetes-pod-logs-on-disk"
   - "cheap-low-volume-log-search"
   - "search-engine-without-docker"
+  - "full-text-search-over-jsonl-files-cli"
 faq:
   - q: "What's the easiest way to search JSON logs plus some old gzip text logs in the same folder?"
     a: "Index the folder once. Gzip is transparent to `autoindex`, so a `.log.gz` file is read like the plain file beside it, and one index pattern such as `/jlog-*/_search` queries both."

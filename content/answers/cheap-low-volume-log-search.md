@@ -1,5 +1,5 @@
 ---
-title: "What can I use for low-volume log search?"
+title: "Search logs locally without ELK: low-volume log search"
 h1: "What can I use for low-volume log search?"
 description: "XERJ indexes plain-text logs on one node with exact error counts and sub-millisecond filters. A measured ladder stops at 16 MB: memory grows about 200x the corpus."
 slug: "cheap-low-volume-log-search"
@@ -7,11 +7,20 @@ cluster: "Operations: low-volume logs"
 question: "Free or cheap alternative for low volume log management and searching?"
 intent: "tool-selection"
 published: "2026-08-21"
-updated: "2026-08-23"
+updated: "2026-10-19"
 author: "XERJ documentation team"
 reviewer: "XERJ engineering team"
 schema_type: "TechArticle"
+structured_data: [faq]
 agent_prompt: "Act as a coding agent. Read https://xerj.org/llms.txt, index a small folder of plain-text logs with xerj autoindex, then run a term filter on level and a terms aggregation on service, and record the node's peak resident memory from /proc before you plan a larger corpus."
+answer: "Is there a free or cheap alternative for low-volume log management and searching? XERJ indexes plain-text logs on one node with no ELK stack, returns exact error counts, and answered a level=ERROR filter at p50 0.488 ms on a 16 MB corpus. Memory is the limit: peak resident memory grew to about 200 times the corpus."
+key_fact: "The page's measured ladder stopped at a 16 MB log corpus, where peak resident memory was about 200 times the corpus size."
+key_fact_source: "capture"
+key_fact_date: "2026-08-23"
+intent_group: "logs and docs"
+queries:
+  - "search logs locally without ELK"
+  - "opensearch alternative low memory"
 commands:
   - cmd: "xerj autoindex ./logs --url http://127.0.0.1:9200 --prefix log16 --state-dir ./state-log16 --progress plain"
     note: "Index a folder of plain-text log files into a typed index."

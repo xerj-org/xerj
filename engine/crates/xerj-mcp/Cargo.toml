@@ -25,6 +25,11 @@ tokio = { workspace = true }
 # Inherits the workspace's default-features=false + rustls-tls config, so it
 # builds in the same offline/cross-compile matrix as the rest of the tree.
 reqwest = { workspace = true }
+# Same proxy matcher reqwest consults (`HTTP(S)_PROXY`, `ALL_PROXY`, `NO_PROXY`).
+# Used to name the proxy in a failure. The client still lets reqwest apply it.
+# Loopback targets never reach this: they are built with `no_proxy()` (#2379).
+hyper-util = { version = "0.1.20", default-features = false, features = ["client-proxy"] }
+http = "1"
 # All request/response bodies are handled as untyped JSON `Value`s — no
 # bespoke serde structs, which keeps the wire contract identical to what the
 # engine already accepts.
@@ -49,6 +54,10 @@ unicode-segmentation = "1"
 # itself (`xerj_hub::ask`), the one implementation the CLI and the gRPC
 # service share — the tools are adapters, not a second copy of the flow.
 xerj-hub = { path = "../xerj-hub" }
+# `xerj_index_budget` walks a folder and prices it before hashing. The walk,
+# the flood-stage allocation parse, and the plan list live in xerj-autoindex;
+# this crate only exposes them. No cycle: autoindex does not depend on mcp.
+xerj-autoindex = { path = "../xerj-autoindex" }
 
 [dev-dependencies]
 # The loopback admin-key fallback tests sandbox cwd + HOME so discovery sees

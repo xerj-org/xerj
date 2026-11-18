@@ -34,7 +34,7 @@ SHA_C = "c" * 40
 def manifest_text(slug: str, repos: list[tuple[str, str, str]], extra: str = "") -> str:
     """A manifest in the registry's own hand-formatted style (one repo per line)."""
     body = ",\n".join(
-        f'  {{"repo":"{n}","url":"{u}","licence":"MIT","sha":"{s}","files":3,"bytes":99,'
+        f'  {{"repo":"{n}","url":"{u.replace(chr(92), "/")}","licence":"MIT","sha":"{s}","files":3,"bytes":99,'
         f'"review":{{"spdx":"MIT","use":"adapt-with-attribution","by":"xerj-org","at":"2026-08-12"}}}}'
         for n, u, s in repos
     )
@@ -130,6 +130,33 @@ class RegistryTests(unittest.TestCase):
             corpora, warnings = hp.load_live(reg, backlog)
             self.assertEqual([c.slug for c in corpora], ["good"])
             self.assertEqual(len(warnings), 2)
+
+
+    def test_invalid_manifest_shapes_warn_without_losing_healthy_corpora(self):
+        good = json.loads(manifest_text("broken", [("r", "https://x.test/r", SHA_A)]))
+        cases = [[], None, "manifest", {"corpus": "broken", "repos": "repos"},
+                 {"corpus": "broken", "repos": [None]},
+                 {"corpus": "broken", "repos": [{"sha": None}]},
+                 {"corpus": "broken", "repos": [{"sha": 123}]},
+                 {"corpus": "broken", "repos": [{"sha": SHA_A, "repo": ["r"], "url": "https://x.test/r"}]},
+                 {"corpus": "broken", "repos": [{"sha": SHA_A, "repo": "r", "url": {"url": "https://x.test/r"}}]}]
+        for invalid in cases:
+            with self.subTest(manifest=invalid), tempfile.TemporaryDirectory() as t:
+                reg, backlog = write_registry(pathlib.Path(t), [row("good"), row("broken")], {
+                    "good": manifest_text("good", [("g", "https://x.test/g", SHA_A)]),
+                    "broken": json.dumps(invalid),
+                })
+                before = (reg / "broken.json").read_bytes()
+                corpora, warnings = hp.load_live(reg, backlog)
+                self.assertEqual([c.slug for c in corpora], ["good"])
+                self.assertEqual(len(warnings), 1)
+                self.assertIn("broken.json", warnings[0])
+                self.assertEqual((reg / "broken.json").read_bytes(), before)
+                # A corrected manifest recovers on the next run without other changes.
+                (reg / "broken.json").write_text(json.dumps(good))
+                recovered, warnings = hp.load_live(reg, backlog)
+                self.assertEqual([c.slug for c in recovered], ["broken", "good"])
+                self.assertEqual(warnings, [])
 
 
 class PlanTests(unittest.TestCase):
@@ -299,7 +326,7 @@ class RepinTests(unittest.TestCase):
 
     def test_ls_remote_reads_the_default_branch_head_of_a_real_repository(self):
         up, shas = make_upstream(self.root, "up")
-        url = f"file://{up}"
+        url = f"file://{up.as_posix()}"
         self.assertEqual(hp.git_head_of(url, "file:https"), shas[-1])
         cs = self.corpora([("feed", "weekly", url, shas[0])])
         (p,), notes = hp.find_proposals(cs, hp.REPIN_CLASSES, lambda u: hp.git_head_of(u, "file:https"), "2026-10-14")
@@ -312,7 +339,7 @@ class RepinTests(unittest.TestCase):
     def test_only_https_is_spoken_by_default(self):
         up, _ = make_upstream(self.root, "up")
         marker = self.root / "pwned"
-        self.assertIsNone(hp.git_head_of(f"file://{up}"), "file:// needs the test-only widening")
+        self.assertIsNone(hp.git_head_of(f"file://{up.as_posix()}"), "file:// needs the test-only widening")
         self.assertIsNone(hp.git_head_of(f"ext::sh -c touch% {marker}"), "ext:: would run a command")
         self.assertIsNone(hp.git_head_of("git://example.test/r"))
         self.assertIsNone(hp.git_head_of(f"--upload-pack=touch {marker}"))
@@ -331,7 +358,7 @@ class RepinTests(unittest.TestCase):
         self.assertFalse(marker.exists(), "GIT_ALLOW_PROTOCOL=https stops an ext:: URL from running anything")
 
     def test_a_dead_remote_is_none_not_an_exception(self):
-        self.assertIsNone(hp.git_head_of(f"file://{self.root}/nowhere", "file:https"))
+        self.assertIsNone(hp.git_head_of(f"file://{self.root.as_posix()}/nowhere", "file:https"))
 
 
 GH_STUB = textwrap.dedent(
@@ -387,9 +414,15 @@ class ApplyTests(unittest.TestCase):
         self.origin = origin
         self.state = self.root / "gh-state.json"
         self.state.write_text(json.dumps({"calls": [], "prs": [], "next": 100}))
-        self.gh = self.root / "gh"
-        self.gh.write_text(GH_STUB.format(python=sys.executable, state=str(self.state)))
-        self.gh.chmod(0o755)
+        if sys.platform == "win32":
+            self.gh_py = self.root / "gh_stub.py"
+            self.gh_py.write_text(GH_STUB.format(python=sys.executable, state=str(self.state)))
+            self.gh = self.root / "gh.cmd"
+            self.gh.write_text(f'@"{sys.executable}" "{self.gh_py}" %*\n')
+        else:
+            self.gh = self.root / "gh"
+            self.gh.write_text(GH_STUB.format(python=sys.executable, state=str(self.state)))
+            self.gh.chmod(0o755)
 
     def tearDown(self):
         self._tmp.cleanup()
@@ -479,6 +512,24 @@ class ApplyTests(unittest.TestCase):
         self.assertTrue(any("closed superseded PR #100" in l for l in log), log)
         open_heads = [p["headRefName"] for p in self.gh_state()["prs"] if p["state"] == "OPEN"]
         self.assertEqual(open_heads, [new.branch])
+
+    def test_superseding_a_corpus_preserves_longer_slug_branches(self):
+        (proposal,) = self.proposals(["feed"])
+        st = self.gh_state()
+        st["prs"] = [
+            {"number": 91, "state": "OPEN", "headRefName": "hub-repin/feed-12345678"},
+            {"number": 92, "state": "OPEN", "headRefName": "hub-repin/feed-extra-12345678"},
+            {"number": 93, "state": "OPEN", "headRefName": "hub-repin/feed-manual-review"},
+        ]
+        self.state.write_text(json.dumps(st))
+        _, failures = self.apply([proposal])
+        self.assertEqual(failures, 0)
+        by_number = {p["number"]: p["state"] for p in self.gh_state()["prs"]}
+        self.assertEqual(by_number[91], "CLOSED", "an older exact-corpus proposal is superseded")
+        self.assertEqual(by_number[92], "OPEN", "a longer corpus slug is independently owned")
+        self.assertEqual(by_number[93], "OPEN", "non-generated branch suffixes are not ours")
+        closes = [c[2] for c in self.gh_state()["calls"] if c[:2] == ["pr", "close"]]
+        self.assertEqual(closes, ["91"])
 
     def test_one_failure_does_not_stop_the_rest(self):
         first, second = self.proposals()
@@ -647,6 +698,86 @@ class CatalogueTests(unittest.TestCase):
         self.assertIn("1 of 2 live corpora", out.stderr)
 
 
+class RecordPackTests(unittest.TestCase):
+    """Live lane-B corpora (record packs) as hubpacks: no manifest, a content pin."""
+
+    REPO = "xerj-org/xerj"
+    PIN = "0123abcd" + "e" * 32
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.root = pathlib.Path(self._tmp.name)
+        rows = [row("alpha"), row("rust-vulns", lane="B", refresh="daily"),
+                row("old-records", status="candidate", lane="B")]
+        mans = {"alpha": manifest_text("alpha", [("alpha", "https://x.test/a", SHA_A)])}
+        self.reg, self.backlog = write_registry(self.root, rows, mans)
+        self.corpora, _ = hp.load_live(self.reg, self.backlog)
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def test_only_live_lane_b_rows_are_record_corpora(self):
+        self.assertEqual(hp.load_record_slugs(self.backlog), ["rust-vulns"])
+
+    def test_record_fetch_list_ignores_the_dated_json_releases(self):
+        tags = ["pack-rust-vulns-2026-10-08", "pack-rust-vulns-2026-10-08-r2",
+                "pack-rust-vulns-0123abcd", "pack-rust-vulns-0123abcd-r2", "pack-rust-vulns-99999999",
+                "pack-rust-vulns-x-0123abcd"]
+        self.assertEqual(
+            hp.record_fetch_list(["rust-vulns"], tags),
+            [("rust-vulns", "0123abcd", "pack-rust-vulns-0123abcd-r2"), ("rust-vulns", "99999999", "pack-rust-vulns-99999999")],
+        )
+        newest = {"pack-rust-vulns-0123abcd-r2": "2026-10-17T04:30:00Z", "pack-rust-vulns-99999999": "2026-10-16T04:30:00Z"}
+        self.assertEqual(
+            hp.record_fetch_list(["rust-vulns"], tags, newest),
+            [("rust-vulns", "0123abcd", "pack-rust-vulns-0123abcd-r2")],
+        )
+        self.assertEqual(hp.record_fetch_list(["rust-vulns"], ["pack-rust-vulns-2026-10-08"]), [])
+
+    def test_fetch_list_command_adds_the_record_packs(self):
+        tags = self.root / "tags.txt"
+        tags.write_text("pack-alpha-aaaaaaaa\npack-rust-vulns-2026-10-08\npack-rust-vulns-0123abcd\npack-rust-vulns-11111111\n")
+        at = self.root / "at.tsv"
+        at.write_text("pack-rust-vulns-0123abcd\t2026-10-17T00:00:00Z\npack-rust-vulns-11111111\t2026-10-16T00:00:00Z\n")
+        out = subprocess.run(
+            [sys.executable, hp.__file__, "fetch-list", "--registry", str(self.reg), "--backlog", str(self.backlog),
+             "--published-tags", str(tags), "--published-at", str(at)],
+            capture_output=True, text=True,
+        )
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertEqual(out.stdout, "alpha\taaaaaaaa\tpack-alpha-aaaaaaaa\nrust-vulns\t0123abcd\tpack-rust-vulns-0123abcd\n")
+
+    def entry(self, slug: str, sha: str, tag_pin8: str = "") -> dict:
+        pin8 = tag_pin8 or sha[:8]
+        url = (f"https://github.com/{self.REPO}/releases/download/pack-{slug}-{pin8}/"
+               f"{slug}-{pin8}.hubpack.tar.zst")
+        return {"slug": slug, "pin_sha": sha, "pack_url": url, "sig_url": url + ".sig",
+                "pack_sha256": "ab" * 32, "pack_bytes": 1}
+
+    def cat(self, *entries: dict) -> bytes:
+        return json.dumps({"format_version": 1, "generated_at": "x", "corpora": list(entries)}).encode()
+
+    def check(self, raw: bytes, previous=None) -> list[str]:
+        return hp.check_catalogue(raw, self.corpora, self.REPO, previous, hp.load_record_slugs(self.backlog))
+
+    def test_a_record_entry_with_its_own_pin_passes(self):
+        self.assertEqual(self.check(self.cat(self.entry("alpha", SHA_A), self.entry("rust-vulns", self.PIN))), [])
+
+    def test_a_record_entry_must_name_its_pin_in_the_url_and_be_live(self):
+        joined = "\n".join(self.check(self.cat(
+            self.entry("rust-vulns", self.PIN, tag_pin8="99999999"),
+            self.entry("old-records", self.PIN),
+        )))
+        self.assertIn("rust-vulns: pack_url", joined)
+        self.assertIn("old-records: not a live lane-A corpus", joined)
+        self.assertIn("is not 40 hex", "\n".join(self.check(self.cat(self.entry("rust-vulns", "0123abcd")))))
+
+    def test_a_live_record_corpus_may_not_vanish(self):
+        live = self.cat(self.entry("alpha", SHA_A), self.entry("rust-vulns", self.PIN))
+        errors = self.check(self.cat(self.entry("alpha", SHA_A)), previous=live)
+        self.assertEqual(errors, ["rust-vulns: in the live catalogue and still live, but missing from the new one"])
+
+
 class ReportTests(unittest.TestCase):
     STAGES = ["start", "build", "verify", "tag", "upload", "e2e", "publish"]
 
@@ -732,6 +863,43 @@ class ReportTests(unittest.TestCase):
         md = hp.render_report(history + [r("3", "a", "published")])
         self.assertIn("3 corpora attempted: 2 published at their latest attempt, 1 not.", md)
         self.assertIn("boom", md, "the old failing row stays in run 1's table")
+
+    def test_e2e_rows_get_their_own_section_and_never_count_as_published(self):
+        def r(run, slug, result, kind=None, error="", detail=""):
+            row = {"run": run, "date": "d", "slug": slug, "pin8": "aaaaaaaa", "bytes": None,
+                   "defs": None, "result": result, "tag": "", "stage": "", "error": error,
+                   "detail": detail}
+            if kind:
+                row["kind"] = kind
+            return row
+        history = [r("1", "a", "failed", error="boom"), r("1", "b", "published"),
+                   r("e2e-1", "a", "e2e passed", "e2e", detail="--def X -> x.c:1"),
+                   r("e2e-1", "b", "failed", "e2e", error="pull refused"),
+                   r("e2e-2", "b", "e2e passed", "e2e")]
+        md = hp.render_report(history)
+        # The publishing state ignores the e2e rows: `a` still has not published.
+        self.assertIn("2 corpora attempted: 1 published at their latest attempt, 1 not.", md)
+        e2e = md[md.index("## Whole-hub end-to-end"):]
+        self.assertIn("### Run e2e-2, d: 1 of 1 corpora passed", e2e)
+        self.assertIn("- e2e-1, d: 1 of 2 corpora passed", e2e)
+        self.assertNotIn("e2e-1", md[:md.index("## Whole-hub end-to-end")])
+        md = hp.render_report(history[:4])
+        self.assertIn("--def X -> x.c:1", md, "a passing e2e row shows its detail")
+        self.assertIn("pull refused", md)
+
+    def test_report_cli_says_passed_for_an_e2e_run(self):
+        with tempfile.TemporaryDirectory() as t:
+            root = pathlib.Path(t)
+            rows = root / "rows"; rows.mkdir()
+            for slug, res in (("a", "e2e passed"), ("b", "failed")):
+                (rows / f"{slug}.json").write_text(json.dumps(
+                    {"slug": slug, "kind": "e2e", "pin8": "11111111", "result": res, "run": "x"}))
+            args = ["report", "--rows-dir", str(rows), "--run-id", "e2e-9",
+                    "--history", str(root / "rows.jsonl"), "--report", str(root / "R.md"), "--write"]
+            with contextlib.redirect_stdout(io.StringIO()) as out:
+                self.assertEqual(hp.main(args), 0)
+            self.assertIn("1 of 2 corpora passed end-to-end in this run.", out.getvalue())
+            self.assertIn("### Run e2e-9", (root / "R.md").read_text())
 
     def test_report_cli_appends_this_run_and_replaces_a_rerun_of_the_same_id(self):
         with tempfile.TemporaryDirectory() as t:
@@ -887,7 +1055,7 @@ class CommandLineTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as t:
             root = pathlib.Path(t)
             up, shas = make_upstream(root, "up")
-            url = f"file://{up}"
+            url = f"file://{up.as_posix()}"
             reg, backlog = write_registry(
                 root, [row("feed", refresh="daily")], {"feed": manifest_text("feed", [("feed", url, shas[0])])}
             )

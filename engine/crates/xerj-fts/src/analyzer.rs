@@ -2698,6 +2698,56 @@ mod tests {
         assert!(texts.contains(&"fox"));
     }
 
+    /// #1504: a `match` for a phrase that never occurs returned thousands of
+    /// hits because the token `is` is in almost every log line. `standard`
+    /// and `stemmer` keep it (ES `standard` has no stop list; the stemmer is
+    /// that plus Snowball). `english` drops it, which is what a log dataset
+    /// elects. Content words of the same phrase stay, so the query is no
+    /// longer a search for `is`.
+    #[test]
+    fn english_drops_is_and_stemmer_keeps_it() {
+        let registry = AnalyzerRegistry::default();
+        let phrase = "configuration is invalid";
+        let english = registry
+            .get_analyzer("english")
+            .unwrap()
+            .analyze_to_terms(phrase);
+        let stemmer = registry
+            .get_analyzer("stemmer")
+            .unwrap()
+            .analyze_to_terms(phrase);
+        let standard = registry
+            .get_analyzer("standard")
+            .unwrap()
+            .analyze_to_terms(phrase);
+        assert!(
+            !english.iter().any(|t| t == "is"),
+            "english must drop the stopword is: {english:?}"
+        );
+        assert!(
+            stemmer.iter().any(|t| t == "is"),
+            "stemmer keeps is, which is why log match hit every line: {stemmer:?}"
+        );
+        assert!(
+            standard.iter().any(|t| t == "is"),
+            "standard keeps is: {standard:?}"
+        );
+        assert!(
+            english.iter().any(|t| t.starts_with("configur")),
+            "the content word survives stemming: {english:?}"
+        );
+        assert!(
+            english.iter().any(|t| t.starts_with("invalid")),
+            "invalid is not a stop word: {english:?}"
+        );
+        let sip = registry
+            .get_analyzer("english")
+            .unwrap()
+            .analyze_to_terms("SIP 403 Forbidden");
+        assert!(sip.iter().any(|t| t == "sip"), "{sip:?}");
+        assert!(sip.iter().any(|t| t == "403"), "{sip:?}");
+    }
+
     #[test]
     fn registry_standard_analyzer_e2e() {
         let registry = AnalyzerRegistry::default();

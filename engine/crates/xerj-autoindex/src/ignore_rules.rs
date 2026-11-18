@@ -57,11 +57,26 @@
 //! surprise, and it is not visible in the folder being indexed. `.gitignore`,
 //! `.xerjignore` and `.git/info/exclude` all live in the tree the user pointed
 //! at, so they are.
+//!
+//! # Bracket directory names
+//!
+//! Git reads `[locale]` as a character class (one of those letters), so a
+//! pattern written as the Next.js directory `app/[locale]/` does not name
+//! that directory. After each ignore-file line that contains an unescaped
+//! bracket, the same line is added again with those brackets escaped. The
+//! original pattern stays, so a real class such as `*.[ch]` still matches
+//! `a.c` and `a.h`. The extra pattern is what makes the literal directory
+//! follow the line the author wrote (`!app/[locale]/**` re-includes
+//! `app/[locale]/…`, and `app/[locale]/` ignores it). A route-like class is
+//! named in the ignore summary. A code file that is still skipped is named
+//! with the rule, so a miss is not only a count.
 
 use ignore::gitignore::{Gitignore, GitignoreBuilder, Glob};
 use ignore::Match;
 use std::collections::BTreeMap;
 use std::ffi::OsStr;
+use std::fs::File;
+use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 
 /// Hidden names start with `.` even when they are not valid UTF-8.
@@ -79,21 +94,47 @@ pub const GITIGNORE: &str = ".gitignore";
 pub const XERJIGNORE: &str = ".xerjignore";
 
 /// Build output that is junk in practice but is *not* reliably gitignored —
-/// `vendor/` is committed by Go projects, `dist/` and `build/` are gitignored
-/// in one repo and checked in the next, and a folder full of downloaded
-/// packages is very often not a git repository at all.
+/// `vendor/` is committed by Go projects, `third_party/` and `bower_components/`
+/// are committed dependency trees, `dist/` and `build/` are gitignored in one
+/// repo and checked in the next, and a folder full of downloaded packages is
+/// very often not a git repository at all.
 ///
 /// These are defaults, not law: `--no-default-ignores` turns them off, any
-/// ignore file in the tree outranks them, and `--dry-run` names them as the
-/// reason a directory disappeared.
+/// ignore file in the tree outranks them (`!third_party/` keeps a tree the
+/// operator wants searched), and `--dry-run` names them as the reason a
+/// directory disappeared.
 pub const DEFAULT_IGNORE_PATTERNS: &[&str] = &[
     "node_modules/",
+    "bower_components/",
     "vendor/",
+    "third_party/",
+    "thirdparty/",
     "target/",
     "dist/",
     "build/",
     ".venv/",
     "__pycache__/",
+    // Media and native binaries. Sniffing classifies these as binary and
+    // records each one as junk, so a repo of images and shared libraries
+    // spent the walk opening files that can never become a document. A
+    // gzipped log (`.gz`) and a PDF stay: those families are extracted.
+    // `!*.png` in an ignore file puts one extension back.
+    "*.png",
+    "*.jpg",
+    "*.jpeg",
+    "*.gif",
+    "*.webp",
+    "*.ico",
+    "*.bmp",
+    "*.woff",
+    "*.woff2",
+    "*.ttf",
+    "*.otf",
+    "*.wasm",
+    "*.so",
+    "*.dll",
+    "*.dylib",
+    "*.exe",
 ];
 
 /// Rule label used for the pre-existing dotfile skip. It is not one of the
@@ -137,7 +178,20 @@ pub const UNRESOLVED_LINK_RULE: &str = "symlink:unresolved";
 /// Both were tried; this names the two facts that are actually true.
 pub const HIDDEN_OUTSIDE_ROOT_RULE: &str = "symlink:outside-root+hidden";
 
+/// A symlink the walk did not follow. The default is not to follow links, and
+/// an unfollowed symlink is not a file to walkdir, so it used to be skipped
+/// with no line on the ignore report — a tree of links looked empty. One
+/// warning names `--follow-symlinks` (and `--follow-symlinks-outside-root` for
+/// targets outside the folder); each link is counted under this rule. A target
+/// outside the folder stays refused with `--follow-symlinks` alone
+/// ([`ESCAPED_ROOT_RULE`]).
+pub const NOT_FOLLOWED_RULE: &str = "symlink:not-followed";
+
 const MAX_WARNINGS: usize = 20;
+/// Skipped code files named in the summary. The rest are a count: a
+/// `*.log` tree is not code, and a `*.ts` rule over a huge tree must not
+/// print every path.
+const CODE_SKIP_SHOWN: usize = 8;
 /// Directory entries the `--dry-run` deep count may examine in total. A
 /// pathological `node_modules` is not allowed to turn "tell me the plan" into
 /// minutes of stat storm on a laptop; past the budget the count is reported as
@@ -209,7 +263,18 @@ pub struct RuleCount {
 pub struct IgnoreReport {
     /// rule label → what it discarded.
     pub by_rule: BTreeMap<String, RuleCount>,
+    /// The same discards as [`Self::by_rule`], split by top-level folder.
+    ///
+    /// `"."` is a file that sits directly in the indexed root. A pruned
+    /// directory is charged to itself when it is top-level, and to the
+    /// top-level directory that contains it otherwise. [`crate::walk`] turns
+    /// this into the `--walk-only` per-folder summary; it is not a second walk.
+    pub by_top: BTreeMap<String, BTreeMap<String, RuleCount>>,
     pub files_skipped: u64,
+    /// `rel — rule` for skipped code files, capped at [`CODE_SKIP_SHOWN`].
+    pub code_skipped: Vec<String>,
+    /// Code files skipped past [`CODE_SKIP_SHOWN`].
+    pub code_skipped_omitted: u64,
     pub dirs_pruned: u64,
     /// Non-hidden files inside the pruned directories — see
     /// [`IgnoreStack::count_inside`] for exactly what is and is not counted.
@@ -240,7 +305,10 @@ impl Default for IgnoreReport {
     fn default() -> Self {
         Self {
             by_rule: BTreeMap::new(),
+            by_top: BTreeMap::new(),
             files_skipped: 0,
+            code_skipped: Vec::new(),
+            code_skipped_omitted: 0,
             dirs_pruned: 0,
             files_inside_pruned_dirs: 0,
             deep_count_complete: true,
@@ -363,6 +431,16 @@ impl IgnoreReport {
                 plural((ranked.len() - SHOWN) as u64)
             ));
         }
+        for skipped in &self.code_skipped {
+            out.push(format!("ignore rules: skipped code file {skipped}"));
+        }
+        if self.code_skipped_omitted > 0 {
+            out.push(format!(
+                "ignore rules: … and {} more skipped code file{}",
+                self.code_skipped_omitted,
+                plural(self.code_skipped_omitted)
+            ));
+        }
         out
     }
 }
@@ -372,6 +450,24 @@ fn plural(n: u64) -> &'static str {
         ""
     } else {
         "s"
+    }
+}
+
+/// Top-level folder of `path` relative to the canonical walk root.
+///
+/// A file with no parent under the root — `README.md` — is `"."`. A directory
+/// the walk prunes at the root — `target/` — is that directory's own name, so
+/// the folder summary can say the directory itself was dropped.
+pub(crate) fn folder_key(root: &Path, path: &Path, is_dir: bool) -> String {
+    let rel = path.strip_prefix(root).unwrap_or(path);
+    let mut comps = rel.components();
+    let Some(first) = comps.next() else {
+        return ".".to_string();
+    };
+    if comps.next().is_none() && !is_dir {
+        ".".to_string()
+    } else {
+        first.as_os_str().to_string_lossy().into_owned()
     }
 }
 
@@ -486,7 +582,7 @@ impl IgnoreStack {
                     continue;
                 }
                 let mut builder = GitignoreBuilder::new(&dir);
-                let _ = builder.add(&path);
+                let _ = add_gitignore_file(&mut builder, &path);
                 let Ok(gi) = builder.build() else { continue };
                 if gi.is_empty() {
                     continue;
@@ -552,8 +648,12 @@ impl IgnoreStack {
             return None;
         }
         let mut builder = GitignoreBuilder::new(dir);
-        if let Some(err) = builder.add(&file) {
+        let (err, notes) = add_gitignore_file(&mut builder, &file);
+        if let Some(err) = err {
             self.warn(format!("{}: {err}", file.display()));
+        }
+        for note in notes {
+            self.warn(format!("{}: {note}", file.display()));
         }
         match builder.build() {
             Ok(gi) => {
@@ -683,7 +783,7 @@ impl IgnoreStack {
         if !ignored {
             return None;
         }
-        self.record_file(&label);
+        self.record_file(path, &label);
         Some(label)
     }
 
@@ -698,7 +798,7 @@ impl IgnoreStack {
     /// [`IgnoreReport::files_inside_pruned_dirs`] with work that no run was
     /// ever going to do. On this repository that inflation was 97,731 files
     /// against a real exclusion of 273,441 (#279).
-    pub fn record_hidden(&mut self, is_dir: bool) {
+    pub fn record_hidden(&mut self, path: &Path, is_dir: bool) {
         if is_dir {
             self.report.dirs_pruned += 1;
             self.report
@@ -706,15 +806,59 @@ impl IgnoreStack {
                 .entry(HIDDEN_RULE.to_string())
                 .or_default()
                 .dirs += 1;
+            self.note_top(path, true, HIDDEN_RULE, |count| count.dirs += 1);
         } else {
-            self.record_file(HIDDEN_RULE);
+            self.record_file(path, HIDDEN_RULE);
         }
+    }
+
+    /// #1844: a `.xerjignore` `!pattern` that names a hidden entry looks like it
+    /// re-includes it, and `--help` documents `!pattern` as the re-include. It
+    /// cannot: the dotfile rule is not an ignore rule (see [`HIDDEN_RULE`]) and
+    /// runs before any ignore file is consulted. Saying so — once per entry,
+    /// with the named-root workaround — replaces a silent no-op.
+    ///
+    /// Only `.xerjignore` is asked: a `.gitignore` `!.env.example` is about
+    /// what git tracks, not a request to XERJ, and warning on it would fire on
+    /// half the repositories in existence. Call it for the hidden entry the
+    /// walker is about to skip, after [`IgnoreStack::truncate_to`].
+    pub fn note_hidden_reinclude(&mut self, path: &Path, is_dir: bool) {
+        if !self.opts.enabled {
+            return;
+        }
+        let decision = self
+            .layers
+            .iter()
+            .rev()
+            .find_map(|layer| self.decide_with(layer.xerj.as_ref(), path, is_dir));
+        let Some((false, label)) = decision else {
+            return;
+        };
+        let kind = if is_dir { "directory" } else { "file" };
+        self.warn(format!(
+            "`{label}` re-includes the hidden {kind} {rel}, but hidden (dot-named) entries are \
+             never indexed: that rule keeps .env and .ssh out, and no ignore file, !pattern or \
+             --no-ignore lifts it. To index it, name it as its own root: `xerj autoindex {abs} \
+             --prefix <name>`",
+            rel = self.rel(path),
+            abs = path.display(),
+        ));
     }
 
     /// A symlink target outside the indexed root, also decided by the walker
     /// (it needs the canonical root, which this stack does not carry) and
     /// reported through the same accounting. See [`ESCAPED_ROOT_RULE`].
-    pub fn record_symlink_escape(&mut self, is_dir: bool) {
+    /// The warning is once per walk and names the flag that waives the
+    /// boundary, so a tree of links to elsewhere does not look empty (#2823).
+    pub fn record_symlink_escape(&mut self, path: &Path, is_dir: bool) {
+        if !self.report.by_rule.contains_key(ESCAPED_ROOT_RULE) {
+            self.warn(
+                "symlink: target outside this folder, not followed (pass \
+                 --follow-symlinks-outside-root to index it; a link through a hidden folder \
+                 stays refused)"
+                    .into(),
+            );
+        }
         if is_dir {
             self.report.dirs_pruned += 1;
             self.report
@@ -722,14 +866,15 @@ impl IgnoreStack {
                 .entry(ESCAPED_ROOT_RULE.to_string())
                 .or_default()
                 .dirs += 1;
+            self.note_top(path, true, ESCAPED_ROOT_RULE, |count| count.dirs += 1);
         } else {
-            self.record_file(ESCAPED_ROOT_RULE);
+            self.record_file(path, ESCAPED_ROOT_RULE);
         }
     }
 
     /// A followed link that left the root through a dotted component.
     /// See [`HIDDEN_OUTSIDE_ROOT_RULE`].
-    pub fn record_symlink_hidden_escape(&mut self, is_dir: bool) {
+    pub fn record_symlink_hidden_escape(&mut self, path: &Path, is_dir: bool) {
         if is_dir {
             self.report.dirs_pruned += 1;
             self.report
@@ -737,13 +882,30 @@ impl IgnoreStack {
                 .entry(HIDDEN_OUTSIDE_ROOT_RULE.to_string())
                 .or_default()
                 .dirs += 1;
+            self.note_top(path, true, HIDDEN_OUTSIDE_ROOT_RULE, |count| {
+                count.dirs += 1;
+            });
         } else {
-            self.record_file(HIDDEN_OUTSIDE_ROOT_RULE);
+            self.record_file(path, HIDDEN_OUTSIDE_ROOT_RULE);
         }
     }
 
+    /// A symlink left unfollowed. See [`NOT_FOLLOWED_RULE`]. The warning is
+    /// once per walk: the rule count already says how many links.
+    pub fn record_symlink_not_followed(&mut self, path: &Path) {
+        if !self.report.by_rule.contains_key(NOT_FOLLOWED_RULE) {
+            self.warn(
+                "symlink: not followed (pass --follow-symlinks to index a target inside \
+                 this folder; add --follow-symlinks-outside-root as well for a target \
+                 outside it)"
+                    .into(),
+            );
+        }
+        self.record_file(path, NOT_FOLLOWED_RULE);
+    }
+
     /// A followed entry that could not be resolved. See [`UNRESOLVED_LINK_RULE`].
-    pub fn record_symlink_unresolved(&mut self, is_dir: bool) {
+    pub fn record_symlink_unresolved(&mut self, path: &Path, is_dir: bool) {
         if is_dir {
             self.report.dirs_pruned += 1;
             self.report
@@ -751,8 +913,9 @@ impl IgnoreStack {
                 .entry(UNRESOLVED_LINK_RULE.to_string())
                 .or_default()
                 .dirs += 1;
+            self.note_top(path, true, UNRESOLVED_LINK_RULE, |count| count.dirs += 1);
         } else {
-            self.record_file(UNRESOLVED_LINK_RULE);
+            self.record_file(path, UNRESOLVED_LINK_RULE);
         }
     }
 
@@ -767,8 +930,8 @@ impl IgnoreStack {
     /// The file-level twin of [`Self::record_marker_dir`]: a built-in rule the
     /// walker decided (it needs a SIBLING or PARENT marker, which the matcher
     /// stack cannot see), reported through the same accounting.
-    pub fn record_marker_file(&mut self, label: &str) {
-        self.record_file(label);
+    pub fn record_marker_file(&mut self, path: &Path, label: &str) {
+        self.record_file(path, label);
     }
 
     /// Did an ignore file explicitly RE-INCLUDE this path (`!name`)? A
@@ -779,25 +942,76 @@ impl IgnoreStack {
         matches!(self.lookup(path, is_dir), Some((false, _)))
     }
 
-    fn record_file(&mut self, label: &str) {
+    fn record_file(&mut self, path: &Path, label: &str) {
         self.report.files_skipped += 1;
         self.report
             .by_rule
             .entry(label.to_string())
             .or_default()
             .files += 1;
+        self.note_code_skip(path, label);
+        self.note_top(path, false, label, |count| count.files += 1);
+    }
+
+    /// A skipped `.ts`/`.tsx` (and every other code extension) is named. A
+    /// directory prune never reaches here: the walk does not open the
+    /// children, so the summary can only name the directory.
+    fn note_code_skip(&mut self, path: &Path, label: &str) {
+        let ext = path.extension().and_then(|ext| ext.to_str()).unwrap_or("");
+        if !crate::extract::code::is_code_ext(ext) {
+            return;
+        }
+        let shown = format!("{} — {label}", self.rel(path));
+        if self.report.code_skipped.len() < CODE_SKIP_SHOWN {
+            self.report.code_skipped.push(shown);
+        } else {
+            self.report.code_skipped_omitted += 1;
+        }
     }
 
     fn record_dir(&mut self, path: &Path, label: &str) {
         let inside = self.count_inside(path);
+        let deep = self.opts.deep_count;
         let entry = self.report.by_rule.entry(label.to_string()).or_default();
         entry.dirs += 1;
         entry.files_inside_pruned_dirs += inside;
-        if self.opts.deep_count {
+        if deep {
             entry.dirs_deep_counted += 1;
         }
         self.report.dirs_pruned += 1;
         self.report.files_inside_pruned_dirs += inside;
+        let rel = self.rel(path);
+        if rel.contains('[') || rel.contains(']') {
+            self.warn(format!(
+                "pruned directory {rel} ({label}); files under it are not indexed"
+            ));
+        }
+        self.note_top(path, true, label, |count| {
+            count.dirs += 1;
+            count.files_inside_pruned_dirs += inside;
+            if deep {
+                count.dirs_deep_counted += 1;
+            }
+        });
+    }
+
+    /// Charge one discard to the top-level folder [`folder_key`] names.
+    fn note_top(
+        &mut self,
+        path: &Path,
+        is_dir: bool,
+        label: &str,
+        update: impl FnOnce(&mut RuleCount),
+    ) {
+        let key = folder_key(&self.root, path, is_dir);
+        let count = self
+            .report
+            .by_top
+            .entry(key)
+            .or_default()
+            .entry(label.to_string())
+            .or_default();
+        update(count);
     }
 
     /// Only under `--dry-run`. Symlinks are never followed here whatever the
@@ -848,6 +1062,159 @@ impl IgnoreStack {
     }
 }
 
+/// Read one ignore file the way `GitignoreBuilder::add` does, then add a
+/// literal-bracket twin of every line that contains an unescaped `[` or `]`.
+///
+/// The twin is inserted immediately after its source line, so a later line
+/// in the same file still wins. `*.[ch]` keeps matching `a.c`; the twin
+/// only additionally matches a name that contains the brackets.
+///
+/// Returns the first error (other lines are still added) and one note per
+/// route-like class, for the ignore summary. The error is a string because
+/// `ignore::Error`'s path and line tagging is crate-private; the line number
+/// is in the text instead.
+fn add_gitignore_file(
+    builder: &mut GitignoreBuilder,
+    path: &Path,
+) -> (Option<String>, Vec<String>) {
+    let file = match File::open(path) {
+        Ok(file) => file,
+        Err(err) => return (Some(err.to_string()), Vec::new()),
+    };
+    let reader = BufReader::new(file);
+    let mut first_err: Option<String> = None;
+    let mut notes = Vec::new();
+    for (i, line) in reader.lines().enumerate() {
+        let lineno = i + 1;
+        let line = match line {
+            Ok(line) => line,
+            Err(err) => {
+                if first_err.is_none() {
+                    first_err = Some(format!("line {lineno}: {err}"));
+                }
+                break;
+            }
+        };
+        // `GitignoreBuilder::add` strips a leading BOM on line 1 only.
+        let line = if i == 0 {
+            line.trim_start_matches('\u{feff}').to_string()
+        } else {
+            line
+        };
+        if let Err(err) = builder.add_line(Some(path.to_path_buf()), &line) {
+            if first_err.is_none() {
+                first_err = Some(format!("line {lineno}: {err}"));
+            }
+        }
+        // A `#` comment is not a pattern. Twisting its brackets would turn
+        // the comment into a pattern (`\#…` is not a comment).
+        if line.starts_with('#') {
+            continue;
+        }
+        let Some(twin) = literal_bracket_twin(&line) else {
+            continue;
+        };
+        if let Some(note) = route_class_note(&line) {
+            notes.push(note);
+        }
+        if let Err(err) = builder.add_line(Some(path.to_path_buf()), &twin) {
+            if first_err.is_none() {
+                first_err = Some(format!("line {lineno}: {err}"));
+            }
+        }
+    }
+    (first_err, notes)
+}
+
+/// The same line with every unescaped `[` and `]` prefixed by `\`.
+///
+/// `None` when the line has no unescaped bracket, including a line that is
+/// already escaped (`app/\[locale\]/`).
+fn literal_bracket_twin(line: &str) -> Option<String> {
+    let mut out = String::with_capacity(line.len() + 4);
+    let mut chars = line.chars().peekable();
+    let mut changed = false;
+    while let Some(c) = chars.next() {
+        if c == '\\' {
+            out.push('\\');
+            if let Some(next) = chars.next() {
+                out.push(next);
+            }
+            continue;
+        }
+        if c == '[' || c == ']' {
+            out.push('\\');
+            changed = true;
+        }
+        out.push(c);
+    }
+    changed.then_some(out)
+}
+
+/// Note for a class that is shaped like a route segment (`[locale]`,
+/// `[...slug]`, or `[id]` inside a path). `*.[ch]` is a real class and
+/// stays quiet: it has no `/`, and the body is shorter than three
+/// characters.
+fn route_class_note(line: &str) -> Option<String> {
+    let has_slash = line.contains('/');
+    let bodies = route_like_class_bodies(line, has_slash);
+    if bodies.is_empty() {
+        return None;
+    }
+    let names = bodies
+        .iter()
+        .map(|body| format!("[{body}]"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    Some(format!(
+        "`{line}` reads {names} as a character class, not as a directory name. Also applying the pattern to that literal name, so a route folder such as [locale] is not dropped for this reason"
+    ))
+}
+
+fn route_like_class_bodies(line: &str, pattern_has_slash: bool) -> Vec<String> {
+    let mut bodies = Vec::new();
+    let mut chars = line.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c == '\\' {
+            chars.next();
+            continue;
+        }
+        if c != '[' {
+            continue;
+        }
+        let mut body = String::new();
+        let mut closed = false;
+        while let Some(next) = chars.next() {
+            if next == '\\' {
+                if let Some(escaped) = chars.next() {
+                    body.push(escaped);
+                }
+                continue;
+            }
+            if next == ']' {
+                closed = true;
+                break;
+            }
+            body.push(next);
+        }
+        if closed && is_route_like_class(&body, pattern_has_slash) {
+            bodies.push(body);
+        }
+    }
+    bodies
+}
+
+fn is_route_like_class(body: &str, pattern_has_slash: bool) -> bool {
+    if body.contains('-') || body.contains('!') || body.contains('^') {
+        return false;
+    }
+    // `[[...slug]]` yields a first class body of `[...slug`.
+    let ident = body.strip_prefix('[').unwrap_or(body);
+    let ident = ident.strip_prefix("...").unwrap_or(ident);
+    let min = if pattern_has_slash { 2 } else { 3 };
+    ident.len() >= min && ident.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -864,7 +1231,7 @@ mod tests {
             let Ok(entry) = next else { continue };
             let is_dir = entry.file_type().is_dir();
             if entry.depth() > 0 && is_hidden_name(entry.file_name()) {
-                stack.record_hidden(is_dir);
+                stack.record_hidden(entry.path(), is_dir);
                 if is_dir {
                     it.skip_current_dir();
                 }
@@ -1014,6 +1381,110 @@ mod tests {
         write(root, "vendor/lib/lib.go", "x");
         let (kept, _) = survivors(root, IgnoreOptions::default());
         assert_eq!(kept, vec!["vendor/lib/lib.go"], "{kept:?}");
+    }
+
+    /// `third_party/` and `bower_components/` are committed dependency trees.
+    /// They were only delayed to the end of the queue, so a monorepo still
+    /// walked and indexed them. A `!` line puts one back, same as `vendor/`.
+    #[test]
+    fn defaults_prune_committed_dependency_trees() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let root = dir.path();
+        write(root, "src/lib.rs", "fn main() {}");
+        write(root, "third_party/llvm/Support.cpp", "x");
+        write(root, "thirdparty/dep/dep.c", "x");
+        write(root, "bower_components/jquery/jquery.js", "x");
+        write(root, "kept/third_party_notes.md", "not a directory name");
+
+        let (kept, report) = survivors(root, IgnoreOptions::default());
+        assert_eq!(
+            kept,
+            vec!["kept/third_party_notes.md", "src/lib.rs"],
+            "{kept:?}"
+        );
+        assert!(
+            report.by_rule.contains_key("<built-in>:third_party/"),
+            "{report:?}"
+        );
+        assert!(
+            report.by_rule.contains_key("<built-in>:bower_components/"),
+            "{report:?}"
+        );
+        assert_eq!(report.dirs_pruned, 3, "{report:?}");
+
+        write(root, ".xerjignore", "!third_party/\n");
+        let (reincluded, _) = survivors(root, IgnoreOptions::default());
+        assert!(
+            reincluded
+                .iter()
+                .any(|p| p == "third_party/llvm/Support.cpp"),
+            "a negation must put the tree back: {reincluded:?}"
+        );
+        assert!(
+            !reincluded.iter().any(|p| p.contains("bower_components")),
+            "the other trees stay pruned: {reincluded:?}"
+        );
+    }
+
+    /// Images, fonts and native binaries are junk after the sniff. On a repo
+    /// that contains thousands of them the walk opened every one. They are
+    /// now dropped with the built-in rules. A PDF and a gzipped log are not
+    /// on that list: both are extracted.
+    #[test]
+    fn defaults_skip_binary_assets_and_keep_extractable_files() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let root = dir.path();
+        write(root, "src/lib.rs", "fn main() {}");
+        write(root, "README.md", "hi");
+        write(root, "logs/app.log.gz", "not really gzip");
+        write(root, "docs/manual.pdf", "%PDF-");
+        write(root, "assets/logo.png", "png");
+        write(root, "assets/photo.jpeg", "jpg");
+        write(root, "web/app.wasm", "wasm");
+        write(root, "native/libfoo.so", "so");
+        write(root, "native/helper.exe", "exe");
+
+        let (kept, report) = survivors(root, IgnoreOptions::default());
+        assert_eq!(
+            kept,
+            vec![
+                "README.md",
+                "docs/manual.pdf",
+                "logs/app.log.gz",
+                "src/lib.rs",
+            ],
+            "{kept:?}"
+        );
+        assert!(
+            report.by_rule.contains_key("<built-in>:*.png"),
+            "{report:?}"
+        );
+        assert!(report.by_rule.contains_key("<built-in>:*.so"), "{report:?}");
+        assert_eq!(report.files_skipped, 5, "{report:?}");
+
+        let (all, _) = survivors(
+            root,
+            IgnoreOptions {
+                defaults: false,
+                ..IgnoreOptions::default()
+            },
+        );
+        assert_eq!(
+            all.len(),
+            9,
+            "--no-default-ignores keeps the assets: {all:?}"
+        );
+
+        write(root, ".xerjignore", "!*.png\n");
+        let (reincluded, _) = survivors(root, IgnoreOptions::default());
+        assert!(
+            reincluded.iter().any(|p| p == "assets/logo.png"),
+            "a negation must put the png back: {reincluded:?}"
+        );
+        assert!(
+            !reincluded.iter().any(|p| p.ends_with(".so")),
+            "other binary extensions stay skipped: {reincluded:?}"
+        );
     }
 
     #[test]
@@ -1331,5 +1802,207 @@ mod tests {
             "the warning must reach the user: {:?}",
             report.summary_lines()
         );
+    }
+
+    const ROUTE_TSX: &str =
+        "app/[locale]/booking/[token]/temple-selection/TempleSelectionWrapper.tsx";
+
+    /// #2357: a Next.js route directory is the literal name `[locale]`.
+    /// Git reads that text as a character class, so a whitelist written the
+    /// way the directory is named does not re-include it and `*` keeps the
+    /// sources out of the index. The literal twin re-includes them. A plain
+    /// `*.[ch]` class is unchanged.
+    #[test]
+    fn a_bracket_route_whitelist_includes_the_literal_directory() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let root = dir.path();
+        write(
+            root,
+            ".gitignore",
+            "*\n!app/\n!app/[locale]/\n!app/[locale]/**\n!README.md\n!lib/\n!lib/**\n!data.json\n",
+        );
+        write(
+            root,
+            ROUTE_TSX,
+            "export function TempleSelectionWrapper() {}\n",
+        );
+        write(root, "README.md", "# notes\n");
+        write(root, "lib/items.json", "{}\n");
+        write(root, "data.json", "{}\n");
+        write(root, "src/plain.ts", "export const n = 1;\n");
+
+        let (kept, report) = survivors(root, IgnoreOptions::default());
+        assert!(
+            kept.iter().any(|p| p == ROUTE_TSX),
+            "bracketed tsx must be indexed, got {kept:?}"
+        );
+        assert!(kept.iter().any(|p| p == "README.md"), "{kept:?}");
+        assert!(kept.iter().any(|p| p == "data.json"), "{kept:?}");
+        assert!(kept.iter().any(|p| p == "lib/items.json"), "{kept:?}");
+        assert!(
+            !kept.iter().any(|p| p == "src/plain.ts"),
+            "`*` still ignores a path the whitelist did not name: {kept:?}"
+        );
+        let lines = report.summary_lines().join("\n");
+        assert!(
+            lines.contains("character class"),
+            "the pattern must be explained: {lines}"
+        );
+        assert!(
+            lines.contains("[locale]"),
+            "the directory name must be in the note: {lines}"
+        );
+    }
+
+    /// No ignore file at all: the brackets are only in the path, and the
+    /// walk must keep the source. This is the case a default Next.js
+    /// `.gitignore` (which never names `[locale]`) already had.
+    #[test]
+    fn a_bracket_route_with_no_ignore_file_is_walked() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let root = dir.path();
+        write(root, ROUTE_TSX, "export const getPujaName = () => \"a\";\n");
+        write(root, "src/plain.ts", "export const n = 1;\n");
+        let (kept, report) = survivors(root, IgnoreOptions::default());
+        assert!(kept.iter().any(|p| p == ROUTE_TSX), "{kept:?}");
+        assert!(kept.iter().any(|p| p == "src/plain.ts"), "{kept:?}");
+        assert!(
+            !report
+                .summary_lines()
+                .iter()
+                .any(|l| l.contains("character class")),
+            "{:?}",
+            report.summary_lines()
+        );
+    }
+
+    /// An author who already escaped the brackets meant the literal
+    /// directory. The twin must not unescape that into a class, and the
+    /// directory stays ignored.
+    #[test]
+    fn an_escaped_bracket_pattern_still_ignores_the_literal_directory() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let root = dir.path();
+        write(root, ".gitignore", "app/\\[locale\\]/\n");
+        write(root, ROUTE_TSX, "export const n = 1;\n");
+        write(root, "src/plain.ts", "export const n = 1;\n");
+        let (kept, report) = survivors(root, IgnoreOptions::default());
+        assert!(
+            !kept.iter().any(|p| p.contains("[locale]")),
+            "escaped pattern must ignore the route dir: {kept:?}"
+        );
+        assert!(kept.iter().any(|p| p == "src/plain.ts"), "{kept:?}");
+        assert!(
+            report
+                .summary_lines()
+                .iter()
+                .any(|l| l.contains("pruned directory") && l.contains("[locale]")),
+            "{:?}",
+            report.summary_lines()
+        );
+    }
+
+    /// `*.[ch]` is a character class. The literal twin must not stop it
+    /// matching `.c` and `.h`, and a `.rs` file stays.
+    #[test]
+    fn a_character_class_extension_still_ignores_those_extensions() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let root = dir.path();
+        write(root, ".gitignore", "*.[ch]\n");
+        write(root, "foo.c", "int c;\n");
+        write(root, "foo.h", "int h;\n");
+        write(root, "foo.rs", "fn r() {}\n");
+        let (kept, report) = survivors(root, IgnoreOptions::default());
+        assert_eq!(kept, vec!["foo.rs"], "{kept:?}");
+        assert!(
+            !report
+                .summary_lines()
+                .iter()
+                .any(|l| l.contains("character class")),
+            "a short class with no slash is not a route folder: {:?}",
+            report.summary_lines()
+        );
+        let lines = report.summary_lines().join("\n");
+        assert!(lines.contains("skipped code file foo.c"), "{lines}");
+        assert!(lines.contains("skipped code file foo.h"), "{lines}");
+        assert!(
+            !lines.contains("foo.rs"),
+            "the file that was kept is not a skip: {lines}"
+        );
+    }
+
+    /// A code file the rules still skip is named, with the rule. `*.tsx`
+    /// has no bracket, so this is the report the walk owes when the file
+    /// really is excluded.
+    #[test]
+    fn a_skipped_tsx_file_is_named_with_its_rule() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let root = dir.path();
+        write(root, ".gitignore", "*.tsx\n");
+        write(root, ROUTE_TSX, "export const n = 1;\n");
+        write(root, "keep.ts", "export const n = 1;\n");
+        let (kept, report) = survivors(root, IgnoreOptions::default());
+        assert_eq!(kept, vec!["keep.ts"], "{kept:?}");
+        let lines = report.summary_lines().join("\n");
+        assert!(
+            lines.contains("skipped code file") && lines.contains(ROUTE_TSX),
+            "{lines}"
+        );
+        assert!(
+            lines.contains(".gitignore:*.tsx"),
+            "the rule must be on the line: {lines}"
+        );
+    }
+
+    /// The twin is inserted after its source line, not at the end of the
+    /// file. A later `*.tsx` still excludes the route source; a `.ts` the
+    /// whitelist named stays.
+    #[test]
+    fn a_later_rule_still_beats_the_literal_bracket_twin() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let root = dir.path();
+        write(
+            root,
+            ".gitignore",
+            "*\n!app/\n!app/[locale]/\n!app/[locale]/**\n*.tsx\n",
+        );
+        write(root, ROUTE_TSX, "export const n = 1;\n");
+        write(root, "app/[locale]/keep.ts", "export const n = 1;\n");
+        let (kept, report) = survivors(root, IgnoreOptions::default());
+        assert!(kept.iter().any(|p| p == "app/[locale]/keep.ts"), "{kept:?}");
+        assert!(
+            !kept.iter().any(|p| p == ROUTE_TSX),
+            "a later *.tsx must still win: {kept:?}"
+        );
+        let lines = report.summary_lines().join("\n");
+        assert!(
+            lines.contains("skipped code file") && lines.contains(ROUTE_TSX),
+            "{lines}"
+        );
+        assert!(lines.contains(".gitignore:*.tsx"), "{lines}");
+    }
+
+    #[test]
+    fn literal_bracket_twin_escapes_unescaped_brackets_only() {
+        assert_eq!(
+            literal_bracket_twin("!app/[locale]/**").as_deref(),
+            Some("!app/\\[locale\\]/**")
+        );
+        assert_eq!(literal_bracket_twin("app/\\[locale\\]/"), None);
+        assert_eq!(
+            literal_bracket_twin("*.[ch]").as_deref(),
+            Some("*.\\[ch\\]")
+        );
+        // Comments are filtered by `add_gitignore_file` before this runs.
+        // The helper itself only escapes brackets.
+        assert_eq!(
+            literal_bracket_twin("# [locale]").as_deref(),
+            Some("# \\[locale\\]")
+        );
+        assert!(route_class_note("*.[ch]").is_none());
+        assert!(route_class_note("app/[locale]/**")
+            .unwrap()
+            .contains("[locale]"));
+        assert!(route_class_note("app/[id]/page.tsx").is_some());
     }
 }

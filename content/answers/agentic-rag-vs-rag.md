@@ -1,0 +1,100 @@
+---
+title: "Agentic RAG vs RAG: what changes and when it is worth it"
+h1: "Agentic RAG vs RAG: what is the difference?"
+description: "RAG searches once and answers. Agentic RAG lets the model plan, search again and check results. Step through one question and see when the loop pays off."
+slug: "agentic-rag-vs-rag"
+cluster: "Agent memory: concepts"
+question: "What is agentic RAG, and how is it different from regular RAG?"
+intent: "comparison"
+published: "2026-10-30"
+updated: "2026-10-30"
+author: "XERJ documentation team"
+reviewer: "XERJ engineering team"
+schema_type: "TechArticle"
+structured_data: [faq]
+agent_prompt: "Act as a coding agent. Read https://xerj.org/llms.txt, install XERJ, start a local node, index the docs folder of this repo, add XERJ as an MCP server, then answer one question about the docs by searching at least twice with xerj_search or xerj_hybrid_search and citing the files you used."
+answer: "What is agentic RAG and how is it different from RAG? Plain RAG runs one search for the question and answers from the results. Agentic RAG lets the model plan, choose tools, search several times and check what it found before answering. It handles multi-step questions better and costs more model calls."
+key_fact: "In arXiv 2501.09136, lesson 10.1 says agentic RAG is not always the right default and lesson 10.3 says retrieval quality remains the primary bottleneck."
+key_fact_source: "https://arxiv.org/abs/2501.09136"
+key_fact_date: "2026-10-30"
+intent_group: "rag"
+queries:
+  - "agentic rag"
+  - "agentic rag vs rag"
+  - "RAG vs agentic RAG"
+  - "what is agentic rag"
+links_out:
+  - "rag-without-vector-database"
+  - "agentic-memory-vs-rag"
+  - "what-is-hybrid-search"
+  - "bm25-vs-vector-search"
+  - "what-is-an-mcp-memory-server"
+faq:
+  - q: "Is agentic RAG better than RAG?"
+    a: "For questions that need several lookups, it often finds more. For simple fact lookups, plain RAG is cheaper and faster. The survey by Singh et al. says agentic RAG should not be the default."
+  - q: "Does agentic RAG need a vector database?"
+    a: "No. The agent needs a search tool. That tool can be keyword search, vector search or a hybrid index in one engine."
+  - q: "What are common agentic RAG patterns?"
+    a: "A router that picks a source, several agents with one source each, a hierarchy of agents, corrective RAG that grades results and searches again, and adaptive RAG that picks a strategy by question difficulty."
+  - q: "How do I stop an agent from searching forever?"
+    a: "Set a limit on rounds and tool calls, and allow the answer 'not found'. The survey lists explicit stopping criteria as a lesson for production."
+  - q: "What matters most for either approach?"
+    a: "The search step. If the right document never comes back, no amount of planning fixes the answer."
+---
+
+**TL;DR** RAG runs one search and answers from what comes back. Agentic RAG puts the model in charge of search: it can plan, call different tools, search again with a better query and check results before it answers. Use it for questions that need more than one lookup. Keep plain RAG for simple ones.
+
+```visual
+agentic-rag-loop
+```
+
+## One question, both ways
+
+Step through a debugging question with plain RAG first, then with an agent.
+
+```visual
+agentic-rag-steps
+```
+
+## Side by side
+
+| | RAG | Agentic RAG |
+| --- | --- | --- |
+| Who decides what to search | Fixed code | The model |
+| Searches per question | One | One or more |
+| Sources | Usually one index | Any tool the agent can call |
+| Checks its results | No | Yes, it can judge and retry |
+| Cost and latency | Lower and predictable | Higher and varies by question |
+| Good for | Fact lookups, FAQs | Debugging, research, multi-part questions |
+
+## Common patterns
+
+The survey by Singh et al. groups agentic RAG designs into a few shapes:
+
+- Router: one agent picks the best source for each question.
+- Multi-agent: several agents each search one source, then results are merged.
+- Hierarchical: a top agent hands work to agents below it.
+- Corrective: an agent grades the results and rewrites the query when they are weak.
+- Adaptive: a classifier picks no search, one search or many, based on the question.
+
+## When the loop is worth it
+
+Agentic RAG fits questions whose parts live in different places, such as a deploy note and a log line. Stay with plain RAG when one search usually finds the answer. The survey's own advice is that agentic RAG "is not always the right default".
+
+Two rules help either way:
+
+1. Fix search first. The same survey says retrieval quality remains the primary bottleneck. Hybrid search helps here; see [what hybrid search is](/answers/what-is-hybrid-search) and [BM25 vs vector search](/answers/bm25-vs-vector-search).
+2. Cap the loop. Limit rounds and let the agent say "not found".
+
+## Do you need a vector database?
+
+No. An agent needs a search tool, not a specific store. One local engine can serve keyword, vector and hybrid search. We showed this with a recorded run in [RAG without a vector database](/answers/rag-without-vector-database). For how memory differs from retrieval, see [agentic memory vs RAG](/answers/agentic-memory-vs-rag).
+
+## How to try it with XERJ
+
+Use the Copy the prompt button and paste the prompt into your coding agent. The prompt installs XERJ, indexes a docs folder and answers a question by searching more than once. XERJ gives the agent search tools over MCP, such as `xerj_search` and `xerj_hybrid_search`. The agent runs the loop and XERJ does the retrieval. For ready-made search packs, browse [hub.xerj.org](https://hub.xerj.org).
+
+## Sources checked
+
+- Singh et al., "Agentic Retrieval-Augmented Generation: A Survey on Agentic RAG", [arXiv 2501.09136](https://arxiv.org/abs/2501.09136), read 2026-10-30. Sections 5 (patterns), 10.1, 10.3 and 10.4 (lessons).
+- XERJ MCP tool names: `engine/crates/xerj-mcp/src/lib.rs`.

@@ -695,17 +695,15 @@ fn fetch_batch(
         let r = src.get(keys[i], max_bytes);
         *slots[i].lock().unwrap_or_else(|e| e.into_inner()) = Some(r);
     };
-    std::thread::scope(|scope| {
+    // #1122: `Builder::spawn_scoped` returns `Ok` and the child then
+    // panics if the alternate signal stack cannot be mapped. This scope
+    // does not install that stack. The fetchers share one cursor, so a
+    // short pool only costs concurrency: stop spawning and let this
+    // thread fetch alongside whichever ones started. The failed closure
+    // is dropped unrun; `fetch` below is a separate call.
+    xerj_common::thread_spawn::scope(|scope| {
         for _ in 0..FETCH_CONCURRENCY.min(keys.len()) {
-            // #1122: `Scope::spawn` panics when a thread cannot be created,
-            // and release builds are panic=abort. The fetchers share one
-            // cursor, so a short pool only costs concurrency: stop spawning
-            // and let this thread fetch alongside whichever ones started.
-            if std::thread::Builder::new()
-                .name("xerj-objwatch-fetch".into())
-                .spawn_scoped(scope, fetch)
-                .is_err()
-            {
+            if scope.spawn("xerj-objwatch-fetch", fetch).is_err() {
                 fetch();
                 break;
             }

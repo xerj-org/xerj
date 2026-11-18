@@ -7,11 +7,19 @@ cluster: "Comparison: notes and vaults"
 question: "How do I search an Obsidian vault from outside Obsidian?"
 intent: "comparison"
 published: "2026-08-22"
-updated: "2026-08-23"
+updated: "2026-10-28"
 author: "XERJ documentation team"
 reviewer: "XERJ engineering team"
 schema_type: "TechArticle"
+structured_data: [faq]
 agent_prompt: "Act as a coding agent whose user has closed Obsidian. Read https://xerj.org/llms.txt, start a node outside the vault with `xerj --insecure --data-dir ./xerj-data`, run `xerj autoindex ./MyVault --prefix vault --state-dir ./state-vault`, then POST a match_phrase on body for a phrase that exists only inside a PDF or DOCX attachment and report the ax_path of every hit without opening Obsidian."
+answer: "How do I search an Obsidian vault from outside Obsidian? Index the vault folder with XERJ; it reads it with Obsidian closed and answers an agent. Inside Obsidian, Omnisearch wins: an instant search interface, BM25 ranking, and PDFs and images through the Text Extractor plugin. No head-to-head was run."
+key_fact: "Omnisearch has 2,169 GitHub stars, is GPL-3.0, and released 1.31.0 on 2026-09-05."
+key_fact_source: "https://github.com/scambier/obsidian-omnisearch"
+key_fact_date: "2026-10-19"
+intent_group: "logs and docs"
+queries:
+  - "search markdown notes MCP server"
 commands:
   - cmd: "xerj --insecure --data-dir ./xerj-data"
     note: "Start one node outside the vault folder, so the node never indexes its own storage."
@@ -90,7 +98,7 @@ The Omnisearch README points at a third-party MCP server that detects Omnisearch
 
 The difference is what it depends on. That route needs Obsidian running and the local HTTP server enabled.
 
-`xerj mcp` is a stdio MCP server in the same binary as the engine. It serves 10 tools, and it needs no editor at all.
+`xerj mcp` is a stdio MCP server in the same binary as the engine. It serves 24 tools, and it needs no editor at all.
 
 ## What XERJ reads in a vault, and how
 

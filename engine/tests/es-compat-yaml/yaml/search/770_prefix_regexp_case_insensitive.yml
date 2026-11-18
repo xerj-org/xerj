@@ -1,0 +1,122 @@
+setup:
+
+  - do:
+      indices.create:
+        index: ci
+        body:
+          mappings:
+            properties:
+              k:
+                type: keyword
+
+  - do:
+      bulk:
+        refresh: true
+        body:
+        - '{ "index": { "_index": "ci", "_id": "1" } }'
+        - '{ "k": "Hello World" }'
+        - '{ "index": { "_index": "ci", "_id": "2" } }'
+        - '{ "k": "hello there" }'
+
+---
+"prefix case_insensitive true finds both":
+  - do:
+      count:
+        index: ci
+        body:
+          query:
+            prefix:
+              k:
+                value: "HELLO"
+                case_insensitive: true
+  - match: {count: 2}
+
+---
+"regexp case_insensitive true finds both":
+  - do:
+      count:
+        index: ci
+        body:
+          query:
+            regexp:
+              k:
+                value: "HEL+O.*"
+                case_insensitive: true
+  - match: {count: 2}
+
+---
+"prefix case_insensitive false finds none":
+  - do:
+      count:
+        index: ci
+        body:
+          query:
+            prefix:
+              k:
+                value: "HELLO"
+                case_insensitive: false
+  - match: {count: 0}
+
+---
+"regexp case_insensitive false finds none":
+  - do:
+      count:
+        index: ci
+        body:
+          query:
+            regexp:
+              k:
+                value: "HEL+O.*"
+                case_insensitive: false
+  - match: {count: 0}
+
+---
+"prefix default false finds none for HELLO, one for hello":
+  - do:
+      count:
+        index: ci
+        body:
+          query:
+            prefix:
+              k: "HELLO"
+  - match: {count: 0}
+  - do:
+      count:
+        index: ci
+        body:
+          query:
+            prefix:
+              k: "hello"
+  - match: {count: 1}
+
+---
+"regexp default false finds none for HELLO pattern, one for lowercase":
+  - do:
+      count:
+        index: ci
+        body:
+          query:
+            regexp:
+              k: "HEL+O.*"
+  - match: {count: 0}
+  - do:
+      count:
+        index: ci
+        body:
+          query:
+            regexp:
+              k: "hel+o.*"
+  - match: {count: 1}
+
+---
+"wildcard control with case_insensitive true finds both":
+  - do:
+      count:
+        index: ci
+        body:
+          query:
+            wildcard:
+              k:
+                value: "HELLO*"
+                case_insensitive: true
+  - match: {count: 2}

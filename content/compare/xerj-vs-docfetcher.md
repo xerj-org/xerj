@@ -7,11 +7,19 @@ cluster: "Comparison: desktop search"
 question: "What is a free DocFetcher alternative that an agent can call?"
 intent: "comparison"
 published: "2026-08-22"
-updated: "2026-09-26"
+updated: "2026-10-28"
 author: "XERJ documentation team"
 reviewer: "XERJ engineering team"
 schema_type: "TechArticle"
+structured_data: [faq]
 agent_prompt: "Act as a coding agent on a Windows or Linux workstation with a documents folder. Read https://xerj.org/llms.txt, start a local XERJ node, run xerj autoindex on the folder, read the data map, then answer the user question with a match_phrase query that cites the ax_path of every hit."
+answer: "What is a free DocFetcher alternative that an agent can call? XERJ: a search engine a program calls over HTTP or MCP. DocFetcher stays the better desktop GUI: it reads Outlook PST files and nested archives, and its portable version carries the index on a USB drive. This is a capability comparison; no benchmark was run."
+key_fact: "DocFetcher's download page lists version 1.1.27 under the Eclipse Public License."
+key_fact_source: "https://docfetcher.sourceforge.io/download/"
+key_fact_date: "2026-10-19"
+intent_group: "logs and docs"
+queries:
+  - "desktop search alternative for agents"
 commands:
   - cmd: "xerj autoindex ./Documents --url http://127.0.0.1:9200 --prefix docs --progress plain"
     note: "Index the documents folder. No configuration file and no mapping are needed."
@@ -91,7 +99,7 @@ The command takes no configuration file and no mapping.
 
 The node answers the Elasticsearch REST API. `xerj autoindex map` prints a data map of what the folder became. An agent reads that map, then names a real index and a real field.
 
-`xerj mcp` is a stdio MCP server in the same binary. It serves 10 tools against a node you already started. Agent memory lives in the engine under `/_memory/{namespace}`.
+`xerj mcp` is a stdio MCP server in the same binary. It serves 24 tools against a node you already started. Agent memory lives in the engine under `/_memory/{namespace}`.
 
 XERJ is single-node. There is no replication and no failover. The default embedder is lexical feature hashing, not a neural model, and neural retrieval is opt-in through `--embed-mode neural`.
 
@@ -111,7 +119,7 @@ Every row is a documented capability of each tool. No row is a measured result.
 | automatic index updates | yes, while the application runs | rerun `xerj autoindex` |
 | format detection | file extension, with a regex option | content sniffing per family |
 | HTTP query API | not in the free application | yes, Elasticsearch REST API |
-| MCP server for an agent | none | yes, `xerj mcp`, 10 tools |
+| MCP server for an agent | none | yes, `xerj mcp`, 24 tools |
 | catalog of refused files | index report in the GUI | `autoindex-catalog`, one reason per file |
 | agent memory in the engine | none | yes, `/_memory/{namespace}` |
 | license | Eclipse Public License | Apache-2.0 |

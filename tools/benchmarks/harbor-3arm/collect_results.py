@@ -16,6 +16,7 @@ import json
 import math
 import sys
 from collections import defaultdict
+from datetime import datetime
 from pathlib import Path
 
 JOBS = Path(__file__).parent / "jobs"
@@ -31,6 +32,36 @@ def wilson(k, n, z=1.96):
     return (max(0.0, (c - m) / d), min(1.0, (c + m) / d))
 
 
+def first_present(*values):
+    return next((value for value in values if value is not None), None)
+
+
+def agent_metric(trial, *names):
+    # Harbor v0.21 stores multi-step usage on each step instead of agent_result.
+    context = trial.get("agent_result")
+    contexts = [context] if context is not None else [
+        step["agent_result"] for step in trial.get("step_results") or []
+        if step.get("agent_result") is not None
+    ]
+    values = [first_present(*(context.get(name) for name in names)) for context in contexts]
+    known = [value for value in values if value is not None]
+    return sum(known) if known else None
+
+
+def elapsed_seconds(trial):
+    explicit = first_present(trial.get("elapsed_seconds"),
+                             (trial.get("agent_result") or {}).get("elapsed_seconds"))
+    if explicit is not None:
+        return explicit
+    try:
+        start = datetime.fromisoformat(trial["started_at"].replace("Z", "+00:00"))
+        end = datetime.fromisoformat(trial["finished_at"].replace("Z", "+00:00"))
+        seconds = (end - start).total_seconds()
+        return seconds if seconds >= 0 else None
+    except (KeyError, AttributeError, TypeError, ValueError):
+        return None
+
+
 def load_trials(job_dir: Path):
     """Yield (task, dict) per finished trial; tolerant of layout drift."""
     for rj in sorted(job_dir.glob("**/result.json")):
@@ -41,7 +72,8 @@ def load_trials(job_dir: Path):
         task = (r.get("task_name") or r.get("task", {}).get("name")
                 or rj.parent.name.split("__")[0])
         reward = None
-        for path in (("verifier_result", "reward"), ("reward",), ("result", "reward")):
+        for path in (("verifier_result", "rewards"), ("verifier_result", "reward"),
+                     ("reward",), ("result", "reward")):
             v = r
             for k in path:
                 v = v.get(k) if isinstance(v, dict) else None
@@ -50,20 +82,20 @@ def load_trials(job_dir: Path):
                 break
         if isinstance(reward, dict):        # named rewards -> main one
             reward = reward.get("reward", reward.get("resolved"))
-        am = r.get("agent_result") or {}
         yield task, {
             "reward": reward,
             "resolved": (reward or 0) >= 1 if reward is not None else None,
-            "cost": am.get("total_cost_usd") or r.get("total_cost_usd"),
-            "in_tok": am.get("input_tokens"),
-            "out_tok": am.get("output_tokens"),
-            "sec": r.get("elapsed_seconds") or am.get("elapsed_seconds"),
+            "cost": first_present(agent_metric(r, "cost_usd", "total_cost_usd"), r.get("total_cost_usd")),
+            "in_tok": agent_metric(r, "n_input_tokens", "input_tokens"),
+            "out_tok": agent_metric(r, "n_output_tokens", "output_tokens"),
+            "sec": elapsed_seconds(r),
             "exception": r.get("exception_info") or r.get("error"),
         }
 
 
 def main():
     cells = defaultdict(dict)               # (bench, model, arm) -> {task: trial}
+    cell_trials = defaultdict(list)         # all attempts, including failed retries
     for job_dir in sorted(JOBS.iterdir()) if JOBS.exists() else []:
         if not job_dir.is_dir():
             continue
@@ -73,6 +105,7 @@ def main():
         bench, model, arm = parts[0], ".".join(parts[1:-1]), parts[-1]
         for task, t in load_trials(job_dir):
             cells[(bench, model, arm)][task] = t
+            cell_trials[(bench, model, arm)].append(t)
 
     if not cells:
         sys.exit(f"no trials under {JOBS} — run run_matrix.sh first")
@@ -87,10 +120,15 @@ def main():
         done = {t: v for t, v in tasks.items() if v["reward"] is not None}
         k = sum(1 for v in done.values() if v["resolved"])
         lo, hi = wilson(k, len(done))
-        cost = sum(v["cost"] or 0 for v in done.values())
-        hrs = sum(v["sec"] or 0 for v in done.values()) / 3600
-        errs = sum(1 for v in tasks.values() if v["exception"])
+        attempts = cell_trials[(bench, model, arm)]
+        cost = sum(v["cost"] or 0 for v in attempts)
+        hrs = sum(v["sec"] or 0 for v in attempts) / 3600
+        errs = sum(1 for v in attempts if v["exception"])
         note = f"  !! {errs} errored" if errs else ""
+        missing_cost = sum(v["cost"] is None for v in attempts)
+        missing_time = sum(v["sec"] is None for v in attempts)
+        if missing_cost or missing_time:
+            note += f"  metrics missing: cost {missing_cost}/{len(attempts)}, time {missing_time}/{len(attempts)} trials"
         print(fmt.format(bench, model, arm, len(done), k,
                          f"[{lo:.0%},{hi:.0%}]", f"{cost:.2f}", f"{hrs:.1f}")
               + note)

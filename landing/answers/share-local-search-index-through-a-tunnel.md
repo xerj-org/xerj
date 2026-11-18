@@ -2,11 +2,15 @@
 ---
 title: "Share a local search index through a tunnel"
 canonical: "https://xerj.org/answers/share-local-search-index-through-a-tunnel"
-updated: "2026-09-20"
+updated: "2026-10-19"
 source: "content/answers/share-local-search-index-through-a-tunnel.md"
 ---
 
 # How do I let someone outside my network search an index on my laptop without opening a port?
+
+**Short answer** (updated 2026-10-19): How can I give a remote person temporary search access to files on my laptop without port forwarding or a VPN? Run xerj share with --tunnel: it starts your own cloudflared, prints a public HTTPS guest link, and runs until Ctrl-C, which closes the tunnel and revokes the share. Cloudflare terminates the TLS.
+
+**Key number:** A known share accepts at most 30 passcode attempts an hour, from any address. (as of 2026-10-19; source: [engine/crates/xerj-api/src/share.rs](https://github.com/xerj-org/xerj/blob/main/engine/crates/xerj-api/src/share.rs))
 
 **TL;DR** — `xerj share` with `--tunnel` starts your own `cloudflared`, prints a public HTTPS guest link, and runs until you press Ctrl-C. Stopping it closes the tunnel and revokes the share. No port is opened on your router. The trade: the guest's traffic passes through Cloudflare, which terminates the TLS connection.
 

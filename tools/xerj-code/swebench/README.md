@@ -42,6 +42,8 @@ export XERJ_URL=http://localhost:9200 XERJ_BIN=$(command -v xerj)
 ## 1. Generate predictions (both arms, per model)
 
 Start small — one lightweight repo — to confirm the loop end-to-end, then scale.
+A task proceeds only after both cloning and checkout of its pinned base commit
+succeed; a failed checkout cannot silently run the agent on the default branch.
 
 ```sh
 REPOS="psf/requests pytest-dev/pytest"     # or drop --repos for the full 500
@@ -89,4 +91,6 @@ alongside the **token/cost delta** from the `--tokens-out` logs.
 ## Files
 
 - `gen_predictions.py` — generates the `native`/`xerj` prediction JSONLs (+ token logs).
+  Patches compare with the original task base and include staged, committed and
+  new non-ignored files, including binary changes; ignored artifacts stay out.
 - scoring — the official `swebench.harness.run_evaluation` (not vendored here on purpose).

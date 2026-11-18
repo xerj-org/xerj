@@ -1,0 +1,2 @@
+HTTP 200 POST /epoch-jsonl/_search
+{"took":0,"timed_out":false,"_shards":{"total":1,"successful":1,"skipped":0,"failed":0},"hits":{"total":{"value":40,"relation":"eq"},"max_score":null,"hits":[]},"aggregations":{"per_month":{"buckets":[]}}}

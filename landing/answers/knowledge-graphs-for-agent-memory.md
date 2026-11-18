@@ -2,11 +2,15 @@
 ---
 title: "Should agent memory use a graph?"
 canonical: "https://xerj.org/answers/knowledge-graphs-for-agent-memory"
-updated: "2026-08-23"
+updated: "2026-10-19"
 source: "content/answers/knowledge-graphs-for-agent-memory.md"
 ---
 
 # Should agent memory use a knowledge graph?
+
+**Short answer** (updated 2026-10-19): Is anyone using knowledge graphs for LLM agent memory and context management? Links help, but XERJ is not a graph database. It builds a bounded, graph-shaped link index over documents it already indexed. Our capture produced 7 edges over 6 documents, answered 1 hop with 3 edges and 2 hops with 6, and refused 3 hops.
+
+**Key number:** The shared-term detector links a document to at most 5 others (`MAX_EDGES_PER_DOC`). (as of 2026-10-19; source: [engine/crates/xerj-autoindex/src/detect/sharedterm.rs](https://github.com/xerj-org/xerj/blob/main/engine/crates/xerj-autoindex/src/detect/sharedterm.rs))
 
 **TL;DR** — Links help, and XERJ is not a graph database. XERJ builds a bounded, graph-shaped link index over the documents it already indexed. Our capture produced 7 edges over 6 documents, answered 1 hop with 3 edges and 2 hops with 6, and refused 3 hops.
 
@@ -147,3 +151,6 @@ In an index named `.xerj-memory-{brain}-edges`. `autoindex` creates one per inde
 - [How can agent-memory links retain evidence?](/answers/evidence-for-agent-memory-links)
 - [How do I give two agents private memory on one laptop?](/answers/private-agent-memory-namespaces)
 - [How do people store user preferences so an agent can recall them next week?](/answers/coding-agent-memory-across-sessions)
+- [XERJ vs agent memory tools: Mem0, Zep, Letta and Cognee](/compare/xerj-vs-agent-memory-tools) (same intent: agent memory)
+- [XERJ vs agentmemory: which memory for your coding agent?](/compare/xerj-vs-agentmemory) (same intent: agent memory)
+- [XERJ vs Mem0: which memory fits your AI agent?](/compare/xerj-vs-mem0) (same intent: agent memory)

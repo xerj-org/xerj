@@ -14,4 +14,4 @@ tested it with the official Elasticsearch clients.
 
 Scroll is supported, span queries work, and alerting rules fire through
 `_watcher` exactly as they do on Elasticsearch. The profile API shows you where
-time went, and 99.8% of the conformance suite passes.
+time went, and 99.3% of the conformance suite passes.

@@ -68,7 +68,7 @@ const state = {
   fetchErr:  null,                // last fetch error message
   loading:   false,
   filters:   loadAllFilters(),    // { [dashId]: { field: value } }
-  theme: document.documentElement.getAttribute('data-theme') || 'night',
+  theme: document.documentElement.getAttribute('data-theme') || 'day',
   edit:  localStorage.getItem(LS.edit) === '1',
   mobile: localStorage.getItem('xerj.mobile') === '1',
   layouts: loadAllLayouts(),
@@ -277,6 +277,7 @@ function saveCurrentView() {
     name,
     dashId,
     time: state.time,
+    timeCustom: state.time === 'CUSTOM' ? { ...state.timeCustom } : null,
     cluster: state.cluster,
     filters: currentFilters(),
     savedAt: new Date().toISOString(),
@@ -290,11 +291,22 @@ function applyView(id) {
   const v = loadViews().find((x) => x.id === id);
   if (!v) return;
   state.time = v.time;
+  if (v.timeCustom) {
+    state.timeCustom = { ...v.timeCustom };
+    localStorage.setItem('xerj.timeFrom', state.timeCustom.from || '');
+    localStorage.setItem('xerj.timeTo', state.timeCustom.to || '');
+  }
   state.cluster = v.cluster || state.cluster;
   state.filters[v.dashId] = { ...(v.filters || {}) };
   saveFilters(v.dashId);
   localStorage.setItem(LS.time, state.time);
-  location.hash = '#/dashboards/' + v.dashId;
+  // Publish the restored context before hashchange reads the URL again.
+  state.section = 'dashboards';
+  state.route = v.dashId;
+  writeUrlState();
+  const hash = '#/dashboards/' + v.dashId;
+  if (location.hash === hash) render();
+  else location.hash = hash;
 }
 
 function relTime(iso) {
@@ -427,7 +439,7 @@ async function buildSectionData(sectionId) {
 
 function loadAllLayouts() {
   const out = {};
-  for (const id of Object.keys(registry)) {
+  for (const { id } of mergedDashboards(defaults, { includeHidden: true })) {
     try {
       const raw = localStorage.getItem(LS.layout(id));
       if (raw) out[id] = JSON.parse(raw);
@@ -509,6 +521,11 @@ function mutate(dashId, defaultPanels, fn) {
   const ov = ensureOverride(dashId, defaultPanels);
   fn(ov);
   saveLayout(dashId);
+}
+
+// Resolve editable user dashboards through the same metadata as the renderer.
+function editableDashboard(id) {
+  return mergedDashboards(defaults, { includeHidden: true }).find(d => d.id === id);
 }
 
 // ---------- render ----------------------------------------
@@ -594,7 +611,7 @@ async function render() {
   const dashboardsForSection = dashboardsInSection('dashboards', navDash);
 
   // For the SEARCH dashboard, eagerly run the search so panels see hits.
-  if (dash.id === 'search-discover' && !state.search.result) {
+  if ((dash.clonedFrom || dash.id) === 'search-discover' && !state.search.result) {
     runSearchNow();
   }
 
@@ -614,7 +631,7 @@ async function render() {
     state.loading = true;
     try {
       const result = await query({
-        dashId: dash.id,
+        dashId: dash.clonedFrom || dash.id,
         range: state.time,
         customRange: state.time === 'CUSTOM' ? state.timeCustom : null,
         cluster: state.cluster,
@@ -926,7 +943,7 @@ document.addEventListener('click', (e) => {
   if (sz) {
     const pid = sz.getAttribute('data-panel');
     const cols = parseInt(sz.getAttribute('data-size'), 10);
-    const dash = registry[state.route];
+    const dash = editableDashboard(state.route);
     const view = dash.render({ data: {}, time: state.time });
     mutate(state.route, view.panels, (ov) => { ov.cols[pid] = cols; });
     render();
@@ -936,7 +953,7 @@ document.addEventListener('click', (e) => {
   const rm = e.target.closest('[data-remove]');
   if (rm) {
     const pid = rm.getAttribute('data-panel');
-    const dash = registry[state.route];
+    const dash = editableDashboard(state.route);
     const view = dash.render({ data: {}, time: state.time });
     mutate(state.route, view.panels, (ov) => {
       if (!ov.hidden.includes(pid)) ov.hidden.push(pid);
@@ -1137,7 +1154,7 @@ document.addEventListener('click', (e) => {
     const typeId = add.getAttribute('data-add');
     const t = chartTypes[typeId];
     if (!t) return;
-    const dash = registry[state.route];
+    const dash = editableDashboard(state.route);
     const view = dash.render({ data: {}, time: state.time });
     mutate(state.route, view.panels, (ov) => {
       ov.added = ov.added || [];
@@ -1273,7 +1290,7 @@ document.addEventListener('drop', (e) => {
   document.querySelectorAll('.drop-before, .drop-after').forEach((el) => el.classList.remove('drop-before', 'drop-after'));
   if (!targetId || targetId === dragSrcId) return;
 
-  const dash = registry[state.route];
+  const dash = editableDashboard(state.route);
   const view = dash.render({ data: {}, time: state.time });
   mutate(state.route, view.panels, (ov) => {
     const fullOrder = ov.order && ov.order.length ? ov.order.slice() : view.panels.map((p) => p.id);

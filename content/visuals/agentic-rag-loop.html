@@ -1,0 +1,39 @@
+<figure class="vz" id="fig-arag-loop" aria-labelledby="fig-arag-loop-cap">
+  <span class="vz-label">Diagram</span>
+  <p class="vz-title">RAG is one pass. Agentic RAG is a loop.</p>
+  <div class="vz-svg">
+    <svg viewBox="0 0 720 280" role="img" aria-describedby="fig-arag-loop-svg" aria-label="Plain RAG compared with the agentic RAG loop">
+      <desc id="fig-arag-loop-svg">Plain RAG: question, one search, answer. Agentic RAG: question, plan, search, judge the results; if they are not enough, rewrite the query and search again; if they are, answer with sources or say nothing was found.</desc>
+      <text class="vz-s-t vz-s-b" x="10" y="40">RAG</text>
+      <rect class="vz-s-box" x="120" y="18" width="120" height="40" rx="4"/>
+      <text class="vz-s-t" x="180" y="43" text-anchor="middle">Question</text>
+      <path class="vz-s-line" d="M240 38 L300 38"/>
+      <rect class="vz-s-box" x="300" y="18" width="120" height="40" rx="4"/>
+      <text class="vz-s-t" x="360" y="43" text-anchor="middle">Search once</text>
+      <path class="vz-s-line" d="M420 38 L480 38"/>
+      <rect class="vz-s-box" x="480" y="18" width="120" height="40" rx="4"/>
+      <text class="vz-s-t" x="540" y="43" text-anchor="middle">Answer</text>
+      <text class="vz-s-t vz-s-b" x="10" y="140">Agentic RAG</text>
+      <rect class="vz-s-box" x="120" y="118" width="100" height="40" rx="4"/>
+      <text class="vz-s-t" x="170" y="143" text-anchor="middle">Question</text>
+      <path class="vz-s-line" d="M220 138 L250 138"/>
+      <rect class="vz-s-box" x="250" y="118" width="90" height="40" rx="4"/>
+      <text class="vz-s-t" x="295" y="143" text-anchor="middle">Plan</text>
+      <path class="vz-s-line" d="M340 138 L370 138"/>
+      <rect class="vz-s-hi" x="370" y="118" width="100" height="40" rx="4"/>
+      <text class="vz-s-t" x="420" y="143" text-anchor="middle">Search</text>
+      <path class="vz-s-line" d="M470 138 L500 138"/>
+      <rect class="vz-s-box" x="500" y="118" width="90" height="40" rx="4"/>
+      <text class="vz-s-t" x="545" y="143" text-anchor="middle">Judge</text>
+      <path class="vz-s-line" d="M590 138 L620 138"/>
+      <rect class="vz-s-box" x="620" y="110" width="94" height="56" rx="4"/>
+      <text class="vz-s-t" x="667" y="134" text-anchor="middle">Answer or</text>
+      <text class="vz-s-t" x="667" y="152" text-anchor="middle">"not found"</text>
+      <path class="vz-s-line vz-s-dash" d="M545 158 L545 220 L420 220 L420 158"/>
+      <rect class="vz-s-box" x="425" y="200" width="115" height="40" rx="4"/>
+      <text class="vz-s-t" x="482" y="225" text-anchor="middle">Rewrite query</text>
+      <text class="vz-s-m vz-s-mute" x="482" y="262" text-anchor="middle">if the results are not enough</text>
+    </svg>
+  </div>
+  <figcaption id="fig-arag-loop-cap">Both depend on the same search step. The loop adds model calls to plan, judge and rewrite. Pattern names follow the survey by Singh et al., arXiv 2501.09136.</figcaption>
+</figure>

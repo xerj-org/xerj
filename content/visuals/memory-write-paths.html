@@ -1,0 +1,39 @@
+<figure class="vz" id="fig-mem-write" aria-labelledby="fig-mem-write-cap">
+  <span class="vz-label">Diagram</span>
+  <p class="vz-title">What happens when an agent saves a memory</p>
+  <div class="vz-svg">
+    <svg viewBox="0 0 720 220" role="img" aria-describedby="fig-mem-write-svg" aria-label="How Mem0 and XERJ write a memory">
+      <desc id="fig-mem-write-svg">Mem0 by default sends the conversation to a language model, which extracts facts and decides to add, update or delete memories in a vector store. XERJ stores the text as given, skips near duplicates, and indexes it for keyword and vector recall.</desc>
+      <text class="vz-s-t vz-s-b" x="10" y="22">Mem0, default (infer on)</text>
+      <rect class="vz-s-box" x="10" y="34" width="140" height="56" rx="4"/>
+      <text class="vz-s-t" x="80" y="58" text-anchor="middle">Chat messages</text>
+      <text class="vz-s-m vz-s-mute" x="80" y="78" text-anchor="middle">add()</text>
+      <path class="vz-s-line" d="M150 62 L190 62"/>
+      <rect class="vz-s-hi" x="190" y="34" width="170" height="56" rx="4"/>
+      <text class="vz-s-t vz-s-b" x="275" y="58" text-anchor="middle">LLM call</text>
+      <text class="vz-s-m" x="275" y="78" text-anchor="middle">extract facts</text>
+      <path class="vz-s-line" d="M360 62 L400 62"/>
+      <rect class="vz-s-box" x="400" y="34" width="150" height="56" rx="4"/>
+      <text class="vz-s-t" x="475" y="58" text-anchor="middle">Add, update</text>
+      <text class="vz-s-t" x="475" y="76" text-anchor="middle">or delete</text>
+      <path class="vz-s-line" d="M550 62 L590 62"/>
+      <rect class="vz-s-box" x="590" y="34" width="120" height="56" rx="4"/>
+      <text class="vz-s-t" x="650" y="58" text-anchor="middle">Vector store</text>
+      <text class="vz-s-m vz-s-mute" x="650" y="78" text-anchor="middle">Qdrant default</text>
+      <text class="vz-s-t vz-s-b" x="10" y="132">XERJ</text>
+      <rect class="vz-s-box" x="10" y="144" width="140" height="56" rx="4"/>
+      <text class="vz-s-t" x="80" y="168" text-anchor="middle">Text you choose</text>
+      <text class="vz-s-m vz-s-mute" x="80" y="188" text-anchor="middle">POST /_memory/ns</text>
+      <path class="vz-s-line" d="M150 172 L190 172"/>
+      <rect class="vz-s-box" x="190" y="144" width="170" height="56" rx="4"/>
+      <text class="vz-s-t" x="275" y="168" text-anchor="middle">Skip near duplicate</text>
+      <text class="vz-s-m vz-s-mute" x="275" y="188" text-anchor="middle">optional, 0.95</text>
+      <path class="vz-s-line" d="M360 172 L590 172"/>
+      <text class="vz-s-m vz-s-mute" x="475" y="164" text-anchor="middle">no model call</text>
+      <rect class="vz-s-box" x="590" y="144" width="120" height="56" rx="4"/>
+      <text class="vz-s-t" x="650" y="168" text-anchor="middle">One index</text>
+      <text class="vz-s-m vz-s-mute" x="650" y="188" text-anchor="middle">BM25 + vectors</text>
+    </svg>
+  </div>
+  <figcaption id="fig-mem-write-cap">Mem0's add() runs a language model by default to turn messages into facts; pass infer=False to store raw messages instead. XERJ never calls a model on write: what you send is what gets stored, and an optional dedup check skips text at 0.95 similarity or above.</figcaption>
+</figure>

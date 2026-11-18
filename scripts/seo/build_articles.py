@@ -13,6 +13,7 @@ import argparse
 import collections
 import datetime as dt
 import html
+import html as html_lib
 import json
 import pathlib
 import posixpath
@@ -28,6 +29,7 @@ sys.path.insert(0, str(SCRIPT_DIR))
 
 import article_data  # noqa: E402
 import fix_links  # noqa: E402
+import set_nav  # noqa: E402
 import pagedata  # noqa: E402
 import seo_head  # noqa: E402
 import urlmap  # noqa: E402
@@ -171,6 +173,91 @@ class BuildContext:
         if parsed.scheme or raw.strip().startswith("//"):
             raise line_error(article, line, f"unsupported Markdown link URL {raw!r}")
         return self.resolve(raw, article.category, article, line).href
+
+
+# A fenced block whose language is `visual` holds one line, the name of a figure in
+# content/visuals/<name>.html. The figure is hand-written HTML and inline SVG, inlined
+# into the page as-is, so it is held to an allowlist here: one <figure class="vz">
+# root with a <figcaption>, no script, no style element, no event handler, no
+# javascript: URL and no external media. Behaviour lives in landing/visuals.js and
+# styling in landing/visuals.css; both load only on pages that carry a visual. The
+# Markdown twin gets the caption, and factcheck.py reads the figure's visible text.
+VISUAL_DIR = ("content", "visuals")
+VISUAL_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
+VISUAL_FENCE_RE = re.compile(r"^ {0,3}(`{3,}|~{3,})\s*visual\s*$")
+VISUAL_FORBIDDEN = (
+    (re.compile(r"<\s*/?\s*(?:script|style|iframe|object|embed|link|meta|base|form|img|video|audio|source|foreignobject)\b", re.I),
+     "element is not allowed in a visual"),
+    (re.compile(r"\son[a-z]+\s*=", re.I), "event handler attributes are not allowed in a visual"),
+    (re.compile(r"javascript:", re.I), "javascript: URLs are not allowed in a visual"),
+    (re.compile(r"\s(?:src|srcset|xlink:href)\s*=", re.I), "external media is not allowed in a visual"),
+    (re.compile(r"\shref\s*=\s*[\"'](?!/|#|https://)", re.I), "a visual link must be /path, #anchor or https://"),
+    (re.compile("[\u2013\u2014]"), "en and em dashes are not allowed in a visual"),
+)
+_VISUAL_CACHE: dict[str, tuple[str, str]] = {}
+
+
+def _indent_visual(html: str) -> str:
+    """Indent a figure by two spaces, except lines inside <textarea> or <pre>,
+    whose leading whitespace is content."""
+    out: list[str] = []
+    raw = False
+    for line in html.splitlines():
+        out.append(line if raw or not line.strip() else "  " + line)
+        low = line.lower()
+        opens = low.count("<textarea") + low.count("<pre")
+        closes = low.count("</textarea>") + low.count("</pre>")
+        if opens > closes:
+            raw = True
+        elif closes > opens:
+            raw = False
+    return "\n".join(out)
+
+
+def load_visual(article: article_data.Article, name: str, line: int,
+                context: "BuildContext") -> tuple[str, str]:
+    """Return (html, caption text) for content/visuals/<name>.html."""
+    if not VISUAL_NAME_RE.fullmatch(name):
+        raise line_error(article, line, f"visual name {name!r} must be lowercase-hyphenated")
+    path = context.repo.joinpath(*VISUAL_DIR, f"{name}.html")
+    key = str(path)
+    if key in _VISUAL_CACHE:
+        return _VISUAL_CACHE[key]
+    if not path.is_file():
+        raise line_error(article, line, f"visual {name!r} not found at {path.relative_to(context.repo)}")
+    html = path.read_text(encoding="utf-8").strip()
+    if not (html.startswith('<figure class="vz') and html.endswith("</figure>")):
+        raise line_error(article, line, f"visual {name!r} must be one <figure class=\"vz ...\"> element")
+    for pattern, message in VISUAL_FORBIDDEN:
+        hit = pattern.search(html)
+        if hit:
+            raise line_error(article, line, f"visual {name!r}: {message} ({hit.group(0).strip()!r})")
+    caption = re.search(r"<figcaption[^>]*>(.*?)</figcaption>", html, re.S)
+    if not caption:
+        raise line_error(article, line, f"visual {name!r} needs a <figcaption>")
+    text = " ".join(html_lib.unescape(re.sub(r"<[^>]+>", " ", caption.group(1))).split())
+    _VISUAL_CACHE[key] = (html, text)
+    return _VISUAL_CACHE[key]
+
+
+def has_visuals(article: article_data.Article) -> bool:
+    return any(VISUAL_FENCE_RE.match(line) for line in article.body.splitlines())
+
+
+def _twin_visuals(body: str, article: article_data.Article, context: "BuildContext") -> str:
+    lines = body.splitlines()
+    out: list[str] = []
+    i = 0
+    while i < len(lines):
+        if VISUAL_FENCE_RE.match(lines[i]) and i + 2 < len(lines) + 1:
+            name = lines[i + 1].strip() if i + 1 < len(lines) else ""
+            _, caption = load_visual(article, name, article.body_start_line, context)
+            out.append(f"*Figure: {caption}*")
+            i += 3
+            continue
+        out.append(lines[i])
+        i += 1
+    return "\n".join(out)
 
 
 def _check_raw_html(lines: list[str], article: article_data.Article) -> None:
@@ -344,6 +431,13 @@ def render_markdown_blocks(article: article_data.Article, context: BuildContext)
                 i += 1
             if not closed:
                 raise line_error(article, line_no, "fenced code block has no closing fence")
+            if info == "visual":
+                names = [c.strip() for c in code if c.strip()]
+                if len(names) != 1:
+                    raise line_error(article, line_no, "a visual block names exactly one figure")
+                html, _ = load_visual(article, names[0], line_no, context)
+                rendered.append(_indent_visual(html))
+                continue
             body = esc_text("\n".join(code))
             if code:
                 body += "\n"
@@ -499,6 +593,92 @@ def _metadata_link(source: str, article: article_data.Article,
                      f"dangling internal target {source!r} (resolved as {path})")
 
 
+GITHUB_BLOB = "https://github.com/xerj-org/xerj/blob/main/"
+
+
+CAPTURE_LABEL = "the captured run documented on this page"
+
+
+def key_fact_href(article: article_data.Article, context: BuildContext) -> str | None:
+    """Where a reader checks the key number: the URL, the site page, or the
+    file on GitHub (a repo path gets a real link here, unlike evidence rows,
+    because an answer engine needs a URL it can cite). None for "capture":
+    the number comes from this page's own run, so there is nothing to link."""
+    source = (article.key_fact_source or "").strip()
+    if source == article_data.CAPTURE_SOURCE:
+        return None
+    if source.startswith("https://"):
+        return source
+    if source.startswith("/"):
+        return context.resolve(source, article.category, article,
+                               article.body_start_line).href
+    return GITHUB_BLOB + _evidence_repo_path(source)
+
+
+def key_fact_label(article: article_data.Article) -> str:
+    source = (article.key_fact_source or "").strip()
+    if source.startswith("https://"):
+        parsed = urllib.parse.urlsplit(source)
+        return parsed.netloc + (parsed.path.rstrip("/") or "")
+    return source
+
+
+_INTENT_TOKEN_RE = re.compile(r"[a-z0-9]+")
+_INTENT_STOP = frozenset("a an and are can do does for from how i in is it my of on or "
+                         "the to what when which with without you your xerj".split())
+
+
+def _intent_tokens(article: article_data.Article) -> set[str]:
+    text = " ".join([article.title, article.question, *article.queries]).lower()
+    return {t for t in _INTENT_TOKEN_RE.findall(text) if t not in _INTENT_STOP and len(t) > 2}
+
+
+def intent_siblings(article: article_data.Article, context: BuildContext,
+                    limit: int = 3) -> list[article_data.Article]:
+    """Up to ``limit`` other articles in the same intent group, not already in
+    links_out, most-overlapping first. Deterministic: ties break on slug."""
+    if not article.intent_group:
+        return []
+    linked: set[str] = set()
+    for raw in article.links_out:
+        target = context.resolve_article_target(raw, article, article.body_start_line)
+        linked.add(target.rel)
+    mine = _intent_tokens(article)
+    pool = [a for a in context.articles
+            if a is not article and a.intent_group == article.intent_group
+            and a.output_rel not in linked and not a.noindex]
+    pool.sort(key=lambda a: (-len(mine & _intent_tokens(a)), a.category, a.slug))
+    return pool[:limit]
+
+
+def render_answer_card(article: article_data.Article, context: BuildContext,
+                       modified: str) -> str:
+    """The answer-first block under the H1: a 40-60 word answer that restates
+    the question, then one dated, sourced number."""
+    if not article.answer and not article.key_fact and not article.last_checked:
+        return ""
+    out = ['  <div class="prompt-card answer-first" id="short-answer">',
+           f'    <span class="prompt-label">SHORT ANSWER · UPDATED {esc_text(modified)}</span>']
+    if article.answer:
+        out.append("    <p>" + _inline(article.answer, article, article.body_start_line,
+                                       context.markdown_href) + "</p>")
+    if article.key_fact:
+        href = key_fact_href(article, context)
+        out.append('    <p class="key-fact"><strong>Key number:</strong> '
+                   + _inline(article.key_fact, article, article.body_start_line,
+                             context.markdown_href)
+                   + f' <span class="mute">(as of {esc_text(article.key_fact_date or "")} · source: '
+                   + (CAPTURE_LABEL if href is None else
+                      f'<a href="{esc_attr(href)}">{esc_text(key_fact_label(article))}</a>')
+                   + ')</span></p>')
+    if article.last_checked:
+        out.append(f'    <p class="mute">Last checked: {esc_text(article.last_checked)}. Every '
+                   "third-party fact on this page was re-read from the tool's own docs or "
+                   "repository on that date.</p>")
+    out.append("  </div>")
+    return "\n".join(out)
+
+
 def markdown_rel(article: article_data.Article) -> str:
     return f"{article.category}/{article.slug}.md"
 
@@ -531,10 +711,11 @@ def render_commands(article: article_data.Article) -> str:
     if not article.commands:
         return ""
     out: list[str] = []
-    for item in article.commands:
+    for index, item in enumerate(article.commands, start=1):
         command = item["cmd"]
         note = item["note"]
-        out.append("  <div class=\"prompt-card\">")
+        step_id = f' id="step-{index}"' if "howto" in article.structured_data else ""
+        out.append(f"  <div class=\"prompt-card\"{step_id}>")
         out.append("    <span class=\"prompt-label\">RUN THIS XERJ COMMAND</span>")
         out.append(f"    <code>{esc_text(command)}</code>")
         out.append(f"    <button type=\"button\" class=\"prompt-copy\" data-copy=\"{esc_attr(command)}\">"
@@ -573,8 +754,18 @@ def render_markdown_twin(article: article_data.Article, context: BuildContext) -
         "",
         f"# {article.h1}",
         "",
-        tldr,
     ]
+    if article.answer:
+        out += [f"**Short answer** (updated {modified}): {article.answer}", ""]
+    if article.key_fact:
+        href = key_fact_href(article, context)
+        where = CAPTURE_LABEL if href is None else f"[{key_fact_label(article)}]({href})"
+        out += [f"**Key number:** {article.key_fact} (as of {article.key_fact_date}; "
+                f"source: {where})", ""]
+    if article.last_checked:
+        out += [f"Last checked: {article.last_checked}. Every third-party fact on this page "
+                "was re-read from the tool's own docs or repository on that date.", ""]
+    out += [tldr]
     if article.agent_prompt:
         out += ["", "## Agent prompt", "", "```text", article.agent_prompt, "```"]
     if article.commands:
@@ -585,7 +776,7 @@ def render_markdown_twin(article: article_data.Article, context: BuildContext) -
         while out and out[-1] == "":
             out.pop()
     if body:
-        out += ["", body]
+        out += ["", _twin_visuals(body, article, context)]
 
     out += ["", "## FAQ", ""]
     for item in article.faq:
@@ -607,10 +798,14 @@ def render_markdown_twin(article: article_data.Article, context: BuildContext) -
             out.append(f"- {item['claim'].strip()} — {rendered_source}")
 
     out += ["", "## Related", ""]
-    if article.links_out:
+    siblings = intent_siblings(article, context)
+    if article.links_out or siblings:
         for raw in article.links_out:
             target = context.resolve_article_target(raw, article, article.body_start_line)
             out.append(f"- [{target.label}]({target.href})")
+        for sibling in siblings:
+            out.append(f"- [{sibling.h1}]({urlmap.deployed_path(sibling.output_rel)}) "
+                       f"(same intent: {article.intent_group})")
     else:
         out.append("No related pages are listed.")
     return "\n".join(out).rstrip() + "\n"
@@ -621,13 +816,18 @@ def render_article_sections(article: article_data.Article, context: BuildContext
     out: list[str] = []
     if body_blocks:
         out.append(body_blocks[0])
+    rest = body_blocks[1:]
+    # A visual placed directly under the TL;DR is the page's lead figure: it goes
+    # above the prompt and command cards so the answer, then the picture, come first.
+    if rest and rest[0].startswith('  <figure class="vz'):
+        out.append(rest.pop(0))
     prompt = render_agent_prompt(article)
     if prompt:
         out.append(prompt)
     commands = render_commands(article)
     if commands:
         out.append(commands)
-    out.extend(body_blocks[1:])
+    out.extend(rest)
     out.append("  <h2>FAQ</h2>")
     for item in article.faq:
         # No grammar rule on the question string. A real user types "The
@@ -659,44 +859,26 @@ def render_article_sections(article: article_data.Article, context: BuildContext
         out.append("  </ul>")
 
     out.append("  <h2>Related</h2>")
-    if article.links_out:
+    siblings = intent_siblings(article, context)
+    if article.links_out or siblings:
         out.append("  <ul>")
         for raw in article.links_out:
             target = context.resolve_article_target(raw, article, article.body_start_line)
             out.append(f'    <li><a href="{esc_attr(target.href)}">'
                        f"{esc_text(target.label)}</a></li>")
+        for sibling in siblings:
+            out.append(f'    <li><a href="{urlmap.deployed_path(sibling.output_rel)}">'
+                       f"{esc_text(sibling.h1)}</a> <span class=\"mute\">· same intent: "
+                       f"{esc_text(article.intent_group or '')}</span></li>")
         out.append("  </ul>")
     else:
         out.append("  <p>No related pages are listed.</p>")
     return "\n".join(out)
 
 
-def primary_nav() -> str:
-    return """<nav class="nav" aria-label="Primary">
-  <a href="/" class="brand">XERJ</a>
-  <a href="/">HOME</a>
-  <a href="/product">PRODUCT</a>
-  <span class="nav-drop">
-    <a href="/use-cases">USE CASES</a>
-  </span>
-  <a href="/case-studies">CASE STUDIES</a>
-  <a href="/benchmarks/">BENCHMARKS</a>
-  <span class="spacer"></span>
-  <a href="/for-agents">FOR AGENTS</a>
-  <a href="/docs/" class="active">DOCS</a>
-  <a href="/docs/recipes/">RECIPES</a>
-  <a href="/playground">DASHBOARDS</a>
-  <a href="https://hub.xerj.org" rel="external">HUB</a>
-  <a href="https://github.com/xerj-org/xerj" rel="external">GITHUB</a>
-  <a href="https://x.com/xerj_org" rel="external" title="XERJ on X" style="display:inline-flex;align-items:center"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg></a>
-  <a href="https://discord.com/invite/yetXFusXfs" rel="external" title="XERJ on Discord" style="display:inline-flex;align-items:center"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.317 4.37a19.79 19.79 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.74 19.74 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 00-.041-.106 13.1 13.1 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.3 12.3 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.84 19.84 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg></a>
-  <span class="spacer"></span>
-  <span class="theme">
-    <button type="button" data-theme="day" class="active">DAY</button>
-    <span class="dash">·</span>
-    <button type="button" data-theme="night">NIGHT</button>
-  </span>
-</nav>"""
+def primary_nav(rel: str) -> str:
+    """The site-wide primary nav; scripts/seo/set_nav.py owns its definition."""
+    return set_nav.render(rel)
 
 
 def article_nav(context: BuildContext, active: article_data.Article | None) -> str:
@@ -752,20 +934,19 @@ def breadcrumb(rel: str, meta: dict[str, Any]) -> str:
 # and it would be the only version string on pages whose whole point is that
 # they do not depend on one.
 def footer(category: str) -> str:
-    return fix_links.render_footer() + f'''\n<footer class="footer">
-  <span>XERJ.AI · {esc_text(category.upper())}</span>
-  <span>READ THE SOURCE</span>
-  <span><a href="/">HOME</a> · <a href="/product">PRODUCT</a> · <a href="/brand">BRAND</a> · <a href="/playground">DASHBOARDS</a> &middot; <a href="/llms.txt">LLMS.TXT</a></span>
-</footer>'''
+    # The generated site footer carries the bar (copyright + theme toggle);
+    # the per-page strip that repeated its links is gone (2026-11-07).
+    return fix_links.render_footer()
 
 
 def _head(title: str, description: str, rel: str, block: str,
-          alternate_markdown: str | None = None) -> str:
+          alternate_markdown: str | None = None, visuals: bool = False) -> str:
     alternate = (f'<link rel="alternate" type="text/markdown" href="{esc_attr(alternate_markdown)}">\n'
                  if alternate_markdown else "")
     return f'''<!DOCTYPE html>
 <html lang="en" data-theme="day">
 <head>
+{seo_head.ga4_snippet()}
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{seo_head.text_esc(title)}</title>
@@ -774,9 +955,16 @@ def _head(title: str, description: str, rel: str, block: str,
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%230b0b0d'/><text x='50' y='68' font-size='60' font-family='Big Shoulders Display,sans-serif' font-weight='900' fill='%23ffc400' text-anchor='middle'>X</text></svg>">
-<link rel="stylesheet" href="/style.css?v=90f643e">
-{alternate}{block}
+<script src="/theme.js"></script>
+<link rel="stylesheet" href="/style.css?v=as2">
+{'<link rel="stylesheet" href="/visuals.css?v=2">' + chr(10) if visuals else ''}{alternate}{block}
 </head>'''
+
+
+# Questions longer than this get a smaller H1 on phones (style.css, .h1-long)
+# so a verbatim user question still fits in about five lines at 390px.
+# Desktop sizing does not change.
+H1_LONG_CHARS = 80
 
 
 def render_article(article: article_data.Article, context: BuildContext) -> str:
@@ -786,25 +974,29 @@ def render_article(article: article_data.Article, context: BuildContext) -> str:
     block = seo_head.build_block(rel, article.title, article.description,
                                  article.published, modified, meta)
     body = render_article_sections(article, context)
+    visuals = has_visuals(article)
+    answer_card = render_answer_card(article, context, modified)
+    if answer_card:
+        answer_card += "\n"
     marker = f"{GENERATOR_PREFIX}{article.category}/{article.slug}.md instead -->"
     source_note = (f"AUTHOR · {article.author} · REVIEWED BY · {article.reviewer} · "
                    f"PUBLISHED · {article.published} · UPDATED · {modified}")
     return f'''{marker}
-{_head(article.title, article.description, rel, block, markdown_path(article))}
+{_head(article.title, article.description, rel, block, markdown_path(article), visuals)}
 <body>
-{primary_nav()}
-<div class="docs-shell">
-{article_nav(context, article)}
+{primary_nav(rel)}
+<div class="docs-shell article-shell">
 <main class="docs-content">
   {breadcrumb(rel, meta)}
   <div class="kicker"><span>{esc_text(article.category.upper())} · {esc_text(article.cluster.upper())}</span></div>
-  <h1>{_inline(article.h1, article, article.body_start_line, context.markdown_href)}</h1>
+  <h1{' class="h1-long"' if len(article.h1) > H1_LONG_CHARS else ''}>{_inline(article.h1, article, article.body_start_line, context.markdown_href)}</h1>
   <div class="source-note">{esc_text(source_note)}</div>
-{body}
+{answer_card}{body}
 </main>
+{article_nav(context, article)}
 </div>
 {footer(article.category)}
-<script src="/interact.js"></script>
+{'<script src="/visuals.js?v=2"></script>' + chr(10) if visuals else ''}<script src="/interact.js"></script>
 </body>
 </html>
 '''
@@ -851,15 +1043,15 @@ def render_hub(category: str, articles: list[article_data.Article],
     return f'''{marker}
 {_head(meta["title"], meta["description"], rel, block)}
 <body>
-{primary_nav()}
-<div class="docs-shell">
-{article_nav(context, None)}
+{primary_nav(rel)}
+<div class="docs-shell article-shell">
 <main class="docs-content">
   {breadcrumb(rel, meta)}
   <div class="kicker"><span>{esc_text(category.upper())}</span></div>
   <h1>{esc_text(meta["label"])}</h1>
 {chr(10).join(content)}
 </main>
+{article_nav(context, None)}
 </div>
 {footer(category)}
 <script src="/interact.js"></script>
@@ -894,6 +1086,9 @@ def article_index_entry(article: article_data.Article, context: BuildContext) ->
         "cluster": article.cluster,
         "updated": article_modified(article, context),
         "summary": " ".join(article.description.split()),
+        **({"intent_group": article.intent_group} if article.intent_group else {}),
+        **({"answer": article.answer} if article.answer else {}),
+        **({"queries": list(article.queries)} if article.queries else {}),
     }
 
 
@@ -932,33 +1127,34 @@ def render_llms_section(articles: list[article_data.Article], context: BuildCont
     """
     lines = [
         LLMS_BEGIN,
-        "## Answers",
+        "## Answers and comparisons, grouped by what the agent is trying to do",
         "",
-        "Direct answers for you, the AI agent: the link, then the question that page answers. "
+        "Direct answers for you, the AI agent, grouped by intent: the clusters come from a "
+        "1,000-query study of what agents actually type into search, so find the group that "
+        "matches your task first. Each line is the link, a tag (`answer` or `compare`), then the "
+        "question that page answers. "
         "**Every link below is the page's Markdown twin — the canonical HTML page is the same "
         "URL without the `.md`.** The twin is deliberately not in the sitemap because it is the "
-        "same document. Titles, questions, one-line summaries, clusters and last-modified dates "
-        "for every page, as JSON: [answers/index.json](https://xerj.org/answers/index.json) · "
+        "same document. Titles, questions, short answers, target queries, intents and "
+        "last-modified dates for every page, as JSON: "
+        "[answers/index.json](https://xerj.org/answers/index.json) · "
         "[compare/index.json](https://xerj.org/compare/index.json). Human hubs: "
         "[/answers](https://xerj.org/answers) · [/compare](https://xerj.org/compare).",
         "",
     ]
-    labels = (("answers", None), ("compare", "## Comparisons"))
-    for category, heading in labels:
-        if heading:
-            lines.append(heading)
-            lines.append("")
-        members = sorted((a for a in articles if a.category == category),
-                         key=lambda a: (a.cluster.lower(), a.title.lower()))
-        if not members:
-            lines.append("- No pages are published in this section yet.")
-            lines.append("")
-            continue
-        current_cluster: str | None = None
+    if not articles:
+        lines.append("- No pages are published in this section yet.")
+        lines.append("")
+    groups: dict[str, list[article_data.Article]] = collections.defaultdict(list)
+    for article in articles:
+        groups[article.intent_group or article.cluster].append(article)
+    # Biggest intent first (that is where most agents land), then by name.
+    for group in sorted(groups, key=lambda g: (-len(groups[g]), g.lower())):
+        lines.append(f"### {group}")
+        lines.append("")
+        members = sorted(groups[group],
+                         key=lambda a: (a.category != "compare", a.title.lower()))
         for article in members:
-            if article.cluster != current_cluster:
-                current_cluster = article.cluster
-                lines.append(f"- **{article.cluster}**")
             entry = article_index_entry(article, context)
             # The "canonical = twin minus .md" rule is stated once above the list,
             # so assert the relationship the prose promises still holds.
@@ -966,7 +1162,9 @@ def render_llms_section(articles: list[article_data.Article], context: BuildCont
                 raise BuildError(
                     f"{article.path}: Markdown twin {entry['markdown_url']} is not "
                     f"{entry['canonical_url']}.md, but llms.txt states that rule once")
-            lines.append(f"  - [{entry['title']}]({entry['markdown_url']}): {entry['question']}")
+            tag = "compare" if article.category == "compare" else "answer"
+            lines.append(f"- [{entry['title']}]({entry['markdown_url']}) `{tag}`: "
+                         f"{entry['question']}")
         lines.append("")
     lines.append(LLMS_END)
     return "\n".join(lines).rstrip() + "\n"

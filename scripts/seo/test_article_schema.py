@@ -107,6 +107,107 @@ class UpdatedFieldTests(unittest.TestCase):
             self.assertIn("updated is not a valid ISO date", str(ctx.exception))
 
 
+GEO_ANSWER = ("What does the schema test article cover? It covers the GEO fields: a forty "
+              "to sixty word answer that restates the question, one dated and sourced number, "
+              "an intent group, the literal queries the page targets, and optional HowTo steps "
+              "taken from the commands. This sentence pads the answer past forty words.")
+
+
+def _geo(text: str = FRONTMATTER, **extra: str) -> str:
+    lines = [f'answer: "{GEO_ANSWER}"',
+             'key_fact: "The suite passes 1444 of 1454 cases."',
+             'key_fact_source: "https://github.com/xerj-org/xerj"',
+             'key_fact_date: "2026-10-19"',
+             'intent_group: "code search for agents"',
+             "queries:", '  - "local code search MCP"']
+    for key, value in extra.items():
+        lines = [line for line in lines if not line.startswith(key + ":")]
+        if value is not None:
+            lines.append(f"{key}: {value}")
+    return text.replace('schema_type: "TechArticle"\n',
+                        'schema_type: "TechArticle"\n' + "\n".join(lines) + "\n")
+
+
+class GeoFieldTests(unittest.TestCase):
+    def _load(self, text: str):
+        with tempfile.TemporaryDirectory() as tmp:
+            return load(_write(pathlib.Path(tmp), text))
+
+    def _rejects(self, text: str, needle: str) -> None:
+        with self.assertRaises(FrontmatterError) as ctx:
+            self._load(text)
+        self.assertIn(needle, str(ctx.exception))
+
+    def test_valid_geo_fields_load_and_reach_head_meta(self):
+        article = self._load(_geo())
+        self.assertEqual(article.intent_group, "code search for agents")
+        self.assertEqual(list(article.queries), ["local code search MCP"])
+        meta = article.head_meta()
+        self.assertNotIn("faq", meta)          # FAQPage stays opt-in (#1928)
+        self.assertNotIn("items", meta)
+
+    def test_short_answer_is_rejected(self):
+        self._rejects(_geo(answer='"Too short to restate anything."'), "answer")
+
+    def test_key_fact_needs_its_source_and_date(self):
+        self._rejects(_geo(key_fact_date=None), "go together")
+
+    def test_key_fact_needs_a_number(self):
+        self._rejects(_geo(key_fact='"No number here."'), "number")
+
+    def test_missing_repo_source_is_rejected(self):
+        self._rejects(_geo(key_fact_source='"docs/does-not-exist.md"'), "key_fact_source")
+
+    def test_capture_source_is_accepted(self):
+        article = self._load(_geo(key_fact_source='"capture"'))
+        self.assertEqual(article.key_fact_source, "capture")
+
+class ItemListTests(unittest.TestCase):
+    def test_items_become_an_item_list(self):
+        import seo_head
+        meta = {"items": [{"name": "ripgrep", "url": "https://github.com/BurntSushi/ripgrep",
+                           "license": "MIT OR Unlicense", "install": "cargo install ripgrep"}],
+                "items_name": "Best **grep** alternative"}
+        (block,) = seo_head.geo_blocks("https://xerj.org/compare/x", meta)
+        self.assertEqual(block["@type"], "ItemList")
+        self.assertEqual(block["name"], "Best grep alternative")
+        item = block["itemListElement"][0]["item"]
+        self.assertEqual((item["name"], item["license"]), ("ripgrep", "MIT OR Unlicense"))
+
+    def test_no_items_no_block(self):
+        import seo_head
+        self.assertEqual(seo_head.geo_blocks("https://xerj.org/compare/x", {}), [])
+
+
+class FaqVisibleGateTests(unittest.TestCase):
+    """Rule 46b (#1928) must fire on a FAQPage the page does not show."""
+
+    def _issues(self, body: str) -> list[str]:
+        import seo_lint
+        node = {"@type": "FAQPage", "mainEntity": [{
+            "@type": "Question", "name": "Does it run offline?",
+            "acceptedAnswer": {"@type": "Answer", "text": "Yes, with the default embedder."}}]}
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            (root / "x.html").write_text(f"<html><head></head><body>{body}</body></html>")
+            lint = object.__new__(seo_lint.Lint)
+            lint.root, lint.issues = root, []
+            lint._check_faq_visible("x.html", 1, node)
+        return [issue.rule for issue in lint.issues]
+
+    def test_visible_faq_passes(self):
+        self.assertEqual(self._issues("<h3>Does it run offline?</h3>"
+                                      "<p>Yes, with the default embedder.</p>"), [])
+
+    def test_hidden_question_fails(self):
+        self.assertEqual(self._issues("<p>Yes, with the default embedder.</p>"),
+                         ["jsonld.faq_not_visible"])
+
+    def test_wrong_answer_fails(self):
+        self.assertEqual(self._issues("<h3>Does it run offline?</h3><p>No.</p>"),
+                         ["jsonld.faq_not_visible"])
+
+
 class CommittedContentTests(unittest.TestCase):
     def test_every_committed_article_carries_updated(self):
         """No source may regress to the git-date fallback (#974's root cause).
@@ -129,6 +230,58 @@ class CommittedContentTests(unittest.TestCase):
             if not article.updated:
                 bad.append(f"{path}: updated is missing")
         self.assertEqual(bad, [])
+
+
+class StructuredDataOptInTests(unittest.TestCase):
+    """The opt-in FAQPage/HowTo/SoftwareApplication JSON-LD (README trap 6)."""
+
+    OPT_IN = ('structured_data: [faq, howto, software]\n'
+              'og_image: "og/answers-schema-test-article.png"\n'
+              'og_image_alt: "Cover for the schema test article."\n'
+              'commands:\n'
+              '  - cmd: "xerj autoindex ./data"\n'
+              '    note: "Index the folder"\n'
+              '  - cmd: "xerj search \'query\'"\n'
+              '    note: "Search it"\n')
+
+    def _load(self, extra: str):
+        text = FRONTMATTER.replace("faq:\n", extra + "faq:\n", 1)
+        with tempfile.TemporaryDirectory() as tmp:
+            return load(_write(pathlib.Path(tmp), text))
+
+    def test_default_is_off(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            article = load(_write(pathlib.Path(tmp), FRONTMATTER))
+        self.assertEqual(article.structured_data, ())
+        self.assertNotIn("structured_data", article.head_meta())
+
+    def test_opt_in_emits_three_blocks(self):
+        import seo_head
+        article = self._load(self.OPT_IN)
+        meta = article.head_meta()
+        self.assertEqual(meta["og_image"], "og/answers-schema-test-article.png")
+        blocks = seo_head.extra_structured_data("https://xerj.org/x", "d", meta)
+        self.assertEqual([b["@type"] for b in blocks],
+                         ["FAQPage", "HowTo", "SoftwareApplication"])
+        self.assertEqual(len(blocks[0]["mainEntity"]), 4)
+        self.assertEqual(blocks[1]["step"][1]["text"], "xerj search 'query'")
+        self.assertNotIn("aggregateRating", blocks[2])
+
+    def test_unknown_kind_is_rejected(self):
+        with self.assertRaises(FrontmatterError) as ctx:
+            self._load("structured_data: [faq, review]\n")
+        self.assertIn("must be one of", str(ctx.exception))
+
+    def test_howto_needs_commands(self):
+        with self.assertRaises(FrontmatterError) as ctx:
+            self._load("structured_data: [howto]\n")
+        self.assertIn("howto needs at least two commands", str(ctx.exception))
+
+    def test_og_image_must_match_slug(self):
+        with self.assertRaises(FrontmatterError):
+            self._load('og_image: "og/answers-other.png"\nog_image_alt: "x"\n')
+        with self.assertRaises(FrontmatterError):
+            self._load('og_image: "og/answers-schema-test-article.png"\n')
 
 
 if __name__ == "__main__":

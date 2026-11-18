@@ -11,7 +11,13 @@ updated: "2026-08-21"
 author: "XERJ documentation team"
 reviewer: "XERJ engineering team"
 schema_type: "TechArticle"
+structured_data: [faq]
 agent_prompt: "Act as a coding agent. Read https://xerj.org/llms.txt, start a XERJ node with --insecure, run xerj autoindex ./html-export --prefix web on a folder of saved HTML pages, then POST a match query on body to /web-*/_search and report ax_path, title and the headings array for every hit without fetching any URL."
+answer: "I saved a bunch of docs pages as HTML; how do I search that? Run xerj autoindex on the export folder. In our 3-page capture XERJ extracted a title and a headings array from each page, one match query on body returned 3 hits, and a network watch observed 0 non-loopback peers during the whole run."
+key_fact: "The captured 3-page HTML export returned 3 hits for one `match` on `body`, with 0 non-loopback network peers."
+key_fact_source: "capture"
+key_fact_date: "2026-08-21"
+intent_group: "logs and docs"
 commands:
   - cmd: "xerj autoindex ./html-export --url http://127.0.0.1:9410 --prefix web --state-dir ./state-web --progress plain --disable-feedback"
     note: "Index a folder of saved HTML pages from local disk."

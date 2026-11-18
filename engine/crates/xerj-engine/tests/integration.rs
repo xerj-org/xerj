@@ -5774,6 +5774,53 @@ async fn test_knn_size_windows_into_k() {
     assert_eq!(res0.total.value, 4, "size=0 still reports the pool total");
 }
 
+/// #2431: on rc.97 one search spent 115 s in `mem_admit`, the per-document
+/// walk of the unflushed memtable, which never looked at the request
+/// deadline. A memtable-only index has no segment loop to stop it, so an
+/// already-expired request used to scan every buffered document and answer
+/// `timed_out: false`. The walk now checks the deadline like the segment loop.
+#[tokio::test]
+async fn test_memtable_scan_stops_at_the_search_deadline() {
+    let dir = TempDir::new().unwrap();
+    let engine = make_engine(&dir);
+    engine
+        .create_index("mem-deadline", Schema::empty())
+        .unwrap();
+    let idx = engine.get_index("mem-deadline").unwrap();
+    for n in 0..1500u64 {
+        idx.index_document(Some(format!("d{n}")), json!({"a": n % 7, "b": n}))
+            .await
+            .unwrap();
+    }
+    // A two-key sort is outside the bounded memtable sort path, so the
+    // memtable is offered to the per-document scan (no flush: no segments).
+    let body = json!({
+        "query": {"match_all": {}},
+        "sort": [{"a": "asc"}, {"b": "asc"}],
+        "size": 10
+    });
+
+    // Expired first, so no cached whole answer can stand in for the scan.
+    let mut expired = parse_request(&body).unwrap();
+    expired.timeout_ms = Some(0);
+    let partial = idx.search(&expired).await.unwrap();
+    assert!(
+        partial.timed_out,
+        "an expired deadline must stop the memtable scan and report timed_out"
+    );
+    let mut live = parse_request(&body).unwrap();
+    live.timeout_ms = Some(60_000);
+    let full = idx.search(&live).await.unwrap();
+    assert!(!full.timed_out, "a live deadline must not trip");
+    assert_eq!(full.total.value, 1500);
+    assert_eq!(full.hits.len(), 10);
+
+    // A timed-out answer is never cached: the next live request is whole.
+    let again = idx.search(&live).await.unwrap();
+    assert!(!again.timed_out);
+    assert_eq!(again.hits.len(), 10);
+}
+
 #[tokio::test]
 async fn test_public_vector_executor_signatures_remain_compatible() {
     let dir = TempDir::new().unwrap();
