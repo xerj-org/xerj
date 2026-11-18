@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai, animation, ffmpeg queries this for how heygen-com/hyperframes implements it: Write HTML. Render video. Built for agents (selected work: packages/cli, skills, the project root)",
+ "domain": "an agent working on ai, animation, ffmpeg queries this for how heygen-com/hyperframes implements it: AI video you can actually edit. HyperFrames is a free, open-source AI video editor. Describe any video and get a real project you can change (selected work: packages/cli, skills, the project root)",
  "repos": [
   {
    "repo": "hyperframes",

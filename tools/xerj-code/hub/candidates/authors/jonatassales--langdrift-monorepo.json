@@ -1,9 +1,9 @@
 {
- "corpus": "jonatassales--lang-drift",
+ "corpus": "jonatassales--langdrift-monorepo",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agentic-ai, finops, agentic-rag queries this for how jonatassales/lang-drift implements it: Agentic FinOps Platform - Full blast agentic runtimes - LangDrift explores FinOps principles, agent-assisted software delivery, and consumer (selected work: packages/ex)",
+ "domain": "an agent working on agentic-ai, finops, agentic-rag queries this for how jonatassales/langdrift-monorepo implements it: Agentic FinOps Platform - Full blast agentic runtimes - LangDrift explores FinOps principles, agent-assisted software delivery, and consumer (selected work: packages/ex)",
  "repos": [
   {
    "repo": "lang-drift",
