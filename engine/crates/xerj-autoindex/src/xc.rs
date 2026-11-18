@@ -446,7 +446,9 @@ const CORPUS_USAGE: &str =
        xerj corpus list [--url URL]
 
 a flag may precede the verb (xerj corpus --url URL index <name>);
-clone the repos, detect licences, write corpora/<name>/corpus.json;
+clone the repos into ~/.xerj-code/corpora/<name>/ ($XERJ_CODE_HOME/corpora/<name>/
+when XERJ_CODE_HOME is set; the clones stay there), detect licences, write
+corpora/<name>/corpus.json;
 a repo entry may set 'paths' to relative directories or files (for example
 data/osv) and the checkout harvests only those; omit it to harvest the whole pin, and
 the list is written back into corpus.json;

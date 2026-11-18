@@ -71,6 +71,7 @@ pub mod walk;
 pub mod watch;
 pub mod worktree;
 pub mod xc;
+pub mod zero_hits;
 
 use anyhow::{Context, Result};
 use serde::Serialize;

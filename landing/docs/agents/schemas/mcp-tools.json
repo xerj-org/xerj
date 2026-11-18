@@ -66,7 +66,7 @@
                 },
                 {
                   "type": "object",
-                  "additionalProperties": false,
+                  "description": "Pass query, or identifier plus field. Items are checked one by one: an item with an unknown key, or with both query and identifier, fails alone and its error lists the allowed keys (key, query, identifier, field, _source); the other items still run.",
                   "properties": {
                     "key": {
                       "type": "string",
@@ -82,7 +82,7 @@
                           "type": "object"
                         }
                       ],
-                      "description": "Plain text or ES query clause. Cannot be combined with identifier/field."
+                      "description": "Plain text or ES query clause; a string that is a JSON object is read as the clause. Cannot be combined with identifier/field."
                     },
                     "identifier": {
                       "type": "string",
@@ -93,21 +93,11 @@
                       "type": "string",
                       "minLength": 1,
                       "description": "Flat keyword field for identifier. Must be mapped as keyword wherever present; unreadable, absent or conflicting mappings fail this item."
-                    }
-                  },
-                  "oneOf": [
-                    {
-                      "required": [
-                        "query"
-                      ]
                     },
-                    {
-                      "required": [
-                        "identifier",
-                        "field"
-                      ]
+                    "_source": {
+                      "description": "Source filtering for this item's hits (bool, field list, or {includes,excludes}). Default: the whole _source, minus embedding vectors."
                     }
-                  ]
+                  }
                 }
               ]
             }
@@ -126,6 +116,10 @@
             "maximum": 50,
             "default": 3,
             "description": "Maximum hits per item."
+          },
+          "include_vectors": {
+            "type": "boolean",
+            "description": "Return embedding vectors (dense_vector and semantic_text embedding arrays) in `_source`. Default false: they are dropped from every hit and `_xerj.hints` code `vectors_omitted` names the fields."
           },
           "max_tokens": {
             "type": "integer",
@@ -155,7 +149,7 @@
           },
           "query": {
             "type": "string",
-            "description": "What to search for, in plain words — the definition-first code search `xerj search` runs. Use `query_dsl` for a structured clause. Omit both for legacy match_all browsing; explicit query_dsl: {match_all: {}} is clearer."
+            "description": "What to search for, in plain words — the definition-first code search `xerj search` runs. Use `query_dsl` for a structured clause. Omit both for legacy match_all browsing; explicit query_dsl: {match_all: {}} is clearer. A string that is a JSON object (\"{\\\"match_all\\\":{}}\") is read as query DSL, and `_xerj.hints` says so."
           },
           "query_dsl": {
             "type": "object",
@@ -174,6 +168,10 @@
           },
           "_source": {
             "description": "Source filtering (bool, field, or {includes,excludes})."
+          },
+          "include_vectors": {
+            "type": "boolean",
+            "description": "Return embedding vectors (dense_vector and semantic_text embedding arrays) in `_source`. Default false: they are dropped from every hit and `_xerj.hints` code `vectors_omitted` names the fields."
           },
           "rerank": {
             "type": [
@@ -223,6 +221,13 @@
             "type": "object",
             "description": "Optional ES query clause applied as a pre-filter."
           },
+          "_source": {
+            "description": "Source filtering (bool, field, or {includes,excludes})."
+          },
+          "include_vectors": {
+            "type": "boolean",
+            "description": "Return embedding vectors (dense_vector and semantic_text embedding arrays) in `_source`. Default false: they are dropped from every hit and `_xerj.hints` code `vectors_omitted` names the fields."
+          },
           "max_tokens": {
             "type": "integer",
             "minimum": 32,
@@ -268,6 +273,13 @@
           "filter": {
             "type": "object",
             "description": "Optional ES query clause applied as a pre-filter."
+          },
+          "_source": {
+            "description": "Source filtering (bool, field, or {includes,excludes})."
+          },
+          "include_vectors": {
+            "type": "boolean",
+            "description": "Return embedding vectors (dense_vector and semantic_text embedding arrays) in `_source`. Default false: they are dropped from every hit and `_xerj.hints` code `vectors_omitted` names the fields."
           },
           "max_tokens": {
             "type": "integer",
@@ -321,6 +333,13 @@
           "size": {
             "type": "integer",
             "description": "Max fused hits to return."
+          },
+          "_source": {
+            "description": "Source filtering (bool, field, or {includes,excludes})."
+          },
+          "include_vectors": {
+            "type": "boolean",
+            "description": "Return embedding vectors (dense_vector and semantic_text embedding arrays) in `_source`. Default false: they are dropped from every hit and `_xerj.hints` code `vectors_omitted` names the fields."
           },
           "rerank": {
             "type": [
