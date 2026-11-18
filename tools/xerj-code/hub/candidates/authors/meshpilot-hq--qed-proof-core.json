@@ -1,9 +1,9 @@
 {
- "corpus": "nuraveda--qed-proof-core",
+ "corpus": "meshpilot-hq--qed-proof-core",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agent-observability, agent-verification, ai-agents queries this for how Nuraveda/qed-proof-core implements it: Proof of Agent Work (PoAW): an open protocol and self-hostable node that verifies what AI agents claim they did and issues signed, publicly  (selected work: node, spec, enclave)",
+ "domain": "an agent working on agent-observability, agent-verification, ai-agents queries this for how meshpilot-hq/qed-proof-core implements it: Proof of Agent Work (PoAW): an open protocol and self-hostable node that verifies what AI agents claim they did and issues signed, publicly  (selected work: node, spec, enclave)",
  "repos": [
   {
    "repo": "qed-proof-core",

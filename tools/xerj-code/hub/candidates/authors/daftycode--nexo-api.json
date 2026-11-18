@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on TypeScript queries this for how DaftyCode/nexo_api implements it: DaftyCode/nexo_api (TypeScript) (selected work: src/app, backend, e2e)",
+ "domain": "an agent working on Rust queries this for how DaftyCode/nexo_api implements it: DaftyCode/nexo_api (Rust) (selected work: src/app, backend, e2e)",
  "repos": [
   {
    "repo": "nexo_api",

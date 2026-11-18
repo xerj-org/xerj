@@ -8,15 +8,15 @@
   {
    "repo": "Partio",
    "url": "https://github.com/jchristn/Partio",
-   "sha": "b804535cb46f3f6ba817389fe110c41ab0a94051",
-   "licence": "MIT (LICENSE file at pin b804535cb46f, GitHub licence API 2026-10-28)",
+   "sha": "947c65529175b8941a38ea7bd2e8102612db211b",
+   "licence": "MIT (LICENSE file at pin 947c65529175, GitHub licence API 2026-11-18)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T22:23Z",
     "consent_receipt": "55fe31ae50b5",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:23Z (receipt 55fe31ae50b5); pinned to the default-branch head. LICENSE file at pin b804535cb46f detected as MIT by the GitHub licence API on 2026-10-28; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:23Z (receipt 55fe31ae50b5); pinned to the default-branch head. LICENSE file at pin 947c65529175 detected as MIT by the GitHub licence API on 2026-11-18; used under that licence with attribution."
    }
   }
  ]

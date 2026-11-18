@@ -8,15 +8,15 @@
   {
    "repo": "Less3",
    "url": "https://github.com/jchristn/Less3",
-   "sha": "92e424a55b47027b660814dbf293aa356127c366",
-   "licence": "MIT (LICENSE file at pin 92e424a55b47, GitHub licence API 2026-11-13)",
+   "sha": "603ab8a1876e2a711fd3a537677908d04ad8daac",
+   "licence": "MIT (LICENSE file at pin 603ab8a1876e, GitHub licence API 2026-11-18)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T22:23Z",
     "consent_receipt": "6b5285a4eee2",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:23Z (receipt 6b5285a4eee2); pinned to the default-branch head. LICENSE file at pin 92e424a55b47 detected as MIT by the GitHub licence API on 2026-11-13; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:23Z (receipt 6b5285a4eee2); pinned to the default-branch head. LICENSE file at pin 603ab8a1876e detected as MIT by the GitHub licence API on 2026-11-18; used under that licence with attribution."
    }
   }
  ]

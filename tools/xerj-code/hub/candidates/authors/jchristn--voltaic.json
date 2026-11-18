@@ -8,15 +8,15 @@
   {
    "repo": "Voltaic",
    "url": "https://github.com/jchristn/Voltaic",
-   "sha": "a43fa65aaeb0ac02cbc9e3030f3baad374a409c1",
-   "licence": "MIT (LICENSE file at pin a43fa65aaeb0, GitHub licence API 2026-10-28)",
+   "sha": "04c150f45faceabe335a149b8ab2891177698177",
+   "licence": "MIT (LICENSE file at pin 04c150f45fac, GitHub licence API 2026-11-18)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T22:23Z",
     "consent_receipt": "feba035921cc",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:23Z (receipt feba035921cc); pinned to the default-branch head. LICENSE file at pin a43fa65aaeb0 detected as MIT by the GitHub licence API on 2026-10-28; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:23Z (receipt feba035921cc); pinned to the default-branch head. LICENSE file at pin 04c150f45fac detected as MIT by the GitHub licence API on 2026-11-18; used under that licence with attribution."
    }
   }
  ]
