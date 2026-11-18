@@ -457,6 +457,22 @@ PAGES: dict[str, dict[str, str]] = {
         label="For AI", kind="collection",
         description="Build with XERJ: the seven canonical agent operations — autoindex a folder, then search, semantic, vector kNN, hybrid and agent memory on the :9200 API.",
     ),
+    "docs/packs/index.html": dict(
+        label="Packs", kind="collection",
+        description="The XERJ core, hub, writing, bio and cyber tool packs: one MCP install, live capability discovery, and honest release status.",
+    ),
+    "docs/packs/writing.html": dict(
+        label="Writing pack", kind="techarticle",
+        description="The XERJ Writing Pack recipe uses outline, section and review steps with explicit evidence, citation coverage and a live tool-catalog check.",
+    ),
+    "docs/packs/bio.html": dict(
+        label="Bio pack", kind="techarticle",
+        description="The XERJ Bio Pack recipe confirms identity first, limits biographical claims to the supplied scope, and preserves evidence for review.",
+    ),
+    "docs/packs/cyber.html": dict(
+        label="Cyber pack", kind="techarticle",
+        description="The XERJ Cyber Pack uses authorized, scope-bounded verification workflows and distinguishes observations, exploitability and remediation.",
+    ),
 
     # ── docs · start ────────────────────────────────────────────────────────
     "docs/quickstart.html": dict(
@@ -666,6 +682,7 @@ SECTION_HUBS: dict[str, tuple[str, str]] = {
     "docs": ("Docs", "/docs/"),
     "docs/recipes": ("Recipes", "/docs/recipes/"),
     "docs/agents": ("For AI", "/docs/agents/"),
+    "docs/packs": ("Packs", "/docs/packs/"),
     "use-cases": ("Use cases", "/use-cases"),
     "case-studies": ("Case studies", "/case-studies"),
     "industries": ("Industries", "/industries/"),
