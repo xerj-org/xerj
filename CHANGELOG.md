@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- A shared cyber finding schema and evidence-gated report (Refs #2767, #2769):
+  a typed `CyberFinding` (scenario, CWE, source or endpoint location,
+  severity/CVSS, corpus evidence, status, confidence/abstain) in
+  `xerj_common::cyber_finding`. Non-abstained findings without evidence are
+  refused or turned into abstentions, a CVSS v3.1 vector must agree with the
+  stored score and severity (v4.0 vectors are refused until the calculator
+  lands), black-box and exploitability findings
+  require a `ScopeGuard` and echo it, and reports carry an RFC 8785 SHA-256
+  receipt. A shared library primitive, not a wired cyber recipe.
+
 ## [1.0.0-rc.105] - 2026-11-23
 
 <!-- notes-exempt: #3341 #3343 (CLA signatures, .contributors only) -->
