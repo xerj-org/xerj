@@ -722,6 +722,98 @@ pub(crate) fn attach_family_junk_warnings(rendered: &str, runs: &[Value]) -> Str
     value.to_string()
 }
 
+/// Commit at index time and now for a local git root (#3268). Both `None`
+/// when the root is not a folder on this machine or not in a checkout.
+fn local_commits(root: &str, indexed_at: &str) -> (Option<String>, Option<String>) {
+    let path = std::path::Path::new(root);
+    if root.is_empty() || !path.is_dir() {
+        return (None, None);
+    }
+    let at = xerj_autoindex::staleness::parse_time(indexed_at);
+    (
+        at.and_then(|t| xerj_autoindex::gitref::head_at(path, t)),
+        xerj_autoindex::gitref::head_now(path),
+    )
+}
+
+/// Add `index_runs`: the latest run of each prefix that owns a listed
+/// index, with `indexed_at` (`summary_generated_at`, else `started`),
+/// `root`, and, when `commits` can read the root's git files,
+/// `indexed_commit` and `head_commit`. A map with no listed index, or no
+/// run for one, is returned unchanged.
+pub(crate) fn attach_index_runs(
+    rendered: &str,
+    runs: &[Value],
+    commits: impl Fn(&str, &str) -> (Option<String>, Option<String>),
+) -> String {
+    let Ok(mut value) = serde_json::from_str::<Value>(rendered) else {
+        return rendered.to_string();
+    };
+    let listed: Vec<String> = value
+        .get("indexes")
+        .and_then(Value::as_array)
+        .map(|entries| {
+            entries
+                .iter()
+                .filter_map(|e| e.get("index").and_then(Value::as_str).map(str::to_string))
+                .collect()
+        })
+        .unwrap_or_default();
+    let mut latest: BTreeMap<&str, &Value> = BTreeMap::new();
+    for run in runs {
+        let prefix = run_field(run, "prefix");
+        if prefix.is_empty() {
+            continue;
+        }
+        let owns = listed.iter().any(|index| {
+            index
+                .strip_prefix(prefix)
+                .is_some_and(|rest| rest.starts_with('-'))
+        });
+        if !owns {
+            continue;
+        }
+        match latest.get(prefix) {
+            Some(prev) if !run_is_newer(run, prev) => {}
+            _ => {
+                latest.insert(prefix, run);
+            }
+        }
+    }
+    if latest.is_empty() {
+        return rendered.to_string();
+    }
+    let entries: Vec<Value> = latest
+        .into_iter()
+        .map(|(prefix, run)| {
+            let indexed_at = match run_field(run, "summary_generated_at") {
+                "" => run_field(run, "started"),
+                done => done,
+            };
+            let root = run_field(run, "root");
+            let mut entry = json!({
+                "prefix": prefix,
+                "run_id": run_field(run, "run_id"),
+                "indexed_at": indexed_at,
+                "root": root,
+            });
+            let (then, now) = commits(root, indexed_at);
+            if let Some(then) = then {
+                entry["indexed_commit"] = json!(then);
+            }
+            if let Some(now) = now {
+                entry["head_commit"] = json!(now);
+            }
+            entry
+        })
+        .collect();
+    let Some(obj) = value.as_object_mut() else {
+        return rendered.to_string();
+    };
+    obj.insert("index_runs".into(), Value::Array(entries));
+    value.to_string()
+}
+
 /// Run documents from the catalog. Failure is an empty list: the field map
 /// is still returned. No server-side sort — `started` is not a date on every
 /// catalog this binary still reads.
@@ -729,7 +821,14 @@ async fn fetch_run_sources(ctx: &Ctx) -> Vec<Value> {
     let body = json!({
         "size": 500,
         "query": {"term": {"doc_kind": "run"}},
-        "_source": ["prefix", "run_id", "started", "family_junk_warnings"]
+        "_source": [
+            "prefix",
+            "run_id",
+            "started",
+            "summary_generated_at",
+            "root",
+            "family_junk_warnings"
+        ]
     });
     let url = format!("{}/{CATALOG_INDEX}/_search", ctx.base_url);
     let mut req = ctx.client.post(&url).json(&body);
@@ -848,7 +947,15 @@ pub(crate) async fn run(ctx: &Ctx, args: &Value) -> Value {
                         // A failed read leaves the map as it was — the field
                         // list is still the answer to "what can I query".
                         let runs = fetch_run_sources(ctx).await;
-                        tool_text(attach_family_junk_warnings(&rendered, &runs), false)
+                        let rendered = attach_family_junk_warnings(&rendered, &runs);
+                        // #3268: when each prefix was indexed, and at which
+                        // commit. Reads git files under local roots.
+                        let rendered = tokio::task::spawn_blocking(move || {
+                            attach_index_runs(&rendered, &runs, local_commits)
+                        })
+                        .await
+                        .unwrap_or_default();
+                        tool_text(rendered, false)
                     }
                     Err(e) => tool_text(
                         format!("xerj_map: catalog reply was not JSON ({e}): {text}"),
@@ -1508,6 +1615,38 @@ mod tests {
             "top_reason": reason,
             "top_reason_files": junk
         })
+    }
+
+    /// #3268: the map says when each listed prefix was indexed and, through
+    /// the injected reader, at which commit. A run for an unlisted prefix
+    /// and a longer prefix that only shares letters are not attached.
+    #[test]
+    fn index_runs_name_the_latest_run_of_each_listed_prefix() {
+        let rendered = r#"{"matched":2,"indexes":[{"index":"proj-code"},{"index":"proj-docs"}]}"#;
+        let runs = vec![
+            json!({"prefix": "proj", "run_id": "r1", "started": "2026-11-01T00:00:00Z", "root": "/src/proj"}),
+            json!({"prefix": "proj", "run_id": "r2", "started": "2026-11-02T00:00:00Z",
+                   "summary_generated_at": "2026-11-02T00:05:00Z", "root": "/src/proj"}),
+            json!({"prefix": "projx", "run_id": "r3", "started": "2026-11-03T00:00:00Z", "root": "/x"}),
+            json!({"prefix": "other", "run_id": "r4", "started": "2026-11-03T00:00:00Z", "root": "/o"}),
+        ];
+        let out: Value = serde_json::from_str(&attach_index_runs(rendered, &runs, |root, at| {
+            assert_eq!((root, at), ("/src/proj", "2026-11-02T00:05:00Z"));
+            (Some("aaa".into()), Some("bbb".into()))
+        }))
+        .unwrap();
+        assert_eq!(
+            out["index_runs"],
+            json!([{
+                "prefix": "proj", "run_id": "r2", "indexed_at": "2026-11-02T00:05:00Z",
+                "root": "/src/proj", "indexed_commit": "aaa", "head_commit": "bbb"
+            }])
+        );
+        assert_eq!(
+            attach_index_runs(rendered, &[], |_, _| (None, None)),
+            rendered,
+            "no run, no change"
+        );
     }
 
     fn run_doc(prefix: &str, run_id: &str, started: &str, warnings: Vec<Value>) -> Value {

@@ -21,11 +21,13 @@ pub mod facts_rows;
 mod family_junk;
 pub mod feedback;
 pub mod flood;
+pub mod freshness;
 pub mod gain;
 pub mod gate;
 mod generation_catalog;
 #[cfg(test)]
 mod generation_catalog_http_tests;
+pub mod gitref;
 /// `xerj corpus build` — harvested-record corpus packs (recipe → store →
 /// identity → merge → deterministic pack).
 pub mod harvest;
@@ -63,6 +65,7 @@ pub mod sources;
 mod stage;
 pub mod staleness;
 pub mod state;
+pub mod status_cli;
 mod sync;
 mod sync_executor;
 #[cfg(test)]
