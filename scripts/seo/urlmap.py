@@ -32,6 +32,8 @@ Primary sources
 from __future__ import annotations
 
 import datetime as _dt
+from dataclasses import dataclass
+import heapq
 import os
 import pathlib
 import re
@@ -324,10 +326,19 @@ def content_bytes(html: str) -> str:
     return html
 
 
+@dataclass
+class _DateCommit:
+    parents: list[str]
+    stamp: int
+    day: str
+    changes: list[set[str]]
+
+
 class DateSource:
     """Per-file last/first change dates, from git where possible.
 
-    `git log -1 --format=%cs -- <file>` is still what `last_modified` returns,
+    `git log -1 --date=format-local:%Y-%m-%d --format=%cd -- <file>` (TZ=UTC)
+    is still what `last_modified` returns, using a shared history snapshot,
     and `fix_heads` keeps using it for pages that have no pinned date.
     Sitemap `<lastmod>` does not. A sitewide head or nav commit, or a shallow
     checkout whose mtimes are all "today", would otherwise stamp every URL
@@ -353,6 +364,10 @@ class DateSource:
         self.prior_used: list[str] = []
         self.git_ok = self._probe()
         self._prior_cache: dict[str, dict[str, str]] = {}
+        self._history_loaded = False
+        self._follow_renames = False
+        self._history: dict[str, _DateCommit] = {}
+        self._date_cache: dict[str, tuple[str, str] | None] = {}
 
     def _probe(self) -> bool:
         try:
@@ -368,31 +383,144 @@ class DateSource:
         except (OSError, subprocess.SubprocessError):
             return False
 
-    def _git_date(self, path: pathlib.Path, first: bool = False) -> str | None:
+    @staticmethod
+    def _history_records(raw: bytes):
+        """NUL-framed Git records; filenames may contain whitespace or newlines."""
+        for record in raw.removeprefix(b"\0").split(b"\0\0"):
+            if not record:
+                continue
+            header, _, names = record.partition(b"\0")
+            paths = {name.decode("utf-8", "surrogateescape")
+                     for name in names.removeprefix(b"\n").split(b"\0") if name}
+            yield header.decode("ascii"), paths
+
+    def _load_history(self) -> None:
+        """Read config, DAG and all parent diffs with at most three processes.
+
+        A flat --name-only cache changes path-limited log semantics at merges:
+        Git follows only the first parent whose tree agrees for that path.
+        Keep each merge-parent diff so lookups can apply that same rule without
+        launching Git for individual pages. See git-log's History Simplification.
+        """
+        if self._history_loaded:
+            return
+        self._history_loaded = True
         if not self.git_ok:
-            return None
+            return
         # %cs renders the committer date in the COMMIT's own timezone, so a
         # commit made at 22:34 UTC from a +02:00 machine reads 2026-09-20 here
         # and 2026-09-19 on a UTC CI runner — the generated files then differ
         # by machine and `--check` fails for hours every evening. Dates are
         # UTC everywhere instead.
-        cmd = ["git", "-C", str(self.repo_root), "log",
-               "--date=format-local:%Y-%m-%d", "--format=%cd"]
-        if not first:
-            cmd.append("-1")
-        cmd += ["--", str(path)]
         env = {**os.environ, "TZ": "UTC"}
         try:
-            r = subprocess.run(cmd, capture_output=True, text=True, timeout=30,
-                               env=env)
+            config = subprocess.run(
+                ["git", "-C", str(self.repo_root), "config", "--bool", "--get", "log.follow"],
+                capture_output=True, timeout=15, env=env)
+            # Rename following is an optional per-path Git algorithm (including
+            # similarity detection). Preserve it via Git itself. If config
+            # cannot be read, also leave the decision to the original command.
+            self._follow_renames = (config.returncode not in (0, 1)
+                                    or config.stdout.strip() == b"true")
+            if self._follow_renames:
+                return
+            log = subprocess.run(
+                ["git", "-C", str(self.repo_root), "log", "--root",
+                 "--no-diff-merges", "--no-renames", "--name-only", "-z",
+                 "--date=format-local:%Y-%m-%d",
+                 "--format=%x00%H%x09%P%x09%ct%x09%cd", "--"],
+                capture_output=True, timeout=60, env=env)
+            if log.returncode != 0:
+                return
+            history = {}
+            comparisons = []
+            for header, paths in self._history_records(log.stdout):
+                rev, parents, stamp, day = header.split("\t")
+                parents = parents.split()
+                history[rev] = _DateCommit(parents, int(stamp), day, [paths])
+                if len(parents) > 1:
+                    history[rev].changes.clear()
+                    comparisons.extend((rev, parent) for parent in parents)
+            if comparisons:
+                diff = subprocess.run(
+                    ["git", "-C", str(self.repo_root), "diff-tree", "--stdin",
+                     "-r", "--name-only", "-z", "--no-renames", "--always",
+                     "--format=%x00%H"],
+                    input="".join(f"{rev} {parent}\n" for rev, parent in comparisons).encode(),
+                    capture_output=True, timeout=60, env=env)
+                if diff.returncode != 0:
+                    return
+                records = list(self._history_records(diff.stdout))
+                if len(records) != len(comparisons):
+                    return
+                for (rev, _), (header, paths) in zip(comparisons, records):
+                    if header != rev:
+                        return
+                    history[rev].changes.append(paths)
+            self._history = history
+        except (OSError, subprocess.SubprocessError, ValueError):
+            # A failed batch must not publish a partial cache or retry per page.
+            return
+
+    def _git_date(self, path: pathlib.Path, first: bool = False) -> str | None:
+        self._load_history()
+        if not self._history and not self._follow_renames:
+            return None
+        # Preserve the tracked name of symlinks, rather than resolving targets.
+        try:
+            absolute = path if path.is_absolute() else self.repo_root / path
+            rel = pathlib.Path(os.path.abspath(absolute)).relative_to(
+                pathlib.Path(os.path.abspath(self.repo_root))).as_posix()
+        except ValueError:
+            return None
+        if self._follow_renames:
+            if rel not in self._date_cache:
+                self._date_cache[rel] = self._follow_dates(path)
+            dates = self._date_cache[rel]
+            return dates[0 if first else 1] if dates else None
+        if rel not in self._date_cache:
+            head = next(iter(self._history))
+            pending = [(-self._history[head].stamp, 0, head)]
+            seen = {head}
+            sequence = 0
+            days = []
+            while pending:
+                _, _, rev = heapq.heappop(pending)
+                commit = self._history[rev]
+                parents, changes = commit.parents, commit.changes
+                follow = parents
+                changed = rel in changes[0]
+                if len(parents) > 1:
+                    for parent, paths in zip(parents, changes):
+                        if rel not in paths:
+                            follow = [parent]
+                            changed = False
+                            break
+                    else:
+                        changed = True
+                if changed:
+                    days.append(commit.day)
+                for parent in follow:
+                    if parent not in seen:
+                        seen.add(parent)
+                        sequence += 1
+                        heapq.heappush(pending, (-self._history[parent].stamp, sequence, parent))
+            self._date_cache[rel] = (days[-1], days[0]) if days else None
+        dates = self._date_cache[rel]
+        return dates[0 if first else 1] if dates else None
+
+    def _follow_dates(self, path: pathlib.Path) -> tuple[str, str] | None:
+        """Compatibility path for inherited log.follow; cache both ends once."""
+        try:
+            result = subprocess.run(
+                ["git", "-C", str(self.repo_root), "log",
+                 "--date=format-local:%Y-%m-%d", "--format=%cd", "--", str(path)],
+                capture_output=True, text=True, timeout=30,
+                env={**os.environ, "TZ": "UTC"})
         except (OSError, subprocess.SubprocessError):
             return None
-        if r.returncode != 0:
-            return None
-        lines = [ln.strip() for ln in r.stdout.splitlines() if ln.strip()]
-        if not lines:
-            return None
-        return lines[-1] if first else lines[0]
+        days = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+        return (days[-1], days[0]) if result.returncode == 0 and days else None
 
     @staticmethod
     def _mtime_date(path: pathlib.Path) -> str:

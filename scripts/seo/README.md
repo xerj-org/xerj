@@ -765,6 +765,26 @@ generated article does not move on regeneration: its date is `updated:`.
 The sitemap is not committed, so no build round is needed for it — `--check`
 validates the derivation and the deploy writes the file.
 
+`DateSource.first_published` and `last_modified` share one lazy, in-memory
+snapshot per instance: a Git history read plus, when there are merges, one
+batched `diff-tree --stdin` read for all merge-parent comparisons. Including
+the shallow-checkout and Git-config probes, this uses at most four Git
+processes regardless of page count with Git's default no-follow mode.
+If `log.follow=true`, Git's optional rename-following algorithm is preserved
+through a cached per-file Git read instead; it is not covered by that bound.
+Path-limited merge simplification and UTC committer dates are
+preserved; first/last refer to Git traversal order, not timestamp min/max.
+An unavailable or failed history batch keeps the existing recorded mtime
+fallback and is not retried for every page. Create a new `DateSource` after
+changing HEAD. The separate content-aware `page_lastmod` policy is unchanged.
+
+Run `python3 scripts/seo/test_urlmap.py` for the temporary-repository regression
+tests. On a full checkout, `python3 scripts/seo/verify_date_batch.py` compares
+every landing page's first/last dates and generated head against the previous
+per-file Git implementation, prints measured times and process counts, and
+fails on output drift or more than four Git processes in the default batched
+path. It also reports whether the optional rename-following mode was active.
+
 The stderr warning `WARNING: <lastmod> fell back to filesystem mtime` means a
 URL had no in-file date and no usable git history. It is expected for a
 brand-new untracked page, and is a bug in CI for a page that is already
