@@ -5042,6 +5042,7 @@ impl Engine {
             let mut rss_drains =
                 crate::governor::MemoryDrainSchedule::new(MEMORY_DRAIN_MIN_INTERVAL);
             let mut last_memtable_drain_at: Option<std::time::Instant> = None;
+            let mut disk_hint_shown = false;
             loop {
                 std::thread::sleep(period);
                 if weak_a.strong_count() == 0 {
@@ -5058,6 +5059,24 @@ impl Engine {
                 let available_commit = xerj_common::resource::available_commit_bytes();
                 let (disk_pct, disk_avail) = crate::governor::disk_used_pct_and_avail(&data_dir);
                 governor.refresh_memory_observing(observed, disk_pct, disk_avail, available_commit);
+                // #3282: name the drive and the `--data-dir` fix once per
+                // engagement (the first sample after startup included), so a
+                // node that starts in flood stage says why every write fails.
+                let flood = governor.disk_flood_admission();
+                if flood.blocked && !disk_hint_shown {
+                    let sizes = crate::governor::disk_stats(&data_dir);
+                    tracing::warn!(
+                        "{}",
+                        xerj_common::disk_hint::flood_stage_hint(
+                            &data_dir,
+                            disk_pct,
+                            flood.flood_pct,
+                            sizes,
+                            "writes are refused until space is freed",
+                        )
+                    );
+                }
+                disk_hint_shown = flood.blocked;
 
                 if sample_drain_due(
                     std::time::Instant::now(),

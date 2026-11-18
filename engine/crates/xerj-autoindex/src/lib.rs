@@ -9219,18 +9219,20 @@ fn run_index_report_inner(
     // estimate is built from whatever this invocation actually parsed.
     let scan_meter = estimate::Meter::new();
     // What this run decided to take from the machine, before it takes it.
-    pr.note(&format!(
+    // Printed after the disk probe below, so a full data-dir drive (#3282)
+    // is the first thing on stderr.
+    let mut startup_notes = vec![format!(
         "autoindex: {} scan threads, {} index workers, {} pdf workers, --bulk-mb {} [{}]",
         scan_threads,
         cfg.workers,
         cfg.pdf_workers,
         cfg.bulk_mb,
         xerj_common::resource::describe(),
-    ));
+    )];
     for note in &cfg.resource_notes {
-        pr.note(&format!("autoindex: {note}"));
+        startup_notes.push(format!("autoindex: {note}"));
     }
-    pr.note(&format!(
+    startup_notes.push(format!(
         "autoindex: bulk HTTP request timeout: {}s",
         cfg.bulk_timeout_secs
     ));
@@ -9269,10 +9271,23 @@ fn run_index_report_inner(
     // A dry run writes nothing, so a full volume is not a reason to refuse
     // it: the plan (and its size) is exactly what a user short on disk needs.
     let disk = flood::probe(&es);
+    // #3282: a full data-dir drive is named, with the `--data-dir` fix, before
+    // anything else reaches stderr — the dry run's budget then says 0 bytes
+    // and exits 4, and that line is the reason.
+    let disk_hint = disk.flood_hint();
     if !cfg.dry_run {
         if let Some(message) = disk.refusal {
-            anyhow::bail!("{message}");
+            match &disk_hint {
+                Some(hint) => anyhow::bail!("{hint}\n{message}"),
+                None => anyhow::bail!("{message}"),
+            }
         }
+    }
+    if let Some(hint) = &disk_hint {
+        eprintln!("{hint}");
+    }
+    for note in &startup_notes {
+        pr.note(note);
     }
     let disk_volume = disk.volume;
 
@@ -9665,15 +9680,28 @@ fn run_index_report_inner(
     // Totals are unknown until the walk returns, so this phase honestly
     // reports `pct=unknown` and proves liveness with the clock alone.
     pr.phase("walk", 0, 0);
-    let (discovered_files, ignore_report) = walk::walk_reporting_opts(
+    // #3280: `--exclude` is applied during the walk, so an excluded file costs
+    // no `stat` and a directory a `<dir>/**` glob covers is pruned and named.
+    let exclude_matcher = GlobMatcher::compile(&cfg.exclude, "--exclude")?;
+    let walk_excludes = walk::WalkExcludes::new(&exclude_matcher, &cfg.exclude, &cfg.exclude_rels);
+    let (discovered_files, ignore_report, exclude_report) = walk::walk_reporting_excluding(
         &cfg.root,
         cfg.follow_symlinks,
         cfg.follow_symlinks_outside_root,
         cfg.ignore,
+        &walk_excludes,
     )?;
-    let (discovered_files, excluded) =
+    for pruned in &exclude_report.pruned {
+        pr.note(&format!(
+            "autoindex: pruned {}/ ({})",
+            crate::progress::sanitize(&pruned.rel, crate::progress::SAFE_PATH_MAX),
+            pruned.why
+        ));
+    }
+    let (discovered_files, excluded_after) =
         without_excluded_rels(discovered_files, &cfg.exclude_rels, &cfg.exclude)?;
-    if excluded > 0 {
+    let excluded = exclude_report.excluded_files + excluded_after;
+    if excluded > 0 || !exclude_report.pruned.is_empty() {
         let mut rules = cfg.exclude_rels.clone();
         rules.extend(cfg.exclude.iter().map(|glob| format!("--exclude {glob}")));
         pr.note(&format!(
@@ -9844,7 +9872,10 @@ fn run_index_report_inner(
             budget::Choice::Absent
         };
         match budget::resolve(&assessment, choice) {
-            budget::Outcome::Stop { code, body } => {
+            budget::Outcome::Stop { code, mut body } => {
+                if let (Some(hint), false) = (&disk_hint, body.is_null()) {
+                    body["disk_hint"] = serde_json::json!(hint);
+                }
                 if !body.is_null() {
                     println!("{}", serde_json::to_string(&body)?);
                 }

@@ -48,6 +48,38 @@ pub(crate) struct Volume {
 pub(crate) struct Probe {
     pub volume: Option<Volume>,
     pub refusal: Option<String>,
+    /// `path.data` from the same row, when the node reports it.
+    pub data_dir: Option<String>,
+}
+
+impl Probe {
+    /// The #3282 sentence when the volume is at an enabled flood stage: the
+    /// drive, its used percent, the stage, how much to free, and the
+    /// `--data-dir` move. `None` below the stage or when the node did not
+    /// report a threshold.
+    pub(crate) fn flood_hint(&self) -> Option<String> {
+        flood_hint(self.volume.as_ref()?, self.data_dir.as_deref())
+    }
+}
+
+/// See [`Probe::flood_hint`].
+pub(crate) fn flood_hint(volume: &Volume, data_dir: Option<&str>) -> Option<String> {
+    let flood = volume.flood_stage?;
+    let used = volume.used_percent.or_else(|| {
+        let (total, avail) = (volume.total?, volume.avail?);
+        (total > 0).then(|| total.saturating_sub(avail).saturating_mul(100) / total)
+    })?;
+    if !xerj_common::disk_hint::at_flood_stage(used, flood, volume.threshold_enabled) {
+        return None;
+    }
+    let sizes = volume.total.zip(volume.avail);
+    Some(xerj_common::disk_hint::flood_stage_hint(
+        data_dir.unwrap_or(""),
+        used,
+        flood,
+        sizes,
+        "0 bytes of index budget",
+    ))
 }
 
 /// `None` fields when the node cannot be asked. A stats blip must not abort
@@ -58,17 +90,21 @@ pub(crate) fn probe(es: &Es) -> Probe {
         return Probe {
             volume: None,
             refusal: None,
+            data_dir: None,
         };
     };
     if !(200..300).contains(&status) {
         return Probe {
             volume: None,
             refusal: None,
+            data_dir: None,
         };
     }
+    let dir = disk_facts_from_allocation(&body).data_dir;
     Probe {
         volume: volume_from_allocation(&body),
         refusal: refusal_from_allocation(&body),
+        data_dir: (!dir.is_empty()).then_some(dir),
     }
 }
 
@@ -503,6 +539,41 @@ mod tests {
         .is_none());
         assert!(refusal_from_allocation(&json!({"acknowledged": true})).is_none());
         assert!(refusal_from_allocation(&json!([])).is_none());
+    }
+
+    /// #3282: a volume at the flood stage names the drive, the percent, the
+    /// stage and the `--data-dir` fix; below it, or with the watermark off,
+    /// nothing is printed.
+    #[test]
+    fn flood_hint_names_the_drive_and_the_data_dir_fix() {
+        const GIB: u64 = 1 << 30;
+        let mut v = Volume {
+            total: Some(100 * GIB),
+            avail: Some(4 * GIB),
+            used_percent: Some(96),
+            flood_stage: Some(95),
+            threshold_enabled: true,
+            flood_blocked: true,
+        };
+        let hint = flood_hint(&v, Some("D:/xerj-data")).unwrap();
+        assert!(
+            hint.starts_with("data-dir drive holding D:/xerj-data is 96% full (flood stage 95%)"),
+            "{hint}"
+        );
+        assert!(hint.contains("0 bytes of index budget"), "{hint}");
+        assert!(hint.contains("--data-dir on another drive"), "{hint}");
+        v.used_percent = Some(90);
+        assert_eq!(flood_hint(&v, Some("D:/xerj-data")), None);
+        v.used_percent = Some(96);
+        v.threshold_enabled = false;
+        assert_eq!(flood_hint(&v, None), None);
+        v.threshold_enabled = true;
+        v.flood_stage = None;
+        assert_eq!(
+            flood_hint(&v, None),
+            None,
+            "no threshold reported: not guessed"
+        );
     }
 
     #[test]

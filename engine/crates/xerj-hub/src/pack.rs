@@ -53,10 +53,55 @@ const ZSTD_LEVEL: i32 = 9;
 /// stolen or its build never fed a bad snapshot: the reader bounds what it
 /// allocates whatever the signature says. 1 GiB is twenty times the pull cap —
 /// far above what a snapshot of already-compressed segment files expands to.
-const MAX_UNPACKED_BYTES: u64 = 1 << 30;
-/// Largest number of tar entries a reader accepts (a pack holds four fixed
-/// members plus the snapshot's files — a few hundred in practice).
-const MAX_MEMBERS: usize = 100_000;
+///
+/// Shared by the builder ([`write_pack`] refuses to publish past it), the
+/// catalogue builder (does not list a pack past it) and the client
+/// ([`read_and_verify_pack`] refuses to extract past it), so the catalogue never
+/// offers a pack the client will refuse (#3283).
+pub const MAX_UNPACKED_BYTES: u64 = 1 << 30;
+/// Largest number of tar entries a pack may hold (four fixed members plus the
+/// snapshot's files — a few hundred in practice). A zip-bomb guard, shared by
+/// builder, catalogue and client exactly like [`MAX_UNPACKED_BYTES`] (#3283).
+pub const MAX_MEMBERS: usize = 100_000;
+
+/// Refuse a pack whose member count or decompressed tar size is past the shared
+/// caps. The error names the pack's numbers and the cap, so a refusal says by
+/// how much a pack is over and which limit it hit.
+pub fn check_pack_limits(members: usize, unpacked_bytes: u64) -> Result<()> {
+    check_pack_limits_with(members, unpacked_bytes, MAX_MEMBERS, MAX_UNPACKED_BYTES)
+}
+
+fn check_pack_limits_with(
+    members: usize,
+    unpacked_bytes: u64,
+    max_members: usize,
+    max_unpacked: u64,
+) -> Result<()> {
+    if members > max_members {
+        bail!(
+            "pack holds {members} entries, over the hub's cap of {max_members} entries \
+             per pack; split the corpus into smaller packs"
+        );
+    }
+    if unpacked_bytes > max_unpacked {
+        bail!(
+            "pack decompresses to {unpacked_bytes} bytes, over the hub's cap of \
+             {max_unpacked} bytes per pack; split the corpus into smaller packs"
+        );
+    }
+    Ok(())
+}
+
+/// Count the entries of an in-memory tar, reading headers only.
+pub fn count_tar_entries(tar_bytes: &[u8]) -> Result<usize> {
+    let mut archive = tar::Archive::new(std::io::Cursor::new(tar_bytes));
+    let mut n = 0usize;
+    for entry in archive.entries().context("read tar entries")? {
+        entry.context("read tar entry")?;
+        n += 1;
+    }
+    Ok(n)
+}
 
 /// One line of `files.jsonl`: an indexed source file with its per-path licence.
 /// `read_and_verify_pack` does not parse this (it is extracted verbatim); it is
@@ -121,6 +166,9 @@ pub fn write_pack(
         append_regular(&mut builder, &format!("{SNAPSHOT_DIR}/{rel}"), data)?;
     }
     let tar_bytes = builder.into_inner().context("finish tar")?;
+    // Refuse to publish what no client would extract (#3283).
+    check_pack_limits(4 + snapshot.len(), tar_bytes.len() as u64)
+        .with_context(|| format!("refusing to write {}", out_archive.display()))?;
 
     // 5. zstd-compress to the final archive bytes.
     let archive_bytes =
@@ -329,7 +377,7 @@ fn rel_to_forward_slash(rel: &Path) -> Result<String> {
 /// zstd-decompress `archive`, refusing output larger than `max` bytes. Reads at
 /// most `max + 1` bytes from the decoder, so a decompression bomb costs at most
 /// that much memory before it is refused.
-fn decompress_bounded(archive: &[u8], max: u64) -> Result<Vec<u8>> {
+pub(crate) fn decompress_bounded(archive: &[u8], max: u64) -> Result<Vec<u8>> {
     let decoder = zstd::stream::read::Decoder::new(archive).context("zstd decompress")?;
     let mut out = Vec::new();
     decoder
@@ -346,10 +394,9 @@ fn decompress_bounded(archive: &[u8], max: u64) -> Result<Vec<u8>> {
 fn read_members(tar_bytes: &[u8]) -> Result<BTreeMap<String, Vec<u8>>> {
     let mut archive = tar::Archive::new(std::io::Cursor::new(tar_bytes));
     let mut members: BTreeMap<String, Vec<u8>> = BTreeMap::new();
-    for (n, entry) in archive.entries().context("read tar entries")?.enumerate() {
-        if n >= MAX_MEMBERS {
-            bail!("pack holds more than {MAX_MEMBERS} entries; refusing to extract it");
-        }
+    let count = count_tar_entries(tar_bytes)?;
+    check_pack_limits_with(count, 0, MAX_MEMBERS, u64::MAX).context("refusing to extract it")?;
+    for entry in archive.entries().context("read tar entries")? {
         let mut entry = entry.context("read tar entry")?;
         if entry.header().entry_type().is_dir() {
             continue;
@@ -1221,5 +1268,55 @@ mod tests {
         // The same pack under a bound it fits in still verifies and extracts.
         read_and_verify_pack_bounded(&out, &sig, &sha, &public, &dest, 16 << 20).unwrap();
         assert!(dest.join("snapshot/idx/zeros.bin").exists());
+    }
+
+    /// #3283: the cap check names the pack's count and the cap, and is
+    /// inclusive at the cap.
+    #[test]
+    fn pack_limits_name_the_count_and_the_cap() {
+        check_pack_limits(MAX_MEMBERS, MAX_UNPACKED_BYTES).unwrap();
+        let err = check_pack_limits(MAX_MEMBERS + 1, 0).unwrap_err();
+        let msg = format!("{err:#}");
+        assert!(msg.contains("100001 entries"), "{msg}");
+        assert!(msg.contains("cap of 100000"), "{msg}");
+        let err = check_pack_limits(5, MAX_UNPACKED_BYTES + 1).unwrap_err();
+        assert!(format!("{err:#}").contains("cap of 1073741824 bytes"));
+    }
+
+    /// #3283: the builder refuses to publish a pack the client would refuse,
+    /// so the catalogue never offers one; nothing is written.
+    #[test]
+    fn builder_refuses_a_pack_past_the_member_cap() {
+        let tmp = tempfile::tempdir().unwrap();
+        let snap = tmp.path().join("snap");
+        fs::create_dir_all(&snap).unwrap();
+        // 4 fixed members + (MAX_MEMBERS - 3) files = MAX_MEMBERS + 1.
+        for i in 0..(MAX_MEMBERS - 3) {
+            fs::write(snap.join(format!("f{i}")), b"").unwrap();
+        }
+        let out = tmp.path().join("big.hubpack.tar.zst");
+        let (seed, _) = generate_keypair().unwrap();
+        let err = write_pack(
+            &out,
+            &sample_manifest(),
+            &sample_defs(),
+            &sample_files(),
+            &snap,
+            &seed,
+        )
+        .unwrap_err();
+        let msg = format!("{err:#}");
+        assert!(msg.contains("100001 entries"), "{msg}");
+        assert!(!out.exists(), "no archive written");
+        assert!(!sig_path_for(&out).exists(), "no signature written");
+    }
+
+    #[test]
+    fn count_tar_entries_counts_every_member() {
+        let mut b = tar::Builder::new(Vec::new());
+        for i in 0..7 {
+            append_regular(&mut b, &format!("m{i}"), b"x").unwrap();
+        }
+        assert_eq!(count_tar_entries(&b.into_inner().unwrap()).unwrap(), 7);
     }
 }

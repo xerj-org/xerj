@@ -907,14 +907,14 @@ pub fn assess_path(
         .unwrap_or_else(|_| root.to_path_buf())
         .to_string_lossy()
         .to_string();
-    let (volume, duplicates) =
+    let (volume, duplicates, disk_hint) =
         match crate::esclient::Es::with_bulk_timeout(url, auth.map(str::to_string), 30) {
             Ok(es) => {
-                let volume = flood::probe(&es).volume;
+                let probe = flood::probe(&es);
                 let duplicates = other_prefixes(&es, &root_str, prefix).unwrap_or_default();
-                (volume, duplicates)
+                (probe.volume, duplicates, probe.flood_hint())
             }
-            Err(_) => (None, Vec::new()),
+            Err(_) => (None, Vec::new(), None),
         };
     let assessment = assess(&Request {
         root: &root_str,
@@ -927,7 +927,13 @@ pub fn assess_path(
         duplicate_prefixes: &duplicates,
         memory_budget: xerj_common::resource::memory_safe_zone_bytes(),
     });
-    Ok(assessment.body)
+    let mut body = assessment.body;
+    // #3282: `xerj_index_budget` names the full drive and the fix, the same
+    // sentence the CLI prints first.
+    if let Some(hint) = disk_hint {
+        body["disk_hint"] = json!(hint);
+    }
+    Ok(body)
 }
 
 fn other_prefixes(es: &crate::esclient::Es, root: &str, prefix: &str) -> Result<Vec<String>> {
