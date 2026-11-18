@@ -1040,8 +1040,11 @@ pub fn run_search_cli() -> i32 {
     let prefix = resolved.prefix;
     let pattern = resolved.pattern;
     if url.is_empty() {
-        url = "http://localhost:9200".to_string();
+        // #3267: the local node's recorded port, not a fixed :9200.
+        url = xerj_common::localnode::default_url();
     }
+    // #3267: a stopped loopback node is started (detached) before the query.
+    xerj_common::localnode::ensure_for_cli("xerj search", &url);
     if api_key.is_none() && xerj_common::localauth::url_is_loopback(&url) {
         if let Some(found) =
             xerj_common::localauth::discover_local_admin_key_for_url_with_origin(&url)

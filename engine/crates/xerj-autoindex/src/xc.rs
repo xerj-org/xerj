@@ -39,14 +39,17 @@ pub fn code_root() -> PathBuf {
         .join(".xerj-code")
 }
 
-/// `--url` flag > `XERJ_URL` > `http://localhost:9200`. Unlike `autoindex`
-/// (which ignores `XERJ_URL` on purpose for writes), these READ commands
-/// honor it — the scripts always did.
+/// `--url` flag > `XERJ_URL` > the local node ([`default_url`]: :9200, or the
+/// port a local node recorded, #3267). Unlike `autoindex` (which ignores
+/// `XERJ_URL` on purpose for writes), these READ commands honor it — the
+/// scripts always did.
+///
+/// [`default_url`]: xerj_common::localnode::default_url
 fn resolve_url(explicit: Option<&str>) -> String {
     explicit
         .map(str::to_string)
         .or_else(|| std::env::var("XERJ_URL").ok().filter(|u| !u.is_empty()))
-        .unwrap_or_else(|| "http://localhost:9200".to_string())
+        .unwrap_or_else(xerj_common::localnode::default_url)
 }
 
 fn build_es(url: &str, api_key: Option<String>) -> Result<Es> {
@@ -418,6 +421,8 @@ fn code_cli_outcome(args: &[String]) -> CodeCliDone {
         return bad("xerj code: both <corpus> and \"<query>\" are required".to_string());
     };
     let url = resolve_url(url.as_deref());
+    // #3267: a stopped loopback node is started (detached) before the query.
+    xerj_common::localnode::ensure_for_cli("xerj code", &url);
     let es = match build_es(&url, api_key.clone()) {
         Ok(es) => es,
         Err(e) => {
@@ -3993,7 +3998,9 @@ mod tests {
         assert_eq!(resolve_url(Some("http://a:1")), "http://a:1");
         // env-dependent branches covered by the e2e; default pinned here.
         std::env::remove_var("XERJ_URL");
-        assert_eq!(resolve_url(None), "http://localhost:9200");
+        // #3267: the default is the local node; its port depends on what this
+        // machine recorded, so only the host is pinned here.
+        assert!(resolve_url(None).starts_with("http://localhost:"));
     }
 
     #[test]

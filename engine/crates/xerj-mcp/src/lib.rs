@@ -130,13 +130,14 @@ const DEFAULT_PROTOCOL_VERSION: &str = "2025-06-18";
 /// `POST /_search` page size when the caller omits `size` (`EsSearchBody`).
 const DEFAULT_SEARCH_SIZE: usize = 10;
 /// Default XERJ ES-compatible endpoint.
+#[cfg(test)]
 const DEFAULT_XERJ_URL: &str = "http://localhost:9200";
 /// Deadline for one proxied request to the node, connect to last body byte.
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// How to start the node `xerj mcp` proxies to. The flags are the local-dev
 /// start in llms.txt ("Start here", step 1), the README, and the `xerj mcp`
-/// CLI reference. `xerj mcp` does not start a node itself.
+/// CLI reference. Printed when a loopback node cannot be auto-started (#3267).
 const START_LOCAL_NODE: &str = "xerj --insecure --data-dir ~/xerj-data";
 
 /// Shared per-process state: the HTTP client + where to proxy to.
@@ -171,7 +172,10 @@ Speaks MCP over stdio (newline-delimited JSON-RPC 2.0 on stdin/stdout) and
 @@TOOLS@@
 OPTIONS:
     --url <URL>     Base URL of the XERJ ES-compatible listener.
-                    Overrides XERJ_URL. Default: http://localhost:9200
+                    Overrides XERJ_URL. Default: the local node: http://localhost:9200,
+                    or the port a local node recorded when :9200 is closed.
+    --no-autostart  Do not start the local node when nothing answers at a
+                    loopback URL. Env: XERJ_NO_AUTOSTART=1
     --auth <VALUE>  Authorization header sent verbatim on every proxied
                     request (e.g. 'ApiKey <token>'). Overrides XERJ_AUTH.
     -h, --help      Show this help
@@ -184,6 +188,7 @@ OPTIONS:
 ENVIRONMENT:
     XERJ_URL        Same as --url
     XERJ_AUTH       Same as --auth
+    XERJ_NO_AUTOSTART=1  Same as --no-autostart
 
 MCP CLIENT CONFIG (Claude Desktop, IDE agents, any mcpServers-shaped config):
 
@@ -256,8 +261,10 @@ fn tools_paragraph(include_hub: bool) -> String {
     let mut para = format!(
         "proxies {n} tools — {list} — to a\n\
          XERJ node that\n\
-         is ALREADY RUNNING. This command does not start a node; start one first with\n\
-         `xerj --insecure --data-dir ~/xerj-data`.\n",
+         is running. When the URL is on this machine and nothing answers, it starts\n\
+         the node that last served that port, detached (off: XERJ_NO_AUTOSTART=1).\n\
+         To start one yourself:\n\
+         `xerj --detach --insecure --data-dir ~/xerj-data`.\n",
         n = names.len(),
     );
     let hub: Vec<&str> = names
@@ -333,6 +340,7 @@ fn resolve_auth(
 pub async fn run(args: &[String]) -> anyhow::Result<()> {
     let mut url_override: Option<String> = None;
     let mut auth_override: Option<String> = None;
+    let mut no_autostart = false;
 
     let mut it = args.iter();
     while let Some(arg) = it.next() {
@@ -364,6 +372,7 @@ pub async fn run(args: &[String]) -> anyhow::Result<()> {
                         .clone(),
                 );
             }
+            "--no-autostart" => no_autostart = true,
             other => {
                 // Fail loudly: a typo'd flag that is silently ignored leaves the
                 // agent talking to the wrong node with no way to notice.
@@ -375,9 +384,15 @@ pub async fn run(args: &[String]) -> anyhow::Result<()> {
     let base_url = url_override
         .or_else(|| std::env::var("XERJ_URL").ok())
         .filter(|s| !s.is_empty())
-        .unwrap_or_else(|| DEFAULT_XERJ_URL.to_string())
+        // #3267: no URL given means the local node, on the port it recorded
+        // (a node on :9280 is found), not a fixed :9200.
+        .unwrap_or_else(xerj_common::localnode::default_url)
         .trim_end_matches('/')
         .to_string();
+    let autostart = !no_autostart
+        && !xerj_common::localnode::autostart_disabled()
+        && xerj_common::localauth::url_is_loopback(&base_url);
+    let _ = AUTOSTART.set(autostart);
     let (auth, auth_key_file) =
         resolve_auth(auth_override, std::env::var("XERJ_AUTH").ok(), &base_url);
 
@@ -392,9 +407,14 @@ pub async fn run(args: &[String]) -> anyhow::Result<()> {
     };
 
     eprintln!(
-        "xerj-mcp v{} — MCP stdio server, proxying to {}",
+        "xerj-mcp v{} — MCP stdio server, proxying to {}{}",
         env!("CARGO_PKG_VERSION"),
-        ctx.base_url
+        ctx.base_url,
+        if autostart {
+            " (starts the local node if it is down; off: XERJ_NO_AUTOSTART=1)"
+        } else {
+            ""
+        }
     );
 
     // Announced, never silent (same rule as `xerj autoindex`): MCP hosts
@@ -2096,7 +2116,84 @@ fn field_report_draft(payload: &xerj_common::field_report::Payload) -> String {
 /// Dispatch a `tools/call` to the matching proxy. Any bad-argument or transport
 /// problem is returned as an `isError:true` tool result (not a protocol error),
 /// which is the MCP convention for tool-execution failures.
+/// Set once by [`run`]: whether this server may start the loopback node it
+/// proxies to (#3267). Off unless `run` turned it on, so a `Ctx` built in a
+/// test never spawns anything.
+static AUTOSTART: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+
+/// One start at a time: concurrent tool calls against a dead node wait for
+/// the first call's start instead of each spawning a node.
+static START_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
+/// Tools that talk to the node. The field report and corpus feedback post
+/// elsewhere, and the hub tools manage their own node.
+fn tool_needs_node(name: &str) -> bool {
+    name.starts_with("xerj_")
+        && !matches!(name, "xerj_field_report" | "xerj_corpus_feedback")
+        && !name.starts_with("xerj_hub_")
+}
+
+/// Start the loopback node when nothing accepts at `base_url` (#3267).
+///
+/// `Ok(None)`: nothing to do (auto-start off, not loopback, or the node is
+/// up). `Ok(Some)`: this call started it, or waited for a start in flight.
+async fn ensure_node(base_url: &str) -> Result<Option<xerj_common::localnode::Started>, String> {
+    if !AUTOSTART.get().copied().unwrap_or(false)
+        || !xerj_common::localauth::url_is_loopback(base_url)
+    {
+        return Ok(None);
+    }
+    let url = base_url.to_string();
+    let probe = url.clone();
+    let up = tokio::task::spawn_blocking(move || xerj_common::localnode::url_accepts(&probe))
+        .await
+        .unwrap_or(true);
+    if up {
+        return Ok(None);
+    }
+    let _one_start = START_LOCK.lock().await;
+    // `ensure_for_url` probes again: a call that waited on the lock finds
+    // the node the first call started and returns `None`.
+    tokio::task::spawn_blocking(move || xerj_common::localnode::ensure_for_url(&url))
+        .await
+        .map_err(|e| format!("the start task failed: {e}"))?
+}
+
+/// The tool text when a start was tried and failed.
+fn node_start_failed(base_url: &str, reason: &str) -> String {
+    format!(
+        "no XERJ node is listening at {}, and xerj mcp could not start one: {reason}\n\
+         Start one yourself with:\n  {START_LOCAL_NODE}\n\
+         then retry this tool.",
+        base_url.trim_end_matches('/')
+    )
+}
+
+/// Add the "started the node" sentence as its own content item, so a JSON
+/// result in the first item stays parseable.
+fn with_start_note(mut result: Value, started: &xerj_common::localnode::Started) -> Value {
+    if let Some(content) = result.get_mut("content").and_then(Value::as_array_mut) {
+        content.push(json!({ "type": "text", "text": started.sentence() }));
+    }
+    result
+}
+
 async fn call_tool(ctx: &Ctx, msg: &Value) -> Value {
+    let name = msg
+        .pointer("/params/name")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    if !tool_needs_node(name) {
+        return call_tool_inner(ctx, msg).await;
+    }
+    match ensure_node(&ctx.base_url).await {
+        Ok(None) => call_tool_inner(ctx, msg).await,
+        Ok(Some(started)) => with_start_note(call_tool_inner(ctx, msg).await, &started),
+        Err(reason) => tool_text(node_start_failed(&ctx.base_url, &reason), true),
+    }
+}
+
+async fn call_tool_inner(ctx: &Ctx, msg: &Value) -> Value {
     let params = match msg.get("params") {
         Some(p) => p,
         None => return tool_text("missing `params`", true),

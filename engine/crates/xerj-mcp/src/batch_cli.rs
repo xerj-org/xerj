@@ -2,7 +2,7 @@
 use std::io::Read;
 use std::time::Duration;
 
-use crate::{batch, node_http_builder, resolve_auth, Ctx, DEFAULT_XERJ_URL};
+use crate::{batch, node_http_builder, resolve_auth, Ctx};
 
 const HELP: &str = "xerj batch-search — ordered batch retrieval (#1801)
 
@@ -116,9 +116,10 @@ pub async fn run_batch_cli(args: &[String]) -> i32 {
         .url
         .or_else(|| std::env::var("XERJ_URL").ok())
         .filter(|s| !s.is_empty())
-        .unwrap_or_else(|| DEFAULT_XERJ_URL.into())
+        .unwrap_or_else(xerj_common::localnode::default_url)
         .trim_end_matches('/')
         .to_string();
+    xerj_common::localnode::ensure_for_cli("xerj batch-search", &base_url);
     let (auth, found) = resolve_auth(opts.auth, std::env::var("XERJ_AUTH").ok(), &base_url);
     if let Some(found) = found {
         eprintln!(

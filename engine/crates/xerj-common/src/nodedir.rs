@@ -43,7 +43,7 @@ fn publish_data_dir_for_port_in(home: &Path, port: u16, data_dir: &Path) -> std:
 
 /// The data dir that last served `port`, if any. It falls back to the parent
 /// of the admin-key pointer, which nodes before this change wrote when auth was on.
-fn published_data_dir_in(home: &Path, port: u16) -> Option<PathBuf> {
+pub(crate) fn published_data_dir_in(home: &Path, port: u16) -> Option<PathBuf> {
     let read = |path: PathBuf| {
         std::fs::read_to_string(path)
             .ok()
@@ -54,6 +54,51 @@ fn published_data_dir_in(home: &Path, port: u16) -> Option<PathBuf> {
         read(home.join(".xerj").join("by-port").join(port.to_string()))
             .and_then(|key| key.parent().map(Path::to_path_buf))
     })
+}
+
+/// One `~/.xerj/by-port/<port>.data-dir` pointer and when it was written.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct PortPointer {
+    pub port: u16,
+    pub data_dir: PathBuf,
+    pub written: std::time::SystemTime,
+}
+
+/// Every data-dir pointer under `home`, most recently written first. A node
+/// rewrites its pointer on every start, so the first entry is the node that
+/// started last.
+pub(crate) fn port_pointers_in(home: &Path) -> Vec<PortPointer> {
+    let Ok(entries) = std::fs::read_dir(home.join(".xerj").join("by-port")) else {
+        return Vec::new();
+    };
+    let mut out: Vec<PortPointer> = entries
+        .flatten()
+        .filter_map(|entry| {
+            let name = entry.file_name();
+            let port: u16 = name.to_str()?.strip_suffix(".data-dir")?.parse().ok()?;
+            let written = entry.metadata().ok()?.modified().ok()?;
+            let data_dir = published_data_dir_in(home, port)?;
+            Some(PortPointer {
+                port,
+                data_dir,
+                written,
+            })
+        })
+        .collect();
+    out.sort_by(|a, b| b.written.cmp(&a.written).then(a.port.cmp(&b.port)));
+    out
+}
+
+/// The PID recorded for `data_dir`'s node: `node.lock`, or the unlocked
+/// `node.lock.pid` note when a running Windows node holds the lock and hides
+/// its bytes (#2431). `None` when there is no lock file or no PID in it.
+pub(crate) fn lock_pid(data_dir: &Path) -> Option<u32> {
+    let text = match std::fs::read_to_string(data_dir.join("node.lock")) {
+        Ok(text) => text,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return None,
+        Err(_) => std::fs::read_to_string(data_dir.join("node.lock.pid")).ok()?,
+    };
+    text.trim().parse().ok()
 }
 
 /// Whether a PID names a running process.
@@ -172,22 +217,13 @@ pub fn node_lock_hint(
     } else {
         format!(" --port {port}")
     };
-    // A running node on Windows holds `node.lock` under `LockFileEx`, which
-    // hides its bytes from other processes. The engine writes the same PID
-    // to the unlocked `node.lock.pid` beside it (#2431); read that only when
-    // the lock file exists but cannot be read.
-    let text = match std::fs::read_to_string(&lock) {
-        Ok(text) => text,
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return None,
-        Err(_) => std::fs::read_to_string(data_dir.join("node.lock.pid")).ok()?,
-    };
-    let pid: u32 = text.trim().parse().ok()?;
+    let pid = lock_pid(data_dir)?;
     let dir = data_dir.display();
     match probe(pid) {
         PidState::Dead => Some(format!(
             "The node that last served this port used data dir {dir}; its pid {pid} \
              (recorded in {}) is no longer running, so it exited or was killed. \
-             Restart it with the same --data-dir: xerj --data-dir {dir}{port_flag} (add \
+             Restart it with the same --data-dir: xerj --detach --data-dir {dir}{port_flag} (add \
              --insecure if it ran that way).",
             lock.display()
         )),
@@ -255,7 +291,7 @@ mod tests {
         .expect("hint");
         assert!(hint.contains("pid 4242"), "{hint}");
         assert!(hint.contains("is no longer running"), "{hint}");
-        assert!(hint.contains("xerj --data-dir "), "{hint}");
+        assert!(hint.contains("xerj --detach --data-dir "), "{hint}");
         assert!(hint.contains(" --port 9207 "), "{hint}");
         let canon = std::fs::canonicalize(data.path()).unwrap();
         assert!(hint.contains(&canon.display().to_string()), "{hint}");
