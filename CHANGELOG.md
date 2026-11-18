@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-rc.104] - 2026-11-18
+
+**rc.104: rc.103 on every platform.** rc.104 is the rc.103 code with the
+macOS and Windows builds that rc.103 could not ship. No pull request merged
+to `main` between the rc.103 cut (`0de7653b`) and this one, so the engine,
+the model crates, the model bundle and the serve rule are exactly those of
+rc.103; the only source change is the version string. Everything in the
+rc.103 section below (the rc.101 field-report fixes #3287 #3289 #3290 #3291
+#3292, the 2026-11-18 fix sweep, the contributor ES-compatibility wave)
+ships in rc.104 on all platforms.
+
+### Upgrade notes
+
+- **All platforms, marked latest.** rc.104 ships eight targets: Linux x86_64
+  and aarch64 (glibc and musl, `.deb` for both glibc targets), macOS x86_64
+  and aarch64, and Windows x86_64 and aarch64, plus the rc.102 model bundle
+  under the rc.104 name. It supersedes v1.0.0-rc.103, which was published
+  Linux-only; GitHub releases on this repository are immutable once
+  published, so the macOS and Windows builds could not be added to rc.103.
+  `releases/latest` and the installer move from v1.0.0-rc.101 to rc.104.
+- **Data directories, provenance and the opt-in model flag** are as stated
+  for rc.103 below: on-disk format 4 (an rc.101, rc.102 or rc.103 data
+  directory opens unchanged); binaries built from a private tree (public
+  `main` plus the XERJ-Query engine lanes plus the **Proprietary** model
+  crates `xerj-infer`, `xerj-serve` and `xerj-exec`); `/_facts` answers 404
+  `xerj_query_not_enabled` unless `--facts-model-dir <DIR>` is set.
+
+### Changed
+
+- Version `1.0.0-rc.104`; landing footer stamps follow.
+
 ## [1.0.0-rc.103] - 2026-11-18
 
 <!-- notes-exempt: #2956 #2974 #3004 #3027 #3041 #3045 #3046 #3068 #3072 #3107 #3110 #3112 #3124 #3132 #3139 #3144 #3147 #3150 #3151 #3242 (CLA signatures and the .contributors list only) -->
