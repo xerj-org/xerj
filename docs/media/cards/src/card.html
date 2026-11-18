@@ -1,0 +1,88 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@800;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=block" rel="stylesheet">
+<style>
+:root{--bg:#0b0b0d;--ink:#f4f2ec;--mute:#aaa59d;--line:#2e2c2a;--edge:#3a3836;--num:#ffc400;--cmp:#9fb1c5;--bar:#ffc400}
+.light{--bg:#fbfaf6;--ink:#141312;--mute:#57534d;--line:#e4e0d6;--edge:#d6d1c6;--num:#8a5d00;--cmp:#4f6378;--bar:#ffc400}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:transparent}
+body{width:410px;height:660px;font-family:Inter,sans-serif;-webkit-font-smoothing:antialiased}
+.card{width:410px;height:660px;background:var(--bg);color:var(--ink);border:1.5px solid var(--edge);border-radius:18px;overflow:hidden;display:flex;flex-direction:column}
+.bar{height:6px;background:var(--bar);flex:none}
+.in{padding:24px 26px 22px;display:flex;flex-direction:column;flex:1}
+.label{font-family:"JetBrains Mono",monospace;font-weight:600;font-size:15px;letter-spacing:.12em;text-transform:uppercase;color:var(--mute)}
+h1{font-family:"Big Shoulders Display",sans-serif;font-weight:900;font-size:50px;line-height:.95;text-transform:uppercase;margin-top:8px;letter-spacing:.005em}
+.lede{font-size:20px;line-height:1.32;margin-top:10px;font-weight:500}
+.lede2{font-size:18px;line-height:1.32;margin-top:8px;color:var(--mute)}
+.items{margin-top:auto}
+.item{border-top:1.5px solid var(--line);padding:14px 0 13px}
+.item:first-child{border-top:none;padding-top:0}
+.k{font-family:"JetBrains Mono",monospace;font-weight:600;font-size:14px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
+.big{font-family:"Big Shoulders Display",sans-serif;font-weight:800;font-size:46px;line-height:1;color:var(--num);margin-top:4px;white-space:nowrap}
+.big .vs{font-family:Inter,sans-serif;font-weight:600;font-size:18px;color:var(--mute);margin:0 6px;letter-spacing:0;vertical-align:middle}
+.big .cmp{color:var(--cmp)}
+.t{font-size:19px;line-height:1.3;margin-top:5px}
+.pair{display:flex;gap:18px}
+.pair>div{flex:1}
+.foot{font-family:"JetBrains Mono",monospace;font-weight:600;font-size:15px;color:var(--ink);border-top:1.5px solid var(--line);padding-top:14px;display:flex;justify-content:space-between}
+.foot span:last-child{color:var(--num)}
+.c{display:none}
+</style></head><body>
+<div class="card c" id="c1">
+<div class="bar"></div>
+<div class="in">
+<div class="label">AI model · AI search</div>
+<h1>XERJ Query-1</h1>
+<p class="lede">Answers over facts you wrote, and shows the facts it used.</p>
+<p class="lede2">Runs offline. No embeddings, no GPU.</p>
+<div class="items">
+<div class="item">
+<div class="k">Wrong answers, 160 questions</div>
+<div class="big">1<span class="vs">vs</span><span class="cmp">9–15</span></div>
+<div class="t">for RAG with Opus 5.5</div>
+</div>
+<div class="item pair">
+<div><div class="big">220 ms</div><div class="t">p50, on CPU</div></div>
+<div><div class="big">$42</div><div class="t">CPU per million questions</div></div>
+</div>
+<div class="item">
+<div class="k">AI search</div>
+<div class="t"><b>BM25, vector and hybrid</b> in one query. One binary.</div>
+</div>
+</div>
+<div class="foot"><span>xerj.org/xerj-query-1</span><span>→</span></div>
+</div>
+</div>
+
+<div class="card c" id="c2">
+<div class="bar"></div>
+<div class="in">
+<div class="label">Why XERJ</div>
+<h1>Built for agents</h1>
+<p class="lede">Search, memory and a familiar API, in one Rust binary.</p>
+<div class="items">
+<div class="item">
+<div class="k">Reference coding</div>
+<div class="big">2.7× fewer</div>
+<div class="t">output tokens than a grep-driven agent, same 16/16 solved</div>
+</div>
+<div class="item">
+<div class="k">Agent memory + MCP</div>
+<div class="big">/_memory</div>
+<div class="t">Claude Code, Cursor, any MCP client</div>
+</div>
+<div class="item">
+<div class="k">Elasticsearch replacement</div>
+<div class="big">0 failed</div>
+<div class="t">ES-YAML conformance (1448/1458). Same API, no JVM.</div>
+</div>
+</div>
+<div class="foot"><span>The engine underneath</span><span>↓</span></div>
+</div>
+</div>
+<script>
+const q=new URLSearchParams(location.search);
+if(q.get("theme")==="light")document.body.classList.add("light");
+document.getElementById("c"+(q.get("card")||"1")).style.display="flex";
+</script>
+</body></html>

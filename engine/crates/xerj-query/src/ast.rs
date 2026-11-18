@@ -1183,19 +1183,46 @@ impl QueryNode {
 /// - `True`     — always count all matching docs (default, ES behaviour).
 /// - `False`    — stop counting once `size` hits are found.
 /// - `Limit(N)` — stop counting after N docs; return `Gte` relation.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(untagged)]
-#[derive(Default)]
+///
+/// Serializes as ES writes it: `true`, `false` or the integer `N`. (An
+/// `untagged` derive wrote both unit variants as `null`, and the engine's query
+/// cache keys on the serialized request, so `True` and `False` shared cached
+/// results.)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum TrackTotalHits {
     /// Count all matching documents (default).
-    #[serde(rename = "true")]
     #[default]
     True,
     /// Do not count beyond `size` hits.
-    #[serde(rename = "false")]
     False,
     /// Count up to `N` documents; relation becomes `gte` when capped.
     Limit(u64),
+}
+
+impl Serialize for TrackTotalHits {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        match self {
+            TrackTotalHits::True => serializer.serialize_bool(true),
+            TrackTotalHits::False => serializer.serialize_bool(false),
+            TrackTotalHits::Limit(n) => serializer.serialize_u64(*n),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for TrackTotalHits {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum Wire {
+            Bool(bool),
+            Limit(u64),
+        }
+        Ok(match Wire::deserialize(deserializer)? {
+            Wire::Bool(true) => TrackTotalHits::True,
+            Wire::Bool(false) => TrackTotalHits::False,
+            Wire::Limit(n) => TrackTotalHits::Limit(n),
+        })
+    }
 }
 
 /// The fully-parsed search request.
@@ -1548,6 +1575,25 @@ mod source_filter_tests {
             let serialized = serde_json::to_value(&request).unwrap();
             let round_tripped: SearchRequest = serde_json::from_value(serialized).unwrap();
             assert_eq!(round_tripped.source, expected_source);
+        }
+    }
+
+    /// Each tracking mode serializes to its own value. The engine's query
+    /// cache keys on the serialized request, so two modes that serialized
+    /// alike (as `True` and `False` both did, to `null`) shared one cached
+    /// result: a template run with tracking off handed its capped total to
+    /// the next identical template run with tracking on.
+    #[test]
+    fn each_track_total_hits_mode_serializes_to_its_own_value() {
+        let cases = [
+            (TrackTotalHits::True, json!(true)),
+            (TrackTotalHits::False, json!(false)),
+            (TrackTotalHits::Limit(5), json!(5)),
+        ];
+        for (mode, value) in cases {
+            assert_eq!(serde_json::to_value(mode).unwrap(), value, "{mode:?}");
+            let back: TrackTotalHits = serde_json::from_value(value).unwrap();
+            assert_eq!(back, mode);
         }
     }
 }

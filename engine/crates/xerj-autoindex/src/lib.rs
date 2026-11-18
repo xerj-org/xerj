@@ -51,6 +51,7 @@ pub mod progress;
 mod reconcile_plan;
 pub mod remove;
 pub mod resources;
+pub mod sdd;
 pub mod search;
 pub mod search_hints;
 mod session_memory;
@@ -68,6 +69,7 @@ mod sync_executor;
 mod test_loopback;
 pub mod walk;
 pub mod watch;
+pub mod worktree;
 pub mod xc;
 
 use anyhow::{Context, Result};
@@ -1139,6 +1141,51 @@ fn project_reconcile_plan(
     reconcile_plan::reconcile_plan(inventory, base_plan, scans, cfg.sample, &rebuild)
 }
 
+/// The command a record-count abort tells the operator to run (#2669).
+///
+/// A resume re-checks the same live indices, and `--fresh` is refused once a
+/// durable generation exists, so the repair is `autoindex remove` for this
+/// folder (its indices, catalog rows and resume journal), then the same
+/// command again. `--url` and `--state-dir` are carried only when the run set
+/// them, since `remove` derives the default journal from root, URL and prefix
+/// exactly as this run did. Credentials are never printed.
+fn record_count_repair_command(cfg: &IndexCfg, root: &str, state_dir: &Path) -> String {
+    let mut argv = vec![
+        "xerj".to_owned(),
+        "autoindex".to_owned(),
+        "remove".to_owned(),
+        "--prefix".to_owned(),
+        cfg.prefix.clone(),
+        "--root".to_owned(),
+        root.to_owned(),
+    ];
+    if cfg.url != cli::DEFAULT_URL {
+        argv.push("--url".to_owned());
+        argv.push(cfg.url.clone());
+    }
+    if cfg.state_dir.is_some() {
+        argv.push("--state-dir".to_owned());
+        argv.push(state_dir.to_string_lossy().into_owned());
+    }
+    argv.push("--yes".to_owned());
+    argv.iter()
+        .map(|arg| quote_shell(arg))
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+/// The sentence a record-count abort ends with (#2669). A `--watch` session
+/// survives the abort and retries on the next change, so it is stopped first:
+/// a pass started mid-remove would recreate the journal and indices.
+fn record_count_repair_advice(cfg: &IndexCfg, root: &str, state_dir: &Path) -> String {
+    let command = record_count_repair_command(cfg, root, state_dir);
+    if cfg.watch {
+        format!("Stop this watcher, run `{command}`, then start it again")
+    } else {
+        format!("To rebuild them, run `{command}`, then rerun this command")
+    }
+}
+
 /// The command a per-file schema refusal tells the operator to run.
 ///
 /// A new `--state-dir` and a new `--prefix` are both required: the watcher's
@@ -1158,6 +1205,35 @@ fn incremental_schema_rebuild_command(cfg: &IndexCfg, state_dir: &Path) -> Strin
 
 /// Shell-quote one argv element. Safe characters are the same set
 /// `catalog::shell_quote` uses; that helper is private to its module.
+/// Split a command [`quote_shell`] joined back into its arguments, so a test
+/// can read printed advice through `cli::parse`.
+#[cfg(test)]
+fn shell_words(command: &str) -> Vec<String> {
+    let mut words = Vec::new();
+    let mut word = String::new();
+    let mut quoted = false;
+    let mut chars = command.chars().peekable();
+    while let Some(c) = chars.next() {
+        match c {
+            '\'' => quoted = !quoted,
+            '\\' if !quoted && chars.peek() == Some(&'\'') => {
+                chars.next();
+                word.push('\'');
+            }
+            ' ' if !quoted => {
+                if !word.is_empty() {
+                    words.push(std::mem::take(&mut word));
+                }
+            }
+            c => word.push(c),
+        }
+    }
+    if !word.is_empty() {
+        words.push(word);
+    }
+    words
+}
+
 fn quote_shell(s: &str) -> String {
     if s.is_empty() {
         return "''".to_string();
@@ -2165,6 +2241,9 @@ fn quarantine_changed_source(
     plan.files.remove(&key);
     plan.duplicate_files
         .retain(|alias| alias.file_key != key && plan.files.contains_key(&alias.file_key));
+    // Reconciliation may already have rejected this content. Quarantine is
+    // its new status, not a second catalog document under the same file key.
+    plan.junk_files.retain(|junk| junk.file_key != key);
     let error = anyhow::anyhow!("{detail}");
     plan.junk_files.push(changed_during_run_junk(
         &key, &file.rel, &format, file.size, &error,
@@ -5585,6 +5664,93 @@ mod phase_a_grouping_tests {
             "defs was not indexed: {docs:#?}"
         );
     }
+
+    /// #2966: when an OpenSpec (`openspec/`) or `github/spec-kit` (`.specify/`)
+    /// layout is detected, `.specify/memory` is admitted (while dotfiles inside
+    /// `.specify` stay excluded) and SDD specs + ADRs cluster into a dedicated
+    /// `<prefix>-specs` dataset separate from `<prefix>-docs`.
+    #[test]
+    fn sdd_layout_indexes_specs_and_specify_into_dedicated_specs_corpus() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        std::fs::create_dir_all(root.join("openspec/specs/auth")).unwrap();
+        std::fs::create_dir_all(root.join(".specify/memory")).unwrap();
+        std::fs::create_dir_all(root.join("specs/001-login")).unwrap();
+        std::fs::create_dir_all(root.join("docs/adr")).unwrap();
+        std::fs::create_dir_all(root.join("src")).unwrap();
+
+        std::fs::write(
+            root.join("openspec/specs/auth/spec.md"),
+            "# Auth Capability\n\nSHALL verify session tokens.\n",
+        )
+        .unwrap();
+        std::fs::write(
+            root.join(".specify/memory/constitution.md"),
+            "# Project Constitution\n\nAll features begin with a spec.\n",
+        )
+        .unwrap();
+        std::fs::write(root.join(".specify/.env"), "SECRET_TOKEN=never_index_me\n").unwrap();
+        std::fs::write(
+            root.join("specs/001-login/spec.md"),
+            "# Login Feature Spec\n\nAcceptance criteria for login.\n",
+        )
+        .unwrap();
+        std::fs::write(
+            root.join("docs/adr/0001-token-format.md"),
+            "# ADR 0001: Token Format\n\nDecision: use Ed25519 signatures.\n",
+        )
+        .unwrap();
+        std::fs::write(
+            root.join("src/lib.rs"),
+            "pub fn verify_session_token(tok: &str) -> bool { !tok.is_empty() }\n",
+        )
+        .unwrap();
+
+        let plan = plan_for(root);
+        let rels: Vec<&str> = plan.files.values().map(|f| f.rel.as_str()).collect();
+        assert!(
+            !rels.contains(&".specify/.env"),
+            "dotfile inside .specify must remain excluded: {rels:?}"
+        );
+        assert!(
+            rels.contains(&".specify/memory/constitution.md"),
+            ".specify/memory/constitution.md must be walked: {rels:?}"
+        );
+
+        let specs_ds = plan
+            .datasets
+            .iter()
+            .find(|d| d.slug == "specs")
+            .expect("dedicated specs dataset");
+        assert_eq!(specs_ds.index, "t-specs");
+        assert_eq!(specs_ds.family, "docs");
+        assert_eq!(specs_ds.file_count, 4);
+
+        let docs_ds = plan
+            .datasets
+            .iter()
+            .find(|d| d.slug == "docs")
+            .expect("docs dataset");
+        assert_eq!(docs_ds.index, "t-docs");
+        assert_eq!(docs_ds.file_count, 1);
+
+        for sdd_rel in [
+            "openspec/specs/auth/spec.md",
+            ".specify/memory/constitution.md",
+            "specs/001-login/spec.md",
+            "docs/adr/0001-token-format.md",
+        ] {
+            let f = plan
+                .files
+                .values()
+                .find(|f| f.rel == sdd_rel)
+                .unwrap_or_else(|| panic!("missing {sdd_rel}"));
+            assert!(
+                f.assignments.iter().any(|(_, slug)| slug == "specs"),
+                "{sdd_rel} should route to specs dataset: {f:#?}"
+            );
+        }
+    }
 }
 
 // ─── Phase A plan building (pure: no server contact) ─────────────────────
@@ -5598,6 +5764,7 @@ mod phase_a_grouping_tests {
 /// corpus searchable as one corpus, split only at nested repository roots.
 fn compute_scopes(root: &Path, rels: &[String]) -> Vec<String> {
     let mut cache: HashMap<String, bool> = HashMap::new();
+    let mut sdd_cache: HashMap<String, bool> = HashMap::new();
     rels.iter()
         .map(|rel| {
             let mut scope = String::new();
@@ -5616,6 +5783,26 @@ fn compute_scopes(root: &Path, rels: &[String]) -> Vec<String> {
                     .or_insert_with(|| root.join(&prefix).join(".git").exists());
                 if repo {
                     scope = prefix.clone();
+                }
+            }
+            let has_sdd = *sdd_cache.entry(scope.clone()).or_insert_with(|| {
+                let scope_dir = if scope.is_empty() {
+                    root.to_path_buf()
+                } else {
+                    root.join(&scope)
+                };
+                sdd::detect_sdd_layout(&scope_dir).is_some()
+            });
+            if has_sdd {
+                let rel_in_repo = if scope.is_empty() {
+                    rel.as_str()
+                } else {
+                    rel.strip_prefix(&scope)
+                        .and_then(|r| r.strip_prefix('/'))
+                        .unwrap_or(rel.as_str())
+                };
+                if sdd::is_sdd_spec_rel(rel_in_repo) {
+                    return sdd::specs_scope_for(&scope);
                 }
             }
             scope
@@ -8969,7 +9156,7 @@ fn run_index_report_inner(
     // nothing — autoindex is the onboarding verb, so the no-node case here
     // gets the same recipe `xerj def` already prints: start one, or aim at
     // an existing node. `xerj autoindex map` uses the same wording.
-    if let Err(e) = es.ping() {
+    if let Err(e) = es.ping_xerj() {
         anyhow::bail!("{}", node_ping_failure(&cfg.url, &e));
     }
     // #2077: the flood-stage write block used to surface only when the first
@@ -9262,7 +9449,8 @@ fn run_index_report_inner(
         // one AIMD gate with the bulks they send.
         let mut backend =
             sync_executor::EsSyncBackend::new(&es, &state_dir, cfg.bulk_mb << 20, &pr)
-                .with_replay_workers(cfg.workers);
+                .with_replay_workers(cfg.workers)
+                .with_record_repair(record_count_repair_advice(&cfg, &root_str, &state_dir));
         sync_executor::replay_pending_operations_reporting(
             &state_dir,
             &mut journal,
@@ -9887,7 +10075,8 @@ fn run_index_report_inner(
         // one AIMD gate with the bulks they send.
         let mut backend =
             sync_executor::EsSyncBackend::new(&es, &state_dir, cfg.bulk_mb << 20, &pr)
-                .with_replay_workers(cfg.workers);
+                .with_replay_workers(cfg.workers)
+                .with_record_repair(record_count_repair_advice(&cfg, &root_str, &state_dir));
         sync_executor::replay_pending_operations_reporting(
             &state_dir,
             &mut journal,
@@ -10720,6 +10909,7 @@ fn run_index_report_inner(
         let mut backend =
             sync_executor::EsSyncBackend::new(&es, &state_dir, cfg.bulk_mb << 20, &pr)
                 .with_replay_workers(cfg.workers)
+                .with_record_repair(record_count_repair_advice(&cfg, &root_str, &state_dir))
                 .with_installed_mappings(installed_identity);
         sync_executor::replay_pending_operations_reporting(
             &state_dir,
@@ -13584,6 +13774,40 @@ fn format_str(sn: Option<&Sniffed>) -> String {
 
 // ─── map subcommand ──────────────────────────────────────────────────────
 
+/// A local data dir that already exists, as the restart hint needs it: the
+/// directory and the admin key its node wrote there (#2941).
+struct ExistingNode {
+    data_dir: std::path::PathBuf,
+    admin_key: std::path::PathBuf,
+}
+
+impl ExistingNode {
+    /// Find the data dir a local command would have been talking to, if one
+    /// exists.
+    ///
+    /// Discovery is the same list every other command uses — the server's
+    /// `~/.xerj/by-port/<port>` pointer first, then the documented data dirs —
+    /// so the hint names a directory that is really there instead of guessing.
+    fn discover(url: &str) -> Option<Self> {
+        let found = xerj_common::localauth::discover_local_admin_key_for_url_with_origin(url)?;
+        let data_dir = found.path.parent()?.to_path_buf();
+        Some(Self {
+            data_dir,
+            admin_key: found.path,
+        })
+    }
+
+    /// The recipe for bringing the existing node back up, auth on.
+    fn restart_hint(&self) -> String {
+        format!(
+            "A XERJ data dir already exists at {dir}. Restart that node instead of starting an \
+             empty one:\n  xerj --data-dir {dir} &\n  export XERJ_API_KEY=\"$(cat {key})\"",
+            dir = self.data_dir.display(),
+            key = self.admin_key.display(),
+        )
+    }
+}
+
 /// What autoindex and `xerj map` say when the node does not answer.
 ///
 /// A connect error is the common first-run miss (`xerj map` with nothing
@@ -13592,15 +13816,39 @@ fn format_str(sn: Option<&Sniffed>) -> String {
 fn node_ping_failure(url: &str, err: &anyhow::Error) -> String {
     if esclient::Es::ping_failure_is_auth(err) {
         format!("the node at {url} answered, but authentication failed.\n{err:#}")
+    } else if err.is::<esclient::UnexpectedNode>() {
+        let endpoint = xerj_common::config::redact_url_userinfo(url);
+        format!("the endpoint at {endpoint} answered, but {err}. Check the port or pass --url for a running XERJ node.")
     } else {
-        let loopback = loopback_retry_hint(url).unwrap_or_default();
-        format!(
-            "no XERJ node reachable at {url} ({err:#})\n\n\
-             Start one, then re-run this command:\n  \
-             xerj --insecure --data-dir ./.xerj-data &\n\n\
-             (or point at an existing node with --url / $XERJ_URL){loopback}"
-        )
+        let existing = ExistingNode::discover(url);
+        node_ping_failure_text(url, err, existing.as_ref())
     }
+}
+
+/// [`node_ping_failure`] with the discovery result passed in, so the decision is
+/// testable without depending on what data dirs this machine happens to have.
+fn node_ping_failure_text(
+    url: &str,
+    err: &anyhow::Error,
+    existing: Option<&ExistingNode>,
+) -> String {
+    let loopback = loopback_retry_hint(url).unwrap_or_default();
+    // #2941: a first run on a machine that already has a data dir used to be
+    // told to create a new, empty one — then the existing indexes looked gone.
+    // Name the node that is already there, with the auth-on path, and keep the
+    // fresh-start recipe for the genuinely first run.
+    let start = match existing {
+        Some(node) => format!(
+            "{}\n\n(or point at an existing node with --url; `--insecure` is only \
+             for a throwaway local node, because it disables auth for every client)",
+            node.restart_hint()
+        ),
+        None => "Start one, then re-run this command:\n  \
+                 xerj --insecure --data-dir ./.xerj-data &\n\n\
+                 (or point at an existing node with --url)"
+            .to_string(),
+    };
+    format!("no XERJ node reachable at {url} ({err:#})\n\n{start}{loopback}")
 }
 
 /// #2688 — the client defaults to `http://localhost:9200` while the node binds
@@ -13625,14 +13873,19 @@ fn loopback_retry_hint(url: &str) -> Option<String> {
 
 #[cfg(test)]
 mod node_ping_failure_tests {
-    use super::node_ping_failure;
+    use super::{node_ping_failure_text, ExistingNode};
+
+    /// A machine with no data dir: the first-run recipe.
+    fn no_existing_dir(url: &str, err: &anyhow::Error) -> String {
+        node_ping_failure_text(url, err, None)
+    }
 
     #[test]
     fn an_unreachable_node_gets_the_start_recipe() {
         let err = anyhow::anyhow!(
             "endpoint unreachable: http://127.0.0.1:9: Connection refused (os error 111)"
         );
-        let msg = node_ping_failure("http://127.0.0.1:9", &err);
+        let msg = no_existing_dir("http://127.0.0.1:9", &err);
         assert!(
             msg.contains("no XERJ node reachable at http://127.0.0.1:9"),
             "{msg}"
@@ -13651,28 +13904,52 @@ mod node_ping_failure_tests {
         let err = anyhow::anyhow!(
             "endpoint unreachable: http://localhost:9200: Connection refused (os error 10061)"
         );
-        let msg = node_ping_failure("http://localhost:9200", &err);
+        let msg = no_existing_dir("http://localhost:9200", &err);
         assert!(msg.ends_with("--url http://127.0.0.1:9200"), "{msg}");
         assert!(
             msg.contains("xerj --insecure --data-dir ./.xerj-data"),
             "{msg}"
         );
         // The caller's scheme, case and port are kept.
-        let msg = node_ping_failure("https://LocalHost:9443", &err);
+        let msg = no_existing_dir("https://LocalHost:9443", &err);
         assert!(msg.ends_with("--url https://127.0.0.1:9443"), "{msg}");
         // An auth failure on localhost is not a resolution problem.
         let auth = anyhow::anyhow!("GET / failed (HTTP 401)");
-        let msg = node_ping_failure("http://localhost:9200", &auth);
+        let msg = super::node_ping_failure("http://localhost:9200", &auth);
         assert!(!msg.contains("127.0.0.1"), "{msg}");
     }
 
     #[test]
     fn an_auth_failure_does_not_say_the_node_is_down() {
         let err = anyhow::anyhow!("GET / failed (HTTP 401)");
-        let msg = node_ping_failure("http://127.0.0.1:9200", &err);
+        let msg = super::node_ping_failure("http://127.0.0.1:9200", &err);
         assert!(msg.contains("authentication failed"), "{msg}");
         assert!(!msg.contains("no XERJ node reachable"), "{msg}");
         assert!(!msg.contains("xerj --insecure"), "{msg}");
+    }
+
+    /// #2941: with an existing data dir, the hint must restart that node with
+    /// its admin key — not tell the reader to create a second, empty one.
+    #[test]
+    fn an_existing_data_dir_gets_its_own_restart_recipe() {
+        let err = anyhow::anyhow!(
+            "endpoint unreachable: http://127.0.0.1:9200: Connection refused (os error 111)"
+        );
+        let existing = ExistingNode {
+            data_dir: "/work/xerj-data".into(),
+            admin_key: "/work/xerj-data/admin.key".into(),
+        };
+        let msg = node_ping_failure_text("http://127.0.0.1:9200", &err, Some(&existing));
+        assert!(msg.contains("already exists at /work/xerj-data"), "{msg}");
+        assert!(msg.contains("xerj --data-dir /work/xerj-data &"), "{msg}");
+        assert!(
+            msg.contains("XERJ_API_KEY=\"$(cat /work/xerj-data/admin.key)\""),
+            "{msg}"
+        );
+        assert!(
+            !msg.contains("--insecure --data-dir"),
+            "an existing dir is not replaced by a fresh insecure node: {msg}"
+        );
     }
 }
 
@@ -14117,7 +14394,7 @@ impl CatalogSummary {
 /// instead of inventing a number (the repo's honest-claims rule).
 pub fn fetch_catalog_summary(url: &str, api_key: Option<String>) -> Result<CatalogSummary> {
     let es = Es::new(url, api_key)?;
-    es.ping()?;
+    es.ping_xerj()?;
     let fetch = |query: Value, size: usize, sort: Option<Value>| -> Result<Vec<Value>> {
         let mut body = json!({"query": query, "size": size});
         if let Some(s) = sort {
@@ -17526,6 +17803,83 @@ mod bulk_pipe_tests {
 }
 
 #[cfg(test)]
+mod record_count_repair_tests {
+    use super::*;
+
+    fn index_cfg(args: &[&str]) -> IndexCfg {
+        match cli::parse(args.iter().map(|s| s.to_string()).collect()).expect("index argv") {
+            cli::Cmd::Index(cfg) => *cfg,
+            other => panic!("expected an index command, got {other:?}"),
+        }
+    }
+
+    fn remove_cfg(command: &str) -> cli::RemoveCfg {
+        let argv = shell_words(command);
+        assert_eq!(argv[..3], ["xerj", "autoindex", "remove"], "{command}");
+        match cli::parse(argv[2..].to_vec()).expect("the repair command must parse") {
+            cli::Cmd::Remove(cfg) => cfg,
+            other => panic!("expected autoindex remove, got {other:?}"),
+        }
+    }
+
+    /// The common case: default node, default state dir. `remove` derives
+    /// that journal from root, URL and prefix itself, so neither flag is
+    /// printed (#2669).
+    #[test]
+    fn default_node_and_state_dir_print_neither_flag() {
+        let cfg = index_cfg(&["/tmp/proj", "--prefix", "proj"]);
+        let state = Path::new("/home/me/.xerj/autoindex/derived");
+        assert_eq!(
+            record_count_repair_command(&cfg, "/tmp/proj", state),
+            "xerj autoindex remove --prefix proj --root /tmp/proj --yes"
+        );
+    }
+
+    /// A root that needs quoting reads back unchanged, with the run's
+    /// non-default node and explicit state dir.
+    #[test]
+    fn quoted_root_url_and_state_dir_read_back_through_the_parser() {
+        let root = "/tmp/it's a \"dir\" $HOME";
+        let cfg = index_cfg(&[
+            root,
+            "--prefix",
+            "proj",
+            "--url",
+            "http://node:9201",
+            "--state-dir",
+            "/tmp/state dir",
+        ]);
+        let state = cfg.state_dir.clone().unwrap();
+        let remove = remove_cfg(&record_count_repair_command(&cfg, root, &state));
+        assert_eq!(remove.prefix, "proj");
+        assert_eq!(remove.root.as_deref(), Some(root));
+        assert_eq!(remove.url, "http://node:9201");
+        assert_eq!(
+            remove.state_dir.as_deref(),
+            Some(Path::new("/tmp/state dir"))
+        );
+        assert!(remove.yes);
+    }
+
+    /// A watcher keeps running after the abort, so the advice stops it first.
+    #[test]
+    fn a_watcher_is_told_to_stop_before_the_remove() {
+        let mut cfg = index_cfg(&["/tmp/proj", "--prefix", "proj"]);
+        let state = Path::new("/state");
+        let command = record_count_repair_command(&cfg, "/tmp/proj", state);
+        assert_eq!(
+            record_count_repair_advice(&cfg, "/tmp/proj", state),
+            format!("To rebuild them, run `{command}`, then rerun this command")
+        );
+        cfg.watch = true;
+        assert_eq!(
+            record_count_repair_advice(&cfg, "/tmp/proj", state),
+            format!("Stop this watcher, run `{command}`, then start it again")
+        );
+    }
+}
+
+#[cfg(test)]
 mod legacy_rebuild_argv_tests {
     use super::*;
 
@@ -17696,7 +18050,7 @@ mod legacy_rebuild_argv_tests {
 /// write succeeded: any bulk, document, or mapping request fails the test.
 #[cfg(test)]
 mod map_folder_preview {
-    use super::{cli, run_index};
+    use super::{cli, fetch_catalog_summary, run_index};
     use std::io::{BufRead, BufReader, Read, Write};
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::{Arc, Mutex};
@@ -17710,7 +18064,7 @@ mod map_folder_preview {
     }
 
     impl Node {
-        fn start() -> Self {
+        fn start(root_response: &'static str) -> Self {
             let listener = crate::test_loopback::bind();
             listener.set_nonblocking(true).unwrap();
             let url = format!("http://{}", listener.local_addr().unwrap());
@@ -17758,7 +18112,7 @@ mod map_folder_preview {
                                 .unwrap()
                                 .push((method.clone(), path.clone()));
                             let (status, body) = if method == "GET" && path == "/" {
-                                (200, r#"{"ok":true}"#)
+                                (200, root_response)
                             } else if method == "GET" && path.starts_with("/_cat/allocation") {
                                 (
                                     200,
@@ -17804,8 +18158,44 @@ mod map_folder_preview {
     }
 
     #[test]
+    fn a_wrong_endpoint_is_refused_before_catalog_io_or_local_state() {
+        for response in [
+            "<html>other service</html>",
+            r#"{"cluster_name":"elasticsearch","cluster_uuid":"another-cluster","version":{"number":"8.13.4"}}"#,
+        ] {
+            let node = Node::start(response);
+            let root = tempfile::tempdir().unwrap();
+            let state = root.path().join("state");
+            let cli::Cmd::Index(cfg) = cli::parse(vec![
+                root.path().display().to_string(),
+                "--url".into(),
+                node.url.clone(),
+                "--state-dir".into(),
+                state.display().to_string(),
+                "--quiet".into(),
+            ])
+            .unwrap() else {
+                panic!("expected an index command");
+            };
+
+            let error = run_index(*cfg).unwrap_err().to_string();
+            assert!(error.contains("without a XERJ node identity"), "{error}");
+            assert!(
+                error.contains(&node.url) && error.contains("--url"),
+                "{error}"
+            );
+            assert!(!state.exists(), "the preflight must not open local state");
+            assert!(matches!(
+                fetch_catalog_summary(&node.url, None),
+                Err(error) if error.is::<crate::esclient::UnexpectedNode>()
+            ));
+            assert_eq!(node.requests(), vec![("GET".to_owned(), "/".to_owned()); 2]);
+        }
+    }
+
+    #[test]
     fn map_folder_previews_an_unindexed_folder_and_writes_no_index() {
-        let node = Node::start();
+        let node = Node::start(crate::test_loopback::XERJ_ROOT);
         let root = tempfile::tempdir().unwrap();
         let state = tempfile::tempdir().unwrap();
         let marker = "map-preview-marker-2368";

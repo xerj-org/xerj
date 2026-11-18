@@ -193,6 +193,48 @@ fn cleanup_indices(client: &reqwest::blocking::Client, base_url: &str) {
         .send();
 }
 
+/// Delete every template between tests, as ES's `ESRestTestCase#wipeCluster`
+/// does unless a suite opts out with `preserveTemplatesUponCompletion`. Without
+/// it a template one case creates is still there in the next, so a later
+/// `create: true` PUT of the same name is (correctly) refused. Composable
+/// templates go first because ES refuses to drop a component template one of
+/// them still uses. The wildcard is only read, never deleted: names are
+/// deleted one at a time. Errors are ignored, as in [`cleanup_indices`].
+fn cleanup_templates(client: &reqwest::blocking::Client, base_url: &str) {
+    let names = |kind: &str| -> Vec<String> {
+        let Ok(resp) = client.get(format!("{base_url}/{kind}/*")).send() else {
+            return Vec::new();
+        };
+        let Ok(body) = resp.json::<Value>() else {
+            return Vec::new();
+        };
+        let listed = match kind {
+            "_index_template" => body.get("index_templates"),
+            "_component_template" => body.get("component_templates"),
+            _ => {
+                return body
+                    .as_object()
+                    .map(|m| m.keys().cloned().collect())
+                    .unwrap_or_default()
+            }
+        };
+        listed
+            .and_then(Value::as_array)
+            .map(|items| {
+                items
+                    .iter()
+                    .filter_map(|t| t.get("name").and_then(Value::as_str).map(str::to_owned))
+                    .collect()
+            })
+            .unwrap_or_default()
+    };
+    for kind in ["_index_template", "_component_template", "_template"] {
+        for name in names(kind) {
+            let _ = client.delete(format!("{base_url}/{kind}/{name}")).send();
+        }
+    }
+}
+
 fn run_file(
     client: &reqwest::blocking::Client,
     base_url: &str,
@@ -201,6 +243,7 @@ fn run_file(
     stats: &mut Stats,
 ) {
     cleanup_indices(client, base_url);
+    cleanup_templates(client, base_url);
 
     let content = match std::fs::read_to_string(path) {
         Ok(c) => c,
@@ -263,6 +306,7 @@ fn run_file(
 
     for (name, steps) in &tests {
         cleanup_indices(client, base_url);
+        cleanup_templates(client, base_url);
         let key = catch_lenient::key(path, name);
         stats.ran.insert(key.clone());
         catch_lenient::enter(key);
@@ -977,6 +1021,31 @@ mod catch_lenient {
     }
 }
 
+/// Java's regex reads `\<` and `\>` as the literal characters (ES YAML
+/// patterns escape `>` in paths like `the_terms\>x`); Rust's `regex` reads
+/// them as word-boundary assertions, so such a pattern could never match.
+/// Rewrite those two escapes to their literal; everything else passes
+/// through, an escaped backslash included.
+fn java_regex_to_rust(pat: &str) -> String {
+    let mut out = String::with_capacity(pat.len());
+    let mut chars = pat.chars();
+    while let Some(c) = chars.next() {
+        if c != '\\' {
+            out.push(c);
+            continue;
+        }
+        match chars.next() {
+            Some(n @ ('<' | '>')) => out.push(n),
+            Some(n) => {
+                out.push('\\');
+                out.push(n);
+            }
+            None => out.push('\\'),
+        }
+    }
+    out
+}
+
 /// Does a response satisfy a YAML `catch:` expectation? `None` when it does,
 /// otherwise the reason it does not. Semantics follow the ES REST test spec:
 /// a named catch pins the status code, `/regex/` requires an error status
@@ -1002,7 +1071,7 @@ fn catch_mismatch(catch: &str, code: u16, body: &str) -> Option<String> {
         return Some("expected an error status".into());
     }
     if let Some(pat) = catch.strip_prefix('/').and_then(|s| s.strip_suffix('/')) {
-        return match regex::Regex::new(&format!("(?s){}", pat.trim())) {
+        return match regex::Regex::new(&format!("(?s){}", java_regex_to_rust(pat.trim()))) {
             Ok(re) if re.is_match(body) => None,
             Ok(_) => Some("error body does not match".into()),
             Err(e) => Some(format!("bad catch regex: {e}")),
@@ -1124,7 +1193,8 @@ fn resolve_action(action: &str, params: &serde_yaml::Mapping) -> (String, String
         }
         "indices.put_template" => {
             let name = get_param_str(params, "name").unwrap_or_default();
-            ("PUT".into(), format!("/_template/{}", name), body)
+            let path = format!("/_template/{}{}", name, create_query(params));
+            ("PUT".into(), path, body)
         }
         "indices.get_mapping" => {
             let path = if index.is_empty() {
@@ -1182,23 +1252,28 @@ fn resolve_action(action: &str, params: &serde_yaml::Mapping) -> (String, String
         }
         "indices.put_index_template" | "indices.put_index_template.json" => {
             let name = get_param_str(params, "name").unwrap_or_default();
-            ("PUT".into(), format!("/_index_template/{}", name), body)
+            let path = format!("/_index_template/{}{}", name, create_query(params));
+            ("PUT".into(), path, body)
         }
         "indices.get_index_template" => {
             let name = get_param_str(params, "name").unwrap_or_default();
-            ("GET".into(), format!("/_index_template/{}", name), None)
+            ("GET".into(), template_path("/_index_template", &name), None)
         }
         "indices.delete_index_template" => {
             let name = get_param_str(params, "name").unwrap_or_default();
-            ("DELETE".into(), format!("/_index_template/{}", name), None)
+            (
+                "DELETE".into(),
+                template_path("/_index_template", &name),
+                None,
+            )
         }
         "indices.get_template" => {
             let name = get_param_str(params, "name").unwrap_or_default();
-            ("GET".into(), format!("/_template/{}", name), None)
+            ("GET".into(), template_path("/_template", &name), None)
         }
         "indices.delete_template" => {
             let name = get_param_str(params, "name").unwrap_or_default();
-            ("DELETE".into(), format!("/_template/{}", name), None)
+            ("DELETE".into(), template_path("/_template", &name), None)
         }
 
         // Document operations
@@ -1261,6 +1336,9 @@ fn resolve_action(action: &str, params: &serde_yaml::Mapping) -> (String, String
             let mut qp = Vec::new();
             if let Some(v) = get_param_str(params, "rest_total_hits_as_int") {
                 qp.push(format!("rest_total_hits_as_int={}", v));
+            }
+            if let Some(v) = get_param_str(params, "terminate_after") {
+                qp.push(format!("terminate_after={}", v));
             }
             if let Some(v) = get_param_str(params, "track_total_hits") {
                 qp.push(format!("track_total_hits={}", v));
@@ -1683,6 +1761,15 @@ fn resolve_action(action: &str, params: &serde_yaml::Mapping) -> (String, String
     }
 }
 
+/// `?create=<v>` when the step sets `create`, else nothing. The template
+/// PUTs refuse a taken name only when this reaches the server; without it a
+/// `create: true` step silently became a plain replace.
+fn create_query(params: &serde_yaml::Mapping) -> String {
+    get_param_str(params, "create")
+        .map(|v| format!("?create={v}"))
+        .unwrap_or_default()
+}
+
 fn get_param_str(params: &serde_yaml::Mapping, key: &str) -> Option<String> {
     params.get(YamlValue::String(key.into())).map(|v| {
         match v {
@@ -1911,5 +1998,31 @@ fn values_match(actual: &Value, expected: &Value) -> bool {
             .iter()
             .all(|(k, v)| a.get(k).is_some_and(|av| values_match(av, v))),
         _ => actual == expected,
+    }
+}
+
+/// `{base}/{name}`, or just `{base}` when the case gave no name: the
+/// no-name GET is its own route (`GET /_template`), not `GET /_template/`.
+fn template_path(base: &str, name: &str) -> String {
+    if name.is_empty() {
+        base.to_string()
+    } else {
+        format!("{base}/{name}")
+    }
+}
+
+#[cfg(test)]
+mod catch_regex_tests {
+    use super::*;
+
+    /// FAIL-BEFORE: `\>` compiled to an end-of-word assertion, so the
+    /// pipeline.yml "incorrect name" pattern never matched ES's message.
+    #[test]
+    fn java_escaped_angle_brackets_match_literally() {
+        let pat = r"/No aggregation \[unknown_aggregation\] found for path \[the_terms\>unknown_aggregation\]\;/";
+        let body = "Validation Failed: 1: No aggregation [unknown_aggregation] found for path \
+                    [the_terms>unknown_aggregation];";
+        assert_eq!(catch_mismatch(pat, 400, body), None);
+        assert_eq!(java_regex_to_rust(r"a\\>b \<c"), r"a\\>b <c");
     }
 }

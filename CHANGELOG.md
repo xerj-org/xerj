@@ -7,6 +7,74 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `xerj-autoindex`: detect OpenSpec (`openspec/`) and `github/spec-kit` (`.specify/`, `specs/<feature>/spec.md`) layouts and route specs, constitutions, and ADRs into a dedicated `<prefix>-specs` corpus by default (#2966).
+- `xerj-autoindex`: add `--worktree shared|isolated` so parallel agents in linked Git worktrees either share one main-checkout index (`ax-<repo>`) or keep an isolated per-worktree index (`ax-<repo>-<worktree>`) without lock contention or prefix collisions (#2967).
+- Configurable, deterministic plain-text writing review primitive in
+  `xerj-common` (Refs #2765): phrase, length, repetition, hedging and
+  syntactic source-citation checks with stable line notes. This is a library
+  foundation; recipe-runner and MCP integration remain pending #2762.
+
+### Changed
+
+- With no `search.max_buckets` set, the node's `limits.max_buckets` (default
+  65536) now also caps the total buckets a `_search` or `_msearch` response
+  keeps across its whole aggregation tree, as Elasticsearch's default does.
+  Before, it capped each aggregation on its own, so a response could keep
+  more buckets in total.
+
+### Fixed
+
+- **Cluster: each index routes documents with its own shard count.** The shard
+  router used one hash width for the whole cluster, set to the widest plan, so
+  creating an index with more shards (for example after a fourth node joined)
+  re-bucketed every older index: acknowledged ids answered 404 and new writes
+  landed on a shard the older index's plan does not have. The width is now
+  per index, derived from that index's own plan. A write to a planned shard
+  that has no primary is refused with 503 `shard_not_assigned_exception`
+  instead of being stored on the node that received it. Documents already
+  misplaced on a running cluster are not moved by this fix.
+- A newly elected cluster leader now appends a no-op entry of its own term
+  (Raft §5.4.2, §8), so a log tail left uncommitted by the previous leader
+  commits right after the election instead of waiting for the next client
+  write; before this, a metadata write interrupted by an election stayed at
+  commit=0 and timed out. A leader that cannot persist the no-op steps down.
+  The rc.101 "Fixed" note that claimed this was premature: no such code
+  shipped in rc.101, and the fix lands here (#2987). The same bug was a main
+  cause of the `log_catchup` CI flake; those tests now re-propose a write only
+  when a leader change dropped it.
+- `xerj autoindex` and `xerj feedback` check the node identity before querying
+  the autoindex catalog, so an unrelated HTTP service on the default port
+  does not trigger catalog retries. Feedback still drafts a report when catalog
+  autofill is unavailable and now warns when its endpoint ignores `XERJ_URL`.
+  Use `--url` to select the node explicitly ([#2942](https://github.com/xerj-org/xerj/issues/2942)).
+- `xerj-sources` refuses a percent-encoded password in a source URL without
+  echoing it, and turns truncated `R`, `T` and `D` wire frames into errors
+  instead of panicking (#3013).
+- `xerj autoindex <path> --facts <namespace>` resets its local `VersionState`
+  journal when the target namespace on the node is absent or empty (`GET
+  /_facts/<ns>` returns `404` or `records: 0`), so re-indexing into a recreated
+  node writes the rows instead of skipping them as unchanged, and escapes tabs,
+  newlines and backslashes in `doc_id` when writing and replaying `.journal`
+  files (#3130).
+- Incremental autoindex and watch passes accept an edited file that becomes
+  identical to another indexed file. The existing content group keeps its
+  identity and gains the path as an alias; the superseded group is retired
+  instead of failing with conflicting content and path identities.
+- `search.max_buckets` set through `PUT _cluster/settings` now caps the
+  aggregation buckets of `_search` and `_msearch`, as in Elasticsearch 8. It
+  was stored and returned by `GET _cluster/settings` but never read, so
+  `_search` kept answering 200. The buckets the response keeps are counted
+  across the whole aggregation tree, nested buckets included, with at most
+  `size` counted for `terms`, `significant_terms`, `significant_text`,
+  `multi_terms`, `composite` and the geo grids. A count over the limit is a
+  400 `too_many_buckets_exception` carrying `max_buckets`; transient wins over
+  persistent. A composite `size` over the limit (10 when not given) is
+  refused, and an `_msearch` item over it fails on its own. The node's
+  per-aggregation cap from `limits.max_buckets` still applies too, so a
+  setting above it does not raise that cap. `_async_search`,
+  `_search/template` and `_msearch/template` do not read the setting yet.
+
 ## [1.0.0-rc.102] - 2026-11-06
 
 <!-- notes-exempt: #2971 #2972 #2976 #2978 #2980 #2990 #3032 #3034 (site, blog, donation and README/AGENTS pages only, no shipped-binary change) -->
@@ -35,6 +103,13 @@ declines). Without `--facts-model-dir` a node is the node rc.101 was.
 
 ### Upgrade notes
 
+- **Cluster: upgrade every member before restarting the ring.** The leader
+  no-op is a new Raft log entry type (`"Noop"`). A member still on an older
+  build cannot decode it and will not accept the log of a new-build leader,
+  so a mixed-version cluster must not run with a new-build leader. Stop and
+  upgrade all members, then start them. Once a new build has written a
+  no-op, an older build fails to open that data directory's Raft log
+  ("decode raft entry"), so there is no downgrade in place.
 - **The rc.102 bundle needs an rc.102 binary.** rc.101 refuses its
   `bundle.json` (unknown rule `decline_v2_r8`, model state `unavailable`).
   The rc.102 binary still loads the rc.101 bundle and serves it under
@@ -501,6 +576,10 @@ all 2,387 evaluation items. Without the flag a node is the node rc.100 was: no
 - Fields scored by passage no longer build an HNSW graph nobody can read.
 - The autoindex semantic cap counts past the first 1,024 rows of a file, and a
   sender parked on a full wire no longer hangs the run.
+- Multi-index composite aggregation pages now use the requested global source
+  order and page size, combine duplicate bucket counts, and set the cursor from
+  the retained page. Internal typed keys preserve formatted-date ordering.
+
 - A plain debug `cargo test --workspace` no longer aborts on a stack overflow,
   and the `127.0.0.2` loopback test names the missing macOS alias (#2903). Five
   tests that run the ES-compat router on multi-thread workers overflowed tokio's
@@ -524,6 +603,17 @@ all 2,387 evaluation items. Without the flag a node is the node rc.100 was: no
   the check cannot read with confidence (JSON ES's own parser rejects, an
   escaped key, a byte order mark) stops the check there, and the rest of the
   body is answered as before.
+
+- `_reindex` accepts `source.index` as a string or array, splits comma lists,
+  and expands wildcards over concrete indices only (a pattern is expanded only
+  when it contains `*` or is `_all`; alias names are not matched and `?` is
+  literal). An exact alias contributes its per-member filter; several aliases
+  on one index are ORed, while naming the concrete index (or an unfiltered
+  alias) copies the whole index once. A source containing the destination is
+  refused before any copy; a wildcard matching nothing is a 404. Previously an
+  array was rejected at deserialization and comma/wildcard names were looked
+  up as literal indices.
+
 - Data-stream `_rollover` honours `dry_run` and its `conditions` instead of
   ignoring the body: `max_docs`/`max_age` are ORed and reported in
   `conditions`, and a dry run or an unmet condition creates no backing index.
@@ -532,12 +622,43 @@ all 2,387 evaluation items. Without the flag a node is the node rc.100 was: no
   rollover. Size-based conditions and alias-rollover body fields are refused
   rather than silently ignored.
 
+- `_search` refuses the parameter values Elasticsearch 8 refuses, with its
+  reasons, instead of running the search: a negative `size` (URL or body) now
+  names itself, a negative `terminate_after` (URL or body) and a
+  `track_total_hits` below -1 are refused, and `track_total_hits: -1` turns
+  total tracking off as `false` does. `rest_total_hits_as_int=true` now counts
+  exactly when no limit is set (it reported 10000 for 10,001 matches) and
+  refuses a limit that would make the integer a lower bound.
+  `terminate_after` is still not applied. On a multi-node index the search
+  now takes `size` and `from` from the URL: the fan-out read only the body,
+  so `?size=1` returned every hit and `?size=-5` ran. A window over the
+  index's `index.max_result_window` now gets ES's "Result window is too
+  large" there too, in place of the fan-out's own refusal.
 - A hub catalogue already on disk is verified against its sibling signature
   before it is served, including a fresh cache and a `304 Not Modified`
   (#2904). Replacing `catalogue.json` used to be enough: `load_catalogue`
   parsed it with no signature check, and a future mtime kept that file
   fresh. A `304` then re-touched the replacement. The cache is dropped and
   refetched when the sibling signature does not verify.
+
+- A negative `track_total_hits` in a search body now means what it means in
+  Elasticsearch 8; it used to be read as `true`. `-1` turns total tracking
+  off, as `false` does, and a value below `-1` is refused with a 400. In
+  `_msearch` the refusal is ES's `illegal_argument_exception` ("[track_total_hits]
+  parameter must be positive or equals to -1, got N") for the whole request,
+  before any item runs. An `_msearch`, `_search/template` or
+  `_msearch/template` item with tracking off now leaves `hits.total` out, as
+  `_search` does; `_msearch` used to print a total capped at `size`, and the
+  template paths labelled that capped count `eq`. The native and gRPC
+  surfaces read `-1` as tracking off too.
+
+- A search with `track_total_hits: true` no longer reports the capped total
+  of the same search run earlier with `track_total_hits: false`. The query
+  cache could not tell the two modes apart (both serialized as `null`), so
+  any search that sent both (`_search`, `_msearch`, `_async_search`, the
+  template paths, and the native and gRPC APIs) could answer the second one
+  with, for example, `{"value": 1, "relation": "gte"}` for 3 matches until the
+  next write.
 
 - `xerj mcp` no longer answers a JSON-RPC notification, and runs every
   `tools/call` off the stdio read loop (#2898). A `tools/call` with no `id`, or
@@ -552,6 +673,16 @@ all 2,387 evaluation items. Without the flag a node is the node rc.100 was: no
   bind fails with "this test starts a fake server on 127.0.0.1 and needs
   loopback networking" instead of hundreds of bare `PermissionDenied` panics.
 
+- `PUT /_template/{name}`, `PUT /_index_template/{name}` and
+  `PUT /_component_template/{name}` honour `?create=true`: a name that is
+  already taken is refused with a 400 `illegal_argument_exception` (ES's own
+  reasons, `index_template [n] already exists`, `index template [n] already
+  exists` and `component template [n] already exists`) and the stored template
+  is left alone. The flag used to be dropped, so the request answered 200 and
+  overwrote. The check and the insert are one step in the engine, so two
+  concurrent creates of one name cannot both win. A bare `?create` means true,
+  any value but `true` or `false` is a 400, and without the flag a PUT still
+  creates or replaces as before.
 - `/lead` rejects non-string email values with HTTP 400 before storage.
   Arrays no longer become accepted addresses through string coercion, and
   objects with a non-callable `toString` no longer cause HTTP 500.
@@ -562,6 +693,14 @@ all 2,387 evaluation items. Without the flag a node is the node rc.100 was: no
   name was not, because the Dart query adapted from tree-sitter-dart's
   `tags.scm` had dropped both forms.
 
+- `xerj autoindex` now says how to recover when its finalize check finds a
+  live record count that disagrees with what it published (#2669). The abort already named the counts
+  and the indices; a resume checks the same indices, so rerunning stopped there
+  again. It now ends with the `xerj autoindex remove --prefix ... --root ...
+  --yes` command for that folder (adding `--url` and `--state-dir` when the run
+  set them), then says to rerun; a `--watch` session is told to stop the
+  watcher first. `--fresh` is not offered because it is refused once a durable
+  generation exists.
 - The field-report HTTP fallback now enforces its 16 KiB body limit on raw
   bytes before decoding or storage access. Multibyte JSON without a reliable
   `Content-Length` no longer bypasses the limit by having fewer characters.
@@ -578,6 +717,16 @@ all 2,387 evaluation items. Without the flag a node is the node rc.100 was: no
   `--workers 32` and 19 of 26 with `--workers 16`; both now finish all 26
   files and 179,374 records (#2841).
 
+- Template GET and DELETE now take the names Elasticsearch takes, on legacy
+  (`/_template`), composable (`/_index_template`) and component
+  (`/_component_template`) templates. A GET with no name lists every template
+  and is 200 even when there are none (it was a 400
+  `invalid_index_name_exception`). A `*` pattern such as `logs-*` selects the
+  matching templates on GET and DELETE (it was a 404 unless the name was
+  exactly `*`), a legacy GET takes a comma list, and a composable or component
+  DELETE takes an all-or-nothing comma list. A pattern that matches nothing is
+  a 404, except that deleting `*` from an empty store is acknowledged, as in
+  ES 8.13.
 - `weighted_avg` now executes field-based requests (`value` / `weight`, each
   with a `field` and optional numeric `missing`) instead of returning HTTP 200
   with an `unsupported aggregation type` error in the aggregations body. A

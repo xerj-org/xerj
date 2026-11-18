@@ -274,8 +274,8 @@ def cmd_ask(out, determinism_runs):
             per.append(rec)
             fh.write(json.dumps(rec) + "\n")
 
-    scored = [r["score"] for r in per if r["score"] is not None]
-    macro = sum(scored) / len(scored) if scored else 0.0
+    # all-pair macro-F1: an invalid plan (score None) counts as 0.0, not skipped
+    macro = (sum((r["score"] or 0.0) for r in per) / len(per)) if per else 0.0
     summary = {
         "endpoint": "POST /_ask",
         "pairs": len(per),

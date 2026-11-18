@@ -1,0 +1,456 @@
+//! `search.max_buckets` set through `PUT /_cluster/settings` caps the
+//! buckets a search's aggregations may return, as in Elasticsearch 8.
+//!
+//! ES counts every bucket the final reduce keeps, across the whole
+//! aggregation tree (nested `terms` buckets add to their parent's), and
+//! answers 400 `too_many_buckets_exception` once the count is over the
+//! limit. Transient overrides persistent, and `null` restores the default.
+//! Before this, XERJ stored the setting and kept answering 200.
+
+use axum::body::Body;
+use axum::http::{Request, StatusCode};
+use serde_json::{json, Value};
+use tower::ServiceExt;
+
+async fn app() -> (axum::Router, tempfile::TempDir) {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let mut config = xerj_common::config::Config::default();
+    config.server.data_dir = dir.path().to_string_lossy().into_owned();
+    let metrics = xerj_common::metrics::Metrics::new().expect("metrics");
+    let engine = xerj_engine::Engine::new(config.clone()).expect("engine");
+    let state = xerj_api::state::AppState::new(config, engine, metrics);
+    (xerj_api::router::build_es_compat_router(state), dir)
+}
+
+async fn send(
+    app: &axum::Router,
+    method: &str,
+    path: &str,
+    content_type: &str,
+    body: String,
+) -> (StatusCode, Value) {
+    let request = Request::builder()
+        .method(method)
+        .uri(path)
+        .header("content-type", content_type)
+        .body(Body::from(body))
+        .expect("request");
+    let response = app.clone().oneshot(request).await.expect("response");
+    let status = response.status();
+    let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .expect("body");
+    (
+        status,
+        serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+    )
+}
+
+async fn put_settings(app: &axum::Router, body: Value) {
+    let (status, got) = send(
+        app,
+        "PUT",
+        "/_cluster/settings",
+        "application/json",
+        body.to_string(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{got}");
+}
+
+/// The eight documents of `aggregations/max_buckets.yml`: eight distinct
+/// `keyword` values, each with its own `date`.
+async fn seeded() -> (axum::Router, tempfile::TempDir) {
+    let (app, dir) = app().await;
+    let (status, got) = send(
+        &app,
+        "PUT",
+        "/test",
+        "application/json",
+        json!({"mappings": {"properties": {
+            "keyword": {"type": "keyword"},
+            "date": {"type": "date"}
+        }}})
+        .to_string(),
+    )
+    .await;
+    assert!(status.is_success(), "create: {status} {got}");
+    let keywords = ["dgx", "dfs", "foobar", "foo", "bar", "baz", "qux", "quux"];
+    let mut bulk = String::new();
+    for (i, keyword) in keywords.iter().enumerate() {
+        bulk.push_str(&format!("{{\"index\":{{\"_id\":\"{}\"}}}}\n", i + 1));
+        bulk.push_str(&format!(
+            "{{\"date\":\"{}-03-03T00:00:00\",\"keyword\":\"{keyword}\"}}\n",
+            2014 + i
+        ));
+    }
+    let (status, got) = send(
+        &app,
+        "POST",
+        "/test/_bulk?refresh=true",
+        "application/x-ndjson",
+        bulk,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{got}");
+    assert_eq!(got["errors"], false, "{got}");
+    (app, dir)
+}
+
+/// Eight top-level buckets.
+fn terms() -> Value {
+    json!({"size": 0, "aggregations": {"test": {"terms": {"field": "keyword"}}}})
+}
+
+/// Eight top-level buckets, each holding one `date` bucket: sixteen in all.
+fn nested_terms() -> Value {
+    json!({"size": 0, "aggregations": {"test": {
+        "terms": {"field": "keyword"},
+        "aggs": {"2": {"terms": {"field": "date"}}}
+    }}})
+}
+
+async fn search(app: &axum::Router, body: Value) -> (StatusCode, Value) {
+    send(
+        app,
+        "POST",
+        "/test/_search",
+        "application/json",
+        body.to_string(),
+    )
+    .await
+}
+
+fn too_many_buckets(status: StatusCode, body: &Value, limit: u64) {
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    let cause = &body["error"]["caused_by"];
+    assert_eq!(cause["type"], "too_many_buckets_exception", "{body}");
+    assert_eq!(cause["max_buckets"], limit, "{body}");
+    let reason = cause["reason"].as_str().unwrap_or("");
+    assert!(
+        reason.contains(&format!(
+            "Trying to create too many buckets. Must be less than or equal to: [{limit}]"
+        )),
+        "{body}"
+    );
+}
+
+fn answered(status: StatusCode, body: &Value, top_buckets: usize) {
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let buckets = body["aggregations"]["test"]["buckets"]
+        .as_array()
+        .unwrap_or_else(|| panic!("no buckets: {body}"));
+    assert_eq!(buckets.len(), top_buckets, "{body}");
+}
+
+/// The vendored YAML case, step for step.
+#[tokio::test]
+async fn a_persistent_limit_refuses_aggregations_over_it() {
+    let (app, _dir) = seeded().await;
+
+    put_settings(&app, json!({"persistent": {"search.max_buckets": 3}})).await;
+    let (status, body) = search(&app, terms()).await;
+    too_many_buckets(status, &body, 3);
+
+    put_settings(&app, json!({"persistent": {"search.max_buckets": 6}})).await;
+    let (status, body) = search(&app, nested_terms()).await;
+    too_many_buckets(status, &body, 6);
+}
+
+/// ES fails only when the count is over the limit, and the count includes
+/// the nested buckets: sixteen fit under 16 and not under 15.
+#[tokio::test]
+async fn the_count_is_strict_and_includes_nested_buckets() {
+    let (app, _dir) = seeded().await;
+
+    put_settings(&app, json!({"persistent": {"search.max_buckets": 8}})).await;
+    let (status, body) = search(&app, terms()).await;
+    answered(status, &body, 8);
+    let (status, body) = search(&app, nested_terms()).await;
+    too_many_buckets(status, &body, 8);
+
+    put_settings(&app, json!({"persistent": {"search.max_buckets": 15}})).await;
+    let (status, body) = search(&app, nested_terms()).await;
+    too_many_buckets(status, &body, 15);
+
+    put_settings(&app, json!({"persistent": {"search.max_buckets": 16}})).await;
+    let (status, body) = search(&app, nested_terms()).await;
+    answered(status, &body, 8);
+}
+
+/// Transient wins over persistent; clearing with `null` falls back to the
+/// other scope, then to the default.
+#[tokio::test]
+async fn transient_wins_and_null_restores_the_default() {
+    let (app, _dir) = seeded().await;
+
+    put_settings(&app, json!({"persistent": {"search.max_buckets": 3}})).await;
+    put_settings(&app, json!({"transient": {"search.max_buckets": "100"}})).await;
+    let (status, body) = search(&app, terms()).await;
+    answered(status, &body, 8);
+
+    put_settings(&app, json!({"transient": {"search.max_buckets": null}})).await;
+    let (status, body) = search(&app, terms()).await;
+    too_many_buckets(status, &body, 3);
+
+    put_settings(&app, json!({"persistent": {"search.max_buckets": null}})).await;
+    let (status, body) = search(&app, nested_terms()).await;
+    answered(status, &body, 8);
+}
+
+/// A single-bucket parent such as `filter` is not a bucket in ES's count;
+/// only the buckets under it are.
+#[tokio::test]
+async fn a_single_bucket_parent_is_not_counted() {
+    let (app, _dir) = seeded().await;
+    let filtered = json!({"size": 0, "aggs": {"f": {
+        "filter": {"match_all": {}},
+        "aggs": {"test": {"terms": {"field": "keyword"}}}
+    }}});
+
+    put_settings(&app, json!({"persistent": {"search.max_buckets": 8}})).await;
+    let (status, body) = search(&app, filtered.clone()).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(
+        body["aggregations"]["f"]["test"]["buckets"]
+            .as_array()
+            .map(Vec::len),
+        Some(8),
+        "{body}"
+    );
+
+    put_settings(&app, json!({"persistent": {"search.max_buckets": 7}})).await;
+    let (status, body) = search(&app, filtered).await;
+    too_many_buckets(status, &body, 7);
+}
+
+/// ES counts the buckets the response keeps, after `size` trims them, not
+/// the keys a shard saw.
+#[tokio::test]
+async fn the_count_is_of_kept_buckets() {
+    let (app, _dir) = seeded().await;
+    put_settings(&app, json!({"persistent": {"search.max_buckets": 3}})).await;
+    let (status, body) = search(
+        &app,
+        json!({"size": 0, "aggs": {"test": {"terms": {"field": "keyword", "size": 2}}}}),
+    )
+    .await;
+    answered(status, &body, 2);
+}
+
+/// A composite `size` over the cluster limit is refused up front; one at the
+/// limit answers.
+#[tokio::test]
+async fn a_composite_size_over_the_cluster_limit_is_refused() {
+    let (app, _dir) = seeded().await;
+    put_settings(&app, json!({"persistent": {"search.max_buckets": 3}})).await;
+    let composite = |size: u64| {
+        json!({"size": 0, "aggs": {"test": {"composite": {
+            "size": size,
+            "sources": [{"kw": {"terms": {"field": "keyword"}}}]
+        }}}})
+    };
+
+    let (status, body) = search(&app, composite(5)).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    assert!(
+        body.to_string()
+            .contains("Must be less than or equal to: [3] but was [5]"),
+        "{body}"
+    );
+
+    let (status, body) = search(&app, composite(3)).await;
+    answered(status, &body, 3);
+}
+
+/// Over two indices, ES trims the reduced `terms` and `composite` buckets to
+/// `size` before counting them, so `size: 3` at a limit of 3 answers even
+/// when each index holds three different keys. XERJ's cross-index merge
+/// keeps the union of the keys (trimming it is a separate fix), so this only
+/// checks that the count does not refuse the search.
+#[tokio::test]
+async fn a_multi_index_search_counts_at_most_size_buckets() {
+    let (app, _dir) = app().await;
+    for (index, keywords) in [("a", ["k1", "k2", "k3"]), ("b", ["k4", "k5", "k6"])] {
+        let (status, got) = send(
+            &app,
+            "PUT",
+            &format!("/{index}"),
+            "application/json",
+            json!({"mappings": {"properties": {"keyword": {"type": "keyword"}}}}).to_string(),
+        )
+        .await;
+        assert!(status.is_success(), "create {index}: {status} {got}");
+        let mut bulk = String::new();
+        for keyword in keywords {
+            bulk.push_str("{\"index\":{}}\n");
+            bulk.push_str(&format!("{{\"keyword\":\"{keyword}\"}}\n"));
+        }
+        let (status, got) = send(
+            &app,
+            "POST",
+            &format!("/{index}/_bulk?refresh=true"),
+            "application/x-ndjson",
+            bulk,
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{got}");
+        assert_eq!(got["errors"], false, "{got}");
+    }
+    put_settings(&app, json!({"persistent": {"search.max_buckets": 3}})).await;
+
+    for body in [
+        json!({"size": 0, "aggs": {"test": {"terms": {"field": "keyword", "size": 3}}}}),
+        json!({"size": 0, "aggs": {"test": {"composite": {
+            "size": 3,
+            "sources": [{"kw": {"terms": {"field": "keyword"}}}]
+        }}}}),
+    ] {
+        let (status, got) = send(
+            &app,
+            "POST",
+            "/a,b/_search",
+            "application/json",
+            body.to_string(),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{body} -> {got}");
+    }
+}
+
+/// In `_msearch` the item over the limit fails on its own, with the
+/// `_search` error, and the other items still answer.
+#[tokio::test]
+async fn an_msearch_item_over_the_limit_fails_alone() {
+    let (app, _dir) = seeded().await;
+    put_settings(&app, json!({"persistent": {"search.max_buckets": 3}})).await;
+    let header = json!({"index": "test"}).to_string();
+    let small = json!({"size": 0, "aggs": {"test": {"terms": {"field": "keyword", "size": 2}}}});
+    let ndjson = format!("{header}\n{}\n{header}\n{small}\n", terms());
+    let (status, body) = send(&app, "POST", "/_msearch", "application/x-ndjson", ndjson).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let items = body["responses"].as_array().expect("responses");
+    assert_eq!(items.len(), 2, "{body}");
+
+    assert_eq!(items[0]["status"], 400, "{body}");
+    let cause = &items[0]["error"]["caused_by"];
+    assert_eq!(cause["type"], "too_many_buckets_exception", "{body}");
+    assert_eq!(cause["max_buckets"], 3, "{body}");
+
+    assert_eq!(items[1]["status"], 200, "{body}");
+    assert_eq!(
+        items[1]["aggregations"]["test"]["buckets"]
+            .as_array()
+            .map(Vec::len),
+        Some(2),
+        "{body}"
+    );
+}
+
+/// ES checks the composite `size` it will use: a missing one is its default
+/// of 10, and a numeric string counts as its number.
+#[tokio::test]
+async fn a_composite_without_size_is_checked_at_its_default_of_ten() {
+    let (app, _dir) = seeded().await;
+    let sources = json!([{"kw": {"terms": {"field": "keyword"}}}]);
+
+    put_settings(&app, json!({"persistent": {"search.max_buckets": 3}})).await;
+    let (status, body) = search(
+        &app,
+        json!({"size": 0, "aggs": {"test": {"composite": {"sources": sources}}}}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    assert!(
+        body.to_string()
+            .contains("Must be less than or equal to: [3] but was [10]"),
+        "{body}"
+    );
+    let (status, body) = search(
+        &app,
+        json!({"size": 0, "aggs": {"test": {"composite": {"size": "5", "sources": sources}}}}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    assert!(
+        body.to_string()
+            .contains("Must be less than or equal to: [3] but was [5]"),
+        "{body}"
+    );
+
+    put_settings(&app, json!({"persistent": {"search.max_buckets": 10}})).await;
+    let (status, body) = search(
+        &app,
+        json!({"size": 0, "aggs": {"test": {"composite": {"sources": sources}}}}),
+    )
+    .await;
+    answered(status, &body, 8);
+}
+
+/// When one aggregation passes the node's own cap (65536) and the setting is
+/// lower, the error names the setting, the limit the client set.
+#[tokio::test]
+async fn an_engine_cap_error_names_a_lower_setting() {
+    let (app, _dir) = seeded().await;
+    put_settings(&app, json!({"persistent": {"search.max_buckets": 100}})).await;
+    // Seven years in 30 minute buckets is about 122,000, past the node's cap.
+    let (status, body) = search(
+        &app,
+        json!({"size": 0, "aggs": {"test": {"date_histogram": {
+            "field": "date",
+            "fixed_interval": "30m"
+        }}}}),
+    )
+    .await;
+    too_many_buckets(status, &body, 100);
+}
+
+/// Named `filters` buckets come back as an object, not an array; each one is
+/// still a bucket in the count.
+#[tokio::test]
+async fn keyed_buckets_are_counted() {
+    let (app, _dir) = seeded().await;
+    let named = json!({"size": 0, "aggs": {"test": {"filters": {"filters": {
+        "a": {"term": {"keyword": "foo"}},
+        "b": {"term": {"keyword": "bar"}},
+        "c": {"term": {"keyword": "baz"}}
+    }}}}});
+
+    put_settings(&app, json!({"persistent": {"search.max_buckets": 2}})).await;
+    let (status, body) = search(&app, named.clone()).await;
+    too_many_buckets(status, &body, 2);
+
+    put_settings(&app, json!({"persistent": {"search.max_buckets": 3}})).await;
+    let (status, body) = search(&app, named).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(
+        body["aggregations"]["test"]["buckets"]
+            .as_object()
+            .map(|b| b.len()),
+        Some(3),
+        "{body}"
+    );
+}
+
+/// A setting above the node's own cap does not raise that cap, in `_msearch`
+/// as in `_search`.
+#[tokio::test]
+async fn an_msearch_composite_over_the_node_cap_is_refused() {
+    let (app, _dir) = seeded().await;
+    put_settings(&app, json!({"persistent": {"search.max_buckets": 100000}})).await;
+    let header = json!({"index": "test"}).to_string();
+    let big = json!({"size": 0, "aggs": {"test": {"composite": {
+        "size": 70000,
+        "sources": [{"kw": {"terms": {"field": "keyword"}}}]
+    }}}});
+    let ndjson = format!("{header}\n{big}\n");
+    let (status, body) = send(&app, "POST", "/_msearch", "application/x-ndjson", ndjson).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let item = &body["responses"][0];
+    assert_eq!(item["status"], 400, "{body}");
+    assert!(
+        item.to_string()
+            .contains("Must be less than or equal to: [65536] but was [70000]"),
+        "{body}"
+    );
+}

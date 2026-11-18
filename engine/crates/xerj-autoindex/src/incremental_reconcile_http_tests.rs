@@ -41,6 +41,10 @@ struct HttpState {
     /// #1971: answer semantic `exists` read-backs with no matches while
     /// retaining the published records and catalog for refusal/resume checks.
     hide_semantic_matches: bool,
+    /// #2669: answer the finalize-verify record windows (an `ax_file` terms
+    /// aggregation with no `exists` filter) with no buckets, so the record
+    /// count reads as zero while the published records stay in place.
+    hide_record_counts: bool,
     stop: bool,
     embedding_identity_sha256: String,
     saw_dataset_mapping_update: bool,
@@ -280,7 +284,9 @@ fn handle_http(mut stream: TcpStream, state: &Arc<Mutex<HttpState>>) {
         .requests
         .push((method.to_owned(), path.to_owned()));
 
-    let (status, response) = if method == "GET" && path == "/v1/embedding/identity" {
+    let (status, response) = if method == "GET" && path == "/" {
+        (200, crate::test_loopback::xerj_root())
+    } else if method == "GET" && path == "/v1/embedding/identity" {
         let locked = state.lock().unwrap();
         if locked.fail_embedding_identity {
             (
@@ -1126,6 +1132,10 @@ fn search_http(path: &str, body: &[u8], state: &Arc<Mutex<HttpState>>) -> Value 
         .and_then(Value::as_object)
         .map(|aggs| {
             let mut body = serde_json::Map::new();
+            let semantic_window = query
+                .pointer("/query/bool/filter")
+                .and_then(Value::as_array)
+                .is_some_and(|filter| filter.iter().any(|clause| clause.get("exists").is_some()));
             for (name, spec) in aggs {
                 let Some(field) = spec
                     .get("terms")
@@ -1134,6 +1144,10 @@ fn search_http(path: &str, body: &[u8], state: &Arc<Mutex<HttpState>>) -> Value 
                 else {
                     continue;
                 };
+                if locked.hide_record_counts && field == "ax_file" && !semantic_window {
+                    body.insert(name.clone(), json!({"buckets": []}));
+                    continue;
+                }
                 let mut counts: std::collections::BTreeMap<&str, u64> =
                     std::collections::BTreeMap::new();
                 for (_, doc) in &matching {
@@ -1710,6 +1724,11 @@ fn dataset_read_back_bounds_time_by_sort_and_no_materialising_agg() {
     );
     for body in &sorted {
         assert_eq!(body.get("size"), Some(&json!(1)), "size-1 query: {body}");
+        assert_eq!(
+            body.pointer("/sort/0/cloned_at/unmapped_type"),
+            Some(&json!("date")),
+            "bound query carries unmapped_type: date so dotted time fields never abort finalize-catalog: {body}"
+        );
         assert!(
             body.pointer("/query/bool/filter").is_some(),
             "bound query keeps the dataset filter: {body}"
@@ -2392,6 +2411,53 @@ fn semantic_count_mismatch_reports_counts_and_datasets_and_resumes() {
     assert_eq!(run_index(config).unwrap(), 0);
     assert_eq!(endpoint.data_docs(), published);
     assert_eq!(journal_events(state_dir.path(), "sync_commit"), 1);
+}
+
+#[test]
+fn record_count_mismatch_names_the_remove_that_rebuilds_the_folder() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    fs::write(
+        corpus.path().join("report.txt"),
+        "Quarterly report discusses durable subscription revenue and operating income.",
+    )
+    .unwrap();
+    let endpoint = HttpEndpoint::start();
+    endpoint.state.lock().unwrap().hide_record_counts = true;
+    let config = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
+
+    let error = run_index(config.clone()).expect_err("record read-back must refuse the run");
+    let message = format!("{error:#}");
+    assert!(
+        message.contains("live record count disagrees with desired group"),
+        "{message}"
+    );
+    assert_eq!(journal_events(state_dir.path(), "sync_commit"), 0);
+    // The advice must name this folder exactly as the run identified it, and
+    // carry the non-default URL and the explicit state dir, or `remove`
+    // selects nothing and the next resume stops at the same check (#2669).
+    let root = corpus.path().canonicalize().unwrap();
+    let command = message
+        .split("To rebuild them, run `")
+        .nth(1)
+        .and_then(|rest| rest.split('`').next())
+        .unwrap_or_else(|| panic!("no repair command: {message}"));
+    assert!(
+        message.ends_with(&format!("`{command}`, then rerun this command")),
+        "{message}"
+    );
+    let argv = shell_words(command);
+    assert_eq!(argv[..3], ["xerj", "autoindex", "remove"]);
+    let remove = match cli::parse(argv[2..].to_vec()).expect("the repair command must parse") {
+        cli::Cmd::Remove(remove) => remove,
+        other => panic!("expected autoindex remove, got {other:?}"),
+    };
+    assert_eq!(remove.prefix, config.prefix);
+    assert_eq!(remove.root.as_deref(), Some(root.to_str().unwrap()));
+    assert_eq!(remove.url, endpoint.url);
+    assert_eq!(remove.state_dir.as_deref(), Some(state_dir.path()));
+    assert!(remove.yes);
 }
 
 #[test]
@@ -5970,6 +6036,65 @@ impl Rng {
     fn below(&mut self, n: u64) -> u64 {
         self.next() % n
     }
+}
+
+#[test]
+fn a_watch_edit_can_join_an_existing_content_group() {
+    watch_edit_joins_existing_content(false);
+}
+
+#[test]
+fn joining_an_existing_content_group_resumes_after_a_publish_failure() {
+    watch_edit_joins_existing_content(true);
+}
+
+fn watch_edit_joins_existing_content(fail_publish: bool) {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    let root = corpus.path().canonicalize().unwrap();
+    fs::write(root.join("a.csv"), "id,value\n1,alpha\n").unwrap();
+    fs::write(root.join("b.csv"), "id,value\n2,beta\n").unwrap();
+    let endpoint = HttpEndpoint::start();
+    let config = cfg(&root, state_dir.path(), &endpoint.url, false);
+    let mut carry = crate::watch::Carry::default();
+    crate::watch::one_pass(&config, &root, &mut carry, &crate::watch::ChangeSet::full())
+        .0
+        .unwrap();
+
+    fs::copy(root.join("b.csv"), root.join("a.csv")).unwrap();
+    endpoint.state.lock().unwrap().fail_next_data_bulk = fail_publish;
+    let burst = crate::watch::ChangeSet::from_paths(&[root.join("a.csv")]);
+    let (outcome, _) = crate::watch::one_pass(&config, &root, &mut carry, &burst);
+    if fail_publish {
+        assert!(
+            outcome.is_err(),
+            "the injected publish failure must be observed"
+        );
+        let mut restarted = crate::watch::Carry::default();
+        assert_eq!(
+            crate::watch::one_pass(
+                &config,
+                &root,
+                &mut restarted,
+                &crate::watch::ChangeSet::full(),
+            )
+            .0
+            .unwrap()
+            .0,
+            0
+        );
+    } else {
+        assert_eq!(outcome.unwrap().0, 0);
+    }
+    let docs = endpoint.data_docs();
+    assert_eq!(docs.len(), 1, "converged content must have one data record");
+    assert_eq!(docs[0]["value"], "beta");
+    assert_eq!(paths(&docs), vec!["a.csv"]);
+    assert_eq!(docs[0]["ax_paths"], serde_json::json!(["a.csv", "b.csv"]));
+    let (reference, _reference_state) = fresh_full_index(&root);
+    assert_eq!(published(&endpoint), published(&reference));
+    a_rerun_changes_nothing(&config, &endpoint, "edit joining existing content");
 }
 
 #[test]

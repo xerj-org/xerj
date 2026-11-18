@@ -31,8 +31,11 @@
 
 </div>
 
+<p align="center">An AI-native search engine in one Rust binary.</p>
+
 <p align="center">
-  <a href="https://xerj.org/xerj-query-1"><img src="docs/media/xerj-query-1-hero.png" alt="XERJ Query-1: a model that turns a question into a small program over facts you have written; the engine runs the program and shows the facts it used. On our 160-question test: 1 wrong answer where RAG with Opus 5.5 gave 9 to 15, $42 of CPU per million questions, and 17 minutes to build a search index of 10 GB of English Wikipedia." width="100%"/></a>
+  <a href="https://xerj.org/xerj-query-1"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/media/cards/card-1-dark.png"><img src="docs/media/cards/card-1-light.png" width="400" alt="XERJ Query-1, AI model and AI search. Answers over facts you wrote, and shows the facts it used. Runs offline, no embeddings, no GPU. Wrong answers on 160 questions: 1, versus 9 to 15 for RAG with Opus 5.5. 220 ms p50 on CPU. $42 of CPU per million questions. AI search: BM25, vector and hybrid in one query, one binary. Link: xerj.org/xerj-query-1"></picture></a>
+  <a href="#the-engine-underneath"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/media/cards/card-2-dark.png"><img src="docs/media/cards/card-2-light.png" width="400" alt="Why XERJ, built for agents: search, memory and a familiar API in one Rust binary. Reference coding: 2.7 times fewer output tokens than a grep-driven agent, same 16 of 16 solved. Agent memory and MCP: /_memory, works with Claude Code, Cursor and any MCP client. Elasticsearch replacement: 0 failed on ES-YAML conformance (1448 of 1458), same API, no JVM. Link: the engine underneath"></picture></a>
 </p>
 
 <p align="center"><b>The search engine for AI, now with XERJ Query-1: a model that turns your question into a small program over facts you have written.</b></p>
@@ -772,6 +775,10 @@ generation skips the parse entirely and carries its committed result forward, so
 editing a handful of files does work proportional to what changed, not to the whole repo — the
 common edit-and-rerun / CI case, typically over 95% unchanged. The full content hash still runs
 to detect changes, so total re-index time is floored by hashing, not parsing.
+
+If an edit makes a file identical to another indexed file, the next incremental
+or watch pass keeps the existing content group and records both paths in
+`ax_paths`. The superseded content group is removed; a fresh index is not needed.
 
 ## Build from source
 
