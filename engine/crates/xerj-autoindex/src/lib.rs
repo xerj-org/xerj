@@ -14016,7 +14016,7 @@ fn loopback_retry_hint(url: &str) -> Option<String> {
 
 #[cfg(test)]
 mod node_ping_failure_tests {
-    use super::{node_ping_failure_text, ExistingNode};
+    use super::{node_ping_failure, node_ping_failure_text, ExistingNode};
 
     /// A machine with no data dir: the first-run recipe.
     fn no_existing_dir(url: &str, err: &anyhow::Error) -> String {
