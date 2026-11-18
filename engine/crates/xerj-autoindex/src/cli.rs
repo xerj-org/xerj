@@ -41,7 +41,7 @@ pub struct IndexCfg {
     pub endpoint_url: Option<String>,
     pub url: String,
     /// `--ca-cert <file>` (or `XERJ_CA_CERT`): one PEM certificate to trust
-    /// as an extra root for the node at `--url`, for a remote node serving
+    /// as the only root for the node at `--url`, for a remote node serving
     /// the self-signed certificate it minted on first start. Without it a
     /// non-loopback node must present a certificate the system roots trust.
     pub ca_cert: Option<PathBuf>,
@@ -381,8 +381,8 @@ pub fn help_text_with(feedback: bool) -> String {
          OPTIONS:\n\
          \x20\x20\x20\x20--url <U>            XERJ endpoint (default http://localhost:9200). XERJ_URL is ignored.\n\
          \x20\x20\x20\x20--api-key <K>        Authorization header (or env XERJ_API_KEY)\n\
-         \x20\x20\x20\x20--ca-cert <FILE>    trust this PEM certificate as well as the system\n\
-         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20roots (or env XERJ_CA_CERT): for a remote node\n\
+         \x20\x20\x20\x20--ca-cert <FILE>    trust only this PEM certificate for the node\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20(or env XERJ_CA_CERT): for a remote node\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20serving the self-signed certificate it minted\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20on first start\n\
          \x20\x20\x20\x20--workers <N>        workers for BOTH phases — content hashing/sniffing and\n\
@@ -1022,7 +1022,7 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
     // actually passed and warn when XERJ_URL is set and it was not.
     let mut url_explicit = false;
     let mut api_key = std::env::var("XERJ_API_KEY").ok().filter(|s| !s.is_empty());
-    // `--ca-cert <file>`: a PEM certificate to trust as an extra root for
+    // `--ca-cert <file>`: a PEM certificate to trust as the only root for
     // the node at `--url`. `XERJ_CA_CERT` is the fallback; the flag wins.
     // Resolved after the loop (see `resolve_ca_cert`) so the env var is
     // read once, not once per subcommand construction.
