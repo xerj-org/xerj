@@ -198,8 +198,19 @@ def _repo_url(url: object) -> str:
 # Standing opt-outs (candidates/do-not-contact.json, issue-tracked). A refresh
 # that re-adds a no-include login or repository fails validation, so an owner
 # opt-out recorded in an issue cannot be silently reverted by a regeneration.
+# Keys are compared as lower-case logins and "owner/repo": a ledger repo_url
+# is a full https://github.com/ URL, so it is reduced to owner/repo first
+# (before this, the repo and owner keys never matched a ledger row, and only
+# the contributor-login key was enforced).
 DNC_PATH = HUB / "candidates" / "do-not-contact.json"
-DNC_BANNED: dict[str, int] = {}  # login-as-owner or owner/repo -> issue
+DNC_BANNED: dict[str, int] = {}  # login (as contributor or owner) or owner/repo -> issue
+
+
+def _repo_key(url: object) -> str:
+    s = _repo_url(url)
+    return s[len("https://github.com/"):] if s.startswith("https://github.com/") else s
+
+
 if DNC_PATH.exists():
     for e in json.loads(DNC_PATH.read_text(encoding="utf-8")).get("entries", []):
         if "no-include" not in (e.get("actions") or []):
@@ -208,17 +219,24 @@ if DNC_PATH.exists():
         for key in ("login", "also_login"):
             if e.get(key):
                 DNC_BANNED[str(e[key]).lower()] = issue
-        if e.get("repo"):
-            DNC_BANNED[_repo_url(e["repo"])] = issue
+        for r in [e.get("repo"), *(e.get("repos") or [])]:
+            if r:
+                DNC_BANNED[_repo_key(r)] = issue
 
 
 def _dnc_hit(login: object, repo_url: object) -> int | None:
-    repo = _repo_url(repo_url)
+    repo = _repo_key(repo_url)
     owner = repo.split("/")[0] if "/" in repo else ""
     for key in (str(login or "").lower(), repo, owner):
-        if key in DNC_BANNED:
+        if key and key in DNC_BANNED:
             return DNC_BANNED[key]
     return None
+
+
+if DNC_BANNED:
+    _k = next(iter(DNC_BANNED))
+    assert _dnc_hit("", f"https://github.com/{_k}/x" if "/" not in _k else f"https://github.com/{_k}"), \
+        "do-not-contact self-check: a listed key does not match its own GitHub URL"
 
 
 author_files = sorted(AUTHORS.glob("*.json")) if AUTHORS.is_dir() else []

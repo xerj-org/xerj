@@ -76,8 +76,14 @@ class Fixture(unittest.TestCase):
         p.write_text(json.dumps(data), encoding="utf-8")
         return p
 
-    def run_main(self, *args):
-        return oo.main(["--authors", str(self.a), "--overrides", str(self.overrides()), *args])
+    def dnc(self, entries=()):
+        p = self.tmp / "do-not-contact.json"
+        p.write_text(json.dumps({"entries": list(entries)}), encoding="utf-8")
+        return p
+
+    def run_main(self, *args, dnc=()):
+        return oo.main(["--authors", str(self.a), "--overrides", str(self.overrides()),
+                        "--dnc", str(self.dnc(dnc)), *args])
 
     def rows(self):
         return {json.loads(l)["corpus"]: json.loads(l)
@@ -142,7 +148,57 @@ class TestOwnerOverrides(Fixture):
         self.assertFalse((self.a / "own--keep.json").exists())
 
 
+class TestNoInclude(Fixture):
+    """do-not-contact.json no-include entries are removed like an override is applied."""
+
+    def md(self):
+        return (self.a / "CONTRIBUTORS.md").read_text(encoding="utf-8")
+
+    def test_login_opt_out_removes_row_md_and_manifest(self):
+        dnc = [{"login": "Other", "issue": 9, "actions": ["no-contact", "no-include"]}]
+        self.assertEqual(self.run_main("--check", dnc=dnc), 1)
+        self.run_main(dnc=dnc)
+        self.assertNotIn("other--x", self.rows())
+        self.assertNotIn("other/x", self.md())
+        self.assertEqual(self.run_main("--check", dnc=dnc), 0)
+
+    def test_repo_opt_out_by_url_or_owner_repo(self):
+        for repo in ("own/keep", "https://github.com/Own/Keep/"):
+            self.write_generated()
+            dnc = [{"login": "someone-else", "repo": repo, "issue": 9, "actions": ["no-include"]}]
+            self.run_main(dnc=dnc)
+            self.assertFalse((self.a / "own--keep.json").exists(), repo)
+            self.assertNotIn("own--keep", self.rows())
+            self.assertNotIn("own/keep", self.md())
+
+    def test_no_contact_only_removes_nothing(self):
+        dnc = [{"login": "other", "issue": 9, "actions": ["no-contact"]}]
+        self.run_main(dnc=dnc)
+        self.assertIn("other--x", self.rows())
+
+    def test_opt_out_wins_over_an_override(self):
+        dnc = [{"login": "own", "issue": 9, "actions": ["no-include"]}]
+        self.run_main(dnc=dnc)
+        self.assertFalse((self.a / "own--keep.json").exists())
+        self.assertNotIn("own--keep", self.rows())
+        self.assertEqual(self.run_main("--check", dnc=dnc), 0)
+
+    def test_survives_a_refresh(self):
+        dnc = [{"login": "other", "issue": 9, "actions": ["no-include"]}]
+        self.run_main(dnc=dnc)
+        want = {p.name: p.read_text(encoding="utf-8") for p in self.a.iterdir()}
+        self.write_generated()
+        self.assertEqual(self.run_main("--check", dnc=dnc), 1)
+        self.run_main(dnc=dnc)
+        self.assertEqual(want, {p.name: p.read_text(encoding="utf-8") for p in self.a.iterdir()})
+
+
 class TestRealRegistry(unittest.TestCase):
+    def test_dnc_file_loads(self):
+        banned = oo.load_no_include()
+        self.assertTrue(banned)
+        self.assertTrue(all("://" not in k for k in banned))
+
     def test_overrides_file_loads(self):
         entries = oo.load_overrides()
         self.assertTrue(entries)
