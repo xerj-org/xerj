@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Declarative TOML pack recipe format (`xerj-recipe/v1`) and deterministic Rust
+  executor in `xerj_common::pack_recipe` (Refs #2762, #2769): embeds built-in
+  Writing (`write.outline`), Bio (`bio.evidence`) and Cyber
+  (`cyber.target_surface`) recipes, projects recipes into MCP `tools/list`
+  schemas (`to_mcp_tool_spec`), enforces `LicenceClass` redistribution and
+  `ScopeGuard` gates, validates output JSON against the recipe's declared
+  schema, runs deterministic citation/anti-slop/token/notice checks, and seals
+  reports with an RFC 8785 SHA-256 receipt.
+
 ## [1.0.0-rc.105] - 2026-11-23
 
 <!-- notes-exempt: #3341 #3343 (CLA signatures, .contributors only) -->
