@@ -40,6 +40,74 @@
   # shell, `exit` would close the user's whole terminal session.
   function Fail($msg)        { Write-Host "error: $msg" -ForegroundColor Red; throw "xerj install failed" }
 
+  # Large download with HTTP range resume and a stall timeout (#3278). A field
+  # report saw the ~460 MiB model bundle stall at 0 bytes under both this
+  # installer and curl, and needed 25 ranged attempts by hand. Each attempt
+  # resumes from the bytes already on disk; a read that moves no byte for
+  # $StallSeconds aborts that attempt (ReadWriteTimeout) and the next one
+  # continues from the same offset. The SHA-256 check after it is what proves
+  # the reassembled file. A 4xx other than 408/416/429 is not retried.
+  function Get-Resumable([string]$Uri, [string]$OutFile, [int]$MaxAttempts = 40, [int]$StallSeconds = 30) {
+    $total = [long]-1
+    for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
+      $have = [long]0
+      if (Test-Path -LiteralPath $OutFile) { $have = (Get-Item -LiteralPath $OutFile).Length }
+      if ($total -ge 0 -and $have -ge $total) { return }
+      $resp = $null; $stream = $null; $fs = $null
+      try {
+        $req = [System.Net.HttpWebRequest]::Create($Uri)
+        $req.Timeout = $StallSeconds * 1000
+        $req.ReadWriteTimeout = $StallSeconds * 1000
+        $req.AllowAutoRedirect = $true
+        $req.UserAgent = 'xerj-get.ps1'
+        if ($have -gt 0) { $req.AddRange([long]$have) }
+        $resp = $req.GetResponse()
+        $code = [int]$resp.StatusCode
+        if ($code -eq 206) {
+          $cr = [string]$resp.Headers['Content-Range']
+          if ($cr -match '/(\d+)\s*$') { $total = [long]$Matches[1] }
+        } else {
+          # 200: the server ignored the range (or this is the first attempt).
+          $have = [long]0
+          if ($resp.ContentLength -ge 0) { $total = [long]$resp.ContentLength }
+        }
+        $mode = if ($have -gt 0) { [IO.FileMode]::Append } else { [IO.FileMode]::Create }
+        $fs = New-Object IO.FileStream($OutFile, $mode, [IO.FileAccess]::Write)
+        $stream = $resp.GetResponseStream()
+        $buf = New-Object byte[] 1048576
+        $lastReport = [DateTime]::UtcNow
+        while (($n = $stream.Read($buf, 0, $buf.Length)) -gt 0) {
+          $fs.Write($buf, 0, $n)
+          $have += $n
+          if (([DateTime]::UtcNow - $lastReport).TotalSeconds -ge 10) {
+            $mib = [math]::Round($have / 1MB, 1)
+            if ($total -gt 0) { Write-Host ("    {0} MiB of {1} MiB" -f $mib, [math]::Round($total / 1MB, 1)) }
+            else { Write-Host ("    {0} MiB" -f $mib) }
+            $lastReport = [DateTime]::UtcNow
+          }
+        }
+        $fs.Close(); $fs = $null
+        if ($total -lt 0 -or $have -ge $total) { return }
+        Write-Host "    connection closed at $have of $total bytes; resuming (attempt $($attempt + 1) of $MaxAttempts)"
+      } catch {
+        $e = $_.Exception
+        while ($e -and -not ($e -is [System.Net.WebException]) -and $e.InnerException) { $e = $e.InnerException }
+        $status = 0
+        if ($e -is [System.Net.WebException] -and $e.Response) { $status = [int]$e.Response.StatusCode }
+        if ($status -eq 416 -and $have -gt 0) { return }
+        if ($status -ge 400 -and $status -lt 500 -and $status -ne 408 -and $status -ne 429) { throw }
+        if ($attempt -ge $MaxAttempts) { throw }
+        Write-Host "    download stalled or dropped at $have bytes ($($_.Exception.Message)); resuming (attempt $($attempt + 1) of $MaxAttempts)"
+      } finally {
+        if ($fs) { $fs.Close() }
+        if ($stream) { $stream.Close() }
+        if ($resp) { $resp.Close() }
+      }
+      Start-Sleep -Seconds ([math]::Min($attempt, 8))
+    }
+    throw "download did not finish after $MaxAttempts attempts"
+  }
+
   $Repo = if ($env:XERJ_REPO) { $env:XERJ_REPO } else { 'xerj-org/xerj' }
   $WithModel = ($env:XERJ_WITH_MODEL -eq '1')
   $ModelDir = if ($env:XERJ_MODEL_DIR) { $env:XERJ_MODEL_DIR } else { Join-Path $env:LOCALAPPDATA 'xerj\model' }
@@ -169,14 +237,21 @@
     }
     # Make `xerj` resolve in THIS session too, so the next-steps command works
     # immediately (the registry write above only affects new terminals).
+    # This reaches the calling shell only when the installer runs in it
+    # (`irm ... | iex` in PowerShell). Started as a child process
+    # (`powershell -c "..."` from cmd, Git Bash or an agent's tool call) it
+    # cannot change the parent's PATH, so the next steps below use the full
+    # path to xerj.exe, which works in any shell (#3278).
     if (($env:Path -split ';') -notcontains $dir) {
       $env:Path = $env:Path.TrimEnd(';') + ';' + $dir
     }
+    $xerjCmd = "& `"$dest`""
 
     # --- next steps --------------------------------------------------------------
     Write-Host ""
-    Write-Host "xerj $tag is ready." -ForegroundColor White
-    Write-Host "  start it:               xerj --insecure --data-dir `$HOME\xerj-data"
+    Write-Host "xerj $tag is ready at $dest" -ForegroundColor White
+    Write-Host "  start it:               $xerjCmd --insecure --data-dir `$HOME\xerj-data"
+    Write-Host "  (new terminals also find plain 'xerj'; from cmd use `"$dest`", from Git Bash/MSYS the same path with forward slashes: $($dest -replace '\\','/'))"
     Write-Host "  then open the console:  http://localhost:9200/_xerj-console/"
     Write-Host "  (started with --port N? then N replaces 9200 in every address printed here)"
     Write-Host "  docs: https://xerj.org/docs/  -  source: https://github.com/$Repo"
@@ -190,7 +265,7 @@
       $modelAsset = "xerj-model-bundle-v1-$tag.tar.gz"
       Write-Step "downloading model bundle $modelAsset... (about 460 MiB)"
       try {
-        Invoke-WebRequest -UseBasicParsing -Uri "$base/$modelAsset" -OutFile (Join-Path $tmp $modelAsset)
+        Get-Resumable -Uri "$base/$modelAsset" -OutFile (Join-Path $tmp $modelAsset)
       } catch {
         Fail "model download failed ($($_.Exception.Message)). Assets: https://github.com/$Repo/releases/tag/$tag"
       }
@@ -215,7 +290,7 @@
       Write-Okay "model bundle installed to $ModelDir"
       Write-Host ""
       Write-Host "  XERJ-Query is off until you start the node with the model directory:"
-      Write-Host "    xerj --facts-model-dir `"$ModelDir`" --insecure --data-dir `$HOME\xerj-data"
+      Write-Host "    $xerjCmd --facts-model-dir `"$ModelDir`" --insecure --data-dir `$HOME\xerj-data"
       Write-Host "  verify:  curl.exe -s localhost:9200/_facts | jq .model.state   (`"not_loaded`" for the first seconds while the model preloads, then `"loaded`"; a 404 means the node runs without the flag)"
       Write-Host ""
     }
