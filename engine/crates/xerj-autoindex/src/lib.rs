@@ -9676,15 +9676,28 @@ fn run_index_report_inner(
     // Totals are unknown until the walk returns, so this phase honestly
     // reports `pct=unknown` and proves liveness with the clock alone.
     pr.phase("walk", 0, 0);
-    let (discovered_files, ignore_report) = walk::walk_reporting_opts(
+    // #3280: `--exclude` is applied during the walk, so an excluded file costs
+    // no `stat` and an all-excluded directory is pruned and named.
+    let exclude_matcher = GlobMatcher::compile(&cfg.exclude, "--exclude")?;
+    let walk_excludes = walk::WalkExcludes::new(&exclude_matcher, &cfg.exclude, &cfg.exclude_rels);
+    let (discovered_files, ignore_report, exclude_report) = walk::walk_reporting_excluding(
         &cfg.root,
         cfg.follow_symlinks,
         cfg.follow_symlinks_outside_root,
         cfg.ignore,
+        &walk_excludes,
     )?;
-    let (discovered_files, excluded) =
+    for pruned in &exclude_report.pruned {
+        pr.note(&format!(
+            "autoindex: pruned {}/ ({})",
+            crate::progress::sanitize(&pruned.rel, crate::progress::SAFE_PATH_MAX),
+            pruned.why
+        ));
+    }
+    let (discovered_files, excluded_after) =
         without_excluded_rels(discovered_files, &cfg.exclude_rels, &cfg.exclude)?;
-    if excluded > 0 {
+    let excluded = exclude_report.excluded_files + excluded_after;
+    if excluded > 0 || !exclude_report.pruned.is_empty() {
         let mut rules = cfg.exclude_rels.clone();
         rules.extend(cfg.exclude.iter().map(|glob| format!("--exclude {glob}")));
         pr.note(&format!(

@@ -259,7 +259,120 @@ pub fn walk_reporting_opts(
     allow_outside_root: bool,
     ignore: IgnoreOptions,
 ) -> Result<(Vec<FileEntry>, IgnoreReport)> {
-    walk_impl(root, follow_symlinks, allow_outside_root, ignore, None)
+    walk_impl(
+        root,
+        follow_symlinks,
+        allow_outside_root,
+        ignore,
+        None,
+        None,
+    )
+}
+
+/// A directory left un-walked because of `--exclude` (#3280).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PrunedDir {
+    /// Root-relative path with forward slashes.
+    pub rel: String,
+    /// Why: the `--exclude` glob that covers the whole directory, or the
+    /// count of leading entries that were all excluded.
+    pub why: String,
+}
+
+/// What `--exclude` cost the walk (#3280).
+#[derive(Debug, Default, Clone)]
+pub struct ExcludeReport {
+    /// Files the globs (or `exclude_rels`) dropped during the walk, before any
+    /// `stat`.
+    pub excluded_files: usize,
+    pub pruned: Vec<PrunedDir>,
+}
+
+/// `--exclude` applied DURING the walk (#3280).
+///
+/// Before this the globs were applied to the finished inventory, so a tree of
+/// ~200k generated files excluded by extension was still descended and every
+/// file `stat`ed twice (metadata plus `symlink_metadata`) — the walk stalled
+/// on Windows. Now an excluded file is dropped before any syscall, a
+/// directory a `<dir>/**` glob covers is never entered, and a directory whose
+/// first [`EXCLUDE_PRUNE_AFTER`] entries are all excluded files is pruned and
+/// named in the report.
+pub struct WalkExcludes<'a> {
+    files: &'a crate::GlobMatcher,
+    rels: &'a [String],
+    /// The `P` of every `P/**` glob, as an anchored path regex: a directory
+    /// whose rel matches it holds only excluded paths.
+    whole_dirs: Vec<(regex::Regex, String)>,
+    prune_after: usize,
+}
+
+/// Leading all-excluded entries after which a directory is pruned (#3280).
+pub const EXCLUDE_PRUNE_AFTER: usize = 1_000;
+
+impl<'a> WalkExcludes<'a> {
+    pub fn new(files: &'a crate::GlobMatcher, globs: &[String], rels: &'a [String]) -> Self {
+        let whole_dirs = globs
+            .iter()
+            .filter_map(|g| {
+                let prefix = g.strip_suffix("/**")?;
+                if prefix.is_empty() {
+                    return None;
+                }
+                let re = regex::Regex::new(&crate::glob_to_regex(prefix)).ok()?;
+                Some((re, g.clone()))
+            })
+            .collect();
+        Self {
+            files,
+            rels,
+            whole_dirs,
+            prune_after: EXCLUDE_PRUNE_AFTER,
+        }
+    }
+
+    #[cfg(test)]
+    fn with_prune_after(mut self, n: usize) -> Self {
+        self.prune_after = n;
+        self
+    }
+
+    fn file_excluded(&self, rel: &str) -> bool {
+        self.files.matches(rel) || self.rels.iter().any(|r| r == rel)
+    }
+
+    fn whole_dir(&self, rel: &str) -> Option<&str> {
+        self.whole_dirs
+            .iter()
+            .find(|(re, _)| re.is_match(rel))
+            .map(|(_, g)| g.as_str())
+    }
+}
+
+/// [`walk_reporting_opts`] with `--exclude` applied during the walk (#3280).
+pub fn walk_reporting_excluding(
+    root: &Path,
+    follow_symlinks: bool,
+    allow_outside_root: bool,
+    ignore: IgnoreOptions,
+    excludes: &WalkExcludes<'_>,
+) -> Result<(Vec<FileEntry>, IgnoreReport, ExcludeReport)> {
+    let mut report = ExcludeReport::default();
+    let (files, ignored) = walk_impl(
+        root,
+        follow_symlinks,
+        allow_outside_root,
+        ignore,
+        None,
+        Some((excludes, &mut report)),
+    )?;
+    Ok((files, ignored, report))
+}
+
+/// Per-directory tally for the leading-excluded prune.
+struct DirTally {
+    rel: String,
+    leading_excluded: usize,
+    all_excluded: bool,
 }
 
 /// The directories this walk ADMITS, and nothing else.
@@ -288,6 +401,7 @@ pub fn walk_dirs_opts(
         allow_outside_root,
         ignore,
         Some(&mut dirs),
+        None,
     )?;
     dirs.sort();
     dirs.dedup();
@@ -303,6 +417,7 @@ fn walk_impl(
     allow_outside_root: bool,
     ignore: IgnoreOptions,
     mut dirs_out: Option<&mut Vec<PathBuf>>,
+    mut excludes: Option<(&WalkExcludes<'_>, &mut ExcludeReport)>,
 ) -> Result<(Vec<FileEntry>, IgnoreReport)> {
     let root_canon = root
         .canonicalize()
@@ -323,6 +438,9 @@ fn walk_impl(
     let mut it = walkdir::WalkDir::new(&root_canon)
         .follow_links(follow_symlinks)
         .into_iter();
+    // `--exclude` tallies (#3280). Index = directory depth; the last entry is
+    // the deepest directory still open.
+    let mut tallies: Vec<DirTally> = Vec::new();
     while let Some(next) = it.next() {
         let entry = match next {
             Ok(e) => e,
@@ -349,6 +467,7 @@ fn walk_impl(
         // `IgnoreStack::truncate_to` for why every entry needs it, not just
         // directories.
         stack.truncate_to(entry.depth());
+        tallies.truncate(entry.depth());
         // SECURITY / hygiene: do not index hidden files or descend into hidden
         // directories. Without this the walker happily indexed `.env` (secrets,
         // API tokens), `.git`, `.ssh`, `.aws`, and other dotfiles into a
@@ -482,6 +601,34 @@ fn walk_impl(
                     continue;
                 }
             }
+            if let Some((ex, report)) = excludes.as_mut() {
+                let rel = portable_rel(
+                    entry
+                        .path()
+                        .strip_prefix(&root_canon)
+                        .unwrap_or(entry.path()),
+                );
+                if entry.depth() > 0 {
+                    if let Some(glob) = ex.whole_dir(&rel) {
+                        report.pruned.push(PrunedDir {
+                            rel,
+                            why: format!("--exclude {glob} covers it"),
+                        });
+                        it.skip_current_dir();
+                        continue;
+                    }
+                    if let Some(parent) = tallies.last_mut() {
+                        parent.all_excluded = false;
+                    }
+                }
+                // The root is never pruned: it is the folder the operator
+                // pointed at.
+                tallies.push(DirTally {
+                    rel,
+                    leading_excluded: 0,
+                    all_excluded: entry.depth() > 0,
+                });
+            }
             stack.enter_dir(entry.path(), entry.depth());
             if let Some(dirs) = dirs_out.as_mut() {
                 // The path the watcher must watch is the path the walk arrived
@@ -507,6 +654,38 @@ fn walk_impl(
         }
         if stack.skip_file(entry.path()).is_some() {
             continue;
+        }
+        if let Some((ex, report)) = excludes.as_mut() {
+            let p = entry.path();
+            let rel = portable_rel(p.strip_prefix(&root_canon).unwrap_or(p));
+            if ex.file_excluded(&rel) {
+                report.excluded_files += 1;
+                let prune = tallies.last_mut().and_then(|parent| {
+                    if !parent.all_excluded {
+                        return None;
+                    }
+                    parent.leading_excluded += 1;
+                    (parent.leading_excluded >= ex.prune_after).then(|| PrunedDir {
+                        rel: parent.rel.clone(),
+                        why: format!(
+                            "its first {} entries were all excluded by --exclude; the rest \
+                             of it was not walked",
+                            parent.leading_excluded
+                        ),
+                    })
+                });
+                if let Some(pruned) = prune {
+                    report.pruned.push(pruned);
+                    tallies.pop();
+                    // The last yielded entry is a file, so this skips the
+                    // rest of its parent directory.
+                    it.skip_current_dir();
+                }
+                continue;
+            }
+            if let Some(parent) = tallies.last_mut() {
+                parent.all_excluded = false;
+            }
         }
         // Marker-gated Takeout noise (built-in defaults, so `--no-ignore` /
         // `--no-default-ignores` disable it). After the ignore files, and
@@ -1855,5 +2034,96 @@ mod walk_only_tests {
             }
         }
         out
+    }
+}
+
+#[cfg(test)]
+mod exclude_prune_tests {
+    use super::{walk_reporting_excluding, WalkExcludes};
+    use crate::ignore_rules::IgnoreOptions;
+    use crate::GlobMatcher;
+    use std::fs;
+    use std::path::Path;
+
+    fn tree(root: &Path, gen_files: usize) {
+        fs::create_dir_all(root.join("src")).unwrap();
+        fs::write(root.join("src/main.c"), "int main(void) { return 0; }\n").unwrap();
+        fs::create_dir_all(root.join("gen/deep")).unwrap();
+        for i in 0..gen_files {
+            fs::write(root.join(format!("gen/f{i}.obj")), b"\0").unwrap();
+        }
+        fs::write(root.join("gen/deep/x.obj"), b"\0").unwrap();
+    }
+
+    fn run(
+        root: &Path,
+        globs: &[&str],
+        prune_after: Option<usize>,
+    ) -> (Vec<String>, super::ExcludeReport) {
+        let globs: Vec<String> = globs.iter().map(|g| g.to_string()).collect();
+        let matcher = GlobMatcher::compile(&globs, "--exclude").unwrap();
+        let mut ex = WalkExcludes::new(&matcher, &globs, &[]);
+        if let Some(n) = prune_after {
+            ex = ex.with_prune_after(n);
+        }
+        let (files, _, report) =
+            walk_reporting_excluding(root, false, false, IgnoreOptions::default(), &ex).unwrap();
+        (files.into_iter().map(|f| f.rel).collect(), report)
+    }
+
+    /// #3280: a `<dir>/**` glob prunes the directory itself, named.
+    #[test]
+    fn a_dir_glob_prunes_the_directory_and_names_it() {
+        let dir = tempfile::TempDir::new().unwrap();
+        tree(dir.path(), 30);
+        let (rels, report) = run(dir.path(), &["gen/**"], None);
+        assert_eq!(rels, ["src/main.c"]);
+        assert_eq!(report.pruned.len(), 1, "{:?}", report.pruned);
+        assert_eq!(report.pruned[0].rel, "gen");
+        assert!(report.pruned[0].why.contains("gen/**"));
+        assert_eq!(report.excluded_files, 0, "nothing inside gen/ was visited");
+    }
+
+    /// #3280: a directory whose leading entries are all excluded by
+    /// extension is pruned after the threshold and named; the root never is.
+    #[test]
+    fn leading_excluded_entries_prune_the_directory() {
+        let dir = tempfile::TempDir::new().unwrap();
+        tree(dir.path(), 30);
+        // A subdirectory is not an excluded file; drop it so read_dir order
+        // cannot put it among the leading entries.
+        fs::remove_dir_all(dir.path().join("gen/deep")).unwrap();
+        let (rels, report) = run(dir.path(), &["*.obj"], Some(5));
+        assert_eq!(rels, ["src/main.c"]);
+        assert!(
+            report.pruned.iter().any(|p| p.rel == "gen"),
+            "{:?}",
+            report.pruned
+        );
+        assert!(report.excluded_files < 30, "{}", report.excluded_files);
+    }
+
+    /// Under the threshold, or with a kept file, nothing is pruned and the
+    /// result is the post-walk filter's.
+    #[test]
+    fn below_the_threshold_nothing_is_pruned() {
+        let dir = tempfile::TempDir::new().unwrap();
+        tree(dir.path(), 3);
+        fs::write(dir.path().join("gen/keep.c"), "int k;\n").unwrap();
+        let (rels, report) = run(dir.path(), &["*.obj"], Some(1000));
+        assert_eq!(rels, ["gen/keep.c", "src/main.c"]);
+        assert!(report.pruned.is_empty(), "{:?}", report.pruned);
+        assert_eq!(report.excluded_files, 4);
+    }
+
+    /// A file glob that is not `<dir>/**` never prunes a directory by name.
+    #[test]
+    fn a_file_glob_inside_a_dir_does_not_prune_its_subdirs() {
+        let dir = tempfile::TempDir::new().unwrap();
+        tree(dir.path(), 2);
+        fs::write(dir.path().join("gen/deep/keep.c"), "int k;\n").unwrap();
+        let (rels, report) = run(dir.path(), &["gen/*"], None);
+        assert_eq!(rels, ["gen/deep/keep.c", "gen/deep/x.obj", "src/main.c"]);
+        assert!(report.pruned.is_empty());
     }
 }
