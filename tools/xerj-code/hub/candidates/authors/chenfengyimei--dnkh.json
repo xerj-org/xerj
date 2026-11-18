@@ -1,0 +1,23 @@
+{
+ "corpus": "chenfengyimei--dnkh",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how chenfengyimei/dnkh implements it: \u7535\u8111\u5f00\u8352APP\u5de5\u5177 (selected work: src/Dnkhw.Core, src/Dnkhw, src/Dnkhw.Core.Tests)",
+ "repos": [
+  {
+   "repo": "dnkh",
+   "url": "https://github.com/chenfengyimei/dnkh",
+   "sha": "fd142572d857fd4c1fa057e4fb96eb20d688b03b",
+   "licence": "MIT (LICENSE file at pin fd142572d857, GitHub licence API 2026-11-18)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-17T05:37Z",
+    "consent_receipt": "f84bec693709",
+    "note": "Inclusion consented by the commit author by email at 2026-10-17T05:37Z (receipt f84bec693709); selected commit fd142572d857: \"\u53d1\u5e03 v1.0.11 \u5e76\u4fee\u590d Win10 \u542f\u52a8\u4e0e\u5b89\u88c5\u8def\u5f84\". LICENSE file at pin fd142572d857 detected as MIT by the GitHub licence API on 2026-11-18; used under that licence with attribution."
+   }
+  }
+ ]
+}

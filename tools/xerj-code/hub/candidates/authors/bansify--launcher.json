@@ -1,9 +1,9 @@
 {
- "corpus": "gothwadtech--launcher",
+ "corpus": "bansify--launcher",
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on Kotlin queries this for how GothwadTech/launcher implements it: Gothwad TV Launcher is made for Android TVs and Tablets SImple looking but advance feature luncher notification recents apps ads free suitab (selected work: app/src)",
+ "domain": "an agent working on Kotlin queries this for how Bansify/launcher implements it: Gothwad TV Launcher is made for Android TVs and Tablets SImple looking but advance feature luncher notification recents apps ads free suitab (selected work: app/src)",
  "repos": [
   {
    "repo": "launcher",

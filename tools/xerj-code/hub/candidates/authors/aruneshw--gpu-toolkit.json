@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Go queries this for how Aruneshw/gpu_toolkit implements it: Conservative Go toolkit for authenticated single-node LLM inference across separate devices (llama.cpp, mTLS, no RPC claims) (selected work: internal/agent, internal/tunnel, internal/cli)",
+ "domain": "an agent working on Go queries this for how Aruneshw/gpu_toolkit implements it: Conservative Go toolkit for authenticated single-node LLM inference across separate devices (llama.cpp, mTLS, RPC claims) (selected work: internal/agent, internal/tunnel, internal/cli)",
  "repos": [
   {
    "repo": "gpu_toolkit",

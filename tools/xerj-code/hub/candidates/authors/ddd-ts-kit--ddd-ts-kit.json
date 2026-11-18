@@ -1,9 +1,9 @@
 {
- "corpus": "gbourgeat--ddd-ts-kit",
+ "corpus": "ddd-ts-kit--ddd-ts-kit",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on claude-code, claude-code-plugin, clean-architecture queries this for how gbourgeat/ddd-ts-kit implements it: Domain-Driven Design (DDD), Clean Architecture (hexagonal, ports and adapters) and Clean Code for TypeScript and Node.js backends: CLI to bo (selected work: packages/cli)",
+ "domain": "an agent working on claude-code, claude-code-plugin, clean-architecture queries this for how ddd-ts-kit/ddd-ts-kit implements it: Domain-Driven Design (DDD), Clean Architecture (hexagonal, ports and adapters) and Clean Code for TypeScript and Node.js backends: CLI to bo (selected work: packages/cli)",
  "repos": [
   {
    "repo": "ddd-ts-kit",

@@ -2,8 +2,8 @@
  "corpus": "brunosantunez--markitdowngui-exe-bytinkama",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Python queries this for how brunosantunez/markitdowngui_exe_bytinkama implements it: Es una interfaz para convertir documentos pdf, docx, powerpoint, etc. a texto plano (.txt y .md) para ahorrar tokens y agilizar procesos de  (selected work: the project root)",
+ "shelf": "WEB",
+ "domain": "an agent working on converter, converter-app, converter-tool queries this for how brunosantunez/markitdowngui_exe_bytinkama implements it: Es una interfaz para convertir documentos pdf, docx, powerpoint, etc. a texto plano (.txt y .md) para ahorrar tokens y agilizar procesos de  (selected work: the project root)",
  "repos": [
   {
    "repo": "markitdowngui_exe_bytinkama",

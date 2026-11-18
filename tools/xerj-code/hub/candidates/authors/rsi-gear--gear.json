@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on meta-learning, reinforcement-learning, rsi queries this for how rsi-gear/gear implements it: Scikit-learn for Recursive Self-improvement (RSI). A modular framework for recursive harness evolution (selected work: python, tests, src/application)",
+ "domain": "an agent working on meta-learning, reinforcement-learning, rsi queries this for how rsi-gear/gear implements it: Toolkits for Recursive Self-improvement (RSI). A modular framework for recursive harness evolution (selected work: python, tests, src/application)",
  "repos": [
   {
    "repo": "gear",

@@ -2,8 +2,8 @@
  "corpus": "modularmclib--dataenergistics",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Java queries this for how ModularMCLib/DataEnergistics implements it: ModularMCLib/DataEnergistics (Java) (selected work: src/main)",
+ "shelf": "NET",
+ "domain": "an agent working on Java queries this for how ModularMCLib/DataEnergistics implements it: Data processing, automation, and large-scale crafting for Applied Energistics 2 networks (selected work: src/main)",
  "repos": [
   {
    "repo": "DataEnergistics",

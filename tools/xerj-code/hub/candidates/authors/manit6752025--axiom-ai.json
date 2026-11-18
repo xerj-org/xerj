@@ -1,0 +1,28 @@
+{
+ "corpus": "manit6752025--axiom-ai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, dataset, datasets queries this for how manit6752025/AXIOM-AI implements it: An open-source platform for building, fine-tuning, evaluating, and deploying AI models (selected work: src/components, scripts, the project root)",
+ "repos": [
+  {
+   "repo": "AXIOM-AI",
+   "url": "https://github.com/NetCore-Technologies/AXIOM-AI",
+   "sha": "61ba1f10713973e5ac82f6824ba95bc233648206",
+   "licence": "MIT (LICENSE file at pin 61ba1f107139, GitHub licence API 2026-11-18)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-18T04:46Z",
+    "consent_receipt": "fe6f1fbbbdd9",
+    "note": "Inclusion consented by the commit author by email at 2026-11-18T04:46Z (receipt fe6f1fbbbdd9); selected commit 61ba1f107139: \"fix: fix the CWE-23 weakness\". LICENSE file at pin 61ba1f107139 detected as MIT by the GitHub licence API on 2026-11-18; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @NetCore-Technologies, who has not added it."
+   },
+   "paths": [
+    "e2e",
+    "scripts",
+    "src/components"
+   ]
+  }
+ ]
+}

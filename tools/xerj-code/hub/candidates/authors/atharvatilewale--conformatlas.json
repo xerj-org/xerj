@@ -8,15 +8,15 @@
   {
    "repo": "ConformAtlas",
    "url": "https://github.com/AtharvaTilewale/ConformAtlas",
-   "sha": "64f8fcc9f9831c4dafd8e68373ad73a2fe6b9c60",
-   "licence": "MIT (LICENSE file at pin 64f8fcc9f983, GitHub licence API 2026-10-28)",
+   "sha": "b5bf8ae73b342fa640aad06f9719e1c4bf347481",
+   "licence": "MIT (LICENSE file at pin b5bf8ae73b34, GitHub licence API 2026-11-18)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T18:01Z",
     "consent_receipt": "882b7fea23f7",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T18:01Z (receipt 882b7fea23f7); pinned to the default-branch head. LICENSE file at pin 64f8fcc9f983 detected as MIT by the GitHub licence API on 2026-10-28; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T18:01Z (receipt 882b7fea23f7); pinned to the default-branch head. LICENSE file at pin b5bf8ae73b34 detected as MIT by the GitHub licence API on 2026-11-18; used under that licence with attribution."
    }
   }
  ]

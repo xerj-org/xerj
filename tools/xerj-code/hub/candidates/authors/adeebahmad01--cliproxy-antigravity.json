@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "NET",
- "domain": "an agent working on Go queries this for how adeebahmad01/cliproxy-antigravity implements it: adeebahmad01/cliproxy-antigravity (Go) (selected work: the project root)",
+ "domain": "an agent working on Go queries this for how adeebahmad01/cliproxy-antigravity implements it: CLIProxyAPI dynamic provider that runs Google's official Antigravity CLI (agy) as an OpenAI-compatible Chat Completions provider \u2014 no token  (selected work: the project root)",
  "repos": [
   {
    "repo": "cliproxy-antigravity",

@@ -1,0 +1,23 @@
+{
+ "corpus": "sarizepam--stash",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how sarizepam/Stash implements it: Aplicaci\u00f3n m\u00f3vil multiplataforma para la administraci\u00f3n de finanzas personales desarrollada con React Native y JavaScript para Android e iOS (selected work: src/database, src/app, src/services)",
+ "repos": [
+  {
+   "repo": "Stash",
+   "url": "https://github.com/sarizepam/Stash",
+   "sha": "9ecfa300a1488d219abbac36a457fc6e2459539b",
+   "licence": "MIT (LICENSE file at pin 9ecfa300a148, GitHub licence API 2026-11-18)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-18T17:16Z",
+    "consent_receipt": "c4125708cdb5",
+    "note": "Inclusion consented by the commit author by email at 2026-11-18T17:16Z (receipt c4125708cdb5); selected commit 9ecfa300a148: \"feat: implementar base de datos local, registro, login y sesion persi\u2026\". LICENSE file at pin 9ecfa300a148 detected as MIT by the GitHub licence API on 2026-11-18; used under that licence with attribution."
+   }
+  }
+ ]
+}

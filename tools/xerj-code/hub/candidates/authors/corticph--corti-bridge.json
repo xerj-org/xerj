@@ -2,8 +2,8 @@
  "corpus": "corticph--corti-bridge",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Shell queries this for how corticph/corti-bridge implements it: corticph/corti-bridge (Shell) (selected work: test, the project root, lib)",
+ "shelf": "AI",
+ "domain": "an agent working on anthropic, claude-code, corti queries this for how corticph/corti-bridge implements it: Run Claude Code on Corti models: a local gateway that translates Anthropic Messages to OpenAI Chat Completions and back, including streaming (selected work: test, the project root, lib)",
  "repos": [
   {
    "repo": "corti-bridge",

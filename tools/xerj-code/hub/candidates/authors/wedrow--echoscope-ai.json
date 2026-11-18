@@ -1,9 +1,9 @@
 {
- "corpus": "ledrodh--echoscope-ai",
+ "corpus": "wedrow--echoscope-ai",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Python queries this for how ledrodh/EchoScope-AI implements it: EchoScope AI is a YouTube market intelligence dashboard built with Python. It tracks competitor metrics, compares Shorts vs. Long-form effic (selected work: src/echoscope, tests, ui)",
+ "domain": "an agent working on Python queries this for how Wedrow/EchoScope-AI implements it: EchoScope AI is a YouTube market intelligence dashboard built with Python. It tracks competitor metrics, compares Shorts vs. Long-form effic (selected work: src/echoscope, tests, ui)",
  "repos": [
   {
    "repo": "EchoScope-AI",

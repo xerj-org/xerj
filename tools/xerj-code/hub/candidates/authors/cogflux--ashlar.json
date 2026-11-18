@@ -1,9 +1,9 @@
 {
- "corpus": "rcwalter24--ashlar",
+ "corpus": "cogflux--ashlar",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai, ai-agents, bukkit queries this for how rcwalter24/ashlar implements it: Ashlar - let AI assistants (Claude, ChatGPT, Cursor...) survey, render, build and inspect a live Minecraft Paper server through MCP (selected work: plugin, mcp-server)",
+ "domain": "an agent working on ai, ai-agents, bukkit queries this for how CogFlux/ashlar implements it: Ashlar - let AI assistants (Claude, ChatGPT, Cursor...) survey, render, build and inspect a live Minecraft Paper server through MCP (selected work: plugin, mcp-server)",
  "repos": [
   {
    "repo": "ashlar",

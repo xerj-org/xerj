@@ -2,8 +2,8 @@
  "corpus": "littlepyx--pi-zaya",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Python queries this for how LittlePyx/Pi_zaya implements it: LittlePyx/Pi_zaya (Python) (selected work: tests, kb, api)",
+ "shelf": "AI",
+ "domain": "an agent working on academic-research, information-retrieval, pdf queries this for how LittlePyx/Pi_zaya implements it: Research assistant for a local academic library: cross-paper retrieval, evidence-grounded answers, and citation tracing (selected work: tests, kb, api)",
  "repos": [
   {
    "repo": "Pi_zaya",

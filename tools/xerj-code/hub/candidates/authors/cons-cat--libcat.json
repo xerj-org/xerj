@@ -8,15 +8,15 @@
   {
    "repo": "libCat",
    "url": "https://github.com/Cons-Cat/libCat",
-   "sha": "f0b1ffc1ce694f1e0f22aa763d10d87fc16f7f8d",
-   "licence": "MPL-2.0 (LICENSE file at pin f0b1ffc1ce69, GitHub licence API 2026-10-26)",
+   "sha": "8bc699c47eace30a1fdd833fdd5dc61b837aefca",
+   "licence": "BSL-1.0 (LICENSE file at pin 8bc699c47eac, GitHub licence API 2026-11-18)",
    "review": {
-    "spdx": "MPL-2.0",
-    "use": "approach-only",
+    "spdx": "BSL-1.0",
+    "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-25T20:24Z",
     "consent_receipt": "d2facfee5f64",
-    "note": "Inclusion consented by the commit author by email at 2026-10-25T20:24Z (receipt d2facfee5f64); selected commit f0b1ffc1ce69: \"Introduce Wyhash and `cat::map` based on Boost unordered flat map.\". LICENSE file at pin f0b1ffc1ce69 detected as MPL-2.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-10-25T20:24Z (receipt d2facfee5f64); selected commit 8bc699c47eac: \"Introduce Wyhash and `cat::map` based on Boost unordered flat map.\". LICENSE file at pin 8bc699c47eac detected as BSL-1.0 by the GitHub licence API on 2026-11-18; used under that licence with attribution. Pinned to head 8bc699c47eac (contains the selected commit): the LICENSE at the selected commit was MPL-2.0."
    }
   }
  ]

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on telegram, telegram-client, exdesktop queries this for how metawka/exDesktop implements it: Unofficial Cross-Platform Desktop Telegram client with customization, channel feed and Python plugins (selected work: Telegram)",
+ "domain": "an agent working on telegram, telegram-client, exdesktop queries this for how metawka/exDesktop implements it: exDesktop \u2013 \u041c\u043e\u0434\u0438\u0444\u0438\u0446\u0438\u0440\u043e\u0432\u0430\u043d\u043d\u044b\u0439 \u043a\u0440\u043e\u0441\u0441-\u043f\u043b\u0430\u0442\u0444\u043e\u0440\u043c\u0435\u043d\u043d\u044b\u0439 \u043a\u043b\u0438\u0435\u043d\u0442 Telegram Desktop \u0441 \u0440\u0430\u0441\u0448\u0438\u0440\u0435\u043d\u043d\u044b\u043c\u0438 \u0432\u043e\u0437\u043c\u043e\u0436\u043d\u043e\u0441\u0442\u044f\u043c\u0438 \u043a\u0430\u0441\u0442\u043e\u043c\u0438\u0437\u0430\u0446\u0438\u044f, Material Expressive \u0434\u0438\u0437\u0430 (selected work: Telegram)",
  "repos": [
   {
    "repo": "exDesktop",

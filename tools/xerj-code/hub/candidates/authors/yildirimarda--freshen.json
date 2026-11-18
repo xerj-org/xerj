@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Rust queries this for how yildirimarda/freshen implements it: yildirimarda/freshen (Rust) (selected work: crates/freshen-lib, crates/freshen)",
+ "domain": "an agent working on apt, chocolatey, cli queries this for how yildirimarda/freshen implements it: Cross-platform updater for developer machines: package managers, toolchains and containers, with safe --check and --dry-run modes (selected work: crates/freshen-lib, crates/freshen)",
  "repos": [
   {
    "repo": "freshen",

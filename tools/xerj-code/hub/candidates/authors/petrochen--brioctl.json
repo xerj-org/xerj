@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on cli, logitech, macos queries this for how petrochen/brioctl implements it: Command-line control for the Logitech MX Brio webcam on macOS: FOV, HDR, Show Mode, color, zoom, profiles, re-apply on connect (selected work: the project root, tests, app)",
+ "domain": "an agent working on cli, logitech, macos queries this for how petrochen/brioctl implements it: Command-line control for Logitech MX Brio, StreamCam, Brio and other UVC webcams on macOS: FOV, HDR, Show Mode, stabilisation, color, zoom,  (selected work: the project root, tests, app)",
  "repos": [
   {
    "repo": "brioctl",

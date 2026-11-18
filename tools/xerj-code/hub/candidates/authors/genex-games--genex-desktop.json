@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-agents, claude-code, codex queries this for how genex-games/genex-desktop implements it: Desktop app for game dev with AI: make games in Unreal Engine, Unity, Godot or the browser. The agent sets up the engine, builds your game a (selected work: src/renderer, tests, src/shared)",
+ "domain": "an agent working on ai-agents, claude-code, codex queries this for how genex-games/genex-desktop implements it: Open-source desktop app for AI-native game dev. Build in Unreal Engine, Unity, Godot, Roblox or Three.js with any AI, including local models (selected work: src/renderer, tests, src/shared)",
  "repos": [
   {
    "repo": "genex-desktop",

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Go queries this for how kart-io/goagent implements it: GoAgent is a production-ready AI agent framework for Go that enables building autonomous agents capable of reasoning, using tools, and makin (selected work: workflow, evaluation, builder)",
+ "domain": "an agent working on a2a, agent-framework, ai-agent queries this for how kart-io/goagent implements it: Recoverable, budgeted and observable AI agent execution kernel for Go: native tool loop, durable workflow graphs with checkpoints & human ap (selected work: workflow, evaluation, builder)",
  "repos": [
   {
    "repo": "goagent",

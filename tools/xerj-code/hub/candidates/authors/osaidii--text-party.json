@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WRITE",
- "domain": "an agent working on collaboration, party, python queries this for how Osaidii/Text-Party implements it: Basically a local google docs but with no data taken (selected work: client, server)",
+ "domain": "an agent working on collaboration, party, python queries this for how Osaidii/Text-Party implements it: Basically a local google docs but with no data taken. (in dev) (demo is up) (selected work: client, server)",
  "repos": [
   {
    "repo": "Text-Party",
