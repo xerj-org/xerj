@@ -8,15 +8,15 @@
   {
    "repo": "voicebot",
    "url": "https://github.com/geeksville/voicebot",
-   "sha": "6f4011f628779ba3a8bdc70287149506c3eb629c",
-   "licence": "GPL-3.0 (LICENSE file at pin 6f4011f62877, GitHub licence API 2026-11-17)",
+   "sha": "67869575a5dac1c3d6a79d74674c1b7b000494c9",
+   "licence": "GPL-3.0 (LICENSE file at pin 67869575a5da, GitHub licence API 2026-11-18)",
    "review": {
     "spdx": "GPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-11-11T01:03Z",
     "consent_receipt": "214e43da1e4d",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T01:03Z (receipt 214e43da1e4d); pinned to the default-branch head. LICENSE file at pin 6f4011f62877 detected as GPL-3.0 by the GitHub licence API on 2026-11-17; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-11T01:03Z (receipt 214e43da1e4d); pinned to the default-branch head. LICENSE file at pin 67869575a5da detected as GPL-3.0 by the GitHub licence API on 2026-11-18; used under that licence with attribution."
    }
   }
  ]

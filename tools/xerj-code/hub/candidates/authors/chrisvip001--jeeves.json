@@ -1,9 +1,9 @@
 {
- "corpus": "chrisvip001--joyczl-agent",
+ "corpus": "chrisvip001--jeeves",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agent, agent-framework, ai-agent queries this for how ChrisVip001/joyczl-agent implements it: Joy \u2014 a local-first personal assistant. Rust core (loop / memory / tools / graph / evals), TypeScript gateways + dashboard, Python thin SDK (selected work: joy-rs, the project root)",
+ "domain": "an agent working on agent, agent-framework, ai-agent queries this for how ChrisVip001/Jeeves implements it: Jeeves \u2014 a local-first personal assistant for complex, persistent, verifiable work (selected work: joy-rs, the project root)",
  "repos": [
   {
    "repo": "joyczl-agent",

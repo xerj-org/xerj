@@ -8,15 +8,15 @@
   {
    "repo": "OpenVerifiableLLM",
    "url": "https://github.com/AOSSIE-Org/OpenVerifiableLLM",
-   "sha": "d9531adb4d66052fe0734213c0fec399e7a7f428",
-   "licence": "GPL-3.0 (LICENSE file at pin d9531adb4d66, GitHub licence API 2026-11-15)",
+   "sha": "e04d7978e66206bded88e46eae60c888c9084483",
+   "licence": "GPL-3.0 (LICENSE file at pin e04d7978e662, GitHub licence API 2026-11-18)",
    "review": {
     "spdx": "GPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-11-11T00:44Z",
     "consent_receipt": "8fb5508c3118",
-    "note": "Inclusion consented by the commit author by email at 2026-11-11T00:44Z (receipt 8fb5508c3118); selected commit d9531adb4d66: \"feat(simple): export the released model to GGUF and run it in Ollama \u2026\". LICENSE file at pin d9531adb4d66 detected as GPL-3.0 by the GitHub licence API on 2026-11-15; used under that licence with attribution. Pinned to head d9531adb4d66 (contains the selected commit): the LICENSE at the selected commit was NOASSERTION. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @AOSSIE-Org, who has not added it."
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T00:44Z (receipt 8fb5508c3118); selected commit e04d7978e662: \"feat(simple): export the released model to GGUF and run it in Ollama \u2026\". LICENSE file at pin e04d7978e662 detected as GPL-3.0 by the GitHub licence API on 2026-11-18; used under that licence with attribution. Pinned to head e04d7978e662 (contains the selected commit): the LICENSE at the selected commit was NOASSERTION. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @AOSSIE-Org, who has not added it."
    },
    "paths": [
     ".github/workflows",
