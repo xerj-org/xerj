@@ -362,7 +362,6 @@ pub fn walk_reporting_excluding(
     Ok((files, ignored, report))
 }
 
-
 /// The directories this walk ADMITS, and nothing else.
 ///
 /// `--watch` places one filesystem watch per admitted directory instead of one
