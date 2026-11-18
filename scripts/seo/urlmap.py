@@ -353,6 +353,7 @@ class DateSource:
         self.prior_used: list[str] = []
         self.git_ok = self._probe()
         self._prior_cache: dict[str, dict[str, str]] = {}
+        self._history_cache: dict[str, list[tuple[str, str]]] | None = None
 
     def _probe(self) -> bool:
         try:
@@ -368,9 +369,72 @@ class DateSource:
         except (OSError, subprocess.SubprocessError):
             return False
 
+    def _history(self) -> dict[str, list[tuple[str, str]]]:
+        """Repo-relative file -> [(commit, UTC day), ...] in `git log` order.
+
+        One `git log --name-only` walk, read once per `DateSource`. Asking
+        `git log -- <path>` per page cost one process per page per consumer:
+        on this repository's 788 tracked files under landing/, content/ and
+        scripts/seo that was 1,580 spawns and 24 s (#3226).
+
+        The walk has no pathspec, so it lists every commit that changed a
+        file. `--diff-merges=combined` lists a merge only for files it
+        changed against every parent. That is the same rule a per-path
+        `git log` uses to decide whether to show a merge (not TREESAME to
+        any parent), so a conflict-resolving merge keeps its date. A path
+        that is not in the walk (a directory, an untracked file, a name git
+        quotes) is asked the old way, per path, in `_git_log_path`.
+        """
+        if self._history_cache is not None:
+            return self._history_cache
+        history: dict[str, list[tuple[str, str]]] = {}
+        self._history_cache = history
+        if not self.git_ok:
+            return history
+        cmd = ["git", "-C", str(self.repo_root), "-c", "core.quotePath=false",
+               "log", "--diff-merges=combined", "--name-only",
+               "--date=format-local:%Y-%m-%d", "--format=%x01%H %cd"]
+        env = {**os.environ, "TZ": "UTC"}
+        try:
+            r = subprocess.run(cmd, capture_output=True, text=True, timeout=120,
+                               env=env)
+        except (OSError, subprocess.SubprocessError):
+            return history
+        if r.returncode != 0:
+            return history
+        current: tuple[str, str] | None = None
+        for line in r.stdout.splitlines():
+            if line.startswith("\x01"):
+                rev, _, day = line[1:].partition(" ")
+                current = (rev, day.strip())
+            elif line and current is not None:
+                history.setdefault(line, []).append(current)
+        return history
+
+    def _commits(self, path: pathlib.Path) -> list[tuple[str, str]] | None:
+        """This file's commits from the shared walk, or None to ask git."""
+        # `git -C <root> log -- <path>` reads a relative path from the root
+        # and does not follow a symlinked file, so neither does this lookup.
+        candidate = pathlib.Path(os.path.abspath(
+            path if path.is_absolute() else self.repo_root / path))
+        for base in (pathlib.Path(os.path.abspath(self.repo_root)),
+                     self.repo_root.resolve()):
+            try:
+                rel = candidate.relative_to(base).as_posix()
+            except ValueError:
+                continue
+            return self._history().get(rel)
+        return None
+
     def _git_date(self, path: pathlib.Path, first: bool = False) -> str | None:
         if not self.git_ok:
             return None
+        commits = self._commits(path)
+        if commits:
+            return commits[-1][1] if first else commits[0][1]
+        return self._git_log_path(path, first)
+
+    def _git_log_path(self, path: pathlib.Path, first: bool = False) -> str | None:
         # %cs renders the committer date in the COMMIT's own timezone, so a
         # commit made at 22:34 UTC from a +02:00 machine reads 2026-09-20 here
         # and 2026-09-19 on a UTC CI runner — the generated files then differ
@@ -495,21 +559,29 @@ class DateSource:
         rel = self._repo_rel(path)
         if rel is None:
             return None
-        env = {**os.environ, "TZ": "UTC"}
-        try:
-            log = subprocess.run(
-                ["git", "-C", str(self.repo_root), "log",
-                 "--date=format-local:%Y-%m-%d", "--format=%H %cd", "--", rel],
-                capture_output=True, text=True, timeout=60, env=env)
-        except (OSError, subprocess.SubprocessError):
-            return None
-        if log.returncode != 0:
-            return None
-        commits = [ln.split() for ln in log.stdout.splitlines() if ln.strip()]
+        commits = self._commits(path)
+        if not commits:
+            env = {**os.environ, "TZ": "UTC"}
+            try:
+                log = subprocess.run(
+                    ["git", "-C", str(self.repo_root), "log",
+                     "--date=format-local:%Y-%m-%d", "--format=%H %cd", "--", rel],
+                    capture_output=True, text=True, timeout=60, env=env)
+            except (OSError, subprocess.SubprocessError):
+                return None
+            if log.returncode != 0:
+                return None
+            commits = [tuple(ln.split()) for ln in log.stdout.splitlines() if ln.strip()]
         if not commits:
             return None
+        shown_blobs: dict[str, str | None] = {}
 
         def blob(rev: str) -> str | None:
+            if rev not in shown_blobs:
+                shown_blobs[rev] = show(rev)
+            return shown_blobs[rev]
+
+        def show(rev: str) -> str | None:
             try:
                 shown = subprocess.run(
                     ["git", "-C", str(self.repo_root), "show", f"{rev}:{rel}"],
