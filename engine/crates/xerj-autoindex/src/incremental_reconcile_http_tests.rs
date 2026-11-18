@@ -1198,6 +1198,7 @@ fn cfg(root: &Path, state_dir: &Path, url: &str, semantic: bool) -> IndexCfg {
         root: root.to_owned(),
         endpoint_url: None,
         stub_globs: Vec::new(),
+        default_stubs: true,
         url: url.to_owned(),
         api_key: None,
         api_key_file: None,
@@ -3320,6 +3321,54 @@ fn a_file_shared_with_another_corpus_on_the_same_node_is_not_a_fatal_condition()
 /// a caller can actually observe: the documents that reach the endpoint carry
 /// their AST fields, and the run document and terminal line carry coverage
 /// counters that a wholly-junked corpus could not fake.
+/// #2439 on the generated route: a lockfile is published as one name card
+/// (title, size, path, content id) and none of its fields, while
+/// `--no-default-stubs` still indexes its content. Before the fix the plan
+/// said `stub` and durable preparation re-sniffed the blob as JSON, so the
+/// lockfile's packages reached the index either way.
+#[test]
+fn a_lockfile_is_published_as_a_name_card_unless_opted_out() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _replay_guard = sync_executor::REPLAY_FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let lock = r#"{"name":"web","lockfileVersion":3,"packages":{"node_modules/left-pad":{"version":"1.3.0","resolved":"https://registry.npmjs.org/left-pad/-/left-pad-1.3.0.tgz"}}}"#;
+    for default_stubs in [true, false] {
+        let corpus = tempfile::tempdir().unwrap();
+        let state_dir = tempfile::tempdir().unwrap();
+        fs::create_dir_all(corpus.path().join("web")).unwrap();
+        fs::write(corpus.path().join("web/package-lock.json"), lock).unwrap();
+        fs::write(
+            corpus.path().join("notes.md"),
+            "# Notes\n\nThe web folder holds a lockfile and nothing else.\n",
+        )
+        .unwrap();
+        let endpoint = HttpEndpoint::start();
+        let mut config = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
+        config.default_stubs = default_stubs;
+        run_index_report(config).unwrap();
+        let docs = endpoint.data_docs();
+        let lock_docs: Vec<&Value> = docs
+            .iter()
+            .filter(|doc| doc["ax_path"] == "web/package-lock.json")
+            .collect();
+        let flat = serde_json::to_string(&lock_docs).unwrap();
+        if default_stubs {
+            assert_eq!(lock_docs.len(), 1, "one name card: {docs:?}");
+            let card = lock_docs[0];
+            assert_eq!(card["title"], "package-lock.json", "{card}");
+            assert_eq!(card["bytes"], lock.len() as u64, "{card}");
+            assert!(card["ax_file"].as_str().is_some_and(|id| !id.is_empty()));
+            assert!(!flat.contains("left-pad"), "contents stay out: {flat}");
+        } else {
+            assert!(
+                flat.contains("left-pad"),
+                "opt-out indexes contents: {flat}"
+            );
+        }
+    }
+}
+
 #[test]
 fn code_files_index_with_ast_fields_and_the_run_reports_code_coverage() {
     let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
@@ -5462,6 +5511,10 @@ fn the_generated_path_reports_indexing_as_indexing_not_as_a_stalled_scan() {
             // behind the finished `finalize-catalog` ticker — a line that only
             // climbed `since_progress_s`, i.e. looked exactly like a hang.
             "finalize-catalog-readback",
+            // #2929: the bulk, refresh and counts after the read-back are a
+            // phase of their own, so a slow one is not a 100% read-back
+            // reported as stalled.
+            "finalize-catalog-commit",
             "finalize-refresh",
             "finalize-verify"
         ],

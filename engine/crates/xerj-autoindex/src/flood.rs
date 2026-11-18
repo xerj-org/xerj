@@ -312,6 +312,41 @@ pub fn disk_facts_from_allocation(body: &Value) -> DiskFacts {
     }
 }
 
+/// The data directory the node at `es` serves, from the same
+/// `_cat/allocation` row. `None` when the node does not say (an older XERJ,
+/// Elasticsearch, a test double) or cannot be asked.
+pub(crate) fn data_dir(es: &Es) -> Option<String> {
+    let (status, body) = es.request_json("GET", ALLOCATION_PATH, None).ok()?;
+    if !(200..300).contains(&status) {
+        return None;
+    }
+    let dir = disk_facts_from_allocation(&body).data_dir;
+    (!dir.is_empty()).then_some(dir)
+}
+
+/// What `autoindex map` adds when the catalog is missing or empty (#2409).
+///
+/// A bare `xerj` launch can start on a brand-new data directory while the
+/// user's indices live in the one an earlier `--data-dir`/`--config` named.
+/// The map then reads "missing autoindex-catalog", which looked like data
+/// loss. Naming the directory this node serves turns that into a check the
+/// user can make. The node does not look for other data directories, so the
+/// hint does not claim any exist.
+pub(crate) fn map_data_dir_hint(data_dir: Option<&str>, url: &str) -> String {
+    match data_dir {
+        Some(dir) => format!(
+            "The node at {url} serves data directory {dir}. If you indexed while the node \
+             ran with another --data-dir or --config, restart it with that one: a node \
+             reads only its own data directory and does not look for others."
+        ),
+        None => format!(
+            "If you indexed while the node ran with another --data-dir or --config, the node \
+             at {url} may be serving a different data directory; its startup log names the \
+             one in use (`server data directory data_dir=...`)."
+        ),
+    }
+}
+
 fn classify_memory_flood(body: &Value) -> MemoryFloodClass {
     if let Some(reason) = body.pointer("/error/reason").and_then(Value::as_str) {
         if reason.contains("the disk holding the data dir is nearly full") {
@@ -408,6 +443,30 @@ mod tests {
         // The watermark is inclusive: used == threshold is already blocked
         // (`disk_used_pct >= flood_pct` in the governor).
         assert!(refusal_from_allocation(&row("95", "1b", "95", "true", "false")).is_some());
+    }
+
+    /// #2409: an empty map names the data directory the node serves, so a
+    /// node started on a new folder is not read as data loss.
+    #[test]
+    fn the_map_hint_names_the_served_data_directory() {
+        let hint = map_data_dir_hint(Some("/work/proj/data"), "http://127.0.0.1:19300");
+        assert!(hint.contains("http://127.0.0.1:19300"), "{hint}");
+        assert!(
+            hint.contains("serves data directory /work/proj/data"),
+            "{hint}"
+        );
+        assert!(
+            hint.contains("--data-dir") && hint.contains("--config"),
+            "{hint}"
+        );
+        assert!(hint.contains("does not look for others"), "{hint}");
+
+        let unknown = map_data_dir_hint(None, "http://127.0.0.1:19300");
+        assert!(!unknown.contains("serves data directory"), "{unknown}");
+        assert!(
+            unknown.contains("server data directory data_dir="),
+            "{unknown}"
+        );
     }
 
     #[test]

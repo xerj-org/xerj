@@ -974,8 +974,11 @@ impl Progress {
                 let width = columns();
                 let body = truncate(&body, width);
                 let mut state = self.state.lock().unwrap();
-                let pad = state.tty_width.saturating_sub(body.chars().count());
-                state.tty_width = body.chars().count();
+                // Cells, not chars: the pad must blank exactly what the
+                // previous, possibly wider, CJK line painted (#3102).
+                let painted = cells(&body);
+                let pad = state.tty_width.saturating_sub(painted);
+                state.tty_width = painted;
                 drop(state);
                 let line = format!("\r{body}{}\r", " ".repeat(pad));
                 self.sink.write(line.as_bytes());
@@ -1139,11 +1142,40 @@ fn columns() -> usize {
         .unwrap_or(DEFAULT_COLUMNS)
 }
 
+/// Terminal cells one character occupies: 2 for East Asian Wide/Fullwidth
+/// (CJK), 0 for combining marks, 1 otherwise. Counting `char`s instead made
+/// a `中文路径测试` path render twice as wide as the line budget, so the bar
+/// wrapped and the `\r` redraw tore it (#3102). Controls never reach here
+/// (`sanitize`/`one_line` replace them) and count 0 if one ever does.
+fn char_cells(ch: char) -> usize {
+    unicode_width::UnicodeWidthChar::width(ch).unwrap_or(0)
+}
+
+/// Terminal cells `text` occupies, summed per character so the cut points in
+/// [`truncate`] and [`elide_start`] agree with the padding arithmetic.
+fn cells(text: &str) -> usize {
+    text.chars().map(char_cells).sum()
+}
+
+/// At most `width` cells, keeping one column free when it has to cut (a
+/// line that fills the last column wraps on many terminals). A wide
+/// character that would straddle the limit is dropped whole.
 fn truncate(text: &str, width: usize) -> String {
-    if text.chars().count() <= width {
+    if cells(text) <= width {
         return text.to_string();
     }
-    text.chars().take(width.saturating_sub(1)).collect()
+    let budget = width.saturating_sub(1);
+    let mut used = 0;
+    let mut out = String::new();
+    for ch in text.chars() {
+        let w = char_cells(ch);
+        if used + w > budget {
+            break;
+        }
+        used += w;
+        out.push(ch);
+    }
+    out
 }
 
 /// Characters an externally-controlled string may not put on the surface.
@@ -1345,15 +1377,28 @@ fn display_eta(eta: Eta, since_progress: f64) -> String {
 /// real 27 s run's `…ene/tests/util/europarl.lines.txt.gz(9.2MB)` reads as
 /// `…/tests/util/europarl.lines.txt.gz(9.2MB)` instead of inventing a
 /// directory called `ene`.
+///
+/// `max` is terminal cells, `…` included, so a CJK path keeps half as many
+/// characters as an ASCII one and the bar line keeps its width (#3102).
 fn elide_start(text: &str, max: usize) -> String {
-    let count = text.chars().count();
-    if count <= max {
+    if cells(text) <= max {
         return text.to_string();
     }
-    let tail: String = text.chars().skip(count - max.saturating_sub(1)).collect();
+    let budget = max.saturating_sub(1);
+    let mut used = 0;
+    let mut start = text.len();
+    for (at, ch) in text.char_indices().rev() {
+        let w = char_cells(ch);
+        if used + w > budget {
+            break;
+        }
+        used += w;
+        start = at;
+    }
+    let tail = &text[start..];
     let snapped = match tail.find(['/', '\\']) {
         Some(cut) => &tail[cut..],
-        None => tail.as_str(),
+        None => tail,
     };
     format!("…{snapped}")
 }
@@ -1858,6 +1903,87 @@ mod tests {
         );
         // A last component longer than the budget still yields its tail.
         assert_eq!(elide_start("aaaaaaaaaaaaaaaa.txt", 10), "…aaaaa.txt");
+    }
+
+    /// #3102: widths are terminal cells. A CJK character is two of them, so
+    /// a cut by `char` count let a `中文路径测试` path render at twice its
+    /// budget and wrap the bar.
+    #[test]
+    fn cjk_text_is_cut_by_terminal_cells_not_chars() {
+        assert_eq!(cells("abc"), 3);
+        assert_eq!(cells("中文路径测试"), 12);
+        assert_eq!(cells("…"), 1);
+
+        // Six wide characters are 12 cells; a 7-cell line keeps one column
+        // free, so it holds three (6 cells), not six or seven.
+        assert_eq!(truncate("中文路径测试", 7), "中文路");
+        assert_eq!(truncate("中文路径测试", 12), "中文路径测试", "fits exactly");
+        // A wide char never straddles the limit: a 9-cell line keeps 8, and
+        // `a` plus three wide chars is 7 — a fourth would make 9.
+        assert_eq!(truncate("a中文路径测试", 9), "a中文路");
+        for width in 2..40 {
+            let cut = truncate("proj/中文路径测试/子目录/说明文档.md", width);
+            assert!(
+                cells(&cut) <= width,
+                "{width}: {cut:?} is {} cells",
+                cells(&cut)
+            );
+        }
+
+        let path = "C:/Users/me/AppData/Local/Temp/中文路径测试/proj/说明文档.md(1.0KB)";
+        let elided = elide_start(path, 30);
+        assert!(
+            cells(&elided) <= 30,
+            "{elided:?} is {} cells",
+            cells(&elided)
+        );
+        assert!(
+            elided.starts_with("…/"),
+            "snapped to a component: {elided:?}"
+        );
+        assert!(elided.ends_with("说明文档.md(1.0KB)"), "{elided:?}");
+        for max in 2..60 {
+            let elided = elide_start(path, max);
+            assert!(cells(&elided) <= max, "{max}: {elided:?}");
+        }
+        // ASCII is unchanged: one char is one cell.
+        assert_eq!(elide_start("aaaaaaaaaaaaaaaa.txt", 10), "…aaaaa.txt");
+    }
+
+    /// #3102 end to end: the in-place TTY line for a CJK path stays inside the
+    /// terminal width, and the next shorter redraw blanks exactly the cells
+    /// the previous one painted.
+    #[test]
+    fn a_tty_line_with_a_cjk_path_fits_the_terminal() {
+        let (progress, buffer) = Progress::capture(Surface::Tty, Duration::from_secs(3600));
+        progress.phase("index", 3, 30_000_000);
+        let start = captured(&buffer).len();
+        {
+            let _guard = progress.file(
+                "中文路径测试/项目/源代码/模块/子模块/非常长的目录名称/说明文档.md",
+                1024,
+            );
+            progress.tick();
+        }
+        let width = columns();
+        let first = captured(&buffer)[start..].to_string();
+        let painted = first.trim_matches('\r');
+        assert!(painted.contains("waiting on"), "{first:?}");
+        assert!(
+            cells(painted.trim_end()) < width,
+            "{} cells on a {width}-column terminal: {painted:?}",
+            cells(painted.trim_end())
+        );
+        let before = captured(&buffer).len();
+        progress.tick();
+        let all = captured(&buffer);
+        let redraw = &all[before..];
+        let body = redraw.trim_matches('\r');
+        assert_eq!(
+            cells(body),
+            cells(painted),
+            "the shorter redraw pads to the previous line's cells: {redraw:?}"
+        );
     }
 
     /// Names a repository someone else controls can put on disk. Every one is
