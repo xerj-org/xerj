@@ -16213,7 +16213,27 @@ async fn search_impl(
         // (#2561): the engine pins the full top-k into the union itself
         // (`pin_knn_clause`), so `k` widens the candidate set, and `size`
         // is how many hits come back, as in ES.
-        let size = if body.query.is_some() {
+        //
+        // #3006: a single knn clause and nothing that re-ranks, drops or
+        // regroups the engine's hits afterwards needs no raise. The engine's
+        // kNN executors cap their pool at `k` and window it by `from`/`size`
+        // themselves, so the page is the same, while the raise made the
+        // engine hydrate and ship all `k` sources for the `size` it keeps
+        // (`k: 300`, `size: 10`: 290 documents decoded and thrown away).
+        let page_is_the_pool_window = knn_val.is_object()
+            && body.sort.is_none()
+            && body.collapse.is_none()
+            && body.rescore.is_none()
+            && body.min_score.is_none()
+            && body.post_filter.is_none()
+            && body.search_after.is_none()
+            && body.pit.is_none()
+            && body.slice.is_none()
+            && body.inner_hits.is_none()
+            && body.rerank.is_none()
+            && body.judge.is_none()
+            && body.terminate_after.is_none();
+        let size = if body.query.is_some() || page_is_the_pool_window {
             body.size
         } else {
             body.size.max(k_total)

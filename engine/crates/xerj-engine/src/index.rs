@@ -6012,6 +6012,139 @@ impl Drop for HnswPublicationGuard {
 }
 
 #[cfg(test)]
+mod knn_exact_cutover_tests {
+    use super::*;
+
+    #[test]
+    fn byte_rule_matches_the_documented_budget() {
+        let budget = KNN_EXACT_SCAN_MAX_KB_DEFAULT * 1024;
+        // #3006's indexes: 721 and 3,080 E5 vectors of 768 dims.
+        assert!(knn_prefers_exact_scan(721, 768, budget));
+        assert!(knn_prefers_exact_scan(3_080, 768, budget));
+        // 10,000 KiB / 3,072 B = 3,333.33 vectors of 768 dims.
+        assert!(knn_prefers_exact_scan(3_333, 768, budget));
+        assert!(!knn_prefers_exact_scan(3_334, 768, budget));
+        assert!(!knn_prefers_exact_scan(1_000_000, 384, budget));
+        // `0` is the pre-#3006 gate: never prefer the scan.
+        assert!(!knn_prefers_exact_scan(1, 1, 0));
+        assert!(!knn_prefers_exact_scan(u64::MAX, usize::MAX, budget));
+    }
+
+    /// Over `HNSW_MIN_DOCS` with a complete graph, the production budget
+    /// sends an unfiltered kNN to the exact scan, and the served page is the
+    /// exact scan's page — same ids, scores, order and sources — at every
+    /// `from`/`size` window, while `total` stays the capped pool `k`.
+    #[tokio::test]
+    async fn small_vector_set_is_served_by_the_exact_scan() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        let mut schema = Schema::empty();
+        schema
+            .add_field(FieldConfig::new("embedding", FieldType::Vector))
+            .unwrap();
+        engine.create_index("cutover", schema).unwrap();
+        let index = engine.get_index("cutover").unwrap();
+        // Every 7th document repeats a vector, so the page has exact ties for
+        // the `seq_no, _id` tie-break to order.
+        // The raw ingest path is the one the ANN publication tests use.
+        let docs: Vec<(String, Arc<[u8]>)> = (0..HNSW_MIN_DOCS + 64)
+            .map(|i| {
+                let j = if i % 7 == 0 { 7 } else { i };
+                let x = (j + 1) as f32 / ((HNSW_MIN_DOCS + 64) as f32 * 2.0);
+                let source = serde_json::json!({"embedding": [x, 1.0 - x, 0.1], "n": i});
+                (
+                    format!("doc-{i:05}"),
+                    Arc::<[u8]>::from(serde_json::to_vec(&source).unwrap()),
+                )
+            })
+            .collect();
+        index.index_batch_turbo_raw(docs).await.unwrap();
+        let stats = index.hnsw_stats().await;
+        assert_eq!(stats["covered"], true, "{stats}");
+
+        let query = [1.0f32, 0.0, 0.0];
+        let k = 300;
+        let knn = |from: usize, size: usize| SearchRequest {
+            query: QueryNode::Knn {
+                field: "embedding".to_owned(),
+                vector: query.to_vec(),
+                k,
+                num_candidates: Some(k),
+                filter: None,
+                boost: None,
+                similarity: None,
+            },
+            from,
+            size,
+            ..SearchRequest::default()
+        };
+        let deadline = || std::time::Instant::now() + std::time::Duration::from_secs(30);
+
+        // Budget 0 (the unit-test default): the graph serves.
+        assert!(
+            index
+                .run_knn_hnsw(
+                    &knn(0, 10),
+                    deadline(),
+                    "embedding",
+                    &query,
+                    k,
+                    Some(k),
+                    "cosine"
+                )
+                .await
+                .is_some(),
+            "a complete graph must serve ANN at budget 0: {stats}"
+        );
+        index
+            .knn_exact_scan_max_bytes
+            .store(KNN_EXACT_SCAN_MAX_KB_DEFAULT * 1024, Ordering::Relaxed);
+        assert!(index
+            .run_knn_hnsw(
+                &knn(0, 10),
+                deadline(),
+                "embedding",
+                &query,
+                k,
+                Some(k),
+                "cosine"
+            )
+            .await
+            .is_none());
+
+        // The whole pool, hydrated: the oracle every window must agree with.
+        let oracle = index
+            .run_knn_brute_force(
+                &knn(0, k),
+                "embedding",
+                &query,
+                k,
+                None,
+                "cosine",
+                None,
+                None,
+            )
+            .await
+            .unwrap();
+        assert_eq!(oracle.hits.len(), k);
+        for (from, size) in [(0, 10), (5, 20), (290, 50), (0, k), (k + 5, 10)] {
+            index.query_cache.clear();
+            let page = index.search(&knn(from, size)).await.unwrap();
+            assert_eq!(page.total.value, k as u64, "from={from} size={size}");
+            let want: Vec<_> = oracle.hits.iter().skip(from).take(size).collect();
+            assert_eq!(page.hits.len(), want.len(), "from={from} size={size}");
+            for (got, want) in page.hits.iter().zip(want) {
+                assert_eq!(got.id, want.id, "from={from} size={size}");
+                assert_eq!(got.score, want.score, "from={from} size={size}");
+                assert_eq!(got.source, want.source, "from={from} size={size}");
+            }
+        }
+    }
+}
+
+#[cfg(test)]
 mod raw_vector_publication_tests {
     use super::*;
 
@@ -11398,6 +11531,11 @@ pub struct Index {
     /// stale rebuild (RC4 W2 item 17, `rebuild_hnsw_from_docs`) once the
     /// graph has been re-derived from the authoritative doc set.
     hnsw_stale: Arc<std::sync::atomic::AtomicBool>,
+    /// #3006: an unfiltered kNN over at most this many bytes of stored f32
+    /// vectors (`vector_doc_count * dims * 4`) is served by the exact scan
+    /// even when a complete HNSW graph exists. See
+    /// [`knn_exact_scan_max_bytes_default`] and [`knn_prefers_exact_scan`].
+    knn_exact_scan_max_bytes: AtomicU64,
     /// True while `rebuild_hnsw_from_docs` is running (RC4 W2 item 17):
     /// guards against double-spawn and is surfaced in stats so operators
     /// can distinguish "healing" from "permanently degraded".
@@ -12267,6 +12405,7 @@ impl Index {
             hnsw_field: Arc::new(std::sync::RwLock::new(None)),
             passage_chunk_fields: Arc::new(std::sync::RwLock::new(passage_chunk_fields_init)),
             hnsw_stale: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            knn_exact_scan_max_bytes: AtomicU64::new(knn_exact_scan_max_bytes_default()),
             hnsw_rebuilding: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             hnsw_rebuild_task: Arc::new(parking_lot::Mutex::new(None)),
             sq8_stores: Arc::new(parking_lot::RwLock::new(HashMap::new())),
@@ -12748,6 +12887,7 @@ impl Index {
             hnsw_field: Arc::new(std::sync::RwLock::new(hnsw_field_init)),
             passage_chunk_fields: Arc::new(std::sync::RwLock::new(passage_chunk_fields_init)),
             hnsw_stale: Arc::new(std::sync::atomic::AtomicBool::new(hnsw_stale_init)),
+            knn_exact_scan_max_bytes: AtomicU64::new(knn_exact_scan_max_bytes_default()),
             hnsw_rebuilding: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             hnsw_rebuild_task: Arc::new(parking_lot::Mutex::new(None)),
             sq8_stores: Arc::new(parking_lot::RwLock::new(HashMap::new())),
@@ -18772,6 +18912,9 @@ impl Index {
     ///   * `vector_doc_count >= HNSW_MIN_DOCS` — small vector sets (every
     ///     ES-YAML vector test is ≤ a few hundred docs) keep today's
     ///     byte-identical exact path;
+    ///   * the stored vectors exceed the exact-scan budget (#3006,
+    ///     [`knn_prefers_exact_scan`]): below it the exact scan is the faster
+    ///     executor and its recall is exact;
     ///   * coverage: `hnsw_id_map.len() == vector_doc_count` (item 8), i.e.
     ///     every doc that CARRIES the pinned vector field has a graph entry.
     ///     Docs lacking the field are not vector docs and belong in neither
@@ -18846,6 +18989,16 @@ impl Index {
         // brute — never to wrong results.
         let vector_doc_count = self.vector_doc_count.load(Ordering::Relaxed);
         if vector_doc_count < HNSW_MIN_DOCS {
+            return None;
+        }
+        // #3006: a small vector set is cheaper to scan exactly than to search
+        // through the graph and then hydrate every candidate for the rescore,
+        // and the exact scan's answer has exact recall.
+        if knn_prefers_exact_scan(
+            vector_doc_count,
+            query_vec.len(),
+            self.knn_exact_scan_max_bytes.load(Ordering::Relaxed),
+        ) {
             return None;
         }
         if self.hnsw_id_map.read().await.len() as u64 != vector_doc_count {
@@ -20492,11 +20645,36 @@ impl Index {
         // shared stored values, so a query pays for `k` sources, not for the
         // corpus.
         rank_knn_pool(&mut scored, k, |entry| entry.1);
+        // #3006: put the capped pool in page order BEFORE hydrating, from ids
+        // alone (#3017's `score, seq_no, _id` key needs no source), so only
+        // the documents the response returns are hydrated. A `k: 300` request
+        // for a 10-hit page used to decode and clone 300 sources — every one
+        // carrying its stored vector — and keep 10. Aggregations read every
+        // neighbour's source, so with `aggs` the whole pool is still hydrated.
+        let mut ordered: Vec<(String, f32, Value, Option<u32>)> = scored
+            .iter()
+            .map(|&(candidate, score, ordinal)| {
+                let id = candidates[candidate].id(&mem_docs, &segment_views);
+                (id, score, Value::from(candidate as u64), ordinal)
+            })
+            .collect();
+        order_knn_pool_page_order(self, &mut ordered);
+        let page = if request.aggs.is_some() {
+            0..ordered.len()
+        } else if request.size == 0 {
+            0..0
+        } else {
+            let start = request.from.min(ordered.len());
+            start..request.from.saturating_add(request.size).min(ordered.len())
+        };
+        let candidate_of = |entry: &(String, f32, Value, Option<u32>)| {
+            entry.2.as_u64().expect("candidate index") as usize
+        };
         // #1091: winners in a column-scanned segment are hydrated together,
         // one row-selective decode per segment, before the page is assembled.
         let mut by_view: HashMap<usize, Vec<usize>> = HashMap::new();
-        for (candidate, _, _) in &scored {
-            if let KnnCandidateAt::Segment { view, position } = candidates[*candidate] {
+        for entry in &ordered[page.clone()] {
+            if let KnnCandidateAt::Segment { view, position } = candidates[candidate_of(entry)] {
                 if segment_views[view].docs.is_none() {
                     by_view.entry(view).or_default().push(position);
                 }
@@ -20544,14 +20722,52 @@ impl Index {
         for (view, positions) in by_view {
             let hydrate_started = std::time::Instant::now();
             let rows_wanted = positions.len();
-            let rows = match self
-                .hydrate_segment_rows(
-                    &segment_views[view].segment_id,
-                    positions.clone(),
-                    omit_companions.clone(),
-                )
-                .await
-            {
+            // #3006: a warm segment hydrates from its cached offset index —
+            // one JSON parse per returned row. The row decoder below walks
+            // every requested column end to end to reach its rows, so its
+            // cost is the segment's, not the page's: measured 20 ms on a
+            // 721-doc and 80 ms on a 3,080-doc segment of 768-dim vectors,
+            // for 10 rows as for 300, against a 2 ms scan. A cold segment
+            // still takes the row decode and then schedules the same
+            // background warm the BM25 cold path does (#2422/#2423), so the
+            // next query is warm.
+            let warm_rows = self
+                .stored_slices_cache
+                .get(segment_views[view].segment_id.as_str())
+                .map(|entry| Arc::clone(entry.value()))
+                .and_then(|slices| {
+                    positions
+                        .iter()
+                        .map(|&position| {
+                            let &(start, end) = slices.offsets.get(position)?;
+                            let slice = slices.bytes.get(start as usize..end as usize)?;
+                            // serde_json, not simd_json: see ffd49ac.
+                            let doc = serde_json::from_slice::<Value>(slice).ok()?;
+                            Some(knn_stored_hit_owned(doc))
+                        })
+                        .collect::<Option<Vec<_>>>()
+                });
+            let cold_rows = match warm_rows {
+                Some(rows) => Some(rows),
+                None => {
+                    let rows = self
+                        .hydrate_segment_rows(
+                            &segment_views[view].segment_id,
+                            positions.clone(),
+                            omit_companions.clone(),
+                        )
+                        .await;
+                    if let Some(meta) = snap
+                        .segments
+                        .iter()
+                        .find(|meta| meta.id == segment_views[view].segment_id)
+                    {
+                        self.schedule_cold_stored_warm(&meta.id, meta.doc_count);
+                    }
+                    rows
+                }
+            };
+            let rows = match cold_rows {
                 Some(rows) => rows,
                 // A section the row decoder cannot address — LZ4 below
                 // `V2_MIN_DOCS` documents, a ZBS3 wrapper, a dependency shape
@@ -20591,8 +20807,19 @@ impl Index {
                 tracing::info!(index=%self.name, segment=%segment_views[view].segment_id, rows=rows_wanted, elapsed_ms=hydrate_started.elapsed().as_millis() as u64, "semantic_phase=hydrate_rows");
             }
         }
-        let mut ranked: Vec<(String, f32, Value, Option<u32>)> = Vec::with_capacity(scored.len());
-        for (candidate, score, ordinal) in scored {
+        // #3017: the cap above kept tied candidates in scan order (memtable,
+        // then segments), which moves when a memtable flushes; `ordered` is
+        // the one score-ranked order every executor shares. Entries outside
+        // the page keep a `Null` source: `knn_result_from_ranked` counts them
+        // into `total` and never reads them.
+        let mut ranked = ordered;
+        for (at, entry) in ranked.iter_mut().enumerate() {
+            if !page.contains(&at) {
+                entry.2 = Value::Null;
+            }
+        }
+        for entry in &mut ranked[page] {
+            let candidate = candidate_of(entry);
             let (id, source) = match candidates[candidate].hydrate(&mem_docs, &segment_views) {
                 KnnHydrated::Ready(id, source) => (id, source),
                 KnnHydrated::Columnar { view, position } => {
@@ -20602,12 +20829,11 @@ impl Index {
                     }
                 }
             };
-            ranked.push((id, score, source, ordinal));
+            if id != entry.0 {
+                return Ok(None);
+            }
+            entry.2 = source;
         }
-        // #3017: the cap above kept tied candidates in scan order (memtable,
-        // then segments), which moves when a memtable flushes; the page itself
-        // is put in the one score-ranked order every executor shares.
-        order_knn_pool_page_order(self, &mut ranked);
 
         // (result shaping is shared with the HNSW path so hits format / total
         // semantics cannot drift between the exact and approximate executors)
@@ -21601,6 +21827,82 @@ impl Index {
             .await
     }
 
+    /// #3018: run every hybrid leg at once, one OS thread per leg, and return
+    /// the outcomes in leg order. Leg 0 runs on the calling thread.
+    ///
+    /// The calling thread is handed to the blocking pool first
+    /// (`block_in_place`; a no-op hand-off when a search is already running
+    /// inside one, which is how a hybrid request arrives), so no async worker
+    /// is parked while the legs run. Each leg drives its own future with
+    /// `Handle::block_on`, so its awaits (segment loads on the blocking pool,
+    /// an embedder round trip) work as they do on the request's task.
+    ///
+    /// A thread does not inherit the request's task-locals, so the ones a
+    /// search consults are carried over by hand: the index-visibility rule
+    /// (`index_guard`), the script deadline, and a script-fault sink whose
+    /// first fault is re-raised into the request's own capture scope. The
+    /// semantic-highlight plan is not carried: hybrid legs never highlight.
+    ///
+    /// A panicking leg is resumed on the caller, exactly as a panic inside a
+    /// joined future would have unwound it.
+    fn run_hybrid_legs_on_threads(
+        &self,
+        handle: &tokio::runtime::Handle,
+        sub_requests: &[SearchRequest],
+        deadline: std::time::Instant,
+    ) -> Vec<Result<SearchResult>> {
+        let visibility = crate::index_guard::current();
+        let script_deadline = crate::painless::current_script_deadline();
+        let run_leg = |leg: &SearchRequest| {
+            let visibility = visibility.clone();
+            handle.block_on(crate::painless::with_script_fault_capture(async move {
+                let search = crate::index_guard::scoped_opt(
+                    visibility,
+                    Box::pin(self.search_inner(leg, deadline)),
+                );
+                match script_deadline {
+                    Some(at) => crate::painless::with_script_deadline(at, search).await,
+                    None => search.await,
+                }
+            }))
+        };
+        let outcomes: Vec<(Result<SearchResult>, Option<String>)> =
+            tokio::task::block_in_place(|| {
+                std::thread::scope(|scope| {
+                    let others: Vec<_> = sub_requests[1..]
+                        .iter()
+                        .map(|leg| {
+                            std::thread::Builder::new()
+                                .name("xerj-hybrid-leg".into())
+                                .spawn_scoped(scope, || run_leg(leg))
+                        })
+                        .collect();
+                    let mut outcomes = Vec::with_capacity(sub_requests.len());
+                    outcomes.push(run_leg(&sub_requests[0]));
+                    for (offset, spawned) in others.into_iter().enumerate() {
+                        let outcome = match spawned {
+                            Ok(thread) => thread
+                                .join()
+                                .unwrap_or_else(|panic| std::panic::resume_unwind(panic)),
+                            // The OS refused a thread: run that leg here.
+                            Err(_) => run_leg(&sub_requests[offset + 1]),
+                        };
+                        outcomes.push(outcome);
+                    }
+                    outcomes
+                })
+            });
+        outcomes
+            .into_iter()
+            .map(|(outcome, fault)| {
+                if let Some(fault) = fault {
+                    crate::painless::record_script_fault(&fault);
+                }
+                outcome
+            })
+            .collect()
+    }
+
     async fn run_hybrid_with_deadline(
         &self,
         request: &SearchRequest,
@@ -21640,9 +21942,12 @@ impl Index {
         // Under the default lexical embedder the embedding is synchronous and
         // there is nothing to overlap; this costs nothing there.
         //
-        // Spawning each leg as its own task would buy real parallelism, but
-        // needs an `Arc<Self>` this `&self` chain does not have, next to the
-        // `block_in_place` hand-off that produced #751. Not for ~10 ms.
+        // #3018: that was the whole story only on a current-thread runtime.
+        // On the multi-thread runtime the legs now run in PARALLEL, one OS
+        // thread each (`run_hybrid_legs_on_threads`), because a lexical scan
+        // and a vector scan are both CPU-bound and do not await: a measured
+        // two-leg request cost the sum of its legs. The consumption order and
+        // the error/timeout rules below are the same for both executions.
         let mut sub_results: Vec<(Vec<Hit>, f32)> = Vec::with_capacity(sub_queries.len());
         let mut sub_savings: Vec<PayloadSavings> = Vec::new();
         let mut any_timed_out = false;
@@ -21679,8 +21984,24 @@ impl Index {
             .collect();
         let mut leg_outcomes: Vec<Option<Result<SearchResult>>> =
             sub_requests.iter().map(|_| None).collect();
+        let parallel_runtime = tokio::runtime::Handle::try_current()
+            .ok()
+            .filter(|h| h.runtime_flavor() == tokio::runtime::RuntimeFlavor::MultiThread)
+            .filter(|_| hybrid_parallel_legs_enabled());
         if std::time::Instant::now() >= deadline {
             any_timed_out = true;
+        } else if let (Some(handle), true) = (parallel_runtime, sub_requests.len() > 1) {
+            // #3018: on the multi-thread runtime every leg gets its own OS
+            // thread. The join below only overlapped a leg's awaits; a BM25
+            // scan and an exact or ANN vector scan are CPU work that never
+            // awaits, so a two-leg request cost the SUM of its legs.
+            for (leg, outcome) in self
+                .run_hybrid_legs_on_threads(&handle, &sub_requests, deadline)
+                .into_iter()
+                .enumerate()
+            {
+                leg_outcomes[leg] = Some(outcome);
+            }
         } else {
             let mut poll_order: Vec<usize> = (0..sub_requests.len()).collect();
             // Stable: legs that embed keep their relative order, then the rest.
@@ -46191,6 +46512,70 @@ impl<'a> QueryScorer<'a> {
 /// today's byte-identical exact path.
 const HNSW_MIN_DOCS: u64 = 1024;
 
+/// #3006: default byte budget below which an unfiltered kNN skips a complete
+/// HNSW graph and scans every stored vector exactly.
+///
+/// The cutover is a size of vector data, not a document count, because the
+/// exact scan's cost is `docs * dims` multiply-adds over a cached flat column,
+/// while the graph path pays a beam search (`ef >= HNSW_EF_FLOOR` = 800, so
+/// the beam alone visits most of a few-thousand-node graph) plus fetching and
+/// parsing EVERY candidate's stored document for the exact rescore. qdrant
+/// makes the same call with the same unit: `full_scan_threshold` in KB of
+/// vectors, default 10,000 (qdrant `lib/segment/src/types.rs:820-827,2321`;
+/// applied per segment in `lib/segment/src/index/hnsw_index/hnsw.rs:81-95`),
+/// and Lucene's `AbstractKnnVectorQuery` falls back to `exactSearch` when it
+/// is cheaper (`AbstractKnnVectorQuery.java:282-302`). Same default here;
+/// XERJ's measured crossover is in the #3006 commit body.
+///
+/// The process-wide override is `XERJ_KNN_EXACT_SCAN_MAX_KB` (`0` turns the
+/// cutover off and restores the old `HNSW_MIN_DOCS`-only gate).
+const KNN_EXACT_SCAN_MAX_KB_DEFAULT: u64 = 10_000;
+
+/// The exact-scan byte budget a new [`Index`] starts with (#3006).
+///
+/// Unit tests start at `0`, the pre-#3006 gate, so the many tests that build
+/// a just-over-`HNSW_MIN_DOCS` low-dimension corpus to exercise the ANN path
+/// keep exercising it; the cutover's own tests set the production value.
+fn knn_exact_scan_max_bytes_default() -> u64 {
+    if cfg!(test) {
+        return 0;
+    }
+    static BUDGET: std::sync::OnceLock<u64> = std::sync::OnceLock::new();
+    *BUDGET.get_or_init(|| {
+        std::env::var("XERJ_KNN_EXACT_SCAN_MAX_KB")
+            .ok()
+            .and_then(|raw| raw.trim().parse::<u64>().ok())
+            .unwrap_or(KNN_EXACT_SCAN_MAX_KB_DEFAULT)
+            .saturating_mul(1024)
+    })
+}
+
+/// #3018: whether a hybrid request on the multi-thread runtime runs its legs
+/// on one OS thread each. On by default; `XERJ_HYBRID_PARALLEL_LEGS=0` keeps
+/// every leg on the request's thread, the pre-#3018 execution — for a node
+/// saturated with concurrent hybrid requests, where the extra threads buy no
+/// throughput, and for measuring what the parallel legs are worth.
+fn hybrid_parallel_legs_enabled() -> bool {
+    static ENABLED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *ENABLED.get_or_init(|| {
+        !matches!(
+            std::env::var("XERJ_HYBRID_PARALLEL_LEGS")
+                .as_deref()
+                .map(str::trim),
+            Ok("0") | Ok("false") | Ok("off")
+        )
+    })
+}
+
+/// Whether an unfiltered kNN over `vector_doc_count` vectors of `dims` f32s
+/// should take the exact scan instead of the HNSW graph (#3006).
+fn knn_prefers_exact_scan(vector_doc_count: u64, dims: usize, max_bytes: u64) -> bool {
+    let bytes = vector_doc_count
+        .saturating_mul(dims as u64)
+        .saturating_mul(std::mem::size_of::<f32>() as u64);
+    max_bytes > 0 && bytes <= max_bytes
+}
+
 /// Lower bound on the HNSW beam width (`ef`).
 ///
 /// DOCUMENTED DIVERGENCE from ES's `num_candidates` contract: Lucene runs
@@ -47272,6 +47657,30 @@ impl KnnCandidateAt {
         }
     }
 
+    /// The candidate's `_id` alone, without touching its source (#3006): a
+    /// column-scanned segment answers from the column's identity, so the
+    /// whole capped pool can be put in page order before any hydration.
+    fn id(&self, mem_docs: &[(String, Arc<Value>)], segment_views: &[KnnSegmentView]) -> String {
+        match *self {
+            Self::Memtable(slot) => mem_docs[slot].0.clone(),
+            Self::Segment { view, position } => {
+                let segment = &segment_views[view];
+                match segment.docs.as_ref() {
+                    Some(docs) => docs[position]
+                        .get("_id")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default()
+                        .to_string(),
+                    None => segment
+                        .column
+                        .identity(position)
+                        .map(|(id, _)| id.to_string())
+                        .unwrap_or_default(),
+                }
+            }
+        }
+    }
+
     /// The candidate's id and an OWNED source — paid for returned hits only.
     fn hydrate(
         &self,
@@ -47314,6 +47723,26 @@ fn knn_stored_hit(doc: &Value) -> (String, Value) {
         d
     });
     (id, source)
+}
+
+/// [`knn_stored_hit`] for a document the caller owns: the source is moved out,
+/// not cloned (#3006, the warm hydration of the exact scan).
+fn knn_stored_hit_owned(doc: Value) -> (String, Value) {
+    let mut doc = match doc {
+        Value::Object(doc) => doc,
+        other => return knn_stored_hit(&other),
+    };
+    let id = match doc.get("_id") {
+        Some(Value::String(id)) => id.clone(),
+        _ => String::new(),
+    };
+    match doc.remove("_source") {
+        Some(source) => (id, source),
+        None => {
+            doc.remove("_id");
+            (id, Value::Object(doc))
+        }
+    }
 }
 
 /// How the exact kNN scan shows one document to its `filter` (#939).
