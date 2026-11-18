@@ -519,9 +519,110 @@ pub struct ResourceGovernor {
     commit_starved: AtomicBool,
     /// The process cap was lowered to the commit ceiling at startup.
     commit_capped: bool,
+    /// The cap came from the AUTO tier (config or env `auto`), so resident
+    /// memory the node needs before any write may be added on top (#3277).
+    auto_tier: bool,
+    /// Resident bytes reserved with [`Self::reserve_resident`]: memory the
+    /// node holds before any write (runtime, opened indices, a loaded model).
+    resident_reserved_bytes: AtomicU64,
+}
+
+/// What [`ResourceGovernor::reserve_resident`] did, for the boot log.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ResidentReservation {
+    /// Watermark before and after, in bytes.
+    pub watermark_before: u64,
+    pub watermark_after: u64,
+    /// Process memory when the reservation was made.
+    pub observed: u64,
+    /// One line for the log: an `info` when the auto tier grew, a `warn`
+    /// when the node already sits at or over a breaker it cannot grow.
+    pub line: Option<(bool, String)>,
 }
 
 impl ResourceGovernor {
+    /// The watermark the node uses when no live override is set: the boot
+    /// value, plus the resident reservation under the AUTO tier, clamped to
+    /// the machine (or the Windows commit ceiling).
+    fn default_watermark(&self) -> u64 {
+        if self.memory_watermark_bytes_default == 0 || !self.auto_tier {
+            return self.memory_watermark_bytes_default;
+        }
+        self.memory_watermark_bytes_default
+            .saturating_add(self.resident_reserved_bytes.load(Ordering::Relaxed))
+            .min(self.machine_memory_bytes)
+            .max(1)
+    }
+
+    /// Reserve `bytes` the node holds before it takes any write (#3277).
+    ///
+    /// The AUTO tier is sized from RAM alone. On a small machine it chose an
+    /// 846 MB breaker for a node whose facts model alone was ~1 GB resident,
+    /// so the node was over its breaker from boot and every write was a 429.
+    /// Under the AUTO tier the reservation is added to the watermark, so the
+    /// tier's budget is for writes, on top of what the node needs to exist;
+    /// it never climbs past the machine (or the Windows commit ceiling).
+    /// An explicit cap (`limits.max_process_memory_mb`, a number in
+    /// `XERJ_MAX_PROCESS_MEMORY_MB`) is the operator's number and is not
+    /// moved; when the node already sits at or over it, the returned line is
+    /// the warning to log, naming both numbers and the variable to raise.
+    pub fn reserve_resident(&self, label: &str, bytes: u64) -> ResidentReservation {
+        const MIB: u64 = 1024 * 1024;
+        let watermark_before = self.memory_watermark_bytes.load(Ordering::Relaxed);
+        let observed = current_process_memory_bytes();
+        if self.memory_watermark_bytes_default == 0 {
+            return ResidentReservation {
+                watermark_before,
+                watermark_after: watermark_before,
+                observed,
+                line: None,
+            };
+        }
+        if self.auto_tier && bytes > 0 {
+            self.resident_reserved_bytes
+                .fetch_add(bytes, Ordering::Relaxed);
+            // A live override (`indices.breaker.total.limit`) is re-applied
+            // by the sampler on its next tick; until then the new default
+            // holds, and it is never lower than what was in force.
+            let after = self.default_watermark().max(watermark_before);
+            self.memory_watermark_bytes.store(after, Ordering::Relaxed);
+        }
+        let watermark_after = self.memory_watermark_bytes.load(Ordering::Relaxed);
+        let line = if observed >= watermark_after && observed > 0 {
+            let suggest_mb = (observed.saturating_mul(2) / MIB).max(1024);
+            Some((
+                true,
+                format!(
+                    "memory: this node holds {}MB before any write ({label}), at or over its \
+                     {}MB write breaker, so every write will get HTTP 429. Raise the cap: \
+                     XERJ_MAX_PROCESS_MEMORY_MB={suggest_mb} (or limits.max_process_memory_mb), \
+                     or free memory on this machine",
+                    observed / MIB,
+                    watermark_after / MIB,
+                ),
+            ))
+        } else if watermark_after > watermark_before {
+            Some((
+                false,
+                format!(
+                    "memory: {label} holds {}MB; the auto write breaker moves from {}MB to {}MB \
+                     so writes keep their budget",
+                    bytes / MIB,
+                    watermark_before / MIB,
+                    watermark_after / MIB,
+                ),
+            ))
+        } else {
+            None
+        };
+        ResidentReservation {
+            watermark_before,
+            watermark_after,
+            observed,
+            line,
+        }
+    }
+
     // ── Admission checks (hot path — relaxed atomic loads only) ─────────
 
     /// Ingest admission. Returns a 429 `circuit_breaking_exception` when the
@@ -1309,7 +1410,7 @@ impl ResourceGovernor {
         }
         let effective = match override_bytes {
             Some(bytes) => bytes.min(self.machine_memory_bytes).max(1),
-            None => self.memory_watermark_bytes_default,
+            None => self.default_watermark(),
         };
         self.memory_watermark_bytes
             .store(effective, Ordering::Relaxed);
@@ -2353,6 +2454,8 @@ fn build(config: &Config) -> ResourceGovernor {
         ),
         commit_starved: AtomicBool::new(startup_starved),
         commit_capped,
+        auto_tier: resolved_process_cap.auto_tier,
+        resident_reserved_bytes: AtomicU64::new(0),
     }
 }
 
@@ -3787,6 +3890,59 @@ mod tests {
         assert!(g.check_ingest_admission().is_ok());
         assert!(g.check_disk_block("i").is_ok());
         assert_eq!(g.max_concurrent_searches(), 64);
+    }
+
+    /// #3277: under the AUTO tier, memory the node holds before any write is
+    /// added to the breaker, never past the machine, and survives clearing a
+    /// live override.
+    #[test]
+    fn an_auto_tier_reservation_raises_the_breaker_up_to_the_machine() {
+        if std::env::var_os("XERJ_MAX_PROCESS_MEMORY_MB").is_some() {
+            return;
+        }
+        const MIB: u64 = 1024 * 1024;
+        let g = build(&Config::default());
+        assert!(g.auto_tier);
+        let before = g.memory_watermark_bytes();
+        let r = g.reserve_resident("test model", 64 * MIB);
+        let expected = (before + 64 * MIB).min(g.machine_memory_bytes);
+        assert_eq!(r.watermark_after, expected);
+        assert_eq!(g.memory_watermark_bytes(), expected);
+        g.set_memory_watermark_override(Some(before / 2));
+        g.set_memory_watermark_override(None);
+        assert_eq!(
+            g.memory_watermark_bytes(),
+            expected,
+            "default keeps the reservation"
+        );
+        let huge = g.reserve_resident("huge", u64::MAX / 4);
+        assert_eq!(huge.watermark_after, g.machine_memory_bytes);
+    }
+
+    /// #3277: an explicit cap is the operator's number. A node already over
+    /// it at boot gets one line naming both numbers and the variable.
+    #[test]
+    fn an_explicit_cap_is_not_moved_and_a_node_over_it_is_warned() {
+        if std::env::var_os("XERJ_MAX_PROCESS_MEMORY_MB").is_some()
+            || xerj_common::resource::current_rss_bytes().is_none()
+        {
+            return;
+        }
+        let mut cfg = Config::default();
+        cfg.limits.max_process_memory_mb = 1;
+        let g = build(&cfg);
+        assert!(!g.auto_tier);
+        let before = g.memory_watermark_bytes();
+        let r = g.reserve_resident("boot", 512 * 1024 * 1024);
+        assert_eq!(r.watermark_after, before);
+        let (warn, line) = r.line.expect("a node over a 1 MiB cap is warned");
+        assert!(warn);
+        assert!(line.contains("every write will get HTTP 429"), "{line}");
+        assert!(line.contains("XERJ_MAX_PROCESS_MEMORY_MB="), "{line}");
+        assert!(
+            line.contains(&format!("{}MB write breaker", before / (1024 * 1024))),
+            "{line}"
+        );
     }
 
     #[test]

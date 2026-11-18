@@ -136,6 +136,36 @@ use xerj_common::{config::Config, metrics::Metrics};
 use xerj_console_api::{state::ClusterMode, ConsoleState, RpConfig};
 use xerj_engine::Engine;
 
+// #3276: the binary's own print macros, with fallible writes.
+//
+// `std`'s `println!`/`eprintln!` panic when the write fails, and the release
+// profile is `panic = "abort"`. A node started from an agent terminal keeps
+// that terminal (or pipe) as its stdout/stderr; once the session ends, a
+// write returns EIO or ENOSPC-like errors instead of reaching anyone, and the
+// next banner line aborted the node (exit 134, reproduced on rc.74 with
+// `2>/dev/full`). A lost line is not worth the node. Defined before the
+// `mod` items, so every module of this binary uses them. SIGPIPE keeps its
+// default disposition (`restore_default_sigpipe`), so `xerj … | head` still
+// ends quietly with 141.
+macro_rules! println {
+    ($($arg:tt)*) => {{
+        use ::std::io::Write as _;
+        let _ = ::std::writeln!(::std::io::stdout(), $($arg)*);
+    }};
+}
+macro_rules! print {
+    ($($arg:tt)*) => {{
+        use ::std::io::Write as _;
+        let _ = ::std::write!(::std::io::stdout(), $($arg)*);
+    }};
+}
+macro_rules! eprintln {
+    ($($arg:tt)*) => {{
+        use ::std::io::Write as _;
+        let _ = ::std::writeln!(::std::io::stderr(), $($arg)*);
+    }};
+}
+
 mod brain;
 #[cfg(all(target_os = "linux", feature = "debug-profiling"))]
 mod debug_profiling;
@@ -281,6 +311,9 @@ where
             // whole argument list, so its position never matters); accepted
             // here only so it is not an "unknown argument".
             xerj_common::feedback::DISABLE_FLAG => {}
+            // Handled in `main` before this parser runs (`run_detached`); the
+            // detached child never sees it. Accepted so it is not "unknown".
+            "--detach" => {}
             "--help" | "-h" => {
                 print_help();
                 std::process::exit(0);
@@ -366,6 +399,13 @@ fn help_text(feedback: bool) -> String {
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20XERJ_ALLOW_INSECURE_NETWORK_BIND=true), because every\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20request — API key included — would cross the network in\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20cleartext. Env: XERJ_BIND_ADDRESS\n\
+         \x20\x20\x20\x20--detach               Start the node in the background and return once it\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20serves. It is detached from this terminal (its own\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20session on Linux/macOS, a detached process on Windows),\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20so closing the terminal or agent session does not stop\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20it. Output goes to <data_dir>/node.log. Clients on this\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20machine (xerj mcp, search, def, code) also start a\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20stopped local node this way; XERJ_NO_AUTOSTART=1 stops that.\n\
          \x20\x20\x20\x20--insecure, -k         Disable TLS *and* API-key authentication — local dev only.\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20Auth is ON by default, so without this flag every client\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20(`xerj autoindex` and `xerj brain` included) must send the\n\
@@ -2976,6 +3016,155 @@ fn raise_nofile_limit() {
     }
 }
 
+/// Point any closed standard descriptor (0, 1, 2) at `/dev/null` (#3276).
+///
+/// A node started with `2>&-` or `>&-` (or by a parent that closed them)
+/// has no fd 2. The next file the node opens (a segment, a socket, the WAL)
+/// takes the lowest free number, so every later `stderr` write would land
+/// in that file. `/dev/null` holds the slot instead.
+#[cfg(unix)]
+fn ensure_std_fds_open() {
+    for fd in 0..3 {
+        // SAFETY: `fcntl(F_GETFD)` only queries the descriptor table.
+        let closed = unsafe { libc::fcntl(fd, libc::F_GETFD) } == -1
+            && std::io::Error::last_os_error().raw_os_error() == Some(libc::EBADF);
+        if !closed {
+            continue;
+        }
+        // SAFETY: a NUL-terminated literal path; the returned descriptor is
+        // checked, moved onto `fd` with `dup2` when needed, and closed.
+        unsafe {
+            let null = libc::open(c"/dev/null".as_ptr(), libc::O_RDWR);
+            if null < 0 {
+                continue;
+            }
+            if null != fd {
+                libc::dup2(null, fd);
+                libc::close(null);
+            }
+        }
+    }
+}
+
+/// `xerj --detach …` (#3267): start this same command without `--detach` as
+/// a detached child, wait until it serves, print where it is, and return the
+/// exit code.
+///
+/// Field reports: a node started from an agent terminal got SIGTERM when the
+/// session ended (Linux; `nohup`/`setsid` worked around it), and one started
+/// with `cmd start /B` died with its shell (Windows). The child here is in
+/// its own session (Unix `setsid`) or detached from the console and, when
+/// the job allows it, from the job (Windows), with stdin closed and output
+/// in `<data_dir>/node.log` — nothing of the terminal is left to take it
+/// down. See `xerj_common::localnode::spawn_detached`.
+///
+/// The port is read from the launch record the child writes once it has
+/// bound (`node.launch.json`, matched by PID), so `--auto-port` is followed.
+fn run_detached() -> i32 {
+    use xerj_common::localnode;
+    let args: Vec<String> = std::env::args()
+        .skip(1)
+        .filter(|a| a != "--detach")
+        .collect();
+    let cli = match parse_args_from(args.clone().into_iter()) {
+        Ok(cli) => cli,
+        Err(e) => {
+            eprintln!("error: {e}. Use --help for usage.");
+            return 2;
+        }
+    };
+    let (cfg, _) = match load_config_with_data_dir_origin(&cli) {
+        Ok(loaded) => loaded,
+        Err(e) => {
+            eprintln!("error: {e:#}");
+            return 1;
+        }
+    };
+    let data_dir = PathBuf::from(&cfg.server.data_dir);
+    let created = !data_dir.exists();
+    if let Err(e) = std::fs::create_dir_all(&data_dir) {
+        eprintln!("error: cannot create data dir {}: {e}", data_dir.display());
+        return 1;
+    }
+    let data_dir = std::fs::canonicalize(&data_dir).unwrap_or(data_dir);
+    let log = data_dir.join(localnode::NODE_LOG_FILE);
+    let exe = match std::env::current_exe() {
+        Ok(exe) => exe,
+        Err(e) => {
+            eprintln!("error: cannot locate the xerj binary: {e}");
+            return 1;
+        }
+    };
+    let cwd = std::env::current_dir().unwrap_or_else(|_| data_dir.clone());
+    let mut child = match localnode::spawn_detached(&exe, &args, &cwd, &log) {
+        Ok(child) => child,
+        Err(e) => {
+            eprintln!("error: could not start {}: {e}", exe.display());
+            return 1;
+        }
+    };
+    let pid = child.id();
+    let scheme = if cfg.tls.enabled { "https" } else { "http" };
+    let host = match cfg.bind_ip() {
+        Some(ip) if ip.is_unspecified() || ip.is_loopback() => "localhost".to_string(),
+        Some(std::net::IpAddr::V6(ip)) => format!("[{ip}]"),
+        Some(ip) => ip.to_string(),
+        None => "localhost".to_string(),
+    };
+    let deadline = std::time::Instant::now() + localnode::start_timeout();
+    let mut port: Option<u16> = None;
+    loop {
+        if port.is_none() {
+            port = localnode::read_launch_record(&data_dir)
+                .filter(|record| record.pid == pid)
+                .map(|record| record.port);
+        }
+        if let Some(port) = port {
+            let url = format!("{scheme}://{host}:{port}");
+            if localnode::url_serving(&url) {
+                println!("xerj: node started in the background (pid {pid})");
+                println!("  url       {url}");
+                println!("  data dir  {}", data_dir.display());
+                if created {
+                    println!("  {}", startup_data_dir::NEW_DIRECTORY_HINT);
+                }
+                println!("  log       {}", log.display());
+                let claim = data_dir.join(xerj_console_api::bootstrap::OWNER_CLAIM_FILENAME);
+                if claim.is_file() {
+                    println!(
+                        "  console   first-launch setup link in {} (owner-only file)",
+                        claim.display()
+                    );
+                }
+                if cfg!(windows) {
+                    println!("  stop      taskkill /PID {pid}");
+                } else {
+                    println!("  stop      kill {pid}");
+                }
+                println!("  It keeps running after this terminal closes.");
+                return 0;
+            }
+        }
+        if let Ok(Some(status)) = child.try_wait() {
+            eprintln!(
+                "xerj: the node exited ({status}) before it served. Last lines of {}:\n{}",
+                log.display(),
+                localnode::log_tail(&log, 30)
+            );
+            return 1;
+        }
+        if std::time::Instant::now() >= deadline {
+            println!(
+                "xerj: node started in the background (pid {pid}) but is not serving yet; it \
+                 may still be opening a large data dir. Follow {}",
+                log.display()
+            );
+            return 0;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(250));
+    }
+}
+
 /// Restore the default SIGPIPE disposition, which the Rust runtime replaces
 /// with `SIG_IGN` before `main` runs. Under `SIG_IGN` a write to a pipe whose
 /// reader has gone returns `EPIPE`, `println!` turns that into a panic
@@ -3318,6 +3507,8 @@ fn main() -> Result<()> {
     // fast paths inside `parse_args`. A node that dies must say so: the
     // allocation hook, the panic hook, and SIGABRT/SIGSEGV/SIGBUS/SIGILL
     // each write a FATAL line. SIGKILL still cannot be reported.
+    #[cfg(unix)]
+    ensure_std_fds_open();
     install_fatal_reporter();
     #[cfg(unix)]
     restore_default_sigpipe();
@@ -3352,6 +3543,14 @@ fn main() -> Result<()> {
         Some(xerj_autoindex::extract::xls::WORKER_ARG)
     ) {
         std::process::exit(xerj_autoindex::extract::xls::run_worker_cli());
+    }
+
+    // `xerj --detach …` (#3267): start the node in the background, detached
+    // from this terminal, wait until it serves, print where it is, exit.
+    if !xerj_common::argv::subcommand().is_some_and(|c| is_top_level_command(&c))
+        && std::env::args().any(|a| a == "--detach")
+    {
+        std::process::exit(run_detached());
     }
 
     // `xerj mcp` — MCP stdio server (newline-delimited JSON-RPC on
@@ -4959,6 +5158,26 @@ async fn async_main() -> Result<()> {
     cfg.server.rest_port = bound_rest_port;
     cfg.server.grpc_port = bound_grpc_port;
 
+    // #3267: record the port this node holds and how it was started, so a
+    // client that later finds the port closed can start this same node again
+    // (`xerj mcp`, `xerj search`), and a client with no XERJ_URL finds a node
+    // that is not on :9200. `--auto-port` may have moved the port, so the
+    // pointer for the bound port is published too.
+    let data_dir_path = Path::new(&cfg.server.data_dir);
+    if let Err(error) =
+        xerj_common::nodedir::publish_data_dir_for_port(bound_es_port, data_dir_path)
+    {
+        warn!("could not publish the data-dir path for port {bound_es_port}: {error}");
+    }
+    if let Err(error) = xerj_common::localnode::write_launch_record(data_dir_path, bound_es_port) {
+        warn!(
+            "could not write {}: {error}",
+            data_dir_path
+                .join(xerj_common::localnode::LAUNCH_RECORD_FILE)
+                .display()
+        );
+    }
+
     let bound = BoundAddrs {
         rest: rest_listener
             .local_addr()
@@ -5237,6 +5456,25 @@ async fn async_main() -> Result<()> {
         );
         None
     };
+
+    // 9a-ii. Memory held before any write (#3277). The AUTO tier is sized
+    //   from RAM alone; on a small machine it chose a breaker under what the
+    //   node holds at boot (runtime, opened indices, a loaded model), and
+    //   every write was a 429. Under the AUTO tier this baseline is added to
+    //   the breaker; under an explicit cap a node already at or over it gets
+    //   one line naming both numbers and the variable to raise.
+    if let Some(governor) = xerj_engine::governor::global() {
+        let baseline = xerj_engine::governor::current_process_memory_bytes();
+        let reserved = governor.reserve_resident(
+            "the runtime, opened indices and any loaded model at boot",
+            baseline,
+        );
+        match reserved.line {
+            Some((true, line)) => warn!("{line}"),
+            Some((false, line)) => info!("{line}"),
+            None => {}
+        }
+    }
 
     // 9b. Application state
     let mut state = AppState::new(cfg.clone(), engine, metrics);

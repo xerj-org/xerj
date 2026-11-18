@@ -68,11 +68,27 @@ pub async fn run(
     // seed revision is bumped. See `crate::seed`.
     crate::seed::seed_default_dashboards(engine).await?;
 
+    let claim_file = data_dir.join(OWNER_CLAIM_FILENAME);
     let magic_link = if has_any_active_user(engine).await? {
+        // The owner exists: a link left from the first launch is spent.
+        let _ = std::fs::remove_file(&claim_file);
         None
     } else {
         let url = mint_bootstrap_link(engine, bind_url).await?;
-        print_bootstrap_banner(&url);
+        // #3276: a headless first launch has no one reading stderr, so the
+        // link also goes to a file only this user can read. Failing to write
+        // it is logged, never fatal: the banner still carries the link.
+        match write_owner_claim_file(&claim_file, &url) {
+            Ok(()) => tracing::info!(
+                path = %claim_file.display(),
+                "first-launch owner setup link written (readable by this user only)"
+            ),
+            Err(e) => tracing::warn!(
+                path = %claim_file.display(),
+                "could not write the owner setup link file: {e}"
+            ),
+        }
+        print_bootstrap_banner(&url, &claim_file);
         Some(url)
     };
 
@@ -230,33 +246,78 @@ async fn mint_bootstrap_link(engine: &Engine, bind_url: &str) -> ConsoleResult<S
 /// owner`, which rc.95 rejects with `unknown argument: admin` (#1424).
 const RENEWAL_HINT: &str = "Need a fresh link?  Restart this node: a new one is printed on boot.";
 
-fn print_bootstrap_banner(url: &str) {
+/// File in the data dir that holds the first-launch setup link (#3276).
+pub const OWNER_CLAIM_FILENAME: &str = "owner-claim.txt";
+
+/// Write the setup link to `path`, mode 0600 from creation on Unix.
+fn write_owner_claim_file(path: &Path, url: &str) -> std::io::Result<()> {
+    use std::io::Write as _;
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create(true).truncate(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    let mut file = options.open(path)?;
+    // A file that already existed keeps its old mode through `open`.
+    set_owner_readable_only(path)?;
+    writeln!(
+        file,
+        "XERJ console first-launch setup. Open this link in a browser to claim the \
+         owner account (valid 30 minutes, single use):\n{url}\n\n{RENEWAL_HINT}"
+    )?;
+    file.sync_all()
+}
+
+/// The banner as text, so a test can read it without a terminal.
+fn bootstrap_banner(url: &str, claim_file: &Path) -> String {
+    use std::fmt::Write as _;
     let bar = "─".repeat(78);
-    eprintln!();
-    eprintln!("┌{bar}┐");
-    eprintln!("│ {:<76} │", "XERJ CONSOLE  ·  first-launch setup");
-    eprintln!("│ {:<76} │", "");
-    eprintln!(
+    let mut out = String::new();
+    let _ = writeln!(out);
+    let _ = writeln!(out, "┌{bar}┐");
+    let _ = writeln!(out, "│ {:<76} │", "XERJ CONSOLE  ·  first-launch setup");
+    let _ = writeln!(out, "│ {:<76} │", "");
+    let _ = writeln!(
+        out,
         "│ {:<76} │",
         "Open this link in your browser to claim the owner account by"
     );
-    eprintln!(
+    let _ = writeln!(
+        out,
         "│ {:<76} │",
         "enrolling a passkey.  Valid for 30 minutes.  Single use."
     );
-    eprintln!("│ {:<76} │", "");
+    let _ = writeln!(out, "│ {:<76} │", "");
     // The URL can be longer than 76 chars; if so, print it on its own line.
     if url.len() <= 76 {
-        eprintln!("│   {:<74} │", url);
+        let _ = writeln!(out, "│   {:<74} │", url);
     } else {
-        eprintln!("├{bar}┤");
-        eprintln!("  {url}");
-        eprintln!("├{bar}┤");
+        let _ = writeln!(out, "├{bar}┤");
+        let _ = writeln!(out, "  {url}");
+        let _ = writeln!(out, "├{bar}┤");
     }
-    eprintln!("│ {:<76} │", "");
-    eprintln!("│ {:<76} │", RENEWAL_HINT);
-    eprintln!("└{bar}┘");
-    eprintln!();
+    let _ = writeln!(out, "│ {:<76} │", "");
+    let _ = writeln!(out, "│ {:<76} │", RENEWAL_HINT);
+    let _ = writeln!(out, "└{bar}┘");
+    let _ = writeln!(out, "  The same link is in {}", claim_file.display());
+    let _ = writeln!(out);
+    out
+}
+
+/// Print the banner to stderr with a fallible write (#3276).
+///
+/// `eprintln!` panics when stderr cannot be written: a pipe whose reader has
+/// gone, or a terminal that hung up (EIO) once the agent session that started
+/// the node ended. The release profile is `panic = "abort"`, so a headless
+/// first launch died here with exit 134. A lost banner is not worth the node:
+/// the link is also in the claim file.
+fn print_bootstrap_banner(url: &str, claim_file: &Path) {
+    use std::io::Write as _;
+    let mut stderr = std::io::stderr().lock();
+    let _ = stderr.write_all(bootstrap_banner(url, claim_file).as_bytes());
+    let _ = stderr.flush();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -327,6 +388,35 @@ mod tests {
         let url = outcome.magic_link.unwrap();
         assert!(url.starts_with("http://localhost:9200/_xerj-console/setup#token="));
         assert!(dir.path().join(".xerj_master_key").exists());
+
+        // #3276: a headless first launch finds the link in a 0600 file.
+        let claim = dir.path().join(OWNER_CLAIM_FILENAME);
+        let text = std::fs::read_to_string(&claim).expect("owner-claim.txt");
+        assert!(text.contains(&url), "{text}");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mode = std::fs::metadata(&claim).unwrap().permissions().mode();
+            assert_eq!(mode & 0o777, 0o600);
+        }
+        let banner = bootstrap_banner(&url, &claim);
+        assert!(banner.contains(&url), "{banner}");
+        assert!(
+            banner.contains(&format!("The same link is in {}", claim.display())),
+            "{banner}"
+        );
+    }
+
+    /// #3276: the banner never panics on an unwritable stderr. The test
+    /// binary's stderr is captured, so this checks the write is fallible by
+    /// construction: `print_bootstrap_banner` has no `eprintln!` left.
+    #[test]
+    fn the_banner_uses_fallible_writes() {
+        let src = include_str!("bootstrap.rs");
+        let start = src.find("fn print_bootstrap_banner(").unwrap();
+        let body = &src[start..start + src[start..].find("\n}\n").unwrap()];
+        assert!(!body.contains(concat!("eprint", "ln!")), "{body}");
+        print_bootstrap_banner("http://localhost:9200/x", Path::new("/nonexistent/claim"));
     }
 
     #[tokio::test]
@@ -358,6 +448,10 @@ mod tests {
         assert!(
             outcome2.magic_link.is_none(),
             "second boot with an active user must not mint a new link"
+        );
+        assert!(
+            !dir.path().join(OWNER_CLAIM_FILENAME).exists(),
+            "a spent setup link must not stay on disk once the owner exists"
         );
     }
 

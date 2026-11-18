@@ -14080,6 +14080,8 @@ fn run_map(cfg: MapCfg) -> Result<i32> {
     if let Some(note) = &cfg.xerj_url_note {
         eprintln!("autoindex: {note}");
     }
+    // #3267: a stopped loopback node is started (detached) before the read.
+    xerj_common::localnode::ensure_for_cli("autoindex map", &cfg.url);
     let es = Es::new(&cfg.url, cfg.api_key.clone())?;
     // The same first-run miss as `xerj search`: nothing is listening, and a
     // raw `endpoint unreachable` does not say how to start a node.
