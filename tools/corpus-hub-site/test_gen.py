@@ -999,11 +999,11 @@ class SiteLinksTest(unittest.TestCase):
         self.assertNotRegex(strip, r"<b>[\d.]+[KMB]</b>")
         self.assertRegex(strip, r"<b>[\d,]{7,}</b><span>pinned files</span>")
         self.assertNotIn("<span>pinned text</span>", strip)
-        # owner, 2026-11-10: contributors added today, counted against the ledger at 00:00 UTC
+        # owner, 2026-11-12: contributors added today, counted against the ledger at 00:00 US Eastern time
         n, day = gen.added_today(people)
         if n is not None:
             self.assertIn(f'+{n:,} today</span>', strip)
-            self.assertIn(f"since 00:00 UTC on {day}", strip)
+            self.assertIn(f"since 00:00 US Eastern time on {day}", strip)
 
     def test_whats_this_replaces_about(self):
         self.assertTrue((self.out / "whats-this" / "index.html").is_file())

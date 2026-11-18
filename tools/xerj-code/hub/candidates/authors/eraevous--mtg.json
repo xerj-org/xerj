@@ -8,15 +8,15 @@
   {
    "repo": "MtG",
    "url": "https://github.com/eraevous/MtG",
-   "sha": "b93fedbf8dfb9d3595b932eda893eb66c599d885",
-   "licence": "MIT (LICENSE file at pin b93fedbf8dfb, GitHub licence API 2026-11-17)",
+   "sha": "2e72d959489999379157d655dc19810ccc549f77",
+   "licence": "MIT (LICENSE file at pin 2e72d9594899, GitHub licence API 2026-11-17)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-12T17:12Z",
     "consent_receipt": "1a679f0ad597",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-12T17:12Z (receipt 1a679f0ad597); pinned to the default-branch head. LICENSE file at pin b93fedbf8dfb detected as MIT by the GitHub licence API on 2026-11-17; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-12T17:12Z (receipt 1a679f0ad597); pinned to the default-branch head. LICENSE file at pin 2e72d9594899 detected as MIT by the GitHub licence API on 2026-11-17; used under that licence with attribution."
    }
   }
  ]

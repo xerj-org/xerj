@@ -2,8 +2,8 @@
  "corpus": "bayar17--openwave",
  "cloned_at": null,
  "status": "draft",
- "shelf": "NET",
- "domain": "an agent working on C++ queries this for how bayar17/OpenWave implements it: Open-source Linux-based Phone Operating system, built with Qt and Qt Quick (selected work: scripts, the project root, patches)",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how bayar17/OpenWave implements it: bayar17/OpenWave (C++) (selected work: scripts, the project root, patches)",
  "repos": [
   {
    "repo": "OpenWave",

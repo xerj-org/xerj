@@ -8,15 +8,15 @@
   {
    "repo": "opendefence-sdk",
    "url": "https://github.com/kobyldav/opendefence-sdk",
-   "sha": "30e65f93e6082b9a9bd6f3dad45ce69c54b194ca",
-   "licence": "MIT (LICENSE file at pin 30e65f93e608, GitHub licence API 2026-11-05)",
+   "sha": "9cf6e4d0de64ce7bc259d1e9033889a042d22f8d",
+   "licence": "MIT (LICENSE file at pin 9cf6e4d0de64, GitHub licence API 2026-11-17)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-05T15:32Z",
     "consent_receipt": "99b02f5d022d",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T15:32Z (receipt 99b02f5d022d); pinned to the default-branch head. LICENSE file at pin 30e65f93e608 detected as MIT by the GitHub licence API on 2026-11-05; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T15:32Z (receipt 99b02f5d022d); pinned to the default-branch head. LICENSE file at pin 9cf6e4d0de64 detected as MIT by the GitHub licence API on 2026-11-17; used under that licence with attribution."
    }
   }
  ]

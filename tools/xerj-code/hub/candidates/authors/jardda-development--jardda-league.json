@@ -1,9 +1,9 @@
 {
- "corpus": "jardda-jardda--jardda-league",
+ "corpus": "jardda-development--jardda-league",
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Java queries this for how Jardda-Jardda/Jardda_League implements it: Sistema de armazenamento de estat\u00edsticas relevantes ao meio futebolistico (selected work: sql, mongodb)",
+ "domain": "an agent working on Java queries this for how Jardda-Development/Jardda_League implements it: Sistema de armazenamento de estat\u00edsticas relevantes ao meio futebolistico (selected work: sql, mongodb)",
  "repos": [
   {
    "repo": "Jardda_League",
