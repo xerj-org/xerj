@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "OPS",
- "domain": "an agent working on alpine-linux, bastille, docker queries this for how theGeeBee/NextcloudOnFreeBSD implements it: theGeeBee/NextcloudOnFreeBSD (Python) (selected work: tests, the project root, tools)",
+ "domain": "an agent working on alpine-linux, bastille, docker queries this for how theGeeBee/NextcloudOnFreeBSD implements it: Install Nextcloud on FreeBSD 15+ with isolated jails, ZFS, HTTPS and optional integrated office services (selected work: tests, the project root, tools)",
  "repos": [
   {
    "repo": "NextCloudOnFreeBSD",
