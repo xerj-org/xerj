@@ -2413,12 +2413,13 @@ impl ShardedFtsMemtable {
     /// every element. Narrower than [`Self::dv_column_unusable`]: whitespace
     /// keyword values do not affect the numeric column.
     pub fn range_column_unusable(&self, field: &str) -> bool {
-        self.shards.iter().any(|s| {
-            let g = s.read();
-            g.active.doc_values.array_fields.contains(field)
-                || g.frozen
+        (0..self.shards.len()).any(|s| {
+            let (active, frozen) = self.shard_generation_handles(s);
+            let in_active = active.read().doc_values.array_fields.contains(field);
+            in_active
+                || frozen
                     .iter()
-                    .any(|fz| fz.gen.read().doc_values.array_fields.contains(field))
+                    .any(|fz| fz.read().doc_values.array_fields.contains(field))
         })
     }
 
