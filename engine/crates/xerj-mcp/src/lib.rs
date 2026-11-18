@@ -5412,6 +5412,8 @@ mod tests {
             "xerj_semantic_search",
             "xerj_vector_search",
             "xerj_code_search",
+            // #2958: recall hits are budgeted by the same proxy-side adapter.
+            "xerj_memory_recall",
         ];
         for tool in specs.as_array().unwrap() {
             let name = tool["name"].as_str().unwrap();
