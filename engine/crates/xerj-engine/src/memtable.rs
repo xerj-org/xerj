@@ -6809,3 +6809,188 @@ mod aggregate_bytes_tests {
         assert_eq!(mem.size_bytes(), recount(&mem));
     }
 }
+
+/// #3055 — concurrency proof for the decoupled shard/generation locks.
+///
+/// Writers clone the shard's ACTIVE handle under the shard lock and write
+/// into it after releasing that lock.  A freeze that swaps the active
+/// generation in that window must not let the write land in a generation
+/// whose flush snapshot was already taken: the snapshot would miss it, and
+/// `retire` would then drop it from the reader view with no segment holding
+/// it — a lost acknowledged write.
+///
+/// The test hammers one shard with writers (both the single-doc path and the
+/// `with_shard_mut` batch path), a freezer that freezes, records the
+/// snapshot ids as "flushed", and retires in a tight loop, and readers that
+/// probe acknowledged ids.  Invariants:
+///   * reader: an acknowledged id is either served by the memtable with the
+///     exact source it was written with (no torn read), or is already in the
+///     flushed set (`flushed` is filled BEFORE `retire`, and a reader checks
+///     the memtable first, so a miss there implies the id was flushed);
+///   * end: every acknowledged id is in exactly one place — a flush snapshot
+///     or the memtable — and no snapshot carried an id twice.
+#[cfg(test)]
+mod concurrent_freeze_tests {
+    use super::*;
+    use serde_json::json;
+    use std::collections::HashSet;
+    use std::sync::atomic::AtomicU64;
+    use std::sync::Mutex;
+
+    const WRITERS: usize = 4;
+    const BATCH_WRITERS: usize = 2;
+    const DOCS_PER_WRITER: usize = 20_000;
+    const BATCH: usize = 16;
+    const READERS: usize = 3;
+
+    fn id_of(w: usize, i: usize) -> String {
+        format!("w{w}-{i}")
+    }
+
+    #[test]
+    fn writes_racing_freeze_are_never_lost_and_reads_never_tear() {
+        let mem = Arc::new(ShardedFtsMemtable::with_registry_and_shards(
+            Arc::new(AnalyzerRegistry::default()),
+            1,
+        ));
+        let schema = Schema::default();
+        let seq = Arc::new(AtomicU64::new(1));
+        let total_writers = WRITERS + BATCH_WRITERS;
+        let acked: Arc<Vec<AtomicUsize>> =
+            Arc::new((0..total_writers).map(|_| AtomicUsize::new(0)).collect());
+        let flushed: Arc<Mutex<HashSet<String>>> = Arc::new(Mutex::new(HashSet::new()));
+        let dup_in_snapshots = Arc::new(AtomicUsize::new(0));
+        let writers_done = Arc::new(AtomicUsize::new(0));
+        let reader_misses = Arc::new(AtomicUsize::new(0));
+        let torn_reads = Arc::new(AtomicUsize::new(0));
+        let reads = Arc::new(AtomicUsize::new(0));
+        let freezes = Arc::new(AtomicUsize::new(0));
+
+        std::thread::scope(|scope| {
+            for w in 0..WRITERS {
+                let (mem, seq, acked, done, schema) = (&mem, &seq, &acked, &writers_done, &schema);
+                scope.spawn(move || {
+                    for i in 0..DOCS_PER_WRITER {
+                        let id = id_of(w, i);
+                        let s = seq.fetch_add(1, Ordering::Relaxed);
+                        mem.insert(id.clone(), &json!({ "body": id }), schema, s);
+                        acked[w].store(i + 1, Ordering::Release);
+                    }
+                    done.fetch_add(1, Ordering::Release);
+                });
+            }
+            for b in 0..BATCH_WRITERS {
+                let w = WRITERS + b;
+                let (mem, seq, acked, done, schema) = (&mem, &seq, &acked, &writers_done, &schema);
+                scope.spawn(move || {
+                    let mut i = 0;
+                    while i < DOCS_PER_WRITER {
+                        let end = (i + BATCH).min(DOCS_PER_WRITER);
+                        mem.with_shard_mut(0, |m| {
+                            for j in i..end {
+                                let id = id_of(w, j);
+                                let s = seq.fetch_add(1, Ordering::Relaxed);
+                                m.insert(id.clone(), &json!({ "body": id }), schema, s);
+                            }
+                        });
+                        acked[w].store(end, Ordering::Release);
+                        i = end;
+                    }
+                    done.fetch_add(1, Ordering::Release);
+                });
+            }
+            {
+                let (mem, flushed, dups, done, freezes) =
+                    (&mem, &flushed, &dup_in_snapshots, &writers_done, &freezes);
+                scope.spawn(move || loop {
+                    let finished = done.load(Ordering::Acquire) == total_writers;
+                    let (rows, claim) = mem.freeze_shard_accounted(0, true);
+                    {
+                        let mut f = flushed.lock().unwrap();
+                        for (_, id, _, _) in &rows {
+                            if !f.insert(id.clone()) {
+                                dups.fetch_add(1, Ordering::Relaxed);
+                            }
+                        }
+                    }
+                    drop(claim.retire());
+                    freezes.fetch_add(1, Ordering::Relaxed);
+                    if finished {
+                        break;
+                    }
+                });
+            }
+            for r in 0..READERS {
+                let (mem, flushed, acked, done) = (&mem, &flushed, &acked, &writers_done);
+                let (misses, torn, reads) = (&reader_misses, &torn_reads, &reads);
+                scope.spawn(move || {
+                    let mut x: u64 = 0x9E37_79B9_7F4A_7C15 ^ (r as u64 + 1);
+                    while done.load(Ordering::Acquire) < total_writers {
+                        x ^= x << 13;
+                        x ^= x >> 7;
+                        x ^= x << 17;
+                        let w = (x as usize) % total_writers;
+                        let n = acked[w].load(Ordering::Acquire);
+                        if n == 0 {
+                            continue;
+                        }
+                        let id = id_of(w, (x >> 20) as usize % n);
+                        reads.fetch_add(1, Ordering::Relaxed);
+                        match mem.get_doc_source_arc(&id) {
+                            Some(v) => {
+                                if v.get("body").and_then(Value::as_str) != Some(id.as_str()) {
+                                    torn.fetch_add(1, Ordering::Relaxed);
+                                }
+                            }
+                            None => {
+                                if !flushed.lock().unwrap().contains(&id) {
+                                    misses.fetch_add(1, Ordering::Relaxed);
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        });
+
+        let flushed = flushed.lock().unwrap();
+        let in_mem: HashSet<String> = mem.all_doc_ids().into_iter().collect();
+        let mut lost = Vec::new();
+        let mut both = 0usize;
+        for w in 0..total_writers {
+            assert_eq!(acked[w].load(Ordering::Acquire), DOCS_PER_WRITER);
+            for i in 0..DOCS_PER_WRITER {
+                let id = id_of(w, i);
+                match (flushed.contains(&id), in_mem.contains(&id)) {
+                    (false, false) => lost.push(id),
+                    (true, true) => both += 1,
+                    _ => {}
+                }
+            }
+        }
+        let summary = format!(
+            "freezes={} reads={} flushed={} in_mem={} lost={} both={} dup_in_snapshots={} \
+             reader_misses={} torn_reads={}",
+            freezes.load(Ordering::Relaxed),
+            reads.load(Ordering::Relaxed),
+            flushed.len(),
+            in_mem.len(),
+            lost.len(),
+            both,
+            dup_in_snapshots.load(Ordering::Relaxed),
+            reader_misses.load(Ordering::Relaxed),
+            torn_reads.load(Ordering::Relaxed),
+        );
+        eprintln!("{summary}");
+        assert!(
+            lost.is_empty(),
+            "acknowledged writes lost across freeze/retire (first: {:?}): {summary}",
+            &lost[..lost.len().min(5)]
+        );
+        assert_eq!(both, 0, "an id both flushed and still live: {summary}");
+        assert_eq!(dup_in_snapshots.load(Ordering::Relaxed), 0, "{summary}");
+        assert_eq!(reader_misses.load(Ordering::Relaxed), 0, "{summary}");
+        assert_eq!(torn_reads.load(Ordering::Relaxed), 0, "{summary}");
+        assert!(freezes.load(Ordering::Relaxed) > 1, "{summary}");
+    }
+}
