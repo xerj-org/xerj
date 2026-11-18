@@ -3016,32 +3016,6 @@ fn raise_nofile_limit() {
     }
 }
 
-/// Restore the default SIGPIPE disposition, which the Rust runtime replaces
-/// with `SIG_IGN` before `main` runs. Under `SIG_IGN` a write to a pipe whose
-/// reader has gone returns `EPIPE`, `println!` turns that into a panic
-/// ("failed printing to stdout: Broken pipe"), and the release profile's
-/// `panic = "abort"` turns THAT into a core dump — so `xerj autoindex map |
-/// head -80`, and every other `xerj … | head`, dumped core and lost the
-/// command's real exit status. With `SIG_DFL` the kernel terminates the
-/// process on the signal instead: no panic, no core, and the conventional
-/// 128+13 status that shells report as 141.
-///
-/// Process-global, so it reaches the server too, where the guarantee is
-/// narrower than the syscall alone would suggest. A plain socket write goes out
-/// as `send()` with `MSG_NOSIGNAL` (`SO_NOSIGPIPE` on macOS) and surfaces
-/// `EPIPE`, but `write_vectored` lowers to `writev()`, which takes no flags
-/// argument and so cannot carry it: a vectored write to an RST-broken socket
-/// under `SIG_DFL` does die on the signal. What protects the server is the
-/// runtime, not the write path — tokio/hyper is readiness-driven, observes the
-/// peer's reset on the read side, and tears the connection down before reaching
-/// a body `writev`. Confirmed empirically under sustained mid-write aborts
-/// (640+ RSTs, none of them signalled us), so it holds for this architecture
-/// rather than for socket writes in general. Its own stdout does change — the
-/// startup banner no longer aborts when the pipe has no reader, but tracing
-/// output, which discards write errors, no longer keeps a server alive past a
-/// vanished stdout either: the next log line terminates it. Supervised
-/// deployments point stdout at a file or `/dev/null` (`brain`'s boot path
-/// included), so in practice this only reaches `xerj | reader-that-leaves`.
 /// Point any closed standard descriptor (0, 1, 2) at `/dev/null` (#3276).
 ///
 /// A node started with `2>&-` or `>&-` (or by a parent that closed them)
@@ -3191,6 +3165,32 @@ fn run_detached() -> i32 {
     }
 }
 
+/// Restore the default SIGPIPE disposition, which the Rust runtime replaces
+/// with `SIG_IGN` before `main` runs. Under `SIG_IGN` a write to a pipe whose
+/// reader has gone returns `EPIPE`, `println!` turns that into a panic
+/// ("failed printing to stdout: Broken pipe"), and the release profile's
+/// `panic = "abort"` turns THAT into a core dump — so `xerj autoindex map |
+/// head -80`, and every other `xerj … | head`, dumped core and lost the
+/// command's real exit status. With `SIG_DFL` the kernel terminates the
+/// process on the signal instead: no panic, no core, and the conventional
+/// 128+13 status that shells report as 141.
+///
+/// Process-global, so it reaches the server too, where the guarantee is
+/// narrower than the syscall alone would suggest. A plain socket write goes out
+/// as `send()` with `MSG_NOSIGNAL` (`SO_NOSIGPIPE` on macOS) and surfaces
+/// `EPIPE`, but `write_vectored` lowers to `writev()`, which takes no flags
+/// argument and so cannot carry it: a vectored write to an RST-broken socket
+/// under `SIG_DFL` does die on the signal. What protects the server is the
+/// runtime, not the write path — tokio/hyper is readiness-driven, observes the
+/// peer's reset on the read side, and tears the connection down before reaching
+/// a body `writev`. Confirmed empirically under sustained mid-write aborts
+/// (640+ RSTs, none of them signalled us), so it holds for this architecture
+/// rather than for socket writes in general. Its own stdout does change — the
+/// startup banner no longer aborts when the pipe has no reader, but tracing
+/// output, which discards write errors, no longer keeps a server alive past a
+/// vanished stdout either: the next log line terminates it. Supervised
+/// deployments point stdout at a file or `/dev/null` (`brain`'s boot path
+/// included), so in practice this only reaches `xerj | reader-that-leaves`.
 #[cfg(unix)]
 fn restore_default_sigpipe() {
     unsafe {
