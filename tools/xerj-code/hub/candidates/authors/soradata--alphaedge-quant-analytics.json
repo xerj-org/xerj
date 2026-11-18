@@ -1,0 +1,23 @@
+{
+ "corpus": "soradata--alphaedge-quant-analytics",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on machine-learning, portfolio-optimization, xgboost queries this for how SORADATA/Alphaedge-quant-analytics implements it: Machine Learning portfolio optimization : Ridge, LogisticRegressions,LightGBM, XGBoost , Black-litterman , CVaR Efficient , Sortino, calmar,",
+ "repos": [
+  {
+   "repo": "Alphaedge-quant-analytics",
+   "url": "https://github.com/SORADATA/Alphaedge-quant-analytics",
+   "sha": "0a0b54acd75f538a5c83595b8a14b266f954a602",
+   "licence": "author's permission (LICENSE at pin 0a0b54acd75f: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-18T17:43Z",
+    "consent_receipt": "5baa072219de",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-18T17:43Z (receipt 5baa072219de); pinned to the default-branch head. LICENSE at pin 0a0b54acd75f: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

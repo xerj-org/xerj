@@ -1,0 +1,23 @@
+{
+ "corpus": "yhay81--vastgrid",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on big-data, canvas, csv queries this for how yhay81/vastgrid implements it: Open huge CSV and Parquet files like a spreadsheet. Local-first, MIT. Browser demo, VS Code, CLI, React, MCP Apps and Jupyter",
+ "repos": [
+  {
+   "repo": "vastgrid",
+   "url": "https://github.com/yhay81/vastgrid",
+   "sha": "95c9ea39b4fde15e350f863be06f8866300d694a",
+   "licence": "MIT (LICENSE file at pin 95c9ea39b4fd, GitHub licence API 2026-11-18)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-17T22:08Z",
+    "consent_receipt": "5609d5f37c3a",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-17T22:08Z (receipt 5609d5f37c3a); pinned to the default-branch head. LICENSE file at pin 95c9ea39b4fd detected as MIT by the GitHub licence API on 2026-11-18; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "clockerka--racetimer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Swift queries this for how clockerka/racetimer implements it: racetimer for ios",
+ "repos": [
+  {
+   "repo": "racetimer",
+   "url": "https://github.com/clockerka/racetimer",
+   "sha": "e544526274f7975494594f21050769be7f294047",
+   "licence": "author's permission (LICENSE at pin e544526274f7: NOASSERTION; repository: NOASSERTION)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-18T06:26Z",
+    "consent_receipt": "1a92d0c43ebc",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-18T06:26Z (receipt 1a92d0c43ebc); pinned to the default-branch head. LICENSE at pin e544526274f7: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

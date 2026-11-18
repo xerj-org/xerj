@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on bm25, faiss, hexagonal-architecture queries this for how iDiagoValeta/localOllamaRAG implements it: Local multimodal RAG for PDFs: MinerU, embeddinggemma-2, FAISS, BM25, BGE reranking and Ollama. Runs on your hardware via web and desktop; s (selected work: tools, tests)",
+ "domain": "an agent working on bm25, faiss, hexagonal-architecture queries this for how iDiagoValeta/localOllamaRAG implements it: MonkeyGrab: a local, multilingual (ES/CA/EN) RAG system for PDFs. MinerU parsing, hybrid BM25 + FAISS retrieval with cross-encoder reranking (selected work: tools, tests)",
  "repos": [
   {
    "repo": "localOllamaRAG",

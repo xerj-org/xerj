@@ -1,0 +1,23 @@
+{
+ "corpus": "dummy3ye--dislook",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on algorithms, channels, discord queries this for how dummy3ye/dislook implements it: inspect discord snowflakes from the terminal",
+ "repos": [
+  {
+   "repo": "dislook",
+   "url": "https://github.com/dummy3ye/dislook",
+   "sha": "3a7cbb03710f916711d9d53a523d2a9814051900",
+   "licence": "MIT (LICENSE file at pin 3a7cbb03710f, GitHub licence API 2026-11-18)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-18T03:17Z",
+    "consent_receipt": "3badbbb6bc7e",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-18T03:17Z (receipt 3badbbb6bc7e); pinned to the default-branch head. LICENSE file at pin 3a7cbb03710f detected as MIT by the GitHub licence API on 2026-11-18; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "dummy3ye--notebook",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how dummy3ye/notebook implements it: mainly a scientific research & resources publishing door for anyone. running on Bun, Next.js , marked and KaTeX",
+ "repos": [
+  {
+   "repo": "notebook",
+   "url": "https://github.com/dummy3ye/notebook",
+   "sha": "49b148f1f6ee23a6ac3e3a5efd77232317e1d40a",
+   "licence": "MPL-2.0 (LICENSE file at pin 49b148f1f6ee, GitHub licence API 2026-11-18)",
+   "review": {
+    "spdx": "MPL-2.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-18T03:18Z",
+    "consent_receipt": "9265bb9fb238",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-18T03:18Z (receipt 9265bb9fb238); pinned to the default-branch head. LICENSE file at pin 49b148f1f6ee detected as MPL-2.0 by the GitHub licence API on 2026-11-18; used under that licence with attribution."
+   }
+  }
+ ]
+}

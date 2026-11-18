@@ -1,0 +1,23 @@
+{
+ "corpus": "kalibrieren--kalibrieren",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on code queries this for how kalibrieren/kalibrieren implements it: kalibrieren/kalibrieren (code)",
+ "repos": [
+  {
+   "repo": "kalibrieren",
+   "url": "https://github.com/kalibrieren/kalibrieren",
+   "sha": "b70f48dbf29ba0bda4488a89c526c5c65f896751",
+   "licence": "author's permission (LICENSE at pin b70f48dbf29b: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-16T20:25Z",
+    "consent_receipt": "35e23f314d76",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-16T20:25Z (receipt 35e23f314d76); pinned to the default-branch head. LICENSE at pin b70f48dbf29b: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

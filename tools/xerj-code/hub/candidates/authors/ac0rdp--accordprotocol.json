@@ -8,15 +8,15 @@
   {
    "repo": "AccordProtocol",
    "url": "https://github.com/Ac0rdP/AccordProtocol",
-   "sha": "4d318b300e427c9ecfb6c760a0cd931253b497d5",
-   "licence": "MIT (LICENSE file at pin 4d318b300e42, GitHub licence API 2026-11-10)",
+   "sha": "ed643ff5e321dba201e2824a8ebd95cb3b3e7821",
+   "licence": "MIT (LICENSE file at pin ed643ff5e321, GitHub licence API 2026-11-18)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-27T22:09Z",
     "consent_receipt": "87833224c38f",
-    "note": "Inclusion consented by the commit author by email at 2026-10-27T22:09Z (receipt 87833224c38f); selected commit 4d318b300e42: \"Add incident response and analytics security controls\". LICENSE file at pin 4d318b300e42 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Pinned to head 4d318b300e42 (contains the selected commit): the LICENSE at the selected commit was NONE. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Ac0rdP, who has not added it."
+    "note": "Inclusion consented by the commit author by email at 2026-10-27T22:09Z (receipt 87833224c38f); selected commit ed643ff5e321: \"Add incident response and analytics security controls\". LICENSE file at pin ed643ff5e321 detected as MIT by the GitHub licence API on 2026-11-18; used under that licence with attribution. Pinned to head ed643ff5e321 (contains the selected commit): the LICENSE at the selected commit was NONE. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Ac0rdP, who has not added it."
    },
    "paths": [
     ".github/workflows",

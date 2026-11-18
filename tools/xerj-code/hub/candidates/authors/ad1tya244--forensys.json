@@ -1,0 +1,23 @@
+{
+ "corpus": "ad1tya244--forensys",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on TypeScript queries this for how Ad1tya244/ForenSys implements it: Forensic-Safe Endpoint Detection & Automated Incident Response System (selected work: backend, app/dashboard, lib)",
+ "repos": [
+  {
+   "repo": "ForenSys",
+   "url": "https://github.com/Ad1tya244/ForenSys",
+   "sha": "b913a2096e369ca79bf5f714d0ecd302b3618d6a",
+   "licence": "MIT (LICENSE file at pin b913a2096e36, GitHub licence API 2026-11-18)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-18T20:17Z",
+    "consent_receipt": "5c9a945d8517",
+    "note": "Inclusion consented by the commit author by email at 2026-11-18T20:17Z (receipt 5c9a945d8517); selected commit b913a2096e36: \"Add PDF incident/summary reports, accurate MTTD/MTTR analytics and se\u2026\". LICENSE file at pin b913a2096e36 detected as MIT by the GitHub licence API on 2026-11-18; used under that licence with attribution. Pinned to head b913a2096e36 (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

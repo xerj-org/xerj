@@ -1,0 +1,23 @@
+{
+ "corpus": "byikiexe--vestigia",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how byikiexe/vestigia implements it: An open-source Obsidian plugin for exploring the hidden structure of your vault. Discover broken links, orphan notes, and forgotten files (selected work: src/views, src/core, the project root)",
+ "repos": [
+  {
+   "repo": "vestigia",
+   "url": "https://github.com/byikiexe/vestigia",
+   "sha": "56e3ff2311d0080aacd93d1115639cbb2a07a28e",
+   "licence": "MIT (LICENSE file at pin 56e3ff2311d0, GitHub licence API 2026-11-18)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-18T21:05Z",
+    "consent_receipt": "863e05d003ab",
+    "note": "Inclusion consented by the commit author by email at 2026-11-18T21:05Z (receipt 863e05d003ab); selected commit 56e3ff2311d0: \"feat: add vault structural health score\". LICENSE file at pin 56e3ff2311d0 detected as MIT by the GitHub licence API on 2026-11-18; used under that licence with attribution."
+   }
+  }
+ ]
+}

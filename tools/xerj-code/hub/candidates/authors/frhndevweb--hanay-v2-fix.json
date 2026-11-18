@@ -1,0 +1,23 @@
+{
+ "corpus": "frhndevweb--hanay-v2-fix",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how frhndevweb/Hanay-V2-fix implements it: frhndevweb/Hanay-V2-fix (JavaScript)",
+ "repos": [
+  {
+   "repo": "Hanay-V2-fix",
+   "url": "https://github.com/frhndevweb/Hanay-V2-fix",
+   "sha": "09d629dd3ecf1fb55e931a3ce4bb1935d4079ff3",
+   "licence": "author's permission (LICENSE at pin 09d629dd3ecf: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-16T00:56Z",
+    "consent_receipt": "617e0f660b4d",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-16T00:56Z (receipt 617e0f660b4d); pinned to the default-branch head. LICENSE at pin 09d629dd3ecf: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

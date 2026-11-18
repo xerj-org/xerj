@@ -1,0 +1,23 @@
+{
+ "corpus": "take071--fogo-no-game-stick",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on emulation, english, game-stick queries this for how take071/fogo-no-game-stick implements it: \ud83d\udd25 Mods, scripts and docs for the Game Stick 4K Lite: PS1 \u2192 PBP, saves/covers, faster Pok\u00e9mon battles (GBA hacks), RAM diagnosis and a custom (selected work: scripts)",
+ "repos": [
+  {
+   "repo": "fogo-no-game-stick",
+   "url": "https://github.com/take071/fogo-no-game-stick",
+   "sha": "dc59e2286c9e5a6a41f9df3efe14f6753d3e6a15",
+   "licence": "MIT (LICENSE file at pin dc59e2286c9e, GitHub licence API 2026-11-18)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-17T20:19Z",
+    "consent_receipt": "43ccacfa62f2",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-17T20:19Z (receipt 43ccacfa62f2); selected commit dc59e2286c9e: \"Atualiza docs com testes do autor, scripts em portugu\u00eas e relat\u00f3rio d\u2026\". LICENSE file at pin dc59e2286c9e detected as MIT by the GitHub licence API on 2026-11-18; used under that licence with attribution."
+   }
+  }
+ ]
+}

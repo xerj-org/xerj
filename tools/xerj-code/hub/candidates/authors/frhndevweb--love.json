@@ -1,0 +1,23 @@
+{
+ "corpus": "frhndevweb--love",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how frhndevweb/Love implements it: frhndevweb/Love (JavaScript)",
+ "repos": [
+  {
+   "repo": "Love",
+   "url": "https://github.com/frhndevweb/Love",
+   "sha": "d0feadca5d27a362a40649fad427457b84d23dfd",
+   "licence": "author's permission (LICENSE at pin d0feadca5d27: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-16T00:56Z",
+    "consent_receipt": "dda9242cde62",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-16T00:56Z (receipt dda9242cde62); pinned to the default-branch head. LICENSE at pin d0feadca5d27: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

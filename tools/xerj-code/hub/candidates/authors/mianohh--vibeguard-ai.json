@@ -1,0 +1,23 @@
+{
+ "corpus": "mianohh--vibeguard-ai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how mianohh/vibeguard-ai implements it: VibeGuard AI eliminates blind signing on Sui by simulating real transaction blocks before signing and explaining their effects in plain Engl (selected work: app, app/components, src/nautilus-server)",
+ "repos": [
+  {
+   "repo": "vibeguard-ai",
+   "url": "https://github.com/mianohh/vibeguard-ai",
+   "sha": "a53da5d177265b367dea49e8e30e624ffc6f71c8",
+   "licence": "MIT (LICENSE file at pin a53da5d17726, GitHub licence API 2026-11-18)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-18T20:12Z",
+    "consent_receipt": "b76f764be9e8",
+    "note": "Inclusion consented by the commit author by email at 2026-11-18T20:12Z (receipt b76f764be9e8); selected commit a53da5d17726: \"Redesign frontend, harden backend, migrate to Oracle enclave\". LICENSE file at pin a53da5d17726 detected as MIT by the GitHub licence API on 2026-11-18; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "frhndevweb--pemrograman-web",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on HTML queries this for how frhndevweb/Pemrograman-Web implements it: frhndevweb/Pemrograman-Web (HTML)",
+ "repos": [
+  {
+   "repo": "Pemrograman-Web",
+   "url": "https://github.com/frhndevweb/Pemrograman-Web",
+   "sha": "e0c477afca4aa0f0cdc940857026d251b9a89a75",
+   "licence": "author's permission (LICENSE at pin e0c477afca4a: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-16T00:56Z",
+    "consent_receipt": "96b8a00fe254",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-16T00:56Z (receipt 96b8a00fe254); pinned to the default-branch head. LICENSE at pin e0c477afca4a: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

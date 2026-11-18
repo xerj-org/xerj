@@ -1,0 +1,23 @@
+{
+ "corpus": "clockerka--killerwave-backend",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how clockerka/killerwave_backend implements it: killerwave backend",
+ "repos": [
+  {
+   "repo": "killerwave_backend",
+   "url": "https://github.com/clockerka/killerwave_backend",
+   "sha": "eeaddc0eb3a4a1b982cb89106945348e6a41661e",
+   "licence": "author's permission (LICENSE at pin eeaddc0eb3a4: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-18T06:26Z",
+    "consent_receipt": "e87d9b8abc4a",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-18T06:26Z (receipt e87d9b8abc4a); pinned to the default-branch head. LICENSE at pin eeaddc0eb3a4: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "frhndevweb--paralax",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on HTML queries this for how frhndevweb/paralax implements it: frhndevweb/paralax (HTML)",
+ "repos": [
+  {
+   "repo": "paralax",
+   "url": "https://github.com/frhndevweb/paralax",
+   "sha": "6643f9a8dd1fe030027a2c0f7ab63e1cbcda3d23",
+   "licence": "author's permission (LICENSE at pin 6643f9a8dd1f: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-16T00:56Z",
+    "consent_receipt": "4e39301dfba5",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-16T00:56Z (receipt 4e39301dfba5); pinned to the default-branch head. LICENSE at pin 6643f9a8dd1f: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

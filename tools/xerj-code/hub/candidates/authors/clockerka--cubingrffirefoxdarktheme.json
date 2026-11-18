@@ -1,0 +1,23 @@
+{
+ "corpus": "clockerka--cubingrffirefoxdarktheme",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on CSS queries this for how clockerka/cubingrffirefoxdarktheme implements it: dark theme for live.cubingrf.org for firefox",
+ "repos": [
+  {
+   "repo": "cubingrffirefoxdarktheme",
+   "url": "https://github.com/clockerka/cubingrffirefoxdarktheme",
+   "sha": "932e0a97a64384fe902fb33499f15fc11f4df65a",
+   "licence": "author's permission (LICENSE at pin 932e0a97a643: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-18T06:26Z",
+    "consent_receipt": "99da13abd3d7",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-18T06:26Z (receipt 99da13abd3d7); pinned to the default-branch head. LICENSE at pin 932e0a97a643: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

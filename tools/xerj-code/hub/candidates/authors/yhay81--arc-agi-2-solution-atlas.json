@@ -1,0 +1,23 @@
+{
+ "corpus": "yhay81--arc-agi-2-solution-atlas",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how yhay81/arc-agi-2-solution-atlas implements it: A verified, executable atlas of ARC-AGI solutions, explanations, counterexamples, and synthetic task families",
+ "repos": [
+  {
+   "repo": "arc-agi-2-solution-atlas",
+   "url": "https://github.com/yhay81/arc-agi-2-solution-atlas",
+   "sha": "7f5940a7ffc1c491b9f92a2bf5a78052b7510bc8",
+   "licence": "Apache-2.0 (LICENSE file at pin 7f5940a7ffc1, GitHub licence API 2026-11-18)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-17T22:08Z",
+    "consent_receipt": "accedef5d14b",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-17T22:08Z (receipt accedef5d14b); pinned to the default-branch head. LICENSE file at pin 7f5940a7ffc1 detected as Apache-2.0 by the GitHub licence API on 2026-11-18; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,27 @@
+{
+ "corpus": "kubescape--kubevuln",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on kubernetes, kubescape, vulnerability-detection queries this for how kubescape/kubevuln implements it: Kubevuln is an in-cluster component of the Kubescape security platform. It scans container images for vulnerabilities, using Grype as its en (selected work: internal/vexsource, internal/vexvalidate)",
+ "repos": [
+  {
+   "repo": "kubevuln",
+   "url": "https://github.com/kubescape/kubevuln",
+   "sha": "bec07e1e6e00fdcf7842325fcc68fe93bc01755d",
+   "licence": "Apache-2.0 (LICENSE file at pin bec07e1e6e00, GitHub licence API 2026-11-18)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-18T20:33Z",
+    "consent_receipt": "13b122c4ba19",
+    "note": "Inclusion consented by the commit author by email at 2026-11-18T20:33Z (receipt 13b122c4ba19); selected commit bec07e1e6e00: \"feat(vex): support CSAF external source ingestion (#1157)\". LICENSE file at pin bec07e1e6e00 detected as Apache-2.0 by the GitHub licence API on 2026-11-18; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @kubescape, who has not added it."
+   },
+   "paths": [
+    "internal/vexsource",
+    "internal/vexvalidate"
+   ]
+  }
+ ]
+}

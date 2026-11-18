@@ -1,0 +1,23 @@
+{
+ "corpus": "clockerka--sounds",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how clockerka/SoundS implements it: the best music site ever",
+ "repos": [
+  {
+   "repo": "SoundS",
+   "url": "https://github.com/clockerka/SoundS",
+   "sha": "8f00e7400552bf9389060cffd74264c72deef659",
+   "licence": "MIT (LICENSE file at pin 8f00e7400552, GitHub licence API 2026-11-18)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-18T06:26Z",
+    "consent_receipt": "4cab7b96bcd4",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-18T06:26Z (receipt 4cab7b96bcd4); pinned to the default-branch head. LICENSE file at pin 8f00e7400552 detected as MIT by the GitHub licence API on 2026-11-18; used under that licence with attribution."
+   }
+  }
+ ]
+}

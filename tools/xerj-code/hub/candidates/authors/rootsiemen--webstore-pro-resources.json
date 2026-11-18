@@ -1,0 +1,23 @@
+{
+ "corpus": "rootsiemen--webstore-pro-resources",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on HTML queries this for how rootsiemen/webstore-pro-resources implements it: WebStore Pro / Frinjo \u2014 free online tools & full-stack web development resources",
+ "repos": [
+  {
+   "repo": "webstore-pro-resources",
+   "url": "https://github.com/rootsiemen/webstore-pro-resources",
+   "sha": "02dfde982492b6f97cd12800a834f757d9c2413b",
+   "licence": "author's permission (LICENSE at pin 02dfde982492: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-18T06:11Z",
+    "consent_receipt": "dc739963fb73",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-18T06:11Z (receipt dc739963fb73); pinned to the default-branch head. LICENSE at pin 02dfde982492: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

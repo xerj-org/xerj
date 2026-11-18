@@ -8,15 +8,15 @@
   {
    "repo": "kalion",
    "url": "https://github.com/kalel1500/kalion",
-   "sha": "cc4d6c2517d1c1ef56287ea8efa0e5dc678c38f9",
-   "licence": "MPL-2.0 (LICENSE file at pin cc4d6c2517d1, GitHub licence API 2026-11-18)",
+   "sha": "79c25a9746b5d48810ea16e6114a3aecfc1ee6fd",
+   "licence": "MPL-2.0 (LICENSE file at pin 79c25a9746b5, GitHub licence API 2026-11-18)",
    "review": {
     "spdx": "MPL-2.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-11-03T17:21Z",
     "consent_receipt": "2582d5fd4a39",
-    "note": "Inclusion consented by the commit author by email at 2026-11-03T17:21Z (receipt 2582d5fd4a39); selected commit cc4d6c2517d1: \"collections: tipos de retorno nativos, alineaci\u00f3n con Laravel en diff\u2026\". LICENSE file at pin cc4d6c2517d1 detected as MPL-2.0 by the GitHub licence API on 2026-11-18; used under that licence with attribution. Pinned to head cc4d6c2517d1 (contains the selected commit): the LICENSE at the selected commit was GPL-3.0."
+    "note": "Inclusion consented by the commit author by email at 2026-11-03T17:21Z (receipt 2582d5fd4a39); selected commit 79c25a9746b5: \"collections: tipos de retorno nativos, alineaci\u00f3n con Laravel en diff\u2026\". LICENSE file at pin 79c25a9746b5 detected as MPL-2.0 by the GitHub licence API on 2026-11-18; used under that licence with attribution. Pinned to head 79c25a9746b5 (contains the selected commit): the LICENSE at the selected commit was GPL-3.0."
    }
   }
  ]

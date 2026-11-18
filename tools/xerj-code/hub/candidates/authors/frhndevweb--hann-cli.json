@@ -1,0 +1,23 @@
+{
+ "corpus": "frhndevweb--hann-cli",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Go queries this for how frhndevweb/hann-cli implements it: frhndevweb/hann-cli (Go)",
+ "repos": [
+  {
+   "repo": "hann-cli",
+   "url": "https://github.com/frhndevweb/hann-cli",
+   "sha": "a0e6f6a151aa8320f0be6c18b9252bc2bb1147e7",
+   "licence": "MIT (LICENSE file at pin a0e6f6a151aa, GitHub licence API 2026-11-18)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-16T00:56Z",
+    "consent_receipt": "6e5946e56fa4",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-16T00:56Z (receipt 6e5946e56fa4); pinned to the default-branch head. LICENSE file at pin a0e6f6a151aa detected as MIT by the GitHub licence API on 2026-11-18; used under that licence with attribution."
+   }
+  }
+ ]
+}

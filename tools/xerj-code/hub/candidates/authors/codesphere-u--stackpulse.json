@@ -1,0 +1,23 @@
+{
+ "corpus": "codesphere-u--stackpulse",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on distributed-tracing, incident-response, observability queries this for how codesphere-u/stackpulse implements it: Cloud Observability, Distributed Trace Critical-Path Analyzer & Multi-Window SLO Reliability Platform",
+ "repos": [
+  {
+   "repo": "stackpulse",
+   "url": "https://github.com/codesphere-u/stackpulse",
+   "sha": "d4f15fff64b057938767cf961c354492f7cc758e",
+   "licence": "author's permission (LICENSE at pin d4f15fff64b0: NOASSERTION; repository: NOASSERTION)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-17T02:03Z",
+    "consent_receipt": "aace3ceb0898",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-17T02:03Z (receipt aace3ceb0898); pinned to the default-branch head. LICENSE at pin d4f15fff64b0: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

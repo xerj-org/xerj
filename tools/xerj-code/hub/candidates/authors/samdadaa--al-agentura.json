@@ -1,0 +1,23 @@
+{
+ "corpus": "samdadaa--al-agentura",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on JavaScript queries this for how samdadaa/AL-Agentura implements it: samdadaa/AL-Agentura (JavaScript) (selected work: tests, scripts, the project root)",
+ "repos": [
+  {
+   "repo": "AL-Agentura",
+   "url": "https://github.com/samdadaa/AL-Agentura",
+   "sha": "1a30d4f9bc80e63f53ef9513c155f4fb29201065",
+   "licence": "MIT (LICENSE file at pin 1a30d4f9bc80, GitHub licence API 2026-11-18)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-18T20:34Z",
+    "consent_receipt": "b4172a23e0ca",
+    "note": "Inclusion consented by the commit author by email at 2026-11-18T20:34Z (receipt b4172a23e0ca); selected commit 1a30d4f9bc80: \"ext-011 und ext-012\". LICENSE file at pin 1a30d4f9bc80 detected as MIT by the GitHub licence API on 2026-11-18; used under that licence with attribution."
+   }
+  }
+ ]
+}

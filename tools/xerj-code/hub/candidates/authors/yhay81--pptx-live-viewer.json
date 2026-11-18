@@ -1,0 +1,23 @@
+{
+ "corpus": "yhay81--pptx-live-viewer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on powerpoint, pptx, vscode-extension queries this for how yhay81/pptx-live-viewer implements it: VS Code extension: open PowerPoint (.pptx) presentations in an editor tab, drawn inside VS Code, with live reload when the file changes",
+ "repos": [
+  {
+   "repo": "pptx-live-viewer",
+   "url": "https://github.com/yhay81/pptx-live-viewer",
+   "sha": "24d9ff3b238ecc74ca4e51a8511d687e2365f589",
+   "licence": "MIT (LICENSE file at pin 24d9ff3b238e, GitHub licence API 2026-11-18)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-17T22:08Z",
+    "consent_receipt": "446896802b92",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-17T22:08Z (receipt 446896802b92); pinned to the default-branch head. LICENSE file at pin 24d9ff3b238e detected as MIT by the GitHub licence API on 2026-11-18; used under that licence with attribution."
+   }
+  }
+ ]
+}

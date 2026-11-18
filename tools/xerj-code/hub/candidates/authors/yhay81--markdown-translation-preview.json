@@ -1,0 +1,23 @@
+{
+ "corpus": "yhay81--markdown-translation-preview",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on TypeScript queries this for how yhay81/markdown-translation-preview implements it: VS Code extension: Markdown preview with side-by-side LLM translation. GitHub Copilot, local models, or your own key for Anthropic, OpenAI, ",
+ "repos": [
+  {
+   "repo": "markdown-translation-preview",
+   "url": "https://github.com/yhay81/markdown-translation-preview",
+   "sha": "bee0f9e0d2d0a033dbf3eef5d0fbd3bc1189f8bb",
+   "licence": "MIT (LICENSE file at pin bee0f9e0d2d0, GitHub licence API 2026-11-18)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-17T22:08Z",
+    "consent_receipt": "345d460baad0",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-17T22:08Z (receipt 345d460baad0); pinned to the default-branch head. LICENSE file at pin bee0f9e0d2d0 detected as MIT by the GitHub licence API on 2026-11-18; used under that licence with attribution."
+   }
+  }
+ ]
+}

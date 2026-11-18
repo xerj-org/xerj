@@ -1,0 +1,23 @@
+{
+ "corpus": "frhndevweb--hcalc",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how frhndevweb/HCalc implements it: Calculator Premium",
+ "repos": [
+  {
+   "repo": "HCalc",
+   "url": "https://github.com/frhndevweb/HCalc",
+   "sha": "cb9fcffd5336fcceff87349cdda256e657a8f3f4",
+   "licence": "author's permission (LICENSE at pin cb9fcffd5336: NOASSERTION; repository: NOASSERTION)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-16T00:56Z",
+    "consent_receipt": "5dc6ea8806f3",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-16T00:56Z (receipt 5dc6ea8806f3); pinned to the default-branch head. LICENSE at pin cb9fcffd5336: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

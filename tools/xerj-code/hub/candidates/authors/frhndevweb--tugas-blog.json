@@ -1,0 +1,23 @@
+{
+ "corpus": "frhndevweb--tugas-blog",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on HTML queries this for how frhndevweb/tugas-blog implements it: tugas",
+ "repos": [
+  {
+   "repo": "tugas-blog",
+   "url": "https://github.com/frhndevweb/tugas-blog",
+   "sha": "b12be3f56d9416360e21eddd6f5ffc74a3c4b030",
+   "licence": "author's permission (LICENSE at pin b12be3f56d94: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-16T00:56Z",
+    "consent_receipt": "afb6efa77215",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-16T00:56Z (receipt afb6efa77215); pinned to the default-branch head. LICENSE at pin b12be3f56d94: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

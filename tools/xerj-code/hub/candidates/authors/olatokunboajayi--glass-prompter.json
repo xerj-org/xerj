@@ -7,7 +7,7 @@
  "repos": [
   {
    "repo": "glass-prompter",
-   "url": "https://github.com/tokunboajayi/glass-prompter",
+   "url": "https://github.com/OlatokunboAjayi/glass-prompter",
    "sha": "fbef832234a5a53a17aa99691b60003fdeafbc64",
    "licence": "MIT (LICENSE file at pin fbef832234a5, GitHub licence API 2026-11-18)",
    "review": {
@@ -15,8 +15,8 @@
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T22:53Z",
-    "consent_receipt": "2f6ce88800e3",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:53Z (receipt 2f6ce88800e3); pinned to the default-branch head. LICENSE file at pin fbef832234a5 detected as MIT by the GitHub licence API on 2026-11-18; used under that licence with attribution."
+    "consent_receipt": "5770187225e6",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:53Z (receipt 5770187225e6); pinned to the default-branch head. LICENSE file at pin fbef832234a5 detected as MIT by the GitHub licence API on 2026-11-18; used under that licence with attribution."
    }
   }
  ]

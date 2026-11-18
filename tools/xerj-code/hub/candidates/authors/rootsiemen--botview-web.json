@@ -1,0 +1,23 @@
+{
+ "corpus": "rootsiemen--botview-web",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how rootsiemen/botview-web implements it: BotView \u2014 Free SEO, AEO & GEO Checker. See your website the way search engines and AI see it",
+ "repos": [
+  {
+   "repo": "botview-web",
+   "url": "https://github.com/rootsiemen/botview-web",
+   "sha": "e44d29b08a6ec02b9bf97303fe1da1fbea78a6e5",
+   "licence": "MIT (LICENSE file at pin e44d29b08a6e, GitHub licence API 2026-11-18)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-18T06:11Z",
+    "consent_receipt": "bd3e9de2ae22",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-18T06:11Z (receipt bd3e9de2ae22); pinned to the default-branch head. LICENSE file at pin e44d29b08a6e detected as MIT by the GitHub licence API on 2026-11-18; used under that licence with attribution."
+   }
+  }
+ ]
+}

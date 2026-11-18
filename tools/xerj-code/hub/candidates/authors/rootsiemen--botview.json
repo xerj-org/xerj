@@ -1,0 +1,23 @@
+{
+ "corpus": "rootsiemen--botview",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, ai-search, cli queries this for how rootsiemen/botview implements it: See your website the way AI sees it \u2014 AI visibility auditor: llms.txt, AI-crawler rules, structured data, and a 0-100 AI Visibility Score. Z",
+ "repos": [
+  {
+   "repo": "botview",
+   "url": "https://github.com/rootsiemen/botview",
+   "sha": "7916b4e0a79e64f41c5526053eddced4ebcdab1c",
+   "licence": "MIT (LICENSE file at pin 7916b4e0a79e, GitHub licence API 2026-11-18)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-18T06:11Z",
+    "consent_receipt": "65373bc97f54",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-18T06:11Z (receipt 65373bc97f54); pinned to the default-branch head. LICENSE file at pin 7916b4e0a79e detected as MIT by the GitHub licence API on 2026-11-18; used under that licence with attribution."
+   }
+  }
+ ]
+}

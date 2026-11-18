@@ -1,0 +1,23 @@
+{
+ "corpus": "kertonex--kertonex",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on code queries this for how kertonex/kertonex implements it: Personal developer profile focused on Full-Stack Development, modern web technologies, software engineering principles, scalable application",
+ "repos": [
+  {
+   "repo": "kertonex",
+   "url": "https://github.com/kertonex/kertonex",
+   "sha": "4e9f71b7d8b5278e0cf364477435e220a2bc7391",
+   "licence": "author's permission (LICENSE at pin 4e9f71b7d8b5: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-16T17:41Z",
+    "consent_receipt": "e7286f1bd6e7",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-16T17:41Z (receipt e7286f1bd6e7); pinned to the default-branch head. LICENSE at pin 4e9f71b7d8b5: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

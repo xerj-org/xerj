@@ -1,0 +1,23 @@
+{
+ "corpus": "rootsiemen--savevid-downloader",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on HTML queries this for how rootsiemen/savevid-downloader implements it: Free online video downloader - YouTube, TikTok, Facebook, Instagram + 1000 sites",
+ "repos": [
+  {
+   "repo": "savevid-downloader",
+   "url": "https://github.com/rootsiemen/savevid-downloader",
+   "sha": "48272f817fb53fa17a8929ab5948cd562615a750",
+   "licence": "author's permission (LICENSE at pin 48272f817fb5: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-18T06:11Z",
+    "consent_receipt": "279df33660ae",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-18T06:11Z (receipt 279df33660ae); pinned to the default-branch head. LICENSE at pin 48272f817fb5: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

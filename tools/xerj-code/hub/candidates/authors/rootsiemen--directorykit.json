@@ -1,0 +1,23 @@
+{
+ "corpus": "rootsiemen--directorykit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on directory, listings, neon queries this for how rootsiemen/directorykit implements it: Open-source directory website template \u2014 Next.js + Postgres (Neon). Launch a listings directory for any niche",
+ "repos": [
+  {
+   "repo": "directorykit",
+   "url": "https://github.com/rootsiemen/directorykit",
+   "sha": "68052d14695e20b0b315a61d7103405e29c05026",
+   "licence": "MIT (LICENSE file at pin 68052d14695e, GitHub licence API 2026-11-18)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-18T06:11Z",
+    "consent_receipt": "87556e1b0921",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-18T06:11Z (receipt 87556e1b0921); pinned to the default-branch head. LICENSE file at pin 68052d14695e detected as MIT by the GitHub licence API on 2026-11-18; used under that licence with attribution."
+   }
+  }
+ ]
+}

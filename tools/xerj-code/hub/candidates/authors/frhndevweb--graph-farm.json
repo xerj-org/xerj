@@ -1,0 +1,23 @@
+{
+ "corpus": "frhndevweb--graph-farm",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on automation, bash, contribution-graph queries this for how frhndevweb/graph-farm implements it: An automated GitHub contribution farming system powered by 10 independent GitHub Actions workflows, featuring scheduled commits, live statis",
+ "repos": [
+  {
+   "repo": "graph-farm",
+   "url": "https://github.com/frhndevweb/graph-farm",
+   "sha": "c872866f07e0f6bec0b9b38aba90b470a676cff0",
+   "licence": "MIT (LICENSE file at pin c872866f07e0, GitHub licence API 2026-11-18)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-16T00:56Z",
+    "consent_receipt": "d920eb9a43f9",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-16T00:56Z (receipt d920eb9a43f9); pinned to the default-branch head. LICENSE file at pin c872866f07e0 detected as MIT by the GitHub licence API on 2026-11-18; used under that licence with attribution."
+   }
+  }
+ ]
+}

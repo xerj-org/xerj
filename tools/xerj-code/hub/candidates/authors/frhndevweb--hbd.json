@@ -1,0 +1,23 @@
+{
+ "corpus": "frhndevweb--hbd",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on CSS queries this for how frhndevweb/hbd implements it: frhndevweb/hbd (CSS)",
+ "repos": [
+  {
+   "repo": "hbd",
+   "url": "https://github.com/frhndevweb/hbd",
+   "sha": "2007b70f7cdd8266216f2941ce8ef41179e4b057",
+   "licence": "author's permission (LICENSE at pin 2007b70f7cdd: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-16T00:56Z",
+    "consent_receipt": "5156b5b05cd2",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-16T00:56Z (receipt 5156b5b05cd2); pinned to the default-branch head. LICENSE at pin 2007b70f7cdd: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

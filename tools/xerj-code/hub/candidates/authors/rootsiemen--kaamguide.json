@@ -1,0 +1,23 @@
+{
+ "corpus": "rootsiemen--kaamguide",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how rootsiemen/kaamguide implements it: KaamGuide \u2014 Roman Urdu guides for Pakistani government services (passport, CNIC, driving license, bills, FBR)",
+ "repos": [
+  {
+   "repo": "kaamguide",
+   "url": "https://github.com/rootsiemen/kaamguide",
+   "sha": "7709e66542b9db3b361746aaa46b2023dcb7e454",
+   "licence": "author's permission (LICENSE at pin 7709e66542b9: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-18T06:11Z",
+    "consent_receipt": "0c9473053317",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-18T06:11Z (receipt 0c9473053317); pinned to the default-branch head. LICENSE at pin 7709e66542b9: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}
