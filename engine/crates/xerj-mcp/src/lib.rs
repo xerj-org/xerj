@@ -330,6 +330,63 @@ fn tools_paragraph(include_hub: bool) -> String {
     para
 }
 
+/// Render `xerj tools list` from the same specifications that `tools/list`
+/// serves. Keeping the formatter next to [`tool_specs`] makes the CLI and
+/// protocol one source-of-truth instead of parallel inventories.
+pub fn format_tools_list(specs: &Value, json: bool) -> Result<String, String> {
+    let catalog = xerj_common::pack_catalog::build(specs)?;
+    if json {
+        serde_json::to_string_pretty(&catalog).map_err(|e| e.to_string())
+    } else {
+        Ok(xerj_common::pack_catalog::format_table(&catalog))
+    }
+}
+
+pub fn run_tools_cli(args: &[String]) -> i32 {
+    const HELP: &str = "\
+xerj tools list — list the MCP tools grouped by pack
+
+USAGE:
+    xerj tools list [--json]
+
+The table and JSON come directly from the same tool specifications served by
+the MCP `tools/list` method. Empty packs stay visible so the catalog can
+describe a release honestly before every planned pack has shipped.
+";
+    if args.is_empty() || matches!(args.first().map(String::as_str), Some("-h" | "--help")) {
+        print!("{HELP}");
+        return 0;
+    }
+    if args.first().map(String::as_str) != Some("list") {
+        eprintln!("xerj tools: expected `list`\n\n{HELP}");
+        return 2;
+    }
+    let mut json = false;
+    for arg in &args[1..] {
+        match arg.as_str() {
+            "--json" => json = true,
+            "-h" | "--help" => {
+                print!("{HELP}");
+                return 0;
+            }
+            other => {
+                eprintln!("xerj tools list: unexpected argument '{other}'");
+                return 2;
+            }
+        }
+    }
+    match format_tools_list(&tool_specs(), json) {
+        Ok(text) => {
+            println!("{text}");
+            0
+        }
+        Err(error) => {
+            eprintln!("xerj tools list: {error}");
+            1
+        }
+    }
+}
+
 /// Resolve the `Authorization` header value every proxied request will carry.
 ///
 /// Precedence: `--auth` > `XERJ_AUTH` >, for a loopback base URL only, the

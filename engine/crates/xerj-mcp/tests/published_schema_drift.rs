@@ -114,6 +114,63 @@ fn published_schemas_match_the_server_exactly() {
     }
 }
 
+#[test]
+fn catalog_core_and_hub_match_tools_list() {
+    let served = xerj_mcp::tool_specs_with(true);
+    let catalog = xerj_common::pack_catalog::build(&served).unwrap();
+    let catalog_names = |pack: &str| {
+        catalog
+            .packs
+            .iter()
+            .find(|candidate| candidate.name == pack)
+            .unwrap()
+            .tools
+            .iter()
+            .map(|tool| tool.name.clone())
+            .collect::<Vec<_>>()
+    };
+    let served_core_and_hub = names(&served)
+        .into_iter()
+        .filter(|name| {
+            let pack = xerj_common::pack_catalog::pack_for_tool(name);
+            pack == "core" || pack == "hub"
+        })
+        .collect::<Vec<_>>();
+    let catalog_core_and_hub = [
+        catalog_names("core").as_slice(),
+        catalog_names("hub").as_slice(),
+    ]
+    .concat();
+    assert_eq!(catalog_core_and_hub, served_core_and_hub);
+    assert_eq!(catalog.total.tool_count, served.as_array().unwrap().len());
+}
+
+#[test]
+fn tools_list_json_is_derived_from_the_same_specs() {
+    let specs = xerj_mcp::tool_specs_with(true);
+    let rendered = xerj_mcp::format_tools_list(&specs, true).unwrap();
+    let document: Value = serde_json::from_str(&rendered).unwrap();
+    assert_eq!(
+        document["total"]["tool_count"],
+        specs.as_array().unwrap().len()
+    );
+    let mut listed = Vec::new();
+    for pack in document["packs"].as_array().unwrap() {
+        for tool in pack["tools"].as_array().unwrap() {
+            listed.push(tool["name"].as_str().unwrap().to_string());
+        }
+    }
+    let mut grouped_served = Vec::new();
+    for pack in xerj_common::pack_catalog::PACK_ORDER {
+        grouped_served.extend(
+            names(&specs)
+                .into_iter()
+                .filter(|name| xerj_common::pack_catalog::pack_for_tool(name) == pack),
+        );
+    }
+    assert_eq!(listed, grouped_served);
+}
+
 /// The published file must keep the envelope agents already fetch: a top-level
 /// object with a `tools` array. Reshaping it silently breaks every consumer.
 #[test]
