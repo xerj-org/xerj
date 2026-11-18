@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "OPS",
- "domain": "an agent working on homelab, selfhosted, k8s-at-home queries this for how davegallant/homelab implements it: configuration for self-hosted services (selected work: ansible, scripts)",
+ "domain": "an agent working on homelab, selfhosted, k8s-at-home queries this for how davegallant/homelab implements it: configuration for a number of self-hosted services (selected work: ansible, scripts)",
  "repos": [
   {
    "repo": "homelab",

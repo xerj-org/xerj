@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on C queries this for how forge-language/forge implements it: Forge compiler, self-hosting bootstrap and language toolchain (selected work: tests, compiler)",
+ "domain": "an agent working on compiler, programming-language, self-hosting queries this for how forge-language/forge implements it: Forge compiler, self-hosting bootstrap and language toolchain (selected work: tests, compiler)",
  "repos": [
   {
    "repo": "forge",

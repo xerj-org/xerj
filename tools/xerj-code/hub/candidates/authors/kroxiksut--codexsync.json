@@ -8,15 +8,15 @@
   {
    "repo": "codexSync",
    "url": "https://github.com/kroxiksut/codexSync",
-   "sha": "15e47838d08e75f919cf7a223a98cef4780357b2",
-   "licence": "GPL-3.0 (LICENSE file at pin 15e47838d08e, GitHub licence API 2026-10-25)",
+   "sha": "46093501aa5606e688c075bc609c2768efa0c704",
+   "licence": "GPL-3.0 (LICENSE file at pin 46093501aa56, GitHub licence API 2026-11-18)",
    "review": {
     "spdx": "GPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-13T06:46Z",
     "consent_receipt": "54e4062a8722",
-    "note": "Inclusion consented by the commit author by email at 2026-10-13T06:46Z (receipt 54e4062a8722); selected commit 15e47838d08e: \"feat: Linux detector proven; projects without a folder carried with c\u2026\". LICENSE file at pin 15e47838d08e detected as GPL-3.0 by the GitHub licence API on 2026-10-25; used under that licence with attribution. Pinned to head 15e47838d08e (contains the selected commit): the LICENSE at the selected commit was NOASSERTION."
+    "note": "Inclusion consented by the commit author by email at 2026-10-13T06:46Z (receipt 54e4062a8722); selected commit 46093501aa56: \"feat: Linux detector proven; projects without a folder carried with c\u2026\". LICENSE file at pin 46093501aa56 detected as GPL-3.0 by the GitHub licence API on 2026-11-18; used under that licence with attribution. Pinned to head 46093501aa56 (contains the selected commit): the LICENSE at the selected commit was NOASSERTION."
    }
   }
  ]

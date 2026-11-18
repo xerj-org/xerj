@@ -1,9 +1,9 @@
 {
- "corpus": "benolabsai--benostreamdb",
+ "corpus": "benolabsai--benodb",
  "cloned_at": null,
  "status": "draft",
  "shelf": "DB",
- "domain": "an agent working on Rust queries this for how benolabsai/benostreamdb implements it: BenoStream DB: A Hybrid scalar+vector search on Iceberg/Parquet. RoaringBitmap indexes, HNSW, pgvector SQL. Rust-native, serverless (selected work: contrib, src/core)",
+ "domain": "an agent working on Rust queries this for how benolabsai/benodb implements it: Embedded Apache Iceberg database in Rust & Python \u2014 SQL, 100M-scale vector search, BM25, and CSR graph via detached Puffin overlays (selected work: contrib, src/core)",
  "repos": [
   {
    "repo": "benostreamdb",

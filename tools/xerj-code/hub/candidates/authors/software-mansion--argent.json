@@ -2,8 +2,8 @@
  "corpus": "software-mansion--argent",
  "cloned_at": null,
  "status": "draft",
- "shelf": "WEB",
- "domain": "an agent working on agentic, ios, react-native queries this for how software-mansion/argent implements it: An agentic toolkit to control, debug, and profile iOS and Android apps. Made by Software Mansion (selected work: packages/tool-server, scripts, packages/ui)",
+ "shelf": "AI",
+ "domain": "an agent working on agentic, ios, react-native queries this for how software-mansion/argent implements it: MCP server for AI agents to control, debug and profile iOS simulators, Android emulators, MacOS apps and TVs. Made by Software Mansion (selected work: packages/tool-server, scripts, packages/ui)",
  "repos": [
   {
    "repo": "argent",

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "DB",
- "domain": "an agent working on disk-analyzer, gpui, mft queries this for how zyyyyynnn/Cairn implements it: High-performance NTFS file search engine and disk space analyzer for Windows built with Rust & GPUI (selected work: crates/cairn-app, crates/cairn-core)",
+ "domain": "an agent working on gpui, mft, ntfs queries this for how zyyyyynnn/Cairn implements it: High-performance Windows file search with a read-only NTFS/USN index, folder sources, content search, and extended properties. Built with Ru (selected work: crates/cairn-app, crates/cairn-core)",
  "repos": [
   {
    "repo": "Cairn",

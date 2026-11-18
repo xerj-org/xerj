@@ -8,15 +8,15 @@
   {
    "repo": "parley",
    "url": "https://github.com/DanilChizhikov/parley",
-   "sha": "3289fc3803f0488395f446dae158640da21b7614",
-   "licence": "author's permission (LICENSE at pin 3289fc3803f0: NOASSERTION; repository: MIT)",
+   "sha": "c033f394b900ceab853c15392f8d5f88b270620b",
+   "licence": "author's permission (LICENSE at pin c033f394b900: NOASSERTION; repository: MIT)",
    "review": {
     "spdx": "NOASSERTION",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-13T17:03Z",
     "consent_receipt": "ae593b9062f1",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-13T17:03Z (receipt ae593b9062f1); pinned to the default-branch head. LICENSE at pin 3289fc3803f0: NOASSERTION (repository: MIT); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-13T17:03Z (receipt ae593b9062f1); pinned to the default-branch head. LICENSE at pin c033f394b900: NOASSERTION (repository: MIT); used with the author's permission, with attribution."
    }
   }
  ]

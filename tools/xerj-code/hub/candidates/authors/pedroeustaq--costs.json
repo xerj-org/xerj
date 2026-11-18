@@ -1,9 +1,9 @@
 {
- "corpus": "pedroeustaq--react-costs",
+ "corpus": "pedroeustaq--costs",
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on JavaScript queries this for how PedroEustaq/React-COSTS implements it: Application made with React framework (selected work: src/components, src, src/project)",
+ "domain": "an agent working on JavaScript queries this for how PedroEustaq/Costs implements it: Application made with React framework (selected work: src/components, src, src/project)",
  "repos": [
   {
    "repo": "React-COSTS",

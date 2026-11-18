@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on imap, mail, mcp queries this for how adecubed/gigamail implements it: Mail for AI agents ( and humans). MCP server giving Claude (or any agent) safe, permission-controlled access to email (Microsoft Graph + IMA (selected work: console, src/gigamail, tests)",
+ "domain": "an agent working on imap, mail, mcp queries this for how adecubed/gigamail implements it: Free desktop app and MCP server that brings Claude, ChatGPT, Codex or any AI agent into the mailbox you already have: Outlook/Microsoft 365, (selected work: console, src/gigamail, tests)",
  "repos": [
   {
    "repo": "gigamail",

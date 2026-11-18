@@ -1,9 +1,9 @@
 {
- "corpus": "user5isuknow--orens-quest",
+ "corpus": "orens-quest-team--orens-quest",
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on fun, function, game-development queries this for how user5isuknow/orens-quest implements it: a game that uses graphing functions to attack enemy's. a semi open world game that helps teach people about math. ran in the browser (selected work: src/pages, src, src/Components)",
+ "domain": "an agent working on fun, function, game-development queries this for how Orens-Quest-Team/orens-quest implements it: a game that uses graphing functions to attack enemy's. a semi open world game that helps teach people about math. ran in the browser (selected work: src/pages, src, src/Components)",
  "repos": [
   {
    "repo": "orens-quest",

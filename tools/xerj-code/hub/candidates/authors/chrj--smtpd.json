@@ -8,15 +8,15 @@
   {
    "repo": "smtpd",
    "url": "https://github.com/chrj/smtpd",
-   "sha": "9876adfbf043105c6d287e21a5fd13a80888de31",
-   "licence": "MIT (LICENSE file at pin 9876adfbf043, GitHub licence API 2026-11-17)",
+   "sha": "e295b74d1149646b07e0319dbdbf6bbe7cf4d911",
+   "licence": "MIT (LICENSE file at pin e295b74d1149, GitHub licence API 2026-11-18)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-30T22:51Z",
     "consent_receipt": "7365f0c3e680",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T22:51Z (receipt 7365f0c3e680); pinned to the default-branch head. LICENSE file at pin 9876adfbf043 detected as MIT by the GitHub licence API on 2026-11-17; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T22:51Z (receipt 7365f0c3e680); pinned to the default-branch head. LICENSE file at pin e295b74d1149 detected as MIT by the GitHub licence API on 2026-11-18; used under that licence with attribution."
    }
   }
  ]

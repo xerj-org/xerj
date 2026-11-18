@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-native, animation, interaction-design queries this for how seukwoo/nudg implements it: The interaction format your AI can nudge (selected work: examples, demo, src/core)",
+ "domain": "an agent working on animation, interaction-design, llm queries this for how seukwoo/nudg implements it: The interaction format your AI can nudge (selected work: examples, demo, src/core)",
  "repos": [
   {
    "repo": "nudg",

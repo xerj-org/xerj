@@ -1,9 +1,9 @@
 {
- "corpus": "salisalvia--salviabrowxer",
+ "corpus": "salisalvia--salviabrowxerz",
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on TypeScript queries this for how SaliSalvia/SalviaBrowxer implements it: SaliSalvia/SalviaBrowxer (TypeScript) (selected work: app/src, scripts, app)",
+ "domain": "an agent working on TypeScript queries this for how SaliSalvia/SalviaBrowxerZ implements it: SaliSalvia/SalviaBrowxerZ (TypeScript) (selected work: app/src, scripts, app)",
  "repos": [
   {
    "repo": "SalviaBrowxer",

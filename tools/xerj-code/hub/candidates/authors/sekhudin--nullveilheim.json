@@ -8,15 +8,15 @@
   {
    "repo": "nullveilheim",
    "url": "https://github.com/Sekhudin/nullveilheim",
-   "sha": "24ffafe0b6fe798f04a93495459416f260b0add7",
-   "licence": "MIT (LICENSE file at pin 24ffafe0b6fe, GitHub licence API 2026-11-17)",
+   "sha": "ef160212299583055f6a95d6c14850cd1466fae0",
+   "licence": "MIT (LICENSE file at pin ef1602122995, GitHub licence API 2026-11-18)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-13T03:08Z",
     "consent_receipt": "f9c8b2cc880b",
-    "note": "Inclusion consented by the commit author by email at 2026-11-13T03:08Z (receipt f9c8b2cc880b); selected commit 24ffafe0b6fe: \"feat(desktop): add new key binding and minor changes.\". LICENSE file at pin 24ffafe0b6fe detected as MIT by the GitHub licence API on 2026-11-17; used under that licence with attribution. Pinned to head 24ffafe0b6fe (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-11-13T03:08Z (receipt f9c8b2cc880b); selected commit ef1602122995: \"feat(desktop): add new key binding and minor changes.\". LICENSE file at pin ef1602122995 detected as MIT by the GitHub licence API on 2026-11-18; used under that licence with attribution. Pinned to head ef1602122995 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

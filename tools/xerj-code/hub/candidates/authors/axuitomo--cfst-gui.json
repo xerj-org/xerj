@@ -9,14 +9,14 @@
    "repo": "CFST-GUI",
    "url": "https://github.com/axuitomo/CFST-GUI",
    "sha": "59cdfffe981e6e35af8444644a63141f012636a5",
-   "licence": "GPL-3.0 (LICENSE file at pin 59cdfffe981e, GitHub licence API 2026-10-24)",
+   "licence": "author's permission (LICENSE at pin 59cdfffe981e: GPL-3.0; repository: NOASSERTION)",
    "review": {
     "spdx": "GPL-3.0",
-    "use": "approach-only",
+    "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-11T01:55Z",
     "consent_receipt": "bfa8afdecb1f",
-    "note": "Inclusion consented by the commit author by email at 2026-10-11T01:55Z (receipt bfa8afdecb1f); selected commit 59cdfffe981e: \"fix: resolve pre-existing lint failures across go, css, markdown, and\u2026\". LICENSE file at pin 59cdfffe981e detected as GPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-10-11T01:55Z (receipt bfa8afdecb1f); selected commit 59cdfffe981e: \"fix: resolve pre-existing lint failures across go, css, markdown, and\u2026\". LICENSE at pin 59cdfffe981e: GPL-3.0 (repository: NOASSERTION); used with the author's permission, with attribution."
    }
   }
  ]
