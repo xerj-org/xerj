@@ -25,6 +25,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`_forcemerge` on a vector index no longer holds a parsed copy of every
+  vector (#2917, refs #2427).** The stored-section encoder and decoder kept
+  array and object fields (a 1024-d `dense_vector` in `_source`) as one
+  `serde_json::Value` per number for the whole segment. They now keep those
+  columns as row JSON text, and at the same zstd level the encoded and
+  decoded bytes are identical to before (tested). The
+  explicit-forcemerge long-effort zstd candidate drops from level 19 to 12
+  above 16 MiB per column and to 9 above 128 MiB, keeping long-distance
+  matching. On a 12,000-doc, 101.7 MB, 1024-d index merged from 2 segments to
+  1: peak RSS 1,770 MB → 885 MB and 144 s → 15 s at the auto cap; at a
+  1,200 MB cap 2,318 MB (7 breaker engages) → 776 MB (none). The merged
+  segment is 1.8% larger (89.4 → 91.0 MB).
 - **Cluster: each index routes documents with its own shard count.** The shard
   router used one hash width for the whole cluster, set to the widest plan, so
   creating an index with more shards (for example after a fourth node joined)
