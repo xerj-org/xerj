@@ -14972,6 +14972,16 @@ impl Index {
         }
     }
 
+    /// The analyzer a document-scan `match_phrase` uses for text fields
+    /// (#3285): the segment text analyzer when it is not `standard`, else
+    /// `None` (the standard walk).
+    fn scan_phrase_analyzer(&self) -> Option<Arc<AnalyzerPipeline>> {
+        match self.segment_text_analyzer() {
+            "standard" => None,
+            name => self.registry.get_analyzer(name),
+        }
+    }
+
     /// How the segment FTS query projection analyses text clauses (#937) —
     /// the same term space [`Self::segment_text_analyzer`] writes.
     fn segment_analyzer_binding(&self) -> SegmentAnalyzerBinding<'_> {
@@ -17537,6 +17547,19 @@ impl Index {
             }
             self.merge_check_armed.store(false, AtomicOrdering::SeqCst);
         }
+    }
+
+    /// Undo [`Self::abort_background_tasks`]'s merge stop for an index that
+    /// goes back into service: a delete that could not free the name puts
+    /// the handle back (#206, #3274), and it must keep merging. Arms one
+    /// check so work that arrived while scheduling was stopped is seen.
+    pub fn resume_merge_scheduling(self: &Arc<Self>) {
+        // The aborted check task can no longer disarm itself.
+        self.merge_check_armed
+            .store(false, std::sync::atomic::Ordering::SeqCst);
+        self.merge_scheduling_stopped
+            .store(false, std::sync::atomic::Ordering::SeqCst);
+        self.request_merge_check();
     }
 
     /// Stop this index's background merge scheduling permanently and abort
@@ -26622,6 +26645,9 @@ impl Index {
             }
             MemSnapshot::DocsForScan(docs) => {
                 // Lock already released — scan docs without holding the memtable lock.
+                // #3285: no `.await` in this arm, so the scoped analyzer
+                // stays on this thread for the whole walk.
+                let _phrase_analyzer = ScanPhraseAnalyzer::enter(self.scan_phrase_analyzer());
                 //
                 // `_id` injection (a full per-doc Object clone) is only
                 // observable when the query tree can actually read `_id`
@@ -31429,8 +31455,15 @@ impl Index {
     // ── Delete index ──────────────────────────────────────────────────────────
 
     /// Remove all data files for this index.
+    ///
+    /// The directory is renamed into `<data_dir>/_trash` first, so the name
+    /// is free even when a file in it cannot be removed yet (an NFS
+    /// silly-renamed mmap, a straggling flush); see [`crate::index_trash`]
+    /// (#3274). `Err` means the name could not be freed at all.
     pub async fn delete_all_data(&self) -> Result<()> {
-        std::fs::remove_dir_all(&self.data_dir).map_err(EngineError::Io)?;
+        let root = self.data_dir.parent().unwrap_or(&self.data_dir);
+        crate::index_trash::retire_dir(root, &self.data_dir, self.name.as_str())
+            .map_err(EngineError::Io)?;
         Ok(())
     }
 
@@ -37777,6 +37810,9 @@ impl Index {
         scorer: &(dyn Fn(&Value, &str) -> f32 + Send + Sync),
         schema: &Schema,
     ) {
+        // #3285: this walk is synchronous, so the scoped analyzer covers
+        // every `doc_matches_query_typed` below.
+        let _phrase_analyzer = ScanPhraseAnalyzer::enter(self.scan_phrase_analyzer());
         // Fast path: scan one doc at a time with a hand-rolled array splitter.
         // The stored section is always shaped as `[{...}, {...}, ...]` (a
         // JSON array of objects).  We walk the bytes, find each top-level
@@ -52888,6 +52924,143 @@ fn geo_coord(v: &Value) -> Option<f64> {
         .or_else(|| v.as_str().and_then(|s| s.trim().parse().ok()))
 }
 
+thread_local! {
+    /// The index text analyzer a document-scan `match_phrase` must use
+    /// (#3285). Set only around synchronous scan loops by
+    /// [`ScanPhraseAnalyzer::enter`]; `None` (the default) keeps the
+    /// standard-analyzer walk every other caller has always had.
+    static SCAN_PHRASE_ANALYZER: std::cell::RefCell<Option<Arc<AnalyzerPipeline>>> =
+        const { std::cell::RefCell::new(None) };
+}
+
+/// Scope guard for [`SCAN_PHRASE_ANALYZER`]. Not `Send`, so holding it
+/// across an `.await` in a spawned future is a compile error rather than a
+/// value leaking onto another task's thread.
+pub(crate) struct ScanPhraseAnalyzer {
+    previous: Option<Arc<AnalyzerPipeline>>,
+    _not_send: std::marker::PhantomData<*const ()>,
+}
+
+impl ScanPhraseAnalyzer {
+    pub(crate) fn enter(analyzer: Option<Arc<AnalyzerPipeline>>) -> Self {
+        let previous = SCAN_PHRASE_ANALYZER.with(|cell| cell.replace(analyzer));
+        Self {
+            previous,
+            _not_send: std::marker::PhantomData,
+        }
+    }
+}
+
+impl Drop for ScanPhraseAnalyzer {
+    fn drop(&mut self) {
+        let previous = self.previous.take();
+        SCAN_PHRASE_ANALYZER.with(|cell| *cell.borrow_mut() = previous);
+    }
+}
+
+fn scan_phrase_analyzer() -> Option<Arc<AnalyzerPipeline>> {
+    SCAN_PHRASE_ANALYZER.with(|cell| cell.borrow().clone())
+}
+
+/// `match_phrase` over one text value with the index's own text analyzer —
+/// the document-scan twin of the segment projection, which builds its
+/// `PhraseQuery` from [`phrase_terms_and_positions`] and matches indexed
+/// positions. Same terms, same positions, same matcher, so a buffered
+/// document answers as it will after `_flush` (#3285).
+fn analyzed_phrase_match(analyzer: &AnalyzerPipeline, text: &str, query: &str, slop: u32) -> bool {
+    let query_tokens = analyzer.analyze(query);
+    if query_tokens.is_empty() {
+        return true;
+    }
+    let (terms, positions) = phrase_terms_and_positions(&query_tokens);
+    let doc_tokens = analyzer.analyze(text);
+    let lists: Vec<Vec<u32>> = terms
+        .iter()
+        .enumerate()
+        .map(|(i, term)| {
+            let mut raw: Vec<u32> = doc_tokens
+                .iter()
+                .filter(|t| &t.text == term)
+                .map(|t| t.position)
+                .collect();
+            raw.sort_unstable();
+            raw.dedup();
+            if positions.is_empty() {
+                raw
+            } else {
+                xerj_fts::search::shift_to_slot(&raw, positions[i], i as u32)
+            }
+        })
+        .collect();
+    let refs: Vec<&[u32]> = lists.iter().map(Vec::as_slice).collect();
+    xerj_fts::search::phrase_positions_match(&refs, slop)
+}
+
+/// Phrase terms, plus their relative phrase positions when the analyzer
+/// stacked tokens on one position (#3285).
+///
+/// The `code` analyzer (`word_delimiter`) emits an identifier's sub-words at
+/// the identifier's own position: `request.client.host` indexes `request`,
+/// `client`, `host` and `request.client.host` all at one position. Flattening
+/// that stack into a four-term phrase asked for the four terms one after
+/// another, which no document holds, so `match_phrase` found nothing that
+/// `match` found. The stack is kept as one phrase position instead: every
+/// term in it must occur at the same document position.
+///
+/// Inside a stack, a delimiter compound (a token with a non-alphanumeric
+/// character whose alphanumeric runs are all in the stack too) is dropped:
+/// its parts carry it. That is what lets `client.host` match the indexed
+/// `request.client.host` — the document stack has `client` and `host`, but
+/// not the token `client.host`.
+///
+/// Positions a stop filter skipped are kept as holes, because the indexed
+/// document has the same holes: `quick the fox` under `english` is
+/// `quick@0 fox@2` on both sides, which a flattened `quick fox` never
+/// matched. A stream with neither stacks nor holes (the standard analyzer)
+/// is returned flat with no positions, so it builds exactly the phrase it
+/// built before.
+fn phrase_terms_and_positions(tokens: &[xerj_fts::analyzer::Token]) -> (Vec<String>, Vec<u32>) {
+    let mut seen = HashSet::new();
+    let stacked = tokens.iter().any(|t| !seen.insert(t.position));
+    let base = tokens.iter().map(|t| t.position).min().unwrap_or(0);
+    // A stop filter leaves holes (`quick the fox` → quick@0, fox@2); the
+    // indexed document has the same holes, so the phrase keeps them too.
+    let gapped = tokens
+        .iter()
+        .enumerate()
+        .any(|(i, t)| t.position - base != i as u32);
+    if !stacked && !gapped {
+        return (tokens.iter().map(|t| t.text.clone()).collect(), Vec::new());
+    }
+    let mut groups: std::collections::BTreeMap<u32, Vec<&str>> = std::collections::BTreeMap::new();
+    for t in tokens {
+        let group = groups.entry(t.position - base).or_default();
+        if !group.contains(&t.text.as_str()) {
+            group.push(t.text.as_str());
+        }
+    }
+    let mut terms = Vec::new();
+    let mut positions = Vec::new();
+    for (pos, group) in groups {
+        let is_compound = |tok: &str| {
+            group.len() > 1
+                && tok.chars().any(|c| !c.is_alphanumeric())
+                && tok
+                    .split(|c: char| !c.is_alphanumeric())
+                    .filter(|r| !r.is_empty())
+                    .all(|r| group.contains(&r))
+        };
+        let kept: Vec<&str> = group.iter().copied().filter(|t| !is_compound(t)).collect();
+        // A stack of nothing but compounds keeps them all.
+        let kept = if kept.is_empty() { group } else { kept };
+        for t in kept {
+            terms.push(t.to_string());
+            positions.push(pos);
+        }
+    }
+    (terms, positions)
+}
+
 /// The analyzed token stream the stored-doc evaluator treats as "positions".
 ///
 /// It runs the **standard analyzer** — the same pipeline the indexing path
@@ -53977,6 +54150,29 @@ pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Sc
                     query_tokens,
                     slop,
                 ))
+            }
+            // #3285: a text field of an index whose declared default
+            // analyzer is not `standard` (the `code` analyzer autoindex
+            // puts on code datasets) is matched with that analyzer, the
+            // term space its segments hold.
+            let scoped = scan_phrase_analyzer().filter(|_| {
+                schema
+                    .field(field)
+                    .is_some_and(|f| matches!(f.field_type, FieldType::Text))
+            });
+            if let Some(analyzer) = scoped {
+                let one = |v: &Value| -> bool {
+                    let s = match v {
+                        Value::String(s) => s.clone(),
+                        Value::Bool(_) | Value::Number(_) => v.to_string(),
+                        _ => return false,
+                    };
+                    analyzed_phrase_match(&analyzer, &s, query, *slop)
+                };
+                return get_field_value(source, field).is_some_and(|v| match &v {
+                    Value::Array(arr) => arr.iter().any(&one),
+                    _ => one(&v),
+                });
             }
             get_field_value(source, field)
                 .and_then(|v| match &v {
@@ -58937,6 +59133,7 @@ fn query_node_to_fts_projected(
                             terms: terms.clone(),
                             slop: *slop,
                             boost: *fb,
+                            positions: Vec::new(),
                         })
                     });
                 }
@@ -59409,11 +59606,13 @@ fn query_node_to_fts_projected(
                         b,
                     )));
                 }
+                let (terms, positions) = phrase_terms_and_positions(&tokens);
                 return Some(FtsQuery::Phrase(xerj_fts::search::PhraseQuery {
                     field: field.clone(),
-                    terms: tokens.iter().map(|t| t.text.clone()).collect(),
+                    terms,
                     slop: 0,
                     boost: b,
+                    positions,
                 }));
             }
             None

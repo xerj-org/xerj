@@ -11,6 +11,17 @@ use serde_json::{json, Value};
 pub const CATALOG_INDEX: &str = xerj_common::AUTOINDEX_CATALOG_INDEX;
 
 /// Scope guidance, not an existence probe or a dataset record.
+/// What a dataset's `records` count counts, and why a `match_all` `_search`
+/// answers more (#3275).
+///
+/// `record_count` is content records. `_cat/indices` `docs.count` and
+/// `_count` report the same number: both leave out the file-card anchors
+/// (#1624, #2140). A `match_all` `_search` still returns those anchors, one
+/// document per indexed file with `ax_locator: "file"`, so its `hits.total`
+/// is records plus file cards. A field report saw 42 against 63 and read it
+/// as two disagreeing live-doc counts.
+pub const RECORD_COUNT_UNITS_HINT: &str = "`records` counts content records, the same number as `_cat/indices` docs.count and `_count`. A match_all `_search` also returns one file-card anchor per indexed file (`ax_locator: \"file\"`), so its hits.total is records + file cards. To count records with `_search`, add `{\"bool\":{\"must_not\":{\"term\":{\"ax_locator\":\"file\"}}}}`. `files` is the number of source files behind the dataset.";
+
 pub const MAP_NAMESPACE_HINT: &str = "This map lists autoindex datasets, not the managed corpus registry. A managed corpus slug is not an autoindex dataset/index pattern. Use `xerj corpus list` for this client's configured corpora, then `xerj code <corpus> <query>` (MCP `xerj_code_search`); the node's `_cat/indices` lists indices. An empty map does not establish that managed corpus data is absent; no managed corpus existence was checked.";
 
 /// The corpus-scope field the #737/#693 exclusion sweeps term-query (#755).
@@ -994,6 +1005,12 @@ pub fn render_map_page(
         ));
     }
     s.push('\n');
+    // #3275: name the unit, or `records` and a match_all hits.total read
+    // as two disagreeing live-doc counts.
+    if !datasets.is_empty() {
+        s.push_str(RECORD_COUNT_UNITS_HINT);
+        s.push_str("\n\n");
+    }
 
     let (detail_start, detail_end) = detail_bounds(datasets.len(), detail_offset, detail_limit);
     let detail_truncated = detail_start > 0 || detail_end < datasets.len();
@@ -1353,6 +1370,27 @@ mod duplicate_tests {
         assert_eq!(ax_path.es_type, "keyword");
         assert_eq!(ax_path.coverage, 1.0);
         assert!(ax_path.notes.iter().any(|n| n.contains("not sampled")));
+    }
+
+    /// #3275: the map's `records` column is content records; a match_all
+    /// `_search` also counts the file cards. The map says so under the table.
+    #[test]
+    fn the_map_names_the_unit_of_its_records_column() {
+        let dataset = json!({
+            "index_name": "fx-docs",
+            "slug": "docs",
+            "record_count": 42,
+            "file_count": 21,
+            "formats": "md",
+            "fields_json": "[]"
+        });
+        let rendered = render_map(None, &[dataset], &[], &[], &[], 0);
+        assert!(rendered.contains("| 42 | 21 |"), "{rendered}");
+        assert!(rendered.contains(RECORD_COUNT_UNITS_HINT), "{rendered}");
+        assert!(
+            !render_map(None, &[], &[], &[], &[], 0).contains(RECORD_COUNT_UNITS_HINT),
+            "nothing to label without datasets"
+        );
     }
 
     #[test]

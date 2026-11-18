@@ -154,7 +154,7 @@ pub(crate) fn catalog_body(args: &MapArgs) -> Value {
         // The dataset doc also carries sample_queries_json (by far its
         // largest field); project it out rather than transfer it to drop it.
         "_source": { "includes": [
-            "index_name", "slug", "record_count", "time_field", "time_min",
+            "index_name", "slug", "record_count", "file_count", "time_field", "time_min",
             "time_max", "semantic_field", "fields_json", "notes",
         ] },
     })
@@ -243,6 +243,11 @@ fn assemble_entry(
     );
     if let Some(n) = doc.get("record_count").filter(|v| v.is_number()) {
         entry.insert("records".into(), n.clone());
+    }
+    // #3275: the unit `records` is measured in is named by the top-level
+    // `count_units`; `files` is the other number it refers to.
+    if let Some(n) = doc.get("file_count").filter(|v| v.is_number()) {
+        entry.insert("files".into(), n.clone());
     }
     for key in [
         "time_field",
@@ -482,6 +487,15 @@ pub(crate) fn render_response(resp: &Value, args: &MapArgs) -> String {
             )),
         );
     }
+    // #3275: top-level for the same reason — `records` and a match_all
+    // `hits.total` differ by the file-card anchors, and without the unit an
+    // agent reads them as two disagreeing live-doc counts.
+    if !docs.is_empty() {
+        out.insert(
+            "count_units".into(),
+            json!(xerj_autoindex::catalog::RECORD_COUNT_UNITS_HINT),
+        );
+    }
     // #2351: top-level, so a per-index byte trim cannot drop it. Indexes
     // written before the aliases still need `ax_path` and `line`.
     out.insert(
@@ -507,6 +521,7 @@ fn summary_entry(entry: &Value) -> Value {
     json!({
         "index": entry.get("index").cloned().unwrap_or(Value::Null),
         "records": entry.get("records").cloned().unwrap_or(Value::Null),
+        "files": entry.get("files").cloned().unwrap_or(Value::Null),
         "field_count": entry.get("field_count").cloned().unwrap_or(json!(0)),
         "field_names": names,
     })
@@ -1010,6 +1025,39 @@ mod tests {
             assert_eq!(text.contains("managed corpus"), expected_hint, "{text}");
             assert!(text.contains("fixture refusal"), "{text}");
         }
+    }
+
+    /// #3275: a field report saw `records` 42 next to a match_all
+    /// `hits.total` of 63 for the same index. The difference is the
+    /// file-card anchors, one per file; the map names the unit and shows
+    /// the file count, in both the full and the summary form.
+    #[test]
+    fn records_are_labelled_with_their_unit_and_the_file_count() {
+        let mut doc = dataset_doc("fx-docs", 42, "[]");
+        doc["_source"]["file_count"] = json!(21);
+        let resp = catalog_response(vec![doc]);
+        for detail in [Some(true), Some(false)] {
+            let mut a = args(None);
+            a.detail = detail;
+            let out: Value = serde_json::from_str(&render_response(&resp, &a)).unwrap();
+            let idx = &out["indexes"][0];
+            assert_eq!(idx["records"], 42, "{detail:?}");
+            assert_eq!(idx["files"], 21, "{detail:?}");
+            let units = out["count_units"].as_str().unwrap();
+            for needle in [
+                "docs.count",
+                "_count",
+                "match_all",
+                "file-card",
+                "ax_locator",
+            ] {
+                assert!(units.contains(needle), "{needle} missing from {units}");
+            }
+        }
+        // An empty map has nothing to label.
+        let empty: Value =
+            serde_json::from_str(&render_response(&catalog_response(vec![]), &args(None))).unwrap();
+        assert!(empty.get("count_units").is_none());
     }
 
     #[test]

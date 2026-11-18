@@ -141,7 +141,11 @@ impl Report {
         report.notes.push("Catalog snapshot, not a live inventory: at most 500 datasets and 500 skipped-file entries. Counts are per dataset; files shared across datasets are not deduplicated. Lists and enrichments are bounded and may be incomplete.".into());
         report.sections.push(Section {
             title: "Datasets".into(),
-            note: format!("{} catalog dataset entries shown.", datasets.len()),
+            note: format!(
+                "{} catalog dataset entries shown. {}",
+                datasets.len(),
+                crate::catalog::RECORD_COUNT_UNITS_HINT
+            ),
             headers: ["Dataset", "Index", "Records", "Files", "Formats"]
                 .map(String::from)
                 .into(),
