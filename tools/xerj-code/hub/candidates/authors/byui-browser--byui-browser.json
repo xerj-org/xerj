@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on Rust queries this for how byui-browser/byui-browser implements it: The BYU-Idaho browser developed by the CSE 199R and CSE 399R classes (selected work: crates/js)",
+ "domain": "an agent working on Rust queries this for how byui-browser/byui-browser implements it: The BYU-Idaho browser developed by students (selected work: crates/js)",
  "repos": [
   {
    "repo": "byui-browser",
