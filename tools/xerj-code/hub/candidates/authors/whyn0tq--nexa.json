@@ -1,0 +1,23 @@
+{
+ "corpus": "whyn0tq--nexa",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on cpp, cpp20, desktop queries this for how whyn0tq/Nexa implements it: A fast SFTP, FTP and FTPS client for Windows. One tab per server, transfers that never drop (selected work: src/ui, tests, src/core)",
+ "repos": [
+  {
+   "repo": "Nexa",
+   "url": "https://github.com/whyn0tq/Nexa",
+   "sha": "f7f7419decff1eb7f44fda4b9350dd79f87e192e",
+   "licence": "GPL-3.0 (LICENSE file at pin f7f7419decff, GitHub licence API 2026-11-18)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-17T23:11Z",
+    "consent_receipt": "dfd47d9bea17",
+    "note": "Inclusion consented by the commit author by email at 2026-11-17T23:11Z (receipt dfd47d9bea17); selected commit f7f7419decff: \"Nexa 1.1.0\". LICENSE file at pin f7f7419decff detected as GPL-3.0 by the GitHub licence API on 2026-11-18; used under that licence with attribution."
+   }
+  }
+ ]
+}
