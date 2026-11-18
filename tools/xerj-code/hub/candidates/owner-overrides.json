@@ -161,6 +161,26 @@
     "pin.to": "default-branch (develop) head (owner request, #2755)",
     "consent.scope": "the whole repository at the default-branch head, under the repository's licence (GPL-3.0, approach-only), with attribution (owner request #2755)"
    }
+  },
+  {
+   "corpus": "mtdxmtdx--arknights-operation-replicator",
+   "issue": 2893,
+   "approved": "Owner request in #2893, applied 2026-11-18.",
+   "request": "Owner (@mtdxmtdx): limit the corpus to crates/repl-app; record that the MIT grant covers their changes in b5da6d5 only, or keep AGPL-3.0 approach-only if the registry cannot represent it (it cannot; kept AGPL-3.0); attribute to mtdxmtdx with links to the profile and repository.",
+   "manifest": {
+    "repos.0.paths": [
+     "crates/repl-app"
+    ],
+    "repos.0.review.note": "Inclusion consented by the commit author (the repository owner) by email at 2026-11-02T02:10Z (receipt 27f5708a4fda); selected commit b5da6d5d6810: \"Replace source-text UI assertions with behavior tests\". Limited to crates/repl-app at the owner's request (#2893). LICENSE file at pin b5da6d5d6810 detected as AGPL-3.0 by the GitHub licence API on 2026-11-02; used under that licence, approach-only, with attribution to mtdxmtdx and to the repository. The owner states in #2893 that their reply also allowed MIT terms for their own changes in b5da6d5 only; the registry carries one licence per corpus and cannot record a per-commit grant, so this corpus stays AGPL-3.0 and no part of it is labelled MIT."
+   },
+   "ledger": {
+    "contributor.name": "mtdxmtdx",
+    "consent.link_asked": true,
+    "scope.whole_repo": false,
+    "scope.paths": [
+     "crates/repl-app"
+    ]
+   }
   }
  ]
 }
