@@ -163,7 +163,7 @@ pub(crate) fn catalog_body(args: &MapArgs) -> Value {
 /// `*`-glob match — the only wildcard the tool documents. The first and last
 /// segments are anchored at the ends of `s`; inner segments may sit
 /// anywhere, in order. (So `ax-*` matches `ax-logs` but not `tax-logs`.)
-fn glob_match(pattern: &str, s: &str) -> bool {
+pub(crate) fn glob_match(pattern: &str, s: &str) -> bool {
     match pattern.split_once('*') {
         None => pattern == s,
         Some((head, tail)) => {
@@ -817,7 +817,7 @@ pub(crate) fn attach_index_runs(
 /// Run documents from the catalog. Failure is an empty list: the field map
 /// is still returned. No server-side sort — `started` is not a date on every
 /// catalog this binary still reads.
-async fn fetch_run_sources(ctx: &Ctx) -> Vec<Value> {
+pub(crate) async fn fetch_run_sources(ctx: &Ctx) -> Vec<Value> {
     let body = json!({
         "size": 500,
         "query": {"term": {"doc_kind": "run"}},

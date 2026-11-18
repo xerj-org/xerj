@@ -95,6 +95,7 @@ pub(crate) async fn run(ctx: &Ctx, args: &Value) -> Value {
         None,
         None,
         None,
+        true,
     )
     .await;
     if result["isError"] == true {
