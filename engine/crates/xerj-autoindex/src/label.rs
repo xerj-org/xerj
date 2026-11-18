@@ -366,7 +366,7 @@ fn round6(p: f64) -> f64 {
 mod tests {
     use super::*;
     use std::io::{BufRead, BufReader, Read, Write};
-    use std::net::{TcpListener, TcpStream};
+    use std::net::TcpStream;
     use std::sync::{Arc, Mutex};
 
     fn set(json: &str) -> QuestionSet {
@@ -479,7 +479,7 @@ mod tests {
 
     impl DecideStub {
         fn start() -> Self {
-            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            let listener = crate::test_loopback::bind();
             listener.set_nonblocking(true).unwrap();
             let url = format!("http://{}", listener.local_addr().unwrap());
             let answers = Arc::new(Mutex::new(std::collections::HashMap::new()));

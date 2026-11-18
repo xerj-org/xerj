@@ -1,17 +1,25 @@
 ---
-title: "Search gzipped logs without decompressing them"
+title: "Search .gz logs without zgrep: decompress once, query often"
 h1: "How do I search gzipped logs without decompressing the whole file — including when JSONL sits next to them?"
-description: "XERJ autoindex decompresses a .gz log once at index time. In our capture the plain and gzip copies returned identical counts, identical hits and one date field."
+description: "XERJ decompresses a .gz log once at index time, so queries never read the archive again. The plain and gzip copies of one log returned the same counts."
 slug: "search-gzip-logs-without-zgrep"
 cluster: "Files and formats"
 question: "How do I search gzipped logs without decompressing the whole file?"
 intent: "how-to"
 published: "2026-08-21"
-updated: "2026-08-21"
+updated: "2026-10-28"
 author: "XERJ documentation team"
 reviewer: "XERJ engineering team"
 schema_type: "TechArticle"
+structured_data: [faq]
 agent_prompt: "Act as a coding agent. Read https://xerj.org/llms.txt, start a XERJ node with --insecure, run xerj autoindex on a folder of .gz logs with --prefix gzz, then GET /gzz-*/_count and POST a bool filter on level to /gzz-*/_search, and report that ax_format is logs(gzip) and that ts is a date field you can range over."
+answer: "How do I search gzipped logs without decompressing the whole file? Let XERJ decompress each .gz log once at index time, so no query reads the compressed file again. In our capture the plain copy and the gzip copy of one log both returned 5001 from _count, and both returned 1250 hits for level=ERROR."
+key_fact: "The plain and gzip copies of one log both returned a `_count` of 5001 and 1250 `level=ERROR` hits."
+key_fact_source: "capture"
+key_fact_date: "2026-08-21"
+intent_group: "logs and docs"
+queries:
+  - "search logs locally without ELK"
 commands:
   - cmd: "xerj autoindex ./gzip-logs/gz --url http://127.0.0.1:9410 --prefix gzz --state-dir ./state-gzz --progress plain --disable-feedback"
     note: "Index a folder of gzip-compressed log files."

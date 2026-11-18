@@ -1,0 +1,29 @@
+# xerj-dsh bundle patch.
+#
+# The xerj node must already be running. `xerj mcp` proxies to XERJ_URL and
+# does not start a node.
+#
+# DSH strips credential-like environment variables from spawned children, so
+# put XERJ_AUTH in a profile override ($DSH_HOME/profiles/<profile>/cordis.patch.yml)
+# when the node is not running --insecure. An override replaces the whole
+# config: restate every field you want to keep, including serverName,
+# transport, command, args, env and cwd.
+#
+# serverName must be unique across live @deepseek-ai/dsh-mcp-client instances.
+# A duplicate serverName fails the later instance at load.
+#
+# The insert below is the README's DeepSeek Harness setup block.
+
+# $DSH_HOME/cordis.patch.yml
+- insert:
+    - id: mcp-xerj
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: xerj
+        transport: stdio
+        command: xerj
+        args:
+          - mcp
+        env:
+          XERJ_URL: "http://localhost:9200"
+        cwd: ""

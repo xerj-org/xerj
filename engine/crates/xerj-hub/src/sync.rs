@@ -863,14 +863,16 @@ pub struct TimerDirs {
 
 impl TimerDirs {
     pub fn from_env(env: &dyn Fn(&str) -> Option<OsString>) -> Result<TimerDirs> {
-        let home = env("HOME")
-            .filter(|h| !h.is_empty())
-            .map(PathBuf::from)
-            .ok_or_else(|| anyhow!("HOME is not set; cannot place a user timer"))?;
+        // One home rule with `hub_root_from` (`HOME`, else `USERPROFILE`), so the
+        // timer's paths and the hub home it syncs never come from different
+        // variables.
+        let home = xerj_common::home::home_dir_from(env).ok_or_else(|| {
+            anyhow!("neither HOME nor USERPROFILE is set; cannot place a user timer")
+        })?;
         // XDG says a relative XDG_CONFIG_HOME is invalid and must be ignored.
         let config = env("XDG_CONFIG_HOME")
             .map(PathBuf::from)
-            .filter(|p| p.is_absolute())
+            .filter(|p| p.is_absolute() || p.has_root())
             .unwrap_or_else(|| home.join(".config"));
         Ok(TimerDirs {
             systemd_user: config.join("systemd").join("user"),

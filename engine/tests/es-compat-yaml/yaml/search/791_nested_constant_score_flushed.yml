@@ -1,0 +1,55 @@
+# #2654: a `constant_score` inside a `bool` scores exactly its `boost` on a
+# flushed segment, as it does in the memtable. `filter` scores 0 and
+# `bool` sums its matching `must`/`should` scores, so the expected scores are
+# exact (no BM25 involved).
+setup:
+  - do:
+      indices.create:
+        index: cs_nested
+        body:
+          mappings:
+            properties:
+              t: { type: text }
+  - do:
+      bulk:
+        refresh: true
+        body:
+          - '{"index": {"_index": "cs_nested", "_id": "1"}}'
+          - '{"t": "alpha beta"}'
+          - '{"index": {"_index": "cs_nested", "_id": "2"}}'
+          - '{"t": "alpha"}'
+  - do:
+      indices.flush:
+        index: cs_nested
+
+---
+"constant_score in should adds its boost":
+  - do:
+      search:
+        index: cs_nested
+        body:
+          query:
+            bool:
+              filter: [ { match: { t: alpha } } ]
+              should: [ { constant_score: { filter: { match: { t: beta } }, boost: 1000 } } ]
+  - match: { hits.total.value: 2 }
+  - match: { hits.hits.0._id: "1" }
+  - match: { hits.hits.0._score: 1000.0 }
+  - match: { hits.hits.1._id: "2" }
+  - match: { hits.hits.1._score: 0.0 }
+
+---
+"constant_score clauses in must and should sum":
+  - do:
+      search:
+        index: cs_nested
+        body:
+          query:
+            bool:
+              must: [ { constant_score: { filter: { match: { t: alpha } }, boost: 7 } } ]
+              should: [ { constant_score: { filter: { match: { t: beta } }, boost: 2 } } ]
+  - match: { hits.total.value: 2 }
+  - match: { hits.hits.0._id: "1" }
+  - match: { hits.hits.0._score: 9.0 }
+  - match: { hits.hits.1._id: "2" }
+  - match: { hits.hits.1._score: 7.0 }

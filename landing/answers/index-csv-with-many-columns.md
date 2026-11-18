@@ -2,11 +2,15 @@
 ---
 title: "How do I index a CSV with many columns?"
 canonical: "https://xerj.org/answers/index-csv-with-many-columns"
-updated: "2026-08-21"
+updated: "2026-10-19"
 source: "content/answers/index-csv-with-many-columns.md"
 ---
 
 # How do I index a CSV with many columns?
+
+**Short answer** (updated 2026-10-19): How do you index CSV files with a big number of columns or fields? Point xerj autoindex at the file; it infers the mapping with no schema work. In a captured run a 120-column CSV became 128 mapped fields across 501 documents, and a terms aggregation on an inferred keyword column returned 4 exact buckets.
+
+**Key number:** Type inference keeps up to 512 fields per dataset (`MAX_FIELDS_PER_DATASET`), the ceiling for a very wide CSV. (as of 2026-10-19; source: [engine/crates/xerj-autoindex/src/infer/mod.rs](https://github.com/xerj-org/xerj/blob/main/engine/crates/xerj-autoindex/src/infer/mod.rs))
 
 **TL;DR** — `xerj autoindex` infers a mapping for a wide CSV with no schema work. In a captured run a 120-column file became 128 mapped fields, 121 from the file and 7 provenance fields, across 501 documents. A terms aggregation on an inferred `keyword` column returned 4 exact buckets of 125.
 
@@ -141,3 +145,7 @@ XERJ falls back to a string type when fewer than 95% of the non-null values pars
 - [I have a directory of CSV exports. How do I query them without opening each one in Excel?](/answers/index-multiple-csv-files)
 - [How do I full-text search a SQLite database I just copied onto disk?](/answers/full-text-search-sqlite-database)
 - [Aggregations](/docs/aggregations)
+- [Full-text search over JSONL files from the CLI: index a folder and query it with BM25](/answers/full-text-search-over-jsonl-files-cli)
+- [The best local full-text search for JSONL and CSV files in 2026, with a published benchmark](/compare/best-local-full-text-search-jsonl-csv-2026) (same intent: JSONL and data files)
+- [I want to point something at a folder and then ask questions about what's in it. What should I use?](/answers/how-xerj-autoindexes-a-folder) (same intent: JSONL and data files)
+- [How should an agent figure out what's in a messy data folder before searching?](/answers/catalog-files-with-autoindex-map) (same intent: JSONL and data files)

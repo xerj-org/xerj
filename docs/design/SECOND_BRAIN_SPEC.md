@@ -240,9 +240,13 @@ One reserved doc per edges index, `_id` = `__xerj-brain-meta`:
 It has **no** `src`/`dst`/`type`/`edge_id` fields, so it is invisible to the
 hop (null `src` → null_bitmap skip) and to every count in §4 (all counts filter
 on `exists src`). `graph_api::link` writes it (nodes_index = default) when it
-creates the index; autoindex writes it with `nodes_index` = its dataset index
-pattern (§6.6). Writers use `create`-if-absent semantics (never clobber an
-existing meta doc).
+creates the index and does not replace an existing meta doc. autoindex writes
+it with `nodes_index` = its dataset index pattern (§6.6). A missing doc is
+created. When this run's dataset list is non-empty and names a different set
+(order does not count), autoindex replaces `nodes_index` only — `created_at`,
+`brain`, and `meta_version` stay — so `brain overview` follows a later
+`--prefix` of the same folder. An empty dataset list does not clear a pointer
+a reader already resolved.
 
 ---
 
@@ -1039,8 +1043,10 @@ All hooks live in `lib.rs::run_index`:
 1. **After Phase A / plan finalization** (once `FileAssignment`s + dataset
    slugs + file_keys exist, before the Phase B par-iter): build `CorpusIndex`;
    run every detector's `detect_structure`; `Es::ensure_index` the edges index
-   with the §2.1 mapping; `create` the §2.5 meta doc with `nodes_index` =
-   comma-list of this run's dataset index names (e.g. `"ax-notes-docs"`);
+   with the §2.1 mapping; `create` the §2.5 meta doc, or replace its
+   `nodes_index` when this run's non-empty dataset list differs, with
+   `nodes_index` = comma-list of this run's dataset index names (e.g.
+   `"ax-notes-docs"`);
    bulk-write structural edges (§6.7).
 2. **Inside the Phase B per-file sink** (the closure that stages each
    `RawRecord`): after the node action is staged for a text-section record,

@@ -1,0 +1,71 @@
+setup:
+  - do:
+      indices.create:
+        index: books
+        body:
+          mappings:
+            properties:
+              title:
+                type: text
+  - do:
+      bulk:
+        refresh: true
+        body:
+          - index:
+              _index: books
+              _id: "1"
+          - title: lazy dog sleeps
+          - index:
+              _index: books
+              _id: "2"
+          - title: Quick dogs run
+          - index:
+              _index: books
+              _id: "3"
+          - title: the fox and the dog
+
+---
+"filter and filters aggregations count the same clause as the query (#1745)":
+
+  - do:
+      search:
+        index: books
+        body:
+          size: 0
+          aggs:
+            single:
+              filter:
+                match:
+                  title: dog
+            multi:
+              filters:
+                filters:
+                  dog:
+                    match:
+                      title: dog
+  - match: { hits.total.value: 3 }
+  - match: { aggregations.single.doc_count: 2 }
+  - match: { aggregations.multi.buckets.dog.doc_count: 2 }
+
+  # `match` defaults to OR; `match_phrase` requires adjacency.
+  - do:
+      search:
+        index: books
+        body:
+          size: 0
+          aggs:
+            or_query:
+              filter:
+                match:
+                  title: quick fox
+            phrase_gap:
+              filter:
+                match_phrase:
+                  title: fox dog
+            phrase_adjacent:
+              filter:
+                match_phrase:
+                  title: fox and
+  - match: { aggregations.or_query.doc_count: 2 }
+  - match: { aggregations.phrase_gap.doc_count: 0 }
+  - match: { aggregations.phrase_adjacent.doc_count: 1 }

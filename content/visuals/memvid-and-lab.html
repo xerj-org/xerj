@@ -1,0 +1,40 @@
+<figure class="vz" id="fig-mv-and" aria-labelledby="fig-mv-and-cap">
+  <span class="vz-label">Try it: all words vs any word</span>
+  <p class="vz-title">Why a full question can find nothing</p>
+  <div class="vz-check" data-vz-and>
+    <p class="vz-d">Four stored memories:</p>
+    <ol class="vz-docs">
+      <li>The main database for Lark is PostgreSQL 16.</li>
+      <li>The Lark API listens on port 8443 in production.</li>
+      <li>Dana prefers pnpm over npm for JavaScript projects.</li>
+      <li>Error tracking for Lark goes to Sentry.</li>
+    </ol>
+    <div class="vz-q">
+      <label class="vz-d" for="mv-and-q">Query</label>
+      <input type="text" id="mv-and-q" value="What is the main database for Lark?" spellcheck="false" aria-describedby="mv-and-out">
+    </div>
+    <div class="vz-js-only">
+      <div class="vz-q">
+        <button type="button" class="vz-btn" data-q="What is the main database for Lark?">What is the main database for Lark?</button>
+        <button type="button" class="vz-btn" data-q="main database Lark">main database Lark</button>
+        <button type="button" class="vz-btn" data-q="Lark API port">Lark API port</button>
+        <button type="button" class="vz-btn" data-q="Which package manager should I use?">Which package manager should I use?</button>
+      </div>
+      <div class="vz-cols">
+        <div class="vz-card"><span class="vz-k">Every word must match</span><ol class="vz-hits" data-out="all"></ol></div>
+        <div class="vz-card"><span class="vz-k">Any word, ranked by BM25</span><ol class="vz-hits" data-out="any"></ol></div>
+      </div>
+      <p class="vz-out" id="mv-and-out" aria-live="polite"></p>
+    </div>
+    <div class="vz-nojs">
+      <p class="vz-out">With JavaScript off, here is what memvid-sdk 2.0.160 returned on our 85 memories:</p>
+      <ul class="vz-hits">
+        <li>"What is the main database for Lark?": no hits</li>
+        <li>"main database Lark": 1 hit, the PostgreSQL memory</li>
+        <li>"What port does the Lark API listen on in production?": no hits</li>
+        <li>"Lark API port": 2 hits</li>
+      </ul>
+    </div>
+  </div>
+  <figcaption id="fig-mv-and-cap">Runs in your browser and sends nothing. It is a small model of the two query styles, not memvid's code. The recorded memvid results are in probes/memvid_and_probe.json in benchmarks/agent-memory: full questions returned nothing, and the same key words found the memory.</figcaption>
+</figure>

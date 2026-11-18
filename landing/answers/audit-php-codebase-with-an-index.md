@@ -2,11 +2,15 @@
 ---
 title: "Audit a PHP codebase with an index, not grep"
 canonical: "https://xerj.org/answers/audit-php-codebase-with-an-index"
-updated: "2026-08-23"
+updated: "2026-10-19"
 source: "content/answers/audit-php-codebase-with-an-index.md"
 ---
 
 # How do I audit a PHP codebase with an index instead of grepping 1,400 files?
+
+**Short answer** (updated 2026-10-19): How do you search a large PHP repo for dangerous sinks without reading every file? Index it as queryable facts, ask for the bug shape, and read only what comes back. The published WordPress core audit spent about 26,000 tokens against an estimated 5,200,000 to read the code once, and found core hardened.
+
+**Key number:** The WordPress core audit covered 1,492 PHP files and about 619k lines, indexed as 11,990 functions. (as of 2026-10-19; source: [docs/case-studies/wordpress-security-audit/README.md](https://github.com/xerj-org/xerj/blob/main/docs/case-studies/wordpress-security-audit/README.md))
 
 **TL;DR** — Index the codebase as queryable facts, ask for the bug shape, and read only what comes back. The published WordPress core audit spent about 26,000 tokens. Reading the code once is estimated at about 5,200,000. The headline finding is that core is hardened.
 
@@ -191,3 +195,6 @@ On recall. Grep's literal recall is perfect and the model's is not: a source at 
 - [I need my agent to find a passage and cite the file, not dump the whole tree. How?](/answers/code-search-mcp-for-claude-code)
 - [My codebase indexer says indexed but I don't see my code. How do I check it actually finished?](/answers/check-codebase-index-is-complete)
 - [WordPress security audit](/case-studies/wordpress-security-audit)
+- [The best MCP servers for searching a local codebase in 2026](/compare/best-mcp-server-local-code-search-2026) (same intent: code search for agents)
+- [Is ripgrep enough for a coding agent, or do I need a code index?](/compare/xerj-vs-ripgrep-for-code-agents) (same intent: code search for agents)
+- [ast-grep vs a code index for an agent?](/compare/xerj-vs-ast-grep) (same intent: code search for agents)

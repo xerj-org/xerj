@@ -14,7 +14,7 @@
 import { readFileSync, writeFileSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const SRC = join(REPO, 'functions', 'get.js');
@@ -28,7 +28,7 @@ const PS1_BODY = readFileSync(join(REPO, 'landing', 'get.ps1'), 'utf8');
 const src = readFileSync(SRC, 'utf8');
 const tmp = join(mkdtempSync(join(tmpdir(), 'xerj-fn-')), 'get.mjs');
 writeFileSync(tmp, src);
-const fn = await import(tmp);
+const fn = await import(pathToFileURL(tmp).href);
 
 let failures = 0;
 const ok = (cond, name, extra = '') => {
@@ -203,7 +203,7 @@ console.log('── functions/get.js ──');
     },
   });
   Object.defineProperty(r, 'cf', {
-    value: { country: 'DE', city: 'Berlin', postalCode: '10115', asn: 3320, asOrganization: 'Deutsche Telekom', latitude: '52.52', longitude: '13.40' },
+    value: { country: 'DE', city: 'Berlin', postalCode: '10115', asn: 3320, asOrganization: 'Deutsche Telekom', latitude: '52.5200871', longitude: '13.4049540' },
   });
   await call(r, { ASSETS: fakeAssets(), INSTALLS });
   const stored = [...INSTALLS.store.values()].join('\n');
@@ -216,7 +216,10 @@ console.log('── functions/get.js ──');
   ok(!stored.includes('abcdef123456'), 'no cookie stored');
   ok(!stored.includes('de-DE'), 'no Accept-Language stored');
   ok(!stored.includes('Berlin') && !stored.includes('10115'), 'no city/postcode from request.cf');
-  ok(!stored.includes('52.52') && !stored.includes('13.40'), 'no lat/long from request.cf');
+  // Distinctive values: the stored record carries an ISO timestamp, and a
+  // short value like '52.52' matched it whenever the clock read hh:mm:52.52x.
+  ok(!stored.includes('52.5200871') && !stored.includes('13.4049540'), 'no lat/long from request.cf');
+  ok(!('latitude' in row) && !('longitude' in row), 'no latitude/longitude keys stored');
   ok(!stored.includes('3320') && !stored.includes('Telekom'), 'no ASN/network operator from request.cf');
   const allowed = new Set(['ts', 'script', 'kind', 'country', 'os', 'arch', 'ua', 'ver']);
   const unexpected = Object.keys(row).filter((k) => !allowed.has(k));

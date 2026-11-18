@@ -1,0 +1,49 @@
+{
+ "sdk": "memvid-sdk 2.0.160",
+ "probes": [
+  {
+   "query": "What is the main database for Lark?",
+   "n_hits": 0,
+   "top": []
+  },
+  {
+   "query": "main database Lark",
+   "n_hits": 1,
+   "top": [
+    "The main database for Lark is PostgreSQL 16. title: memory tags: database lark main postgresql labels: note Database Lar"
+   ]
+  },
+  {
+   "query": "main database for Lark",
+   "n_hits": 1,
+   "top": [
+    "The main database for Lark is PostgreSQL 16. title: memory tags: database lark main postgresql labels: note Database Lar"
+   ]
+  },
+  {
+   "query": "Which package manager should I use for JS work?",
+   "n_hits": 0,
+   "top": []
+  },
+  {
+   "query": "pnpm",
+   "n_hits": 1,
+   "top": [
+    "Dana prefers pnpm over npm for JavaScript projects. title: memory tags: dana javascript npm pnpm prefers projects labels"
+   ]
+  },
+  {
+   "query": "Lark API port",
+   "n_hits": 2,
+   "top": [
+    "The Lark API listens on port 8443 in production. title: memory tags: 8443 api lark listens port production labels: note ",
+    "Change: the Lark API now listens on port 9443 in production. title: memory tags: 9443 api change lark listens now port p"
+   ]
+  },
+  {
+   "query": "What port does the Lark API listen on in production?",
+   "n_hits": 0,
+   "top": []
+  }
+ ]
+}

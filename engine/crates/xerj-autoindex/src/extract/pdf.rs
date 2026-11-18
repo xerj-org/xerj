@@ -4,7 +4,9 @@
 //! codes as Latin-1. `pdf_oxide` resolves the object graph and font mappings
 //! before returning Unicode text. Each document runs in a fresh worker process
 //! so parser state or failure cannot contaminate the server. On Unix the worker
-//! also gets a process group and an address-space limit. This is crash/resource
+//! also gets a process group and, where the kernel accepts `RLIMIT_AS`, a
+//! 1536 MiB address-space cap. A kernel that rejects that cap (`EINVAL` /
+//! `EPERM`, as on macOS 27) still runs the worker. This is crash/resource
 //! isolation, not a security sandbox: the worker retains the user's authority.
 
 use super::{split_sections, ExtractStats, FieldOrigin, RawRecord, Sink};
@@ -950,7 +952,8 @@ fn spawn_worker(path: &Path) -> Result<WorkerResponse> {
     set_worker_memory_limit(&mut command);
     let mut child = command.spawn().with_context(|| {
         format!(
-            "could not start the isolated PDF parser for {}; check process/resource limits",
+            "{} for {}; check process/resource limits",
+            crate::state::PDF_WORKER_START_FAILURE,
             path.display()
         )
     })?;
@@ -967,41 +970,41 @@ fn spawn_worker(path: &Path) -> Result<WorkerResponse> {
     // so one failed spawn here used to abort the whole run. A failed spawn
     // now stops the worker and fails this one file, like any other worker
     // start-up failure.
-    let out_reader = match std::thread::Builder::new()
-        .name("xerj-pdf-stdout".into())
-        .spawn(move || {
+    let out_reader =
+        match xerj_common::thread_spawn::try_spawn_returning("xerj-pdf-stdout", move || {
             let _closed = out_closed;
             read_capped(stdout, MAX_WORKER_OUTPUT)
         }) {
-        Ok(reader) => reader,
-        Err(error) => {
-            terminate_worker_tree(&mut child);
-            return Err(error).with_context(|| {
-                format!(
-                    "could not start the PDF parser's output reader for {}",
-                    path.display()
-                )
-            });
-        }
-    };
-    let err_reader = match std::thread::Builder::new()
-        .name("xerj-pdf-stderr".into())
-        .spawn(move || {
+            Ok(reader) => reader,
+            Err(failure) => {
+                drop(failure.job);
+                terminate_worker_tree(&mut child);
+                return Err(failure.error).with_context(|| {
+                    format!(
+                        "could not start the PDF parser's output reader for {}",
+                        path.display()
+                    )
+                });
+            }
+        };
+    let err_reader =
+        match xerj_common::thread_spawn::try_spawn_returning("xerj-pdf-stderr", move || {
             let _closed = err_closed;
             read_capped(stderr, MAX_WORKER_STDERR as usize)
         }) {
-        Ok(reader) => reader,
-        Err(error) => {
-            terminate_worker_tree(&mut child);
-            let _ = out_reader.join();
-            return Err(error).with_context(|| {
-                format!(
-                    "could not start the PDF parser's error reader for {}",
-                    path.display()
-                )
-            });
-        }
-    };
+            Ok(reader) => reader,
+            Err(failure) => {
+                drop(failure.job);
+                terminate_worker_tree(&mut child);
+                let _ = out_reader.join();
+                return Err(failure.error).with_context(|| {
+                    format!(
+                        "could not start the PDF parser's error reader for {}",
+                        path.display()
+                    )
+                });
+            }
+        };
 
     let started = Instant::now();
     let timeout = Duration::from_secs(WORKER_TIMEOUT_SECS.load(Ordering::Relaxed));
@@ -1178,19 +1181,25 @@ fn read_capped(mut input: impl Read, cap: usize) -> Result<CappedRead> {
 #[cfg(unix)]
 fn set_worker_memory_limit(command: &mut Command) {
     use std::os::unix::process::CommandExt;
+    // Probe in the parent so a refusal can be logged once on the progress
+    // stream. The child still decides: `pre_exec` skips EINVAL/EPERM and
+    // fails the spawn only for some other errno. `setrlimit` and the errno
+    // read are async-signal-safe; `from_raw_os_error` runs only on that
+    // fatal path, which is the same allocation the old code made for every
+    // failure.
+    let _ = super::rlimit::address_space_cap_supported();
     unsafe {
         command.pre_exec(|| {
             if libc::setpgid(0, 0) != 0 {
                 return Err(std::io::Error::last_os_error());
             }
-            let limit = libc::rlimit {
-                rlim_cur: WORKER_ADDRESS_SPACE,
-                rlim_max: WORKER_ADDRESS_SPACE,
-            };
-            if libc::setrlimit(libc::RLIMIT_AS, &limit) != 0 {
-                return Err(std::io::Error::last_os_error());
+            match super::rlimit::apply_address_space_cap(WORKER_ADDRESS_SPACE) {
+                super::rlimit::AddressSpaceCap::Applied
+                | super::rlimit::AddressSpaceCap::Skipped => Ok(()),
+                super::rlimit::AddressSpaceCap::Failed(errno) => {
+                    Err(std::io::Error::from_raw_os_error(errno))
+                }
             }
-            Ok(())
         });
     }
 }
@@ -1225,7 +1234,11 @@ fn terminate_worker_descendants(_process_group: u32) {}
 
 #[cfg(unix)]
 fn containment_description() -> &'static str {
-    "fresh process; Unix process-group cleanup; 1536 MiB RLIMIT_AS; not a security sandbox"
+    if super::rlimit::current_address_space_is_capped(WORKER_ADDRESS_SPACE) {
+        "fresh process; Unix process-group cleanup; 1536 MiB RLIMIT_AS; not a security sandbox"
+    } else {
+        "fresh process; Unix process-group cleanup; no RLIMIT_AS cap on this process; not a security sandbox"
+    }
 }
 
 #[cfg(not(unix))]
@@ -1404,10 +1417,15 @@ impl WorkerGate {
     }
 
     fn acquire(&self) -> WorkerPermit<'_> {
-        let mut state = self.state.lock().expect("PDF worker gate poisoned");
-        while state.0 >= state.1 {
-            state = self.ready.wait(state).expect("PDF worker gate poisoned");
-        }
+        let mut state = super::wait_until_slot(
+            "pdf worker",
+            &self.state,
+            &self.ready,
+            super::SLOT_HEARTBEAT,
+            |state| state.0 >= state.1,
+            |state| (state.0, state.1),
+            |line| eprintln!("{line}"),
+        );
         state.0 += 1;
         WorkerPermit(self)
     }
@@ -1433,15 +1451,39 @@ fn worker_gate() -> &'static WorkerGate {
 }
 
 fn normalize_legacy_symbol_glyphs(text: &str) -> String {
-    text.chars()
+    let mapped: String = text
+        .chars()
         .map(|ch| match ch {
             '\u{f0b7}' => '•',
             '\u{f02d}' => '-',
             '\u{f078}' | '\u{f0a8}' | '\u{f06f}' | '\u{f052}' | '\u{f0a3}' | '\u{f020}' => '□',
             '\u{f0d2}' | '\u{f0d4}' | '\u{f0be}' => ' ',
+            // Legacy Windows / Adobe Thai PUA shifted glyphs (U+F700..=U+F71A)
+            '\u{f700}' => '\u{0e10}',
+            '\u{f701}' => '\u{0e34}',
+            '\u{f702}' => '\u{0e35}',
+            '\u{f703}' => '\u{0e36}',
+            '\u{f704}' => '\u{0e37}',
+            '\u{f705}' | '\u{f70a}' | '\u{f713}' => '\u{0e48}',
+            '\u{f706}' | '\u{f70b}' | '\u{f714}' => '\u{0e49}',
+            '\u{f707}' | '\u{f70c}' | '\u{f715}' => '\u{0e4a}',
+            '\u{f708}' | '\u{f70d}' | '\u{f716}' => '\u{0e4b}',
+            '\u{f709}' | '\u{f70e}' | '\u{f717}' => '\u{0e4c}',
+            '\u{f70f}' => '\u{0e0d}',
+            '\u{f710}' => '\u{0e31}',
+            '\u{f711}' => '\u{0e4d}',
+            '\u{f712}' => '\u{0e47}',
+            '\u{f718}' => '\u{0e38}',
+            '\u{f719}' => '\u{0e39}',
+            '\u{f71a}' => '\u{0e3a}',
             other => other,
         })
-        .collect()
+        .collect();
+    if mapped.contains('\u{0e4d}') {
+        mapped.replace("\u{0e4d}\u{0e32}", "\u{0e33}")
+    } else {
+        mapped
+    }
 }
 
 fn validate_text_quality(text: &str) -> Result<()> {
@@ -1565,6 +1607,25 @@ mod tests {
     }
 
     #[test]
+    fn legacy_thai_pua_glyphs_are_normalized_and_pass_quality_gate() {
+        let raw_thai_pua = "รายงานการวิเคราะห\u{f70e}ผ\u{f710}งเมืองและสิ\u{f70a}งแวดล\u{f70b}อม \
+            พ\u{f704}\u{f714}นท\u{f702}\u{f713}ส\u{f702}เข\u{f702}ยว \u{f700}านข\u{f70b}อม\u{f719}ล \
+            ส\u{f711}าน\u{f710}กงานใหญ\u{f705} เด\u{f712}ก \u{f70f}าติพ\u{f701}\u{f703}\u{f706}\u{f707}\u{f708}\u{f709}\u{f70c}\u{f70d}\u{f715}\u{f716}\u{f717}\u{f718}\u{f71a}";
+        assert!(validate_text_quality(raw_thai_pua).is_err());
+
+        let normalized = normalize_legacy_symbol_glyphs(raw_thai_pua);
+        assert!(
+            !normalized
+                .chars()
+                .any(|ch| ('\u{f700}'..='\u{f71a}').contains(&ch)),
+            "all legacy Thai PUA codepoints U+F700..=U+F71A must be mapped to canonical Thai"
+        );
+        assert!(normalized.contains("รายงานการวิเคราะห์ผังเมืองและสิ่งแวดล้อม"));
+        assert!(normalized.contains("พื้นที่สีเขียว ฐานข้อมูล สำนักงานใหญ่ เด็ก ญาติ"));
+        validate_text_quality(&normalized).unwrap();
+    }
+
+    #[test]
     fn reproducible_pdf_extracts_pages_and_elects_semantic_text() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("quarterly-report.pdf");
@@ -1635,7 +1696,10 @@ mod tests {
         .unwrap();
 
         // The artifact exists only as an open handle; it adds no recoverable
-        // path or stale-cache state under the journal directory.
+        // path or stale-cache state under the journal directory. On Windows
+        // (FILE_FLAG_DELETE_ON_CLOSE), the directory entry disappears when the
+        // handle is dropped after replay below.
+        #[cfg(unix)]
         assert_eq!(std::fs::read_dir(state.path()).unwrap().count(), 0);
 
         let mut replayed = Vec::new();
@@ -1655,6 +1719,7 @@ mod tests {
             .replay(123, "axf2-generation-b", &mut |_| true)
             .unwrap_err();
         assert!(error.to_string().contains("different source generation"));
+        assert_eq!(std::fs::read_dir(state.path()).unwrap().count(), 0);
     }
 
     #[test]
@@ -1788,6 +1853,7 @@ mod tests {
         assert_eq!(budget.report()["reservations_started"], 0);
     }
 
+    #[cfg(unix)]
     #[test]
     fn worker_that_closes_its_pipes_but_keeps_running_still_times_out() {
         // #1394: the supervisor now sleeps on pipe EOF instead of a fixed

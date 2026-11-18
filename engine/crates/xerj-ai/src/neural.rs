@@ -10,10 +10,13 @@
 //!   * [`crate::embed::EmbeddingProxy`] — any external OpenAI-compatible
 //!     `/v1/embeddings` provider (bring-your-own model).
 //!
-//! Model files are fetched once on first use from the HuggingFace Hub and
-//! cached on disk; air-gapped deployments point [`NeuralConfig::local_dir`]
-//! at a directory holding `config.json`, `tokenizer.json`, and the
-//! safetensors weights instead.
+//! Model files are resolved when the embedder is loaded. The server does
+//! that at startup when neural is requested (#1840): a blocked Hub or a
+//! missing local directory refuses the process once, instead of failing
+//! every later ingest. Air-gapped deployments point
+//! [`NeuralConfig::local_dir`] at a directory holding `config.json`,
+//! `tokenizer.json`, and the safetensors weights. A HuggingFace mirror is
+//! `HF_ENDPOINT` (or [`NeuralConfig::hub_endpoint`]).
 //!
 //! Compiled only under the `neural` cargo feature.
 
@@ -87,6 +90,12 @@ pub struct NeuralConfig {
     /// Air-gapped: load `config.json` / `tokenizer.json` / weights from this
     /// directory instead of downloading. Takes precedence over the hub.
     pub local_dir: Option<PathBuf>,
+    /// Override the HuggingFace Hub base URL. `None` uses `HF_ENDPOINT` when
+    /// that variable is set, otherwise `https://huggingface.co`. Tests point
+    /// this at a closed local port so a blocked download never touches the
+    /// network. `ApiBuilder::new()` does not read `HF_ENDPOINT` itself
+    /// (hf-hub 0.4 only does that in `from_env`).
+    pub hub_endpoint: Option<String>,
 }
 
 impl Default for NeuralConfig {
@@ -95,6 +104,7 @@ impl Default for NeuralConfig {
             model_id: DEFAULT_MODEL_ID.to_string(),
             cache_dir: None,
             local_dir: None,
+            hub_endpoint: None,
         }
     }
 }
@@ -114,13 +124,14 @@ impl NeuralEmbedder {
         self.dims
     }
 
-    /// Load the model, downloading from the HuggingFace Hub on first use
-    /// (unless [`NeuralConfig::local_dir`] is set). **Blocking** — the caller
-    /// runs this off the async executor (see [`crate::embedder`]).
+    /// Load the model, downloading from the HuggingFace Hub when it is not
+    /// already cached (unless [`NeuralConfig::local_dir`] is set).
+    /// **Blocking** — the server runs this at startup, off the async
+    /// executor (see [`crate::Embedder::preload_neural`]).
     pub fn load(cfg: &NeuralConfig) -> Result<Self> {
         let (config_path, tokenizer_path, weights_path) = match &cfg.local_dir {
             Some(dir) => resolve_local(dir)?,
-            None => resolve_from_hub(&cfg.model_id, cfg.cache_dir.as_deref())?,
+            None => resolve_from_hub(cfg)?,
         };
 
         let config_json = std::fs::read_to_string(&config_path)
@@ -300,6 +311,56 @@ impl NeuralEmbedder {
     }
 }
 
+/// Passages in one ingest-rate probe. 32 rows of 512 ASCII characters fit one
+/// length-aware forward pass under [`PADDED_TOKEN_BUDGET`] for prose-like
+/// text, which is the shape `semantic_text` chunks are cut to.
+pub const INGEST_PROBE_PASSAGES: usize = 32;
+
+/// Characters (and bytes — the probe is ASCII) in each probe passage.
+pub const INGEST_PROBE_CHARS: usize = 512;
+
+/// Time one batch of ingest-shaped passages.
+///
+/// One untimed warmup passage runs first, so the timed call is not the
+/// process's first Candle forward. Returns `None` when the call fails or the
+/// clock reports 0 ms — that is "not measured", not a rate of infinity.
+/// The result is not part of [`asset_identity`]: batching and wall time do
+/// not change the vectors.
+pub fn measure_ingest_probe(
+    embedder: &NeuralEmbedder,
+) -> Option<xerj_common::config::NeuralIngestProbe> {
+    let passage = ingest_probe_passage();
+    debug_assert_eq!(passage.len(), INGEST_PROBE_CHARS);
+    let warmup = embedder
+        .embed_blocking(std::slice::from_ref(&passage))
+        .ok()?;
+    if warmup.len() != 1 {
+        return None;
+    }
+    let texts = vec![passage; INGEST_PROBE_PASSAGES];
+    let started = std::time::Instant::now();
+    let vectors = embedder.embed_blocking(&texts).ok()?;
+    let millis = u64::try_from(started.elapsed().as_millis()).ok()?;
+    if millis == 0 || vectors.len() != INGEST_PROBE_PASSAGES {
+        return None;
+    }
+    Some(xerj_common::config::NeuralIngestProbe {
+        bytes: (INGEST_PROBE_CHARS * INGEST_PROBE_PASSAGES) as u64,
+        passages: INGEST_PROBE_PASSAGES as u32,
+        millis,
+    })
+}
+
+fn ingest_probe_passage() -> String {
+    let unit = "fn embed_passage(text: &str) -> Vec<f32> { hash_tokens(text) } ";
+    let mut passage = String::with_capacity(INGEST_PROBE_CHARS);
+    while passage.len() < INGEST_PROBE_CHARS {
+        passage.push_str(unit);
+    }
+    passage.truncate(INGEST_PROBE_CHARS);
+    passage
+}
+
 /// How [`NeuralEmbedder::embed_blocking`] turns per-token hidden states into
 /// one vector. Part of the identity: the same weights pooled differently are a
 /// different embedder.
@@ -443,7 +504,7 @@ fn compute_asset_identity(
 ) -> std::result::Result<AssetIdentity, AssetIdentityError> {
     let (config_path, tokenizer_path, weights_path) = match &cfg.local_dir {
         Some(dir) => resolve_local_assets(dir)?,
-        None => resolve_from_hub(&cfg.model_id, cfg.cache_dir.as_deref())
+        None => resolve_from_hub(cfg)
             // The hub error names the model id and the cache path; neither may
             // reach a client, so only the generic label travels.
             .map_err(|e| AssetIdentityError::new("the model download", format!("{e:#}")))?,
@@ -537,22 +598,46 @@ fn find_local_weights(dir: &Path) -> std::result::Result<PathBuf, AssetIdentityE
     ))
 }
 
+/// The single startup error for a neural model that cannot be loaded.
+///
+/// Callers that refuse to start (#1840) use this text so the operator sees
+/// the cause once, plus the two ways out: lexical, or an offline / mirrored
+/// model. Lexical is named as a different command, never as a silent swap —
+/// those vectors are not comparable with neural vectors (#1189).
+pub fn startup_failure_message(model_id: &str, error: &anyhow::Error) -> String {
+    format!(
+        "embedding.mode=neural failed to load model {model_id}: {error:#}. \
+         Refusing to start. Lexical vectors are not comparable with neural vectors, \
+         so this process will not switch to the lexical embedder or keep running and \
+         fail every ingest. To index without a model, restart with: \
+         xerj --embed-mode lexical. To keep neural offline, set \
+         embedding.local_model_dir to a directory containing config.json, \
+         tokenizer.json and model.safetensors. To use a HuggingFace mirror, set \
+         HF_ENDPOINT to the mirror base URL and start again."
+    )
+}
+
 /// Download (or read from cache) the model files from the HuggingFace Hub.
 ///
-/// The first launch with `--embed-mode neural` on a fresh machine pulls the
-/// weights (~90 MB for MiniLM); every launch after that is an instant cache
-/// hit. We surface that clearly so a user staring at a terminal knows the
-/// one-time download is happening rather than a hang. A progress bar is shown
-/// (hf-hub writes it to stderr) for the same reason.
-fn resolve_from_hub(
-    model_id: &str,
-    cache_dir: Option<&Path>,
-) -> Result<(PathBuf, PathBuf, PathBuf)> {
+/// The server calls this at startup when `--embed-mode neural` is requested,
+/// before it listens. The first start on a fresh machine pulls the weights
+/// (~90 MB for MiniLM); every start after that is a cache hit. A progress bar
+/// is shown (hf-hub writes it to stderr) so a download is not mistaken for a
+/// hang.
+fn resolve_from_hub(cfg: &NeuralConfig) -> Result<(PathBuf, PathBuf, PathBuf)> {
     use hf_hub::api::sync::ApiBuilder;
 
-    let mut builder = ApiBuilder::new().with_progress(true);
-    if let Some(dir) = cache_dir {
-        builder = builder.with_cache_dir(dir.to_path_buf());
+    let model_id = cfg.model_id.as_str();
+    // `ApiBuilder::new()` does not read `HF_ENDPOINT` (hf-hub 0.4 reserved
+    // that for `from_env`, which also relocates the cache via `HF_HOME`).
+    // Keep the historical cache directory and apply only the mirror URL,
+    // unless the caller set `model_cache_dir` / `hub_endpoint`.
+    let mut builder = ApiBuilder::new().with_progress(true).with_retries(0);
+    if let Some(dir) = &cfg.cache_dir {
+        builder = builder.with_cache_dir(dir.clone());
+    }
+    if let Some(endpoint) = hub_endpoint_override(cfg) {
+        builder = builder.with_endpoint(endpoint);
     }
     let api = builder
         .build()
@@ -588,6 +673,22 @@ fn resolve_from_hub(
     })?;
     tracing::info!(model = %model_id, "neural embedder: model ready");
     Ok((config, tokenizer, weights))
+}
+
+/// Explicit [`NeuralConfig::hub_endpoint`], otherwise a non-empty `HF_ENDPOINT`.
+fn hub_endpoint_override(cfg: &NeuralConfig) -> Option<String> {
+    if let Some(endpoint) = cfg
+        .hub_endpoint
+        .as_deref()
+        .map(str::trim)
+        .filter(|endpoint| !endpoint.is_empty())
+    {
+        return Some(endpoint.to_string());
+    }
+    std::env::var("HF_ENDPOINT")
+        .ok()
+        .map(|endpoint| endpoint.trim().to_string())
+        .filter(|endpoint| !endpoint.is_empty())
 }
 
 #[cfg(test)]

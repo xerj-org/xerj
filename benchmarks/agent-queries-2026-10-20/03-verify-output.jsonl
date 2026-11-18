@@ -1,0 +1,5 @@
+{"claim": "the primary user is an AI agent", "http": 200, "took": 29, "client_ms": 30, "total": {"value": 0, "relation": "eq"}, "ax_path": "", "found": false}
+{"claim": "shares no code and no architecture", "http": 200, "took": 28, "client_ms": 29, "total": {"value": 0, "relation": "eq"}, "ax_path": "", "found": false}
+{"claim": "point-at-folder", "http": 200, "took": 28, "client_ms": 29, "total": {"value": 0, "relation": "eq"}, "ax_path": "", "found": false}
+{"claim": "Content sniffing never trusts the extension", "http": 200, "took": 28, "client_ms": 29, "total": {"value": 0, "relation": "eq"}, "ax_path": "", "found": false}
+{"claim": "XERJ is a fork of Lucene", "http": 200, "took": 28, "client_ms": 29, "total": {"value": 0, "relation": "eq"}, "ax_path": "", "found": false}

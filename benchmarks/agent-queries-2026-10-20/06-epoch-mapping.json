@@ -1,0 +1,2 @@
+HTTP 200 GET /epoch-*/_mapping
+{"epoch-jsonl":{"mappings":{"properties":{"id":{"type":"keyword"},"text":{"type":"keyword"},"ts":{"type":"double"},"ax_path":{"type":"keyword"},"ax_paths":{"type":"keyword"},"ax_file":{"type":"keyword"},"ax_locator":{"type":"keyword"},"ax_dataset":{"type":"keyword"},"ax_run":{"type":"keyword"},"ax_format":{"type":"keyword"}}}}}

@@ -1,0 +1,37 @@
+$ /workspace/engine/target/release/xerj autoindex --url http://127.0.0.1:9217 --yes --no-graph --progress plain --disable-feedback /tmp/xerj-aq-2026-10-20/issues --prefix gh --state-dir /tmp/xerj-aq-2026-10-20/state-gh
+# exit 0
+autoindex: 4 scan threads, 4 index workers, 4 pdf workers, --bulk-mb 8 [cores=4 ram_total_mib=16003 ram_available_mib=11068 safe_zone_mib=8001]
+autoindex: bulk HTTP request timeout: 300s
+xerj-bar [????????????????????????] pct unknown | walk | eta unknown
+xerj-progress phase=walk basis=none pct=unknown items=0/0 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=0.0
+autoindex: 2 files (4 MB) under /tmp/xerj-aq-2026-10-20/issues
+xerj-progress phase=hash basis=bytes pct=0.0 items=0/2 bytes=0/4496454 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=0.0
+xerj-progress phase=scan basis=bytes pct=0.0 items=0/2 bytes=0/4496454 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=0.0
+phase A: sniffing + sampling 2 files with 4 threads…
+phase A: 2 datasets inferred, 0 junk/skipped files
+estimate: at least 0.0 s–0.0 s — a MEASURED FLOOR for client-side extraction, not a prediction of the whole run: server indexing, embedding and network time are not in it
+estimate: basis — measured on this machine during phase A: 1 file(s) / 3.0 MB read end to end across 1 family/families, scheduled over 4 worker(s). Covers 3.0 MB of the 4.3 MB planned (70% of planned bytes). Client-side extraction only.
+  estimate: json           1 file     3.0 MB at 147.9 MB/s measured over 1 file / 3.0 MB → 0.0 s
+  estimate: jsonl          1 file     1.3 MB NOT priced — phase A never read a file of this family end to end on this run, so no throughput was measured for it
+  estimate excludes: server-side indexing, embedding and merge time (autoindex cannot measure it without writing)
+  estimate excludes: network round trips to the endpoint
+  estimate excludes: relationship detection and edge writes (--no-graph removes these)
+  estimate excludes: families with no end-to-end read in phase A, listed under unmeasured_families
+work order: config (1 file, 3.0 MB) → data (1 file, 1.3 MB) — biggest first inside each band at 4 worker(s); a file that outlasts everything above it starts first regardless of band
+  config           configuration and small structured trees — dense, high signal per byte
+  data             structured data: rows, records and tables
+gate: not triggered — the measured extraction floor 0.0 s–0.0 s is under --max-minutes 10. That is NOT a promise the run finishes in 10 minutes: server, network and embedding time are not measured before indexing starts
+xerj-progress phase=prepare basis=items pct=0.0 items=0/2 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=0.6
+xerj-progress phase=snapshot basis=bytes pct=0.0 items=0/2 bytes=0/4496454 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=0.6
+xerj-progress phase=index basis=bytes pct=0.0 items=0/2 bytes=0/4925798 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=0.6
+xerj-progress phase=finalize-catalog basis=items pct=0.0 items=0/2 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=1.9
+xerj-bar [------------------------] 0.0% | finalize-catalog-readback | 0/5 items | eta unknown
+xerj-progress phase=finalize-catalog-readback basis=items pct=0.0 items=0/5 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=4.2
+xerj-progress phase=finalize-refresh basis=items pct=0.0 items=0/3 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=4.2
+xerj-progress phase=finalize-verify basis=items pct=0.0 items=0/5 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=4.2
+xerj-progress phase=finalize-verify basis=items pct=0.0 items=0/5 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.8 phase_elapsed_s=0.8 elapsed_s=5.0 waiting_on=gh-json
+ok: indexed and searchable (exit 0, completed)
+generation 1 committed — 2 datasets, 1532 records live
+
+next: `xerj autoindex map --url http://127.0.0.1:9217` for the data map; search via `xerj search --url http://127.0.0.1:9217 --prefix gh "<what you need>"`
+xerj-done ok=true exit=0 reason=completed wall=7.2s files=2 records=1532 generation=1 code_files=0 code_files_indexed=0 code_files_junked=0

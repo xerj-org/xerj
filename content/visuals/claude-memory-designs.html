@@ -1,0 +1,48 @@
+<figure class="vz" id="fig-cm-designs" aria-labelledby="fig-cm-designs-cap">
+  <span class="vz-label">Diagram</span>
+  <p class="vz-title">Three designs for a coding agent's memory</p>
+  <div class="vz-svg">
+    <svg viewBox="0 0 720 260" role="img" aria-describedby="fig-cm-designs-svg" aria-label="How claude-mem, MemPalace and XERJ save and recall memory">
+      <desc id="fig-cm-designs-svg">claude-mem captures session events with hooks, has a model write observations, stores them in SQLite and Chroma, and adds context at the next session start. MemPalace saves transcripts word for word through hooks into ChromaDB and recalls by search. XERJ waits for the agent to call store or recall over MCP and keeps memories in a local index.</desc>
+      <text class="vz-s-t vz-s-b" x="10" y="30">claude-mem</text>
+      <rect class="vz-s-box" x="130" y="10" width="130" height="44" rx="4"/>
+      <text class="vz-s-t" x="195" y="37" text-anchor="middle">Hooks capture</text>
+      <path class="vz-s-line" d="M260 32 L290 32"/>
+      <rect class="vz-s-hi" x="290" y="10" width="130" height="44" rx="4"/>
+      <text class="vz-s-t" x="355" y="37" text-anchor="middle">Model summarizes</text>
+      <path class="vz-s-line" d="M420 32 L450 32"/>
+      <rect class="vz-s-box" x="450" y="10" width="130" height="44" rx="4"/>
+      <text class="vz-s-t" x="515" y="37" text-anchor="middle">SQLite + Chroma</text>
+      <path class="vz-s-line" d="M580 32 L610 32"/>
+      <rect class="vz-s-box" x="610" y="10" width="100" height="44" rx="4"/>
+      <text class="vz-s-t" x="660" y="30" text-anchor="middle">Context at</text>
+      <text class="vz-s-t" x="660" y="46" text-anchor="middle">next start</text>
+      <text class="vz-s-t vz-s-b" x="10" y="120">MemPalace</text>
+      <rect class="vz-s-box" x="130" y="100" width="130" height="44" rx="4"/>
+      <text class="vz-s-t" x="195" y="127" text-anchor="middle">Hooks save</text>
+      <path class="vz-s-line" d="M260 122 L290 122"/>
+      <rect class="vz-s-box" x="290" y="100" width="130" height="44" rx="4"/>
+      <text class="vz-s-t" x="355" y="127" text-anchor="middle">Word for word</text>
+      <path class="vz-s-line" d="M420 122 L450 122"/>
+      <rect class="vz-s-box" x="450" y="100" width="130" height="44" rx="4"/>
+      <text class="vz-s-t" x="515" y="127" text-anchor="middle">ChromaDB</text>
+      <path class="vz-s-line" d="M580 122 L610 122"/>
+      <rect class="vz-s-box" x="610" y="100" width="100" height="44" rx="4"/>
+      <text class="vz-s-t" x="660" y="127" text-anchor="middle">MCP search</text>
+      <text class="vz-s-t vz-s-b" x="10" y="210">XERJ</text>
+      <rect class="vz-s-box" x="130" y="190" width="130" height="44" rx="4"/>
+      <text class="vz-s-t" x="195" y="217" text-anchor="middle">Agent calls store</text>
+      <path class="vz-s-line" d="M260 212 L290 212"/>
+      <rect class="vz-s-box" x="290" y="190" width="130" height="44" rx="4"/>
+      <text class="vz-s-t" x="355" y="217" text-anchor="middle">Text as sent</text>
+      <path class="vz-s-line" d="M420 212 L450 212"/>
+      <rect class="vz-s-box" x="450" y="190" width="130" height="44" rx="4"/>
+      <text class="vz-s-t" x="515" y="217" text-anchor="middle">Local index</text>
+      <path class="vz-s-line" d="M580 212 L610 212"/>
+      <rect class="vz-s-box" x="610" y="190" width="100" height="44" rx="4"/>
+      <text class="vz-s-t" x="660" y="210" text-anchor="middle">MCP recall</text>
+      <text class="vz-s-m vz-s-mute" x="660" y="226" text-anchor="middle">BM25 / hybrid</text>
+    </svg>
+  </div>
+  <figcaption id="fig-cm-designs-cap">claude-mem and MemPalace save on their own through hooks; XERJ saves only when the agent calls a tool. claude-mem has a model write summaries; MemPalace and XERJ keep the original text. Read from each project's README on 2026-10-30.</figcaption>
+</figure>

@@ -1,0 +1,73 @@
+{
+  "manifest_version": "0.3",
+  "name": "xerj",
+  "display_name": "XERJ",
+  "version": "@VERSION@",
+  "description": "Local-first BM25, vector and hybrid search, code search and agent memory over your own indexed files.",
+  "long_description": "XERJ is a local search engine with an Elasticsearch-compatible API. `xerj autoindex` indexes code, docs, logs, JSONL/CSV and PDFs; this bundle runs `xerj mcp`, the MCP stdio server that proxies search, memory, second-brain, field-map, code-search and Corpus Hub tools to a XERJ node. The node must already be running (`xerj --insecure --data-dir ~/xerj-data`); this bundle does not start one. Install the CLI with `curl -fsSL https://xerj.org/get | sh` to create and index data.",
+  "author": {
+    "name": "XERJ",
+    "url": "https://xerj.org"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/xerj-org/xerj"
+  },
+  "homepage": "https://xerj.org",
+  "documentation": "https://xerj.org/llms.txt",
+  "support": "https://github.com/xerj-org/xerj/issues",
+  "license": "Apache-2.0",
+  "keywords": [
+    "search",
+    "code search",
+    "bm25",
+    "full-text search",
+    "vector search",
+    "hybrid search",
+    "rag",
+    "memory",
+    "elasticsearch",
+    "jsonl",
+    "logs",
+    "docs"
+  ],
+  "server": {
+    "type": "binary",
+    "entry_point": "server/xerj-mcp.sh",
+    "mcp_config": {
+      "command": "/bin/sh",
+      "args": [
+        "${__dirname}/server/xerj-mcp.sh"
+      ],
+      "env": {
+        "XERJ_URL": "${user_config.xerj_url}"
+      },
+      "platform_overrides": {
+        "win32": {
+          "command": "${__dirname}/server/windows-x86_64/xerj.exe",
+          "args": [
+            "mcp"
+          ]
+        }
+      }
+    }
+  },
+  "user_config": {
+    "xerj_url": {
+      "type": "string",
+      "title": "XERJ node URL",
+      "description": "ES-compatible listener of a running XERJ node. For a loopback node the API key is read from <data-dir>/admin.key automatically.",
+      "default": "http://localhost:9200",
+      "required": true
+    }
+  },
+  "tools_generated": false,
+  "tools": [],
+  "compatibility": {
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  }
+}

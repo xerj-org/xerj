@@ -5,20 +5,24 @@
 # host's x86 features (e.g. `znver4`) into every invocation,
 # including aarch64 ones, which rejected the flag with "unknown
 # processor znver4". Release binaries must also be portable across
-# machines, so we pin to a generic mid-range baseline per-arch:
+# machines, so we pin to a generic baseline per-arch:
 #
-#   x86_64 → `x86-64-v3` (Haswell+, SSE4.2/AVX2/BMI1/BMI2/F16C) —
-#            the Rust portable baseline for modern (>=2013) x86.
+#   x86_64 → `x86-64-v2` (Nehalem+, SSE4.2/POPCNT, no AVX/AVX2).
+#            Pre-Haswell CPUs, some Atom/Celeron/Pentium parts, and
+#            VMs that hide AVX2 can run the binary (#2161). The HNSW
+#            dot-product kernel compiles an AVX2+FMA variant and
+#            selects it at runtime when the CPU has both features, so
+#            Haswell and newer keep that kernel's v3 speed.
 #   aarch64 → default (ARMv8-A) — universally available.
 #
 # To re-enable target-cpu=native locally:
 #   export RUSTFLAGS="-C target-cpu=native"
 # (env RUSTFLAGS takes precedence over this file.)
 [target.x86_64-unknown-linux-gnu]
-rustflags = ["-C", "target-cpu=x86-64-v3"]
+rustflags = ["-C", "target-cpu=x86-64-v2"]
 
 [target.x86_64-unknown-linux-musl]
-rustflags = ["-C", "target-cpu=x86-64-v3"]
+rustflags = ["-C", "target-cpu=x86-64-v2"]
 
 [target.aarch64-unknown-linux-gnu]
 rustflags = []
@@ -27,7 +31,7 @@ rustflags = []
 rustflags = []
 
 [target.x86_64-apple-darwin]
-rustflags = ["-C", "target-cpu=x86-64-v3"]
+rustflags = ["-C", "target-cpu=x86-64-v2"]
 
 [target.aarch64-apple-darwin]
 # `ring 0.17.14` has a compile-time assertion
@@ -38,7 +42,7 @@ rustflags = ["-C", "target-cpu=x86-64-v3"]
 rustflags = ["-C", "target-cpu=apple-m1"]
 
 [target.x86_64-pc-windows-msvc]
-rustflags = ["-C", "target-cpu=x86-64-v3"]
+rustflags = ["-C", "target-cpu=x86-64-v2"]
 
 [target.aarch64-pc-windows-msvc]
 rustflags = []

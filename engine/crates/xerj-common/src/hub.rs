@@ -18,9 +18,19 @@
 use serde::{Deserialize, Serialize};
 use std::fmt::Write as _;
 
-/// Bump when the on-the-wire catalogue shape changes. The client refuses a
-/// catalogue whose `format_version` it does not equal.
-pub const CATALOGUE_FORMAT_VERSION: u32 = 1;
+/// The catalogue shape this build writes. 2 adds optional `upstream`
+/// (`owner/name` of the pack's git remote) on each entry. Readers still load
+/// format 1 (that field is absent and reads as empty) so a cached catalogue
+/// from before this field keeps working. A newer shape is refused.
+/// See [`catalogue_format_supported`].
+pub const CATALOGUE_FORMAT_VERSION: u32 = 2;
+/// Oldest catalogue shape this build still loads.
+pub const CATALOGUE_FORMAT_VERSION_MIN: u32 = 1;
+
+/// True for a catalogue `format_version` this build can read.
+pub fn catalogue_format_supported(version: u32) -> bool {
+    (CATALOGUE_FORMAT_VERSION_MIN..=CATALOGUE_FORMAT_VERSION).contains(&version)
+}
 
 /// Bump when the pack archive layout changes. `format_version: 1` means the
 /// snapshot layout (engine `create_snapshot`/`restore_snapshot`).
@@ -28,6 +38,33 @@ pub const PACK_FORMAT_VERSION: u32 = 1;
 
 /// Where the catalogue and the hosted query API live.
 pub const DEFAULT_HUB_URL: &str = "https://hub.xerj.org";
+
+/// The hub's local root: `XERJ_HUB_HOME` when set and non-empty, else
+/// `<home>/.xerj/hub` ([`crate::home::home_dir_from`]: `HOME`, else
+/// `USERPROFILE`). `None` when neither is set.
+///
+/// This is THE rule. The CLI (`xerj hub pull`, which extracts packs under
+/// `<root>/packs`) and the server (which, by default, lets a snapshot restore
+/// read from that same `<root>/packs` — `limits.hub_pack_restore`) both resolve
+/// it here, so a server started by the same user agrees with the CLI on where a
+/// pulled pack lives.
+pub fn hub_root_from(
+    env: &dyn Fn(&str) -> Option<std::ffi::OsString>,
+) -> Option<std::path::PathBuf> {
+    if let Some(h) = env("XERJ_HUB_HOME").filter(|h| !h.is_empty()) {
+        return Some(std::path::PathBuf::from(h));
+    }
+    crate::home::home_dir_from(env).map(|home| home.join(".xerj").join("hub"))
+}
+
+/// The directory `xerj hub pull` extracts verified packs into:
+/// [`hub_root_from`]`/packs`, over the process environment.
+pub fn hub_packs_dir() -> Option<std::path::PathBuf> {
+    hub_root_from(&|key| std::env::var_os(key)).map(|root| root.join(HUB_PACKS_DIR))
+}
+
+/// The pack-cache directory name under the hub root.
+pub const HUB_PACKS_DIR: &str = "packs";
 
 /// Packs at or below this size are pulled automatically; larger ones are
 /// answered through the hosted route until the user runs `xerj hub pull`.
@@ -80,7 +117,8 @@ pub fn hub_key_configured() -> bool {
 pub const NO_HUB_KEY_MESSAGE: &str = "Corpus Hub packs are not available in this build: it has \
      no hub signing key, so no catalogue or pack can be verified and nothing was downloaded. \
      For reference code, index the projects yourself with `xerj corpus add` and search them \
-     with `xerj code` (see `xerj code --help`).";
+     with `xerj code` (see `xerj code --help`). A folder you indexed with `xerj autoindex` \
+     is queried with `xerj search` or `xerj def`, not `xerj ask`.";
 
 /// What a per-source licence review allows, straight from the registry's
 /// `review.use`. Governs whether a pack is pulled silently, with a warning, or
@@ -107,6 +145,12 @@ pub struct CatalogueEntry {
     pub topics: Vec<String>,
     /// The registry's one-line "an agent working on ___ queries this for ___".
     pub ask_for: String,
+    /// Upstream git repo as `owner/name` (the manifest's `repos[].url`, GitHub
+    /// form). Several repos are joined with ", " (at most four). Empty on a
+    /// catalogue written before this field, or when the manifest recorded no
+    /// `owner/name` remote — never guessed from the slug.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub upstream: String,
     /// Full 40-hex commit the pack was built at.
     pub pin_sha: String,
     /// YYYY-MM-DD the pin was taken.
@@ -338,8 +382,49 @@ pub fn render(answer: &Answer) -> String {
 
 #[cfg(test)]
 mod tests {
+    fn hub_env<'a>(
+        vars: &'a [(&'a str, &'a str)],
+    ) -> impl Fn(&str) -> Option<std::ffi::OsString> + 'a {
+        move |key| {
+            vars.iter()
+                .find(|(k, _)| *k == key)
+                .map(|(_, v)| std::ffi::OsString::from(v))
+        }
+    }
+
+    #[test]
+    fn the_hub_root_rule_is_xerj_hub_home_then_home_then_nothing() {
+        use std::path::PathBuf;
+        assert_eq!(
+            hub_root_from(&hub_env(&[
+                ("XERJ_HUB_HOME", "/srv/hub"),
+                ("HOME", "/home/u")
+            ])),
+            Some(PathBuf::from("/srv/hub"))
+        );
+        assert_eq!(
+            hub_root_from(&hub_env(&[("XERJ_HUB_HOME", ""), ("HOME", "/home/u")])),
+            Some(PathBuf::from("/home/u/.xerj/hub"))
+        );
+        assert_eq!(
+            hub_root_from(&hub_env(&[("USERPROFILE", "/Users/u")])),
+            Some(PathBuf::from("/Users/u/.xerj/hub"))
+        );
+        // No home at all: the server grants nothing (never `./.xerj/hub`).
+        assert_eq!(hub_root_from(&hub_env(&[])), None);
+    }
+
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn a_build_without_a_hub_key_points_ask_at_local_search() {
+        assert!(NO_HUB_KEY_MESSAGE.contains("`xerj search`"));
+        assert!(NO_HUB_KEY_MESSAGE.contains("`xerj def`"));
+        assert!(NO_HUB_KEY_MESSAGE.contains("`xerj autoindex`"));
+        assert!(NO_HUB_KEY_MESSAGE.contains("not `xerj ask`"));
+        assert!(!NO_HUB_KEY_MESSAGE.contains("xerj hub sync"));
+    }
 
     #[test]
     fn the_compiled_in_hub_key_is_32_bytes_of_lower_hex() {
@@ -360,7 +445,10 @@ mod tests {
         // sed over this file. If a reformat ever wrapped the declaration, they
         // would read "" and go quietly dormant instead of publishing.
         let line = format!("\npub const HUB_PUBKEY_HEX: &str = \"{HUB_PUBKEY_HEX}\";\n");
-        assert!(include_str!("hub.rs").contains(&line), "{line}");
+        assert!(
+            include_str!("hub.rs").replace("\r\n", "\n").contains(&line),
+            "{line}"
+        );
     }
 
     #[test]
@@ -409,6 +497,7 @@ mod tests {
             domain: "NET".into(),
             topics: vec!["compression".into()],
             ask_for: "fast block compression".into(),
+            upstream: "lz4/lz4".into(),
             pin_sha: "0774d05537f9762f838f7ab541b7765f1a729cb5".into(),
             pin_date: "2026-10-02".into(),
             refresh_cadence_days: 7,
@@ -439,10 +528,32 @@ mod tests {
         let back: Catalogue = serde_json::from_str(&s).unwrap();
         assert_eq!(back.corpora.len(), 1);
         assert_eq!(back.corpora[0].slug, "lz4");
+        assert_eq!(back.corpora[0].upstream, "lz4/lz4");
         assert_eq!(
             back.corpora[0].licence_class,
             LicenceClass::AdaptWithAttribution
         );
+    }
+
+    /// A catalogue written before `upstream` existed has no such key. It still
+    /// loads, and the field is empty rather than invented from the slug.
+    #[test]
+    fn a_catalogue_entry_without_upstream_loads_as_empty() {
+        let mut cat = Catalogue {
+            format_version: CATALOGUE_FORMAT_VERSION_MIN,
+            generated_at: "2026-10-14T00:00:00Z".into(),
+            corpora: vec![sample_entry()],
+        };
+        cat.corpora[0].upstream.clear();
+        let mut v = serde_json::to_value(&cat).unwrap();
+        v["corpora"][0].as_object_mut().unwrap().remove("upstream");
+        let back: Catalogue = serde_json::from_value(v).unwrap();
+        assert_eq!(back.corpora[0].upstream, "");
+        assert_eq!(back.corpora[0].slug, "lz4");
+        assert!(catalogue_format_supported(CATALOGUE_FORMAT_VERSION_MIN));
+        assert!(catalogue_format_supported(CATALOGUE_FORMAT_VERSION));
+        assert!(!catalogue_format_supported(0));
+        assert!(!catalogue_format_supported(CATALOGUE_FORMAT_VERSION + 1));
     }
 
     #[test]

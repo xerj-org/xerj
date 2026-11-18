@@ -65,7 +65,7 @@ use crate::aggs::{
 use crate::memtable::MemBoolPred;
 use serde_json::{json, Map, Value};
 use std::collections::HashMap;
-use xerj_storage::doc_values::{Column, KeywordColumn, NumericColumn};
+use xerj_storage::doc_values::{Column, KeywordColumn, NumericColumn, PresenceColumn};
 
 /// Compile the top-level agg filter JSON (the restricted shape
 /// `query_node_to_agg_filter` emits: `term`/`range`/`bool{must,filter}`) into a
@@ -105,6 +105,8 @@ fn mem_preds_from_agg_filter(filter: &Value) -> Option<Vec<MemBoolPred>> {
                 out.push(MemBoolPred::Term {
                     field: field.clone(),
                     value,
+                    // String needles only (numbers bail above).
+                    num: None,
                 });
                 Some(())
             }
@@ -599,6 +601,10 @@ impl<'a> FastCtx<'a> {
 enum ColKind {
     Numeric,
     Keyword,
+    /// `doc_values: false` field. The column records which rows have a
+    /// value, not the value. Term and metric executors must not read it
+    /// as a dictionary or a number.
+    Presence,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -1038,6 +1044,7 @@ impl<'a> FastCtx<'a> {
             let k = match s.col(field) {
                 Some(Column::Numeric(_)) => ColKind::Numeric,
                 Some(Column::Keyword(_)) => ColKind::Keyword,
+                Some(Column::Presence(_)) => ColKind::Presence,
                 None => continue,
             };
             match kind {
@@ -1273,7 +1280,7 @@ impl<'a> FastCtx<'a> {
                     })
                 }
             }
-            MetricKind::ValueCount => json!({ "value": acc.count }),
+            MetricKind::ValueCount => json!({ "value": acc.count, "__xy_agg__": "value_count" }),
         }
     }
 
@@ -1745,6 +1752,9 @@ impl<'a> FastCtx<'a> {
                     // Only reachable for value_count.
                     acc.count += (k.doc_count as u64).saturating_sub(k.null_bitmap.len());
                 }
+                // Text presence is not a value_count of tokens. Bail so the
+                // brute extractor answers.
+                Some(Column::Presence(_)) => return None,
                 None => {}
             }
         }
@@ -1831,7 +1841,7 @@ impl<'a> FastCtx<'a> {
                         }
                     }
                 },
-                Some(Column::Keyword(_)) => return None,
+                Some(Column::Keyword(_)) | Some(Column::Presence(_)) => return None,
                 None => {}
             }
         }
@@ -1927,7 +1937,7 @@ impl<'a> FastCtx<'a> {
                         }
                     }
                 }
-                Some(Column::Keyword(_)) => return None,
+                Some(Column::Keyword(_)) | Some(Column::Presence(_)) => return None,
                 None => {}
             }
         }
@@ -1943,11 +1953,12 @@ impl<'a> FastCtx<'a> {
             }
         }
 
+        let sigma = params.get("sigma").and_then(Value::as_f64).unwrap_or(2.0);
         if count == 0 {
             // Mirror run_extended_stats' empty shape exactly: `sum` is a real
             // zero, every higher-order moment is null.
             return Some(json!({
-                "count": 0, "min": Value::Null, "max": Value::Null,
+                "__xy_sigma__": sigma, "count": 0, "min": Value::Null, "max": Value::Null,
                 "avg": Value::Null, "sum": 0.0, "sum_of_squares": Value::Null,
                 "variance": Value::Null, "variance_population": Value::Null,
                 "variance_sampling": Value::Null,
@@ -1972,9 +1983,8 @@ impl<'a> FastCtx<'a> {
         };
         let std_deviation = variance_pop.max(0.0).sqrt();
         let std_deviation_samp = variance_samp.max(0.0).sqrt();
-        let sigma = params.get("sigma").and_then(Value::as_f64).unwrap_or(2.0);
-
         Some(json!({
+            "__xy_sigma__": sigma,
             "count": count,
             "min": min,
             "max": max,
@@ -2146,6 +2156,13 @@ impl<'a> FastCtx<'a> {
             match seg.col(field) {
                 Some(Column::Numeric(n)) => missing += n.null_bitmap.len(),
                 Some(Column::Keyword(k)) => missing += k.null_bitmap.len(),
+                // Complement of `exists`: the bitmap is `value_present`.
+                Some(Column::Presence(p)) => {
+                    if p.doc_count != seg.docs {
+                        return None;
+                    }
+                    missing += (seg.docs as u64).saturating_sub(p.count());
+                }
                 // Field absent from this segment's columns → every row missing.
                 None => missing += seg.docs as u64,
             }
@@ -2347,6 +2364,7 @@ impl<'a> FastCtx<'a> {
                         any = true;
                     }
                 }
+                Some(Column::Presence(_)) => return None,
                 Some(Column::Keyword(k)) => {
                     let ord_ms = self.date_ord_index(seg, field)?;
                     for (ord, &ms) in ord_ms.iter().enumerate() {
@@ -2433,6 +2451,12 @@ impl<'a> FastCtx<'a> {
             )?),
             None => None,
         };
+        // A terms window that names no ordinal in this segment resolves to
+        // `Never` before any row is visited. Zero-hit finalize probes stop
+        // here instead of walking the segment.
+        if matches!(top_sp, Some(SegPred::Never)) {
+            return Some(());
+        }
         // Resolve metric columns once.
         let mut num_cols: Vec<Option<&NumericColumn>> = Vec::with_capacity(plan.metrics.len());
         let mut kw_cols: Vec<Option<&KeywordColumn>> = Vec::with_capacity(plan.metrics.len());
@@ -2449,6 +2473,7 @@ impl<'a> FastCtx<'a> {
                     num_cols.push(None);
                     kw_cols.push(Some(k));
                 }
+                Some(Column::Presence(_)) => return None,
                 None => {
                     num_cols.push(None);
                     kw_cols.push(None);
@@ -4099,9 +4124,12 @@ impl<'a> FastCtx<'a> {
                 Ok(Some(ColKind::Keyword)) | Ok(None) => Some(()),
                 _ => None,
             },
-            // Either column kind can answer "row is non-null".
+            // Keyword, numeric, and presence columns can answer "row is non-null".
             Pred::Exists { field } => match self.seg_field_kind(field) {
-                Ok(Some(ColKind::Keyword)) | Ok(Some(ColKind::Numeric)) | Ok(None) => Some(()),
+                Ok(Some(ColKind::Keyword))
+                | Ok(Some(ColKind::Numeric))
+                | Ok(Some(ColKind::Presence))
+                | Ok(None) => Some(()),
                 _ => None,
             },
             Pred::And(subs) => {
@@ -5021,8 +5049,16 @@ impl<'a> FastCtx<'a> {
         } else {
             let data_min = bucket_ids.keys().min().copied();
             let data_max = bucket_ids.keys().max().copied();
-            let min_key = extended_min.map(key_of).or(data_min).unwrap_or(0);
-            let max_key = extended_max.map(key_of).or(data_max).unwrap_or(0);
+            // #1819: the wider of the bounds and the data, as in
+            // `run_histogram` — `extended_bounds` never drops data buckets.
+            let min_key = match (extended_min.map(key_of), data_min) {
+                (Some(e), Some(d)) => e.min(d),
+                (e, d) => e.or(d).unwrap_or(0),
+            };
+            let max_key = match (extended_max.map(key_of), data_max) {
+                (Some(e), Some(d)) => e.max(d),
+                (e, d) => e.or(d).unwrap_or(0),
+            };
             let span = max_key.saturating_sub(min_key);
             if span > bucket_cap {
                 return Some(json!({
@@ -5588,6 +5624,9 @@ enum SegPred<'a> {
     /// `exists` — the row carries a non-null keyword / numeric value.
     KwExists(&'a KeywordColumn),
     NumExists(&'a NumericColumn),
+    /// `exists` on a `doc_values: false` field. The bitmap is the set of
+    /// rows `value_present` accepted at flush.
+    PresExists(&'a PresenceColumn),
     /// Conjunction — every sub-predicate must match the row.
     And(Vec<SegPred<'a>>),
 }
@@ -5618,7 +5657,7 @@ fn resolve_pred<'a>(
                 Some(ord) => SegPred::KwEq(k, ord, k.null_bitmap.is_empty()),
                 None => SegPred::Never,
             },
-            Some(Column::Numeric(_)) => return None,
+            Some(Column::Numeric(_)) | Some(Column::Presence(_)) => return None,
             None => miss_is_genuinely_empty(field, segs, mapped_fields)?,
         },
         Pred::TermsKw { field, values } => match dv_col(cols, field) {
@@ -5630,7 +5669,7 @@ fn resolve_pred<'a>(
                     SegPred::KwIn(k, ords, k.null_bitmap.is_empty())
                 }
             }
-            Some(Column::Numeric(_)) => return None,
+            Some(Column::Numeric(_)) | Some(Column::Presence(_)) => return None,
             None => miss_is_genuinely_empty(field, segs, mapped_fields)?,
         },
         Pred::RangeKw {
@@ -5690,7 +5729,7 @@ fn resolve_pred<'a>(
                     SegPred::KwRange(k, lo_ord, hi_ord, k.null_bitmap.is_empty())
                 }
             }
-            Some(Column::Numeric(_)) => return None,
+            Some(Column::Numeric(_)) | Some(Column::Presence(_)) => return None,
             None => miss_is_genuinely_empty(field, segs, mapped_fields)?,
         },
         Pred::RangeNum {
@@ -5703,12 +5742,13 @@ fn resolve_pred<'a>(
             Some(Column::Numeric(n)) => {
                 SegPred::Num(n, *lo, *lo_incl, *hi, *hi_incl, n.null_bitmap.is_empty())
             }
-            Some(Column::Keyword(_)) => return None,
+            Some(Column::Keyword(_)) | Some(Column::Presence(_)) => return None,
             None => miss_is_genuinely_empty(field, segs, mapped_fields)?,
         },
         Pred::Exists { field } => match dv_col(cols, field) {
             Some(Column::Keyword(k)) => SegPred::KwExists(k),
             Some(Column::Numeric(n)) => SegPred::NumExists(n),
+            Some(Column::Presence(p)) => SegPred::PresExists(p),
             None => miss_is_genuinely_empty(field, segs, mapped_fields)?,
         },
         Pred::And(subs) => {
@@ -5770,6 +5810,7 @@ fn seg_pred_matches(sp: &SegPred<'_>, row: u32) -> bool {
         }
         SegPred::KwExists(k) => k.ord_for(row).is_some(),
         SegPred::NumExists(n) => !n.null_bitmap.contains(row),
+        SegPred::PresExists(p) => p.contains(row),
         SegPred::And(subs) => subs.iter().all(|s| seg_pred_matches(s, row)),
     }
 }
@@ -5796,6 +5837,9 @@ fn seg_pred_count(sp: &SegPred<'_>, docs: u32) -> u64 {
         // the numeric column's own precomputed non-null count.
         SegPred::KwExists(k) => k.per_ord_count.iter().map(|c| *c as u64).sum(),
         SegPred::NumExists(n) => n.live_count,
+        // Exact for any density. Delete-blind, like the other O(1) arms;
+        // dirty segments row-scan via `seg_pred_matches` instead.
+        SegPred::PresExists(p) => p.count(),
         // Conjunction has no O(1) form — count matching rows directly.  Only
         // reached from the top-level filter count (compile_pred, used by the
         // filter/filters executors, never yields `And`).
@@ -6029,6 +6073,76 @@ fn vwh_cluster(vals: &[(f64, u64)], num_buckets: usize) -> Vec<VwhBucket> {
 mod range_kw_tests {
     use super::*;
     use xerj_storage::doc_values::KeywordColumn;
+
+    #[test]
+    fn value_count_emission_keeps_reduction_marker() {
+        let empty = MetricAcc::default();
+        assert_eq!(
+            FastCtx::emit_metric(MetricKind::ValueCount, &empty),
+            json!({"value": 0, "__xy_agg__": "value_count"})
+        );
+        let mut acc = MetricAcc::default();
+        acc.add(1.0);
+        acc.add(2.0);
+        assert_eq!(
+            FastCtx::emit_metric(MetricKind::ValueCount, &acc),
+            json!({"value": 2, "__xy_agg__": "value_count"})
+        );
+    }
+
+    #[tokio::test]
+    async fn extended_stats_emission_keeps_custom_sigma_for_reduction() {
+        use xerj_storage::doc_values::NumericColumn;
+        let dir = tempfile::TempDir::new().unwrap();
+        let mut config = xerj_common::config::Config::default();
+        config.server.data_dir = dir.path().to_str().unwrap().to_string();
+        let engine = crate::Engine::new(config).unwrap();
+        engine
+            .create_index("sigma-test", xerj_common::types::Schema::empty())
+            .unwrap();
+        let idx = engine.get_index("sigma-test").unwrap();
+        let bool_fields = std::collections::HashSet::new();
+        let mapped = mapped_fields(&["n"]);
+        let mut cols = std::collections::BTreeMap::new();
+        cols.insert(
+            "n".to_string(),
+            Column::Numeric(NumericColumn::from_iter(
+                [1.0_f64, 2.0].into_iter().map(|v| Some(v.to_bits() as i64)),
+            )),
+        );
+        let mut seg = seg_with_cols(cols);
+        seg.docs = 2;
+        let mut ctx = FastCtx {
+            idx: &idx,
+            segs: vec![seg],
+            mem_docs: std::sync::OnceLock::new(),
+            needs_owned_mem: false,
+            bool_fields: &bool_fields,
+            mapped_fields: &mapped,
+            top_filter: None,
+            top_filter_query: None,
+            top_filter_mem_preds: None,
+            mem_filtered: std::sync::OnceLock::new(),
+            mem_live_gate: None,
+        };
+        let params = json!({"field":"n", "sigma":3.0});
+        let populated = ctx.exec_extended_stats(&params).unwrap();
+        assert_eq!(populated["count"], 2);
+        assert_eq!(populated["__xy_sigma__"], 3.0);
+        assert_eq!(populated["std_deviation_bounds"]["upper"], 3.0);
+        let mut empty_cols = std::collections::BTreeMap::new();
+        empty_cols.insert(
+            "n".to_string(),
+            Column::Numeric(NumericColumn::from_iter(std::iter::empty::<Option<i64>>())),
+        );
+        let mut empty_seg = seg_with_cols(empty_cols);
+        empty_seg.docs = 0;
+        ctx.segs = vec![empty_seg];
+        let empty = ctx.exec_extended_stats(&params).unwrap();
+        assert_eq!(empty["count"], 0);
+        assert_eq!(empty["__xy_sigma__"], 3.0);
+        assert_eq!(empty["variance"], Value::Null);
+    }
 
     /// Canonical RFC3339 timestamps, 24 chars — the shape the query parser
     /// emits and the ingest path normalises to.

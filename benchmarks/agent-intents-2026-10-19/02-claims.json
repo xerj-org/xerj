@@ -1,0 +1,5 @@
+{"pricing_unit": "per-node",
+ "usage_fees": "No per-doc, per-vector, or per-query fees",
+ "compliance_addon": "HIPAA BAA",
+ "free_trial": "14-day free trial",
+ "telemetry": "makes no runtime telemetry"}

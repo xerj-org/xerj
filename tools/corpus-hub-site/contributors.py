@@ -384,7 +384,10 @@ def person_body(pp, esc, live_slugs, pages=(), agent="", xposts="", gh=None):
         head = (f'<h3><a href="{esc(w["repo_url"])}">{esc(w["repo"])}</a></h3>' if owns else
                 f'<h3>Commit to <a href="{esc(w["repo_url"])}">{esc(w["repo"])}</a></h3>'
                 f'<div class="commit">maintained by <a href="https://github.com/{mnt}">@{mnt}</a></div>')
-        scope = ("The corpus is the whole repository at the pinned commit, not only the files of the selected commit." if owns else
+        scope = ("The corpus is the whole repository at the pinned commit, not only the files of the selected commit."
+                 if owns and (w.get("whole_repo", True) or not w["paths"]) else
+                 "The corpus covers only " + esc(", ".join(w["paths"])[:200]) + " at the pinned commit, not the whole repository."
+                 if owns else
                  ("The corpus covers only the directories this commit changed (" + esc(", ".join(w["paths"])[:200]) + "). "
                   f"The repository is @{mnt}'s; this page credits @{esc(login)} for this commit only." if not w.get("whole_repo", True) else
                   f"The repository is @{mnt}'s and is in the hub with its owner's agreement; this page credits @{esc(login)} for this commit only."))

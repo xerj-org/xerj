@@ -2,11 +2,15 @@
 ---
 title: "Index a reference library for a coding agent"
 canonical: "https://xerj.org/answers/index-reference-library-for-coding-agent"
-updated: "2026-08-23"
+updated: "2026-10-20"
 source: "content/answers/index-reference-library-for-coding-agent.md"
 ---
 
 # How do I set up reference coding so the agent retrieves a mechanism before writing code?
+
+**Short answer** (updated 2026-10-20): How do I set up reference coding so the agent retrieves a mechanism before writing code? Clone the library you are about to write against, index it with xerj autoindex, and have the agent retrieve the passage before it writes. A published study measured a gain on code the model cannot recall, and a loss on code it knows.
+
+**Key number:** Across 16 runs in four languages, the xerj arm solved 16/16 with 9,982 output tokens at $1.58. (as of 2026-10-19; source: [docs/case-studies/reference-coding/data/results-multilang-final.json](https://github.com/xerj-org/xerj/blob/main/docs/case-studies/reference-coding/data/results-multilang-final.json))
 
 **TL;DR** — Clone the library you are about to write against. Index it with `xerj autoindex`. Let the agent retrieve the passage before it writes code. A published study measured a gain on code the model cannot recall, and a loss on code it knows.
 
@@ -92,7 +96,7 @@ The study ran the same Claude Code three ways against 13 reference libraries in 
 
 The verdict was objective: the generated code had to compile and pass a hidden test the model never saw.
 
-**Across five languages, 16 runs.** The native and xerj arms both solved 16/16. The xerj arm spent 9,982 output tokens at $1.58; the native arm spent 26,477 output tokens at $3.27. The bare arm solved 11/16 at $11.18.
+**Across four languages (Python, JavaScript, C and Java), 16 runs.** The native and xerj arms both solved 16/16. The xerj arm spent 9,982 output tokens at $1.58; the native arm spent 26,477 output tokens at $3.27. The bare arm solved 11/16 at $11.18.
 
 **On seven domains carrying a runtime contract the compiler cannot warn about, 21 runs.** The bare arm solved 1/21 while burning $21.90. The native arm solved 21/21 at $4.26 and the xerj arm solved 21/21 at $3.38.
 
@@ -116,6 +120,8 @@ Do not run this workflow against a popular open-source library the model can alr
 Both workflows start with `xerj autoindex`, and they answer different questions.
 
 Indexing your own tree is about context budget: the agent stops opening every file and queries the index instead. That walkthrough, with the captured ignore accounting, is on [how to stop an agent reading the whole repo](/answers/index-monorepo-for-agent).
+
+A pinned public repository that already ships as a signed pack can be queried without a clone: [ask a repo without cloning](/answers/ask-questions-about-a-github-repo-without-cloning).
 
 Reference coding is about knowledge the agent does not have. The tree is somebody else's library, cloned for the purpose, and the point is the passage that describes the mechanism, not the size of the context.
 
@@ -167,7 +173,7 @@ No. The 13 reference libraries were written for the study so they could not be i
 
 ## Evidence
 
-- Across five languages, 16 runs: the xerj arm solved 16/16 with 9,982 output tokens at $1.58, the native arm solved 16/16 with 26,477 output tokens at $3.27, and the bare arm solved 11/16 at $11.18. — `docs/case-studies/reference-coding/data/results-multilang-final.json`
+- Across four languages (Python, JavaScript, C and Java), 16 runs: the xerj arm solved 16/16 with 9,982 output tokens at $1.58, the native arm solved 16/16 with 26,477 output tokens at $3.27, and the bare arm solved 11/16 at $11.18. — `docs/case-studies/reference-coding/data/results-multilang-final.json`
 - On the seven domains with an unrecallable runtime contract, 21 runs: the bare arm solved 1/21 at $21.90, the native arm 21/21 at $4.26, and the xerj arm 21/21 at $3.38. — `docs/case-studies/reference-coding/CASE_STUDY.md:569`
 - On memorized logic, 6 runs: the bare arm solved 6/6 at $1.49, the native arm 6/6 at $9.14, and the xerj arm 5/6 at $4.40. Retrieval lost that track. — `docs/case-studies/reference-coding/data/results-realism.json`
 - On memorized bulk data, 3 runs: every arm solved 3/3, the native arm at $0.60 and the xerj arm at $1.43. Retrieval was overhead. — `docs/case-studies/reference-coding/data/results-search.json`
@@ -180,3 +186,6 @@ No. The 13 reference libraries were written for the study so they could not be i
 - [I need my agent to find a passage and cite the file, not dump the whole tree. How?](/answers/code-search-mcp-for-claude-code)
 - [How do I run syntax-aware code search?](/answers/syntax-aware-code-search-refactoring)
 - [Is ripgrep enough for a coding agent, or do I need a code index?](/compare/xerj-vs-ripgrep-for-code-agents)
+- [xerj corpus index --fresh failed. How do I rebuild a corpus index?](/answers/rebuild-reference-corpus-index) (same intent: code search for agents)
+- [My codebase indexer says indexed but I don't see my code. How do I check it actually finished?](/answers/check-codebase-index-is-complete) (same intent: code search for agents)
+- [The best grep and ripgrep alternatives for AI coding agents in 2026](/compare/best-grep-alternative-for-ai-coding-agents-2026) (same intent: code search for agents)

@@ -482,6 +482,18 @@ impl DocScoresQuery {
     }
 }
 
+/// ES `constant_score`: the docs `query` matches, each scored exactly
+/// `score` (the wrapper's `boost`). The inner query's own score is dropped.
+///
+/// #2654: without this leaf the engine projected a nested `constant_score`
+/// to its inner query. Inside a `bool` on flushed segments, that clause then
+/// added the inner query's BM25 instead of the boost.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConstantScoreQuery {
+    pub query: Query,
+    pub score: f32,
+}
+
 /// Top-level query enum.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -497,6 +509,8 @@ pub enum Query {
     MatchAll,
     /// Caller-supplied `(doc_id, score)` set — see [`DocScoresQuery`].
     DocScores(DocScoresQuery),
+    /// See [`ConstantScoreQuery`].
+    ConstantScore(Box<ConstantScoreQuery>),
 }
 
 // ── FtsSearcher ───────────────────────────────────────────────────────────────
@@ -917,6 +931,18 @@ impl FtsSearcher {
                     explanation: None,
                 })
                 .collect()),
+            // #2654: match with the inner query, score every match `score`.
+            Query::ConstantScore(cq) => {
+                let mut hits = self.execute(&cq.query, false)?;
+                for hit in &mut hits {
+                    hit.score = cq.score;
+                    hit.explanation = explain.then(|| QueryExplanation {
+                        total_score: cq.score,
+                        term_breakdowns: Vec::new(),
+                    });
+                }
+                Ok(hits)
+            }
         }
     }
 

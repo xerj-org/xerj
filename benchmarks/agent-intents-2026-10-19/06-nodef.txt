@@ -1,0 +1,6 @@
+xerj hub: pulling 'lz4' (4.4 MB) — one-time download, later questions answer locally
+xerj hub: pulled lz4 0774d055 4623814 → 4 indices, 1702 definitions
+lz4  pin 2026-10-02 (18 days old)  mixed: BSD-2 (lib) / GPL-2.0+ (rest)
+no match in lz4 (pin 2026-10-02)
+answered from: local pack
+warning: approach-only licence (mixed: BSD-2 (lib) / GPL-2.0+ (rest)): read, do not copy

@@ -17,6 +17,8 @@
 #      snapshot restore — all against the key compiled into <xerj>;
 #   4. `xerj code <slug> --def <symbol> --json`, the symbol taken from the pack's
 #      own defs.jsonl, must return that symbol from the local pack;
+#      4b. the same lookup with NO XERJ_URL must find the node from the ledger
+#      `hub pull` wrote (not localhost:9200); skipped with 4 when no symbol;
 #   5. `xerj code <slug> "<word from ask_for>" --json` must return a hit that
 #      cites a file the way `xerj code` itself does (an ax_path/ax_file/path/file
 #      provenance path; the line is optional, as the renderer never invents one).
@@ -64,17 +66,16 @@ python3 -m http.server "$HUB_PORT" --bind 127.0.0.1 --directory "$WORK/site" \
   > "$WORK/http.log" 2>&1 &
 PIDS+=("$!")
 
-# 2. A fresh node and an empty HOME. The node allows snapshot repositories only
-#    under the hub's pack cache, as the automatic node does (node.rs).
+# 2. A fresh node and an empty HOME. The node is started the way a user starts
+#    one — no config file, no snapshot allowlist: a server restores from the pack
+#    cache of the user it runs as by default (limits.hub_pack_restore), and this
+#    gate is what proves `xerj hub pull` works against such a node.
 export HOME="$WORK/home"
 # XERJ_HUB_PUBKEY is deliberately NOT unset: CI never sets it, so the key compiled
 # into <xerj> governs there; a local rehearsal with a throwaway key sets it.
 unset XERJ_CODE_HOME XERJ_HUB_HOME XERJ_API_KEY
-mkdir -p "$HOME/.xerj/hub/packs"
-printf '[limits]\nsnapshot_repo_allowlist = ["%s"]\n' "$(realpath "$HOME/.xerj/hub/packs")" \
-  > "$WORK/node/config.toml"
 "$BIN" --insecure --bind 127.0.0.1 --port "$NODE_PORT" --data-dir "$WORK/node/data" \
-  --config "$WORK/node/config.toml" > "$WORK/node/node.log" 2>&1 &
+  > "$WORK/node/node.log" 2>&1 &
 PIDS+=("$!")
 export XERJ_URL="http://127.0.0.1:$NODE_PORT"
 export XERJ_HUB_URL="http://127.0.0.1:$HUB_PORT"
@@ -103,6 +104,9 @@ done
 #    question (the full §12.3 gate, with the #1735 fix); only a pack with no
 #    usable symbol falls back to question-only. A pack that answers nothing —
 #    no defs AND no question hit — still fails (in step 5).
+#    A record pack (build-pack --from-pack) may have no plain identifier: its
+#    definitions are record ids (RUSTSEC-2021-0003, nst-...) and paths
+#    (smallvec::SmallVec::insert_many), so the first such symbol is the fallback.
 zstd -dc "$WORK/rel/$TAG/$FILE" | tar -xOf - defs.jsonl > "$WORK/defs.jsonl"
 # defs.jsonl is one JSON DefRecord per line, exactly as the builder wrote it
 # (xerj-hub::pack::to_jsonl, newline-terminated); an empty file is zero records.
@@ -113,6 +117,9 @@ zstd -dc "$WORK/rel/$TAG/$FILE" | tar -xOf - defs.jsonl > "$WORK/defs.jsonl"
 DEFS_RECORDS=$(grep -c '[^[:space:]]' "$WORK/defs.jsonl" || true)
 DEF=$(jq -cn 'first(inputs | select(.symbol | test("^[A-Za-z_][A-Za-z0-9_]{3,}$"))) // empty' \
       "$WORK/defs.jsonl")
+[ -n "$DEF" ] || DEF=$(jq -cn 'first(inputs | select(.symbol | test("^[A-Za-z0-9_][A-Za-z0-9_:.-]{3,}$"))) // empty' \
+      "$WORK/defs.jsonl")
+SYM=""
 if [ -n "$DEF" ]; then
   SYM=$(jq -r .symbol <<<"$DEF")
   echo "defs present: $DEFS_RECORDS record(s); --def $SYM is required"
@@ -131,6 +138,20 @@ else
   # assertion has nothing to look up, so it is skipped; the question check below
   # is the whole gate for this pack. (If it too finds nothing, step 5 fails.)
   echo "no defs ($DEFS_RECORDS record(s), none a usable symbol); question-only check"
+fi
+
+if [ -n "$SYM" ]; then
+  # 4b. The same lookup BARE: no XERJ_URL, no --url — the command `hub pull` tells
+  #     a user to run next. It must find the node the pack was restored into from
+  #     the ledger, not fall back to localhost:9200 (where nothing listens here).
+  env -u XERJ_URL "$BIN" code "$SLUG" --def "$SYM" --json > "$WORK/def-bare.json" \
+    || { cat "$WORK/def-bare.json"; fail "bare xerj code $SLUG --def $SYM (no XERJ_URL) failed"; }
+  jq -e --argjson d "$DEF" '
+    .answered_from == "local_pack"
+    and ([.hits[]? | select(.file == $d.file and .line == $d.line)] | length) > 0' \
+    "$WORK/def-bare.json" >/dev/null \
+    || { cat "$WORK/def-bare.json"; fail "bare --def $SYM (no XERJ_URL) did not find the pulled pack's node"; }
+  echo "bare def ok: $SYM with no XERJ_URL found the pulled pack's node"
 fi
 
 # 5. One question: a word from the catalogue entry's ask_for. Words the template
@@ -152,25 +173,22 @@ WORDS=$(printf '%s\n%s\n' "$WORDS" "$SLUG_WORDS" | awk 'NF && !seen[$0]++')
 # A hit is "real and citable" when its `_source` yields a provenance path the
 # way `xerj code` itself cites one: the first non-empty of ax_path / ax_file /
 # path / file (xccode::passage::provenance). The line is deliberately NOT
-# required. The ask_for words are prose ("optimization", "retriever"), so they
-# rank the pack's FULL-TEXT records first — file-level code docs, markdown and
-# notebooks — whose citation field is `ax_path` and which carry no per-hit line
-# (line info lives only inside their `symbols[]` sub-objects, with no path).
-# Only the per-symbol declaration records carry a bare `path`+`line`, and those
-# top the results solely for identifier queries. The earlier check demanded
-# `(file|path)`+`(line|start_line)` in ONE object, so it passed only when the
-# word happened to be a symbol name and failed on every genuine natural-
-# language question that returned real, citable hits — the backfill's ~80%
-# "question" failures. `provenance` never invents a line (its own test pins
-# this), so a path-only hit IS a real hit a user can open and cite.
-CITE='[.hits.hits[]?._source | (.ax_path // .ax_file // .path // .file // "") | select(. != "")]'
+# required: the ask_for words are prose, so they rank the pack's FULL-TEXT
+# records first (file-level code docs, markdown, notebooks), whose citation
+# field is `ax_path` with no per-hit line. `provenance` never invents a line,
+# so a path-only hit IS a real hit a user can open and cite. LOCATED is the
+# shape-agnostic form of the same test (any object with a file/path and a
+# line, or an ax_path, anywhere in the answer), so a RECORD corpus
+# (rust-vulns, agent-session-trajectories) addressed by `ax_path` also passes.
+CITE='[.hits?.hits?[]?._source? | objects | (.ax_path // .ax_file // .path // .file // "") | select(. != "")]'
+LOCATED='[.. | objects | select(((.file? // .path? // "") != "" and (.line? // .start_line? // null) != null) or (.ax_path? // "") != "")]'
 hit=""
 for w in $WORDS; do
   if "$BIN" code "$SLUG" "$w" --json > "$WORK/q.json" 2> "$WORK/q.err" \
-     && jq -e "$CITE | length > 0" "$WORK/q.json" >/dev/null 2>&1; then
+     && jq -e "($CITE | length > 0) or ($LOCATED | length > 0)" "$WORK/q.json" >/dev/null 2>&1; then
     hit=$w; break
   fi
 done
 [ -n "$hit" ] || { cat "$WORK/q.json" "$WORK/q.err" 2>/dev/null | head -c 4000; fail "no question from ask_for or the slug ($WORDS) returned a citable hit"; }
-echo "question ok: \"$hit\" -> $(jq -r "$CITE[0]" "$WORK/q.json")"
+echo "question ok: \"$hit\" -> $(jq -r "($CITE[0]) // ($LOCATED"'[0] | (.file // .path // .ax_path) + (if (.line // .start_line) then ":" + ((.line // .start_line) | tostring) else "" end))' "$WORK/q.json")"
 echo "consumer e2e passed for $SLUG @ $PIN8"

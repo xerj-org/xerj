@@ -1,0 +1,10 @@
+{"field": "body", "claim": "the primary user is an AI agent", "took": 490, "total": {"value": 1, "relation": "eq"}, "found": true, "ax_path": "WHY_XERJ.md"}
+{"field": "body", "claim": "shares no code and no architecture", "took": 485, "total": {"value": 2, "relation": "eq"}, "found": true, "ax_path": "ARCHITECTURE.md"}
+{"field": "body", "claim": "point-at-folder", "took": 1, "total": {"value": 1, "relation": "eq"}, "found": true, "ax_path": "WHY_XERJ.md"}
+{"field": "body", "claim": "Content sniffing never trusts the extension", "took": 1, "total": {"value": 0, "relation": "eq"}, "found": false, "ax_path": ""}
+{"field": "body", "claim": "XERJ is a fork of Lucene", "took": 1, "total": {"value": 0, "relation": "eq"}, "found": false, "ax_path": ""}
+{"field": "text", "claim": "the primary user is an AI agent", "took": 0, "total": {"value": 0, "relation": "eq"}, "found": false, "ax_path": ""}
+{"field": "text", "claim": "shares no code and no architecture", "took": 0, "total": {"value": 0, "relation": "eq"}, "found": false, "ax_path": ""}
+{"field": "text", "claim": "point-at-folder", "took": 0, "total": {"value": 0, "relation": "eq"}, "found": false, "ax_path": ""}
+{"field": "text", "claim": "Content sniffing never trusts the extension", "took": 0, "total": {"value": 0, "relation": "eq"}, "found": false, "ax_path": ""}
+{"field": "text", "claim": "XERJ is a fork of Lucene", "took": 0, "total": {"value": 0, "relation": "eq"}, "found": false, "ax_path": ""}

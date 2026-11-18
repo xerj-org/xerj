@@ -41,9 +41,9 @@ use std::time::{Duration, Instant};
 /// — the child has to be the one to bind them. `Config::validate` requires all
 /// three to differ, which holding them simultaneously guarantees.
 fn squatter_and_two_free_ports() -> (TcpListener, u16, u16) {
-    let squatter = TcpListener::bind("127.0.0.1:0").expect("hold a port for the foreign process");
+    let squatter = xerj_common::loopback_test::expect_loopback(TcpListener::bind("127.0.0.1:0"));
     let held: Vec<TcpListener> = (0..2)
-        .map(|_| TcpListener::bind("127.0.0.1:0").unwrap())
+        .map(|_| xerj_common::loopback_test::expect_loopback(TcpListener::bind("127.0.0.1:0")))
         .collect();
     let p: Vec<u16> = held
         .iter()
@@ -56,7 +56,7 @@ fn squatter_and_two_free_ports() -> (TcpListener, u16, u16) {
 /// still be free when the child starts.
 fn three_free_ports() -> (u16, u16, u16) {
     let held: Vec<TcpListener> = (0..3)
-        .map(|_| TcpListener::bind("127.0.0.1:0").unwrap())
+        .map(|_| xerj_common::loopback_test::expect_loopback(TcpListener::bind("127.0.0.1:0")))
         .collect();
     let p: Vec<u16> = held
         .iter()
@@ -215,6 +215,45 @@ fn a_taken_es_compat_port_ends_the_process() {
         "the failure must say why the port could not be taken\n--- stderr ---\n{}",
         out.stderr
     );
+
+    drop(squatter);
+}
+
+/// #1723 / #1738: the field reports hit a taken *native REST* port (8080), and
+/// the error gave no route out. It must name that listener and its address,
+/// keep the OS reason, say how `--port` moves it (`--port` is the ES-compat
+/// port; native REST follows at BASE+1), and name the one config key that
+/// moves only this listener.
+#[test]
+fn a_taken_native_rest_port_says_how_to_move_it() {
+    let dir = tempfile::tempdir().unwrap();
+    let (squatter, es, grpc) = squatter_and_two_free_ports();
+    let rest = squatter.local_addr().unwrap().port();
+
+    let out = run(
+        &config_for(dir.path(), rest, grpc, es),
+        dir.path(),
+        Duration::from_secs(60),
+    );
+
+    assert!(
+        out.exited && !out.success,
+        "xerj must exit non-zero without its native REST port\n--- stderr ---\n{}",
+        out.stderr
+    );
+    for needle in [
+        format!("native REST: bind 127.0.0.1:{rest}: "),
+        "Address already in use".to_string(),
+        "native REST BASE+1".to_string(),
+        "`rest_port`".to_string(),
+        "--auto-port".to_string(),
+    ] {
+        assert!(
+            out.stderr.contains(&needle),
+            "the failure must contain {needle:?}\n--- stderr ---\n{}",
+            out.stderr
+        );
+    }
 
     drop(squatter);
 }

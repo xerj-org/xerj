@@ -67,6 +67,12 @@ jobs:
               CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER=musl-gcc
           - target: aarch64-unknown-linux-gnu
             os: ubuntu-latest
+            # Build jemalloc with a 64 KiB page (LG_PAGE=16). jemalloc refuses
+            # to start when the runtime page size exceeds its compile-time page,
+            # so a default 4 KiB build SIGABRTs on 16 KiB-page aarch64 kernels
+            # (Asahi, many Ampere/Graviton configs, RPi 5 16K). 64 KiB is valid
+            # on 4/16/64 KiB kernels — the same choice rustc and TiKV ship.
+            jemalloc_lg_page: "16"
             # `gcc-aarch64-linux-gnu` alone provides only the compiler;
             # `libc6-dev-arm64-cross` ships the cross-libc headers
             # (notably `bits/libc-header-start.h`) that `cc-rs` needs
@@ -78,6 +84,9 @@ jobs:
               CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
           - target: aarch64-unknown-linux-musl
             os: ubuntu-latest
+            # 64 KiB jemalloc page — see the gnu target above. Same abort hits
+            # the musl binary on 16 KiB-page aarch64 kernels.
+            jemalloc_lg_page: "16"
             # musl.cc's prebuilt aarch64-linux-musl-cross toolchain is
             # not reachable from GitHub-hosted runners (port 443
             # connection drops). cargo-zigbuild ships zig's full musl
@@ -169,6 +178,13 @@ jobs:
               [ -z "$line" ] && continue
               export "$line"
             done <<< '${{ matrix.linker_env }}'
+          fi
+          # jemalloc-sys reads this at build time and passes --with-lg-page.
+          # Set on 16 KiB-page-prone aarch64 targets so the binary starts on
+          # 4/16/64 KiB kernels instead of SIGABRTing before main (see #1663).
+          if [ -n '${{ matrix.jemalloc_lg_page }}' ]; then
+            export JEMALLOC_SYS_WITH_LG_PAGE='${{ matrix.jemalloc_lg_page }}'
+            echo "JEMALLOC_SYS_WITH_LG_PAGE=${JEMALLOC_SYS_WITH_LG_PAGE}"
           fi
           # Binary --version is env!("CARGO_PKG_VERSION"); without this it stays
           # frozen at whatever engine/Cargo.toml last shipped (rc.18). Stamp it

@@ -739,10 +739,9 @@ pub fn reconcile_groups(
             .map(|owner| owner.group_id.as_str())
             .collect();
         let group_id = if let Some(owner) = content_owner {
-            anyhow::ensure!(
-                path_owners.is_empty() || path_owners.contains(owner.group_id.as_str()),
-                "desired group has conflicting content and path identities"
-            );
+            // A changed file may now equal already indexed content. Preserve
+            // that content's group and let the operation planner retire its
+            // former group; path ownership must not veto this normal merge.
             owner.group_id.clone()
         } else if path_owners.len() == 1 {
             path_owners.pop_first().unwrap().to_string()
@@ -974,6 +973,30 @@ fn validate_groups(groups: &[ManifestGroup]) -> Result<()> {
         "manifest groups are not canonical"
     );
     Ok(())
+}
+
+/// The part of [`PendingSync::new`]'s validation that needs only the plan and
+/// the content groups derived from it, not the sealed snapshot's counts: group
+/// shape and canonical rank ([`validate_groups`]) and the plan's projection
+/// onto the groups ([`validate_plan_projection`]).
+///
+/// #1723: those checks ran only after `create_prepared_snapshot_reporting`
+/// had sealed the whole corpus, so a plan that could never be accepted cost a
+/// full snapshot pass (~25 minutes on the report's 24k-file corpus) before it
+/// was refused, on every attempt. Run on a canonicalized copy, ordered exactly
+/// as `PendingSync::new` orders the real manifest, so it cannot refuse
+/// anything that validation would accept. The groups' counts are still zero
+/// here; neither check reads them.
+pub(crate) fn preflight_plan_projection(plan: &Plan, groups: &[ManifestGroup]) -> Result<()> {
+    let mut manifest = GenerationManifest {
+        generation: 0,
+        execution: None,
+        plan: plan.clone(),
+        groups: groups.to_vec(),
+    };
+    canonicalize_manifest_order(&mut manifest);
+    validate_groups(&manifest.groups)?;
+    validate_plan_projection(&manifest.plan, &manifest.groups)
 }
 
 fn validate_plan_projection(plan: &Plan, groups: &[ManifestGroup]) -> Result<()> {
@@ -1804,6 +1827,45 @@ mod tests {
                 .unwrap()
                 .group_id,
             "logical"
+        );
+    }
+
+    #[test]
+    fn changed_file_can_join_surviving_content_group() {
+        let previous = vec![
+            group("retired", "old-content", path("61", false)),
+            group("survivor", "existing-content", path("62", false)),
+        ];
+        let result = reconcile_groups(
+            &previous,
+            vec![desired(
+                "existing-content",
+                vec![path("61", false), path("62", false)],
+            )],
+        )
+        .unwrap();
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].group_id, "survivor");
+        assert_eq!(result[0].canonical, path("61", false));
+        assert_eq!(result[0].aliases, vec![path("62", false)]);
+        let operations = plan_operations(&previous, &result);
+        assert_eq!(operations.len(), 2);
+        assert!(operations
+            .iter()
+            .any(|op| { op.group_id == "retired" && op.kind == SyncOperationKind::Delete }));
+        assert!(operations
+            .iter()
+            .any(|op| { op.group_id == "survivor" && op.kind == SyncOperationKind::Metadata }));
+        assert_eq!(
+            reconcile_groups(
+                &result,
+                vec![desired(
+                    "existing-content",
+                    vec![path("61", false), path("62", false)],
+                )]
+            )
+            .unwrap(),
+            result
         );
     }
 

@@ -1,3 +1,8 @@
+# While action.destructive_requires_name is true (the XERJ default, and what
+# this file sets), `*`, `_all` and a pattern are 400 and delete nothing.
+# The opt-out (`false` restores expansion) is the HTTP test
+# engine/crates/xerj-api/tests/destructive_requires_name.rs. Teardown stores
+# null, not false, so the default is what the next file sees.
 ---
 setup:
   - do:
@@ -12,7 +17,7 @@ teardown:
       cluster.put_settings:
         body:
           persistent:
-            action.destructive_requires_name: "false"
+            action.destructive_requires_name: null
         flat_settings: true
 ---
 "Delete nonexistent concrete index with wildcard expansion disallowed":
@@ -20,3 +25,24 @@ teardown:
       indices.delete:
         index: index3
         ignore_unavailable: true
+---
+"Wildcard and _all deletes are refused and do not delete a concrete index":
+  - do:
+      indices.create:
+        index: kept
+  - do:
+      catch: bad_request
+      indices.delete:
+        index: "*"
+  - do:
+      catch: bad_request
+      indices.delete:
+        index: _all
+  - do:
+      catch: bad_request
+      indices.delete:
+        index: "ke*"
+  - do:
+      indices.get:
+        index: kept
+  - is_true: kept

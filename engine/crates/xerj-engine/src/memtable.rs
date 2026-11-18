@@ -6,7 +6,7 @@
 //! store for O(N) term/range/agg queries without JSON parsing per document.
 
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::sync::OnceLock;
 
@@ -2026,13 +2026,20 @@ impl ShardedFtsMemtable {
     /// Drop-in replacement for the old single-memtable `insert` used by
     /// the `IndexStore::index()` single-doc path.
     pub fn insert(&self, doc_id: String, source: &Value, schema: &Schema, seq_no: u64) {
+        self.insert_shared(doc_id, Arc::new(source.clone()), schema, seq_no);
+    }
+
+    /// [`Self::insert`] for a source the caller already holds in an `Arc`.
+    /// The memtable keeps that `Arc` rather than a deep copy, so a document
+    /// the storage memtable also holds is in memory once (#2427).
+    pub fn insert_shared(&self, doc_id: String, source: Arc<Value>, schema: &Schema, seq_no: u64) {
         let s = self.shard_for_dynamic(&doc_id);
         // New writes always land in the ACTIVE generation — frozen ones are
         // immutable snapshots held for an in-flight flush (#1015).
         self.shards[s]
             .write()
             .active
-            .insert(doc_id, source, schema, seq_no);
+            .insert_shared(doc_id, source, schema, seq_no);
     }
 
     /// Drop-in for `insert_pretokenized_with_seq` — picks a shard by
@@ -2379,6 +2386,23 @@ impl ShardedFtsMemtable {
         self.dv_column_unusable(field)
     }
 
+    /// True when ANY generation's single-valued numeric column for `field`
+    /// cannot answer a `range`: the field has carried an array, and
+    /// `push_field` keeps only the array's first element, so a document
+    /// whose later element is in range would be missed (#1750). Callers
+    /// must fall back to the stored-source scan, whose range matcher checks
+    /// every element. Narrower than [`Self::dv_column_unusable`]: whitespace
+    /// keyword values do not affect the numeric column.
+    pub fn range_column_unusable(&self, field: &str) -> bool {
+        self.shards.iter().any(|s| {
+            let g = s.read();
+            g.active.doc_values.array_fields.contains(field)
+                || g.frozen
+                    .iter()
+                    .any(|fz| fz.gen.read().doc_values.array_fields.contains(field))
+        })
+    }
+
     /// DocValues term query — aggregates hits across all shards.
     /// Returns `Some(Vec<(doc_id, local_idx)>)` if any shard matched.
     /// The `local_idx` is shard-local; callers use the doc_id to
@@ -2536,6 +2560,12 @@ impl ShardedFtsMemtable {
         lt: Option<f64>,
         limit: usize,
     ) -> Option<(Vec<(String, usize)>, u64)> {
+        // #1750 — refuse globally, before any shard answers: a shard whose
+        // column holds only an array's first element must not be folded into
+        // a confident partial total (the #332 shape, for range).
+        if self.range_column_unusable(field) {
+            return None;
+        }
         // #191 — per-shard bound + global `(seq_no, _id)` narrowing, as in
         // `doc_values_term_query`.
         let mut cands: Vec<(u64, String, usize)> = Vec::new();
@@ -2802,19 +2832,29 @@ impl FrozenClaim {
                 removed_bytes,
             )
         });
-        // Free the dead generations off the publish critical path.  If
-        // thread spawn fails the Arcs drop inline: same correctness, we
-        // only lose the async-free optimisation.  #1122: std PANICS when
-        // the new thread's alternate signal stack cannot be allocated, and
-        // the shipped profile is panic=abort, so under memory pressure the
-        // spawn is not attempted at all — the Arcs drop inline right here,
-        // on the same fallback path the comment always intended.
-        // `try_spawn` consults the governor's spawn gate (installed by
-        // `governor::init`) and hands the job back on a refusal or a failed
-        // spawn; dropping the returned job frees the Arcs inline.
+        // Free the dead generations off the publish critical path. The
+        // spawn ignores the watermark gate: at the watermark is exactly when
+        // this memory-relief helper must run. If the thread cannot be
+        // created — `pthread_create` fails, or (the #1122 failure) the new
+        // thread's stack cannot be reserved — the Arcs drop inline: same
+        // correctness, we only lose the async-free optimisation. The spawn
+        // itself must not panic: std panics *inside* the child when its
+        // alternate signal stack cannot be mapped, and the release profile
+        // is panic=abort, so that one allocation used to kill the node.
+        // `try_spawn` uses a non-panicking spawn and hands the job back;
+        // dropping the job frees the Arcs on this thread. Logged once so a
+        // flush storm under pressure does not emit a line per generation.
+        static DRAIN_FREE_DEGRADED: AtomicBool = AtomicBool::new(false);
         if let Err(failure) =
-            xerj_common::thread_spawn::try_spawn("xerj-drain-free", move || drop(dead))
+            xerj_common::thread_spawn::try_spawn_memory_relief("xerj-drain-free", move || {
+                drop(dead)
+            })
         {
+            xerj_common::thread_spawn::warn_best_effort_degraded(
+                &DRAIN_FREE_DEGRADED,
+                "xerj-drain-free",
+                &failure.error,
+            );
             drop(failure.job);
         }
         guard
@@ -2958,14 +2998,38 @@ fn entry_no_clone<'a, V>(
     map.get_mut(key).expect("just inserted / already present")
 }
 
+/// Whether a keyword-column value names the number `num`. The column holds
+/// a JSON number as its source spelling (`10.0`, `1e1`), so a numeric needle
+/// compares by value; `None` (a string needle) never matches here.
+fn kw_equals_number(stored: &str, num: Option<f64>) -> bool {
+    num.is_some_and(|n| stored.parse::<f64>().is_ok_and(|f| f == n))
+}
+
 /// One resolved predicate of a `bool { must/filter }` for the fused
 /// columnar memtable walk (`doc_values_bool_query`).  Built by the engine
 /// from Term / Range query nodes; semantics per predicate mirror
 /// `doc_values_term_query` / `doc_values_range_query` exactly.
 pub enum MemBoolPred {
+    /// `num` is the needle's value when the query spelled it as a JSON
+    /// number. A numeric needle matches numerically, as on the flushed
+    /// columnar path and the `_source` comparator: the keyword column renders
+    /// a number the way its document spelled it, so `10` must also match a
+    /// stored `10.0` (and `1e1`). A string needle stays an exact match.
     Term {
         field: String,
         value: String,
+        num: Option<f64>,
+    },
+    /// Disjunction of exact values on one field. The catalog finalize-verify
+    /// query is `bool.filter [terms file_key, term run_id]`; without this arm
+    /// that bool fell through to `DocsForScan` and cloned every buffered
+    /// catalog row, including the other run's (#1761).
+    /// `nums` holds the values the query spelled as JSON numbers; see
+    /// `Term::num`.
+    Terms {
+        field: String,
+        values: Vec<String>,
+        nums: Vec<f64>,
     },
     Range {
         field: String,
@@ -3064,6 +3128,18 @@ impl FtsMemtable {
 
     /// Insert a document into the memtable, indexing all text fields.
     pub fn insert(&mut self, doc_id: String, source: &Value, schema: &Schema, seq_no: u64) {
+        self.insert_shared(doc_id, Arc::new(source.clone()), schema, seq_no);
+    }
+
+    /// [`Self::insert`] for a source the caller already holds in an `Arc`:
+    /// the entry stores that `Arc` instead of a deep copy (#2427).
+    pub fn insert_shared(
+        &mut self,
+        doc_id: String,
+        source: Arc<Value>,
+        schema: &Schema,
+        seq_no: u64,
+    ) {
         // Prefer a "default" analyzer if one was registered via custom settings
         // (e.g. with synonym expansion), otherwise fall back to "standard".
         let analyzer = self
@@ -3072,13 +3148,13 @@ impl FtsMemtable {
             .or_else(|| self.registry.get_analyzer("standard"))
             .expect("standard analyzer always present");
 
-        let analyzed = analyze_doc(source, schema, &analyzer);
+        let analyzed = analyze_doc(&source, schema, &analyzer);
 
         // See `insert_pretokenized` for sizing rationale.
         let raw_size = source.to_string().len() + doc_id.len();
         let size = raw_size * 3 + 64;
 
-        self.insert_analyzed(seq_no, doc_id, Arc::new(source.clone()), &analyzed, size);
+        self.insert_analyzed(seq_no, doc_id, source, &analyzed, size);
     }
 
     /// Back half of [`insert`] — everything that MUST run under the
@@ -4065,8 +4141,10 @@ impl FtsMemtable {
         limit: usize,
     ) -> Option<(Vec<(String, usize)>, u64)> {
         enum Col<'a> {
-            Kw(&'a Vec<Option<String>>, &'a str),
+            Kw(&'a Vec<Option<String>>, &'a str, Option<f64>),
+            KwAny(&'a Vec<Option<String>>, FxHashSet<String>, FxHashSet<u64>),
             NumEq(&'a Vec<Option<f64>>, f64),
+            NumAny(&'a Vec<Option<f64>>, FxHashSet<u64>),
             Num(
                 &'a Vec<Option<f64>>,
                 Option<f64>,
@@ -4078,7 +4156,7 @@ impl FtsMemtable {
         let mut cols: Vec<Col<'_>> = Vec::with_capacity(preds.len());
         for p in preds {
             match p {
-                MemBoolPred::Term { field, value } => {
+                MemBoolPred::Term { field, value, num } => {
                     // Array-valued field: the column is lossy (first element
                     // only) → bail so a later matching element can't be
                     // dropped (#332; mirrors `filtered_docs_arc`).
@@ -4104,13 +4182,53 @@ impl FtsMemtable {
                         {
                             return None;
                         }
-                        cols.push(Col::Kw(col, value.as_str()));
+                        cols.push(Col::Kw(col, value.as_str(), *num));
                     } else {
                         // Numeric term predicate: exact f64 equality (the
                         // predicate value was lowered to its string form).
                         let col = self.doc_values.numeric.get(field.as_str())?;
                         let needle = value.parse::<f64>().ok()?;
                         cols.push(Col::NumEq(col, needle));
+                    }
+                }
+                MemBoolPred::Terms {
+                    field,
+                    values,
+                    nums,
+                } => {
+                    if self.doc_values.array_fields.contains(field.as_str()) {
+                        return None;
+                    }
+                    // #677: dotted path → source scan (see the Term arm).
+                    if field.contains('.') {
+                        return None;
+                    }
+                    // CIDR is not a literal in the column; the source scan
+                    // expands it. An empty value list matches nothing and
+                    // stays on this path — `None` would clone the memtable.
+                    if values.iter().any(|v| v.contains('/')) {
+                        return None;
+                    }
+                    if let Some(col) = self.doc_values.keyword.get(field.as_str()) {
+                        if self
+                            .doc_values
+                            .keyword_has_whitespace
+                            .contains(field.as_str())
+                        {
+                            return None;
+                        }
+                        let set: FxHashSet<String> = values.iter().cloned().collect();
+                        let num_set: FxHashSet<u64> =
+                            nums.iter().map(|n| (n + 0.0).to_bits()).collect();
+                        cols.push(Col::KwAny(col, set, num_set));
+                    } else {
+                        let col = self.doc_values.numeric.get(field.as_str())?;
+                        let mut set: FxHashSet<u64> = FxHashSet::default();
+                        for v in values {
+                            let needle = v.parse::<f64>().ok()?;
+                            set.insert(needle.to_bits());
+                        }
+                        cols.push(Col::NumAny(col, set));
                     }
                 }
                 MemBoolPred::Range {
@@ -4138,8 +4256,24 @@ impl FtsMemtable {
         'doc: for idx in 0..n {
             for c in &cols {
                 let ok = match c {
-                    Col::Kw(col, want) => col.get(idx).and_then(|o| o.as_deref()) == Some(*want),
+                    Col::Kw(col, want, num) => col
+                        .get(idx)
+                        .and_then(|o| o.as_deref())
+                        .is_some_and(|v| v == *want || kw_equals_number(v, *num)),
+                    Col::KwAny(col, set, nums) => {
+                        col.get(idx).and_then(|o| o.as_deref()).is_some_and(|v| {
+                            set.contains(v)
+                                || (!nums.is_empty()
+                                    && v.parse::<f64>()
+                                        .is_ok_and(|f| nums.contains(&(f + 0.0).to_bits())))
+                        })
+                    }
                     Col::NumEq(col, want) => col.get(idx).copied().flatten() == Some(*want),
+                    Col::NumAny(col, set) => col
+                        .get(idx)
+                        .copied()
+                        .flatten()
+                        .is_some_and(|v| set.contains(&v.to_bits())),
                     Col::Num(col, gte, gt, lte, lt) => match col.get(idx).copied().flatten() {
                         None => false,
                         Some(v) => {
@@ -4198,8 +4332,10 @@ impl FtsMemtable {
         out: &mut Vec<(String, Arc<Value>)>,
     ) -> Option<()> {
         enum Col<'a> {
-            Kw(&'a Vec<Option<String>>, &'a str),
+            Kw(&'a Vec<Option<String>>, &'a str, Option<f64>),
+            KwAny(&'a Vec<Option<String>>, FxHashSet<String>, FxHashSet<u64>),
             NumEq(&'a Vec<Option<f64>>, f64),
+            NumAny(&'a Vec<Option<f64>>, FxHashSet<u64>),
             Num(
                 &'a Vec<Option<f64>>,
                 Option<f64>,
@@ -4211,7 +4347,7 @@ impl FtsMemtable {
         let mut cols: Vec<Col<'_>> = Vec::with_capacity(preds.len());
         for p in preds {
             match p {
-                MemBoolPred::Term { field, value } => {
+                MemBoolPred::Term { field, value, num } => {
                     // Array-valued field: the column is lossy (first element
                     // only) → bail so a later matching element can't be dropped.
                     if self.doc_values.array_fields.contains(field.as_str()) {
@@ -4231,11 +4367,48 @@ impl FtsMemtable {
                         {
                             return None;
                         }
-                        cols.push(Col::Kw(col, value.as_str()));
+                        cols.push(Col::Kw(col, value.as_str(), *num));
                     } else {
                         let col = self.doc_values.numeric.get(field.as_str())?;
                         let needle = value.parse::<f64>().ok()?;
                         cols.push(Col::NumEq(col, needle));
+                    }
+                }
+                MemBoolPred::Terms {
+                    field,
+                    values,
+                    nums,
+                } => {
+                    if self.doc_values.array_fields.contains(field.as_str()) {
+                        return None;
+                    }
+                    // #677: dotted path → source scan (see the Term arm).
+                    if field.contains('.') {
+                        return None;
+                    }
+                    if values.iter().any(|v| v.contains('/')) {
+                        return None;
+                    }
+                    if let Some(col) = self.doc_values.keyword.get(field.as_str()) {
+                        if self
+                            .doc_values
+                            .keyword_has_whitespace
+                            .contains(field.as_str())
+                        {
+                            return None;
+                        }
+                        let set: FxHashSet<String> = values.iter().cloned().collect();
+                        let num_set: FxHashSet<u64> =
+                            nums.iter().map(|n| (n + 0.0).to_bits()).collect();
+                        cols.push(Col::KwAny(col, set, num_set));
+                    } else {
+                        let col = self.doc_values.numeric.get(field.as_str())?;
+                        let mut set: FxHashSet<u64> = FxHashSet::default();
+                        for v in values {
+                            let needle = v.parse::<f64>().ok()?;
+                            set.insert(needle.to_bits());
+                        }
+                        cols.push(Col::NumAny(col, set));
                     }
                 }
                 MemBoolPred::Range {
@@ -4261,8 +4434,24 @@ impl FtsMemtable {
         'doc: for idx in 0..n {
             for c in &cols {
                 let ok = match c {
-                    Col::Kw(col, want) => col.get(idx).and_then(|o| o.as_deref()) == Some(*want),
+                    Col::Kw(col, want, num) => col
+                        .get(idx)
+                        .and_then(|o| o.as_deref())
+                        .is_some_and(|v| v == *want || kw_equals_number(v, *num)),
+                    Col::KwAny(col, set, nums) => {
+                        col.get(idx).and_then(|o| o.as_deref()).is_some_and(|v| {
+                            set.contains(v)
+                                || (!nums.is_empty()
+                                    && v.parse::<f64>()
+                                        .is_ok_and(|f| nums.contains(&(f + 0.0).to_bits())))
+                        })
+                    }
                     Col::NumEq(col, want) => col.get(idx).copied().flatten() == Some(*want),
+                    Col::NumAny(col, set) => col
+                        .get(idx)
+                        .copied()
+                        .flatten()
+                        .is_some_and(|v| set.contains(&v.to_bits())),
                     Col::Num(col, gte, gt, lte, lt) => match col.get(idx).copied().flatten() {
                         None => false,
                         Some(v) => {
@@ -4394,6 +4583,10 @@ impl FtsMemtable {
         lte: Option<f64>,
         lt: Option<f64>,
     ) -> Option<Vec<usize>> {
+        // #1750 — the column holds only an array's first element.
+        if self.doc_values.array_fields.contains(field) {
+            return None;
+        }
         let col = self.doc_values.numeric.get(field)?;
         let results: Vec<usize> = col
             .iter()
@@ -4494,7 +4687,8 @@ impl FtsMemtable {
     ///
     /// Parameters mirror the ES range query: `gte` / `gt` / `lte` / `lt`.
     ///
-    /// Returns `None` when the field has no numeric column (fall back to JSON scan).
+    /// Returns `None` when the field has no numeric column, or has carried an
+    /// array (fall back to JSON scan).
     pub fn doc_values_range_query(
         &self,
         field: &str,
@@ -4504,6 +4698,12 @@ impl FtsMemtable {
         lt: Option<f64>,
         limit: usize,
     ) -> Option<(Vec<(String, usize)>, u64)> {
+        // #1750 — an array-valued field keeps only its first element in the
+        // numeric column; bail to the array-aware source scan, as
+        // `doc_values_bool_hits` already does for the same predicate.
+        if self.doc_values.array_fields.contains(field) {
+            return None;
+        }
         let col = self.doc_values.numeric.get(field)?;
         // Step 1: exact total, bounded doc_id materialisation — the
         // unbounded id clone was the biggest read-under-write term for
@@ -5022,15 +5222,25 @@ pub(crate) fn looks_like_multi_vector(val: &serde_json::Value) -> bool {
         return false;
     }
     for row in rows {
-        let Some(components) = row.as_array() else {
-            return false;
+        let width = if let Some(text) = row.as_str() {
+            // Packed chunk vectors (#1940) are one string per passage, not
+            // a number array. Same rectangular rule as the array form.
+            match xerj_common::packed_f32::unpack_f32_vector(text) {
+                Some(values) => values.len(),
+                None => return false,
+            }
+        } else {
+            let Some(components) = row.as_array() else {
+                return false;
+            };
+            if components.is_empty() || !components.iter().all(serde_json::Value::is_number) {
+                return false;
+            }
+            components.len()
         };
-        if components.is_empty() || !components.iter().all(serde_json::Value::is_number) {
-            return false;
-        }
         match dims {
-            None => dims = Some(components.len()),
-            Some(d) if d == components.len() => {}
+            None => dims = Some(width),
+            Some(d) if d == width => {}
             Some(_) => return false,
         }
     }
@@ -6189,6 +6399,7 @@ mod filtered_docs_arc_tests {
             MemBoolPred::Term {
                 field: "status".to_string(),
                 value: "s2".to_string(),
+                num: None,
             },
             MemBoolPred::Range {
                 field: "n".to_string(),
@@ -6216,11 +6427,52 @@ mod filtered_docs_arc_tests {
         let preds = vec![MemBoolPred::Term {
             field: "status".to_string(),
             value: "s3".to_string(),
+            num: None,
         }];
         let filter = json!({ "term": { "status": "s3" } });
         let brute = brute_ids(&mem, &filter);
         assert_eq!(brute.len(), 400);
         assert_eq!(columnar_ids(&mem, &preds), brute);
+    }
+
+    /// `terms` disjunction, alone and conjoined with a `term` — the catalog
+    /// finalize-verify shape (`terms file_key` AND `term run_id`). Must equal
+    /// the JSON matcher and must not bail to the full-source walk.
+    #[test]
+    fn columnar_terms_conjunction_matches_brute() {
+        let mem = build_mem(4000);
+        let terms = vec![MemBoolPred::Terms {
+            field: "status".to_string(),
+            values: vec!["s1".to_string(), "s2".to_string()],
+            nums: Vec::new(),
+        }];
+        let terms_filter = json!({ "terms": { "status": ["s1", "s2"] } });
+        let terms_brute = brute_ids(&mem, &terms_filter);
+        assert_eq!(terms_brute.len(), 1600);
+        assert_eq!(columnar_ids(&mem, &terms), terms_brute);
+
+        // status ∈ {s1, s2} AND status = s1 → the 800 s1 docs.
+        let conj = vec![
+            MemBoolPred::Terms {
+                field: "status".to_string(),
+                values: vec!["s1".to_string(), "s2".to_string()],
+                nums: Vec::new(),
+            },
+            MemBoolPred::Term {
+                field: "status".to_string(),
+                value: "s1".to_string(),
+                num: None,
+            },
+        ];
+        let conj_filter = json!({
+            "bool": { "filter": [
+                { "terms": { "status": ["s1", "s2"] } },
+                { "term": { "status": "s1" } },
+            ]}
+        });
+        let conj_brute = brute_ids(&mem, &conj_filter);
+        assert_eq!(conj_brute.len(), 800);
+        assert_eq!(columnar_ids(&mem, &conj), conj_brute);
     }
 
     /// A predicate field that ever carried an ARRAY value makes the column

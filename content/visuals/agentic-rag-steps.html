@@ -1,0 +1,17 @@
+<figure class="vz" id="fig-arag-steps" aria-labelledby="fig-arag-steps-cap">
+  <span class="vz-label">Try it: step through one question</span>
+  <p class="vz-title">"Why did checkout start failing after Tuesday's deploy?"</p>
+  <div data-vz-steps>
+    <ol class="vz-steps">
+      <li class="vz-step"><p class="vz-t">RAG, step 1: search once</p><p class="vz-d">The whole question goes to search. The top hits are the checkout runbook and an old incident report, because they share the most words with the question.</p></li>
+      <li class="vz-step"><p class="vz-t">RAG, step 2: answer</p><p class="vz-d">The model answers from those pages. Nothing about Tuesday's change was retrieved, so the answer repeats the old incident. One search, one model call.</p></li>
+      <li class="vz-step"><p class="vz-t">Agentic RAG, step 1: plan</p><p class="vz-d">The agent splits the question in two: what changed on Tuesday, and what do the checkout errors say?</p></li>
+      <li class="vz-step"><p class="vz-t">Agentic RAG, step 2: search the deploy notes</p><p class="vz-d">Query: "deploy Tuesday checkout". Hit: "payment client timeout lowered from 30s to 5s".</p></li>
+      <li class="vz-step"><p class="vz-t">Agentic RAG, step 3: search the logs</p><p class="vz-d">Query: "checkout error timeout". Hit: "PaymentGateway call timed out after 5000 ms", starting Tuesday.</p></li>
+      <li class="vz-step"><p class="vz-t">Agentic RAG, step 4: judge and answer</p><p class="vz-d">Two sources agree, so it answers and cites both. If neither search had matched, it should rewrite the query once more or say "not found" instead of guessing.</p></li>
+      <li class="vz-step"><p class="vz-t">The cost</p><p class="vz-d">Here RAG used one search and one model call. The agent used two searches and three model calls: plan, judge and answer. More rounds cost more.</p></li>
+    </ol>
+    <p class="vz-stepnav vz-js-only"><button type="button" class="vz-btn" data-step="-1">Back</button><button type="button" class="vz-btn" data-step="1">Next</button><output></output></p>
+  </div>
+  <figcaption id="fig-arag-steps-cap">An illustration with made-up documents, not a recorded run. It shows where the two approaches differ, not how often each one is right.</figcaption>
+</figure>

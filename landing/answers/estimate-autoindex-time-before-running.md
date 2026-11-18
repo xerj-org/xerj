@@ -2,11 +2,15 @@
 ---
 title: "How do I estimate folder-indexing time?"
 canonical: "https://xerj.org/answers/estimate-autoindex-time-before-running"
-updated: "2026-08-23"
+updated: "2026-10-19"
 source: "content/answers/estimate-autoindex-time-before-running.md"
 ---
 
 # How do I estimate folder-indexing time?
+
+**Short answer** (updated 2026-10-19): How long will it take to index a folder for search? Run xerj autoindex --dry-run first: it measures an extraction floor on your own machine and writes nothing. Add --max-minutes and the decision gate exits 4 with a JSON decision request. On 2,500 PDFs the floor was 2.2 minutes and the finished run took 157.7 seconds.
+
+**Key number:** Without --max-minutes, the gate asks before any run estimated at more than 10 minutes (`DEFAULT_MAX_MINUTES`). (as of 2026-10-19; source: [engine/crates/xerj-autoindex/src/gate.rs](https://github.com/xerj-org/xerj/blob/main/engine/crates/xerj-autoindex/src/gate.rs))
 
 **TL;DR** — `xerj autoindex --dry-run` prints a measured extraction floor for your own machine, and it writes nothing. Add `--max-minutes` and `--quiet`, and the decision gate exits 4 with a JSON decision request. On 2,500 PDFs the floor was 2.2 min and the finished run took 157.7 s.
 
@@ -147,3 +151,6 @@ Because the measured extraction floor for 6 small files rounds to zero. The gate
 - [I have a folder of PDFs, Word docs, and markdown. How do I search all of them at once?](/answers/search-file-contents-in-a-folder)
 - [The indexer died overnight. Do I have to start over?](/answers/resume-interrupted-autoindex-run)
 - [How do I read autoindex progress?](/answers/read-autoindex-progress)
+- [How do I keep a search index up to date as files change, without re-indexing everything?](/answers/keep-index-current-as-files-change) (same intent: operating autoindex)
+- [Why would a folder search miss files that I can see on disk?](/answers/why-autoindex-skipped-files) (same intent: operating autoindex)
+- [How do I keep an index current when the files live in an object store?](/answers/keep-s3-bucket-index-current) (same intent: operating autoindex)

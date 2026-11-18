@@ -1,17 +1,25 @@
 ---
-title: "The indexer died overnight. Do I start over?"
+title: "Resume an interrupted indexing run without starting over"
 h1: "The indexer died overnight. Do I have to start over?"
-description: "XERJ keeps a resume journal in the state directory, so re-running autoindex is idempotent. A capture reached 82,231 documents and matched a clean control run."
+description: "XERJ keeps a resume journal in the state directory, so re-running autoindex resumes it. A resumed capture reached 82,231 documents, like a clean run."
 slug: "resume-interrupted-autoindex-run"
 cluster: "Operations: recovery"
 question: "The indexer died overnight. Do I have to start over?"
 intent: "troubleshooting"
 published: "2026-08-21"
-updated: "2026-08-23"
+updated: "2026-10-28"
 author: "XERJ documentation team"
 reviewer: "XERJ engineering team"
 schema_type: "TechArticle"
+structured_data: [faq]
 agent_prompt: "Act as a coding agent. Read https://xerj.org/llms.txt, run xerj autoindex against a folder with an explicit --state-dir, interrupt it, then re-run the identical command with the same --state-dir and compare the final _count and the first 20 document ids with a clean control run into a fresh prefix."
+answer: "The indexer died overnight; do I have to start over? No. XERJ writes a resume journal into the --state-dir, so re-running the identical autoindex command is idempotent. In a capture the interrupted run, the resumed run and a clean control run all ended at 82,231 documents, and the first 20 document ids matched exactly."
+key_fact: "A resumed full-corpus generation with all 47,444 operations already applied finished on a restarted node without re-sending them."
+key_fact_source: "benchmarks/autoindex-resilience/after-955.full-corpus-resume.stderr.txt"
+key_fact_date: "2026-10-19"
+intent_group: "operating autoindex"
+queries:
+  - "resumable indexing large folder"
 commands:
   - cmd: "xerj autoindex ./logs --url http://127.0.0.1:9200 --prefix sig --state-dir ./state-sig --progress plain"
     note: "Start the run with an explicit state directory so it can resume."

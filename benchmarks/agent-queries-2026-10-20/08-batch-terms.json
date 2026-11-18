@@ -1,0 +1,2 @@
+HTTP 200 POST /gh-jsonl/_search
+{"took":0,"timed_out":false,"terminated_early":false,"_shards":{"total":1,"successful":1,"skipped":0,"failed":0},"hits":{"total":{"value":532,"relation":"eq"},"max_score":null,"hits":[]}}

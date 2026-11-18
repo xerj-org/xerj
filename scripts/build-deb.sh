@@ -101,8 +101,15 @@ case "$VERSION" in
   [0-9]*) : ;;
   *) die "version '$VERSION' is not a valid Debian version (must start with a digit; canary builds pass the workspace version, not the ref name)" ;;
 esac
-dpkg --compare-versions "$VERSION" eq "$VERSION" 2>/dev/null \
-  || die "version '$VERSION' rejected by dpkg --compare-versions"
+# SemVer prereleases must sort before the final release in Debian too.
+# A hyphen only inside +build metadata is not a prerelease separator.
+DEB_VERSION="$VERSION"
+if [[ "${VERSION%%+*}" == *-* ]]; then
+  # Not ${VERSION/-/~}: bash tilde-expands the replacement to $HOME.
+  DEB_VERSION="${VERSION%%-*}~${VERSION#*-}"
+fi
+dpkg --compare-versions "$DEB_VERSION" eq "$DEB_VERSION" 2>/dev/null \
+  || die "version '$DEB_VERSION' rejected by dpkg --compare-versions"
 
 # ── runtime dependencies, measured off the ELF we are about to pack ──────────
 # readelf/objdump parse ELF of any architecture, so this works unchanged on
@@ -170,7 +177,7 @@ INSTALLED_SIZE=$(du -sk "$PKG/usr" | cut -f1)
 # REST surface included.
 cat > "$PKG/DEBIAN/control" <<EOF
 Package: xerj
-Version: $VERSION
+Version: $DEB_VERSION
 Architecture: $DEB_ARCH
 Maintainer: xerj Contributors <https://github.com/xerj-org/xerj>
 Installed-Size: $INSTALLED_SIZE

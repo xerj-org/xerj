@@ -901,6 +901,99 @@ mod tests {
         assert!(err.contains(&fname), "{err}");
     }
 
+    /// Point `manifest.files[fname].sha256` at the bytes now on disk and
+    /// rewrite SHA256SUMS over every name it already lists. The per-file
+    /// `records` integer is left untouched, so a following `read_manifest`
+    /// can fail only on the line-count check.
+    fn recompute_sums_leaving_record_counts(pack_dir: &Path, fname: &str) {
+        let bytes = std::fs::read(pack_dir.join(fname)).unwrap();
+        let sha = hex(&Sha256::digest(&bytes));
+        let mut m: Value =
+            serde_json::from_str(&std::fs::read_to_string(pack_dir.join("manifest.json")).unwrap())
+                .unwrap();
+        m["files"][fname]["sha256"] = json!(sha);
+        std::fs::write(
+            pack_dir.join("manifest.json"),
+            serde_json::to_vec_pretty(&m).unwrap(),
+        )
+        .unwrap();
+        let sums_raw = std::fs::read_to_string(pack_dir.join("SHA256SUMS")).unwrap();
+        let mut fresh = String::new();
+        for line in sums_raw.lines() {
+            let (_, name) = line.split_once("  ").unwrap();
+            let file_bytes = std::fs::read(pack_dir.join(name)).unwrap();
+            fresh.push_str(&format!(
+                "{}  {}\n",
+                hex(&Sha256::digest(&file_bytes)),
+                name
+            ));
+        }
+        std::fs::write(pack_dir.join("SHA256SUMS"), fresh).unwrap();
+    }
+
+    #[test]
+    fn read_manifest_count_check_refuses_a_torn_line_when_sums_match() {
+        // #1110 gap 3, the byte-tamper shape: SHA256SUMS is recomputed over
+        // the tampered records (and the manifest sha is updated to match), so
+        // the checksum branches all pass. A torn final line that changes the
+        // line count is then refused by the record-count check alone.
+        // `read_manifest_catches_a_record_count_lie_with_valid_checksums`
+        // reaches the same branch by lying about the integer; this one
+        // tampers the file.
+        let tmp = tempfile::tempdir().unwrap();
+        let records = vec![rec("a", &[]), rec("b", &[]), rec("c", &[])];
+        let r = emit(
+            tmp.path(),
+            &recipe("t", 1),
+            "# r\n",
+            records.clone(),
+            &stats_with_source(),
+            &sugg(&records),
+        )
+        .unwrap();
+        read_manifest(&r.dir).unwrap();
+        let fname = meta_file_name(&r.dir);
+        let path = r.dir.join(&fname);
+        let original = std::fs::read(&path).unwrap();
+
+        // appended torn final line: a partial JSON object with no closing
+        // brace and no trailing newline. `.lines()` counts it, so the file
+        // holds one more record than the manifest still claims.
+        let mut torn = original.clone();
+        torn.extend_from_slice(b"{\"id\":\"TORN\"");
+        std::fs::write(&path, &torn).unwrap();
+        recompute_sums_leaving_record_counts(&r.dir, &fname);
+        let err = read_manifest(&r.dir).unwrap_err().to_string();
+        assert!(
+            err.contains("manifest says"),
+            "count check must be the refusal, not a checksum: {err}"
+        );
+        assert!(
+            !err.contains("checksum mismatch") && !err.contains("disagree"),
+            "checksums were recomputed; they must not be why this fails: {err}"
+        );
+        assert!(err.contains("file holds"), "{err}");
+        assert!(err.contains(&fname), "{err}");
+
+        // truncated final record: the last complete line is cut away, as a
+        // writer that died before flushing it. Count drops; checksums are
+        // honest again; the count check still refuses.
+        std::fs::write(&path, &original).unwrap();
+        let text = String::from_utf8(original.clone()).unwrap();
+        let trimmed = text.trim_end_matches('\n');
+        let (head, last) = trimmed.rsplit_once('\n').unwrap();
+        assert!(last.contains("\"id\""), "fixture has a final record line");
+        std::fs::write(&path, format!("{head}\n")).unwrap();
+        recompute_sums_leaving_record_counts(&r.dir, &fname);
+        let err = read_manifest(&r.dir).unwrap_err().to_string();
+        assert!(err.contains("manifest says"), "{err}");
+        assert!(
+            !err.contains("checksum mismatch") && !err.contains("disagree"),
+            "{err}"
+        );
+        assert!(err.contains(&fname), "{err}");
+    }
+
     #[test]
     fn sums_cover_every_artifact() {
         let tmp = tempfile::tempdir().unwrap();

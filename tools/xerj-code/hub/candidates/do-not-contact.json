@@ -27,9 +27,68 @@
   {
    "login": "d-buckner",
    "issue": 2791,
-   "actions": ["no-contact"],
-   "request": "No further outreach email; the fabricated MIT grant on their record was removed in 77e8b4305. Removal of the record itself happens on their word, in the issue.",
-   "recorded": "2026-11-02"
+   "actions": ["no-contact", "no-include"],
+   "request": "No further outreach email; the fabricated MIT grant was removed in 77e8b4305. Follow-up in the issue: their reply did not consent to their changes being included in any way, so nothing they authored is included (amosblomqvist--learnharness row removed).",
+   "recorded": "2026-11-02",
+   "updated": "2026-11-18"
+  },
+  {
+   "login": "upadhyayprakash",
+   "issue": 2675,
+   "actions": ["no-contact", "no-include"],
+   "request": "Declined the outreach request by email; their profile and upadhyayprakash/keel were listed anyway (removed by the 2026-10-31 refresh). Recorded so a refresh cannot re-add them.",
+   "recorded": "2026-11-18"
+  },
+  {
+   "login": "kevinpapst",
+   "issue": 2954,
+   "actions": ["no-contact", "no-include"],
+   "request": "No further outreach email; no consent was given, so nothing of theirs is included.",
+   "recorded": "2026-11-18"
+  },
+  {
+   "login": "CathodeAnode",
+   "issue": 2954,
+   "actions": ["no-contact", "no-include"],
+   "request": "Commented on #2954 that the outreach email was unwanted; no further email, nothing included.",
+   "recorded": "2026-11-18"
+  },
+  {
+   "login": "ScottishTapWater",
+   "issue": 2954,
+   "actions": ["no-contact", "no-include"],
+   "request": "Commented on #2954 that the outreach email was unwanted; no further email, nothing included. (floci-io/floci stays: its row is another contributor's consented commit.)",
+   "recorded": "2026-11-18"
+  },
+  {
+   "login": "javierlazaro-ipf",
+   "issue": 2916,
+   "actions": ["no-contact", "no-include"],
+   "request": "Remove their commit (pichu2707/lazarobox-shell a0bf7744e0) from the hub. The row left in the 2026-11-10 refresh; recorded so a refresh cannot re-add it.",
+   "recorded": "2026-11-18"
+  },
+  {
+   "login": "joneugster",
+   "issue": 3002,
+   "actions": ["no-contact", "no-include"],
+   "request": "Remove work under their name; their reply did not give personal permission (it pointed to the GPL-3.0 licence and asked us not to). leanprover-community--lean4game left the registry in the 2026-11-17 refresh; recorded so a refresh cannot re-add it.",
+   "recorded": "2026-11-18"
+  },
+  {
+   "login": "ItsAyoubSE",
+   "repo": "ItsAyoubSE/Open-Download-Manager",
+   "issue": 3043,
+   "actions": ["no-contact", "no-include"],
+   "request": "Permission withdrawn and repository deleted (2026-11-07); remove itsayoubse--open-download-manager (pin 3cb0426) and any cached copy.",
+   "recorded": "2026-11-18"
+  },
+  {
+   "login": "AnselmeSDR",
+   "repo": "AnselmeSDR/RaceHubOS",
+   "issue": 3248,
+   "actions": ["no-contact", "no-include"],
+   "request": "Declined by email on 2026-11-10. No code of theirs at any commit, under any licence, in any repository they own or contribute to; no further contact. Personal-data erasure (GDPR art. 17) is outside this repository: the outreach pipeline's records hold the address.",
+   "recorded": "2026-11-18"
   }
  ]
 }

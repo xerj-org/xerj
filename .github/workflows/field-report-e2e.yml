@@ -1,0 +1,58 @@
+name: Fresh-agent field report
+
+# A clean HOME, the binary this commit builds, a one-file repo created in
+# the job (not cloned), and `xerj feedback --dry-run`. No GitHub token is
+# visible to the command and nothing is posted.
+#
+# timeout-minutes: 60. The long part is a cold debug build of xerj-server
+# without default features (no candle). A one-file autoindex after that is
+# seconds. 60 sits under the repo's 90-minute pack jobs and above the
+# 30-minute lint-only jobs; a cap that false-fails a cold runner is worse
+# than the hang it guards against.
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/field-report-e2e.yml'
+      - '.github/scripts/e2e_fresh_agent_fieldreport.sh'
+      - 'engine/crates/xerj-autoindex/**'
+      - 'engine/crates/xerj-common/**'
+      - 'engine/crates/xerj-server/**'
+      - 'engine/Cargo.lock'
+      - 'engine/Cargo.toml'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/field-report-e2e.yml'
+      - '.github/scripts/e2e_fresh_agent_fieldreport.sh'
+      - 'engine/crates/xerj-autoindex/**'
+      - 'engine/crates/xerj-common/**'
+      - 'engine/crates/xerj-server/**'
+      - 'engine/Cargo.lock'
+      - 'engine/Cargo.toml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: field-report-e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    name: Clean HOME field-report dry-run
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@032958afbdc797a9164d3bc0b56325c1308924a5 # 1.97.1
+
+      - name: Cache
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: engine
+
+      - name: Install, index, dry-run
+        run: bash .github/scripts/e2e_fresh_agent_fieldreport.sh

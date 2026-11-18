@@ -1,0 +1,51 @@
+setup:
+  - do:
+      indices.create:
+          index: test_sqs_ops
+          body:
+              mappings:
+                  properties:
+                      title:
+                          type: text
+  - do:
+      bulk:
+          refresh: true
+          body:
+              - '{"index": {"_index": "test_sqs_ops", "_id": "1"}}'
+              - '{"title": "quick brown fox"}'
+              - '{"index": {"_index": "test_sqs_ops", "_id": "2"}}'
+              - '{"title": "lazy dog sleeps"}'
+              - '{"index": {"_index": "test_sqs_ops", "_id": "3"}}'
+              - '{"title": "brown bear"}'
+
+---
+"simple_query_string honors standalone | as OR under default_operator and (#1751)":
+  - do:
+      count:
+          index: test_sqs_ops
+          body: { query: { simple_query_string: { query: "fox | bear", fields: ["title"], default_operator: "and" } } }
+  - match: { count: 2 }
+
+---
+"simple_query_string honors standalone + as AND under default_operator or (#1751)":
+  - do:
+      count:
+          index: test_sqs_ops
+          body: { query: { simple_query_string: { query: "fox + lazy", fields: ["title"] } } }
+  - match: { count: 0 }
+
+---
+"simple_query_string honors quoted phrases with | operator (#1751)":
+  - do:
+      count:
+          index: test_sqs_ops
+          body: { query: { simple_query_string: { query: "\"quick brown\" | bear", fields: ["title"], default_operator: "and" } } }
+  - match: { count: 2 }
+
+---
+"simple_query_string honors parenthesized grouping with + operator (#1751)":
+  - do:
+      count:
+          index: test_sqs_ops
+          body: { query: { simple_query_string: { query: "(fox | bear) + brown", fields: ["title"], default_operator: "and" } } }
+  - match: { count: 2 }

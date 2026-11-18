@@ -4,6 +4,7 @@
 #
 #   ed25519.sh derive <seed-file>             print the public key (64 hex) of a seed
 #   ed25519.sh verify <pub-hex> <file> <sig>  exit 0 iff <sig> signs <file> under <pub>
+#   ed25519.sh sign <seed-file> <file>        print the detached signature (128 hex)
 #
 # Formats are those of xerj-autoindex's harvest/sign.rs: a seed is 32 bytes as 64 hex
 # characters; a public key likewise; a detached signature is the 64 raw bytes as 128 hex
@@ -48,5 +49,16 @@ case "${1:-}" in
       -in "$3" -sigfile "$dir/sig.bin" >/dev/null
     echo "signature verifies: $3"
     ;;
-  *) die "usage: ed25519.sh derive <seed-file> | verify <pub-hex> <file> <sig-file>" ;;
+  sign)
+    # Only the whole-hub e2e rehearsal (whole_hub_e2e.sh) signs here, and only with a
+    # throwaway seed; CI signs with `xerj hub build-pack` / `build-catalogue`.
+    [ $# -eq 3 ] || die "usage: sign <seed-file> <file>"
+    seed=$(hex_only < "$2")
+    [[ $seed =~ ^[0-9a-f]{64}$ ]] || die "the seed must be 64 hex characters"
+    [ -f "$3" ] || die "no such file: $3"
+    dir=$(mktemp -d); trap 'rm -rf "$dir"' EXIT
+    printf '%s%s' "$PKCS8_PREFIX" "$seed" | xxd -r -p > "$dir/key.der"
+    openssl pkeyutl -sign -inkey "$dir/key.der" -keyform DER -rawin -in "$3" | xxd -p -c 128
+    ;;
+  *) die "usage: ed25519.sh derive <seed-file> | verify <pub-hex> <file> <sig-file> | sign <seed-file> <file>" ;;
 esac

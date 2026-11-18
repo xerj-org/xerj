@@ -1,0 +1,37 @@
+
+─── src/requests/sessions.py:154  [function]
+    def should_strip_auth(self, old_url: str, new_url: str) -> bool:
+
+─── src/requests/sessions.py
+    function merge_setting
+    function merge_hooks
+    class SessionRedirectMixin
+    function send
+    function get_redirect_target
+    function should_strip_auth
+    function resolve_redirects
+    function rebuild_auth
+    function rebuild_proxies
+    function rebuild_method
+    class Session
+    function __init__
+    function __enter__
+    function __exit__
+    function prepare_request
+    function request
+    function get
+    function options
+    function head
+    function post
+    function put
+    function patch
+    function delete
+    function merge_environment_settings
+    function get_adapter
+    function close
+    function mount
+    function __getstate__
+    function __setstate__
+    function session
+
+2 definition(s) from 'req-*'. Cite path:line for anything you rely on.

@@ -2,11 +2,15 @@
 ---
 title: "Can I full-text search my browser history file?"
 canonical: "https://xerj.org/answers/full-text-search-browser-history"
-updated: "2026-08-21"
+updated: "2026-10-19"
 source: "content/answers/full-text-search-browser-history.md"
 ---
 
 # Is there a way to full-text search my browser history file itself?
+
+**Short answer** (updated 2026-10-19): Is there a way to full-text search my browser history? Copy Chrome's History SQLite file and run xerj autoindex on the folder. A captured run returned 60 hits for a title phrase and 1 for an exact URL, left all 3 source checksums unchanged, and found no page text, because Chrome stores none.
+
+**Key number:** Each record keeps at most 512 fields (`MAX_FIELDS_PER_RECORD`), so even a wide SQLite table maps without schema work. (as of 2026-10-19; source: [engine/crates/xerj-autoindex/src/extract/mod.rs](https://github.com/xerj-org/xerj/blob/main/engine/crates/xerj-autoindex/src/extract/mod.rs))
 
 **TL;DR** — Copy the Chrome `History` SQLite file, then run `xerj autoindex` on the folder. A captured run returned 60 hits for a title phrase and 1 hit for an exact URL. All 3 source checksums were unchanged, and `body` returned 0 documents because Chrome stores no page text.
 
@@ -148,3 +152,6 @@ XERJ typed `url` as `keyword`, so it matches whole values only. An exact `term` 
 - [How do I full-text search a SQLite database I just copied onto disk?](/answers/full-text-search-sqlite-database)
 - [How should an agent figure out what's in a messy data folder before searching?](/answers/catalog-files-with-autoindex-map)
 - [Why would a folder search miss files that I can see on disk?](/answers/why-autoindex-skipped-files)
+- [The best local full-text search for JSONL and CSV files in 2026, with a published benchmark](/compare/best-local-full-text-search-jsonl-csv-2026) (same intent: JSONL and data files)
+- [How do I index a CSV with many columns?](/answers/index-csv-with-many-columns) (same intent: JSONL and data files)
+- [What's the easiest way to search JSON logs plus some old gzip text logs in the same folder?](/answers/search-json-and-jsonl-logs) (same intent: JSONL and data files)

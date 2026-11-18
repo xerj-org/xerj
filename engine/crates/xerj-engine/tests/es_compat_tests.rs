@@ -811,6 +811,75 @@ async fn test_es_bulk_index_multiple() {
     );
 }
 
+/// One JSON document over [`MAX_INDEXED_DOCUMENT_BYTES`] must not be parsed
+/// or tokenized. Its neighbour in the same bulk still indexes, and a later
+/// single-document write of the same shape is refused the same way (#1122).
+/// A 50 MiB file is the same gate: anything past 8 MiB, including the
+/// single JSON files that killed a Windows node, is refused on its length
+/// before `serde_json`.
+#[tokio::test]
+async fn oversized_json_document_is_refused_and_its_neighbour_is_indexed() {
+    use xerj_common::document_limit::{indexed_document_too_large, MAX_INDEXED_DOCUMENT_BYTES};
+
+    let (engine, _dir) = test_engine();
+    engine
+        .create_index("bulk_oversize", Schema::empty())
+        .unwrap();
+
+    assert!(indexed_document_too_large(50 * 1024 * 1024));
+    let big = "x".repeat(MAX_INDEXED_DOCUMENT_BYTES + 1);
+    let big_line = format!(r#"{{"blob":"{big}"}}"#);
+    assert!(indexed_document_too_large(big_line.len()));
+    let ndjson = format!(
+        "{}\n{}\n{}\n{}\n{}\n{}\n",
+        r#"{"index":{"_index":"bulk_oversize","_id":"small"}}"#,
+        r#"{"name":"Ada"}"#,
+        r#"{"index":{"_index":"bulk_oversize","_id":"big"}}"#,
+        big_line,
+        r#"{"index":{"_index":"bulk_oversize"}}"#,
+        r#"{"name":"Grace"}"#,
+    );
+
+    let result = process_bulk(&engine, Some("bulk_oversize"), &ndjson).await;
+    assert!(result.errors, "the oversized item is an error");
+    assert_eq!(result.items.len(), 3);
+    assert_eq!(result.items[0].status, 201);
+    assert_eq!(result.items[0].id, "small");
+    assert_eq!(result.items[1].status, 413);
+    assert_eq!(result.items[1].id, "big");
+    let reason = result.items[1].error.as_deref().unwrap_or("");
+    assert!(
+        reason.contains(&MAX_INDEXED_DOCUMENT_BYTES.to_string()),
+        "{reason}"
+    );
+    assert!(reason.contains("not indexed"), "{reason}");
+    assert!(!reason.contains(&big), "the refusal must not echo the body");
+    assert_eq!(
+        result.items[2].status, 201,
+        "auto-id neighbour still indexes"
+    );
+
+    let idx = engine.get_index("bulk_oversize").unwrap();
+    let search = idx
+        .search(&search_req(
+            json!({ "query": { "match_all": {} }, "size": 10 }),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(search.total.value, 2, "only the two small documents");
+    assert!(idx.get_document("big").await.unwrap().is_none());
+    assert!(idx.get_document("small").await.unwrap().is_some());
+
+    let err = idx
+        .index_document(Some("big-put".into()), json!({ "blob": big }))
+        .await
+        .expect_err("a parsed value past the ceiling is refused before analysis");
+    let text = err.to_string();
+    assert!(text.contains("at least"), "{text}");
+    assert!(text.contains("not indexed"), "{text}");
+    assert!(idx.get_document("small").await.unwrap().is_some());
+}
+
 /// ES YAML test: bulk/10_basic.yml — mixed index + delete in one bulk request
 #[tokio::test]
 async fn test_es_bulk_mixed_operations() {

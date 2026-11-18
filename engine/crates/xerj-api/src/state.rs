@@ -626,11 +626,17 @@ impl AppState {
             (Arc::new(DashMap::new()), Arc::new(DashMap::new()))
         };
         let shares = crate::share::ShareStore::open(&config.server.data_dir);
-        let rerank = Arc::new(xerj_rerank::ProviderSettings::from_config_and_env(
-            config.rerank.enabled,
-            &config.rerank.api_key,
-            &config.rerank.endpoint,
-        ));
+        let rerank = Arc::new(
+            xerj_rerank::ProviderSettings::from_config_and_env(
+                config.rerank.enabled,
+                &config.rerank.api_key,
+                &config.rerank.endpoint,
+            )
+            .with_cohere_from_config_and_env(
+                &config.rerank.cohere.api_key,
+                &config.rerank.cohere.endpoint,
+            ),
+        );
         let decide = Arc::new(crate::systemone_api::DecideSettings::from_env());
         let decide_calibration = Arc::new(crate::systemone_api::CalibrationCache::default());
         // Seeded from the config alone — see the field doc: `xerj-server`'s

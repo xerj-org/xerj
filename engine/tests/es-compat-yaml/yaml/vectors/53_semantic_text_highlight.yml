@@ -1,0 +1,81 @@
+# semantic_text highlight — issue #1947.
+#
+# A `semantic` query on a `semantic_text` field used to return hits and never
+# a `highlight`. The semantic highlighter (the default for that field, and
+# `"type": "semantic"`) returns the field's best-scoring ingest chunks for
+# the query embedding, without `<em>` tags. A lexical `match` on the same
+# field still wraps query terms.
+#
+# The built-in embedder is lexical feature-hashing, not a neural model. This
+# document is one chunk, so the fragment is the whole field for any query
+# that hits it. Chunk ordering is locked by the HTTP test
+# `semantic_highlight_honours_fragment_count_and_order`.
+
+setup:
+  - do:
+      indices.create:
+        index: semantic-highlight
+        body:
+          mappings:
+            properties:
+              sem:
+                type: semantic_text
+
+  - do:
+      index:
+        index: semantic-highlight
+        id: "1"
+        refresh: true
+        body:
+          sem: "The walrus eats clams on the ice floe."
+
+---
+"default highlight on a semantic query is the untagged chunk (#1947)":
+  - do:
+      search:
+        index: semantic-highlight
+        body:
+          query:
+            semantic:
+              field: sem
+              query: "walrus clams"
+          highlight:
+            fields:
+              sem: {}
+
+  - match: { hits.total.value: 1 }
+  - length: { hits.hits.0.highlight.sem: 1 }
+  - match: { hits.hits.0.highlight.sem.0: "The walrus eats clams on the ice floe." }
+
+---
+"explicit type semantic honours number_of_fragments (#1947)":
+  - do:
+      search:
+        index: semantic-highlight
+        body:
+          query:
+            semantic:
+              field: sem
+              query: "marine mammal molluscs"
+          highlight:
+            fields:
+              sem:
+                type: semantic
+                number_of_fragments: 1
+
+  - match: { hits.hits.0.highlight.sem.0: "The walrus eats clams on the ice floe." }
+
+---
+"lexical match on semantic_text still tags query terms (#1947)":
+  - do:
+      search:
+        index: semantic-highlight
+        body:
+          query:
+            match:
+              sem: walrus
+          highlight:
+            fields:
+              sem: {}
+
+  - match: { hits.hits.0.highlight.sem.0: "The <em>walrus</em> eats clams on the ice floe." }

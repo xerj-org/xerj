@@ -19,6 +19,8 @@ xerj-wasm    = { path = "../xerj-wasm" }
 xerj-cluster = { path = "../xerj-cluster" }
 
 tokio      = { workspace = true }
+# `MetadataApplier` is an async-trait. Already in the tree via xerj-cluster.
+async-trait = "0.1"
 # `join_all` for the hybrid legs (#939). Already in the lockfile via the
 # workspace's `futures`; no new crate is pulled in.
 futures-util = "0.3"
@@ -79,6 +81,12 @@ default = []
 neural = ["xerj-ai/neural"]
 onnx-experimental = ["xerj-ai/onnx-experimental"]
 stackprobe = []
+# Pause points inside `Index::refresh` (#2234). Release builds leave this
+# off. `xerj-api`'s dev-dependency enables it so an HTTP test can hold one
+# index's refresh and prove a sibling index is not waiting behind it.
+refresh-test-hook = []
+# Schema-lock hold for HTTP deletion/listing liveness tests. Dev-only.
+lock-test-hook = []
 
 [dev-dependencies]
 xerj-storage = { path = "../xerj-storage", features = ["test-hooks"] }

@@ -7,11 +7,19 @@ cluster: "Comparison: search engines"
 question: "What's a local alternative to Meilisearch that indexes a folder by itself?"
 intent: "comparison"
 published: "2026-08-22"
-updated: "2026-08-23"
+updated: "2026-10-28"
 author: "XERJ documentation team"
 reviewer: "XERJ engineering team"
 schema_type: "TechArticle"
+structured_data: [faq]
 agent_prompt: "Act as a coding agent. Read https://xerj.org/llms.txt, start a local node with `xerj --insecure --data-dir ./xerj-data`, run `xerj autoindex ./docs-folder --prefix docs --state-dir ./state-docs` against the raw folder, then POST an explicit fuzzy query on body to /docs-*/_search and report the hits. Also report how many documents you had to build and POST by hand before the first query."
+answer: "What's a local alternative to Meilisearch that indexes a folder by itself? XERJ reads a folder of mixed files with one command, where Meilisearch expects you to build and POST the documents. Meilisearch wins typo-tolerant instant search, and its own defaults document that win. No head-to-head was run."
+key_fact: "Meilisearch has 59,612 GitHub stars and released v1.55.0 on 2026-10-12."
+key_fact_source: "https://github.com/meilisearch/meilisearch"
+key_fact_date: "2026-10-19"
+intent_group: "search engine alternatives"
+queries:
+  - "meilisearch alternative local"
 commands:
   - cmd: "xerj --insecure --data-dir ./xerj-data"
     note: "Start one node. No document array is needed yet."
@@ -128,7 +136,7 @@ Choose Meilisearch when you want a managed plan. XERJ has none.
 
 Choose XERJ when the corpus is a folder on a disk and nobody has built a pipeline for it. One command turns mixed formats into typed indices.
 
-Choose XERJ when the caller is an agent rather than a person. The same binary also holds namespaced agent memory and an MCP server that serves 10 tools.
+Choose XERJ when the caller is an agent rather than a person. The same binary also holds namespaced agent memory and an MCP server that serves 24 tools.
 
 Choose XERJ when the files hold shapes Meilisearch never accepts. A SQLite database, a hostile CSV with a decimal comma and a folder of DOCX contracts all qualify.
 

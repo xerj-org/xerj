@@ -334,9 +334,10 @@ impl Index {
                 let n_invalid = match cols.get("invalid_at") {
                     None => None,
                     Some(Column::Numeric(n)) => Some(n),
-                    // Present but keyword-typed = a writer stored ISO strings;
-                    // an as-of compare against strings would be a lie.
-                    Some(Column::Keyword(_)) => {
+                    // Present but not numeric = a writer stored ISO strings,
+                    // or only a presence bit. An as-of compare against either
+                    // would be a lie.
+                    Some(Column::Keyword(_)) | Some(Column::Presence(_)) => {
                         stats.segments_without_columns += 1;
                         continue;
                     }

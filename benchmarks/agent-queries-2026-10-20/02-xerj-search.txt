@@ -1,0 +1,14 @@
+$ /workspace/engine/target/release/xerj search --url http://127.0.0.1:9217 --prefix docs -k 3 what is in here
+# exit 0
+xerj search: these hits are lexical; this command does not consult the embedding.
+
+─── case-studies/wordpress-security-audit/sink-census/gadget_inventory.py:9  [const]  (score 22.42)
+    here=os.path.dirname(__file__)
+
+─── case-studies/wordpress-security-audit/sink-census/magic_unsafe.py:7  [const]  (score 22.42)
+    here=os.path.dirname(__file__)
+
+─── examples/passage-retrieval/passage_demo.py:37  [const]  (score 21.45)
+    HERE = os.path.dirname(os.path.abspath(__file__))
+
+3 passage(s) from 'docs-*'. Cite ax_path:line for anything you rely on.

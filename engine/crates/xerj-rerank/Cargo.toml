@@ -27,5 +27,6 @@ default = []
 judge-local = ["dep:xerj-ai", "xerj-ai/decide-local"]
 
 [dev-dependencies]
+xerj-common = { path = "../xerj-common" }
 tokio = { workspace = true }
 tempfile = { workspace = true }

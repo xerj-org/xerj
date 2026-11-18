@@ -65,7 +65,13 @@ pauses, token expiry and crashes cost only the trial in flight.
 `collect_results.py` reports per-cell resolve rates with Wilson 95% intervals
 and a **complete matrix**: arm-vs-arm numbers count only tasks finished in
 every arm of that benchmark+model. Do not quote cross-arm numbers from
-unaligned cells. Anthropic's published Frontier-Bench figures use the
+unaligned cells. The collector reads Harbor v0.21's `rewards`, `cost_usd`,
+`n_input_tokens` and `n_output_tokens` fields (including per-step usage),
+while retaining the older field aliases. Wall time comes from trial timestamps
+when no explicit duration is recorded. Per-cell cost/time includes recorded
+failed attempts; complete-matrix cost/time remains scoped to matched tasks.
+Unavailable metrics stay unknown and their coverage gaps are printed.
+Anthropic's published Frontier-Bench figures use the
 mini-swe-agent harness with mean reward over 5 attempts (`-a mini-swe-agent
 -k 5`); runs with `claude-code` measure the agent product, not that protocol —
 label accordingly. FrontierCode v1.1 is Cognition's private held-out set and

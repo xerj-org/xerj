@@ -1,5 +1,5 @@
 ---
-title: "How do I search a folder of mixed documents?"
+title: "Search inside PDFs, Word docs and Markdown in one folder"
 h1: "I have a folder of PDFs, Word docs, and markdown. How do I search all of them at once?"
 description: "Index a folder of PDFs, Word docs and markdown with one xerj autoindex command, then search the contents. A captured 6-file run indexed 51 documents into 2 indices."
 slug: "search-file-contents-in-a-folder"
@@ -7,11 +7,20 @@ cluster: "Files and formats"
 question: "I have a folder of PDFs, Word docs, and markdown. How do I search all of them at once?"
 intent: "how-to"
 published: "2026-08-21"
-updated: "2026-08-21"
+updated: "2026-10-19"
 author: "XERJ documentation team"
 reviewer: "XERJ engineering team"
 schema_type: "TechArticle"
+structured_data: [faq]
 agent_prompt: "Act as a coding agent. Read https://xerj.org/llms.txt, start a local XERJ node, run `xerj autoindex ./mixed6 --url http://127.0.0.1:9200 --prefix mx --progress plain --dry-run` to read the planned datasets, run the same command without --dry-run, then POST a match_phrase query to /mx-*/_search and report every ax_path that matched."
+answer: "I have a folder of PDFs, Word docs and Markdown; how do I search all of them at once? Run xerj autoindex on the folder. In a captured run over 6 formats, XERJ indexed 51 documents into 2 indices with 0 junk files, and one match_phrase query returned 3 hits from an HTML, a JSON and a Markdown file."
+key_fact: "The README's sample run indexed 25,329 files into 593 datasets and 83,103 records in 158.1 s."
+key_fact_source: "README.md"
+key_fact_date: "2026-10-19"
+intent_group: "logs and docs"
+queries:
+  - "search inside files in a folder"
+  - "index pdf folder full text search offline"
 commands:
   - cmd: "xerj autoindex ./mixed6 --url http://127.0.0.1:9200 --prefix mx --progress plain --dry-run"
     note: "Print the planned datasets and the job-size line without writing anything."

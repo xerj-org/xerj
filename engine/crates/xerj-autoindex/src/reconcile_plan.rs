@@ -2,8 +2,13 @@
 //!
 //! Fresh-run clustering is intentionally not reused here: cluster formation
 //! and slug election depend on corpus order and membership. Incremental runs
-//! must preserve the committed dataset/schema identity and fail closed when a
-//! file would require a new dataset or mapping.
+//! keep the committed dataset identity. A new scalar field on a file that
+//! already belongs to one of those datasets is added to that dataset's
+//! mapping — the server accepts an additive `PUT _mapping` — so a code file
+//! that grows a function (`code`, `defs`, `name`, …) does not wedge the
+//! watcher (#2176). A change that cannot be applied in place (a type
+//! conflict, a brand-new dataset, an ambiguous assignment) drops only that
+//! file and names the rebuild command; the rest of the pass still commits.
 
 use crate::content::Inventory;
 use crate::infer::{FieldAcc, FieldSpec};
@@ -11,7 +16,7 @@ use crate::state::{FileAssignment, JunkFile, Plan, PlanDataset, RefusedDataset};
 use crate::FileScan;
 use anyhow::{Context, Result};
 use std::cmp::Ordering;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::Path;
 
 /// Field shape of a file as the *document* renderer sees it.
@@ -41,13 +46,16 @@ fn document_sample(path: &Path, gzip: bool, sample: usize) -> HashMap<String, Fi
 /// Project the current, byte-verified inventory onto committed dataset schemas.
 ///
 /// Assignment precedence is stable content identity, then stable native path
-/// identity, then deterministic schema matching. Dataset definitions are
-/// copied byte-for-byte except for their derived `file_count`.
+/// identity, then deterministic schema matching. A dataset keeps its committed
+/// specs — those are the generation identity — and `file_count` is recomputed.
+/// A scalar field the specs do not name is recorded beside them and installed
+/// by the mapping update (#2176).
 pub(crate) fn reconcile_plan(
     inventory: &Inventory,
     previous: &Plan,
     scans: Vec<FileScan>,
     sample: usize,
+    rebuild_command: &str,
 ) -> Result<Plan> {
     anyhow::ensure!(
         inventory.files.len() == inventory.keys.len()
@@ -136,16 +144,16 @@ pub(crate) fn reconcile_plan(
         .iter()
         .map(|junk| (junk.file_key.as_str(), junk))
         .collect();
-    let classification_candidates: Vec<PlanDataset> = previous
-        .datasets
+    // Specs stay frozen. A new scalar is recorded in `incremental_fields` and
+    // installed by the mapping update; writing it into `specs` would move the
+    // generation identity and abort the pass. Refused definitions are not
+    // widened — growing a mapping the server already rejected cannot help.
+    let mut owned_datasets = previous.datasets.clone();
+    let mut incremental_fields = previous.incremental_fields.clone();
+    let refused_datasets_frozen: Vec<&PlanDataset> = previous
+        .refused_datasets
         .iter()
-        .chain(
-            previous
-                .refused_datasets
-                .iter()
-                .map(|refusal| &refusal.dataset),
-        )
-        .cloned()
+        .map(|refusal| &refusal.dataset)
         .collect();
     let mut refused_keys: Vec<Vec<String>> = vec![Vec::new(); previous.refused_datasets.len()];
 
@@ -290,10 +298,17 @@ pub(crate) fn reconcile_plan(
                 .iter()
                 .any(|d| d.family == sniffed.family.as_str() && d.group.is_none());
         let new_document = docs_target && all_empty_key_fields;
+        // A file too small to be a dataset (`dataset::MIN_DATASET_RECORDS`)
+        // folds the same way a fresh plan folds it: a 3-row HTML table or a
+        // 2-key JSON file joins docs rather than failing the run for want of a
+        // frozen dataset of its own.
         let new_demoted_config = docs_target
             && !all_empty_key_fields
-            && crate::dataset::demotable_family(sniffed.family)
-            && scan.sketches.iter().map(|s| s.records).sum::<u64>() == 1;
+            && ((crate::dataset::demotable_family(sniffed.family)
+                && scan.sketches.iter().map(|s| s.records).sum::<u64>() == 1)
+                || (crate::dataset::foldable_family(sniffed.family)
+                    && scan.sketches.iter().map(|s| s.population).sum::<u64>()
+                        < crate::dataset::MIN_DATASET_RECORDS));
         let route_to_docs = new_document || new_demoted_config;
 
         // Only a demoted CONFIG re-samples through the document renderer (its
@@ -310,12 +325,19 @@ pub(crate) fn reconcile_plan(
         };
 
         let mut assignments = Vec::with_capacity(scan.sketches.len());
+        let mut file_reject: Option<String> = None;
         for sketch in &scan.sketches {
             let group = &sketch.group;
             let fields = document_fields.as_ref().unwrap_or(&sketch.fields);
-            let slug = if let Some(owner) = retained {
-                retained_slug(owner, group, sniffed.family.as_str(), fields, &datasets)
-                    .with_context(|| format!("project retained file {}", file.rel))?
+            let assigned = if let Some(owner) = retained {
+                retained_slug(
+                    owner,
+                    group,
+                    sniffed.family.as_str(),
+                    fields,
+                    &owned_datasets,
+                    &incremental_fields,
+                )
             } else {
                 // A routed document/config classifies as "docs" — its fresh-plan
                 // fold target — instead of aborting on its raw family.
@@ -324,10 +346,37 @@ pub(crate) fn reconcile_plan(
                 } else {
                     sniffed.family.as_str()
                 };
-                classify_new(group, family, fields, &file.rel, &classification_candidates)
-                    .with_context(|| format!("project new file {}", file.rel))?
+                classify_new(
+                    group,
+                    family,
+                    fields,
+                    &file.rel,
+                    &owned_datasets,
+                    &refused_datasets_frozen,
+                    &incremental_fields,
+                )
             };
-            assignments.push((group.clone(), slug));
+            match assigned {
+                Ok(slug) => assignments.push((group.clone(), slug, fields, sketch.records)),
+                Err(AssignFailure::File(detail)) => {
+                    file_reject = Some(detail);
+                    break;
+                }
+                Err(AssignFailure::Fatal(error)) => {
+                    return Err(error.context(format!("project file {}", file.rel)));
+                }
+            }
+        }
+        if let Some(detail) = file_reject {
+            junk_files.push(JunkFile {
+                file_key: content_id.clone(),
+                rel: file.rel.clone(),
+                format: crate::format_str(scan.sniffed.as_ref()),
+                status: "junk".into(),
+                reason: file_schema_reason(&detail, retained.is_some(), rebuild_command),
+                bytes: file.size,
+            });
+            continue;
         }
         // A new or changed file whose shape belongs to a refused dataset is
         // refused with it — whole, for the reason `refuse_datasets` gives: a
@@ -335,7 +384,7 @@ pub(crate) fn reconcile_plan(
         // refused slug so the choice does not depend on sketch order.
         if let Some(owner) = assignments
             .iter()
-            .filter_map(|(_, slug)| refused_by_slug.get(slug.as_str()).copied())
+            .filter_map(|(_, slug, _, _)| refused_by_slug.get(slug.as_str()).copied())
             .min_by_key(|owner| previous.refused_datasets[*owner].dataset.slug.as_str())
         {
             junk_files.push(JunkFile {
@@ -349,13 +398,74 @@ pub(crate) fn reconcile_plan(
             refused_keys[owner].push(content_id.clone());
             continue;
         }
+        // Widen only after every sketch has a published dataset, and roll the
+        // appends back if a later sketch cannot grow the mapping — a file is
+        // assigned whole or not at all. The frozen specs are not touched.
+        let mut widened_to: HashMap<String, usize> = HashMap::new();
+        let mut widen_reject: Option<String> = None;
+        for (_, slug, fields, records) in &assignments {
+            let Some(index) = owned_datasets
+                .iter()
+                .position(|dataset| dataset.slug == *slug)
+            else {
+                continue;
+            };
+            let before = incremental_fields.get(slug.as_str()).map_or(0, Vec::len);
+            match widen_dataset(
+                &owned_datasets[index],
+                incremental_fields.entry(slug.clone()).or_default(),
+                fields,
+                *records,
+            ) {
+                Ok(()) => {
+                    if incremental_fields.get(slug.as_str()).map_or(0, Vec::len) > before {
+                        widened_to.entry(slug.clone()).or_insert(before);
+                    }
+                }
+                Err(AssignFailure::File(detail)) => {
+                    rollback_widens(&mut incremental_fields, &widened_to);
+                    widen_reject = Some(detail);
+                    break;
+                }
+                Err(AssignFailure::Fatal(error)) => {
+                    return Err(error.context(format!("project file {}", file.rel)));
+                }
+            }
+        }
+        if let Some(detail) = widen_reject {
+            junk_files.push(JunkFile {
+                file_key: content_id.clone(),
+                rel: file.rel.clone(),
+                format: crate::format_str(scan.sniffed.as_ref()),
+                status: "junk".into(),
+                reason: file_schema_reason(&detail, retained.is_some(), rebuild_command),
+                bytes: file.size,
+            });
+            continue;
+        }
+        let mut assignments: Vec<(Option<String>, String)> = assignments
+            .into_iter()
+            .map(|(group, slug, _, _)| (group, slug))
+            .collect();
         assignments.sort();
         assignments.dedup();
-        anyhow::ensure!(
-            assignments.len() == scan.sketches.len(),
-            "{} has duplicate dataset groups",
-            file.rel
-        );
+        if assignments.len() != scan.sketches.len() {
+            junk_files.push(JunkFile {
+                file_key: content_id.clone(),
+                rel: file.rel.clone(),
+                format: crate::format_str(scan.sniffed.as_ref()),
+                status: "junk".into(),
+                reason: file_schema_reason(
+                    &format!("{} has duplicate dataset groups", file.rel),
+                    retained.is_some(),
+                    rebuild_command,
+                ),
+                bytes: file.size,
+            });
+            // The widens above belong to a file that is not indexed.
+            rollback_widens(&mut incremental_fields, &widened_to);
+            continue;
+        }
         let replaced = files.insert(
             content_id.clone(),
             FileAssignment {
@@ -394,8 +504,7 @@ pub(crate) fn reconcile_plan(
             .then_with(|| left.rel.cmp(&right.rel))
     });
 
-    let mut frozen_datasets = previous.datasets.clone();
-    for dataset in &mut frozen_datasets {
+    for dataset in &mut owned_datasets {
         dataset.file_count = files
             .values()
             .filter(|assignment| {
@@ -424,14 +533,32 @@ pub(crate) fn reconcile_plan(
         })
         .collect();
 
+    incremental_fields.retain(|_, specs| !specs.is_empty());
+
     Ok(Plan {
-        datasets: frozen_datasets,
+        datasets: owned_datasets,
         files,
         junk_files,
         duplicate_files,
         alias_paths_indexed: previous.alias_paths_indexed,
         refused_datasets,
+        incremental_fields,
     })
+}
+
+/// A per-file projection failure, or a frozen plan that is internally inconsistent.
+enum AssignFailure {
+    /// This file cannot join the frozen mapping. The rest of the pass can.
+    File(String),
+    /// The committed plan itself is contradictory. Abort; do not publish a
+    /// partial projection of a corrupt journal.
+    Fatal(anyhow::Error),
+}
+
+impl From<anyhow::Error> for AssignFailure {
+    fn from(error: anyhow::Error) -> Self {
+        AssignFailure::Fatal(error)
+    }
 }
 
 fn retained_slug(
@@ -439,29 +566,51 @@ fn retained_slug(
     group: &Option<String>,
     family: &str,
     fields: &HashMap<String, FieldAcc>,
-    datasets: &HashMap<&str, &PlanDataset>,
-) -> Result<String> {
-    anyhow::ensure!(
-        owner.family == family,
-        "detected family changed from {} to {family}",
-        owner.family
-    );
+    datasets: &[PlanDataset],
+    incremental: &BTreeMap<String, Vec<FieldSpec>>,
+) -> Result<String, AssignFailure> {
+    if owner.family != family {
+        return Err(AssignFailure::File(format!(
+            "detected family changed from {} to {family}",
+            owner.family
+        )));
+    }
     let matches = owner
         .assignments
         .iter()
         .filter(|(assigned_group, _)| assigned_group == group)
         .collect::<Vec<_>>();
-    anyhow::ensure!(
-        matches.len() == 1,
-        "frozen assignment has {} matches for group {:?}",
-        matches.len(),
-        group
-    );
+    // #2720: no match for a file the journal assigned is this file's content,
+    // not the journal: a new or renamed sheet, an edit (a sheet that gains a
+    // header row) or a reader change can give it a part the frozen datasets
+    // do not have. The file is set aside like a family change. An empty
+    // assignment list or two matches would be a contradictory journal.
+    if matches.is_empty() && !owner.assignments.is_empty() {
+        let part = match group {
+            Some(group) => format!("part {group:?} of this file"),
+            None => "the document part of this file".to_string(),
+        };
+        return Err(AssignFailure::File(format!(
+            "{part} is new or changed shape since it was indexed, so it has no dataset in the committed generation."
+        )));
+    }
+    if matches.len() != 1 {
+        return Err(AssignFailure::Fatal(anyhow::anyhow!(
+            "frozen assignment has {} matches for group {:?}",
+            matches.len(),
+            group
+        )));
+    }
     let slug = &matches[0].1;
     let dataset = datasets
-        .get(slug.as_str())
+        .iter()
+        .find(|dataset| dataset.slug == *slug)
         .with_context(|| format!("frozen assignment references absent dataset {slug}"))?;
-    ensure_compatible(fields, dataset)?;
+    let extra = incremental
+        .get(slug.as_str())
+        .map(Vec::as_slice)
+        .unwrap_or(&[]);
+    ensure_compatible(fields, dataset, extra)?;
     Ok(slug.clone())
 }
 
@@ -481,30 +630,44 @@ fn classify_new(
     fields: &HashMap<String, FieldAcc>,
     rel: &str,
     datasets: &[PlanDataset],
-) -> Result<String> {
+    refused: &[&PlanDataset],
+    incremental: &BTreeMap<String, Vec<FieldSpec>>,
+) -> Result<String, AssignFailure> {
     let mut candidates = Vec::new();
+    let mut rejected: Option<String> = None;
     for dataset in datasets
         .iter()
+        .chain(refused.iter().copied())
         .filter(|dataset| dataset.family == family && &dataset.group == group)
     {
-        if ensure_compatible(fields, dataset).is_err() {
-            continue;
+        let extra = incremental
+            .get(dataset.slug.as_str())
+            .map(Vec::as_slice)
+            .unwrap_or(&[]);
+        match ensure_compatible(fields, dataset, extra) {
+            Ok(()) => {}
+            Err(AssignFailure::File(detail)) => {
+                rejected = Some(detail);
+                continue;
+            }
+            Err(failure @ AssignFailure::Fatal(_)) => return Err(failure),
         }
         let affinity = scope_affinity(dataset.scope.as_deref(), rel);
         let (intersection, union) = field_overlap(fields, &dataset.specs);
         let threshold_met = if dataset.family == "docs" {
             // A `docs` dataset's specs are the UNION of every document/config
-            // the fold produced. `ensure_compatible` (run just above) already
-            // requires every observed SCALAR field to be present in the frozen
-            // specs — a field absent from the specs is tolerated ONLY when
-            // `acc.n == 0` (pruned: e.g. a code file's object-valued `symbols`
-            // sidecar, #580). So a document/config that reached here belongs to
-            // the docs dataset regardless of how many other fields the union
-            // carries; accept it. (The 0.7 Jaccard would wrongly reject a
-            // document with fewer fields than the union, and `== fields.len()`
-            // wrongly counts the pruned `symbols` key and aborted a new code
-            // file — the #729 central case.) `let _` keeps the shared
-            // `field_overlap` result in scope for the data-family branches.
+            // the fold produced. `ensure_compatible` (run just above) accepts a
+            // scalar field the frozen specs do not name yet — `widen_dataset`
+            // records it beside the specs, and the mapping update installs it —
+            // and still tolerates `acc.n == 0` (pruned: e.g. a
+            // code file's object-valued `symbols` sidecar, #580). So a
+            // document/config that reached here belongs to the docs dataset
+            // regardless of how many other fields the union carries; accept
+            // it. (The 0.7 Jaccard would wrongly reject a document with fewer
+            // fields than the union, and `== fields.len()` wrongly counts the
+            // pruned `symbols` key and aborted a new code file — the #729
+            // central case.) `let _` keeps the shared `field_overlap` result
+            // in scope for the data-family branches.
             //
             // #731 (3): this also silently admits a routed file with ZERO
             // rendered fields (e.g. an unreadable/empty document) — harmless,
@@ -545,12 +708,16 @@ fn classify_new(
     });
     let Some((winner, winner_intersection, winner_union, winner_affinity)) = candidates.first()
     else {
-        anyhow::bail!(
+        let because = rejected
+            .as_deref()
+            .map(|detail| format!(" Last candidate refused: {detail}"))
+            .unwrap_or_default();
+        return Err(AssignFailure::File(format!(
             "no frozen dataset accepts family {family}, group {:?}, and fields {:?}; \
-             this requires unsupported dataset/schema evolution (use a new prefix)",
+             this requires unsupported dataset/schema evolution (use a new prefix).{because}",
             group,
             sorted_field_names(fields)
-        );
+        )));
     };
     if let Some((runner_up, runner_up_intersection, runner_up_union, runner_up_affinity)) =
         candidates.get(1)
@@ -559,21 +726,23 @@ fn classify_new(
         // separate the top two. A pre-#1230 plan carries no scope (`None` for
         // every dataset), so both affinities are `None`, they compare equal,
         // and this fails closed exactly as before.
-        anyhow::ensure!(
-            ratio_cmp(
-                *winner_intersection,
-                *winner_union,
-                *runner_up_intersection,
-                *runner_up_union
-            ) != Ordering::Equal
-                || winner_affinity != runner_up_affinity,
-            "new file matches frozen datasets {} and {} equally for family {family}, group {:?}, \
-             and fields {:?}; refusing ambiguous assignment (use a new prefix)",
-            winner.slug,
-            runner_up.slug,
-            group,
-            sorted_field_names(fields)
-        );
+        if ratio_cmp(
+            *winner_intersection,
+            *winner_union,
+            *runner_up_intersection,
+            *runner_up_union,
+        ) == Ordering::Equal
+            && winner_affinity == runner_up_affinity
+        {
+            return Err(AssignFailure::File(format!(
+                "new file matches frozen datasets {} and {} equally for family {family}, group {:?}, \
+                 and fields {:?}; refusing ambiguous assignment (use a new prefix)",
+                winner.slug,
+                runner_up.slug,
+                group,
+                sorted_field_names(fields)
+            )));
+        }
     }
     Ok(winner.slug.clone())
 }
@@ -588,6 +757,9 @@ fn classify_new(
 /// orders `None < Some(0) < Some(len)`, which is exactly that precedence.
 fn scope_affinity(scope: Option<&str>, rel: &str) -> Option<usize> {
     let scope = scope?;
+    if crate::sdd::parse_specs_scope(scope).is_some() {
+        return crate::sdd::sdd_scope_affinity(scope, rel);
+    }
     if scope.is_empty() {
         Some(0)
     } else if rel == scope
@@ -605,7 +777,12 @@ fn field_overlap(fields: &HashMap<String, FieldAcc>, specs: &[FieldSpec]) -> (us
     // Keep null-only and object-shaped fields in the schema fingerprint too.
     // FieldAcc deliberately does not count those as scalar observations, but
     // allowing an unknown one through would let the server create a dynamic
-    // mapping outside the frozen plan.
+    // mapping outside the frozen plan. A scalar the specs do not name yet is
+    // also a mismatch here: `widen_dataset` adds it only after a file has
+    // already been assigned (a retained file, or a docs file the fold accepts).
+    // Dropping it from this ratio would make a dataset that lacks the field
+    // look identical to one that has it, and scope would then pick the worse
+    // one.
     let observed: HashSet<&str> = fields.keys().map(String::as_str).collect();
     let frozen: HashSet<&str> = specs.iter().map(|spec| spec.name.as_str()).collect();
     (
@@ -618,46 +795,195 @@ fn ratio_cmp(left_n: usize, left_d: usize, right_n: usize, right_d: usize) -> Or
     (left_n * right_d).cmp(&(right_n * left_d))
 }
 
-fn ensure_compatible(fields: &HashMap<String, FieldAcc>, dataset: &PlanDataset) -> Result<()> {
-    let specs: HashMap<&str, &FieldSpec> = dataset
+fn ensure_compatible(
+    fields: &HashMap<String, FieldAcc>,
+    dataset: &PlanDataset,
+    extra: &[FieldSpec],
+) -> Result<(), AssignFailure> {
+    let mut specs: HashMap<&str, &FieldSpec> = dataset
         .specs
         .iter()
         .map(|spec| (spec.name.as_str(), spec))
         .collect();
-    for (name, acc) in fields {
-        let Some(spec) = specs.get(name.as_str()) else {
+    for spec in extra {
+        specs.entry(spec.name.as_str()).or_insert(spec);
+    }
+    // Sorted so the reported field does not depend on hash-map order.
+    let mut names: Vec<&str> = fields.keys().map(String::as_str).collect();
+    names.sort_unstable();
+    for name in names {
+        let acc = &fields[name];
+        let Some(spec) = specs.get(name) else {
             // A field observed with NO scalar values (`acc.n == 0`) — e.g. the
             // code file's `symbols` sidecar (an array of objects, which
             // `FieldAcc` deliberately does not scalar-type) — legitimately never
             // received a frozen `FieldSpec` at genesis: it has nothing to type.
-            // Its absence is therefore not drift; there is nothing to validate,
-            // so mirror `compatible_with_spec`'s `acc.n == 0 => true` and skip
-            // it. Without this, re-indexing ANY code file aborted the whole run
-            // (#580), because `symbols` is observed on every generation but was
-            // pruned from the frozen schema. A field that DOES carry scalar
-            // values yet is absent is still a real incompatibility.
+            // Its absence is therefore not drift (#580).
             //
-            // #1237: `impl` and `end_line` on symbol records were added after
-            // #579 froze the five symbol scalar fields; tolerate their absence
-            // on pre-#1237 frozen `docs`/`code` datasets so incremental runs
-            // over existing state dirs do not abort.
-            let pre_1237_symbol_field = (name == "impl" || name == "end_line")
-                && (dataset.family == "docs" || dataset.family == "code");
-            anyhow::ensure!(
-                acc.n == 0 || pre_1237_symbol_field,
-                "field {name} is absent from frozen dataset {}",
+            // #1237 / #2351: `impl`, `end_line`, and `start_line` are installed
+            // on every docs/code mapping by `dataset_create_body`, outside
+            // the frozen specs. Re-inferring them here can elect `keyword`
+            // for a short `impl` and the server then refuses to change the
+            // existing `text` field. `start_line` is the same line `line`
+            // already stores, so it must not consume a field-cap slot.
+            //
+            // Any other absent scalar with a name the mapping can grow is
+            // added by `widen_dataset` (#2176). A name that cannot be added
+            // (empty, dotted, leading `_`) is a per-file refusal: letting it
+            // through would dynamic-map it.
+            if absent_field_is_tolerated(name, acc, dataset) {
+                continue;
+            }
+            if widenable_field_name(name) {
+                continue;
+            }
+            // #1815: genesis already published this name as an unmapped
+            // overflow field of a dataset that hit the field cap.
+            if cap_overflow_fields(dataset).is_some_and(|overflow| overflow.contains(name)) {
+                continue;
+            }
+            return Err(AssignFailure::File(format!(
+                "field {name} is absent from frozen dataset {} and cannot be added to its mapping",
                 dataset.slug
-            );
-            continue;
+            )));
         };
-        anyhow::ensure!(
-            compatible_with_spec(acc, spec),
-            "field {name} is incompatible with frozen {} mapping in dataset {}",
-            spec.es_type,
-            dataset.slug
-        );
+        if !compatible_with_spec(acc, spec) {
+            return Err(AssignFailure::File(format!(
+                "field {name} is incompatible with frozen {} mapping in dataset {}",
+                spec.es_type, dataset.slug
+            )));
+        }
     }
     Ok(())
+}
+
+/// `impl` / `end_line` / `start_line` and object-valued sidecars are already
+/// accounted for and must not be re-inferred onto the frozen specs.
+fn absent_field_is_tolerated(name: &str, acc: &FieldAcc, dataset: &PlanDataset) -> bool {
+    if acc.n == 0 {
+        return true;
+    }
+    (name == "impl" || name == "end_line" || name == "start_line")
+        && (dataset.family == "docs" || dataset.family == "code")
+}
+
+/// A top-level field name `PUT /_mapping` can add without nesting or colliding
+/// with metadata. Dotted names become nested properties; a leading `_` is
+/// reserved. Anything else is refused per file instead of dynamic-mapped.
+fn widenable_field_name(name: &str) -> bool {
+    let mut chars = name.chars();
+    match chars.next() {
+        Some(first) if first.is_ascii_alphabetic() => {}
+        _ => return false,
+    }
+    chars.all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
+}
+
+/// The overflow field names genesis recorded when `infer` truncated the
+/// dataset at [`crate::infer::MAX_FIELDS_PER_DATASET`], or `None` when the
+/// dataset never hit the cap.
+fn cap_overflow_fields(dataset: &PlanDataset) -> Option<HashSet<&str>> {
+    dataset.specs.iter().find_map(|spec| {
+        spec.notes.iter().find_map(|note| {
+            note.strip_prefix(CAP_OVERFLOW_NOTE)
+                .map(|list| list.split(", ").filter(|name| !name.is_empty()).collect())
+        })
+    })
+}
+
+const CAP_OVERFLOW_NOTE: &str = "dataset field cap hit; unmapped overflow fields: ";
+
+fn widen_dataset(
+    dataset: &PlanDataset,
+    added: &mut Vec<FieldSpec>,
+    fields: &HashMap<String, FieldAcc>,
+    records: u64,
+) -> Result<(), AssignFailure> {
+    let mut known: HashSet<&str> = dataset
+        .specs
+        .iter()
+        .map(|spec| spec.name.as_str())
+        .collect();
+    known.extend(added.iter().map(|spec| spec.name.as_str()));
+    // #1815: a dataset that hit the field cap at genesis has an explicitly
+    // partial schema. Its overflow fields were published unmapped and pass
+    // through coercion (`coerce.rs`). A changed file that re-observes them, or
+    // grows another field, is the same shape genesis accepted, not drift.
+    let overflow = cap_overflow_fields(dataset);
+    let mut pending: HashMap<String, FieldAcc> = HashMap::new();
+    let mut names: Vec<&str> = fields.keys().map(String::as_str).collect();
+    names.sort_unstable();
+    for name in names {
+        let acc = &fields[name];
+        if known.contains(name) || absent_field_is_tolerated(name, acc, dataset) || acc.n == 0 {
+            continue;
+        }
+        if let Some(overflow) = &overflow {
+            if overflow.contains(name) || widenable_field_name(name) {
+                // Unmapped, exactly like the genesis overflow: the cap leaves
+                // no room to map it, and refusing it would drop the file.
+                continue;
+            }
+        }
+        if !widenable_field_name(name) {
+            return Err(AssignFailure::File(format!(
+                "field {name} is absent from frozen dataset {} and cannot be added to its mapping",
+                dataset.slug
+            )));
+        }
+        pending.insert(name.to_string(), acc.clone());
+    }
+    if pending.is_empty() {
+        return Ok(());
+    }
+    if dataset.specs.len() + added.len() + pending.len() > crate::infer::MAX_FIELDS_PER_DATASET {
+        let pending_len = pending.len();
+        return Err(AssignFailure::File(format!(
+            "dataset {} already maps {} fields; adding {pending_len} more would pass the {} field cap",
+            dataset.slug,
+            dataset.specs.len() + added.len(),
+            crate::infer::MAX_FIELDS_PER_DATASET
+        )));
+    }
+    // `no_semantic`: a new field must not elect `semantic_text`. That would
+    // change the dataset's embedding contract without updating `semantic_field`,
+    // and a fresh mapping install would then refuse or embed a field this
+    // generation does not declare as the body. Lexical text/keyword/long still
+    // search.
+    let mut inferred = crate::infer::infer_fields(&pending, records.max(1), true);
+    for spec in &mut inferred {
+        if spec.es_type == "semantic_text" {
+            spec.es_type = "text".into();
+        }
+        spec.notes
+            .push("added on incremental reconcile when the field first appeared".into());
+    }
+    added.extend(inferred);
+    Ok(())
+}
+
+fn rollback_widens(
+    fields: &mut BTreeMap<String, Vec<FieldSpec>>,
+    widened: &HashMap<String, usize>,
+) {
+    for (slug, len) in widened {
+        if let Some(specs) = fields.get_mut(slug) {
+            specs.truncate(*len);
+        }
+    }
+    fields.retain(|_, specs| !specs.is_empty());
+}
+
+fn file_schema_reason(detail: &str, retained: bool, rebuild_command: &str) -> String {
+    let fate = if retained {
+        "Documents already indexed for this file are dropped with this generation."
+    } else {
+        "Nothing was indexed for this file."
+    };
+    format!(
+        "{detail} This file was not indexed; every other file in this pass still is. {fate} \
+         Stop the watcher and rebuild the folder so the schema is inferred again: {rebuild_command}"
+    )
 }
 
 fn compatible_with_spec(acc: &FieldAcc, spec: &FieldSpec) -> bool {
@@ -696,6 +1022,11 @@ mod tests {
     use crate::walk::FileEntry;
     use serde_json::json;
     use std::path::PathBuf;
+
+    /// Printed verbatim by a per-file schema refusal. A reworded error that
+    /// drops this command is a failed recovery contract.
+    const REBUILD: &str =
+        "xerj autoindex /src --prefix p-reindex --state-dir /state-reindex --no-graph";
 
     fn acc(values: &[serde_json::Value]) -> FieldAcc {
         let mut acc = FieldAcc::default();
@@ -767,6 +1098,7 @@ mod tests {
                 fields,
                 key_fields: std::collections::HashSet::new(),
                 records: 1,
+                population: 1,
             }],
             junk: None,
             // Reconciliation re-samples from the source tree and publishes
@@ -783,6 +1115,7 @@ mod tests {
             keys: vec![key.into()],
             digests: vec![format!("digest-{key}")],
             duplicates: vec![],
+            unreadable: vec![],
         }
     }
 
@@ -820,6 +1153,7 @@ mod tests {
             &previous,
             vec![scan(fields)],
             50,
+            REBUILD,
         )
         .unwrap();
         assert_eq!(
@@ -853,6 +1187,7 @@ mod tests {
             &previous,
             vec![scan(fields)],
             50,
+            REBUILD,
         )
         .unwrap();
         assert_eq!(plan.files["new"].assignments, vec![(None, "winner".into())]);
@@ -873,66 +1208,197 @@ mod tests {
             ("id".into(), acc(&[json!(7)])),
             ("body".into(), acc(&[json!("hello")])),
         ]);
-        let error = reconcile_plan(
+        let plan = reconcile_plan(
             &inventory("new.jsonl", "unix:6e", "new"),
             &previous,
             vec![scan(fields)],
             50,
+            REBUILD,
         )
-        .unwrap_err();
-        let message = format!("{error:#}");
+        .unwrap();
+        assert!(
+            plan.files.is_empty(),
+            "an equal tie must not assign a dataset"
+        );
+        assert_eq!(plan.junk_files.len(), 1);
+        let message = &plan.junk_files[0].reason;
         assert!(
             message.contains("refusing ambiguous assignment"),
             "{message}"
         );
         assert!(message.contains("a-tie"), "{message}");
         assert!(message.contains("z-tie"), "{message}");
+        assert!(message.contains(REBUILD), "{message}");
+        assert!(
+            message.contains("Nothing was indexed for this file."),
+            "{message}"
+        );
     }
 
     #[test]
-    fn new_field_and_incompatible_type_fail_before_plan_changes() {
+    fn a_new_scalar_field_widens_and_an_unmappable_change_is_one_file() {
         let previous = Plan {
             datasets: vec![dataset("rows", vec![spec("id", "long")])],
             ..Plan::default()
         };
+        // A file already assigned to this dataset grows a scalar the frozen
+        // specs do not name. The mapping is extended. It used to abort the plan.
+        let mut retained = previous.clone();
+        retained
+            .files
+            .insert("old".into(), assignment("rows.jsonl", "unix:6e", "rows"));
         let unknown = HashMap::from([
             ("id".into(), acc(&[json!(7)])),
             ("surprise".into(), acc(&[json!("new mapping")])),
         ]);
-        let error = reconcile_plan(
-            &inventory("new.jsonl", "unix:6e", "new"),
-            &previous,
+        let plan = reconcile_plan(
+            &inventory("rows.jsonl", "unix:6e", "new"),
+            &retained,
             vec![scan(unknown)],
             50,
+            REBUILD,
         )
-        .unwrap_err();
-        assert!(format!("{error:#}").contains("unsupported dataset/schema evolution"));
+        .unwrap();
+        assert_eq!(plan.files["new"].assignments, vec![(None, "rows".into())]);
+        assert!(plan.junk_files.is_empty());
+        assert!(
+            plan.datasets[0].specs.iter().all(|spec| spec.name == "id"),
+            "frozen specs stay the generation identity"
+        );
+        assert!(
+            plan.incremental_fields["rows"]
+                .iter()
+                .any(|spec| spec.name == "surprise"),
+            "the new scalar is installed beside the frozen specs"
+        );
 
-        // Object-shaped values are not counted as scalar FieldAcc evidence,
-        // but their field name must still be rejected rather than dynamically
-        // mapped by the server.
+        // The same extra field on a file with no committed assignment stays
+        // below the group-less overlap threshold, so it does not join — and
+        // it does not take the rest of the plan down with it.
+        let plan = reconcile_plan(
+            &inventory("new.jsonl", "unix:6f", "brand-new"),
+            &previous,
+            vec![scan(HashMap::from([
+                ("id".into(), acc(&[json!(7)])),
+                ("surprise".into(), acc(&[json!("new mapping")])),
+            ]))],
+            50,
+            REBUILD,
+        )
+        .unwrap();
+        assert!(plan.files.is_empty());
+        assert!(
+            plan.junk_files[0]
+                .reason
+                .contains("unsupported dataset/schema evolution"),
+            "{}",
+            plan.junk_files[0].reason
+        );
+        assert!(plan.junk_files[0].reason.contains(REBUILD));
+        assert!(plan.datasets[0].specs.iter().all(|spec| spec.name == "id"));
+        assert!(plan.incremental_fields.is_empty());
+
+        // Object-shaped values are not scalar FieldAcc evidence. Their name
+        // stays in the overlap fingerprint, so a data file that introduces one
+        // still fails to join — and only that file is junked.
         let object_field = HashMap::from([
             ("id".into(), acc(&[json!(7)])),
             ("object".into(), acc(&[json!({"nested": true})])),
         ]);
-        let error = reconcile_plan(
+        let plan = reconcile_plan(
             &inventory("new.jsonl", "unix:6e", "new"),
             &previous,
             vec![scan(object_field)],
             50,
+            REBUILD,
         )
-        .unwrap_err();
-        assert!(format!("{error:#}").contains("unsupported dataset/schema evolution"));
+        .unwrap();
+        assert!(plan.files.is_empty());
+        let message = &plan.junk_files[0].reason;
+        assert!(
+            message.contains("unsupported dataset/schema evolution"),
+            "{message}"
+        );
+        assert!(message.contains(REBUILD), "{message}");
+        assert!(
+            plan.datasets[0].specs.iter().all(|spec| spec.name == "id"),
+            "a refused file must not widen the frozen specs"
+        );
+        assert!(plan.incremental_fields.is_empty());
 
         let wrong_type = HashMap::from([("id".into(), acc(&[json!("not-a-number")]))]);
-        let error = reconcile_plan(
+        let plan = reconcile_plan(
             &inventory("new.jsonl", "unix:6e", "new"),
             &previous,
             vec![scan(wrong_type)],
             50,
+            REBUILD,
         )
-        .unwrap_err();
-        assert!(format!("{error:#}").contains("unsupported dataset/schema evolution"));
+        .unwrap();
+        assert!(plan.files.is_empty());
+        let message = &plan.junk_files[0].reason;
+        assert!(message.contains("incompatible"), "{message}");
+        assert!(message.contains(REBUILD), "{message}");
+        assert!(
+            message.contains("Nothing was indexed for this file."),
+            "{message}"
+        );
+    }
+
+    /// #1815: a dataset genesis truncated at the field cap keeps its overflow
+    /// fields unmapped. A retained file that changes a value and grows a new
+    /// field must stay assigned, not be refused for "passing the field cap".
+    #[test]
+    fn capped_dataset_retains_a_changed_file_with_overflow_fields() {
+        let mut genesis: HashMap<String, FieldAcc> = (0..crate::infer::MAX_FIELDS_PER_DATASET + 3)
+            .map(|i| (format!("f_{i:04}"), acc(&[json!(i)])))
+            .collect();
+        genesis.insert("id".into(), acc(&[json!(1)]));
+        let specs = crate::infer::infer_fields(&genesis, 1, true);
+        assert_eq!(specs.len(), crate::infer::MAX_FIELDS_PER_DATASET);
+        let mut ds = dataset("wide", specs);
+        let overflow: Vec<String> = cap_overflow_fields(&ds)
+            .expect("genesis records the cap overflow")
+            .into_iter()
+            .map(str::to_string)
+            .collect();
+        assert_eq!(overflow.len(), 4);
+        ds.file_count = 1;
+        let mut previous = Plan {
+            datasets: vec![ds],
+            ..Plan::default()
+        };
+        previous
+            .files
+            .insert("old".into(), assignment("wide.json", "unix:77", "wide"));
+
+        let mut changed = genesis.clone();
+        changed.insert("id".into(), acc(&[json!(2)]));
+        changed.insert(
+            "paths_v1_new_route_get".into(),
+            acc(&[json!("get /v1/new")]),
+        );
+        let plan = reconcile_plan(
+            &inventory("wide.json", "unix:77", "new"),
+            &previous,
+            vec![scan(changed)],
+            50,
+            REBUILD,
+        )
+        .unwrap();
+        assert!(plan.junk_files.is_empty(), "{:?}", plan.junk_files);
+        assert_eq!(plan.files["new"].assignments, vec![(None, "wide".into())]);
+        assert!(
+            plan.incremental_fields
+                .get("wide")
+                .is_none_or(|added| added.is_empty()),
+            "a capped dataset cannot map more fields; overflow passes through"
+        );
+    }
+
+    #[test]
+    fn an_uncapped_dataset_has_no_overflow_fields() {
+        assert!(cap_overflow_fields(&dataset("rows", vec![spec("id", "long")])).is_none());
     }
 
     /// A NEW document file (empty `key_fields`, no group — the shape a fresh
@@ -970,6 +1436,7 @@ mod tests {
             &previous,
             vec![file_scan],
             50,
+            REBUILD,
         )
         .unwrap();
         assert_eq!(
@@ -1029,8 +1496,9 @@ mod tests {
             keys: vec!["cfg".into()],
             digests: vec!["digest-cfg".into()],
             duplicates: vec![],
+            unreadable: vec![],
         };
-        let plan = reconcile_plan(&inv, &previous, vec![file_scan], 50).unwrap();
+        let plan = reconcile_plan(&inv, &previous, vec![file_scan], 50, REBUILD).unwrap();
         assert_eq!(plan.files["cfg"].assignments, vec![(None, "docs".into())]);
         assert!(
             plan.files["cfg"].as_document,
@@ -1081,6 +1549,7 @@ mod tests {
             &previous,
             vec![file_scan],
             50,
+            REBUILD,
         )
         .unwrap();
         assert_eq!(plan.files["code"].assignments, vec![(None, "docs".into())]);
@@ -1088,6 +1557,96 @@ mod tests {
             !plan.files["code"].as_document,
             "a code document indexes through its own extractor, not as_document"
         );
+    }
+
+    /// #2176: a code file indexed while it had no symbols freezes `docs` as
+    /// title/language/body. Adding a function emits scalar fields (`code`,
+    /// `name`, `defs`, …) the frozen specs do not name. The retained file must
+    /// stay on `docs` and those fields must be recorded beside the specs —
+    /// not written into them, which would move the generation identity.
+    /// `impl`, `end_line`, and `start_line` stay out of that list too: the
+    /// create body already maps them, and re-inferring `impl` can elect
+    /// `keyword`.
+    #[test]
+    fn retained_code_file_grows_a_function_and_docs_gains_code() {
+        let mut previous = Plan {
+            datasets: vec![PlanDataset {
+                family: "docs".into(),
+                ..dataset(
+                    "docs",
+                    vec![
+                        spec("title", "text"),
+                        spec("language", "keyword"),
+                        spec("body", "text"),
+                    ],
+                )
+            }],
+            ..Plan::default()
+        };
+        let mut prior = assignment("module.py", "unix:70", "docs");
+        prior.family = "code".into();
+        previous.files.insert("old-module".into(), prior);
+        let fields = HashMap::from([
+            ("title".to_string(), acc(&[json!("module.py")])),
+            ("language".to_string(), acc(&[json!("python")])),
+            (
+                "body".to_string(),
+                acc(&[json!("def cancel_request():\n    return \"birchfunction\"")]),
+            ),
+            ("defs".to_string(), acc(&[json!("function cancel_request")])),
+            ("symbol_count".to_string(), acc(&[json!(1)])),
+            ("code".to_string(), acc(&[json!("def cancel_request():")])),
+            ("name".to_string(), acc(&[json!("cancel_request")])),
+            ("kind".to_string(), acc(&[json!("function")])),
+            ("line".to_string(), acc(&[json!(3)])),
+            ("start_line".to_string(), acc(&[json!(3)])),
+            (
+                "symbols".to_string(),
+                acc(&[json!({"name": "cancel_request"})]),
+            ),
+        ]);
+        let mut file_scan = scan(fields);
+        file_scan.sniffed.as_mut().unwrap().family = Family::Code;
+
+        let plan = reconcile_plan(
+            &inventory("module.py", "unix:70", "new-module"),
+            &previous,
+            vec![file_scan],
+            50,
+            REBUILD,
+        )
+        .unwrap();
+        assert!(
+            plan.junk_files.is_empty(),
+            "adding a function must not junk the file: {:?}",
+            plan.junk_files
+        );
+        assert_eq!(
+            plan.files["new-module"].assignments,
+            vec![(None, "docs".into())]
+        );
+        let frozen: Vec<&str> = plan.datasets[0]
+            .specs
+            .iter()
+            .map(|spec| spec.name.as_str())
+            .collect();
+        assert_eq!(frozen, ["title", "language", "body"]);
+        let names: Vec<&str> = plan.incremental_fields["docs"]
+            .iter()
+            .map(|spec| spec.name.as_str())
+            .collect();
+        for field in ["code", "name", "kind", "line", "defs", "symbol_count"] {
+            assert!(names.contains(&field), "missing {field} in {names:?}");
+        }
+        assert!(!names.contains(&"impl"));
+        assert!(!names.contains(&"end_line"));
+        assert!(!names.contains(&"start_line"));
+        assert!(!names.contains(&"symbols"));
+        let reason = plan.files["new-module"].rel.as_str();
+        assert_eq!(reason, "module.py");
+        let message = file_schema_reason("field id is incompatible", true, REBUILD);
+        assert!(message.contains("Documents already indexed for this file are dropped"));
+        assert!(message.contains(REBUILD));
     }
 
     /// Two frozen scope-keyed `docs` datasets (one per nested repository) whose
@@ -1139,6 +1698,7 @@ mod tests {
             &previous,
             vec![fork_doc_scan()],
             50,
+            REBUILD,
         )
         .expect("an adjacent file inside bitcoin-core must not abort the run");
         assert_eq!(
@@ -1153,6 +1713,7 @@ mod tests {
             &previous,
             vec![fork_doc_scan()],
             50,
+            REBUILD,
         )
         .expect("an adjacent file inside bitcoin-knots must not abort the run");
         assert_eq!(
@@ -1195,6 +1756,7 @@ mod tests {
             &previous,
             vec![scan(fields)],
             50,
+            REBUILD,
         )
         .unwrap();
         assert_eq!(
@@ -1222,18 +1784,24 @@ mod tests {
             ],
             ..Plan::default()
         };
-        let error = reconcile_plan(
+        let plan = reconcile_plan(
             &inventory("bitcoin-core/adjacent.ts", "unix:a4", "legacy-add"),
             &previous,
             vec![fork_doc_scan()],
             50,
+            REBUILD,
         )
-        .unwrap_err();
-        let message = format!("{error:#}");
+        .unwrap();
+        assert!(
+            plan.files.is_empty(),
+            "a legacy plan with no scope must not silently assign the tie"
+        );
+        let message = &plan.junk_files[0].reason;
         assert!(
             message.contains("refusing ambiguous assignment"),
             "{message}"
         );
+        assert!(message.contains(REBUILD), "{message}");
     }
 
     #[test]
@@ -1255,7 +1823,7 @@ mod tests {
             bytes: 10,
         });
         let fields = HashMap::from([("id".into(), acc(&[json!(7)]))]);
-        let plan = reconcile_plan(&current, &previous, vec![scan(fields)], 50).unwrap();
+        let plan = reconcile_plan(&current, &previous, vec![scan(fields)], 50, REBUILD).unwrap();
         assert_eq!(plan.files["same"].rel, "renamed.jsonl");
         assert_eq!(plan.datasets[0].file_count, 1);
         assert_eq!(plan.duplicate_files.len(), 1);
@@ -1276,7 +1844,8 @@ mod tests {
         let fields = || HashMap::from([("id".into(), acc(&[json!(7)]))]);
 
         let conflict = inventory("a.jsonl", "unix:62", "content-a");
-        let error = reconcile_plan(&conflict, &previous, vec![scan(fields())], 50).unwrap_err();
+        let error =
+            reconcile_plan(&conflict, &previous, vec![scan(fields())], 50, REBUILD).unwrap_err();
         assert!(format!("{error:#}").contains("conflicting committed content and path owners"));
 
         let duplicate = Inventory {
@@ -1284,12 +1853,14 @@ mod tests {
             keys: vec!["same-key".into(), "same-key".into()],
             digests: vec!["digest".into(), "digest".into()],
             duplicates: vec![],
+            unreadable: vec![],
         };
         let error = reconcile_plan(
             &duplicate,
             &previous,
             vec![scan(fields()), scan(fields())],
             50,
+            REBUILD,
         )
         .unwrap_err();
         assert!(format!("{error:#}").contains("duplicate content identity"));

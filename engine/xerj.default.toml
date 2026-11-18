@@ -1,6 +1,6 @@
 # xerj Default Configuration
 # ============================================================
-# This file sets 56 of XERJ's 134 user-facing settings to their
+# This file sets 59 of XERJ's 139 user-facing settings to their
 # production-ready defaults, and describes the rest in comments.
 # Every value here IS the default, so copying this file changes
 # nothing until you edit it (a test enforces that). The complete
@@ -441,10 +441,19 @@ time_partition = "1h"
 
 [embedding]
 
-# OpenAI-compatible endpoint URL for auto-embedding on ingest.
-# Leave empty to disable automatic embedding (vectors must be provided by client).
-# Example: "https://api.openai.com/v1/embeddings"
-# Example: "http://localhost:11434/v1/embeddings"  (local Ollama)
+# OpenAI-compatible embeddings URL. Leave empty to disable automatic
+# embedding (vectors must be provided by the client). Accepted forms,
+# trailing slash optional (#2355):
+#   - a base ending in /v1 — /embeddings is appended
+#       "http://localhost:8000/v1"  →  http://localhost:8000/v1/embeddings
+#   - a bare host — /embeddings is appended
+#       "http://localhost:8000"     →  http://localhost:8000/embeddings
+#   - the full embeddings path — used unchanged
+#       "https://api.openai.com/v1/embeddings"
+#       "http://localhost:11434/v1/embeddings"  (local Ollama)
+# Any other path refuses to start when mode = "proxy" and names this URL
+# plus the {origin}/v1/embeddings path to set. The string stored here is
+# also the proxy embedder identity, so keep it stable once a corpus is indexed.
 default_endpoint = ""
 
 # Model name to request from the embedding endpoint.
@@ -470,14 +479,15 @@ timeout_ms = 5000
 # Range: 1 – 64.
 # neural_window_concurrency = 1
 
-# ── Resource Limits (6 of 14 settings) ────────────────────────────────────────
+# ── Resource Limits (7 of 15 settings) ────────────────────────────────────────
 
 [limits]
 
 # Process-wide memory ceiling (MiB) that bounds every internal budget — segment
 # hydration, query working sets, and the ingest circuit breaker. OMIT it (the
-# default) to AUTO-size the cap from the machine in binary-GiB tiers
-# (8 / 16 / 32 GiB): a laptop stays bounded, a large box climbs. Set an explicit
+# default) to AUTO-size the cap from the machine: half of RAM under 16 GiB,
+# then 8 / 16 / 32 GiB. An 8 GiB host gets 4 GiB, so a merge has room; a
+# 16 GiB host stays at 8 GiB and a large box climbs. Set an explicit
 # MiB ceiling to raise headroom on a big host — e.g. when a large `xerj autoindex`
 # trips `429 circuit_breaking_exception`. Set 0 to uncap to the whole machine
 # (not recommended). Env override: XERJ_MAX_PROCESS_MEMORY_MB=auto|off|<MiB>.
@@ -512,6 +522,17 @@ max_actions_per_bulk = 50000
 # Add absolute base paths here only to allow snapshots on external/backup roots.
 # Example: snapshot_repo_allowlist = ["/mnt/backups"]
 snapshot_repo_allowlist = []
+
+# Let a snapshot RESTORE (never a create) read from the Corpus Hub pack cache of
+# the user this server runs as: $XERJ_HUB_HOME/packs, else ~/.xerj/hub/packs.
+# That is where `xerj hub pull` / `xerj ask` extract a verified, signed pack
+# before asking the server to restore it, so this is what lets a pull work
+# against a server you started yourself. Honoured only while that directory is
+# a real directory (not a symlink) owned by this server's user; symlinks inside
+# it that point elsewhere are refused. false = only data_dir and the allowlist.
+# A server running as another user, in a container or on another machine does
+# not share your cache: add the directory to snapshot_repo_allowlist there.
+hub_pack_restore = true
 
 # Process-wide retained-payload budget for the seven immutable segment
 # hydration caches (MiB). 0 derives 20% of the effective cgroup/system memory
@@ -549,6 +570,27 @@ turbo_parallel = true
 # This increases ingest throughput at the cost of reduced search recall
 # (e.g. "running" will not match "run").
 turbo_fast_analyzer = false
+
+# ── Engine (6 settings; worker counts stay machine-derived) ──────────────────
+#
+# `ingest_shards`, `flush_workers`, `merge_workers` and `search_workers`
+# default from the host's core count (see EngineConfig). The two deadlines
+# below are absolute: they are what stops a wedged flush from parking
+# `_refresh` and `finalize-refresh` forever (#1635).
+# `XERJ_FLUSH_ADMIT_TIMEOUT_SECS` and `XERJ_FLUSH_TIMEOUT_SECS` override
+# them for one run.
+
+[engine]
+
+# How long a shard flush waits for a flush-admission permit before failing.
+# The wait is before the memtable is frozen, so a timeout loses no documents
+# and the flush can be retried.
+flush_admit_timeout_secs = 120
+
+# How long one index's flush may run before refresh reports that index as
+# failed and moves on. A publication already past the freeze is not cancelled.
+# Must be at least flush_admit_timeout_secs.
+flush_timeout_secs = 300
 
 # ── Cluster (5 settings, all commented out below) ─────────────────────────────
 #
@@ -668,6 +710,16 @@ access_log = false
 # enabled  = true
 # api_key  = "ts-..."                                  # not a default ("")
 # endpoint = "https://api.typesafe.ai/v1/systemone"    # not a default ("")
+#
+# Cohere Rerank, used by a search whose rerank block says "provider": "cohere".
+# Same rules: the key from here or COHERE_API_KEY (this file wins), the
+# endpoint from here or COHERE_ENDPOINT, default Cohere's public API. Point
+# `endpoint` at a private Cohere deployment to keep document text inside your
+# network. `enabled = false` above forbids this provider too.
+#
+# [rerank.cohere]
+# api_key  = "co-..."                                  # not a default ("")
+# endpoint = "https://api.cohere.com/v2/rerank"        # not a default ("")
 
 # ─────────────────────────────────────────────────────────────────────────
 # Decisions — typed answers from your own labelled history, no model call.

@@ -27,9 +27,9 @@ use std::time::{Duration, Instant};
 /// Three distinct free ports — `Config::validate` requires all three listener
 /// ports to differ.
 fn three_free_ports() -> (u16, u16, u16) {
-    let l1 = TcpListener::bind("127.0.0.1:0").unwrap();
-    let l2 = TcpListener::bind("127.0.0.1:0").unwrap();
-    let l3 = TcpListener::bind("127.0.0.1:0").unwrap();
+    let l1 = xerj_common::loopback_test::expect_loopback(TcpListener::bind("127.0.0.1:0"));
+    let l2 = xerj_common::loopback_test::expect_loopback(TcpListener::bind("127.0.0.1:0"));
+    let l3 = xerj_common::loopback_test::expect_loopback(TcpListener::bind("127.0.0.1:0"));
     (
         l1.local_addr().unwrap().port(),
         l2.local_addr().unwrap().port(),

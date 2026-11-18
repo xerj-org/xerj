@@ -366,7 +366,7 @@ async fn ensure_edges_index(state: &AppState, brain: &str, index: &str) -> Resul
         State(state.clone()),
         Path((index.to_string(), BRAIN_META_ID.to_string())),
         Query(params),
-        Json(meta),
+        es_compat::document_body(&meta),
     )
     .await
     .into_response();
@@ -557,7 +557,7 @@ pub async fn link(
         State(state.clone()),
         Path((index.clone(), id.clone())),
         Query(IndexDocParams::default()),
-        Json(doc.clone()),
+        es_compat::document_body(&doc),
     )
     .await
     .into_response();
@@ -674,7 +674,7 @@ pub async fn unlink(
         State(state.clone()),
         Path((index, edge_id.clone())),
         Query(IndexDocParams::default()),
-        Json(doc),
+        es_compat::document_body(&doc),
     )
     .await
     .into_response();
@@ -2121,7 +2121,7 @@ mod tests {
                 State(state.clone()),
                 Path((".xerj-memory-notes".to_string(), id.to_string())),
                 Query(IndexDocParams::default()),
-                Json(doc),
+                es_compat::document_body(&doc),
             )
             .await
             .into_response();

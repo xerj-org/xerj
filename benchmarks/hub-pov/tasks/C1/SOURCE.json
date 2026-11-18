@@ -1,0 +1,11 @@
+{
+ "source_branch": "bench/corpus-tasks",
+ "source_commit": "0ca4065a56ae82dba9eb03599063e0ddc277228a",
+ "note": "Verbatim copies of the registered C1 suites (PLAN.md \u00a74 C1: reuse, do not invent). `pov.py verify-c1` re-checks each blob against the branch.",
+ "files": {
+  "tasks/lz4.json": "dbdaef8170594162f43f0fc3d20be44774f7a8e5",
+  "tasks/snappy.json": "4cac10708240eda2cb665ea93c72d33ca94858eb",
+  "tasks/zstd.json": "18ed1f7da441ab7bae0750c8571dad545ec3c105",
+  "harness/check.py": "7d55ff398c2cc9ead5016cf9df88af44a9aa8305"
+ }
+}

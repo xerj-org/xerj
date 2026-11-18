@@ -5,17 +5,33 @@
    tokens used by the product dashboards under /web.
    ============================================================ */
 
-:root {
-  /* Night palette is primary — the product is read in dim rooms
-     at 2am when something breaks. Day is a courtesy. */
-  --z-bg:     #0b0b0d;
-  --z-ink:    #f4f2ec;
-  --z-mute:   #8a8680;
-  --z-faint:  #2b2a28;
-  --z-line:   #3a3836;
-  --z-accent: #ffc400;  /* solid, not neon */
-  --z-cmp:    #7f93aa;  /* comparison series in charts — never XERJ */
+/* Light is the default (2026-10 readability pass): near-white page,
+   near-black text, every text colour at WCAG AAA (7:1) or better against
+   the page. The XERJ yellow (#ffc400) is 1.5:1 on white, so it is used
+   only as a FILL (buttons with dark text, highlights, underlines) and the
+   accent TEXT colour is a darkened ochre from the same hue. Night is an
+   explicit opt-in via the DAY/NIGHT toggle (html[data-theme='night']).
+   Measured ratios are listed next to each token (vs --z-bg). */
+:root,
+html[data-theme='day'] {
+  color-scheme: light;
+  --z-bg:     #fafaf7;  /* page */
+  --z-ink:    #1a1a1a;  /* body text — 16.6:1 */
+  --z-mute:   #4a4843;  /* secondary text — 8.7:1 (8.3:1 on --z-code-bg) */
+  --z-faint:  #e7e5de;  /* hairlines, never text */
+  --z-line:   #d4d1c7;  /* 1px rules, never text */
+  --z-accent: #6b4400;  /* accent TEXT (darkened XERJ ochre) — 8.2:1 */
+  --z-cmp:    #3b536f;  /* comparison series in charts — 7.6:1 */
+  --z-neg:    #8f2427;  /* negative / loss — 8.2:1 */
 
+  --z-brand:    #ffc400;  /* XERJ yellow — fills, underlines, highlights only */
+  --z-on-brand: #1a1a1a;  /* text on --z-brand — 10.9:1 */
+  --z-brand-deep: #8a5a00; /* borders and focus ring — 5.7:1 (>=3:1 non-text) */
+  --z-highlight: #fff1b8; /* soft yellow wash behind dark text — ink 15.3:1 */
+  --z-link:   #6b4400;  /* links: underlined, 8.2:1 */
+  --z-focus:  #8a5a00;  /* focus ring */
+  --z-code-bg:   #f3f4f6; /* code surface — ink 15.8:1, mute 8.1:1, accent 7.7:1 */
+  --z-code-line: #e2e4e8;
   --font-display: 'Big Shoulders Display', 'Inter', system-ui, sans-serif;
   --font-prose:   'Inter', system-ui, sans-serif;
   --font-data:    'IBM Plex Sans', 'Inter', system-ui, sans-serif;
@@ -23,9 +39,9 @@
 
   /* Modular scale — 11/13/16/20/32/56/96. Same as the dashboards
      so the brand and the product feel like one object. */
-  --fs-11: 11px;
-  --fs-13: 13px;
-  --fs-16: 16px;
+  --fs-11: 12px;  /* uppercase labels — was 11px */
+  --fs-13: 14px;  /* captions, mono — was 13px */
+  --fs-16: 18px;  /* body copy — was 16px; 17px on phones (see below) */
   --fs-20: 20px;
   --fs-32: 32px;
   --fs-56: 56px;
@@ -45,21 +61,31 @@
   --page-x: 64px;
   --max-w:  1680px;
   --gap-x:  24px;
+
+  --lh-body: 1.6;
+  --measure: 68ch;  /* 60-75ch line length for running copy */
 }
 
-html[data-theme='day'] {
-  --z-bg:    #f6f4ee;
-  --z-ink:   #11120f;
-  --z-mute:  #696762;
-  --z-faint: #e3dfd4;
-  --z-line:  #cfcbbf;
-  /* Day accent — darker ochre in the same yellow family.
-     #ffc400 on cream is 1.7:1 (unreadable). #a06800 measured 4.27:1 on
-     cream — the old comment claiming 5.7:1 was miscalculated and failed
-     AA once day became the default. #7f5200 is 6.14:1 (AA body, AAA large).
-     Still reads as "XERJ yellow", just at a different luminance. */
-  --z-accent: #7f5200;
-  --z-cmp: #6f8aa8;
+
+/* Night — opt-in only (the toggle). Same palette as before 2026-10. */
+html[data-theme='night'] {
+  color-scheme: dark;
+  --z-bg:     #0b0b0d;
+  --z-ink:    #f4f2ec;
+  --z-mute:   #a8a49d;  /* was #8a8680 (5.4:1); now 7.9:1 */
+  --z-faint:  #2b2a28;
+  --z-line:   #3a3836;
+  --z-accent: #ffc400;
+  --z-cmp:    #8fa3b9;
+  --z-neg:    #e2767c;
+  --z-brand:  #ffc400;
+  --z-on-brand: #0b0b0d;
+  --z-brand-deep: #ffc400;
+  --z-highlight: #3a3000;
+  --z-link:   #ffd54a;
+  --z-focus:  #ffc400;
+  --z-code-bg:   #16161a;
+  --z-code-line: #2b2a28;
 }
 
 /* ---------- base ---------- */
@@ -73,7 +99,7 @@ html, body {
   color: var(--z-ink);
   font-family: var(--font-prose);
   font-size: var(--fs-16);
-  line-height: 1.45;
+  line-height: var(--lh-body);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   overflow-x: hidden;
@@ -89,12 +115,50 @@ a { color: inherit; text-decoration: none; }
 a:hover { color: var(--z-accent); }
 button { font: inherit; }
 
+/* Readability pass (2026-10): links inside running copy are underlined and
+   coloured so they never rely on colour alone; every focusable element gets
+   a visible ring. Component links (nav, cards, buttons) carry classes and
+   keep their own treatment, hence :not([class]). */
+:where(p, li, dd, td, blockquote, figcaption, .lead, .docs-content) a:not([class]) {
+  color: var(--z-link);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+}
+:where(p, li, dd, td, blockquote, figcaption, .lead, .docs-content) a:not([class]):hover {
+  color: var(--z-ink);
+  text-decoration-color: var(--z-brand-deep);
+  text-decoration-thickness: 2px;
+}
+:focus-visible {
+  outline: 3px solid var(--z-focus);
+  outline-offset: 2px;
+}
+::selection { background: var(--z-highlight); color: var(--z-ink); }
+::placeholder { color: var(--z-mute); opacity: 1; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+@media (max-width: 720px) {
+  :root { --fs-16: 17px; }
+}
+
 /* ---------- nav ---------- */
 
 .nav {
   display: flex;
+  /* wrap instead of running past the right edge: the menu grew
+     (XERJ QUERY-1, COHERE, DONATE) and pushed the page 1528px wide
+     at a 1280px viewport, so the centered hero looked off-centre. */
+  flex-wrap: wrap;
   align-items: baseline;
   gap: var(--sp-4);
+  row-gap: var(--sp-3);
   padding-bottom: var(--sp-6);
   border-bottom: 1px solid var(--z-line);
   margin-bottom: var(--sp-16);
@@ -112,7 +176,7 @@ button { font: inherit; }
   color: var(--z-ink);
   margin-right: var(--sp-4);
 }
-.nav a { color: var(--z-mute); }
+.nav a { color: var(--z-mute); white-space: nowrap; }
 .nav a:hover { color: var(--z-ink); }
 .nav a.active { color: var(--z-ink); }
 
@@ -166,7 +230,7 @@ button { font: inherit; }
   color: var(--z-mute);
   margin-bottom: var(--sp-4);
 }
-.kicker .dash { opacity: 0.4; margin: 0 6px; }
+.kicker .dash { margin: 0 6px; }
 
 h1.hero {
   font-family: var(--font-display);
@@ -178,6 +242,12 @@ h1.hero {
   color: var(--z-ink);
 }
 h1.hero .accent { color: var(--z-accent); }
+html:not([data-theme='night']) h1.hero .accent {
+  /* the brand yellow returns as a marker stroke under the dark-ochre words */
+  background: linear-gradient(transparent 56%, var(--z-highlight) 56%, var(--z-highlight) 84%, transparent 84%);
+  -webkit-box-decoration-break: clone;
+          box-decoration-break: clone;
+}
 
 h2.scene {
   font-family: var(--font-display);
@@ -216,15 +286,16 @@ h4 {
 
 p, .body {
   font-size: var(--fs-16);
-  color: var(--z-mute);
-  max-width: 680px;
+  line-height: var(--lh-body);
+  color: var(--z-ink);  /* running copy is body text: 16.6:1 (was --z-mute) */
+  max-width: var(--measure);
 }
-p.wide { max-width: 860px; }
+p.wide { max-width: 75ch; }
 
 .mono { font-family: var(--font-mono); font-size: var(--fs-13); }
 .accent { color: var(--z-accent); }
 .mute { color: var(--z-mute); }
-.faint { color: var(--z-faint); }
+.faint { color: var(--z-mute); }  /* --z-faint is a hairline colour; as text it was 1.2:1 */
 
 /* ---------- layout helpers ---------- */
 
@@ -296,8 +367,8 @@ body::before {
   background: linear-gradient(180deg, #000 0, #000 78vh, var(--z-bg) 97vh);
   pointer-events: none;
 }
-html[data-theme='day'] body { background: transparent; }
-html[data-theme='day'] body::before { display: none; }
+html:not([data-theme='night']) body { background: transparent; }
+html:not([data-theme='night']) body::before { display: none; }
 section.hero-split .lead { margin-bottom: 0; }
 @media (min-width: 961px) {
   section.hero-split h1.hero { font-size: clamp(96px, 8.3vw, 160px); }
@@ -376,8 +447,8 @@ section.hero-split .lead { margin-bottom: 0; }
 .hero-demo-stage:hover .hero-demo-play,
 .hero-demo-play:focus-visible {
   transform: translateY(-50%) scale(1.08);
-  background: var(--z-accent);
-  border-color: var(--z-accent);
+  background: var(--z-brand);
+  border-color: var(--z-brand);
   outline: none;
 }
 .hero-demo-stage:hover .hero-demo-play svg,
@@ -471,9 +542,9 @@ section.hero-split .lead { margin-bottom: 0; }
   line-height: 1.55;
 }
 .hero-install-cmd.agent-prompt .hero-install-copy {
-  background: var(--z-accent);
-  border-color: var(--z-accent);
-  color: var(--z-bg);
+  background: var(--z-brand);
+  border-color: var(--z-brand-deep);
+  color: var(--z-on-brand);
   font-weight: 700;
   align-self: center;
 }
@@ -717,7 +788,7 @@ section.section-split p.wide { max-width: none; }
 .uc-showcase .uc-num {
   font-family: var(--font-mono);
   font-size: var(--fs-11);
-  color: var(--z-faint);
+  color: var(--z-mute);  /* was --z-faint (1.2:1) */
   margin-bottom: var(--sp-2);
 }
 .uc-showcase .uc-title {
@@ -859,7 +930,8 @@ section.section-split p.wide { max-width: none; }
   color: var(--z-accent);
   margin-bottom: var(--sp-3);
 }
-.uc-hero h1 {
+.uc-hero h1,
+.uc-hero .uc-display {
   font-family: var(--font-display);
   font-weight: 900;
   font-size: 80px;
@@ -867,6 +939,24 @@ section.section-split p.wide { max-width: none; }
   text-transform: uppercase;
   color: var(--z-ink);
   margin-bottom: var(--sp-4);
+}
+.uc-hero .uc-display {
+  /* matches the browser's default h1 top margin and lifts the p measure,
+     so the former <h1> keeps its exact spacing and width */
+  margin-top: 0.67em;
+  max-width: none;
+}
+/* Use-case pages carry a plain-text H1 in the eyebrow style, and the big
+   display headline is a <p class="uc-display">, so the look is unchanged. */
+.uc-hero h1.uc-eyebrow {
+  font-family: var(--font-data);
+  font-weight: 400;
+  font-size: var(--fs-11);
+  line-height: inherit;
+  letter-spacing: var(--track-ui);
+  text-transform: uppercase;
+  color: var(--z-accent);
+  margin: 0 0 var(--sp-3);
 }
 .uc-hero .uc-lead {
   font-size: var(--fs-20);
@@ -1128,6 +1218,9 @@ section.section-split p.wide { max-width: none; }
 }
 .flowband-svg { color: var(--z-ink); }
 .flowband-labels { gap: var(--sp-2); }
+/* the band above encodes share with opacity; the text labels under it must
+   not inherit that fade (it put the smallest segment's value at 3.7:1) */
+.flowband-labels .fb-seg[style*="opacity"] { opacity: 1 !important; }
 .flowband-labels .fb-seg {
   overflow: hidden;
   padding-right: var(--sp-2);
@@ -1146,7 +1239,7 @@ section.section-split p.wide { max-width: none; }
 }
 .flowband-labels .fb-value {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--fs-11);
   color: var(--z-mute);
   margin-top: 2px;
   white-space: nowrap;
@@ -1173,18 +1266,20 @@ section.section-split p.wide { max-width: none; }
   background: var(--cta-bg);
   color: var(--cta-ink);
 }
-html[data-theme='day'] .lead-capture {
-  --cta-bg: #111;
-  --cta-ink: #F4F2EC;
-  --cta-mute: #8A8680;
-  --cta-line: #3A3836;
-  --cta-go: #F4F2EC;
+/* Light default: a soft XERJ-yellow wash, not a black band. Ratios vs
+   --cta-bg #fff8e1: ink 16.4:1, mute 8.6:1, accent 8.1:1. */
+html:not([data-theme='night']) .lead-capture {
+  --cta-bg: #fff8e1;
+  --cta-ink: #1a1a1a;
+  --cta-mute: #4a4843;
+  --cta-line: #8a5a00;
+  --cta-go: #1a1a1a;
 }
 .lead-capture .kicker {
   margin-bottom: var(--sp-4);
   color: var(--z-accent);
 }
-.lead-capture .kicker .dash { color: var(--z-accent); opacity: 0.5; }
+.lead-capture .kicker .dash { color: var(--z-accent); }
 .lead-capture h3 {
   font-family: var(--font-display);
   font-weight: 900;
@@ -1233,7 +1328,7 @@ html[data-theme='day'] .lead-capture {
 }
 .lead-form input[type="email"]::placeholder {
   color: var(--cta-mute);
-  opacity: 0.5;
+  opacity: 1;  /* placeholders stay >= 4.5:1 (was 0.5 opacity) */
 }
 /* Blinking cursor — visible when input is empty and unfocused */
 .lead-form-input::after {
@@ -1275,9 +1370,9 @@ html[data-theme='day'] .lead-capture {
   gap: var(--sp-2);
   transition: background .15s, transform .15s;
 }
-.lead-form button.demo .arrow { color: var(--z-accent); }
+.lead-form button.demo .arrow { color: var(--z-brand); }
 .lead-form button.demo:hover {
-  background: var(--z-accent);
+  background: var(--z-brand);
   color: var(--cta-go);
   transform: translateX(2px);
 }
@@ -1509,7 +1604,7 @@ html[data-theme='day'] .lead-capture {
 .docs-toc .key { color: var(--z-mute); margin-right: var(--sp-3); }
 .docs-toc a    { color: var(--z-mute); }
 .docs-toc a:hover { color: var(--z-ink); }
-.docs-toc .num { color: var(--z-faint); margin-right: 4px; }
+.docs-toc .num { color: var(--z-mute); margin-right: 4px; }
 
 /* Every doc section gets an anchor ID + a small kicker number. */
 section.doc-section {
@@ -1544,10 +1639,11 @@ pre.code {
   border-top: 0;
   border-right: 0;
   border-bottom: 0;
-  background: none;
+  background: var(--z-code-bg);
+  padding-right: var(--sp-4);
   font-family: var(--font-mono);
   font-size: var(--fs-13);
-  line-height: 1.55;
+  line-height: 1.6;
   color: var(--z-ink);
   white-space: pre;
   overflow-x: auto;
@@ -1559,8 +1655,12 @@ pre.code .k       { color: var(--z-accent); }
 pre.code .s       { color: var(--z-ink); }
 code.inline {
   font-family: var(--font-mono);
-  font-size: 0.92em;
-  color: var(--z-accent);
+  font-size: 0.9em;
+  color: var(--z-ink);
+  background: var(--z-code-bg);
+  border: 1px solid var(--z-code-line);
+  border-radius: 3px;
+  padding: 0.05em 0.3em;
 }
 
 /* Four-column config table: KEY · TYPE · DEFAULT · DESCRIPTION. */
@@ -1699,7 +1799,7 @@ pre.tree .c { color: var(--z-mute); }
   outline: none;
 }
 .playground .gate-form input[type="email"]:focus { border-bottom-color: var(--z-accent); }
-.playground .gate-form input[type="email"]::placeholder { color: var(--z-mute); opacity: 0.6; }
+.playground .gate-form input[type="email"]::placeholder { color: var(--z-mute); opacity: 1; }
 .playground .gate-form button {
   background: none;
   border: 0;
@@ -1856,7 +1956,7 @@ pre.tree .c { color: var(--z-mute); }
   letter-spacing: 0;
   text-transform: none;
 }
-.docs-search input::placeholder { color: var(--z-mute); opacity: 0.45; }
+.docs-search input::placeholder { color: var(--z-mute); opacity: 1; }
 .docs-search .hint {
   position: absolute;
   right: 0;
@@ -1954,7 +2054,7 @@ pre.tree .c { color: var(--z-mute); }
 .docs-nav .group a .eyebrow {
   display: inline-block;
   width: 22px;
-  color: var(--z-faint);
+  color: var(--z-mute);  /* was --z-faint (1.2:1) */
   font-family: var(--font-mono);
   font-size: var(--fs-11);
   margin-right: 4px;
@@ -2026,7 +2126,7 @@ pre.tree .c { color: var(--z-mute); }
 }
 .docs-content .breadcrumb a { color: var(--z-mute); }
 .docs-content .breadcrumb a:hover { color: var(--z-ink); }
-.docs-content .breadcrumb .sep { margin: 0 6px; opacity: 0.5; }
+.docs-content .breadcrumb .sep { margin: 0 6px; }
 
 .docs-content .source-note {
   font-family: var(--font-data);
@@ -2086,7 +2186,7 @@ pre.tree .c { color: var(--z-mute); }
 .recipes .recipe .num {
   font-family: var(--font-mono);
   font-size: var(--fs-11);
-  color: var(--z-faint);
+  color: var(--z-mute);  /* was --z-faint (1.2:1) */
   letter-spacing: var(--track-ui);
 }
 .recipes .recipe .title {
@@ -2202,7 +2302,10 @@ pre.tree .c { color: var(--z-mute); }
 
 /* Smaller screens — fold hero to 96px, unstack metrics. */
 @media (max-width: 960px) {
-  :root { --page-x: 28px; }
+  /* html[data-theme] too: the base tokens are set on :root AND
+     html[data-theme='day'] (higher specificity), which silently kept
+     the 64px desktop gutter on tablets and phones. */
+  :root, html[data-theme] { --page-x: 28px; }
   h1.hero { font-size: var(--fs-96); }
   h2.scene { font-size: var(--fs-56); }
   .metrics { grid-template-columns: repeat(2, 1fr); }
@@ -2220,7 +2323,7 @@ pre.tree .c { color: var(--z-mute); }
    one column, scale type down, and give every wide data block a
    horizontal scroll wrapper so the page never side-scrolls. */
 @media (max-width: 720px) {
-  :root {
+  :root, html[data-theme] {
     --page-x: 18px;
     --gap-x: 16px;
     --sp-12: 40px;
@@ -2552,7 +2655,6 @@ svg.chart.is-interactive .ser:focus-visible {
 .chart-chip .chip-ct {
   color: var(--z-mute);
   font-variant-numeric: tabular-nums;
-  opacity: 0.8;
 }
 
 /* Respect reduced-motion: no transitions (JS also jumps the zoom) */
@@ -2699,9 +2801,9 @@ svg.chart.is-interactive .ser:focus-visible {
   font-size: var(--fs-13);
   font-weight: 700;
   letter-spacing: var(--track-ui);
-  color: var(--z-bg);
-  background: var(--z-accent);
-  border: 1px solid var(--z-accent);
+  color: var(--z-on-brand);
+  background: var(--z-brand);
+  border: 1px solid var(--z-brand-deep);
   border-radius: 8px;
   padding: 10px 22px;
   cursor: pointer;
@@ -2748,8 +2850,7 @@ svg.chart.is-interactive .ser:focus-visible {
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
-.hero-bench b.hb-bad { color: #d9575f; }
-html[data-theme='day'] .hero-bench b.hb-bad { color: #a32b2e; }
+.hero-bench b.hb-bad { color: var(--z-neg); }
 .hero-bench .hb-arrow { color: var(--z-accent); font-weight: 700; }
 .hero-bench .hb-link {
   font-size: var(--fs-11);
@@ -2794,8 +2895,142 @@ html[data-theme='day'] .hero-bench b.hb-bad { color: #a32b2e; }
   .prompt-copy { align-self: stretch; text-align: center; }
 }
 
+/* nav GitHub stars badge (scripts/seo/stars_badge.py writes it, theme.js refreshes
+   the count). Muted 1px frame so it never competes with the gold primary CTA; the
+   count box is fixed-width so a refreshed number causes no layout shift. */
+.nav a.nav-stars{display:inline-flex;align-items:center;gap:5px;
+  padding:2px 6px;border:1px solid var(--z-line);color:var(--z-mute);white-space:nowrap;
+  line-height:1;letter-spacing:.04em;font-variant-numeric:tabular-nums;}
+.nav a.nav-stars:hover{color:var(--z-ink);border-color:var(--z-mute);}
+.nav a.nav-stars svg{width:12px;height:12px;fill:currentColor;flex:none;display:block;}
+.nav .nav-stars-n{display:inline-block;min-width:7ch;}
+
 /* nav download button — latest release tag, links to /releases/latest */
 .nav .nav-dl{padding:.35rem .7rem;border:1px solid var(--z-accent);border-radius:4px;
   color:var(--z-accent);font-weight:700;white-space:nowrap;text-decoration:none;
   font-family:"JetBrains Mono",monospace;font-size:.8rem;}
-.nav .nav-dl:hover{background:var(--z-accent);color:#0b0b0d;}
+.nav .nav-dl:hover{background:var(--z-brand);border-color:var(--z-brand-deep);color:var(--z-on-brand);}
+
+/* ============================================================
+ * ANSWER / COMPARE PAGES (build_articles.py, .article-shell).
+ * The article <main> comes first in the DOM and the answers index
+ * after it, so small screens, screen readers and crawlers get the
+ * answer first. On desktop the grid puts the index back in the
+ * left column, so the two-column look is unchanged.
+ * ============================================================ */
+.article-shell > .docs-nav { grid-column: 1; grid-row: 1; }
+.article-shell > .docs-content { grid-column: 2; grid-row: 1; }
+
+@media (max-width: 1000px) {
+  .article-shell > .docs-nav,
+  .article-shell > .docs-content { grid-column: auto; grid-row: auto; }
+  .article-shell > .docs-content { padding-bottom: var(--sp-8); }
+  .article-shell > .docs-nav {
+    border-bottom: 0;
+    border-top: 1px solid var(--z-line);
+    padding: var(--sp-6) 0 0;
+    margin: 0 0 var(--sp-8);
+  }
+  /* ~31px at 390px wide, growing to 56px at 1000px; long questions
+     stay at 3-5 lines on a phone. Desktop keeps --fs-96. */
+  .article-shell .docs-content h1 {
+    font-size: clamp(30px, 4.5vw + 14px, 56px);
+    line-height: 1.04;
+    letter-spacing: 0;
+    margin-bottom: var(--sp-4);
+    overflow-wrap: break-word;
+  }
+  .article-shell .docs-content h1.h1-long {
+    font-size: clamp(25px, 3.6vw + 11px, 48px);
+  }
+  .article-shell .docs-content h2 {
+    font-size: clamp(22px, 2.6vw + 12px, var(--fs-32));
+    line-height: 1.1;
+    margin-top: var(--sp-8);
+  }
+}
+
+/* ============================================================
+ * Nav and footer, 2026-11-07 (home redesign). One row of chrome:
+ * brand, six links, the GitHub badge. Mixed case. At 720px and
+ * below the links fold into <details class="nav-menu"> (no JS).
+ * The footer is generated by scripts/seo/fix_links.py: brand line,
+ * four link groups, then one bar with the copyright and DAY/NIGHT.
+ * ============================================================ */
+.nav {
+  position: relative;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: var(--sp-6);
+  text-transform: none;
+  letter-spacing: 0.01em;
+  font-size: 15px;
+  font-weight: 500;
+}
+.nav .brand { flex: 0 0 auto; margin-right: var(--sp-2); }
+.nav .nav-links { display: flex; align-items: center; gap: var(--sp-6); }
+.nav a.nav-stars { padding: 4px 8px; border-radius: 6px; font-size: 13px; }
+.nav .nav-menu { display: none; }
+.nav .nav-menu > summary {
+  list-style: none; cursor: pointer; padding: 4px 10px; border: 1px solid var(--z-line);
+  border-radius: 6px; color: var(--z-ink); font-size: 14px;
+}
+.nav .nav-menu > summary::-webkit-details-marker { display: none; }
+.nav .nav-menu[open] > summary { border-color: var(--z-brand-deep); }
+.nav .nav-menu-list {
+  position: absolute; right: 0; top: calc(100% - var(--sp-3)); z-index: 20;
+  display: flex; flex-direction: column; min-width: 220px;
+  background: var(--z-bg); border: 1px solid var(--z-line); border-radius: 8px; padding: var(--sp-2) 0;
+}
+.nav .nav-menu-list a { padding: 10px var(--sp-4); color: var(--z-ink); }
+.nav .nav-menu-list a.active { color: var(--z-accent); }
+@media (max-width: 720px) {
+  .nav { flex-wrap: nowrap; column-gap: var(--sp-3); font-size: 15px; letter-spacing: 0.01em; }
+  .nav .brand { flex: 0 0 auto; font-size: var(--fs-16); }
+  .nav .nav-links { display: none; }
+  .nav .spacer { display: block; flex: 1; }
+  .nav .nav-menu { display: block; }
+}
+
+.site-footer {
+  margin-top: var(--sp-16);
+  padding-top: var(--sp-8);
+  border-top: 1px solid var(--z-line);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 3fr);
+  gap: var(--sp-8) var(--gap-x);
+  font-family: var(--font-data);
+}
+.site-footer .sf-brand .brand {
+  font-family: var(--font-display); font-weight: 900; font-size: var(--fs-16);
+  letter-spacing: 0.24em; color: var(--z-ink);
+}
+.site-footer .sf-brand p { margin: var(--sp-2) 0 0; color: var(--z-mute); font-size: var(--fs-13); max-width: 24ch; }
+.site-footer .footer-map {
+  margin-top: 0; padding-top: 0; border-top: 0;
+  text-transform: none; letter-spacing: 0; font-size: var(--fs-13);
+}
+.site-footer .footer-map .fm-h {
+  text-transform: uppercase; letter-spacing: var(--track-label); font-size: var(--fs-11); color: var(--z-mute);
+}
+.site-footer .footer-map a { color: var(--z-ink); }
+.site-footer .footer-map a:hover { color: var(--z-accent); text-decoration: underline; }
+.site-footer .footer-bar {
+  grid-column: 1 / -1;
+  display: flex; justify-content: space-between; gap: var(--sp-4); flex-wrap: wrap;
+  padding-top: var(--sp-4); border-top: 1px solid var(--z-line);
+  font-size: var(--fs-13); color: var(--z-mute);
+}
+.site-footer .theme button {
+  background: none; border: 0; padding: 0; color: var(--z-mute); font: inherit; cursor: pointer;
+}
+.site-footer .theme button:hover { color: var(--z-ink); }
+.site-footer .theme button.active { color: var(--z-accent); text-decoration: underline; }
+.site-footer .theme .dash { margin: 0 6px; }
+@media (max-width: 960px) {
+  .site-footer { grid-template-columns: 1fr; }
+}
+@media (max-width: 720px) {
+  .site-footer .footer-map { grid-template-columns: repeat(2, minmax(0, 1fr)); font-size: var(--fs-13); }
+}
+@media print { .site-footer, .nav-menu { display: none !important; } }

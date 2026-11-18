@@ -2,11 +2,15 @@
 ---
 title: "When does XERJ kNN use an exact scan instead of HNSW?"
 canonical: "https://xerj.org/answers/filter-knn-exact-scan-caveat"
-updated: "2026-08-23"
+updated: "2026-10-19"
 source: "content/answers/filter-knn-exact-scan-caveat.md"
 ---
 
 # Why did my filtered vector search get slower when I added a filter?
+
+**Short answer** (updated 2026-10-19): Why is filtered kNN slower than unfiltered in XERJ? The filter changes the retrieval path. An unfiltered cosine knn on a large full-precision field is served by beam search over a persisted HNSW graph; a filtered one runs an exact scan whose cost grows with the vectors it reads. This page publishes no latency figure.
+
+**Key number:** The HNSW beam width (`num_candidates`) is floored at 800, and indexes under 1,024 documents always use the exact scan. (as of 2026-10-19; source: [landing/llms.txt](https://github.com/xerj-org/xerj/blob/main/landing/llms.txt))
 
 **TL;DR** — The filter changed the retrieval path. An unfiltered cosine `knn` over a large enough full-precision field is served by a beam search over a persisted HNSW graph. A filtered one runs an exact scan, and its cost grows with the vectors it reads. This page publishes no latency measurement.
 
@@ -181,3 +185,6 @@ No, the opposite. The exact scan has recall 1.00 by construction. The graph path
 - [What's the actual difference between a vector database and full-text search when I have a folder?](/answers/vector-database-vs-full-text-search)
 - [How do I build RAG without a vector database?](/answers/rag-without-vector-database)
 - [Should my agent call a search API or stand up Qdrant for persistent memory?](/compare/xerj-vs-vector-database)
+- [How much better is hybrid search than BM25? Measured nDCG numbers](/answers/hybrid-search-quality-measured-ndcg) (same intent: retrieval research and eval)
+- [What is Reciprocal Rank Fusion?](/answers/reciprocal-rank-fusion-when-to-use) (same intent: retrieval research and eval)
+- [Can I route tickets or filter spam from labelled history, without an LLM call?](/answers/classify-text-from-labelled-history-without-llm) (same intent: retrieval research and eval)

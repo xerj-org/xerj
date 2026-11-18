@@ -50,6 +50,11 @@ pub enum ReplicationMode {
     /// Ack after primary + at least `min_replicas` replicas write.
     Sync { min_replicas: usize },
     /// Ack after primary + a strict majority of replicas write.
+    ///
+    /// Not the document path. `PUT /{index}/_doc` uses
+    /// [`crate::shard::replica_quorum_acks`]: a majority of the primary plus
+    /// the replicas placed at create. This variant's majority is of the
+    /// replica list alone, which on two replicas still requires both.
     Quorum,
 }
 

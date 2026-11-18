@@ -16,19 +16,22 @@ use std::collections::BTreeSet;
 use crate::esclient::Es;
 use crate::search::{
     corpus_snapshot, empty_lookup_report, field_lookup_ok, hit_location, is_identifier,
-    mapped_property_names, numeric_property_names, passage_text, weighted_query_fields,
+    mapped_property_names, numeric_property_names, parse_count_arg, passage_text,
+    query_failure_message, weighted_query_fields,
 };
 use serde_json::{json, Value};
 
 const USAGE: &str = "\
 xerj def — find where a symbol is defined (go-to-definition, no scripts)
+Default ranking is lexical: it matches the words you typed, and it is not a neural reading of the code.
 
 USAGE:
     xerj def [OPTIONS] \"<symbol or capability>\"
 
 OPTIONS:
     --url <U>       node endpoint (default $XERJ_URL or http://localhost:9200)
-    --prefix <P>    index prefix to search (default \"ax\" — what `xerj autoindex` writes)
+    --prefix <P>    one index prefix to search (default \"ax\" — what `xerj autoindex` writes);
+                    no comma lists
     --api-key <K>   Authorization (or $XERJ_API_KEY; --insecure nodes need none)
     -k <N>          number of definitions to return (default 5)
     --kind <KIND>   filter by symbol kind (function, class, method, ...)
@@ -42,6 +45,38 @@ EXAMPLE:
 SEE ALSO:
     xerj search \"<plain words>\"    ranked passages when you don't know the name
 ";
+
+/// How much of a declaration `xerj def` prints. `xerj search --full`
+/// defaults to the same 600 characters. Two lines hid a constant that
+/// sat further down a real signature.
+const DECLARATION_PREVIEW_CHARS: usize = 600;
+
+/// The declaration an agent can act on: later short lines stay, and a
+/// passage longer than [`DECLARATION_PREVIEW_CHARS`] stops. The first
+/// line is always kept, cut with an ellipsis when that line alone is
+/// over the budget.
+pub(crate) fn declaration_preview(text: &str) -> String {
+    let mut out = String::new();
+    let mut chars = 0usize;
+    for (i, line) in text.lines().enumerate() {
+        let line_chars = line.chars().count();
+        let extra = line_chars + usize::from(i > 0);
+        if i > 0 && chars + extra > DECLARATION_PREVIEW_CHARS {
+            break;
+        }
+        if i > 0 {
+            out.push('\n');
+        }
+        if i == 0 && line_chars > DECLARATION_PREVIEW_CHARS {
+            out.extend(line.chars().take(DECLARATION_PREVIEW_CHARS));
+            out.push('…');
+            break;
+        }
+        out.push_str(line);
+        chars += extra;
+    }
+    out
+}
 
 /// Historical `xerj def` multi_match weights. Order is part of the
 /// code-corpus query.
@@ -138,6 +173,46 @@ fn def_query(
     built
 }
 
+/// Build the CLI/MCP definition query, including the wider local-rerank window.
+/// An unreadable mapping keeps the historical code query; numeric fields on
+/// any index in the scope are excluded from text lookups and filters.
+pub fn definition_query(
+    query: &str,
+    kind: Option<&str>,
+    lang: Option<&str>,
+    k: usize,
+    mapping: Option<&Value>,
+) -> Value {
+    let mapped = mapping.and_then(mapped_property_names);
+    let numeric = mapped.as_ref().and(mapping.map(numeric_property_names));
+    def_query(
+        query,
+        kind,
+        lang,
+        def_collect_size(k),
+        mapped.as_ref(),
+        numeric.as_ref(),
+    )
+}
+
+/// Rank the fetched window, keep the best hit per location, and return `k`
+/// definitions. Only `hits.hits` is replaced: totals still describe engine
+/// matches before deduplication, just as in `xerj def --json`.
+pub fn finalize_definition_response(response: &mut Value, query: &str, k: usize) -> Vec<Value> {
+    let mut hits = response
+        .pointer("/hits/hits")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    rerank_def_hits(&mut hits, query);
+    let mut hits = unique_locations(hits);
+    hits.truncate(k);
+    if let Some(slot) = response.pointer_mut("/hits/hits") {
+        *slot = Value::Array(hits.clone());
+    }
+    hits
+}
+
 fn build_def_query(
     query: &str,
     kind: Option<&str>,
@@ -161,7 +236,13 @@ fn build_def_query(
     if field_lookup_ok(mapped, numeric, "defs") {
         should.push(json!({ "match_phrase": { "defs": { "query": query, "boost": 8 } } }));
     }
-    let mut fields = weighted_query_fields(DEF_MM_FIELDS, DEF_PROSE_EXTRA_FIELDS, mapped, numeric);
+    let mut fields = weighted_query_fields(
+        DEF_MM_FIELDS,
+        DEF_PROSE_EXTRA_FIELDS,
+        mapped,
+        numeric,
+        false,
+    );
     // A phrase ("flush the tree to disk") lives in the symbol body (`impl`),
     // not in the declaration. Only when the read mapping actually has `impl`
     // and no index maps it as numeric: the historical code query
@@ -181,6 +262,12 @@ fn build_def_query(
             "type": "most_fields"
         }}));
     }
+    // Same coverage clauses as `xerj search` (#2327). An identifier does not
+    // grow them: `coverage_match_clauses` is empty below three tokens, so
+    // `xerj def Token` stays an exact `name` lookup.
+    should.extend(xerj_common::code_query::coverage_match_clauses(
+        query, &fields,
+    ));
     if is_identifier(query) && field_lookup_ok(mapped, numeric, "code") {
         // `code` holds the declaration text; a phrase hit there ("def <name>(",
         // "class <name>:") is a definition even when `name` casing differs.
@@ -200,77 +287,198 @@ fn build_def_query(
     // A filter clause makes every `should` optional, so without this a
     // `--kind`/`--lang` filter alone matches: a name defined nowhere came
     // back as every definition of that kind instead of "no definition".
-    let bool_query = json!({
-        "bool": {
-            "should": should,
-            "filter": filter,
-            "minimum_should_match": 1
-        }
-    });
-    // Kind and `pub` weights sit on function_score, not on a bare `should`:
-    // a should clause would match every struct in the index. The negative
-    // boosting clause only multiplies hits that already matched.
-    let query = rank_adjusted_query(bool_query, mapped, numeric);
+    // Kind and `pub` weights are applied in [`rerank_def_hits`] on the
+    // returned page. They used to be a `function_score` filter. On the tokio
+    // index (12,107 docs) that wrapper took 422ms of engine time against 6ms
+    // for this bool; a `wildcard` on `ax_path` and a `match` on `code` inside
+    // the function are what made the scan leave the bounded top-k path.
     json!({
         "size": k,
-        "query": query,
-        "_source": ["ax_path", "path", "line", "start_line", "kind", "language", "name", "code"],
+        "query": {
+            "bool": {
+                "should": should,
+                "filter": filter,
+                "minimum_should_match": 1
+            }
+        },
+        "_source": ["ax_path", "path", "line", "start_line", "kind", "language", "name", "code", "page", "cell"],
         "fields": ["_passage"]
     })
 }
 
-fn rank_adjusted_query(
-    bool_query: Value,
-    mapped: Option<&BTreeSet<String>>,
-    numeric: Option<&BTreeSet<String>>,
-) -> Value {
-    // `function_score` (boost_mode sum) adds weight only to hits the bool
-    // already matched. A `boosting` wrapper was tried first; this engine's
-    // planner rewrites it to a bool and every hit came back with `_score`
-    // 1.0, so the weights never moved the order.
-    let mut functions = Vec::new();
-    // A numeric `kind` or `code` cannot carry the ranking filter: the
-    // wildcard would fail on that index the same way a `term` on a numeric
-    // `name` does. Unreadable mappings (numeric = None) keep both weights.
-    if field_lookup_ok(mapped, numeric, "kind") {
-        let mut kind_filter = json!({
-            "bool": { "must": [ { "terms": { "kind": PREFERRED_KINDS } } ] }
-        });
-        // A preferred kind under tests/examples/fuzz/benches does not get
-        // the weight. `ax_path` is only named when the read mapping has it,
-        // so the historical query (mapped = None) stays free of that field.
-        if explicitly_mapped(mapped, "ax_path") {
-            let globs: Vec<Value> = DEMOTED_PATH_GLOBS
-                .iter()
-                .map(|glob| json!({ "wildcard": { "ax_path": glob } }))
-                .collect();
-            kind_filter["bool"]["must_not"] = json!([{
-                "bool": { "should": globs, "minimum_should_match": 1 }
-            }]);
+/// How many hits to fetch before the local rerank. The printed page is `k`.
+/// The extra window is what lets a `pub struct` just outside the top `k`
+/// outrank a higher-BM25 test double. Capped so `-k 1000` does not pull
+/// every match.
+pub(crate) fn def_collect_size(k: usize) -> usize {
+    const WINDOW: usize = 40;
+    const CAP: usize = 200;
+    k.saturating_add(WINDOW).min(k.max(CAP))
+}
+
+/// `*` is zero or more characters, including `/` — the same reading the
+/// engine's `wildcard` query uses for [`DEMOTED_PATH_GLOBS`].
+fn glob_match(pattern: &str, text: &str) -> bool {
+    fn rec(pattern: &[u8], text: &[u8]) -> bool {
+        let mut i = 0;
+        let mut j = 0;
+        while i < pattern.len() {
+            if pattern[i] == b'*' {
+                while i < pattern.len() && pattern[i] == b'*' {
+                    i += 1;
+                }
+                if i == pattern.len() {
+                    return true;
+                }
+                while j <= text.len() {
+                    if rec(&pattern[i..], &text[j..]) {
+                        return true;
+                    }
+                    if j == text.len() {
+                        return false;
+                    }
+                    j += 1;
+                }
+                return false;
+            }
+            if j >= text.len() || pattern[i] != text[j] {
+                return false;
+            }
+            i += 1;
+            j += 1;
         }
-        functions.push(json!({ "filter": kind_filter, "weight": 20.0 }));
+        j == text.len()
     }
-    if field_lookup_ok(mapped, numeric, "code") {
-        functions.push(json!({
-            "filter": { "bool": { "should": [
-                { "match": { "code": "pub" } },
-                { "match": { "code": "public" } },
-                { "match": { "code": "export" } }
-            ], "minimum_should_match": 1 } },
-            "weight": 5.0
-        }));
+    rec(pattern.as_bytes(), text.as_bytes())
+}
+
+/// True when `path` is a test, example, fuzz target, or bench
+/// (`tests/…`, `examples/…`, `fuzz/…`, `benches/…`, at any directory depth).
+///
+/// `xerj def` withholds the preferred-kind bonus on these paths.
+/// Plain-word `xerj search` and the plain-string `xerj_search` tool apply
+/// [`penalize_demoted_paths`] with the same predicate (#2122) — one set of
+/// path rules, not a second copy. `*` matches across `/`.
+pub fn path_is_demoted(path: &str) -> bool {
+    DEMOTED_PATH_GLOBS.iter().any(|glob| glob_match(glob, path))
+}
+
+/// Share of its BM25 `_score` a demoted path keeps.
+///
+/// Halving puts a test file that only barely outscored the implementation
+/// behind it, and leaves a test file that scored more than twice as high —
+/// the query is about that test — in front. The hit is never removed.
+pub const DEMOTED_PATH_SCORE_FACTOR: f64 = 0.5;
+
+fn source_path_for_demotion(src: &Value) -> &str {
+    src.get("ax_path")
+        .or_else(|| src.get("path"))
+        .and_then(Value::as_str)
+        .unwrap_or("")
+}
+
+/// Ranking penalty for plain-word search over a code index (#2122).
+///
+/// Demoted paths keep [`DEMOTED_PATH_SCORE_FACTOR`] of their `_score`, then
+/// the slice is stable-sorted by that score. This is not a filter: a page
+/// that is only tests is unchanged in order, and a test that still leads
+/// after the penalty stays first. Paths the predicate does not match,
+/// including `*.test.ts` and `fixtures/`, are left alone. Hits with no
+/// numeric `_score` are not given one.
+pub fn penalize_demoted_paths(hits: &mut [Value]) {
+    let mut adjusted: Vec<(f64, Option<f64>)> = Vec::with_capacity(hits.len());
+    let mut any = false;
+    for hit in hits.iter() {
+        let src = hit.get("_source").unwrap_or(&Value::Null);
+        let demoted = path_is_demoted(source_path_for_demotion(src));
+        let base = hit.get("_score").and_then(Value::as_f64);
+        let (sort_score, rewrite) = match base {
+            Some(base) if demoted => {
+                let penalized = base * DEMOTED_PATH_SCORE_FACTOR;
+                (penalized, Some(penalized))
+            }
+            Some(base) => (base, None),
+            None => (0.0, None),
+        };
+        any |= demoted;
+        adjusted.push((sort_score, rewrite));
     }
-    if functions.is_empty() {
-        return bool_query;
+    if !any {
+        return;
     }
-    json!({
-        "function_score": {
-            "query": bool_query,
-            "functions": functions,
-            "score_mode": "sum",
-            "boost_mode": "sum"
+    let mut order: Vec<usize> = (0..hits.len()).collect();
+    order.sort_by(|&a, &b| {
+        adjusted[b]
+            .0
+            .partial_cmp(&adjusted[a].0)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then(a.cmp(&b))
+    });
+    let original = hits.to_vec();
+    for (place, old) in order.into_iter().enumerate() {
+        let mut hit = original[old].clone();
+        if let Some(score) = adjusted[old].1 {
+            if let Some(obj) = hit.as_object_mut() {
+                obj.insert("_score".into(), json!(score));
+            }
         }
-    })
+        hits[place] = hit;
+    }
+}
+
+/// The old `function_score` filter matched the tokens `pub`, `public`, and
+/// `export` on `code`. Split on non-letters so `publication` does not count
+/// and `pub(crate)` does.
+fn declaration_is_public(code: &str) -> bool {
+    code.split(|c: char| !c.is_ascii_alphanumeric())
+        .any(|word| matches!(word, "pub" | "public" | "export"))
+}
+
+/// Add the kind and visibility weights to hits the bool query already
+/// returned, then sort. A preferred kind scores +20 unless the path is a
+/// test, example, fuzz target, or bench. A public declaration scores +5.
+/// Ties keep the engine order.
+pub(crate) fn rerank_def_hits(hits: &mut [Value], query: &str) {
+    const KIND_WEIGHT: f64 = 20.0;
+    const PUB_WEIGHT: f64 = 5.0;
+    let adjusted: Vec<f64> = hits
+        .iter()
+        .map(|hit| {
+            let base = hit.get("_score").and_then(Value::as_f64).unwrap_or(0.0);
+            let src = hit.get("_source").unwrap_or(&Value::Null);
+            let mut bonus = 0.0;
+            let kind = src.get("kind").and_then(Value::as_str).unwrap_or("");
+            if PREFERRED_KINDS.contains(&kind) && !path_is_demoted(source_path_for_demotion(src)) {
+                bonus += KIND_WEIGHT;
+            }
+            if src
+                .get("code")
+                .and_then(Value::as_str)
+                .is_some_and(declaration_is_public)
+            {
+                bonus += PUB_WEIGHT;
+            }
+            base + bonus
+        })
+        .collect();
+    let mut order: Vec<usize> = (0..hits.len()).collect();
+    order.sort_by(|&a, &b| {
+        adjusted[b]
+            .partial_cmp(&adjusted[a])
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then(a.cmp(&b))
+    });
+    let original = hits.to_vec();
+    for (place, old) in order.into_iter().enumerate() {
+        let mut hit = original[old].clone();
+        if let Some(obj) = hit.as_object_mut() {
+            obj.insert("_score".into(), json!(adjusted[old]));
+        }
+        hits[place] = hit;
+    }
+    // After the kind/visibility sort, so a +20 preferred kind cannot put a
+    // one-word type back above a definition that covers the question (#2327).
+    xerj_common::xccode::render::demote_sparse_definition_hits(hits, query);
 }
 
 /// Entry point for the `def` subcommand. Returns a process exit code.
@@ -280,7 +488,7 @@ pub fn run_def_cli() -> i32 {
         .filter(|s| !s.is_empty())
         .unwrap_or_default();
     let mut api_key = std::env::var("XERJ_API_KEY").ok().filter(|s| !s.is_empty());
-    let mut prefix = "ax".to_string();
+    let mut prefix = crate::search::DEFAULT_SEARCH_PREFIX.to_string();
     let mut k: usize = 5;
     let mut kind: Option<String> = None;
     let mut lang: Option<String> = None;
@@ -298,10 +506,23 @@ pub fn run_def_cli() -> i32 {
             "--url" => url = it.next().unwrap_or_default(),
             "--prefix" => prefix = it.next().unwrap_or(prefix),
             "--api-key" => api_key = it.next(),
-            "-k" => k = it.next().and_then(|s| s.parse().ok()).unwrap_or(k),
+            "-k" => {
+                k = match parse_count_arg("-k", it.next()) {
+                    Ok(n) => n,
+                    Err(e) => {
+                        eprintln!("xerj def: {e}\n\n{USAGE}");
+                        return 2;
+                    }
+                };
+            }
             "--kind" => kind = it.next(),
-            "--lang" => lang = it.next(),
+            "--lang" => {
+                lang = it
+                    .next()
+                    .map(|l| crate::extract::code::lang_filter_value(&l))
+            }
             "--json" => as_json = true,
+            "--disable-feedback" => {}
             other if !other.starts_with('-') && query.is_none() => query = Some(other.to_string()),
             other => {
                 eprintln!("xerj def: unexpected argument '{other}'\n\n{USAGE}");
@@ -317,20 +538,38 @@ pub fn run_def_cli() -> i32 {
             return 2;
         }
     };
+    let resolved = match crate::search::resolve_prefix(&prefix) {
+        Ok(resolved) => resolved,
+        Err(e) => {
+            eprintln!("xerj def: {e}\n\n{USAGE}");
+            return 2;
+        }
+    };
+    if let Some(note) = crate::search::prefix_rewrite_note(&prefix, &resolved) {
+        eprintln!("xerj def: {note}");
+    }
+    let prefix = resolved.prefix;
+    let pattern = resolved.pattern;
     if url.is_empty() {
         url = "http://localhost:9200".to_string();
     }
     if api_key.is_none() && xerj_common::localauth::url_is_loopback(&url) {
-        if let Some((key, path)) = xerj_common::localauth::discover_local_admin_key_for_url(&url) {
+        if let Some(found) =
+            xerj_common::localauth::discover_local_admin_key_for_url_with_origin(&url)
+        {
             eprintln!(
-                "xerj def: no --api-key/XERJ_API_KEY given; using the admin key at {}",
-                path.display()
+                "xerj def: no --api-key/XERJ_API_KEY given; using the admin key at {} ({})",
+                found.path.display(),
+                found.provenance()
             );
-            api_key = Some(key);
+            if let Some(warning) = found.foreign_warning("--api-key or XERJ_API_KEY") {
+                eprintln!("xerj def: warning: {warning}");
+            }
+            api_key = Some(found.key);
         }
     }
 
-    let es = match Es::new(&url, api_key) {
+    let es = match Es::new(&url, api_key.clone()) {
         Ok(es) => es,
         Err(e) => {
             eprintln!("xerj def: could not build client for {url}: {e}");
@@ -352,12 +591,8 @@ pub fn run_def_cli() -> i32 {
         return 2;
     }
 
-    let pattern = format!("{prefix}-*");
     let raw_mapping = es.get_json(&format!("/{pattern}/_mapping")).ok();
     let mapped = raw_mapping.as_ref().and_then(mapped_property_names);
-    let numeric = mapped
-        .as_ref()
-        .and(raw_mapping.as_ref().map(numeric_property_names));
     if let Some(set) = mapped.as_ref().filter(|s| !s.is_empty()) {
         if kind.is_some() && !set.contains("kind") {
             eprintln!("xerj def: --kind ignored; no index under this prefix maps `kind`");
@@ -366,27 +601,32 @@ pub fn run_def_cli() -> i32 {
             eprintln!("xerj def: --lang ignored; no index under this prefix maps `language`");
         }
     }
-    let body = def_query(
+    let body = definition_query(
         &query,
         kind.as_deref(),
         lang.as_deref(),
         k,
-        mapped.as_ref(),
-        numeric.as_ref(),
+        raw_mapping.as_ref(),
     );
-    let resp = match es.search(&pattern, &body) {
+    // Same catalog + mtime check as `xerj search` (#2345), run beside the
+    // query: a definition from an index older than the folder can be stale
+    // or missing (#2426), and the lookup should say so.
+    let stale = crate::search::spawn_staleness_check(&url, api_key.as_deref(), &prefix);
+    let mut resp = match es.search(&pattern, &body) {
         Ok(v) => v,
         Err(e) => {
-            eprintln!(
-                "xerj def: query failed against {url}/{pattern}: {e}\n\
-                 (is the prefix right? `xerj autoindex` writes 'ax' by default — \
-                 pass --prefix if you indexed under another.)"
-            );
+            eprintln!("{}", query_failure_message("def", &url, &pattern, e));
             return 1;
         }
     };
 
+    let hits = finalize_definition_response(&mut resp, &query, k);
+    let hint = stale.join().ok().flatten();
+
     if as_json {
+        if let Some(hint) = &hint {
+            crate::staleness::attach(&mut resp, hint);
+        }
         println!(
             "{}",
             serde_json::to_string_pretty(&resp).unwrap_or_default()
@@ -394,11 +634,10 @@ pub fn run_def_cli() -> i32 {
         return 0;
     }
 
-    let hits = resp
-        .pointer("/hits/hits")
-        .and_then(Value::as_array)
-        .cloned()
-        .unwrap_or_default();
+    if let Some(hint) = &hint {
+        println!("{}", hint.cli_line_for("def"));
+    }
+
     if hits.is_empty() {
         let snap = corpus_snapshot(&es, &prefix);
         let (lines, exit) = empty_lookup_report("def", &prefix, &query, false, &snap);
@@ -419,8 +658,9 @@ pub fn run_def_cli() -> i32 {
         };
         println!("\n─── {loc}{tag}");
         // The declaration, not the file: `code` on symbol docs is the
-        // signature block; `_passage` covers file-level hits. Two lines is
-        // enough to act on — `xerj search --full` exists for reading more.
+        // signature block; `_passage` covers file-level hits. The preview
+        // keeps later short lines up to 600 characters — `xerj search
+        // --full` exists for reading the whole file.
         let passage_owned = passage_text(h);
         let decl = src
             .get("code")
@@ -428,7 +668,7 @@ pub fn run_def_cli() -> i32 {
             .map(str::to_string)
             .or(passage_owned);
         if let Some(text) = decl {
-            for l in text.lines().take(2) {
+            for l in declaration_preview(&text).lines() {
                 println!("    {l}");
             }
         }
@@ -440,14 +680,70 @@ pub fn run_def_cli() -> i32 {
     0
 }
 
+/// The same `path:line` can come back twice: a symbol doc and a file-level
+/// hit, or two passages of one declaration. `xerj def` is a location list,
+/// so the first (highest-ranked) hit for a location is the one that is shown.
+fn unique_locations(hits: Vec<Value>) -> Vec<Value> {
+    let mut seen = BTreeSet::new();
+    let mut out = Vec::with_capacity(hits.len());
+    for hit in hits {
+        if seen.insert(hit_location(&hit)) {
+            out.push(hit);
+        }
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn help_says_the_default_ranking_is_lexical() {
+        assert!(
+            USAGE.contains("Default ranking is lexical") && USAGE.contains("not a neural reading"),
+            "{USAGE}"
+        );
+    }
+
+    #[test]
+    fn declaration_preview_keeps_a_later_constant_and_caps_a_huge_line() {
+        let sig = "pub fn open(\n    path: &Path,\n    mode: u32,\n) -> Result<File> {\n    const MODE_MASK: u32 = 0o777;\n    let _ = path;\n";
+        let preview = declaration_preview(sig);
+        assert!(
+            preview.contains("const MODE_MASK: u32 = 0o777;"),
+            "a constant past line 2 is part of the signature block: {preview}"
+        );
+        assert!(preview.contains("pub fn open("), "{preview}");
+
+        let huge = format!("pub fn wide({})", "a: i32, ".repeat(200));
+        let capped = declaration_preview(&huge);
+        assert!(
+            capped.chars().count() <= DECLARATION_PREVIEW_CHARS + 1,
+            "{capped}"
+        );
+        assert!(capped.ends_with('…'), "{capped}");
+        assert!(capped.starts_with("pub fn wide("), "{capped}");
+    }
 
     /// ES `bool` semantics: once a `filter` clause is present, `should`
     /// clauses are optional unless `minimum_should_match` says otherwise. A
     /// `--kind`/`--lang` filter must narrow the definitions of the name, not
     /// replace the name with "anything of this kind".
+    #[test]
+    fn the_same_path_and_line_is_listed_once() {
+        let hit = |id: &str, line: u64| {
+            json!({
+                "_id": id,
+                "_source": { "ax_path": "qabot/agents.py", "line": line, "code": "def _run():" }
+            })
+        };
+        let kept = unique_locations(vec![hit("a", 266), hit("b", 266), hit("c", 10)]);
+        assert_eq!(kept.len(), 2, "{kept:?}");
+        assert_eq!(kept[0]["_id"], "a");
+        assert_eq!(kept[1]["_id"], "c");
+    }
+
     #[test]
     fn kind_and_lang_filters_still_require_the_name_to_match() {
         for (kind, lang) in [
@@ -457,17 +753,23 @@ mod tests {
             (None, None),
         ] {
             let body = def_query("zzqq_nonexistent", kind, lang, 5, None, None);
-            // Kind/pub weights wrap the bool; the filter still has to sit on
-            // that bool, not replace the name clauses.
-            let b = body
-                .pointer("/query/function_score/query/bool")
-                .or_else(|| body.pointer("/query/bool"))
-                .expect("bool query");
+            let b = body.pointer("/query/bool").expect("bool query");
             assert_eq!(b["minimum_should_match"], 1, "{body}");
             assert!(!b["should"].as_array().unwrap().is_empty());
             let filters = b["filter"].as_array().unwrap().len();
             assert_eq!(filters, kind.is_some() as usize + lang.is_some() as usize);
         }
+    }
+
+    /// `xerj def` prints with the same `hit_location` as search, so a PDF or
+    /// notebook definition can cite `page` / `cell` only when the projection
+    /// asks for them.
+    #[test]
+    fn def_source_projection_includes_page_and_cell() {
+        let body = def_query("open_path", None, None, 5, None, None);
+        let fields = body["_source"].as_array().unwrap();
+        assert!(fields.iter().any(|f| f == "page"), "{body}");
+        assert!(fields.iter().any(|f| f == "cell"), "{body}");
     }
 
     fn names_of(fields: &[&str]) -> BTreeSet<String> {
@@ -532,44 +834,130 @@ mod tests {
         );
     }
 
-    /// A struct/function outranks a type alias and a `mod` line of the same
-    /// name, and a `pub` declaration outranks a private one. The weight is a
-    /// function_score filter, not a `should`, so it cannot match every struct.
+    /// A struct/function outranks a type alias and a test double of the same
+    /// name, and a `pub` declaration outranks a private one. The weights are
+    /// applied to the hits already returned — not as a `function_score`,
+    /// which scored every match (422ms vs 6ms on the tokio index).
     #[test]
     fn preferred_kinds_and_pub_are_weighted_and_aliases_are_demoted() {
         let body = def_query("Db", None, None, 5, None, None);
         let rendered = body["query"].to_string();
-        assert!(rendered.contains("function_score"), "{body}");
         assert!(
-            rendered.contains("\"weight\":20.0") || rendered.contains("\"weight\":20"),
-            "{body}"
+            !rendered.contains("function_score"),
+            "the slow wrapper must stay out of the request: {body}"
         );
-        for kind in ["struct", "function", "enum", "trait"] {
-            assert!(
-                rendered.contains(&format!("\"{kind}\"")),
-                "{kind} missing: {body}"
-            );
-        }
-        // A type alias is not a preferred kind, so it does not receive the
-        // weight. Path globs are not part of the historical query.
-        let kinds = body.pointer("/query/function_score/functions/0/filter/bool/must/0/terms/kind");
         assert!(
-            kinds
-                .and_then(Value::as_array)
-                .unwrap()
-                .iter()
-                .all(|k| k.as_str() != Some("type") && k.as_str() != Some("module")),
-            "{kinds:?}"
+            !rendered.contains("ax_path"),
+            "path demotion is local, not a wildcard filter: {rendered}"
         );
-        assert!(!rendered.contains("ax_path"), "{body}");
-        let with_path = names_of(&["name", "defs", "code", "title", "kind", "ax_path"]);
-        let body = def_query("Db", None, None, 5, Some(&with_path), None);
-        let rendered = body["query"].to_string();
-        assert!(rendered.contains("*/tests/*"), "{body}");
-        assert!(rendered.contains("*/examples/*"), "{body}");
-        assert!(rendered.contains("*/fuzz/*"), "{body}");
-        assert!(rendered.contains("*/benches/*"), "{body}");
-        assert!(rendered.contains("must_not"), "{body}");
+        assert_eq!(def_collect_size(5), 45);
+        assert_eq!(def_collect_size(180), 200);
+        assert_eq!(def_collect_size(500), 500);
+
+        let test_struct = json!({
+            "_score": 172.15,
+            "_source": {
+                "ax_path": "tokio/src/runtime/tests/task.rs",
+                "name": "Runtime",
+                "kind": "struct",
+                "line": 384,
+                "code": "#[derive(Clone)]\nstruct Runtime"
+            }
+        });
+        let src_struct = json!({
+            "_score": 170.17,
+            "_source": {
+                "ax_path": "tokio/src/runtime/runtime.rs",
+                "name": "Runtime",
+                "kind": "struct",
+                "line": 97,
+                "code": "#[derive(Debug)]\npub struct Runtime"
+            }
+        });
+        let alias = json!({
+            "_score": 170.17,
+            "_source": {
+                "ax_path": "tokio/src/runtime/runtime.rs",
+                "name": "Runtime",
+                "kind": "type",
+                "line": 12,
+                "code": "pub type Runtime = Handle"
+            }
+        });
+        let mut hits = vec![test_struct, alias.clone(), src_struct];
+        rerank_def_hits(&mut hits, "");
+        assert_eq!(
+            hits[0]["_source"]["ax_path"],
+            "tokio/src/runtime/runtime.rs"
+        );
+        assert_eq!(hits[0]["_source"]["kind"], "struct");
+        assert_eq!(hits[1]["_source"]["kind"], "type");
+        assert!(
+            hits[0]["_score"].as_f64().unwrap() > hits[2]["_score"].as_f64().unwrap(),
+            "src struct must outrank the higher-BM25 test double: {hits:?}"
+        );
+        // The type alias shares the src path but is not a preferred kind.
+        // It still gets the pub weight, so it sorts above the private test
+        // struct and below the pub struct.
+        assert!(hits[1]["_score"].as_f64().unwrap() > hits[2]["_score"].as_f64().unwrap());
+
+        assert!(path_is_demoted("tokio/src/runtime/tests/task.rs"));
+        assert!(path_is_demoted("examples/dump.rs"));
+        assert!(path_is_demoted("fuzz/fuzz_targets/x.rs") || path_is_demoted("tokio/fuzz/a.rs"));
+        assert!(!path_is_demoted("tokio/src/runtime/runtime.rs"));
+        assert!(
+            !path_is_demoted("src/Foo.test.tsx"),
+            "a test suffix is not one of the path rules"
+        );
+        assert!(!path_is_demoted("src/fixtures/transcript.json"));
+        assert!(!declaration_is_public("struct Runtime"));
+        assert!(declaration_is_public("pub(crate) struct Runtime"));
+        assert!(!declaration_is_public("publication"));
+    }
+
+    /// #2327: kind and `pub` weights run first. A one-word type with a higher
+    /// score still finishes behind the definition that covers the question.
+    /// An exact `Token` lookup does not move.
+    #[test]
+    fn a_one_word_type_does_not_outrank_a_multi_term_definition() {
+        let token = json!({
+            "_score": 400.0,
+            "_source": {
+                "ax_path": "src/types.ts",
+                "name": "Token",
+                "kind": "type",
+                "line": 1,
+                "code": "export type Token = string"
+            }
+        });
+        let refresh = json!({
+            "_score": 3.0,
+            "_source": {
+                "ax_path": "src/session.ts",
+                "name": "refreshSession",
+                "kind": "function",
+                "line": 12,
+                "code": "export function refreshSession(token: Token, handler: Handler): Session"
+            }
+        });
+        let mut hits = vec![token, refresh];
+        rerank_def_hits(&mut hits, "session token refresh handler");
+        assert_eq!(hits[0]["_source"]["name"], "refreshSession");
+        assert_eq!(hits[1]["_source"]["name"], "Token");
+
+        let mut exact = vec![
+            json!({
+                "_score": 50.0,
+                "_source": { "name": "Token", "kind": "type", "code": "export type Token = string", "ax_path": "a.ts" }
+            }),
+            json!({
+                "_score": 10.0,
+                "_source": { "name": "Alias", "kind": "type", "code": "type Alias = number", "ax_path": "b.ts" }
+            }),
+        ];
+        rerank_def_hits(&mut exact, "Token");
+        assert_eq!(exact[0]["_source"]["name"], "Token");
+        assert_eq!(exact[1]["_source"]["name"], "Alias");
     }
 
     /// "flush the tree to disk" has to search the symbol body. An identifier
@@ -578,7 +966,7 @@ mod tests {
     fn a_phrase_searches_impl_only_when_the_mapping_has_it() {
         let code = names_of(&["name", "defs", "code", "title", "impl", "kind"]);
         let phrase = def_query("flush the tree to disk", None, None, 5, Some(&code), None);
-        let fields = phrase["query"]["function_score"]["query"]["bool"]["should"]
+        let fields = phrase["query"]["bool"]["should"]
             .as_array()
             .unwrap()
             .iter()
@@ -650,11 +1038,10 @@ mod tests {
         assert!(!query.contains("kind"), "{query}");
         assert!(query.contains("code"), "{query}");
         assert!(query.contains("title"), "{query}");
-        // `code` is still text, so the pub ranking weight wraps function_score.
-        // The numeric `kind` must not: that filter would name `kind`.
+        // `code` is still text. The numeric `kind` must not be named: that
+        // filter would 400 the wildcard. The pub weight is applied locally.
         let should = body
-            .pointer("/query/function_score/query/bool/should")
-            .or_else(|| body.pointer("/query/bool/should"))
+            .pointer("/query/bool/should")
             .and_then(Value::as_array)
             .expect("should clauses");
         let fields = should

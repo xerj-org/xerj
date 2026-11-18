@@ -16,6 +16,7 @@
 //! unchanged; what changes is that the knobs now do what they say.
 
 use std::cell::RefCell;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, OnceLock};
 
 use rayon::{ThreadPool, ThreadPoolBuildError, ThreadPoolBuilder};
@@ -120,6 +121,7 @@ fn install_search_pool(threads: usize) {
         if let Err(err) = rayon::ThreadPoolBuilder::new()
             .num_threads(threads)
             .thread_name(|i| format!("xerj-search-{i}"))
+            .spawn_handler(safe_rayon_spawn)
             .build_global()
         {
             let actual = rayon::current_num_threads();
@@ -211,9 +213,11 @@ pub(crate) fn spawn_or_inline(
         None => match xerj_common::thread_spawn::try_spawn(label, op) {
             Ok(_) => {}
             Err(failure) => {
-                tracing::error!(
-                    "could not spawn a {label} worker ({}); running it on the calling thread (#1122)",
-                    failure.error
+                static LOGGED: AtomicBool = AtomicBool::new(false);
+                xerj_common::thread_spawn::warn_best_effort_degraded(
+                    &LOGGED,
+                    label,
+                    &failure.error,
                 );
                 if let Some(job) = failure.job {
                     job();
@@ -244,31 +248,65 @@ fn ensure_pool<'a>(
     let width = threads.max(1);
     let pool = match build(width) {
         Ok(pool) => pool,
-        Err(err) if width > 1 => {
-            tracing::error!(
-                "could not start the {label} pool with {width} threads ({err}); \
-                 retrying with one thread (#1122)"
-            );
-            match build(1) {
-                Ok(pool) => pool,
-                Err(err) => {
-                    tracing::error!(
-                        "could not start the {label} pool ({err}); \
-                         this call runs on the calling thread (#1122)"
-                    );
-                    return None;
-                }
+        Err(err) if width > 1 => match build(1) {
+            Ok(pool) => {
+                log_pool_degraded_once(|| {
+                    format!(
+                        "could not start the {label} pool with {width} threads ({err}); \
+                         using one thread (#1122)"
+                    )
+                });
+                pool
             }
-        }
+            Err(retry) => {
+                log_pool_degraded_once(|| {
+                    format!(
+                        "could not start the {label} pool ({err}; one-thread retry: {retry}); \
+                         this call runs on the calling thread (#1122)"
+                    )
+                });
+                return None;
+            }
+        },
         Err(err) => {
-            tracing::error!(
-                "could not start the {label} pool ({err}); \
-                 this call runs on the calling thread (#1122)"
-            );
+            log_pool_degraded_once(|| {
+                format!(
+                    "could not start the {label} pool ({err}); \
+                     this call runs on the calling thread (#1122)"
+                )
+            });
             return None;
         }
     };
     Some(slot.get_or_init(|| pool))
+}
+
+/// One line per process. A pool that cannot start is retried on the next
+/// call; logging every call floods the node that is already out of threads.
+fn log_pool_degraded_once(message: impl FnOnce() -> String) {
+    static LOGGED: AtomicBool = AtomicBool::new(false);
+    if LOGGED.swap(true, Ordering::Relaxed) {
+        return;
+    }
+    tracing::error!("{}", message());
+}
+
+/// Rayon worker spawn that cannot abort the process (#1122).
+///
+/// Rayon's default handler is `std::thread::Builder::spawn`. That returns
+/// `Ok` before the child maps its alternate signal stack, and the mmap
+/// failure panics in the child. `panic = "abort"` then kills the node
+/// during pool build, so the `Err` fallback in [`ensure_pool`] never runs.
+/// This handler uses the same non-panicking spawn as the other best-effort
+/// threads. The watermark gate is not consulted: these pools are built once
+/// and a soft RSS watermark must not refuse them the way it refuses a
+/// drain-free thread. A real `pthread_create` failure is an `Err`, which
+/// fails the build and lets the caller run inline.
+pub(crate) fn safe_rayon_spawn(thread: rayon::ThreadBuilder) -> std::io::Result<()> {
+    let name = thread.name().unwrap_or("xerj-rayon").to_owned();
+    xerj_common::thread_spawn::spawn_detached(name.as_str(), thread.stack_size(), move || {
+        thread.run()
+    })
 }
 
 /// Run `op`, and every `par_iter` inside it, on the calling thread.
@@ -414,5 +452,24 @@ mod tests {
         let ran = rx.recv_timeout(std::time::Duration::from_secs(2));
         assert!(ran.is_ok(), "the spawned job must run");
         assert!(slot.get().is_none());
+    }
+
+    /// #1122: production pools spawn workers through `safe_rayon_spawn`,
+    /// not `std::thread::Builder`. The work has to actually run — a spawn
+    /// handler that detaches wrong, or that never calls `ThreadBuilder::run`,
+    /// would hang `install` or drop the job.
+    #[test]
+    fn the_safe_rayon_spawner_runs_pool_work() {
+        let pool = ThreadPoolBuilder::new()
+            .num_threads(2)
+            .thread_name(|i| format!("xerj-t1122-{i}"))
+            .spawn_handler(super::safe_rayon_spawn)
+            .build()
+            .expect("safe spawner starts a pool");
+        let sum = pool.install(|| {
+            use rayon::prelude::*;
+            (0..64u32).into_par_iter().sum::<u32>()
+        });
+        assert_eq!(sum, (0..64u32).sum::<u32>());
     }
 }

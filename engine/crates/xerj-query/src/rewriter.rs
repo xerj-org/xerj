@@ -22,7 +22,138 @@
 
 use tracing::trace;
 
-use crate::ast::QueryNode;
+use crate::ast::{BoolOperator, MultiMatchType, QueryNode, SearchRequest};
+
+/// Fill in `match` / `multi_match` operators the request left out (#1504).
+///
+/// A log dataset's index sets `index.query.default_match_operator` to `and`.
+/// The engine calls this with [`BoolOperator::And`] before hashing the query
+/// cache key, so an omitted operator requires every token and an explicit
+/// `"operator": "or"` does not change. Indices without the setting never call
+/// this: [`BoolOperator::Omitted`] is executed as OR, which is the ES default.
+///
+/// `minimum_should_match` without an operator is the OR form of that count
+/// (ES), so those clauses are left omitted. Phrase `multi_match` ignores
+/// `operator`; leaving it absent keeps that arm on the positional path.
+/// `query_string` is lowered at parse time with its own `default_operator`
+/// already applied, so this does not reach it.
+pub fn apply_default_match_operator(request: &mut SearchRequest, operator: BoolOperator) {
+    walk_match_operator(&mut request.query, operator);
+    for window in &mut request.rescore {
+        if let Some(inner) = window.query.as_mut() {
+            walk_match_operator(&mut inner.rescore_query, operator);
+        }
+    }
+}
+
+fn walk_match_operator(q: &mut QueryNode, operator: BoolOperator) {
+    match q {
+        QueryNode::Match {
+            operator: op,
+            minimum_should_match,
+            ..
+        } => {
+            if *op == BoolOperator::Omitted && minimum_should_match.is_none() {
+                *op = operator;
+            }
+        }
+        QueryNode::MultiMatch {
+            operator: op,
+            match_type,
+            ..
+        } => {
+            if op.is_none()
+                && !matches!(
+                    match_type,
+                    MultiMatchType::Phrase | MultiMatchType::PhrasePrefix
+                )
+            {
+                *op = Some(operator);
+            }
+        }
+        QueryNode::Bool {
+            must,
+            should,
+            must_not,
+            filter,
+            ..
+        } => {
+            for child in must
+                .iter_mut()
+                .chain(should.iter_mut())
+                .chain(must_not.iter_mut())
+                .chain(filter.iter_mut())
+            {
+                walk_match_operator(child, operator);
+            }
+        }
+        QueryNode::Constant { query, .. }
+        | QueryNode::Boosted { query, .. }
+        | QueryNode::Named { query, .. }
+        | QueryNode::FunctionScore { query, .. }
+        | QueryNode::Nested { query, .. } => walk_match_operator(query, operator),
+        QueryNode::Boosting {
+            positive, negative, ..
+        } => {
+            walk_match_operator(positive, operator);
+            walk_match_operator(negative, operator);
+        }
+        QueryNode::DisMax { queries, .. } => {
+            for child in queries {
+                walk_match_operator(child, operator);
+            }
+        }
+        QueryNode::Pinned { organic, .. } => walk_match_operator(organic, operator),
+        QueryNode::Knn { filter, .. } | QueryNode::SemanticSearch { filter, .. } => {
+            if let Some(filter) = filter {
+                walk_match_operator(filter, operator);
+            }
+        }
+        QueryNode::Hybrid { queries, .. } => {
+            for weighted in queries {
+                walk_match_operator(&mut weighted.query, operator);
+            }
+        }
+        QueryNode::SpanNear { clauses, .. } | QueryNode::SpanOr { clauses } => {
+            for child in clauses {
+                walk_match_operator(child, operator);
+            }
+        }
+        QueryNode::SpanNot { include, exclude } => {
+            walk_match_operator(include, operator);
+            walk_match_operator(exclude, operator);
+        }
+        QueryNode::SpanFirst { match_query, .. } => walk_match_operator(match_query, operator),
+        QueryNode::SpanContaining { little, big } | QueryNode::SpanWithin { little, big } => {
+            walk_match_operator(little, operator);
+            walk_match_operator(big, operator);
+        }
+        QueryNode::MatchAll
+        | QueryNode::MatchNone
+        | QueryNode::Term { .. }
+        | QueryNode::Terms { .. }
+        | QueryNode::Range { .. }
+        | QueryNode::Prefix { .. }
+        | QueryNode::Wildcard { .. }
+        | QueryNode::Exists { .. }
+        | QueryNode::Ids { .. }
+        | QueryNode::Script { .. }
+        | QueryNode::MatchPhrase { .. }
+        | QueryNode::QueryString { .. }
+        | QueryNode::Fuzzy { .. }
+        | QueryNode::Regexp { .. }
+        | QueryNode::Intervals { .. }
+        | QueryNode::MatchPhrasePrefix { .. }
+        | QueryNode::SimpleQueryString { .. }
+        | QueryNode::GeoDistance { .. }
+        | QueryNode::GeoBoundingBox { .. }
+        | QueryNode::GeoPolygon { .. }
+        | QueryNode::GeoShape { .. }
+        | QueryNode::SpanTerm { .. }
+        | QueryNode::MoreLikeThis { .. }
+        | QueryNode::Percolate { .. } => {}
+    }
+}
 
 /// Maximum number of rewrite passes before we give up trying to converge.
 const MAX_PASSES: usize = 16;
@@ -419,7 +550,7 @@ fn push_to_filter(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ast::QueryNode;
+    use crate::ast::{MinShouldMatch, QueryNode, SearchRequest};
 
     fn term(field: &str, value: &str) -> QueryNode {
         QueryNode::Term {
@@ -601,5 +732,107 @@ mod tests {
         let t = term("x", "y");
         let q = bool_must(vec![bool_must(vec![bool_must(vec![t.clone()])])]);
         assert_eq!(rewrite(q), t);
+    }
+
+    fn match_op(operator: BoolOperator, msm: Option<MinShouldMatch>) -> QueryNode {
+        QueryNode::Match {
+            field: "message".into(),
+            query: "SIP 403 Forbidden".into(),
+            operator,
+            analyzer: None,
+            boost: None,
+            minimum_should_match: msm,
+            lenient: false,
+        }
+    }
+
+    /// #1504: a log index asks for AND. Omitted operators take it. An explicit
+    /// OR, a `minimum_should_match` clause, and a phrase `multi_match` do not.
+    #[test]
+    fn default_and_fills_only_omitted_match_operators() {
+        let mut req = SearchRequest {
+            query: QueryNode::Bool {
+                must: vec![match_op(BoolOperator::Omitted, None)],
+                should: vec![match_op(BoolOperator::Or, None)],
+                must_not: vec![],
+                filter: vec![match_op(
+                    BoolOperator::Omitted,
+                    Some(MinShouldMatch::Fixed(2)),
+                )],
+                minimum_should_match: None,
+            },
+            rescore: vec![crate::ast::RescoreQuery {
+                window_size: 10,
+                query: Some(crate::ast::RescoreQueryInner {
+                    rescore_query: QueryNode::MultiMatch {
+                        fields: vec!["message".into()],
+                        query: "SIP 403".into(),
+                        match_type: crate::ast::MultiMatchType::BestFields,
+                        operator: None,
+                        analyzer: None,
+                        boost: None,
+                        slop: 0,
+                        max_expansions: 50,
+                        lenient: false,
+                    },
+                    query_weight: 1.0,
+                    rescore_query_weight: 1.0,
+                }),
+                script: None,
+            }],
+            ..SearchRequest::default()
+        };
+        apply_default_match_operator(&mut req, BoolOperator::And);
+
+        let QueryNode::Bool {
+            must,
+            should,
+            filter,
+            ..
+        } = req.query
+        else {
+            panic!("expected bool");
+        };
+        assert!(
+            matches!(
+                must[0],
+                QueryNode::Match {
+                    operator: BoolOperator::And,
+                    ..
+                }
+            ),
+            "omitted match becomes AND"
+        );
+        assert!(
+            matches!(
+                should[0],
+                QueryNode::Match {
+                    operator: BoolOperator::Or,
+                    ..
+                }
+            ),
+            "explicit OR stays OR"
+        );
+        assert!(
+            matches!(
+                filter[0],
+                QueryNode::Match {
+                    operator: BoolOperator::Omitted,
+                    ..
+                }
+            ),
+            "minimum_should_match keeps the omitted OR form"
+        );
+        let rescore = req.rescore[0].query.as_ref().unwrap();
+        assert!(
+            matches!(
+                rescore.rescore_query,
+                QueryNode::MultiMatch {
+                    operator: Some(BoolOperator::And),
+                    ..
+                }
+            ),
+            "an omitted multi_match operator, including inside rescore, becomes AND"
+        );
     }
 }

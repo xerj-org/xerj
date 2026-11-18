@@ -119,14 +119,68 @@ pub fn make_clear_cookie() -> Cookie<'static> {
 // Extractor
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Authenticated session, extracted from the `xerj_session` cookie.
+/// How this request authenticated.
 ///
-/// Use as a handler parameter to require authentication. Returns 401 on
-/// missing cookie, bad signature, expired session, or revoked session.
+/// A cookie session and an API token both become an [`AuthSession`], so
+/// ordinary console reads and writes can accept either. They are not the
+/// same credential. [`PasskeySession`] is the passkey-backed browser session
+/// a handler must hold before it mints or changes credentials.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SessionOrigin {
+    /// `xerj_session` cookie. `idp` is the `.xerj_sessions` row's identity
+    /// provider. Only `"passkey"` satisfies [`AuthSession::require_passkey_session`].
+    BrowserSession { idp: String },
+    /// `Authorization: Bearer <api token>`. `token_id` is `sha256(secret)`.
+    ApiToken { token_id: String },
+}
+
+/// Stable text of the 403 returned when a credential-minting or
+/// identity-changing handler is reached without a passkey-backed browser
+/// session. The console tests and `docs/SECURITY_MODEL.md` quote it.
+pub const PASSKEY_SESSION_REQUIRED: &str = concat!(
+    "this operation requires a passkey-backed browser session; ",
+    "API tokens cannot mint or change credentials"
+);
+
+/// Authenticated caller, from the `xerj_session` cookie or from
+/// `Authorization: Bearer <api token>`.
+///
+/// Use as a handler parameter to require authentication. Returns 401 on a
+/// missing credential, a bad signature, an expired or revoked session, or
+/// an unknown or revoked token.
+///
+/// This type does **not** mean the caller presented a passkey. Credential
+/// minting and identity changes take [`PasskeySession`] instead, which
+/// returns 403 for a valid bearer token (CVE-2026-97406 / CERT VU#645818).
 #[derive(Debug, Clone)]
 pub struct AuthSession {
     pub session_id: String,
     pub user: store::User,
+    pub origin: SessionOrigin,
+}
+
+impl AuthSession {
+    /// Refuse unless this request presented a passkey-backed browser session.
+    ///
+    /// A valid API token is a 403, not a 401: the caller is authenticated
+    /// and the operation is forbidden. Cookie sessions and bearer tokens
+    /// used to resolve to the same `AuthSession`, so `POST /auth/api-tokens`
+    /// would mint a successor that survived revocation of the parent.
+    pub fn require_passkey_session(&self) -> ConsoleResult<()> {
+        match &self.origin {
+            SessionOrigin::BrowserSession { idp } if idp == "passkey" => Ok(()),
+            other => Err(ConsoleApiError::Forbidden(refusal_message(other))),
+        }
+    }
+}
+
+fn refusal_message(origin: &SessionOrigin) -> String {
+    match origin {
+        SessionOrigin::ApiToken { .. } => PASSKEY_SESSION_REQUIRED.to_string(),
+        SessionOrigin::BrowserSession { idp } => {
+            format!("{PASSKEY_SESSION_REQUIRED} (this session's idp is {idp}, not passkey)")
+        }
+    }
 }
 
 #[axum::async_trait]
@@ -138,9 +192,12 @@ impl FromRequestParts<ConsoleState> for AuthSession {
         state: &ConsoleState,
     ) -> Result<Self, Self::Rejection> {
         // API clients authenticate with `Authorization: Bearer <token>`;
-        // browsers with a signed session cookie. Bearer wins when present so
-        // a token-carrying request is never silently downgraded to the
-        // (absent) cookie path.
+        // browsers with a signed session cookie. Bearer wins when the header
+        // is present, including when the token is invalid: a token-carrying
+        // request is never upgraded onto a cookie that happens to be
+        // attached. `PasskeySession` then refuses a *valid* bearer with 403.
+        // Preferring the cookie whenever both are present would let that
+        // request pass the passkey gate (CVE-2026-97406).
         if let Some(token) = bearer_token(&parts.headers) {
             return authenticate_bearer(state, &token).await;
         }
@@ -187,7 +244,76 @@ impl FromRequestParts<ConsoleState> for AuthSession {
         // only the fresh record, skipping entirely if it is now revoked or gone.
         bump_last_seen(&state.engine, &session_id).await;
 
-        Ok(AuthSession { session_id, user })
+        Ok(AuthSession {
+            session_id,
+            user,
+            origin: SessionOrigin::BrowserSession { idp: session.idp },
+        })
+    }
+}
+
+/// Passkey-backed browser session.
+///
+/// Extract this instead of [`AuthSession`] for any handler that mints a
+/// credential or changes identity. A missing credential is 401. A valid
+/// `Authorization: Bearer` API token, and a browser session whose `idp` is
+/// not `"passkey"`, are 403 with [`PASSKEY_SESSION_REQUIRED`]. The check
+/// runs in the extractor, before the handler, so a refusal writes nothing.
+///
+/// # Handler classification
+///
+/// **Requires this type** (credential minting or identity change):
+/// - `POST /auth/api-tokens` — mint an API token (`tokens::create`)
+/// - `DELETE /auth/api-tokens/:id` — revoke an API token (`tokens::revoke`)
+/// - `POST /auth/magic/issue` — mint an invitation (`magic::issue`)
+/// - `DELETE /auth/passkeys/:id` — delete a passkey (`me::delete_passkey`)
+/// - `POST /auth/logout` — revoke the current browser session (`login::logout`)
+///
+/// **[`AuthSession`] is enough** (ordinary console data; bearer tokens work):
+/// - `GET /me`, `GET /auth/passkeys`, `GET /auth/api-tokens` (metadata only)
+/// - `GET`/`PUT /prefs`
+/// - dashboard and saved-view CRUD, including `_bulk`
+/// - data-source connection, index, field, and search routes
+/// - `GET /knowledge` and the `/graph/*` reads
+///
+/// **Not an [`AuthSession`] route.** These authorize with a different
+/// credential, and a bearer token does not unlock them:
+/// - `POST /auth/magic/redeem` — the magic link is the credential. The
+///   invitee has no session yet; requiring one would break bootstrap.
+///   A stolen API token cannot issue the link once `magic/issue` is gated.
+/// - `POST /auth/passkey/begin` and `/finish` — the in-memory enrollment
+///   session from redeem. There is no "enroll a passkey while holding an
+///   API token" path.
+/// - `POST /auth/login/begin` and `/finish` — WebAuthn, unauthenticated.
+///
+/// **No handler exists** for user/role management (`/users`) or for
+/// revoking a session other than the current cookie via `logout`. A future
+/// SSO cookie (`idp` other than `"passkey"`) fails this extractor, so it
+/// cannot mint credentials either.
+///
+/// No API-token row records a parent. `tokens::create` is the only insert
+/// of a new token, and it takes this type, so a bearer token cannot mint a
+/// descendant for revocation to miss.
+#[derive(Debug, Clone)]
+pub struct PasskeySession {
+    pub session_id: String,
+    pub user: store::User,
+}
+
+#[axum::async_trait]
+impl FromRequestParts<ConsoleState> for PasskeySession {
+    type Rejection = ConsoleApiError;
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &ConsoleState,
+    ) -> Result<Self, Self::Rejection> {
+        let sess = AuthSession::from_request_parts(parts, state).await?;
+        sess.require_passkey_session()?;
+        Ok(PasskeySession {
+            session_id: sess.session_id,
+            user: sess.user,
+        })
     }
 }
 
@@ -257,12 +383,14 @@ async fn authenticate_bearer(
     if user.status != store::UserStatus::Active {
         return Err(ConsoleApiError::Unauthorized("user disabled".into()));
     }
-    // `session_id` is opaque to callers; for a token-authenticated request
-    // it is the token id (= hash). The cookie-only `logout` handler would
-    // just no-op against `.xerj_sessions` for such an id.
+    // `session_id` is the token id (= hash), not a `.xerj_sessions` id.
+    // `PasskeySession` refuses this origin before a credential handler runs,
+    // so logout cannot treat the hash as a browser session to revoke.
+    let token_id = token.id.clone();
     Ok(AuthSession {
-        session_id: token.id,
+        session_id: token_id.clone(),
         user,
+        origin: SessionOrigin::ApiToken { token_id },
     })
 }
 
@@ -415,5 +543,56 @@ mod tests {
             .unwrap();
         assert!(after.revoked_at.is_none());
         assert_ne!(after.last_seen_at, before, "last_seen should advance");
+    }
+
+    fn user() -> store::User {
+        store::User {
+            id: "u".into(),
+            email: "u@example.com".into(),
+            display_name: String::new(),
+            role: "owner".into(),
+            status: store::UserStatus::Active,
+            created_at: "2026-01-01T00:00:00.000Z".into(),
+            last_seen_at: None,
+        }
+    }
+
+    fn session_with(origin: SessionOrigin) -> AuthSession {
+        AuthSession {
+            session_id: "s".into(),
+            user: user(),
+            origin,
+        }
+    }
+
+    #[test]
+    fn a_passkey_browser_session_may_mint_credentials() {
+        let sess = session_with(SessionOrigin::BrowserSession {
+            idp: "passkey".into(),
+        });
+        assert!(sess.require_passkey_session().is_ok());
+    }
+
+    #[test]
+    fn an_api_token_cannot_mint_credentials() {
+        let sess = session_with(SessionOrigin::ApiToken {
+            token_id: "hash".into(),
+        });
+        let err = sess.require_passkey_session().unwrap_err();
+        assert!(matches!(err, ConsoleApiError::Forbidden(_)));
+        assert!(
+            err.to_string().contains(PASSKEY_SESSION_REQUIRED),
+            "403 text must name the passkey-session rule, got {err}"
+        );
+    }
+
+    #[test]
+    fn a_non_passkey_browser_session_cannot_mint_credentials() {
+        let sess = session_with(SessionOrigin::BrowserSession { idp: "oidc".into() });
+        let err = sess.require_passkey_session().unwrap_err();
+        assert!(matches!(err, ConsoleApiError::Forbidden(_)));
+        let text = err.to_string();
+        assert!(text.contains(PASSKEY_SESSION_REQUIRED), "{text}");
+        assert!(text.contains("oidc"), "{text}");
     }
 }

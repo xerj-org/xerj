@@ -1,0 +1,18 @@
+
+─── xerj-prs.jsonl:1  (score 19.26)
+    ## What
+    
+    Found by the corpus-validation harness (#1110/#1111) while standing up arm X: the published rust-vulns pack's **osv half (735 of 1,963 records) silently vanished on the consumer path** — `cor
+    … (--full 400 to see more)
+
+─── xerj-prs.jsonl:120  (score 15.42)
+    - [`/answers/how-xerj-combines-search`](https://xerj.org/answers/how-xerj-combines-search) — How does XERJ combine BM25 and kNN?
+    - [`/answers/improve-basic-faiss-rag-pipeline`](https://xerj.org/answe
+    … (--full 400 to see more)
+
+─── xerj-prs.jsonl:16  (score 14.23)
+    
+    **Not in this PR, deliberately:** part 2 — usage errors print the error plus a one-line `--help` pointer instead of the whole 390-line help page on stdout. The issue asks for separate PRs; the help p
+    … (--full 400 to see more)
+
+3 passage(s) from 'scr-*'. Cite ax_path:line for anything you rely on.

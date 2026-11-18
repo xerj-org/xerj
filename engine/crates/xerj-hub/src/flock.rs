@@ -60,7 +60,7 @@ impl FileLock {
         loop {
             match file.try_lock() {
                 Ok(()) => {
-                    stamp(&file);
+                    stamp(&file, path);
                     return Ok(FileLock {
                         file,
                         path: path.to_path_buf(),
@@ -93,6 +93,10 @@ impl Drop for FileLock {
         // Closing the descriptor would release it too; unlocking first just makes
         // the hand-over immediate when the handle is kept alive by a clone.
         let _ = self.file.unlock();
+        #[cfg(windows)]
+        {
+            let _ = fs::remove_file(companion_pid_path(&self.path));
+        }
     }
 }
 
@@ -126,16 +130,45 @@ fn open_lock_file(path: &Path) -> io::Result<File> {
     }
 }
 
+#[cfg(windows)]
+fn companion_pid_path(path: &Path) -> PathBuf {
+    let mut os = path.as_os_str().to_os_string();
+    os.push(".pid");
+    PathBuf::from(os)
+}
+
 /// Record the holder's PID in the lock file. Best effort: it is a diagnostic.
-fn stamp(file: &File) {
-    let _ = file.set_len(0);
+fn stamp(file: &File, _path: &Path) {
+    use std::io::Seek;
     let mut f = file;
+    let _ = f.seek(std::io::SeekFrom::Start(0));
+    let _ = file.set_len(0);
     let _ = writeln!(f, "{}", std::process::id());
+    let _ = f.flush();
+    #[cfg(windows)]
+    {
+        let pid_path = companion_pid_path(_path);
+        let _ = fs::write(pid_path, format!("{}\n", std::process::id()));
+    }
 }
 
 /// The PID last written into the lock file.
 fn read_holder(path: &Path) -> Option<u32> {
-    fs::read_to_string(path).ok()?.trim().parse().ok()
+    if let Ok(s) = fs::read_to_string(path) {
+        if let Ok(pid) = s.trim().parse() {
+            return Some(pid);
+        }
+    }
+    #[cfg(windows)]
+    {
+        let pid_path = companion_pid_path(path);
+        if let Ok(s) = fs::read_to_string(pid_path) {
+            if let Ok(pid) = s.trim().parse() {
+                return Some(pid);
+            }
+        }
+    }
+    None
 }
 
 /// `" (held by pid N)"`, or nothing when the holder wrote no PID.

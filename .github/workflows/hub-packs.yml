@@ -64,8 +64,12 @@
 #     way do not trigger other workflows, so the registry's own validation does not
 #     run on them until a human pushes to the branch or closes and reopens the PR.
 #
-# NOT BUILT HERE: lane-B corpora (harvested pack recipes under tools/packs/) are
-# published by pack-publish.yml in the v1 pack format, not as hub packs.
+# NOT BUILT HERE: lane-B corpora (record packs from tools/packs/<slug>/recipe.toml).
+# pack-publish.yml builds them daily and turns each into a hubpack with
+# `xerj hub build-pack --from-pack` (same key, same verify and consumer e2e, same
+# `pack-<slug>-<pin8>` release name). Their pin is a CONTENT pin with no manifest
+# behind it, so the catalogue job below lists each one's most recently published
+# pin (fetch-list --published-at) and check-catalogue checks it against the release.
 
 name: hub packs
 
@@ -162,6 +166,8 @@ jobs:
         run: |
           bash -n tools/hub-packs/ed25519.sh
           bash -n tools/hub-packs/consumer_e2e.sh
+          bash -n tools/hub-packs/whole_hub_e2e.sh
+          python3 -I -m py_compile tools/hub-packs/e2e/static_hub.py
 
   # ── is there a key to sign with and verify against? ────────────────────────
   preflight:
@@ -688,11 +694,14 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          gh release list --repo "$GITHUB_REPOSITORY" --limit 5000 --json tagName,isDraft \
-            --jq '.[] | select(.isDraft | not) | .tagName | select(startswith("pack-"))' \
-            > "$RUNNER_TEMP/tags.txt"
+          # tag<TAB>publishedAt: a record pack's current pin is its newest published one.
+          gh release list --repo "$GITHUB_REPOSITORY" --limit 5000 --json tagName,isDraft,publishedAt \
+            --jq '.[] | select(.isDraft | not) | select(.tagName | startswith("pack-")) | "\(.tagName)\t\(.publishedAt)"' \
+            > "$RUNNER_TEMP/published-at.tsv"
+          cut -f1 "$RUNNER_TEMP/published-at.tsv" > "$RUNNER_TEMP/tags.txt"
           python3 tools/hub-packs/hub_packs.py fetch-list --registry "$REGISTRY" --backlog "$BACKLOG" \
-            --published-tags "$RUNNER_TEMP/tags.txt" > "$RUNNER_TEMP/fetch.tsv"
+            --published-tags "$RUNNER_TEMP/tags.txt" --published-at "$RUNNER_TEMP/published-at.tsv" \
+            > "$RUNNER_TEMP/fetch.tsv"
           # A flat directory, like `hub build-pack --out`. ANY failed download aborts the
           # job: the catalogue is a complete snapshot, and a missing pack would delist
           # its corpus.

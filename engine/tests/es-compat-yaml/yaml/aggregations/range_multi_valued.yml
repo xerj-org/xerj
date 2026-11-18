@@ -1,0 +1,71 @@
+setup:
+  - do:
+      indices.create:
+        index: events
+        body:
+          mappings:
+            properties:
+              ports:
+                type: long
+              seen:
+                type: date
+              ipf:
+                type: ip
+  - do:
+      bulk:
+        index: events
+        refresh: true
+        body:
+          - index:
+              _id: "1"
+          - ports: [22, 8080]
+            seen: ["2020-01-01", "2024-06-01"]
+            ipf: ["192.168.0.1", "10.0.0.3"]
+          - index:
+              _id: "2"
+          - ports: 443
+            seen: "2024-01-01"
+            ipf: "172.16.0.1"
+          - index:
+              _id: "3"
+          - ports: [5, 9000]
+            seen: ["2030-01-01", "2021-06-01"]
+            ipf: ["10.0.0.9", "10.0.0.4"]
+
+---
+"Range, date_range and ip_range bucket every value of a multi-valued field":
+
+  - do:
+      search:
+        index: events
+        body:
+          size: 0
+          aggs:
+            ports:
+              range:
+                field: ports
+                ranges:
+                  - to: 100
+                  - from: 8000
+                    to: 9000
+            dates:
+              date_range:
+                field: seen
+                ranges:
+                  - from: "2021-01-01"
+                    to: "2023-01-01"
+            ips:
+              ip_range:
+                field: ipf
+                ranges:
+                  - from: "10.0.0.1"
+                    to: "10.0.0.5"
+  - match: { hits.total.value: 3 }
+  # doc 1 (22) and doc 3 (5); doc 2 is 443.
+  - match: { aggregations.ports.buckets.0.doc_count: 2 }
+  # doc 1's 8080 is its SECOND value; doc 3's 9000 is excluded by `to`.
+  - match: { aggregations.ports.buckets.1.doc_count: 1 }
+  # doc 3's 2021-06-01 is a second value; doc 1's 2024 is out, doc 2's 2024 is out.
+  - match: { aggregations.dates.buckets.0.doc_count: 1 }
+  # doc 1's 10.0.0.3 and doc 3's 10.0.0.4 are second/first values in range.
+  - match: { aggregations.ips.buckets.0.doc_count: 2 }

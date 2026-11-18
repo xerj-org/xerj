@@ -76,7 +76,9 @@ export const Nav = ({
     }
     // Determine the active group from the active dashboard.
     const activeDashObj = dashboards.find((d) => d.id === activeDash);
-    const activeGroup = activeDashObj?.group || (groups[0]?.id || 'other');
+    const activeGroup = activeDashObj
+      ? (activeDashObj.group || 'other')
+      : (groups[0]?.id || 'other');
 
     // Stable order: the `groups` registry. Any group that exists in
     // data but not in the registry is appended at the end.

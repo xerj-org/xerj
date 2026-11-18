@@ -68,10 +68,33 @@ OG_IMAGE_ALT = "XERJ.ai — the search engine built for AI agents"
 #: `404.html` is the Cloudflare Pages not-found page.  It is reachable at
 #: `/404` as an ordinary document, so without an explicit `noindex` it would
 #: be a real indexable page whose whole content is an error message.
+#:
+#: 2026-11-07 home redesign: the pages that left the nav and the footer are
+#: kept out of the index too. The enterprise funnel (pricing, security,
+#: solutions, resources, industries) carries passed dates and promises with
+#: no company behind them, and the two old demos are superseded by the
+#: benchmark scorecard; all of those are also 301'd in landing/_redirects.
+#: The playground gate is a mock ("BACKEND PENDING"), architecture, the
+#: agentic-search demo and the brand page stay reachable by URL only.
 NOINDEX: frozenset[str] = frozenset({
     "404.html",
     "brandbook/index.html",
     "playground/index.html",
+    "playground.html",
+    "pricing/index.html",
+    "security/index.html",
+    "solutions/index.html",
+    "resources/index.html",
+    "industries/index.html",
+    "industries/finserv.html",
+    "industries/healthcare.html",
+    "industries/public-sector.html",
+    "industries/retail.html",
+    "demo/index.html",
+    "aise-demo.html",
+    "architecture/index.html",
+    "agent-search/index.html",
+    "brand.html",
 })
 
 #: Pages deliberately kept out of sitemap.xml.  Google: a `noindex` page must
@@ -274,20 +297,62 @@ def is_noindex(rel: str) -> bool:
 # ── git-derived dates ───────────────────────────────────────────────────────
 
 
+# Chrome that a sitewide commit rewrites without changing the page's content.
+# Stripped before a git date is treated as a content change: the GA4 tag lives
+# in <head>, the hub/social icons live in the primary nav, and fix_links owns
+# the footer block; the footer strip carries sitewide links only. A lastmod taken from `git log -1` on the HTML file moves
+# every URL on the day any of those land.
+_CHROME_RES = (
+    re.compile(r"<head\b[^>]*>.*?</head>", re.I | re.S),
+    re.compile(r'<nav\b[^>]*\baria-label="Primary"[^>]*>.*?</nav>', re.I | re.S),
+    re.compile(r"<!-- seo:footer-begin.*?<!-- seo:footer-end -->", re.S),
+    # The one-line identity strip under the map: sitewide links only.
+    re.compile(r'<footer class="footer">.*?</footer>', re.S),
+)
+_ISO_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+_UPDATED_RE = re.compile(r'(?m)^updated:\s*"?(\d{4}-\d{2}-\d{2})"?\s*$')
+_JSONLD_MODIFIED_RE = re.compile(
+    r'"dateModified"\s*:\s*"(\d{4}-\d{2}-\d{2})"')
+_SITEMAP_LASTMOD_RE = re.compile(
+    r"<loc>(.*?)</loc>\s*<lastmod>(\d{4}-\d{2}-\d{2})</lastmod>", re.S)
+
+
+def content_bytes(html: str) -> str:
+    """Page bytes that are not shared chrome."""
+    for pattern in _CHROME_RES:
+        html = pattern.sub("", html)
+    return html
+
+
 class DateSource:
     """Per-file last/first change dates, from git where possible.
 
-    `git log -1 --format=%cs -- <file>` is the authoritative answer: it is
-    verifiable by construction, which is exactly the condition Google states
-    for trusting <lastmod>.  When git cannot answer (shallow clone, file not
-    yet committed, no git at all) we fall back to the filesystem mtime and
-    record it in `self.fallbacks` so the caller can log it loudly.
+    `git log -1 --format=%cs -- <file>` is still what `last_modified` returns,
+    and `fix_heads` keeps using it for pages that have no pinned date.
+    Sitemap `<lastmod>` does not. A sitewide head or nav commit, or a shallow
+    checkout whose mtimes are all "today", would otherwise stamp every URL
+    with one date, and Google stops trusting lastmod sitewide once it is
+    wrong. `page_lastmod` therefore prefers a content date that survives
+    those checkouts:
+
+      1. `updated:` in the article source (`content/<section>/<slug>.md`);
+      2. `dateModified` already published in the page's JSON-LD;
+      3. `updated` pinned in `pagedata.py`;
+      4. on a full clone, the last commit that changed the page outside
+         shared chrome;
+      5. the `<lastmod>` already committed in `sitemap.xml` for that URL;
+      6. the filesystem mtime, recorded in `self.fallbacks`.
+
+    Steps 1–3 are in the files a shallow checkout still has. Step 5 is how a
+    shallow regen avoids rewriting every remaining URL to today.
     """
 
     def __init__(self, repo_root: pathlib.Path):
         self.repo_root = repo_root
         self.fallbacks: list[str] = []
+        self.prior_used: list[str] = []
         self.git_ok = self._probe()
+        self._prior_cache: dict[str, dict[str, str]] = {}
 
     def _probe(self) -> bool:
         try:
@@ -346,6 +411,123 @@ class DateSource:
         if d:
             return d
         return self.last_modified(path)
+
+    def committed_lastmods(self, sitemap: pathlib.Path) -> dict[str, str]:
+        """`<loc>` → `<lastmod>` already written in a sitemap, if it parses."""
+        key = str(sitemap)
+        cached = self._prior_cache.get(key)
+        if cached is not None:
+            return cached
+        out: dict[str, str] = {}
+        try:
+            text = sitemap.read_text(encoding="utf-8")
+        except OSError:
+            text = ""
+        for loc, lastmod in _SITEMAP_LASTMOD_RE.findall(text):
+            if _ISO_DATE_RE.fullmatch(lastmod):
+                out[loc] = lastmod
+        self._prior_cache[key] = out
+        return out
+
+    def page_lastmod(self, rel: str, html_path: pathlib.Path,
+                     prior: dict[str, str] | None = None) -> str:
+        """Content lastmod for one sitemap URL. See the class docstring."""
+        pinned = self._source_updated(rel)
+        if pinned:
+            return pinned
+        if html_path.is_file():
+            try:
+                html = html_path.read_text(encoding="utf-8")
+            except OSError:
+                html = ""
+            published = _JSONLD_MODIFIED_RE.search(html)
+            if published:
+                return published.group(1)
+        pinned = self._pagedata_updated(rel)
+        if pinned:
+            return pinned
+        if self.git_ok:
+            changed = self._content_git_date(html_path)
+            if changed:
+                return changed
+        loc = deployed_url(rel)
+        if prior and loc in prior:
+            self.prior_used.append(rel)
+            return prior[loc]
+        self.fallbacks.append(str(html_path))
+        return self._mtime_date(html_path)
+
+    def _source_updated(self, rel: str) -> str | None:
+        try:
+            from article_data import source_for_rel
+        except ImportError:
+            return None
+        source = source_for_rel(self.repo_root, rel)
+        if source is None or not source.is_file():
+            return None
+        try:
+            text = source.read_text(encoding="utf-8")
+        except OSError:
+            return None
+        match = _UPDATED_RE.search(text)
+        return match.group(1) if match else None
+
+    @staticmethod
+    def _pagedata_updated(rel: str) -> str | None:
+        try:
+            import pagedata
+            meta = pagedata.entry(rel)
+        except (ImportError, KeyError, OSError):
+            return None
+        updated = meta.get("updated") if isinstance(meta, dict) else None
+        if isinstance(updated, str) and _ISO_DATE_RE.fullmatch(updated):
+            return updated
+        return None
+
+    def _repo_rel(self, path: pathlib.Path) -> str | None:
+        try:
+            return path.resolve().relative_to(self.repo_root.resolve()).as_posix()
+        except ValueError:
+            return None
+
+    def _content_git_date(self, path: pathlib.Path) -> str | None:
+        """Last commit whose diff changes more than shared chrome."""
+        rel = self._repo_rel(path)
+        if rel is None:
+            return None
+        env = {**os.environ, "TZ": "UTC"}
+        try:
+            log = subprocess.run(
+                ["git", "-C", str(self.repo_root), "log",
+                 "--date=format-local:%Y-%m-%d", "--format=%H %cd", "--", rel],
+                capture_output=True, text=True, timeout=60, env=env)
+        except (OSError, subprocess.SubprocessError):
+            return None
+        if log.returncode != 0:
+            return None
+        commits = [ln.split() for ln in log.stdout.splitlines() if ln.strip()]
+        if not commits:
+            return None
+
+        def blob(rev: str) -> str | None:
+            try:
+                shown = subprocess.run(
+                    ["git", "-C", str(self.repo_root), "show", f"{rev}:{rel}"],
+                    capture_output=True, timeout=30)
+            except (OSError, subprocess.SubprocessError):
+                return None
+            if shown.returncode != 0:
+                return None
+            return content_bytes(shown.stdout.decode("utf-8", "replace"))
+
+        for index, (rev, day) in enumerate(commits):
+            current = blob(rev)
+            if index + 1 >= len(commits):
+                return day
+            previous = blob(commits[index + 1][0])
+            if current != previous:
+                return day
+        return commits[0][1]
 
 
 def repo_root(start: pathlib.Path | None = None) -> pathlib.Path:

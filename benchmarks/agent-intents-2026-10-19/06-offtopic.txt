@@ -1,0 +1,94 @@
+lz4  pin 2026-10-02 (18 days old)  mixed: BSD-2 (lib) / GPL-2.0+ (rest)  lz4/SECURITY.md:0
+# Security Policy
+
+If you have discovered a security vulnerability in this project, please report it
+privately. **Do not disclose it as a public issue.** This gives me time to work with you
+to fix the issue before public exposure, reducing the chance that the exploit will be
+used before a patch is released.
+
+Please submit the report by filling out
+[this form](https://github.com/lz4/lz4/security/advisories/new).
+
+Please provide the following information in your report:
+
+- A description of the vulnerability and its impact
+- How to reproduce the issue
+
+This project is maintained by a single maintainer on a reasonable-effort basis. As such,
+I ask that you give me 90 days to work on a fix before public exposure.
+  approach-only licence (mixed: BSD-2 (lib) / GPL-2.0+ (rest)): read, do not copy
+lz4  pin 2026-10-02 (18 days old)  mixed: BSD-2 (lib) / GPL-2.0+ (rest)  lz4/doc/lz4_Frame_format.md:0
+| MagicNb | B.CSize | CData | B.CSize | CData |  (...)  | EndMark |
+| ------- | ------- | ----- | ------- | ----- | ------- | ------- |
+| 4 bytes | 4 bytes | CSize | 4 bytes | CSize | x times |   EOF   |
+
+
+__Magic Number__
+
+4 Bytes, Little endian format.
+Value : 0x184C2102
+
+__Block Compressed Size__
+
+This is the size, in bytes, of the following compressed data block.
+4 Bytes, Little endian format.
+
+__Data__
+
+Where the actual compressed data stands.
+Data is always compressed, even when compression is detrimental.
+
+__EndMark__
+
+End of legacy frame is implicit only.
+It must be followed by a standard EOF (End Of File) signal,
+whether it is a file or a stream.
+
+Alternatively, if the frame is followed by a valid Frame Magic Number,
+it is considered completed.
+This policy makes it possible to con
+  approach-only licence (mixed: BSD-2 (lib) / GPL-2.0+ (rest)): read, do not copy
+lz4  pin 2026-10-02 (18 days old)  mixed: BSD-2 (lib) / GPL-2.0+ (rest)  lz4/programs/lz4io.c:594
+static void LZ4IO_checkWriteOrder(void* arg)
+{
+    WriteJobDesc* const wjd = (WriteJobDesc*)arg;
+    size_t const cSize = wjd->cSize;
+    WriteRegister* const wr = wjd->wr;
+
+    if (wjd->blockNb != wr->expectedRank) {
+        /* incorrect order : let's store this buffer for later write */
+        BufferDesc bd;
+        bd.buf = wjd->cBuf;
+        bd.size = wjd->cSize;
+        bd.rank = wjd->blockNb;
+        WR_addBufDesc(wr, &bd);
+        free(wjd);  /* because wjd is pod */
+        return;
+    }
+
+    /* expected block ID : let's write this block */
+    {   BufferDesc bd;
+        bd.buf = wjd->cBuf;
+        bd.size = wjd->cSize;
+        bd.rank = wjd->blockNb;
+        LZ4IO_writeBuffer(bd, wjd->out);
+    }
+    wr->expectedRank++;
+    wr->totalCSize += cSize;
+    free(wjd->cBuf);
+    /* and
+    ... [function LZ4IO_checkWriteOrder truncated at 800 chars]
+  approach-only licence (mixed: BSD-2 (lib) / GPL-2.0+ (rest)): read, do not copy
+lz4  pin 2026-10-02 (18 days old)  mixed: BSD-2 (lib) / GPL-2.0+ (rest)  lz4/lib/lz4frame.c:638
+LZ4F_errorCode_t LZ4F_freeCompressionContext(LZ4F_cctx* cctxPtr)
+{
+    if (cctxPtr != NULL) {  /* support free on NULL */
+       LZ4F_free(cctxPtr->lz4CtxPtr, cctxPtr->cmem);  /* note: LZ4_streamHC_t and LZ4_stream_t are simple POD types */
+       LZ4F_free(cctxPtr->tmpBuff, cctxPtr->cmem);
+       LZ4F_free(cctxPtr, cctxPtr->cmem);
+    }
+    return LZ4F_OK_NoError;
+}
+  approach-only licence (mixed: BSD-2 (lib) / GPL-2.0+ (rest)): read, do not copy
+answered from: local pack
+warning: approach-only licence (mixed: BSD-2 (lib) / GPL-2.0+ (rest)): read, do not copy

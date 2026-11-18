@@ -342,10 +342,14 @@ fn run_worker(
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::null());
+    // Probe in the parent. A kernel that rejects RLIMIT_AS (macOS 27, EINVAL)
+    // must not fail this spawn; the warning is taken from the progress stream
+    // after the scan. The child still skips EINVAL/EPERM itself.
+    let _ = super::rlimit::address_space_cap_supported();
     // SAFETY: the closure runs in the forked child before exec and calls only
     // async-signal-safe libc (`setpgid`, `setrlimit`). Its own process group so
     // the parent can reap the whole tree; the rlimits cap the child's blast
-    // radius to itself.
+    // radius to itself. A benign RLIMIT_AS refusal does not allocate.
     unsafe {
         command.pre_exec(worker_pre_exec);
     }
@@ -362,22 +366,23 @@ fn run_worker(
     // #1122: `std::thread::spawn` panics when a thread cannot be created and
     // release builds are panic=abort; a failed spawn stops the worker and
     // fails this one file instead of aborting the run.
-    let reader = match std::thread::Builder::new()
-        .name("xerj-xls-stdout".into())
-        .spawn(move || read_capped(stdout, MAX_WORKER_OUTPUT))
-    {
-        Ok(reader) => reader,
-        Err(error) => {
-            kill_group(pid);
-            let _ = child.wait();
-            return Err(error).with_context(|| {
-                format!(
-                    "could not start the .xls reader's output thread for {}",
-                    path.display()
-                )
-            });
-        }
-    };
+    let reader =
+        match xerj_common::thread_spawn::try_spawn_returning("xerj-xls-stdout", move || {
+            read_capped(stdout, MAX_WORKER_OUTPUT)
+        }) {
+            Ok(reader) => reader,
+            Err(failure) => {
+                drop(failure.job);
+                kill_group(pid);
+                let _ = child.wait();
+                return Err(failure.error).with_context(|| {
+                    format!(
+                        "could not start the .xls reader's output thread for {}",
+                        path.display()
+                    )
+                });
+            }
+        };
 
     let started = std::time::Instant::now();
     let status = loop {
@@ -476,42 +481,72 @@ fn worker_pre_exec() -> std::io::Result<()> {
 /// Only ever *lowers* a limit: an unprivileged process cannot raise its hard
 /// limit, so the target is clamped to whatever was inherited. This matters when
 /// the indexer already runs under a tighter cgroup or `ulimit -v` — trying to
-/// set a higher ceiling there would `EPERM` and fail the whole spawn, turning
-/// every `.xls` (benign included) into junk.
+/// set a higher ceiling there would `EPERM`.
+///
+/// `RLIMIT_AS` treats `EINVAL` and `EPERM` as "this platform will not install
+/// the cap" and returns `Ok` (#2336). The cap is crash isolation. Failing the
+/// spawn junked every `.xls` on macOS 27, where `setrlimit(RLIMIT_AS)` is
+/// rejected outright. `RLIMIT_CPU` stays strict: a failure there is still a
+/// failed spawn.
 #[cfg(unix)]
 fn set_worker_rlimits() -> std::io::Result<()> {
     // Set `$res`'s soft/hard limits to the requested values, each capped at the
     // inherited hard limit so the call never tries to RAISE a ceiling (which an
-    // unprivileged process may not do, and which would `EPERM` the whole spawn).
-    // A macro, not a function, so the resource constant is passed straight to
-    // libc without naming its type — that type is `__rlimit_resource_t` on
-    // glibc but `c_int` on macOS/BSD.
+    // unprivileged process may not do). A macro, not a function, so the
+    // resource constant is passed straight to libc without naming its type —
+    // that type is `__rlimit_resource_t` on glibc but `c_int` on macOS/BSD.
+    // `$benign` skips EINVAL/EPERM without allocating; the fatal path builds
+    // the `io::Error` only when the spawn must fail.
     macro_rules! clamp {
-        ($res:expr, $soft:expr, $hard:expr) => {{
+        ($res:expr, $soft:expr, $hard:expr, $benign:expr) => {{
             let mut current = libc::rlimit {
                 rlim_cur: 0,
                 rlim_max: 0,
             };
             // SAFETY: plain libc FFI over an out-param `rlimit`.
-            if unsafe { libc::getrlimit($res, &mut current) } != 0 {
-                return Err(std::io::Error::last_os_error());
-            }
-            let ceiling = current.rlim_max; // inherited hard limit (maybe RLIM_INFINITY)
-            let want_hard = ($hard as libc::rlim_t).min(ceiling);
-            let want_soft = ($soft as libc::rlim_t).min(want_hard);
-            let limit = libc::rlimit {
-                rlim_cur: want_soft,
-                rlim_max: want_hard,
+            let refused = if unsafe { libc::getrlimit($res, &mut current) } != 0 {
+                let errno = super::rlimit::errno_raw();
+                if $benign && super::rlimit::refusal_is_benign(errno) {
+                    true
+                } else {
+                    return Err(std::io::Error::from_raw_os_error(errno));
+                }
+            } else {
+                false
             };
-            // SAFETY: as above; cur <= max <= inherited max, so this only lowers.
-            if unsafe { libc::setrlimit($res, &limit) } != 0 {
-                return Err(std::io::Error::last_os_error());
+            if !refused {
+                let ceiling = current.rlim_max; // inherited hard limit (maybe RLIM_INFINITY)
+                let want_hard = ($hard as libc::rlim_t).min(ceiling);
+                let want_soft = ($soft as libc::rlim_t).min(want_hard);
+                let limit = libc::rlimit {
+                    rlim_cur: want_soft,
+                    rlim_max: want_hard,
+                };
+                // SAFETY: as above; cur <= max <= inherited max, so this only lowers.
+                if unsafe { libc::setrlimit($res, &limit) } != 0 {
+                    let errno = super::rlimit::errno_raw();
+                    if $benign && super::rlimit::refusal_is_benign(errno) {
+                        // Inherited limit stands. The worker still starts.
+                    } else {
+                        return Err(std::io::Error::from_raw_os_error(errno));
+                    }
+                }
             }
         }};
     }
-    clamp!(libc::RLIMIT_AS, WORKER_ADDRESS_SPACE, WORKER_ADDRESS_SPACE);
+    clamp!(
+        libc::RLIMIT_AS,
+        WORKER_ADDRESS_SPACE,
+        WORKER_ADDRESS_SPACE,
+        true
+    );
     // Soft limit sends SIGXCPU; hard limit (a touch higher) escalates to SIGKILL.
-    clamp!(libc::RLIMIT_CPU, WORKER_CPU_SECONDS, WORKER_CPU_SECONDS + 2);
+    clamp!(
+        libc::RLIMIT_CPU,
+        WORKER_CPU_SECONDS,
+        WORKER_CPU_SECONDS + 2,
+        false
+    );
     Ok(())
 }
 

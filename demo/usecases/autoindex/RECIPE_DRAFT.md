@@ -203,12 +203,12 @@ done in 0.1s — 3 datasets, 5801 records live, 0 junk records, 1 junk/skipped f
 just polite re-runs: in the robustness evaluation, a `kill -9` at 18 s into a
 200 MB file followed by a re-run converged to **byte-identical counts across
 all 9 datasets** — no duplicates. `xerj autoindex status` shows the journal
-and live index counts. `--fresh` ignores the resume journal and restarts (ids stay idempotent), which on a
-graph-enabled or pre-generation state directory is how a rerun picks up files added
-since the last one. It never removes stale records from the destination, and it is
-refused once the state directory holds a durable corpus generation — re-run without it
-and the generated `--no-graph` path reconciles additions, changes, deletions, renames
-and no-op reruns incrementally.
+and live index counts. `--fresh` ignores the resume journal and restarts (ids stay idempotent for unchanged
+bytes), which on a graph-enabled or pre-generation state directory is how a rerun picks up files added
+since the last one. A file that is still present and whose content key changed is republished, and the
+documents previously published for that path are removed. It does not remove documents for a file that
+disappeared, and it is refused once the state directory holds a durable corpus generation — re-run without it
+and the generated `--no-graph` path reconciles additions, changes, deletions, renames and no-op reruns incrementally.
 
 On a graph-enabled or pre-generation journal, a rerun that resumes an existing plan
 indexes changed files and reports added ones as skipped. Deleting a file is refused

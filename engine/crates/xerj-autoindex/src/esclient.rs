@@ -25,6 +25,9 @@ pub struct Es {
     /// How long one `bulk` call keeps re-offering records the server
     /// rejected with a per-item 429 (see [`THROTTLE_PATIENCE`]).
     throttle_patience: Duration,
+    /// How long a bulk that has not had a single item accepted keeps
+    /// re-asking a parent memory breaker (see [`ZERO_PROGRESS_PATIENCE`]).
+    zero_progress_patience: Duration,
     /// Most actions this client puts in one `_bulk` request before the server
     /// has said anything about it. See [`BULK_MAX_ACTIONS`]; tests shrink it.
     bulk_max_actions: usize,
@@ -34,6 +37,10 @@ pub struct Es {
     /// Run-wide record of per-item back-pressure re-sends (#944), reported on
     /// `xerj-done`. Shared by every clone, like `admission`.
     throttle_ledger: Arc<ThrottleLedger>,
+    /// Set once a connect failure shows the node is not accepting connections
+    /// (#2177). Shared by every clone: one dead `_bulk` stops the rest of the
+    /// run from retrying into the same process.
+    node_down: Arc<NodeDownLatch>,
     /// Every delay this client has actually backed off for, in order.
     /// Test-only, and per-instance rather than global so a concurrent test
     /// cannot perturb it — `--test-threads=2` in CI is exactly the shape that
@@ -51,6 +58,199 @@ pub struct Es {
     /// this client, like `admission` — a clone is the same client.
     #[cfg(test)]
     backoff_delays: Arc<std::sync::Mutex<Vec<(Duration, Duration)>>>,
+    /// The reason text each retry notice rendered, in order. The print itself
+    /// goes to stderr; this is what a test asserts (#2177).
+    #[cfg(test)]
+    notices: Arc<Mutex<Vec<String>>>,
+}
+
+/// A service answered the readiness request without identifying as XERJ.
+#[derive(Debug)]
+pub(crate) struct UnexpectedNode(reqwest::StatusCode);
+
+impl std::fmt::Display for UnexpectedNode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "GET / returned HTTP {} without a XERJ node identity",
+            self.0
+        )
+    }
+}
+
+impl std::error::Error for UnexpectedNode {}
+
+/// The message latched when the node stops accepting connections.
+struct NodeDownLatch {
+    message: Mutex<Option<String>>,
+}
+
+/// How long a non-connect retry notice may be, in characters.
+///
+/// Connect failures are not capped ([`notice_reason`]). This bound is only
+/// for the other transport and 5xx chains, and it keeps the tail — the
+/// cause — rather than a fixed prefix.
+const NOTICE_REASON_CHARS: usize = 240;
+
+/// `true` when `text` is the report [`node_down_message`] builds. The phase-B
+/// bail prints that report on its own, instead of wrapping it as a generic
+/// bulk failure.
+pub(crate) fn is_node_down_report(text: &str) -> bool {
+    text.contains("is down or unreachable")
+}
+
+/// One line of an anyhow chain (`{:#}` joins causes with `: `).
+fn one_line_chain(error: &anyhow::Error) -> String {
+    format!("{error:#}").replace(['\n', '\r'], " ")
+}
+
+/// The text a retry notice shows for `error`.
+///
+/// A node that is not accepting connections is rendered in full. The chain
+/// reqwest and hyper-util produce for a refused `_bulk` is
+///
+/// ```text
+/// bulk send (request timeout 300s): error sending request for url (http://127.0.0.1:9200/_bulk): client error (Connect): tcp connect error: Connection refused (os error 111)
+/// ```
+///
+/// and character 120 of that string is the `t` of `tcp connect error`.
+/// Truncating there is what #2177 printed as `client error (Connect): t`.
+/// The address is the `for url (...)` segment; the OS cause is the last
+/// segment. Both have to survive.
+///
+/// This is the only place a transport-error chain is shortened. The other
+/// caps in this file (`SERVER_REASON_MAX`) bound the server's response body,
+/// and `generation_catalog` bounds a catalog field diff. Neither formats a
+/// connect error.
+fn notice_reason(error: &anyhow::Error) -> String {
+    let full = one_line_chain(error);
+    if is_node_unreachable(error) {
+        return full;
+    }
+    cap_keeping_tail(&full, NOTICE_REASON_CHARS)
+}
+
+/// Keep the end of `full` when it is longer than `max_chars`.
+///
+/// Causes are appended after `: `. If the cut would leave only a few
+/// characters of the next segment, start at the following boundary so a
+/// cause is never reduced to its first letter.
+fn cap_keeping_tail(full: &str, max_chars: usize) -> String {
+    let chars: Vec<char> = full.chars().collect();
+    if chars.len() <= max_chars || max_chars == 0 {
+        return full.to_string();
+    }
+    let mut start = chars.len() - (max_chars - 1);
+    let preview: String = chars[start..].iter().collect();
+    if let Some(rel) = preview.find(": ") {
+        if rel > 0 && rel < 8 {
+            start = (start + rel + 2).min(chars.len());
+        }
+    }
+    let mut out = String::from("…");
+    out.extend(chars[start..].iter().copied());
+    out
+}
+
+/// `true` when `err` is "nothing accepted the connection", not a timeout, a
+/// TLS failure after connect, or an HTTP status.
+///
+/// `reqwest::Error::is_connect` is necessary but not sufficient: a connect
+/// timeout is also a connect error, and that one still belongs to the
+/// ordinary six-attempt budget. The OS refusal (`ConnectionRefused`, and the
+/// Windows wording "actively refused") is the dead-node signal.
+fn is_node_unreachable(err: &anyhow::Error) -> bool {
+    if chain_is_timeout(err) {
+        return false;
+    }
+    let mut connectish = false;
+    let mut refused = false;
+    for cause in err.chain() {
+        if let Some(req) = cause.downcast_ref::<reqwest::Error>() {
+            if req.is_connect() {
+                connectish = true;
+            }
+        }
+        if let Some(io) = cause.downcast_ref::<std::io::Error>() {
+            match io.kind() {
+                std::io::ErrorKind::ConnectionRefused
+                | std::io::ErrorKind::AddrNotAvailable
+                | std::io::ErrorKind::HostUnreachable
+                | std::io::ErrorKind::NetworkUnreachable => return true,
+                _ => {}
+            }
+        }
+        let text = cause.to_string().to_ascii_lowercase();
+        if text.contains("client error (connect)") || text.contains("tcp connect error") {
+            connectish = true;
+        }
+        if text.contains("connection refused")
+            || text.contains("actively refused")
+            || text.contains("network is unreachable")
+            || text.contains("host is unreachable")
+            || text.contains("no route to host")
+        {
+            refused = true;
+        }
+    }
+    connectish && refused
+}
+
+fn chain_is_timeout(err: &anyhow::Error) -> bool {
+    err.chain().any(|cause| {
+        if let Some(req) = cause.downcast_ref::<reqwest::Error>() {
+            if req.is_timeout() {
+                return true;
+            }
+        }
+        if let Some(io) = cause.downcast_ref::<std::io::Error>() {
+            if io.kind() == std::io::ErrorKind::TimedOut {
+                return true;
+            }
+        }
+        cause.to_string().to_ascii_lowercase().contains("timed out")
+    })
+}
+
+fn node_down_message(url: &str, cause: &anyhow::Error) -> String {
+    let detail = one_line_chain(cause);
+    format!(
+        "the node at {url} is down or unreachable ({detail}). \
+         The run can be resumed: files already journaled stay indexed, and the \
+         file in flight was not marked complete. Re-run this command:\n  {}",
+        resume_command()
+    )
+}
+
+/// The process argv, quoted so a path with spaces pastes as one command.
+fn resume_command() -> String {
+    std::env::args()
+        .map(|arg| quote_resume_arg(&arg))
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+/// Quote one argv element. Unquoted when every character is safe to paste.
+/// Otherwise POSIX single quotes, or double quotes on Windows, where the
+/// report that found this (#2177) was pasted into cmd / PowerShell.
+fn quote_resume_arg(s: &str) -> String {
+    if s.is_empty() {
+        return if cfg!(windows) {
+            "\"\"".to_string()
+        } else {
+            "''".to_string()
+        };
+    }
+    let safe = s
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '/' | '.' | '_' | '-' | ':' | '\\'));
+    if safe {
+        s.to_string()
+    } else if cfg!(windows) {
+        format!("\"{}\"", s.replace('"', "\\\""))
+    } else {
+        format!("'{}'", s.replace('\'', "'\\''"))
+    }
 }
 
 /// The server understood a create-index or put-mapping request and REFUSED it.
@@ -141,6 +341,14 @@ pub struct BulkAdmission {
     /// Upper bound on the limit — what the operator asked for. `0` means the
     /// gate is off entirely (probes and one-shot clients).
     ceiling: usize,
+    /// How long `acquire` will wait for a slot before failing the bulk.
+    ///
+    /// A leaked permit (the holder never returned) used to park every later
+    /// bulk on `Condvar::wait` with no timeout. The field report's 56% stall
+    /// was a client with no open connections and a frozen progress line. The
+    /// budget matches the bulk HTTP timeout: a slot is only supposed to be
+    /// held for one request.
+    wait_budget: Duration,
     congestion_events: AtomicU64,
     /// Whether limit changes are announced on stderr. Off for `--quiet` and
     /// for clients that are not a user-visible run.
@@ -230,9 +438,17 @@ impl BulkAdmission {
             }),
             space: Condvar::new(),
             ceiling,
+            wait_budget: Duration::from_secs(300),
             congestion_events: AtomicU64::new(0),
             announce,
         }
+    }
+
+    /// Tests use a short budget. Production sets this from the bulk HTTP
+    /// timeout in `Es::with_bulk_concurrency`.
+    fn with_wait_budget(mut self, budget: Duration) -> Self {
+        self.wait_budget = budget;
+        self
     }
 
     fn enabled(&self) -> bool {
@@ -259,18 +475,65 @@ impl BulkAdmission {
     }
 
     /// Block until a bulk slot is free. Cheap and non-blocking when off.
-    fn acquire(&self) -> BulkPermit<'_> {
+    ///
+    /// The wait is sliced so a missed wakeup rechecks the condition, and it
+    /// fails once `wait_budget` elapses. A heartbeat goes to stderr while
+    /// the run is still waiting, on the same cadence the progress bar uses
+    /// for a person watching a pipe.
+    fn acquire(&self) -> Result<BulkPermit<'_>> {
         if !self.enabled() {
-            return BulkPermit { admission: None };
+            return Ok(BulkPermit { admission: None });
         }
+        const SLICE: Duration = Duration::from_secs(5);
+        const HEARTBEAT: Duration = Duration::from_secs(15);
+        let started = Instant::now();
+        let mut next_heartbeat = HEARTBEAT;
         let mut state = self.inner.lock().unwrap();
         while state.in_flight >= state.limit {
-            state = self.space.wait(state).unwrap();
+            let left = self.wait_budget.saturating_sub(started.elapsed());
+            if left.is_zero() {
+                anyhow::bail!(
+                    "autoindex: waited {}s for a bulk slot (in_flight={} limit={}). \
+                     A previous bulk did not return its slot, so this run stops \
+                     instead of hanging. Re-run the same command to resume.",
+                    started.elapsed().as_secs(),
+                    state.in_flight,
+                    state.limit
+                );
+            }
+            let (guard, _) = self
+                .space
+                .wait_timeout(state, SLICE.min(left))
+                .expect("bulk admission lock poisoned");
+            state = guard;
+            if state.in_flight < state.limit {
+                break;
+            }
+            let waited = started.elapsed();
+            if waited >= self.wait_budget {
+                anyhow::bail!(
+                    "autoindex: waited {}s for a bulk slot (in_flight={} limit={}). \
+                     A previous bulk did not return its slot, so this run stops \
+                     instead of hanging. Re-run the same command to resume.",
+                    waited.as_secs(),
+                    state.in_flight,
+                    state.limit
+                );
+            }
+            if self.announce && waited >= next_heartbeat {
+                eprintln!(
+                    "autoindex: still waiting for a bulk slot (in_flight={} limit={}) after {}s",
+                    state.in_flight,
+                    state.limit,
+                    waited.as_secs()
+                );
+                next_heartbeat += HEARTBEAT;
+            }
         }
         state.in_flight += 1;
-        BulkPermit {
+        Ok(BulkPermit {
             admission: Some(self),
-        }
+        })
     }
 
     /// The server said 429. Halve the offered load, once per event.
@@ -380,6 +643,60 @@ impl BulkAdmission {
 /// 5xx and write blocks are NOT waited on — they are not congestion.
 pub const THROTTLE_PATIENCE: Duration = Duration::from_secs(600);
 
+/// How long a bulk that has accepted nothing will keep re-asking the parent
+/// memory breaker before the run stops and names the cap (#2238).
+///
+/// [`THROTTLE_PATIENCE`] stays the budget once any item in the bulk has been
+/// accepted: a drain that is freeing memory (the #944 mailbox held the
+/// breaker for 57 s before drains existed; releases after #948 are seconds)
+/// must be allowed to finish. A bulk the server has not taken a single item
+/// from is the other shape — the 8 GiB auto tier's breaker loop, indexed
+/// count stuck at 0 for several minutes with no statement of what to change.
+/// Ninety seconds is past that 57 s hold and past one drain of the auto
+/// tier's 2 GiB memtable budget, and short of a multi-minute spin.
+pub const ZERO_PROGRESS_PATIENCE: Duration = Duration::from_secs(90);
+
+/// The engine's per-query guard (`limits.max_query_memory_mb`) refusing a
+/// request whose estimated allocation exceeds the budget. Unlike the parent
+/// breaker this is a property of the query and the data, not of the moment.
+pub(crate) fn is_query_allocation_refusal(reason: &str) -> bool {
+    reason.contains("would exceed limits.max_query_memory_mb")
+}
+
+/// The parent memory breaker, as opposed to a disk flood-stage 429 or a
+/// thread-pool rejection. Both of its reasons carry one of these phrases.
+pub(crate) fn is_parent_memory_breaker(reason: &str) -> bool {
+    reason.contains("circuit breaker") || reason.contains("memtable byte budget")
+}
+
+/// Name `limits.max_process_memory_mb` on a parent-breaker 429 that does not
+/// already name it (#2238). Other failures are returned unchanged, and a
+/// reason that already carries the knob is not annotated twice.
+pub(crate) fn memory_cap_hint(reason: &str) -> String {
+    const MARKER: &str = "limits.max_process_memory_mb";
+    if reason.contains(MARKER) || !is_parent_memory_breaker(reason) {
+        return reason.to_owned();
+    }
+    format!(
+        "{reason} — raise {MARKER} or XERJ_MAX_PROCESS_MEMORY_MB \
+         (the auto memory tier derives this breaker's limit from that cap; 0 = whole machine)"
+    )
+}
+
+/// The back-pressure stop, with the process-memory cap named when the
+/// rejection is the parent breaker.
+pub(crate) fn backpressure_exhausted(
+    items: u64,
+    patience: Duration,
+    reason: &str,
+) -> BackpressureExhausted {
+    BackpressureExhausted {
+        items,
+        patience,
+        reason: memory_cap_hint(reason),
+    }
+}
+
 /// How often the wait is announced on stderr, so a run that is waiting on
 /// the server does not look like a hang.
 const NOTICE_EVERY: Duration = Duration::from_secs(30);
@@ -432,7 +749,7 @@ pub const SEARCH_PAGE_TIMEOUT: &str = "120s";
 /// 12-minute ceiling per page — enough to ride out a merge or a breaker
 /// drain, short enough to fail a genuinely wedged node within a run's
 /// patience (the bulk patience is 600 s, `THROTTLE_PATIENCE`).
-const PARTIAL_PAGE_ATTEMPTS: usize = 6;
+pub(crate) const PARTIAL_PAGE_ATTEMPTS: usize = 6;
 
 /// What this run has learned about how large a `_bulk` request the server
 /// takes, shared by every clone of a client like [`BulkAdmission`].
@@ -663,6 +980,10 @@ fn is_whole_request_too_large(v: &Value, sent_actions: Option<usize>) -> bool {
         == Some(413)
 }
 
+/// The server's wording for a document over its per-document byte limit
+/// (`xerj_common::document_limit`), however the item's status reads.
+const DOCUMENT_LIMIT_REASON: &str = "byte limit for one indexed JSON document";
+
 /// Read a bulk response body item by item.
 fn parse_round(v: &Value) -> Round {
     let items = v.get("items").and_then(|i| i.as_array());
@@ -704,7 +1025,7 @@ fn parse_round(v: &Value) -> Round {
                     op["error"]
                         .get("reason")
                         .and_then(Value::as_str)
-                        .map(|r| r.chars().take(300).collect())
+                        .map(|r| r.chars().take(SERVER_REASON_MAX).collect())
                         .unwrap_or_else(error_text),
                 );
             }
@@ -717,8 +1038,20 @@ fn parse_round(v: &Value) -> Round {
             if round.outcome.first_server_error.is_none() {
                 round.outcome.first_server_error = Some(error_text());
             }
-        } else if round.first_settled_error.is_none() {
-            round.first_settled_error = Some(op["error"].to_string().chars().take(300).collect());
+        } else {
+            if round.first_settled_error.is_none() {
+                round.first_settled_error =
+                    Some(op["error"].to_string().chars().take(300).collect());
+            }
+            let reason = op["error"]
+                .get("reason")
+                .and_then(Value::as_str)
+                .unwrap_or("");
+            round.outcome.refused.push(RefusedItem {
+                id: op.get("_id").and_then(Value::as_str).map(str::to_owned),
+                error: error_text(),
+                too_large: item_status == 413 || reason.contains(DOCUMENT_LIMIT_REASON),
+            });
         }
         if round.outcome.first_error.is_none() {
             round.outcome.first_error = Some(op["error"].to_string().chars().take(300).collect());
@@ -727,9 +1060,22 @@ fn parse_round(v: &Value) -> Round {
     round
 }
 
+/// One item the server refused for the record itself (not a 429, 5xx or
+/// write block), with the `_id` the bulk action named.
+#[derive(Debug, Clone)]
+pub struct RefusedItem {
+    pub id: Option<String>,
+    pub error: String,
+    /// Refused because the stored document passed the server's per-document
+    /// byte limit, which a retry of the same record cannot clear (#2807).
+    pub too_large: bool,
+}
+
 #[derive(Debug, Default)]
 pub struct BulkOutcome {
     pub item_errors: u64,
+    /// The record-level refusals counted in `item_errors`, in item order.
+    pub refused: Vec<RefusedItem>,
     /// Per-item backend/admission failures — 5xx/429 statuses plus
     /// cluster/index write blocks recognised by TYPE (see
     /// [`is_index_block_error`]). These are not bad source records: the same
@@ -743,12 +1089,17 @@ pub struct BulkOutcome {
     /// failure that says "come back later" rather than "something is broken".
     /// Callers use it to name the stop as back-pressure, not as an abort.
     pub throttled_out: u64,
+    /// The patience budget that elapsed when `throttled_out` was set.
+    /// `None` until a bulk gives up. The full [`THROTTLE_PATIENCE`] once any
+    /// item was accepted; [`ZERO_PROGRESS_PATIENCE`] when none was (#2238).
+    pub exhausted_after: Option<Duration>,
 }
 
 impl BulkOutcome {
     /// Fold the outcome of a later window of the same body into this one.
     fn absorb(&mut self, other: BulkOutcome) {
         self.item_errors += other.item_errors;
+        self.refused.extend(other.refused);
         self.server_errors += other.server_errors;
         self.throttled_out += other.throttled_out;
         if self.first_error.is_none() {
@@ -756,6 +1107,9 @@ impl BulkOutcome {
         }
         if self.first_server_error.is_none() {
             self.first_server_error = other.first_server_error;
+        }
+        if self.exhausted_after.is_none() {
+            self.exhausted_after = other.exhausted_after;
         }
     }
 }
@@ -840,16 +1194,26 @@ pub struct EmbeddingExecutionIdentity {
     pub version: u32,
     pub backend: String,
     pub identity_sha256: String,
-    /// Absent for backends whose vector width the server does not pin
-    /// (`proxy`, and a `neural` node that could not resolve its model assets;
-    /// a resolved `neural` node reports its `config.json` `hidden_size` since
-    /// #487). An absent width must not be read as 384.
+    /// Absent when the server has not pinned a vector width: a `proxy` whose
+    /// endpoint has not confirmed one (#2306), and a `neural` node that could
+    /// not resolve its model assets. A confirmed proxy reports the probed
+    /// width, and a resolved `neural` node reports its `config.json`
+    /// `hidden_size` (#487). An absent width must not be read as 384.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub dimensions: Option<usize>,
     pub semantic_contract: String,
     pub resumable: bool,
     #[serde(default)]
     pub non_resumable_reason: Option<String>,
+    /// Advisory neural-ingest sample from `GET /v1/embedding/identity`.
+    /// Absent on older servers and on every non-neural backend. Not part of
+    /// `identity_sha256`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ingest_probe_bytes: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ingest_probe_passages: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ingest_probe_millis: Option<u64>,
 }
 
 /// Ensure an autoindex index-create body pins the index to a single WAL shard.
@@ -875,6 +1239,23 @@ fn with_single_wal_shard(body: &Value) -> Value {
         }
     }
     body
+}
+
+/// HTTP client for one XERJ node.
+///
+/// A loopback URL (`127.0.0.1`, `localhost`, `::1`, `0.0.0.0` — the same
+/// hosts as [`xerj_common::localauth::url_is_loopback`]) skips
+/// `HTTP_PROXY` / `HTTPS_PROXY` / `ALL_PROXY`. reqwest would otherwise send
+/// `127.0.0.1` through them, and a proxy that cannot reach loopback answers
+/// HTTP 503 while the node is up (#2379). A non-loopback URL keeps those
+/// variables, including `NO_PROXY`.
+pub(crate) fn node_blocking_builder(url: &str) -> reqwest::blocking::ClientBuilder {
+    let builder = reqwest::blocking::Client::builder();
+    if xerj_common::localauth::url_is_loopback(url) {
+        builder.no_proxy()
+    } else {
+        builder
+    }
 }
 
 impl Es {
@@ -903,7 +1284,9 @@ impl Es {
         retry_initial_delay: Duration,
         retry_max_delay: Duration,
     ) -> Result<Self> {
-        let http = reqwest::blocking::Client::builder()
+        // Loopback skips HTTP(S)_PROXY / ALL_PROXY (#2379). A non-loopback
+        // URL keeps them, including NO_PROXY. Same rule as `xerj mcp`.
+        let http = node_blocking_builder(url)
             .timeout(Duration::from_secs(300))
             .danger_accept_invalid_certs(true)
             .build()
@@ -917,11 +1300,17 @@ impl Es {
             retry_max_delay,
             admission: Arc::new(BulkAdmission::off()),
             throttle_patience: THROTTLE_PATIENCE,
+            zero_progress_patience: ZERO_PROGRESS_PATIENCE,
             bulk_max_actions: BULK_MAX_ACTIONS,
             request_size: Arc::new(RequestSizeLedger::default()),
             throttle_ledger: Arc::new(ThrottleLedger::default()),
+            node_down: Arc::new(NodeDownLatch {
+                message: Mutex::new(None),
+            }),
             #[cfg(test)]
             backoff_delays: Arc::new(std::sync::Mutex::new(Vec::new())),
+            #[cfg(test)]
+            notices: Arc::new(Mutex::new(Vec::new())),
         })
     }
 
@@ -935,6 +1324,14 @@ impl Es {
     #[cfg(test)]
     fn with_throttle_patience(mut self, patience: Duration) -> Self {
         self.throttle_patience = patience;
+        self
+    }
+
+    /// How long a bulk the server has not accepted a single item from keeps
+    /// re-asking a parent memory breaker (tests shrink it).
+    #[cfg(test)]
+    fn with_zero_progress_patience(mut self, patience: Duration) -> Self {
+        self.zero_progress_patience = patience;
         self
     }
 
@@ -970,7 +1367,9 @@ impl Es {
     }
 
     pub fn with_bulk_concurrency(mut self, workers: usize, announce: bool) -> Self {
-        self.admission = Arc::new(BulkAdmission::new(workers.max(1), announce));
+        self.admission = Arc::new(
+            BulkAdmission::new(workers.max(1), announce).with_wait_budget(self.bulk_timeout),
+        );
         self
     }
 
@@ -982,6 +1381,12 @@ impl Es {
     /// How many distinct 429 congestion events this client answered.
     pub fn bulk_congestion_events(&self) -> u64 {
         self.admission.congestion_events()
+    }
+
+    /// `true` after a connect failure has shown the node is not accepting
+    /// connections. Phase B stops taking files when this flips (#2177).
+    pub fn node_is_down(&self) -> bool {
+        self.node_down.message.lock().unwrap().is_some()
     }
 
     fn req(&self, method: reqwest::Method, path: &str) -> reqwest::blocking::RequestBuilder {
@@ -1000,15 +1405,40 @@ impl Es {
     }
 
     pub fn ping(&self) -> Result<Value> {
+        Ok(self
+            .ping_response(Duration::from_secs(300))?
+            .json()
+            .unwrap_or(Value::Null))
+    }
+
+    /// One bounded readiness check before using XERJ's autoindex catalog.
+    /// Its root identity is independent of the advertised ES/OpenSearch version.
+    pub(crate) fn ping_xerj(&self) -> Result<()> {
+        let resp = self.ping_response(Duration::from_secs(5))?;
+        let status = resp.status();
+        if status.is_success()
+            && resp.json::<Value>().is_ok_and(|info| {
+                info["cluster_uuid"]
+                    .as_str()
+                    .is_some_and(|uuid| uuid.starts_with("xerj-cluster-"))
+            })
+        {
+            return Ok(());
+        }
+        Err(UnexpectedNode(status).into())
+    }
+
+    fn ping_response(&self, timeout: Duration) -> Result<reqwest::blocking::Response> {
         let resp = self
             .req(reqwest::Method::GET, "/")
+            .timeout(timeout)
             .send()
             .with_context(|| format!("endpoint unreachable: {}", self.base))?;
         let status = resp.status();
         if status.as_u16() == 401 || status.as_u16() == 403 {
             anyhow::bail!(self.auth_help(status.as_u16()));
         }
-        Ok(resp.json().unwrap_or(Value::Null))
+        Ok(resp)
     }
 
     /// The recovery message for a server that wants credentials we do not have.
@@ -1176,7 +1606,19 @@ impl Es {
     ) -> Attempt<T> {
         let status = resp.status();
         if status.as_u16() == 429 {
-            return Attempt::Throttled(server_reason(resp));
+            let reason = server_reason(resp);
+            if let Some(reason) = reason.as_deref().filter(|r| is_query_allocation_refusal(r)) {
+                // The per-query memory guard prices THIS request against a
+                // fixed budget. Nothing a wait can change makes the same query
+                // over the same documents cheaper, so retrying only stalls the
+                // caller for the whole throttle patience (#2427: 600 s per
+                // dataset in finalize-count).
+                return Attempt::Abort(anyhow!(
+                    "{what}: HTTP 429 Too Many Requests: {reason} (not retried: the per-query \
+                     memory guard refuses the same query again)"
+                ));
+            }
+            return Attempt::Throttled(reason);
         }
         if status.is_server_error() {
             return Attempt::Failed(match server_reason(resp) {
@@ -1213,13 +1655,20 @@ impl Es {
     ///
     /// * `Failed` (5xx, transport): six attempts, five backoffs between them
     ///   and none after the last — a bounded budget, because nothing says a
-    ///   5xx will clear.
+    ///   5xx will clear. A connect failure (nothing is accepting connections)
+    ///   uses the same six, then latches: every later request on this client
+    ///   fails immediately. Repeating the six once per remaining file is the
+    ///   retry loop #2177 saw against a dead node.
     /// * `Throttled` (HTTP 429): the server asked for time, and how much time
     ///   is the server's call. A loading run (the admission gate is on) keeps
     ///   re-asking at the capped backoff for up to `throttle_patience`,
     ///   announcing the wait every [`NOTICE_EVERY`]; a one-shot client (gate
     ///   off — a probe, a status read) treats a 429 like a 5xx and gives up
-    ///   after six, because a 10-minute wait is wrong for a question.
+    ///   after six, because a 10-minute wait is wrong for a question. A
+    ///   parent memory breaker that has accepted nothing is the exception
+    ///   inside that budget: it stops at [`ZERO_PROGRESS_PATIENCE`] and names
+    ///   `limits.max_process_memory_mb` (#2238), because waiting out ten
+    ///   minutes cannot shrink a budget the drain is not being asked to free.
     ///   Measured reason for the patience: the parent memory circuit breaker
     ///   answered a bulk with HTTP 429 and held the server above the
     ///   watermark for 57 s on the 1 GB mailbox run — the six attempts
@@ -1228,6 +1677,9 @@ impl Es {
     ///   that does not parse).
     fn retry_loop<T>(&self, what: &str, mut attempt: impl FnMut() -> Attempt<T>) -> Result<T> {
         const MAX_ATTEMPTS: usize = 6;
+        if let Some(down) = self.latched_down() {
+            return Err(down);
+        }
         let mut delay = self.retry_initial_delay;
         let mut failures = 0usize;
         let started = Instant::now();
@@ -1238,20 +1690,33 @@ impl Es {
                 Attempt::Abort(e) => return Err(e),
                 Attempt::Throttled(reason) => {
                     self.admission.on_congestion();
+                    let raw = reason.as_deref().unwrap_or("HTTP 429");
                     let err = match &reason {
-                        Some(r) => anyhow!("{what}: HTTP 429 Too Many Requests: {r}"),
+                        Some(r) => {
+                            anyhow!("{what}: HTTP 429 Too Many Requests: {}", memory_cap_hint(r))
+                        }
                         None => anyhow!("{what}: HTTP 429 Too Many Requests"),
                     };
                     if self.admission.enabled() {
                         let waited = started.elapsed();
-                        if waited >= self.throttle_patience {
+                        // A whole-request 429 accepted nothing. The parent
+                        // memory breaker stops at the short budget; every
+                        // other 429 (disk flood, thread-pool rejection) keeps
+                        // the full patience, because that condition can clear.
+                        let limit = if is_parent_memory_breaker(raw) {
+                            self.throttle_patience.min(self.zero_progress_patience)
+                        } else {
+                            self.throttle_patience
+                        };
+                        if waited >= limit {
                             return Err(err);
                         }
                         self.throttle_notice(
                             &mut last_notice,
-                            reason.as_deref().unwrap_or("HTTP 429"),
+                            raw,
                             &format!("retrying {what}"),
                             waited,
+                            limit,
                         );
                     } else {
                         failures += 1;
@@ -1262,7 +1727,11 @@ impl Es {
                 }
                 Attempt::Failed(e) => {
                     failures += 1;
+                    let unreachable = is_node_unreachable(&e);
                     if failures >= MAX_ATTEMPTS {
+                        if unreachable {
+                            return Err(self.latch_down(&e));
+                        }
                         return Err(e);
                     }
                     self.failure_notice(
@@ -1276,8 +1745,29 @@ impl Es {
                 }
             }
             self.backoff(delay);
+            // Another worker may have latched the node while this one slept.
+            if let Some(down) = self.latched_down() {
+                return Err(down);
+            }
             delay = (delay * 2).min(self.retry_max_delay);
         }
+    }
+
+    fn latched_down(&self) -> Option<anyhow::Error> {
+        self.node_down
+            .message
+            .lock()
+            .unwrap()
+            .clone()
+            .map(anyhow::Error::msg)
+    }
+
+    fn latch_down(&self, cause: &anyhow::Error) -> anyhow::Error {
+        let mut slot = self.node_down.message.lock().unwrap();
+        if slot.is_none() {
+            *slot = Some(node_down_message(&self.base, cause));
+        }
+        anyhow::Error::msg(slot.clone().expect("just inserted"))
     }
 
     /// Say on stderr that this run is waiting on the server, at most once per
@@ -1289,14 +1779,16 @@ impl Es {
         reason: &str,
         doing: &str,
         waited: Duration,
+        giving_up_after: Duration,
     ) {
         if !self.admission.announces() || matches!(last, Some(t) if t.elapsed() < NOTICE_EVERY) {
             return;
         }
+        let reason = memory_cap_hint(reason);
         eprintln!(
             "autoindex: server is shedding load — {reason}; {doing} (waited {}s, giving up after {}s)",
             waited.as_secs(),
-            self.throttle_patience.as_secs()
+            giving_up_after.as_secs()
         );
         *last = Some(Instant::now());
     }
@@ -1328,14 +1820,14 @@ impl Es {
         if !self.admission.announces() || matches!(last, Some(t) if t.elapsed() < NOTICE_EVERY) {
             return false;
         }
-        // One line, capped: transport error chains can run long and the point
-        // is the request and the bound, not the whole diagnostic.
-        let mut reason = format!("{error:#}").replace('\n', " ");
-        let cut = reason
-            .char_indices()
-            .nth(120)
-            .map_or(reason.len(), |(i, _)| i);
-        reason.truncate(cut);
+        // The reason is one line. A connect failure is printed in full: the
+        // old 120-character prefix cut the chain at the first letter of
+        // `tcp connect error`, which is the `client error (Connect): t`
+        // line in #2177. Other transport errors keep a bounded tail so the
+        // same cut cannot reduce their cause to one character either.
+        let reason = notice_reason(error);
+        #[cfg(test)]
+        self.notices.lock().unwrap().push(reason.clone());
         eprintln!(
             "autoindex: {what} failed: {reason}; retrying (attempt {attempt} of {max_attempts}, \
              {} s in this request so far)",
@@ -1506,16 +1998,27 @@ impl Es {
     /// 429/5xx retries the WHOLE request (`retry_loop`). A 200 whose items
     /// carry `status: 429` re-offers ONLY those items, after a backoff, for up
     /// to `throttle_patience` — the memory breaker's shape, see
-    /// [`THROTTLE_PATIENCE`]. Records the server took are never sent twice,
-    /// and a record it refused for a reason waiting cannot fix (a per-item
-    /// 400, 5xx, or a write block) is not re-offered.
+    /// [`THROTTLE_PATIENCE`]. The patience clock restarts whenever a round
+    /// settles at least one item, so it bounds time without progress, not the
+    /// total time a draining window takes. A parent memory breaker that has not accepted a
+    /// single item of this bulk stops at [`ZERO_PROGRESS_PATIENCE`] instead
+    /// (#2238). Records the server took are never sent twice, and a record it
+    /// refused for a reason waiting cannot fix (a per-item 400, 5xx, or a
+    /// write block) is not re-offered.
     fn bulk_window(&self, body: Vec<u8>) -> Result<SentWindow> {
         let mut body = body;
         // Item errors settled by earlier rounds of this call (a bad record's
         // 400): the record is not re-offered, its error is still reported.
         let mut settled_item_errors = 0u64;
         let mut settled_first_error: Option<String> = None;
-        let episode = Instant::now();
+        // Their refused items too, so a refusal from an earlier round is still
+        // traced to its file after a 429 retry (#2807).
+        let mut settled_refused: Vec<RefusedItem> = Vec::new();
+        // Set once any round took an item. From then on the full patience
+        // applies, even if later rounds are all 429: a drain in progress
+        // (#944 held 57 s) must be allowed to finish.
+        let mut accepted_any = false;
+        let mut episode = Instant::now();
         let mut delay = self.retry_initial_delay;
         let mut last_notice: Option<Instant> = None;
         loop {
@@ -1525,20 +2028,46 @@ impl Es {
             }
             let mut outcome = round.outcome;
             outcome.item_errors += settled_item_errors;
+            let mut refused = std::mem::take(&mut settled_refused);
+            refused.append(&mut outcome.refused);
+            outcome.refused = refused;
             if outcome.first_error.is_none() {
                 outcome.first_error = settled_first_error.clone();
             }
             if round.throttled.is_empty() || round.other_server_errors > 0 {
                 return Ok(SentWindow::Done(outcome));
             }
+            if round.items > round.throttled.len() {
+                accepted_any = true;
+                // Patience is measured since the last progress, not since the
+                // first round: a window that settles at least one record per
+                // round is draining, and each such round restarts the clock
+                // and the backoff. Only rounds that settle nothing accumulate
+                // toward the limit below.
+                episode = Instant::now();
+                delay = self.retry_initial_delay;
+            }
             // Only per-item 429s stand between this bulk and a clean
             // outcome. Wait while patience lasts; after that the caller gets
             // the server's own reason, exactly as before — but named as
             // back-pressure (#944), so the run's terminal line can say
             // `reason=server-backpressure` rather than `reason=aborted`.
+            // Zero accepts against the parent memory breaker use the short
+            // budget (#2238). Any other 429, and any bulk that has landed an
+            // item, keeps the full patience.
+            let parent = round
+                .throttle_reason
+                .as_deref()
+                .is_some_and(is_parent_memory_breaker);
+            let limit = if accepted_any || !parent {
+                self.throttle_patience
+            } else {
+                self.throttle_patience.min(self.zero_progress_patience)
+            };
             let waited = episode.elapsed();
-            if waited >= self.throttle_patience {
+            if waited >= limit {
                 outcome.throttled_out = round.throttled.len() as u64;
+                outcome.exhausted_after = Some(limit);
                 return Ok(SentWindow::Done(outcome));
             }
             // A response whose item count does not match the body cannot be
@@ -1549,6 +2078,7 @@ impl Es {
             settled_item_errors = outcome
                 .item_errors
                 .saturating_sub(round.throttled.len() as u64);
+            settled_refused = outcome.refused.clone();
             if round.first_settled_error.is_some() {
                 settled_first_error = round.first_settled_error;
             }
@@ -1560,6 +2090,7 @@ impl Es {
                     .unwrap_or("per-item HTTP 429"),
                 &format!("re-offering {} rejected record(s)", round.throttled.len()),
                 waited,
+                limit,
             );
             self.throttle_ledger
                 .reissues
@@ -1661,7 +2192,10 @@ impl Es {
             // Acquire the admission permit per HTTP attempt rather than across
             // the whole backoff loop (#1250), so throttled workers drop their
             // slot before sleeping and immediately obey a halved window limit.
-            let _permit = self.admission.acquire();
+            let _permit = match self.admission.acquire() {
+                Ok(permit) => permit,
+                Err(e) => return Attempt::Failed(e),
+            };
             let resp = match self.send_bulk(body.clone()) {
                 Ok(resp) => resp,
                 Err(e) => return Attempt::Failed(e),
@@ -1842,14 +2376,49 @@ impl Es {
         )
     }
 
+    /// One `_refresh`, with no retry.
+    ///
+    /// [`Self::refresh`] allows six attempts, and each attempt waits on the
+    /// client's 300s transport budget. Finalize used to call that against one
+    /// wildcard. A single index whose refresh did not return then stalled the
+    /// run for the whole budget and started again (#2234). Finalize names the
+    /// index it is waiting on and gives that request one attempt: the server
+    /// bounds a memtable publish, and a transport timeout is the backstop,
+    /// not the start of five more.
+    pub fn refresh_once(&self, pattern: &str) -> Result<()> {
+        let resp = self
+            .req(reqwest::Method::POST, &format!("/{pattern}/_refresh"))
+            .send()
+            .map_err(|e| anyhow!("refresh {pattern}: {e}"))?;
+        if resp.status().is_success() {
+            Ok(())
+        } else {
+            let status = resp.status();
+            let body = resp.text().unwrap_or_default();
+            Err(anyhow!("refresh {pattern}: HTTP {status}: {body}"))
+        }
+    }
+
     fn search_raw(&self, index: &str, body: &Value) -> Result<(reqwest::StatusCode, Value)> {
+        self.search_raw_at(index, "", body)
+    }
+
+    fn search_raw_at(
+        &self,
+        index: &str,
+        query_string: &str,
+        body: &Value,
+    ) -> Result<(reqwest::StatusCode, Value)> {
         self.with_retry(
             "search",
             || {
-                self.req(reqwest::Method::POST, &format!("/{index}/_search"))
-                    .json(body)
-                    .send()
-                    .map_err(|e| anyhow!("search: {e}"))
+                self.req(
+                    reqwest::Method::POST,
+                    &format!("/{index}/_search{query_string}"),
+                )
+                .json(body)
+                .send()
+                .map_err(|e| anyhow!("search: {e}"))
             },
             |resp| {
                 let status = resp.status();
@@ -1865,6 +2434,179 @@ impl Es {
             return Err(anyhow!("search /{index} HTTP {status}: {v}"));
         }
         Ok(v)
+    }
+
+    /// [`Es::search`] for a caller that never reads the node's `_savings`
+    /// statistic (`xerj search`). Measuring what a `_source` filter withheld
+    /// needs the whole stored document, so asking for it forces the node to
+    /// decode every column of every hit even when the body names the few
+    /// fields it prints (#2422/#2423).
+    pub fn search_without_savings(&self, index: &str, body: &Value) -> Result<Value> {
+        let (status, v) = self.search_raw_at(index, "?savings=false", body)?;
+        if !status.is_success() {
+            return Err(anyhow!("search /{index} HTTP {status}: {v}"));
+        }
+        Ok(v)
+    }
+
+    /// `POST /{index}/_mget` with the `{"ids":[...]}` short form.
+    ///
+    /// The catalog read-back uses this instead of a `run_id` + `search_after`
+    /// walk (#1267). `_id` lookup stays O(ids) when the catalog's version map
+    /// carries deletes; the sorted walk re-parsed every matching stored
+    /// document on every page.
+    pub fn mget(&self, index: &str, ids: &[String]) -> Result<Value> {
+        self.with_retry(
+            "mget",
+            || {
+                self.req(reqwest::Method::POST, &format!("/{index}/_mget"))
+                    .json(&serde_json::json!({"ids": ids}))
+                    .send()
+                    .map_err(|e| anyhow!("mget: {e}"))
+            },
+            |resp| {
+                let status = resp.status();
+                let body: Value = resp.json().unwrap_or(Value::Null);
+                if status.is_success() {
+                    Ok(body)
+                } else {
+                    Err(anyhow!("mget /{index} HTTP {status}: {body}"))
+                }
+            },
+        )
+    }
+
+    /// How often [`Es::search_for_verify`] re-checks that its target still
+    /// exists while the window search is in flight (#2222). A fast window
+    /// returns before the first check, so the common path adds no request.
+    const VERIFY_INDEX_POLL: Duration = Duration::from_millis(500);
+
+    /// Bound on one existence probe. A probe that does not answer is "still
+    /// there": only a real 404 ends the wait, so a busy node cannot be read
+    /// as a deleted index.
+    const VERIFY_INDEX_PROBE_TIMEOUT: Duration = Duration::from_secs(2);
+
+    /// The search [`crate::sync_executor`] finalize-verify issues per window.
+    ///
+    /// `search` blocks the caller for the whole request. The engine resolves
+    /// the index when the request arrives, so a `DELETE` that lands while
+    /// that search is running does not turn it into a 404 — the handle is
+    /// already taken, and the client sits in `waiting_on` that index until
+    /// the transport budget (300 s, six attempts on a 5xx) runs out. The
+    /// generation never commits (#2222). This call keeps the search in flight
+    /// and, beside it, asks `HEAD /{index}`. The moment that answers 404 —
+    /// or the search itself does — it returns
+    /// `index {name} was deleted during verify` and the caller stops waiting.
+    /// A live index is unchanged: the search result comes back as `search`
+    /// would have returned it.
+    pub(crate) fn search_for_verify(&self, index: &str, body: &Value) -> Result<Value> {
+        let (tx, rx) = std::sync::mpsc::channel();
+        let es = self.clone();
+        let index_owned = index.to_owned();
+        let body = body.clone();
+        // #1122: `Builder::spawn` panics in the child on a failed signal-stack
+        // mmap after returning `Ok`. A failed `try_spawn` runs the search on
+        // this thread instead: the parallel HEAD probe is the optimization,
+        // and the process stays up.
+        if let Err(failure) =
+            xerj_common::thread_spawn::try_spawn("xerj-verify-search", move || {
+                let _ = tx.send(es.search(&index_owned, &body));
+            })
+        {
+            if let Some(job) = failure.job {
+                job();
+            } else {
+                anyhow::bail!(
+                    "could not start finalize-verify search for {index}: {}; the process stayed up",
+                    failure.error
+                );
+            }
+        }
+        loop {
+            match rx.recv_timeout(Self::VERIFY_INDEX_POLL) {
+                Ok(Ok(value)) => return Ok(value),
+                Ok(Err(error)) => {
+                    if Self::verify_search_says_index_missing(&error)
+                        || self.verify_index_present(index) == Some(false)
+                    {
+                        anyhow::bail!("index {index} was deleted during verify");
+                    }
+                    return Err(error);
+                }
+                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
+                    if self.verify_index_present(index) == Some(false) {
+                        anyhow::bail!("index {index} was deleted during verify");
+                    }
+                }
+                Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
+                    anyhow::bail!("finalize-verify search for {index} ended without a result");
+                }
+            }
+        }
+    }
+
+    /// [`Es::search_for_verify`] carrying [`Es::search_page`]'s deadline and
+    /// bounded retry. The finalize-verify windows treated the first partial
+    /// `timed_out` page as fatal — exit 1 on a 92-dataset corpus whose
+    /// documents were all indexed (#2405) — while the same answer on a
+    /// walked page has been re-asked since #1212. The body gets the page
+    /// timeout when the caller set none and the SAME window is re-asked
+    /// while the node answers `timed_out`, bounded by
+    /// [`PARTIAL_PAGE_ATTEMPTS`]. Every attempt still goes through
+    /// `search_for_verify`, so a target deleted mid-window (#2222) ends the
+    /// wait at once, and a window that never completes bails loud rather
+    /// than being counted as zero (#1761).
+    pub(crate) fn search_page_for_verify(&self, index: &str, body: &Value) -> Result<Value> {
+        let mut body = body.clone();
+        body.as_object_mut()
+            .context("search page body must be a JSON object")?
+            .entry("timeout")
+            .or_insert_with(|| Value::String(SEARCH_PAGE_TIMEOUT.to_owned()));
+        for attempt in 1..=PARTIAL_PAGE_ATTEMPTS {
+            let response = self.search_for_verify(index, &body)?;
+            if response.get("timed_out") != Some(&Value::Bool(true)) {
+                return Ok(response);
+            }
+            if attempt == PARTIAL_PAGE_ATTEMPTS {
+                anyhow::bail!(
+                    "finalize-verify search on {index} answered partial (timed_out) on \
+                     {PARTIAL_PAGE_ATTEMPTS} consecutive attempts at timeout \
+                     {SEARCH_PAGE_TIMEOUT}: a partial page is not a live count \
+                     (a concurrent writer on this index can hold publication \
+                     across the deadline). Nothing from this window was \
+                     counted — reduce load on the node and rerun the same \
+                     command, which resumes"
+                );
+            }
+        }
+        unreachable!("the attempt loop returns on its final iteration")
+    }
+
+    /// `Some(true)` the index is there, `Some(false)` the node answered 404,
+    /// `None` when this probe learned nothing (timeout, transport error, or
+    /// any other status). `None` must not be read as gone.
+    fn verify_index_present(&self, index: &str) -> Option<bool> {
+        match self
+            .req(reqwest::Method::HEAD, &format!("/{index}"))
+            .timeout(Self::VERIFY_INDEX_PROBE_TIMEOUT)
+            .send()
+        {
+            Ok(resp) => match resp.status().as_u16() {
+                404 => Some(false),
+                200..=299 => Some(true),
+                _ => None,
+            },
+            Err(_) => None,
+        }
+    }
+
+    /// Whether `search`'s error is the node saying the index is not there.
+    ///
+    /// `search` renders a non-2xx as `search /{index} HTTP {status}: {body}`.
+    /// 404 on `_search` is `index_not_found`; an empty index is HTTP 200.
+    fn verify_search_says_index_missing(error: &anyhow::Error) -> bool {
+        let text = format!("{error:#}");
+        text.contains("HTTP 404") || text.to_ascii_lowercase().contains("index_not_found")
     }
 
     /// `search`, but a missing index is an answer rather than a failure.
@@ -2121,6 +2863,7 @@ mod tests {
     use std::io::Read;
     use std::io::Write;
     use std::net::TcpListener;
+    use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::{mpsc, Arc, Mutex};
     use std::time::{Duration, Instant};
 
@@ -2143,7 +2886,7 @@ mod tests {
 
     #[test]
     fn bulk_request_uses_custom_timeout_and_drops_timed_out_connection() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         let (closed_tx, closed_rx) = mpsc::channel();
         let server = std::thread::spawn(move || {
@@ -2179,7 +2922,7 @@ mod tests {
     /// The fake page server for the `search_page` tests: answers each request
     /// with the next body in `answers`, recording every request it saw.
     fn page_server(answers: Vec<&'static [u8]>) -> (std::net::SocketAddr, Arc<Mutex<Vec<String>>>) {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         let seen = Arc::new(Mutex::new(Vec::new()));
         let recorded = Arc::clone(&seen);
@@ -2281,7 +3024,7 @@ mod tests {
     /// partial page.
     #[test]
     fn search_page_present_treats_a_missing_index_as_an_answer() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         let seen = Arc::new(Mutex::new(Vec::new()));
         let recorded = Arc::clone(&seen);
@@ -2366,7 +3109,7 @@ mod tests {
     /// socket, not on the builder, so the transport layer cannot lose it.
     #[test]
     fn ensure_index_puts_the_declared_analyzer_beside_the_wal_shard_setting() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         let server = std::thread::spawn(move || {
             let (mut stream, _) = listener.accept().unwrap();
@@ -2420,7 +3163,7 @@ mod tests {
                 false,
             ),
         ] {
-            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            let listener = crate::test_loopback::bind();
             let address = listener.local_addr().unwrap();
             let owned = body.to_vec();
             let status_line = status.to_owned();
@@ -2451,7 +3194,7 @@ mod tests {
 
     #[test]
     fn embedding_identity_uses_native_endpoint_and_parses_sanitized_data() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         let server = std::thread::spawn(move || {
             let (mut stream, _) = listener.accept().unwrap();
@@ -2500,7 +3243,7 @@ mod tests {
                 false,
             ),
         ] {
-            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            let listener = crate::test_loopback::bind();
             let address = listener.local_addr().unwrap();
             let server = std::thread::spawn(move || {
                 let (mut stream, _) = listener.accept().unwrap();
@@ -2542,7 +3285,7 @@ mod tests {
                 0u64,
             ),
         ] {
-            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            let listener = crate::test_loopback::bind();
             let address = listener.local_addr().unwrap();
             let server = std::thread::spawn(move || {
                 let (mut stream, _) = listener.accept().unwrap();
@@ -2572,7 +3315,7 @@ mod tests {
 
     #[test]
     fn retry_path_recovers_after_one_bulk_timeout() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         let server = std::thread::spawn(move || {
             let (mut first, _) = listener.accept().unwrap();
@@ -2642,7 +3385,7 @@ mod tests {
     /// bounded AND visibly so, never a silent stall.
     #[test]
     fn a_dropped_connection_is_retried_after_announcing() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         let requests = Arc::new(Mutex::new(Vec::new()));
         let requests_server = requests.clone();
@@ -2677,9 +3420,139 @@ mod tests {
         assert_eq!(requests.lock().unwrap().len(), 2, "one drop, one retry");
     }
 
+    /// Unix says "Connection refused"; Windows says the target machine
+    /// "actively refused" it. Either is the OS cause #2177 cut off.
+    fn connect_refused(text: &str) -> bool {
+        let text = text.to_ascii_lowercase();
+        text.contains("connection refused") || text.contains("actively refused")
+    }
+
+    /// #2177: the 120-character prefix of a refused `_bulk` against the default
+    /// URL ends on the `t` of `tcp connect error`. The notice must keep the
+    /// address and the OS cause instead.
+    #[test]
+    fn the_connect_notice_keeps_the_cause_the_120_char_cut_reduced_to_t() {
+        let chain = "bulk send (request timeout 300s): error sending request for url (http://127.0.0.1:9200/_bulk): client error (Connect): tcp connect error: Connection refused (os error 111)";
+        let prefix: String = chain.chars().take(120).collect();
+        assert_eq!(
+            prefix,
+            "bulk send (request timeout 300s): error sending request for url (http://127.0.0.1:9200/_bulk): client error (Connect): t"
+        );
+        let err = anyhow::anyhow!("{chain}");
+        assert!(super::is_node_unreachable(&err), "{chain}");
+        assert_eq!(super::notice_reason(&err), chain);
+    }
+
+    /// A long non-connect failure shares [`super::notice_reason`]. The cap
+    /// keeps the cause at the end of the chain, not a one-character stub.
+    #[test]
+    fn a_long_transport_notice_keeps_the_tail_of_the_cause() {
+        let cause = "upstream closed the connection while flushing a segment";
+        let err = anyhow::anyhow!("{}: {cause}", "y".repeat(400));
+        let reason = super::notice_reason(&err);
+        assert!(reason.contains(cause), "{reason}");
+        assert!(reason.starts_with('…'), "{reason}");
+        assert!(
+            reason.chars().count() <= super::NOTICE_REASON_CHARS + 1,
+            "{}",
+            reason.chars().count()
+        );
+    }
+
+    /// The node accepts one `_bulk`, then closes the port. The next bulk must
+    /// name the address and the OS refusal, stop after the ordinary attempt
+    /// budget, and a bulk after that must not retry.
+    #[test]
+    fn bulk_against_a_node_that_closes_its_port_stops_and_names_the_connect_error() {
+        let listener = crate::test_loopback::bind();
+        let address = listener.local_addr().unwrap();
+        let (closed_tx, closed_rx) = mpsc::channel();
+        let server = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            read_request(&mut stream);
+            respond_json(&mut stream, br#"{"errors":false,"items":[]}"#);
+            drop(stream);
+            drop(listener);
+            closed_tx.send(()).unwrap();
+        });
+        // 300s is the production bulk timeout, so the rendered chain has the
+        // same prefix the field report cut. A refused connect returns at once;
+        // the timeout is only text.
+        let es = Es::with_bulk_policy(
+            &format!("http://{address}"),
+            None,
+            Duration::from_secs(300),
+            Duration::from_millis(10),
+            Duration::from_millis(20),
+        )
+        .unwrap()
+        .with_bulk_concurrency(1, true);
+        let body = b"{\"index\":{}}\n{}\n".to_vec();
+        let first = es.bulk(body.clone()).unwrap();
+        assert_eq!(first.item_errors, 0);
+        closed_rx.recv_timeout(Duration::from_secs(2)).unwrap();
+        server.join().unwrap();
+
+        let before = es.backoff_delays.lock().unwrap().len();
+        let err = es.bulk(body.clone()).unwrap_err();
+        let backoffs = es.backoff_delays.lock().unwrap().len() - before;
+        assert_eq!(backoffs, 5, "six attempts, five sleeps, then stop");
+        let message = format!("{err:#}");
+        assert!(
+            message.contains(&format!(
+                "the node at http://{address} is down or unreachable"
+            )),
+            "{message}"
+        );
+        assert!(message.contains("tcp connect error"), "{message}");
+        assert!(connect_refused(&message), "{message}");
+        assert!(
+            message.contains(&format!("http://{address}/_bulk")),
+            "{message}"
+        );
+        assert!(message.contains("The run can be resumed"), "{message}");
+        let argv0 = std::env::args().next().expect("argv");
+        assert!(
+            message.contains(&argv0),
+            "the resume command must be this process's argv, missing {argv0} in {message}"
+        );
+        assert!(es.node_is_down());
+
+        let notices = es.notices.lock().unwrap().clone();
+        assert!(
+            !notices.is_empty(),
+            "the retries must say why they are retrying"
+        );
+        let reason = &notices[0];
+        assert!(reason.contains("tcp connect error"), "{reason}");
+        assert!(connect_refused(reason), "{reason}");
+        assert!(
+            reason.contains(&format!("http://{address}/_bulk")),
+            "{reason}"
+        );
+        let prefix: String = reason.chars().take(120).collect();
+        assert!(
+            !connect_refused(&prefix),
+            "the 120-character prefix is the #2177 cut and must not be what we print: {prefix}"
+        );
+        assert!(
+            reason.chars().count() > 120,
+            "the notice was cut to one character of the cause: {reason}"
+        );
+
+        let before = es.backoff_delays.lock().unwrap().len();
+        let again = es.bulk(body).unwrap_err();
+        let backoffs = es.backoff_delays.lock().unwrap().len() - before;
+        assert_eq!(
+            backoffs, 0,
+            "a later bulk retried a node already known to be down"
+        );
+        assert!(format!("{again:#}").contains("is down or unreachable"));
+    }
+
     #[test]
     fn all_timeout_retry_path_is_bounded_to_six_attempts_without_final_sleep() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         let accepted = Arc::new(Mutex::new(0usize));
         let accepted_server = accepted.clone();
@@ -2745,7 +3618,7 @@ mod tests {
 
     #[test]
     fn delete_by_query_repeats_until_a_pass_deletes_nothing() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         let requests = Arc::new(Mutex::new(Vec::new()));
         let requests_server = requests.clone();
@@ -2792,7 +3665,7 @@ mod tests {
     /// convergent is not a thing to retry.
     #[test]
     fn delete_by_query_on_a_missing_index_is_already_clean_not_an_abort() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         let requests = Arc::new(Mutex::new(Vec::new()));
         let requests_server = requests.clone();
@@ -2852,7 +3725,7 @@ mod tests {
                 "<html><body>502 upstream connect error</body></html>",
             ),
         ] {
-            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            let listener = crate::test_loopback::bind();
             let address = listener.local_addr().unwrap();
             let server = std::thread::spawn(move || {
                 for _ in 0..6 {
@@ -2881,7 +3754,7 @@ mod tests {
 
     #[test]
     fn delete_by_query_that_never_reaches_zero_fails_at_the_pass_cap() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         let server = std::thread::spawn(move || {
             let mut served = 0usize;
@@ -2919,7 +3792,7 @@ mod tests {
 
     #[test]
     fn ambiguous_dropped_response_retries_byte_identical_bulk_body() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         let requests = Arc::new(Mutex::new(Vec::new()));
         let requests_server = requests.clone();
@@ -2999,6 +3872,45 @@ mod tests {
 
     const BULK: &[u8] = b"{\"index\":{\"_index\":\"i\",\"_id\":\"a\"}}\n{\"v\":1}\n";
 
+    /// #2234 — finalize uses one attempt. `refresh` would open a second
+    /// connection after this 500; `refresh_once` must not.
+    #[test]
+    fn refresh_once_does_not_retry_a_failed_refresh() {
+        let listener = crate::test_loopback::bind();
+        let address = listener.local_addr().unwrap();
+        let hits = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let hits_for_server = Arc::clone(&hits);
+        let server = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            hits_for_server.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            let _ = read_request(&mut stream);
+            respond_status(
+                &mut stream,
+                "500 Internal Server Error",
+                br#"{"error":"no"}"#,
+            );
+            listener.set_nonblocking(true).unwrap();
+            std::thread::sleep(Duration::from_millis(300));
+            if listener.accept().is_ok() {
+                hits_for_server.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            }
+        });
+
+        let es = client(address, 1);
+        let error = es.refresh_once("idx").unwrap_err();
+        let text = format!("{error:#}");
+        assert!(
+            text.contains("500"),
+            "the failure must name the HTTP status: {text}"
+        );
+        server.join().unwrap();
+        assert_eq!(
+            hits.load(std::sync::atomic::Ordering::SeqCst),
+            1,
+            "a failed finalize refresh must not be retried"
+        );
+    }
+
     /// A 429 must shrink the window the run offers load through, and a clean
     /// streak must probe it back up — never past what the operator asked for.
     ///
@@ -3007,7 +3919,7 @@ mod tests {
     /// no matter how hard the server pushed back.
     #[test]
     fn a_429_shrinks_the_bulk_window_and_a_clean_streak_probes_it_back() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         // one throttled attempt, then its retry, then RECOVER_AFTER clean bulks
         let mut plan = vec![false, true];
@@ -3041,7 +3953,7 @@ mod tests {
     /// signal, and must not be counted as a clean bulk.
     #[test]
     fn per_item_429_counts_as_congestion_not_as_a_clean_bulk() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         let server = std::thread::spawn(move || {
             let (mut stream, _) = listener.accept().unwrap();
@@ -3069,14 +3981,14 @@ mod tests {
     #[test]
     fn a_full_window_blocks_the_next_bulk_until_a_slot_frees() {
         let admission = Arc::new(super::BulkAdmission::new(2, false));
-        let first = admission.acquire();
-        let _second = admission.acquire();
+        let first = admission.acquire().unwrap();
+        let _second = admission.acquire().unwrap();
 
         let (tx, rx) = mpsc::channel();
         let waiter = {
             let admission = Arc::clone(&admission);
             std::thread::spawn(move || {
-                let _permit = admission.acquire();
+                let _permit = admission.acquire().unwrap();
                 tx.send(()).unwrap();
             })
         };
@@ -3087,6 +3999,43 @@ mod tests {
         drop(first);
         rx.recv_timeout(Duration::from_secs(5))
             .expect("freeing a slot must admit the waiting bulk");
+        waiter.join().unwrap();
+    }
+
+    /// A permit that is never returned used to park the next bulk forever
+    /// (`Condvar::wait` with no timeout). The 56% autoindex stall was a
+    /// client with no open connections and a frozen bar. The wait now fails
+    /// and names the resume.
+    #[test]
+    fn a_leaked_bulk_slot_fails_the_next_acquire_instead_of_hanging() {
+        let admission = Arc::new(
+            super::BulkAdmission::new(1, false).with_wait_budget(Duration::from_millis(80)),
+        );
+        let held = admission.acquire().unwrap();
+        // Drop must not run: that is the leak.
+        std::mem::forget(held);
+
+        let (tx, rx) = mpsc::channel();
+        let waiter = {
+            let admission = Arc::clone(&admission);
+            std::thread::spawn(move || {
+                let message = match admission.acquire() {
+                    Err(err) => format!("{err:#}"),
+                    Ok(_) => "acquired a slot that was leaked".to_string(),
+                };
+                tx.send(message).unwrap();
+            })
+        };
+        let message = rx
+            .recv_timeout(Duration::from_secs(2))
+            .expect("a leaked slot must fail the waiter within the budget, not hang");
+        assert!(message.contains("bulk slot"), "{message}");
+        assert!(message.contains("in_flight=1"), "{message}");
+        assert!(message.contains("limit=1"), "{message}");
+        assert!(
+            message.contains("Re-run the same command to resume"),
+            "{message}"
+        );
         waiter.join().unwrap();
     }
 
@@ -3108,8 +4057,8 @@ mod tests {
     fn the_window_is_off_unless_a_run_asks_for_one() {
         let admission = super::BulkAdmission::off();
         assert_eq!(admission.limit(), 0);
-        let _a = admission.acquire();
-        let _b = admission.acquire();
+        let _a = admission.acquire().unwrap();
+        let _b = admission.acquire().unwrap();
         admission.on_congestion();
         assert_eq!(admission.congestion_events(), 0);
     }
@@ -3130,7 +4079,7 @@ mod tests {
         path: &'static str,
         status_line: &'static str,
     ) -> (std::net::SocketAddr, std::thread::JoinHandle<()>) {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         let server = std::thread::spawn(move || {
             let (mut stream, _) = listener.accept().unwrap();
@@ -3210,7 +4159,7 @@ mod tests {
     /// server still gets its banner parsed and the run still starts.
     #[test]
     fn ping_still_returns_the_banner_from_a_server_that_answers() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         let server = std::thread::spawn(move || {
             let (mut stream, _) = listener.accept().unwrap();
@@ -3329,7 +4278,7 @@ mod tests {
 
     #[test]
     fn per_item_breaker_rejections_are_re_offered_until_the_server_takes_them() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         let (server, requests) = serve_bodies(
             listener,
@@ -3362,7 +4311,7 @@ mod tests {
 
     #[test]
     fn per_item_429_gives_up_after_patience_with_the_servers_own_reason() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         let (server, requests) = serve_bodies(
             listener,
@@ -3393,7 +4342,7 @@ mod tests {
 
     #[test]
     fn a_bad_record_is_settled_once_while_throttled_records_are_re_offered() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         let (server, requests) = serve_bodies(
             listener,
@@ -3428,7 +4377,7 @@ mod tests {
 
     #[test]
     fn a_per_item_5xx_beside_a_429_is_not_waited_on() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         let (server, requests) = serve_bodies(
             listener,
@@ -3446,6 +4395,302 @@ mod tests {
         server.join().unwrap();
         assert_eq!(requests.lock().unwrap().len(), 1);
         assert_eq!(outcome.server_errors, 2);
+    }
+
+    /// Answer every connection with `body` until `stop` is set. The
+    /// zero-progress tests need a server that outlasts the short budget.
+    fn serve_until(
+        listener: TcpListener,
+        body: Vec<u8>,
+        stop: Arc<AtomicBool>,
+    ) -> std::thread::JoinHandle<()> {
+        listener.set_nonblocking(true).unwrap();
+        std::thread::spawn(move || loop {
+            match listener.accept() {
+                Ok((mut stream, _)) => {
+                    stream.set_nonblocking(false).unwrap();
+                    let _ = read_request(&mut stream);
+                    respond_json(&mut stream, &body);
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                    if stop.load(Ordering::SeqCst) {
+                        return;
+                    }
+                    std::thread::sleep(Duration::from_millis(2));
+                }
+                Err(error) => panic!("accept: {error}"),
+            }
+        })
+    }
+
+    /// #2238: every item 429 from the parent breaker, forever. The run must
+    /// stop at the zero-progress budget and name `limits.max_process_memory_mb`,
+    /// not sit out the full ten-minute patience with the indexed count at 0.
+    #[test]
+    fn a_parent_breaker_that_accepts_nothing_stops_at_zero_progress_patience() {
+        let listener = crate::test_loopback::bind();
+        let address = listener.local_addr().unwrap();
+        let stop = Arc::new(AtomicBool::new(false));
+        let server = serve_until(
+            listener,
+            items_response(
+                &[item("a", 429, Some(BREAKER)), item("b", 429, Some(BREAKER))],
+                true,
+            ),
+            Arc::clone(&stop),
+        );
+        let es = client(address, 4)
+            .with_throttle_patience(Duration::from_secs(2))
+            .with_zero_progress_patience(Duration::from_millis(50));
+        let started = Instant::now();
+        let outcome = es.bulk([pair("a"), pair("b")].concat()).unwrap();
+        let elapsed = started.elapsed();
+        stop.store(true, Ordering::SeqCst);
+        server.join().unwrap();
+        assert!(
+            elapsed < Duration::from_millis(500),
+            "zero accepts must not wait the 2s patience, took {elapsed:?}"
+        );
+        assert_eq!(
+            outcome.exhausted_after,
+            Some(Duration::from_millis(50)),
+            "{outcome:?}"
+        );
+        assert!(outcome.throttled_out >= 1, "{outcome:?}");
+        let backoffs = es.backoff_delays.lock().unwrap().len();
+        assert!(
+            (1..=10).contains(&backoffs),
+            "retried inside the short budget, did not spin: {backoffs} backoffs"
+        );
+        let hinted = super::memory_cap_hint(outcome.first_server_error.as_deref().unwrap());
+        assert!(hinted.contains("limits.max_process_memory_mb"), "{hinted}");
+    }
+
+    /// #944/#1250: once any item of the bulk has been accepted, a later run of
+    /// all-429 answers keeps the full patience. Fail-fast applies only to a
+    /// bulk the server has not taken a single item from.
+    #[test]
+    fn a_bulk_that_landed_an_item_keeps_the_full_patience() {
+        let listener = crate::test_loopback::bind();
+        let address = listener.local_addr().unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let stop = Arc::new(AtomicBool::new(false));
+        let server_stop = Arc::clone(&stop);
+        let server = std::thread::spawn(move || {
+            let mut first = true;
+            loop {
+                match listener.accept() {
+                    Ok((mut stream, _)) => {
+                        stream.set_nonblocking(false).unwrap();
+                        let _ = read_request(&mut stream);
+                        if first {
+                            first = false;
+                            respond_json(
+                                &mut stream,
+                                &items_response(
+                                    &[item("a", 201, None), item("b", 429, Some(BREAKER))],
+                                    true,
+                                ),
+                            );
+                        } else {
+                            items_answered(&mut stream, &[429]);
+                        }
+                    }
+                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                        if server_stop.load(Ordering::SeqCst) {
+                            return;
+                        }
+                        std::thread::sleep(Duration::from_millis(2));
+                    }
+                    Err(error) => panic!("accept: {error}"),
+                }
+            }
+        });
+        let es = client(address, 4)
+            .with_throttle_patience(Duration::from_millis(300))
+            .with_zero_progress_patience(Duration::from_millis(20));
+        let started = Instant::now();
+        let outcome = es.bulk([pair("a"), pair("b")].concat()).unwrap();
+        let elapsed = started.elapsed();
+        stop.store(true, Ordering::SeqCst);
+        server.join().unwrap();
+        assert!(
+            elapsed >= Duration::from_millis(250),
+            "an accepted item must keep the 300ms patience, stopped after {elapsed:?}"
+        );
+        assert!(
+            elapsed < Duration::from_secs(2),
+            "the full patience is 300ms, took {elapsed:?}"
+        );
+        assert_eq!(
+            outcome.exhausted_after,
+            Some(Duration::from_millis(300)),
+            "{outcome:?}"
+        );
+        assert!(outcome.throttled_out >= 1, "{outcome:?}");
+    }
+
+    /// A window the server drains one record per round (the rest 429, as an
+    /// embedding deadline slice does) must finish even when the rounds
+    /// together outlast the patience: the clock is time since the last
+    /// progress, not since the first round.
+    #[test]
+    fn patience_restarts_whenever_a_round_settles_an_item() {
+        let listener = crate::test_loopback::bind();
+        let address = listener.local_addr().unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let stop = Arc::new(AtomicBool::new(false));
+        let server_stop = Arc::clone(&stop);
+        let rounds = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let server_rounds = Arc::clone(&rounds);
+        let accepted = Arc::new(std::sync::Mutex::new(Vec::<String>::new()));
+        let server_accepted = Arc::clone(&accepted);
+        let server = std::thread::spawn(move || loop {
+            match listener.accept() {
+                Ok((mut stream, _)) => {
+                    stream.set_nonblocking(false).unwrap();
+                    let request = read_request(&mut stream);
+                    let actions = request_body(&request)
+                        .split(|b| *b == b'\n')
+                        .filter(|line| !line.is_empty())
+                        .count()
+                        / 2;
+                    let offered: Vec<String> = request_body(&request)
+                        .split(|b| *b == b'\n')
+                        .filter(|line| !line.is_empty())
+                        .step_by(2)
+                        .map(|line| {
+                            let action: serde_json::Value = serde_json::from_slice(line).unwrap();
+                            action["index"]["_id"].as_str().unwrap().to_owned()
+                        })
+                        .collect();
+                    {
+                        let mut accepted = server_accepted.lock().unwrap();
+                        assert!(
+                            offered.iter().all(|id| !accepted.contains(id)),
+                            "accepted records were re-offered"
+                        );
+                        accepted.push(offered[0].clone());
+                    }
+                    server_rounds.fetch_add(1, Ordering::SeqCst);
+                    std::thread::sleep(Duration::from_millis(60));
+                    let mut statuses = vec![429u16; actions];
+                    statuses[0] = 201;
+                    items_answered(&mut stream, &statuses);
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                    if server_stop.load(Ordering::SeqCst) {
+                        return;
+                    }
+                    std::thread::sleep(Duration::from_millis(2));
+                }
+                Err(error) => panic!("accept: {error}"),
+            }
+        });
+        let es = client(address, 4).with_throttle_patience(Duration::from_millis(200));
+        let ids = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"];
+        let body: Vec<u8> = ids.iter().flat_map(|id| pair(id)).collect();
+        let started = Instant::now();
+        let outcome = es.bulk(body).unwrap();
+        let elapsed = started.elapsed();
+        stop.store(true, Ordering::SeqCst);
+        server.join().unwrap();
+        assert_eq!(*accepted.lock().unwrap(), ids);
+        assert_eq!(outcome.server_errors, 0, "{outcome:?}");
+        assert_eq!(outcome.throttled_out, 0, "{outcome:?}");
+        assert!(outcome.exhausted_after.is_none(), "{outcome:?}");
+        assert_eq!(
+            rounds.load(Ordering::SeqCst),
+            10,
+            "one record settled per round"
+        );
+        assert!(
+            elapsed > Duration::from_millis(200),
+            "the test is only meaningful if the whole window outlasts the patience: {elapsed:?}"
+        );
+    }
+
+    /// The other half: progress restarts the clock, silence does not. After
+    /// three rounds that each settle a record, a server answering 429 for
+    /// everything still ends the window at the patience, measured from the
+    /// last round that settled anything.
+    #[test]
+    fn patience_still_ends_a_window_that_stops_making_progress() {
+        let listener = crate::test_loopback::bind();
+        let address = listener.local_addr().unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let stop = Arc::new(AtomicBool::new(false));
+        let server_stop = Arc::clone(&stop);
+        let server = std::thread::spawn(move || {
+            let mut round = 0usize;
+            loop {
+                match listener.accept() {
+                    Ok((mut stream, _)) => {
+                        stream.set_nonblocking(false).unwrap();
+                        let request = read_request(&mut stream);
+                        let actions = request_body(&request)
+                            .split(|b| *b == b'\n')
+                            .filter(|line| !line.is_empty())
+                            .count()
+                            / 2;
+                        round += 1;
+                        let mut statuses = vec![429u16; actions];
+                        if round <= 3 {
+                            statuses[0] = 201;
+                        }
+                        items_answered(&mut stream, &statuses);
+                    }
+                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                        if server_stop.load(Ordering::SeqCst) {
+                            return;
+                        }
+                        std::thread::sleep(Duration::from_millis(2));
+                    }
+                    Err(error) => panic!("accept: {error}"),
+                }
+            }
+        });
+        let es = client(address, 4).with_throttle_patience(Duration::from_millis(300));
+        let body: Vec<u8> = ["a", "b", "c", "d", "e"]
+            .iter()
+            .flat_map(|id| pair(id))
+            .collect();
+        let started = Instant::now();
+        let outcome = es.bulk(body).unwrap();
+        let elapsed = started.elapsed();
+        stop.store(true, Ordering::SeqCst);
+        server.join().unwrap();
+        assert_eq!(
+            outcome.exhausted_after,
+            Some(Duration::from_millis(300)),
+            "{outcome:?}"
+        );
+        assert_eq!(outcome.throttled_out, 2, "{outcome:?}");
+        assert!(
+            elapsed >= Duration::from_millis(300),
+            "stopped at the patience after the last progress, took {elapsed:?}"
+        );
+    }
+
+    #[test]
+    fn backpressure_exhausted_names_the_process_memory_cap_once() {
+        let error = super::backpressure_exhausted(4, Duration::from_secs(90), BREAKER);
+        let rendered = error.to_string();
+        assert!(rendered.contains("after 90s"), "{rendered}");
+        assert!(rendered.contains("circuit breaker"), "{rendered}");
+        assert!(
+            rendered.contains("limits.max_process_memory_mb"),
+            "{rendered}"
+        );
+        assert_eq!(
+            super::memory_cap_hint(&error.reason),
+            error.reason,
+            "a reason that already names the cap is not annotated twice"
+        );
+        assert_eq!(
+            super::memory_cap_hint("mapper_parsing_exception"),
+            "mapper_parsing_exception"
+        );
     }
 
     #[test]
@@ -3486,7 +4731,7 @@ mod tests {
 
     #[test]
     fn an_http_429_carrying_a_bulk_body_settles_taken_items_and_re_offers_the_rest() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         let requests = Arc::new(Mutex::new(Vec::new()));
         let seen = requests.clone();
@@ -3519,7 +4764,7 @@ mod tests {
 
     #[test]
     fn a_loading_run_re_asks_an_http_429_beyond_six_attempts_while_patience_lasts() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         // Nine throttled answers, then one clean one: the old six-attempt
         // budget failed this at the seventh.
@@ -3539,7 +4784,7 @@ mod tests {
 
     #[test]
     fn a_loading_run_gives_up_an_http_429_when_patience_is_exhausted() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         let server = serve(listener, vec![false]);
         let es = client(address, 4).with_throttle_patience(Duration::ZERO);
@@ -3554,7 +4799,7 @@ mod tests {
 
     #[test]
     fn a_one_shot_client_keeps_the_bounded_budget_on_http_429() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         let server = serve(listener, vec![false; 6]);
         let es = Es::with_bulk_policy(
@@ -3573,6 +4818,110 @@ mod tests {
             "six attempts, five backoffs — a probe does not wait ten minutes"
         );
         server.join().unwrap();
+    }
+
+    /// A plain HTTP 429 (no bulk `items`) from the parent breaker is the same
+    /// zero-progress loop: stop at the short budget and name the cap. A probe
+    /// (admission off) still stops after six attempts — covered above.
+    #[test]
+    fn a_plain_parent_breaker_429_names_the_cap_and_stops_short() {
+        let listener = crate::test_loopback::bind();
+        let address = listener.local_addr().unwrap();
+        let stop = Arc::new(AtomicBool::new(false));
+        let server_stop = Arc::clone(&stop);
+        listener.set_nonblocking(true).unwrap();
+        let server = std::thread::spawn(move || loop {
+            match listener.accept() {
+                Ok((mut stream, _)) => {
+                    stream.set_nonblocking(false).unwrap();
+                    let _ = read_request(&mut stream);
+                    let body = br#"{"error":{"type":"circuit_breaking_exception","reason":"[parent] real memory circuit breaker tripped: rss=9MB >= watermark=8MB"},"status":429}"#;
+                    respond_status(&mut stream, "429 Too Many Requests", body);
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                    if server_stop.load(Ordering::SeqCst) {
+                        return;
+                    }
+                    std::thread::sleep(Duration::from_millis(2));
+                }
+                Err(error) => panic!("accept: {error}"),
+            }
+        });
+        let es = client(address, 4)
+            .with_throttle_patience(Duration::from_secs(2))
+            .with_zero_progress_patience(Duration::from_millis(40));
+        let started = Instant::now();
+        let error = es.bulk(BULK.to_vec()).unwrap_err();
+        let elapsed = started.elapsed();
+        stop.store(true, Ordering::SeqCst);
+        server.join().unwrap();
+        let rendered = format!("{error:#}");
+        assert!(
+            rendered.contains("limits.max_process_memory_mb"),
+            "{rendered}"
+        );
+        assert!(
+            elapsed < Duration::from_millis(500),
+            "a parent breaker that accepts nothing must not wait 2s, took {elapsed:?}"
+        );
+        let backoffs = es.backoff_delays.lock().unwrap().len();
+        assert!(
+            (1..=8).contains(&backoffs),
+            "retried inside the short budget: {backoffs} backoffs"
+        );
+    }
+
+    /// #2427: a 429 from the per-query memory guard is deterministic for the
+    /// same query, so even a loading client (admission on, long patience)
+    /// gives up after the first answer instead of re-asking until the
+    /// patience runs out.
+    #[test]
+    fn a_query_allocation_429_is_not_retried() {
+        let listener = crate::test_loopback::bind();
+        let address = listener.local_addr().unwrap();
+        let hits = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let server_hits = Arc::clone(&hits);
+        let stop = Arc::new(AtomicBool::new(false));
+        let server_stop = Arc::clone(&stop);
+        listener.set_nonblocking(true).unwrap();
+        let server = std::thread::spawn(move || loop {
+            match listener.accept() {
+                Ok((mut stream, _)) => {
+                    stream.set_nonblocking(false).unwrap();
+                    let _ = read_request(&mut stream);
+                    server_hits.fetch_add(1, Ordering::SeqCst);
+                    let body = br#"{"error":{"type":"circuit_breaking_exception","reason":"[request] query allocation (768.2mb) would exceed limits.max_query_memory_mb=512MB at [aggregation corpus materialisation]; reduce size/aggregation cardinality"},"status":429}"#;
+                    respond_status(&mut stream, "429 Too Many Requests", body);
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                    if server_stop.load(Ordering::SeqCst) {
+                        return;
+                    }
+                    std::thread::sleep(Duration::from_millis(2));
+                }
+                Err(error) => panic!("accept: {error}"),
+            }
+        });
+        let es = client(address, 4)
+            .with_throttle_patience(Duration::from_secs(2))
+            .with_zero_progress_patience(Duration::from_secs(2));
+        let started = Instant::now();
+        let error = es
+            .search(
+                "i",
+                &serde_json::json!({"size": 0, "aggs": {"mn": {"min": {"field": "t"}}}}),
+            )
+            .unwrap_err();
+        let elapsed = started.elapsed();
+        stop.store(true, Ordering::SeqCst);
+        server.join().unwrap();
+        let rendered = format!("{error:#}");
+        assert!(rendered.contains("max_query_memory_mb"), "{rendered}");
+        assert_eq!(hits.load(Ordering::SeqCst), 1, "asked once: {rendered}");
+        assert!(
+            elapsed < Duration::from_millis(500),
+            "a query-allocation refusal must not wait out the patience, took {elapsed:?}"
+        );
     }
 
     // ── #955: a request is bounded in actions and bytes, and a request the
@@ -3620,7 +4969,7 @@ mod tests {
 
     impl LimitedBulkServer {
         fn start(max_actions: usize, max_bytes: usize) -> Self {
-            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            let listener = crate::test_loopback::bind();
             listener.set_nonblocking(true).unwrap();
             let address = listener.local_addr().unwrap();
             let requests = Arc::new(Mutex::new(Vec::new()));
@@ -3893,7 +5242,7 @@ mod tests {
     /// the cause was back-pressure.
     #[test]
     fn patience_exhausted_in_one_window_does_not_send_the_windows_behind_it() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         let bodies = Arc::new(Mutex::new(Vec::new()));
         let server_bodies = bodies.clone();
@@ -3969,7 +5318,7 @@ mod tests {
     /// carries them and an end-to-end test asserts them.
     #[test]
     fn a_re_offered_bulk_is_counted_on_xerj_done() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         let (server, _requests) = serve_bodies(
             listener,

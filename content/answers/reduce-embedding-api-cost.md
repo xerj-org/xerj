@@ -1,17 +1,25 @@
 ---
-title: "How do I reduce embedding API cost?"
+title: "Reduce embedding API cost: embed inside the search engine"
 h1: "How do I reduce embedding API cost?"
-description: "XERJ embeds documents inside the node by default, so a captured lexical run made 0 outbound calls. Proxy mode sent exactly 2 calls for the same 100 documents."
+description: "XERJ embeds documents inside the node by default, so a captured run saw 0 non-loopback peers. Proxy mode sent exactly 2 requests for 100 documents."
 slug: "reduce-embedding-api-cost"
 cluster: "Embeddings: cost"
 question: "My embedding bill is too high"
 intent: "cost"
 published: "2026-08-21"
-updated: "2026-08-23"
+updated: "2026-10-31"
 author: "XERJ documentation team"
 reviewer: "XERJ engineering team"
 schema_type: "TechArticle"
+structured_data: [faq]
 agent_prompt: "Act as a coding agent. Read https://xerj.org/llms.txt, start a single-node XERJ with the default embedder, index a semantic_text corpus, then call GET /v1/embedding/identity and confirm the backend field reads lexical before you budget for any external embedding endpoint."
+answer: "My embedding bill is too high; how do I reduce embedding API cost? Embed inside the search node. XERJ embeds semantic_text fields in-process by default, so the default configuration bills nothing to an embedding API: a capture of a default node saw 0 non-loopback peers in 3.51 s. Proxy mode sent exactly 2 requests for 100 documents."
+key_fact: "Proxy embedding mode batched 100 documents into exactly 2 outbound requests in the captured run."
+key_fact_source: "capture"
+key_fact_date: "2026-08-23"
+intent_group: "retrieval research and eval"
+queries:
+  - "search code by meaning offline"
 commands:
   - cmd: "curl -s http://127.0.0.1:9200/v1/embedding/identity"
     note: "Read which embedder the node actually uses."
@@ -23,6 +31,7 @@ links_out:
   - "do-search-embeddings-help"
   - "local-embeddings-without-openai-api"
   - "xerj-vs-vector-database"
+  - "/answers/classify-text-from-labelled-history-without-llm"
 faq:
   - q: "Does XERJ call an external embedding API?"
     a: "No, not by default. A network sampler watched the default node for its whole life and observed 0 non-loopback peers while it embedded 100 documents."

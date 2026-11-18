@@ -230,11 +230,11 @@ async fn post_filter_beside_hybrid_is_a_400_naming_the_spellings() {
     );
 }
 
-/// Guard against over-rejecting: `post_filter` beside a PLAIN query keeps its
-/// documented accepted-and-ignored behaviour (#204 tracks implementing it) —
-/// the 400 fires only when the query contains a hybrid.
+/// Guard against over-rejecting: `post_filter` beside a PLAIN query is a 200
+/// — the 400 fires only when the query contains a hybrid — and, since #2400,
+/// it is applied: only the two eml docs come back.
 #[tokio::test]
-async fn post_filter_beside_a_plain_match_stays_accepted_and_ignored() {
+async fn post_filter_beside_a_plain_match_is_accepted_and_applied() {
     let (app, _dir) = hyb943_app_with_docs().await;
 
     let (status, body) = json_req(
@@ -251,7 +251,7 @@ async fn post_filter_beside_a_plain_match_stays_accepted_and_ignored() {
     assert_eq!(
         status,
         StatusCode::OK,
-        "post_filter beside a plain query must stay 200 (accepted-and-ignored): {body}"
+        "post_filter beside a plain query must stay 200: {body}"
     );
     let ids: Vec<String> = body
         .pointer("/hits/hits")
@@ -264,9 +264,7 @@ async fn post_filter_beside_a_plain_match_stays_accepted_and_ignored() {
         .unwrap_or_default();
     assert_eq!(
         ids.len(),
-        4,
-        "the plain query must return its UNfiltered hit set (all four docs, not \
-         just the two eml ones — post_filter is not applied to plain queries yet, \
-         see #204): {ids:?}"
+        2,
+        "post_filter must narrow the plain query's hits to the two eml docs (#2400): {ids:?}"
     );
 }

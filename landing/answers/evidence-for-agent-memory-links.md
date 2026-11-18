@@ -2,11 +2,15 @@
 ---
 title: "Evidence behind agent-memory links"
 canonical: "https://xerj.org/answers/evidence-for-agent-memory-links"
-updated: "2026-08-23"
+updated: "2026-10-20"
 source: "content/answers/evidence-for-agent-memory-links.md"
 ---
 
 # How can agent-memory links retain evidence?
+
+**Short answer** (updated 2026-10-20): Knowledge graphs aren't enough for agent memory; how do you get a know-how graph with evidence? XERJ stores the line that taught each link. All 7 detected edges in our capture carried an evidence object with a quote, a filename and an offset, and retiring a link wrote a tombstone instead of deleting the edge.
+
+**Key number:** The shared-term link detector keeps at most 5 edges per document (`MAX_EDGES_PER_DOC`), which bounds the link index. (as of 2026-10-19; source: [engine/crates/xerj-autoindex/src/detect/sharedterm.rs](https://github.com/xerj-org/xerj/blob/main/engine/crates/xerj-autoindex/src/detect/sharedterm.rs))
 
 **TL;DR** — XERJ stores the line that taught each link. All 7 detected edges in our capture carried an `evidence` object with a quote, a filename and an offset. A hand-asserted link carried none, and retiring a link wrote a tombstone instead of deleting the edge.
 
@@ -62,6 +66,8 @@ The quote is useful because the detectors are structural rather than interpretiv
 Confidence is a per-detector constant, not a learned number. Our run carried 0.99 on `sequence` edges, 0.95 on `wikilink` edges and 0.4 on `same_dir` edges.
 
 XERJ invents nothing to fill a gap. XERJ renders a real quote, a structural rationale and an asserted link as three different things.
+
+Code lookup follows the same rule — exit 1 and no invented hit when a symbol is missing, file:line when it answers — on [retrieval that says not found](/answers/retrieval-that-says-not-found-with-file-line-citations).
 
 ## An asserted link carries no evidence
 
@@ -139,3 +145,6 @@ In the index named `.xerj-memory-{brain}-edges`. Filter on `{"exists":{"field":"
 - [Should agent memory use a knowledge graph?](/answers/knowledge-graphs-for-agent-memory)
 - [How do people store user preferences so an agent can recall them next week?](/answers/coding-agent-memory-across-sessions)
 - [Second brain](/use-cases/second-brain)
+- [Agentic memory vs RAG: what is the difference?](/answers/agentic-memory-vs-rag) (same intent: agent memory)
+- [What's a simple way to give an agent long-term memory on my laptop without Qdrant?](/answers/agent-memory-without-postgres-qdrant) (same intent: agent memory)
+- [How does Claude Code memory work, and when do you need more?](/answers/claude-code-memory) (same intent: agent memory)

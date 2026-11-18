@@ -1,0 +1,36 @@
+$ /workspace/engine/target/release/xerj search --url http://127.0.0.1:9217 --prefix gh -k 3 xerj feedback --open-pr commits and pushes
+# exit 0
+xerj search: these hits are lexical; this command does not consult the embedding.
+
+─── issues.jsonl:1  (score 42.22)
+    `xerj feedback --open-pr` commits everything already staged in the user's repository, then pushes it to a public PR. Three shipped surfaces promise it commits only the field report.
+    
+    ## The code
+    
+    `engine/crates/xerj-autoindex/src/feedback.rs:416-434` builds five steps:
+    
+    ```rust
+    ("git add",    vec!["add".into(), relpath.clone()]),
+    ("git commit", vec!["commit".into(), "-m".into(),
+                        format!("docs(field-report): {}", draft.slug)]),
+    ("git push",   vec!["push".into(), "-u".into(), "origin".into(), branch.clone()]),
+    ```
+    
+    `git add <relpath>` stages the report. `git commit -m …` then
+    … (--full 1200 to see more)
+
+─── issues.jsonl:1  (score 35.68)
+    `xerj feedback --open-pr` tells the user, in four separate places, that it commits only the field report. It does not. It stages the report and then runs an unrestricted `git commit`, so **whatever the user already had staged is committed and pushed to a public PR alongside it**.
+    
+    ## The promise
+    
+    ```
+    engine/crates/xerj-autoindex/src/feedback.rs:387   /// `--open-pr`: commit ONLY the field report on a new branch and run
+    engine/crates/xerj-autoindex/src/feedback.rs:520   xerj feedback --open-pr [OPTIONS]    commit ONLY the report + open a PR
+    engine/crates/xerj-autoindex/src/feedback.rs:543   --o
+    … (--full 1200 to see more)
+
+─── issues.jsonl  (score 44.36)
+    xerj feedback --open-pr commits and pushes into whatever repository it is run from
+
+3 passage(s) from 'gh-*'. Cite ax_path:line for anything you rely on.

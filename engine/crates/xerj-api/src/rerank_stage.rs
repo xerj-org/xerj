@@ -766,6 +766,7 @@ impl RerankPlan {
                     "usage": {
                         "input_tokens": usage.input_tokens,
                         "output_tokens": usage.output_tokens,
+                        "search_units": usage.search_units,
                     },
                 })
             }
@@ -929,8 +930,8 @@ pub fn status_document(settings: &ProviderSettings) -> Value {
     let defaults = RerankConfig::default();
     json!({
         "enabled": settings.enabled,
-        "configured": settings.enabled && settings.has_key(),
-        "providers": ["jev"],
+        "configured": settings.enabled && (settings.has_key() || settings.cohere().has_key()),
+        "providers": ["jev", "cohere"],
         "api_key": {
             "set": settings.has_key(),
             "source": settings.key_source().map(|s| s.as_str()),
@@ -938,6 +939,37 @@ pub fn status_document(settings: &ProviderSettings) -> Value {
         "endpoint": {
             "url": settings.endpoint_for_display(),
             "source": settings.endpoint_source().as_str(),
+        },
+        // Per provider. The top-level `api_key` / `endpoint` above stay the
+        // TypeSafe (`jev`) pair, as before, so existing readers keep working.
+        "by_provider": {
+            "jev": {
+                "configured": settings.enabled && settings.has_key(),
+                "api_key": {
+                    "set": settings.has_key(),
+                    "source": settings.key_source().map(|s| s.as_str()),
+                },
+                "endpoint": {
+                    "url": settings.endpoint_for_display(),
+                    "source": settings.endpoint_source().as_str(),
+                },
+                "max_docs_per_call": xerj_rerank::JEV_MAX_DOCS_PER_CALL,
+            },
+            "cohere": {
+                "configured": settings.enabled && settings.cohere().has_key(),
+                "api_key": {
+                    "set": settings.cohere().has_key(),
+                    "source": settings.cohere().key_source().map(|s| s.as_str()),
+                },
+                "endpoint": {
+                    "url": settings.cohere().endpoint_for_display(),
+                    "source": settings.cohere().endpoint_source().as_str(),
+                },
+                "max_docs_per_call": xerj_rerank::COHERE_MAX_DOCS_PER_CALL,
+                "models": xerj_rerank::COHERE_MODELS,
+                "default_model": xerj_rerank::COHERE_DEFAULT_MODEL,
+                "unsupported_fields": ["instructions", "min_score"],
+            },
         },
         "defaults": {
             "provider": defaults.provider,

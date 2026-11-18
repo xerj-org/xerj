@@ -2,11 +2,15 @@
 ---
 title: "DocFetcher compared with XERJ for document search"
 canonical: "https://xerj.org/compare/xerj-vs-docfetcher"
-updated: "2026-09-26"
+updated: "2026-10-28"
 source: "content/compare/xerj-vs-docfetcher.md"
 ---
 
 # What's a free DocFetcher alternative that an agent can call?
+
+**Short answer** (updated 2026-10-28): What is a free DocFetcher alternative that an agent can call? XERJ: a search engine a program calls over HTTP or MCP. DocFetcher stays the better desktop GUI: it reads Outlook PST files and nested archives, and its portable version carries the index on a USB drive. This is a capability comparison; no benchmark was run.
+
+**Key number:** DocFetcher's download page lists version 1.1.27 under the Eclipse Public License. (as of 2026-10-19; source: [docfetcher.sourceforge.io/download](https://docfetcher.sourceforge.io/download/))
 
 **TL;DR** — DocFetcher is a mature desktop search GUI. It reads Outlook PST files and nested archives, and its portable version carries the index on a USB drive. XERJ is a search engine that a program calls over HTTP or MCP. No head-to-head benchmark was run.
 
@@ -78,7 +82,7 @@ The command takes no configuration file and no mapping.
 
 The node answers the Elasticsearch REST API. `xerj autoindex map` prints a data map of what the folder became. An agent reads that map, then names a real index and a real field.
 
-`xerj mcp` is a stdio MCP server in the same binary. It serves 10 tools against a node you already started. Agent memory lives in the engine under `/_memory/{namespace}`.
+`xerj mcp` is a stdio MCP server in the same binary. It serves 24 tools against a node you already started. Agent memory lives in the engine under `/_memory/{namespace}`.
 
 XERJ is single-node. There is no replication and no failover. The default embedder is lexical feature hashing, not a neural model, and neural retrieval is opt-in through `--embed-mode neural`.
 
@@ -98,7 +102,7 @@ Every row is a documented capability of each tool. No row is a measured result.
 | automatic index updates | yes, while the application runs | rerun `xerj autoindex` |
 | format detection | file extension, with a regex option | content sniffing per family |
 | HTTP query API | not in the free application | yes, Elasticsearch REST API |
-| MCP server for an agent | none | yes, `xerj mcp`, 10 tools |
+| MCP server for an agent | none | yes, `xerj mcp`, 24 tools |
 | catalog of refused files | index report in the GUI | `autoindex-catalog`, one reason per file |
 | agent memory in the engine | none | yes, `/_memory/{namespace}` |
 | license | Eclipse Public License | Apache-2.0 |
@@ -198,3 +202,6 @@ Not the free desktop application, which has a GUI and no API. A multi-user web i
 - [Can ChatGPT search a folder on my laptop, or do I need something else?](/answers/give-chatgpt-claude-local-file-access)
 - [What's the best local desktop search for a folder of PDFs and docs?](/compare/xerj-vs-recoll)
 - [How do I grep PDFs and Word docs from the command line?](/compare/xerj-vs-ripgrep-all)
+- [XERJ vs HoudahSpot — Spotlight GUI vs an agent index](/compare/xerj-vs-houdahspot) (same intent: logs and docs)
+- [What can I use for low-volume log search?](/answers/cheap-low-volume-log-search) (same intent: logs and docs)
+- [I saved a help-center as HTML. How do I search it like the real help-center search?](/answers/search-html-export) (same intent: logs and docs)

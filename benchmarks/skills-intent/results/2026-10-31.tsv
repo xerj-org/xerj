@@ -1,0 +1,27 @@
+rank	expected	query	top3
+2	a11y-audit	Check my React pages against WCAG 2.2 and fix the low contrast colors	design-qa, a11y-audit, landing
+1	agile-product-owner	Write user stories with acceptance criteria and split this epic for next sprint	agile-product-owner, atlassian-templates, jira-expert
+miss	arquiteto-de-empresa	Document how my whole startup works as markdown files in a git repo	commit-craft, collab-proof, codebase-onboarding
+2	brief	Frame this strategic question on one page with options and assumptions before we debate	roast, brief, human-gate
+miss	cco-review	Poke holes in our plan to cut customer success headcount and resegment accounts	capacity-planner, cfo-advisor, chro-advisor
+1	churn-prevention	Design a cancellation flow with save offers to keep subscribers from leaving	churn-prevention, roast, saas-scaffolder
+1	cold-email	Draft an outreach sequence to sales prospects who never signed up to hear from us	cold-email, cro-advisor, stock-analysis
+1	content-production	Write a full blog article, from research and outline through an SEO polished draft	content-production, marketing-ops, content-creator
+2	cto-review	Challenge our plan to rebuild the platform in house instead of buying	linkedin-strategy, cto-review, stock-analysis
+2	design-qa	Before handoff, find dead buttons, placeholder text and missing empty states on this screen	session-handoff, design-qa, stock-analysis
+7	extract	Package the bug fix pattern we solved last week into its own agent skill	capture, focused-fix, session-handoff
+1	full-page-screenshot	Grab a single image of a very tall website, scrolling all the way down	full-page-screenshot, markdown-html-orchestrator, human-gate
+1	helm-chart-builder	Harden the Kubernetes package templates and values.yaml for our service with proper RBAC	helm-chart-builder, kubernetes-operator, senior-fullstack
+1	interview-system-designer	Set up the hiring loop for a senior engineer role, with rubrics and calibrated questions	interview-system-designer, vpe-advisor, senior-prompt-engineer
+6	linkedin-engagement	Draft connection request notes and DMs for prospects on the professional networking site	linkedin-skills, linkedin-strategy, stock-analysis
+1	marketing-ops	Sequence a launch campaign spanning SEO, content, conversion and ad channels	marketing-ops, marketing-strategy-pmm, free-tool-strategy
+1	merge	Land the winning agent's branch, archive the losing ones and clean up worktrees	merge, agenthub, hivemind
+2	paid-ads	Restructure our Google and Meta campaigns: targeting, bidding and budget split	marketing-demand-acquisition, paid-ads, marketing-strategy-pmm
+2	product-analytics	Define the KPIs for our app and run a cohort retention breakdown	cpo-advisor, product-analytics, stock-analysis
+1	quality-documentation-manager	Set up numbering, version control and Part 11 electronic signatures for our regulated SOPs	quality-documentation-manager, knowledge-ops, quality-manager-qms-iso13485
+1	research-summarizer	Condense this academic paper into key findings and pull out its citations	research-summarizer, spinning-up-deep-rl, litreview
+3	secrets-vault-manager	Configure AWS credential storage and plan automatic rotation of database passwords	env-secrets-manager, aws-solution-architect, secrets-vault-manager
+2	senior-prompt-engineer	Measure how well our RAG pipeline retrieves the right passages and tune the instructions	rag-architect, senior-prompt-engineer, deep-learning-book
+1	snowflake-development	Set up Dynamic Tables, Streams and Tasks, and a Cortex AI call in our warehouse	snowflake-development, senior-data-engineer, gcp-cloud-architect
+3	strict-api	Prove each function I call really exists in our pinned library version	coding-agent-rollout, ship-gate, strict-api
+1	ux-researcher-designer	Build personas from our survey data and map the customer journey	ux-researcher-designer, google-workspace-cli, interview-mapper

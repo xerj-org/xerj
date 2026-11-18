@@ -342,15 +342,22 @@ impl ColumnBuilder {
     fn push_chunks(&mut self, chunks: &[Value]) -> DocVectors {
         let first = self.column.entries.len();
         for (position, chunk) in chunks.iter().enumerate() {
-            let Value::Array(elements) = chunk else {
-                continue;
-            };
             // The ordinal is the passage's position in the ORIGINAL array, so
             // a skipped passage never renumbers the ones after it.
             let Ok(ordinal) = u32::try_from(position) else {
                 continue;
             };
-            self.push_vector(elements, ordinal);
+            match chunk {
+                Value::Array(elements) => {
+                    self.push_vector(elements, ordinal);
+                }
+                Value::String(text) => {
+                    if let Some(values) = xerj_common::packed_f32::unpack_f32_vector(text) {
+                        self.push_f32_vector(&values, ordinal);
+                    }
+                }
+                _ => {}
+            }
         }
         DocVectors::Chunks {
             first,
@@ -361,6 +368,12 @@ impl ColumnBuilder {
     fn push_pooled(&mut self, source: &Value) -> DocVectors {
         match field_value_cow(source, &self.field).as_deref() {
             Some(Value::Array(elements)) => DocVectors::Pooled(self.push_vector(elements, 0)),
+            // #1940 packed form. Same f32 bits `push_vector` would have
+            // produced from the number array.
+            Some(Value::String(text)) => match xerj_common::packed_f32::unpack_f32_vector(text) {
+                Some(values) => DocVectors::Pooled(self.push_f32_vector(&values, 0)),
+                None => DocVectors::Absent,
+            },
             _ => DocVectors::Absent,
         }
     }

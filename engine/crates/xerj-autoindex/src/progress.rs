@@ -89,14 +89,34 @@ use std::time::{Duration, Instant};
 const EWMA_ALPHA: f64 = 0.2;
 /// No ETA until the phase has run at least this long.
 const ETA_MIN_PHASE_SECS: f64 = 5.0;
-/// No ETA until this fraction of the phase is complete.
+/// No numeric ETA until this fraction of the phase is complete.
+///
+/// This gate used to also suppress [`Eta::Stalled`]. A phase sitting at 0/N
+/// (fraction 0, which is under 2%) therefore stayed `eta_quality=unknown` for
+/// as long as it hung — the 11-hour `corpus index` in #1981, journal not yet
+/// written, looked like "still starting". The fraction still blocks a numeric
+/// ETA. It does not block the stall label.
 const ETA_MIN_FRACTION: f64 = 0.02;
+/// A phase with no denominator (`walk`, before the tree is counted) has
+/// nothing to increment, so the ordinary stall window would flag every walk
+/// longer than 15 s. Flag that shape only once the silence is far past a
+/// healthy walk. A phase that *has* a denominator uses [`Progress::stall_threshold`].
+const UNKNOWN_TOTAL_STALL: Duration = Duration::from_secs(10 * 60);
 /// Below this fraction a computed ETA is labelled `rough`, not `good`.
 const ETA_GOOD_FRACTION: f64 = 0.10;
 /// A displayed ETA may not move by more than this fraction per tick.
 const ETA_MAX_STEP: f64 = 0.20;
 /// Name at most this many still-running files when the tail goes quiet.
 const STRAGGLER_MAX: usize = 3;
+/// How long one hash read may sit in flight before its path is named, even
+/// while the pool still holds more than [`STRAGGLER_MAX`] files (#2058).
+///
+/// A dataless placeholder blocks inside a single `read`. The tail rule above
+/// stays silent until every other worker has finished, so a wide hash reports
+/// a stall with no path. A few seconds is long enough that an ordinary file
+/// does not flicker onto the line, and short enough that the next progress
+/// tick (default 5s) can say which file has not returned.
+const HASH_BLOCKING_AFTER: Duration = Duration::from_secs(5);
 /// Fallback terminal width when `COLUMNS` is unset.
 const DEFAULT_COLUMNS: usize = 100;
 /// Cells in the drawn bar on the stream surface.
@@ -338,7 +358,9 @@ struct State {
     last_advance_at: Instant,
     rate: Option<f64>,
     shown_eta: Option<f64>,
-    in_flight: Vec<(u64, String, u64)>,
+    /// `(seq, path, bytes, started)`. `started` is when the file was registered,
+    /// which is what the hash-phase blocker rule compares against.
+    in_flight: Vec<(u64, String, u64, Instant)>,
     next_seq: u64,
     tty_width: usize,
     /// When the last `xerj-bar` display line was written; `None` before the
@@ -379,6 +401,12 @@ pub struct Progress {
     stopped: Mutex<bool>,
     wake: Condvar,
     sink: Sink,
+    /// Structured fields merged into the `--progress json` terminal object.
+    ///
+    /// The plain `xerj-done` line is `key=value` numbers split on spaces, so
+    /// a path does not belong on it (#2372). Callers print the same facts
+    /// with [`Progress::note`] for that surface.
+    done_json: Mutex<serde_json::Map<String, serde_json::Value>>,
 }
 
 impl Progress {
@@ -410,6 +438,7 @@ impl Progress {
             stopped: Mutex::new(false),
             wake: Condvar::new(),
             sink,
+            done_json: Mutex::new(serde_json::Map::new()),
         })
     }
 
@@ -499,22 +528,37 @@ impl Progress {
     /// someone else's tree, and it is re-rendered on every tick until the file
     /// finishes. It is [`sanitize`]d here, once, on the way in.
     pub fn file(&self, rel: &str, bytes: u64) -> FileGuard<'_> {
-        let seq = if self.enabled() {
-            let safe = sanitize(rel, SAFE_PATH_MAX);
-            let mut state = self.state.lock().unwrap();
-            let seq = state.next_seq;
-            state.next_seq += 1;
-            state.in_flight.push((seq, safe, bytes));
-            seq
-        } else {
-            0
-        };
+        let seq = self.begin_file(rel, bytes);
         FileGuard {
             progress: self,
             seq,
             bytes,
             credited: AtomicU64::new(0),
         }
+    }
+
+    /// Register a file as in flight without crediting it on drop.
+    ///
+    /// Hashing credits bytes from its own completion callback. Using [`Self::file`]
+    /// there would count every file twice. This guard only keeps the path on
+    /// the in-flight list so a read that does not return can be named.
+    pub fn watch_file(&self, rel: &str, bytes: u64) -> WatchGuard<'_> {
+        WatchGuard {
+            progress: self,
+            seq: self.begin_file(rel, bytes),
+        }
+    }
+
+    fn begin_file(&self, rel: &str, bytes: u64) -> u64 {
+        if !self.enabled() {
+            return 0;
+        }
+        let safe = sanitize(rel, SAFE_PATH_MAX);
+        let mut state = self.state.lock().unwrap();
+        let seq = state.next_seq;
+        state.next_seq += 1;
+        state.in_flight.push((seq, safe, bytes, Instant::now()));
+        seq
     }
 
     /// `bytes` is what is still UNcredited for this file — all of it unless
@@ -526,7 +570,7 @@ impl Progress {
             let mut state = self.state.lock().unwrap();
             state
                 .in_flight
-                .retain(|(candidate, _, _)| *candidate != seq);
+                .retain(|(candidate, _, _, _)| *candidate != seq);
         }
         self.item_done(bytes);
     }
@@ -615,6 +659,16 @@ impl Progress {
         self.finish_with_flags(ok, exit, reason, extra, &[]);
     }
 
+    /// Fields merged into the `--progress json` terminal object.
+    ///
+    /// The plain `xerj-done` line stays numeric: readers split it on spaces,
+    /// and a path may contain spaces. Print the same facts with [`Self::note`]
+    /// for that surface. A key already set by the numeric extras or by flags
+    /// is left as that caller wrote it.
+    pub fn set_done_json(&self, fields: serde_json::Map<String, serde_json::Value>) {
+        *self.done_json.lock().unwrap() = fields;
+    }
+
     /// [`Self::finish`] plus boolean fields.
     ///
     /// A count alone cannot say whether it is a total or a floor. When a
@@ -654,11 +708,9 @@ impl Progress {
                 for (key, value) in flags {
                     doc.insert((*key).to_string(), (*value).into());
                 }
-                if ok && exit == 3 {
-                    doc.insert(
-                        "exit_meaning".into(),
-                        "success: junk was recorded, the run did not fail".into(),
-                    );
+                for (key, value) in self.done_json.lock().unwrap().iter() {
+                    let key = sanitize(key, SAFE_PATH_MAX);
+                    doc.entry(key).or_insert(value.clone());
                 }
                 let line = serde_json::Value::Object(doc);
                 self.sink.write(format!("{line}\n").as_bytes());
@@ -680,11 +732,6 @@ impl Progress {
                     line.push_str(&format!(" {key}={value}"));
                 }
                 line.push('\n');
-                if ok && exit == 3 {
-                    line.push_str(
-                        "xerj-note exit=3 means success: junk was recorded, the run did not fail\n",
-                    );
-                }
                 self.sink.write(line.as_bytes());
             }
         }
@@ -747,14 +794,27 @@ impl Progress {
         } else {
             0.0
         };
-        let eta = if total == 0 || phase_elapsed < ETA_MIN_PHASE_SECS || fraction < ETA_MIN_FRACTION
-        {
+        // A phase with no denominator can legitimately run with `done == 0`
+        // (the walk has not returned a count yet). One that published a
+        // denominator and then completes nothing is the hang: 0/N is still
+        // nothing completed, even though its fraction is under
+        // `ETA_MIN_FRACTION` (#1981).
+        let stall_after = if total == 0 {
+            self.stall_threshold()
+                .as_secs_f64()
+                .max(UNKNOWN_TOTAL_STALL.as_secs_f64())
+        } else {
+            self.stall_threshold().as_secs_f64()
+        };
+        let eta = if phase_elapsed < ETA_MIN_PHASE_SECS {
             Eta::Unknown
-        } else if since_progress > self.stall_threshold().as_secs_f64() {
+        } else if since_progress > stall_after {
             // The last measurement is too old to extrapolate from. The named
             // straggler below is the real answer to "what is it doing?" — an
             // extrapolated number here would be pure invention.
             Eta::Stalled
+        } else if total == 0 || fraction < ETA_MIN_FRACTION {
+            Eta::Unknown
         } else {
             match state.rate {
                 Some(rate) if rate > 0.0 => {
@@ -782,13 +842,30 @@ impl Progress {
 
         // Name the tail. Once the queue is nearly drained the run looks hung
         // while one worker chews through the biggest file in the corpus.
+        //
+        // The hash phase also names a single file that has been in flight for
+        // longer than [`HASH_BLOCKING_AFTER`], even when more than
+        // [`STRAGGLER_MAX`] files are still open. A dataless placeholder blocks
+        // one worker inside `read` while the rest of the pool is also busy, so
+        // the tail rule never fires and the stall has no path (#2058). Other
+        // phases keep the tail-only rule.
         let mut waiting_on = Vec::new();
         if !state.in_flight.is_empty() && state.in_flight.len() <= STRAGGLER_MAX {
             waiting_on = state
                 .in_flight
                 .iter()
-                .map(|(_, rel, bytes)| (rel.clone(), *bytes))
+                .map(|(_, rel, bytes, _)| (rel.clone(), *bytes))
                 .collect();
+        } else if state.phase == "hash" {
+            if let Some((_, rel, bytes, started)) = state
+                .in_flight
+                .iter()
+                .min_by_key(|(_, _, _, started)| *started)
+            {
+                if now.duration_since(*started) >= HASH_BLOCKING_AFTER {
+                    waiting_on.push((rel.clone(), *bytes));
+                }
+            }
         }
 
         Snapshot {
@@ -916,42 +993,44 @@ impl Progress {
         }
         let progress = Arc::clone(self);
         let interval = self.interval;
-        let handle = std::thread::Builder::new()
-            .name("autoindex-progress".into())
-            .spawn(move || {
-                // Hold the guard across the loop and test the flag BEFORE
-                // waiting. A condvar notification reaches only threads already
-                // parked in `wait`, so a `stop()` that lands while this thread
-                // is anywhere else — above all before its very first wait — is
-                // delivered to nobody and is gone. Re-checking the predicate
-                // under the lock is what makes it impossible to miss: the flag
-                // is set under the same mutex, so either we see it here or we
-                // are already parked and the notify wakes us.
-                //
-                // Getting this wrong is not a latency detail. `Ticker::drop`
-                // joins this thread, so a lost stop turns every early exit —
-                // `es.ping()` refused, `no-files`, a small `--dry-run` — into a
-                // full `--progress-interval` of silence AFTER the terminal line
-                // has printed, and `--progress-interval 3600` makes that an
-                // hour.
-                let mut stopped = progress.stopped.lock().unwrap();
-                while !*stopped {
-                    let (guard, _timeout) = progress
-                        .wake
-                        .wait_timeout(stopped, interval)
-                        .expect("progress ticker mutex poisoned");
-                    stopped = guard;
-                    if *stopped {
-                        break;
-                    }
-                    // Never emit while holding `stopped`: `stop()` would block
-                    // behind a write to a slow pipe.
-                    drop(stopped);
-                    progress.emit();
-                    stopped = progress.stopped.lock().unwrap();
+        // #1122: `Builder::spawn` returns `Ok` and then panics in the child
+        // when the alternate signal stack cannot be mapped. `.ok()` only
+        // sees the `Err` from `pthread_create`. `try_spawn` does not install
+        // that stack, so a refusal is a missing ticker, not a dead process.
+        let handle = xerj_common::thread_spawn::try_spawn("autoindex-progress", move || {
+            // Hold the guard across the loop and test the flag BEFORE
+            // waiting. A condvar notification reaches only threads already
+            // parked in `wait`, so a `stop()` that lands while this thread
+            // is anywhere else — above all before its very first wait — is
+            // delivered to nobody and is gone. Re-checking the predicate
+            // under the lock is what makes it impossible to miss: the flag
+            // is set under the same mutex, so either we see it here or we
+            // are already parked and the notify wakes us.
+            //
+            // Getting this wrong is not a latency detail. `Ticker::drop`
+            // joins this thread, so a lost stop turns every early exit —
+            // `es.ping()` refused, `no-files`, a small `--dry-run` — into a
+            // full `--progress-interval` of silence AFTER the terminal line
+            // has printed, and `--progress-interval 3600` makes that an
+            // hour.
+            let mut stopped = progress.stopped.lock().unwrap();
+            while !*stopped {
+                let (guard, _timeout) = progress
+                    .wake
+                    .wait_timeout(stopped, interval)
+                    .expect("progress ticker mutex poisoned");
+                stopped = guard;
+                if *stopped {
+                    break;
                 }
-            })
-            .ok();
+                // Never emit while holding `stopped`: `stop()` would block
+                // behind a write to a slow pipe.
+                drop(stopped);
+                progress.emit();
+                stopped = progress.stopped.lock().unwrap();
+            }
+        })
+        .ok();
         Ticker {
             progress: Arc::clone(self),
             handle,
@@ -1008,11 +1087,30 @@ impl Drop for FileGuard<'_> {
     }
 }
 
+/// Removes its file from the in-flight list on drop and credits nothing.
+///
+/// See [`Progress::watch_file`].
+pub struct WatchGuard<'a> {
+    progress: &'a Progress,
+    seq: u64,
+}
+
+impl Drop for WatchGuard<'_> {
+    fn drop(&mut self) {
+        if self.progress.enabled() {
+            let mut state = self.progress.state.lock().unwrap();
+            state
+                .in_flight
+                .retain(|(candidate, _, _, _)| *candidate != self.seq);
+        }
+    }
+}
+
 /// Owns the ticker thread. Dropping it stops the thread and — if the run never
 /// called `finish` — closes the stream with an honest `ok=false` line.
 pub struct Ticker {
     progress: Arc<Progress>,
-    handle: Option<std::thread::JoinHandle<()>>,
+    handle: Option<xerj_common::thread_spawn::SpawnedThread>,
 }
 
 impl Drop for Ticker {
@@ -1222,16 +1320,21 @@ fn bar(percent: Option<f64>, cells: usize) -> String {
     }
 }
 
-/// `eta 2m10s`, `eta ~2m10s (rough)`, `eta unknown`, `eta unknown (stalled)`.
+/// `eta 2m10s`, `eta ~2m10s (rough)`, `eta unknown`,
+/// `eta unknown (stalled, no progress for 1m40s)`.
 /// The word never disappears: a missing ETA field would read as a rendering
 /// fault, while `unknown` is the honest answer and is what the machine line
-/// says too.
-fn display_eta(eta: Eta) -> String {
+/// says too. A stall also says how long, because the machine line's
+/// `since_progress_s` is not on the `xerj-bar` line an agent relays verbatim.
+fn display_eta(eta: Eta, since_progress: f64) -> String {
     match eta {
         Eta::Good(seconds) => format!("eta {}", fmt_secs(seconds)),
         Eta::Rough(seconds) => format!("eta ~{} (rough)", fmt_secs(seconds)),
         Eta::Unknown => "eta unknown".to_string(),
-        Eta::Stalled => "eta unknown (stalled)".to_string(),
+        Eta::Stalled => format!(
+            "eta unknown (stalled, no progress for {})",
+            fmt_secs(since_progress)
+        ),
     }
 }
 
@@ -1280,7 +1383,10 @@ fn render_bar_line(snapshot: &Snapshot, cells: usize) -> String {
             Basis::None => {}
         }
     }
-    line.push_str(&format!(" | {}", display_eta(snapshot.eta)));
+    line.push_str(&format!(
+        " | {}",
+        display_eta(snapshot.eta, snapshot.since_progress)
+    ));
     if snapshot.waiting_on.len() == 1 {
         line.push_str(&format!(
             " | waiting on {}",
@@ -1327,10 +1433,10 @@ fn render_tty(snapshot: &Snapshot) -> String {
             Basis::None => {}
         }
     }
-    match snapshot.eta.seconds() {
-        Some(seconds) => line.push_str(&format!("| eta {}", fmt_secs(seconds))),
-        None => line.push_str("| eta unknown"),
-    }
+    line.push_str(&format!(
+        "| {}",
+        display_eta(snapshot.eta, snapshot.since_progress)
+    ));
     if snapshot.waiting_on.len() == 1 {
         line.push_str(&format!(
             " | waiting on {}",
@@ -2034,10 +2140,6 @@ mod tests {
         assert_eq!(last["exit"], 3);
         assert_eq!(last["reason"], "completed-with-junk");
         assert_eq!(last["files"], 1922);
-        assert_eq!(
-            last["exit_meaning"],
-            "success: junk was recorded, the run did not fail"
-        );
     }
 
     /// #279. `ignored_files_in_pruned_dirs` is budget-capped, so on its own it
@@ -2185,11 +2287,49 @@ mod tests {
             "{text}"
         );
         assert!(text.contains("files=12 records=7"), "{text}");
+    }
+
+    /// #2372: paths ride on the JSON terminal object. The plain line stays
+    /// `key=value` numbers, including when a path contains a space.
+    #[test]
+    fn json_done_event_names_paths_the_plain_line_does_not() {
+        let files = vec!["added-a.md".to_string(), "dir/new file.md".to_string()];
+        let mut fields = serde_json::Map::new();
+        fields.insert("skipped_appeared_files".into(), serde_json::json!(files));
+        fields.insert(
+            "skipped_appeared_action".into(),
+            serde_json::json!("Re-run with --fresh"),
+        );
+
+        let (json_progress, json_buffer) =
+            Progress::capture(Surface::Json, Duration::from_secs(3600));
+        json_progress.set_done_json(fields.clone());
+        json_progress.finish(true, 3, "stale-resume-plan", &[("skipped_appeared", 2)]);
+        let doc: serde_json::Value =
+            serde_json::from_str(captured(&json_buffer).trim()).expect("one JSON object");
+        assert_eq!(doc["event"], "done");
+        assert_eq!(doc["exit"], 3);
+        assert_eq!(doc["reason"], "stale-resume-plan");
+        assert_eq!(doc["skipped_appeared"], 2);
+        assert_eq!(doc["skipped_appeared_files"], serde_json::json!(files));
+        assert_eq!(doc["skipped_appeared_action"], "Re-run with --fresh");
+
+        let (plain, plain_buffer) = Progress::capture(Surface::Plain, Duration::from_secs(3600));
+        plain.set_done_json(fields);
+        plain.finish(true, 3, "stale-resume-plan", &[("skipped_appeared", 2)]);
+        let plain_text = captured(&plain_buffer);
         assert!(
-            text.contains(
-                "xerj-note exit=3 means success: junk was recorded, the run did not fail"
-            ),
-            "{text}"
+            plain_text.starts_with("xerj-done ok=true exit=3 reason=stale-resume-plan "),
+            "{plain_text}"
+        );
+        assert!(plain_text.contains(" skipped_appeared=2"), "{plain_text}");
+        assert!(
+            !plain_text.contains("new file.md"),
+            "a path with a space must not be spliced into the plain line: {plain_text}"
+        );
+        assert!(
+            !plain_text.contains("skipped_appeared_files"),
+            "{plain_text}"
         );
     }
 
@@ -2259,12 +2399,20 @@ mod tests {
             state.last_sample_units = 10_248_432;
             state.rate = Some(2_545_880.0);
             state.shown_eta = Some(10.3);
+            // The opening bar went out at phase start, before this stall.
+            // Age it past the display interval so the tick owes a new one.
+            state.last_bar_at = Some(Instant::now() - Duration::from_secs(20));
         }
         progress.tick();
-        let line = captured(&buffer).lines().last().unwrap().to_string();
+        let text = captured(&buffer);
+        let line = text.lines().last().unwrap().to_string();
         assert!(
             line.contains("eta_s=unknown") && line.contains("eta_quality=stalled"),
             "no completion in 100s is an absence of measurement, not a slow rate: {line}"
+        );
+        assert!(
+            text.contains("no progress for 1m40s"),
+            "the relayed bar must say how long the phase has been stuck: {text}"
         );
         assert!(line.contains("since_progress_s=100."), "{line}");
         assert!(
@@ -2275,6 +2423,203 @@ mod tests {
         // only a third of the bytes are.
         assert!(line.contains("pct=32.9"), "{line}");
         drop(big);
+    }
+
+    /// #1981: a phase that has a denominator and completes nothing — including
+    /// 0/N, whose fraction is under [`ETA_MIN_FRACTION`] — reports a stall.
+    /// The old gate forced `eta_quality=unknown` for the whole hang, which is
+    /// what an 11-hour `corpus index` (journal not yet written) looked like.
+    #[test]
+    fn a_phase_at_zero_reports_a_stall_once_nothing_completes() {
+        let (progress, buffer) = Progress::capture(Surface::Plain, Duration::from_secs(5));
+        progress.phase("index", 17448, 0);
+        {
+            let mut state = progress.state.lock().unwrap();
+            state.phase_started = Instant::now() - Duration::from_secs(120);
+            state.last_advance_at = Instant::now() - Duration::from_secs(120);
+            state.last_bar_at = Some(Instant::now() - Duration::from_secs(20));
+        }
+        progress.tick();
+        let line = captured(&buffer)
+            .lines()
+            .rev()
+            .find(|line| line.starts_with("xerj-progress "))
+            .expect("a machine line")
+            .to_string();
+        assert!(
+            line.contains("items=0/17448") && line.contains("eta_quality=stalled"),
+            "0/N past the stall window is a stall, not an unknown ETA: {line}"
+        );
+        assert!(
+            captured(&buffer).contains("no progress for"),
+            "the relayed bar must say the phase is stalled: {}",
+            captured(&buffer)
+        );
+
+        // The first seconds of a real phase are not a stall, and a phase
+        // with no denominator (the walk) is not a stall at the short window.
+        let (progress, buffer) = Progress::capture(Surface::Plain, Duration::from_secs(5));
+        progress.phase("index", 10, 0);
+        {
+            let mut state = progress.state.lock().unwrap();
+            state.phase_started = Instant::now() - Duration::from_secs(2);
+            state.last_advance_at = Instant::now() - Duration::from_secs(2);
+        }
+        progress.tick();
+        let line = captured(&buffer)
+            .lines()
+            .rev()
+            .find(|line| line.starts_with("xerj-progress "))
+            .unwrap()
+            .to_string();
+        assert!(
+            line.contains("eta_quality=unknown") && !line.contains("eta_quality=stalled"),
+            "two seconds at 0/N is still starting: {line}"
+        );
+
+        let (progress, buffer) = Progress::capture(Surface::Plain, Duration::from_secs(5));
+        progress.phase("walk", 0, 0);
+        {
+            let mut state = progress.state.lock().unwrap();
+            state.phase_started = Instant::now() - Duration::from_secs(30);
+            state.last_advance_at = Instant::now() - Duration::from_secs(30);
+        }
+        progress.tick();
+        let line = captured(&buffer)
+            .lines()
+            .rev()
+            .find(|line| line.starts_with("xerj-progress "))
+            .unwrap()
+            .to_string();
+        assert!(
+            line.contains("pct=unknown") && line.contains("eta_quality=unknown"),
+            "a 30s walk has no denominator yet and is not a stall: {line}"
+        );
+
+        // The same unknown-total phase, silent for far longer than a walk,
+        // does report the stall. That is the hang with no journal.
+        let (progress, buffer) = Progress::capture(Surface::Plain, Duration::from_secs(5));
+        progress.phase("walk", 0, 0);
+        {
+            let mut state = progress.state.lock().unwrap();
+            let silent = UNKNOWN_TOTAL_STALL + Duration::from_secs(1);
+            state.phase_started = Instant::now() - silent;
+            state.last_advance_at = Instant::now() - silent;
+            state.last_bar_at = Some(Instant::now() - Duration::from_secs(20));
+        }
+        progress.tick();
+        let line = captured(&buffer)
+            .lines()
+            .rev()
+            .find(|line| line.starts_with("xerj-progress "))
+            .unwrap()
+            .to_string();
+        assert!(
+            line.contains("eta_quality=stalled"),
+            "ten minutes with no denominator and no progress is a stall: {line}"
+        );
+    }
+
+    /// #2058: a hash read that has not returned for a few seconds is named even
+    /// when the pool still holds more files than the tail rule will list. A
+    /// scan or index phase with the same shape stays unnamed — that rule did
+    /// not change.
+    #[test]
+    fn a_hash_read_blocking_for_a_few_seconds_names_its_path() {
+        let (progress, buffer) = Progress::capture(Surface::Plain, Duration::from_secs(3600));
+        progress.phase("hash", 8, 80);
+        let _others: Vec<_> = (0..4)
+            .map(|i| progress.watch_file(&format!("local-{i}.txt"), 10))
+            .collect();
+        let blocked = progress.watch_file("cloud/Notes.txt", 10);
+        {
+            let mut state = progress.state.lock().unwrap();
+            for entry in &mut state.in_flight {
+                if entry.1 == "cloud/Notes.txt" {
+                    entry.3 = Instant::now() - HASH_BLOCKING_AFTER - Duration::from_secs(1);
+                }
+            }
+        }
+        progress.tick();
+        let line = captured(&buffer)
+            .lines()
+            .rev()
+            .find(|line| line.starts_with("xerj-progress "))
+            .unwrap()
+            .to_string();
+        assert!(
+            line.contains("waiting_on=cloud/Notes.txt"),
+            "the file that has not returned is the one to name: {line}"
+        );
+        drop(blocked);
+
+        // The same pile of in-flight files during index is not a hash read.
+        // Naming them would change every busy scan.
+        let (progress, buffer) = Progress::capture(Surface::Plain, Duration::from_secs(3600));
+        progress.phase("index", 8, 80);
+        let _busy: Vec<_> = (0..5)
+            .map(|i| progress.watch_file(&format!("doc-{i}.txt"), 10))
+            .collect();
+        {
+            let mut state = progress.state.lock().unwrap();
+            state.in_flight[0].3 = Instant::now() - Duration::from_secs(30);
+        }
+        progress.tick();
+        let line = captured(&buffer)
+            .lines()
+            .rev()
+            .find(|line| line.starts_with("xerj-progress "))
+            .unwrap()
+            .to_string();
+        assert!(
+            !line.contains("waiting_on="),
+            "only the hash phase names a blocker before the tail: {line}"
+        );
+    }
+
+    /// Young hash reads are not blockers. Five files that just started must
+    /// not grow a `waiting_on` the tail rule would have omitted.
+    #[test]
+    fn a_busy_hash_does_not_name_a_file_that_just_started() {
+        let (progress, buffer) = Progress::capture(Surface::Plain, Duration::from_secs(3600));
+        progress.phase("hash", 8, 80);
+        let _guards: Vec<_> = (0..5)
+            .map(|i| progress.watch_file(&format!("f{i}.txt"), 10))
+            .collect();
+        progress.tick();
+        let line = captured(&buffer)
+            .lines()
+            .rev()
+            .find(|line| line.starts_with("xerj-progress "))
+            .unwrap()
+            .to_string();
+        assert!(!line.contains("waiting_on="), "{line}");
+    }
+
+    /// The hash callback credits the bytes. The watch guard must not credit
+    /// them again when the read returns.
+    #[test]
+    fn watch_file_names_the_path_and_credits_nothing() {
+        let (progress, buffer) = Progress::capture(Surface::Plain, Duration::from_secs(3600));
+        progress.phase("hash", 1, 10);
+        let guard = progress.watch_file("a.txt", 10);
+        progress.tick();
+        assert!(
+            captured(&buffer).contains("waiting_on=a.txt"),
+            "{}",
+            captured(&buffer)
+        );
+        drop(guard);
+        assert_eq!(progress.items_done.load(Ordering::Relaxed), 0);
+        assert_eq!(progress.bytes_done.load(Ordering::Relaxed), 0);
+        progress.tick();
+        let line = captured(&buffer)
+            .lines()
+            .rev()
+            .find(|line| line.starts_with("xerj-progress "))
+            .unwrap()
+            .to_string();
+        assert!(!line.contains("waiting_on="), "{line}");
     }
 
     /// An empty sample must not drag the measured rate down either — the rate

@@ -1,6 +1,10 @@
 # XERJ
 
-[English](./README.md) | [简体中文](./README.zh-CN.md) | [日本語](./README.ja-JP.md)
+**面向 AI 智能体的本地优先搜索引擎与 MCP 服务。**一个 Rust 二进制程序即可为代码、文档、日志、JSONL/CSV 和 PDF 建立索引，提供 BM25 全文、向量与混合搜索、代码搜索和智能体记忆，接口兼容 Elasticsearch API。可配合 Claude Code、Cursor 和任意 MCP 客户端使用。
+
+<a href="https://trendshift.io/repositories/116361?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-116361" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/repositories/116361" alt="xerj-org%2Fxerj | Trendshift" width="250" height="55"/></a>
+
+[English](./README.md) | [简体中文](./README.zh-CN.md) | [日本語](./README.ja-JP.md) | [العربية](./README.ar.md) | [Español](./README.es.md) | [한국어](./README.ko.md)
 
 [![CI](https://img.shields.io/github/actions/workflow/status/xerj-org/xerj/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/xerj-org/xerj/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/xerj-org/xerj?style=flat-square&label=release)](https://github.com/xerj-org/xerj/releases)
@@ -8,13 +12,15 @@
 [![Stars](https://img.shields.io/github/stars/xerj-org/xerj?style=flat-square)](https://github.com/xerj-org/xerj/stargazers)
 [![Rust](https://img.shields.io/badge/built%20with-Rust-000000?style=flat-square&logo=rust)](https://www.rust-lang.org)
 [![Discussions](https://img.shields.io/github/discussions/xerj-org/xerj?style=flat-square&label=discussions)](https://github.com/xerj-org/xerj/discussions)
+[![Discord](https://img.shields.io/badge/Discord-join-5865F2?style=flat-square&logo=discord&logoColor=white)](https://discord.com/invite/yetXFusXfs)
+[![X](https://img.shields.io/badge/X-%40xerj__org-000000?style=flat-square&logo=x&logoColor=white)](https://x.com/xerj_org)
 [![Reference coding](https://img.shields.io/badge/reference%20coding-2.7%C3%97%20fewer%20tokens-ff8c00?style=flat-square)](https://xerj.org/case-studies/reference-coding.html)
 [![Autoindex](https://img.shields.io/badge/autoindex-zero%20config-ff8c00?style=flat-square)](https://xerj.org/docs/cli.html)
 [![Search](https://img.shields.io/badge/search-BM25%20%2B%20kNN%20%2B%20hybrid-8957e5?style=flat-square)](https://xerj.org/docs/queries.html)
 [![Agent memory](https://img.shields.io/badge/agent%20memory-%2F__memory-00b3a4?style=flat-square)](https://xerj.org/docs/recipes/agentic-memory.html)
 [![MCP](https://img.shields.io/badge/MCP-native-1f6feb?style=flat-square)](https://xerj.org/llms.txt)
 [![llms.txt](https://img.shields.io/badge/llms.txt-agent%20ready-6f42c1?style=flat-square)](https://xerj.org/llms.txt)
-[![ES-YAML conformance](https://img.shields.io/badge/ES--YAML%20conformance-1366%2F1369-brightgreen?style=flat-square)](https://xerj.org/benchmarks)
+[![ES-YAML conformance](https://img.shields.io/badge/ES--YAML%20conformance-1444%2F1454-brightgreen?style=flat-square)](https://xerj.org/benchmarks)
 [![Single static binary](https://img.shields.io/badge/single%20static%20binary-no%20JVM-orange?style=flat-square)](https://xerj.org/docs/install.html)
 [![Default embedder](https://img.shields.io/badge/default%20embedder-lexical%2C%20offline-teal?style=flat-square)](https://xerj.org/docs/vectors.html)
 [![Neural](https://img.shields.io/badge/neural%20embedder-opt--in%2C%20downloads%20~90%20MB-9c6ade?style=flat-square)](https://xerj.org/docs/vectors.html)
@@ -34,13 +40,15 @@ XERJ 是一款受到社区信赖的本地 AI 搜索引擎，能自动为任意�
 
 ```sh
 curl -fsSL https://xerj.org/get | sh
-xerj --insecure --data-dir ./data &
+xerj --insecure --data-dir ~/xerj-data &
 xerj init                                        # wire XERJ into Claude Code/Cursor (MCP + skill), one command
 xerj autoindex ~/my-project
 xerj search "how do we rotate the WAL segment"   # ranked passages, file:line
 xerj def "euler_to_rotationmatrix"               # go-to-definition: file:line + signature
 xerj gain                                        # what it did for you — counted, not estimated
 ```
+
+把数据目录放在你将要 autoindex 的文件夹之外。内置忽略列表不包含 `data/`，因此在即将索引的目录树里使用 `--data-dir ./data` 会让节点把自己的存储也索引进去。
 
 `xerj init` 一条命令即可把 XERJ 接入 Claude Code 或 Cursor（MCP 与技能）；`search` 返回排序后的代码片段及 `file:line`，`def` 定位符号定义并显示签名，`gain` 显示实际统计的使用收益。
 
@@ -75,7 +83,7 @@ XERJ 与 grep 组都完成了 16/16 个任务，输出 token 用量约为 grep �
 参考代码工作流建立在同一个基础能力上：`xerj autoindex <folder>` 把一批文件变成智能体可查询的语料。一条命令就能为代码、文档、日志、PDF、SQLite 和难处理的 CSV 建立带类型的索引，用于搜索、RAG、安全审计和智能体记忆，无须编写 schema 或配置数据管道。
 
 ```sh
-xerj --insecure --data-dir ./data &      # start it
+xerj --insecure --data-dir ~/xerj-data &      # start it
 xerj autoindex ~/my-project              # point it at anything
 ```
 
@@ -133,7 +141,7 @@ irm https://xerj.org/get.ps1 | iex
 
 单个静态二进制程序，无须 JVM 或其他依赖。提供 Linux、macOS 和 Windows 的 x86-64、arm64 预编译版本，也可以[从源码构建](#从源码构建)。XERJ 兼容 Elasticsearch API，已有的客户端、仪表盘和工具可以直接连接。
 
-安装器会输出 `xerj` 的安装位置，必要时将其加入 `PATH`。安装后先运行 `xerj --insecure --data-dir ./data &`，等待 `http://localhost:9200` 能响应，再执行 `xerj autoindex ~/my-project`。详见[索引文件夹](#索引文件夹)。
+安装器会输出 `xerj` 的安装位置，必要时将其加入 `PATH`。安装后先运行 `xerj --insecure --data-dir ~/xerj-data &`，等待 `http://localhost:9200` 能响应，再执行 `xerj autoindex ~/my-project`。详见[索引文件夹](#索引文件夹)。
 
 运行环境无法访问互联网时，请参考[离线部署指南](./docs/recipes/air-gapped-deployment.md)。默认词法嵌入器可离线运行；神经模式则需要在首次语义操作前，将三个模型文件准备在本地。
 
@@ -142,7 +150,7 @@ irm https://xerj.org/get.ps1 | iex
 启动服务，再将文件夹路径交给 `autoindex`：
 
 ```sh
-xerj --insecure --data-dir ./data &     # local dev: no TLS, no auth
+xerj --insecure --data-dir ~/xerj-data &     # local dev: no TLS, no auth
 xerj autoindex ~/my-project
 ```
 
@@ -151,8 +159,8 @@ xerj autoindex ~/my-project
 不带 `--insecure` 的启动默认开启认证，包括通过配置文件启动的情况。此时需要把同一把密钥交给 `autoindex`。它不会从 `xerj.toml` 中读取密钥，必须传入 `--api-key` 或设置 `XERJ_API_KEY`，否则每个请求都会返回 `401 Unauthorized`：
 
 ```sh
-xerj --data-dir ./data &                          # auth on: key minted on first boot
-export XERJ_API_KEY="$(cat ./data/admin.key)"     # <data_dir>/admin.key
+xerj --data-dir ~/xerj-data &                          # auth on: key minted on first boot
+export XERJ_API_KEY="$(cat ~/xerj-data/admin.key)" # <data_dir>/admin.key
 xerj autoindex ~/my-project
 ```
 
@@ -203,7 +211,7 @@ curl localhost:9200/ax-orders/_search -H 'content-type: application/json' -d '{
 有些智能体无法执行 shell 命令。桌面助手和支持函数调用的宿主可通过 Model Context Protocol（MCP）访问工具，安装得到的 XERJ 二进制程序本身就包含 MCP 服务，无须额外下载或编译：
 
 ```sh
-xerj --insecure --data-dir ./data &     # 1. the node the tools query
+xerj --insecure --data-dir ~/xerj-data &     # 1. the node the tools query
 xerj mcp                                # 2. MCP stdio server (your client runs this)
 ```
 
@@ -223,7 +231,118 @@ xerj mcp                                # 2. MCP stdio server (your client runs 
 
 `command` 应使用绝对路径。安装器默认将 `xerj` 放在 `~/.local/bin`，可用 `command -v xerj` 确认；从桌面图标启动的 MCP 宿主不会继承 shell 的 `PATH`。若节点开启认证，即未使用 `--insecure`，还需在 `XERJ_URL` 旁加入 `"XERJ_AUTH": "ApiKey <key>"`，密钥位于 `<data-dir>/admin.key`。
 
-共提供十三个工具，其中十一个是已有 XERJ 端点的薄代理：
+### 支持的智能体
+
+二十六个客户端可以把 `xerj mcp` 注册为本地 stdio 服务。配置条目始终只有两个字段：二进制程序的绝对路径，以及作为唯一参数的 `mcp`。各客户端的差别在于条目写进哪个文件、包在哪个键下。“已测试”指在该客户端里注册过此服务，`xerj_search` 出现在了它的工具列表里；“未测试”表示路径和写法照抄自该客户端自己的文档，还没有人实际跑过。目前跑过两行。OpenCode：Windows 上的 v2.1.2 对接 `xerj` v1.0.0-rc.97，`initialize` 和 `tools/list` 都得到应答，工具列表完整。Cline CLI 3.0.73（Linux）对接 `xerj` v1.0.0-rc.98：把本节的 `mcpServers` 块写入 `~/.cline/data/settings/cline_mcp_settings.json` 后，`xerj_search`（Cline 交给模型时的名字是 `xerj__xerj_search`）出现在该二进制的 20 个工具里，并且 Cline 执行了一次 `xerj_search` 调用。当时没有供应商密钥，模型回合用的是本地 OpenAI 兼容桩；MCP 服务是真正的 `xerj mcp` 进程。IDE 的 MCP Servers > Configure 按钮不在那次运行里。修正任何一行“未测试”都是很好的第一个 PR。
+
+| 客户端 | 配置文件 | 键 | 说明 | 测试状态 |
+|---|---|---|---|---|
+| OpenCode | 项目内的 `opencode.json`，或 `~/.config/opencode/opencode.json` | `mcp.servers` | 单个 command 数组；用 `environment` 而非 `env`；需要项目根目录 | 已测试 |
+| Claude Code | `.mcp.json`（项目）或 `~/.claude.json`（用户）；`claude mcp add` 会写入其中之一 | `mcpServers` | 命令前必须加 `--` | 未测试 |
+| Cursor | 项目内的 `.cursor/mcp.json`，或 `~/.cursor/mcp.json` | `mcpServers` | stdio 不写 `type` | 未测试 |
+| Codex | `~/.codex/config.toml`，或受信任项目内的 `.codex/config.toml` | `[mcp_servers.xerj]` | TOML，不是 JSON | 未测试 |
+| Gemini CLI | `.gemini/settings.json` 或 `~/.gemini/settings.json` | `mcpServers` | 先对文件夹执行 `gemini trust`，否则 stdio 显示 Disconnected | 未测试 |
+| GitHub Copilot in VS Code | `.vscode/mcp.json` | `servers` | 需要 `"type": "stdio"`；可移植的 `.mcp.json` 用的是 `mcpServers` | 未测试 |
+| Windsurf | `%APPDATA%\devin\mcp_config.json`、`~/.config/devin/mcp_config.json` | `mcpServers` | 路径现在属于 Devin，不再是 `~/.codeium/windsurf` | 未测试 |
+| Claude Desktop | `%APPDATA%\Claude\claude_desktop_config.json`、`~/Library/Application Support/Claude/claude_desktop_config.json`、`~/.config/Claude/claude_desktop_config.json` | `mcpServers` | 要完全退出应用，只关窗口不行 | 未测试 |
+| Cline | `~/.cline/data/settings/cline_mcp_settings.json`（CLI）；IDE 可从 MCP Servers > Configure 打开 | `mcpServers` | `disabled` 和 `autoApprove` 是 Cline 特有字段；这次 CLI 运行不需要它们 | 已测试 |
+| Roo Code | 项目内的 `.roo/mcp.json`，或 `<VS Code User>/globalStorage/rooveterinaryinc.roo-cline/settings/mcp_settings.json` | `mcpServers` | 名称冲突时项目条目优先 | 未测试 |
+| Kilo Code | 项目内的 `kilo.jsonc` 或 `.kilo/kilo.jsonc`，全局为 `~/.config/kilo/kilo.jsonc` | `mcp` | 单个 command 数组，同 OpenCode | 未测试 |
+| Continue | `~/.continue/config.yaml`，或 `.continue/mcpServers/` 下的任意文件 | `mcpServers` | YAML 列表而非映射；仅 Agent 模式 | 未测试 |
+| Zed | `~/.config/zed/settings.json`（Windows 上运行 `zed: open settings file`） | `context_servers` | 键名不是 `mcpServers` | 未测试 |
+| JetBrains AI Assistant | 仅设置界面：Settings > Tools > AI Assistant > Model Context Protocol | `mcpServers` | 与 Junie 分开存储 | 未测试 |
+| Junie | 项目内的 `.junie/mcp/mcp.json`，用户级为 `~/.junie/mcp/mcp.json` | `mcpServers` | 较早的文章漏了 `mcp/` 目录 | 未测试 |
+| Amp | `~/.config/amp/settings.json`、工作区内的 `.amp/settings.json`，或 `amp mcp add` | `amp.mcpServers` | 键名保留 `amp.` 前缀 | 未测试 |
+| Goose | `~/.config/goose/config.yaml`、`%APPDATA%\Block\goose\config\config.yaml` | `extensions` | `cmd` 而非 `command`，且是 YAML | 未测试 |
+| Kiro | 工作区内的 `.kiro/settings/mcp.json`，用户级为 `~/.kiro/settings/mcp.json` | `mcpServers` | `${VAR}` 展开需要批准 | 未测试 |
+| Antigravity | `~/.gemini/config/mcp_config.json`，或工作区内的 `.agents/mcp_config.json` | `mcpServers` | 远程服务用 `serverUrl` | 未测试 |
+| OpenClaw | `~/.openclaw/openclaw.json`（JSON5） | `mcp.servers` | `transport: "stdio"` | 未测试 |
+| [DeepSeek Harness (dsh)](dsh/) | `$DSH_HOME/cordis.patch.yml`，或某个 profile 补丁 | 带 `@deepseek-ai/dsh-mcp-client` 的 `- insert:` | 每个服务一个插件实例 | 未测试 |
+| Warp | Settings > Agents > MCP servers，或 `~/.warp/.mcp.json` 与项目内的 `.warp/.mcp.json` | `mcpServers` | `working_directory` 而非 `cwd` | 未测试 |
+| Augment Code | Auggie CLI 用 `~/.augment/settings.json`；IDE 有自己的面板 | `mcpServers` | 该文件不控制 IDE | 未测试 |
+| Qwen Code | `~/.qwen/settings.json`，或项目内的 `.qwen/settings.json` | `mcpServers` | `mcp.allowed` 可能悄悄隐藏它 | 未测试 |
+| Kimi CLI | `~/.kimi-code/mcp.json`，或项目内的 `.kimi-code/mcp.json` | `mcpServers` | 指当前的 Kimi Code CLI，不是已归档的 `~/.kimi/mcp.json` | 未测试 |
+| Grok CLI | `~/.grok/config.toml`，或项目内的 `.grok/config.toml` | `[mcp_servers.xerj]` | Grok Bot 没有本地 stdio 注册 | 未测试 |
+
+Codex 和 Grok CLI 读取 TOML，条目写成一个表：
+
+```toml
+[mcp_servers.xerj]
+command = "/abs/path/to/xerj"
+args = ["mcp"]
+```
+
+OpenCode 和 Kilo Code 接受单个 `command` 数组，Kilo 的写法相同但少一层嵌套：
+
+```json
+{"mcp": {"servers": {"xerj": {"type": "local", "command": ["/abs/path/to/xerj", "mcp"], "environment": {"XERJ_URL": "http://localhost:9200"}}}}
+```
+
+```json
+{"mcp": {"xerj": {"type": "local", "command": ["/abs/path/to/xerj", "mcp"]}}}
+```
+
+Continue 和 Goose 读取 YAML：
+
+```yaml
+# ~/.continue/config.yaml
+mcpServers:
+  - name: xerj
+    command: /abs/path/to/xerj
+    args:
+      - mcp
+```
+
+```yaml
+# ~/.config/goose/config.yaml
+extensions:
+  xerj:
+    type: stdio
+    cmd: /abs/path/to/xerj
+    args:
+      - mcp
+    enabled: true
+```
+
+Amp 的键带命名空间前缀，VS Code 和 Copilot 需要 `servers` 加传输类型，Zed 把它们叫作 context servers，OpenClaw 则嵌在 `mcp` 下：
+
+```json
+{"amp.mcpServers": {"xerj": {"command": "/abs/path/to/xerj", "args": ["mcp"]}}}
+```
+
+```json
+{"servers": {"xerj": {"type": "stdio", "command": "/abs/path/to/xerj", "args": ["mcp"]}}}
+```
+
+```json
+{"context_servers": {"xerj": {"command": "/abs/path/to/xerj", "args": ["mcp"], "env": {}}}}
+```
+
+```json5
+{mcp: {servers: {xerj: {command: "/abs/path/to/xerj", args: ["mcp"], transport: "stdio"}}}}
+```
+
+DeepSeek Harness 在 `$DSH_HOME/cordis.patch.yml`（或某个 profile 的 `$DSH_HOME/profiles/<profile>/cordis.patch.yml`）里把一个 MCP 服务加载为一个插件。如果该文件只有 `[]`，用下面的块替换这个数组；追加在 `[]` 后面不是合法 YAML。`env` 和 `cwd` 是 stdio 的可选字段（`args` 默认 `[]`，`env` 默认 `{}`，`cwd` 默认 `""`）。节点不是以 `--insecure` 运行时，在 `env` 下加上 `XERJ_AUTH: "ApiKey <key>"`：
+
+```yaml
+# $DSH_HOME/cordis.patch.yml
+- insert:
+    - id: mcp-xerj
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: xerj
+        transport: stdio
+        command: xerj
+        args:
+          - mcp
+        env:
+          XERJ_URL: "http://localhost:9200"
+        cwd: ""
+```
+
+最初名单里有三个候选被有意排除。Aider 完全没有 MCP 客户端支持（[Aider-AI/aider#3314](https://github.com/Aider-AI/aider/issues/3314) 仍未关闭）。T3 Code 方向相反：它自己托管一个供其他智能体连接的 MCP 端点，其会话从底层 harness 继承服务配置。Grok Bot 没有文档记载的本地 stdio 注册方式；Grok CLI 有，见上表对应一行。
+
+共提供二十一个工具，其中十一个是已有 XERJ 端点的薄代理：
 
 | 工具 | 用途 |
 |---|---|
@@ -235,7 +354,17 @@ xerj mcp                                # 2. MCP stdio server (your client runs 
 | `xerj_brain_overview` / `xerj_brain_ego` / `xerj_brain_link` / `xerj_brain_unlink` | 操作“第二大脑”链接索引：查看概况、展开某个节点有证据支持的邻域、建立和撤销链接 |
 | `xerj_plan` | 输入自然语言筛选条件，返回经过校验的查询 DSL（`POST /_ask`；确定性的规则处理，不使用 LLM） |
 
-另外两个工具不只是简单代理：`xerj_map` 从 autoindex 目录读取各索引的字段映射，除按字节上限裁剪外原样返回；`xerj_code_search` 执行 `xerj code` 参考代码检索流程（[`tools/xerj-code/`](tools/xerj-code/)），返回渲染后的文本。
+调用 `xerj_search` 时传入 `{"prefix":"project","query":"retry policy"}` 可搜索 `project-*`，等同于 `xerj search --prefix project`。`prefix` 与 CLI 走同一个解析函数，也就是 `xerj autoindex --prefix` 实际写入的前缀，因此 `My_Proj` 搜索 `my-proj-*`。要指定具体索引名或模式，改用 `index`；`index` 和 `prefix` 不能同时非空。空前缀、不含 `[a-z0-9]` 的前缀，以及无法作为索引名的前缀都会报错。两个参数都不传时，工具搜索 `ax-*`。
+
+`xerj_def` 查找本地定义，复用 `xerj def --json` 的查询、排序和位置去重逻辑。例如，`{"symbol":"Cache","prefix":"project","kind":"struct","lang":"rust","k":5}` 搜索 `project-*`；也可以用 `index` 替代 `prefix`，作用域规则与 `xerj_search` 相同。`symbol` 也接受描述能力的短语。`k` 必须为 1–50，默认 5；可选的 `max_tokens` 限制响应大小。
+
+结果采用 ES JSON：声明位于 `hits.hits[]._source.code`，文件位置使用 `ax_path`/`path` 和 `line`/`start_line`，旧版文件级结果可能使用 `fields._passage`。`hits.total` 是去重前的引擎匹配数；没有匹配时成功返回空列表。
+
+与 CLI 相同，如果所有目标索引都未映射筛选字段，或任一目标索引将它映射为数值类型，则忽略相应的类型或语言筛选。排序基于词法匹配。此工具查询配置的节点；`xerj_hub_def` 则在指定的 Hub 语料包中查找定义。
+
+未包含 Hub key 的二进制程序不提供三个 Hub 工具，共提供十八个工具。
+
+另外两个工具不只是简单代理：`xerj_map` 从 autoindex 目录读取各索引的字段映射，除按字节上限裁剪外原样返回；`xerj_code_search` 执行 `xerj code` 参考代码检索流程（[`tools/xerj-code/`](tools/xerj-code/)），返回渲染后的文本。`xerj_index_budget` 在 `xerj autoindex` 计算哈希之前统计文件夹，按节点的磁盘预算估算索引大小，本身不做索引。`xerj_autoindex_remove` 删除一个已 autoindex 的文件夹，删前先列出其内容，`confirm` 不为 true 时什么都不删。`xerj_corpus_feedback` 为 hub 语料评分。`xerj_field_report` 提交使用反馈；`xerj_hub_find`、`xerj_hub_def` 和 `xerj_hub_ask` 用本机已有的 Corpus Hub 语料包作答（即 `xerj ask` 流程）。
 
 `xerj mcp --help` 会输出相同的配置示例及完整选项。机器可读的工具 schema 发布在 [xerj.org/docs/agents/schemas/mcp-tools.json](https://xerj.org/docs/agents/schemas/mcp-tools.json)，由实际运行的 `tools/list` 生成，并通过 CI 中的 `scripts/mcp-schema-check.sh` 和单元测试检查，防止公开列表与服务实际提供的工具不一致。
 
@@ -262,7 +391,7 @@ XERJ 实现了 Elasticsearch REST API，包括索引、文档、批量操作、�
 
 使用导出工具前需要了解 scroll 的限制：它会预先创建大小受限的快照，不是逐段遍历的游标。查询的精确总数超过快照窗口时，会返回 `400`，避免静默截断结果。任意规模的结果集请使用 `search_after`（[上限说明](https://xerj.org/docs/api-es-compat.html#scroll-cap)）。
 
-一致性测试套件在每次提交时运行。原文记录为 1369 个用例中通过 1366 个；套件位于 [`engine/tests/es-compat-yaml`](./engine/tests/es-compat-yaml)，剩余差异也在其中列出。XERJ 兼容 Elasticsearch 的 API，但没有重新实现其内部架构，也不是它的分支。
+一致性测试套件在每次提交时运行。原文记录为 1454 个用例中通过 1444 个；套件位于 [`engine/tests/es-compat-yaml`](./engine/tests/es-compat-yaml)，剩余差异也在其中列出。XERJ 兼容 Elasticsearch 的 API，但没有重新实现其内部架构，也不是它的分支。
 
 ## 基准测试
 
@@ -289,7 +418,7 @@ XERJ_EXTRACT_BENCH=/path/to/repo cargo test -p xerj-autoindex --release \
 git clone https://github.com/xerj-org/xerj
 cd xerj/engine
 cargo build --release -p xerj-server
-./target/release/xerj --insecure --data-dir ./data
+./target/release/xerj --insecure --data-dir ~/xerj-data
 ```
 
 对已运行的服务执行一致性测试：

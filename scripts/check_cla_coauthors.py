@@ -47,12 +47,17 @@ Usage (CI):
   check_cla_coauthors.py --is-self-cla-signature --pr <n> --base-sha <sha> --head-sha <sha>
     Exits 0 iff the PR, evaluated at exactly --head-sha, is a CLA signature by
     its own author: the only change is `.contributors` gaining the author's own
-    login, every commit is authored by the PR author, and no Co-authored-by
+    login, the PR author has a commit, and all other commits are base-branch
+    merges by already-signed authors. No Co-authored-by
     trailer names an unsigned contributor. Everything (changed files, commits,
     both `.contributors` versions) is read pinned to --base-sha...--head-sha, so
     the status the CI job posts on --head-sha describes that commit and no
     other. Used by the same exemption job, because cla-bot reads
     `.contributors` from `main` and so can never pass a signature PR itself.
+    Exits 2 when the diff is `.contributors` alone but the file at the head
+    SHA does not parse: that is a broken signature, not a mixed PR, and the
+    CI job turns the 2 into a visible failure instead of leaving the verdict
+    to cla-bot — a dropped comma used to look exactly like the deadlock.
   Needs `gh` and GH_TOKEN for --pr; repo comes from GITHUB_REPOSITORY or --repo.
 
 Tests: scripts/test_cla_coauthors.py
@@ -143,6 +148,23 @@ def _is_login(value):
     return isinstance(value, str) and _LOGIN_RE.match(value) is not None
 
 
+def is_contributors_only_change(files):
+    """True iff the diff is exactly one *modified* `.contributors`.
+
+    The shape a signature PR must have, on its own: it says nothing about the
+    author or the contents, only that `.contributors` is the whole diff. The
+    CLI uses it to tell "a signature PR whose file is broken" — worth a loud,
+    actionable failure — from "some other PR", which stays cla-bot's call.
+    """
+    return (
+        isinstance(files, list)
+        and len(files) == 1
+        and isinstance(files[0], dict)
+        and files[0].get("filename") == ".contributors"
+        and files[0].get("status") == "modified"
+    )
+
+
 def is_self_cla_signature(
     files,
     base_contributors,
@@ -164,7 +186,9 @@ def is_self_cla_signature(
       SHA being judged.
     base_contributors / head_contributors: parsed `.contributors` at the merge
       base and at the head SHA.
-    commits: [{"sha", "message", "author_login"}] — every commit in the PR.
+    commits: [{"sha", "message", "author_login", "merges_base"?}] — every
+      commit in the PR. `merges_base` is set only after the API confirms that
+      a two-parent commit's second parent is an ancestor of the pinned base.
 
     Rejects a PR that:
       - changes any file other than `.contributors`, or reaches it by a rename
@@ -174,17 +198,13 @@ def is_self_cla_signature(
       - adds anything other than exactly ONE entry, that entry being a valid
         GitHub login equal (ASCII case-insensitively) to the PR author;
       - comes from an author who is already signed (nothing to sign);
-      - has no commits, or any commit not authored by the PR author; or
+      - has no commit authored by the PR author, or any other commit except
+        a proven base-branch merge by an author signed at the merge base; or
       - carries a Co-authored-by trailer that is unresolvable or unsigned.
     """
-    if not isinstance(files, list) or len(files) != 1:
+    if not is_contributors_only_change(files):
         return False
-    f = files[0]
-    if not isinstance(f, dict):
-        return False
-    if f.get("filename") != ".contributors" or f.get("status") != "modified":
-        return False
-    if f.get("previous_filename"):
+    if files[0].get("previous_filename"):
         return False
 
     if not _is_login(pr_author):
@@ -214,10 +234,18 @@ def is_self_cla_signature(
 
     if not commits or len(commits) > MAX_SIGNATURE_COMMITS:
         return False
+    signed_base = {c.lower() for c in base_contributors}
+    has_own_commit = False
     for commit in commits:
         login = commit.get("author_login")
-        if not _is_login(login) or login.lower() != author:
+        if not _is_login(login):
             return False
+        if login.lower() == author:
+            has_own_commit = True
+        elif not (login.lower() in signed_base and commit.get("merges_base") is True):
+            return False
+    if not has_own_commit:
+        return False
     if check_commits(commits, head_contributors, resolve):
         return False
     return True
@@ -325,6 +353,31 @@ def _fetch_contributors_at(repo, sha):
 _SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 
 
+def _merges_pinned_base(repo, commit, base_sha):
+    """Prove a normal merge of the base branch into the contributor branch.
+
+    A message saying 'Merge main' or two parents alone proves nothing. Read
+    the immutable second parent's ancestry relative to the pinned base. An
+    unrelated branch, an octopus merge, missing data or an API error refuses
+    the exception. The first-parent signature stays in the checked PR range.
+    """
+    parents = commit.get("parents")
+    if not isinstance(parents, list) or len(parents) != 2:
+        return False
+    if not all(isinstance(p, dict) and isinstance(p.get("sha"), str)
+               and _SHA_RE.fullmatch(p["sha"]) for p in parents):
+        return False
+    parent = parents[1]["sha"]
+    if parent == base_sha:
+        return True
+    try:
+        ancestry = _gh_api_one(f"repos/{repo}/compare/{parent}...{base_sha}")
+        return (ancestry.get("status") in ("ahead", "identical")
+                and (ancestry.get("merge_base_commit") or {}).get("sha") == parent)
+    except (subprocess.CalledProcessError, AttributeError, KeyError, ValueError, TypeError):
+        return False
+
+
 def _self_cla_signature_main(args):
     """--is-self-cla-signature: judge the PR at exactly args.head_sha."""
     if args.pr is None or not args.base_sha or not args.head_sha:
@@ -350,7 +403,8 @@ def _self_cla_signature_main(args):
             f"repos/{args.repo}/compare/{args.base_sha}...{args.head_sha}"
         )
         raw_commits = cmp.get("commits") or []
-        if cmp.get("total_commits") != len(raw_commits):
+        if (cmp.get("total_commits") != len(raw_commits)
+                or len(raw_commits) > MAX_SIGNATURE_COMMITS):
             return 1  # truncated list: cannot prove every commit was checked
         merge_base = (cmp.get("merge_base_commit") or {}).get("sha") or ""
         if not _SHA_RE.match(merge_base):
@@ -361,6 +415,10 @@ def _self_cla_signature_main(args):
                 "sha": c["sha"],
                 "message": c["commit"]["message"],
                 "author_login": (c.get("author") or {}).get("login"),
+                "merges_base": (
+                    ((c.get("author") or {}).get("login") or "").lower() != pr_author.lower()
+                    and _merges_pinned_base(args.repo, c, args.base_sha)
+                ),
             }
             for c in raw_commits
         ]
@@ -369,7 +427,23 @@ def _self_cla_signature_main(args):
 
     base_contributors = _fetch_contributors_at(args.repo, merge_base)
     head_contributors = _fetch_contributors_at(args.repo, args.head_sha)
-    if base_contributors is None or head_contributors is None:
+    if head_contributors is None:
+        # `.contributors` is the entire diff, so an unreadable head file is a
+        # broken signature, not an unrelated PR. Returning 1 here left the
+        # contributor with a red gate indistinguishable from the deadlock (#1619).
+        if is_contributors_only_change(files):
+            print(
+                f"::error::.contributors at {args.head_sha} could not be read as JSON, "
+                "so this signature PR cannot be judged. Fix the file — valid "
+                "JSON, exactly one added login — and push again.",
+                file=sys.stderr,
+            )
+            return 2
+        return 1
+    if base_contributors is None:
+        # The merge base is `main`'s own file: nothing this PR can repair, so
+        # the verdict stays with cla-bot instead of failing the contributor's
+        # job for a defect outside their diff.
         return 1
     ok = is_self_cla_signature(
         files,

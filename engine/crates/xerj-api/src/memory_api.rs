@@ -8,12 +8,18 @@
 //!
 //! Endpoints (mounted on the ES-compat router):
 //! ```text
+//! GET    /_memory?from&size              list_ns — {count, namespaces:[{namespace, count, graph}], from, size, next}
 //! POST   /_memory/{namespace}            store   — {text, metadata?, vector?, id?, dedup?, dedup_threshold?} → {id, created} | {id, created:false, deduplicated:true}
 //! POST   /_memory/{namespace}/_recall    recall  — {query?, vector?, semantic?, hybrid?, fusion?, k?, filter?, recency_weight?} → {hits:[…]}
 //! GET    /_memory/{namespace}?from&size  list    — {count, entries:[…], next} (paged, recent first)
 //! DELETE /_memory/{namespace}/{id}       forget  — delete one entry
 //! DELETE /_memory/{namespace}            drop    — drop the whole namespace
 //! ```
+//!
+//! `POST /_memory/{namespace}/_doc` and `PUT /_memory/{namespace}/_doc/{id}`
+//! are the Elasticsearch document routes, not this API. They answer `405`
+//! with a JSON body that names the store and recall calls, instead of an
+//! empty method-not-allowed.
 //!
 //! ## Pagination (item 12)
 //!
@@ -55,7 +61,7 @@
 
 use axum::{
     extract::{Path, State},
-    http::StatusCode,
+    http::{header, HeaderValue, StatusCode},
     response::{IntoResponse, Response},
     Json,
 };
@@ -136,6 +142,48 @@ pub(crate) fn validate_namespace(ns: &str) -> Result<(), String> {
         return Err("namespace suffix '-edges' is reserved for graph edge indices".into());
     }
     Ok(())
+}
+
+/// A memory write that failed because the data-dir disk is at the flood-stage
+/// watermark (#2284).
+///
+/// The document API answers that with a `cluster_block_exception`, and this
+/// module used to stringify that JSON into `error.reason` — the nested blob
+/// the CLI and MCP showed. The replacement is the same sentence autoindex
+/// prints for the watermark (#2077): free space, used percent, threshold,
+/// and the `limits.disk_flood_stage_percent` override — plus the data-dir
+/// path and the `--data-dir` move. Any other failure keeps `wrapped`.
+fn memory_failure(status: StatusCode, body: &Value, data_dir: &str, wrapped: String) -> Response {
+    error_response(status, memory_failure_reason(body, data_dir, &wrapped))
+}
+
+fn memory_failure_reason(body: &Value, data_dir: &str, wrapped: &str) -> String {
+    let (free, used_live) = disk_sample(data_dir);
+    let flood_live = xerj_engine::governor::global().and_then(|governor| {
+        let pct = governor.disk_flood_admission().flood_pct;
+        (pct > 0).then_some(pct)
+    });
+    let facts = xerj_autoindex::flood::DiskFacts {
+        data_dir: data_dir.to_string(),
+        free_bytes: free,
+        used_pct: used_live,
+        flood_pct: flood_live,
+    };
+    xerj_autoindex::flood::explain_memory_flood(body, Some(&facts))
+        .unwrap_or_else(|| wrapped.to_string())
+}
+
+/// `(free bytes, used percent)` for the filesystem holding `data_dir`.
+/// `None` when the probe fails — the message then says unknown, it does not
+/// invent a zero.
+fn disk_sample(data_dir: &str) -> (Option<u64>, Option<u64>) {
+    match xerj_engine::governor::disk_stats(data_dir) {
+        Some((total, avail)) if total > 0 => {
+            let used = ((total.saturating_sub(avail) as u128 * 100) / total as u128) as u64;
+            (Some(avail), Some(used))
+        }
+        _ => (None, None),
+    }
 }
 
 /// Emit a uniform ES-shaped error response.
@@ -245,8 +293,10 @@ async fn ensure_backing_index(
     if status.is_success() || index_exists(state, index) {
         return Ok(());
     }
-    Err(error_response(
+    Err(memory_failure(
         status,
+        &body,
+        &state.config.server.data_dir,
         format!("failed to create memory namespace backing index: {body}"),
     ))
 }
@@ -412,14 +462,21 @@ pub async fn store(
         State(state.clone()),
         Path((index.clone(), id.clone())),
         axum::extract::Query(IndexDocParams::default()),
-        Json(doc),
+        es_compat::document_body(&doc),
     )
     .await
     .into_response();
 
     let (status, body) = drain_json(resp).await;
     if !status.is_success() {
-        return error_response(status, format!("failed to store memory: {body}"));
+        // #2284: a flood-stage block arrives as a nested
+        // `cluster_block_exception`. Say the disk is nearly full instead.
+        return memory_failure(
+            status,
+            &body,
+            &state.config.server.data_dir,
+            format!("failed to store memory: {body}"),
+        );
     }
 
     (
@@ -1341,9 +1398,140 @@ pub async fn list(
     .into_response()
 }
 
+/// `GET /_memory` — list agent-memory namespaces.
+///
+/// Enumerates all memory namespaces (indices named `.xerj-memory-{namespace}`),
+/// returning their active document count and whether a corresponding graph
+/// edges index (`.xerj-memory-{namespace}-edges`) exists.
+///
+/// Filtered to only the namespaces the calling principal holds
+/// `Privilege::ReadIndex` on.
+pub async fn list_namespaces(
+    State(state): State<AppState>,
+    principal: Principal,
+    axum::extract::Query(params): axum::extract::Query<ListParams>,
+) -> Response {
+    let from = params.from.or(params.after).unwrap_or(0);
+    let size = params.size.unwrap_or(LIST_LIMIT).clamp(1, MAX_LIST_SIZE);
+
+    let all_indices = state.engine.list_indices().await;
+
+    // Collect all edges indices so we can flag `graph: true` in O(1).
+    let mut edges = std::collections::HashSet::new();
+    for idx in &all_indices {
+        if let Some(rest) = idx.name.strip_prefix(MEMORY_PREFIX) {
+            if let Some(brain) = rest.strip_suffix("-edges") {
+                edges.insert(brain.to_string());
+            }
+        }
+    }
+
+    let mut namespaces = Vec::new();
+    for idx in &all_indices {
+        if let Some(ns) = idx.name.strip_prefix(MEMORY_PREFIX) {
+            // Edges indices are graph metadata, not memory namespaces.
+            if ns.ends_with("-edges") {
+                continue;
+            }
+            if validate_namespace(ns).is_err() {
+                continue;
+            }
+            if authz::authorize_memory_namespace(&principal, ns, Privilege::ReadIndex).is_err() {
+                continue;
+            }
+            let has_graph = edges.contains(ns);
+            namespaces.push(json!({
+                "namespace": ns,
+                "count": idx.doc_count,
+                "graph": has_graph,
+            }));
+        }
+    }
+
+    // Sort deterministically by namespace name.
+    namespaces.sort_by(|a, b| {
+        let a_ns = a.get("namespace").and_then(Value::as_str).unwrap_or("");
+        let b_ns = b.get("namespace").and_then(Value::as_str).unwrap_or("");
+        a_ns.cmp(b_ns)
+    });
+
+    let total = namespaces.len();
+    let paged: Vec<Value> = namespaces.into_iter().skip(from).take(size).collect();
+    let next = if from + paged.len() < total {
+        json!({ "from": from + paged.len(), "size": size })
+    } else {
+        Value::Null
+    };
+
+    Json(json!({
+        "count": total,
+        "namespaces": paged,
+        "from": from,
+        "size": size,
+        "next": next,
+    }))
+    .into_response()
+}
+
+/// JSON `405` for unsupported mutating verbs on bare `/_memory`.
+pub async fn unsupported_memory_bare() -> Response {
+    let reason = "/_memory only supports GET to list namespaces. \
+                  Specify a namespace in the path (e.g. POST /_memory/{namespace}) \
+                  to store, recall, list, or drop memories.";
+    (
+        StatusCode::METHOD_NOT_ALLOWED,
+        [(header::ALLOW, HeaderValue::from_static("GET"))],
+        Json(json!({
+            "error": { "type": "memory_error", "reason": reason },
+            "status": 405,
+        })),
+    )
+        .into_response()
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Forget
 // ─────────────────────────────────────────────────────────────────────────────
+
+/// JSON `405` for a memory path that is not a write or a read.
+///
+/// The Elasticsearch document routes (`POST /{index}/_doc`,
+/// `PUT /{index}/_doc/{id}`, `POST /{index}/_search`) land here when an agent
+/// copies them onto `/_memory`. An empty `405` costs a round trip; the body
+/// names the four calls this API actually has.
+///
+/// `allow` is the `Allow` header for the path that was hit: `DELETE` on
+/// `/_memory/{namespace}/{id}` (forget), empty on `/_memory/{namespace}/_doc/{id}`,
+/// where no method is served.
+fn memory_method_not_allowed(namespace: &str, allow: &'static str) -> Response {
+    let reason = format!(
+        "/_memory/{namespace} is the agent-memory API, not the document API. \
+         Store with POST /_memory/{namespace} and a JSON body {{\"text\":\"...\"}}. \
+         Recall with POST /_memory/{namespace}/_recall and {{\"query\":\"...\"}}. \
+         List with GET /_memory/{namespace}. \
+         Forget one entry with DELETE /_memory/{namespace}/{{id}}."
+    );
+    (
+        StatusCode::METHOD_NOT_ALLOWED,
+        [(header::ALLOW, HeaderValue::from_static(allow))],
+        Json(json!({
+            "error": { "type": "memory_error", "reason": reason },
+            "status": 405,
+        })),
+    )
+        .into_response()
+}
+
+/// `GET`/`POST`/`PUT /_memory/{namespace}/{id}` — that path only forgets.
+pub async fn unsupported_memory_verb(Path((namespace, _id)): Path<(String, String)>) -> Response {
+    memory_method_not_allowed(&namespace, "DELETE")
+}
+
+/// `PUT`/`POST`/`GET`/`DELETE /_memory/{namespace}/_doc/{id}` — the document
+/// route with an id. No memory id lives at this path.
+pub async fn unsupported_memory_doc_id(Path((namespace, _id)): Path<(String, String)>) -> Response {
+    memory_method_not_allowed(&namespace, "")
+}
 
 /// `DELETE /_memory/{namespace}/{id}` — forget a single memory entry.
 pub async fn forget_one(
@@ -1384,7 +1572,12 @@ pub async fn forget_one(
             .into_response();
     }
     if !status.is_success() {
-        return error_response(status, format!("forget failed: {body}"));
+        return memory_failure(
+            status,
+            &body,
+            &state.config.server.data_dir,
+            format!("forget failed: {body}"),
+        );
     }
     Json(json!({ "id": id, "namespace": namespace, "forgotten": true })).into_response()
 }
@@ -1488,6 +1681,54 @@ mod tests {
             validate_namespace("kb-edges").unwrap_err(),
             "namespace suffix '-edges' is reserved for graph edge indices"
         );
+    }
+
+    /// #2284: the flood-stage block is a nested `cluster_block_exception`
+    /// inside `failed to store memory: {json}`. The reason the CLI and MCP
+    /// print is the disk sentence, with this process's free space and the
+    /// data-dir path. A mapping error stays the raw body.
+    #[test]
+    fn a_flood_stage_store_failure_names_the_disk_and_the_data_dir() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().to_string_lossy();
+        let inner = crate::error::ApiError::new(xerj_common::XerjError::index_blocked(
+            ".xerj-memory-notes",
+            "read_only_allow_delete (disk usage 96% exceeded flood-stage watermark [95%])",
+        ))
+        .into_value();
+        let wrapped_body = json!({
+            "error": {
+                "type": "memory_error",
+                "reason": format!("failed to store memory: {inner}")
+            },
+            "status": 429
+        });
+        let unused = "failed to store memory: {raw}".to_string();
+        let reason = memory_failure_reason(&wrapped_body, &path, &unused);
+        assert!(
+            reason.contains("the disk holding the data dir is nearly full"),
+            "{reason}"
+        );
+        assert!(reason.contains("96% used"), "{reason}");
+        assert!(reason.contains("threshold 95%"), "{reason}");
+        assert!(reason.contains(path.as_ref()), "{reason}");
+        assert!(
+            reason.contains("Free space on that drive, or restart the node with --data-dir"),
+            "{reason}"
+        );
+        assert!(
+            reason.contains("limits.disk_flood_stage_percent"),
+            "{reason}"
+        );
+        assert!(!reason.contains("cluster_block_exception"), "{reason}");
+        assert!(reason.contains("free "), "{reason}");
+        assert!(!reason.contains("free unknown"), "{reason}");
+
+        let other = json!({
+            "error": { "type": "mapper_parsing_exception", "reason": "bad field" }
+        });
+        let wrapped = format!("failed to store memory: {other}");
+        assert_eq!(memory_failure_reason(&other, &path, &wrapped), wrapped);
     }
 
     #[tokio::test]
@@ -2302,5 +2543,207 @@ mod tests {
             hits[0]["id"], "new",
             "recency_weight=0.9 must surface the most recent memory first"
         );
+    }
+
+    /// Copying the Elasticsearch document routes onto `/_memory` used to
+    /// return an empty 405/404. The body has to name the real calls.
+    #[tokio::test]
+    async fn document_routes_on_memory_name_the_real_calls() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.keep();
+        let mut config = Config::default();
+        config.server.data_dir = path.to_str().unwrap().to_string();
+        config.auth.enabled = false;
+        let metrics = Metrics::new().expect("metrics");
+        let engine = Engine::new(config.clone()).expect("engine");
+        let app = crate::router::build_es_compat_router(AppState::new(config, engine, metrics));
+
+        for (method, uri) in [
+            ("POST", "/_memory/notes/_doc"),
+            ("GET", "/_memory/notes/_search"),
+            ("PUT", "/_memory/notes/_doc/abc"),
+            ("POST", "/_memory/notes/some-id"),
+        ] {
+            let req = axum::http::Request::builder()
+                .method(method)
+                .uri(uri)
+                .header("content-type", "application/json")
+                .body(axum::body::Body::from(
+                    r#"{"text":"via the document route"}"#,
+                ))
+                .unwrap();
+            let resp = tower::ServiceExt::oneshot(app.clone(), req).await.unwrap();
+            assert_eq!(
+                resp.status(),
+                StatusCode::METHOD_NOT_ALLOWED,
+                "{method} {uri}"
+            );
+            // `/_memory/{ns}/{id}` serves DELETE (forget); the `_doc/{id}`
+            // spelling serves nothing, so its `Allow` is empty.
+            let expected_allow = if uri.starts_with("/_memory/notes/_doc/") {
+                ""
+            } else {
+                "DELETE"
+            };
+            assert_eq!(
+                resp.headers()
+                    .get(header::ALLOW)
+                    .and_then(|v| v.to_str().ok()),
+                Some(expected_allow),
+                "{method} {uri}"
+            );
+            let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+                .await
+                .unwrap();
+            let body: Value = serde_json::from_slice(&bytes).unwrap();
+            let reason = body["error"]["reason"].as_str().unwrap_or("");
+            assert!(
+                reason.contains("POST /_memory/notes") && reason.contains("\"text\""),
+                "{method} {uri} reason must name the store call: {reason}"
+            );
+            assert!(
+                reason.contains("POST /_memory/notes/_recall"),
+                "{method} {uri} reason must name recall: {reason}"
+            );
+            assert!(!bytes.is_empty(), "{method} {uri} body was empty");
+        }
+
+        // The real store route is unchanged.
+        let req = axum::http::Request::builder()
+            .method("POST")
+            .uri("/_memory/notes")
+            .header("content-type", "application/json")
+            .body(axum::body::Body::from(r#"{"text":"kept"}"#))
+            .unwrap();
+        let resp = tower::ServiceExt::oneshot(app.clone(), req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::CREATED);
+
+        // DELETE of one id is still forget, including an id spelled `_doc`.
+        let req = axum::http::Request::builder()
+            .method("DELETE")
+            .uri("/_memory/notes/_doc")
+            .body(axum::body::Body::empty())
+            .unwrap();
+        let resp = tower::ServiceExt::oneshot(app, req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+        let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let body: Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(body["forgotten"], false);
+        assert_eq!(body["id"], "_doc");
+    }
+
+    #[tokio::test]
+    async fn list_namespaces_empty_and_populated() {
+        let state = test_state();
+
+        // 1. Initially empty: no memory namespaces exist.
+        let resp = list_namespaces(
+            State(state.clone()),
+            Principal::Superuser,
+            axum::extract::Query(ListParams::default()),
+        )
+        .await;
+        let (s, body) = drain_json(resp).await;
+        assert_eq!(s, StatusCode::OK);
+        assert_eq!(body["count"], 0);
+        assert_eq!(body["namespaces"].as_array().unwrap().len(), 0);
+        assert!(body["next"].is_null());
+
+        // 2. Populate two namespaces: `agent-a` (2 docs) and `support-bot` (1 doc).
+        store_mem(&state, "agent-a", json!({"text":"first memory"})).await;
+        store_mem(&state, "agent-a", json!({"text":"second memory"})).await;
+        store_mem(&state, "support-bot", json!({"text":"bot memory"})).await;
+
+        // Add a graph edge for `support-bot` using graph_api::link.
+        let link_body: crate::graph_api::LinkBody = serde_json::from_value(json!({
+            "src": "m1",
+            "dst": "m2",
+            "type": "relates_to",
+        }))
+        .unwrap();
+        let link_resp = crate::graph_api::link(
+            State(state.clone()),
+            Path("support-bot".to_string()),
+            Principal::Superuser,
+            OptionalJson(Some(link_body)),
+        )
+        .await;
+        assert_eq!(link_resp.into_response().status(), StatusCode::CREATED);
+
+        // 3. List namespaces: should return both sorted alphabetically.
+        let resp = list_namespaces(
+            State(state.clone()),
+            Principal::Superuser,
+            axum::extract::Query(ListParams::default()),
+        )
+        .await;
+        let (s, body) = drain_json(resp).await;
+        assert_eq!(s, StatusCode::OK);
+        assert_eq!(body["count"], 2);
+        let list = body["namespaces"].as_array().unwrap();
+        assert_eq!(list.len(), 2);
+
+        // `agent-a`: count=2, graph=false
+        assert_eq!(list[0]["namespace"], "agent-a");
+        assert_eq!(list[0]["count"], 2);
+        assert_eq!(list[0]["graph"], false);
+
+        // `support-bot`: count=1, graph=true
+        assert_eq!(list[1]["namespace"], "support-bot");
+        assert_eq!(list[1]["count"], 1);
+        assert_eq!(list[1]["graph"], true);
+
+        // 4. Pagination: from=0, size=1 -> returns agent-a, next={from:1, size:1}
+        let resp = list_namespaces(
+            State(state.clone()),
+            Principal::Superuser,
+            axum::extract::Query(ListParams {
+                from: Some(0),
+                size: Some(1),
+                ..Default::default()
+            }),
+        )
+        .await;
+        let (_, p1) = drain_json(resp).await;
+        assert_eq!(p1["count"], 2);
+        assert_eq!(p1["namespaces"].as_array().unwrap().len(), 1);
+        assert_eq!(p1["namespaces"][0]["namespace"], "agent-a");
+        assert_eq!(p1["next"], json!({ "from": 1, "size": 1 }));
+
+        // Page 2: from=1, size=1 -> returns support-bot, next=null
+        let resp = list_namespaces(
+            State(state.clone()),
+            Principal::Superuser,
+            axum::extract::Query(ListParams {
+                from: Some(1),
+                size: Some(1),
+                ..Default::default()
+            }),
+        )
+        .await;
+        let (_, p2) = drain_json(resp).await;
+        assert_eq!(p2["count"], 2);
+        assert_eq!(p2["namespaces"].as_array().unwrap().len(), 1);
+        assert_eq!(p2["namespaces"][0]["namespace"], "support-bot");
+        assert!(p2["next"].is_null());
+    }
+
+    #[tokio::test]
+    async fn bare_memory_unsupported_verbs() {
+        let resp = unsupported_memory_bare().await;
+        assert_eq!(resp.status(), StatusCode::METHOD_NOT_ALLOWED);
+        assert_eq!(
+            resp.headers().get("allow").and_then(|v| v.to_str().ok()),
+            Some("GET")
+        );
+        let (_, body) = drain_json(resp).await;
+        assert_eq!(body["status"], 405);
+        assert_eq!(body["error"]["type"], "memory_error");
+        assert!(body["error"]["reason"]
+            .as_str()
+            .unwrap()
+            .contains("/_memory only supports GET"));
     }
 }

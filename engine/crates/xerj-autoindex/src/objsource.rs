@@ -813,12 +813,7 @@ fn fetch_objects(
     if pending.is_empty() {
         return Ok(Vec::new());
     }
-    let build = || {
-        rayon::ThreadPoolBuilder::new()
-            .num_threads(concurrency)
-            .thread_name(|i| format!("xerj-fetch-{i}"))
-            .build()
-    };
+    let build = || fetch_pool(concurrency);
     let results: Vec<Result<FetchOutcome>> = map_in_fetch_pool(build, pending, |entry| {
         let guard = pr.file(&entry.rel, entry.size);
         let outcome = fetch_one(run, source, entry);
@@ -848,13 +843,26 @@ fn fetch_objects(
     }
 }
 
+fn fetch_pool(
+    concurrency: usize,
+) -> std::result::Result<rayon::ThreadPool, rayon::ThreadPoolBuildError> {
+    rayon::ThreadPoolBuilder::new()
+        .num_threads(concurrency)
+        .thread_name(|i| format!("xerj-fetch-{i}"))
+        .spawn_handler(crate::pool::spawn_worker)
+        .build()
+}
+
 /// `items.map(f)`, in order, on a freshly built object-fetch pool, or as a
 /// plain sequential loop on the calling thread when the pool cannot be
 /// started (#1122).
 ///
 /// `build()` fails when `pthread_create` returns `EAGAIN` (thread or memory
-/// limit). That used to error the whole object run, after the listing had
-/// already been paid for, on exactly the machine that was short of threads.
+/// limit). The pool's spawn handler is [`crate::pool::spawn_worker`], so a
+/// signal-stack `ENOMEM` is that `Err` rather than a panic in the child
+/// (`panic = "abort"` would take the process down, #1122). That used to
+/// error the whole object run, after the listing had already been paid for,
+/// on exactly the machine that was short of threads.
 /// A sequential fetch is slower but downloads the same objects, so the run
 /// degrades instead of failing. The fallback deliberately does not go through
 /// rayon at all: it neither starts a thread nor registers the caller with a
@@ -1688,21 +1696,22 @@ mod tests {
             "the fallback must not register the caller as a rayon worker"
         );
 
-        // And with a pool that does start, the same items run on its threads.
-        let ok = || {
-            rayon::ThreadPoolBuilder::new()
-                .num_threads(2)
-                .thread_name(|i| format!("xerj-fetch-test-{i}"))
-                .build()
-        };
-        let named = map_in_fetch_pool(ok, &items, |&i| {
-            (
-                i,
-                std::thread::current()
-                    .name()
-                    .is_some_and(|n| n.starts_with("xerj-fetch-test-")),
-            )
-        });
+        // And with the production pool, the same items run on its threads.
+        // `std::thread` names are unset: the handler does not use
+        // `Builder::name` (that is the signal-stack panic). On Linux the OS
+        // comm is the name the handler sets.
+        let named = map_in_fetch_pool(
+            || super::fetch_pool(2),
+            &items,
+            |&i| {
+                (
+                    i,
+                    // Unix workers set the pthread comm, not the std name (#1122).
+                    xerj_common::thread_spawn::current_thread_name()
+                        .is_some_and(|name| name.starts_with("xerj-fetch")),
+                )
+            },
+        );
         assert!(named
             .iter()
             .enumerate()

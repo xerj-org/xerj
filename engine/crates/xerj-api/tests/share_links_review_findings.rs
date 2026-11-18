@@ -134,6 +134,49 @@ async fn audit_entries(native: &axum::Router) -> Vec<Value> {
 // The share id is never part of a request path
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// `POST /_share` returns the secret as `share_id`. Claiming with that same
+/// field name has to work, and the response also carries `id` so the
+/// documented claim body can be copied from it.
+#[tokio::test]
+async fn a_claim_accepts_the_share_id_field_the_create_response_returns() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let state = state_over(dir.path().to_str().expect("utf8 path"));
+    let es = build_es_compat_router(state);
+    let (status, _, _) = send(&es, "PUT", "/casefile-alias", &admin(), "").await;
+    assert_eq!(status, StatusCode::OK);
+    let (status, share, _) = send(
+        &es,
+        "POST",
+        "/_share",
+        &admin(),
+        &json!({"index": "casefile-alias", "max_claims": 1}).to_string(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{share}");
+    assert_eq!(share["id"], share["share_id"], "{share}");
+    let (status, got, _) = send(
+        &es,
+        "POST",
+        "/_share/claim",
+        "",
+        &json!({
+            "share_id": share["share_id"],
+            "passcode": share["passcode"],
+        })
+        .to_string(),
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "claim by share_id should succeed: {got}"
+    );
+    assert!(
+        got["api_key"].as_str().is_some_and(|k| !k.is_empty()),
+        "{got}"
+    );
+}
+
 #[tokio::test]
 async fn the_share_id_travels_in_the_claim_body_never_in_a_path() {
     let dir = tempfile::tempdir().expect("tempdir");

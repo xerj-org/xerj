@@ -57,7 +57,8 @@ next: `xerj autoindex map --url http://localhost:9280` for the data map; search 
 ```
 
 The exit code is `3` — "completed with junk": the run finished, and the
-binary blob was recorded rather than crashing anything. `0` means a fully
+binary blob was recorded rather than crashing anything. Exit 3 is success.
+Treat it the same as exit 0: do not rerun it as a failure. `0` means a fully
 clean run; junk is *never* fatal. Exit 3 also covers a dataset whose mapping
 the server refused — see [section 7](#7-one-dataset-the-server-refuses-does-not-cost-you-the-run).
 
@@ -66,6 +67,11 @@ the server refused — see [section 7](#7-one-dataset-the-server-refuses-does-no
 ```bash
 xerj autoindex map
 ```
+
+`xerj autoindex map` with no folder reads that catalog from the node. To
+preview a folder that has not been indexed yet, run
+`xerj autoindex map <folder>` (the same walk, sniff and plan as
+`xerj autoindex <folder> --dry-run`). That preview writes nothing to an index.
 
 The data map is a briefing rendered from the catalog: datasets, inferred
 per-field types with real example values, time ranges, ready-to-send
@@ -229,12 +235,14 @@ live indices at http://localhost:9280:
   autoindex-catalog                                 9 docs
 ```
 
-`--fresh` ignores the resume journal and restarts (ids stay idempotent), which on a
-graph-enabled or pre-generation state directory is how a rerun picks up files added
-since the last one. It never removes stale records from the destination, and it is
-refused once the state directory holds a durable corpus generation — re-run without it
-and the generated `--no-graph` path reconciles additions, changes, deletions, renames
-and no-op reruns incrementally.
+`--fresh` ignores the resume journal and restarts (ids stay idempotent for unchanged
+bytes), which on a graph-enabled or pre-generation state directory is how a rerun picks
+up files added since the last one. A file that is still present and whose content key
+changed is republished, and the documents previously published for that path are
+removed. It does not remove documents for a file that disappeared, and it is refused
+once the state directory holds a durable corpus generation — re-run without it and the
+generated `--no-graph` path reconciles additions, changes, deletions, renames and no-op
+reruns incrementally.
 
 On a graph-enabled or pre-generation journal, a rerun that resumes an existing plan
 indexes changed files and reports added ones as skipped. Deleting a file is refused
@@ -417,8 +425,12 @@ Every long step is a phase of its own, in this order: `walk`, `hash`, `scan`,
 every file, counted in source bytes), `index` (send the sealed bulk bytes, the
 in-flight file named in `waiting_on`), `finalize-catalog`, `finalize-refresh`
 (one refresh per dataset), `finalize-verify` (read-backs batched into
-per-index digest windows, one search per window). A
-resumed run starts at `replay`, and its `index` phase counts only the
+per-index digest windows, one search per window). A mapping scan that wants
+to delete an index — a JSON fixture the tabular sniffer turned into its own
+table — waits for the `xerj-done` line first. An index removed while
+`finalize-verify` is reading it ends the run with
+`index <name> was deleted during verify`, and the generation does not commit.
+A resumed run starts at `replay`, and its `index` phase counts only the
 operations still to apply, so it starts at 0% of what remains rather than
 crediting this run with an earlier one's writes.
 
@@ -449,7 +461,20 @@ Useful knobs (all optional): `--url` for a non-default endpoint, `--workers N`
 (the *default* is every core, reduced when the memory safe zone cannot pay for
 that many in-flight bulk buffers; a value you pass is honoured as typed and the
 disagreement is printed, not applied; bounds both the scan and the indexing
-phase), `--prefix` to namespace the indices (default `ax`),
+phase), `--prefix` to namespace the indices (default `ax`; one prefix is one
+source folder — the same prefix on a different folder is refused, because
+catalog datasets are keyed `ds:<prefix>:<slug>` and indices are `<prefix>-*`,
+so finalize would overwrite the earlier datasets. Indexing several
+repositories as separate runs under one prefix also collapses them: each
+repo indexed on its own has an empty scope and becomes the single dataset
+`<prefix>-docs`. The refusal's first remedy is a ready-to-copy
+`xerj autoindex <folder> --prefix <name>`. Do not `DELETE` the existing
+index. Drop a folder you indexed with
+`xerj autoindex remove --prefix <name> [--root <dir>]` — it previews the
+indices and catalog rows and deletes nothing without `--yes`. Index the
+parent folder once, use one `--prefix` per folder, or pass
+`--replace-prefix` to retire the earlier datasets on purpose.
+`--dry-run` does not bypass the refusal),
 `--no-semantic` for pure BM25+keyword without vector fields, `--dry-run` to
 print the inferred plan without indexing anything, `--follow-symlinks`
 (loop-safe — and a followed link is judged by what it resolves to: a target
@@ -478,11 +503,15 @@ built-in list are XERJ's rather than git's and apply throughout the folder you
 named. Hidden files (`.env`, `.git/`) are skipped by a separate, non-optional
 rule. Every run prints what was dropped and by which rule (`ignore rules: …` on
 stderr), and `--dry-run` also counts the non-hidden files inside each pruned
-directory, so "where did my file go?" always has an answer. `--no-ignore` turns
+directory, so "where did my file go?" always has an answer. A line that
+writes `[locale]` is also applied to the literal directory of that name, so a
+Next.js route folder is not dropped because git reads the brackets as a
+character class; `*.[ch]` still matches `.c` and `.h`. `--no-ignore` turns
 the rules off; `--no-default-ignores` keeps your ignore files and drops only the
-built-in list. Both apply to an indexing run only — `autoindex map` and
-`autoindex status` never walk a folder and refuse them rather than accepting a
-flag that would do nothing. The folder you point at is never excluded: if it is
+built-in list. Both apply to an indexing run and to `autoindex map <folder>`
+(the read-only preview). A bare `autoindex map` and `autoindex status` never
+walk a folder and refuse them rather than accepting a flag that would do
+nothing. The folder you point at is never excluded: if it is
 itself ignored — say you run this on `~/proj/target` — it is indexed anyway and
 the run says which rule it would have matched.
 

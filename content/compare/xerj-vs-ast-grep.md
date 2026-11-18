@@ -7,18 +7,27 @@ cluster: "Comparison: code retrieval"
 question: "ast-grep vs a code index for an agent?"
 intent: "comparison"
 published: "2026-08-22"
-updated: "2026-08-23"
+updated: "2026-10-28"
 author: "XERJ documentation team"
 reviewer: "XERJ engineering team"
 schema_type: "TechArticle"
+structured_data: [faq]
 agent_prompt: "Act as a coding agent. Read https://xerj.org/llms.txt, run `xerj autoindex ./repo --prefix code --state-dir ./state-code`, POST a match on defs for the function you are about to change to /code-*/_search and read its declaration site from the returned ax_path, apply the structural rewrite with ast-grep, then re-run the identical autoindex command and confirm the same defs query returns the new shape."
+answer: "Should an agent use ast-grep or a code index? Use both. ast-grep matches and rewrites code by syntax pattern, and XERJ rewrites nothing. XERJ answers where a symbol is defined and what its contract says across a tree it already indexed. No head-to-head was run, and none is needed to split these jobs."
+key_fact: "ast-grep has 16,288 GitHub stars and released 0.51.0 on 2026-10-15."
+key_fact_source: "https://github.com/ast-grep/ast-grep"
+key_fact_date: "2026-10-19"
+intent_group: "code search for agents"
+queries:
+  - "tree-sitter code search CLI"
+  - "structural code search for agents"
 commands:
   - cmd: "xerj autoindex ./repo --prefix code --state-dir ./state-code"
     note: "Build the index that answers where a symbol is defined, once per tree."
   - cmd: "curl -s -XPOST 'http://127.0.0.1:9200/code-*/_search' -H 'content-type: application/json' -d '{\"query\":{\"match\":{\"defs\":\"parse_config\"}},\"_source\":[\"ax_path\"],\"size\":20}'"
     note: "The definition query, language-independent, read from the returned hits."
   - cmd: "xerj mcp --url http://127.0.0.1:9200"
-    note: "Serve the 10 tools an agent calls before it decides what to change. Start the node first; this command does not start one."
+    note: "Serve the 24 tools an agent calls before it decides what to change. Start the node first; this command does not start one."
 links_out:
   - "syntax-aware-code-search-refactoring"
   - "code-search-mcp-for-claude-code"
@@ -45,7 +54,7 @@ faq:
   - q: "Can XERJ rewrite code?"
     a: "No. XERJ performs no abstract syntax tree rewriting and no codemod of any kind. It returns passages and paths, and you change the file."
   - q: "What does XERJ extract from code?"
-    a: "Definitions. Each code document carries a defs field and a symbols list with names, kinds and line numbers, across 34 languages."
+    a: "Definitions. Each code document carries a defs field and a symbols list with names, kinds and line numbers, across 36 languages."
   - q: "Does ast-grep keep an index?"
     a: "No. The project states that it builds a syntax tree in memory for each query and does not support offline indexing."
   - q: "Which one does an agent call first?"
@@ -90,7 +99,7 @@ XERJ pays that cost once:
 xerj autoindex ./repo --prefix code --state-dir ./state-code
 ```
 
-After that, a code document carries `title`, `language`, a `defs` field with one line per definition, a `symbols` list with names, kinds and line numbers, and the full body. One query finds where a symbol is defined, and it is the same query in every one of 34 languages.
+After that, a code document carries `title`, `language`, a `defs` field with one line per definition, a `symbols` list with names, kinds and line numbers, and the full body. One query finds where a symbol is defined, and it is the same query in every one of 36 languages.
 
 ```json
 { "query": { "match": { "defs": "parse_config" } }, "_source": ["ax_path"] }
@@ -141,6 +150,8 @@ Choose the index when one tree answers many questions in a session. The build co
 Choose it when the question is about symbols rather than bytes. One definition query then replaces a regular expression per language.
 
 Choose it when an agent needs the answer as a cited passage. The same binary also holds agent memory and an MCP tool list.
+
+What that returns, against the lines grep prints, is [local code search over MCP](/answers/local-code-search-mcp-fewer-tokens-than-grep).
 
 ## The limits you inherit with XERJ
 

@@ -2,11 +2,15 @@
 ---
 title: "XERJ vs Typesense when the corpus is a folder"
 canonical: "https://xerj.org/compare/xerj-vs-typesense"
-updated: "2026-08-23"
+updated: "2026-10-28"
 source: "content/compare/xerj-vs-typesense.md"
 ---
 
 # Do I need Typesense for an agent to search my docs?
+
+**Short answer** (updated 2026-10-28): Do I need Typesense for an agent to search my docs? Not for a folder of mixed files: XERJ reads it with one command, where Typesense expects extracted JSON. Typesense wins faceted product browsing, and its own documentation names that a headline use case. No faceting head-to-head was measured.
+
+**Key number:** Typesense has 27,008 GitHub stars, is GPL-3.0, and released v30.2 on 2026-04-19. (as of 2026-10-19; source: [github.com/typesense/typesense](https://github.com/typesense/typesense))
 
 **TL;DR** — Typesense wins faceted product browsing, and its own documentation names that as a headline use case. XERJ wins the step before the query, because it reads a folder of mixed files with one command. No faceting head-to-head was measured for this page.
 
@@ -92,7 +96,7 @@ The Typesense server is GPL-3.0. XERJ is Apache-2.0. If you plan to embed either
 
 Typesense Cloud sells a dedicated cluster at a fixed hourly cost rather than charging per document or per search. XERJ ships self-hosted only, with no managed product at all, so a managed plan is a reason to pick Typesense.
 
-Typesense documents conversational search and natural-language search as first-party features. Its documentation index lists no MCP server page, so treat any MCP server for Typesense as a community project until the vendor documents one. XERJ ships `xerj mcp` in the same binary, serving 10 tools.
+Typesense documents conversational search and natural-language search as first-party features. Its documentation index lists no MCP server page, so treat any MCP server for Typesense as a community project until the vendor documents one. XERJ ships `xerj mcp` in the same binary, serving 24 tools.
 
 ## The limits you inherit with XERJ
 
@@ -173,3 +177,6 @@ No. Typesense says it should not hold the only copy of your data, and XERJ is si
 - [How do I index a CSV with many columns?](/answers/index-csv-with-many-columns)
 - [I want to point something at a folder and then ask questions about what's in it. What should I use?](/answers/how-xerj-autoindexes-a-folder)
 - [I have a folder of PDFs, Word docs, and markdown. How do I search all of them at once?](/answers/search-file-contents-in-a-folder)
+- [What's a local alternative to Meilisearch that indexes a folder by itself?](/compare/xerj-vs-meilisearch) (same intent: search engine alternatives)
+- [Is there a single-binary local search engine I can just run?](/answers/search-engine-without-docker) (same intent: search engine alternatives)
+- [Does XERJ support S3 storage, alerting or custom plugins yet?](/answers/does-xerj-support-s3-alerting-plugins) (same intent: search engine alternatives)

@@ -8,7 +8,8 @@
 //! - `POST /auth/login/finish  { challenge_id, credential }`
 //!   → validates the assertion, mints a session cookie.
 //!
-//! Logout: `POST /auth/logout` revokes the current session.
+//! Logout: `POST /auth/logout` revokes the current passkey session.
+//! A bearer API token is 403 and does not revoke anything.
 
 use axum::{
     extract::State,
@@ -216,7 +217,7 @@ pub async fn finish(
 
 pub async fn logout(
     State(state): State<ConsoleState>,
-    sess: sessions::AuthSession,
+    sess: sessions::PasskeySession,
 ) -> ConsoleResult<Response> {
     store::revoke_session(&state.engine, &sess.session_id, &now_iso()).await?;
     audit::record(

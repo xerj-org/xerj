@@ -5,9 +5,11 @@
 //! minimal — only the fields we actually filter or sort on get a typed
 //! mapping; everything else is stored in `_source` and read back as-is.
 //!
-//! Hidden semantics: `_cat/indices` skips these by default. Admin tools
-//! that want to see them pass `?include_system=true` (an enhancement to
-//! the existing `_cat/indices` handler — wired up in a follow-up commit).
+//! Hidden semantics: `_cat/indices` skips `.xerj_*` by default. Admin
+//! tools that want them pass `?include_system=true`, or ES's
+//! `?expand_wildcards=open,hidden`. A concrete name or a pattern that
+//! starts with `.` still addresses them. `.xerj-memory-*` brains are not
+//! system indices and stay in the default listing.
 
 use xerj_common::types::{FieldConfig, FieldType, Schema};
 use xerj_engine::Engine;

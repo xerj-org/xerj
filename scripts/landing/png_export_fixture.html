@@ -1,0 +1,16 @@
+<!doctype html><meta charset="utf-8"><title>XERJ SVG export regression fixture</title>
+<style>:root{--z-accent:#ffcc00;--z-paper:#ffffff;--font-data:monospace;--font-prose:sans-serif;color:#222}body{font:16px sans-serif;margin:24px}svg,img{width:600px;height:180px;border:1px solid #ccc;display:block}.series-legend{display:none}pre{white-space:pre-wrap}</style>
+<h1>Embedding query marker export</h1><p>Live production chart: yellow crosshair identifies the query location.</p><div id="chart"></div><button id="export">Export with production svgToPng</button><p>Exported PNG:</p><img id="png"><pre id="result">Ready</pre>
+<script type="module">
+import {EmbedSpace} from '/landing/playground/src/ux/charts-ai.js';
+import {svgToPng} from '/landing/playground/src/data/export.js';
+chart.innerHTML=EmbedSpace({clusters:[{label:'CLUSTER',points:[[0,0],[1,1],[0,1],[1,0]],centroid:[0.2,0.2]}],highlight:[0.5,0.5]});
+document.querySelector('button').onclick=async()=>{
+ try {
+ const svg=document.querySelector('svg');const liveStroke=getComputedStyle(svg.querySelector('line[stroke="var(--z-accent)"]')).stroke;
+ const blob=await svgToPng(svg,{scale:1,filename:'xerj-query-marker-fixture.png'});const url=URL.createObjectURL(blob);png.src=url;await png.decode();
+ const canvas=document.createElement('canvas');canvas.width=png.naturalWidth;canvas.height=png.naturalHeight;const ctx=canvas.getContext('2d');ctx.drawImage(png,0,0);const pixels=ctx.getImageData(0,0,canvas.width,canvas.height).data;let yellow=0;for(let i=0;i<pixels.length;i+=4)if(pixels[i]>200&&pixels[i+1]>130&&pixels[i+2]<100)yellow++;
+ result.textContent=JSON.stringify({liveQueryStroke:liveStroke,pngWidth:canvas.width,pngHeight:canvas.height,exportedYellowPixels:yellow,pngQueryCrosshairPixel:[...ctx.getImageData(Math.floor(canvas.width/2),20,1,1).data],pngBackgroundPixel:[...ctx.getImageData(0,0,1,1).data]},null,2);
+ }catch(e){result.textContent=e.stack;}
+};
+</script>

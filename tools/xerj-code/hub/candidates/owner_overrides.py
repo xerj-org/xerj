@@ -31,7 +31,14 @@ Override record (one per corpus slug, see owner-overrides.json):
 
 Values replace what is there (no merging); `null` sets null. The
 CONTRIBUTORS.md row of an overridden entry is re-rendered from its ledger row
-in the pipeline's own format. Stdlib only.
+in the pipeline's own format.
+
+Opt-outs (do-not-contact.json, action "no-include") are applied the same way:
+every ledger row whose contributor login, repository owner or repository is on
+the list is dropped, with its CONTRIBUTORS.md row, and the manifest of a corpus
+left with no ledger row is deleted. `validate_hub.py` fails a refresh that
+re-adds one; this script is the one-command fix for that refresh branch, and
+`--check` reports it as drift. Stdlib only.
 """
 from __future__ import annotations
 
@@ -43,7 +50,42 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 OVERRIDES = HERE / "owner-overrides.json"
+DNC = HERE / "do-not-contact.json"
 AUTHORS = HERE / "authors"
+GITHUB = "https://github.com/"
+
+
+def repo_key(url) -> str:
+    """'owner/repo', lower-cased, from a GitHub URL or an 'owner/repo' string."""
+    s = str(url or "").strip().rstrip("/").removesuffix(".git").lower()
+    return s[len(GITHUB):] if s.startswith(GITHUB) else s
+
+
+def load_no_include(path: Path = DNC) -> dict[str, int]:
+    """Logins and 'owner/repo' keys on the do-not-contact list with no-include."""
+    if not path.exists():
+        return {}
+    banned: dict[str, int] = {}
+    for e in json.loads(path.read_text(encoding="utf-8")).get("entries", []):
+        if "no-include" not in (e.get("actions") or []):
+            continue
+        for key in ("login", "also_login"):
+            if e.get(key):
+                banned[str(e[key]).lower()] = e.get("issue")
+        for r in [e.get("repo"), *(e.get("repos") or [])]:
+            if r:
+                banned[repo_key(r)] = e.get("issue")
+    return banned
+
+
+def banned_by(row: dict, banned: dict[str, int]):
+    """The issue that bans this ledger row, or None."""
+    repo = repo_key(row.get("repo_url") or row.get("repo"))
+    login = str((row.get("contributor") or {}).get("login") or "").lower()
+    for key in (login, repo, repo.split("/")[0]):
+        if key and key in banned:
+            return banned[key]
+    return None
 
 
 def load_overrides(path: Path = OVERRIDES) -> list[dict]:
@@ -108,7 +150,8 @@ def _ledger_files(authors: Path) -> list[Path]:
     return sorted(authors.glob("CONTRIBUTORS*.jsonl"))
 
 
-def plan(authors: Path, overrides: list[dict]) -> tuple[dict, list[Path], list[str]]:
+def plan(authors: Path, overrides: list[dict],
+         banned: dict[str, int] | None = None) -> tuple[dict, list[Path], list[str]]:
     """Compute desired file contents. Returns (writes, deletes, problems)."""
     writes: dict[Path, str] = {}
     deletes: list[Path] = []
@@ -119,9 +162,37 @@ def plan(authors: Path, overrides: list[dict]) -> tuple[dict, list[Path], list[s
     md = md_path.read_text(encoding="utf-8").splitlines() if md_path.exists() else []
     md_changed = False
 
+    # Opt-outs first: drop every no-include ledger row and its CONTRIBUTORS.md
+    # row, then the manifest of a corpus that has no ledger row left.
+    dropped: set[str] = set()
+    kept: set[str] = set()
+    for p, lines in ledgers.items():
+        keep = []
+        for line in lines:
+            r = json.loads(line) if line.strip() else None
+            if r is not None and banned and banned_by(r, banned):
+                dropped.add(r.get("corpus"))
+                login = (r.get("contributor") or {}).get("login")
+                head = f"| [{r.get('repo')}]({r.get('repo_url')}) | [@{login}]("
+                n = len(md)
+                md = [m for m in md if not m.startswith(head)]
+                md_changed |= len(md) != n
+                continue
+            if r is not None:
+                kept.add(r.get("corpus"))
+            keep.append(line)
+        ledgers[p] = keep
+    gone = dropped - kept
+    for slug in sorted(gone):
+        if (authors / f"{slug}.json").exists():
+            deletes.append(authors / f"{slug}.json")
+
     for e in overrides:
         slug, old = e["corpus"], e.get("replaces")
         names = [slug] + ([old] if old else [])
+        if set(names) & gone:
+            problems.append(f"{slug}: on do-not-contact.json (no-include) - not re-adding")
+            continue
 
         # manifest
         src = next((authors / f"{n}.json" for n in names if (authors / f"{n}.json").exists()), None)
@@ -176,8 +247,11 @@ def main(argv=None) -> int:
     ap.add_argument("--check", action="store_true", help="report drift, change nothing")
     ap.add_argument("--authors", type=Path, default=AUTHORS)
     ap.add_argument("--overrides", type=Path, default=OVERRIDES)
+    ap.add_argument("--dnc", type=Path, default=DNC, help="do-not-contact.json")
     a = ap.parse_args(argv)
-    writes, deletes, problems = plan(a.authors, load_overrides(a.overrides))
+    writes, deletes, problems = plan(a.authors, load_overrides(a.overrides),
+                                     load_no_include(a.dnc))
+    deletes = sorted(set(deletes))
     for p in problems:
         print(f"warning: {p}", file=sys.stderr)
     drift = sorted({str(p.relative_to(a.authors)) for p in [*writes, *deletes]})

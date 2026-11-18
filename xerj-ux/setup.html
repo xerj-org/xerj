@@ -154,7 +154,7 @@ const nextRoute = (() => {
   return '#/' + n.replace(/^[#/]+/, '');
 })();
 if (!token) {
-  showError('No magic-link token in URL. The link must include #token=…');
+  showError('No magic-link token in this URL. The node printed a one-time setup link when it started — open that URL (it contains #token=). A restart prints a new link while the owner account is still unclaimed. An existing owner signs in at /_xerj-console/login.');
   $btnEnrol.disabled = true;
 }
 
@@ -169,7 +169,23 @@ let enrollmentSession = null;
     if (enrollmentSession.role) $rolePill.textContent = enrollmentSession.role;
     if (enrollmentSession.email) $email.value = enrollmentSession.email;
   } catch (e) {
-    showError('Could not redeem link: ' + e.message);
+    const msg = String((e && e.message) || e);
+    // Links are single-use. The node's bootstrap link lasts 30 minutes and
+    // a restart prints a fresh one only while nobody has claimed the owner
+    // account. An admin's invite (also served by this page) lasts 72 hours
+    // and only that admin can issue a new one. An existing account signs in
+    // at the login page. Other redeem failures keep the raw reason.
+    if (/invalid or expired/i.test(msg)) {
+      showError(
+        'This link is invalid or expired. Setup links work once. ' +
+        'If it was an invite, ask the admin who sent it for a new one (invites last 72 hours). ' +
+        'If it was the setup link the node printed (it lasts 30 minutes) and nobody has claimed the owner account, ' +
+        'restart the node: a new link is printed on boot. ' +
+        'If you already have an account, sign in at /_xerj-console/login.'
+      );
+    } else {
+      showError('Could not redeem link: ' + msg);
+    }
     $btnEnrol.disabled = true;
   }
 })();

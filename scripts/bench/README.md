@@ -13,6 +13,19 @@ to want to check. Each one:
   source pointer, and
 - tears the node down (pass `KEEP=1` to keep the data dir and server log).
 
+Every script starts its node with `XERJ_DISABLE_QUERY_CACHE=1` (set by
+`lib/repro.sh`). XERJ caches whole search responses by default, and a repeated
+identical query is then answered from memory instead of executed (#3020
+measured 0.70 ms cached against 7.80 ms executed), so a timed loop would
+measure the cache, not search. `request_cache=false` does not turn that cache
+off. The `run environment` block at the end of each run prints the node's own
+`xerj_query_cache_hits` / `xerj_query_cache_misses` from `/v1/metrics`: both
+are 0 with the cache off, and a non-zero hit count prints a warning. The
+counters are per index, summed over the indexes open at that moment, so a
+deleted index's hits are gone: read them before deleting what you timed. The same
+rule holds for any latency measured outside these scripts: start the node
+with `XERJ_DISABLE_QUERY_CACHE=1`, or send only unique queries.
+
 They are honest by construction: docs/s is computed from the verified
 post-refresh `_count`, never the intended count; kNN recall is scored against
 a client-side brute-force ground truth and `GET /_cat/ann` proves the HNSW
@@ -140,9 +153,11 @@ So that every headline maps to a runnable thing from one place:
 
 | Claim | Harness in this repo |
 |---|---|
+| Batch vs one-item retrieval on a pinned rust-vulns pack (CLI/MCP correctness, warm latency and payload BPE tokens; not generated-answer accuracy) | `tools/benchmarks/batch-retrieval/` (`run.py`; protocol and reproduction in its README) |
 | 2.7x / 26x / up-to-278x fewer output tokens (reference coding) | `docs/case-studies/reference-coding/CASE_STUDY.md` + the 3-arm Harbor harness `tools/benchmarks/harbor-3arm/` (`run_matrix.sh`) |
 | nDCG@10 rows (BM25 0.6572 / MiniLM 0.6764 / hybrid 0.6993 on SciFact) | `benchmarks/beir-hybrid/` (`load.py`, `eval.py`, raw output in `results/`) |
 | Banking77 0.933 / SMS spam 0.983 decisions-from-history | `benchmarks/decisions-as-retrieval/` (`eval.py`, raw output in `results/`) |
-| ES-YAML conformance badge (1366/1369) | the CI suite itself: `engine/tests/es-compat-yaml/` |
+| ES-YAML conformance badge (1444/1454) | the CI suite itself: `engine/tests/es-compat-yaml/` |
 | 55 W / 26 T / 4 L vs Elasticsearch (all 88 cells) | `demo/playbooks/bench-matrix.mjs` -> `demo/playbooks/SCORECARD.md` |
 | int8 quantization recall@10 ~ 0.998 | `docs/examples/vector-quantization/quant_demo.py` (docs in `docs/recipes/vector-quantization.md`) |
+| `xerj autoindex --skills` finds the right skill by task among 388 (#2644; top 1 and top 3 counts in its README, every rank in its results file) | `bash scripts/bench/skills-intent.sh` -> `benchmarks/skills-intent/` (pinned MIT skill library, labelled queries, every rank kept) |

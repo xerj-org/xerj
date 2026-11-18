@@ -22,6 +22,14 @@ pub enum XerjError {
     #[error("index already exists: {name}")]
     IndexAlreadyExists { name: String },
 
+    /// The caller asked to create or address an index whose name ES would
+    /// reject before any mapping is parsed. Display is the bare reason:
+    /// the HTTP mapper emits `invalid_index_name_exception` and must not
+    /// prefix it the way `InvalidMapping` used to (`invalid mapping:`),
+    /// which is what made `PUT /BadName` look like a mapping error.
+    #[error("{reason}")]
+    InvalidIndexName { index: String, reason: String },
+
     /// The index directory exists but could not be opened, so the index
     /// cannot serve. Deliberately distinct from [`XerjError::IndexNotFound`]:
     /// the name is real, the data is still on disk, and the operator's move is
@@ -142,6 +150,14 @@ pub enum XerjError {
     #[error("index [{index}] is blocked for {block_type} operations")]
     IndexBlocked { index: String, block_type: String },
 
+    // ── Cluster metadata ──────────────────────────────────────────────────
+    /// A cluster metadata write was not acknowledged.
+    ///
+    /// The change was not applied on this node. The reason is the proposal
+    /// error (no elected leader, timeout, shutdown, leadership lost).
+    #[error("{reason}")]
+    ClusterUnavailable { reason: String },
+
     // ── Catch-all ─────────────────────────────────────────────────────────
     /// An unexpected internal error. Indicates a bug.
     #[error("internal error: {reason}")]
@@ -157,6 +173,13 @@ impl XerjError {
 
     pub fn index_already_exists(name: impl Into<String>) -> Self {
         Self::IndexAlreadyExists { name: name.into() }
+    }
+
+    pub fn invalid_index_name(index: impl Into<String>, reason: impl Into<String>) -> Self {
+        Self::InvalidIndexName {
+            index: index.into(),
+            reason: reason.into(),
+        }
     }
 
     pub fn index_unavailable(index: impl Into<String>, reason: impl Into<String>) -> Self {
@@ -263,6 +286,12 @@ impl XerjError {
         }
     }
 
+    pub fn cluster_unavailable(reason: impl Into<String>) -> Self {
+        Self::ClusterUnavailable {
+            reason: reason.into(),
+        }
+    }
+
     pub fn version_conflict(id: impl Into<String>, expected: u64, actual: u64) -> Self {
         Self::VersionConflict {
             id: id.into(),
@@ -293,7 +322,8 @@ impl XerjError {
         match self {
             Self::IndexNotFound { .. } | Self::DocumentNotFound { .. } => 404,
             Self::IndexAlreadyExists { .. } | Self::VersionConflict { .. } => 409,
-            Self::InvalidMapping { .. }
+            Self::InvalidIndexName { .. }
+            | Self::InvalidMapping { .. }
             | Self::InvalidQuery { .. }
             | Self::InvalidDocumentJson { .. }
             | Self::ConfigError { .. }
@@ -301,7 +331,9 @@ impl XerjError {
             Self::IndexBlocked { .. } => 403,
             // The index exists but has no serving copy — ES answers the same
             // shape (no_shard_available_action_exception) with 503.
-            Self::IndexUnavailable { .. } | Self::ClusterStateUnavailable => 503,
+            Self::IndexUnavailable { .. }
+            | Self::ClusterStateUnavailable
+            | Self::ClusterUnavailable { .. } => 503,
             Self::AuthError { .. } => 401,
             Self::ResourceExhausted { .. } | Self::CircuitBreaking { .. } => 429,
             Self::StorageError { .. }
@@ -322,6 +354,7 @@ impl XerjError {
                 | Self::StorageError { .. }
                 | Self::WalError { .. }
                 | Self::EmbeddingError { .. }
+                | Self::ClusterUnavailable { .. }
         )
     }
 

@@ -1,0 +1,8 @@
+lz4  pin 2026-10-02 (18 days old)  mixed: BSD-2 (lib) / GPL-2.0+ (rest)  lz4/lib/lz4.c:1481
+int LZ4_compress_default(const char* src, char* dst, int srcSize, int dstCapacity)
+  approach-only licence (mixed: BSD-2 (lib) / GPL-2.0+ (rest)): read, do not copy
+lz4  pin 2026-10-02 (18 days old)  mixed: BSD-2 (lib) / GPL-2.0+ (rest)  lz4/lib/lz4.h:191
+LZ4LIB_API int LZ4_compress_default(const char* src, char* dst, int srcSize, int dstCapacity);
+  approach-only licence (mixed: BSD-2 (lib) / GPL-2.0+ (rest)): read, do not copy
+answered from: local pack
+warning: approach-only licence (mixed: BSD-2 (lib) / GPL-2.0+ (rest)): read, do not copy

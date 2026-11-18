@@ -140,6 +140,7 @@ fn make_catalogue() -> Catalogue {
                 domain: "TEST".to_string(),
                 topics: Vec::new(),
                 ask_for: (*description).to_string(),
+                upstream: String::new(),
                 pin_sha: "0".repeat(40),
                 pin_date: "2026-01-01".to_string(),
                 refresh_cadence_days: 7,
@@ -253,8 +254,11 @@ fn project_dir(deps: &[String]) -> tempfile::TempDir {
 fn top1_ok(routing: &Routing, expected: &str) -> bool {
     match routing {
         Routing::Confident(slug) => slug == expected,
-        Routing::Ambiguous(slugs) => slugs.first().map(|s| s == expected).unwrap_or(false),
-        Routing::NoCorpus => false,
+        // A tight group counts when the expected corpus is the one it leads with.
+        Routing::Group(slugs) | Routing::Ambiguous(slugs) => {
+            slugs.first().map(|s| s == expected).unwrap_or(false)
+        }
+        Routing::NoCorpus | Routing::NoCoverage => false,
     }
 }
 
@@ -307,6 +311,144 @@ fn routing_fixture_meets_accuracy_targets() {
         "without-deps top-1 accuracy {:.1}% is below the 80% target",
         acc_without * 100.0
     );
+}
+
+/// Issue #2179: a Phaser question must not exit as an ambiguous tie when no
+/// corpus covers that project. A real tie (every query word is in two corpora,
+/// and the score clears the good-match bar) stays ambiguous. An exact slug
+/// still routes.
+#[test]
+fn no_fit_is_no_coverage_a_real_tie_stays_ambiguous_and_a_slug_routes() {
+    let proj = project_dir(&[]);
+
+    // Weak overlap: five tokens, two hits each, score 0.32. Not a choice.
+    let mut weak = vec![
+        corpus_entry("alpha", "", &["aaa", "bbb"]),
+        corpus_entry("beta", "", &["aaa", "ccc"]),
+    ];
+    for i in 0..6 {
+        weak.push(corpus_entry(
+            &format!("other{i}"),
+            "",
+            &[&format!("uniq{i}a"), &format!("uniq{i}b")],
+        ));
+    }
+    assert_eq!(
+        route(
+            "aaa bbb ccc noisea noiseb",
+            proj.path(),
+            &catalogue_of(weak),
+            None,
+            &[]
+        ),
+        Routing::NoCoverage
+    );
+
+    // The question names Phaser. Four corpora mention HTML and nothing names
+    // Phaser; that used to be "multiple corpus match".
+    let mut html = Vec::new();
+    for slug in ["whatwg-html", "lol-html", "parse5", "jsdom"] {
+        html.push(corpus_entry(
+            slug,
+            "An agent writing HTML queries this for the document format.",
+            &[],
+        ));
+    }
+    for i in 0..(151 - html.len()) {
+        html.push(corpus_entry(
+            &format!("filler-{i}"),
+            "an agent working on storage queries this for internals",
+            &[],
+        ));
+    }
+    let html_cat = catalogue_of(html);
+    assert_eq!(
+        route(
+            "How does Phaser draw HTML?",
+            proj.path(),
+            &html_cat,
+            None,
+            &[]
+        ),
+        Routing::NoCoverage,
+        "a project no corpus contains is not an ambiguous tie"
+    );
+    match route("HTML document format", proj.path(), &html_cat, None, &[]) {
+        Routing::Ambiguous(slugs) => assert!(
+            slugs.len() >= 2 && slugs.iter().any(|s| s == "whatwg-html"),
+            "{slugs:?}"
+        ),
+        other => panic!("expected a real HTML tie, got {other:?}"),
+    }
+
+    // Exact slug.
+    let named = catalogue_of(vec![
+        corpus_entry(
+            "lz4",
+            "an agent needing fast block compression queries this for the decoder",
+            &["lz4", "block", "decoder"],
+        ),
+        corpus_entry(
+            "zstd",
+            "an agent tuning compression queries this for frames",
+            &["zstd", "frame"],
+        ),
+    ]);
+    assert_eq!(
+        route(
+            "how does the lz4 decoder work",
+            proj.path(),
+            &named,
+            None,
+            &[]
+        ),
+        Routing::Confident("lz4".into())
+    );
+
+    // Both query words sit in two corpora. Common-token weighting scores the
+    // tie at 0.4, which is still a real ambiguity.
+    let tie = catalogue_of(vec![
+        corpus_entry("alpha", "", &["aaa", "bbb", "ccc", "ddd"]),
+        corpus_entry("beta", "", &["aaa", "bbb", "eee", "fff"]),
+        corpus_entry("gamma", "", &["server", "socket", "packet", "router"]),
+        corpus_entry("delta", "", &["ledger", "balance", "invoice", "levy"]),
+    ]);
+    match route("aaa bbb", proj.path(), &tie, None, &[]) {
+        Routing::Ambiguous(slugs) => {
+            assert!(slugs.contains(&"alpha".to_string()) && slugs.contains(&"beta".to_string()));
+        }
+        other => panic!("expected Ambiguous, got {other:?}"),
+    }
+}
+
+fn corpus_entry(slug: &str, ask_for: &str, terms: &[&str]) -> CatalogueEntry {
+    CatalogueEntry {
+        slug: slug.to_string(),
+        domain: "TEST".to_string(),
+        topics: Vec::new(),
+        ask_for: ask_for.to_string(),
+        upstream: String::new(),
+        pin_sha: "0".repeat(40),
+        pin_date: "2026-01-01".to_string(),
+        refresh_cadence_days: 7,
+        licence_spdx: "Apache-2.0".to_string(),
+        licence_class: LicenceClass::AdaptWithAttribution,
+        pack_bytes: 0,
+        pack_url: String::new(),
+        pack_sha256: String::new(),
+        sig_url: String::new(),
+        dependency_names: Vec::new(),
+        quality_grade: None,
+        term_sketch: xerj_hub::sketch::build(terms.iter().map(|t| (*t).to_string())),
+    }
+}
+
+fn catalogue_of(corpora: Vec<CatalogueEntry>) -> Catalogue {
+    Catalogue {
+        format_version: 1,
+        generated_at: "2026-01-01T00:00:00Z".to_string(),
+        corpora,
+    }
 }
 
 #[test]

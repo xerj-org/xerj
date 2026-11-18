@@ -2,11 +2,15 @@
 ---
 title: "Search a SQL dump without restoring it"
 canonical: "https://xerj.org/answers/search-sql-dump-file"
-updated: "2026-08-21"
+updated: "2026-10-19"
 source: "content/answers/search-sql-dump-file.md"
 ---
 
 # I have a 2GB SQL dump. How do I find rows mentioning a customer without loading it into Postgres?
+
+**Short answer** (updated 2026-10-19): I have a 2 GB SQL dump; how do I find rows mentioning a customer without loading it into Postgres? Run xerj autoindex on the .sql file; it parses MySQL-style dumps with no database server. In a captured run one file produced dump-articles with 301 documents and dump-authors with 20, and match_phrase found text inside an INSERT.
+
+**Key number:** The captured dump produced 2 indices holding 301 and 20 documents, 321 in total. (as of 2026-08-21; source: the captured run documented on this page)
 
 **TL;DR** — `xerj autoindex` parses a MySQL-style `.sql` file directly, with no database server involved. In a captured run one file produced 2 indices, `dump-articles` with 301 documents and `dump-authors` with 20. A `match_phrase` query then found a phrase inside an `INSERT` value.
 
@@ -161,3 +165,6 @@ Read `ax_locator` and `ax_path`. In the captured run `ax_locator` held `tarticle
 - [How do I full-text search a SQLite database I just copied onto disk?](/answers/full-text-search-sqlite-database)
 - [How do I index a CSV with many columns?](/answers/index-csv-with-many-columns)
 - [How should an agent figure out what's in a messy data folder before searching?](/answers/catalog-files-with-autoindex-map)
+- [I have a directory of CSV exports. How do I query them without opening each one in Excel?](/answers/index-multiple-csv-files) (same intent: JSONL and data files)
+- [How do I search a .csv.gz or .json.gz without unzipping it first?](/answers/search-gzipped-csv-or-json) (same intent: JSONL and data files)
+- [The best local full-text search for JSONL and CSV files in 2026, with a published benchmark](/compare/best-local-full-text-search-jsonl-csv-2026) (same intent: JSONL and data files)

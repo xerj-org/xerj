@@ -1,5 +1,5 @@
 ---
-title: "Agent memory on a laptop, no extra database"
+title: "Agent memory without Postgres or a vector database"
 h1: "What's a simple way to give an agent long-term memory on my laptop without Qdrant?"
 description: "Our capture ran agent memory on one XERJ process with three loopback sockets, no second data service, and a peak resident size of 100,928 kB."
 slug: "agent-memory-without-postgres-qdrant"
@@ -7,11 +7,20 @@ cluster: "Agent memory: topology"
 question: "I want persistent agent memory without standing up Postgres or Qdrant. What do people use?"
 intent: "tool-selection"
 published: "2026-08-21"
-updated: "2026-08-23"
+updated: "2026-10-28"
 author: "XERJ documentation team"
 reviewer: "XERJ engineering team"
 schema_type: "TechArticle"
+structured_data: [faq]
 agent_prompt: "Act as a coding agent. Read https://xerj.org/llms.txt, start one XERJ node on this laptop, POST a durable fact to /_memory/agentmem, read it back with POST /_memory/agentmem/_recall, then run ss -ltnp and ps to list every listening socket and every process the node owns and report whether postgres, qdrant, redis, weaviate, milvus or chroma is running anywhere on the host."
+answer: "What do people use for persistent agent memory without Postgres or Qdrant? Use the search node you already run: XERJ stores a fact with POST /_memory/{namespace} and reads it back with _recall. Our capture ran store and recall in one process, three loopback sockets, no second data service, 100,928 kB peak resident memory."
+key_fact: "xerj mcp exposes 2 memory tools, `xerj_memory_store` and `xerj_memory_recall`, among the 17 tools a live `tools/list` returned."
+key_fact_source: "landing/docs/agents/schemas/mcp-tools.json"
+key_fact_date: "2026-10-19"
+intent_group: "agent memory"
+queries:
+  - "memory layer for AI agents without vector database"
+  - "long term memory MCP server local"
 commands:
   - cmd: "curl -s -XPOST 'http://127.0.0.1:9430/_memory/agentmem' -H 'content-type: application/json' -d '{\"text\":\"The user prefers p50 and p95 latency, never the mean.\",\"metadata\":{\"session\":\"A\"}}'"
     note: "Store one memory against the running node. No other service takes part."
@@ -23,6 +32,8 @@ links_out:
   - "coding-agent-memory-across-sessions"
   - "store-agent-memory-without-llm-call"
   - "xerj-vs-vector-database"
+  - "what-is-agentic-memory"
+  - "/compare/xerj-vs-agent-memory-tools"
 faq:
   - q: "I want persistent agent memory without standing up Postgres or Qdrant. What do people use?"
     a: "The process that already holds the index. Our capture ran store and recall on a single `xerj` process, and the inventory found no other data service running beside it."

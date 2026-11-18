@@ -48,10 +48,11 @@ Plus one probe that needs no sitemap: a path that has never existed must
 answer **404**, not 200.  That single request is the fastest way to tell
 whether the not-found handling is still correct after any deploy.
 
-The sitemap comes from the **committed** `landing/sitemap.xml`, never from
-`<base>/sitemap.xml`.  The question being asked is "did what we committed
-actually reach production", and reading the deployed sitemap would let a
-stale or truncated deploy answer for itself.
+The sitemap comes from this tree — a local `landing/sitemap.xml` if one is
+there, otherwise the document `gen_sitemap.py` derives from the tree — never
+from `<base>/sitemap.xml`.  The question being asked is "did what this tree
+says should be live actually reach production", and reading the deployed
+sitemap would let a stale or truncated deploy answer for itself.
 
 Usage
 -----
@@ -178,9 +179,9 @@ def _canonical_of(body: bytes) -> str | None:
     return h.group(1).strip() if h else None
 
 
-def sitemap_urls(sitemap: pathlib.Path) -> list[str]:
-    """Every `<loc>` in the committed sitemap, in document order."""
-    root = ET.parse(sitemap).getroot()
+def sitemap_urls(text: str) -> list[str]:
+    """Every `<loc>` in a sitemap document, in document order."""
+    root = ET.fromstring(text)
     out = []
     for u in root.findall(f"{SITEMAP_NS}url"):
         loc = (u.findtext(f"{SITEMAP_NS}loc") or "").strip()
@@ -215,7 +216,7 @@ def check_one(url: str, home_sha: str | None, timeout: int) -> Result:
             "served as itself (rule 63)")
     if res.canonical is None:
         res.failures.append("served page has no <link rel=canonical> (rule 22)")
-    elif res.canonical.rstrip("/") != url.rstrip("/"):
+    elif res.canonical != url:
         res.failures.append(
             f"canonical {res.canonical} != requested {url} (rule 22)")
     return res
@@ -244,7 +245,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("base", nargs="?", default=urlmap.SITE_ORIGIN,
                     help=f"origin to test (default {urlmap.SITE_ORIGIN})")
     ap.add_argument("--sitemap", default=None,
-                    help="committed sitemap (default landing/sitemap.xml)")
+                    help="sitemap file to read (default landing/sitemap.xml, "
+                         "else generated from the tree)")
     ap.add_argument("--jobs", type=int, default=8, help="parallel requests (default 8)")
     ap.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT)
     ap.add_argument("--limit", type=int, default=0, help="test only the first N URLs")
@@ -259,11 +261,20 @@ def main(argv: list[str] | None = None) -> int:
 
     sitemap = (pathlib.Path(args.sitemap) if args.sitemap
                else urlmap.landing_dir() / "sitemap.xml")
-    if not sitemap.is_file():
+    if sitemap.is_file():
+        text = sitemap.read_text(encoding="utf-8", errors="replace")
+    elif args.sitemap:
         print(f"verify_live: no sitemap at {sitemap}", file=sys.stderr)
         return 2
+    else:
+        # landing/sitemap.xml is a deploy artifact and is not committed, so
+        # fall back to the document the deploy would have shipped from this
+        # tree — the question is still "did this tree reach production".
+        import gen_sitemap
+
+        text = gen_sitemap.sitemap_for(urlmap.landing_dir())
     try:
-        locs = sitemap_urls(sitemap)
+        locs = sitemap_urls(text)
     except ET.ParseError as e:
         print(f"verify_live: {sitemap} does not parse: {e}", file=sys.stderr)
         return 2

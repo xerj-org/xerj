@@ -18,6 +18,7 @@ Primary sources:
 | Engine-side visibility funnel | `engine/crates/xerj-engine/src/index_guard.rs` |
 | Privileges, roles, `role_descriptors` parsing | `engine/crates/xerj-engine/src/rbac.rs` |
 | Console client identity and rate limiting | `engine/crates/xerj-console-api/src/client_ip.rs`, `.../auth/rate_limit.rs` |
+| Console passkey session vs API token | `engine/crates/xerj-console-api/src/auth/sessions.rs` (`PasskeySession`) |
 | Share links: records, claim route, claim limiter | `engine/crates/xerj-api/src/share.rs` |
 | Share-link guest route allow-list | `engine/crates/xerj-api/src/authz.rs` (`guest_route_allowed`, `guest_body_denied`) |
 | Cluster control-frame authentication | `engine/crates/xerj-cluster/src/auth.rs` |
@@ -548,6 +549,71 @@ startup rather than silently widening or narrowing trust
 Note that `ClientIp` is also used for audit fields on endpoints that are not
 rate limited, for example passkey enrolment (`auth/passkey.rs:168`). Only the
 three endpoints listed above charge a bucket.
+
+## Console credentials: a passkey session is not an API token
+
+CVE-2026-97406, [CERT VU#645818](https://kb.cert.org/vuls/id/645818)
+(published 2026-10-20). Cookie sessions and `Authorization: Bearer <api token>`
+both become an `AuthSession` (`auth/sessions.rs`). That is intentional for
+ordinary console calls. It is not a passkey session. Handlers that mint a
+credential or change identity extract `PasskeySession` instead
+(`sessions.rs:298`, extractor at `sessions.rs:304`). The extractor authenticates
+first, then calls `require_passkey_session` (`sessions.rs:169`). A missing
+credential is 401. A valid API token, and a browser session whose `idp` is not
+`"passkey"`, are 403. The body text is `PASSKEY_SESSION_REQUIRED`
+(`sessions.rs:140`).
+
+A passkey session is a `xerj_session` cookie whose `.xerj_sessions` row has
+`idp: "passkey"` (`sessions.rs:250`). Login and enrollment mint that row with
+`idp: "passkey"`. A bearer token is `SessionOrigin::ApiToken`
+(`sessions.rs:393`); its `session_id` is the token hash, not a session id.
+When both a cookie and a bearer header are present, the bearer wins
+(`sessions.rs:194`): the request is not upgraded onto the cookie, so a token
+cannot ride a passkey cookie through this gate.
+
+Routes that require `PasskeySession`:
+
+| Route | Handler | What a bearer token must not do |
+|---|---|---|
+| `POST /_xerj-console/api/v1/auth/api-tokens` | `auth/tokens.rs:73` | Mint a successor token |
+| `DELETE /_xerj-console/api/v1/auth/api-tokens/:id` | `auth/tokens.rs:160` | Revoke a token |
+| `POST /_xerj-console/api/v1/auth/magic/issue` | `auth/magic.rs:79` | Issue an invitation |
+| `DELETE /_xerj-console/api/v1/auth/passkeys/:id` | `auth/me.rs:58` | Delete a passkey |
+| `POST /_xerj-console/api/v1/auth/logout` | `auth/login.rs:218` | Revoke the browser session |
+
+The refusal happens in the extractor, before the handler, so it writes nothing.
+`put_api_token` (`auth/store.rs:285`) is how a new token row is stored, and the
+only caller that inserts a new secret is `tokens::create`. There is no
+`parent_id`. A bearer token cannot mint a descendant, so revoking a token
+cannot leave one behind. `revoke_api_tokens_for_user` (`auth/store.rs:312`) is
+not part of that path and is not called from passkey deletion.
+
+These stay on `AuthSession`, so a bearer token still works: `GET /me`,
+`GET /auth/passkeys`, `GET /auth/api-tokens` (metadata, no secret), prefs,
+dashboards, saved views, data-source reads, `GET /knowledge`, and the
+`/graph/*` reads.
+
+Three credential-shaped routes do not take `AuthSession` at all, and a bearer
+token does not unlock them:
+
+- `POST /auth/magic/redeem` (`auth/magic.rs:200`) trusts the magic link. The
+  invitee has no session yet. Requiring a passkey session here would break
+  bootstrap. The stolen-token path into redeem was `magic/issue`, which is
+  gated.
+- `POST /auth/passkey/begin` and `/finish` trust the in-memory enrollment
+  session that redeem creates. There is no handler that enrolls a passkey for
+  the bearer token's user.
+- `POST /auth/login/begin` and `/finish` are the WebAuthn ceremony.
+
+No `/users` handler and no "revoke some other session" handler exist. Logout
+revokes only the current passkey session.
+
+Deleting the last passkey is refused with 409 (`auth/me.rs:73`). That is what
+stops an account from holding API tokens and no passkey. It is not a cascade
+that stamps `revoked_at` on the token rows.
+
+The regression test is `tests/api_tokens_flow.rs`
+(`bearer_token_cannot_mint_or_change_credentials`).
 
 ## Reach: what a fresh node exposes (issue #228)
 

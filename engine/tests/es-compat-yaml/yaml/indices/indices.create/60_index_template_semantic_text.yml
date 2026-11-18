@@ -1,0 +1,110 @@
+setup:
+  - do:
+      ingest.put_pipeline:
+        id: "tmpl_copy"
+        body:
+          processors:
+            - copy:
+                source: "impl"
+                target: "diagnostic_semantic"
+
+  - do:
+      indices.put_index_template:
+        name: "js2281"
+        body:
+          index_patterns: ["js2281-*"]
+          priority: 100
+          template:
+            settings:
+              index.default_pipeline: "tmpl_copy"
+            mappings:
+              properties:
+                diagnostic_semantic:
+                  type: semantic_text
+                diagnostic_template_marker:
+                  type: keyword
+
+---
+"A matching index template applies semantic_text and index.default_pipeline":
+  - do:
+      indices.create:
+        index: js2281-plain
+
+  - do:
+      indices.get_mapping:
+        index: js2281-plain
+  - match: { js2281-plain.mappings.properties.diagnostic_semantic.type: "semantic_text" }
+  - match: { js2281-plain.mappings.properties.diagnostic_template_marker.type: "keyword" }
+
+  - do:
+      indices.get_settings:
+        index: js2281-plain
+  - match: { js2281-plain.settings.index.default_pipeline: "tmpl_copy" }
+
+  - do:
+      index:
+        index: js2281-plain
+        id: "1"
+        refresh: true
+        body: { impl: "graph edges connect nodes in a network" }
+
+  - do:
+      get:
+        index: js2281-plain
+        id: "1"
+  - match: { _source.diagnostic_semantic: "graph edges connect nodes in a network" }
+
+---
+"An autoindex-shaped create keeps the template field beside its own mapping":
+  - do:
+      indices.create:
+        index: js2281-auto
+        body:
+          settings:
+            index:
+              xerj_ingest_shards: 1
+            index.query.strict_unknown_fields: true
+          mappings:
+            properties:
+              impl:
+                type: text
+              path:
+                type: keyword
+
+  - do:
+      indices.get_mapping:
+        index: js2281-auto
+  - match: { js2281-auto.mappings.properties.diagnostic_semantic.type: "semantic_text" }
+  - match: { js2281-auto.mappings.properties.impl.type: "text" }
+  - match: { js2281-auto.mappings.properties.path.type: "keyword" }
+
+  - do:
+      indices.get_settings:
+        index: js2281-auto
+  - match: { js2281-auto.settings.index.default_pipeline: "tmpl_copy" }
+  - match: { js2281-auto.settings.index.xerj_ingest_shards: "1" }
+
+---
+"The first bulk write auto-creates from the template":
+  - do:
+      bulk:
+        refresh: true
+        body:
+          - '{"index": {"_index": "js2281-bulk", "_id": "1"}}'
+          - '{"impl": "graph edges connect nodes in a network"}'
+
+  - do:
+      indices.get_mapping:
+        index: js2281-bulk
+  - match: { js2281-bulk.mappings.properties.diagnostic_semantic.type: "semantic_text" }
+
+  - do:
+      indices.get_settings:
+        index: js2281-bulk
+  - match: { js2281-bulk.settings.index.default_pipeline: "tmpl_copy" }
+
+  - do:
+      get:
+        index: js2281-bulk
+        id: "1"
+  - match: { _source.diagnostic_semantic: "graph edges connect nodes in a network" }

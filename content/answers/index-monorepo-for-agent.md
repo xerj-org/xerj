@@ -1,5 +1,5 @@
 ---
-title: "How do I stop my agent reading the whole repo?"
+title: "Index a monorepo so your agent stops reading the whole repo"
 h1: "How do I stop my agent from reading the whole repo into context?"
 description: "Index the tree once with xerj autoindex, then let the agent query the defs and symbols fields instead of opening files. A dry run first prints every ignore rule."
 slug: "index-monorepo-for-agent"
@@ -7,11 +7,21 @@ cluster: "Files and formats"
 question: "How do I stop my agent from reading the whole repo into context?"
 intent: "how-to"
 published: "2026-08-21"
-updated: "2026-08-21"
+updated: "2026-10-20"
 author: "XERJ documentation team"
 reviewer: "XERJ engineering team"
 schema_type: "TechArticle"
+structured_data: [faq]
 agent_prompt: "Act as a coding agent. Read https://xerj.org/llms.txt, start a XERJ node with --insecure, run xerj autoindex ./code --prefix code --dry-run and record files, ignored_files and ignored_dirs from the xerj-done line, run it again without --dry-run, then aggregate language and symbol_count over code-*/_search and answer with a defs query instead of opening any source file."
+answer: "How do I stop my agent from reading the whole repo into context? Index the tree once with xerj autoindex and let the agent query the defs and symbols fields instead of opening files. Run --dry-run first: in our capture it reported files=3, ignored_files=2 and ignored_dirs=3, naming every ignore rule."
+key_fact: "A reference-coding study measured 9,982 output tokens for the indexed agent against 26,477 for grep-driven Claude Code, 2.7 times fewer, both solving 16/16."
+key_fact_source: "docs/case-studies/reference-coding/data/results-multilang-final.json"
+key_fact_date: "2026-10-19"
+intent_group: "code search for agents"
+queries:
+  - "index monorepo for AI agent search"
+  - "find function definition across repo CLI"
+  - "search symbols across multiple repos"
 commands:
   - cmd: "xerj autoindex ./code --url http://127.0.0.1:9410 --prefix code --state-dir ./state-code --progress plain --disable-feedback --dry-run"
     note: "Print the plan and the ignore accounting without writing anything."
@@ -29,7 +39,7 @@ faq:
   - q: "My agent keeps opening every file in the repo. How do I let it search the folder instead?"
     a: "Run `xerj autoindex` on the tree and register `xerj mcp` with the agent host. The agent then calls a search tool and gets hits with paths, so the file-by-file walk stops."
   - q: "How do I give a coding agent the whole codebase as searchable context?"
-    a: "Index the tree with `xerj autoindex`, which extracts definitions through tree-sitter for 34 languages, and expose the index over MCP. The agent queries it rather than loading the repository."
+    a: "Index the tree with `xerj autoindex`, which extracts definitions through tree-sitter for 36 languages, and expose the index over MCP. The agent queries it rather than loading the repository."
   - q: "How do I index a monorepo so my coding agent stops reading files one by one?"
     a: "Point `xerj autoindex` at the monorepo root. Built-in rules prune `node_modules/`, `vendor/`, `target/`, `dist/`, `build/`, `.venv/` and `__pycache__/`, and `--dry-run` prints the plan before anything is written."
   - q: "Which ignore file wins?"
@@ -79,7 +89,7 @@ curl -s -XPOST 'http://127.0.0.1:9410/code-*/_search' -H 'content-type: applicat
 
 The `by_language` aggregation returned one bucket per language: `go`, `python` and `rust`. Do not carry a captured bucket size over to your own tree. Every per-declaration document carries the `language` of the file it came from, so a bucket counts declarations as well as files and moves with the code, not with the file count.
 
-XERJ recognizes 34 languages through tree-sitter. This capture exercised 3 of them, so read the answer as the shape of the aggregation and not as a language-coverage test.
+XERJ recognizes 36 languages through tree-sitter. This capture exercised 3 of them, so read the answer as the shape of the aggregation and not as a language-coverage test.
 
 ## One definition hit an agent can use
 
@@ -110,3 +120,5 @@ XERJ writes a content document for each source file. On top of that it writes on
 ## What the capture is and is not
 
 The capture indexed a 3-file, 3-language repository on 1 single-node XERJ process. This run measured no large monorepo. The project's own guidance is to plan corpora of at most a few million documents.
+
+A public repository that is already a signed pack is a different case: [ask it without cloning](/answers/ask-questions-about-a-github-repo-without-cloning).

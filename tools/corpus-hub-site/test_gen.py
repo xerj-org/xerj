@@ -566,6 +566,23 @@ class ContributorVolumeTest(unittest.TestCase):
         self.assertIn("selected commit: 3 files", html)
         self.assertIn("whole repository at the pinned commit", html)
 
+    def test_owner_page_with_paths_does_not_say_whole_repo(self):
+        # issue #2893: an owner who limited the corpus to one directory still read
+        # "The corpus is the whole repository at the pinned commit".
+        import contributors
+        with tempfile.TemporaryDirectory() as d:
+            hub = pathlib.Path(d); (hub / "candidates" / "authors").mkdir(parents=True)
+            row = {"corpus": "own--repo", "repo": "own/repo", "repo_url": "https://github.com/own/repo", "repo_stars": 3,
+                   "contributor": {"login": "own", "name": None, "owns_repo": True}, "consent": {"at": "2026-11-02T02:10Z"},
+                   "contribution": {"commit": "c" * 40, "commit_url": "u", "title": "t", "files": 3, "lines": 481},
+                   "licence": {"spdx": "AGPL-3.0", "reviewed": True},
+                   "scope": {"maintainer": "own", "whole_repo": False, "paths": ["crates/repl-app"]}}
+            (hub / "candidates" / "authors" / "CONTRIBUTORS.jsonl").write_text(json.dumps(row) + "\n")
+            people = contributors.load(hub, [])
+        html = contributors.person_body(people["own"], gen.esc, set())
+        self.assertNotIn("whole repository at the pinned commit", html)
+        self.assertIn("covers only crates/repl-app at the pinned commit", html)
+
     def test_card_shows_only_the_github_facts_that_exist(self):
         # Search Console: contributor pages "crawled, not indexed" carried only a handle, stars and the
         # commit. Cards now add the repository as GitHub reports it, and nothing GitHub did not return.

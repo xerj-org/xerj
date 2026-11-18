@@ -21,23 +21,32 @@ is worth stating exactly what it means:
   against a committed generation. Added, changed, renamed and deleted files are
   all handled (`lib.rs::project_reconcile_plan`,
   `reconcile_plan::reconcile_plan`).
-* On the **default graph path**, a re-run *resumes a frozen plan*, and what that
-  costs depends on the kind of change. Measured on a 10,000-file tree
-  (`docs/measurements/autoindex-watch-2026-09-19.md`, section 4):
+* On the **default graph path**, a re-run resumes a frozen plan. A file whose
+  content changed is indexed. A deleted file is swept: its documents, catalog
+  rows and graph edges are removed, including under `--fresh`, and that run
+  finishes exit 3 with `reason=files-removed` (the next unchanged rerun is
+  exit 0). An added file that fits a frozen dataset is indexed on the rerun.
+  A file that needs a new dataset is not: the run exits 3 with
+  `reason=stale-resume-plan` and names `--fresh`. The table below is the
+  2026-09-19 capture, from before that reconcile, on a 10,000-file tree
+  (`docs/measurements/autoindex-watch-2026-09-19.md`, section 4). Those
+  timings were not re-measured for the reconcile.
 
-  | Graph-route re-run after… | Result |
+  | Graph-route re-run after… (2026-09-19 capture) | Result |
   |---|---|
   | a file's **content** changed | indexed: 3.07 s, `files=1`, exit 0, the new text searchable |
   | a file was **added** | 3.32 s, **exit 3**, `1 file(s) appeared after the resume plan was frozen and were NOT indexed`; the new file stays unsearchable until `--fresh` |
   | a file was **deleted** | **exit 1, aborted in 0.24 s** — "removing files from an indexed folder is not reconciled yet". Its documents stay live, and every later re-run aborts the same way until the corpus is rebuilt |
 
-So the limitation is **additions and deletions**, not edits. A watcher on the
-graph path would serve a folder that goes stale on the first new file and stops
-reindexing entirely on the first deletion — worse than no watcher at all. That is
-why `--watch` requires the route that reconciles all four cases, and says so
-instead of quietly downgrading. (An earlier version of this page said a *changed*
-file is not indexed on the graph path. It is; that claim came from a measurement
-whose shell append had created a file instead of modifying one.) The cost of
+A file that needs a new dataset still waits for `--fresh`. An added file that
+fits a frozen dataset, and a deleted file, no longer do. The 3.32 s row above
+is that measurement; the capture's reason was `completed-with-junk`.
+
+`--watch` still requires `--no-graph`. The watcher re-runs the generated route,
+which also reconciles a file that would be a new dataset. It does not watch a
+graph corpus. (An earlier version of this page said a *changed* file is not
+indexed on the graph path. It is; that claim came from a measurement whose
+shell append had created a file instead of modifying one.) The cost of
 `--no-graph` is relationship detection: no wikilink, local-link, section-order or
 directory-chain edges, so no second-brain graph over a watched corpus.
 
@@ -138,6 +147,11 @@ hidden-name rule, same `.gitignore`/`.xerjignore` stack. Two consequences:
 
 * An ignored directory costs no watch and produces no events. A `cargo build`
   writing into an ignored `target/` cannot wake the watcher at all.
+* An ignored **file** inside a watched directory (`app.log` under a `*.log`
+  rule, a lockfile, an artefact written next to the sources) does produce
+  events, on its parent's watch. They are dropped before a pass starts, by
+  the same ignore stack the walk uses, so a tool that keeps rewriting such a
+  file does not cycle the watcher through passes that hash nothing (#2180).
 * A watched run and a plain re-run agree on what is indexed, because they apply
   the same rules from the same code — not from a second implementation.
 
@@ -312,10 +326,47 @@ operations a month, over four times the entire free allowance. A local `--watch`
 session makes **zero** API calls while idle. (Watching an object-storage source
 is not implemented; `--watch` watches a local folder.)
 
+## Corpora built from a git repository: following upstream
+
+xerj does **not** track git remotes. It indexes the files in a working tree on
+disk and never runs `git fetch` or `git pull` itself, so a corpus built from a
+clone stays at whatever commit the clone was at when it was last indexed. There
+is no `corpus update` / `pull` verb (#2416).
+
+The supported way to follow upstream is to update the working tree yourself and
+re-run the **same** index command (same folder, same `--prefix`, same
+`--state-dir` if you passed one). Without `--fresh` that re-run is incremental:
+it re-hashes the tree, republishes only files whose bytes changed, and drops
+the records of files the pull deleted (the correctness contract below).
+
+```sh
+git -C ~/src/project pull --ff-only
+xerj autoindex ~/src/project --prefix project
+```
+
+To do it on a schedule, put the same two lines in cron, a systemd timer or a CI
+job; stop on a failed pull so a merge conflict is never indexed:
+
+```sh
+# every hour, at minute 7
+7 * * * * git -C "$HOME/src/project" pull --ff-only && xerj autoindex "$HOME/src/project" --prefix project
+```
+
+Or keep a watcher on the clone (`xerj autoindex ~/src/project --watch --no-graph
+--prefix project`): a `git pull` rewrites files in the working tree, and those
+writes are ordinary file events, so the next pass picks them up. Events under
+`.git/` are dropped (hidden names), so the watcher reacts to the checked-out
+files, not to git's own bookkeeping. You still run `git pull` yourself.
+
+Use `--fresh` only when you want dataset names re-elected from the current tree
+(see "The correctness contract"); it rebuilds instead of reconciling.
+
 ## What is NOT implemented
 
 * No watching on the default graph path — `--watch` requires `--no-graph`.
 * No object-storage or remote source watching. `--watch` takes a local folder.
+* No git-remote awareness: xerj never fetches or pulls. Update the clone, then
+  re-run the index (see "Corpora built from a git repository" above).
 * No incremental generation snapshot: each pass still seals a snapshot over the
   whole corpus, which is what dominates per-change latency on a large tree
   (measured above).

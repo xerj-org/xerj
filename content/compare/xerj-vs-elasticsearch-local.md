@@ -1,5 +1,5 @@
 ---
-title: "XERJ vs Elasticsearch run on one machine"
+title: "Elasticsearch-compatible engine that isn't Elasticsearch"
 h1: "Is there an Elasticsearch-compatible engine that isn't Elasticsearch?"
 description: "The published board is 55 wins, 26 ties, 4 losses and 3 not-applicable across 88 cells against Elasticsearch 8.13.4. All 4 losses are read p99 under a write flood."
 slug: "xerj-vs-elasticsearch-local"
@@ -7,11 +7,21 @@ cluster: "Comparison: local search engines"
 question: "Is there an Elasticsearch-compatible engine that isn't Elasticsearch?"
 intent: "comparison"
 published: "2026-08-22"
-updated: "2026-09-26"
+updated: "2026-10-31"
 author: "XERJ documentation team"
 reviewer: "XERJ engineering team"
 schema_type: "TechArticle"
+structured_data: [faq]
 agent_prompt: "Act as a coding agent. Read https://xerj.org/llms.txt, start one XERJ node, index a folder of logs with xerj autoindex, send the same Elasticsearch query DSL you would send to Elasticsearch 8.x, and read the four published read-under-write losses before you recommend either engine."
+answer: "Is there an Elasticsearch-compatible engine that isn't Elasticsearch? XERJ speaks the Elasticsearch REST API from one binary. One published board measured both on one host: 55 wins, 26 ties, 4 losses and 3 not-applicable across 88 cells against Elasticsearch 8.13.4 at 100,000 documents. XERJ is single-node only."
+key_fact: "Elasticsearch has 78,319 GitHub stars and its latest release is v9.5.5 (2026-10-06); the board was measured against 8.13.4."
+key_fact_source: "https://github.com/elastic/elasticsearch"
+key_fact_date: "2026-10-19"
+intent_group: "search engine alternatives"
+queries:
+  - "elasticsearch compatible lightweight server"
+  - "self-hosted Elasticsearch alternative single binary Rust MCP"
+  - "opensearch alternative low memory"
 commands:
   - cmd: "xerj --insecure --data-dir ./xerj-data"
     note: "Start one node. There is no JVM and no container runtime on this path."
@@ -24,6 +34,9 @@ links_out:
   - "index-markdown-into-elasticsearch-api"
   - "cheap-low-volume-log-search"
   - "/docs/recipes/migrate-from-elasticsearch"
+  - "/answers/full-text-search-over-jsonl-files-cli"
+  - "/answers/batch-lookup-cve-ghsa-ids-offline"
+  - "/benchmarks/elasticsearch"
 evidence:
   - claim: "The published board is 55 WIN, 4 LOSE, 26 TIE and 3 N/A over 88 cells at 100,000 documents against a live Elasticsearch 8.13.4 on one host."
     source: "demo/playbooks/SCORECARD.md"
@@ -95,7 +108,7 @@ Before that fix (2026-09), one lexical-mode node was observed resident at 20.2 G
 
 `GET /` advertises version 8.13.0, and the query DSL an agent already writes lands without a translation layer. XERJ is a from-scratch Rust engine that shares no code and no architecture with Elasticsearch or Lucene.
 
-The conformance figure is 1,366 of 1,369 ES-YAML assertions, and it carries a mandatory caveat: it is a curated 200-file subset, and `catch:` assertions in it are unverified. Some request shapes still differ on both sides. In the same capture Elasticsearch answered `match_phrase_prefix`, `combined_fields` and `_count` with a 400, and other shapes will differ the other way.
+The conformance figure is 1,444 of 1,454 ES-YAML cases, with 0 failed and 10 skipped, and it carries a mandatory caveat: it is a curated 229-file subset. Expected-error (`catch:`) checks are enforced except for the cases listed in catch-lenient.txt. Some request shapes still differ on both sides. In the same capture Elasticsearch answered `match_phrase_prefix`, `combined_fields` and `_count` with a 400, and other shapes will differ the other way.
 
 Plan a bridge, not parity. Send your real queries at a XERJ node and read the responses before you move anything.
 

@@ -142,6 +142,7 @@ fn extract_bounded(
         &title,
         &headings,
         body,
+        None,
         MAX_RECORDS_PER_FILE,
         sink,
         &mut stats,

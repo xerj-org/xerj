@@ -1,0 +1,70 @@
+---
+setup:
+  - do:
+      indices.create:
+          index: post_filter_test
+          body:
+              settings:
+                  number_of_shards: 1
+              mappings:
+                  properties:
+                      provenance:
+                          type: keyword
+                      body:
+                          type: text
+  - do:
+      bulk:
+          refresh: true
+          body:
+              - '{"index": {"_index": "post_filter_test", "_id": "1"}}'
+              - '{"provenance": "draft", "body": "alpha beta"}'
+              - '{"index": {"_index": "post_filter_test", "_id": "2"}}'
+              - '{"provenance": "human", "body": "alpha"}'
+              - '{"index": {"_index": "post_filter_test", "_id": "3"}}'
+              - '{"provenance": "human", "body": "gamma"}'
+
+---
+"post_filter filters the hits and leaves aggregations unfiltered":
+  - do:
+      search:
+          rest_total_hits_as_int: true
+          index: post_filter_test
+          body:
+              size: 10
+              query: { match_all: {} }
+              post_filter: { term: { provenance: draft } }
+              aggs: { by_provenance: { terms: { field: provenance } } }
+
+  - match: { hits.total: 1 }
+  - length: { hits.hits: 1 }
+  - match: { hits.hits.0._id: "1" }
+  - length: { aggregations.by_provenance.buckets: 2 }
+  - match: { aggregations.by_provenance.buckets.0.key: human }
+  - match: { aggregations.by_provenance.buckets.0.doc_count: 2 }
+  - match: { aggregations.by_provenance.buckets.1.key: draft }
+  - match: { aggregations.by_provenance.buckets.1.doc_count: 1 }
+
+---
+"post_filter without a query":
+  - do:
+      search:
+          rest_total_hits_as_int: true
+          index: post_filter_test
+          body:
+              post_filter: { term: { provenance: human } }
+
+  - match: { hits.total: 2 }
+  - length: { hits.hits: 2 }
+
+---
+"post_filter applies to hits.total with size 0":
+  - do:
+      search:
+          rest_total_hits_as_int: true
+          index: post_filter_test
+          body:
+              size: 0
+              post_filter: { term: { provenance: draft } }
+
+  - match: { hits.total: 1 }
+  - length: { hits.hits: 0 }

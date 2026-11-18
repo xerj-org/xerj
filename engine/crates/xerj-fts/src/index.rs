@@ -11,10 +11,14 @@
 //! seg-<id>.<field-component>.meta      — FieldStats + per-term metadata
 //! seg-<id>.<field-component>.norms     — encoded per-doc field lengths
 //! seg-<id>.fts-layout-v2               — exact marker when components are encoded
+//! seg-<id>.fts-layout-v3               — exact marker when a literal would
+//!                                        case-fold into another field on NTFS
 //! ```
 //!
 //! Short portable field names are used literally for on-disk compatibility;
-//! all other logical field names map to a bounded digest component.
+//! all other logical field names map to a bounded digest component. Layout v3
+//! also digests a name whose Windows case-identity is not the name itself
+//! (`page_Id`, `ı`, `ß`), so two fields cannot share one side-car file.
 //!
 //! The FST key is the term text (UTF-8 bytes, lexicographically sorted by construction).
 //! The FST output value is the byte offset in the `.post` file.
@@ -61,23 +65,76 @@ const ENCODED_FIELD_COMPONENT_PREFIX: &str = "__xerj_fts_field_sha256_";
 const FTS_FILENAME_LAYOUT_V2_MARKER_SUFFIX: &str = "fts-layout-v2";
 const FTS_FILENAME_LAYOUT_V2_MARKER_BYTES: &[u8] = b"XERJ_FTS_FILENAME_LAYOUT_V2\n";
 
+/// Layout v3. Same digest function as v2 for names v2 already hashed. Names
+/// v2 kept as literals, but which NTFS case-folds onto a different literal,
+/// are hashed too. The marker is the only authority: a v2 segment that stored
+/// `page_Id` literally must still open as v2.
+const FTS_FILENAME_LAYOUT_V3_MARKER_SUFFIX: &str = "fts-layout-v3";
+const FTS_FILENAME_LAYOUT_V3_MARKER_BYTES: &[u8] = b"XERJ_FTS_FILENAME_LAYOUT_V3\n";
+
+/// Which filename function a segment's side-cars were written with.
+///
+/// Chosen from the marker file alone. Existence of a side-car is never
+/// evidence: a v1 literal can alias a v2 digest component.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum FilenameLayout {
+    /// No marker. Paths are the raw field name when that stays inside the
+    /// segment directory.
+    Legacy,
+    /// `fts-layout-v2`. Unsafe names are SHA-256 components; mixed-case
+    /// portable names stay literal.
+    Encoded,
+    /// `fts-layout-v3`. v2's digests, plus a digest for any remaining literal
+    /// whose Windows case-identity is not the field name itself.
+    CaseDistinguished,
+}
+
 fn segment_filename_layout_v2_marker_path(segment_dir: &Path, segment_id: &str) -> PathBuf {
     segment_dir.join(format!(
         "{segment_id}.{FTS_FILENAME_LAYOUT_V2_MARKER_SUFFIX}"
     ))
 }
 
-/// Absence means v1/raw. Exact magic means v2/encoded. Any other visible
-/// marker is corruption. File-family existence is never layout evidence.
-fn segment_uses_encoded_filename_layout(segment_dir: &Path, segment_id: &str) -> Result<bool> {
-    let marker = segment_filename_layout_v2_marker_path(segment_dir, segment_id);
-    match fs::read(&marker) {
-        Ok(bytes) if bytes == FTS_FILENAME_LAYOUT_V2_MARKER_BYTES => Ok(true),
-        Ok(_) => bail!("corrupt FTS filename-layout discriminator {:?}", marker),
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
+fn segment_filename_layout_v3_marker_path(segment_dir: &Path, segment_id: &str) -> PathBuf {
+    segment_dir.join(format!(
+        "{segment_id}.{FTS_FILENAME_LAYOUT_V3_MARKER_SUFFIX}"
+    ))
+}
+
+enum LayoutMarkerRead {
+    Absent,
+    Exact,
+}
+
+fn read_layout_marker(path: &Path, expected: &[u8]) -> Result<LayoutMarkerRead> {
+    match fs::read(path) {
+        Ok(bytes) if bytes == expected => Ok(LayoutMarkerRead::Exact),
+        Ok(_) => bail!("corrupt FTS filename-layout discriminator {:?}", path),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(LayoutMarkerRead::Absent),
         Err(error) => Err(error)
-            .with_context(|| format!("reading FTS filename-layout discriminator {:?}", marker)),
+            .with_context(|| format!("reading FTS filename-layout discriminator {:?}", path)),
     }
+}
+
+/// v3 wins when its marker is present. A corrupt marker fails closed and does
+/// not fall through to an older layout. File-family existence is never
+/// layout evidence.
+fn segment_filename_layout(segment_dir: &Path, segment_id: &str) -> Result<FilenameLayout> {
+    let v3 = segment_filename_layout_v3_marker_path(segment_dir, segment_id);
+    if matches!(
+        read_layout_marker(&v3, FTS_FILENAME_LAYOUT_V3_MARKER_BYTES)?,
+        LayoutMarkerRead::Exact
+    ) {
+        return Ok(FilenameLayout::CaseDistinguished);
+    }
+    let v2 = segment_filename_layout_v2_marker_path(segment_dir, segment_id);
+    if matches!(
+        read_layout_marker(&v2, FTS_FILENAME_LAYOUT_V2_MARKER_BYTES)?,
+        LayoutMarkerRead::Exact
+    ) {
+        return Ok(FilenameLayout::Encoded);
+    }
+    Ok(FilenameLayout::Legacy)
 }
 
 /// Per-segment record of the analyzer each field's postings were built with
@@ -143,13 +200,22 @@ fn is_windows_reserved_device_name(field: &str) -> bool {
 /// and overlong names can never create a child path or exceed a normal
 /// filesystem's component limit. Unicode, `@`, and internal spaces are valid
 /// portable literals; trailing spaces and dots are not portable to Windows.
-/// Preserving literals also preserves v1's pre-existing limitation: distinct
-/// portable names can alias on a filesystem that case-folds or normalizes
-/// Unicode. Digest-derived names remain distinct by exact UTF-8 bytes modulo a
-/// SHA-256 collision; eliminating literal aliases would require a new all-name
-/// encoding or name table and is outside filename layout v2.
+/// Preserving literals also preserves a limitation layout v2 left in place:
+/// distinct portable names can alias on a filesystem that case-folds.
+/// Layout v3 digests any literal whose Windows case-identity is not the name
+/// itself, so `page_Id` and `page_id` (and the NTFS pairs `ı`/`i`, `ß`/`ss`,
+/// `ſ`/`s`) cannot share a file. Digest-derived names remain distinct by
+/// exact UTF-8 bytes modulo a SHA-256 collision. Unicode normalization
+/// (NFC versus NFD) is still not encoded.
 fn field_file_component(field: &str) -> Cow<'_, str> {
-    let portable_literal = !field.is_empty()
+    if portable_literal_field(field) {
+        return Cow::Borrowed(field);
+    }
+    Cow::Owned(digest_field_component(field))
+}
+
+fn portable_literal_field(field: &str) -> bool {
+    !field.is_empty()
         && field.len() <= MAX_LITERAL_FIELD_COMPONENT_BYTES
         && field != "."
         && field != ".."
@@ -163,14 +229,189 @@ fn field_file_component(field: &str) -> Cow<'_, str> {
                     character,
                     '/' | '\\' | '<' | '>' | ':' | '"' | '|' | '?' | '*'
                 )
-        });
+        })
+}
 
-    if portable_literal {
-        return Cow::Borrowed(field);
+fn digest_field_component(field: &str) -> String {
+    let digest = Sha256::digest(field.as_bytes());
+    format!("{ENCODED_FIELD_COMPONENT_PREFIX}{digest:x}")
+}
+
+/// Layout v3 component. Unsafe names hash exactly as in v2 (the digest is of
+/// the field's UTF-8 bytes, not of the v2 component). A portable literal is
+/// hashed only when NTFS would treat it as the same file as a different
+/// spelling.
+fn field_file_component_v3(field: &str) -> Cow<'_, str> {
+    if field_needs_case_distinguished_component(field) {
+        Cow::Owned(digest_field_component(field))
+    } else {
+        field_file_component(field)
+    }
+}
+
+/// `true` when v2 would keep `field` as a literal AND that literal's Windows
+/// case-identity is a different string.
+///
+/// The identity is Unicode lowercase plus the NTFS upcase-table exceptions
+/// that lowercase does not collapse: U+0131 `ı` → `i`, U+017F `ſ` → `s`,
+/// U+212A `K` → `k`, U+00DF `ß` → `ss`. A name that is already that identity
+/// (`page_id`, `i`, `ss`) stays a literal. Every other spelling of the same
+/// identity is a digest, so the two cannot land on one NTFS file. Hashing the
+/// exact bytes also keeps `Page` and `PAGE` apart from each other.
+fn field_needs_case_distinguished_component(field: &str) -> bool {
+    portable_literal_field(field) && !windows_case_identity_is_self(field)
+}
+
+fn windows_case_identity_is_self(field: &str) -> bool {
+    if field.is_ascii() {
+        return !field.bytes().any(|byte| byte.is_ascii_uppercase());
+    }
+    windows_case_identity(field) == field
+}
+
+fn windows_case_identity(field: &str) -> String {
+    let mut identity = String::with_capacity(field.len());
+    for character in field.chars() {
+        push_windows_case_folded(character, &mut identity);
+    }
+    identity
+}
+
+fn push_windows_case_folded(character: char, out: &mut String) {
+    match character {
+        '\u{0131}' => out.push('i'),
+        '\u{017f}' => out.push('s'),
+        '\u{212a}' => out.push('k'),
+        '\u{00df}' => out.push_str("ss"),
+        other => {
+            for lower in other.to_lowercase() {
+                match lower {
+                    '\u{0131}' => out.push('i'),
+                    '\u{017f}' => out.push('s'),
+                    '\u{212a}' => out.push('k'),
+                    '\u{00df}' => out.push_str("ss"),
+                    folded => out.push(folded),
+                }
+            }
+        }
+    }
+}
+
+/// Temp path beside `path` whose name cannot collide with another field's
+/// temp in this process, including on a case-folding volume. The FST temp
+/// used to be `{segment}.{component}.fst.tmp` with no nonce: two components
+/// that NTFS treats as one name shared that temp, the first rename consumed
+/// it, and the second failed with `ERROR_FILE_NOT_FOUND` inside
+/// `publishing FTS side-cars`.
+fn unique_temp_sibling(path: &Path) -> PathBuf {
+    static NONCE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+    let nonce = NONCE.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let file_name = path
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_else(|| "file".to_string());
+    path.with_file_name(format!("{file_name}.tmp.{}.{nonce}", std::process::id()))
+}
+
+/// Removes `path` on drop unless [`DeleteOnDrop::disarm`] ran. The FST temp
+/// is not a [`xerj_common::fsio::StagedFile`] until `stage_written_file`
+/// returns; a panic inside `MapBuilder` would otherwise leave the temp behind.
+struct DeleteOnDrop {
+    path: PathBuf,
+    armed: bool,
+}
+
+impl DeleteOnDrop {
+    fn arm(path: PathBuf) -> Self {
+        Self { path, armed: true }
     }
 
-    let digest = Sha256::digest(field.as_bytes());
-    Cow::Owned(format!("{ENCODED_FIELD_COMPONENT_PREFIX}{digest:x}"))
+    fn disarm(&mut self) {
+        self.armed = false;
+    }
+}
+
+impl Drop for DeleteOnDrop {
+    fn drop(&mut self) {
+        if self.armed {
+            let _ = fs::remove_file(&self.path);
+        }
+    }
+}
+
+fn panic_payload_message(payload: &Box<dyn std::any::Any + Send>) -> String {
+    // Take `&Box<_>`, not `&(dyn Any + Send)`. A function argument of the
+    // trait-object type unsizes the box itself, so `downcast_ref` looks for
+    // `&str` inside a payload whose concrete type is the box and misses the
+    // string `panic!` actually boxed.
+    if let Some(message) = payload.downcast_ref::<&str>() {
+        (*message).to_owned()
+    } else if let Some(message) = payload.downcast_ref::<String>() {
+        message.clone()
+    } else {
+        "non-string panic payload".to_owned()
+    }
+}
+
+/// `true` when `file_name` is an FTS side-car, layout marker, analyzer marker,
+/// or unpublished temp belonging to `segment_id`. Stored-segment files
+/// (`.seg`, `.sidx`, `.ids`, `.dv`) are not.
+fn is_segment_fts_artifact(segment_id: &str, file_name: &str) -> bool {
+    let Some(rest) = file_name
+        .strip_prefix(segment_id)
+        .and_then(|suffix| suffix.strip_prefix('.'))
+    else {
+        return false;
+    };
+    if rest.is_empty() {
+        return false;
+    }
+    if rest.contains(".tmp.") {
+        return true;
+    }
+    matches!(rest, "fts-layout-v2" | "fts-layout-v3" | "ftsan")
+        || matches!(
+            rest.rsplit_once('.').map(|(_, extension)| extension),
+            Some("fst" | "post" | "meta" | "norms")
+        )
+}
+
+/// Remove this segment's FTS side-cars, filename-layout markers, analyzer
+/// marker, and unpublished temps. `.seg`, `.sidx`, `.ids`, and `.dv` stay.
+///
+/// `Ok(())` means none of those FTS names remain, so the stored segment can
+/// be published and searched by a stored-document scan. `Err` names every
+/// path that could not be removed, with that path's OS error — a partial
+/// family must not be published.
+pub fn discard_segment_fts_files(segment_dir: &Path, segment_id: &str) -> std::io::Result<()> {
+    let entries = match fs::read_dir(segment_dir) {
+        Ok(entries) => entries,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(error) => return Err(error),
+    };
+    let mut failures: Vec<String> = Vec::new();
+    for entry in entries {
+        let entry = entry?;
+        let file_name = entry.file_name();
+        let file_name = file_name.to_string_lossy();
+        if !is_segment_fts_artifact(segment_id, &file_name) {
+            continue;
+        }
+        let path = entry.path();
+        if let Err(error) = fs::remove_file(&path) {
+            if error.kind() != std::io::ErrorKind::NotFound {
+                failures.push(format!("{}: {error}", path.display()));
+            }
+        }
+    }
+    if failures.is_empty() {
+        Ok(())
+    } else {
+        Err(std::io::Error::other(format!(
+            "could not remove FTS side-cars for segment {segment_id}: {}",
+            failures.join("; ")
+        )))
+    }
 }
 
 /// Derive one FTS side-car path from controlled components only.
@@ -182,6 +423,24 @@ fn field_sidecar_path(
 ) -> PathBuf {
     let field_component = field_file_component(field_name);
     segment_dir.join(format!("{segment_id}.{field_component}.{extension}"))
+}
+
+fn field_sidecar_path_for_layout(
+    segment_dir: &Path,
+    segment_id: &str,
+    field_name: &str,
+    extension: &str,
+    layout: FilenameLayout,
+) -> PathBuf {
+    match layout {
+        FilenameLayout::CaseDistinguished => {
+            let field_component = field_file_component_v3(field_name);
+            segment_dir.join(format!("{segment_id}.{field_component}.{extension}"))
+        }
+        FilenameLayout::Encoded | FilenameLayout::Legacy => {
+            field_sidecar_path(segment_dir, segment_id, field_name, extension)
+        }
+    }
 }
 
 /// Return the exact pre-fix raw path only when it remains one child of the
@@ -509,15 +768,25 @@ fn encode_field_meta_v5(
     // per-term "needs an entry" decision made in scan order would leave
     // the terms before the first ttf != df term without their zero
     // entries, and the reader splits sections by fixed counts.
-    let ttf_stream_needed = sorted_terms.iter().any(|term| {
+    let mut ttf_stream_needed = false;
+    for term in sorted_terms {
         let tp = term_postings
             .get(term)
-            .expect("sorted_terms must match term_postings keys");
+            .ok_or_else(|| anyhow::anyhow!("field meta is missing postings for term '{term}'"))?;
         if tp.total_term_frequency < tp.doc_frequency as u64 {
-            panic!("total_term_frequency below doc_frequency for '{term}'");
+            // A panic here aborted the flush task (`resume_unwind`) during
+            // indexing. rc.97 reports described that as a panic in the fst
+            // merge: this encode runs while the merged field's FST is built.
+            bail!(
+                "total_term_frequency {} is below doc_frequency {} for term '{term}'",
+                tp.total_term_frequency,
+                tp.doc_frequency
+            );
         }
-        tp.total_term_frequency != tp.doc_frequency as u64
-    });
+        if tp.total_term_frequency != tp.doc_frequency as u64 {
+            ttf_stream_needed = true;
+        }
+    }
     let flags = if ttf_stream_needed {
         ZFM5_FLAG_TTF_STREAM
     } else {
@@ -531,7 +800,7 @@ fn encode_field_meta_v5(
     for term in sorted_terms {
         let tp = term_postings
             .get(term)
-            .expect("sorted_terms must match term_postings keys");
+            .ok_or_else(|| anyhow::anyhow!("field meta is missing postings for term '{term}'"))?;
         uvarint_encode(tp.doc_frequency as u64, &mut dfs);
         if ttf_stream_needed {
             uvarint_encode(
@@ -964,8 +1233,11 @@ fn index_field_values<'a>(
 /// ```text
 /// let mut writer = FtsIndexWriter::new(dir, segment_id, registry);
 /// for doc in docs { writer.add_document(doc_id, &fields); }
-/// if writer.uses_encoded_field_filename_components() {
-///     // The engine advances its data-directory format before this step.
+/// if writer.uses_case_distinguished_field_filename_components() {
+///     // The engine advances its data-directory format to v3 before this step.
+///     writer.publish_case_distinguished_filename_layout()?;
+/// } else if writer.uses_encoded_field_filename_components() {
+///     // The engine advances its data-directory format to v2 before this step.
 ///     writer.publish_encoded_filename_layout()?;
 /// }
 /// writer.finish()?;
@@ -976,10 +1248,16 @@ pub struct FtsIndexWriter {
     registry: Arc<AnalyzerRegistry>,
     /// Per-field: (config, postings_writer, field_stats, norms)
     fields: HashMap<String, FieldData>,
-    encoded_filename_layout_published: bool,
+    /// Layout marker this writer has durably published, if any.
+    published_filename_layout: Option<FilenameLayout>,
     /// Zstd effort for the `.meta` (ZFM4) and `.post` (ZPS1) envelopes.
     /// [`ZSTD_DURABLE_LEVEL`] unless [`Self::with_zstd_level`] raised it.
     zstd_level: i32,
+    /// Test-only. When `finish` writes this field, it panics inside the
+    /// `catch_unwind` that turns an `fst` builder panic into `Err`. Per
+    /// writer, so parallel tests do not share a process-global flag.
+    #[cfg(test)]
+    panic_on_field: Option<String>,
 }
 
 struct FieldData {
@@ -1010,9 +1288,19 @@ impl FtsIndexWriter {
             segment_id: segment_id.into(),
             registry,
             fields: HashMap::new(),
-            encoded_filename_layout_published: false,
+            published_filename_layout: None,
             zstd_level: ZSTD_DURABLE_LEVEL,
+            #[cfg(test)]
+            panic_on_field: None,
         }
+    }
+
+    /// The next [`Self::finish`] panics while writing `field`. The panic is
+    /// caught and returned as that field's error, which is what an `fst`
+    /// `MapBuilder` assert does on this path.
+    #[cfg(test)]
+    fn panic_while_writing_field(&mut self, field: impl Into<String>) {
+        self.panic_on_field = Some(field.into());
     }
 
     /// The configuration an UNCONFIGURED field is indexed with.
@@ -1071,8 +1359,10 @@ impl FtsIndexWriter {
     }
 
     /// Whether finishing this writer can create a v2 digest-derived field
-    /// filename.
+    /// filename (a name that is not a portable literal).
     ///
+    /// This is false for a mixed-case literal such as `page_Id`. That name
+    /// needs [`Self::uses_case_distinguished_field_filename_components`].
     /// Engine callers use this after configuration/document ingestion and
     /// before [`Self::finish`] to durably advance the data-directory marker.
     pub fn uses_encoded_field_filename_components(&self) -> bool {
@@ -1081,21 +1371,73 @@ impl FtsIndexWriter {
             .any(|field| matches!(field_file_component(field), Cow::Owned(_)))
     }
 
+    /// Whether a portable literal in this writer would alias another field
+    /// on a case-folding filesystem (`page_Id` / `page_id`, `ı` / `i`).
+    pub fn uses_case_distinguished_field_filename_components(&self) -> bool {
+        self.fields
+            .keys()
+            .any(|field| field_needs_case_distinguished_component(field))
+    }
+
+    fn required_filename_layout(&self) -> FilenameLayout {
+        if self.uses_case_distinguished_field_filename_components() {
+            FilenameLayout::CaseDistinguished
+        } else if self.uses_encoded_field_filename_components() {
+            FilenameLayout::Encoded
+        } else {
+            FilenameLayout::Legacy
+        }
+    }
+
     /// Durably publish this segment's immutable v2 filename discriminator.
     ///
     /// The engine must durably advance the data-directory format first, call
     /// this method second, and call [`Self::finish`] last. `finish` refuses to
     /// emit encoded side-cars without this proof. An existing discriminator is
-    /// accepted only when it contains the exact v2 magic.
+    /// accepted only when it contains the exact v2 magic. A writer that also
+    /// needs layout v3 must call
+    /// [`Self::publish_case_distinguished_filename_layout`] instead: a v2
+    /// marker would keep `page_Id` literal.
     pub fn publish_encoded_filename_layout(&mut self) -> Result<()> {
         if !self.uses_encoded_field_filename_components() {
             return Ok(());
         }
+        if self.uses_case_distinguished_field_filename_components() {
+            bail!("case-distinguished FTS field filenames require filename layout v3, not v2");
+        }
+        self.publish_layout_marker(FilenameLayout::Encoded, FTS_FILENAME_LAYOUT_V2_MARKER_BYTES)
+    }
+
+    /// Durably publish this segment's immutable v3 filename discriminator.
+    ///
+    /// The engine must durably advance the data-directory format to v3 first.
+    /// A v2 reader looks `page_Id` up as a literal and would silently skip the
+    /// field, so the directory marker has to refuse that binary before any v3
+    /// side-car exists. No-op when no field needs the distinction.
+    pub fn publish_case_distinguished_filename_layout(&mut self) -> Result<()> {
+        if !self.uses_case_distinguished_field_filename_components() {
+            return Ok(());
+        }
+        self.publish_layout_marker(
+            FilenameLayout::CaseDistinguished,
+            FTS_FILENAME_LAYOUT_V3_MARKER_BYTES,
+        )
+    }
+
+    fn publish_layout_marker(&mut self, layout: FilenameLayout, magic: &[u8]) -> Result<()> {
         fs::create_dir_all(&self.segment_dir)
             .with_context(|| format!("creating segment dir {:?}", self.segment_dir))?;
-        let marker = segment_filename_layout_v2_marker_path(&self.segment_dir, &self.segment_id);
+        let marker = match layout {
+            FilenameLayout::Encoded => {
+                segment_filename_layout_v2_marker_path(&self.segment_dir, &self.segment_id)
+            }
+            FilenameLayout::CaseDistinguished => {
+                segment_filename_layout_v3_marker_path(&self.segment_dir, &self.segment_id)
+            }
+            FilenameLayout::Legacy => return Ok(()),
+        };
         match fs::read(&marker) {
-            Ok(bytes) if bytes == FTS_FILENAME_LAYOUT_V2_MARKER_BYTES => {
+            Ok(bytes) if bytes == magic => {
                 // A previous attempt can have made the rename visible and
                 // then failed its durability confirmation. A fresh writer has
                 // no process-local proof, so confirm the directory entry
@@ -1109,17 +1451,15 @@ impl FtsIndexWriter {
                 // repairs a visible discriminator produced by an older build
                 // whose Windows directory-sync shim was a no-op.
                 #[cfg(windows)]
-                xerj_common::fsio::write_file_durable(&marker, FTS_FILENAME_LAYOUT_V2_MARKER_BYTES)
-                    .with_context(|| {
-                        format!("confirming FTS filename-layout discriminator {:?}", marker)
-                    })?;
+                xerj_common::fsio::write_file_durable(&marker, magic).with_context(|| {
+                    format!("confirming FTS filename-layout discriminator {:?}", marker)
+                })?;
             }
             Ok(_) => bail!("corrupt FTS filename-layout discriminator {:?}", marker),
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-                xerj_common::fsio::write_file_durable(&marker, FTS_FILENAME_LAYOUT_V2_MARKER_BYTES)
-                    .with_context(|| {
-                        format!("publishing FTS filename-layout discriminator {:?}", marker)
-                    })?;
+                xerj_common::fsio::write_file_durable(&marker, magic).with_context(|| {
+                    format!("publishing FTS filename-layout discriminator {:?}", marker)
+                })?;
             }
             Err(error) => {
                 return Err(error).with_context(|| {
@@ -1127,7 +1467,7 @@ impl FtsIndexWriter {
                 });
             }
         }
-        self.encoded_filename_layout_published = true;
+        self.published_filename_layout = Some(layout);
         Ok(())
     }
 
@@ -1383,9 +1723,11 @@ impl FtsIndexWriter {
     pub fn finish(self) -> Result<HashMap<String, FieldStats>> {
         use rayon::prelude::*;
 
-        if self.uses_encoded_field_filename_components() && !self.encoded_filename_layout_published
-        {
-            bail!("encoded FTS field filenames require a durable per-segment layout discriminator");
+        let layout = self.required_filename_layout();
+        if layout != FilenameLayout::Legacy && self.published_filename_layout != Some(layout) {
+            bail!(
+                "FTS filename layout {layout:?} requires a durable per-segment layout discriminator"
+            );
         }
 
         fs::create_dir_all(&self.segment_dir)
@@ -1394,6 +1736,8 @@ impl FtsIndexWriter {
         let segment_dir = self.segment_dir.clone();
         let segment_id = self.segment_id.clone();
         let zstd_level = self.zstd_level;
+        #[cfg(test)]
+        let panic_on_field = self.panic_on_field.clone();
 
         // Drain fields into a Vec so we can parallelise the iterator.
         // Cloning `stats` before consuming `field_data` — `stats` goes into
@@ -1420,6 +1764,11 @@ impl FtsIndexWriter {
             .map(|(name, _stats, fd)| (name.as_str(), fd.config.analyzer.as_str()))
             .filter(|(_name, analyzer)| *analyzer != "standard")
             .collect();
+        // Every side-car of this segment is staged (temp file written and
+        // synced) and published together at the end: see `publish_staged`
+        // for why that is as durable as one durable write per file, and for
+        // the cost it removes (two device flushes per file on Apple targets).
+        let mut staged: Vec<xerj_common::fsio::StagedFile> = Vec::new();
         if !recorded.is_empty() {
             #[derive(serde::Serialize)]
             struct Marker<'a> {
@@ -1428,34 +1777,65 @@ impl FtsIndexWriter {
             let bytes = serde_json::to_vec(&Marker { fields: recorded })
                 .with_context(|| "encoding FTS analyzer marker")?;
             let path = segment_analyzer_marker_path(&segment_dir, &segment_id);
-            xerj_common::fsio::write_file_durable(&path, &bytes)
-                .with_context(|| format!("writing FTS analyzer marker {:?}", path))?;
+            staged.push(
+                xerj_common::fsio::stage_file(&path, &bytes)
+                    .with_context(|| format!("writing FTS analyzer marker {:?}", path))?,
+            );
         }
 
         // Parallel field writes.  `write_field_static` is a pure function
         // of its inputs and touches only files named after the field, so
         // there's no cross-thread contention.
-        let results: Vec<Result<(String, FieldStats)>> = fields
+        let results: Vec<Result<(String, FieldStats, Vec<xerj_common::fsio::StagedFile>)>> = fields
             .into_par_iter()
             .map(|(field_name, stats, field_data)| {
-                Self::write_field_static(
-                    &segment_dir,
-                    &segment_id,
-                    &field_name,
-                    field_data,
-                    zstd_level,
-                )
-                .with_context(|| format!("writing field '{}'", field_name))?;
-                Ok((field_name, stats))
+                // A panic inside `fst::MapBuilder` (its `assert!(out.is_zero())`
+                // on a duplicate key the checker missed) or in the meta
+                // encoder used to escape the rayon worker and `resume_unwind`
+                // the flush task. Indexing then died with no path and no OS
+                // error. The same failure is now this field's `Err`.
+                #[cfg(test)]
+                let panic_this_field = panic_on_field.as_deref() == Some(field_name.as_str());
+                let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    #[cfg(test)]
+                    if panic_this_field {
+                        panic!("simulated fst merge panic");
+                    }
+                    Self::write_field_static(
+                        &segment_dir,
+                        &segment_id,
+                        &field_name,
+                        field_data,
+                        zstd_level,
+                        layout,
+                    )
+                }));
+                match outcome {
+                    Ok(result) => {
+                        let files =
+                            result.with_context(|| format!("writing field '{field_name}'"))?;
+                        Ok((field_name, stats, files))
+                    }
+                    Err(payload) => {
+                        bail!(
+                            "writing field '{field_name}' panicked: {}",
+                            panic_payload_message(&payload)
+                        )
+                    }
+                }
             })
             .collect();
 
-        // Surface any error; otherwise build the stats map.
+        // Surface any error (dropping `staged` removes every temp file);
+        // otherwise build the stats map and publish the side-cars.
         let mut all_stats = HashMap::new();
         for r in results {
-            let (name, stats) = r?;
+            let (name, stats, files) = r?;
+            staged.extend(files);
             all_stats.insert(name, stats);
         }
+        xerj_common::fsio::publish_staged(&segment_dir, staged)
+            .with_context(|| format!("publishing FTS side-cars in {:?}", segment_dir))?;
 
         Ok(all_stats)
     }
@@ -1466,13 +1846,17 @@ impl FtsIndexWriter {
         field_name: &str,
         field_data: FieldData,
         zstd_level: i32,
-    ) -> Result<()> {
+        layout: FilenameLayout,
+    ) -> Result<Vec<xerj_common::fsio::StagedFile>> {
+        let mut staged = Vec::with_capacity(4);
         // NOTE: `PathBuf::with_extension` replaces the final `.ext` in the path,
         // so using `segment_dir.join("segment_id.field_name")` followed by
         // `with_extension("fst")` would strip `.field_name` and collapse every
         // field to the same file. The shared helper also keeps untrusted field
         // names from becoming paths.
-        let filename = |ext: &str| field_sidecar_path(segment_dir, segment_id, field_name, ext);
+        let filename = |ext: &str| {
+            field_sidecar_path_for_layout(segment_dir, segment_id, field_name, ext, layout)
+        };
         let fst_path = filename("fst");
         let post_path = filename("post");
         let meta_path = filename("meta");
@@ -1546,16 +1930,19 @@ impl FtsIndexWriter {
             out.extend_from_slice(&compressed);
             out
         };
-        // RC4 W1 #10 — every FTS side-car write below goes through durable
-        // temporary-file sync plus platform-appropriate publication: rename
-        // and parent-directory fsync on Unix, write-through replacement on
-        // Windows. These files are part of the segment publish chain: the WAL
-        // entries they cover are pruned ~1 s after the flush, so side-cars
-        // sitting only in the volatile page cache meant a power loss could
-        // leave a registered segment with missing/torn FTS data (silently
-        // wrong query results or unreadable fields) with no WAL to recover from.
-        xerj_common::fsio::write_file_durable(&post_path, &post_bytes_wrapped)
-            .with_context(|| format!("writing postings to {:?}", post_path))?;
+        // RC4 W1 #10 — every FTS side-car below is staged (synced temp file)
+        // and published durably by `finish` through `fsio::publish_staged`:
+        // rename and parent-directory fsync on Unix, write-through
+        // replacement on Windows. These files are part of the segment publish
+        // chain: the WAL entries they cover are pruned ~1 s after the flush,
+        // so side-cars sitting only in the volatile page cache meant a power
+        // loss could leave a registered segment with missing/torn FTS data
+        // (silently wrong query results or unreadable fields) with no WAL to
+        // recover from.
+        staged.push(
+            xerj_common::fsio::stage_file(&post_path, &post_bytes_wrapped)
+                .with_context(|| format!("writing postings to {:?}", post_path))?,
+        );
 
         // 3. Build and write FST (term → meta byte offset).
         //
@@ -1571,7 +1958,11 @@ impl FtsIndexWriter {
         // FST streams into a same-directory temp file; fsync + rename +
         // platform-specific durable replacement publishes it (RC4 W1 #10 —
         // see the postings note above).
-        let fst_tmp = filename("fst.tmp");
+        let fst_tmp = unique_temp_sibling(&fst_path);
+        // Declared before the builder so unwind drops the file (closes it)
+        // and only then deletes the temp. Armed until `stage_written_file`
+        // takes ownership.
+        let mut fst_tmp_cleanup = DeleteOnDrop::arm(fst_tmp.clone());
         let fst_file = BufWriter::new(
             File::create(&fst_tmp).with_context(|| format!("creating FST file {:?}", fst_tmp))?,
         );
@@ -1591,13 +1982,12 @@ impl FtsIndexWriter {
         }
         let mut fst_out = fst_builder.into_inner().with_context(|| "finishing FST")?;
         fst_out.flush().with_context(|| "flushing FST")?;
-        fst_out
-            .get_ref()
-            .sync_all()
-            .with_context(|| "fsyncing FST")?;
+        staged.push(
+            xerj_common::fsio::stage_written_file(&fst_tmp, &fst_path, fst_out.get_ref())
+                .with_context(|| "fsyncing FST")?,
+        );
+        fst_tmp_cleanup.disarm();
         drop(fst_out);
-        xerj_common::fsio::replace_file_durable(&fst_tmp, &fst_path)
-            .with_context(|| format!("publishing FST {:?}", fst_path))?;
 
         // 4. Write meta in the ZFM5 format — columnar varint streams
         //    (df, ttf-delta, gaps, lengths) under the Zstd envelope;
@@ -1612,8 +2002,10 @@ impl FtsIndexWriter {
             &term_postings,
             zstd_level,
         )?;
-        xerj_common::fsio::write_file_durable(&meta_path, &meta_bytes)
-            .with_context(|| format!("writing meta to {:?}", meta_path))?;
+        staged.push(
+            xerj_common::fsio::stage_file(&meta_path, &meta_bytes)
+                .with_context(|| format!("writing meta to {:?}", meta_path))?,
+        );
 
         // 5. Write norms file — V4 M4.7 compact format.
         //
@@ -1658,10 +2050,12 @@ impl FtsIndexWriter {
         norms_bytes.extend_from_slice(&(dense_len as u32).to_le_bytes());
         norms_bytes.extend_from_slice(&(payload.len() as u32).to_le_bytes());
         norms_bytes.extend_from_slice(payload);
-        xerj_common::fsio::write_file_durable(&norms_path, &norms_bytes)
-            .with_context(|| format!("writing norms to {:?}", norms_path))?;
+        staged.push(
+            xerj_common::fsio::stage_file(&norms_path, &norms_bytes)
+                .with_context(|| format!("writing norms to {:?}", norms_path))?,
+        );
 
-        Ok(())
+        Ok(staged)
     }
 }
 
@@ -1904,8 +2298,13 @@ pub fn segments_indexed_field_names(
 ) -> Result<Vec<Vec<String>>> {
     let mut encoded: HashMap<String, &str> = HashMap::new();
     for name in known_fields {
-        if let Cow::Owned(component) = field_file_component(name) {
-            encoded.insert(component, name.as_str());
+        // v2 and v3 hash unsafe names identically. v3 also hashes case-unstable
+        // literals (`page_Id`) that v2 stored under the raw spelling, so a
+        // directory scan has to recognize both components.
+        for component in [field_file_component(name), field_file_component_v3(name)] {
+            if let Cow::Owned(component) = component {
+                encoded.insert(component, name.as_str());
+            }
         }
     }
 
@@ -2097,6 +2496,104 @@ impl FtsIndexReader {
         Self::open_inner(segment_dir, segment_id, field_names, false)
     }
 
+    /// Upper estimate of the heap a full [`Self::open`] of `field_names`
+    /// would retain, read from file headers and sizes only (#2427/#1122).
+    ///
+    /// Lets the engine reserve read memory *before* it pays the postings
+    /// decompress. Per field: the uncompressed postings length from the
+    /// `ZPS1`/`ZPS2`/`ZPL1` envelope header (or the file length of a raw
+    /// `.post`), the `.fst` file length, 8 bytes per dense norms entry, and
+    /// the decoded `.meta` term records (`num_terms` from its header). A field whose files are
+    /// missing or unreadable counts as zero — `open` will fail or skip it.
+    pub fn estimate_open_bytes(
+        segment_dir: impl AsRef<Path>,
+        segment_id: &str,
+        field_names: &[&str],
+    ) -> u64 {
+        use std::io::Read;
+        let segment_dir = segment_dir.as_ref();
+        let Ok(layout) = segment_filename_layout(segment_dir, segment_id) else {
+            return 0;
+        };
+        let head = |path: &Path, n: usize| -> Option<Vec<u8>> {
+            let mut buf = vec![0u8; n];
+            let mut file = fs::File::open(path).ok()?;
+            file.read_exact(&mut buf).ok()?;
+            Some(buf)
+        };
+        let mut total: u64 = 0;
+        for &field_name in field_names {
+            let filename = |ext: &str| -> Option<PathBuf> {
+                match layout {
+                    FilenameLayout::Legacy => {
+                        legacy_field_sidecar_path(segment_dir, segment_id, field_name, ext)
+                    }
+                    FilenameLayout::Encoded | FilenameLayout::CaseDistinguished => {
+                        Some(field_sidecar_path_for_layout(
+                            segment_dir,
+                            segment_id,
+                            field_name,
+                            ext,
+                            layout,
+                        ))
+                    }
+                }
+            };
+            total = total.saturating_add(field_name.len() as u64);
+            if let Some(post) = filename("post") {
+                if let Some(h) = head(&post, 8) {
+                    let magic = &h[..4];
+                    if magic == POST_MAGIC_ZSTD_V2
+                        || magic == POST_MAGIC_ZSTD
+                        || magic == POST_MAGIC_LZ4
+                    {
+                        let len = u32::from_le_bytes([h[4], h[5], h[6], h[7]]);
+                        total = total.saturating_add(u64::from(len));
+                    } else {
+                        // Raw postings: mmap'd or read whole; count the file.
+                        let len = fs::metadata(&post).map(|m| m.len()).unwrap_or(0);
+                        total = total.saturating_add(len);
+                    }
+                }
+            }
+            if let Some(fst) = filename("fst") {
+                // An FST that cannot be mmap'd is read whole.
+                let len = fs::metadata(&fst).map(|m| m.len()).unwrap_or(0);
+                total = total.saturating_add(len);
+            }
+            if let Some(norms) = filename("norms") {
+                let entries = match head(&norms, 9) {
+                    Some(h) if &h[..4] == NORMS_MAGIC => {
+                        u64::from(u32::from_le_bytes([h[5], h[6], h[7], h[8]]))
+                    }
+                    _ => fs::metadata(&norms).map(|m| m.len()).unwrap_or(0),
+                };
+                total = total.saturating_add(entries.saturating_mul(8));
+            }
+            if let Some(meta) = filename("meta") {
+                // `num_terms` sits at byte 20 of every ZFM header.
+                // ZFM3/4/5 expand to 24-byte flat records; legacy ZFM1/2
+                // keep a term map (`retained_bytes` counts 64 B per term)
+                // plus the term strings, which the file length covers.
+                let len = fs::metadata(&meta).map(|m| m.len()).unwrap_or(0);
+                let add = match head(&meta, 24) {
+                    Some(h) => {
+                        let terms = u64::from(u32::from_le_bytes([h[20], h[21], h[22], h[23]]));
+                        let magic = &h[..4];
+                        if magic == META_MAGIC_V1 || magic == META_MAGIC_V2 {
+                            terms.saturating_mul(64).saturating_add(len)
+                        } else {
+                            terms.saturating_mul(ZFM3_RECORD_LEN as u64)
+                        }
+                    }
+                    None => len.saturating_mul(4),
+                };
+                total = total.saturating_add(add);
+            }
+        }
+        total
+    }
+
     /// Open ONLY what BM25 collection statistics need: the FST term
     /// dictionary (mmap'd) and the small `.meta` side-car.
     ///
@@ -2133,7 +2630,7 @@ impl FtsIndexReader {
     ) -> Result<Self> {
         let segment_dir = segment_dir.as_ref().to_path_buf();
         let segment_id = segment_id.into();
-        let encoded_layout = segment_uses_encoded_filename_layout(&segment_dir, &segment_id)?;
+        let layout = segment_filename_layout(&segment_dir, &segment_id)?;
         let mut fields = HashMap::new();
 
         for &field_name in field_names {
@@ -2141,16 +2638,22 @@ impl FtsIndexReader {
             // Existence is deliberately irrelevant: otherwise a v1 field
             // whose literal name equals another field's digest component can
             // alias, and partial or stray files can alter layout selection.
+            // A v2 marker keeps mixed-case literals (`page_Id.fst`) on the
+            // v2 path; only a v3 marker looks up the case-distinguished digest.
             let filename = |ext: &str| -> Option<PathBuf> {
-                if encoded_layout {
-                    Some(field_sidecar_path(
-                        &segment_dir,
-                        &segment_id,
-                        field_name,
-                        ext,
-                    ))
-                } else {
-                    legacy_field_sidecar_path(&segment_dir, &segment_id, field_name, ext)
+                match layout {
+                    FilenameLayout::Legacy => {
+                        legacy_field_sidecar_path(&segment_dir, &segment_id, field_name, ext)
+                    }
+                    FilenameLayout::Encoded | FilenameLayout::CaseDistinguished => {
+                        Some(field_sidecar_path_for_layout(
+                            &segment_dir,
+                            &segment_id,
+                            field_name,
+                            ext,
+                            layout,
+                        ))
+                    }
                 }
             };
             let Some(fst_path) = filename("fst") else {
@@ -2779,6 +3282,35 @@ mod tests {
         assert!(reader.term_exists("t", "bagels"));
         assert!(reader.term_exists("t", "the"));
         assert!(segment_recorded_analyzers(dir2.path(), "seg0").is_none());
+    }
+
+    /// #2427/#1122: the engine reserves read memory from this estimate before
+    /// a full open, so it must not undercount what the open retains.
+    #[test]
+    fn estimate_open_bytes_covers_the_retained_postings_and_norms() {
+        let dir = TempDir::new().unwrap();
+        let mut writer = FtsIndexWriter::new(dir.path(), "seg-est", make_registry());
+        for i in 0..2_000u32 {
+            let text = format!("doc {i} alpha beta gamma term{} other{}", i % 97, i % 13);
+            let doc: HashMap<String, FieldValues> = [("body".to_owned(), FieldValues::from(text))]
+                .into_iter()
+                .collect();
+            writer.add_document(i, &doc);
+        }
+        writer.finish().unwrap();
+        let reader = FtsIndexReader::open(dir.path(), "seg-est", &["body"]).unwrap();
+        let estimate = FtsIndexReader::estimate_open_bytes(dir.path(), "seg-est", &["body"]);
+        let retained = reader.retained_bytes();
+        assert!(retained > 0);
+        assert!(
+            estimate >= retained,
+            "estimate {estimate} must cover the {retained} bytes the open retains"
+        );
+        assert_eq!(
+            FtsIndexReader::estimate_open_bytes(dir.path(), "seg-missing", &["body"]),
+            "body".len() as u64,
+            "a segment without side-cars costs (almost) nothing"
+        );
     }
 
     #[test]
@@ -3746,5 +4278,314 @@ mod tests {
             .iter()
             .all(|entry| entry.file_type().unwrap().is_file()));
         assert!(!root.path().join("escape").exists());
+    }
+
+    #[test]
+    fn case_aliased_fields_get_distinct_v3_components_and_round_trip() {
+        for (left, right) in [("page_Id", "page_id"), ("ı", "i"), ("ß", "ss"), ("ſ", "s")] {
+            assert_ne!(
+                windows_case_identity(field_file_component_v3(left).as_ref()),
+                windows_case_identity(field_file_component_v3(right).as_ref()),
+                "{left:?} and {right:?} still share a Windows case key"
+            );
+        }
+        // Layout v2 still aliases these. The marker, not file existence,
+        // selects which component function the reader uses.
+        assert_eq!(
+            windows_case_identity(field_file_component("page_Id").as_ref()),
+            windows_case_identity("page_id")
+        );
+        assert_eq!(field_file_component_v3("page_id").as_ref(), "page_id");
+        assert!(field_file_component_v3("page_Id")
+            .as_ref()
+            .starts_with(ENCODED_FIELD_COMPONENT_PREFIX));
+        assert_eq!(
+            field_file_component("bad/field"),
+            field_file_component_v3("bad/field"),
+            "unsafe names must keep the v2 digest under v3"
+        );
+        assert_eq!(field_file_component_v3("配置.名字").as_ref(), "配置.名字");
+
+        let dir = TempDir::new().unwrap();
+        let mut plain = FtsIndexWriter::new(dir.path(), "seg-plain", make_registry());
+        plain.add_document(
+            0,
+            &[("page_id".to_owned(), FieldValues::from("only-lower"))]
+                .into_iter()
+                .collect(),
+        );
+        assert!(!plain.uses_case_distinguished_field_filename_components());
+        plain.finish().unwrap();
+        assert!(!segment_filename_layout_v3_marker_path(dir.path(), "seg-plain").exists());
+
+        let document: HashMap<String, FieldValues> = [
+            ("page_Id".to_owned(), FieldValues::from("upperneedle")),
+            ("page_id".to_owned(), FieldValues::from("lowerneedle")),
+            ("ı".to_owned(), FieldValues::from("dotlessneedle")),
+            ("i".to_owned(), FieldValues::from("dottedneedle")),
+        ]
+        .into_iter()
+        .collect();
+        let mut refused = FtsIndexWriter::new(dir.path(), "seg-case", make_registry());
+        refused.add_document(0, &document);
+        assert!(refused.uses_case_distinguished_field_filename_components());
+        assert!(refused.finish().is_err());
+
+        let mut writer = FtsIndexWriter::new(dir.path(), "seg-case", make_registry());
+        writer.add_document(0, &document);
+        writer.publish_case_distinguished_filename_layout().unwrap();
+        writer.finish().unwrap();
+        assert!(segment_filename_layout_v3_marker_path(dir.path(), "seg-case").is_file());
+        assert!(!segment_filename_layout_v2_marker_path(dir.path(), "seg-case").exists());
+
+        let fields = ["page_Id", "page_id", "ı", "i"];
+        let reader = FtsIndexReader::open(dir.path(), "seg-case", &fields).unwrap();
+        assert!(reader.term_exists("page_Id", "upperneedle"));
+        assert!(reader.term_exists("page_id", "lowerneedle"));
+        assert!(!reader.term_exists("page_Id", "lowerneedle"));
+        assert!(reader.term_exists("ı", "dotlessneedle"));
+        assert!(reader.term_exists("i", "dottedneedle"));
+
+        let known: Vec<String> = fields.iter().map(|field| (*field).to_owned()).collect();
+        let listed = segment_indexed_field_names(dir.path(), "seg-case", &known).unwrap();
+        assert_eq!(
+            listed.iter().map(String::as_str).collect::<HashSet<_>>(),
+            fields.into_iter().collect::<HashSet<_>>()
+        );
+    }
+
+    #[test]
+    fn v3_layout_reuses_v2_digests_for_unsafe_names() {
+        let dir = TempDir::new().unwrap();
+        let mut writer = FtsIndexWriter::new(dir.path(), "seg-both", make_registry());
+        let document: HashMap<String, FieldValues> = [
+            ("bad/field".to_owned(), FieldValues::from("slashneedle")),
+            ("page_Id".to_owned(), FieldValues::from("caseneedle")),
+        ]
+        .into_iter()
+        .collect();
+        writer.add_document(0, &document);
+        writer.publish_case_distinguished_filename_layout().unwrap();
+        writer.finish().unwrap();
+        assert!(!segment_filename_layout_v2_marker_path(dir.path(), "seg-both").exists());
+        assert!(field_sidecar_path(dir.path(), "seg-both", "bad/field", "fst").is_file());
+        let reader =
+            FtsIndexReader::open(dir.path(), "seg-both", &["bad/field", "page_Id"]).unwrap();
+        assert!(reader.term_exists("bad/field", "slashneedle"));
+        assert!(reader.term_exists("page_Id", "caseneedle"));
+    }
+
+    #[test]
+    fn v2_and_legacy_segments_still_read_a_literal_mixed_case_field() {
+        let root = TempDir::new().unwrap();
+        let segment_dir = root.path().join("segments");
+        fs::create_dir_all(&segment_dir).unwrap();
+        for (segment_id, write_v2) in [("legacy-page", false), ("v2-page", true)] {
+            write_legacy_raw_field_fixture(&segment_dir, segment_id, "page_Id");
+            if write_v2 {
+                fs::write(
+                    segment_filename_layout_v2_marker_path(&segment_dir, segment_id),
+                    FTS_FILENAME_LAYOUT_V2_MARKER_BYTES,
+                )
+                .unwrap();
+            }
+            let reader = FtsIndexReader::open(&segment_dir, segment_id, &["page_Id"]).unwrap();
+            assert!(
+                reader.term_exists("page_Id", "legacyneedle"),
+                "{segment_id} dropped the literal mixed-case side-car"
+            );
+        }
+    }
+
+    #[test]
+    fn corrupt_v3_marker_does_not_fall_through_to_a_literal_family() {
+        let dir = TempDir::new().unwrap();
+        let mut writer = FtsIndexWriter::new(dir.path(), "seg-corrupt", make_registry());
+        writer.add_document(
+            0,
+            &[("title".to_owned(), FieldValues::from("needle"))]
+                .into_iter()
+                .collect(),
+        );
+        writer.finish().unwrap();
+        fs::write(
+            segment_filename_layout_v3_marker_path(dir.path(), "seg-corrupt"),
+            b"not-a-layout-marker",
+        )
+        .unwrap();
+        assert!(FtsIndexReader::open(dir.path(), "seg-corrupt", &["title"]).is_err());
+    }
+
+    /// The two JeecgBoot rows from issue #2254: `onl_drag_comp` JImg and
+    /// `onl_drag_page_comp` JBar3d. Linux finishes them; the publish abort was
+    /// the Windows rename of their side-cars. `page_Id` is the mixed-case
+    /// column, and the config strings carry the URL and CJK that distinguished
+    /// these rows from the rest of the dump.
+    #[test]
+    fn jeecg_jimg_and_jbar3d_rows_finish_for_standard_and_keyword() {
+        let jimg = [
+            ("comp_type", "JImg"),
+            ("comp_name", "图片"),
+            ("icon", "ion:image-sharp"),
+            (
+                "comp_config",
+                r#"{"url":"http://api.jeecg.com/mock/42/nav"}"#,
+            ),
+            ("update_by", "admin"),
+        ];
+        let jbar = [
+            ("component", "JBar3d"),
+            ("page_Id", "1212561321588641792"),
+            (
+                "config",
+                r#"{"filed":"维度","url":"http://api.jeecg.com/mock/33/chart","name":"苹果"}"#,
+            ),
+            ("create_by", "admin"),
+        ];
+        for analyzer in ["standard", "keyword"] {
+            let dir = TempDir::new().unwrap();
+            let segment = format!("jeecg-{analyzer}");
+            let mut writer = FtsIndexWriter::new(dir.path(), &segment, make_registry());
+            let config = FieldIndexConfig {
+                analyzer: analyzer.to_owned(),
+                store_positions: analyzer != "keyword",
+                store_term_vectors: false,
+            };
+            for (name, _) in jimg.iter().chain(jbar.iter()) {
+                writer.configure_field((*name).to_owned(), config.clone());
+            }
+            let to_doc = |rows: &[(&str, &str)]| -> HashMap<String, FieldValues> {
+                rows.iter()
+                    .map(|(key, value)| ((*key).to_owned(), FieldValues::from(*value)))
+                    .collect()
+            };
+            writer.add_document(0, &to_doc(&jimg));
+            writer.add_document(1, &to_doc(&jbar));
+            assert!(writer.uses_case_distinguished_field_filename_components());
+            writer.publish_case_distinguished_filename_layout().unwrap();
+            writer.finish().expect(analyzer);
+            let fields: Vec<&str> = jimg
+                .iter()
+                .chain(jbar.iter())
+                .map(|(name, _)| *name)
+                .collect();
+            let reader = FtsIndexReader::open(dir.path(), &segment, &fields).unwrap();
+            if analyzer == "standard" {
+                assert!(reader.term_exists("comp_type", "jimg"));
+                assert!(reader.term_exists("component", "jbar3d"));
+                assert!(reader.term_exists("update_by", "admin"));
+                assert!(reader.term_exists("comp_config", "nav"));
+                assert!(reader.term_exists("config", "chart"));
+                assert!(reader.term_exists("page_Id", "1212561321588641792"));
+            } else {
+                assert!(reader.term_exists("comp_type", "JImg"));
+                assert!(reader.term_exists("component", "JBar3d"));
+                assert!(reader.term_exists("page_Id", "1212561321588641792"));
+                assert!(reader.term_exists("comp_name", "图片"));
+            }
+            assert!(segment_filename_layout_v3_marker_path(dir.path(), &segment).is_file());
+        }
+    }
+
+    #[test]
+    fn total_term_frequency_below_doc_frequency_is_an_error() {
+        let stats = FieldStats {
+            total_docs: 2,
+            total_field_length: 2,
+        };
+        let mut map = HashMap::new();
+        map.insert(
+            "alpha".to_owned(),
+            TermPostings {
+                doc_frequency: 2,
+                total_term_frequency: 1,
+                postings_offset: 0,
+                postings_length: 4,
+            },
+        );
+        let error = encode_field_meta_v5(&stats, true, &["alpha".to_owned()], &map, 3).unwrap_err();
+        let message = format!("{error:#}");
+        assert!(message.contains("alpha"), "{message}");
+        assert!(message.contains("total_term_frequency"), "{message}");
+        assert!(message.contains("doc_frequency"), "{message}");
+    }
+
+    #[test]
+    fn a_panic_while_writing_a_field_is_an_error_naming_the_field() {
+        let dir = TempDir::new().unwrap();
+        let mut writer = FtsIndexWriter::new(dir.path(), "seg-panic", make_registry());
+        writer.panic_while_writing_field("body");
+        writer.add_document(
+            0,
+            &[("body".to_owned(), FieldValues::from("needle"))]
+                .into_iter()
+                .collect(),
+        );
+        let error = writer.finish().unwrap_err();
+        let message = format!("{error:#}");
+        assert!(message.contains("simulated fst merge panic"), "{message}");
+        assert!(message.contains("body"), "{message}");
+        assert!(
+            !dir.path().join("seg-panic.body.fst").exists(),
+            "a panicked field write must not leave a published side-car"
+        );
+    }
+
+    #[test]
+    fn a_blocked_side_car_publish_names_the_path_and_the_os_error() {
+        let dir = TempDir::new().unwrap();
+        let mut writer = FtsIndexWriter::new(dir.path(), "seg-block", make_registry());
+        writer.add_document(
+            0,
+            &[("body".to_owned(), FieldValues::from("needle"))]
+                .into_iter()
+                .collect(),
+        );
+        // The publish renames onto these names. A directory at every
+        // destination makes whichever file is published first fail, the
+        // same way a locked or unreplaceable side-car fails on Windows.
+        for extension in ["fst", "post", "meta", "norms"] {
+            fs::create_dir(dir.path().join(format!("seg-block.body.{extension}"))).unwrap();
+        }
+        let error = writer.finish().unwrap_err();
+        let message = format!("{error:#}");
+        assert!(
+            message.contains("seg-block.body."),
+            "the failing side-car path must be in the error, got {message}"
+        );
+        assert!(
+            message.contains("os error"),
+            "the OS code must be in the error, got {message}"
+        );
+    }
+
+    #[test]
+    fn discard_segment_fts_files_keeps_the_stored_segment_and_names_a_stuck_file() {
+        let dir = TempDir::new().unwrap();
+        fs::write(dir.path().join("seg.body.fst"), b"fst").unwrap();
+        fs::write(dir.path().join("seg.fts-layout-v3"), b"marker").unwrap();
+        fs::write(dir.path().join("seg.seg"), b"stored").unwrap();
+        fs::write(dir.path().join("seg.ids"), b"ids").unwrap();
+        fs::write(dir.path().join("seg.dv"), b"dv").unwrap();
+        fs::write(dir.path().join("other.body.fst"), b"other").unwrap();
+        discard_segment_fts_files(dir.path(), "seg").unwrap();
+        assert!(!dir.path().join("seg.body.fst").exists());
+        assert!(!dir.path().join("seg.fts-layout-v3").exists());
+        assert_eq!(fs::read(dir.path().join("seg.seg")).unwrap(), b"stored");
+        assert_eq!(fs::read(dir.path().join("seg.ids")).unwrap(), b"ids");
+        assert_eq!(fs::read(dir.path().join("seg.dv")).unwrap(), b"dv");
+        assert_eq!(
+            fs::read(dir.path().join("other.body.fst")).unwrap(),
+            b"other"
+        );
+
+        let stuck = dir.path().join("seg.body.post");
+        fs::create_dir(&stuck).unwrap();
+        fs::write(stuck.join("held"), b"x").unwrap();
+        let error = discard_segment_fts_files(dir.path(), "seg").unwrap_err();
+        let message = error.to_string();
+        assert!(message.contains("seg.body.post"), "{message}");
+        assert!(message.contains("os error"), "{message}");
+        assert!(stuck.join("held").exists());
     }
 }

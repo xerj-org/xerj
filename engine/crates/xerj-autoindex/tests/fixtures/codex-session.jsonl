@@ -1,0 +1,10 @@
+{"timestamp":"2026-10-25T00:00:00Z","type":"session_meta","payload":{"id":"550e8400-e29b-41d4-a716-446655440000","cwd":"/synthetic/project","git":{"branch":"main"},"base_instructions":{"text":"DO_NOT_EXPORT_INSTRUCTIONS"}}}
+{"timestamp":"2026-10-25T00:00:01Z","type":"response_item","payload":{"type":"message","role":"developer","content":[{"type":"input_text","text":"DO_NOT_EXPORT_DEVELOPER"}]}}
+{"timestamp":"2026-10-25T00:00:02Z","type":"turn_context","payload":{"cwd":"/synthetic/project","user_instructions":"DO_NOT_EXPORT_CONTEXT"}}
+{"timestamp":"2026-10-25T00:00:03Z","type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"Why did we drop polling?"},{"type":"input_image","image_url":"DO_NOT_EXPORT_IMAGE"}]}}
+{"timestamp":"2026-10-25T00:00:04Z","type":"event_msg","payload":{"type":"user_message","message":"DO_NOT_EXPORT_DUPLICATE_USER"}}
+{"timestamp":"2026-10-25T00:00:05Z","type":"response_item","payload":{"type":"reasoning","summary":[{"type":"summary_text","text":"DO_NOT_EXPORT_REASONING"}],"encrypted_content":"DO_NOT_EXPORT_ENCRYPTED"}}
+{"timestamp":"2026-10-25T00:00:06Z","type":"response_item","payload":{"type":"function_call","name":"exec_command","arguments":"DO_NOT_EXPORT_TOOL"}}
+{"timestamp":"2026-10-25T00:00:07Z","type":"response_item","payload":{"type":"function_call_output","output":"DO_NOT_EXPORT_RESULT"}}
+{"timestamp":"2026-10-25T00:00:08Z","type":"response_item","payload":{"type":"message","id":"msg_provider_owner@example.com","role":"assistant","phase":"final_answer","content":[{"type":"output_text","text":"We dropped polling because the durable journal recovers missed file events. Contact owner@example.com.","annotations":["DO_NOT_EXPORT_ANNOTATIONS"]}],"encrypted_content":"DO_NOT_EXPORT_ENCRYPTED_MESSAGE"}}
+{"timestamp":"2026-10-25T00:00:09Z","type":"event_msg","payload":{"type":"agent_message","message":"DO_NOT_EXPORT_DUPLICATE_ASSISTANT"}}

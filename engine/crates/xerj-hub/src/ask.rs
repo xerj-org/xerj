@@ -9,8 +9,13 @@
 //!    anything else is [`AnswerMode::How`]; `--files` forces
 //!    [`AnswerMode::Files`] ([`detect_mode`]).
 //! 2. **Route** ([`crate::router::route`]). `--corpus` skips routing.
-//!    Ambiguous → the candidates are printed and the exit code is **4**;
-//!    nothing credible → exit **1** with the llms.txt pointer.
+//!    A question that names a language or technology is answered from that
+//!    corpus, or from a tight group of at most three which are searched
+//!    together; the answer's first line names them (`using: slug, slug`).
+//!    Genuinely ambiguous → a few candidates, best first, and exit code **4**;
+//!    nothing credible → exit **1** with the llms.txt pointer. A weak overlap,
+//!    or a tie on some other word while the question names a project no corpus
+//!    contains, is the same exit **1** with [`NO_COVERAGE_MESSAGE`] — not exit 4.
 //! 3. **Cached pack** → answer locally ([`AnsweredFrom::LocalPack`]); the
 //!    network is not touched.
 //! 4. **No pack, hosted allowed** → answer through the hosted hub now, then (unless
@@ -47,10 +52,10 @@
 //! | code | meaning |
 //! |------|---------|
 //! | 0 | answered, at least one hit |
-//! | 1 | no match; no corpus; offline/no-fetch with no pack; pull or node failure |
+//! | 1 | no match; no corpus; no coverage (the topic is absent — index it locally); offline/no-fetch with no pack; pull or node failure |
 //! | 2 | usage error; unknown `--corpus`; a pull rejected the slug |
 //! | 3 | a pulled pack failed verification (sha256 / signature / format) |
-//! | 4 | ambiguous — re-run with `--corpus` (the code `xerj autoindex` uses for "needs a decision") |
+//! | 4 | ambiguous — several corpora actually match; re-run with `--corpus` (the code `xerj autoindex` uses for "needs a decision") |
 //! | 5 | this build has no hub public key, so no pack can be verified (nothing was downloaded) |
 
 use std::cell::RefCell;
@@ -70,7 +75,7 @@ use xerj_common::xccode::{self, licence, passage, state, CodeParams, XcHttp};
 
 use crate::catalogue::load_catalogue;
 use crate::node::{self, HubNode, NodeLauncher, ResolvedNode};
-use crate::router::{route_ranked, HostedSearch, Routing};
+use crate::router::{cap_ambiguous, route_ranked, HostedSearch, Routing};
 use crate::{cli, def, lockfile, sketch};
 
 /// Answered with at least one hit.
@@ -86,9 +91,20 @@ pub const EXIT_NEEDS_DECISION: i32 = 4;
 /// A pull was refused because this build has no hub public key: not a pack that
 /// failed verification ([`EXIT_UNVERIFIED`]) but one that cannot be judged at all.
 pub const EXIT_NO_KEY: i32 = 5;
+/// The hub catalogue could not be loaded (the hub is unreachable, serves no signed
+/// catalogue, or `--offline` has no cached one). Not [`EXIT_NO_ANSWER`]: that one
+/// says "the hub has nothing for this question", which an agent reads as an answer
+/// about the corpus, while this one is about the hub itself and is worth a retry.
+pub const EXIT_HUB_UNAVAILABLE: i32 = 6;
 
 /// Printed (stderr) when the router finds nothing credible.
 pub const NO_CORPUS_MESSAGE: &str = "no hub corpus matches; see xerj.org/llms.txt";
+/// Printed (stderr) when candidates exist but none covers the question: every
+/// score is a weak overlap, or the question names a project no corpus contains.
+/// Exit [`EXIT_NO_ANSWER`], not the ambiguity exit — there is nothing to pick.
+pub const NO_COVERAGE_MESSAGE: &str = "no hub corpus covers this topic; index it locally with \
+     `xerj autoindex <path>`, then `xerj code` or `xerj search`. Discover what the hub does have \
+     with `xerj hub find`";
 /// Printed once (stderr) the first time `--hosted auto` resolves to off inside a
 /// git work tree.
 pub const HOSTED_OFF_NOTICE: &str =
@@ -273,9 +289,10 @@ pub struct AskDeps<'a> {
 // ── step 1: mode ─────────────────────────────────────────────────────────────
 
 /// Decide the answer mode and the symbol (for `Def`). `--def` / `--how` /
-/// `--files` win; otherwise a question that is one identifier, or that matches
-/// `what is the (exact )?value of (\w+)`, is a definition lookup, and anything
-/// else is a how-does-it-work question.
+/// `--files` win; otherwise a question that is one identifier, that matches
+/// `what is the (exact )?value of (\w+)`, or that asks `what is <SYMBOL>` /
+/// `what's <SYMBOL>` about a code-shaped name ([`looks_like_code_symbol`]), is a
+/// definition lookup, and anything else is a how-does-it-work question.
 pub fn detect_mode(question: &str, requested: &ModeRequest) -> (AnswerMode, Option<String>) {
     match requested {
         ModeRequest::Def(sym) => (AnswerMode::Def, Some(sym.clone())),
@@ -307,6 +324,7 @@ fn is_identifier(s: &str) -> bool {
 /// The symbol in `what is the (exact )?value of (\w+)`, matched anywhere in the
 /// question and case-insensitively on the fixed words (a sentence starts with a
 /// capital); the symbol keeps its own case.
+/// Failing that, the code-shaped symbol in `what is <SYMBOL>` / `what's <SYMBOL>`.
 fn value_of_symbol(q: &str) -> Option<String> {
     // ASCII lowercasing keeps every byte offset, so `pos` indexes `q` too.
     let lower = q.to_ascii_lowercase();
@@ -321,7 +339,36 @@ fn value_of_symbol(q: &str) -> Option<String> {
             }
         }
     }
+    // `what is LZ4_VERSION_RELEASE in lz4?` — the plain form, but only for a
+    // name that is visibly code: `what is compression` stays a how question.
+    for lead in ["what is ", "what's "] {
+        if let Some(pos) = lower.find(lead) {
+            let sym: String = q[pos + lead.len()..]
+                .chars()
+                .skip_while(|c| *c == '`')
+                .take_while(|c| c.is_alphanumeric() || *c == '_')
+                .collect();
+            if looks_like_code_symbol(&sym) {
+                return Some(sym);
+            }
+        }
+    }
     None
+}
+
+/// A word that can only be a code identifier, not prose: an identifier with an
+/// underscore (`LZ4_VERSION_RELEASE`, `max_len`), or mixed case past its first
+/// letter (`HashMap`, `readFile`). `LZ4`, `Snappy` and `compression` are not —
+/// they read as names or words, and a def lookup on them would miss.
+fn looks_like_code_symbol(s: &str) -> bool {
+    if !is_identifier(s) {
+        return false;
+    }
+    let has_word_char = s.chars().any(|c| c.is_ascii_alphanumeric());
+    let underscored = s.contains('_') && has_word_char;
+    let mixed_case = s.chars().any(|c| c.is_ascii_lowercase())
+        && s.chars().skip(1).any(|c| c.is_ascii_uppercase());
+    underscored || mixed_case
 }
 
 // ── step 4/5: the pull policy ────────────────────────────────────────────────
@@ -520,10 +567,28 @@ pub fn ask(args: &AskArgs, deps: &AskDeps<'_>) -> AskOutcome {
         }
     };
 
-    // Step 2: route.
-    let Some(slug) = select_corpus(args, deps, hosted, symbol.as_deref(), &mut out) else {
+    // Step 2: route. One corpus keeps the single-corpus path. A tight group is
+    // searched together; each member is answered the same way one corpus would
+    // be (local pack, else hosted, else a pull under the auto-pull cap).
+    let Some(slugs) = select_corpus(args, deps, hosted, symbol.as_deref(), &mut out) else {
         return out;
     };
+    if slugs.len() == 1 {
+        return answer_known_slug(args, deps, hosted, &slugs[0], mode, symbol.as_deref(), out);
+    }
+    answer_group(args, deps, hosted, &slugs, mode, symbol.as_deref(), out)
+}
+
+/// Answer `slug`. `out` already carries notices from resolving the hosted switch.
+fn answer_known_slug(
+    args: &AskArgs,
+    deps: &AskDeps<'_>,
+    hosted: Option<&dyn HostedHub>,
+    slug: &str,
+    mode: AnswerMode,
+    symbol: Option<&str>,
+    mut out: AskOutcome,
+) -> AskOutcome {
     let entry = deps.catalogue.corpora.iter().find(|e| e.slug == slug);
     // An excluded licence class is never served — not from a pack that happens to
     // be on disk (pulled before a reclassification, or copied in by hand), and not
@@ -533,23 +598,23 @@ pub fn ask(args: &AskArgs, deps: &AskDeps<'_>) -> AskOutcome {
     if let Some(e) = entry.filter(|e| e.licence_class == LicenceClass::Excluded) {
         out.stderr.push(format!(
             "'{}' has an excluded licence class ({}) and is never served or pulled",
-            printable(&slug),
+            printable(slug),
             printable(&e.licence_spdx)
         ));
         out.exit = EXIT_NO_ANSWER;
         return out;
     }
     let req = Request {
-        slug: &slug,
+        slug,
         question: &args.question,
         mode,
-        symbol: symbol.as_deref(),
+        symbol,
         max_tokens: args.max_tokens,
         k: args.k,
     };
 
     // Step 3: a pack on this machine answers locally, with no network.
-    match deps.backend.local_pack_ready(&slug) {
+    match deps.backend.local_pack_ready(slug) {
         Ok(true) => return answer_locally(args, deps, &req, entry, out),
         Ok(false) => {}
         Err(e) => out.stderr.push(format!("local pack unavailable: {e}")),
@@ -558,13 +623,13 @@ pub fn ask(args: &AskArgs, deps: &AskDeps<'_>) -> AskOutcome {
     // Step 4: hosted answers now; the pull happens behind it.
     if let Some(h) = hosted {
         match h.answer(&req) {
-            Ok(answer) => return finish_hosted(args, deps, &slug, entry, answer, out),
+            Ok(answer) => return finish_hosted(args, deps, slug, entry, answer, out),
             Err(e) => out.stderr.push(format!("hosted answer failed: {e:#}")),
         }
     }
 
     // Step 5: neither a pack nor a hosted answer.
-    let shown = printable(&slug);
+    let shown = printable(slug);
     let Some(entry) = entry else {
         out.stderr.push(format!(
             "corpus '{shown}' is not in the catalogue, so it cannot be pulled, and no hosted \
@@ -628,6 +693,77 @@ pub fn ask(args: &AskArgs, deps: &AskDeps<'_>) -> AskOutcome {
     }
 }
 
+/// Search a tight group and merge what came back. Each member is answered on
+/// its own (a local pack, a hosted call, or a pull under the cap). A member
+/// that cannot be answered is skipped; the `using:` line names the corpora
+/// that produced an answer. The line is the whole of the group contract: one
+/// line, the slugs that were actually searched.
+fn answer_group(
+    args: &AskArgs,
+    deps: &AskDeps<'_>,
+    hosted: Option<&dyn HostedHub>,
+    slugs: &[String],
+    mode: AnswerMode,
+    symbol: Option<&str>,
+    mut out: AskOutcome,
+) -> AskOutcome {
+    let mut answers: Vec<Answer> = Vec::new();
+    let mut last_fail = EXIT_NO_ANSWER;
+    for slug in slugs {
+        let outcome = answer_known_slug(
+            args,
+            deps,
+            hosted,
+            slug,
+            mode,
+            symbol,
+            AskOutcome::default(),
+        );
+        out.stderr.extend(outcome.stderr);
+        if let Some(answer) = outcome.answer {
+            answers.push(answer);
+        } else {
+            last_fail = outcome.exit;
+        }
+    }
+    if answers.is_empty() {
+        out.exit = last_fail;
+        return out;
+    }
+    let names: Vec<String> = answers.iter().map(|a| a.corpus.clone()).collect();
+    let using = format!(
+        "using: {}",
+        names
+            .iter()
+            .map(|s| printable(s))
+            .collect::<Vec<_>>()
+            .join(", ")
+    );
+    let any_hits = answers.iter().any(|a| !a.hits.is_empty());
+    let mut merged = answers[0].clone();
+    for extra in answers.iter().skip(1) {
+        merged.hits.extend(extra.hits.iter().cloned());
+        for warning in &extra.warnings {
+            push_unique(&mut merged.warnings, warning.clone());
+        }
+    }
+    merged.hits.sort_by(|a, b| {
+        b.score
+            .partial_cmp(&a.score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    merged.corpus = names.join(",");
+    out.stdout = if args.json {
+        serde_json::to_string(&merged).unwrap_or_else(|e| format!("{{\"error\":\"{e}\"}}"))
+    } else {
+        let body = answers.iter().map(render).collect::<Vec<_>>().join("\n");
+        format!("{using}\n{body}")
+    };
+    out.exit = if any_hits { EXIT_OK } else { EXIT_NO_ANSWER };
+    out.answer = Some(merged);
+    out
+}
+
 /// A definition name found in the term sketches of more corpora than this names no
 /// one corpus (`main`, `init`, `NULL`): it is not evidence, and listing every
 /// corpus that defines it would only be noise.
@@ -679,11 +815,16 @@ fn with_symbol_evidence(routing: Routing, hits: &[String]) -> Routing {
     };
     match routing {
         Routing::Confident(slug) => Routing::Confident(slug),
+        // The identity group already decided. A symbol defined in one of them
+        // must not drop the others, and one defined elsewhere must not widen it.
+        Routing::Group(slugs) => Routing::Group(slugs),
         Routing::Ambiguous(slugs) => {
             let both: Vec<String> = slugs.iter().filter(|s| hits.contains(s)).cloned().collect();
             pick(both).unwrap_or(Routing::Ambiguous(slugs))
         }
-        Routing::NoCorpus => pick(hits.to_vec()).unwrap_or(Routing::NoCorpus),
+        // A coverage gap names no corpus. A symbol defined in one or several
+        // corpora is still evidence: it decides, the same way it does for a miss.
+        Routing::NoCorpus | Routing::NoCoverage => pick(hits.to_vec()).unwrap_or(routing),
     }
 }
 
@@ -721,17 +862,74 @@ fn printable_slug(s: &str) -> String {
 }
 
 /// Step 2. `None` means `out` already holds the verdict (an exit code and its
-/// message / candidate lines).
+/// message / candidate lines). A tight group comes back as two or three slugs,
+fn catalogue_entry<'a>(cat: &'a Catalogue, slug: &str) -> Option<&'a CatalogueEntry> {
+    cat.corpora.iter().find(|e| e.slug == slug)
+}
+
+/// Candidate lines for a decision: each pack's upstream and description, plus
+/// a note when the question named a different project of the same stem.
+fn candidate_text(question: &str, cat: &Catalogue, slugs: &[String]) -> String {
+    slugs
+        .iter()
+        .map(|s| match catalogue_entry(cat, s) {
+            Some(e) => {
+                let mut line = identity_line(&e.slug, &e.upstream, &e.ask_for);
+                if let Some(token) =
+                    different_project_token(question, &e.slug, &e.upstream, &e.ask_for)
+                {
+                    line.push('\n');
+                    line.push_str(&collision_sentence(&token, &e.slug, &e.upstream));
+                }
+                line
+            }
+            None => printable(s),
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// `(query token, slug, upstream)` of the first listed corpus the question
+/// names as a different project.
+fn first_collision(
+    question: &str,
+    cat: &Catalogue,
+    slugs: &[String],
+) -> Option<(String, String, String)> {
+    for s in slugs {
+        let Some(e) = catalogue_entry(cat, s) else {
+            continue;
+        };
+        if let Some(token) = different_project_token(question, &e.slug, &e.upstream, &e.ask_for) {
+            return Some((token, e.slug.clone(), e.upstream.clone()));
+        }
+    }
+    None
+}
+
+fn collision_hint(token: &str, slug: &str, upstream: &str) -> String {
+    let who = if upstream.is_empty() {
+        printable(slug)
+    } else {
+        printable(upstream)
+    };
+    format!(
+        "\"{}\" is a different project than this pack ({who}); re-run with --corpus <slug> only if that is the project you meant",
+        printable(token)
+    )
+}
+
+/// best first; one confident corpus comes back as a one-element list.
 fn select_corpus(
     args: &AskArgs,
     deps: &AskDeps<'_>,
     hosted: Option<&dyn HostedHub>,
     symbol: Option<&str>,
     out: &mut AskOutcome,
-) -> Option<String> {
+) -> Option<Vec<String>> {
     if let Some(c) = &args.corpus {
         if deps.catalogue.corpora.iter().any(|e| &e.slug == c) {
-            return Some(c.clone());
+            return Some(vec![c.clone()]);
         }
         out.stderr.push(format!(
             "unknown corpus '{}' (catalogue generated {})",
@@ -756,7 +954,7 @@ fn select_corpus(
     // the machine.
     let (routing, mut ranked) = route_ranked(&args.question, deps.cwd, catalogue, None, &cached);
     let mut routing = with_symbol_evidence(routing, &by_symbol);
-    if !matches!(routing, Routing::Confident(_)) {
+    if !matches!(routing, Routing::Confident(_) | Routing::Group(_)) {
         if let Some(h) = hosted {
             let (hosted_routing, hosted_ranked) = route_ranked(
                 &args.question,
@@ -782,6 +980,14 @@ fn select_corpus(
     let known = |s: &String| catalogue.corpora.iter().any(|e| &e.slug == s);
     let routing = match routing {
         Routing::Confident(slug) if excluded(&slug) => Routing::NoCorpus,
+        Routing::Group(slugs) => {
+            let kept: Vec<String> = slugs.into_iter().filter(|s| !excluded(s)).collect();
+            match kept.len() {
+                0 => Routing::NoCorpus,
+                1 => Routing::Confident(kept.into_iter().next().expect("len 1")),
+                _ => Routing::Group(kept),
+            }
+        }
         Routing::Ambiguous(slugs) => {
             let kept: Vec<String> = slugs.into_iter().filter(|s| !excluded(s)).collect();
             // One left is still not a confident pick: the asker decides.
@@ -793,37 +999,69 @@ fn select_corpus(
         }
         other => other,
     };
+    let routing = cap_ambiguous(routing);
     match routing {
-        Routing::Confident(slug) => Some(slug),
+        Routing::Confident(slug) => {
+            let slugs = vec![slug];
+            if let Some((token, s, up)) = first_collision(&args.question, catalogue, &slugs) {
+                out.stdout = candidate_text(&args.question, catalogue, &slugs);
+                out.stderr.push(collision_hint(&token, &s, &up));
+                out.exit = EXIT_NEEDS_DECISION;
+                None
+            } else {
+                Some(slugs)
+            }
+        }
+        Routing::Group(slugs) => {
+            if let Some((token, s, up)) = first_collision(&args.question, catalogue, &slugs) {
+                out.stdout = candidate_text(&args.question, catalogue, &slugs);
+                out.stderr.push(collision_hint(&token, &s, &up));
+                out.exit = EXIT_NEEDS_DECISION;
+                None
+            } else {
+                Some(slugs)
+            }
+        }
         Routing::Ambiguous(slugs) => {
-            let lines: Vec<String> = slugs
-                .iter()
-                .map(|s| {
-                    let ask_for = catalogue
-                        .corpora
-                        .iter()
-                        .find(|e| &e.slug == s)
-                        .map(|e| printable(&e.ask_for))
-                        .unwrap_or_default();
-                    format!("{} — {ask_for}", printable(s))
-                })
-                .collect();
-            out.stdout = lines.join("\n");
+            out.stdout = candidate_text(&args.question, catalogue, &slugs);
             out.stderr
                 .push("more than one corpus matches; re-run with --corpus <slug>".to_string());
             out.exit = EXIT_NEEDS_DECISION;
             None
         }
+        Routing::NoCoverage => {
+            // Not a choice among the nearest packs. Discovery is `xerj hub find`;
+            // the topic itself has to be indexed locally.
+            out.stderr.push(NO_COVERAGE_MESSAGE.to_string());
+            out.exit = EXIT_NO_ANSWER;
+            None
+        }
         Routing::NoCorpus => {
             out.stderr.push(NO_CORPUS_MESSAGE.to_string());
             // Nothing was credible, but something may have been close: name the
-            // nearest few so the asker can pick one with `--corpus` instead of
-            // starting over from "no".
+            // nearest few, with what each pack is, so the asker can pick one
+            // with `--corpus` instead of starting over from "no".
             let closest: Vec<String> = ranked
                 .iter()
                 .filter(|(slug, _)| known(slug))
                 .take(CLOSEST_SHOWN)
-                .map(|(slug, _)| printable(slug))
+                .map(|(slug, _)| match catalogue_entry(catalogue, slug) {
+                    Some(e) => {
+                        let mut line = identity_line(&e.slug, &e.upstream, &e.ask_for);
+                        if let Some(token) = different_project_token(
+                            &args.question,
+                            &e.slug,
+                            &e.upstream,
+                            &e.ask_for,
+                        ) {
+                            line.push_str(" (");
+                            line.push_str(&collision_sentence(&token, &e.slug, &e.upstream));
+                            line.push(')');
+                        }
+                        line
+                    }
+                    None => printable(slug),
+                })
                 .collect();
             if !closest.is_empty() {
                 out.stderr.push(format!(
@@ -1598,8 +1836,13 @@ pub fn run_ask_with(
             Ok(c) => c,
             Err(e) => {
                 return AskOutcome::fail(
-                    EXIT_NO_ANSWER,
-                    format!("cannot load the hub catalogue: {e:#}"),
+                    EXIT_HUB_UNAVAILABLE,
+                    format!(
+                        "cannot load the hub catalogue: {e:#}\n\
+                         (exit {EXIT_HUB_UNAVAILABLE}: the hub itself is unavailable; this says nothing about \
+                         whether a corpus holds the answer. Retry later, point XERJ_HUB_URL at a working hub, \
+                         or ask with --offline once a catalogue is cached.)"
+                    ),
                 )
             }
         }
@@ -1630,9 +1873,11 @@ pub const FIND_MAX_K: usize = 10;
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct FoundCorpus {
     pub slug: String,
-    /// The router's merged evidence score (dependency 1.0, sketch ≤ 0.8, +0.05
-    /// when cached); 0 for a corpus proposed only because its definitions hold
-    /// the exact symbol the question names.
+    /// The router's score for this corpus. Identity matches (a slug, tag, or
+    /// language word) are on their own scale, above the sketch's 0.8 ceiling;
+    /// dependency evidence is 1.0, a sketch is at most 0.8, and a cached pack
+    /// adds 0.05 on the sketch path. 0 for a corpus proposed only because its
+    /// definitions hold the exact symbol the question names.
     pub score: f32,
     pub cached: bool,
     pub ask_for: String,
@@ -1642,22 +1887,41 @@ pub struct FoundCorpus {
     pub licence_spdx: String,
     pub licence_class: LicenceClass,
     pub pack_bytes: u64,
+    /// `owner/name` of the upstream repo. Empty when the catalogue has none.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub upstream: String,
+    /// A query token that names a different project sharing only this slug's
+    /// stem (`fabric.js` against `danielmiessler/fabric`). Empty when the
+    /// names agree.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub different_project: String,
 }
 
 /// What [`find`] decided: the router's verdict and the candidates, best first.
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct FindOutcome {
-    /// `confident` | `ambiguous` | `no_corpus` — the verdict `xerj ask` would act on.
+    /// `confident` | `ambiguous` | `no_corpus` | `no_coverage` | `different_project`.
+    ///
+    /// `different_project` means the router would have answered from a slug
+    /// whose name the question only shares: the question names another project
+    /// (`fabric.js`) and this pack is a different one (`danielmiessler/fabric`).
+    /// `xerj ask` does not answer that as a silent match; it prints the pack's
+    /// identity and exits 4.
+    ///
+    /// `no_coverage` means candidates may be listed but none covers the topic
+    /// (weak scores, or the question names a project the catalogue does not
+    /// contain). `xerj ask` exits 1 with the local-index hint, not 4.
     pub routing: &'static str,
     pub corpora: Vec<FoundCorpus>,
 }
 
 /// Which corpora could answer `question` — the routing half of [`ask`], with
 /// nothing answered and nothing pulled. The evidence is exactly what
-/// [`ask`]'s corpus selection uses before it consults a hosted node: the
-/// project's dependencies (from `cwd`), the catalogue's term sketches, the
-/// exact-symbol evidence for a definition question, and the cached-pack bonus.
-/// An `excluded` corpus is never listed (it is never served either).
+/// [`ask`]'s corpus selection uses before it consults a hosted node: identity
+/// (slug, topics, language, description), the project's dependencies (from
+/// `cwd`), the catalogue's term sketches, the exact-symbol evidence for a
+/// definition question, and the cached-pack bonus. An `excluded` corpus is
+/// never listed (it is never served either).
 pub fn find(
     question: &str,
     k: usize,
@@ -1673,13 +1937,14 @@ pub fn find(
         .map(|s| symbol_hits(catalogue, s.trim()))
         .unwrap_or_default();
     let (routing, ranked) = route_ranked(question, cwd, catalogue, None, &cached);
-    let routing = with_symbol_evidence(routing, &by_symbol);
-    // The verdict's own order first (a confident pick, or the ambiguous list),
-    // then everything else the router ranked, then symbol-only candidates.
+    let routing = cap_ambiguous(with_symbol_evidence(routing, &by_symbol));
+    // The verdict's own order first (a confident pick, the group, or the
+    // ambiguous list), then everything else the router ranked, then
+    // symbol-only candidates.
     let mut order: Vec<String> = match &routing {
         Routing::Confident(slug) => vec![slug.clone()],
-        Routing::Ambiguous(slugs) => slugs.clone(),
-        Routing::NoCorpus => Vec::new(),
+        Routing::Group(slugs) | Routing::Ambiguous(slugs) => slugs.clone(),
+        Routing::NoCorpus | Routing::NoCoverage => Vec::new(),
     };
     for slug in ranked.iter().map(|(s, _)| s).chain(by_symbol.iter()) {
         if !order.contains(slug) {
@@ -1693,28 +1958,50 @@ pub fn find(
             .map(|(_, score)| *score)
             .unwrap_or(0.0)
     };
-    let corpora = order
+    let corpora: Vec<FoundCorpus> = order
         .iter()
         .filter_map(|slug| catalogue.corpora.iter().find(|e| &e.slug == slug))
         .filter(|e| e.licence_class != LicenceClass::Excluded)
         .take(k)
-        .map(|e| FoundCorpus {
-            slug: e.slug.clone(),
-            score: score_of(&e.slug),
-            cached: cached.contains(&e.slug),
-            ask_for: e.ask_for.clone(),
-            domain: e.domain.clone(),
-            pin_sha: e.pin_sha.clone(),
-            pin_date: e.pin_date.clone(),
-            licence_spdx: e.licence_spdx.clone(),
-            licence_class: e.licence_class,
-            pack_bytes: e.pack_bytes,
+        .map(|e| {
+            let different_project =
+                different_project_token(question, &e.slug, &e.upstream, &e.ask_for)
+                    .unwrap_or_default();
+            FoundCorpus {
+                slug: e.slug.clone(),
+                score: score_of(&e.slug),
+                cached: cached.contains(&e.slug),
+                ask_for: e.ask_for.clone(),
+                domain: e.domain.clone(),
+                pin_sha: e.pin_sha.clone(),
+                pin_date: e.pin_date.clone(),
+                licence_spdx: e.licence_spdx.clone(),
+                licence_class: e.licence_class,
+                pack_bytes: e.pack_bytes,
+                upstream: e.upstream.clone(),
+                different_project,
+            }
         })
         .collect();
+    let verdict_slugs: Vec<&str> = match &routing {
+        Routing::Confident(slug) => vec![slug.as_str()],
+        Routing::Group(slugs) | Routing::Ambiguous(slugs) => {
+            slugs.iter().map(String::as_str).collect()
+        }
+        Routing::NoCorpus | Routing::NoCoverage => Vec::new(),
+    };
+    // A confident (or grouped) name match that is actually a different project
+    // is not reported as confident: the caller must see the mismatch.
+    let collided = matches!(routing, Routing::Confident(_) | Routing::Group(_))
+        && corpora
+            .iter()
+            .any(|c| !c.different_project.is_empty() && verdict_slugs.contains(&c.slug.as_str()));
     FindOutcome {
         routing: match routing {
-            Routing::Confident(_) => "confident",
+            _ if collided => "different_project",
+            Routing::Confident(_) | Routing::Group(_) => "confident",
             Routing::Ambiguous(_) => "ambiguous",
+            Routing::NoCoverage => "no_coverage",
             Routing::NoCorpus => "no_corpus",
         },
         corpora,
@@ -1754,32 +2041,156 @@ pub fn run_find(question: &str, k: usize) -> Result<FindOutcome, String> {
     Ok(find(question, k, &cwd, &hub_home, &catalogue))
 }
 
+/// One result line: slug, upstream `owner/name` when the catalogue has one, and
+/// the one-line description. Catalogue strings are made [`printable`].
+pub fn identity_line(slug: &str, upstream: &str, ask_for: &str) -> String {
+    let slug = printable(slug);
+    let ask = printable(ask_for);
+    let upstream = printable(upstream);
+    if upstream.is_empty() {
+        format!("{slug} — {ask}")
+    } else {
+        format!("{slug} — {upstream} — {ask}")
+    }
+}
+
+/// The sentence that says a query token is not this pack.
+pub fn collision_sentence(token: &str, slug: &str, upstream: &str) -> String {
+    let token = printable(token);
+    let who = if upstream.is_empty() {
+        printable(slug)
+    } else {
+        printable(upstream)
+    };
+    format!("note: \"{token}\" is a different project than this pack ({who})")
+}
+
 /// Render a [`FindOutcome`] as text, one corpus per line (catalogue strings
-/// made [`printable`]).
+/// made [`printable`]). A same-name different project gets its own note line
+/// instead of reading as a plain match.
 pub fn render_find(found: &FindOutcome) -> String {
     if found.corpora.is_empty() {
-        return NO_CORPUS_MESSAGE.to_string();
+        return if found.routing == "no_coverage" {
+            NO_COVERAGE_MESSAGE.to_string()
+        } else {
+            NO_CORPUS_MESSAGE.to_string()
+        };
     }
-    let mut lines: Vec<String> = found
-        .corpora
-        .iter()
-        .map(|c| {
-            format!(
-                "{} — {}  (score {:.2}, pin {}, {}{})",
-                printable(&c.slug),
-                printable(&c.ask_for),
-                c.score,
-                printable(&c.pin_date),
-                printable(&c.licence_spdx),
-                if c.cached { ", cached" } else { "" }
-            )
-        })
-        .collect();
-    lines.push(format!(
-        "routing: {}; ask one with xerj_hub_ask {{question, corpus}}",
-        found.routing
-    ));
+    let mut lines: Vec<String> = Vec::new();
+    for c in &found.corpora {
+        lines.push(format!(
+            "{}  (score {:.2}, pin {}, {}{})",
+            identity_line(&c.slug, &c.upstream, &c.ask_for),
+            c.score,
+            printable(&c.pin_date),
+            printable(&c.licence_spdx),
+            if c.cached { ", cached" } else { "" }
+        ));
+        if !c.different_project.is_empty() {
+            lines.push(collision_sentence(
+                &c.different_project,
+                &c.slug,
+                &c.upstream,
+            ));
+        }
+    }
+    if found.routing == "different_project" {
+        lines.push(
+            "routing: different_project; this slug is a different project than the query names. \
+             ask it with xerj_hub_ask {question, corpus} only if that pack is the one you meant"
+                .to_string(),
+        );
+    } else if found.routing == "no_coverage" {
+        lines.push(format!("routing: no_coverage; {NO_COVERAGE_MESSAGE}"));
+    } else {
+        lines.push(format!(
+            "routing: {}; ask one with xerj_hub_ask {{question, corpus}}",
+            found.routing
+        ));
+    }
     lines.join("\n")
+}
+
+/// Suffixes that make a token a different project's name (`fabric.js`), not a
+/// file in the corpus (`lz4.h`, `lz4.c`).
+const PROJECT_SUFFIXES: &[&str] = &[
+    ".js", ".mjs", ".cjs", ".jsx", ".ts", ".tsx", ".py", ".rb", ".go", ".php", ".rs",
+];
+/// Glued forms of the same idea (`fabricjs`), only for suffixes short enough to
+/// be a language tag and long enough that the stem is still a name.
+const GLUED_PROJECT_SUFFIXES: &[&str] = &["js", "py"];
+
+/// The query token that names a different project than `slug`, when the token's
+/// stem is exactly the slug and neither the upstream repo nor the one-line
+/// description contains the token. `None` when the question names this pack,
+/// or names nothing that only shares the slug.
+pub fn different_project_token(
+    question: &str,
+    slug: &str,
+    upstream: &str,
+    ask_for: &str,
+) -> Option<String> {
+    let slug_l = slug.to_ascii_lowercase();
+    if slug_l.len() < 2 {
+        return None;
+    }
+    let upstream_l = upstream.to_ascii_lowercase();
+    let ask_l = ask_for.to_ascii_lowercase();
+    for token in query_name_tokens(question) {
+        if token == slug_l {
+            continue;
+        }
+        if !upstream_l.is_empty() && upstream_l.contains(&token) {
+            continue;
+        }
+        if ask_l.contains(&token) {
+            continue;
+        }
+        if project_stem(&token).as_deref() == Some(slug_l.as_str()) {
+            return Some(token);
+        }
+    }
+    None
+}
+
+fn query_name_tokens(question: &str) -> Vec<String> {
+    let lower = question.to_ascii_lowercase();
+    let mut out = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+    for word in lower.split(|c: char| !(c.is_ascii_alphanumeric() || matches!(c, '_' | '-' | '.')))
+    {
+        let word = word.trim_matches(|c| c == '.' || c == '-');
+        // Same floor as the router's named-slug tokens (2): a one-letter
+        // fragment is not a project name.
+        if word.len() < 2 {
+            continue;
+        }
+        if seen.insert(word.to_string()) {
+            out.push(word.to_string());
+        }
+    }
+    out
+}
+
+fn project_stem(token: &str) -> Option<String> {
+    for suffix in PROJECT_SUFFIXES {
+        if let Some(stem) = token.strip_suffix(suffix) {
+            if stem.len() >= 2 && !stem.contains('.') && !stem.contains('/') {
+                return Some(stem.to_string());
+            }
+        }
+    }
+    for suffix in GLUED_PROJECT_SUFFIXES {
+        if token.len() <= suffix.len() + 2 {
+            continue;
+        }
+        if let Some(stem) = token.strip_suffix(suffix) {
+            if stem.chars().all(|c| c.is_ascii_alphanumeric()) {
+                return Some(stem.to_string());
+            }
+        }
+    }
+    None
 }
 
 #[cfg(test)]
@@ -1803,6 +2214,7 @@ mod tests {
             domain: "TEST".to_string(),
             topics: vec![],
             ask_for: format!("an agent working on {slug} queries this for its internals"),
+            upstream: String::new(),
             pin_sha: "0".repeat(40),
             pin_date: "2026-10-01".to_string(),
             refresh_cadence_days: 7,
@@ -2063,6 +2475,36 @@ mod tests {
         }
     }
 
+    /// FTX shell-less trial (2026-10-17): an agent asked `What is
+    /// LZ4_VERSION_RELEASE in lz4?` — a definition question in the plain form —
+    /// and got a how-mode search. A code-shaped name after `what is` / `what's` is
+    /// a definition lookup; a word or a product name is not.
+    #[test]
+    fn mode_is_def_for_what_is_a_code_shaped_symbol() {
+        let auto = ModeRequest::Auto;
+        for (q, sym) in [
+            ("What is LZ4_VERSION_RELEASE in lz4?", "LZ4_VERSION_RELEASE"),
+            ("what is ZSTD_CLEVEL_DEFAULT", "ZSTD_CLEVEL_DEFAULT"),
+            ("what's `max_len` in quinn?", "max_len"),
+            ("In std, what is HashMap?", "HashMap"),
+        ] {
+            assert_eq!(
+                detect_mode(q, &auto),
+                (AnswerMode::Def, Some(sym.to_string())),
+                "{q}"
+            );
+        }
+        for q in [
+            "what is compression",
+            "What is LZ4?",
+            "what is Snappy's framing format",
+            "what is the difference between lz4 and zstd",
+            "what is _",
+        ] {
+            assert_eq!(detect_mode(q, &auto), (AnswerMode::How, None), "{q:?}");
+        }
+    }
+
     #[test]
     fn mode_is_how_for_prose_and_flags_force_the_rest() {
         let auto = ModeRequest::Auto;
@@ -2196,6 +2638,207 @@ mod tests {
         assert!(lines[1].starts_with("beta — "), "{}", lines[1]);
         assert!(out.stderr.iter().any(|l| l.contains("--corpus")));
         assert!(backend.calls().is_empty(), "nothing is answered or pulled");
+    }
+
+    /// The two Swift questions that exit 4 on the live hub. Every sketch contains
+    /// every query token, so a sketch tie would list qwik and docker-docs with
+    /// the Swift corpora. Identity searches the Swift pair and says so.
+    #[test]
+    fn a_swift_question_searches_the_swift_corpora_and_names_them() {
+        let rig = Rig::new();
+        let poison = [
+            "how", "use", "async", "let", "swift", "Swift", "result", "Result", "type", "map",
+        ];
+        let rows = [
+            (
+                "swift-book",
+                "An agent writing Swift queries this for The Swift Programming Language book: syntax and semantics of concurrency (async/await, async let, actors), generics, optionals, error handling and the language reference grammar.",
+            ),
+            (
+                "swift-evolution",
+                "An agent writing Swift queries this for the accepted Swift Evolution proposals (SE-NNNN): the motivation, exact semantics and API of language and standard-library features such as Result, async let, typed throws and macros.",
+            ),
+            (
+                "qwik",
+                "An agent minimising client JS queries this for Qwik's resumability model and code-splitting/lazy-loading of event handlers.",
+            ),
+            (
+                "docker-docs",
+                "An agent writing Dockerfiles and compose files queries this for the canonical Docker CLI, build and Compose reference docs.",
+            ),
+            (
+                "harper",
+                "An agent building a fast local grammar/style checker in Rust queries this for its rule engine, lint rules and curated dictionary.",
+            ),
+            (
+                "oss-review-toolkit",
+                "An agent building a dependency license-compliance pipeline queries this for a production OSS Review Toolkit implementation.",
+            ),
+        ];
+        let cat = catalogue(
+            rows.into_iter()
+                .map(|(slug, ask_for)| {
+                    let mut terms: Vec<String> = ask_for
+                        .split(|c: char| !c.is_ascii_alphanumeric())
+                        .filter(|w| w.len() >= 3)
+                        .map(|w| w.to_ascii_lowercase())
+                        .collect();
+                    terms.extend(poison.iter().map(|s| (*s).to_string()));
+                    let mut e = entry(slug, 1024, LicenceClass::AdaptWithAttribution, &[]);
+                    e.ask_for = ask_for.to_string();
+                    e.term_sketch = sketch(&terms.iter().map(String::as_str).collect::<Vec<_>>());
+                    e
+                })
+                .collect(),
+        );
+        let backend = FakeBackend::new(true);
+        let out = rig.run(
+            &args("how do I use async let in Swift", None),
+            &cat,
+            None,
+            &backend,
+        );
+        assert_eq!(out.exit, EXIT_OK, "{:?}", out.stderr);
+        assert!(
+            out.stdout
+                .starts_with("using: swift-book, swift-evolution\n"),
+            "{}",
+            out.stdout
+        );
+        assert!(out.stdout.contains("swift-book  pin "), "{}", out.stdout);
+        assert!(
+            out.stdout.contains("swift-evolution  pin "),
+            "{}",
+            out.stdout
+        );
+        assert!(!out.stdout.contains("qwik  pin "), "{}", out.stdout);
+        assert!(!out.stdout.contains("docker-docs  pin "), "{}", out.stdout);
+        assert_eq!(
+            backend.calls(),
+            [
+                "ready:swift-book",
+                "answer_local:swift-book",
+                "ready:swift-evolution",
+                "answer_local:swift-evolution",
+            ]
+        );
+
+        let backend = FakeBackend::new(true);
+        let out = rig.run(&args("Swift Result type map", None), &cat, None, &backend);
+        assert_eq!(out.exit, EXIT_OK, "{:?}", out.stderr);
+        assert!(
+            out.stdout
+                .starts_with("using: swift-evolution, swift-book\n"),
+            "{}",
+            out.stdout
+        );
+        assert_eq!(
+            out.answer.as_ref().unwrap().corpus,
+            "swift-evolution,swift-book"
+        );
+    }
+
+    /// Issue #2179. A question that names a project no corpus contains used to
+    /// exit 4 ("more than one corpus matches") when several packs shared some
+    /// other word. That is a coverage gap: exit 1, and say how to index locally.
+    /// A real tie still exits 4. An exact slug is still answered.
+    #[test]
+    fn no_coverage_exits_1_and_points_at_local_indexing() {
+        let rig = Rig::new().in_git_repo();
+        let mut entries = Vec::new();
+        for slug in ["whatwg-html", "lol-html", "parse5", "jsdom"] {
+            let mut e = entry(slug, 1, LicenceClass::AdaptWithAttribution, &[]);
+            e.ask_for = "An agent writing HTML queries this for the document format.".into();
+            entries.push(e);
+        }
+        for i in 0..(151 - entries.len()) {
+            let mut e = entry(
+                &format!("filler-{i}"),
+                1,
+                LicenceClass::AdaptWithAttribution,
+                &[],
+            );
+            e.ask_for = "an agent working on storage queries this for internals".into();
+            entries.push(e);
+        }
+        let mut lz4_entry = lz4(1024, LicenceClass::AdaptWithAttribution);
+        lz4_entry.ask_for =
+            "an agent needing fast block compression queries this for the decoder".into();
+        entries.push(lz4_entry);
+        let cat = catalogue(entries);
+
+        let backend = FakeBackend::new(true);
+        let out = rig.run(
+            &args("How does Phaser draw HTML?", None),
+            &cat,
+            None,
+            &backend,
+        );
+        assert_eq!(out.exit, EXIT_NO_ANSWER, "{out:?}");
+        assert_ne!(out.exit, EXIT_NEEDS_DECISION);
+        let err = out.stderr.join("\n");
+        assert!(err.contains(NO_COVERAGE_MESSAGE), "{err}");
+        assert!(err.contains("xerj autoindex <path>"), "{err}");
+        assert!(err.contains("xerj code"), "{err}");
+        assert!(err.contains("xerj search"), "{err}");
+        assert!(err.contains("xerj hub find"), "{err}");
+        assert!(!err.contains("more than one corpus matches"), "{err}");
+        assert!(
+            out.stdout.is_empty(),
+            "not a candidate list: {}",
+            out.stdout
+        );
+        assert!(backend.calls().is_empty(), "{:?}", backend.calls());
+
+        let found = find(
+            "How does Phaser draw HTML?",
+            5,
+            rig.cwd.path(),
+            rig.hub.path(),
+            &cat,
+        );
+        assert_eq!(found.routing, "no_coverage", "{found:?}");
+        let text = render_find(&found);
+        assert!(text.contains("routing: no_coverage"), "{text}");
+        assert!(text.contains("no hub corpus covers this topic"), "{text}");
+        assert!(text.contains("xerj autoindex"), "{text}");
+
+        // Lowercase project name, same gap.
+        let out = rig.run(
+            &args("how does phaser draw HTML?", None),
+            &cat,
+            None,
+            &FakeBackend::new(true),
+        );
+        assert_eq!(out.exit, EXIT_NO_ANSWER, "{out:?}");
+        assert!(out.stderr.iter().any(|l| l.contains(NO_COVERAGE_MESSAGE)));
+
+        // The HTML packs really do tie when the question is about HTML.
+        let out = rig.run(
+            &args("HTML document format", None),
+            &cat,
+            None,
+            &FakeBackend::new(true),
+        );
+        assert_eq!(out.exit, EXIT_NEEDS_DECISION, "{out:?}");
+        assert!(
+            out.stderr
+                .iter()
+                .any(|l| l.contains("more than one corpus matches")),
+            "{:?}",
+            out.stderr
+        );
+
+        // Exact slug.
+        let backend = FakeBackend::new(true);
+        let out = rig.run(
+            &args("how does the lz4 decoder work", None),
+            &cat,
+            None,
+            &backend,
+        );
+        assert_eq!(out.exit, EXIT_OK, "{:?}", out.stderr);
+        assert_eq!(backend.calls(), ["ready:lz4", "answer_local:lz4"]);
     }
 
     #[test]
@@ -2732,10 +3375,12 @@ mod tests {
         // The sentence alone: the symbol is one of six words and its lower-case
         // twin never matches, so the score cannot reach "confident".
         let cached: Vec<String> = vec![];
+        // The identifier is a name no description contains, so the words are a
+        // coverage gap rather than a corpus choice. The symbol, below, still routes.
         assert!(
             matches!(
                 crate::router::route(q, rig.cwd.path(), &cat, None, &cached),
-                Routing::NoCorpus
+                Routing::NoCorpus | Routing::NoCoverage
             ),
             "the words alone do not route"
         );
@@ -2854,6 +3499,78 @@ mod tests {
             with_symbol_evidence(Routing::NoCorpus, &[]),
             Routing::NoCorpus
         );
+        assert_eq!(
+            with_symbol_evidence(Routing::NoCoverage, &["b".to_string()]),
+            Routing::Confident("b".to_string()),
+            "a symbol still routes when the words were a coverage gap"
+        );
+        assert_eq!(
+            with_symbol_evidence(Routing::NoCoverage, &[]),
+            Routing::NoCoverage
+        );
+    }
+
+    /// FTX shell-less trial (2026-10-17): `xerj_hub_ask` with no `corpus` refused
+    /// "What is LZ4_VERSION_RELEASE in lz4?" and "How does snappy's decompressor
+    /// …?" with "no hub corpus matches" — while listing the very corpus the
+    /// question named as the closest. Neighbouring compression corpora share the
+    /// question's words (zstd's sources even mention lz4), so the sketch alone was
+    /// never decisive. The corpus the question names is.
+    #[test]
+    fn a_question_that_names_its_corpus_is_answered_from_it() {
+        let rig = Rig::new();
+        let shared = &[
+            "lz4",
+            "snappy",
+            "decompressor",
+            "literal",
+            "copy",
+            "element",
+        ];
+        let cat = catalogue(vec![
+            entry("lz4", 1024, LicenceClass::AdaptWithAttribution, shared),
+            entry("snappy", 1024, LicenceClass::AdaptWithAttribution, shared),
+            entry("zstd", 1024, LicenceClass::AdaptWithAttribution, shared),
+        ]);
+        for (q, slug, mode) in [
+            (
+                "What is LZ4_VERSION_RELEASE in lz4?",
+                "lz4",
+                AnswerMode::Def,
+            ),
+            (
+                "How does snappy's decompressor tell a literal element from a copy element?",
+                "snappy",
+                AnswerMode::How,
+            ),
+        ] {
+            let backend = FakeBackend::new(true);
+            let out = rig.run(&args(q, None), &cat, None, &backend);
+            assert_eq!(out.exit, EXIT_OK, "{q}: {:?}", out.stderr);
+            let ans = out.answer.expect("an answer");
+            assert_eq!(ans.corpus, slug, "{q}");
+            assert_eq!(ans.mode, mode, "{q}");
+            assert_eq!(
+                backend.calls(),
+                [format!("ready:{slug}"), format!("answer_local:{slug}")],
+                "{q}"
+            );
+        }
+
+        // Two corpora named: the asker picks, exactly as with two sketch matches.
+        let out = rig.run(
+            &args("is lz4 or zstd faster at decompressing?", None),
+            &cat,
+            None,
+            &FakeBackend::new(true),
+        );
+        assert_eq!(out.exit, EXIT_NEEDS_DECISION, "{out:?}");
+        assert!(
+            out.stdout.contains("lz4") && out.stdout.contains("zstd"),
+            "{}",
+            out.stdout
+        );
+        assert!(!out.stdout.contains("snappy"), "{}", out.stdout);
     }
 
     #[test]
@@ -3543,6 +4260,7 @@ mod tests {
         let text = render_find(&found);
         assert!(text.starts_with("lz4 — "), "{text}");
         assert!(text.contains("cached"), "{text}");
+        assert!(text.contains("routing: "), "{text}");
 
         // k is clamped to 1..=FIND_MAX_K.
         let one = find("lz4 block decoder", 0, rig.cwd.path(), rig.hub.path(), &cat);
@@ -3554,5 +4272,106 @@ mod tests {
         if none.corpora.is_empty() {
             assert_eq!(render_find(&none), NO_CORPUS_MESSAGE);
         }
+    }
+
+    /// Issue #2179: a query that names a different project of the same stem
+    /// (`fabric.js`) must not read as a silent match of the slug (`fabric`,
+    /// which is danielmiessler/fabric). The result names the upstream repo and
+    /// the one-line description, and says the names differ. An exact slug, a
+    /// header file (`lz4.h`), and a description that already contains the
+    /// token are not that case. `candle charts` is the slug plus another word:
+    /// not a suffixed project name, so the line itself has to say what the
+    /// pack is.
+    #[test]
+    fn a_same_stem_different_project_is_named_instead_of_matched_silently() {
+        let rig = Rig::new();
+        let mut fabric = entry(
+            "fabric",
+            1,
+            LicenceClass::AdaptWithAttribution,
+            &["fabric", "prompt"],
+        );
+        fabric.upstream = "danielmiessler/fabric".into();
+        fabric.ask_for =
+            "An agent building a reusable prompt library queries this for prompt patterns.".into();
+        let cat = catalogue(with_fillers(vec![fabric]));
+
+        // One token, "fabric.js": the sketch sees "fabric" and would otherwise
+        // answer from that pack. The stem is a different project, so it must not.
+        let found = find("fabric.js", 5, rig.cwd.path(), rig.hub.path(), &cat);
+        assert_eq!(found.routing, "different_project", "{found:?}");
+        assert_eq!(found.corpora[0].slug, "fabric");
+        assert_eq!(found.corpora[0].different_project, "fabric.js");
+        assert_eq!(found.corpora[0].upstream, "danielmiessler/fabric");
+        let text = render_find(&found);
+        assert!(text.contains("danielmiessler/fabric"), "{text}");
+        assert!(text.contains("prompt library"), "{text}");
+        assert!(
+            text.contains("\"fabric.js\" is a different project"),
+            "{text}"
+        );
+        assert!(text.contains("routing: different_project"), "{text}");
+
+        let out = rig.run(
+            &args("fabric.js", None),
+            &cat,
+            None,
+            &FakeBackend::new(true),
+        );
+        assert_eq!(out.exit, EXIT_NEEDS_DECISION, "{out:?}");
+        assert!(
+            out.answer.is_none(),
+            "must not answer the wrong project: {out:?}"
+        );
+        let all = format!("{}\n{}", out.stdout, out.stderr.join("\n"));
+        assert!(all.contains("danielmiessler/fabric"), "{all}");
+        assert!(all.contains("fabric.js"), "{all}");
+        assert!(all.contains("--corpus"), "{all}");
+
+        let exact = find(
+            "how does fabric format a prompt",
+            5,
+            rig.cwd.path(),
+            rig.hub.path(),
+            &cat,
+        );
+        assert_eq!(exact.routing, "confident", "{exact:?}");
+        assert!(exact.corpora[0].different_project.is_empty(), "{exact:?}");
+        assert!(render_find(&exact).contains("danielmiessler/fabric"));
+
+        assert!(different_project_token("read lz4.h", "lz4", "lz4/lz4", "block format").is_none());
+        assert_eq!(
+            different_project_token(
+                "fabricjs canvas",
+                "fabric",
+                "danielmiessler/fabric",
+                "prompt library"
+            )
+            .as_deref(),
+            Some("fabricjs")
+        );
+        assert!(different_project_token(
+            "see fabric.js",
+            "fabric",
+            "danielmiessler/fabric",
+            "the fabric.js canvas library"
+        )
+        .is_none());
+
+        let mut candle = entry(
+            "candle",
+            1,
+            LicenceClass::AdaptWithAttribution,
+            &["candle", "tensor"],
+        );
+        candle.upstream = "huggingface/candle".into();
+        candle.ask_for =
+            "A Rust engine adding embeddings queries this for a tensor framework.".into();
+        let cat2 = catalogue(with_fillers(vec![candle]));
+        let charts = find("candle charts", 5, rig.cwd.path(), rig.hub.path(), &cat2);
+        assert_ne!(charts.routing, "different_project", "{charts:?}");
+        let line = render_find(&charts);
+        assert!(line.contains("huggingface/candle"), "{line}");
+        assert!(line.contains("tensor framework"), "{line}");
     }
 }

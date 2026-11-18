@@ -9,6 +9,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
 use crate::ingest_memory::{Category, Retained};
+use crate::read_budget::ReadPermit;
 
 pub const CATEGORY_COUNT: usize = 9;
 
@@ -93,6 +94,16 @@ impl SegmentHydrationBudget {
 
     pub fn limit(&self) -> u64 {
         self.limit
+    }
+
+    /// Whether a `bytes` charge would fit right now. Advisory (another thread
+    /// may charge first): used to skip building a value the cache would only
+    /// refuse, and to decide whether a build is transient.
+    pub fn has_headroom(&self, bytes: u64) -> bool {
+        self.used
+            .load(Ordering::Acquire)
+            .checked_add(bytes)
+            .is_some_and(|next| next <= self.limit)
     }
 
     pub fn try_charge(
@@ -188,6 +199,9 @@ impl Drop for BudgetCharge {
 pub struct CacheResident<T> {
     value: T,
     _charge: Option<BudgetCharge>,
+    /// A value the cache refused carries its transient read reservation
+    /// (#2427/#1122), returned when the last reader drops it.
+    _read_permit: Option<ReadPermit>,
     _trace_retained: Retained<'static>,
 }
 
@@ -201,6 +215,7 @@ impl<T> CacheResident<T> {
         Arc::new(Self {
             value,
             _charge: Some(charge),
+            _read_permit: None,
             _trace_retained: Retained::new(
                 category.trace_category(),
                 usize::try_from(bytes).unwrap_or(usize::MAX),
@@ -209,9 +224,16 @@ impl<T> CacheResident<T> {
     }
 
     pub fn uncached(value: T) -> Arc<Self> {
+        Self::uncached_with_permit(value, None)
+    }
+
+    /// An uncached value that keeps `permit` (its transient read reservation)
+    /// until the last reference is dropped.
+    pub fn uncached_with_permit(value: T, permit: Option<ReadPermit>) -> Arc<Self> {
         Arc::new(Self {
             value,
             _charge: None,
+            _read_permit: permit,
             _trace_retained: Retained::disabled(),
         })
     }

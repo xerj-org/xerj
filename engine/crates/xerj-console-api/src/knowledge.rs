@@ -495,7 +495,7 @@ fn capabilities(
         caps.push(json!({
             "id": "map",
             "title": "Print the data map",
-            "blurb": "The same field/coverage table this page shows, as markdown — for you or for an agent (MCP: xerj_map; `xerj mcp` exposes 13 tools).",
+            "blurb": "The same field/coverage table this page shows, as markdown — for you or for an agent (MCP: xerj_map; `xerj mcp` exposes 20 tools).",
             "command": "xerj autoindex map",
             "kind": "cli",
         }));

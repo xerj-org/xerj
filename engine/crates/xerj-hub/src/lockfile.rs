@@ -238,7 +238,7 @@ fn question_asks_for_current(question: &str) -> bool {
 // xerj hub status
 // ---------------------------------------------------------------------------
 
-pub(crate) const PACKS_DIR: &str = "packs";
+pub(crate) const PACKS_DIR: &str = xerj_common::hub::HUB_PACKS_DIR;
 pub(crate) const PACK_MANIFEST_FILE: &str = "pack.json";
 pub(crate) const LAST_USED_FILE: &str = "last_used";
 const NODE_PID_FILE: &str = "node.pid";
@@ -262,12 +262,11 @@ pub fn default_hub_root() -> PathBuf {
 /// [`default_hub_root`] over an injectable environment, so the rule is testable
 /// without mutating the process-global one.
 pub(crate) fn hub_root_from(env: &dyn Fn(&str) -> Option<std::ffi::OsString>) -> PathBuf {
-    if let Some(h) = env("XERJ_HUB_HOME").filter(|h| !h.is_empty()) {
-        return PathBuf::from(h);
-    }
-    // `HOME`, else `USERPROFILE` — native Windows usually has no `HOME`.
-    let home = xerj_common::home::home_dir_from(env).unwrap_or_else(|| PathBuf::from("."));
-    home.join(".xerj").join("hub")
+    // One rule with the server's hub-pack restore root (`xerj_common::hub`):
+    // `XERJ_HUB_HOME`, else `HOME`/`USERPROFILE` + `.xerj/hub`. With no home at
+    // all the CLI falls back to the current directory; the server allows nothing.
+    xerj_common::hub::hub_root_from(env)
+        .unwrap_or_else(|| PathBuf::from(".").join(".xerj").join("hub"))
 }
 
 /// One cached pack on disk (`<hub>/packs/<slug>/<pin8>/`).
@@ -652,6 +651,7 @@ mod tests {
             domain: "NET".to_string(),
             topics: vec!["compression".to_string()],
             ask_for: "x".to_string(),
+            upstream: String::new(),
             pin_sha: pin.to_string(),
             pin_date: "2026-10-02".to_string(),
             refresh_cadence_days: 7,

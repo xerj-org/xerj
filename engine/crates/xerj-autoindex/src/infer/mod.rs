@@ -676,6 +676,93 @@ pub fn infer_fields_with_policy(
     specs
 }
 
+/// Automatic `semantic_text` on a data dataset stops past this many rows.
+///
+/// The built-in lexical embedder is cheap per call and still writes one
+/// vector per row (and one per chunk when the value is long). A 123_000-row
+/// extract with a prose column is a multi-gigabyte embedding job the
+/// dry-run cannot see (#1978). Document datasets are not capped: their
+/// body carriers are the product.
+pub const SEMANTIC_DATA_MAX_RECORDS: u64 = 100_000;
+
+/// Automatic `semantic_text` on a data dataset stops past this many
+/// characters of elected text (`avg_len × population`).
+///
+/// 8 MiB is enough for a real prose column and small enough that the
+/// server-side chunker (512 characters, overlap 64) cannot turn one field
+/// into tens of thousands of vectors. Equality stays semantic; one
+/// character over falls back.
+pub const SEMANTIC_DATA_MAX_TEXT_BYTES: u64 = 8 << 20;
+
+/// Why a data dataset's elected body was stored as plain `text`.
+pub struct SemanticCap {
+    pub field: String,
+    pub records: u64,
+    pub text_bytes: u64,
+}
+
+/// Downgrade every `semantic_text` field on a data dataset that is over
+/// [`SEMANTIC_DATA_MAX_RECORDS`] or [`SEMANTIC_DATA_MAX_TEXT_BYTES`].
+///
+/// The column stays `text`, so it is still searchable. `None` means the
+/// election stands. Document datasets must not be passed here: the caller
+/// skips `is_docs`.
+pub fn cap_data_semantic(specs: &mut [FieldSpec], population: u64) -> Option<SemanticCap> {
+    let elected: Vec<usize> = specs
+        .iter()
+        .enumerate()
+        .filter(|(_, s)| s.es_type == "semantic_text")
+        .map(|(i, _)| i)
+        .collect();
+    if elected.is_empty() {
+        return None;
+    }
+    let field_idx = elected.iter().copied().max_by(|&a, &b| {
+        specs[a]
+            .avg_len
+            .partial_cmp(&specs[b].avg_len)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    })?;
+    let avg = specs[field_idx].avg_len;
+    // `avg_len` is characters. ASCII JSON is one byte per character; a
+    // multibyte field is larger, so this under-counts. The cap is a trigger,
+    // not a measurement of resident memory.
+    let text_bytes = (avg as u64).saturating_mul(population);
+    if population <= SEMANTIC_DATA_MAX_RECORDS && text_bytes <= SEMANTIC_DATA_MAX_TEXT_BYTES {
+        return None;
+    }
+    let field = specs[field_idx].name.clone();
+    let note = semantic_fallback_note(&field, population, text_bytes);
+    for i in elected {
+        specs[i].es_type = "text".into();
+        specs[i]
+            .notes
+            .retain(|n| !n.starts_with("hybrid lexical+vector body"));
+        specs[i].notes.push(note.clone());
+    }
+    Some(SemanticCap {
+        field,
+        records: population,
+        text_bytes,
+    })
+}
+
+pub fn semantic_fallback_warning(slug: &str, cap: &SemanticCap) -> String {
+    format!(
+        "dataset '{slug}': {}",
+        semantic_fallback_note(&cap.field, cap.records, cap.text_bytes)
+    )
+}
+
+fn semantic_fallback_note(field: &str, records: u64, text_bytes: u64) -> String {
+    format!(
+        "semantic_text on '{field}' fell back to plain text: {records} records and about \
+         {text_bytes} characters of text exceed the automatic cap of \
+         {SEMANTIC_DATA_MAX_RECORDS} records or {SEMANTIC_DATA_MAX_TEXT_BYTES} bytes. \
+         The column stays searchable as text. Pass --no-semantic to index without vectors."
+    )
+}
+
 /// Elect the dataset time field: date-typed field with the highest coverage.
 pub fn elect_time_field(specs: &[FieldSpec]) -> Option<String> {
     specs
@@ -796,15 +883,37 @@ impl CodeAnalyzer {
 /// `code` wins over the stemmer (the maintainer's call on #1198): the flag is
 /// an explicit operator choice, sub-words already reach most of what stemming
 /// would in prose inside code, and layering both is unmeasured. A dataset
-/// without code members keeps [`elected_default_analyzer`]'s answer either way.
+/// without code members keeps [`elected_default_analyzer`]'s answer either way,
+/// except a log dataset (below).
+///
+/// The analyzer a log-only dataset gets (#1504). `"english"` is `standard`
+/// plus the Lucene English stop list plus the Snowball stemmer. Log messages
+/// look like natural language, so the ordinary election picks `"stemmer"`,
+/// which keeps stop words. A `match` for a phrase that never occurs then
+/// hits every record containing `is`. Stop words are dropped on both sides
+/// of the query, and only for this family — the global default stays
+/// `"stemmer"` / `"standard"` because dropping stop words changes every
+/// document's BM25 length norm (#1059).
+///
+/// This does not change `match`'s operator. Content words are still OR
+/// unless the index also sets `index.query.default_match_operator` to
+/// `and`, which a logs dataset's create body does.
+pub const LOG_TEXT_ANALYZER: &str = "english";
+
+/// Dataset text analyzer. `log_dataset` elects [`LOG_TEXT_ANALYZER`];
+/// `--code-analyzer code` still wins when the dataset holds code.
 pub fn elect_dataset_analyzer(
     specs: &[FieldSpec],
     fields: &HashMap<String, FieldAcc>,
     has_code: bool,
     code_analyzer: CodeAnalyzer,
+    log_dataset: bool,
 ) -> Option<&'static str> {
     if has_code && code_analyzer == CodeAnalyzer::Code {
         return Some(CODE_TEXT_ANALYZER);
+    }
+    if log_dataset {
+        return Some(LOG_TEXT_ANALYZER);
     }
     elected_default_analyzer(specs, fields)
 }
@@ -885,6 +994,28 @@ mod tests {
         }
     }
 
+    /// RFC 3164 `ts` (`Oct 17 22:26:01`) has no year. Before it was recognized
+    /// the column missed the 95% date threshold and mapped `keyword`, so a
+    /// time-range filter matched nothing.
+    #[test]
+    fn a_bsd_syslog_timestamp_column_maps_as_date() {
+        let mut acc = FieldAcc::default();
+        for day in 1..=20 {
+            acc.add(&Value::String(format!("Oct {day} 09:06:58")));
+        }
+        assert_eq!(acc.date_hits.get(&DateEnc::BsdSyslog).copied(), Some(20));
+        let mut fields = HashMap::new();
+        fields.insert("ts".to_string(), acc);
+        let specs = infer_fields(&fields, 20, true);
+        assert_eq!(specs.len(), 1);
+        assert_eq!(specs[0].es_type, "date", "{specs:?}");
+        assert_eq!(
+            specs[0].date_enc.as_deref(),
+            Some(DateEnc::BsdSyslog.as_str())
+        );
+        assert!(specs[0].date_min.is_some() && specs[0].date_max.is_some());
+    }
+
     #[test]
     fn a_tied_entity_election_elects_the_most_specific_entity_every_run() {
         for _ in 0..500 {
@@ -916,6 +1047,94 @@ mod tests {
 
             assert_eq!(elect_entity(&HashMap::new()), None);
         }
+    }
+
+    fn prose_note(sentence: &str) -> HashMap<String, FieldAcc> {
+        let mut fields = HashMap::new();
+        let mut acc = FieldAcc::default();
+        for _ in 0..20 {
+            acc.add(&Value::String(sentence.to_string()));
+        }
+        fields.insert("note".into(), acc);
+        fields
+    }
+
+    /// #1978: a data column that looks like prose is embedded only while the
+    /// real row count and the text it would embed stay inside the cap.
+    /// Equality stays `semantic_text`. One record or one character over
+    /// falls back to plain text and says so, including `--no-semantic`.
+    #[test]
+    fn semantic_text_falls_back_past_the_record_and_text_caps() {
+        // Short enough that 100_000 copies stay under the byte cap, long
+        // enough to elect. The record cap is then the only thing that moves.
+        let short =
+            "Each worker retries every failed handshake and reports why that one attempt failed.";
+        let fields = prose_note(short);
+        let mut under = infer_fields(&fields, 20, false);
+        let avg = under.iter().find(|s| s.name == "note").unwrap().avg_len;
+        assert!(
+            avg >= 80.0
+                && (avg as u64).saturating_mul(SEMANTIC_DATA_MAX_RECORDS)
+                    <= SEMANTIC_DATA_MAX_TEXT_BYTES,
+            "fixture avg_len {avg} must elect and stay inside the byte cap at the record limit"
+        );
+        assert_eq!(
+            under.iter().find(|s| s.name == "note").unwrap().es_type,
+            "semantic_text",
+            "the fixture itself must elect, or the cap is untested: {under:#?}"
+        );
+        assert!(cap_data_semantic(&mut under, SEMANTIC_DATA_MAX_RECORDS).is_none());
+        assert_eq!(
+            under.iter().find(|s| s.name == "note").unwrap().es_type,
+            "semantic_text"
+        );
+
+        let mut over = infer_fields(&fields, 20, false);
+        let hit = cap_data_semantic(&mut over, SEMANTIC_DATA_MAX_RECORDS + 1).unwrap();
+        assert_eq!(hit.field, "note");
+        assert_eq!(hit.records, SEMANTIC_DATA_MAX_RECORDS + 1);
+        let spec = over.iter().find(|s| s.name == "note").unwrap();
+        assert_eq!(spec.es_type, "text");
+        let note = spec.notes.join(" ");
+        assert!(note.contains("--no-semantic"), "{note}");
+        assert!(note.contains("note"), "{note}");
+        assert!(
+            note.contains(&(SEMANTIC_DATA_MAX_RECORDS + 1).to_string()),
+            "{note}"
+        );
+        assert!(
+            !note.contains("hybrid lexical+vector body"),
+            "the election note must not still claim the field is embedded: {note}"
+        );
+
+        let long = "The connection pool retries every failed handshake with backoff. \
+                    Each worker owns one socket and never shares it across threads.";
+        let long_fields = prose_note(long);
+        let long_specs = infer_fields(&long_fields, 20, false);
+        let avg = long_specs
+            .iter()
+            .find(|s| s.name == "note")
+            .unwrap()
+            .avg_len as u64;
+        assert!(avg >= 80, "{avg}");
+        let exact = SEMANTIC_DATA_MAX_TEXT_BYTES / avg;
+        assert!(exact > 0 && exact <= SEMANTIC_DATA_MAX_RECORDS, "{exact}");
+        let mut at_bytes = infer_fields(&long_fields, 20, false);
+        assert!(
+            cap_data_semantic(&mut at_bytes, exact).is_none(),
+            "avg {avg} × {exact} characters is inside the byte cap"
+        );
+        let mut over_bytes = infer_fields(&long_fields, 20, false);
+        let hit = cap_data_semantic(&mut over_bytes, exact + 1).unwrap();
+        assert!(hit.text_bytes > SEMANTIC_DATA_MAX_TEXT_BYTES);
+        assert_eq!(
+            over_bytes
+                .iter()
+                .find(|s| s.name == "note")
+                .unwrap()
+                .es_type,
+            "text"
+        );
     }
 
     /// #173: a document dataset merges extractor vocabularies whose records
@@ -1100,7 +1319,7 @@ mod tests {
     fn code_analyzer_flag_elects_code_for_a_code_dataset_and_the_stemmer_defers() {
         let (specs, fields) = stemmer_electing_sample();
         assert_eq!(
-            elect_dataset_analyzer(&specs, &fields, true, CodeAnalyzer::Code),
+            elect_dataset_analyzer(&specs, &fields, true, CodeAnalyzer::Code, false),
             Some(CODE_TEXT_ANALYZER)
         );
     }
@@ -1111,12 +1330,38 @@ mod tests {
     fn code_analyzer_flag_leaves_a_dataset_without_code_on_todays_election() {
         let (specs, fields) = stemmer_electing_sample();
         assert_eq!(
-            elect_dataset_analyzer(&specs, &fields, false, CodeAnalyzer::Code),
+            elect_dataset_analyzer(&specs, &fields, false, CodeAnalyzer::Code, false),
             Some(STEMMING_TEXT_ANALYZER)
         );
         assert_eq!(
-            elect_dataset_analyzer(&[], &HashMap::new(), false, CodeAnalyzer::Code),
+            elect_dataset_analyzer(&[], &HashMap::new(), false, CodeAnalyzer::Code, false),
             None
+        );
+    }
+
+    /// #1504: log messages look like prose, so the ordinary election is
+    /// `"stemmer"`, which keeps stop words. A `match` of `"configuration is
+    /// invalid"` then hits every record that contains `is`. A log dataset
+    /// elects `"english"` (stemmer + the Lucene stop list) instead. A prose
+    /// dataset does not — that length-norm change stays off the global default.
+    #[test]
+    fn log_dataset_elects_english_so_stopwords_are_not_terms() {
+        let (specs, fields) = stemmer_electing_sample();
+        assert_eq!(
+            elected_default_analyzer(&specs, &fields),
+            Some(STEMMING_TEXT_ANALYZER),
+            "the same sample is the stemmer without the log flag — that is the bug"
+        );
+        assert_eq!(
+            elect_dataset_analyzer(&specs, &fields, false, CodeAnalyzer::Standard, true),
+            Some(LOG_TEXT_ANALYZER)
+        );
+        assert_eq!(LOG_TEXT_ANALYZER, "english");
+        // An explicit `--code-analyzer code` on a dataset that also holds
+        // code still wins: the operator asked for it.
+        assert_eq!(
+            elect_dataset_analyzer(&specs, &fields, true, CodeAnalyzer::Code, true),
+            Some(CODE_TEXT_ANALYZER)
         );
     }
 
@@ -1127,7 +1372,7 @@ mod tests {
         assert_eq!(CodeAnalyzer::default(), CodeAnalyzer::Standard);
         for has_code in [true, false] {
             assert_eq!(
-                elect_dataset_analyzer(&specs, &fields, has_code, CodeAnalyzer::Standard),
+                elect_dataset_analyzer(&specs, &fields, has_code, CodeAnalyzer::Standard, false),
                 elected_default_analyzer(&specs, &fields)
             );
         }

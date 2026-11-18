@@ -6,6 +6,11 @@
 //! auto-embeds `semantic_text` fields; a `semantic` query against anything else
 //! has no comparable stored vector to match, so it must be rejected loudly.
 //!
+//! That 400 is for an index the caller named. Issue #2305: the same query
+//! against a wildcard, `_all`, or alias must not fail the whole request when
+//! only some of the expanded indices map the field. Those indices contribute
+//! no hits (and a shard failure); indices that do map the field still answer.
+//!
 //! Elasticsearch is referenced for wire semantics only; no code from it is
 //! reproduced here.
 
@@ -130,4 +135,230 @@ async fn semantic_on_absent_field_is_400() {
             .contains("nonexistent_vec"),
         "the 400 must name the field (#530): {body}"
     );
+}
+
+fn semantic_query() -> Value {
+    json!({ "query": { "semantic": { "field": "body", "query": "walrus clams" } } })
+}
+
+async fn put_ok(app: &axum::Router, path: &str, body: Value) {
+    let (status, resp) = json_req(app, "PUT", path, body).await;
+    assert!(status.is_success(), "{path}: {status} {resp}");
+}
+
+/// `proj-notes` maps `body` as `semantic_text` and holds one document.
+/// `proj-tags` is a plain keyword index and holds a different document.
+async fn seed_proj_pair(app: &axum::Router) {
+    put_ok(
+        app,
+        "/proj-notes",
+        json!({ "mappings": { "properties": { "body": { "type": "semantic_text" } } } }),
+    )
+    .await;
+    put_ok(
+        app,
+        "/proj-tags",
+        json!({ "mappings": { "properties": { "label": { "type": "keyword" } } } }),
+    )
+    .await;
+    put_ok(
+        app,
+        "/proj-notes/_doc/note-1?refresh=true",
+        json!({ "body": "The walrus eats clams on the ice floe." }),
+    )
+    .await;
+    put_ok(
+        app,
+        "/proj-tags/_doc/tag-1?refresh=true",
+        json!({ "label": "walrus" }),
+    )
+    .await;
+}
+
+fn hit_ids_from(body: &Value, index: &str) -> Vec<String> {
+    body["hits"]["hits"]
+        .as_array()
+        .unwrap_or(&Vec::new())
+        .iter()
+        .filter(|h| h["_index"].as_str() == Some(index))
+        .filter_map(|h| h["_id"].as_str().map(str::to_string))
+        .collect()
+}
+
+fn error_reason(body: &Value) -> String {
+    body.pointer("/error/reason")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string()
+}
+
+/// #2305: `proj-*` covers one `semantic_text` index and one without the field.
+/// The semantic query must be HTTP 200 with hits from the index that has it.
+#[tokio::test]
+async fn semantic_wildcard_skips_indices_without_the_field() {
+    let (app, _dir) = app().await;
+    seed_proj_pair(&app).await;
+
+    let (status, body) = json_req(&app, "POST", "/proj-*/_search", semantic_query()).await;
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "wildcard semantic search must be 200 (#2305): {body}"
+    );
+    assert_eq!(
+        hit_ids_from(&body, "proj-notes"),
+        vec!["note-1".to_string()],
+        "the index that maps body as semantic_text must answer: {body}"
+    );
+    assert!(
+        hit_ids_from(&body, "proj-tags").is_empty(),
+        "the index without the field must contribute no hits: {body}"
+    );
+    assert_eq!(
+        body["_shards"]["failed"], 1,
+        "the skipped index is a shard failure, not a silent success: {body}"
+    );
+    let failures = body["_shards"]["failures"]
+        .as_array()
+        .expect("shard failures");
+    assert!(
+        failures.iter().any(|f| {
+            f["index"].as_str() == Some("proj-tags")
+                && f.pointer("/reason/reason")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default()
+                    .contains("body")
+        }),
+        "the shard note must name the skipped index and the field: {body}"
+    );
+
+    // The same shape wrapped the way a bool filter is written still peels to
+    // the semantic executor, so the wildcard must keep working.
+    let inner = semantic_query()["query"].clone();
+    let (status, body) = json_req(
+        &app,
+        "POST",
+        "/proj-*/_search",
+        json!({ "query": { "bool": { "must": [inner] } } }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "bool-wrapped semantic: {body}");
+    assert_eq!(
+        hit_ids_from(&body, "proj-notes"),
+        vec!["note-1".to_string()],
+        "{body}"
+    );
+}
+
+/// An alias is expansion too: members without the field are skipped.
+#[tokio::test]
+async fn semantic_alias_skips_members_without_the_field() {
+    let (app, _dir) = app().await;
+    seed_proj_pair(&app).await;
+    put_ok(&app, "/proj-notes/_alias/proj", json!({})).await;
+    put_ok(&app, "/proj-tags/_alias/proj", json!({})).await;
+
+    let (status, body) = json_req(&app, "POST", "/proj/_search", semantic_query()).await;
+    assert_eq!(status, StatusCode::OK, "alias semantic search: {body}");
+    assert_eq!(
+        hit_ids_from(&body, "proj-notes"),
+        vec!["note-1".to_string()],
+        "{body}"
+    );
+    assert!(hit_ids_from(&body, "proj-tags").is_empty(), "{body}");
+}
+
+/// A concrete name in the selector still 400s, including beside another name.
+#[tokio::test]
+async fn semantic_on_an_explicit_index_in_a_list_is_still_400() {
+    let (app, _dir) = app().await;
+    seed_proj_pair(&app).await;
+
+    let (status, body) = json_req(&app, "POST", "/proj-tags/_search", semantic_query()).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    assert!(
+        error_reason(&body).contains("body"),
+        "explicit index must still name the field: {body}"
+    );
+
+    let (status, body) = json_req(
+        &app,
+        "POST",
+        "/proj-notes,proj-tags/_search",
+        semantic_query(),
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::BAD_REQUEST,
+        "a concrete name in a comma list must still 400 (#2305): {body}"
+    );
+    assert!(error_reason(&body).contains("body"), "{body}");
+}
+
+/// A wildcard whose every match lacks the field still 400s, so a wrong field
+/// name is not reported as an empty result.
+#[tokio::test]
+async fn semantic_wildcard_is_400_when_no_index_has_the_field() {
+    let (app, _dir) = app().await;
+    put_ok(
+        &app,
+        "/plain-a",
+        json!({ "mappings": { "properties": { "label": { "type": "keyword" } } } }),
+    )
+    .await;
+    put_ok(
+        &app,
+        "/plain-b",
+        json!({ "mappings": { "properties": { "label": { "type": "keyword" } } } }),
+    )
+    .await;
+
+    let (status, body) = json_req(&app, "POST", "/plain-*/_search", semantic_query()).await;
+    assert_eq!(
+        status,
+        StatusCode::BAD_REQUEST,
+        "nothing to search must still be 400: {body}"
+    );
+    assert!(
+        error_reason(&body).contains("body"),
+        "the 400 must name the field: {body}"
+    );
+}
+
+/// `_msearch` fans out on its own. The same wildcard must not 400 the item.
+#[tokio::test]
+async fn semantic_msearch_wildcard_skips_indices_without_the_field() {
+    let (app, _dir) = app().await;
+    seed_proj_pair(&app).await;
+    let ndjson = format!("{}\n{}\n", json!({ "index": "proj-*" }), semantic_query());
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/_msearch")
+                .header("content-type", "application/x-ndjson")
+                .body(Body::from(ndjson))
+                .expect("request"),
+        )
+        .await
+        .expect("response");
+    let status = response.status();
+    let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .expect("body");
+    let body: Value = serde_json::from_slice(&bytes).unwrap_or(Value::Null);
+    assert_eq!(status, StatusCode::OK, "msearch envelope: {body}");
+    let item = &body["responses"][0];
+    assert_eq!(
+        item["status"], 200,
+        "msearch item must be 200 (#2305): {body}"
+    );
+    assert_eq!(
+        hit_ids_from(item, "proj-notes"),
+        vec!["note-1".to_string()],
+        "{body}"
+    );
+    assert!(hit_ids_from(item, "proj-tags").is_empty(), "{body}");
 }

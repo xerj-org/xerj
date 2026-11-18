@@ -636,7 +636,7 @@ RULES = [
         "sev": ERROR,
         "kind": "pattern",
         "pattern": r"\bdrop-in\b|\bdrop in replacement\b",
-        "requires": (r"(?:1,?366\s*/\s*1,?369|conformance suite|"
+        "requires": (r"(?:1,?(?:366|444)\s*/\s*1,?(?:369|454)|conformance suite|"
                      r"drop[- ]in for\b|for text|not (?:for|a drop)|"
                      r"float analytics|scripted writes|exact totals|anything distributed|"
                      r"es_compatibility\.md)"),
@@ -662,8 +662,8 @@ RULES = [
         # `xerj-api/src/es_compat.rs` rather than trusting this comment.
         "evidence": [RJ + ":26", LC + ":628"],
         "rewrite": ("'Drop-in for text and keyword search, retrieval, integer and long analytics, "
-                    "and vector kNN ranking - 1,366 of 1,369 ES-YAML conformance cases on a curated "
-                    "200-file subset. Not drop-in for float analytics, scripted writes, exact totals "
+                    "and vector kNN ranking - 1,444 of 1,454 ES-YAML conformance cases on a curated "
+                    "229-file subset. Not drop-in for float analytics, scripted writes, exact totals "
                     "on scored full-text queries, or anything distributed.'"),
     },
     {
@@ -711,27 +711,32 @@ RULES = [
                    "`package.json`, `go.mod` or `pom.xml` under `engine/` or `.github/`, and "
                    "`engine/docker-compose.yml` has exactly one service."),
         "evidence": [LC + ":270", LC + ":630"],
-        "rewrite": "'Wire-compatible with Elasticsearch 8.13 clients - 1,366 of 1,369 ES-YAML "
-                   "conformance cases on a curated 200-file subset.' Do not say 'tested with the "
+        "rewrite": "'Wire-compatible with Elasticsearch 8.13 clients - 1,444 of 1,454 ES-YAML "
+                   "conformance cases on a curated 229-file subset.' Do not say 'tested with the "
                    "official clients'.",
     },
     {
         "id": "FC-CONFORMANCE-CAVEAT",
-        "title": "1,366/1,369 conformance without the 'curated 200-file subset' caveat",
+        "title": "1,444/1,454 conformance without the 'curated 229-file subset' caveat",
         "intent": "standing rule 5",
         "sev": WARN,
         "kind": "pattern",
         "scope": "window",
         "window": 400,
-        "pattern": r"1,?366\s*/\s*1,?369|\b99\.8\s*%",
-        "requires": r"curated|200[- ]file|subset|catch:? (?:expectations|assertions) are (?:not |un)verified",
-        "reason": ("The suite is a CURATED 200-file subset, and its `catch:` expectations are not "
-                   "verified - 266 `catch:` occurrences across 92 files are effectively unasserted, "
-                   "because the runner records the response and returns Ok regardless of status."),
+        # The old figure (1,366/1,369, 99.8%) stays in the pattern so a stale
+        # copy is still caught by the caveat check.
+        "pattern": r"1,?(?:366|444)\s*/\s*1,?(?:369|454)|\b99\.[38]\s*%",
+        "requires": (r"curated|2(?:00|29)[- ]file|subset|catch-lenient|"
+                     r"catch:? (?:expectations|assertions) are (?:not |un)verified"),
+        "reason": ("The suite is a CURATED 229-file subset of the Elasticsearch REST YAML tests. "
+                   "Since #1583 the runner enforces `catch:` (expected-error) expectations, except "
+                   "for the 75 cases listed in engine/tests/es-compat-yaml/catch-lenient.txt that "
+                   "XERJ does not meet yet. Source of the figure: main CI, job 'ES-compat YAML "
+                   "conformance' (run 40058513341: 1444 passed, 0 failed, 10 skipped, 1454 total)."),
         "evidence": [LC + ":471", LC + ":230", LC + ":651"],
-        "rewrite": "'1,366 of 1,369 ES-YAML conformance cases on a curated 200-file subset, gated "
-                   "at zero failures on every commit. The suite does not verify error behaviour - "
-                   "`catch:` expectations are unasserted.'",
+        "rewrite": "'1,444 of 1,454 ES-YAML conformance cases on a curated 229-file subset, gated "
+                   "at zero failures on every commit. Expected-error (`catch:`) checks are enforced "
+                   "except for the 75 cases listed in catch-lenient.txt.'",
     },
     {
         "id": "FC-SCROLL",
@@ -1057,7 +1062,7 @@ RULES = [
         "evidence": [RC + ":161", RC + ":146"],
         "rewrite": ("Name the differentiator that survives the honesty check instead: "
                     "'Elasticsearch wire compatibility with a published, machine-checked "
-                    "conformance suite (1,366/1,369)' - Manticore markets itself as a drop-in "
+                    "conformance suite (1,444/1,454)' - Manticore markets itself as a drop-in "
                     "replacement but publishes no conformance number. Or `xerj autoindex` "
                     "zero-config typed folder ingest, agent memory plus MCP in the same binary, "
                     "tree-sitter AST extraction, and Apache-2.0 vs GPL-3.0."),
@@ -1350,12 +1355,13 @@ TIER_A = {
                  "src": "docs/TOKEN_USAGE.md"},
     "6x":       {"what": "token byte profile, filter_path", "cite": LC + ":470", "src": "docs/TOKEN_USAGE.md",
                  "context": r"filter_path|token"},
-    "99.8%":    {"what": "ES-YAML conformance, 1,366 / 1,369", "cite": LC + ":471",
-                 "src": ".github/workflows/ci.yml:363-443",
-                 "companion": {"needs": r"curated|200[- ]file|subset|catch:? |unverified",
+    "99.3%":    {"what": "ES-YAML conformance, 1,444 / 1,454 (0 failed, 10 skipped)",
+                 "cite": LC + ":471",
+                 "src": ".github/workflows/ci.yml job 'ES-compat YAML conformance' (main run 40058513341)",
+                 "companion": {"needs": r"curated|2(?:00|29)[- ]file|subset|catch:? |catch-lenient|unverified",
                                "window": 400,
-                               "why": "mandatory caveat: a curated 200-file subset, and catch: "
-                                      "assertions are unverified"}},
+                               "why": "mandatory caveat: a curated 229-file subset, and catch: "
+                                      "checks are lenient for the cases in catch-lenient.txt"}},
     "12.9x":    {"what": "ONNX vs default embedder AT THE EMBEDDING LAYER, 116.671 vs 9.045 docs/s",
                  "cite": LC + ":472", "src": "docs/EXPERIMENTAL_ONNX.md:227-231",
                  "companion": {"needs": r"embedding layer|embedder only|not end[- ]to[- ]end",

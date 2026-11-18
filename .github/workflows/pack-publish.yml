@@ -16,6 +16,28 @@
 #
 # Manual runs welcome: workflow_dispatch built the first release and rebuilds
 # after a recipe change without waiting for the cron tick.
+#
+# CORPUS HUB V2 (docs/CORPUS_HUB_V2_IMPLEMENTATION.md §12.1, §12.2)
+# The same record packs are also rebuilt as hubpacks (`format_version` 1,
+# snapshot layout) by the `hubpack` job: `xerj hub build-pack --from-pack`,
+# signed with HUB_SIGNING_SEED and verified against the key clients embed
+# (HUB_PUBKEY_HEX), then the §12.3 consumer end-to-end
+# (tools/hub-packs/consumer_e2e.sh) — the hub-packs.yml pipeline, step for
+# step. A record pack has no commit, so its pin is a CONTENT pin (the first 40
+# hex of a sha256 over its record files): unchanged records give the same pin
+# and publish nothing new.
+#
+# The repository VARIABLE RECORD_HUBPACKS stages the switch-over; nothing in
+# this file deletes a hubpack release, and retiring the JSON releases means
+# only that no NEW ones are published (the existing ones stay):
+#   unset    the hubpack job builds, verifies and runs the consumer e2e, and
+#            publishes nothing; the JSON jobs run as before.
+#   publish  the hubpack job also publishes `pack-<slug>-<pin8>` releases
+#            (draft, e2e against the draft's own bytes, then publish); the
+#            JSON jobs run as before.
+#   only     set once the published hubpacks have verified (12.2): the JSON
+#            jobs are skipped — no JSON release is built, published or
+#            retired — and the hubpacks are the only releases.
 
 name: pack publish
 
@@ -38,6 +60,8 @@ concurrency:
 jobs:
   rust-vulns:
     name: build + sign + publish rust-vulns
+    # 12.2: retired (no new JSON release) once RECORD_HUBPACKS is `only`.
+    if: vars.RECORD_HUBPACKS != 'only'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -233,6 +257,8 @@ jobs:
 
   agent-session-trajectories:
     name: build + sign + publish agent-session-trajectories
+    # 12.2: retired (no new JSON release) once RECORD_HUBPACKS is `only`.
+    if: vars.RECORD_HUBPACKS != 'only'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -405,3 +431,254 @@ jobs:
             [ -n "$tag" ] && gh release delete "$tag" \
               --repo "$GITHUB_REPOSITORY" --cleanup-tag --yes
           done
+
+  # ── the same record packs as Corpus Hub v2 hubpacks (§12.1) ────────────────
+  hubpack:
+    name: hubpack ${{ matrix.slug }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        slug: [rust-vulns, agent-session-trajectories]
+    env:
+      SLUG: ${{ matrix.slug }}
+      PUBLISH: ${{ vars.RECORD_HUBPACKS == 'publish' || vars.RECORD_HUBPACKS == 'only' }}
+      # consumer_e2e.sh builds its one-entry catalogue from the registry, which
+      # lives on corpus-hub (checked out below).
+      REGISTRY: registry-src/tools/xerj-code/hub
+      BACKLOG: registry-src/tools/xerj-code/hub/backlog/backlog-100.json
+      BUILDER_PORT: "19200"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: corpus-hub
+          path: registry-src
+          persist-credentials: false
+          sparse-checkout: tools/xerj-code/hub
+
+      # The hub-packs.yml preflight: a key clients embed, and a secret that is its
+      # private half. Without the key this job is dormant (a notice, not a failure).
+      - name: Hub key and secret in place?
+        id: key
+        env:
+          HUB_SIGNING_SEED: ${{ secrets.HUB_SIGNING_SEED }}
+        run: |
+          set -euo pipefail
+          pub=$(sed -n 's/^pub const HUB_PUBKEY_HEX: &str = "\([0-9a-fA-F]*\)";.*/\1/p' \
+                  engine/crates/xerj-common/src/hub.rs | head -n 1 | tr 'A-F' 'a-f')
+          if [ -z "$pub" ]; then
+            echo "::notice title=hubpack dormant::HUB_PUBKEY_HEX is empty on this branch"
+            echo "ready=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          if [ -z "$HUB_SIGNING_SEED" ]; then
+            echo "::error title=hubpack::HUB_PUBKEY_HEX is set but the HUB_SIGNING_SEED secret is not"
+            exit 1
+          fi
+          umask 077
+          printf '%s' "$HUB_SIGNING_SEED" > "$RUNNER_TEMP/k"
+          derived=$(bash tools/hub-packs/ed25519.sh derive "$RUNNER_TEMP/k"); rm -f "$RUNNER_TEMP/k"
+          if [ "$derived" != "$pub" ]; then
+            echo "::error title=hubpack::the HUB_SIGNING_SEED secret does not match HUB_PUBKEY_HEX"
+            exit 1
+          fi
+          echo "HUB_PUBKEY_HEX=$pub" >> "$GITHUB_ENV"
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+
+      - uses: dtolnay/rust-toolchain@stable
+        if: steps.key.outputs.ready == 'true'
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        if: steps.key.outputs.ready == 'true'
+        with:
+          workspaces: engine
+
+      - name: Build the xerj binary
+        if: steps.key.outputs.ready == 'true'
+        working-directory: engine
+        run: cargo build --profile ci-test -p xerj-server
+
+      # The record pack, exactly as the JSON jobs build it (same recipe, same
+      # binary). It is the input, not an artifact: nothing here publishes it.
+      - name: Build the record pack
+        if: steps.key.outputs.ready == 'true'
+        env:
+          XERJ_CODE_HOME: ${{ github.workspace }}/.pack-home
+        run: |
+          engine/target/ci-test/xerj corpus build "$SLUG" \
+            --recipe "tools/packs/$SLUG/recipe.toml"
+          echo "RECORD_PACK=$XERJ_CODE_HOME/builds/$SLUG/pack/$SLUG" >> "$GITHUB_ENV"
+
+      - name: Start a throwaway builder node
+        if: steps.key.outputs.ready == 'true'
+        run: |
+          set -euo pipefail
+          NODE="$RUNNER_TEMP/node"
+          mkdir -p "$NODE/data" "$RUNNER_TEMP/pack-out"
+          OUT="$(realpath "$RUNNER_TEMP/pack-out")"
+          printf '[limits]\nsnapshot_repo_allowlist = ["%s"]\n' "$OUT" > "$NODE/config.toml"
+          engine/target/ci-test/xerj --insecure --bind 127.0.0.1 --port "$BUILDER_PORT" \
+            --data-dir "$NODE/data" --config "$NODE/config.toml" > "$NODE/node.log" 2>&1 &
+          echo "NODE_PID=$!" >> "$GITHUB_ENV"
+          echo "PACK_OUT=$OUT" >> "$GITHUB_ENV"
+          for _ in $(seq 1 120); do
+            if curl -fs -m1 "http://127.0.0.1:$BUILDER_PORT/_cluster/health" >/dev/null 2>&1; then
+              echo "builder node is up"; exit 0
+            fi
+            sleep 0.5
+          done
+          echo "the builder node did not become healthy"; cat "$NODE/node.log"; exit 1
+
+      - name: Build and sign the hubpack
+        if: steps.key.outputs.ready == 'true'
+        env:
+          HUB_SIGNING_SEED: ${{ secrets.HUB_SIGNING_SEED }}
+          XERJ_CODE_HOME: ${{ runner.temp }}/code-home
+        run: |
+          set -euo pipefail
+          umask 077
+          printf '%s' "$HUB_SIGNING_SEED" > "$RUNNER_TEMP/pack.key"
+          unset HUB_SIGNING_SEED
+          trap 'rm -f "$RUNNER_TEMP/pack.key"' EXIT
+          engine/target/ci-test/xerj hub build-pack "$SLUG" --from-pack "$RECORD_PACK" \
+            --out "$PACK_OUT" --url "http://127.0.0.1:$BUILDER_PORT" \
+            --sign-key "$RUNNER_TEMP/pack.key" | tee "$RUNNER_TEMP/build.txt"
+          # Last stdout line: `pack <slug> <pin8> <bytes> <indices> <defs>`
+          read -r tag slug pin8 bytes indices defs < <(tail -n 1 "$RUNNER_TEMP/build.txt")
+          if [ "$tag" != "pack" ] || [ "$slug" != "$SLUG" ]; then
+            echo "::error::the builder reported '$tag $slug' but this job builds $SLUG"; exit 1
+          fi
+          echo "PIN8=$pin8" >> "$GITHUB_ENV"
+          echo "built $slug $pin8: $bytes bytes, $indices indices, $defs definitions"
+
+      - name: Verify the signature and the layout
+        if: steps.key.outputs.ready == 'true'
+        run: |
+          set -euo pipefail
+          ARCHIVE="$PACK_OUT/$SLUG-$PIN8.hubpack.tar.zst"
+          test -s "$ARCHIVE"; test -s "$ARCHIVE.sig"
+          bash tools/hub-packs/ed25519.sh verify "$HUB_PUBKEY_HEX" "$ARCHIVE" "$ARCHIVE.sig"
+          zstd -dc "$ARCHIVE" | tar -tf - | sort > "$RUNNER_TEMP/members.txt"
+          for m in pack.json SHA256SUMS defs.jsonl files.jsonl; do
+            grep -qx "$m" "$RUNNER_TEMP/members.txt" || { echo "::error::the archive lacks $m"; exit 1; }
+          done
+          grep -q '^snapshot/' "$RUNNER_TEMP/members.txt" || { echo "::error::the archive lacks snapshot/"; exit 1; }
+          zstd -dc "$ARCHIVE" | tar -xOf - pack.json | jq -e --arg slug "$SLUG" --arg pin8 "$PIN8" \
+            '.format_version == 1 and .slug == $slug and (.pin_sha | startswith($pin8))' >/dev/null
+          echo "layout ok: $(wc -l < "$RUNNER_TEMP/members.txt") members"
+
+      # A content pin that already has a published release means the records did
+      # not change since: there is nothing new to publish.
+      - name: Is this pin already released?
+        if: steps.key.outputs.ready == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if gh release list --repo "$GITHUB_REPOSITORY" --limit 5000 --json tagName,isDraft \
+               --jq '.[] | select(.isDraft | not) | .tagName' \
+             | grep -qxE "pack-$SLUG-$PIN8(-r[0-9]+)?"; then
+            echo "::notice title=hubpack $SLUG::pin $PIN8 is already released (records unchanged); nothing to publish"
+            echo "RELEASED=true" >> "$GITHUB_ENV"
+          else
+            echo "RELEASED=false" >> "$GITHUB_ENV"
+          fi
+
+      - name: Pick an unused release tag
+        if: steps.key.outputs.ready == 'true' && env.PUBLISH == 'true' && env.RELEASED == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          BASE="pack-$SLUG-$PIN8"
+          TAG="$BASE"; N=1
+          while gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
+             || gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" >/dev/null 2>&1; do
+            N=$((N + 1)); TAG="$BASE-r$N"
+          done
+          echo "PACK_TAG=$TAG" >> "$GITHUB_ENV"
+
+      - name: Upload the hubpack to a draft release
+        if: steps.key.outputs.ready == 'true' && env.PUBLISH == 'true' && env.RELEASED == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          ARCHIVE="$PACK_OUT/$SLUG-$PIN8.hubpack.tar.zst"
+          zstd -dc "$ARCHIVE" | tar -xOf - pack.json > "$RUNNER_TEMP/pack.json"
+          {
+            echo "Pre-indexed, signed Corpus Hub v2 pack for the \`$SLUG\` record corpus."
+            echo
+            jq -r '"- content pin: `\(.pin_sha)` (records of \(.pin_date))\n- licence: \(.licence_spdx) (\(.licence_class))\n- definitions: \(.defs_count), files: \(.files_count)\n- built by: \(.builder_version)"' "$RUNNER_TEMP/pack.json"
+            echo
+            echo "Use it: \`xerj hub pull $SLUG\`. The archive is checked against the hub key (sha256, then ed25519 signature) before anything is extracted."
+            echo
+            echo "Built by $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID from tools/packs/$SLUG/recipe.toml"
+          } > "$RUNNER_TEMP/notes.md"
+          gh release create "$PACK_TAG" "$ARCHIVE" "$ARCHIVE.sig" --repo "$GITHUB_REPOSITORY" \
+            --draft --prerelease --latest=false --target "$GITHUB_SHA" \
+            --title "hub pack: $SLUG @ $PIN8" --notes-file "$RUNNER_TEMP/notes.md"
+
+      # §12.3 before anything is published: a fresh node, an empty HOME, `hub pull`
+      # through a signed one-entry catalogue, one --def from the pack's own
+      # defs.jsonl and one question. A publishing run tests the DRAFT's bytes.
+      - name: Consumer end-to-end (pull, --def, one question)
+        if: steps.key.outputs.ready == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HUB_SIGNING_SEED: ${{ secrets.HUB_SIGNING_SEED }}
+        run: |
+          set -euo pipefail
+          FILE="$SLUG-$PIN8.hubpack.tar.zst"
+          SRC="$RUNNER_TEMP/e2e-src"; mkdir -p "$SRC"
+          if [ "$PUBLISH" = "true" ] && [ "$RELEASED" = "false" ]; then
+            TAG="$PACK_TAG"
+            gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir "$SRC" \
+              --pattern "$FILE" --pattern "$FILE.sig"
+            cmp "$SRC/$FILE" "$PACK_OUT/$FILE"
+            cmp "$SRC/$FILE.sig" "$PACK_OUT/$FILE.sig"
+          else
+            TAG="pack-$SLUG-$PIN8"
+            cp "$PACK_OUT/$FILE" "$PACK_OUT/$FILE.sig" "$SRC/"
+          fi
+          umask 077
+          printf '%s' "$HUB_SIGNING_SEED" > "$RUNNER_TEMP/e2e.key"
+          unset HUB_SIGNING_SEED
+          trap 'rm -f "$RUNNER_TEMP/e2e.key"' EXIT
+          bash tools/hub-packs/consumer_e2e.sh engine/target/ci-test/xerj "$SLUG" "$PIN8" "$TAG" "$SRC" \
+            "$RUNNER_TEMP/e2e.key" | tee "$RUNNER_TEMP/e2e.txt"
+          { echo "### hubpack consumer e2e: $SLUG @ $PIN8"; echo; sed 's/^/    /' "$RUNNER_TEMP/e2e.txt"; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish the draft (retag past a burned tag if refused)
+        if: steps.key.outputs.ready == 'true' && env.PUBLISH == 'true' && env.RELEASED == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if gh release edit "$PACK_TAG" --repo "$GITHUB_REPOSITORY" --draft=false; then
+            echo "published $PACK_TAG"; exit 0
+          fi
+          RELID=$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --paginate \
+            --jq ".[] | select(.draft and .tag_name == \"$PACK_TAG\") | .id" | head -n 1 || true)
+          if [ -z "$RELID" ]; then
+            echo "::error::publish refused and no draft named $PACK_TAG found"; exit 1
+          fi
+          N=1; NEW="$PACK_TAG"
+          while gh release view "$NEW" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
+             || gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$NEW" >/dev/null 2>&1; do
+            N=$((N + 1)); NEW="$PACK_TAG-r$N"
+          done
+          gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/$RELID" -f tag_name="$NEW" -F draft=false
+          echo "published $NEW"
+
+      - name: Builder node log (on failure)
+        if: failure()
+        run: tail -n 100 "$RUNNER_TEMP/node/node.log" || true
+
+      - name: Stop the builder node
+        if: always()
+        run: kill "${NODE_PID:-}" 2>/dev/null || true

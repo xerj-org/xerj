@@ -19,4 +19,4 @@ is a different measurement from the older disk ratio, not a better result.
 kNN at k=10 lands at 1.18×, which the board scores as a tie, with recall@10 at
 100% on both engines.
 
-Conformance is 99.8% of the ES-YAML suite, on a curated 200-file subset.
+Conformance is 99.3% of the ES-YAML suite, on a curated 229-file subset.

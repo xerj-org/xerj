@@ -7,11 +7,19 @@ cluster: "Comparison: search engines"
 question: "Do I need Typesense for an agent to search my docs?"
 intent: "comparison"
 published: "2026-08-22"
-updated: "2026-08-23"
+updated: "2026-10-28"
 author: "XERJ documentation team"
 reviewer: "XERJ engineering team"
 schema_type: "TechArticle"
+structured_data: [faq]
 agent_prompt: "Act as a coding agent handed a folder of CSV exports, SQLite files and PDFs. Read https://xerj.org/llms.txt, start a node with `xerj --insecure --data-dir ./xerj-data`, run `xerj autoindex ./exports --prefix ex --state-dir ./state-ex`, then POST a terms aggregation on an inferred keyword field to /ex-*/_search and report both the bucket counts and how many files you had to convert to JSON first."
+answer: "Do I need Typesense for an agent to search my docs? Not for a folder of mixed files: XERJ reads it with one command, where Typesense expects extracted JSON. Typesense wins faceted product browsing, and its own documentation names that a headline use case. No faceting head-to-head was measured."
+key_fact: "Typesense has 27,008 GitHub stars, is GPL-3.0, and released v30.2 on 2026-04-19."
+key_fact_source: "https://github.com/typesense/typesense"
+key_fact_date: "2026-10-19"
+intent_group: "search engine alternatives"
+queries:
+  - "typesense alternative local"
 commands:
   - cmd: "xerj --insecure --data-dir ./xerj-data"
     note: "Start one node. Nothing has to become JSON first."
@@ -108,7 +116,7 @@ The Typesense server is GPL-3.0. XERJ is Apache-2.0. If you plan to embed either
 
 Typesense Cloud sells a dedicated cluster at a fixed hourly cost rather than charging per document or per search. XERJ ships self-hosted only, with no managed product at all, so a managed plan is a reason to pick Typesense.
 
-Typesense documents conversational search and natural-language search as first-party features. Its documentation index lists no MCP server page, so treat any MCP server for Typesense as a community project until the vendor documents one. XERJ ships `xerj mcp` in the same binary, serving 10 tools.
+Typesense documents conversational search and natural-language search as first-party features. Its documentation index lists no MCP server page, so treat any MCP server for Typesense as a community project until the vendor documents one. XERJ ships `xerj mcp` in the same binary, serving 24 tools.
 
 ## The limits you inherit with XERJ
 

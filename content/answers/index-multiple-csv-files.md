@@ -1,17 +1,27 @@
 ---
-title: "How do I search a folder of CSV exports?"
+title: "Search multiple CSV files at once, without a database"
 h1: "I have a directory of CSV exports. How do I query them without opening each one in Excel?"
-description: "Point xerj autoindex at the folder once. A captured run split 3 CSV files across 2 schemas into 2 indices and answered one query across both of them."
+description: "Point xerj autoindex at a folder of CSV files once. A captured run split 3 CSVs with 2 headers into 2 indices and answered one query across both."
 slug: "index-multiple-csv-files"
 cluster: "Files and formats"
 question: "I have a directory of CSV exports. How do I query them without opening each one in Excel?"
 intent: "how-to"
 published: "2026-08-21"
-updated: "2026-08-21"
+updated: "2026-10-28"
 author: "XERJ documentation team"
 reviewer: "XERJ engineering team"
 schema_type: "TechArticle"
+structured_data: [faq]
 agent_prompt: "Act as a coding agent. Read https://xerj.org/llms.txt, start a local XERJ node, run `xerj autoindex ./csv-exports --url http://127.0.0.1:9200 --prefix multi --progress plain`, GET /_cat/indices/multi-*?format=json to see how many indices the different headers produced, then POST one query_string search across multi-* with a terms aggregation on ax_dataset and report the per-dataset counts."
+answer: "I have a directory of CSV exports; how do I query them without opening each one in Excel? Give xerj autoindex the folder. In a captured run, 3 CSV files with 2 different headers became 2 indices holding 402 and 151 documents, and one query_string request across both returned 171 hits split by dataset."
+key_fact: "One CSV file yields at most 4,096 records per extraction window (`MAX_RECORDS_PER_FILE`) before the next window starts."
+key_fact_source: "engine/crates/xerj-autoindex/src/extract/mod.rs"
+key_fact_date: "2026-10-19"
+intent_group: "JSONL and data files"
+queries:
+  - "index folder of csv files and query with bm25"
+  - "search csv and jsonl folder one command"
+  - "search large csv files fast without database"
 commands:
   - cmd: "xerj autoindex ./csv-multi --url http://127.0.0.1:9200 --prefix multi --progress plain"
     note: "Index every CSV file in the folder in one pass."
@@ -24,6 +34,7 @@ links_out:
   - "catalog-files-with-autoindex-map"
   - "search-file-contents-in-a-folder"
   - "/compare/xerj-vs-typesense"
+  - "full-text-search-over-jsonl-files-cli"
 faq:
   - q: "I have a directory of CSV exports. How do I query them without opening each one in Excel?"
     a: "Give `xerj autoindex` the folder, not each file. It reads every CSV in one run, groups the files by header, and each group becomes an index you query over HTTP."

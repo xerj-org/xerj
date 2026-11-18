@@ -18,6 +18,7 @@ pub mod build_catalogue;
 pub mod catalogue;
 pub mod cli;
 pub mod def;
+pub mod feedback;
 mod flock;
 pub mod lockfile;
 pub mod node;
@@ -25,12 +26,14 @@ pub mod pack;
 pub mod router;
 pub mod sketch;
 pub mod sync;
+#[cfg(test)]
+mod test_support;
 
 pub use xerj_common::hub::{
-    render, Answer, AnswerMode, AnsweredFrom, Catalogue, CatalogueEntry, DefRecord, Hit,
-    LicenceClass, PackIndex, PackManifest, PackSource, Sketch, AUTO_PULL_MAX_BYTES,
-    CATALOGUE_FORMAT_VERSION, DEFAULT_HUB_URL, DISK_BUDGET_BYTES, HUB_PUBKEY_HEX,
-    PACK_FORMAT_VERSION,
+    catalogue_format_supported, render, Answer, AnswerMode, AnsweredFrom, Catalogue,
+    CatalogueEntry, DefRecord, Hit, LicenceClass, PackIndex, PackManifest, PackSource, Sketch,
+    AUTO_PULL_MAX_BYTES, CATALOGUE_FORMAT_VERSION, CATALOGUE_FORMAT_VERSION_MIN, DEFAULT_HUB_URL,
+    DISK_BUDGET_BYTES, HUB_PUBKEY_HEX, PACK_FORMAT_VERSION,
 };
 
 #[cfg(test)]

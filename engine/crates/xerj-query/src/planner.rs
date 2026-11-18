@@ -496,7 +496,7 @@ fn plan_node(query: QueryNode, schema: &Schema) -> ExecutionPlan {
         },
 
         // Regexp: full scan cost since we must evaluate each doc.
-        QueryNode::Regexp { field, pattern } => ExecutionPlan::FtsScan {
+        QueryNode::Regexp { field, pattern, .. } => ExecutionPlan::FtsScan {
             field,
             terms: vec![serde_json::Value::String(pattern)],
             cost: 20.0,

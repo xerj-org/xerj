@@ -42,6 +42,34 @@
 # Trailing slash normalization
 /home         /                   301
 
+# Google Search Console 404s (read 2026-10-25). Each source below is a URL
+# Googlebot actually requested; each target is the page that answers it.
+# Named sources only, never a pattern.
+#
+# Guessed agent-file paths. There is no static install.md or SKILL.md on this
+# site: `xerj init` writes the skill files into the user's project, so an
+# agent that guesses them is sent to the install page and the agent index.
+/docs/install.md    /docs/install       301
+/SKILL.md           /llms.txt           301
+# No hosted MCP endpoint lives at /mcp. The MCP server is `xerj mcp`, a local
+# stdio server documented in the CLI reference.
+/mcp                /docs/cli#mcp       301
+# `landing/get` is a FILE (the installer script), so /get/ is not a directory.
+# A relative `get` link resolved against /get produced /get/get. The old
+# index-file spelling under /get/ (fixed via urlmap.HREF_FIXUPS) keeps its 404:
+# seo_lint rule 64 forbids `.html` sources here.
+/get/get            /docs/install       301
+# The recipes live under /docs/recipes/; a bare /recipes was linked from an
+# older README translation.
+/recipes            /docs/recipes/      301
+# Punctuation glued onto a URL by a text extractor (a trailing `;` after
+# llms.txt, a trailing backtick after /recipes or after llms.txt inside a
+# Markdown code span). Each rule uses the spelling Pages matches, checked on a
+# preview deploy: `;` stays literal, a backtick arrives as %60.
+/llms.txt;          /llms.txt           301
+/llms.txt%60        /llms.txt           301
+/recipes%60         /docs/recipes/      301
+
 # ── NO CATCH-ALL. Ever. ─────────────────────────────────────────────────────
 #
 # There must never be a rule whose source matches every path — `/* ... 200`,
@@ -58,3 +86,25 @@
 # `seo_lint.py` rule 67 fails the build on a catch-all source and on a missing
 # `landing/404.html`. Named prefixes (`/docs/*`) are fine: they claim a real
 # section instead of claiming everything.
+
+# 2026-11-07 home redesign: the old enterprise funnel and the two old demos
+# left the site map. Their pages promised dates that have passed and terms no
+# company stands behind yet, so they redirect instead of lingering unlinked.
+# Reversible: delete these lines (and the NOINDEX entries in urlmap.py).
+/pricing/              /#open                       301
+/pricing               /#open                       301
+/security/             /#open                       301
+/security              /#open                       301
+/solutions/            /#use-cases                  301
+/solutions             /#use-cases                  301
+/resources/            /#use-cases                  301
+/resources             /#use-cases                  301
+/industries/           /#use-cases                  301
+/industries            /#use-cases                  301
+/industries/finserv    /#use-cases                  301
+/industries/healthcare /#use-cases                  301
+/industries/public-sector /#use-cases               301
+/industries/retail     /#use-cases                  301
+/demo/                 /benchmarks/elasticsearch    301
+/demo                  /benchmarks/elasticsearch    301
+/aise-demo             /benchmarks/elasticsearch    301

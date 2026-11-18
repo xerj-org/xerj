@@ -3,6 +3,8 @@
 # then start:   xerj --config gemini-embeddings.toml
 [embedding]
 mode = "proxy"
+# Full embeddings path, used unchanged. A base ending in `/v1` would have
+# `/embeddings` appended; this Gemini route does not, so the full path is required.
 default_endpoint = "https://generativelanguage.googleapis.com/v1beta/openai/embeddings"
 default_model = "gemini-embedding-001"
 batch_size = 64

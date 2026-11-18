@@ -32,6 +32,8 @@ libc = "0.2"
 # `http://localhost:9200@evil.com/` userinfo leak happened — see
 # src/localauth.rs.
 url = "2"
+sha2 = "0.10"
+serde_json_canonicalizer = "0.3.2"
 
 [dev-dependencies]
 tempfile.workspace = true

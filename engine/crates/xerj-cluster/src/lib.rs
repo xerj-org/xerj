@@ -50,6 +50,7 @@ pub mod auth;
 pub mod coordinator;
 pub mod metadata;
 pub mod node;
+pub mod propose;
 pub mod raft;
 pub mod raft_log;
 pub mod regions;
@@ -57,6 +58,7 @@ pub mod replication;
 pub mod router;
 pub mod runner;
 pub mod search;
+pub mod shard;
 pub mod transport;
 
 // ── Convenience re-exports ────────────────────────────────────────────────────
@@ -67,6 +69,7 @@ pub use coordinator::{
 };
 pub use metadata::{ClusterMetadata, IndexMetadata, NodeInfo, NodeState};
 pub use node::{ClusterNode, ClusterTransport};
+pub use propose::{ApplyEffect, ClusterHandle, MetadataApplier, ProposeError};
 pub use raft::{ClusterCommand, LogEntry, RaftMessage, RaftNode, RaftState};
 pub use regions::{Region, RegionManager, RegionMove};
 pub use replication::{
@@ -76,4 +79,9 @@ pub use router::jump_hash;
 pub use router::ShardRouter;
 pub use runner::{ClusterRunner, ClusterRunnerBuilder};
 pub use search::{merge_search_responses, SearchHit, SearchMessage};
+pub use shard::{
+    number_of_replicas_from_settings, primary_shard_plan, replica_index_name, replica_quorum_acks,
+    shard_plan, shard_plan_from_schema_json, MemoryShardDir, MemoryShardRpc, NullShardRpc,
+    ShardAssignment, ShardError, ShardHandler, ShardOp, ShardResult, ShardRpc,
+};
 pub use transport::TcpTransport;

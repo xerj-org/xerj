@@ -1,15 +1,25 @@
-# Multi-arch container — v0.8 8-V6.
+# Multi-architecture container image (linux/amd64, linux/arm64).
 #
-# Build with `docker buildx build --platform linux/amd64,linux/arm64 -t xerj/xerj:0.8.0 .`
+# Build both from one native host:
+#   docker buildx build --platform linux/amd64,linux/arm64 -t xerj/xerj:1.0.0 .
 #
-# Build stage
-FROM --platform=$BUILDPLATFORM rust:1.94-slim AS builder
+# No `--platform=$BUILDPLATFORM`: the binary has to be compiled for the target
+# platform, otherwise a host of one arch copies a host-arch binary into an
+# image labelled for the other.
+#
+# Builder and runtime must stay on the same Debian release. `rust:1.94-slim` is
+# trixie today, so the runtime is trixie and glibc 2.41 is available to link
+# against; a bookworm runtime (glibc 2.36) cannot load the result.
+FROM rust:1.94-slim-trixie AS builder
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends make perl \
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /build
 COPY . .
 RUN cargo build --release -p xerj-server && strip target/release/xerj
 
-# Runtime stage — distroless-like minimal
-FROM debian:bookworm-slim
+# Match the builder's Debian release to avoid glibc incompatibilities.
+FROM debian:trixie-slim
 RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates curl \
     && rm -rf /var/lib/apt/lists/*

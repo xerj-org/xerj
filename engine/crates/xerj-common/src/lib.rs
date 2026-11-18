@@ -7,13 +7,13 @@
 //! ## Design philosophy
 //!
 //! Unlike Elasticsearch's 3000+ configuration knobs, xerj deliberately exposes
-//! **134 settings**, each meaningful and production-tested. Every default
+//! **139 settings**, each meaningful and production-tested. Every default
 //! is chosen so that a fresh deployment with zero configuration changes performs
 //! well for the majority of workloads.
 //!
 //! ## Modules
 //!
-//! - [`config`]  — TOML-based configuration (134 settings)
+//! - [`config`]  — TOML-based configuration (139 settings)
 //! - [`code_query`] — query shaping shared by `xerj search` and the
 //!   `xerj_search` MCP tool (multi-word glue-token stripping, #1364)
 //! - [`feedback`] — the bug/UX-report invitation shared by every `--help`
@@ -32,9 +32,15 @@
 //!   same-machine CLI/MCP commands (`xerj mcp`, `xerj autoindex`, `xerj init`)
 //! - [`xccode`]  — the reference-coding semantics shared by `xerj code`,
 //!   `xerj corpus`, and the `xerj_code_search` MCP tool (issue #977)
+//! - [`document_limit`] — the fixed per-document byte ceiling that keeps one
+//!   JSON value from being tokenized into an unbounded `String` per word (#1122)
 //! - [`thread_spawn`] — spawning helper threads without aborting the node
-//!   on a failed spawn (#1122): the closure comes back, plus a process-wide
-//!   memory spawn gate
+//!   on a failed spawn (#1122): Unix threads are created with `pthread_create`
+//!   so a signal-stack allocation failure is an error instead of a panic in
+//!   the child, the closure comes back, and a process-wide memory spawn gate
+//!   skips best-effort spawns once the breaker is engaged. Scoped borrows
+//!   use the same `pthread_create` path and are joined before the scope
+//!   returns
 //! - [`hub`]     — Corpus Hub v2 shared types: the catalogue, pack manifest,
 //!   definition record, and the [`hub::Answer`] every surface renders (#1374)
 
@@ -42,19 +48,28 @@ pub mod argv;
 pub mod calibration;
 pub mod code_query;
 pub mod config;
+pub mod corpus_feedback;
+pub mod cyber_scope;
+pub mod document_limit;
 pub mod error;
 pub mod feedback;
 pub mod field_coercion;
+pub mod field_report;
 pub mod fsio;
 pub mod home;
 pub mod hub;
+pub mod hub_evidence;
 pub mod localauth;
+pub mod loopback_test;
 pub mod metrics;
 pub mod net;
+pub mod nodedir;
+pub mod packed_f32;
 pub mod resource;
 pub mod schema;
 pub mod thread_spawn;
 pub mod types;
+pub mod writing_review;
 pub mod xccode;
 
 // Convenience re-exports at the crate root

@@ -402,8 +402,21 @@ pub fn available_memory_bytes() -> Option<u64> {
     probe_available_memory()
 }
 
-/// Resident set size of this process, or `None` where this platform has no
-/// probe. `None` must disable an RSS-driven decision, never read as zero.
+/// Memory this process holds that the kernel cannot drop on its own, or
+/// `None` where this platform has no probe. On Linux that is the anonymous
+/// and shared-memory resident pages (`RssAnon + RssShmem`), not `VmRSS`; on
+/// macOS the physical footprint (see the macOS `probe_rss`); on Windows the
+/// working set. `None` must disable an RSS-driven decision, never read as
+/// zero.
+///
+/// Why not `VmRSS` on Linux (#2574): it also counts clean file-backed pages
+/// of every mmapped segment, term dictionary and postings file a search has
+/// touched. The kernel reclaims those whenever another process needs RAM,
+/// so they cannot exhaust memory, but no drain inside the process can
+/// release them while the mapping is open. On a node whose indices are
+/// larger than its memory cap, searches faulted those pages in until RSS sat
+/// above the cap, and from then on every search was rejected with
+/// `circuit_breaking_exception` until the node restarted.
 pub fn current_rss_bytes() -> Option<u64> {
     probe_rss()
 }
@@ -419,7 +432,106 @@ fn probe_total_memory() -> Option<u64> {
     sysctl_u64(c"hw.memsize")
 }
 
-#[cfg(not(any(target_os = "linux", target_os = "macos")))]
+#[cfg(target_os = "windows")]
+#[allow(clippy::upper_case_acronyms)]
+mod win_mem {
+    #[repr(C)]
+    #[allow(non_snake_case)]
+    pub struct MEMORYSTATUSEX {
+        pub dwLength: u32,
+        pub dwMemoryLoad: u32,
+        pub ullTotalPhys: u64,
+        pub ullAvailPhys: u64,
+        pub ullTotalPageFile: u64,
+        pub ullAvailPageFile: u64,
+        pub ullTotalVirtual: u64,
+        pub ullAvailVirtual: u64,
+        pub ullAvailExtendedVirtual: u64,
+    }
+
+    #[repr(C)]
+    #[allow(non_snake_case)]
+    pub struct PROCESS_MEMORY_COUNTERS {
+        pub cb: u32,
+        pub PageFaultCount: u32,
+        pub PeakWorkingSetSize: usize,
+        pub WorkingSetSize: usize,
+        pub QuotaPeakPagedPoolUsage: usize,
+        pub QuotaPagedPoolUsage: usize,
+        pub QuotaPeakNonPagedPoolUsage: usize,
+        pub QuotaNonPagedPoolUsage: usize,
+        pub PagefileUsage: usize,
+        pub PeakPagefileUsage: usize,
+    }
+
+    #[link(name = "kernel32")]
+    extern "system" {
+        pub fn GlobalMemoryStatusEx(lpBuffer: *mut MEMORYSTATUSEX) -> i32;
+        pub fn GetCurrentProcess() -> *mut std::ffi::c_void;
+        pub fn K32GetProcessMemoryInfo(
+            hProcess: *mut std::ffi::c_void,
+            ppsmemCounters: *mut PROCESS_MEMORY_COUNTERS,
+            cb: u32,
+        ) -> i32;
+    }
+
+    pub fn status() -> Option<MEMORYSTATUSEX> {
+        let mut s = MEMORYSTATUSEX {
+            dwLength: std::mem::size_of::<MEMORYSTATUSEX>() as u32,
+            dwMemoryLoad: 0,
+            ullTotalPhys: 0,
+            ullAvailPhys: 0,
+            ullTotalPageFile: 0,
+            ullAvailPageFile: 0,
+            ullTotalVirtual: 0,
+            ullAvailVirtual: 0,
+            ullAvailExtendedVirtual: 0,
+        };
+        // SAFETY: GlobalMemoryStatusEx writes dwLength bytes into s.
+        let ok = unsafe { GlobalMemoryStatusEx(&mut s) };
+        (ok != 0 && s.ullTotalPhys > 0).then_some(s)
+    }
+
+    fn counters() -> Option<PROCESS_MEMORY_COUNTERS> {
+        let mut counters = PROCESS_MEMORY_COUNTERS {
+            cb: std::mem::size_of::<PROCESS_MEMORY_COUNTERS>() as u32,
+            PageFaultCount: 0,
+            PeakWorkingSetSize: 0,
+            WorkingSetSize: 0,
+            QuotaPeakPagedPoolUsage: 0,
+            QuotaPagedPoolUsage: 0,
+            QuotaPeakNonPagedPoolUsage: 0,
+            QuotaNonPagedPoolUsage: 0,
+            PagefileUsage: 0,
+            PeakPagefileUsage: 0,
+        };
+        // SAFETY: K32GetProcessMemoryInfo writes cb bytes to counters for the current process.
+        let ok =
+            unsafe { K32GetProcessMemoryInfo(GetCurrentProcess(), &mut counters, counters.cb) };
+        (ok != 0).then_some(counters)
+    }
+
+    pub fn rss() -> Option<u64> {
+        counters().and_then(|c| (c.WorkingSetSize > 0).then_some(c.WorkingSetSize as u64))
+    }
+
+    /// Commit charge of this process (`PagefileUsage`). The field name is
+    /// historical: it is charged with or without a pagefile, and it is what
+    /// a later `VirtualAlloc` fails against.
+    pub fn commit_charge() -> Option<u64> {
+        counters().map(|c| c.PagefileUsage as u64)
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn probe_total_memory() -> Option<u64> {
+    // Physical RAM only. The AUTO tier still starts here; the commit ceiling
+    // in [`windows_commit_budget`] is what stops a no-pagefile box from being
+    // sized as if that RAM were free to commit (#1122).
+    win_mem::status().map(|s| s.ullTotalPhys)
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
 fn probe_total_memory() -> Option<u64> {
     None
 }
@@ -432,7 +544,12 @@ fn probe_available_memory() -> Option<u64> {
     )
 }
 
-#[cfg(not(target_os = "linux"))]
+#[cfg(target_os = "windows")]
+fn probe_available_memory() -> Option<u64> {
+    win_mem::status().map(|s| s.ullAvailPhys)
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "windows")))]
 fn probe_available_memory() -> Option<u64> {
     None
 }
@@ -449,39 +566,84 @@ fn meminfo_field(meminfo: &str, key: &str) -> Option<u64> {
     None
 }
 
+/// Linux: anonymous plus shared-memory resident bytes from
+/// `/proc/self/status` (#2574). Clean file-backed pages (mmapped segments)
+/// are left out because the kernel drops them under pressure; see
+/// [`current_rss_bytes`]. Kernels older than 4.5 have no `RssAnon` line, so
+/// fall back to `/proc/self/statm` resident minus its shared (file-backed and
+/// shmem) pages, which is the same anonymous figure without the shmem part.
 #[cfg(target_os = "linux")]
 fn probe_rss() -> Option<u64> {
+    if let Some(bytes) = std::fs::read_to_string("/proc/self/status")
+        .ok()
+        .and_then(|status| unreclaimable_resident_bytes(&status))
+    {
+        return Some(bytes);
+    }
     let statm = std::fs::read_to_string("/proc/self/statm").ok()?;
-    let pages: u64 = statm.split_whitespace().nth(1)?.parse().ok()?;
     // SAFETY: `sysconf` reads a system constant.
     let page = unsafe { libc::sysconf(libc::_SC_PAGESIZE) };
     let page = if page > 0 { page as u64 } else { 4096 };
-    Some(pages.saturating_mul(page))
+    statm_anonymous_bytes(&statm, page)
 }
 
+/// `RssAnon + RssShmem` out of a `/proc/<pid>/status` body, in bytes. `None`
+/// when the kernel has no `RssAnon` line (pre-4.5). A missing `RssShmem`
+/// counts as zero.
+#[cfg(any(target_os = "linux", test))]
+fn unreclaimable_resident_bytes(status: &str) -> Option<u64> {
+    let anon = meminfo_field(status, "RssAnon:")?;
+    let shmem = meminfo_field(status, "RssShmem:").unwrap_or(0);
+    Some(anon.saturating_add(shmem))
+}
+
+/// Resident minus shared pages out of a `/proc/<pid>/statm` body, in bytes:
+/// the anonymous resident set on a kernel without `RssAnon`.
+#[cfg(any(target_os = "linux", test))]
+fn statm_anonymous_bytes(statm: &str, page: u64) -> Option<u64> {
+    let mut fields = statm.split_whitespace().skip(1);
+    let resident: u64 = fields.next()?.parse().ok()?;
+    let shared: u64 = fields.next()?.parse().ok()?;
+    Some(resident.saturating_sub(shared).saturating_mul(page))
+}
+
+/// macOS: the process's physical footprint (`ri_phys_footprint`), not its
+/// resident size.
+///
+/// Resident size leaves out the pages the compressor has taken and the pages
+/// swapped out, which are still this process's memory, and it counts clean
+/// file-backed pages (mmapped segments) the kernel can drop at will. Under a
+/// 1 GiB cap a node read 0.8 GB resident while vmmap showed a 2.2 GB
+/// footprint, 1.3 GB of it compressed, so the breaker kept admitting writes;
+/// and its "released" edges followed the compressor, not a drain. The
+/// footprint is what `/usr/bin/time -l` reports as "peak memory footprint"
+/// and what the kernel's memory-pressure kills act on.
 #[cfg(target_os = "macos")]
 fn probe_rss() -> Option<u64> {
-    let mut info = std::mem::MaybeUninit::<libc::proc_taskinfo>::zeroed();
-    let size = std::mem::size_of::<libc::proc_taskinfo>() as libc::c_int;
-    // SAFETY: `proc_pidinfo` writes at most `size` bytes into `info` and
-    // reports how many it wrote; anything short is treated as a failure.
-    let written = unsafe {
-        libc::proc_pidinfo(
+    let mut info = std::mem::MaybeUninit::<libc::rusage_info_v2>::zeroed();
+    // SAFETY: with flavor RUSAGE_INFO_V2, `proc_pid_rusage` writes one
+    // `rusage_info_v2` into the buffer it is given and returns 0, or returns
+    // -1 and writes nothing usable.
+    let rc = unsafe {
+        libc::proc_pid_rusage(
             std::process::id() as libc::c_int,
-            libc::PROC_PIDTASKINFO,
-            0,
-            info.as_mut_ptr() as *mut libc::c_void,
-            size,
+            libc::RUSAGE_INFO_V2,
+            info.as_mut_ptr() as *mut libc::rusage_info_t,
         )
     };
-    if written != size {
+    if rc != 0 {
         return None;
     }
-    // SAFETY: proc_pidinfo filled the whole struct (checked above).
-    Some(unsafe { info.assume_init() }.pti_resident_size)
+    // SAFETY: proc_pid_rusage returned 0, so it filled the struct.
+    Some(unsafe { info.assume_init() }.ri_phys_footprint)
 }
 
-#[cfg(not(any(target_os = "linux", target_os = "macos")))]
+#[cfg(target_os = "windows")]
+fn probe_rss() -> Option<u64> {
+    win_mem::rss()
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
 fn probe_rss() -> Option<u64> {
     None
 }
@@ -540,6 +702,152 @@ fn safe_zone(total: u64, available: Option<u64>) -> u64 {
     let reserve = (total / 8).max(GIB);
     let headroom = available.unwrap_or(total).saturating_sub(reserve);
     headroom.min(total / 2).max(256 * MIB)
+}
+
+/// One Windows commit reading. Bytes. A zero [`WindowsCommitSample::commit_limit`]
+/// means the probe did not return commit figures — the budget must then stay
+/// on physical RAM rather than invent a tight cap from a failed read.
+///
+/// Field meanings follow `MEMORYSTATUSEX` (the struct this file already fills
+/// via `GlobalMemoryStatusEx`, #1766):
+///
+/// * `total_phys` — `ullTotalPhys`
+/// * `commit_limit` — `ullTotalPageFile`, the commit limit for the system or
+///   this process, whichever is smaller
+/// * `available_commit` — `ullAvailPageFile`, how many more bytes this process
+///   may commit before `VirtualAlloc` fails
+/// * `process_commit` — `PROCESS_MEMORY_COUNTERS::PagefileUsage`, charged with
+///   or without a pagefile
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct WindowsCommitSample {
+    pub total_phys: u64,
+    pub commit_limit: u64,
+    pub available_commit: u64,
+    pub process_commit: u64,
+}
+
+/// What the governor may treat as the machine after Windows commit charge.
+///
+/// The AUTO tier is still chosen from physical RAM (or a cgroup). This budget
+/// is a second ceiling applied afterwards: a pagefile that covers RAM must not
+/// move the 64 GiB / 128 GiB tier steps, and a commit limit a little under RAM
+/// (the kernel's own holdback, with nothing else charged) must not either.
+/// The ceiling binds when what this process can still reach, minus a reserve,
+/// is tighter than the tier.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct WindowsCommitBudget {
+    /// Bytes the process cap may not exceed. Equal to physical RAM when
+    /// commit is not the scarce resource.
+    pub effective_bytes: u64,
+    /// `effective_bytes` is below physical RAM because commit is scarce.
+    pub commit_bound: bool,
+    pub commit_limit: u64,
+    pub available_commit: u64,
+    pub process_commit: u64,
+    /// `min(commit_limit, process_commit + available_commit)` — the size at
+    /// which the next commit fails if nothing else allocates.
+    pub committable: u64,
+    /// Held back so a 95% watermark and one flush allocation land before the
+    /// allocator abort. Also the live threshold: available commit below this
+    /// engages the breaker. `0` when commit figures are missing.
+    pub reserve_bytes: u64,
+}
+
+/// Bytes of commit held back from the ceiling.
+///
+/// One quarter of what this process can still reach, clamped to
+/// [512 MiB, 2 GiB]. The floor covers the ~100 MiB flush allocation that
+/// aborted a 16 GiB no-pagefile run (#1122, field report #2174) plus the
+/// sampler interval. The quarter, not the watermark's own 5%, is the gap:
+/// that run died with RSS around 3.3–3.7 GiB while the engine was tracking
+/// ~0.8 GiB, so a cap sitting on the commit limit itself is already too late.
+fn windows_commit_reserve(committable: u64) -> u64 {
+    const MIN_RESERVE: u64 = 512 * MIB;
+    const MAX_RESERVE: u64 = 2 * GIB;
+    (committable / 4).clamp(MIN_RESERVE, MAX_RESERVE)
+}
+
+/// Pure commit ceiling. Tested with injected numbers; the live probe is
+/// [`windows_commit_sample`].
+pub fn windows_commit_budget(sample: WindowsCommitSample) -> WindowsCommitBudget {
+    let total = sample.total_phys.max(1);
+    if sample.commit_limit == 0 {
+        return WindowsCommitBudget {
+            effective_bytes: total,
+            commit_bound: false,
+            commit_limit: 0,
+            available_commit: sample.available_commit,
+            process_commit: sample.process_commit,
+            committable: total,
+            reserve_bytes: 0,
+        };
+    }
+    let committable = sample
+        .commit_limit
+        .min(
+            sample
+                .process_commit
+                .saturating_add(sample.available_commit),
+        )
+        .max(1);
+    let reserve = windows_commit_reserve(committable);
+    // Nothing left to give: the live available-commit check rejects writes.
+    // The floor keeps a derived memtable budget from becoming 0, which would
+    // disable that breaker rather than tighten it.
+    const FLOOR: u64 = 256 * MIB;
+    let after_reserve = if committable <= reserve {
+        FLOOR.min(committable).max(1)
+    } else {
+        committable.saturating_sub(reserve).max(1)
+    };
+    // A gap smaller than the reserve is not "the machine is full". Commit is
+    // scarce only when the post-reserve ceiling is actually under physical RAM.
+    let commit_bound = after_reserve < total;
+    WindowsCommitBudget {
+        effective_bytes: if commit_bound { after_reserve } else { total },
+        commit_bound,
+        commit_limit: sample.commit_limit,
+        available_commit: sample.available_commit,
+        process_commit: sample.process_commit,
+        committable,
+        reserve_bytes: reserve,
+    }
+}
+
+/// Live Windows commit sample, or `None` where this platform has no probe
+/// (Linux, macOS) and where `GlobalMemoryStatusEx` fails.
+pub fn windows_commit_sample() -> Option<WindowsCommitSample> {
+    #[cfg(target_os = "windows")]
+    {
+        let status = win_mem::status()?;
+        Some(WindowsCommitSample {
+            total_phys: status.ullTotalPhys,
+            commit_limit: status.ullTotalPageFile,
+            available_commit: status.ullAvailPageFile,
+            process_commit: win_mem::commit_charge().unwrap_or(0),
+        })
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        None
+    }
+}
+
+/// How many more bytes this process may commit, or `None` off Windows.
+pub fn available_commit_bytes() -> Option<u64> {
+    windows_commit_sample().map(|s| s.available_commit)
+}
+
+/// This process's commit charge, or `None` off Windows.
+pub fn process_commit_charge_bytes() -> Option<u64> {
+    #[cfg(target_os = "windows")]
+    {
+        win_mem::commit_charge()
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        None
+    }
 }
 
 /// One line describing what this policy decided, for a startup log or a
@@ -720,6 +1028,79 @@ mod tests {
     }
 
     #[test]
+    fn process_memory_leaves_out_clean_file_backed_pages() {
+        // #2574: a node at rest on a 400 MiB cap, after a burst of searches
+        // over 670 MB of mmapped segments. VmRSS (427 MB) was over the cap,
+        // so every search was rejected; the heap was 178 MB.
+        let status = "Name:\txerj\nVmRSS:\t  427640 kB\nRssAnon:\t  181880 kB\n\
+                      RssFile:\t  245760 kB\nRssShmem:\t       0 kB\nThreads:\t40\n";
+        assert_eq!(unreclaimable_resident_bytes(status), Some(181_880 * 1024));
+        let with_shmem = "RssAnon:\t 100 kB\nRssFile:\t 900 kB\nRssShmem:\t 20 kB\n";
+        assert_eq!(unreclaimable_resident_bytes(with_shmem), Some(120 * 1024));
+        // Pre-4.5 kernels have no RssAnon: let the statm fallback answer.
+        assert_eq!(unreclaimable_resident_bytes("VmRSS:\t 427640 kB\n"), None);
+        assert_eq!(
+            unreclaimable_resident_bytes("RssAnon:\t 7 kB\n"),
+            Some(7 * 1024)
+        );
+        // statm: size resident shared text lib data dt (pages).
+        assert_eq!(
+            statm_anonymous_bytes("500000 106910 61440 900 0 90000 0\n", 4096),
+            Some((106_910 - 61_440) * 4096)
+        );
+        assert_eq!(statm_anonymous_bytes("1 2\n", 4096), None);
+        assert_eq!(statm_anonymous_bytes("1 5 9 0 0 0 0", 4096), Some(0));
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn process_memory_does_not_grow_with_a_touched_file_mapping() {
+        // Map and touch 64 MiB of a file: VmRSS grows by about that much,
+        // the probe the breaker reads must not (#2574).
+        use std::io::Write;
+        let dir = std::env::temp_dir().join(format!("xerj-rss-probe-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("segment.bin");
+        let len = 64 * MIB as usize;
+        {
+            let mut f = std::fs::File::create(&path).unwrap();
+            let chunk = vec![7u8; MIB as usize];
+            for _ in 0..64 {
+                f.write_all(&chunk).unwrap();
+            }
+            f.sync_all().unwrap();
+        }
+        let file = std::fs::File::open(&path).unwrap();
+        // SAFETY: a private read-only mapping of a file this test owns.
+        let addr = unsafe {
+            libc::mmap(
+                std::ptr::null_mut(),
+                len,
+                libc::PROT_READ,
+                libc::MAP_PRIVATE,
+                std::os::unix::io::AsRawFd::as_raw_fd(&file),
+                0,
+            )
+        };
+        assert_ne!(addr, libc::MAP_FAILED);
+        let before = current_rss_bytes().unwrap();
+        let mut sum = 0u64;
+        for off in (0..len).step_by(4096) {
+            // SAFETY: `off < len` inside the mapping above.
+            sum += unsafe { std::ptr::read_volatile((addr as *const u8).add(off)) } as u64;
+        }
+        assert_eq!(sum, (len / 4096) as u64 * 7);
+        let after = current_rss_bytes().unwrap();
+        // SAFETY: unmapping exactly the mapping created above.
+        unsafe { libc::munmap(addr, len) };
+        let _ = std::fs::remove_dir_all(&dir);
+        assert!(
+            after < before + 16 * MIB,
+            "touching a 64 MiB file mapping moved the process-memory probe from {before} to {after}"
+        );
+    }
+
+    #[test]
     fn this_machine_probes_are_sane() {
         // Not a fixed expectation — a probe that returns something absurd is
         // the bug (the 8 GiB constant this replaces would fail on this box).
@@ -733,14 +1114,141 @@ mod tests {
             // Windows PDF-throttling bug this API shape exists to prevent.
             assert_eq!(memory_safe_zone_bytes(), None);
         }
-        #[cfg(any(target_os = "linux", target_os = "macos"))]
+        #[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
         {
             let rss = current_rss_bytes().expect("RSS must be probeable here");
             assert!(rss > 0, "a running process has non-zero RSS");
             assert_eq!(
                 available_memory_bytes().is_some(),
-                cfg!(target_os = "linux")
+                cfg!(any(target_os = "linux", target_os = "windows"))
             );
         }
+    }
+
+    #[test]
+    fn windows_commit_sample_is_absent_off_windows() {
+        #[cfg(not(target_os = "windows"))]
+        {
+            assert!(windows_commit_sample().is_none());
+            assert!(available_commit_bytes().is_none());
+            assert!(process_commit_charge_bytes().is_none());
+        }
+        #[cfg(target_os = "windows")]
+        {
+            if let Some(sample) = windows_commit_sample() {
+                assert!(sample.total_phys >= 256 * MIB);
+                let budget = windows_commit_budget(sample);
+                assert!(budget.effective_bytes > 0);
+                assert!(budget.effective_bytes <= sample.total_phys.max(1));
+            }
+        }
+    }
+
+    /// #1122 / field report #2174: 16 GiB RAM, no pagefile (commit limit ≈
+    /// physical), ~12 GiB already charged by other processes, so about 4 GiB
+    /// is still committable. The physical-RAM tier would hand this process an
+    /// 8 GiB cap. The commit ceiling must sit under the abort line by enough
+    /// for the ~100 MiB flush that killed that run.
+    #[test]
+    fn a_pagefileless_16gib_box_is_capped_by_available_commit() {
+        let sample = WindowsCommitSample {
+            total_phys: 16 * GIB,
+            commit_limit: 16 * GIB,
+            available_commit: 4 * GIB,
+            process_commit: 200 * MIB,
+        };
+        let budget = windows_commit_budget(sample);
+        let committable = 4 * GIB + 200 * MIB;
+        assert_eq!(budget.committable, committable);
+        assert!(budget.commit_bound);
+        assert!(budget.reserve_bytes >= 512 * MIB);
+        assert!(budget.reserve_bytes <= 2 * GIB);
+        assert_eq!(budget.effective_bytes, committable - budget.reserve_bytes);
+        // Quarter of 4.2 GiB, inside the clamp: the exact reserve this case
+        // must keep, so a later edit cannot silently eat the headroom.
+        assert_eq!(budget.reserve_bytes, committable / 4);
+        assert_eq!(budget.effective_bytes, 3_378_511_872);
+        assert!(
+            budget.effective_bytes < 8 * GIB,
+            "the 8 GiB physical-RAM tier is above what Windows will commit"
+        );
+        let watermark = budget.effective_bytes * 95 / 100;
+        let headroom = budget.committable - watermark;
+        assert!(
+            headroom >= 100 * MIB,
+            "the field report's 100 MiB flush must fit under the abort line, headroom={headroom}"
+        );
+        assert!(
+            headroom >= 512 * MIB,
+            "sampler lag needs more than the watermark's own 5%, headroom={headroom}"
+        );
+    }
+
+    #[test]
+    fn ample_commit_does_not_move_the_physical_tier_input() {
+        // 64 GiB with a pagefile: commit limit and available commit both sit
+        // above RAM. The budget must hand back physical RAM unchanged so the
+        // 16 GiB AUTO step (64 GiB ≤ effective < 128 GiB) stays put.
+        let covered = windows_commit_budget(WindowsCommitSample {
+            total_phys: 64 * GIB,
+            commit_limit: 96 * GIB,
+            available_commit: 80 * GIB,
+            process_commit: 512 * MIB,
+        });
+        assert!(!covered.commit_bound);
+        assert_eq!(covered.effective_bytes, 64 * GIB);
+        assert!(covered.reserve_bytes >= 512 * MIB);
+
+        // 128 GiB, same shape: the 32 GiB step's input is physical RAM.
+        let big = windows_commit_budget(WindowsCommitSample {
+            total_phys: 128 * GIB,
+            commit_limit: 200 * GIB,
+            available_commit: 180 * GIB,
+            process_commit: GIB,
+        });
+        assert!(!big.commit_bound);
+        assert_eq!(big.effective_bytes, 128 * GIB);
+
+        // No pagefile, but the machine is otherwise idle: commit limit sits a
+        // little under RAM (kernel holdback). That gap must not by itself
+        // pull a 16 GiB box's ceiling under the 8 GiB tier.
+        let idle = windows_commit_budget(WindowsCommitSample {
+            total_phys: 16 * GIB,
+            commit_limit: 16 * GIB - 256 * MIB,
+            available_commit: 15 * GIB,
+            process_commit: 200 * MIB,
+        });
+        assert!(
+            idle.effective_bytes >= 8 * GIB,
+            "idle no-pagefile box: {:?}",
+            idle
+        );
+    }
+
+    #[test]
+    fn a_failed_commit_probe_does_not_invent_a_tight_cap() {
+        let failed = windows_commit_budget(WindowsCommitSample {
+            total_phys: 16 * GIB,
+            commit_limit: 0,
+            available_commit: 0,
+            process_commit: 0,
+        });
+        assert!(!failed.commit_bound);
+        assert_eq!(failed.effective_bytes, 16 * GIB);
+        assert_eq!(failed.reserve_bytes, 0);
+    }
+
+    #[test]
+    fn no_available_commit_engages_the_reserve_immediately() {
+        let full = windows_commit_budget(WindowsCommitSample {
+            total_phys: 16 * GIB,
+            commit_limit: 16 * GIB,
+            available_commit: 0,
+            process_commit: 300 * MIB,
+        });
+        assert!(full.commit_bound);
+        assert!(full.available_commit < full.reserve_bytes);
+        assert!(full.effective_bytes <= 300 * MIB);
+        assert!(full.effective_bytes >= 1);
     }
 }

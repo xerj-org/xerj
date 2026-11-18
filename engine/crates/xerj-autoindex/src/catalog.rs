@@ -2,11 +2,16 @@
 //! wildcard so data-wide searches never hit metadata. Its dataset docs ARE
 //! the agent-facing data map; `xerj autoindex map` renders them.
 
+use std::collections::BTreeMap;
+
 use crate::correlate::KeyCorr;
 use crate::state::PlanDataset;
 use serde_json::{json, Value};
 
 pub const CATALOG_INDEX: &str = xerj_common::AUTOINDEX_CATALOG_INDEX;
+
+/// Scope guidance, not an existence probe or a dataset record.
+pub const MAP_NAMESPACE_HINT: &str = "This map lists autoindex datasets, not the managed corpus registry. A managed corpus slug is not an autoindex dataset/index pattern. Use `xerj corpus list` for this client's configured corpora, then `xerj code <corpus> <query>` (MCP `xerj_code_search`); the node's `_cat/indices` lists indices. An empty map does not establish that managed corpus data is absent; no managed corpus existence was checked.";
 
 /// The corpus-scope field the #737/#693 exclusion sweeps term-query (#755).
 ///
@@ -166,7 +171,7 @@ pub fn catalog_mapping() -> Value {
 pub const GOTCHAS: &[&str] = &[
     "hybrid search: use {\"query\":{\"hybrid\":{\"queries\":[…]}}} ONLY — retriever.rrf is a silent stub and rank.rrf is ignored on this engine",
     "indexes CREATED by this build stem English text fields (Snowball, via a declared `analysis.analyzer.default`) whenever the profiler marked the dataset's prose semantic — plurals and inflections match (`databases` ↔ `database`) on `text`/`semantic_text` fields of THOSE indexes; keyword fields are never stemmed, and indexes an older build created keep the unstemmed `standard` analyzer (analysis settings are fixed at index creation — reindex into a fresh index to change them)",
-    "semantic_text fields are embedded server-side: the DEFAULT is the built-in LEXICAL feature-hash embedder (384-dim hybrid lexical+vector, NOT neural) — start the server with `--embed-mode neural` (built-in Candle BERT), `--embed-mode proxy`, or an ONNX-enabled build with `--embed-mode onnx-experimental --onnx-model … --onnx-tokenizer …` for neural semantics; ONNX runs only when this map shows a semantic_field, and its first real inference is confirmed by the server activation log",
+    "semantic_text fields are embedded server-side: the DEFAULT is the built-in LEXICAL feature-hash embedder (384-dim hybrid lexical+vector, NOT neural) — start the server with `--embed-mode neural` (built-in Candle BERT), `--embed-mode proxy`, or an ONNX-enabled build with `--embed-mode onnx-experimental --onnx-model … --onnx-tokenizer …` for neural semantics; ONNX runs only when this map shows a semantic_field, and its first real inference is confirmed by the server activation log. `--embed-mode` is fixed per index at ingest: changing it does not re-embed documents already written; re-index into a new index. A mapping inference_id or inference_endpoint does not switch the embedder",
     "semantic queries ignore _source filtering and return the ~8KB *_vector field in _source — strip client-side",
     "exact filters use TOP-LEVEL keyword fields (term on .keyword subfields returns 0 hits on this engine)",
     "all dates are normalized to RFC3339 UTC millis; mappings use strict_date_optional_time||epoch_millis",
@@ -196,9 +201,60 @@ pub struct DatasetDocInput<'a> {
     pub run_id: &'a str,
 }
 
+/// Field list stored on a dataset doc.
+///
+/// The profiler never observes the `ax_*` provenance locators — they are
+/// stamped after sampling — but the mapping builder maps every
+/// `PROVENANCE_FIELDS` entry as `keyword` and every record carries them.
+/// Leaving them out of
+/// `fields_json` is what made `xerj_map` omit `ax_path` while `xerj_plan`
+/// counted it (#2120). Appending here does not touch `pd.specs`: that vec
+/// is hashed into `schema_identity`, and a new spec there would abort every
+/// existing state dir.
+pub fn catalog_field_specs(specs: &[crate::infer::FieldSpec]) -> Vec<crate::infer::FieldSpec> {
+    let mut out = specs.to_vec();
+    for name in crate::PROVENANCE_FIELDS {
+        if out.iter().any(|s| s.name == *name) {
+            continue;
+        }
+        out.push(provenance_catalog_spec(name));
+    }
+    out
+}
+
+/// A locator the pipeline stamps on every record. Coverage is 1 because the
+/// stamp is unconditional. Cardinality is unmeasured (`0` plus the note) —
+/// `ax_path` is high and `ax_dataset` is not, and inventing either number
+/// would be a false claim.
+fn provenance_catalog_spec(name: &str) -> crate::infer::FieldSpec {
+    crate::infer::FieldSpec {
+        name: name.to_string(),
+        es_type: "keyword".into(),
+        date_enc: None,
+        semantic: None,
+        cardinality_est: 0,
+        cardinality_overflow: false,
+        null_ratio: 0.0,
+        avg_len: 0.0,
+        coverage: 1.0,
+        examples: Vec::new(),
+        notes: vec![
+            "autoindex provenance locator, mapped keyword and stamped on every record; \
+             not sampled, so cardinality_est 0 means unmeasured"
+                .into(),
+        ],
+        date_min: None,
+        date_max: None,
+        date_evidence: Vec::new(),
+        num_min: None,
+        num_max: None,
+    }
+}
+
 pub fn dataset_doc(inp: &DatasetDocInput) -> (String, Value) {
     let id = format!("ds:{}:{}", inp.prefix, inp.pd.slug);
-    let fields_json = serde_json::to_string(&inp.pd.specs).unwrap_or_else(|_| "[]".into());
+    let fields_json =
+        serde_json::to_string(&catalog_field_specs(&inp.pd.specs)).unwrap_or_else(|_| "[]".into());
     let doc = json!({
         "doc_kind": "dataset",
         "slug": inp.pd.slug,
@@ -545,6 +601,221 @@ pub fn file_matches_prefix(doc: &Value, prefix: &str) -> bool {
         == Some(prefix)
 }
 
+/// Label used when a catalog run under `prefix` has no `root`.
+///
+/// An empty root cannot be proved to be this folder, so it counts as a
+/// different source. The string is stable so the refusal can name it.
+pub const UNRECORDED_PREFIX_ROOT: &str = "(root not recorded on the catalog run)";
+
+/// Source roots of the *latest* catalog run under `prefix` that are not `root`.
+///
+/// Only `doc_kind: run` documents whose prefix matches exactly are considered.
+/// A sibling prefix (`ax-2` when this run is `ax`) is not a collision: the
+/// server filter can over-match a legacy analyzed `prefix` field. Older run
+/// documents are history: after `--replace-prefix` the new folder's run is
+/// the latest, and re-running that folder must not keep demanding the flag.
+/// `started` is an ISO-8601 timestamp, so the greatest string is the latest.
+/// Runs that share that timestamp are one cohort. Duplicate roots collapse
+/// to one line.
+pub fn foreign_prefix_roots(runs: &[Value], prefix: &str, root: &str) -> Vec<String> {
+    let matching: Vec<&Value> = runs
+        .iter()
+        .filter(|run| run.get("doc_kind").and_then(Value::as_str) == Some("run"))
+        .filter(|run| {
+            run.get("prefix")
+                .or_else(|| run.get(CORPUS_SCOPE_FIELD))
+                .and_then(Value::as_str)
+                == Some(prefix)
+        })
+        .collect();
+    let latest = matching
+        .iter()
+        .filter_map(|run| run.get("started").and_then(Value::as_str))
+        .max()
+        .map(str::to_owned);
+    let mut foreign = std::collections::BTreeSet::new();
+    for run in matching {
+        if let Some(started) = &latest {
+            if run.get("started").and_then(Value::as_str) != Some(started.as_str()) {
+                continue;
+            }
+        }
+        let recorded_root = run.get("root").and_then(Value::as_str).unwrap_or("");
+        if recorded_root == root {
+            continue;
+        }
+        if recorded_root.is_empty() {
+            foreign.insert(UNRECORDED_PREFIX_ROOT.to_string());
+        } else {
+            foreign.insert(recorded_root.to_string());
+        }
+    }
+    foreign.into_iter().collect()
+}
+
+/// Prefixes other than `prefix` whose latest run recorded this same `root`.
+///
+/// #2078: indexing one folder twice, under `ax` and under a named prefix,
+/// does not collide on catalog ids, so it is a warning rather than the
+/// refusal [`foreign_prefix_roots`] produces. `root` is not a mapped catalog
+/// field; callers fetch `doc_kind: run` and filter here.
+pub fn other_prefixes_for_root(runs: &[Value], root: &str, prefix: &str) -> Vec<String> {
+    let mut latest: BTreeMap<&str, &str> = BTreeMap::new();
+    for run in runs {
+        if run.get("doc_kind").and_then(Value::as_str) != Some("run") {
+            continue;
+        }
+        let Some(recorded) = run.get("prefix").and_then(Value::as_str) else {
+            continue;
+        };
+        if recorded == prefix || recorded.is_empty() {
+            continue;
+        }
+        if run.get("root").and_then(Value::as_str) != Some(root) {
+            continue;
+        }
+        let started = run.get("started").and_then(Value::as_str).unwrap_or("");
+        match latest.get(recorded) {
+            Some(prev) if *prev >= started => {}
+            _ => {
+                latest.insert(recorded, started);
+            }
+        }
+    }
+    latest.into_keys().map(str::to_string).collect()
+}
+
+/// One line. `warn` strips newlines, so this stays a single sentence.
+pub fn same_root_other_prefix_line(prefix: &str, others: &[String]) -> String {
+    let listed = others
+        .iter()
+        .map(|other| format!("{other} (indices {other}-*)"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let first = others.first().map(String::as_str).unwrap_or(prefix);
+    format!(
+        "autoindex: this folder is already indexed under {listed}. This run uses {prefix} and \
+         will index it again. Re-run with --prefix {first} to update that copy instead. Both \
+         copies are kept: a {first}-* index can also hold other folders, so nothing here \
+         suggests deleting it."
+    )
+}
+
+/// What a reused prefix will do, for both the refusal and the
+/// `--replace-prefix` warning. `replacing` is true only when the operator
+/// passed the flag and the run is going to continue.
+pub fn prefix_reuse_message(
+    prefix: &str,
+    root: &str,
+    others: &[String],
+    replacing: bool,
+) -> String {
+    let listed = others
+        .iter()
+        .map(|other| format!("  {other}"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let ending = if replacing {
+        format!(
+            "--replace-prefix is set, so this run continues. Finalize will overwrite catalog \
+             documents keyed ds:{prefix}:<slug> and write into {prefix}-* indices, retiring the \
+             earlier datasets."
+        )
+    } else {
+        "Nothing was written. The command above is the first remedy: one --prefix per source \
+         folder. --replace-prefix retires those datasets on purpose; it is not the first option. \
+         --dry-run does not bypass this check."
+            .to_string()
+    };
+    let body = format!(
+        "autoindex: --prefix {prefix} already indexes a different folder.\n\
+         this run: {root}\n\
+         already indexed from:\n\
+         {listed}\n\
+         Catalog datasets are keyed ds:{prefix}:<slug> and indices are named {prefix}-*. \
+         Finalizing this run overwrites those catalog documents and retires the earlier datasets.\n\
+         A shared prefix also drops per-repo provenance. Each repository indexed as its own \
+         folder has an empty scope, so every one of them becomes the single dataset \
+         {prefix}-docs (catalog id ds:{prefix}:docs). Index the parent folder that contains \
+         the repositories, or pass a distinct --prefix per repository.\n\
+         {ending}"
+    );
+    if replacing {
+        return body;
+    }
+    let suggested = suggested_prefix(root, prefix);
+    let command_root = root.replace(['\n', '\r'], " ");
+    let command = format!(
+        "xerj autoindex {} --prefix {}",
+        shell_quote(&command_root),
+        shell_quote(&suggested)
+    );
+    format!(
+        "autoindex: this folder needs its own --prefix. Do not delete the other folder's indices.\n\
+         Ready to copy:\n  {command}\n{body}"
+    )
+}
+
+/// A prefix for `root` that is not `taken` and can name an index.
+fn suggested_prefix(root: &str, taken: &str) -> String {
+    let path = std::path::Path::new(root.trim());
+    let name = path
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("")
+        .to_string();
+    let parent = path
+        .parent()
+        .and_then(|p| p.file_name())
+        .and_then(|s| s.to_str())
+        .unwrap_or("")
+        .to_string();
+    let mut raw = Vec::new();
+    if !name.is_empty() {
+        raw.push(name.clone());
+        if !parent.is_empty() {
+            raw.push(format!("{parent}-{name}"));
+        }
+        raw.push(format!("{name}-2"));
+        raw.push(format!("p{name}"));
+    }
+    raw.push(format!("p{taken}"));
+    raw.push(format!("{taken}-2"));
+    for candidate in raw {
+        let sanitized = crate::dataset::sanitize_prefix(&candidate);
+        if prefix_is_usable(&sanitized, taken) {
+            return sanitized;
+        }
+    }
+    for n in 3..64 {
+        let sanitized = crate::dataset::sanitize_prefix(&format!("{taken}-{n}"));
+        if prefix_is_usable(&sanitized, taken) {
+            return sanitized;
+        }
+    }
+    "folder".to_string()
+}
+
+fn prefix_is_usable(prefix: &str, taken: &str) -> bool {
+    !prefix.is_empty() && prefix != taken && crate::dataset::index_prefix_error(prefix).is_none()
+}
+
+/// Quote a path for a shell command an agent can copy. Unquoted when every
+/// character is safe; otherwise single quotes, with `'` written as `'\''`.
+fn shell_quote(s: &str) -> String {
+    if s.is_empty() {
+        return "''".to_string();
+    }
+    let safe = s
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '/' | '.' | '_' | '-' | ':' | '\\'));
+    if safe {
+        s.to_string()
+    } else {
+        format!("'{}'", s.replace('\'', "'\\''"))
+    }
+}
+
 /// How many dataset detail sections the default map prints before it asks
 /// for a page. The summary table always lists every dataset; the per-dataset
 /// field tables and sample queries are what blow the map up to hundreds of
@@ -605,18 +876,36 @@ pub fn render_map_page(
         } else {
             format!(", wall {wall}s")
         };
+        // `junk_records_total` is records that failed extraction. A run can
+        // list junk *files* (css, fonts, encrypted PDFs, "no records
+        // extracted") while that counter stays 0. The headline has to name
+        // the files the section below lists, and stay byte-identical when
+        // the list is empty.
+        let junk_records = g("junk_records_total");
+        let junk_clause = if junk_files.is_empty() {
+            format!("{junk_records} junk records")
+        } else {
+            format!(
+                "{junk_records} junk records, {} junk/skipped files",
+                junk_files.len()
+            )
+        };
         s.push_str(&format!(
-            "run `{}` — root `{}` — {} paths ({} unique content, {} duplicate aliases), {} records indexed, {} junk records{}\n\n",
+            "run `{}` — root `{}` — {} paths ({} unique content, {} duplicate aliases), {} records indexed, {}{}\n\n",
             g("run_id"),
             g("root"),
             g("files_total"),
             g("unique_content_files"),
             g("duplicate_files"),
             g("records_total"),
-            g("junk_records_total"),
+            junk_clause,
             wall_clause,
         ));
     }
+    // #2351: locator names differ by record kind. The paragraph is on every
+    // map, including one rendered from a catalog written before the aliases.
+    s.push_str(crate::HIT_LOCATOR_HINT);
+    s.push_str("\n\n");
     // #929: a corpus that lacks a dataset says so at the top of its own map,
     // before the table that would otherwise read as the whole corpus.
     if let Some(refused) = run
@@ -641,9 +930,41 @@ pub fn render_map_page(
         }
         s.push('\n');
     }
-    s.push_str("## Datasets\n\n");
-    s.push_str("| index | records | files | formats | time field | time range |\n");
-    s.push_str("|---|---|---|---|---|---|\n");
+    // #2370: a family that was entirely or mostly junked is named here, from
+    // the run document, so the map does not look like a complete corpus when
+    // a file type was dropped. Absent on a run that did not trip the threshold,
+    // which keeps this section off the maps those runs already printed.
+    if let Some(warnings) = run
+        .and_then(|r| r.get("family_junk_warnings"))
+        .and_then(Value::as_array)
+        .filter(|warnings| !warnings.is_empty())
+    {
+        s.push_str("## Families mostly or entirely junked — NOT indexed\n\n");
+        s.push_str(
+            "Every file of a family, or a strict majority of its files, was junked. \
+             These types are missing or barely present in the dataset table. \
+             The top reason is the most common junk reason for that family.\n\n",
+        );
+        for warning in warnings {
+            let g = |k: &str| warning.get(k).map(pretty_val).unwrap_or_default();
+            s.push_str(&format!(
+                "- **{}** — {} of {} files ({}); top reason ({} files): {}\n",
+                g("family"),
+                g("junk_files"),
+                g("files"),
+                g("extent"),
+                g("top_reason_files"),
+                g("top_reason"),
+            ));
+        }
+        s.push('\n');
+    }
+    s.push_str(&format!("## Datasets ({})\n\n", datasets.len()));
+    // `slug` is the argument to `--dataset`. The index name is
+    // `{prefix}-{slug}`, and a hyphenated prefix makes the slug impossible
+    // to recover from the index column alone.
+    s.push_str("| slug | index | records | files | formats | time field | time range |\n");
+    s.push_str("|---|---|---|---|---|---|---|\n");
     for d in datasets {
         let g = |k: &str| d.get(k).map(pretty_val).unwrap_or_default();
         let range = match (d.get("time_min"), d.get("time_max")) {
@@ -652,8 +973,14 @@ pub fn render_map_page(
             }
             _ => "—".into(),
         };
+        let slug = g("slug");
         s.push_str(&format!(
-            "| `{}` | {} | {} | {} | {} | {} |\n",
+            "| {} | `{}` | {} | {} | {} | {} | {} |\n",
+            if slug.is_empty() {
+                "—".into()
+            } else {
+                format!("`{slug}`")
+            },
             g("index_name"),
             g("record_count"),
             g("file_count"),
@@ -696,7 +1023,11 @@ pub fn render_map_page(
         }
         // fields table
         if let Some(fj) = d.get("fields_json").and_then(|v| v.as_str()) {
-            if let Ok(specs) = serde_json::from_str::<Vec<crate::infer::FieldSpec>>(fj) {
+            if let Ok(parsed) = serde_json::from_str::<Vec<crate::infer::FieldSpec>>(fj) {
+                // Old catalogs were written before locators were appended.
+                // Rendering them here is what an already-indexed corpus's
+                // `xerj autoindex map` shows, without a reindex (#2120).
+                let specs = catalog_field_specs(&parsed);
                 s.push_str("| field | type | semantic | cardinality | null% | examples |\n");
                 s.push_str("|---|---|---|---|---|---|\n");
                 let mut sorted: Vec<&crate::infer::FieldSpec> = specs.iter().collect();
@@ -707,7 +1038,9 @@ pub fn render_map_page(
                         .then(a.name.cmp(&b.name))
                 });
                 for f in sorted.iter().take(40) {
-                    let card = if f.cardinality_overflow {
+                    let card = if f.notes.iter().any(|n| n.contains("not sampled")) {
+                        "—".to_string()
+                    } else if f.cardinality_overflow {
                         format!("{}+", crate::infer::DISTINCT_CAP)
                     } else {
                         f.cardinality_est.to_string()
@@ -725,10 +1058,7 @@ pub fn render_map_page(
                         f.null_ratio * 100.0,
                         f.examples
                             .iter()
-                            .map(|e| {
-                                let short: String = clean(e).chars().take(40).collect();
-                                format!("`{}`", short.replace('|', "\\|").replace('`', "'"))
-                            })
+                            .map(|e| map_example_cell(e))
                             .collect::<Vec<_>>()
                             .join(", ")
                     ));
@@ -879,6 +1209,22 @@ fn pretty_val(v: &Value) -> String {
     clean(&s)
 }
 
+/// One markdown table cell for a field example.
+///
+/// [`clean`] keeps newlines and tabs, and this cell is interpolated into a
+/// `| field | ... | examples |` row. A newline ends the row, so an example
+/// whose next line starts with `##` is rendered as a heading. Collapse
+/// whitespace onto one line, then cap the cell.
+fn map_example_cell(raw: &str) -> String {
+    let flat = clean(raw).split_whitespace().collect::<Vec<_>>().join(" ");
+    let mut short: String = flat.chars().take(40).collect();
+    if flat.chars().count() > 40 {
+        short = flat.chars().take(39).collect();
+        short.push('…');
+    }
+    format!("`{}`", short.replace('|', "\\|").replace('`', "'"))
+}
+
 /// Strip control characters (raw data can contain NULs etc. — they would
 /// make the rendered map read as a binary file).
 fn clean(s: &str) -> String {
@@ -941,6 +1287,18 @@ mod duplicate_tests {
             "summary table lists every dataset"
         );
         assert!(rendered.contains("`ax-d19`"));
+        assert!(
+            rendered.contains("## Datasets (20)"),
+            "the heading names how many datasets the table holds: {rendered}"
+        );
+        assert!(
+            rendered.contains("| slug |"),
+            "the summary names the slug `--dataset` takes"
+        );
+        assert!(
+            rendered.contains("`d00`") && rendered.contains("`d19`"),
+            "every row carries its slug, not only its index name: {rendered}"
+        );
         assert_eq!(
             rendered.matches("### `").count(),
             super::MAP_DETAIL_PAGE,
@@ -953,6 +1311,108 @@ mod duplicate_tests {
         assert!(page.contains("### `ax-d09`"));
         assert!(!page.contains("### `ax-d10`"));
         assert!(page.contains("Field detail for datasets 9–10 of 20"));
+    }
+
+    fn one_field(name: &str, example: &str) -> crate::infer::FieldSpec {
+        crate::infer::FieldSpec {
+            name: name.into(),
+            es_type: "text".into(),
+            date_enc: None,
+            semantic: None,
+            cardinality_est: 1,
+            cardinality_overflow: false,
+            null_ratio: 0.0,
+            avg_len: 3.0,
+            coverage: 1.0,
+            examples: vec![example.into()],
+            notes: vec![],
+            date_min: None,
+            date_max: None,
+            date_evidence: vec![],
+            num_min: None,
+            num_max: None,
+        }
+    }
+
+    /// A newline in an example used to end the markdown row. The next line
+    /// (`## Branded types…`) was then a heading in the middle of the table.
+    #[test]
+    fn catalog_fields_include_provenance_locators_the_profiler_never_saw() {
+        let specs = catalog_field_specs(&[one_field("language", "rust")]);
+        let names: Vec<&str> = specs.iter().map(|s| s.name.as_str()).collect();
+        for loc in crate::PROVENANCE_FIELDS {
+            assert!(names.contains(loc), "missing {loc}: {names:?}");
+        }
+        let again = catalog_field_specs(&specs);
+        assert_eq!(
+            again.len(),
+            specs.len(),
+            "a locator already stored is not duplicated"
+        );
+        let ax_path = specs.iter().find(|s| s.name == "ax_path").unwrap();
+        assert_eq!(ax_path.es_type, "keyword");
+        assert_eq!(ax_path.coverage, 1.0);
+        assert!(ax_path.notes.iter().any(|n| n.contains("not sampled")));
+    }
+
+    #[test]
+    fn an_old_catalog_map_still_lists_ax_path() {
+        let dataset = json!({
+            "index_name": "ax-code",
+            "slug": "code",
+            "record_count": 10,
+            "file_count": 1,
+            "formats": "rs",
+            "fields_json": serde_json::to_string(&vec![one_field("language", "rust")]).unwrap()
+        });
+        let rendered = render_map(None, &[dataset], &[], &[], &[], 0);
+        assert!(rendered.contains("`ax_path`"), "{rendered}");
+        assert!(rendered.contains("`ax_locator`"), "{rendered}");
+        assert!(
+            rendered.contains(crate::HIT_LOCATOR_HINT),
+            "the map names locator fields even when the catalog predates them: {rendered}"
+        );
+        let row = rendered
+            .lines()
+            .find(|l| l.starts_with('|') && l.contains("`ax_path`"))
+            .expect("ax_path row");
+        assert!(
+            row.contains("| — | 0%"),
+            "unmeasured cardinality is not a fake 0: {row}"
+        );
+    }
+
+    #[test]
+    fn an_example_newline_stays_inside_its_table_row() {
+        let dataset = json!({
+            "index_name": "ax-branded",
+            "slug": "branded",
+            "record_count": 1,
+            "file_count": 1,
+            "formats": "json",
+            "fields_json": serde_json::to_string(&vec![
+                one_field("code", "code\n## Branded types for type guard"),
+                one_field("wide", &format!("alpha\tbeta {}", "n".repeat(40))),
+            ]).unwrap()
+        });
+        let rendered = render_map(None, &[dataset], &[], &[], &[], 0);
+        assert!(
+            !rendered.lines().any(|l| l.starts_with("## Branded")),
+            "a newline in an example forged a heading:\n{rendered}"
+        );
+        let row = rendered
+            .lines()
+            .find(|l| l.contains("code ## Branded"))
+            .expect("the example stays on the field row");
+        assert!(row.starts_with('|'), "{row}");
+        assert!(!row.contains('\n'));
+        let wide = rendered
+            .lines()
+            .find(|l| l.contains("alpha beta"))
+            .expect("a tab is a space");
+        assert!(wide.starts_with('|'), "{wide}");
+        assert!(wide.contains('…'), "a long example is capped: {wide}");
+        assert!(!wide.contains(&"n".repeat(40)), "{wide}");
     }
 
     #[test]
@@ -1012,6 +1472,76 @@ mod duplicate_tests {
             rendered_legacy.contains("0 junk records, wall 1.4s\n\n"),
             "legacy wall_seconds must still render: {rendered_legacy}"
         );
+        // A run document without family warnings keeps the map it had.
+        assert!(
+            !rendered.contains("Families mostly or entirely junked"),
+            "{rendered}"
+        );
+    }
+
+    #[test]
+    fn the_map_names_a_family_that_was_entirely_junked() {
+        let run = json!({
+            "doc_kind": "run",
+            "run_id": "gen-1",
+            "root": "/corpus",
+            "files_total": 6,
+            "unique_content_files": 2,
+            "duplicate_files": 0,
+            "records_total": 2,
+            "junk_records_total": 0,
+            "family_junk_warnings": [{
+                "family": "pdf",
+                "files": 4,
+                "junk_files": 4,
+                "indexed_files": 0,
+                "extent": "all",
+                "top_reason": "could not start the isolated PDF parser",
+                "top_reason_files": 4
+            }]
+        });
+        let rendered = render_map(Some(&run), &[], &[], &[], &[], 0);
+        assert!(
+            rendered.contains("## Families mostly or entirely junked — NOT indexed"),
+            "{rendered}"
+        );
+        assert!(
+            rendered.contains(
+                "**pdf** — 4 of 4 files (all); top reason (4 files): could not start the isolated PDF parser"
+            ),
+            "{rendered}"
+        );
+        // The section sits above the dataset table.
+        let warning_at = rendered.find("Families mostly or entirely junked").unwrap();
+        let datasets_at = rendered.find("## Datasets").unwrap();
+        assert!(warning_at < datasets_at, "{rendered}");
+    }
+
+    /// The summary used to say "0 junk records" on a map whose later section
+    /// listed 17 skipped files. The file count belongs in the headline when
+    /// the list is non-empty, and only then.
+    #[test]
+    fn the_summary_names_junk_files_when_the_list_is_nonempty() {
+        let run = json!({
+            "doc_kind": "run",
+            "run_id": "nb",
+            "root": "/corpus",
+            "files_total": 36,
+            "unique_content_files": 36,
+            "duplicate_files": 0,
+            "records_total": 286,
+            "junk_records_total": 0
+        });
+        let junk = vec![
+            json!({"path": "style.css", "status": "skipped", "reason": "no records extracted"}),
+            json!({"path": "font.woff", "status": "skipped", "reason": "no records extracted"}),
+        ];
+        let rendered = render_map(Some(&run), &[], &[], &junk, &[], junk.len() as u64);
+        assert!(
+            rendered.contains("286 records indexed, 0 junk records, 2 junk/skipped files\n\n"),
+            "{rendered}"
+        );
+        assert!(rendered.contains("## Junk / skipped (2 files recorded"));
     }
 
     #[test]
@@ -1188,5 +1718,144 @@ mod sample_query_tests {
         assert_eq!(super::file_id("ax-a", "k"), super::file_id("ax-a", "k"));
         // The prefix is actually in the id (not just concatenated key).
         assert!(super::file_id("ax-a", "k").starts_with("file:ax-a:"));
+    }
+}
+
+#[cfg(test)]
+mod prefix_reuse_tests {
+    use super::*;
+
+    fn run(prefix: &str, root: &str) -> Value {
+        json!({"doc_kind": "run", "prefix": prefix, "root": root})
+    }
+
+    /// Same prefix, different folder: the earlier root is named, and the
+    /// message says finalize retires `ds:<prefix>:<slug>` and that separately
+    /// indexed repos collapse into `<prefix>-docs`.
+    #[test]
+    fn a_different_folder_under_the_same_prefix_is_named() {
+        let runs = vec![
+            run("ref", "/data/stockfish"),
+            run("ref", "/data/stockfish"),
+            run("ref-other", "/data/elsewhere"),
+            json!({"doc_kind": "dataset", "prefix": "ref", "root": "/data/not-a-run"}),
+        ];
+        let foreign = foreign_prefix_roots(&runs, "ref", "/data/lucaschess");
+        assert_eq!(foreign, vec!["/data/stockfish".to_string()]);
+        let message = prefix_reuse_message("ref", "/data/lucaschess", &foreign, false);
+        assert!(message.contains("this run: /data/lucaschess"), "{message}");
+        assert!(message.contains("/data/stockfish"), "{message}");
+        assert!(message.contains("ds:ref:<slug>"), "{message}");
+        assert!(message.contains("ref-*"), "{message}");
+        assert!(message.contains("ref-docs"), "{message}");
+        assert!(message.contains("ds:ref:docs"), "{message}");
+        assert!(message.contains("Nothing was written"), "{message}");
+        assert!(message.contains("--replace-prefix"), "{message}");
+        assert!(message.contains("Do not delete"), "{message}");
+        let copy_at = message
+            .find("--prefix lucaschess")
+            .expect("the ready-to-copy command names a distinct prefix");
+        let taken_at = message
+            .find("--prefix ref already")
+            .expect("the taken prefix is still named");
+        let replace_at = message.find("--replace-prefix").expect("flag");
+        assert!(
+            copy_at < taken_at && copy_at < replace_at,
+            "a distinct --prefix is the first remedy:\n{message}"
+        );
+        assert!(
+            message.contains("xerj autoindex /data/lucaschess --prefix lucaschess"),
+            "{message}"
+        );
+        assert!(
+            !message.contains("/data/elsewhere"),
+            "a sibling prefix is not this corpus: {message}"
+        );
+    }
+
+    #[test]
+    fn the_suggested_prefix_is_not_the_taken_one_and_the_path_is_quoted() {
+        let message = prefix_reuse_message("ref", "/data/my folder", &["/data/old".into()], false);
+        assert!(
+            message.contains("xerj autoindex '/data/my folder' --prefix my-folder"),
+            "{message}"
+        );
+        let digit = prefix_reuse_message("ref", "/data/2024", &["/data/old".into()], false);
+        assert!(
+            digit.contains("--prefix data-2024"),
+            "a digit-leading folder name cannot be an index prefix, so the parent is used: {digit}"
+        );
+        assert!(
+            !digit.contains("--prefix 2024\n") && !digit.contains("--prefix 2024 "),
+            "{digit}"
+        );
+    }
+
+    /// Re-running the same folder is not a collision, even when older run
+    /// documents for that root are still in the catalog.
+    #[test]
+    fn the_same_folder_is_not_a_collision() {
+        let runs = vec![run("ref", "/data/stockfish"), run("ref", "/data/stockfish")];
+        assert!(foreign_prefix_roots(&runs, "ref", "/data/stockfish").is_empty());
+    }
+
+    /// After `--replace-prefix`, the new folder's run is the latest. Re-running
+    /// that folder must not keep seeing the folder it replaced.
+    #[test]
+    fn the_latest_run_owns_the_prefix() {
+        let runs = vec![
+            json!({"doc_kind":"run","prefix":"ref","root":"/data/old","started":"2026-10-01T00:00:00Z"}),
+            json!({"doc_kind":"run","prefix":"ref","root":"/data/new","started":"2026-10-02T00:00:00Z"}),
+        ];
+        assert!(foreign_prefix_roots(&runs, "ref", "/data/new").is_empty());
+        assert_eq!(
+            foreign_prefix_roots(&runs, "ref", "/data/old"),
+            vec!["/data/new".to_string()]
+        );
+    }
+
+    /// A run that never recorded its root cannot be proved to be this folder.
+    #[test]
+    fn a_run_with_no_root_is_a_collision() {
+        let runs = vec![json!({"doc_kind": "run", "prefix": "ref"})];
+        assert_eq!(
+            foreign_prefix_roots(&runs, "ref", "/data/stockfish"),
+            vec![UNRECORDED_PREFIX_ROOT.to_string()]
+        );
+    }
+
+    #[test]
+    fn the_same_folder_under_another_prefix_is_named() {
+        let runs = vec![
+            json!({"doc_kind": "run", "prefix": "ax", "root": "/data/proj", "started": "2026-01-01T00:00:00Z"}),
+            json!({"doc_kind": "run", "prefix": "ax", "root": "/data/old", "started": "2026-02-01T00:00:00Z"}),
+            json!({"doc_kind": "run", "prefix": "proj", "root": "/data/proj", "started": "2026-03-01T00:00:00Z"}),
+        ];
+        assert_eq!(
+            other_prefixes_for_root(&runs, "/data/proj", "proj"),
+            vec!["ax".to_string()]
+        );
+        let line = same_root_other_prefix_line("proj", &["ax".into()]);
+        assert!(line.contains("under ax"), "{line}");
+        // `ax` also holds /data/old here, so a delete hint would destroy a
+        // folder this run never touched (#2114).
+        assert!(!line.contains("DELETE"), "{line}");
+        assert!(line.contains("--prefix ax"), "{line}");
+        assert_eq!(
+            other_prefixes_for_root(&runs, "/data/proj", "ax"),
+            vec!["proj".to_string()]
+        );
+    }
+
+    #[test]
+    fn replace_prefix_says_the_run_continues() {
+        let message = prefix_reuse_message("ref", "/data/new", &["/data/old".into()], true);
+        assert!(message.contains("--replace-prefix is set"), "{message}");
+        assert!(message.contains("this run continues"), "{message}");
+        assert!(!message.contains("Nothing was written"), "{message}");
+        assert!(
+            !message.contains("Ready to copy"),
+            "the opt-in warning is not the refusal's first remedy: {message}"
+        );
     }
 }

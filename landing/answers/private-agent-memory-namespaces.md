@@ -2,11 +2,15 @@
 ---
 title: "Give two agents private memory on one laptop"
 canonical: "https://xerj.org/answers/private-agent-memory-namespaces"
-updated: "2026-08-23"
+updated: "2026-10-19"
 source: "content/answers/private-agent-memory-namespaces.md"
 ---
 
 # How do I give two agents private memory on one laptop?
+
+**Short answer** (updated 2026-10-19): How do I keep one agent's memory from leaking into another agent's? Give each agent its own namespace and its own scoped API key. XERJ keeps memory on local disk, and our capture saw 0 non-loopback connections during store and recall, but roles are stored, not enforced, so the key is the boundary.
+
+**Key number:** Our capture recorded 0 non-loopback connections while storing and recalling memory. (as of 2026-08-23; source: the captured run documented on this page)
 
 **TL;DR** — Agent memory stays on local disk, and our capture recorded 0 non-loopback connections during store and recall. Privacy from other callers is a different question. XERJ stores roles but does not enforce them, so a namespace is only as private as the scoped API key that reaches it.
 
@@ -139,3 +143,6 @@ TLS and API-key authentication. Any client that reaches the port can then read a
 - [Should agent memory use a knowledge graph?](/answers/knowledge-graphs-for-agent-memory)
 - [Auth & TLS](/docs/security)
 - [How do I set the MCP memory storage path?](/answers/set-mcp-memory-storage-path)
+- [XERJ vs Mem0: which memory fits your AI agent?](/compare/xerj-vs-mem0) (same intent: agent memory)
+- [What's a simple way to give an agent long-term memory on my laptop without Qdrant?](/answers/agent-memory-without-postgres-qdrant) (same intent: agent memory)
+- [How does Claude Code memory work, and when do you need more?](/answers/claude-code-memory) (same intent: agent memory)

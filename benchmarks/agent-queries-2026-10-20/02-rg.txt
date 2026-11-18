@@ -1,0 +1,4 @@
+$ rg -n --heading -g *.md what is in here docs
+# exit 0
+docs/WHY_XERJ.md
+14:2. **Orientation** — the agent's first real question is *"what is in here?"*. Classical engines answer `_cat/indices`; agents need types, counts, example values, join keys, and known gotchas.

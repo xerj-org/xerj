@@ -1,0 +1,3 @@
+$ /workspace/engine/target/release/xerj --version
+# exit 0
+xerj v1.0.0-rc.97

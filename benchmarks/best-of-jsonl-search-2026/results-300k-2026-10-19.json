@@ -1,0 +1,88 @@
+{
+ "tool_versions": {},
+ "host": "Linux 6.12.94+ x86_64",
+ "cpus": 8,
+ "corpus_bytes": 58303466,
+ "results": [
+  {
+   "tool": "ripgrep 14.1.1",
+   "index_s": 0.0,
+   "index_bytes": 0,
+   "queries": {
+    "rare term": {
+     "ms": 11.95,
+     "hits": 338
+    },
+    "common term": {
+     "ms": 12.25,
+     "hits": 15061
+    },
+    "phrase": {
+     "ms": 8.79,
+     "hits": 1484
+    }
+   }
+  },
+  {
+   "tool": "SQLite FTS5 3.46.1",
+   "index_s": 1.84,
+   "index_bytes": 74379264,
+   "queries": {
+    "rare term": {
+     "ms": 0.03,
+     "hits": 338
+    },
+    "common term": {
+     "ms": 0.42,
+     "hits": 15061
+    },
+    "phrase": {
+     "ms": 0.21,
+     "hits": 1484
+    }
+   }
+  },
+  {
+   "tool": "DuckDB FTS 1.5.6",
+   "index_s": 2.24,
+   "index_bytes": 15478784,
+   "queries": {
+    "rare term": {
+     "ms": 11.08,
+     "hits": 338
+    },
+    "common term": {
+     "ms": 18.94,
+     "hits": 15061
+    },
+    "phrase": {
+     "ms": 12.76,
+     "hits": 1484
+    }
+   }
+  },
+  {
+   "tool": "xerj v1.0.0-rc.97",
+   "index_s": 0.01,
+   "index_bytes": 123519,
+   "autoindex_exit": 0,
+   "autoindex_tail": [
+    "xerj-done ok=true exit=0 reason=no-files wall=0.0s"
+   ],
+   "queries": {
+    "rare term": {
+     "ms": 0.22,
+     "hits": 0
+    },
+    "common term": {
+     "ms": 0.19,
+     "hits": 0
+    },
+    "phrase": {
+     "ms": 0.18,
+     "hits": 0
+    }
+   }
+  }
+ ]
+}

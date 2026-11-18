@@ -1,0 +1,2 @@
+no hub corpus matches; see xerj.org/llms.txt
+closest corpora: snappy, age, astro; re-run with --corpus <slug> to ask one of them

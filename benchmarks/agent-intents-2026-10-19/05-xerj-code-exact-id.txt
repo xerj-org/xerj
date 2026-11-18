@@ -1,0 +1,77 @@
+[top-k diversified: ≤2 records per source file (46 same-file neighbours)]
+
+─── rustsec/records.jsonl (line unknown)  (score 14.28, CC0-1.0)
+# Memory corruption in liblz4
+
+lz4-sys up to v1.9.3 bundles a version of liblz4 that is vulnerable to
+[CVE-2021-3520](https://nvd.nist.gov/vuln/detail/CVE-2021-3520).
+
+Attackers could craft a payload that triggers an integer overflow upon
+decompression, causing an out-of-bounds write.
+
+The flaw has been corrected in version v1.9.4 of liblz4, which is included
+in lz4-sys 1.9.4.
+
+Memory corruption in liblz4
+
+─── rustsec/records.jsonl (line unknown)  (score 7.95, CC0-1.0)
+    [no symbol match; showing 800 of 1,856 chars from offset 1,000, window centred on the match]
+with mdBook have to upgrade to mdBook 0.4.5 or greater
+and rebuild their website contents with it. It's possible to install mdBook
+0.4.5 on the local system with:
+
+```
+cargo install mdbook --version 0.4.5 --force
+```
+
+## Acknowledgements
+
+Thanks to Kamil Vavra for responsibly disclosing the vulnerability to us
+according to [our security policy][2].
+
+## Timeline of events
+
+All times are listed in UTC.
+
+* 2020-12-30 20:14 - The issue is reported to the Rust Security Response WG
+* 2020-12-30 20:32 - The issue is acknowledged and the investigation began
+* 2020-12-30 21:21 - Found the cause of the vulnerability and prepared the patch
+* 2021-01-04 15:00 - Patched version released and vulnerability disclosed
+
+[1]: https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2020-26297
+[2]: https://www.rust
+
+─── osv/records.jsonl (line unknown)  (score 5.47, CC0-1.0)
+    [no symbol match; showing 731 of 1,531 chars from offset 800, window centred on the match]
+isories/GHSA-9c48-w39g-hm26 and https://github.com/RustCrypto/RSA/pull/624.
+In rPGP, this has been fixed via https://github.com/rpgp/rpgp/pull/698.
+
+### Impact
+This issue impacts availability (i.e. applications can crash).
+
+Affected rPGP versions: rPGP 0.16.0-alpha.0 to 0.18.0
+Vulnerable rsa versions: all before version 0.9.10
+
+### Workaround
+The issue depends on the combination of affected rPGP and rsa versions. Users of affected rPGP versions can pin the patched rsa 0.9.10 via a cargo lockfile to mitigate the issue.
+
+### Attribution
+Discovered by Christian Reitter from Radically Open Security during a security review for Proton AG.
+
+rPGP vulnerable to parser crash on crafted RSA secret key packets through CVE-2026-21895
+
+─── osv/records.jsonl (line unknown)  (score 4.38, CC0-1.0)
+### Impact
+The tokio-boring library in version 4.0.0 is affected by a memory leak issue that can lead to excessive resource consumption and potential DoS by resource exhaustion. The `set_ex_data` function used by the library did not deallocate memory used by pre-existing data in memory each time after completing a TLS connection causing the program to consume more resources with each new connection.
+
+### Patches
+The issue is fixed in version 4.1.0 of tokio-boring.
+
+### References
+[CVE-2023-6180 at cve.org](https://www.cve.org/CVERecord?id=CVE-2023-6180)
+
+
+tokio-boring vulnerable to resource exhaustion via memory leak
+
+4 passages from 'rust-vulns'
+Cite file:line for anything you rely on.

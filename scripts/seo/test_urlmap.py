@@ -70,6 +70,73 @@ class DateSourceTests(unittest.TestCase):
         self.assertEqual(dates.last_modified(self.page), dates._mtime_date(self.page))
         self.assertEqual(dates.fallbacks, [str(self.page)])
 
+    def test_head_only_commit_does_not_move_content_date(self):
+        self.page.write_text(
+            "<html><head><title>a</title></head><body><p>alpha</p></body></html>",
+            encoding="utf-8")
+        self.commit("body", "2020-05-05T12:00:00+00:00")
+        self.page.write_text(
+            "<html><head><title>a</title><script>ga4</script></head>"
+            "<body><p>alpha</p></body></html>",
+            encoding="utf-8")
+        self.commit("head only", "2021-07-08T12:00:00+00:00")
+        dates = urlmap.DateSource(self.repo)
+        self.assertEqual(
+            dates.page_lastmod("page.html", self.page, {"https://xerj.org/page": "1999-01-01"}),
+            "2020-05-05")
+        self.assertEqual(dates.prior_used, [])
+
+    def test_source_updated_beats_later_html_commit(self):
+        html = self.repo / "answers" / "demo.html"
+        html.parent.mkdir()
+        html.write_text("<html><body><p>page</p></body></html>", encoding="utf-8")
+        self.commit("html", "2020-01-02T12:00:00+00:00")
+        source = self.repo / "content" / "answers" / "demo.md"
+        source.parent.mkdir(parents=True)
+        source.write_text('updated: "2016-04-05"\n', encoding="utf-8")
+        dates = urlmap.DateSource(self.repo)
+        self.assertEqual(dates.page_lastmod("answers/demo.html", html, {}), "2016-04-05")
+
+    def test_jsonld_date_survives_shallow_clone(self):
+        self.page.write_text(
+            '<html><head></head><body>'
+            '<script type="application/ld+json">{"dateModified": "2018-02-03"}</script>'
+            "<p>alpha</p></body></html>",
+            encoding="utf-8")
+        self.commit("jsonld", "2021-03-04T12:00:00+00:00")
+        shallow = self.root / "shallow-jsonld"
+        self.git("clone", "--depth", "1", self.repo.as_uri(), str(shallow))
+        page = shallow / "page.html"
+        dates = urlmap.DateSource(shallow)
+        self.assertFalse(dates.git_ok)
+        self.assertEqual(dates.page_lastmod("page.html", page, {}), "2018-02-03")
+        self.assertEqual(dates.fallbacks, [])
+
+    def test_shallow_keeps_committed_sitemap_lastmod(self):
+        shallow = self.root / "shallow-prior"
+        self.git("clone", "--depth", "1", self.repo.as_uri(), str(shallow))
+        page = shallow / "page.html"
+        stamp = dt.datetime(2022, 5, 6, 12, tzinfo=dt.timezone.utc).timestamp()
+        os.utime(page, (stamp, stamp))
+        loc = urlmap.deployed_url("page.html")
+        sitemap = shallow / "sitemap.xml"
+        sitemap.write_text(
+            '<?xml version="1.0" encoding="UTF-8"?>\n'
+            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+            "  <url>\n"
+            f"    <loc>{loc}</loc>\n"
+            "    <lastmod>2017-11-11</lastmod>\n"
+            "  </url>\n"
+            "</urlset>\n",
+            encoding="utf-8")
+        dates = urlmap.DateSource(shallow)
+        prior = dates.committed_lastmods(sitemap)
+        self.assertEqual(dates.page_lastmod("page.html", page, prior), "2017-11-11")
+        self.assertEqual(dates.prior_used, ["page.html"])
+        self.assertEqual(dates.fallbacks, [])
+        built = ET.fromstring(gen_sitemap.build(shallow, dates))
+        self.assertEqual(built.findtext(".//{*}lastmod"), "2017-11-11")
+
 
 if __name__ == "__main__":
     unittest.main()

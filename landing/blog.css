@@ -5,8 +5,8 @@
 
 /* ---- post components: vt tables, vchart, wire, loss, stat-band ---- */
 /* page-local: a negative colour the system lacks, both themes */
-  :root                  { --z-neg: #d9575f; }
-  html[data-theme='day'] { --z-neg: #a32b2e; }
+  :root                    { --z-neg: #8f2427; }  /* 8.2:1 on the light page */
+  html[data-theme='night'] { --z-neg: #e2767c; }
 
   /* vertical comparison chart — same component as the benchmarks hub */
   .vchart { margin: var(--sp-6) 0 0; }
@@ -40,7 +40,7 @@
              letter-spacing:var(--track-label); text-transform:uppercase; color:var(--z-mute); }
   .vc-axis span { min-width:0; }
   .vc-axis .sub { display:block; font-style:normal; letter-spacing:.03em;
-                  text-transform:none; opacity:.72; margin-top:3px; }
+                  text-transform:none; margin-top:3px; }
   .vc-axis .win { color:var(--z-accent); opacity:1; }
   .vc-title { margin-top:var(--sp-4); padding-top:var(--sp-3);
               border-top:1px solid var(--z-faint);
@@ -70,7 +70,7 @@
 
   /* verdict table */
   .vt-wrap { overflow-x:auto; margin-top:var(--sp-6); }
-  table.vt { width:100%; border-collapse:collapse; font-family:var(--font-data); font-size:13.5px; }
+  table.vt { width:100%; border-collapse:collapse; font-family:var(--font-data); font-size:15px; }
   .vt th { text-align:left; font-size:11px; letter-spacing:.06em; text-transform:uppercase;
            color:var(--z-mute); font-weight:600; padding:9px 12px 9px 0; border-bottom:1px solid var(--z-ink); }
   .vt td { padding:10px 12px 10px 0; border-bottom:1px solid var(--z-faint); vertical-align:top; }
@@ -103,27 +103,27 @@
   .wp .wn { font-family:var(--font-data); font-size:12px; font-weight:700; letter-spacing:.08em; color:var(--z-accent); }
   .wp h3 { margin:0; font-family:var(--font-display); font-weight:800; font-size:var(--fs-20); letter-spacing:.01em; }
   .wp .wm { margin-left:auto; font-family:var(--font-data); font-size:12px; color:var(--z-mute); letter-spacing:.04em; }
-  .wp p { margin:8px 0 0; color:var(--z-mute); font-size:15px; line-height:1.6; max-width:920px; }
+  .wp p { margin:8px 0 0; color:var(--z-mute); font-size:var(--fs-16); line-height:var(--lh-body); max-width:var(--measure); }
   .wp p strong { color:var(--z-ink); }
   .wp.neg { border-left-color:var(--z-neg); }
   .wp.neg .wn { color:var(--z-neg); }
 
   .loss { border:1px solid var(--z-line); border-left:3px solid var(--z-neg); padding:16px 20px;
-          margin-top:var(--sp-6); font-size:15px; color:var(--z-mute); line-height:1.65; max-width:980px; }
+          margin-top:var(--sp-6); font-size:var(--fs-16); color:var(--z-mute); line-height:var(--lh-body); max-width:var(--measure); }
   .loss strong { color:var(--z-ink); }
   .src { font-family:var(--font-data); font-size:12px; letter-spacing:.03em; color:var(--z-mute); margin-top:var(--sp-4); }
 
   /* terminal blocks */
-  pre.code { margin:var(--sp-5) 0 0; padding:18px 20px; border:1px solid var(--z-line);
-             overflow-x:auto; font-family:var(--font-data); font-size:12.5px; line-height:1.75;
-             color:var(--z-mute); background:var(--z-bg); }
+  pre.code { margin:var(--sp-5) 0 0; padding:18px 20px; border:1px solid var(--z-code-line);
+             overflow-x:auto; font-family:var(--font-data); font-size:var(--fs-13); line-height:1.7;
+             color:var(--z-mute); background:var(--z-code-bg); }
   pre.code .prompt { color:var(--z-accent); font-weight:700; user-select:none; }
   pre.code .out { color:var(--z-ink); }
-  pre.code .cmt { opacity:.62; }
+  pre.code .cmt { font-style:italic; }  /* was opacity:.62 (fell below 4.5:1) */
 
   /* bullet lists — same rule the hub carries locally */
-  ul.deep { list-style:none; padding:0; max-width:920px; }
-  ul.deep li { margin:14px 0; line-height:1.65; color:var(--z-mute); font-size:15px; }
+  ul.deep { list-style:none; padding:0; max-width:var(--measure); }
+  ul.deep li { margin:14px 0; line-height:var(--lh-body); color:var(--z-ink); font-size:var(--fs-16); }
   ul.deep li strong { color:var(--z-ink); }
   ul.deep code.inline { color:var(--z-ink); }
 
@@ -149,6 +149,16 @@
   .verdict-panel p strong { color:var(--z-ink); }
   .verdict-panel p code.inline { color:var(--z-ink); }
 
+  /* cover art — the field-log poster series, rendered by
+     scripts/seo/blog_covers/covers.py. The poster is a self-contained print
+     on the brand's light paper, ink and one earned yellow (it doubles as the
+     og card), so on either theme it sits in a flat mount: a 1px rule in the
+     page's own line colour, square corners, no shadow. Only image rules live
+     here; page colours belong to the theme. */
+  .blog-cover { margin: 0 0 var(--sp-6); padding: 0; border: 1px solid var(--z-line);
+                overflow: hidden; background: #f6f4ee; line-height: 0; }
+  .blog-cover img { display: block; width: 100%; height: auto; aspect-ratio: 1600 / 640; }
+
 /* ---- index components: bl-card, blp preview bars ---- */
 /* page-local — blog index: dated cards, preview visual left, brand tokens
      only, 1px lines, no icons, no shadows, no filled shapes. */
@@ -166,6 +176,10 @@
     color: inherit;
   }
   .bl-card:hover, .bl-card:focus-visible { border-color: var(--z-accent); }
+
+  /* card thumbnail: the post's cover at 640x336 (og ratio), lazy-loaded */
+  .bl-thumb { display: block; width: 100%; height: auto; aspect-ratio: 640 / 336; align-self: start;
+              border: 1px solid var(--z-line); background: #f6f4ee; }
 
   /* preview slot — a theme-native miniature scorecard, pure divs; no image
      file, correct in day and night by construction (site precedent: every
@@ -220,3 +234,66 @@
     .bl-card { grid-template-columns: minmax(0, 1fr); gap: var(--sp-4); }
     .bl-title { font-size: var(--fs-20); }
   }
+
+/* ---- reading theme: light paper, AAA text (2026-10-20) ----
+   Every /blog/ page is served in the day theme (data-theme="day" on <html>),
+   so the light covers sit on the page colour they were printed for. Inside the
+   blog the day tokens are tightened to WCAG AAA on paper #f6f4ee: body ink
+   17.9:1, secondary text 8.3:1, accent text 7.7:1. Brand ochre #A06800
+   (4.27:1, too light for text) is kept for rules and borders. Flat: no
+   gradients, no shadows. The NIGHT toggle still works (night tokens untouched). */
+  html[data-theme='day'] {
+    --z-ink:    #0b0b0d;
+    --z-mute:   #4a4843;
+    --z-accent: #6b4500;
+    --z-ochre:  #a06800;
+    --z-cmp:    #4f6a88;
+  }
+  html[data-theme='day'] pre.code { border-left-color: var(--z-ochre); }
+  html[data-theme='day'] .bl-card:hover,
+  html[data-theme='day'] .bl-card:focus-visible { border-color: var(--z-ochre); }
+
+  /* type: size, line height and measure only */
+  .uc-hero .uc-eyebrow, .blog-crumb, .blog-byline { font-size: 13px; }
+  .uc-hero .lede { font-size: 21px; line-height: 1.6; max-width: 68ch; margin: var(--sp-8) 0 0; }
+  section.scene-section > .kicker { font-size: 13px; margin-bottom: var(--sp-4); }
+  section.scene-section > h2.scene { margin: 0 0 var(--sp-8); }
+  section.scene-section > p,
+  section.scene-section > ul > li,
+  section.scene-section > ol > li { font-size: 19px; line-height: 1.7; }
+  section.scene-section > p { max-width: 68ch; margin: 0 0 1.1em; }
+  section.scene-section > p:last-child { margin-bottom: 0; }
+  section.scene-section > ul,
+  section.scene-section > ol { max-width: 68ch; margin: 0 0 1.1em; padding-left: 1.25em; }
+  section.scene-section > ul > li,
+  section.scene-section > ol > li { margin: 0 0 .6em; }
+  section.scene-section > pre.code { font-size: 15px; line-height: 1.6;
+                                     margin: var(--sp-6) 0 var(--sp-8); padding: 20px 22px; }
+  section.scene-section > .vt-wrap { margin: var(--sp-6) 0 var(--sp-8); }
+  section.scene-section > .stat-band { margin: var(--sp-6) 0 var(--sp-8); }
+  table.vt { font-size: 15.5px; line-height: 1.5; }
+  .vt th { font-size: 12.5px; }
+  .stat .k { font-size: 12.5px; }
+  .stat .s { font-size: 15px; }
+  .bl-excerpt { font-size: 17px; line-height: 1.65; }
+  @media (max-width: 620px) {
+    .uc-hero .lede { font-size: 19px; }
+    section.scene-section > p,
+    section.scene-section > ul > li,
+    section.scene-section > ol > li { font-size: 18px; }
+    section.scene-section > pre.code { font-size: 13px; padding: 16px; }
+  }
+
+/* ---- pending chip: a visible placeholder ([GATE: …], [VERIFY: …]) a draft
+   post carries until the number or fact is confirmed. Both themes. ---- */
+  .pending { display: inline; font-family: var(--font-data); font-size: .82em; font-weight: 700;
+    letter-spacing: .02em; color: var(--z-ink); background: var(--z-highlight);
+    border: 1px dashed var(--z-accent); border-radius: 3px; padding: 1px 6px;
+    box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+
+/* ---- wire.plain: explainer cards whose body is the main text, not an aside:
+   full ink and a reading size. ---- */
+  .wire.plain .wp p { color: var(--z-ink); font-size: 17px; }
+  .wire.plain + p { margin-top: var(--sp-8); }
+/* h1.fit: a long first word ("SLOWDOWNS") must fit a 390px phone at the 80px hero size. */
+  @media (max-width: 560px) { .uc-hero h1.fit { font-size: 12vw; } }

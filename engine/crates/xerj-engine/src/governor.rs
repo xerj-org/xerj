@@ -12,7 +12,9 @@
 //!     Crossing either rejects writes with HTTP 429
 //!     `circuit_breaking_exception` (so a 429 beats the OOM-killer), and
 //!     wires the hitherto-inert `max_query_memory_mb` into a per-query
-//!     allocation guard.
+//!     allocation guard. An analyze reservation charges in-flight token
+//!     spikes before the next RSS sample, so several bulks cannot all pass
+//!     one sample and allocate together (#1122).
 //!   * **item 2** — a global search-concurrency pool sized from
 //!     `max_concurrent_searches` (previously a hardcoded per-index
 //!     `Semaphore::new(64)`, i.e. no global cap).
@@ -26,7 +28,8 @@
 //! admission checks are relaxed atomic loads — never syscalls.
 
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicU8, Ordering};
-use std::sync::{Arc, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock};
+use std::time::{Duration, Instant};
 
 use serde_json::Value;
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
@@ -38,12 +41,331 @@ use crate::segment_cache_budget::{SegmentHydrationBudget, SegmentHydrationBudget
 /// The process-wide governor singleton.
 static GOVERNOR: OnceLock<Arc<ResourceGovernor>> = OnceLock::new();
 
+/// Decides when the sampler may request another memory-pressure drain.
+///
+/// The engage edge fires immediately. While the breaker stays engaged, the
+/// next request waits `interval`, which starts at the 2 s floor and doubles
+/// up to [`MEMORY_DRAIN_MAX_INTERVAL`] whenever a request did not lower RSS.
+/// A drop resets the spacing, and a climb past the noise band requests a
+/// drain as soon as the minimum spacing allows (#2427). Disengaging resets everything, so the next
+/// real engage is immediate again.
+#[derive(Debug)]
+pub(crate) struct MemoryDrainSchedule {
+    interval: Duration,
+    last_request: Option<Instant>,
+    rss_at_request: Option<u64>,
+    min: Duration,
+}
+
+impl MemoryDrainSchedule {
+    pub(crate) fn new(min: Duration) -> Self {
+        Self {
+            interval: min,
+            last_request: None,
+            rss_at_request: None,
+            min,
+        }
+    }
+
+    /// `true` when this sample should request a drain.
+    pub(crate) fn observe(&mut self, now: Instant, rss: u64, engaged: bool) -> bool {
+        if !engaged {
+            self.interval = self.min;
+            self.last_request = None;
+            self.rss_at_request = None;
+            return false;
+        }
+        // #2427: the latch no longer releases above the watermark, so a
+        // footprint that CLIMBS while engaged must not sit out a backed-off
+        // gap (up to 15 min) — the release gate climbed from 5.1 GB to an
+        // 8.4 GB OOM in 84 s. A climb past the noise band since the last
+        // request is new pressure: drain again at the minimum spacing.
+        let climbed = self
+            .rss_at_request
+            .is_some_and(|prev| rss.saturating_sub(prev) > MEMORY_RSS_NOISE_BYTES);
+        let due = match self.last_request {
+            None => true,
+            Some(at) => {
+                let since = now.saturating_duration_since(at);
+                since >= self.interval || (climbed && since >= self.min)
+            }
+        };
+        if !due {
+            return false;
+        }
+        if climbed {
+            self.interval = self.min;
+            self.rss_at_request = Some(rss);
+            self.last_request = Some(now);
+            return true;
+        }
+        if let Some(prev) = self.rss_at_request {
+            // A one-page dip is compressor noise, not a drain that worked.
+            // Resetting on it would pin the spacing at 2 s for a footprint
+            // that never actually shrinks (#1981).
+            if prev.saturating_sub(rss) > MEMORY_RSS_NOISE_BYTES {
+                self.interval = self.min;
+            } else {
+                self.interval = self
+                    .interval
+                    .checked_mul(2)
+                    .unwrap_or(MEMORY_DRAIN_MAX_INTERVAL)
+                    .min(MEMORY_DRAIN_MAX_INTERVAL);
+            }
+        }
+        self.rss_at_request = Some(rss);
+        self.last_request = Some(now);
+        true
+    }
+}
+
 /// Interval at which the background sampler refreshes the RSS / memtable /
 /// disk atomics. Kept short so the RSS admission has a tight overshoot margin
 /// under a runaway ingest — the sampler runs on a dedicated OS thread (see
 /// `Engine::spawn_resource_sampler`), so this cadence is honoured even when the
 /// tokio pool is saturated.
 pub const SAMPLE_INTERVAL_MS: u64 = 100;
+
+/// Ceiling on the automatic drain spacing once a drain stops lowering RSS.
+/// The floor is the sampler's 2 s minimum; doubling from there reaches this
+/// in a few minutes instead of staying at 2 s for an 18-hour uptime.
+pub const MEMORY_DRAIN_MAX_INTERVAL: Duration = Duration::from_secs(15 * 60);
+
+/// RSS movement at or below this is not a falling drain and not new
+/// pressure (#1981).
+///
+/// macOS reports `ri_phys_footprint`, which moves by pages while the
+/// compressor runs even when the process is idle. An exact-byte clock never
+/// stays flat on that signal, and a one-byte dip would also reset the drain
+/// backoff, so the 2 s flush loop would survive the latch fix. A move past
+/// this band is a real working-set change.
+pub const MEMORY_RSS_NOISE_BYTES: u64 = 4 * 1024 * 1024;
+
+/// Default release point of the RSS breaker, as a percentage of the
+/// watermark that tripped it (#2427).
+///
+/// The old band was 95% and released on the first sample that did not fall.
+/// A 3,000 MB autoindex run engaged at 2,918 MB and flapped 20 times in 16
+/// minutes, often releasing 100-500 ms after it engaged: each release
+/// re-admitted the write burst that tripped it. Releasing at 85% leaves a
+/// band the drain has to clear before writes come back.
+/// `XERJ_MEMORY_BREAKER_RELEASE_PCT` overrides it (50..=99).
+pub const DEFAULT_MEMORY_RELEASE_PERCENT: u8 = 85;
+
+/// Share of the process memory limit held back for searches, in percent
+/// (#2427 read-budget isolation).
+///
+/// Background merges and their output writes are charged to a merge pool
+/// whose ceiling is the limit minus this share (or the watermark, if that is
+/// lower). They are refused, and an in-flight batch yields, once process
+/// memory reaches that ceiling. Searches are only rejected at the full limit,
+/// so the top of the budget stays free for reads instead of being the first
+/// thing a merge takes. On the 1 GB gate (3,072 MB cap) the merge pool stops
+/// at about 2,458 MB and reads keep the last 614 MB.
+pub const SEARCH_READ_RESERVE_PERCENT: u64 = 20;
+
+/// How long a search that arrives with process memory at or above the hard
+/// limit waits for the breaker's drain before it is rejected with a 429
+/// (#2427 read-budget isolation).
+///
+/// The drain (flush, cache release, allocator purge) takes RSS from the limit
+/// back to the live set in one to two seconds. In the 1 GB gate the raw and
+/// MCP searches arrived within 300 ms of a heavy search and were all
+/// rejected in 4-14 ms, although RSS was back to about 1.5 GB a second later.
+pub const SEARCH_HEADROOM_WAIT: Duration = Duration::from_secs(3);
+
+/// Poll interval while a search waits for headroom. The sampler writes RSS
+/// every 100 ms, so polling faster only re-reads the same sample.
+const SEARCH_HEADROOM_POLL: Duration = Duration::from_millis(25);
+
+/// Lowest accepted `XERJ_MEMORY_BREAKER_RELEASE_PCT`. Below this, a footprint
+/// whose live set is over half the watermark could never release.
+pub const MIN_MEMORY_RELEASE_PERCENT: u8 = 50;
+
+/// Highest accepted `XERJ_MEMORY_BREAKER_RELEASE_PCT`.
+pub const MAX_MEMORY_RELEASE_PERCENT: u8 = 99;
+
+/// Default minimum time the RSS breaker stays engaged before a release below
+/// the watermark (#2427). `XERJ_MEMORY_BREAKER_MIN_ENGAGED_MS` overrides it.
+///
+/// This stops a 100 ms engage/release cycle: a release needs the drain to
+/// have run at least once. A live retune (#1323) or Windows commit recovery
+/// are not subject to it. No release ever happens at or above the watermark.
+pub const DEFAULT_MEMORY_MIN_ENGAGED: Duration = Duration::from_secs(2);
+
+/// Ceiling on `XERJ_MEMORY_BREAKER_MIN_ENGAGED_MS`.
+pub const MAX_MEMORY_MIN_ENGAGED: Duration = Duration::from_secs(60);
+
+/// How long RSS may sit without falling past [`MEMORY_RSS_NOISE_BYTES`]
+/// inside the release band `[release, watermark)` before the breaker stops
+/// waiting for the drain and releases (#2427).
+///
+/// Without this the band could hold writes forever on a live set between
+/// 85% and 100% of the watermark that no drain can shrink (the #1250
+/// concern). Thirty seconds is fifteen drain intervals, and bounds a
+/// band-stall re-engage cycle to at most one every 30 s.
+pub const MEMORY_BAND_STALL_RELEASE: Duration = Duration::from_secs(30);
+
+/// Bytes at which an engaged RSS breaker releases: `release_pct` percent of
+/// `watermark`. `0` for a disabled watermark.
+pub fn memory_release_bytes(watermark: u64, release_pct: u8) -> u64 {
+    ((watermark as u128 * u128::from(release_pct.min(100))) / 100) as u64
+}
+
+/// Parse `XERJ_MEMORY_BREAKER_RELEASE_PCT`. Unset, unparsable, or out of
+/// `MIN..=MAX` falls back to [`DEFAULT_MEMORY_RELEASE_PERCENT`].
+pub fn resolve_memory_release_percent(raw: Option<&str>) -> u8 {
+    let Some(raw) = raw.map(str::trim).filter(|s| !s.is_empty()) else {
+        return DEFAULT_MEMORY_RELEASE_PERCENT;
+    };
+    match raw.trim_end_matches('%').parse::<u8>() {
+        Ok(pct) if (MIN_MEMORY_RELEASE_PERCENT..=MAX_MEMORY_RELEASE_PERCENT).contains(&pct) => pct,
+        _ => {
+            tracing::warn!(
+                value = raw,
+                default = DEFAULT_MEMORY_RELEASE_PERCENT,
+                "XERJ_MEMORY_BREAKER_RELEASE_PCT must be {MIN_MEMORY_RELEASE_PERCENT}..={MAX_MEMORY_RELEASE_PERCENT}; using the default"
+            );
+            DEFAULT_MEMORY_RELEASE_PERCENT
+        }
+    }
+}
+
+/// Parse `XERJ_MEMORY_BREAKER_MIN_ENGAGED_MS`. Unset or unparsable falls back
+/// to [`DEFAULT_MEMORY_MIN_ENGAGED`]; larger values are clamped to
+/// [`MAX_MEMORY_MIN_ENGAGED`]. `0` turns the minimum off.
+pub fn resolve_memory_min_engaged(raw: Option<&str>) -> Duration {
+    let Some(raw) = raw.map(str::trim).filter(|s| !s.is_empty()) else {
+        return DEFAULT_MEMORY_MIN_ENGAGED;
+    };
+    match raw.parse::<u64>() {
+        Ok(ms) => Duration::from_millis(ms).min(MAX_MEMORY_MIN_ENGAGED),
+        Err(_) => {
+            tracing::warn!(
+                value = raw,
+                "XERJ_MEMORY_BREAKER_MIN_ENGAGED_MS is not a whole number of milliseconds; using the default"
+            );
+            DEFAULT_MEMORY_MIN_ENGAGED
+        }
+    }
+}
+
+/// Bytes of analyze-time reservation charged per raw JSON input byte (#1122).
+///
+/// `document_limit` measured about 56 bytes of RSS per token for a
+/// `Vec<String>` of the word `word ` (2026-10-23, 8,388,605 input bytes).
+/// The densest input that still produces one token per two bytes is `"a "`,
+/// so 28 bytes of reservation per input byte covers that spike. One token
+/// per byte is outside this factor; the 8 MiB document ceiling bounds that
+/// input. Eight such bulks are admitted only while the sum of reservations
+/// stays under the watermark.
+pub const ANALYZE_RESERVE_PER_INPUT_BYTE: u64 = 28;
+
+/// Reservation for a raw JSON batch of `raw_json_bytes`.
+pub fn analyze_reserve_bytes(raw_json_bytes: u64) -> u64 {
+    raw_json_bytes.saturating_mul(ANALYZE_RESERVE_PER_INPUT_BYTE)
+}
+
+/// Bytes of analyze-time reservation charged per estimated token (#2427).
+///
+/// The same `document_limit` measurement as
+/// [`ANALYZE_RESERVE_PER_INPUT_BYTE`]: about 56 bytes of RSS per token. A
+/// token is a `Token` (a `String` plus three `u32`s) in a growing `Vec`, plus
+/// the token text on the heap.
+pub const ANALYZE_RESERVE_PER_TOKEN: u64 = 56;
+
+/// Bytes of analyze-time reservation charged per raw JSON input byte on top
+/// of the per-token charge (#2427): the parsed `serde_json::Value` (string
+/// bodies, map keys and nodes) and the copy of each text field the analyzer
+/// reads.
+pub const ANALYZE_RESERVE_PER_INPUT_BYTE_BASE: u64 = 4;
+
+/// Upper bound on the analyzer tokens `raw_json` can produce (#2427).
+///
+/// Counts runs of ASCII letters and digits, plus one token per non-ASCII
+/// character (the standard tokenizer emits one token per CJK ideograph). Map
+/// keys, numbers, `_` and `.` all start or split runs here, which the
+/// analyzer joins or never analyzes, so the count errs high. A packed
+/// `xerj:f32:` vector is one run of hex, matching the one string the parser
+/// keeps for it.
+pub fn estimated_analyzer_tokens(raw_json: &[u8]) -> u64 {
+    let mut tokens = 0u64;
+    let mut in_run = false;
+    for &b in raw_json {
+        if b >= 0xC0 {
+            // UTF-8 lead byte: count every non-ASCII character.
+            tokens += 1;
+            in_run = true;
+        } else if b >= 0x80 {
+            // UTF-8 continuation byte: same character.
+            in_run = true;
+        } else if b.is_ascii_alphanumeric() {
+            if !in_run {
+                tokens += 1;
+            }
+            in_run = true;
+        } else {
+            in_run = false;
+        }
+    }
+    tokens
+}
+
+/// Reservation for one raw JSON document (#1122, #2427).
+///
+/// [`ANALYZE_RESERVE_PER_TOKEN`] per [`estimated_analyzer_tokens`] plus
+/// [`ANALYZE_RESERVE_PER_INPUT_BYTE_BASE`] per byte, capped at the old flat
+/// [`ANALYZE_RESERVE_PER_INPUT_BYTE`] rate. The flat rate assumed the densest
+/// input (one token per two bytes) for every document, so a bulk of prose
+/// reserved about 3x and a bulk of code about 4x what parsing and analyzing
+/// it allocates (`tests/analyze_reservation_matches_usage.rs`). Four 8 MiB
+/// bulks in flight reserved 1.4 GB while RSS was 1.46 GB, and the gate's
+/// bulks were refused long before real memory was short. Dense input still
+/// reserves the flat rate.
+pub fn analyze_reserve_bytes_for_doc(raw_json: &[u8]) -> u64 {
+    let len = raw_json.len() as u64;
+    estimated_analyzer_tokens(raw_json)
+        .saturating_mul(ANALYZE_RESERVE_PER_TOKEN)
+        .saturating_add(len.saturating_mul(ANALYZE_RESERVE_PER_INPUT_BYTE_BASE))
+        .min(analyze_reserve_bytes(len))
+}
+
+/// `true` when `request` bytes of analyze reservation still fit.
+///
+/// A watermark of `0` is the disabled breaker: every request fits. Otherwise
+/// the request fails when `observed + already_reserved + request` reaches
+/// the watermark. The comparison is `>=`, matching RSS admission.
+pub fn analyze_reservation_fits(
+    watermark: u64,
+    observed: u64,
+    already_reserved: u64,
+    request: u64,
+) -> bool {
+    if watermark == 0 {
+        return true;
+    }
+    analyze_committed_bytes(observed, already_reserved, None).saturating_add(request) < watermark
+}
+
+/// Memory already committed to live RSS plus held analyze reservations (#2427).
+///
+/// `baseline` is the smallest RSS observed when a still-held reservation was
+/// admitted. Every held reservation was admitted at or above it, so whatever
+/// part of those reservations has been allocated already shows up in
+/// `observed - baseline`. Counting `observed + already_reserved` adds that
+/// part twice: a run with four bulks mid-analysis was refused at an RSS of
+/// 1.5 GB against a 2.9 GB watermark. The committed level is the larger of
+/// live RSS and `baseline + already_reserved`, and never more than the old
+/// sum. Without a baseline the old sum is used.
+pub fn analyze_committed_bytes(observed: u64, already_reserved: u64, baseline: Option<u64>) -> u64 {
+    let summed = observed.saturating_add(already_reserved);
+    match baseline {
+        Some(base) if already_reserved > 0 => observed
+            .max(base.saturating_add(already_reserved))
+            .min(summed),
+        _ => summed,
+    }
+}
 
 /// Process-wide resource governor. See the module docs.
 pub struct ResourceGovernor {
@@ -67,6 +389,8 @@ pub struct ResourceGovernor {
     /// AUTO-tier *capped* value (e.g. 16 GiB on a 119 GiB box): a live override
     /// exists precisely to climb past that conservative cap, so it must be able
     /// to reach up to real machine memory, never just a fraction of the cap.
+    /// On a commit-bound Windows box this stops at the post-reserve commit
+    /// ceiling instead: a raise cannot grant commit the system will not give.
     machine_memory_bytes: u64,
     /// Boot-derived RSS admission threshold = `memory_limit_bytes * pct/100`.
     /// `0` = the watermark was disabled at startup and stays disabled; a runtime
@@ -81,6 +405,14 @@ pub struct ResourceGovernor {
     memory_watermark_bytes: AtomicU64,
     /// Last sampled resident set size of this process.
     rss_bytes: AtomicU64,
+    /// Bytes reserved for in-flight analysis spikes that the RSS sample has
+    /// not observed yet (#1122). Released once those tokens exist, so the
+    /// next admission sees them in live RSS instead of counting them twice.
+    analyze_reserved: Arc<AtomicU64>,
+    /// RSS observed when each held analyze reservation was admitted, keyed by
+    /// reservation id (#2427). Its minimum is the baseline the held
+    /// reservations grow from, see [`analyze_committed_bytes`].
+    analyze_baselines: Arc<Mutex<AnalyzeBaselines>>,
     /// Latched: last sample crossed the RSS watermark.
     memory_tripped: AtomicBool,
     /// The effective watermark in force when the breaker last engaged (#1250).
@@ -88,8 +420,31 @@ pub struct ResourceGovernor {
     /// tripped; when an operator re-tunes the watermark live
     /// (`indices.breaker.total.limit`, #1323) the latch is re-evaluated
     /// against the new value without the band, so a live raise releases at
-    /// once instead of waiting for RSS to fall 5% below the NEW watermark.
+    /// once instead of waiting for RSS to fall below the release point of
+    /// the NEW watermark.
     memory_trip_watermark: AtomicU64,
+    /// When RSS last stopped falling inside the release band while the
+    /// breaker was engaged (#2427). `None` outside the band or while
+    /// disengaged. Aged by tests; the sampler's wall clock fills it in
+    /// production.
+    memory_flat_since: Mutex<Option<Instant>>,
+    /// Release point of the RSS breaker, percent of the tripped watermark
+    /// (#2427). See [`DEFAULT_MEMORY_RELEASE_PERCENT`].
+    memory_release_percent: u8,
+    /// Minimum time engaged before an in-band or below-band release (#2427).
+    memory_min_engaged: Duration,
+    /// When the RSS breaker last engaged. `None` while released.
+    memory_engaged_since: Mutex<Option<Instant>>,
+    /// RSS at which the in-band stall clock started (#2427). A sample more
+    /// than [`MEMORY_RSS_NOISE_BYTES`] under it is a falling drain and
+    /// restarts the clock. `0` = no band clock.
+    memory_band_anchor: AtomicU64,
+    /// Process-wide ledger of in-flight segment merges and their estimated
+    /// working set (#2427). See [`ResourceGovernor::try_reserve_merge`].
+    merge_ledger: Arc<Mutex<MergeLedger>>,
+    /// In-flight memtable flush builds and their estimated working set
+    /// (#2427). See [`ResourceGovernor::reserve_flush_build`].
+    flush_ledger: Arc<FlushLedger>,
 
     // ── item 1: per-query memory guard (`max_query_memory_mb`) ──────────
     /// Maximum bytes a single query may be estimated to allocate. `0` = off.
@@ -105,6 +460,16 @@ pub struct ResourceGovernor {
     search_inflight: Arc<AtomicU64>,
     /// High-water mark of concurrent searches observed (proof of the cap).
     search_inflight_peak: Arc<AtomicU64>,
+    /// #2427: one permit. While the RSS breaker is engaged every search
+    /// also holds this, so searches run one at a time instead of
+    /// `max_concurrent_searches` wide.
+    search_pressure: Arc<Semaphore>,
+    /// How long a search over the hard limit waits for the drain (#2427).
+    /// [`SEARCH_HEADROOM_WAIT`] in production; tests shorten it.
+    search_headroom_wait: Duration,
+    /// Bound on a lone background merge's wait for headroom (#2427).
+    /// `merge_budget::MERGE_HEADROOM_MAX_WAIT` in production.
+    merge_headroom_max_wait: Duration,
 
     // ── item 2b: global bulk pool (concurrent bulk parse cap) ─────────
     /// Global bulk-concurrency permits. Caps the number of concurrent
@@ -136,6 +501,24 @@ pub struct ResourceGovernor {
     disk_blocked: AtomicBool,
     /// Last sampled used-percentage of the data-dir filesystem.
     disk_used_pct: AtomicU64,
+
+    // ── Windows commit ceiling (#1122) ──────────────────────────────────
+    // Physical RAM is the AUTO tier's input on every platform. On Windows the
+    // allocator aborts when commit charge hits the commit limit, which with
+    // no pagefile is about RAM and is already partly spent by other processes.
+    // These fields are zero off Windows (and when the probe fails), and the
+    // admission path below then behaves exactly as it did before.
+    /// `MEMORYSTATUSEX::ullTotalPageFile`. `0` = no commit probe.
+    commit_limit_bytes: u64,
+    /// Available commit below this engages the breaker even when RSS is under
+    /// the watermark. `0` disables the check.
+    commit_reserve_bytes: u64,
+    /// Last sampled `ullAvailPageFile`.
+    available_commit_bytes: AtomicU64,
+    /// Latched: available commit is under [`Self::commit_reserve_bytes`].
+    commit_starved: AtomicBool,
+    /// The process cap was lowered to the commit ceiling at startup.
+    commit_capped: bool,
 }
 
 impl ResourceGovernor {
@@ -150,7 +533,8 @@ impl ResourceGovernor {
             return Err(XerjError::circuit_breaking(format!(
                 "[parent] memtable byte budget exceeded: used={}MB, limit={}MB across all \
                  indices; writes rejected to prevent an out-of-memory kill (raise \
-                 limits.max_total_memtable_mb or slow ingest)",
+                 limits.max_process_memory_mb or XERJ_MAX_PROCESS_MEMORY_MB — the auto \
+                 tier derives this budget from that cap — or set limits.max_total_memtable_mb)",
                 used / (1024 * 1024),
                 self.memtable_budget_bytes / (1024 * 1024),
             )));
@@ -158,46 +542,671 @@ impl ResourceGovernor {
         if self.memory_tripped.load(Ordering::Relaxed) {
             let rss = self.rss_bytes.load(Ordering::Relaxed);
             let watermark = self.memory_watermark_bytes.load(Ordering::Relaxed);
+            let starved = self.commit_starved.load(Ordering::Relaxed);
             // Inside the release band (#1250) RSS is already under the
             // watermark while the drain finishes; say so rather than print a
-            // false `>=`.
-            let relation = if rss >= watermark {
+            // false `>=`. A commit-starvation trip with RSS still under the
+            // watermark is neither of those: the process has not crossed the
+            // RSS line, Windows has run out of commit.
+            let relation = if starved && rss < watermark {
+                "under"
+            } else if rss >= watermark {
                 ">="
             } else {
                 "draining below"
             };
-            return Err(XerjError::circuit_breaking(format!(
-                "[parent] real memory circuit breaker tripped: rss={}MB {relation} watermark={}MB \
-                 ({}% of limit={}MB); writes rejected to prevent an out-of-memory kill \
-                 (raise it live with PUT _cluster/settings {{\"persistent\":\
-                 {{\"indices.breaker.total.limit\":\"<N>gb\"}}}})",
-                rss / (1024 * 1024),
-                watermark / (1024 * 1024),
-                pct_of(watermark, self.memory_limit_bytes),
-                self.memory_limit_bytes / (1024 * 1024),
+            let commit = (self.commit_capped || starved).then(|| CommitBreakerDetail {
+                limit: self.commit_limit_bytes,
+                available: self.available_commit_bytes.load(Ordering::Relaxed),
+                reserve: self.commit_reserve_bytes,
+            });
+            return Err(XerjError::circuit_breaking(memory_breaker_reason(
+                rss,
+                relation,
+                watermark,
+                self.memory_limit_bytes,
+                commit,
             )));
         }
         Ok(())
     }
 
+    /// Reserve `bytes` of upcoming analysis allocations (#1122).
+    ///
+    /// Callers pass [`analyze_reserve_bytes_for_doc`] summed over the raw JSON
+    /// documents, before the
+    /// batch is parsed. The check uses the max of the sampled RSS and a live
+    /// probe, plus reservations already held, and rechecks after the atomic
+    /// add so two bulks cannot both pass the same snapshot. A watermark of
+    /// `0`, or a zero request, reserves nothing. The guard releases on drop.
+    pub(crate) fn reserve_analyze(&self, bytes: u64) -> Result<AnalyzeReservation, XerjError> {
+        if bytes == 0 || self.memory_watermark_bytes.load(Ordering::Relaxed) == 0 {
+            return Ok(AnalyzeReservation::none());
+        }
+        if self.memory_tripped.load(Ordering::Relaxed) {
+            return Err(self.analyze_reservation_refused(bytes));
+        }
+        let watermark = self.memory_watermark_bytes.load(Ordering::Relaxed);
+        let observed = self.observed_process_memory();
+        let already = self.analyze_reserved.load(Ordering::Acquire);
+        if !self.analyze_fits(watermark, observed, already, bytes) {
+            return Err(self.analyze_reservation_refused(bytes));
+        }
+        let prev = self.analyze_reserved.fetch_add(bytes, Ordering::AcqRel);
+        let watermark = self.memory_watermark_bytes.load(Ordering::Relaxed);
+        if watermark == 0 {
+            self.analyze_reserved.fetch_sub(bytes, Ordering::AcqRel);
+            return Ok(AnalyzeReservation::none());
+        }
+        let observed = self.observed_process_memory();
+        if self.analyze_fits(watermark, observed, prev, bytes) {
+            let id = self.lock_analyze_baselines().insert(observed);
+            return Ok(AnalyzeReservation {
+                slot: Some(Arc::clone(&self.analyze_reserved)),
+                baseline: Some((Arc::clone(&self.analyze_baselines), id)),
+                bytes,
+            });
+        }
+        self.analyze_reserved.fetch_sub(bytes, Ordering::AcqRel);
+        Err(self.analyze_reservation_refused(bytes))
+    }
+
+    /// Admit one memtable flush build whose working set is estimated at
+    /// `bytes`, or `None` to wait (#2427).
+    ///
+    /// A flush build (JSON re-parse, full-text postings, doc-value columns,
+    /// stored-section encode) allocates several times the frozen memtable
+    /// bytes for 1-2 s, and none of that was charged anywhere: the gate's
+    /// ingest-memory trace never showed `flush_drained` above 50 MB while
+    /// untracked memory jumped by ~550 MB and RSS crossed the cap on each
+    /// flush burst. Admission is now against the same committed total the
+    /// analyze reservations use (live RSS, or the reservations' baseline
+    /// plus every held reservation), so:
+    ///
+    /// - a second build that would carry the process past the watermark
+    ///   waits for the first one to finish instead of stacking on it, and
+    /// - the reservation is added to the analyze pool, so ingest admission
+    ///   sees the build's bytes before they are allocated and answers 429
+    ///   instead of letting RSS trip the breaker.
+    ///
+    /// A build is always admitted when no other build is in flight, so
+    /// flushing (which is what frees memtable memory) always progresses.
+    pub(crate) fn try_reserve_flush_build(&self, bytes: u64) -> Option<FlushBuildReservation> {
+        let mut state = self
+            .flush_ledger
+            .state
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        let watermark = self.memory_watermark_bytes.load(Ordering::Relaxed);
+        let observed = self.observed_process_memory();
+        if state.in_flight > 0 && watermark > 0 && bytes > 0 {
+            let already = self.analyze_reserved.load(Ordering::Acquire);
+            if !self.analyze_fits(watermark, observed, already, bytes) {
+                return None;
+            }
+        }
+        state.in_flight += 1;
+        state.reserved = state.reserved.saturating_add(bytes);
+        drop(state);
+        let counted = watermark > 0 && bytes > 0;
+        let baseline = counted.then(|| {
+            self.analyze_reserved.fetch_add(bytes, Ordering::AcqRel);
+            let id = self.lock_analyze_baselines().insert(observed);
+            (Arc::clone(&self.analyze_baselines), id)
+        });
+        Some(FlushBuildReservation {
+            ledger: Arc::clone(&self.flush_ledger),
+            analyze: AnalyzeReservation {
+                slot: counted.then(|| Arc::clone(&self.analyze_reserved)),
+                baseline,
+                bytes: if counted { bytes } else { 0 },
+            },
+            bytes,
+        })
+    }
+
+    /// [`Self::try_reserve_flush_build`], waiting until the build fits or
+    /// no other build is in flight. Unbounded: the caller puts its flush
+    /// admission deadline around it and fails the flush before the freeze.
+    pub(crate) async fn reserve_flush_build(&self, bytes: u64) -> FlushBuildReservation {
+        loop {
+            let released = self.flush_ledger.released.notified();
+            tokio::pin!(released);
+            released.as_mut().enable();
+            if let Some(reservation) = self.try_reserve_flush_build(bytes) {
+                return reservation;
+            }
+            // A finishing build wakes us; RSS can also fall without one
+            // (cache release, allocator purge), so poll as well.
+            tokio::select! {
+                _ = &mut released => {}
+                _ = tokio::time::sleep(FLUSH_BUILD_POLL) => {}
+            }
+        }
+    }
+
+    /// Estimated working set held by in-flight flush builds, and how many.
+    pub fn flush_build_reserved(&self) -> (u64, u64) {
+        let state = self
+            .flush_ledger
+            .state
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        (state.reserved, state.in_flight)
+    }
+
+    /// Admit one `_bulk` request before its body is split and parsed (#2427).
+    ///
+    /// Every write path checks the breaker, but only after the bulk parse
+    /// has already built its per-action line, pair and document-copy vectors.
+    /// A request that arrives while a breaker is latched still did all of that
+    /// work, and concurrent bulks between two sampler ticks were admitted
+    /// on a sample that predates each other's parse buffers. This refuses the
+    /// request with the same 429 when either latch is engaged, and otherwise
+    /// reserves `body_bytes` against live RSS plus every other in-flight
+    /// reservation, so parse buffers are counted before they are allocated.
+    /// The caller drops the reservation when the parse ends; the per-index
+    /// write path then takes its own analyze reservation for the tokens.
+    pub(crate) fn admit_bulk_parse(
+        &self,
+        body_bytes: u64,
+    ) -> Result<AnalyzeReservation, XerjError> {
+        self.check_ingest_admission()?;
+        self.reserve_analyze(body_bytes)
+    }
+
+    fn lock_analyze_baselines(&self) -> std::sync::MutexGuard<'_, AnalyzeBaselines> {
+        self.analyze_baselines
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+    }
+
+    /// [`analyze_reservation_fits`] with held reservations counted from the
+    /// RSS they were admitted at, not on top of live RSS (#2427).
+    fn analyze_fits(&self, watermark: u64, observed: u64, already: u64, request: u64) -> bool {
+        if watermark == 0 {
+            return true;
+        }
+        let baseline = self.lock_analyze_baselines().min();
+        analyze_committed_bytes(observed, already, baseline).saturating_add(request) < watermark
+    }
+
+    fn observed_process_memory(&self) -> u64 {
+        self.rss_bytes
+            .load(Ordering::Relaxed)
+            .max(current_process_memory_bytes())
+    }
+
+    fn analyze_reservation_refused(&self, request: u64) -> XerjError {
+        const MIB: u64 = 1024 * 1024;
+        let observed = self.observed_process_memory();
+        let reserved = self.analyze_reserved.load(Ordering::Relaxed);
+        let watermark = self.memory_watermark_bytes.load(Ordering::Relaxed);
+        XerjError::circuit_breaking(format!(
+            "[parent] real memory circuit breaker tripped: rss={}MB plus {}MB already reserved \
+             for analysis plus {}MB for this batch would reach watermark={}MB ({}% of \
+             limit={}MB); writes rejected to prevent an out-of-memory kill (raise \
+             limits.max_process_memory_mb or XERJ_MAX_PROCESS_MEMORY_MB, or live with \
+             PUT _cluster/settings {{\"persistent\":{{\"indices.breaker.total.limit\":\"<N>gb\"}}}})",
+            observed / MIB,
+            reserved / MIB,
+            request / MIB,
+            watermark / MIB,
+            pct_of(watermark, self.memory_limit_bytes),
+            self.memory_limit_bytes / MIB,
+        ))
+    }
+
+    /// Resolved process-memory ceiling in bytes. `0` is not used: an
+    /// uncapped config stores the machine size here. Merge planning reads
+    /// this so a small host's batches follow the AUTO cap instead of a
+    /// fixed 512 MiB.
+    pub fn process_memory_limit_bytes(&self) -> u64 {
+        self.memory_limit_bytes
+    }
+
+    /// RSS admission watermark in bytes. `0` means the check is off.
+    pub fn memory_watermark_bytes(&self) -> u64 {
+        self.memory_watermark_bytes.load(Ordering::Relaxed)
+    }
+
+    /// Larger of the last RSS sample and a live read. `0` when this
+    /// platform cannot read process memory.
+    pub fn observed_rss_bytes(&self) -> u64 {
+        self.observed_process_memory()
+    }
+
     /// Whether the parent RSS memory breaker is currently engaged (issue
     /// #948). Admission (429) is only half of the contract: the resource
-    /// sampler uses this same flag to request a memory-pressure DRAIN of
-    /// rebuildable state (flush + cache release), because a breaker that
-    /// only rejects never lets a workload whose caches hold gigabytes of
-    /// re-hydratable data make progress.
+    /// sampler uses this flag, together with [`Self::memtable_breaker_engaged`],
+    /// to request a memory-pressure DRAIN of rebuildable state (flush + cache
+    /// release). A breaker that only rejects never lets a workload whose
+    /// caches or memtables hold the bytes make progress.
     pub fn memory_breaker_engaged(&self) -> bool {
         self.memory_tripped.load(Ordering::Relaxed)
     }
 
-    /// Whether it is safe to spawn a helper thread right now (#1122).
+    /// Whether publish-time cache warming may run (#2427).
     ///
-    /// `std::thread::Builder::spawn` **panics** — it does not return `Err` —
-    /// when the new thread's alternate signal stack cannot be mmap'd under
-    /// memory exhaustion, and the shipped profile is `panic = "abort"`, so one
-    /// ENOMEM at spawn time aborts the whole node. Callers on flush/publish
-    /// paths that have an inline fallback must check this and take the
-    /// fallback instead of spawning.
+    /// Warming decodes every flushed segment's stored section into the
+    /// segment-hydration cache. A node that is still ingesting gains nothing
+    /// from that: queries hydrate on demand, while the warmed bytes count
+    /// against RSS. On the 1 GiB release gate (cap 3072 MB, watermark
+    /// 2918 MB) the ingest node kept 200-580 MB of warmed stored slices
+    /// while the breaker engaged 30 times in ten minutes. Each engage
+    /// rejected writes with HTTP 429 and drained the cache, and the next
+    /// flush warmed it again.
+    ///
+    /// Warming therefore stops at the breaker's RELEASE level, not only
+    /// while it is engaged. The release level is the point the breaker
+    /// treats as safe again, so warming above it uses memory the breaker
+    /// has to win back. The last sampled RSS is used, not a live read, so
+    /// the decision costs one atomic load. With the watermark disabled, or
+    /// no RSS sample yet, warming is allowed as before.
+    pub fn publish_warm_allowed(&self) -> bool {
+        if self.memory_breaker_engaged() || self.memtable_breaker_engaged() {
+            return false;
+        }
+        let watermark = self.memory_watermark_bytes.load(Ordering::Relaxed);
+        if watermark == 0 {
+            return true;
+        }
+        let rss = self.rss_bytes.load(Ordering::Relaxed);
+        rss < memory_release_bytes(watermark, self.memory_release_percent)
+    }
+
+    /// Start or read the flat-footprint clock. The first sample inside the
+    /// noise band records `now` and returns zero; later samples return how
+    /// long RSS has stayed there. Cleared when RSS leaves that band, the
+    /// breaker releases, or the watermark is retuned.
+    fn note_memory_flat(&self) -> Duration {
+        let mut slot = self
+            .memory_flat_since
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        match *slot {
+            Some(at) => at.elapsed(),
+            None => {
+                *slot = Some(Instant::now());
+                Duration::ZERO
+            }
+        }
+    }
+
+    fn clear_memory_flat(&self) {
+        *self
+            .memory_flat_since
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = None;
+    }
+
+    /// Test hook: age the flat-footprint clock without sleeping, so a test
+    /// can cross [`MEMORY_BAND_STALL_RELEASE`] on a paused schedule.
+    #[cfg(test)]
+    fn age_memory_flat_for_test(&self, by: Duration) {
+        let mut slot = self
+            .memory_flat_since
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        if let Some(at) = *slot {
+            *slot = Some(at.checked_sub(by).unwrap_or(at));
+        }
+    }
+
+    /// Release point of the RSS breaker as a percentage of the watermark.
+    pub fn memory_release_percent(&self) -> u8 {
+        self.memory_release_percent
+    }
+
+    /// Minimum time the RSS breaker stays engaged before an in-band release.
+    pub fn memory_min_engaged(&self) -> Duration {
+        self.memory_min_engaged
+    }
+
+    /// How long the RSS breaker has been engaged. A latch with no recorded
+    /// edge (the startup commit trip) counts as having met any minimum.
+    fn memory_engaged_for(&self) -> Duration {
+        match *self
+            .memory_engaged_since
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+        {
+            Some(at) => at.elapsed(),
+            None => Duration::MAX,
+        }
+    }
+
+    fn set_memory_engaged_since(&self, at: Option<Instant>) {
+        *self
+            .memory_engaged_since
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = at;
+    }
+
+    /// #2427 test hook: age the engaged clock without sleeping.
+    #[cfg(test)]
+    fn age_memory_engaged_for_test(&self, by: Duration) {
+        let mut slot = self
+            .memory_engaged_since
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        if let Some(at) = *slot {
+            *slot = Some(at.checked_sub(by).unwrap_or(at));
+        }
+    }
+
+    /// Bytes reserved by in-flight segment merges (#2427).
+    pub fn merge_reserved_bytes(&self) -> u64 {
+        self.merge_ledger
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .reserved
+    }
+
+    /// Segment merges currently holding a [`MergeReservation`] (#2427).
+    pub fn merges_in_flight(&self) -> u64 {
+        self.merge_ledger
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .in_flight
+    }
+
+    /// Ceiling of the merge pool (#2427 read-budget isolation): the process
+    /// limit minus [`SEARCH_READ_RESERVE_PERCENT`], or the watermark if that
+    /// is lower. Merge admission, the merge yield check and the merge
+    /// output-write check stop at this line, so the reserve above it stays
+    /// for searches. `0` when no watermark is live.
+    pub fn merge_pool_ceiling_bytes(&self) -> u64 {
+        merge_pool_ceiling(self.memory_watermark_bytes(), self.memory_limit_bytes)
+    }
+
+    /// Reserve the estimated working set of one merge batch whose inputs
+    /// total `input_bytes` against the merge pool (#2427).
+    ///
+    /// Before this, every index started its first merge batch whatever the
+    /// process footprint, and each batch was checked against an RSS snapshot
+    /// that did not see other indices' merges that had started but not yet
+    /// allocated. Under autoindex (hundreds of indices) that put many merge
+    /// and FST working sets on top of a node already at the watermark: RSS
+    /// climbed about 1 GB past a 3,000 MB cap while writes were getting 429s.
+    ///
+    /// The reservation is `input_bytes * MERGE_WORKING_SET_NUMERATOR` and is
+    /// held until the guard drops. See `merge_budget::decide_merge_admission`
+    /// for the rule.
+    /// `None` means defer: the caller leaves the batch for a later pass.
+    pub fn try_reserve_merge(&self, input_bytes: u64, forced: bool) -> Option<MergeReservation> {
+        self.try_reserve_merge_with_footprint(input_bytes, 0, forced)
+    }
+
+    /// [`Self::try_reserve_merge`] for a batch whose inputs also occupy
+    /// `on_disk_bytes` on disk, side-cars included (#2427). The reservation
+    /// is `merge_budget::merge_reservation_bytes`: the planned-input
+    /// estimate or `on_disk_bytes * MERGE_ON_DISK_WORKING_SET_NUMERATOR`,
+    /// whichever is larger. `0` means unknown.
+    pub fn try_reserve_merge_with_footprint(
+        &self,
+        input_bytes: u64,
+        on_disk_bytes: u64,
+        forced: bool,
+    ) -> Option<MergeReservation> {
+        let bytes = crate::merge_budget::merge_reservation_bytes(input_bytes, on_disk_bytes);
+        // Concurrent merges are admitted against the merge pool, not the
+        // watermark: the read reserve above it is never handed to a merge.
+        let watermark = self.merge_pool_ceiling_bytes();
+        let observed = self.observed_process_memory();
+        let engaged = self.memory_breaker_engaged();
+        let mut ledger = self.merge_ledger.lock().unwrap_or_else(|e| e.into_inner());
+        // #2427 ingest overshoot: a lone background batch does not start
+        // inside the read reserve, and does not start when its own
+        // reservation would carry RSS into it (the 1 GB gate's ingest node
+        // peaked at 3.5 GB against a 3,072 MB cap this way). It waits,
+        // bounded, for the drain; meanwhile the next batches are planned
+        // to fit the headroom. See `merge_budget::lone_merge_waits_for_headroom`
+        // and `merge_budget::pressure_cap_for_headroom`.
+        let lone_background = !forced && ledger.in_flight == 0 && watermark > 0 && observed > 0;
+        let mut headroom_wait_expired = false;
+        if lone_background && observed.saturating_add(bytes) >= watermark {
+            let since = *ledger
+                .headroom_wait_since
+                .get_or_insert_with(std::time::Instant::now);
+            if crate::merge_budget::lone_merge_waits_for_headroom(
+                observed,
+                watermark,
+                bytes,
+                ledger.in_flight,
+                forced,
+                since.elapsed(),
+                self.merge_headroom_max_wait,
+            ) {
+                if observed < watermark {
+                    ledger.pressure_cap = crate::merge_budget::pressure_cap_for_headroom(
+                        ledger.pressure_cap,
+                        input_bytes,
+                        bytes,
+                        watermark - observed,
+                    );
+                }
+                return None;
+            }
+            // Waited the full bound: start it anyway so merging progresses.
+            headroom_wait_expired = true;
+        } else if observed < watermark {
+            // Headroom came back: the next wait starts its own clock. Only
+            // when the batch fits, not merely when RSS is under the
+            // ceiling; otherwise a batch that never fits restarts the clock
+            // on every pass and never runs.
+            ledger.headroom_wait_since = None;
+        }
+        if !crate::merge_budget::decide_merge_admission(
+            watermark,
+            observed,
+            ledger.reserved,
+            ledger.in_flight,
+            engaged,
+            bytes,
+            forced,
+            headroom_wait_expired,
+        ) {
+            return None;
+        }
+        ledger.reserved = ledger.reserved.saturating_add(bytes);
+        ledger.in_flight += 1;
+        ledger.headroom_wait_since = None;
+        Some(MergeReservation {
+            ledger: Arc::clone(&self.merge_ledger),
+            bytes,
+        })
+    }
+
+    /// Whether an in-flight background merge batch must stop now (#2427).
+    /// See `merge_budget::merge_must_yield`.
+    pub fn merge_must_yield(&self, forced: bool) -> bool {
+        let observed = self.observed_process_memory();
+        crate::merge_budget::merge_must_yield(
+            observed,
+            self.merge_pool_ceiling_bytes(),
+            self.merge_memory_pressure(observed),
+            forced,
+        )
+    }
+
+    /// Whether merges see memory pressure at `observed` bytes (#2427): the
+    /// breaker is engaged, or `observed` is already at the watermark and the
+    /// 100 ms sampler has not latched it yet. A merge checks live process
+    /// memory, so it need not run on for up to a sampler tick past the
+    /// watermark.
+    fn merge_memory_pressure(&self, observed: u64) -> bool {
+        let watermark = self.memory_watermark_bytes();
+        self.memory_breaker_engaged() || (watermark > 0 && observed >= watermark)
+    }
+
+    /// [`Self::merge_must_yield`] for a batch of `input_bytes`: after a
+    /// streak of yields a small batch completes, so compaction cannot stall
+    /// for good. See `merge_budget::merge_must_yield_after`.
+    pub fn merge_must_yield_for(&self, forced: bool, input_bytes: u64) -> bool {
+        let streak = self
+            .merge_ledger
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .yield_streak;
+        let observed = self.observed_process_memory();
+        crate::merge_budget::merge_must_yield_after(
+            observed,
+            self.merge_pool_ceiling_bytes(),
+            self.merge_memory_pressure(observed),
+            forced,
+            input_bytes,
+            streak,
+        )
+    }
+
+    /// Record a background batch of `input_bytes` that stopped under memory
+    /// pressure: the next batches are planned under half of it (#2427).
+    pub fn note_merge_yield(&self, input_bytes: u64) -> u64 {
+        let mut ledger = self.merge_ledger.lock().unwrap_or_else(|e| e.into_inner());
+        ledger.pressure_cap =
+            crate::merge_budget::pressure_cap_after_yield(ledger.pressure_cap, input_bytes);
+        ledger.yield_streak = ledger.yield_streak.saturating_add(1);
+        ledger.pressure_cap
+    }
+
+    /// Record a background batch of `input_bytes` that completed: a batch
+    /// that used the adaptive cap widens it again (#2427).
+    pub fn note_merge_completed(&self, input_bytes: u64) {
+        let mut ledger = self.merge_ledger.lock().unwrap_or_else(|e| e.into_inner());
+        ledger.pressure_cap =
+            crate::merge_budget::pressure_cap_after_success(ledger.pressure_cap, input_bytes);
+        ledger.yield_streak = 0;
+    }
+
+    /// The adaptive merge batch input cap, `0` when none is set (#2427).
+    pub fn merge_pressure_cap_bytes(&self) -> u64 {
+        self.merge_ledger
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .pressure_cap
+    }
+
+    /// Whether a batch's output-write step is exempt from
+    /// [`Self::admit_merge_write`]'s hard-limit refusal (#2427, #2468).
+    ///
+    /// True exactly when #2468's streak rule is what keeps this batch
+    /// running: the plain rule ([`Self::merge_must_yield`]) says yield, and
+    /// the streak-aware rule ([`Self::merge_must_yield_for`]) waives it for
+    /// a small batch after a streak of yields with nothing merged. Refusing
+    /// that batch's write would bring back the stall the rule exists to
+    /// break.
+    pub fn merge_write_exempt(&self, forced: bool, input_bytes: u64) -> bool {
+        self.merge_must_yield(forced) && !self.merge_must_yield_for(forced, input_bytes)
+    }
+
+    /// Charge a merge batch's output-write step to the merge budget before
+    /// it runs (#2427).
+    ///
+    /// The step comes after the last yield checkpoint: the doc-values
+    /// build, the stored encode and the FTS side-car build. It allocates
+    /// `extra` bytes (`merge_budget::merge_write_phase_bytes`) on top of the
+    /// `held` bytes the batch already has. Before this, neither admission
+    /// nor the yield checks saw it, and large pg-docs merges took a
+    /// 3,072 MB search node to 4.4–4.9 GB in their last seconds.
+    ///
+    /// Returns `false` when the step would take observed process memory to
+    /// the hard limit (`merge_budget::decide_merge_write`). The caller then
+    /// yields the batch, keeping its inputs. On `true`, `reservation` grows
+    /// to at least `held + extra`, so admission for other merges sees the
+    /// step until the batch drops its reservation. A refused step leaves
+    /// the ledger as it was. `exempt` covers batches that #2468's streak
+    /// rule lets run to completion.
+    pub fn admit_merge_write(
+        &self,
+        reservation: Option<&mut MergeReservation>,
+        held: u64,
+        extra: u64,
+        forced: bool,
+        exempt: bool,
+    ) -> bool {
+        self.admit_merge_write_for(reservation, held, extra, forced, exempt, 0)
+    }
+
+    /// [`Self::admit_merge_write`] for a batch of `input_bytes`: after a
+    /// streak of yields with nothing merged, a small background batch's
+    /// write is checked against the hard process limit, capped at the memory
+    /// watermark, instead of the merge-pool ceiling, so a node resting between the two still merges
+    /// (#2427). See `merge_budget::merge_write_limit_after`.
+    pub fn admit_merge_write_for(
+        &self,
+        reservation: Option<&mut MergeReservation>,
+        held: u64,
+        extra: u64,
+        forced: bool,
+        exempt: bool,
+        input_bytes: u64,
+    ) -> bool {
+        let observed = self.observed_process_memory();
+        let streak = self
+            .merge_ledger
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .yield_streak;
+        let line = crate::merge_budget::merge_write_limit_after(
+            self.merge_pool_ceiling_bytes(),
+            crate::merge_budget::merge_write_hard_line(
+                self.memory_limit_bytes,
+                self.memory_watermark_bytes(),
+            ),
+            forced,
+            input_bytes,
+            streak,
+        );
+        if !crate::merge_budget::decide_merge_write(observed, line, extra, forced, exempt) {
+            return false;
+        }
+        if let Some(reservation) = reservation {
+            let wanted = held.saturating_add(extra);
+            if wanted > reservation.bytes {
+                let mut ledger = self.merge_ledger.lock().unwrap_or_else(|e| e.into_inner());
+                ledger.reserved = ledger.reserved.saturating_add(wanted - reservation.bytes);
+                reservation.bytes = wanted;
+            }
+        }
+        true
+    }
+
+    /// Whether the summed-memtable budget breaker is currently engaged.
+    pub fn memtable_breaker_engaged(&self) -> bool {
+        self.memtable_tripped.load(Ordering::Relaxed)
+    }
+
+    /// Whether the sampler must request a memory-pressure drain (#948, #2238).
+    ///
+    /// Both parent latches answer writes with HTTP 429, and a 429 frees
+    /// nothing by itself. The RSS latch has requested a drain since #948.
+    /// The summed-memtable latch did not. On the 8 GiB auto tier that budget
+    /// is 2 GiB (`auto_memtable_budget`: 25% floored at 2 GiB) while each
+    /// index flushes at `storage.flush_size_mb` (default 512 MiB), so a
+    /// corpus spread across dozens of indices crosses the process budget
+    /// with every index still under its own flush line. Writes then stay
+    /// 429 and the indexed count stays 0 unless this latch requests the
+    /// same drain.
+    ///
+    /// The two latches do not share a timer. The RSS latch backs off when a
+    /// drain does not lower RSS (#1981). The memtable latch stays on the
+    /// fixed window, because that flush is what frees this budget and a
+    /// stable RSS is the normal shape of a memtable-only trip.
+    pub fn ingest_pressure_needs_drain(&self) -> bool {
+        self.memory_breaker_engaged() || self.memtable_breaker_engaged()
+    }
+
+    /// Whether it is safe to spawn a best-effort helper thread right now (#1122).
+    ///
+    /// `std::thread::Builder::spawn` panics inside the new thread when the
+    /// alternate signal stack cannot be mmap'd, and the shipped profile is
+    /// `panic = "abort"`, so that panic aborts the node. The engine's helper
+    /// spawner does not use that path (a failed `pthread_create` is an
+    /// `Err`), and this gate skips the attempt entirely once the breaker is
+    /// engaged so a flush storm does not keep reserving stacks. Callers on
+    /// flush/publish paths that have an inline fallback must check this and
+    /// take the fallback instead of spawning.
     ///
     /// Reads the *live* RSS (`current_rss_bytes`), not the sampler's last
     /// value, so an RSS spike between samples cannot sneak a spawn through;
@@ -234,6 +1243,23 @@ impl ResourceGovernor {
             ));
         }
         Ok(())
+    }
+
+    /// Effective flood-stage gate for `/_cat/allocation` (#2077).
+    ///
+    /// `flood_pct` is `limits.disk_flood_stage_percent` after a live
+    /// `cluster.routing.allocation.disk.watermark.flood_stage` override.
+    /// `0` means the watermark is off. `threshold_enabled` mirrors
+    /// `cluster.routing.allocation.disk.threshold_enabled` (default true).
+    /// `blocked` is the latched write block, including the 1% release
+    /// hysteresis, so a volume that has dipped just under the threshold
+    /// still reports that writes will be refused.
+    pub fn disk_flood_admission(&self) -> DiskFloodAdmission {
+        DiskFloodAdmission {
+            flood_pct: self.disk_flood_pct.load(Ordering::Relaxed),
+            threshold_enabled: self.disk_threshold_enabled.load(Ordering::Relaxed),
+            blocked: self.disk_blocked.load(Ordering::Relaxed),
+        }
     }
 
     /// Applies (or clears) a runtime override of the disk flood-stage
@@ -317,17 +1343,95 @@ impl ResourceGovernor {
     /// the permit (and decrements the in-flight gauge) on drop. Excess
     /// searches queue on the semaphore, exactly like ES's search thread
     /// pool bounds active workers.
+    ///
+    /// Under memory pressure (#2427) searches are non-write memory the RSS
+    /// breaker never saw: the 1 GB release gate kept climbing from 5.1 GB to
+    /// an 8.4 GB OOM with writes blocked, and its search phase ran 30 s
+    /// multi-index searches against a node already over its watermark.
+    /// While the breaker is engaged each search also takes the single
+    /// `search_pressure` permit, so they run one at a time. At or above the
+    /// hard process limit a new search is rejected with a 429
+    /// `circuit_breaking_exception` once the drain has had
+    /// [`SEARCH_HEADROOM_WAIT`] to bring RSS back under it.
+    ///
+    /// Read-budget isolation (#2427): bytes held by in-flight merge
+    /// reservations do not count against a search (see
+    /// [`Self::search_admission_rss`]); those merges yield at the merge-pool
+    /// ceiling, below the limit. A search that still finds process memory at
+    /// or above the limit waits up to [`SEARCH_HEADROOM_WAIT`] for the drain
+    /// before it is rejected, instead of failing in milliseconds against a
+    /// transient peak.
     pub async fn acquire_search(&self) -> Result<SearchPermit, XerjError> {
         let permit = Arc::clone(&self.search_pool)
             .acquire_owned()
             .await
             .map_err(|_| XerjError::internal("global search pool closed — shutting down"))?;
+        let pressure = if self.memory_breaker_engaged() || self.check_search_hard_limit().is_err() {
+            let p = Arc::clone(&self.search_pressure)
+                .acquire_owned()
+                .await
+                .map_err(|_| XerjError::internal("search pressure gate closed — shutting down"))?;
+            // RSS may have crossed the hard limit while this search queued.
+            self.wait_for_search_headroom().await?;
+            Some(p)
+        } else {
+            None
+        };
         let now = self.search_inflight.fetch_add(1, Ordering::Relaxed) + 1;
         self.search_inflight_peak.fetch_max(now, Ordering::Relaxed);
         Ok(SearchPermit {
             _permit: permit,
+            _pressure: pressure,
             inflight: Arc::clone(&self.search_inflight),
         })
+    }
+
+    /// Wait, holding the `search_pressure` permit, until the hard-limit check
+    /// passes or [`Self::search_headroom_wait`] runs out (#2427). The sampler
+    /// drains rebuildable state while the breaker is engaged; this gives that
+    /// drain time to work before the search is turned away.
+    async fn wait_for_search_headroom(&self) -> Result<(), XerjError> {
+        let deadline = tokio::time::Instant::now() + self.search_headroom_wait;
+        loop {
+            match self.check_search_hard_limit() {
+                Ok(()) => return Ok(()),
+                Err(e) if tokio::time::Instant::now() >= deadline => return Err(e),
+                Err(_) => tokio::time::sleep(SEARCH_HEADROOM_POLL).await,
+            }
+        }
+    }
+
+    /// Process memory a search is admitted against (#2427): the last RSS
+    /// sample less the bytes in-flight merges hold in the merge ledger. Those
+    /// merges must yield at the merge-pool ceiling, so their bytes are
+    /// already on their way out and are not the read path's to pay for.
+    fn search_admission_rss(&self) -> u64 {
+        let rss = self.rss_bytes.load(Ordering::Relaxed);
+        rss.saturating_sub(self.merge_reserved_bytes())
+    }
+
+    /// RSS line at which new searches are rejected (#2427): the process
+    /// memory limit, or the live watermark if an operator raised it past
+    /// that (#1323). `0` when no limit is known.
+    fn search_hard_limit_bytes(&self) -> u64 {
+        let watermark = self.memory_watermark_bytes.load(Ordering::Relaxed);
+        if watermark == 0 {
+            return 0;
+        }
+        self.memory_limit_bytes.max(watermark)
+    }
+
+    fn check_search_hard_limit(&self) -> Result<(), XerjError> {
+        let limit = self.search_hard_limit_bytes();
+        let rss = self.search_admission_rss();
+        if limit != 0 && rss >= limit {
+            return Err(XerjError::circuit_breaking(format!(
+                "[parent] Data too large: process memory [{rss}/{}] is at or above the memory limit [{limit}/{}] after waiting for the memory breaker to drain; search rejected",
+                human_bytes(rss),
+                human_bytes(limit)
+            )));
+        }
+        Ok(())
     }
 
     /// Current in-flight search count (for stats / proof).
@@ -388,38 +1492,139 @@ impl ResourceGovernor {
     /// `0` when it isn't available (e.g. from the [`Self::refresh`] test
     /// wrapper); it only affects that one log line, never admission.
     pub fn refresh_memory_disk(&self, rss: u64, disk_used_pct: u64, disk_avail_bytes: u64) {
-        // ── RSS watermark, with a bounded release hysteresis (#1250) ──
+        self.refresh_memory_observing(rss, disk_used_pct, disk_avail_bytes, None);
+    }
+
+    /// [`Self::refresh_memory_disk`] plus an optional Windows available-commit
+    /// sample. `None` leaves the commit latch as it was (Linux, and tests
+    /// that only move RSS). A `Some` below the commit reserve engages the
+    /// breaker even when `rss` is under the watermark (#1122). Once commit is
+    /// back above the reserve the RSS latch alone decides, and that latch
+    /// never releases at or above the watermark (#2427).
+    pub fn refresh_memory_observing(
+        &self,
+        rss: u64,
+        disk_used_pct: u64,
+        disk_avail_bytes: u64,
+        available_commit: Option<u64>,
+    ) {
+        // ── RSS watermark, with release hysteresis (#1250, #2427) ──
         //
-        // Engage at `rss >= watermark`. Once engaged, hold the latch while RSS
-        // sits in the band `[95% of watermark, watermark)` only for as long as
-        // RSS is still FALLING — the memory-pressure drain is making progress,
-        // and releasing now would re-admit the write burst that re-trips the
-        // breaker a sample later (the rss=15,596MB vs watermark=15,564MB
-        // chatter in #1250). If RSS stops falling inside the band the drain
-        // has nothing more to free: holding would only reject writes the node
-        // can take and keep the sampler re-draining every
-        // `MEMORY_DRAIN_MIN_INTERVAL` forever, so the latch releases exactly
-        // as it did before the band existed. A live watermark change (#1323)
-        // drops the band for that sample: the operator's new value decides.
-        let prev_rss = self.rss_bytes.swap(rss, Ordering::Relaxed);
+        // Engage at `rss >= watermark`. Once engaged, the latch releases below
+        // `memory_release_percent` of the watermark (85% by default) after the
+        // breaker has been engaged for `memory_min_engaged`. Inside the band
+        // `[release, watermark)` it holds while the drain is still lowering
+        // RSS. A 95% band that released on the first sample that did not fall
+        // flapped 20 times in 16 minutes under autoindex (#2427), each release
+        // re-admitting the write burst that tripped it. If RSS does not fall
+        // past [`MEMORY_RSS_NOISE_BYTES`] inside the band for
+        // [`MEMORY_BAND_STALL_RELEASE`], the drain has nothing more to free:
+        // holding would only reject writes the node can take and keep the
+        // sampler re-draining forever, so the latch releases.
+        //
+        // At or above the watermark the latch never releases (#2427). The
+        // #1981 flat-footprint release that used to apply there is gone: it
+        // released a node at 5,121MB against a 2,918MB watermark. A live
+        // watermark change (#1323) is judged against the operator's new
+        // value on that sample.
+        self.rss_bytes.store(rss, Ordering::Relaxed);
         let watermark = self.memory_watermark_bytes.load(Ordering::Relaxed);
         let cur_mem = self.memory_tripped.load(Ordering::Relaxed);
         let retuned = self.memory_trip_watermark.load(Ordering::Relaxed) != watermark;
-        let release_bytes = watermark - (watermark / 20);
-        let mem_next = watermark != 0
+        // #2427: the release point is `memory_release_percent` of the
+        // watermark (85% by default, was a fixed 95%).
+        let release_bytes = memory_release_bytes(watermark, self.memory_release_percent);
+        // `None` keeps the previous latch so an RSS-only refresh (Linux, and
+        // the test helper) does not clear a commit trip it did not sample.
+        // Reserve 0 means this platform has no commit probe: starved stays
+        // false and the RSS formula below is the pre-#1122 check.
+        let starved = if self.commit_reserve_bytes == 0 {
+            false
+        } else if let Some(available) = available_commit {
+            self.available_commit_bytes
+                .store(available, Ordering::Relaxed);
+            available < self.commit_reserve_bytes
+        } else {
+            self.commit_starved.load(Ordering::Relaxed)
+        };
+        self.commit_starved.store(starved, Ordering::Relaxed);
+        // RSS latch (#1250, #2427). Commit starvation is applied after this
+        // so a pagefileless box stays engaged while available commit is
+        // under the reserve.
+        let rss_next = watermark != 0
             && if rss >= watermark {
+                // #2427: at or above the watermark the RSS latch ALWAYS holds
+                // (or engages). There is no release up here, whatever the
+                // footprint is doing. The #1981 flat-footprint release that
+                // used to live in this arm let a 1 GB release-gate node
+                // release at rss=5,121MB against a 2,918MB watermark, re-engage
+                // 100 ms later at 5,125MB, and get OOM-killed at 8.4 GB. The
+                // drain backoff (`MemoryDrainSchedule`) is what keeps a
+                // footprint that will not fall from re-draining every 2 s.
+                self.memory_band_anchor.store(0, Ordering::Relaxed);
+                self.clear_memory_flat();
                 true
             } else if cur_mem && !retuned {
-                rss >= release_bytes && rss < prev_rss
+                // #2427 release hysteresis, strictly below the watermark.
+                // Below the release point, release once the minimum engaged
+                // time has passed. Inside the band, hold while the drain is
+                // still lowering RSS; if RSS has not fallen past the noise
+                // band for MEMORY_BAND_STALL_RELEASE, the drain has nothing
+                // left to free, so release rather than reject writes forever
+                // (#1250).
+                let min_met = self.memory_engaged_for() >= self.memory_min_engaged;
+                if rss < release_bytes {
+                    self.clear_memory_flat();
+                    self.memory_band_anchor.store(0, Ordering::Relaxed);
+                    !min_met
+                } else {
+                    let anchor = self.memory_band_anchor.load(Ordering::Relaxed);
+                    if anchor == 0 || rss.saturating_add(MEMORY_RSS_NOISE_BYTES) < anchor {
+                        // Entered the band, or fell past the noise band:
+                        // the drain is working. Restart the stall clock.
+                        self.memory_band_anchor.store(rss, Ordering::Relaxed);
+                        self.clear_memory_flat();
+                        self.note_memory_flat();
+                        true
+                    } else {
+                        let stalled = self.note_memory_flat() >= MEMORY_BAND_STALL_RELEASE;
+                        if stalled && min_met {
+                            self.clear_memory_flat();
+                            self.memory_band_anchor.store(0, Ordering::Relaxed);
+                            false
+                        } else {
+                            true
+                        }
+                    }
+                }
             } else {
+                // Disengaged under the watermark, or a live retune (#1323)
+                // that put RSS under the operator's new value.
+                self.clear_memory_flat();
+                self.memory_band_anchor.store(0, Ordering::Relaxed);
                 false
             };
+        // #2427 invariant: the RSS latch never reports released while RSS is
+        // at or above the live watermark.
+        debug_assert!(rss_next || watermark == 0 || rss < watermark);
+        let mem_next = starved || rss_next;
         if mem_next {
             self.memory_trip_watermark
                 .store(watermark, Ordering::Relaxed);
         }
         if mem_next != self.memory_tripped.swap(mem_next, Ordering::Relaxed) {
-            if mem_next {
+            // Only an RSS engage starts the minimum-engaged clock: a Windows
+            // commit trip releases as soon as commit recovers.
+            self.set_memory_engaged_since((mem_next && rss_next).then(Instant::now));
+            if mem_next && starved {
+                tracing::warn!(
+                    available_commit_mb = self.available_commit_bytes.load(Ordering::Relaxed)
+                        / (1024 * 1024),
+                    commit_limit_mb = self.commit_limit_bytes / (1024 * 1024),
+                    reserve_mb = self.commit_reserve_bytes / (1024 * 1024),
+                    "available Windows commit is under the reserve — engaging the parent memory circuit breaker (writes → 429)"
+                );
+            } else if mem_next {
                 tracing::warn!(
                     rss_mb = rss / (1024 * 1024),
                     watermark_mb = watermark / (1024 * 1024),
@@ -428,6 +1633,7 @@ impl ResourceGovernor {
             } else {
                 tracing::info!(
                     rss_mb = rss / (1024 * 1024),
+                    release_mb = release_bytes / (1024 * 1024),
                     "RSS back below the memory watermark — releasing the memory circuit breaker"
                 );
             }
@@ -530,6 +1736,9 @@ impl ResourceGovernor {
 /// gauge on drop; the underlying semaphore permit is released with it.
 pub struct SearchPermit {
     _permit: OwnedSemaphorePermit,
+    /// The memory-pressure gate's single permit, held when the search was
+    /// admitted while the RSS breaker was engaged (#2427).
+    _pressure: Option<OwnedSemaphorePermit>,
     inflight: Arc<AtomicU64>,
 }
 
@@ -537,6 +1746,14 @@ impl Drop for SearchPermit {
     fn drop(&mut self) {
         self.inflight.fetch_sub(1, Ordering::Relaxed);
     }
+}
+
+/// The disk flood-stage gate `/_cat/allocation` reports to clients (#2077).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DiskFloodAdmission {
+    pub flood_pct: u8,
+    pub threshold_enabled: bool,
+    pub blocked: bool,
 }
 
 /// A cheap, `Copy`-able snapshot of governor state.
@@ -581,10 +1798,39 @@ fn cap_memory_limit(machine_limit: u64, cap_mb: u64) -> u64 {
     machine_limit.min(cap_mb.saturating_mul(1024 * 1024))
 }
 
+/// Lower a tiered cap to the Windows commit ceiling. `None` (Linux, macOS, a
+/// failed probe) returns `tiered_limit` unchanged.
+fn apply_windows_commit_ceiling(
+    tiered_limit: u64,
+    budget: Option<&xerj_common::resource::WindowsCommitBudget>,
+) -> u64 {
+    match budget {
+        Some(budget) if budget.commit_bound && budget.effective_bytes < tiered_limit => {
+            budget.effective_bytes.max(1)
+        }
+        _ => tiered_limit,
+    }
+}
+
+/// Hard clamp for a live `indices.breaker.total.limit` override. Off Windows
+/// this is physical/cgroup memory. On a commit-bound Windows box it stops at
+/// the post-reserve ceiling, so raising the breaker cannot grant commit
+/// Windows will not give the process.
+fn windows_override_ceiling(
+    physical: u64,
+    budget: Option<&xerj_common::resource::WindowsCommitBudget>,
+) -> u64 {
+    match budget {
+        Some(budget) if budget.commit_bound => budget.effective_bytes.min(physical).max(1),
+        _ => physical,
+    }
+}
+
 /// The AUTO process-memory cap, in MiB, chosen from the effective memory the
-/// process can actually see, in binary-GiB steps:
+/// process can actually see:
 ///
-///   effective < 64 GiB             → 8 GiB
+///   effective < 16 GiB             → half of that RAM
+///   16 GiB ≤ effective < 64 GiB    → 8 GiB
 ///   64 GiB ≤ effective < 128 GiB   → 16 GiB
 ///   effective ≥ 128 GiB            → 32 GiB
 ///
@@ -592,17 +1838,53 @@ fn cap_memory_limit(machine_limit: u64, cap_mb: u64) -> u64 {
 /// `effective_memory_limit_bytes` — not raw host RAM, so a container smaller
 /// than its host is sized for the container. This only *chooses* a ceiling;
 /// `cap_memory_limit` still mins it with the machine, so the cap only ever
-/// LOWERS a budget: on a 40 GiB box the 8 GiB tier yields min(40, 8) = 8, and
-/// on a 6 GiB box it yields min(6, 8) = 6. It never invents headroom.
+/// LOWERS a budget: on a 40 GiB box the 8 GiB tier yields min(40, 8) = 8.
+///
+/// Hosts under 16 GiB used to take the 8 GiB step and then `min` with the
+/// machine, so an 8 GiB box's process budget was all of its RAM. A merge
+/// storm on that budget died; the same box stayed up at a 4 GiB cap
+/// (#1122). Half of RAM is that cap. At 16 GiB, half is 8 GiB, so the
+/// steps above 16 GiB — and the memtable budget they derive — do not move.
+/// A sub-mebibyte reading rounds up to 1 MiB and is still min'd with the
+/// machine, so the floor does not invent RAM.
 fn tiered_cap_mb(effective_bytes: u64) -> u64 {
     const GIB: u64 = 1024 * 1024 * 1024;
-    if effective_bytes < 64 * GIB {
+    const MIB: u64 = 1024 * 1024;
+    if effective_bytes < 16 * GIB {
+        (effective_bytes / 2 / MIB).max(1)
+    } else if effective_bytes < 64 * GIB {
         8 * 1024
     } else if effective_bytes < 128 * GIB {
         16 * 1024
     } else {
         32 * 1024
     }
+}
+
+/// Startup warning when the machine has less memory free right now than
+/// the cap this node just chose (#2574). The cap is sized from total RAM (or
+/// the cgroup limit), so the friendly "detected N usable" line reads as if
+/// availability had been checked. On a box where another process already
+/// holds most of the RAM (a local LLM engine, say) the node will be swapped
+/// or OOM-killed before its own breaker trips. `None` when availability is
+/// unknown, when there is no cap, or when there is room for it.
+fn available_memory_startup_line(
+    available: Option<u64>,
+    effective: u64,
+    limit: u64,
+) -> Option<String> {
+    let available = available?;
+    if limit == 0 || available >= limit {
+        return None;
+    }
+    Some(format!(
+        "memory: only {} of {} is available right now — other processes hold the rest — \
+         which is less than the {} cap; if they keep it, lower limits.max_process_memory_mb \
+         or XERJ_MAX_PROCESS_MEMORY_MB to fit what is left",
+        format_gib(available),
+        format_gib(effective),
+        format_gib(limit),
+    ))
 }
 
 /// Human-friendly binary size for the startup line: whole GiB when exact, one
@@ -844,7 +2126,8 @@ fn build(config: &Config) -> ResourceGovernor {
     //
     // Capped by `limits.max_process_memory_mb`, resolved through
     // `resolve_process_memory_cap`: the AUTO default tiers the cap off the
-    // machine (8/16/32 GiB), `0` means uncapped (whole machine), an explicit
+    // machine (half of RAM under 16 GiB, then 8/16/32 GiB), `0` means uncapped
+    // (whole machine), an explicit
     // `N` forces a fixed MiB ceiling, and `XERJ_MAX_PROCESS_MEMORY_MB` can
     // override any of it. Every budget below derives from this one number, so
     // capping HERE is what makes the ceiling coherent — capping each dependent
@@ -865,7 +2148,22 @@ fn build(config: &Config) -> ResourceGovernor {
     if let Some(warning) = &resolved_process_cap.warning {
         tracing::warn!("{warning}");
     }
-    let memory_limit_bytes = cap_memory_limit(effective_memory_bytes, resolved_process_cap.cap_mb);
+    let tiered_memory_limit = cap_memory_limit(effective_memory_bytes, resolved_process_cap.cap_mb);
+    // Windows only: the tier above is still physical RAM / cgroup. A no-pagefile
+    // box's commit limit is about that RAM, and other processes have already
+    // charged most of it. Lower the cap to what this process can still commit,
+    // minus a reserve, so the watermark trips before the allocator aborts.
+    // Linux and macOS pass `None` and keep `tiered_memory_limit` byte for byte.
+    let commit_budget = xerj_common::resource::windows_commit_sample()
+        .map(xerj_common::resource::windows_commit_budget);
+    let memory_limit_bytes =
+        apply_windows_commit_ceiling(tiered_memory_limit, commit_budget.as_ref());
+    let commit_capped = memory_limit_bytes < tiered_memory_limit;
+    let machine_memory_bytes =
+        windows_override_ceiling(effective_memory_bytes, commit_budget.as_ref());
+    let startup_starved = commit_budget.as_ref().is_some_and(|budget| {
+        budget.reserve_bytes > 0 && budget.available_commit < budget.reserve_bytes
+    });
 
     // ── memtable budget: 0 = auto-derive from the effective (cgroup-aware)
     // memory limit — see `auto_memtable_budget`. Must be derived from the
@@ -938,7 +2236,12 @@ fn build(config: &Config) -> ResourceGovernor {
         (ProcessMemoryCapSource::Env, _, 0) => "uncapped via XERJ_MAX_PROCESS_MEMORY_MB",
         (ProcessMemoryCapSource::Env, _, _) => "explicit XERJ_MAX_PROCESS_MEMORY_MB",
     };
-    if resolved_process_cap.cap_mb == 0 {
+    if let Some(budget) = commit_budget.as_ref().filter(|_| commit_capped) {
+        tracing::info!(
+            "{}",
+            commit_ceiling_startup_line(effective_memory_bytes, memory_limit_bytes, budget)
+        );
+    } else if resolved_process_cap.cap_mb == 0 {
         tracing::info!(
             "memory: detected {} usable, using the whole machine (no process cap — {}); \
              set limits.max_process_memory_mb or XERJ_MAX_PROCESS_MEMORY_MB to add one",
@@ -954,9 +2257,34 @@ fn build(config: &Config) -> ResourceGovernor {
             cap_reason,
         );
     }
+    if let Some(line) = available_memory_startup_line(
+        xerj_common::resource::available_memory_bytes(),
+        effective_memory_bytes,
+        memory_limit_bytes,
+    ) {
+        tracing::warn!("{line}");
+    }
+    if startup_starved {
+        tracing::warn!(
+            "Windows has no commit left under the reserve — writes will be rejected until \
+             commit is free. Enlarge the pagefile or close other programs"
+        );
+    }
 
+    let memory_release_percent = resolve_memory_release_percent(
+        std::env::var("XERJ_MEMORY_BREAKER_RELEASE_PCT")
+            .ok()
+            .as_deref(),
+    );
+    let memory_min_engaged = resolve_memory_min_engaged(
+        std::env::var("XERJ_MEMORY_BREAKER_MIN_ENGAGED_MS")
+            .ok()
+            .as_deref(),
+    );
     tracing::info!(
         memtable_budget_mb = memtable_budget_bytes / (1024 * 1024),
+        memory_release_pct = memory_release_percent,
+        memory_min_engaged_ms = memory_min_engaged.as_millis() as u64,
         memory_limit_mb = memory_limit_bytes / (1024 * 1024),
         memory_limit_source = ?resolved_process_cap.source,
         memory_watermark_mb = memory_watermark_bytes / (1024 * 1024),
@@ -977,17 +2305,37 @@ fn build(config: &Config) -> ResourceGovernor {
         memtable_used_bytes: AtomicU64::new(0),
         memtable_tripped: AtomicBool::new(false),
         memory_limit_bytes,
-        machine_memory_bytes: effective_memory_bytes,
+        machine_memory_bytes,
         memory_watermark_bytes_default: memory_watermark_bytes,
         memory_watermark_bytes: AtomicU64::new(memory_watermark_bytes),
-        rss_bytes: AtomicU64::new(0),
-        memory_tripped: AtomicBool::new(false),
-        memory_trip_watermark: AtomicU64::new(0),
+        rss_bytes: AtomicU64::new(if startup_starved {
+            current_process_memory_bytes()
+        } else {
+            0
+        }),
+        analyze_reserved: Arc::new(AtomicU64::new(0)),
+        analyze_baselines: Arc::new(Mutex::new(AnalyzeBaselines::default())),
+        memory_tripped: AtomicBool::new(startup_starved),
+        memory_trip_watermark: AtomicU64::new(if startup_starved {
+            memory_watermark_bytes
+        } else {
+            0
+        }),
+        memory_flat_since: Mutex::new(None),
+        memory_release_percent,
+        memory_min_engaged,
+        memory_engaged_since: Mutex::new(None),
+        memory_band_anchor: AtomicU64::new(0),
+        merge_ledger: Arc::new(Mutex::new(MergeLedger::default())),
+        flush_ledger: Arc::new(FlushLedger::default()),
         max_query_memory_bytes,
         search_pool: Arc::new(Semaphore::new(max_concurrent_searches)),
         max_concurrent_searches,
         search_inflight: Arc::new(AtomicU64::new(0)),
         search_inflight_peak: Arc::new(AtomicU64::new(0)),
+        search_pressure: Arc::new(Semaphore::new(1)),
+        search_headroom_wait: SEARCH_HEADROOM_WAIT,
+        merge_headroom_max_wait: crate::merge_budget::MERGE_HEADROOM_MAX_WAIT,
         bulk_pool: Arc::new(Semaphore::new(max_concurrent_bulks)),
         max_concurrent_bulks,
         disk_flood_pct_default: limits.disk_flood_stage_percent.min(100),
@@ -995,6 +2343,16 @@ fn build(config: &Config) -> ResourceGovernor {
         disk_threshold_enabled: AtomicBool::new(true),
         disk_blocked: AtomicBool::new(false),
         disk_used_pct: AtomicU64::new(0),
+        commit_limit_bytes: commit_budget.as_ref().map(|b| b.commit_limit).unwrap_or(0),
+        commit_reserve_bytes: commit_budget.as_ref().map(|b| b.reserve_bytes).unwrap_or(0),
+        available_commit_bytes: AtomicU64::new(
+            commit_budget
+                .as_ref()
+                .map(|b| b.available_commit)
+                .unwrap_or(0),
+        ),
+        commit_starved: AtomicBool::new(startup_starved),
+        commit_capped,
     }
 }
 
@@ -1004,7 +2362,7 @@ fn build(config: &Config) -> ResourceGovernor {
 
 /// Current resident set size of this process, in bytes, via
 /// [`xerj_common::resource::current_rss_bytes`] (`/proc/self/statm` on Linux,
-/// `proc_pidinfo(PROC_PIDTASKINFO)` on macOS). Returns 0 where the platform
+/// the physical footprint from `proc_pid_rusage` on macOS). Returns 0 where the platform
 /// exposes no probe — the RSS watermark then never trips, which is safe but
 /// means no admission control, so [`build`] says so out loud at startup.
 ///
@@ -1012,6 +2370,31 @@ fn build(config: &Config) -> ResourceGovernor {
 /// the watermark was dead on macOS however much memory the process took.
 pub fn current_rss_bytes() -> u64 {
     xerj_common::resource::current_rss_bytes().unwrap_or(0)
+}
+
+/// Merge-pool ceiling for a `watermark` and process `limit` (#2427): the
+/// limit less [`SEARCH_READ_RESERVE_PERCENT`], never above the watermark.
+/// `0` when the watermark is off; the watermark alone when no limit is known.
+fn merge_pool_ceiling(watermark: u64, limit: u64) -> u64 {
+    if watermark == 0 || limit == 0 {
+        return watermark;
+    }
+    let reserve = (limit as u128 * SEARCH_READ_RESERVE_PERCENT as u128 / 100) as u64;
+    watermark.min(limit.saturating_sub(reserve)).max(1)
+}
+
+/// Bytes the memory breaker compares to the watermark.
+///
+/// Off Windows this is [`current_rss_bytes`]. On Windows it is the max of the
+/// working set and the process commit charge: a trimmed working set can sit
+/// under the watermark while commit charge is what the next allocation fails
+/// on (#1122).
+pub fn current_process_memory_bytes() -> u64 {
+    let rss = current_rss_bytes();
+    match xerj_common::resource::process_commit_charge_bytes() {
+        Some(commit) => rss.max(commit),
+        None => rss,
+    }
 }
 
 /// Total system RAM in bytes. Falls back to [`ASSUMED_TOTAL_BYTES`] on a
@@ -1170,7 +2553,8 @@ fn cgroup_memory_limit_bytes() -> Option<u64> {
 }
 
 /// `(total_bytes, avail_bytes)` for the filesystem backing `path`, via
-/// `statvfs(2)`. Returns `None` on syscall failure.
+/// `statvfs(2)` on Unix or `GetDiskFreeSpaceExW` on Windows.
+/// Returns `None` on syscall failure.
 #[cfg(unix)]
 #[allow(clippy::unnecessary_cast)]
 pub fn disk_stats(path: &str) -> Option<(u64, u64)> {
@@ -1193,7 +2577,62 @@ pub fn disk_stats(path: &str) -> Option<(u64, u64)> {
     Some((total, avail))
 }
 
-#[cfg(not(unix))]
+#[cfg(target_os = "windows")]
+pub fn disk_stats(path: &str) -> Option<(u64, u64)> {
+    use std::os::windows::ffi::OsStrExt as _;
+
+    let p = if path.is_empty() {
+        std::path::Path::new(".")
+    } else {
+        std::path::Path::new(path)
+    };
+    let abs = std::path::absolute(p).ok()?;
+    let candidate = if abs.exists() {
+        abs
+    } else {
+        abs.ancestors().find(|a| a.exists())?.to_path_buf()
+    };
+
+    let mut os_str = candidate.into_os_string();
+    let s = os_str.to_string_lossy();
+    if s.ends_with(':') {
+        os_str.push("\\");
+    }
+
+    let mut wide: Vec<u16> = os_str.encode_wide().collect();
+    wide.push(0);
+
+    let mut free_bytes_available: u64 = 0;
+    let mut total_bytes: u64 = 0;
+    let mut total_free_bytes: u64 = 0;
+
+    #[link(name = "kernel32")]
+    extern "system" {
+        fn GetDiskFreeSpaceExW(
+            lpDirectoryName: *const u16,
+            lpFreeBytesAvailableToCaller: *mut u64,
+            lpTotalNumberOfBytes: *mut u64,
+            lpTotalNumberOfFreeBytes: *mut u64,
+        ) -> i32;
+    }
+
+    let ok = unsafe {
+        GetDiskFreeSpaceExW(
+            wide.as_ptr(),
+            &mut free_bytes_available,
+            &mut total_bytes,
+            &mut total_free_bytes,
+        )
+    };
+
+    if ok != 0 && total_bytes > 0 {
+        Some((total_bytes, free_bytes_available))
+    } else {
+        None
+    }
+}
+
+#[cfg(not(any(unix, target_os = "windows")))]
 pub fn disk_stats(_path: &str) -> Option<(u64, u64)> {
     None
 }
@@ -1319,12 +2758,270 @@ fn parse_byte_size(s: &str) -> Option<u64> {
 // Small formatting helpers
 // ─────────────────────────────────────────────────────────────────────────
 
+/// Process-wide merge accounting behind [`MergeReservation`] (#2427).
+#[derive(Debug, Default)]
+struct MergeLedger {
+    reserved: u64,
+    in_flight: u64,
+    /// Adaptive batch input cap learned from batches that had to yield
+    /// under memory pressure. `0` = none. See
+    /// `merge_budget::pressure_cap_after_yield`.
+    pressure_cap: u64,
+    /// Background yields since the last completed batch. See
+    /// `merge_budget::merge_must_yield_after`.
+    yield_streak: u64,
+    /// When a lone background merge was first held back for headroom
+    /// since the last admitted batch. See
+    /// `merge_budget::lone_merge_waits_for_headroom`.
+    headroom_wait_since: Option<std::time::Instant>,
+}
+
+/// Holds one merge batch's estimated working set against the RSS watermark
+/// (#2427). Returned by [`ResourceGovernor::try_reserve_merge`]; dropping it
+/// returns the bytes and the in-flight slot.
+#[must_use = "dropping the reservation releases the merge budget at once"]
+pub struct MergeReservation {
+    ledger: Arc<Mutex<MergeLedger>>,
+    bytes: u64,
+}
+
+impl MergeReservation {
+    /// Bytes this reservation holds.
+    pub fn bytes(&self) -> u64 {
+        self.bytes
+    }
+}
+
+impl std::fmt::Debug for MergeReservation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MergeReservation")
+            .field("bytes", &self.bytes)
+            .finish()
+    }
+}
+
+impl Drop for MergeReservation {
+    fn drop(&mut self) {
+        let mut ledger = self.ledger.lock().unwrap_or_else(|e| e.into_inner());
+        ledger.reserved = ledger.reserved.saturating_sub(self.bytes);
+        ledger.in_flight = ledger.in_flight.saturating_sub(1);
+    }
+}
+
+/// How often a flush build waiting for headroom rechecks RSS (#2427).
+const FLUSH_BUILD_POLL: Duration = Duration::from_millis(100);
+
+/// Process-wide accounting behind [`FlushBuildReservation`] (#2427).
+#[derive(Debug, Default)]
+pub(crate) struct FlushLedger {
+    state: Mutex<FlushLedgerState>,
+    released: tokio::sync::Notify,
+}
+
+#[derive(Debug, Default)]
+struct FlushLedgerState {
+    reserved: u64,
+    in_flight: u64,
+}
+
+/// One memtable flush build's estimated working set, held from before the
+/// freeze until the segment is published (#2427). Counted in the analyze
+/// pool so ingest admission sees it; dropping it releases the bytes and wakes
+/// a build waiting for headroom.
+#[derive(Debug)]
+#[must_use = "dropping the reservation releases the flush budget at once"]
+pub(crate) struct FlushBuildReservation {
+    ledger: Arc<FlushLedger>,
+    analyze: AnalyzeReservation,
+    bytes: u64,
+}
+
+impl FlushBuildReservation {
+    /// Bytes this reservation holds.
+    pub(crate) fn bytes(&self) -> u64 {
+        self.bytes
+    }
+}
+
+impl Drop for FlushBuildReservation {
+    fn drop(&mut self) {
+        // Release the admission bytes first, then the ledger slot, so a woken
+        // waiter sees both.
+        drop(std::mem::replace(
+            &mut self.analyze,
+            AnalyzeReservation::none(),
+        ));
+        {
+            let mut state = self.ledger.state.lock().unwrap_or_else(|e| e.into_inner());
+            state.reserved = state.reserved.saturating_sub(self.bytes);
+            state.in_flight = state.in_flight.saturating_sub(1);
+        }
+        self.ledger.released.notify_waiters();
+    }
+}
+
+/// Releases an analyze reservation when the batch's tokens exist (#1122).
+#[derive(Debug)]
+pub(crate) struct AnalyzeReservation {
+    slot: Option<Arc<AtomicU64>>,
+    baseline: Option<(Arc<Mutex<AnalyzeBaselines>>, u64)>,
+    bytes: u64,
+}
+
+impl AnalyzeReservation {
+    pub(crate) fn none() -> Self {
+        Self {
+            slot: None,
+            baseline: None,
+            bytes: 0,
+        }
+    }
+}
+
+impl Drop for AnalyzeReservation {
+    fn drop(&mut self) {
+        // Drop the bytes before the baseline: a reader that sees the bytes
+        // without a baseline falls back to the conservative sum.
+        if let Some(slot) = self.slot.take() {
+            if self.bytes > 0 {
+                slot.fetch_sub(self.bytes, Ordering::AcqRel);
+            }
+        }
+        if let Some((baselines, id)) = self.baseline.take() {
+            baselines
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .remove(id);
+        }
+    }
+}
+
+#[cfg(test)]
+impl ResourceGovernor {
+    /// A standalone governor whose watermark sits `headroom` bytes above the
+    /// live RSS, for tests that watch one index's analyze reservations.
+    pub(crate) fn with_analyze_headroom_for_test(headroom: u64) -> Arc<Self> {
+        let mut cfg = Config::default();
+        cfg.limits.max_total_memtable_mb = 0;
+        let governor = build(&cfg);
+        governor.set_analyze_headroom_for_test(headroom);
+        Arc::new(governor)
+    }
+
+    /// Move the watermark to `headroom` bytes above the live RSS.
+    pub(crate) fn set_analyze_headroom_for_test(&self, headroom: u64) {
+        let live = self.observed_process_memory();
+        self.memory_watermark_bytes
+            .store(live.saturating_add(headroom).max(1), Ordering::Relaxed);
+        self.rss_bytes.store(live, Ordering::Relaxed);
+    }
+
+    /// Bytes currently held by analyze reservations.
+    pub(crate) fn analyze_reserved_for_test(&self) -> u64 {
+        self.analyze_reserved.load(Ordering::Acquire)
+    }
+}
+
+/// Admission RSS of each held analyze reservation (#2427).
+#[derive(Debug, Default)]
+pub(crate) struct AnalyzeBaselines {
+    next_id: u64,
+    live: std::collections::BTreeMap<u64, u64>,
+}
+
+impl AnalyzeBaselines {
+    fn insert(&mut self, rss: u64) -> u64 {
+        let id = self.next_id;
+        self.next_id = self.next_id.wrapping_add(1);
+        self.live.insert(id, rss);
+        id
+    }
+
+    fn remove(&mut self, id: u64) {
+        self.live.remove(&id);
+    }
+
+    fn min(&self) -> Option<u64> {
+        self.live.values().copied().min()
+    }
+}
+
 fn pct_of(part: u64, whole: u64) -> u64 {
     if whole == 0 {
         0
     } else {
         ((part as u128 * 100) / whole as u128) as u64
     }
+}
+
+struct CommitBreakerDetail {
+    limit: u64,
+    available: u64,
+    reserve: u64,
+}
+
+/// Admission text for the parent memory breaker.
+///
+/// `commit == None` is the ordinary RSS sentence: it names
+/// `limits.max_process_memory_mb` / `XERJ_MAX_PROCESS_MEMORY_MB` and the live
+/// `indices.breaker.total.limit` hint (#2238). A Windows commit ceiling
+/// replaces that hint: raising `indices.breaker.total.limit` cannot create
+/// commit, and the sentence names the limit and the pagefile instead.
+fn memory_breaker_reason(
+    rss: u64,
+    relation: &str,
+    watermark: u64,
+    limit: u64,
+    commit: Option<CommitBreakerDetail>,
+) -> String {
+    const MIB: u64 = 1024 * 1024;
+    let base = format!(
+        "[parent] real memory circuit breaker tripped: rss={}MB {relation} watermark={}MB \
+         ({}% of limit={}MB); writes rejected to prevent an out-of-memory kill",
+        rss / MIB,
+        watermark / MIB,
+        pct_of(watermark, limit),
+        limit / MIB,
+    );
+    match commit {
+        Some(detail) => format!(
+            "{base}. Windows commit limit is {}MB with {}MB still committable \
+             (reserve {}MB). Enlarge the pagefile (System Properties → Advanced → \
+             Performance → Settings → Advanced → Virtual memory) or close other programs. \
+             XERJ_MAX_PROCESS_MEMORY_MB cannot exceed that commit limit",
+            detail.limit / MIB,
+            detail.available / MIB,
+            detail.reserve / MIB,
+        ),
+        None => format!(
+            "{base} (raise limits.max_process_memory_mb or XERJ_MAX_PROCESS_MEMORY_MB, or live \
+             with PUT _cluster/settings {{\"persistent\":\
+             {{\"indices.breaker.total.limit\":\"<N>gb\"}}}})"
+        ),
+    }
+}
+
+fn commit_ceiling_startup_line(
+    physical: u64,
+    limit: u64,
+    budget: &xerj_common::resource::WindowsCommitBudget,
+) -> String {
+    const MIB: u64 = 1024 * 1024;
+    format!(
+        "memory: detected {} usable, using a {} cap (auto tier lowered to the Windows commit \
+         ceiling); physical RAM is {}, Windows commit limit is {}MB, {}MB still committable \
+         (this process holds {}MB, reserve {}MB). Enlarge the pagefile (System Properties → \
+         Advanced → Performance → Settings → Advanced → Virtual memory) or close other \
+         programs. limits.max_process_memory_mb and XERJ_MAX_PROCESS_MEMORY_MB cannot exceed \
+         that commit limit",
+        format_gib(limit),
+        format_gib(limit),
+        format_gib(physical),
+        budget.commit_limit / MIB,
+        budget.committable / MIB,
+        budget.process_commit / MIB,
+        budget.reserve_bytes / MIB,
+    )
 }
 
 fn human_bytes(b: u64) -> String {
@@ -1345,6 +3042,199 @@ fn human_bytes(b: u64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// #2574: a 125 GiB box with ~40 GiB free took the 16 GiB auto tier and
+    /// said only "detected 125.4 GiB usable". Warn when the cap is above
+    /// what is free; stay quiet when there is room or nothing is known.
+    #[test]
+    fn startup_warns_when_free_memory_is_below_the_cap() {
+        const GIB: u64 = 1024 * 1024 * 1024;
+        let line = available_memory_startup_line(Some(10 * GIB), 100 * GIB, 16 * GIB)
+            .expect("10 GiB free under a 16 GiB cap must warn");
+        assert!(
+            line.contains("only 10 GiB of 100 GiB is available"),
+            "{line}"
+        );
+        assert!(line.contains("16 GiB cap"), "{line}");
+        assert!(line.contains("limits.max_process_memory_mb"), "{line}");
+        assert_eq!(
+            available_memory_startup_line(Some(40 * GIB), 125 * GIB, 16 * GIB),
+            None
+        );
+        assert_eq!(
+            available_memory_startup_line(None, 125 * GIB, 16 * GIB),
+            None
+        );
+        assert_eq!(available_memory_startup_line(Some(GIB), 125 * GIB, 0), None);
+    }
+
+    /// #2427: the reservation follows token density instead of charging every
+    /// byte as if it were the densest text. Dense text keeps the flat rate.
+    #[test]
+    fn analyze_reservation_follows_token_density_2427() {
+        assert_eq!(estimated_analyzer_tokens(b"{\"body\":\"a a a\"}"), 4);
+        assert_eq!(estimated_analyzer_tokens("\u{4e2d}\u{6587}".as_bytes()), 2);
+        assert_eq!(estimated_analyzer_tokens(b"\"deadbeef0123abcd\""), 1);
+        assert_eq!(estimated_analyzer_tokens(b"foo\\nbar_baz 3.14"), 5);
+
+        let dense = format!("{{\"body\":\"{}\"}}", "a ".repeat(4096));
+        assert_eq!(
+            analyze_reserve_bytes_for_doc(dense.as_bytes()),
+            analyze_reserve_bytes(dense.len() as u64)
+        );
+
+        let prose = format!(
+            "{{\"body\":\"{}\"}}",
+            "the quick brown fox jumps over lazy dogs ".repeat(100)
+        );
+        let reserve = analyze_reserve_bytes_for_doc(prose.as_bytes());
+        assert!(reserve * 3 < analyze_reserve_bytes(prose.len() as u64) * 2);
+        assert!(reserve >= prose.len() as u64 * ANALYZE_RESERVE_PER_INPUT_BYTE_BASE);
+    }
+
+    #[test]
+    fn analyze_reservation_fits_under_the_watermark_and_rejects_at_it() {
+        assert!(analyze_reservation_fits(0, 100, 100, 100));
+        assert!(analyze_reservation_fits(1_000, 100, 100, 799));
+        assert!(!analyze_reservation_fits(1_000, 100, 100, 800));
+        assert!(!analyze_reservation_fits(1_000, 900, 50, 50));
+        assert_eq!(analyze_reserve_bytes(8 << 20), (8 << 20) * 28);
+    }
+
+    /// The guard is a thin wrapper around [`analyze_reservation_fits`]. The
+    /// watermark sits above a live probe so the test does not depend on this
+    /// process's RSS, and a second reserve sees the first until it is dropped.
+    /// #2427: a bulk that arrives while a breaker is latched is refused
+    /// before its parse, and reserves nothing.
+    #[test]
+    fn bulk_parse_admission_refuses_while_a_breaker_is_latched() {
+        let mut cfg = Config::default();
+        cfg.limits.max_total_memtable_mb = 0;
+        let governor = build(&cfg);
+        let live = governor.observed_process_memory();
+        governor
+            .memory_watermark_bytes
+            .store(live.saturating_add(512 * 1024 * 1024), Ordering::Relaxed);
+        governor.rss_bytes.store(live, Ordering::Relaxed);
+
+        governor.memory_tripped.store(true, Ordering::Relaxed);
+        let refused = governor.admit_bulk_parse(1024).unwrap_err();
+        assert_eq!(refused.http_status(), 429, "{refused}");
+        assert_eq!(governor.analyze_reserved.load(Ordering::Relaxed), 0);
+        governor.memory_tripped.store(false, Ordering::Relaxed);
+
+        governor.memtable_tripped.store(true, Ordering::Relaxed);
+        let refused = governor.admit_bulk_parse(1024).unwrap_err();
+        assert_eq!(refused.http_status(), 429, "{refused}");
+        assert!(refused.to_string().contains("memtable"), "{refused}");
+        assert_eq!(governor.analyze_reserved.load(Ordering::Relaxed), 0);
+    }
+
+    /// #2427: an admitted bulk's body is counted against the watermark until
+    /// its parse ends, so concurrent bulks cannot each be admitted on the
+    /// same stale sample and together cross the cap.
+    #[test]
+    fn bulk_parse_admission_counts_concurrent_bodies_against_the_watermark() {
+        const MIB: u64 = 1024 * 1024;
+        let mut cfg = Config::default();
+        cfg.limits.max_total_memtable_mb = 0;
+        let governor = build(&cfg);
+        let live = governor.observed_process_memory();
+        governor
+            .memory_watermark_bytes
+            .store(live.saturating_add(1024 * MIB), Ordering::Relaxed);
+        governor.rss_bytes.store(live, Ordering::Relaxed);
+
+        let first = governor.admit_bulk_parse(400 * MIB).unwrap();
+        let second = governor.admit_bulk_parse(400 * MIB).unwrap();
+        assert_eq!(governor.analyze_reserved.load(Ordering::Relaxed), 800 * MIB);
+        // A third body would reach the watermark: backpressure, not admission.
+        let refused = governor.admit_bulk_parse(400 * MIB).unwrap_err();
+        assert_eq!(refused.http_status(), 429, "{refused}");
+        assert_eq!(governor.analyze_reserved.load(Ordering::Relaxed), 800 * MIB);
+
+        drop(first);
+        let third = governor.admit_bulk_parse(400 * MIB).unwrap();
+        drop(second);
+        drop(third);
+        assert_eq!(governor.analyze_reserved.load(Ordering::Relaxed), 0);
+    }
+
+    /// #2427: memory a held reservation has already allocated shows up in
+    /// RSS and must not be counted a second time on top of the reservation.
+    /// Before, the 350 MiB request below was refused at 300 + 400 + 350 =
+    /// 1050 MiB over the baseline against a 1024 MiB watermark, although at
+    /// most 400 + 350 MiB can still land on top of it.
+    #[test]
+    fn held_reservation_is_counted_from_its_admission_rss_not_on_top_of_live_rss_2427() {
+        const MIB: u64 = 1024 * 1024;
+        assert_eq!(analyze_committed_bytes(1000, 400, Some(900)), 1300);
+        assert_eq!(analyze_committed_bytes(1500, 400, Some(900)), 1500);
+        assert_eq!(analyze_committed_bytes(1000, 400, None), 1400);
+        assert_eq!(analyze_committed_bytes(1000, 0, Some(900)), 1000);
+        // A baseline above live RSS never makes admission stricter.
+        assert_eq!(analyze_committed_bytes(1000, 400, Some(1200)), 1400);
+
+        let mut cfg = Config::default();
+        cfg.limits.max_total_memtable_mb = 0;
+        let governor = build(&cfg);
+        let live = governor.observed_process_memory();
+        governor
+            .memory_watermark_bytes
+            .store(live.saturating_add(1024 * MIB), Ordering::Relaxed);
+        governor.rss_bytes.store(live, Ordering::Relaxed);
+
+        let first = governor.reserve_analyze(400 * MIB).unwrap();
+        // The first batch's analysis has allocated 300 MiB of its 400.
+        governor
+            .rss_bytes
+            .store(live.saturating_add(300 * MIB), Ordering::Relaxed);
+        let second = governor
+            .reserve_analyze(350 * MIB)
+            .expect("750 MiB over the baseline fits under 1024");
+        // Real growth beyond the reservations still counts.
+        let refused = governor.reserve_analyze(300 * MIB).unwrap_err();
+        assert_eq!(refused.http_status(), 429, "{refused}");
+        drop(first);
+        drop(second);
+        assert_eq!(governor.analyze_reserved.load(Ordering::Relaxed), 0);
+        assert_eq!(governor.lock_analyze_baselines().min(), None);
+    }
+
+    #[test]
+    fn analyze_reservation_releases_and_sees_a_prior_reserve() {
+        let governor = build(&Config::default());
+        let live = governor.observed_process_memory();
+        let slack = 512 * 1024 * 1024;
+        governor
+            .memory_watermark_bytes
+            .store(live.saturating_add(slack), Ordering::Relaxed);
+        governor.rss_bytes.store(live, Ordering::Relaxed);
+        assert_eq!(governor.analyze_reserved.load(Ordering::Relaxed), 0);
+
+        let first = governor.reserve_analyze(32 * 1024 * 1024).unwrap();
+        assert_eq!(
+            governor.analyze_reserved.load(Ordering::Relaxed),
+            32 * 1024 * 1024
+        );
+        let refused = governor.reserve_analyze(480 * 1024 * 1024 + 1).unwrap_err();
+        let text = refused.to_string();
+        assert!(text.contains("circuit breaker"), "{text}");
+        assert!(text.contains("writes rejected"), "{text}");
+        assert!(text.contains("limits.max_process_memory_mb"), "{text}");
+        assert_eq!(refused.http_status(), 429);
+
+        drop(first);
+        assert_eq!(governor.analyze_reserved.load(Ordering::Relaxed), 0);
+        let second = governor.reserve_analyze(400 * 1024 * 1024).unwrap();
+        drop(second);
+        assert_eq!(governor.analyze_reserved.load(Ordering::Relaxed), 0);
+
+        governor.memory_watermark_bytes.store(0, Ordering::Relaxed);
+        let disabled = governor.reserve_analyze(u64::MAX).unwrap();
+        assert_eq!(governor.analyze_reserved.load(Ordering::Relaxed), 0);
+        drop(disabled);
+    }
 
     #[test]
     fn segment_hydration_resolver_is_cgroup_proportional_and_explicit() {
@@ -1427,14 +3317,33 @@ mod tests {
         assert_eq!(cap_memory_limit(40 * GIB, laptop.cap_mb), 8 * GIB);
         assert_eq!(auto_memtable_budget(8 * GIB), 2 * GIB);
 
-        // 6 GiB box → 8 GiB tier, but the machine only has 6, so min = 6.
+        // 8 GiB host → half of RAM, 4 GiB. The old tier was min(8, 8) = 8,
+        // the whole machine; a merge storm on that budget is #1122.
+        let small = resolve_process_memory_cap(8 * GIB, AUTO, None);
+        assert_eq!(small.cap_mb, 4 * 1024);
+        assert_eq!(cap_memory_limit(8 * GIB, small.cap_mb), 4 * GIB);
+        // The memtable floor stays 2 GiB, the same budget the old 8 GiB
+        // tier handed this host, so ingest is not given a smaller buffer.
+        assert_eq!(auto_memtable_budget(4 * GIB), 2 * GIB);
+
+        // 6 GiB box → half of RAM, 3 GiB, not min(6, 8) = 6.
         let tiny = resolve_process_memory_cap(6 * GIB, AUTO, None);
-        assert_eq!(tiny.cap_mb, 8 * 1024, "the tier is chosen before the min");
-        assert_eq!(
-            cap_memory_limit(6 * GIB, tiny.cap_mb),
-            6 * GIB,
-            "cap only lowers"
-        );
+        assert_eq!(tiny.cap_mb, 3 * 1024);
+        assert_eq!(cap_memory_limit(6 * GIB, tiny.cap_mb), 3 * GIB);
+    }
+
+    /// Under 16 GiB the cap is half of RAM. 16 GiB is the old 8 GiB step.
+    #[test]
+    fn a_host_under_sixteen_gib_is_capped_at_half_its_ram() {
+        const GIB: u64 = 1024 * 1024 * 1024;
+        assert_eq!(tiered_cap_mb(4 * GIB), 2 * 1024);
+        assert_eq!(tiered_cap_mb(8 * GIB), 4 * 1024);
+        assert_eq!(tiered_cap_mb(12 * GIB), 6 * 1024);
+        // One byte under 16 GiB is still the half-RAM step, in whole MiB.
+        assert_eq!(tiered_cap_mb(16 * GIB - 1), 8191);
+        assert_eq!(tiered_cap_mb(16 * GIB), 8 * 1024);
+        // And the 64 GiB step is unchanged.
+        assert_eq!(tiered_cap_mb(64 * GIB - 1), 8 * 1024);
     }
 
     /// The tier steps exactly on the 64 GiB and 128 GiB binary boundaries.
@@ -1546,6 +3455,69 @@ mod tests {
         assert_eq!(cap_memory_limit(2 * GIB, 8192), 2 * GIB);
         // A cgroup smaller than the cap still wins.
         assert_eq!(cap_memory_limit(512 * 1024 * 1024, 8192), 512 * 1024 * 1024);
+    }
+
+    /// #1122, field report #2174. Injected commit numbers, not a live Windows
+    /// box: 16 GiB physical, no pagefile, ~4 GiB still committable. The AUTO
+    /// tier stays the 8 GiB step (physical RAM is unchanged). The cap the
+    /// governor actually uses is the commit ceiling, and a 95% watermark
+    /// leaves room for the 100 MiB flush that aborted that run.
+    #[test]
+    fn windows_commit_lowers_the_cap_without_moving_the_auto_tier() {
+        const GIB: u64 = 1024 * 1024 * 1024;
+        const MIB: u64 = 1024 * 1024;
+        const AUTO: u64 = xerj_common::config::AUTO_PROCESS_MEMORY_MB;
+        let physical = 16 * GIB;
+        let resolved = resolve_process_memory_cap(physical, AUTO, None);
+        assert_eq!(
+            resolved.cap_mb,
+            8 * 1024,
+            "tier input is still physical RAM"
+        );
+        let tiered = cap_memory_limit(physical, resolved.cap_mb);
+        assert_eq!(tiered, 8 * GIB);
+
+        let budget = xerj_common::resource::windows_commit_budget(
+            xerj_common::resource::WindowsCommitSample {
+                total_phys: physical,
+                commit_limit: physical,
+                available_commit: 4 * GIB,
+                process_commit: 200 * MIB,
+            },
+        );
+        let limited = apply_windows_commit_ceiling(tiered, Some(&budget));
+        assert!(limited < tiered);
+        assert_eq!(limited, budget.effective_bytes);
+        let watermark = limited * 95 / 100;
+        assert!(budget.committable - watermark >= 100 * MIB);
+        assert_eq!(
+            windows_override_ceiling(physical, Some(&budget)),
+            budget.effective_bytes,
+            "a live breaker raise stops at the commit ceiling"
+        );
+
+        // No budget (Linux, macOS, failed probe): the tiered cap is returned.
+        assert_eq!(apply_windows_commit_ceiling(tiered, None), tiered);
+        assert_eq!(windows_override_ceiling(physical, None), physical);
+
+        // 64 GiB with commit covering RAM: tier stays 16 GiB, ceiling does not bind.
+        let big = 64 * GIB;
+        let big_tier = cap_memory_limit(big, resolve_process_memory_cap(big, AUTO, None).cap_mb);
+        assert_eq!(big_tier, 16 * GIB);
+        let covered = xerj_common::resource::windows_commit_budget(
+            xerj_common::resource::WindowsCommitSample {
+                total_phys: big,
+                commit_limit: 96 * GIB,
+                available_commit: 80 * GIB,
+                process_commit: 512 * MIB,
+            },
+        );
+        assert!(!covered.commit_bound);
+        assert_eq!(
+            apply_windows_commit_ceiling(big_tier, Some(&covered)),
+            big_tier
+        );
+        assert_eq!(windows_override_ceiling(big, Some(&covered)), big);
     }
 
     /// The 2 GiB memtable floor must not punch through a smaller ceiling —
@@ -1790,6 +3762,18 @@ mod tests {
     }
 
     #[test]
+    fn this_machine_disk_stats_are_sane() {
+        if cfg!(any(unix, target_os = "windows")) {
+            let (total, avail) =
+                disk_stats(".").expect("disk_stats must succeed on the current directory");
+            assert!(total > 0, "total disk space must be positive");
+            assert!(avail <= total, "available disk space cannot exceed total");
+            let pct = disk_used_pct(".");
+            assert!(pct <= 100, "disk used percentage must be <= 100");
+        }
+    }
+
+    #[test]
     fn human_bytes_scales() {
         assert_eq!(human_bytes(512), "512b");
         assert_eq!(human_bytes(2 * 1024 * 1024), "2.0mb");
@@ -1818,9 +3802,55 @@ mod tests {
         // `circuit_breaking_exception` type; the Display is the bare reason).
         assert_eq!(err.http_status(), 429);
         assert!(matches!(err, XerjError::CircuitBreaking { .. }));
-        assert!(format!("{err}").contains("memtable byte budget exceeded"));
+        let rendered = format!("{err}");
+        assert!(
+            rendered.contains("memtable byte budget exceeded"),
+            "{rendered}"
+        );
+        // #2238: the auto tier derives this budget from the process cap. The
+        // remedy has to name that knob, and it has to survive the client's
+        // 300-character per-item reason prefix.
+        let marker = rendered.find("limits.max_process_memory_mb");
+        assert!(
+            marker.is_some_and(|at| at < 300),
+            "the process-memory cap must be named inside the first 300 chars: {rendered}"
+        );
         // Recovery once usage drops back under the budget.
         g.refresh(10 * 1024 * 1024, 0, 0);
+        assert!(g.check_ingest_admission().is_ok());
+    }
+
+    /// #2238: a multi-index ingest on the 8 GiB auto tier trips the 2 GiB
+    /// memtable budget while RSS is still under the watermark. The sampler
+    /// used to drain only on the RSS latch, so every later write stayed 429
+    /// and the indexed count stayed 0. Memtable pressure must request the
+    /// same drain.
+    #[test]
+    fn memtable_pressure_requests_a_drain_while_rss_is_under_the_watermark() {
+        let mut cfg = Config::default();
+        cfg.limits.max_total_memtable_mb = 100;
+        cfg.limits.memory_watermark_percent = 95;
+        let g = build(&cfg);
+        let watermark = g.memory_watermark_bytes.load(Ordering::Relaxed);
+        assert!(watermark > 0, "this test needs a live RSS watermark");
+        g.refresh(200 * 1024 * 1024, watermark / 2, 0);
+        assert!(
+            g.memtable_breaker_engaged(),
+            "summed memtables are over budget"
+        );
+        assert!(
+            !g.memory_breaker_engaged(),
+            "RSS at half the watermark must not engage the RSS latch"
+        );
+        assert!(
+            g.ingest_pressure_needs_drain(),
+            "memtable pressure alone must request a drain (#2238)"
+        );
+        assert!(g.check_ingest_admission().is_err());
+
+        g.refresh(10 * 1024 * 1024, watermark / 2, 0);
+        assert!(!g.memtable_breaker_engaged());
+        assert!(!g.ingest_pressure_needs_drain());
         assert!(g.check_ingest_admission().is_ok());
     }
 
@@ -1842,6 +3872,8 @@ mod tests {
             g.memory_breaker_engaged(),
             "RSS at the watermark engages the breaker"
         );
+        // #2427: past the minimum engaged time.
+        g.age_memory_engaged_for_test(g.memory_min_engaged() + Duration::from_millis(1));
         g.refresh(0, watermark / 2, 0);
         assert!(
             !g.memory_breaker_engaged(),
@@ -1873,10 +3905,240 @@ mod tests {
             !g.thread_spawn_safe(),
             "breaker engaged: spawning would risk #1122's abort"
         );
+        // #2427: past the minimum engaged time.
+        g.age_memory_engaged_for_test(g.memory_min_engaged() + Duration::from_millis(1));
         g.refresh(0, watermark / 2, 0);
         assert!(
             g.thread_spawn_safe(),
             "pressure released: helper spawns allowed again"
+        );
+    }
+
+    /// The sentence autoindex matches on (`real memory circuit breaker tripped`
+    /// … `writes rejected to prevent an out-of-memory kill`) stays when commit
+    /// is not the ceiling. That sentence names the process-memory cap and the
+    /// live cluster-settings hint (#2238). Numbers are the historical 16 GiB
+    /// fixture, and it does not mention the pagefile.
+    #[test]
+    fn the_rss_breaker_message_is_unchanged_without_a_commit_ceiling() {
+        const MIB: u64 = 1024 * 1024;
+        let msg = memory_breaker_reason(15_679 * MIB, ">=", 15_564 * MIB, 16_384 * MIB, None);
+        assert_eq!(
+            msg,
+            "[parent] real memory circuit breaker tripped: rss=15679MB >= watermark=15564MB \
+             (94% of limit=16384MB); writes rejected to prevent an out-of-memory kill \
+             (raise limits.max_process_memory_mb or XERJ_MAX_PROCESS_MEMORY_MB, or live \
+             with PUT _cluster/settings {\"persistent\":{\"indices.breaker.total.limit\":\"<N>gb\"}})"
+        );
+        assert!(!msg.contains("pagefile"));
+    }
+
+    #[test]
+    fn a_commit_ceiling_names_the_limit_and_how_to_raise_it() {
+        const MIB: u64 = 1024 * 1024;
+        const GIB: u64 = 1024 * MIB;
+        let msg = memory_breaker_reason(
+            3_200 * MIB,
+            "under",
+            3_061 * MIB,
+            3_222 * MIB,
+            Some(CommitBreakerDetail {
+                limit: 16 * GIB,
+                available: 900 * MIB,
+                reserve: 1_074 * MIB,
+            }),
+        );
+        assert!(msg.contains("[parent] real memory circuit breaker tripped"));
+        assert!(msg.contains("writes rejected to prevent an out-of-memory kill"));
+        assert!(msg.contains("Windows commit limit is 16384MB"));
+        assert!(msg.contains("900MB still committable"));
+        assert!(msg.contains("reserve 1074MB"));
+        assert!(msg.contains("pagefile"));
+        assert!(msg.contains("Virtual memory"));
+        assert!(msg.contains("XERJ_MAX_PROCESS_MEMORY_MB cannot exceed that commit limit"));
+        assert!(
+            !msg.contains("indices.breaker.total.limit"),
+            "raising the breaker cannot create commit Windows will not give: {msg}"
+        );
+
+        let line = commit_ceiling_startup_line(
+            16 * GIB,
+            3_378_511_872,
+            &xerj_common::resource::windows_commit_budget(
+                xerj_common::resource::WindowsCommitSample {
+                    total_phys: 16 * GIB,
+                    commit_limit: 16 * GIB,
+                    available_commit: 4 * GIB,
+                    process_commit: 200 * MIB,
+                },
+            ),
+        );
+        assert!(line.contains("memory: detected "));
+        assert!(line.contains(" usable, using a "));
+        assert!(line.contains(" cap "));
+        assert!(line.contains("physical RAM is 16 GiB"));
+        assert!(line.contains("Windows commit limit is 16384MB"));
+        assert!(line.contains("pagefile"));
+        assert!(line.contains("XERJ_MAX_PROCESS_MEMORY_MB"));
+    }
+
+    /// #2427: publish-time warming stops at the breaker's release level,
+    /// not only once the breaker is engaged. On the 1 GiB gate the ingest
+    /// node sat between the release level and the watermark with 200-580 MB
+    /// of warmed stored slices, and every flush pushed it back over.
+    #[test]
+    fn publish_warm_stops_at_release_level_before_breaker_engages() {
+        const MIB: u64 = 1024 * 1024;
+        let mut cfg = Config::default();
+        cfg.limits.max_total_memtable_mb = 0;
+        let mut g = build(&cfg);
+        g.memory_release_percent = 85;
+        g.commit_capped = false;
+        g.commit_starved.store(false, Ordering::Relaxed);
+        g.memory_tripped.store(false, Ordering::Relaxed);
+        g.memory_watermark_bytes
+            .store(2918 * MIB, Ordering::Relaxed);
+        let release = memory_release_bytes(2918 * MIB, 85);
+
+        // Well under the release level: warm as before.
+        g.refresh_memory_observing(1500 * MIB, 0, 0, None);
+        assert!(!g.memory_breaker_engaged());
+        assert!(g.publish_warm_allowed());
+
+        // Between release and watermark: the breaker is NOT engaged, writes
+        // are admitted, but warming would spend the remaining headroom.
+        g.refresh_memory_observing(release + 50 * MIB, 0, 0, None);
+        assert!(!g.memory_breaker_engaged(), "under the watermark");
+        assert!(g.check_ingest_admission().is_ok());
+        assert!(
+            !g.publish_warm_allowed(),
+            "warming must stop at the release level ({} MB), rss {} MB",
+            release / MIB,
+            (release + 50 * MIB) / MIB
+        );
+
+        // Engaged: still off.
+        g.refresh_memory_observing(2950 * MIB, 0, 0, None);
+        assert!(g.memory_breaker_engaged());
+        assert!(!g.publish_warm_allowed());
+
+        // A disabled watermark keeps the old behaviour.
+        g.memory_tripped.store(false, Ordering::Relaxed);
+        g.memory_watermark_bytes.store(0, Ordering::Relaxed);
+        g.rss_bytes.store(2950 * MIB, Ordering::Relaxed);
+        assert!(g.publish_warm_allowed());
+    }
+
+    /// RSS is under the watermark. Available commit is under the reserve.
+    /// That is the pagefileless shape: the process has not "used its cap",
+    /// the machine has run out of commit, and the next allocation would abort.
+    #[test]
+    fn commit_starvation_rejects_writes_and_releases_when_commit_returns() {
+        const MIB: u64 = 1024 * 1024;
+        const GIB: u64 = 1024 * MIB;
+        let mut cfg = Config::default();
+        cfg.limits.max_total_memtable_mb = 0;
+        cfg.limits.memory_watermark_percent = 95;
+        let mut g = build(&cfg);
+        // Overwrite whatever this host probed. The test injects the shortage.
+        g.commit_limit_bytes = 16 * GIB;
+        g.commit_reserve_bytes = 512 * MIB;
+        g.commit_capped = true;
+        g.available_commit_bytes.store(4 * GIB, Ordering::Relaxed);
+        g.commit_starved.store(false, Ordering::Relaxed);
+        g.memory_tripped.store(false, Ordering::Relaxed);
+
+        let watermark = g.memory_watermark_bytes.load(Ordering::Relaxed);
+        assert!(
+            watermark > 10 * MIB,
+            "rss sample must sit under the watermark"
+        );
+        g.refresh_memory_observing(10 * MIB, 0, 0, Some(128 * MIB));
+        assert!(g.memory_breaker_engaged());
+        assert!(!g.thread_spawn_safe());
+        let msg = format!("{}", g.check_ingest_admission().unwrap_err());
+        assert_eq!(g.check_ingest_admission().unwrap_err().http_status(), 429);
+        assert!(msg.contains("rss=10MB under watermark="), "{msg}");
+        assert!(msg.contains("Windows commit limit is 16384MB"), "{msg}");
+        assert!(msg.contains("128MB still committable"), "{msg}");
+        assert!(msg.contains("pagefile"), "{msg}");
+
+        g.refresh_memory_observing(10 * MIB, 0, 0, Some(2 * GIB));
+        assert!(
+            g.check_ingest_admission().is_ok(),
+            "commit back above the reserve releases the breaker"
+        );
+        assert!(g.thread_spawn_safe());
+    }
+
+    /// #1122 x #2427: commit starvation and RSS above the watermark are
+    /// independent holds, and neither releases while RSS is at or above the
+    /// watermark. Commit coming back does not release a footprint that is
+    /// still over the line, however long it has sat flat; RSS falling under
+    /// the release point (after the minimum engaged time) does.
+    #[test]
+    fn commit_recovery_does_not_release_rss_above_the_watermark() {
+        const MIB: u64 = 1024 * 1024;
+        const GIB: u64 = 1024 * MIB;
+        let mut cfg = Config::default();
+        cfg.limits.max_total_memtable_mb = 0;
+        cfg.limits.memory_watermark_percent = 95;
+        let mut g = build(&cfg);
+        g.commit_limit_bytes = 16 * GIB;
+        g.commit_reserve_bytes = 512 * MIB;
+        g.commit_capped = true;
+        g.available_commit_bytes.store(4 * GIB, Ordering::Relaxed);
+        g.commit_starved.store(false, Ordering::Relaxed);
+        g.memory_tripped.store(false, Ordering::Relaxed);
+
+        let wm = g.memory_watermark_bytes.load(Ordering::Relaxed);
+        assert!(wm > 0, "this test needs a live RSS watermark");
+        let stuck = wm + 100;
+        g.refresh_memory_observing(stuck, 0, 0, Some(128 * MIB));
+        assert!(g.memory_breaker_engaged(), "crossing the watermark engages");
+        g.refresh_memory_observing(stuck, 0, 0, Some(128 * MIB));
+        g.age_memory_engaged_for_test(Duration::from_secs(3600));
+        g.refresh_memory_observing(stuck, 0, 0, Some(128 * MIB));
+        assert!(g.memory_breaker_engaged());
+        let msg = format!("{}", g.check_ingest_admission().unwrap_err());
+        assert!(msg.contains("pagefile"), "{msg}");
+
+        for _ in 0..50 {
+            g.refresh_memory_observing(stuck, 0, 0, Some(2 * GIB));
+            assert!(
+                g.memory_breaker_engaged(),
+                "commit recovery must not release RSS that is still above the watermark"
+            );
+        }
+        g.refresh_memory_observing(wm / 2, 0, 0, Some(2 * GIB));
+        assert!(
+            !g.memory_breaker_engaged(),
+            "RSS under the release point with commit back releases"
+        );
+    }
+
+    /// Off Windows there is no commit charge, so the breaker probe is the RSS
+    /// sample it just took. Both probes read the kernel counter, and that
+    /// read allocates, as do other tests in this process, so one pair can
+    /// differ by pages. A quiet pair is the contract.
+    #[cfg(not(target_os = "windows"))]
+    #[test]
+    fn process_memory_matches_rss_off_windows() {
+        assert!(xerj_common::resource::process_commit_charge_bytes().is_none());
+        assert!(xerj_common::resource::available_commit_bytes().is_none());
+        assert!(xerj_common::resource::windows_commit_sample().is_none());
+        let mut last_process = 0u64;
+        let mut last_rss = 0u64;
+        for _ in 0..128 {
+            last_process = current_process_memory_bytes();
+            last_rss = current_rss_bytes();
+            if last_process > 0 && last_process == last_rss {
+                return;
+            }
+        }
+        panic!(
+            "off Windows the breaker probe is RSS; no quiet pair in 128 tries \
+             (last process={last_process} rss={last_rss})"
         );
     }
 
@@ -1885,8 +4147,13 @@ mod tests {
         let mut cfg = Config::default();
         cfg.limits.disk_flood_stage_percent = 95;
         let g = build(&cfg);
+        let gate = g.disk_flood_admission();
+        assert_eq!(gate.flood_pct, 95);
+        assert!(gate.threshold_enabled);
+        assert!(!gate.blocked);
         assert!(g.check_disk_block("i").is_ok());
         g.refresh(0, 0, 96); // over flood stage
+        assert!(g.disk_flood_admission().blocked);
         assert!(g.check_disk_block("i").is_err());
         g.refresh(0, 0, 95); // still within release hysteresis (>= 94)
         assert!(g.check_disk_block("i").is_err());
@@ -1928,6 +4195,8 @@ mod tests {
         // sample and keeps it off however full the disk gets.
         g.set_disk_threshold_enabled(Some(false));
         g.refresh(0, 0, 97);
+        assert!(!g.disk_flood_admission().threshold_enabled);
+        assert!(!g.disk_flood_admission().blocked);
         assert!(g.check_disk_block("i").is_ok());
         g.refresh(0, 0, 100);
         assert!(g.check_disk_block("i").is_ok());
@@ -2134,6 +4403,251 @@ mod tests {
         drop(p2);
     }
 
+    /// #2427 (b): while the RSS breaker is engaged, searches run one at a
+    /// time; released, the full pool is available again.
+    #[tokio::test]
+    async fn engaged_memory_breaker_serializes_searches() {
+        let mut cfg = Config::default();
+        cfg.limits.max_concurrent_searches = 8;
+        cfg.limits.max_total_memtable_mb = 0;
+        cfg.limits.memory_watermark_percent = 95;
+        let g = Arc::new(build(&cfg));
+        let wm = g.memory_watermark_bytes.load(Ordering::Relaxed);
+        assert!(wm > 0, "this test needs a live RSS watermark");
+
+        // Engaged, but under the hard limit: admitted, one at a time.
+        g.refresh(0, wm, 0);
+        assert!(g.memory_breaker_engaged());
+        assert!(
+            wm < g.search_hard_limit_bytes(),
+            "95% watermark sits under the limit"
+        );
+        let p1 = g.acquire_search().await.unwrap();
+        let g2 = Arc::clone(&g);
+        let second = tokio::spawn(async move { g2.acquire_search().await.map(|_p| ()) });
+        assert!(
+            tokio::time::timeout(Duration::from_millis(150), second)
+                .await
+                .is_err(),
+            "a second search must wait while the breaker is engaged"
+        );
+        drop(p1);
+        let p2 = tokio::time::timeout(Duration::from_millis(500), g.acquire_search())
+            .await
+            .expect("the gate frees with the first search")
+            .unwrap();
+        drop(p2);
+
+        // Released: concurrency is back to the pool size.
+        g.age_memory_engaged_for_test(Duration::from_secs(60));
+        g.refresh(0, 0, 0);
+        assert!(!g.memory_breaker_engaged());
+        let a = g.acquire_search().await.unwrap();
+        let b = tokio::time::timeout(Duration::from_millis(500), g.acquire_search())
+            .await
+            .expect("a released breaker does not serialize")
+            .unwrap();
+        assert_eq!(g.search_inflight(), 2);
+        drop((a, b));
+    }
+
+    /// #2427 (b): at or above the hard process limit a new search is a 429,
+    /// not another allocation on a node the kernel is about to kill. It is
+    /// rejected only after the drain had [`SEARCH_HEADROOM_WAIT`] to work.
+    #[tokio::test(start_paused = true)]
+    async fn search_is_rejected_at_the_hard_memory_limit() {
+        let mut cfg = Config::default();
+        cfg.limits.max_total_memtable_mb = 0;
+        cfg.limits.memory_watermark_percent = 95;
+        let g = build(&cfg);
+        let limit = g.search_hard_limit_bytes();
+        assert!(limit > 0, "this test needs a live memory limit");
+
+        g.refresh(0, limit, 0);
+        let started = tokio::time::Instant::now();
+        let err = match g.acquire_search().await {
+            Ok(_) => panic!("a search at the hard limit must be rejected"),
+            Err(e) => e,
+        };
+        assert!(
+            started.elapsed() >= SEARCH_HEADROOM_WAIT,
+            "the search waits for the drain before it is rejected"
+        );
+        assert_eq!(err.http_status(), 429, "{err}");
+        assert_eq!(g.search_inflight(), 0, "a rejected search holds no permit");
+
+        g.refresh(0, limit - 1, 0);
+        assert!(
+            g.acquire_search().await.is_ok(),
+            "just under the hard limit is admitted (serialized)"
+        );
+    }
+
+    /// #2427 read-budget isolation: a search that arrives at a transient
+    /// peak over the hard limit is served once the drain brings RSS back,
+    /// instead of failing in milliseconds. The 1 GB gate's raw and MCP
+    /// searches all got 429s within 300 ms of a heavy search while RSS fell
+    /// back to about 1.5 GB a second later.
+    #[tokio::test(start_paused = true)]
+    async fn a_search_over_the_limit_waits_for_the_drain_and_is_admitted() {
+        let mut cfg = Config::default();
+        cfg.limits.max_total_memtable_mb = 0;
+        cfg.limits.memory_watermark_percent = 95;
+        let g = Arc::new(build(&cfg));
+        let limit = g.search_hard_limit_bytes();
+        assert!(limit > 0, "this test needs a live memory limit");
+
+        g.refresh(0, limit + limit / 4, 0);
+        assert!(g.memory_breaker_engaged());
+        let drainer = Arc::clone(&g);
+        tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(1_200)).await;
+            drainer.refresh(0, limit / 2, 0);
+        });
+        let started = tokio::time::Instant::now();
+        let permit = g
+            .acquire_search()
+            .await
+            .expect("the drain frees headroom inside the wait, so the search is admitted");
+        let waited = started.elapsed();
+        assert!(waited >= Duration::from_millis(1_200), "{waited:?}");
+        assert!(waited < SEARCH_HEADROOM_WAIT, "{waited:?}");
+        assert_eq!(g.search_inflight(), 1);
+        drop(permit);
+        assert_eq!(g.search_inflight(), 0);
+    }
+
+    /// #2427 read-budget isolation: a large background merge in flight that
+    /// holds the merge budget does not take the read budget. With process
+    /// memory over the hard limit only because of the merge's reservation, a
+    /// search is admitted at once (no drain wait), and it runs.
+    #[tokio::test(start_paused = true)]
+    async fn a_large_merge_in_flight_does_not_starve_searches() {
+        let mut cfg = Config::default();
+        cfg.limits.max_total_memtable_mb = 0;
+        cfg.limits.memory_watermark_percent = 95;
+        let g = Arc::new(build(&cfg));
+        let limit = g.search_hard_limit_bytes();
+        let ceiling = g.merge_pool_ceiling_bytes();
+        assert!(
+            limit > 0 && ceiling > 0,
+            "this test needs a live memory limit"
+        );
+        assert!(
+            ceiling <= limit - limit / 100 * SEARCH_READ_RESERVE_PERCENT,
+            "the merge pool stops below the read reserve"
+        );
+
+        // A big merge starts on a quiet node and reserves about half the
+        // limit: the merge budget is held. The node is quiet enough that
+        // the reservation fits under the merge pool, which a lone merge
+        // now needs (or a full bounded wait).
+        let base = limit / 4;
+        g.refresh(0, base, 0);
+        let input = (limit / 2) / crate::merge_budget::MERGE_WORKING_SET_NUMERATOR;
+        let merge = g
+            .try_reserve_merge(input, false)
+            .expect("a lone merge starts");
+        let held = g.merge_reserved_bytes();
+        assert_eq!(held, merge.bytes());
+        assert!(held >= limit / 2 - crate::merge_budget::MERGE_WORKING_SET_NUMERATOR);
+        // No second merge fits in what is left of the merge pool.
+        assert!(g.try_reserve_merge(input / 4, false).is_none());
+
+        // The merge allocates its working set: RSS goes past the hard limit.
+        // Its working set plus a little other growth takes RSS past the hard
+        // limit, while the non-merge part stays well under it.
+        let other = limit / 4 + limit / 16;
+        g.refresh(0, base + held + other, 0);
+        assert!(base + held + other >= limit);
+        assert!(g.memory_breaker_engaged());
+        // The merge itself is the one that must give way.
+        assert!(
+            g.merge_must_yield(false),
+            "a merge past the merge pool yields"
+        );
+
+        let started = tokio::time::Instant::now();
+        let permit = g
+            .acquire_search()
+            .await
+            .expect("a search is admitted while the merge holds the merge budget");
+        assert_eq!(
+            started.elapsed(),
+            Duration::ZERO,
+            "admitted without waiting"
+        );
+        assert_eq!(g.search_inflight(), 1);
+        // A second concurrent search queues behind the engaged breaker's
+        // single pressure permit and is served when the first one finishes.
+        let g2 = Arc::clone(&g);
+        let second = tokio::spawn(async move { g2.acquire_search().await.map(|_p| ()) });
+        tokio::task::yield_now().await;
+        drop(permit);
+        second
+            .await
+            .expect("task")
+            .expect("the next search is served too");
+
+        // Once the merge ends, admission is against plain RSS again.
+        drop(merge);
+        assert_eq!(g.merge_reserved_bytes(), 0);
+        assert!(
+            g.acquire_search().await.is_err(),
+            "no merge bytes to discount"
+        );
+    }
+
+    /// #2427 read-budget isolation: concurrent merges stop at the merge-pool
+    /// ceiling, below the 95% watermark, and an in-flight batch yields once
+    /// RSS enters the read reserve, before searches would be rejected.
+    #[test]
+    fn merges_stop_at_the_merge_pool_ceiling_below_the_read_reserve() {
+        let mut cfg = Config::default();
+        cfg.limits.max_total_memtable_mb = 0;
+        cfg.limits.memory_watermark_percent = 95;
+        let g = build(&cfg);
+        let wm = g.memory_watermark_bytes();
+        let limit = g.process_memory_limit_bytes();
+        let ceiling = g.merge_pool_ceiling_bytes();
+        assert!(wm > 0 && limit > wm, "this test needs a live RSS watermark");
+        assert_eq!(ceiling, merge_pool_ceiling(wm, limit));
+        assert!(
+            ceiling < wm,
+            "a 20% read reserve sits under a 95% watermark"
+        );
+
+        // RSS at half the ceiling; one merge running.
+        g.refresh(0, ceiling / 2, 0);
+        let first = g.try_reserve_merge(1, false).expect("first merge starts");
+        // A second merge that would end between the ceiling and the
+        // watermark used to be admitted; it is refused now.
+        let gap = (ceiling + wm) / 2 - ceiling / 2 - first.bytes();
+        let input = gap / crate::merge_budget::MERGE_WORKING_SET_NUMERATOR;
+        assert!(
+            ceiling / 2 + first.bytes() + input * crate::merge_budget::MERGE_WORKING_SET_NUMERATOR
+                < wm
+        );
+        assert!(g.try_reserve_merge(input, false).is_none());
+
+        // The output write of a batch may not take RSS into the reserve.
+        assert!(!g.admit_merge_write(None, 0, ceiling - ceiling / 2, false, false));
+        assert!(g.admit_merge_write(None, 0, ceiling / 4, false, false));
+
+        // Engaged with RSS inside the read reserve (under the limit): a
+        // background batch yields, `_forcemerge` does not.
+        g.refresh(0, wm, 0);
+        assert!(g.memory_breaker_engaged());
+        assert!(wm < limit);
+        assert!(g.merge_must_yield(false));
+        assert!(!g.merge_must_yield(true));
+        drop(first);
+
+        assert_eq!(merge_pool_ceiling(0, limit), 0, "watermark off");
+        assert_eq!(merge_pool_ceiling(wm, 0), wm, "no known limit");
+        assert_eq!(merge_pool_ceiling(3_000, 3_072), 3_072 - 614);
+    }
+
     #[test]
     fn memory_watermark_releases_with_hysteresis() {
         let mut cfg = Config::default();
@@ -2146,7 +4660,7 @@ mod tests {
         g.refresh(0, wm, 0);
         assert!(g.check_ingest_admission().is_err(), "trips at watermark");
 
-        // 98% of watermark is above the 95% release threshold and RSS is
+        // 98% of watermark is above the 85% release threshold and RSS is
         // still falling (the drain is working): stays tripped.
         g.refresh(0, wm * 98 / 100, 0);
         let err = g.check_ingest_admission().unwrap_err().to_string();
@@ -2154,25 +4668,57 @@ mod tests {
             err.contains("draining below watermark"),
             "an in-band rejection must not claim rss >= watermark: {err}"
         );
+        if g.commit_capped {
+            assert!(
+                err.contains("Windows commit limit"),
+                "a commit-capped rejection names the limit instead of the process cap: {err}"
+            );
+        } else {
+            assert!(
+                err.contains("limits.max_process_memory_mb"),
+                "an RSS rejection must name the process-memory cap: {err}"
+            );
+        }
         g.refresh(0, wm * 97 / 100, 0);
         assert!(
             g.check_ingest_admission().is_err(),
             "must remain tripped while RSS drains through the band"
         );
 
-        // 94% of watermark is below the 95% release threshold: releases.
+        // #2427: 94% and 86% are inside the 85% release band now, and RSS
+        // is still falling: stays tripped.
         g.refresh(0, wm * 94 / 100, 0);
         assert!(
+            g.check_ingest_admission().is_err(),
+            "94% of watermark is inside the 85% release band"
+        );
+        g.refresh(0, wm * 86 / 100, 0);
+        assert!(
+            g.check_ingest_admission().is_err(),
+            "86% is still in the band"
+        );
+
+        // Below 85%, but the breaker engaged moments ago: the minimum
+        // engaged time holds it so a drain can run.
+        g.refresh(0, wm * 84 / 100, 0);
+        assert!(
+            g.memory_breaker_engaged(),
+            "a release inside the minimum engaged time is the 100 ms flap"
+        );
+        g.age_memory_engaged_for_test(g.memory_min_engaged() + Duration::from_millis(1));
+        g.refresh(0, wm * 84 / 100, 0);
+        assert!(
             g.check_ingest_admission().is_ok(),
-            "must release once RSS drops below 95% of watermark"
+            "must release once RSS is below 85% of watermark and the minimum has passed"
         );
     }
 
-    /// #1250 review: a node whose irreducible resident set settles INSIDE the
-    /// band after a drain must not stay write-blocked (and re-draining every
-    /// `MEMORY_DRAIN_MIN_INTERVAL`) forever. Once RSS stops falling the band
-    /// has nothing left to wait for and the latch releases, which is exactly
-    /// the pre-band behaviour.
+    /// #1250 review, re-tuned for #2427: a node whose irreducible resident
+    /// set settles INSIDE the band after a drain must not stay write-blocked
+    /// (and re-draining every `MEMORY_DRAIN_MIN_INTERVAL`) forever. One flat
+    /// sample is no longer enough (that released 100-500 ms after engaging
+    /// under autoindex); RSS has to stay flat for
+    /// [`MEMORY_BAND_STALL_RELEASE`].
     #[test]
     fn memory_hysteresis_releases_when_rss_stalls_inside_the_band() {
         let mut cfg = Config::default();
@@ -2189,15 +4735,728 @@ mod tests {
         // The drain freed nothing more: RSS is flat inside the band.
         g.refresh(0, wm * 97 / 100, 0);
         assert!(
+            g.memory_breaker_engaged(),
+            "one flat in-band sample must not release (#2427 flap)"
+        );
+        // Page-sized wander is still flat.
+        g.refresh(0, wm * 97 / 100 + 4096, 0);
+        assert!(g.memory_breaker_engaged());
+        g.age_memory_engaged_for_test(g.memory_min_engaged() + Duration::from_millis(1));
+        g.age_memory_flat_for_test(MEMORY_BAND_STALL_RELEASE + Duration::from_millis(1));
+        g.refresh(0, wm * 97 / 100, 0);
+        assert!(
             !g.memory_breaker_engaged(),
             "a stalled in-band RSS must release, not latch forever"
         );
         assert!(g.check_ingest_admission().is_ok());
     }
 
+    /// #2427: a drain that keeps lowering RSS through the band restarts the
+    /// stall clock, so a slow but real drain is not cut short.
+    #[test]
+    fn falling_rss_inside_the_band_restarts_the_stall_clock() {
+        let mut cfg = Config::default();
+        cfg.limits.max_total_memtable_mb = 0;
+        cfg.limits.memory_watermark_percent = 95;
+        let g = build(&cfg);
+        let wm = g.memory_watermark_bytes.load(Ordering::Relaxed);
+        assert!(
+            wm > 64 * MEMORY_RSS_NOISE_BYTES,
+            "this test needs a live RSS watermark"
+        );
+
+        g.refresh(0, wm, 0);
+        assert!(g.memory_breaker_engaged());
+        g.age_memory_engaged_for_test(g.memory_min_engaged() + Duration::from_millis(1));
+        let mut rss = wm * 97 / 100;
+        g.refresh(0, rss, 0);
+        // Stall for most of the window, then fall past the noise band.
+        g.age_memory_flat_for_test(MEMORY_BAND_STALL_RELEASE - Duration::from_millis(100));
+        rss -= 2 * MEMORY_RSS_NOISE_BYTES;
+        g.refresh(0, rss, 0);
+        assert!(
+            g.memory_breaker_engaged(),
+            "a falling drain holds the latch"
+        );
+        // The clock restarted: the old window has not elapsed for the new
+        // anchor, so another flat sample still holds.
+        g.age_memory_flat_for_test(Duration::from_millis(200));
+        g.refresh(0, rss, 0);
+        assert!(
+            g.memory_breaker_engaged(),
+            "the stall clock must restart when RSS falls past noise"
+        );
+    }
+
+    /// #2427: the measured flap. Engage at the watermark, dip just under it,
+    /// climb back: the latch must stay engaged through the whole cycle
+    /// instead of releasing and re-engaging every 100 ms sample.
+    #[test]
+    fn breaker_does_not_flap_around_the_watermark() {
+        let mut cfg = Config::default();
+        cfg.limits.max_total_memtable_mb = 0;
+        cfg.limits.memory_watermark_percent = 95;
+        let g = build(&cfg);
+        let wm = g.memory_watermark_bytes.load(Ordering::Relaxed);
+        assert!(wm > 0, "this test needs a live RSS watermark");
+
+        let mut transitions = 0;
+        let mut last = g.memory_breaker_engaged();
+        for i in 0..200u64 {
+            // 2,918 MB / 2,850 MB style oscillation: above, then 1-3% under.
+            let rss = if i % 2 == 0 {
+                wm + wm / 50
+            } else {
+                wm - wm / 100 * (1 + i % 3)
+            };
+            g.refresh(0, rss, 0);
+            let now = g.memory_breaker_engaged();
+            if now != last {
+                transitions += 1;
+                last = now;
+            }
+        }
+        assert_eq!(
+            transitions, 1,
+            "only the first engage; no release/re-engage flap"
+        );
+    }
+
+    #[test]
+    fn release_ratio_and_min_engaged_parse_with_safe_defaults() {
+        assert_eq!(
+            resolve_memory_release_percent(None),
+            DEFAULT_MEMORY_RELEASE_PERCENT
+        );
+        assert_eq!(
+            resolve_memory_release_percent(Some("")),
+            DEFAULT_MEMORY_RELEASE_PERCENT
+        );
+        assert_eq!(resolve_memory_release_percent(Some("90")), 90);
+        assert_eq!(resolve_memory_release_percent(Some(" 80% ")), 80);
+        assert_eq!(
+            resolve_memory_release_percent(Some("100")),
+            DEFAULT_MEMORY_RELEASE_PERCENT
+        );
+        assert_eq!(
+            resolve_memory_release_percent(Some("10")),
+            DEFAULT_MEMORY_RELEASE_PERCENT
+        );
+        assert_eq!(
+            resolve_memory_release_percent(Some("x")),
+            DEFAULT_MEMORY_RELEASE_PERCENT
+        );
+
+        assert_eq!(resolve_memory_min_engaged(None), DEFAULT_MEMORY_MIN_ENGAGED);
+        assert_eq!(resolve_memory_min_engaged(Some("0")), Duration::ZERO);
+        assert_eq!(
+            resolve_memory_min_engaged(Some("5000")),
+            Duration::from_secs(5)
+        );
+        assert_eq!(
+            resolve_memory_min_engaged(Some("999999999")),
+            MAX_MEMORY_MIN_ENGAGED
+        );
+        assert_eq!(
+            resolve_memory_min_engaged(Some("2s")),
+            DEFAULT_MEMORY_MIN_ENGAGED
+        );
+
+        assert_eq!(memory_release_bytes(2_850, 85), 2_422);
+        assert_eq!(memory_release_bytes(0, 85), 0);
+        assert_eq!(
+            memory_release_bytes(u64::MAX, 85),
+            (u64::MAX as u128 * 85 / 100) as u64
+        );
+    }
+
+    /// #2427: merges reserve their working set process-wide, and background
+    /// merges wait while the breaker is engaged.
+    #[test]
+    fn merge_reservations_are_process_wide_and_respect_the_breaker() {
+        let mut cfg = Config::default();
+        cfg.limits.max_total_memtable_mb = 0;
+        cfg.limits.memory_watermark_percent = 95;
+        let g = build(&cfg);
+        let wm = g.memory_watermark_bytes.load(Ordering::Relaxed);
+        assert!(wm > 0, "this test needs a live RSS watermark");
+
+        // RSS at half the watermark. The first merge always starts.
+        g.refresh(0, wm / 2 + 1, 0);
+        // Each estimate is a little over a quarter of the watermark.
+        let per = wm / 4 / crate::merge_budget::MERGE_WORKING_SET_NUMERATOR + 1;
+        let first = g.try_reserve_merge(per, false).expect("first merge starts");
+        assert_eq!(g.merges_in_flight(), 1);
+        assert_eq!(g.merge_reserved_bytes(), first.bytes());
+        // 50% + 25% + 25% reaches the watermark: the second must wait.
+        assert!(g.try_reserve_merge(per, false).is_none());
+        // A smaller one still fits.
+        let second = g.try_reserve_merge(per / 4, false).expect("fits");
+        assert_eq!(g.merges_in_flight(), 2);
+        drop(first);
+        drop(second);
+        assert_eq!(g.merges_in_flight(), 0);
+        assert_eq!(g.merge_reserved_bytes(), 0);
+
+        // Breaker engaged: no background merge, a forced one may run alone.
+        g.refresh(0, wm, 0);
+        assert!(g.memory_breaker_engaged());
+        assert!(g.try_reserve_merge(1, false).is_none());
+        let forced = g
+            .try_reserve_merge(1, true)
+            .expect("forcemerge progresses alone");
+        assert!(g.try_reserve_merge(1, true).is_none());
+        drop(forced);
+    }
+
+    /// #2427: a batch whose side-cars dwarf its segment file reserves on its
+    /// on-disk footprint, so a second merge that the planned estimate would
+    /// admit next to it waits.
+    #[test]
+    fn merge_reservation_uses_the_on_disk_footprint() {
+        let mut cfg = Config::default();
+        cfg.limits.max_total_memtable_mb = 0;
+        cfg.limits.memory_watermark_percent = 95;
+        let g = build(&cfg);
+        let wm = g.memory_watermark_bytes.load(Ordering::Relaxed);
+        assert!(wm > 0, "this test needs a live RSS watermark");
+        g.refresh(0, wm / 2 + 1, 0);
+
+        // Planned input small enough that two batches fit by the old rule.
+        let planned = wm / 16 / crate::merge_budget::MERGE_WORKING_SET_NUMERATOR;
+        // On disk, a footprint whose estimate is over a quarter of the watermark.
+        let on_disk = wm / 4 / crate::merge_budget::MERGE_ON_DISK_WORKING_SET_NUMERATOR + 1;
+        let first = g
+            .try_reserve_merge_with_footprint(planned, on_disk, false)
+            .expect("the first merge always starts");
+        assert_eq!(
+            first.bytes(),
+            crate::merge_budget::merge_reservation_bytes(planned, on_disk)
+        );
+        assert!(first.bytes() > crate::merge_budget::merge_working_set_bytes(planned));
+        // The same second batch: 50% + >25% + >25% is past the watermark.
+        assert!(g
+            .try_reserve_merge_with_footprint(planned, on_disk, false)
+            .is_none());
+        // By the planned estimate alone it would have been admitted.
+        let second = g
+            .try_reserve_merge(planned, false)
+            .expect("planned-only fits");
+        drop(second);
+        drop(first);
+        assert_eq!(g.merge_reserved_bytes(), 0);
+    }
+
+    /// #2427: on the 1 GB gate an admitted merge batch grew a 3,072 MB node
+    /// to 8,122 MB while the breaker was engaged. A background batch yields
+    /// once the breaker is engaged with RSS at the merge-pool ceiling (below
+    /// the watermark since read-budget isolation), never when the breaker is
+    /// released, never when forced; the yield narrows later batches and
+    /// completed batches widen them back.
+    #[test]
+    fn a_background_merge_yields_at_the_limit_and_narrows_later_batches() {
+        const MIB: u64 = 1024 * 1024;
+        let mut cfg = Config::default();
+        cfg.limits.max_total_memtable_mb = 0;
+        cfg.limits.memory_watermark_percent = 95;
+        let g = build(&cfg);
+        let wm = g.memory_watermark_bytes.load(Ordering::Relaxed);
+        let limit = g.process_memory_limit_bytes();
+        assert!(wm > 0 && limit > wm, "this test needs a live RSS watermark");
+
+        // Not engaged: keep merging, whatever the RSS under the watermark.
+        g.refresh(0, wm - 1, 0);
+        assert!(!g.memory_breaker_engaged());
+        assert!(!g.merge_must_yield(false));
+        // Engaged at the watermark: that is already past the merge-pool
+        // ceiling, so a background batch yields; a forced one does not.
+        g.refresh(0, wm, 0);
+        assert!(g.memory_breaker_engaged());
+        assert!(wm >= g.merge_pool_ceiling_bytes());
+        assert!(g.merge_must_yield(false));
+        assert!(!g.merge_must_yield(true));
+        // Engaged at the limit: the same.
+        g.refresh(0, limit, 0);
+        assert!(g.memory_breaker_engaged());
+        assert!(g.merge_must_yield(false));
+        assert!(!g.merge_must_yield(true));
+
+        assert_eq!(g.merge_pressure_cap_bytes(), 0);
+        assert_eq!(g.note_merge_yield(66 * MIB), 33 * MIB);
+        assert_eq!(g.merge_pressure_cap_bytes(), 33 * MIB);
+        g.note_merge_completed(MIB);
+        assert_eq!(g.merge_pressure_cap_bytes(), 33 * MIB);
+        g.note_merge_completed(33 * MIB);
+        assert_eq!(g.merge_pressure_cap_bytes(), 66 * MIB);
+
+        // A streak of yields with nothing completing lets one small batch
+        // finish, so a search node at the limit still compacts. A completed
+        // batch resets the streak.
+        g.refresh(0, limit, 0);
+        assert!(g.memory_breaker_engaged());
+        g.note_merge_completed(66 * MIB);
+        for _ in 0..crate::merge_budget::MERGE_YIELD_STREAK_LIMIT {
+            assert!(g.merge_must_yield_for(false, 49 * MIB));
+            g.note_merge_yield(49 * MIB);
+        }
+        assert!(!g.merge_must_yield_for(false, 49 * MIB));
+        assert!(g.merge_must_yield_for(false, 512 * MIB));
+        g.note_merge_completed(49 * MIB);
+        assert!(g.merge_must_yield_for(false, 49 * MIB));
+    }
+
+    /// #2427 ingest overshoot: on the 1 GB gate every over-cap sample on the
+    /// ingest node was a pg-docs batch launched alone the moment the last one
+    /// finished, with RSS already at 2.4-2.9 GB. A lone background batch now
+    /// waits while RSS is at or above the merge-pool ceiling, starts once the
+    /// drain brings it under, and never waits past the bound.
+    #[test]
+    fn a_lone_background_merge_waits_for_headroom_under_the_merge_pool() {
+        let mut cfg = Config::default();
+        cfg.limits.max_total_memtable_mb = 0;
+        cfg.limits.memory_watermark_percent = 95;
+        let mut g = build(&cfg);
+        let wm = g.memory_watermark_bytes();
+        let ceiling = g.merge_pool_ceiling_bytes();
+        assert!(
+            wm > 0 && ceiling > 0 && ceiling < wm,
+            "this test needs a live RSS watermark"
+        );
+
+        // Inside the read reserve, under the watermark: not engaged, but the
+        // lone background batch waits. `_forcemerge` does not.
+        let high = (ceiling + wm) / 2;
+        g.refresh(0, high, 0);
+        assert!(!g.memory_breaker_engaged());
+        assert!(g.try_reserve_merge(1, false).is_none());
+        let forced = g
+            .try_reserve_merge(1, true)
+            .expect("forcemerge never waits");
+        drop(forced);
+        assert!(g.try_reserve_merge(1, false).is_none());
+
+        // The drain brings RSS under the ceiling: it starts, and the wait
+        // clock resets.
+        g.refresh(0, ceiling / 2, 0);
+        let first = g
+            .try_reserve_merge(1, false)
+            .expect("starts after the drain");
+        drop(first);
+        assert!(g.merge_ledger.lock().unwrap().headroom_wait_since.is_none());
+
+        // The wait is bounded: past it, a lone batch starts even inside the
+        // reserve, so a node whose live set sits there still compacts.
+        g.merge_headroom_max_wait = Duration::ZERO;
+        g.refresh(0, high, 0);
+        assert!(!g.memory_breaker_engaged());
+        let late = g.try_reserve_merge(1, false).expect("bounded wait");
+        drop(late);
+    }
+
+    /// #2427 1 GB gate on `0eaa8af9`, ingest node (3.5 GB peak, 47 breaker
+    /// trips against a 3,072 MB cap): with nothing else merging, a batch
+    /// started whenever RSS was under the merge-pool ceiling, even when its
+    /// own reservation was larger than the room left. Now it waits while
+    /// it does not fit, the next batches are planned to the headroom, and
+    /// the wait clock is not restarted by RSS merely being under the
+    /// ceiling, so the bounded wait still guarantees it runs.
+    #[test]
+    fn a_lone_merge_whose_reservation_exceeds_the_headroom_waits_and_shrinks() {
+        let mut cfg = Config::default();
+        cfg.limits.max_total_memtable_mb = 0;
+        cfg.limits.memory_watermark_percent = 95;
+        let mut g = build(&cfg);
+        let ceiling = g.merge_pool_ceiling_bytes();
+        assert!(ceiling > 0, "this test needs a live RSS watermark");
+        let headroom = 64 * 1024 * 1024;
+        let rss = ceiling - headroom;
+        g.refresh(0, rss, 0);
+        assert!(!g.memory_breaker_engaged());
+
+        // Its reservation alone is more than the headroom: held back.
+        let big_input = headroom;
+        let big = crate::merge_budget::merge_reservation_bytes(big_input, 0);
+        assert!(big >= headroom);
+        assert!(g.try_reserve_merge(big_input, false).is_none());
+        let (cap, since) = {
+            let l = g.merge_ledger.lock().unwrap();
+            (l.pressure_cap, l.headroom_wait_since)
+        };
+        // The next batches are planned to fit what is left.
+        assert!(cap > 0 && cap < big_input);
+        assert!(crate::merge_budget::merge_reservation_bytes(cap, 0) < headroom);
+        assert!(since.is_some(), "the wait clock started");
+        // A retry under the ceiling keeps the same clock (it used to reset
+        // whenever RSS was under the ceiling).
+        assert!(g.try_reserve_merge(big_input, false).is_none());
+        assert_eq!(g.merge_ledger.lock().unwrap().headroom_wait_since, since);
+
+        // A batch planned under the narrowed cap fits and starts alone.
+        let small = g.try_reserve_merge(cap, false).expect("fits the headroom");
+        drop(small);
+        assert!(g.merge_ledger.lock().unwrap().headroom_wait_since.is_none());
+
+        // `_forcemerge` is never held back by this check.
+        drop(g.try_reserve_merge(big_input, true).expect("forced"));
+
+        // Progress: past the bound the oversized lone batch starts.
+        g.merge_headroom_max_wait = Duration::ZERO;
+        drop(g.try_reserve_merge(big_input, false).expect("bounded wait"));
+    }
+
+    /// #2427: the merge output-write step (doc-values build, stored encode,
+    /// FTS build) runs after the last yield checkpoint. It is charged to the
+    /// merge ledger before it starts. A step that would take RSS to the hard
+    /// limit is refused and leaves the ledger as it was. An admitted step
+    /// grows the batch's reservation, which other merges' admission sees,
+    /// and dropping the reservation releases all of it.
+    #[test]
+    fn the_merge_write_step_is_charged_and_refused_at_the_hard_limit() {
+        let mut cfg = Config::default();
+        cfg.limits.max_total_memtable_mb = 0;
+        cfg.limits.memory_watermark_percent = 95;
+        let g = build(&cfg);
+        let wm = g.memory_watermark_bytes.load(Ordering::Relaxed);
+        let limit = g.process_memory_limit_bytes();
+        assert!(wm > 0 && limit > wm, "this test needs a live RSS watermark");
+
+        // RSS at half the watermark: one merge admitted.
+        g.refresh(0, wm / 2, 0);
+        let input = wm / 16 / crate::merge_budget::MERGE_WORKING_SET_NUMERATOR;
+        let mut reservation = g
+            .try_reserve_merge(input, false)
+            .expect("first merge starts");
+        let admitted = reservation.bytes();
+        assert_eq!(g.merge_reserved_bytes(), admitted);
+
+        // A write that fits under the limit is admitted and charged.
+        let held = admitted;
+        let extra = wm / 8;
+        assert!(g.admit_merge_write(Some(&mut reservation), held, extra, false, false));
+        assert_eq!(reservation.bytes(), held + extra);
+        assert_eq!(g.merge_reserved_bytes(), held + extra);
+        // Charging again for a smaller step never shrinks the reservation.
+        assert!(g.admit_merge_write(Some(&mut reservation), 1, 1, false, false));
+        assert_eq!(g.merge_reserved_bytes(), held + extra);
+
+        // The charge is visible to admission: a second batch that fit
+        // beside the admitted estimate no longer fits beside the write.
+        let second = (wm / 2 - admitted) / crate::merge_budget::MERGE_WORKING_SET_NUMERATOR - 1;
+        assert!(wm / 2 + admitted + second * crate::merge_budget::MERGE_WORKING_SET_NUMERATOR < wm);
+        assert!(g.try_reserve_merge(second, false).is_none());
+
+        // A write that would reach the hard limit is refused, and the
+        // ledger does not change, background or not engaged.
+        let before = g.merge_reserved_bytes();
+        let too_big = limit - wm / 2;
+        assert!(!g.admit_merge_write(Some(&mut reservation), held, too_big, false, false));
+        assert_eq!(g.merge_reserved_bytes(), before);
+        assert_eq!(reservation.bytes(), held + extra);
+        // No reservation (no governor at launch): only the decision.
+        assert!(!g.admit_merge_write(None, 0, too_big, false, false));
+        assert!(g.admit_merge_write(None, 0, 1, false, false));
+        // A #2468 streak-exempt batch and `_forcemerge` still write.
+        assert!(g.admit_merge_write(None, 0, too_big, false, true));
+        assert!(g.admit_merge_write(Some(&mut reservation), held, too_big, true, false));
+        assert_eq!(reservation.bytes(), held + too_big);
+        assert_eq!(g.merge_reserved_bytes(), held + too_big);
+
+        drop(reservation);
+        assert_eq!(g.merge_reserved_bytes(), 0);
+        assert_eq!(g.merges_in_flight(), 0);
+    }
+
+    /// #2427: in the 1 GB gate the search node rested between the merge-pool
+    /// ceiling and the watermark, so the breaker never engaged, the #2468
+    /// exemption never applied, and every write step was refused: 70 yields
+    /// of 1-10 MB batches and nothing merged. After the streak, a small
+    /// batch's write is checked against the hard limit and runs.
+    #[test]
+    fn a_small_batch_write_runs_after_a_streak_below_the_watermark() {
+        const MIB: u64 = 1024 * 1024;
+        let mut cfg = Config::default();
+        cfg.limits.max_total_memtable_mb = 0;
+        cfg.limits.memory_watermark_percent = 95;
+        let g = build(&cfg);
+        let wm = g.memory_watermark_bytes.load(Ordering::Relaxed);
+        let limit = g.process_memory_limit_bytes();
+        let ceiling = g.merge_pool_ceiling_bytes();
+        assert!(
+            ceiling < wm && wm < limit,
+            "this test needs ceiling < watermark < limit"
+        );
+        // Resting above the ceiling, below the watermark: not engaged.
+        let rss = ceiling + (wm - ceiling) / 2;
+        g.refresh(0, rss, 0);
+        assert!(!g.memory_breaker_engaged());
+        let small = 6 * MIB;
+        let large = crate::merge_budget::MERGE_YIELD_STREAK_MAX_INPUT_BYTES + 1;
+        // Fits under the hard limit, not under the ceiling.
+        let write = (limit - rss) / 2;
+        assert!(!g.merge_write_exempt(false, small));
+
+        // Before the streak: refused, as before.
+        assert!(!g.admit_merge_write_for(None, small, write, false, false, small));
+        for _ in 0..crate::merge_budget::MERGE_YIELD_STREAK_LIMIT {
+            g.note_merge_yield(small);
+        }
+        // The old exemption still does not apply below the watermark ...
+        assert!(!g.merge_write_exempt(false, small));
+        // ... but the small batch's write now runs, charged to the ledger.
+        let mut reservation = g.try_reserve_merge(small, true).expect("forced admission");
+        let held = reservation.bytes();
+        assert!(g.admit_merge_write_for(Some(&mut reservation), held, write, false, false, small));
+        assert_eq!(reservation.bytes(), held + write);
+        drop(reservation);
+        // A large batch, or a write that would reach the hard limit, is
+        // still refused.
+        assert!(!g.admit_merge_write_for(None, large, write, false, false, large));
+        assert!(!g.admit_merge_write_for(None, small, limit - rss, false, false, small));
+        // A completed batch ends the streak.
+        g.note_merge_completed(small);
+        assert!(!g.admit_merge_write_for(None, small, write, false, false, small));
+    }
+
+    /// #2427 x #2468: a small background batch that the yield-streak rule
+    /// lets run to completion is not refused at its output write, even with
+    /// RSS at the hard limit. A large batch, a batch before the streak, and
+    /// a batch the plain rule never stopped get no exemption. A completed
+    /// batch ends it.
+    #[test]
+    fn a_streak_exempt_batch_is_not_refused_at_its_write() {
+        const MIB: u64 = 1024 * 1024;
+        let mut cfg = Config::default();
+        cfg.limits.max_total_memtable_mb = 0;
+        cfg.limits.memory_watermark_percent = 95;
+        let g = build(&cfg);
+        let wm = g.memory_watermark_bytes.load(Ordering::Relaxed);
+        let limit = g.process_memory_limit_bytes();
+        assert!(wm > 0 && limit > wm, "this test needs a live RSS watermark");
+        let small = 49 * MIB;
+        let large = crate::merge_budget::MERGE_YIELD_STREAK_MAX_INPUT_BYTES + 1;
+        let write = 256 * MIB;
+
+        // Below the limit the plain rule never stops a batch: no exemption,
+        // and the write decision is the hard-limit check alone.
+        g.refresh(0, wm / 2, 0);
+        assert!(!g.merge_write_exempt(false, small));
+
+        // Engaged at the limit, before the streak: the small batch yields at
+        // its checkpoints and its write would be refused.
+        g.refresh(0, limit, 0);
+        assert!(g.memory_breaker_engaged());
+        assert!(!g.merge_write_exempt(false, small));
+        let exempt = g.merge_write_exempt(false, small);
+        assert!(!g.admit_merge_write(None, small, write, false, exempt));
+
+        // After the streak, #2468 lets the small batch run, and so does its
+        // write. The large batch still yields and its write is still refused.
+        for _ in 0..crate::merge_budget::MERGE_YIELD_STREAK_LIMIT {
+            g.note_merge_yield(small);
+        }
+        assert!(!g.merge_must_yield_for(false, small));
+        assert!(g.merge_write_exempt(false, small));
+        let exempt = g.merge_write_exempt(false, small);
+        let mut reservation = g.try_reserve_merge(small, true).expect("forced admission");
+        let held = reservation.bytes();
+        assert!(g.admit_merge_write(Some(&mut reservation), held, write, false, exempt));
+        // The exempt write is still charged to the ledger.
+        assert_eq!(reservation.bytes(), held + write);
+        assert_eq!(g.merge_reserved_bytes(), held + write);
+        drop(reservation);
+        assert!(!g.merge_write_exempt(false, large));
+        let exempt = g.merge_write_exempt(false, large);
+        assert!(!g.admit_merge_write(None, large, write, false, exempt));
+
+        // `_forcemerge` is never stopped by either rule, so it needs no
+        // exemption; its write runs on `forced` alone.
+        assert!(!g.merge_write_exempt(true, small));
+        assert!(g.admit_merge_write(None, small, write, true, false));
+
+        // A completed batch resets the streak: no exemption again.
+        g.note_merge_completed(small);
+        assert!(!g.merge_write_exempt(false, small));
+    }
+
+    /// #2427: the 1 GB release gate released at rss=5,121MB against a
+    /// 2,918MB watermark (the old #1981 flat-footprint release), re-engaged
+    /// 100 ms later at 5,125MB, and was OOM-killed at 8.4 GB. A footprint at
+    /// or above the watermark must hold the latch however long it sits flat,
+    /// whatever page-sized noise it shows, and however long the breaker has
+    /// been engaged.
+    #[test]
+    fn flat_rss_above_the_watermark_never_releases() {
+        let mut cfg = Config::default();
+        cfg.limits.max_total_memtable_mb = 0;
+        cfg.limits.memory_watermark_percent = 95;
+        let g = build(&cfg);
+        let wm = g.memory_watermark_bytes.load(Ordering::Relaxed);
+        assert!(
+            wm > MEMORY_RSS_NOISE_BYTES,
+            "this test needs a live RSS watermark"
+        );
+        let stuck = wm + wm / 4;
+
+        g.refresh(0, stuck, 0);
+        assert!(g.memory_breaker_engaged(), "crossing the watermark engages");
+        for i in 0..200u64 {
+            g.age_memory_flat_for_test(Duration::from_secs(3600));
+            g.age_memory_engaged_for_test(Duration::from_secs(3600));
+            let rss = match i % 4 {
+                0 => stuck,
+                1 => stuck + 4096,
+                2 => stuck - 8192,
+                _ => wm,
+            };
+            g.refresh(0, rss, 0);
+            assert!(
+                g.memory_breaker_engaged(),
+                "rss={rss} >= watermark={wm} must never release (sample {i})"
+            );
+            assert!(g.check_ingest_admission().is_err());
+        }
+        g.refresh(0, wm - 1, 0);
+        assert!(
+            g.memory_breaker_engaged(),
+            "one byte under the watermark is inside the release band"
+        );
+        g.refresh(0, wm / 2, 0);
+        assert!(
+            !g.memory_breaker_engaged(),
+            "under the release point releases"
+        );
+    }
+
+    /// #2427: the latch's release decision is a pure function of the
+    /// sample, so walk a long random-ish RSS trace (the gate's 2,750-5,125MB
+    /// shape scaled to the watermark) and check every release lands strictly
+    /// under the watermark and every engage edge at or above it.
+    #[test]
+    fn no_release_edge_at_or_above_the_watermark_on_a_noisy_trace() {
+        let mut cfg = Config::default();
+        cfg.limits.max_total_memtable_mb = 0;
+        cfg.limits.memory_watermark_percent = 95;
+        let g = build(&cfg);
+        let wm = g.memory_watermark_bytes.load(Ordering::Relaxed);
+        assert!(wm > 0, "this test needs a live RSS watermark");
+        let mut x: u64 = 0x2427;
+        let mut was = false;
+        let mut releases = 0;
+        for _ in 0..5_000 {
+            // xorshift: deterministic, no rand dependency.
+            x ^= x << 13;
+            x ^= x >> 7;
+            x ^= x << 17;
+            // 80%..180% of the watermark.
+            let rss = wm / 100 * (80 + x % 101);
+            g.age_memory_flat_for_test(Duration::from_secs(60));
+            g.age_memory_engaged_for_test(Duration::from_secs(60));
+            g.refresh(0, rss, 0);
+            let now = g.memory_breaker_engaged();
+            if was && !now {
+                releases += 1;
+                assert!(rss < wm, "released at rss={rss} >= watermark={wm}");
+            }
+            if !was && now {
+                assert!(rss >= wm, "engaged at rss={rss} < watermark={wm}");
+            }
+            was = now;
+        }
+        assert!(releases > 0, "the trace should exercise releases");
+    }
+
+    /// #1981: while the breaker stays engaged and RSS does not fall, drain
+    /// requests must back off. An 18-hour stuck footprint sampled on the old
+    /// 2 s cadence is 32_400 requests; the doubled schedule stays in the
+    /// dozens. Falling RSS returns to the 2 s floor.
+    #[test]
+    fn drain_requests_back_off_when_rss_does_not_fall() {
+        let min = Duration::from_secs(2);
+        let mut schedule = MemoryDrainSchedule::new(min);
+        let t0 = Instant::now();
+        let horizon = Duration::from_secs(18 * 60 * 60);
+        let stuck = 64 * MEMORY_RSS_NOISE_BYTES;
+        let mut fires = 0u64;
+        let mut t = Duration::ZERO;
+        let mut step = 0u64;
+        while t < horizon {
+            // Alternate a page either side of the stuck footprint. The old
+            // schedule treated every downward byte as a successful drain
+            // and snapped back to 2 s.
+            let rss = if step.is_multiple_of(2) {
+                stuck
+            } else {
+                stuck + 4096
+            };
+            if schedule.observe(t0 + t, rss, true) {
+                fires += 1;
+            }
+            t += min;
+            step += 1;
+        }
+        let unbounded = horizon.as_secs() / min.as_secs();
+        assert!(
+            fires < unbounded / 50,
+            "stuck RSS requested {fires} drains over 18h; the 2s loop would be {unbounded}"
+        );
+        assert!(fires > 10, "backoff must still retry, got {fires}");
+
+        // A drop resets the spacing: the next request is one floor later,
+        // not a doubled gap. Step a full cap ahead so this request is due
+        // no matter where in the capped window the 18 h loop stopped.
+        let now = t0 + horizon + MEMORY_DRAIN_MAX_INTERVAL;
+        let dropped = stuck - MEMORY_RSS_NOISE_BYTES - 1;
+        assert!(
+            schedule.observe(now, dropped, true),
+            "a lower RSS is due work"
+        );
+        assert!(
+            !schedule.observe(now + min - Duration::from_millis(1), dropped, true),
+            "the reset spacing is still the floor, not immediate"
+        );
+        assert!(schedule.observe(now + min, dropped - MEMORY_RSS_NOISE_BYTES - 1, true));
+
+        // Disengage forgets the episode; the next engage fires at once.
+        assert!(!schedule.observe(now + min + min, dropped, false));
+        assert!(schedule.observe(now + min + min, dropped, true));
+    }
+
+    /// #2427: the latch holds above the watermark now, so a climbing
+    /// footprint must not wait out a backed-off gap. Back the schedule off
+    /// on a flat footprint, then climb: the next sample past the minimum
+    /// spacing drains, and a further flat sample is back on the floor.
+    #[test]
+    fn a_climb_while_engaged_drains_inside_a_backed_off_gap() {
+        let min = Duration::from_secs(2);
+        let mut schedule = MemoryDrainSchedule::new(min);
+        let t0 = Instant::now();
+        let stuck = 64 * MEMORY_RSS_NOISE_BYTES;
+        let mut t = Duration::ZERO;
+        while t < Duration::from_secs(600) {
+            schedule.observe(t0 + t, stuck, true);
+            t += min;
+        }
+        assert!(schedule.interval > min, "a flat footprint backs off");
+        let last = schedule.last_request.expect("requested at least once");
+        let climbed = stuck + MEMORY_RSS_NOISE_BYTES + 1;
+        assert!(
+            !schedule.observe(last + min / 2, climbed, true),
+            "the minimum spacing still applies to a climb"
+        );
+        assert!(
+            schedule.observe(last + min, climbed, true),
+            "a climb drains at the minimum spacing, not after the backed-off gap"
+        );
+        assert_eq!(schedule.interval, min);
+        assert!(
+            !schedule.observe(last + min + Duration::from_millis(100), climbed, true),
+            "one climb is one request"
+        );
+    }
+
     /// #1250 x #1323: the watermark is live-tunable. Raising it while the
     /// breaker is engaged must release at once whenever RSS is under the NEW
-    /// watermark — not wait for RSS to fall 5% below it — or the live fix
+    /// watermark — not wait for RSS to fall below the release point — or the live fix
     /// #1323 shipped would be undone by the band.
     #[test]
     fn live_watermark_raise_releases_without_the_hysteresis_band() {
@@ -2213,7 +5472,7 @@ mod tests {
         assert!(g.check_ingest_admission().is_err());
 
         // Raise just above the current RSS: RSS is now inside the new
-        // watermark's 5% band, and still (barely) falling.
+        // watermark's release band, and still (barely) falling.
         let raised = (rss + rss / 50).min(g.machine_memory_bytes);
         assert!(raised > rss, "test box must have headroom over 1 GiB");
         g.set_memory_watermark_override(Some(raised));
@@ -2228,5 +5487,90 @@ mod tests {
         assert!(g.check_ingest_admission().is_err());
         g.refresh(0, raised * 98 / 100, 0);
         assert!(g.check_ingest_admission().is_err());
+    }
+
+    // ── #2427: flush build reservation ────────────────────────────────────
+
+    const MB: u64 = 1 << 20;
+
+    #[test]
+    fn lone_flush_build_is_admitted_even_past_the_watermark() {
+        let g = ResourceGovernor::with_analyze_headroom_for_test(64 * MB);
+        let r = g
+            .try_reserve_flush_build(1024 * MB)
+            .expect("lone build admitted");
+        assert_eq!(r.bytes(), 1024 * MB);
+        assert_eq!(g.flush_build_reserved(), (1024 * MB, 1));
+        drop(r);
+        assert_eq!(g.flush_build_reserved(), (0, 0));
+        assert_eq!(g.analyze_reserved_for_test(), 0);
+    }
+
+    #[test]
+    fn second_flush_build_waits_when_it_does_not_fit() {
+        let g = ResourceGovernor::with_analyze_headroom_for_test(1024 * MB);
+        let first = g.try_reserve_flush_build(800 * MB).expect("first build");
+        assert!(
+            g.try_reserve_flush_build(400 * MB).is_none(),
+            "800 + 400 MB over 1 GB of headroom must wait"
+        );
+        let small = g
+            .try_reserve_flush_build(64 * MB)
+            .expect("a build that fits is admitted");
+        drop(small);
+        drop(first);
+        let second = g
+            .try_reserve_flush_build(400 * MB)
+            .expect("fits once the first is done");
+        assert_eq!(g.flush_build_reserved(), (400 * MB, 1));
+        drop(second);
+    }
+
+    #[test]
+    fn flush_build_reservation_counts_against_ingest_admission() {
+        let g = ResourceGovernor::with_analyze_headroom_for_test(1024 * MB);
+        let build = g.try_reserve_flush_build(900 * MB).expect("build");
+        assert_eq!(g.analyze_reserved_for_test(), 900 * MB);
+        assert!(
+            g.reserve_analyze(300 * MB).is_err(),
+            "ingest must see the flush working set before it is allocated"
+        );
+        drop(build);
+        assert_eq!(g.analyze_reserved_for_test(), 0);
+        let analyze = g.reserve_analyze(300 * MB).expect("fits after the build");
+        drop(analyze);
+    }
+
+    #[test]
+    fn unlimited_watermark_tracks_builds_without_charging_admission() {
+        let g = ResourceGovernor::with_analyze_headroom_for_test(MB);
+        g.memory_watermark_bytes.store(0, Ordering::Relaxed);
+        let a = g.try_reserve_flush_build(500 * MB).expect("a");
+        let b = g
+            .try_reserve_flush_build(500 * MB)
+            .expect("no watermark, no wait");
+        assert_eq!(g.flush_build_reserved(), (1000 * MB, 2));
+        assert_eq!(g.analyze_reserved_for_test(), 0);
+        drop((a, b));
+        assert_eq!(g.flush_build_reserved(), (0, 0));
+    }
+
+    #[tokio::test]
+    async fn waiting_flush_build_is_woken_by_the_release() {
+        let g = ResourceGovernor::with_analyze_headroom_for_test(1024 * MB);
+        let first = g.try_reserve_flush_build(800 * MB).expect("first build");
+        let waiter = {
+            let g = Arc::clone(&g);
+            tokio::spawn(async move { g.reserve_flush_build(400 * MB).await })
+        };
+        tokio::time::sleep(Duration::from_millis(250)).await;
+        assert!(!waiter.is_finished(), "second build must wait for headroom");
+        drop(first);
+        let second = tokio::time::timeout(Duration::from_secs(5), waiter)
+            .await
+            .expect("woken after the release")
+            .expect("task");
+        assert_eq!(second.bytes(), 400 * MB);
+        assert_eq!(g.flush_build_reserved(), (400 * MB, 1));
     }
 }

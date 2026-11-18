@@ -28,9 +28,28 @@ use std::sync::OnceLock;
 use streaming_iterator::StreamingIterator;
 use tree_sitter::{Language, Node, Parser, Query, QueryCursor};
 
-/// Skip machine-generated giants (minified bundles, generated parsers) — past a
-/// couple MB a single "file" is not human code and only bloats the index.
-const CODE_CAP: u64 = 2 << 20;
+/// Whole-file AST extraction budget. Hand-written source can exceed it too;
+/// size is not evidence that a file is generated.
+pub(crate) const CODE_CAP: u64 = 2 << 20;
+
+/// The reason a source file over [`CODE_CAP`] is skipped (#2483). It names
+/// the cap and the file's size, says the run is otherwise unaffected, and
+/// points at `.xerjignore` so the next plan leaves the file out by name.
+fn code_cap_refusal(path: &Path) -> String {
+    let mib = |b: u64| b as f64 / (1u64 << 20) as f64;
+    let size = std::fs::metadata(path)
+        .map(|m| format!("{} bytes", m.len()))
+        .unwrap_or_else(|_| "unavailable".into());
+    format!(
+        "source file over the {:.0} MiB code cap ({} bytes; reported file size: {size}). \
+         It was not parsed and produced no records. This is a separate fixed \
+         code-extraction limit: changing --max-file-gb, --max-file-mb or --max-file-bytes \
+         does not raise it. Other files can continue to index. To leave this file \
+         out of the plan, add its path to .xerjignore",
+        mib(CODE_CAP),
+        CODE_CAP
+    )
+}
 
 struct LangDef {
     name: &'static str,
@@ -49,6 +68,80 @@ struct LangDef {
 pub fn is_code_ext(ext: &str) -> bool {
     let e = ext.to_ascii_lowercase();
     registry().iter().any(|d| d.exts.contains(&e.as_str()))
+}
+
+/// #2732: Vue and Svelte single-file components. No grammar claims the whole
+/// file — markup, script and style in one — so it is not a registry row; its
+/// `<script>` blocks are parsed with the JS/TS grammar instead
+/// ([`component_script`]) and the file keeps its own `language`.
+pub fn is_component_ext(ext: &str) -> bool {
+    matches!(ext.to_ascii_lowercase().as_str(), "vue" | "svelte")
+}
+
+/// The component with everything outside its `<script>` blocks blanked to
+/// spaces, newlines kept, so every byte offset and line of a captured
+/// declaration is the component's own; plus the grammar that reads it —
+/// `typescript` when a block says `lang="ts"` (`tsx` for `lang="tsx"`),
+/// `javascript` otherwise.
+fn component_script(text: &str) -> (String, &'static str) {
+    let lower = text.to_ascii_lowercase();
+    let mut keep = vec![false; text.len()];
+    let mut grammar = "javascript";
+    let mut from = 0;
+    while let Some(open) = lower[from..].find("<script").map(|i| from + i) {
+        let Some(tag_end) = lower[open..].find('>').map(|i| open + i + 1) else {
+            break;
+        };
+        let tag = &lower[open..tag_end];
+        for (needle, name) in [
+            ("tsx", "tsx"),
+            ("ts", "typescript"),
+            ("typescript", "typescript"),
+        ] {
+            if [format!("lang=\"{needle}\""), format!("lang='{needle}'")]
+                .iter()
+                .any(|attr| tag.contains(attr.as_str()))
+            {
+                grammar = name;
+            }
+        }
+        let close = lower[tag_end..]
+            .find("</script")
+            .map_or(text.len(), |i| tag_end + i);
+        keep[tag_end..close].iter_mut().for_each(|k| *k = true);
+        from = close;
+    }
+    // Only ASCII is written outside the kept spans, and the spans start and
+    // end at ASCII `>` / `<`, so the result is still UTF-8.
+    let masked: Vec<u8> = text
+        .bytes()
+        .zip(&keep)
+        .map(|(b, &k)| if k || b == b'\n' { b } else { b' ' })
+        .collect();
+    (String::from_utf8(masked).unwrap_or_default(), grammar)
+}
+
+/// #2205: the `language` a code record carries is the registry row's NAME
+/// (`javascript`, `typescript`, `python` …), so `--lang js` matched nothing
+/// and `xerj code` answered "No passage". Resolve what a user types — a
+/// registry name in any case, or a file extension a row claims (`js`, `ts`,
+/// `py`, `rs` …) — to the stored name. `None` when nothing claims it, so the
+/// caller can pass an unknown value through unchanged.
+pub fn canonical_language(input: &str) -> Option<&'static str> {
+    let wanted = input.trim().trim_start_matches('.').to_ascii_lowercase();
+    let reg = registry();
+    reg.iter()
+        .find(|d| d.name == wanted)
+        .or_else(|| reg.iter().find(|d| d.exts.contains(&wanted.as_str())))
+        .map(|d| d.name)
+}
+
+/// The `--lang` value to filter on: the canonical language name when the
+/// input resolves to one, the input unchanged otherwise.
+pub fn lang_filter_value(input: &str) -> String {
+    canonical_language(input)
+        .map(str::to_string)
+        .unwrap_or_else(|| input.to_string())
 }
 
 fn def(name: &'static str, exts: &'static [&'static str], lang: Language, q: &str) -> LangDef {
@@ -186,7 +279,16 @@ fn registry() -> &'static [LangDef] {
                 SCALA_Q,
             ),
             def("dart", &["dart"], tree_sitter_dart::LANGUAGE.into(), DART_Q),
-            def("lua", &["lua"], tree_sitter_lua::LANGUAGE.into(), LUA_Q),
+            // `.luau` is Roblox's typed Lua dialect; tree-sitter-lua parses the
+            // declaration forms it shares with Lua and recovers from type
+            // annotations. Without this row the sniffer called .luau files
+            // non-code while `xerj corpus index` counted them as code (#2940).
+            def(
+                "lua",
+                &["lua", "luau"],
+                tree_sitter_lua::LANGUAGE.into(),
+                LUA_Q,
+            ),
             // `.pl` is also Prolog. Perl owns it: overwhelmingly dominant in
             // real repos, and no Prolog grammar is registered to probe for.
             def(
@@ -327,6 +429,29 @@ pub fn extract(path: &Path, sn: &crate::sniff::Sniffed, sink: Sink) -> Result<Ex
         .and_then(|e| e.to_str())
         .unwrap_or("")
         .to_ascii_lowercase();
+    // #2337: SQL source is code, but `.sql` is not a registry extension.
+    // A registry row would claim dumps in the sniffer before content is
+    // read. The DDL scanner runs only after sniff has ruled a dump out
+    // (or the dump extractor emitted nothing and the caller fell through).
+    if crate::sniff::is_sql_filename(named) {
+        return super::sqlsrc::extract(path, named, sn.gzip, sink);
+    }
+    if is_component_ext(&ext) {
+        let Some(bytes) = super::read_whole(path, false, CODE_CAP)? else {
+            stats.junk += 1;
+            stats.refusal = Some(code_cap_refusal(path));
+            return Ok(stats);
+        };
+        let (text, _) = crate::sniff::decode_text(&bytes);
+        let (script, grammar) = component_script(&text);
+        let symbols = registry()
+            .iter()
+            .find(|d| d.name == grammar)
+            .and_then(|d| parse_symbols(d, &script))
+            .unwrap_or_default();
+        emit_code_doc(named, &ext, &text, &symbols, &mut stats, sink);
+        return Ok(stats);
+    }
     let claimants: Vec<&LangDef> = registry()
         .iter()
         .filter(|d| d.exts.contains(&ext.as_str()))
@@ -337,6 +462,9 @@ pub fn extract(path: &Path, sn: &crate::sniff::Sniffed, sink: Sink) -> Result<Ex
     }
     let Some(bytes) = super::read_whole(path, false, CODE_CAP)? else {
         stats.junk += 1;
+        // #2483: say why. The generic "no records extracted (code candidate
+        // family, 1 junk lines)" read like a parse failure, not a size cap.
+        stats.refusal = Some(code_cap_refusal(path));
         return Ok(stats);
     };
     let (text, _) = crate::sniff::decode_text(&bytes);
@@ -1216,10 +1344,69 @@ pub fn definitions(file_rel: &str, lang: &str, text: &str) -> Vec<xerj_common::h
         .collect()
 }
 
+/// Local names exported separately from their declaration (#2579). Do not
+/// mistake `export { x } from 'other'` or a TS type-only export for exporting
+/// this module's value. Names/aliases come from the grammar fields, not text
+/// matching. Reference: tree-sitter-typescript 0.23.2 (MIT),
+/// typescript/src/node-types.json:1924 (`name` vs `alias`) and :1958 (`source`,
+/// `value`); JS 0.23.1 uses the same export fields.
+fn js_separate_value_exports<'a>(
+    root: Node<'_>,
+    text: &'a str,
+) -> std::collections::HashSet<&'a str> {
+    fn has_token(node: Node<'_>, kind: &str) -> bool {
+        let mut cursor = node.walk();
+        let found = node.children(&mut cursor).any(|child| child.kind() == kind);
+        found
+    }
+
+    let mut names = std::collections::HashSet::new();
+    let mut cursor = root.walk();
+    for export in root.named_children(&mut cursor) {
+        if export.kind() != "export_statement"
+            || export.child_by_field_name("source").is_some()
+            || has_token(export, "type")
+        {
+            continue;
+        }
+        if has_token(export, "default") {
+            if let Some(value) = export.child_by_field_name("value") {
+                if value.kind() == "identifier" {
+                    if let Some(name) = text.get(value.byte_range()) {
+                        names.insert(name);
+                    }
+                }
+            }
+        }
+        let mut clause_cursor = export.walk();
+        for clause in export.named_children(&mut clause_cursor) {
+            if clause.kind() != "export_clause" {
+                continue;
+            }
+            let mut spec_cursor = clause.walk();
+            for spec in clause.named_children(&mut spec_cursor) {
+                if has_token(spec, "type") {
+                    continue;
+                }
+                if let Some(name) = spec.child_by_field_name("name") {
+                    if name.kind() == "identifier" {
+                        if let Some(name) = text.get(name.byte_range()) {
+                            names.insert(name);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    names
+}
+
 fn parse_symbols(def: &LangDef, text: &str) -> Option<Vec<Symbol>> {
     let mut parser = Parser::new();
     parser.set_language(&def.language).ok()?;
     let tree = parser.parse(text.as_bytes(), None)?;
+    let js_exports = matches!(def.name, "javascript" | "typescript" | "tsx")
+        .then(|| js_separate_value_exports(tree.root_node(), text));
     let names = def.query.capture_names();
     // Row → source line, built once (not `lines().nth(row)` per symbol, which
     // would be O(symbols · file)).
@@ -1237,6 +1424,21 @@ fn parse_symbols(def: &LangDef, text: &str) -> Option<Vec<Symbol>> {
                 continue; // predicate-only capture (`@_kw`), not a symbol
             }
             let node = cap.node;
+            // The additional JS/TS @const pattern admits only top-level
+            // factory calls. Keep its candidates only when this module exports
+            // the binding separately; private values stay out (#285).
+            if let Some(exports) = &js_exports {
+                if kind == "const"
+                    && node
+                        .parent()
+                        .and_then(|n| n.parent())
+                        .and_then(|n| n.parent())
+                        .is_some_and(|n| n.kind() == "program")
+                    && !exports.contains(text.get(node.byte_range()).unwrap_or(""))
+                {
+                    continue;
+                }
+            }
             // #852: every C++ pattern targets file/namespace/class-scope API
             // symbols — none intends to capture a function-local definition. A
             // type/class/struct/enum or its enumerators DEFINED INSIDE a
@@ -1325,43 +1527,19 @@ fn emit_code_doc(
         .to_string();
 
     let mut fields = Map::new();
-    fields.insert("title".into(), Value::String(title));
+    fields.insert("title".into(), Value::String(title.clone()));
     fields.insert("language".into(), Value::String(language.to_string()));
 
-    if !symbols.is_empty() {
-        // Searchable "kind name" list — this is what makes `class User` /
-        // `def save` retrieve the file, and it dedups repeated names.
-        let mut seen = std::collections::HashSet::new();
-        let defs: Vec<String> = symbols
-            .iter()
-            .filter(|s| seen.insert((s.kind.clone(), s.name.clone())))
-            .map(|s| format!("{} {}", s.kind, s.name))
-            .collect();
-        fields.insert("defs".into(), Value::String(defs.join("\n")));
-        let arr: Vec<Value> = symbols
-            .iter()
-            .map(|s| {
-                let mut m = Map::new();
-                m.insert("name".into(), Value::String(s.name.clone()));
-                m.insert("kind".into(), Value::String(s.kind.clone()));
-                m.insert("line".into(), Value::Number((s.line as u64).into()));
-                // #500: a client that wants the IMPLEMENTATION can now slice
-                // exactly `line`..`end_line` out of `body`. Without it the only
-                // way to bound a symbol was "up to where the next one starts",
-                // which returns a whole class for a class and the rest of the
-                // file for the last symbol — the coarse unit this issue is about.
-                m.insert("end_line".into(), Value::Number((s.end_line as u64).into()));
-                Value::Object(m)
-            })
-            .collect();
-        fields.insert("symbols".into(), Value::Array(arr));
-        fields.insert(
-            "symbol_count".into(),
-            Value::Number((symbols.len() as u64).into()),
-        );
-    }
+    insert_symbol_catalog(&mut fields, symbols);
     // The full source stays full-text searchable.
     fields.insert("body".into(), Value::String(text.to_string()));
+    // #2351: the file document has no `line`. The span of the stored text
+    // is what a `_source` include of start_line/end_line needs.
+    let line_count = text.lines().count() as u64;
+    if line_count > 0 {
+        fields.insert("start_line".into(), Value::Number(1.into()));
+        fields.insert("end_line".into(), Value::Number(line_count.into()));
+    }
 
     stats.records += 1;
     if !sink(RawRecord {
@@ -1376,17 +1554,69 @@ fn emit_code_doc(
         return false;
     }
 
-    // #500: promote each declaration to its OWN retrievable document. A
-    // constant/field/`#define`/signature lookup then returns the ~40–80 B
-    // declaration line with an exact `name` (mapped keyword), instead of only
-    // surviving folded inside the ~2–3 KB enclosing class/method body (the
-    // measured 32–48× byte blow-up + the rank-35 recall miss). The file
-    // document above keeps `body`/`defs` for full-text and cross-file search.
-    let file_path = path
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or("source")
-        .to_string();
+    emit_symbol_records(&title, language, text, symbols, stats, sink)
+}
+
+/// `defs` / `symbols` / `symbol_count` for one file. Empty when nothing was
+/// captured, so a file with no definitions keeps the same field set it had
+/// before a grammar learned to see one (#178).
+fn insert_symbol_catalog(fields: &mut Map<String, Value>, symbols: &[Symbol]) {
+    if symbols.is_empty() {
+        return;
+    }
+    // Searchable "kind name" list — this is what makes `class User` /
+    // `def save` retrieve the file, and it dedups repeated names.
+    let mut seen = std::collections::HashSet::new();
+    let defs: Vec<String> = symbols
+        .iter()
+        .filter(|s| seen.insert((s.kind.clone(), s.name.clone())))
+        .map(|s| format!("{} {}", s.kind, s.name))
+        .collect();
+    fields.insert("defs".into(), Value::String(defs.join("\n")));
+    let arr: Vec<Value> = symbols
+        .iter()
+        .map(|s| {
+            let mut m = Map::new();
+            m.insert("name".into(), Value::String(s.name.clone()));
+            m.insert("kind".into(), Value::String(s.kind.clone()));
+            m.insert("line".into(), Value::Number((s.line as u64).into()));
+            // #2351: start_line matches line so a _source include of
+            // start_line/end_line locates the declaration. The file document
+            // and each symbol record both carry it.
+            m.insert("start_line".into(), Value::Number((s.line as u64).into()));
+            // #500: a client that wants the IMPLEMENTATION can now slice
+            // exactly `line`..`end_line` out of `body`. Without it the only
+            // way to bound a symbol was "up to where the next one starts",
+            // which returns a whole class for a class and the rest of the
+            // file for the last symbol — the coarse unit this issue is about.
+            m.insert("end_line".into(), Value::Number((s.end_line as u64).into()));
+            Value::Object(m)
+        })
+        .collect();
+    fields.insert("symbols".into(), Value::Array(arr));
+    fields.insert(
+        "symbol_count".into(),
+        Value::Number((symbols.len() as u64).into()),
+    );
+}
+
+/// #500: promote each declaration to its OWN retrievable document. A
+/// constant/field/`#define`/signature lookup then returns the ~40–80 B
+/// declaration line with an exact `name` (mapped keyword), instead of only
+/// surviving folded inside the ~2–3 KB enclosing class/method body (the
+/// measured 32–48× byte blow-up + the rank-35 recall miss). The file
+/// document above keeps `body`/`defs` for full-text and cross-file search.
+///
+/// `text`'s line `n` is source line `n`. Callers that parsed a slice shift
+/// `symbols` onto that coordinate first.
+fn emit_symbol_records(
+    file_path: &str,
+    language: &str,
+    text: &str,
+    symbols: &[Symbol],
+    stats: &mut ExtractStats,
+    sink: Sink,
+) -> bool {
     // A single declaration can be captured under two kinds at the same line+name
     // (e.g. `export const f = () => {}` → @function + @const). Those share the
     // `code:<line>:<name>` locator → the same `doc_id` → ES stores ONE document.
@@ -1407,15 +1637,18 @@ fn emit_code_doc(
             continue;
         }
         let mut sf = Map::new();
-        // `title` = the symbol so the hit reads as the declaration, `path` for
-        // citation, `name`/`code` searchable (the mapping exposes `name.keyword`
+        // `title` = the symbol so the hit reads as the declaration. `path`
+        // starts as the file name; `align_hit_locators` replaces that
+        // basename with the repo-relative path at stamp time (#2351).
+        // `name`/`code` stay searchable (the mapping exposes `name.keyword`
         // for exact-identifier ranking), `kind`/`line` for filtering + citation.
         sf.insert("title".into(), Value::String(name.clone()));
-        sf.insert("path".into(), Value::String(file_path.clone()));
+        sf.insert("path".into(), Value::String(file_path.to_string()));
         sf.insert("language".into(), Value::String(language.to_string()));
         sf.insert("name".into(), Value::String(name.clone()));
         sf.insert("kind".into(), Value::String(s.kind.clone()));
         sf.insert("line".into(), Value::Number((line as u64).into()));
+        sf.insert("start_line".into(), Value::Number((line as u64).into()));
         sf.insert(
             "end_line".into(),
             Value::Number((s.end_line.max(line) as u64).into()),
@@ -1430,9 +1663,9 @@ fn emit_code_doc(
         // lines preceding the first nested definition so member bodies are not
         // duplicated inside the enclosing record. Functions keep their whole
         // body: a nested closure/inner def is part of what the function does.
-        // `reconcile_plan::ensure_compatible` exempts `impl` and `end_line` on
-        // pre-#1237 frozen datasets so incremental runs over older state dirs
-        // never abort.
+        // `reconcile_plan::ensure_compatible` exempts `impl`, `end_line`, and
+        // `start_line` on frozen datasets so incremental runs over older
+        // state dirs never abort.
         let impl_end_line = if !matches!(s.kind.as_str(), "function" | "method") {
             symbols
                 .iter()
@@ -1484,6 +1717,81 @@ fn emit_code_doc(
     true
 }
 
+/// Definitions inside inline `<script>` blocks of an HTML page (#2356).
+///
+/// `spans` are `(start, end)` byte offsets of script *content* (inside the
+/// tags, not including them) in `html`. Each span is parsed with the
+/// JavaScript grammar; line numbers are shifted onto the HTML file so
+/// `xerj def` cites `page.html:N`. The page's prose record is someone else's
+/// — this only adds the file-level `defs`/`symbols` catalog and the
+/// per-declaration records a `.js` file would get. It does not copy the
+/// script into a `body` field: the HTML extractor keeps API keys and other
+/// non-definition script text out of the page body.
+///
+/// A span over [`CODE_CAP`] is skipped. One minified block is not a file of
+/// definitions, and parsing it is the cost the code extractor already refuses.
+pub(crate) fn emit_inline_scripts(
+    path: &Path,
+    html: &str,
+    spans: &[(usize, usize)],
+    stats: &mut ExtractStats,
+    sink: Sink,
+) -> bool {
+    if spans.is_empty() {
+        return true;
+    }
+    let Some(def) = registry().iter().find(|d| d.name == "javascript") else {
+        return true;
+    };
+    let mut symbols = Vec::new();
+    for &(start, end) in spans {
+        if start >= end
+            || end > html.len()
+            || !html.is_char_boundary(start)
+            || !html.is_char_boundary(end)
+        {
+            continue;
+        }
+        let content = &html[start..end];
+        if content.len() as u64 > CODE_CAP || content.trim().is_empty() {
+            continue;
+        }
+        let mut found = parse_symbols(def, content).unwrap_or_default();
+        let offset = html[..start].bytes().filter(|&b| b == b'\n').count();
+        for s in &mut found {
+            s.line = s.line.saturating_add(offset);
+            s.end_line = s.end_line.saturating_add(offset);
+        }
+        symbols.append(&mut found);
+        if symbols.len() >= 5000 {
+            symbols.truncate(5000);
+            break;
+        }
+    }
+    if symbols.is_empty() {
+        return true;
+    }
+    let title = path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("source")
+        .to_string();
+    let mut fields = Map::new();
+    fields.insert("title".into(), Value::String(title.clone()));
+    fields.insert("language".into(), Value::String("javascript".into()));
+    insert_symbol_catalog(&mut fields, &symbols);
+    stats.records += 1;
+    if !sink(RawRecord {
+        fields,
+        locator: "code".into(),
+        group: None,
+        origin: FieldOrigin::Extractor,
+    }) {
+        return false;
+    }
+    emit_symbol_records(&title, "javascript", html, &symbols, stats, sink)
+}
+
 // ── Per-language capture queries. Capture-name == emitted symbol kind. ─────────
 
 const PYTHON_Q: &str = r#"
@@ -1512,12 +1820,14 @@ const PYTHON_Q: &str = r#"
 // `@function` and `@const`, where the TS equivalent only does so for arrows.
 // `defs` dedups on (kind, name), so each spelling still answers its own search.
 //
-// The `.bind`-valued declarator (last pattern) is the JS twin of the one in
+// The `.bind`-valued declarator is the JS twin of the one in
 // TS_Q — see the rationale there. `const add = game.root.add.bind(game.root)` is
 // how a framework exposes its global API surface, and that binding is the name
 // consumers call. NOT the #170 90%-locals trap (that is `const x = 0`); a
 // `.bind()`-valued const is always a deliberately named bound callable, and it
 // is captured `@function` because that is what it is.
+// The final top-level call candidate is filtered by js_separate_value_exports:
+// `const store = create(...); export { store };` is also a public definition.
 const JS_Q: &str = r#"
 (function_declaration name: (identifier) @function)
 (generator_function_declaration name: (identifier) @function)
@@ -1527,9 +1837,10 @@ const JS_Q: &str = r#"
 (export_statement declaration: (lexical_declaration (variable_declarator name: (identifier) @function value: (arrow_function))))
 (program (export_statement declaration: (lexical_declaration "const" (variable_declarator name: (identifier) @const))))
 (variable_declarator name: (identifier) @function value: (call_expression function: (member_expression property: (property_identifier) @_bind)) (#eq? @_bind "bind"))
+(program (lexical_declaration "const" (variable_declarator name: (identifier) @const value: (call_expression))))
 "#;
 
-// The last pattern is #170's failure mode in the language where it is most
+// The exported-const pattern addresses #170's failure mode where it is most
 // common. Modern TypeScript declares most of a module's public surface as
 // `export const x = someBuilder(...)` — schema/table definitions, routers,
 // config objects. That is not an `arrow_function`, so the arrow-valued pattern
@@ -1566,7 +1877,7 @@ const JS_Q: &str = r#"
 // what a caller searching for either would expect; suppressing one would mean
 // choosing which of the two true statements to hide.
 //
-// The last pattern (`.bind`-valued declarator) captures the re-binding idiom
+// The `.bind`-valued declarator captures the re-binding idiom
 // `const tween = game.root.tween.bind(game.root)`. Whole libraries expose their
 // public API this way — a framework builds a context object of methods bound to
 // a root, and the ~40 lines `const add = ….add.bind(…)`, `const get = …`, `const
@@ -1585,6 +1896,11 @@ const JS_Q: &str = r#"
 // ON PURPOSE — these bindings live INSIDE the context-builder function body,
 // where `program`-anchoring (used for the plain-const pattern above) would
 // exclude them.
+//
+// #2579: a factory const exported by a later export clause/default identifier
+// is public too. The final pattern admits only top-level call initializers;
+// parse_symbols checks their names against js_separate_value_exports so
+// private constants, locals and mutable bindings keep their existing scope.
 const TS_Q: &str = r#"
 (function_declaration name: (identifier) @function)
 (class_declaration name: (type_identifier) @class)
@@ -1595,6 +1911,7 @@ const TS_Q: &str = r#"
 (variable_declarator name: (identifier) @function value: (arrow_function))
 (program (export_statement declaration: (lexical_declaration "const" (variable_declarator name: (identifier) @const))))
 (variable_declarator name: (identifier) @function value: (call_expression function: (member_expression property: (property_identifier) @_bind)) (#eq? @_bind "bind"))
+(program (lexical_declaration "const" (variable_declarator name: (identifier) @const value: (call_expression))))
 "#;
 
 // `const_item` / `static_item` are captured because a file whose whole content
@@ -1927,12 +2244,16 @@ const SCALA_Q: &str = r#"
 (object_definition body: (template_body (val_definition pattern: (identifier) @const)))
 "#;
 
-// Adapted from tree-sitter-dart 0.2.0 queries/tags.scm (class / mixin / enum
-// / function / method / typedef / enum-constant captures; getter/setter and
-// constructor variants dropped as weight without retrieval surface).
+// Adapted from tree-sitter-dart 0.2.0 queries/tags.scm (class / mixin /
+// extension / extension type / enum / function / method / typedef /
+// enum-constant captures; getter/setter and constructor variants dropped as
+// weight without retrieval surface). tags.scm tags both extension forms as
+// `definition.class`, and Swift's `extension` above is `@class` too.
 const DART_Q: &str = r#"
 (class_declaration name: (identifier) @class)
 (mixin_declaration (identifier) @mixin)
+(extension_declaration name: (identifier) @class)
+(extension_type_declaration name: (extension_type_name (identifier) @class))
 (enum_declaration name: (identifier) @enum)
 (enum_constant name: (identifier) @const)
 (function_signature name: (identifier) @function)
@@ -2228,9 +2549,308 @@ const SCHEME_Q: &str = r#"
 mod tests {
     use super::*;
 
+    /// #2732: a Vue/Svelte component is code, not junk-filed XML, and its
+    /// script declarations are symbols on the component's own lines.
+    #[test]
+    fn vue_and_svelte_components_index_their_script_declarations() {
+        let vue = "<template>\n  <div>{{ count }}</div>\n</template>\n\n\
+                   <script setup lang=\"ts\">\nimport { ref } from 'vue'\n\
+                   export function useCounter(start: number) {\n  return ref(start)\n}\n\
+                   </script>\n\n<style scoped>\ndiv { color: red; }\n</style>\n";
+        let svelte = "<script>\n  export let name = 'world';\n  \
+                      function greet() { return name; }\n</script>\n\n<h1>Hello {name}!</h1>\n";
+        let dir = tempfile::tempdir().unwrap();
+        for (file, src, want, line) in [
+            ("Counter.vue", vue, "useCounter", 7),
+            ("Hello.svelte", svelte, "greet", 3),
+        ] {
+            let f = dir.path().join(file);
+            std::fs::write(&f, src).unwrap();
+            let sn = crate::sniff::sniff_with_name(&f, Path::new(file)).unwrap();
+            assert_eq!(sn.family, crate::sniff::Family::Code, "{file}");
+            let mut records: Vec<RawRecord> = Vec::new();
+            let stats = extract(&f, &sn, &mut |record| {
+                records.push(record);
+                true
+            })
+            .unwrap();
+            assert_eq!(stats.junk, 0, "{file}");
+            let ext = file.rsplit('.').next().unwrap();
+            assert!(
+                records
+                    .iter()
+                    .any(|r| r.fields.get("language").is_some_and(|l| l == ext)),
+                "{file}: the file keeps its own language"
+            );
+            let decl = records
+                .iter()
+                .find(|r| r.fields.get("name").is_some_and(|n| n == want))
+                .unwrap_or_else(|| panic!("{file}: no {want} declaration"));
+            assert_eq!(decl.fields["line"], line, "{file}");
+        }
+        // The grammar follows the block's `lang`; markup and styles are blanked.
+        let (script, grammar) = component_script(vue);
+        assert_eq!(grammar, "typescript");
+        assert_eq!(component_script(svelte).1, "javascript");
+        assert_eq!(script.len(), vue.len());
+        assert_eq!(script.lines().count(), vue.lines().count());
+        assert!(!script.contains("color") && !script.contains("<div>"));
+    }
+
+    #[test]
+    fn perl_code_cap_boundary_reports_exact_bytes_without_guessing_authorship() {
+        let dir = tempfile::tempdir().unwrap();
+        for size in [CODE_CAP - 1, CODE_CAP, CODE_CAP + 1] {
+            let path = dir.path().join("handwritten.pl");
+            let head = "sub boundary_probe { return 1; }\n#";
+            let tail = "\nsub tail_probe { return 2; }\n";
+            let source = format!(
+                "{head}{}{tail}",
+                "x".repeat(size as usize - head.len() - tail.len())
+            );
+            assert_eq!(source.len() as u64, size);
+            std::fs::write(&path, &source).unwrap();
+            // Exercise logical naming too: durable preparation parses a blob,
+            // but language/source identity still come from the archived name.
+            let blob = dir.path().join("00000000");
+            std::fs::write(&blob, &source).unwrap();
+            for content in [&path, &blob] {
+                let sniffed = crate::sniff::sniff_with_name(content, &path).unwrap();
+                let mut records = Vec::new();
+                let stats = extract(content, &sniffed, &mut |record| {
+                    records.push(record);
+                    true
+                })
+                .unwrap();
+                if size <= CODE_CAP {
+                    assert!(stats.refusal.is_none());
+                    assert!(records.iter().any(|record| record
+                        .fields
+                        .get("name")
+                        .and_then(Value::as_str)
+                        == Some("boundary_probe")));
+                    assert!(records.iter().any(|record| record
+                        .fields
+                        .get("name")
+                        .and_then(Value::as_str)
+                        == Some("tail_probe")));
+                } else {
+                    assert!(records.is_empty());
+                    assert_eq!(stats.records, 0);
+                    let reason = stats.refusal.unwrap();
+                    assert!(reason.contains(&format!("{size} bytes")), "{reason}");
+                    assert!(reason.contains(&format!("{CODE_CAP} bytes")), "{reason}");
+                    assert!(reason.contains("--max-file-mb"), "{reason}");
+                    assert!(reason.contains("does not raise"), "{reason}");
+                    assert!(!reason.contains("too large to be hand-written"), "{reason}");
+                    assert!(!reason.contains("generated stubs"), "{reason}");
+                }
+            }
+        }
+    }
+
+    /// #2205: `--lang js` must filter on the stored `javascript`, not on a
+    /// value no record carries.
+    #[test]
+    fn a_lang_extension_resolves_to_the_stored_language_name() {
+        assert_eq!(lang_filter_value("js"), "javascript");
+        assert_eq!(lang_filter_value(".mjs"), "javascript");
+        assert_eq!(lang_filter_value("JavaScript"), "javascript");
+        assert_eq!(lang_filter_value("ts"), "typescript");
+        assert_eq!(lang_filter_value("py"), "python");
+        assert_eq!(lang_filter_value("python"), "python");
+        // An unknown value passes through unchanged.
+        assert_eq!(lang_filter_value("no-such-lang"), "no-such-lang");
+        // Every resolved name is one a code record can carry.
+        for name in registry().iter().map(|d| d.name) {
+            assert_eq!(canonical_language(name), Some(name));
+        }
+    }
+
+    /// #2483: a generated source file over the code cap is skipped with a
+    /// reason that names the cap and the fix, not "no records extracted".
+    #[test]
+    fn an_oversized_source_file_is_refused_with_the_cap_and_the_fix() {
+        let dir = tempfile::tempdir().unwrap();
+        let f = dir.path().join("Service.java");
+        let mut src = String::from("public final class Service {\n");
+        let mut i = 0;
+        while (src.len() as u64) <= CODE_CAP {
+            src.push_str(&format!("  public int getField{i}() {{ return {i}; }}\n"));
+            i += 1;
+        }
+        src.push_str("}\n");
+        std::fs::write(&f, &src).unwrap();
+        let sn = crate::sniff::sniff_with_name(&f, Path::new("Service.java")).unwrap();
+        let mut records = 0;
+        let stats = extract(&f, &sn, &mut |_| {
+            records += 1;
+            true
+        })
+        .unwrap();
+        assert_eq!(records, 0);
+        let reason = stats.refusal.expect("an oversized file names its refusal");
+        assert!(reason.contains("2 MiB code cap"), "{reason}");
+        assert!(reason.contains(".xerjignore"), "{reason}");
+
+        // Under the cap, the same shape is parsed and refuses nothing.
+        let small = dir.path().join("Small.java");
+        std::fs::write(&small, "public class Small {\n  int f() { return 1; }\n}\n").unwrap();
+        let sn = crate::sniff::sniff_with_name(&small, Path::new("Small.java")).unwrap();
+        let stats = extract(&small, &sn, &mut |_| true).unwrap();
+        assert!(stats.refusal.is_none());
+        assert!(stats.records > 0);
+    }
+
     fn syms(lang: &str, src: &str) -> Vec<Symbol> {
         let def = registry().iter().find(|d| d.name == lang).unwrap();
         parse_symbols(def, src).unwrap()
+    }
+
+    /// #2579's inline-export examples already match the existing const rule.
+    /// Exercise sniffing and emitted records too: an AST capture alone does
+    /// not prove that `def` has a per-symbol document to retrieve.
+    #[test]
+    fn issue_2579_exported_factory_constants() {
+        for (lang, ext) in [("typescript", "ts"), ("tsx", "tsx"), ("javascript", "js")] {
+            let generic = if lang == "javascript" {
+                ""
+            } else {
+                "<UserState>"
+            };
+            let src = format!(
+                "export const useUserStore = create{generic}()((set) => ({{ user: null }}));\n\
+                 export const userSlice = createSlice({{ name: 'user' }});\n\
+                 export const usePiniaStore = defineStore('user', {{}});\n\
+                 export const StyledButton = styled.button`color: red;`;\n"
+            );
+            let symbols = syms(lang, &src);
+            for (i, name) in ["useUserStore", "userSlice", "usePiniaStore", "StyledButton"]
+                .iter()
+                .enumerate()
+            {
+                let found: Vec<_> = symbols
+                    .iter()
+                    .filter(|s| s.name == *name && s.kind == "const")
+                    .collect();
+                assert_eq!(found.len(), 1, "{lang}: {name}: {symbols:?}");
+                assert_eq!(found[0].line, i + 1);
+                assert!(found[0].code.contains(name), "{lang}: {found:?}");
+            }
+            let dir = tempfile::tempdir().unwrap();
+            let file = dir.path().join(format!("store.{ext}"));
+            std::fs::write(&file, &src).unwrap();
+            let sniffed = crate::sniff::sniff_with_name(&file, &file).unwrap();
+            assert_eq!(sniffed.family, crate::sniff::Family::Code);
+            let mut records = Vec::new();
+            let stats = extract(&file, &sniffed, &mut |record| {
+                records.push(record);
+                true
+            })
+            .unwrap();
+            assert_eq!((stats.records, stats.junk), (5, 0), "{lang}");
+            assert_eq!(records.len(), 5, "{lang}");
+            for (i, name) in ["useUserStore", "userSlice", "usePiniaStore", "StyledButton"]
+                .iter()
+                .enumerate()
+            {
+                assert!(
+                    records[0].fields["defs"]
+                        .as_str()
+                        .unwrap()
+                        .lines()
+                        .any(|line| line == format!("const {name}")),
+                    "{lang}: {name}"
+                );
+                let found: Vec<_> = records
+                    .iter()
+                    .filter(|r| r.fields.get("name").and_then(Value::as_str) == Some(*name))
+                    .collect();
+                assert_eq!(found.len(), 1, "{lang}: {name}");
+                assert_eq!(found[0].fields["kind"], "const");
+                assert_eq!(found[0].fields["language"], lang);
+                assert_eq!(found[0].fields["line"], i + 1);
+                assert_eq!(found[0].locator, format!("code:{}:{name}", i + 1));
+            }
+        }
+    }
+
+    #[test]
+    fn issue_2579_factory_export_scope_controls() {
+        for lang in ["typescript", "tsx", "javascript"] {
+            let source = "\
+const privateStore = createStore({});
+const namedStore = createStore({});
+export { namedStore };
+const defaultStore = createStore({});
+export default defaultStore;
+const renamedStore = createStore({});
+export { renamedStore as publicStore };
+const remoteStore = createStore({});
+export { remoteStore } from './remote';
+export let mutableStore = createStore({});
+function outer() { const localStore = createStore({}); }
+";
+            let symbols = syms(lang, source);
+            for name in ["namedStore", "defaultStore", "renamedStore"] {
+                assert!(
+                    has(&symbols, name, "const"),
+                    "{lang}: missing {name}: {symbols:?}"
+                );
+            }
+            for name in [
+                "privateStore",
+                "remoteStore",
+                "publicStore",
+                "mutableStore",
+                "localStore",
+            ] {
+                assert!(!has(&symbols, name, "const"), "{lang}: {name}: {symbols:?}");
+            }
+            let mut stats = ExtractStats::default();
+            let mut records = Vec::new();
+            assert!(emit_code_doc(
+                Path::new("store.ts"),
+                lang,
+                source,
+                &symbols,
+                &mut stats,
+                &mut |record| {
+                    records.push(record);
+                    true
+                }
+            ));
+            for (name, line) in [("namedStore", 2), ("defaultStore", 4), ("renamedStore", 6)] {
+                let found: Vec<_> = records
+                    .iter()
+                    .filter(|r| r.fields.get("name").and_then(Value::as_str) == Some(name))
+                    .collect();
+                assert_eq!(found.len(), 1, "{lang}: {name}");
+                assert_eq!(found[0].locator, format!("code:{line}:{name}"));
+                assert_eq!(found[0].fields["line"], line);
+            }
+        }
+    }
+
+    #[test]
+    fn issue_2579_type_only_exports_do_not_publish_factory_values() {
+        for lang in ["typescript", "tsx"] {
+            let symbols = syms(
+                lang,
+                "\
+const typeOnly = createStore({});
+export type { typeOnly };
+const specTypeOnly = createStore({});
+export { type specTypeOnly };
+const valueStore = createStore({});
+export { type specTypeOnly as Alias, valueStore };
+",
+            );
+            assert!(has(&symbols, "valueStore", "const"), "{lang}: {symbols:?}");
+            for name in ["typeOnly", "specTypeOnly", "Alias"] {
+                assert!(!has(&symbols, name, "const"), "{lang}: {symbols:?}");
+            }
+        }
     }
     fn has(s: &[Symbol], name: &str, kind: &str) -> bool {
         s.iter().any(|s| s.name == name && s.kind == kind)
@@ -2783,6 +3403,10 @@ mod tests {
             "…and must still stop where the body begins (#500): {code:?}"
         );
         assert_eq!(m.fields["line"], 5);
+        // #2351: a `_source` include of start_line/end_line has to locate a
+        // symbol. `line` stays; start_line is the same line.
+        assert_eq!(m.fields["start_line"], m.fields["line"]);
+        assert!(m.fields["end_line"].as_u64().unwrap() >= 5);
 
         let c = sym("DEFAULT_MAX_CONN");
         assert_eq!(
@@ -2807,6 +3431,9 @@ mod tests {
             .unwrap_or_else(|| panic!("{:?}", file_doc.fields["symbols"]));
         assert_eq!(entry["line"], 5);
         assert_eq!(entry["end_line"], 9);
+        assert_eq!(entry["start_line"], entry["line"]);
+        assert_eq!(file_doc.fields["start_line"], 1);
+        assert!(file_doc.fields["end_line"].as_u64().unwrap() >= 1);
     }
 
     /// The declaration slice is shape-based, not per-language, so the shapes
@@ -2924,6 +3551,7 @@ mod tests {
             ("sc", "scala"),
             ("dart", "dart"),
             ("lua", "lua"),
+            ("luau", "lua"),
             ("pl", "perl"),
             ("pm", "perl"),
             ("r", "r"),
@@ -2968,9 +3596,12 @@ mod tests {
         }
         // Deliberately NOT claimed, each for a stated reason: fixed-form
         // Fortran would mis-parse under the free-form grammar; nim/crystal
-        // have no usable published grammar; sql routing is deferred; `.sls`
-        // is an R6RS library but also a SaltStack state file (YAML), and a
-        // single-claimant extension is never content-probed; `.edn` is data.
+        // have no usable published grammar; `.sql` is indexed as code by
+        // the DDL scanner in `sqlsrc` only after the dump sniff (#2337) —
+        // a registry row would claim INSERT/COPY dumps before that sniff;
+        // `.sls` is an R6RS library but also a SaltStack state file (YAML),
+        // and a single-claimant extension is never content-probed; `.edn`
+        // is data.
         for ext in ["f", "nim", "cr", "sql", "sls", "edn"] {
             assert!(!is_code_ext(ext), "{ext} must stay unclaimed (see #295)");
         }
@@ -3939,7 +4570,9 @@ mod tests {
              mixin Musical { void play() {} }\n\
              enum Suit { hearts, spades }\n\
              typedef Handler = void Function(int);\n\
-             int topLevel(int x) { return x; }\n",
+             int topLevel(int x) { return x; }\n\
+             extension Shout on String { String shout() => toUpperCase(); }\n\
+             extension type UserId(int value) { bool get isValid => value > 0; }\n",
         );
         assert!(has(&s, "Greeter", "class"), "got {s:?}");
         assert!(has(&s, "Musical", "mixin"), "got {s:?}");
@@ -3948,6 +4581,9 @@ mod tests {
         assert!(has(&s, "Handler", "type"), "got {s:?}");
         assert!(has(&s, "topLevel", "function"), "got {s:?}");
         assert!(has(&s, "greet", "function"), "got {s:?}");
+        assert!(has(&s, "Shout", "class"), "got {s:?}");
+        assert!(has(&s, "UserId", "class"), "got {s:?}");
+        assert!(has(&s, "shout", "function"), "got {s:?}");
     }
 
     #[test]
@@ -3967,6 +4603,26 @@ mod tests {
         assert!(has(&s, "helper", "function"), "got {s:?}");
         assert!(has(&s, "standalone", "function"), "got {s:?}");
         assert!(has(&s, "handler", "function"), "got {s:?}");
+    }
+
+    /// #2940: Roblox plugins are `.luau` — typed Lua. The file must be code to
+    /// the sniffer, and the declaration spellings a plugin uses must resolve
+    /// even where the grammar meets Luau-only type syntax.
+    #[test]
+    fn luau() {
+        assert!(is_code_ext("luau"), ".luau must be code");
+        let s = syms(
+            "lua",
+            "local function greet(name: string): string\n\
+             \x20 return `hello {name}`\n\
+             end\n\
+             function M.add(a: number, b: number): number return a + b end\n\
+             function M:reset() end\n\
+             return M\n",
+        );
+        assert!(has(&s, "greet", "function"), "got {s:?}");
+        assert!(has(&s, "add", "function"), "got {s:?}");
+        assert!(has(&s, "reset", "method"), "got {s:?}");
     }
 
     #[test]

@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "xerj": {
+      "command": "/workspace/engine/target/release/xerj",
+      "args": [
+        "mcp"
+      ],
+      "env": {
+        "XERJ_URL": "http://127.0.0.1:9217"
+      }
+    }
+  }
+}

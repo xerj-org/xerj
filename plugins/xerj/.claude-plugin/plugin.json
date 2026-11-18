@@ -1,0 +1,13 @@
+{
+  "name": "xerj",
+  "description": "XERJ: the search engine for AI agents. A new way for AI to search for data: one local Rust binary that indexes your code, docs, specs and logs, plus Corpus Hub packs, and returns cited answers.",
+  "author": {
+    "name": "xerj-org",
+    "email": "git@xerj.org",
+    "url": "https://xerj.org"
+  },
+  "homepage": "https://xerj.org/for-agents",
+  "repository": "https://github.com/xerj-org/xerj",
+  "license": "Apache-2.0",
+  "keywords": ["search", "code-search", "mcp", "rag", "agent-memory", "local-first"]
+}

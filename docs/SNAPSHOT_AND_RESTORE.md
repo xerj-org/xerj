@@ -53,6 +53,19 @@ to empty, which means only `data_dir` is permitted. This is checked when a
 snapshot is created or restored, not when the repository is registered, so a
 bad location is accepted by `PUT /_snapshot/{repo}` and only fails later.
 
+One more root is allowed for **restore only**: the Corpus Hub pack cache of the
+user the server runs as (`$XERJ_HUB_HOME/packs`, else `~/.xerj/hub/packs`),
+which is where `xerj hub pull` and `xerj ask` extract a verified, signed pack
+before asking the server to restore it. It is controlled by
+`limits.hub_pack_restore` (default `true`; `false` turns it off). The grant is
+narrower than an allowlist entry: a snapshot can never be *created* there, the
+directory must be a real directory (not a symlink) owned by the server's user,
+and the repository location is still canonicalized, so a symlink inside the
+cache that points elsewhere is refused. A server running as another user, in a
+container or on another machine does not share the cache; there, add the
+directory to `limits.snapshot_repo_allowlist` (the `xerj hub pull` error prints
+the exact line).
+
 If `settings.location` is absent the handler falls back to
 `/tmp/xerj-snapshots` (`es_compat.rs:23201`). That fallback is outside the
 default `data_dir` and will therefore be refused by the location check, so

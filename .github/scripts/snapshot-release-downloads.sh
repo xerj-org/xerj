@@ -108,7 +108,10 @@ fi
 mkdir -p "$(dirname "$OUT")"
 touch "$OUT"
 # Idempotent: drop any existing line for today, then append the fresh one.
-jq -c --arg date "$DAY" 'select(.date != $date)' "$OUT" > "$WORK/out.jsonl" || true
+if ! jq -c --arg date "$DAY" 'select(.date != $date)' "$OUT" > "$WORK/out.jsonl"; then
+  echo "invalid snapshot history: $OUT; original contents retained; repair the JSONL and rerun" >&2
+  exit 1
+fi
 printf '%s\n' "$snapshot" >> "$WORK/out.jsonl"
 mv "$WORK/out.jsonl" "$OUT"
 

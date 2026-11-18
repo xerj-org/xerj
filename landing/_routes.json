@@ -4,7 +4,8 @@
     "/get",
     "/get.ps1",
     "/lead",
-    "/get.sh"
+    "/get.sh",
+    "/api/field-report"
   ],
   "exclude": []
 }

@@ -34,8 +34,8 @@ def sh(cmd, cwd=None, timeout=None, env=None):
 
 
 def clone_at(repo, base_commit, dest):
-    sh(["git", "clone", "--quiet", f"https://github.com/{repo}", dest])
-    sh(["git", "checkout", "--quiet", base_commit], cwd=dest)
+    sh(["git", "clone", "--quiet", f"https://github.com/{repo}", dest]).check_returncode()
+    sh(["git", "checkout", "--quiet", base_commit], cwd=dest).check_returncode()
 
 
 def retrieve_context(repo_dir, instance_id, problem, k=6, chars=8000):
@@ -58,6 +58,8 @@ def retrieve_context(repo_dir, instance_id, problem, k=6, chars=8000):
 
 
 def run_agent(repo_dir, problem, ref_block, timeout, max_turns):
+    base = sh(["git", "rev-parse", "HEAD"], cwd=repo_dir)
+    base.check_returncode()
     ref = ""
     if ref_block:
         ref = ("\n\nXERJ retrieved these passages from THIS repository — the code you "
@@ -83,8 +85,12 @@ def run_agent(repo_dir, problem, ref_block, timeout, max_turns):
         model = list(d.get("modelUsage", {}).keys())
     except Exception:
         pass
-    diff = sh(["git", "diff"], cwd=repo_dir).stdout
-    return diff, usage, model, el
+    # This is a disposable task clone. Include new files without ignoring
+    # staged edits or commits the agent made relative to the pinned base.
+    sh(["git", "add", "--intent-to-add", "--all"], cwd=repo_dir).check_returncode()
+    diff = sh(["git", "diff", "--binary", base.stdout.strip()], cwd=repo_dir)
+    diff.check_returncode()
+    return diff.stdout, usage, model, el
 
 
 def main():

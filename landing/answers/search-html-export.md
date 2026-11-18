@@ -8,6 +8,10 @@ source: "content/answers/search-html-export.md"
 
 # I saved a help-center as HTML. How do I search it like the real help-center search?
 
+**Short answer** (updated 2026-08-21): I saved a bunch of docs pages as HTML; how do I search that? Run xerj autoindex on the export folder. In our 3-page capture XERJ extracted a title and a headings array from each page, one match query on body returned 3 hits, and a network watch observed 0 non-loopback peers during the whole run.
+
+**Key number:** The captured 3-page HTML export returned 3 hits for one `match` on `body`, with 0 non-loopback network peers. (as of 2026-08-21; source: the captured run documented on this page)
+
 **TL;DR** — XERJ `autoindex` indexes a static HTML export straight from local disk. In our 3-page capture XERJ extracted a `title` and a `headings` array from each page, and one `match` query on `body` returned 3 hits. A network watch observed 0 non-loopback peers during the run.
 
 ## Agent prompt
@@ -112,3 +116,6 @@ No. The capture is a sampler at a 0.05 second interval, so a connection opening 
 - [How do I search a Confluence export?](/answers/search-confluence-html-export)
 - [Can ChatGPT search a folder on my laptop, or do I need something else?](/answers/give-chatgpt-claude-local-file-access)
 - [Pagefind vs indexing a local HTML dump for an agent?](/compare/xerj-vs-pagefind)
+- [Why does my Notion export duplicate titles?](/answers/notion-export-duplicate-search-results) (same intent: logs and docs)
+- [I downloaded a bunch of papers as PDFs. How do I search across them?](/answers/search-all-pdfs-in-a-folder) (same intent: logs and docs)
+- [What's a free DocFetcher alternative that an agent can call?](/compare/xerj-vs-docfetcher) (same intent: logs and docs)

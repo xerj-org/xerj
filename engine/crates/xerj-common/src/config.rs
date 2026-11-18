@@ -1,6 +1,6 @@
 //! xerj configuration system.
 //!
-//! Configuration is intentionally minimal: **134 settings** versus
+//! Configuration is intentionally minimal: **139 settings** versus
 //! Elasticsearch's 3000+. Every option is named, documented, and has a sensible
 //! production-ready default. The format is TOML, loaded from a single file.
 //!
@@ -79,7 +79,7 @@ pub struct Config {
     pub limits: LimitsConfig,
     /// High-throughput turbo indexing — 3 settings.
     pub indexing: IndexingConfig,
-    /// Engine parallelism — 4 settings.
+    /// Engine parallelism and flush deadlines — 6 settings.
     pub engine: EngineConfig,
     /// Cluster / Raft settings — 5 settings.
     pub cluster: ClusterConfig,
@@ -96,7 +96,7 @@ pub struct Config {
     /// Single-node WAL tap: push a filtered index subset to an external
     /// ES-compatible target — 10 settings. Off by default.
     pub wal_tap: WalTapConfig,
-    /// Second-stage reranking provider — 3 settings. Inert until a key is set.
+    /// Second-stage reranking providers — 5 settings. Inert until a key is set.
     pub rerank: RerankProviderConfig,
     /// Typed decisions answered from a labelled-history index by
     /// nearest-neighbour vote — 9 settings. Inert until `decisions.index`
@@ -108,7 +108,7 @@ pub struct Config {
     pub hub: HubConfig,
 }
 
-// 24 sub-configs, 134 leaf settings in total. Do not maintain that sum by hand
+// 24 sub-configs, 139 leaf settings in total. Do not maintain that sum by hand
 // — `journey_zero_config` in xerj-engine/tests/product_experience.rs counts a
 // serialised `Config::default()` and fails if this comment and the module
 // header stop matching. `Default` is derived: every field is a sub-config that
@@ -236,6 +236,11 @@ impl Config {
         // Rerank: the endpoint is where document text gets POSTed, and it is
         // echoed by `GET /_xerj/rerank`. Same two rules as the WAL tap target.
         if let Err(reason) = RerankProviderConfig::check_endpoint(&self.rerank.endpoint) {
+            return Err(XerjError::config(reason));
+        }
+        if let Err(reason) =
+            CohereRerankConfig::check_resolved_endpoint(&self.rerank.cohere.endpoint, None)
+        {
             return Err(XerjError::config(reason));
         }
 
@@ -563,7 +568,7 @@ impl Config {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-// Sub-configs  (134 user-facing settings total; counted by
+// Sub-configs  (139 user-facing settings total; counted by
 // `journey_zero_config`, not by hand)
 // ═════════════════════════════════════════════════════════════════════════════
 
@@ -699,7 +704,7 @@ pub struct CompatConfig {
 /// Authentication settings.
 ///
 /// **3 settings.**
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct AuthConfig {
     /// Enable API-key authentication (default: `true`).
@@ -712,6 +717,7 @@ pub struct AuthConfig {
     ///
     /// Leave empty in production; the engine writes the generated key to
     /// `<data_dir>/admin.key` on startup.
+    #[serde(serialize_with = "serialize_redacted_secret")]
     pub admin_api_key: String,
     /// Optional read-only metrics scrape token (default: `""` — disabled).
     ///
@@ -722,7 +728,40 @@ pub struct AuthConfig {
     /// that can read metrics but cannot touch index data. The admin key still
     /// works for `/v1/metrics`; when this is empty, metrics require the admin
     /// key like any other endpoint (unchanged behavior).
+    #[serde(serialize_with = "serialize_redacted_secret")]
     pub metrics_token: String,
+}
+
+/// A credential field is safe to display only when it is unset; otherwise the
+/// value is replaced, never shortened or partially shown.
+fn redacted_secret(value: &str) -> &'static str {
+    if value.is_empty() {
+        "<unset>"
+    } else {
+        "<redacted>"
+    }
+}
+
+/// Serialized configurations are used for diagnostics, not as a secret store.
+/// Keep the field present so the config shape stays stable, but never emit the
+/// credential itself.
+fn serialize_redacted_secret<S>(value: &str, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    serializer.serialize_str(if value.is_empty() { "" } else { "<redacted>" })
+}
+
+/// Hand-written so `{:?}` on `AuthConfig` or the parent `Config` cannot print a
+/// usable admin key or metrics token.
+impl std::fmt::Debug for AuthConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AuthConfig")
+            .field("enabled", &self.enabled)
+            .field("admin_api_key", &redacted_secret(&self.admin_api_key))
+            .field("metrics_token", &redacted_secret(&self.metrics_token))
+            .finish()
+    }
 }
 
 impl Default for AuthConfig {
@@ -1547,6 +1586,22 @@ impl LogsConfig {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// One measured neural-ingest sample. Advisory: it is not configuration,
+/// it is not serialized, and it is not part of the embedding identity.
+///
+/// Recorded once after the neural model loads. Autoindex turns it into a
+/// time estimate (`corpus bytes / (probe bytes / probe seconds)`). A missing
+/// probe means "not measured" — callers must not invent a rate.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct NeuralIngestProbe {
+    /// UTF-8 bytes of the timed passages.
+    pub bytes: u64,
+    /// Passages in the timed call.
+    pub passages: u32,
+    /// Wall time of that call, in milliseconds. Zero is not a measurement.
+    pub millis: u64,
+}
+
 /// Embedding backend settings.
 ///
 /// XERJ can embed `semantic_text` fields four ways, chosen by
@@ -1556,14 +1611,23 @@ impl LogsConfig {
 ///     default: lexical, *not* neural semantic understanding.
 ///   * `"neural"` — a built-in BERT sentence embedder (all-MiniLM-L6-v2 by
 ///     default) that runs in-process via `candle`. The model weights are
-///     downloaded once on first use (or read from
+///     downloaded and loaded at startup (or read from
 ///     [`local_model_dir`](Self::local_model_dir) for
-///     air-gapped deployments). The neural backend ships in the standard
-///     binary; a `--no-default-features` slim build omits it and falls back
-///     to lexical.
-///   * `"proxy"` — call an external OpenAI-compatible `/v1/embeddings`
+///     air-gapped deployments; `HF_ENDPOINT` selects a Hub mirror). If that
+///     load fails, the process refuses to start (#1840) instead of accepting
+///     traffic and failing every ingest. It does not substitute the lexical
+///     embedder: those vectors are not comparable with neural vectors, the
+///     same fail-closed rule as explicit `"proxy"` (#1189). The neural
+///     backend ships in the standard binary; a `--no-default-features` slim
+///     build omits it and falls back to lexical, and identity reports lexical.
+///   * `"proxy"` — call an external OpenAI-compatible embeddings
 ///     endpoint ([`default_endpoint`](Self::default_endpoint)). Lets
-///     customers plug in ANY embedding model / provider they already run. An explicit `mode = "proxy"` with a
+///     customers plug in ANY embedding model / provider they already run.
+///     The configured value may be a base URL ending in `/v1` (trailing
+///     slash optional) or a bare host — `/embeddings` is appended — or the
+///     full path ending in `/embeddings`, which is used unchanged. Any other
+///     path is a startup ERROR that names the URL and the
+///     `{origin}/v1/embeddings` path to set. An explicit `mode = "proxy"` with a
 ///     missing or unusable endpoint is a startup ERROR (#1189): silently
 ///     running lexical instead would write the wrong vectors into the index
 ///     while every embedding request appears to succeed.
@@ -1587,7 +1651,21 @@ pub struct EmbeddingConfig {
     /// `"proxy"`, or `"onnx-experimental"`. Unknown values are treated as
     /// `"auto"`.
     pub mode: String,
-    /// OpenAI-compatible endpoint URL (default: `""` — disabled).
+    /// OpenAI-compatible embeddings URL (default: `""` — disabled).
+    ///
+    /// Accepted forms, trailing slash optional (#2355):
+    /// * a base whose path ends in `/v1` — `/embeddings` is appended
+    ///   (`http://localhost:8000/v1` becomes
+    ///   `http://localhost:8000/v1/embeddings`)
+    /// * a bare origin (`http://host:port` or with only `/`) — `/embeddings`
+    ///   is appended
+    /// * a path that already ends in `/embeddings` — used as given
+    ///
+    /// Any other path refuses to start when [`mode`](Self::mode) is
+    /// `"proxy"` and names this URL plus `{origin}/v1/embeddings`. The value
+    /// stored here is also the proxy half of the embedder identity, so
+    /// changing it after a corpus is indexed is a different embedder even
+    /// when the resolved request URL would be the same.
     pub default_endpoint: String,
     /// Model name to request from the endpoint (default: `""`).
     pub default_model: String,
@@ -1651,6 +1729,32 @@ pub struct EmbeddingConfig {
     #[serde(skip)]
     pub runtime_onnx_assets:
         std::sync::Arc<std::sync::OnceLock<Result<EmbeddingAssetSnapshot, String>>>,
+    /// Vector width last confirmed for this proxy endpoint and model (#2306).
+    ///
+    /// Filled by the engine, not by configuration. Cloned configs share the
+    /// cell. Empty until a probe (or the on-disk fallback) succeeds; identity
+    /// reporting then treats the proxy as resumable and publishes the width.
+    /// Serde skips it: it is not a setting and must not round-trip through a
+    /// config file.
+    #[serde(skip)]
+    pub runtime_proxy_width: std::sync::Arc<std::sync::RwLock<Option<ConfirmedProxyWidth>>>,
+    /// Neural ingest probe, shared by cloned configs (the server preloads
+    /// from a clone). `None` inside the cell means the probe ran and did not
+    /// produce a rate; an empty cell means it has not run. Not a setting.
+    #[serde(skip)]
+    pub neural_ingest_probe: std::sync::Arc<std::sync::OnceLock<Option<NeuralIngestProbe>>>,
+}
+
+/// Vector width a proxy embedder confirmed for one endpoint and model.
+///
+/// The digest of a proxy identity stays the configured model and endpoint
+/// (#533). This width is the other half of that identity: autoindex compares
+/// it on resume and refuses to mix a different width into an existing corpus.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ConfirmedProxyWidth {
+    pub endpoint: String,
+    pub model: String,
+    pub dimensions: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -1685,6 +1789,8 @@ impl Default for EmbeddingConfig {
             onnx_max_input_bytes_per_call: 8 * 1024 * 1024,
             onnx_max_inflight_input_bytes: 32 * 1024 * 1024,
             runtime_onnx_assets: std::sync::Arc::new(std::sync::OnceLock::new()),
+            runtime_proxy_width: std::sync::Arc::new(std::sync::RwLock::new(None)),
+            neural_ingest_probe: std::sync::Arc::new(std::sync::OnceLock::new()),
         }
     }
 }
@@ -1692,9 +1798,10 @@ impl Default for EmbeddingConfig {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Sentinel value of [`LimitsConfig::max_process_memory_mb`] meaning **AUTO**:
-/// pick the process-memory cap from the machine size in binary-GiB steps
-/// (8 / 16 / 32 GiB) rather than a flat number. It is the serde default, so an
-/// omitted field resolves to AUTO; the governor intercepts it before any budget
+/// pick the process-memory cap from the machine size (half of RAM under
+/// 16 GiB, then 8 / 16 / 32 GiB) rather than a flat number. It is the serde
+/// default, so an omitted field resolves to AUTO; the governor intercepts it
+/// before any budget
 /// math, so this literal never reaches a budget as a byte count. `u64::MAX` is
 /// used because no operator sets a 16-EiB cap — it is a reserved, unmistakable
 /// "not a real MiB value" marker, distinct from `0` (uncapped, the whole
@@ -1703,7 +1810,7 @@ pub const AUTO_PROCESS_MEMORY_MB: u64 = u64::MAX;
 
 /// Resource limits.
 ///
-/// **14 settings.**
+/// **15 settings.**
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct LimitsConfig {
@@ -1733,6 +1840,22 @@ pub struct LimitsConfig {
     /// path inside `data_dir` or inside one of these bases.
     #[serde(default)]
     pub snapshot_repo_allowlist: Vec<String>,
+    /// Let a snapshot **restore** (never a create) read from the Corpus Hub pack
+    /// cache of the user the server runs as — `$XERJ_HUB_HOME/packs`, else
+    /// `~/.xerj/hub/packs` (`xerj_common::hub::hub_packs_dir`) — without listing
+    /// it in `snapshot_repo_allowlist` (default: `true`).
+    ///
+    /// `xerj hub pull` / `xerj ask` download a signed pack, verify it, extract it
+    /// under that directory and ask the server to restore it. Before this, only
+    /// the node XERJ starts for itself allowlisted the directory, so a server the
+    /// user started by hand refused every pull. The grant is deliberately
+    /// narrower than an allowlist entry: restore only (a client cannot write a
+    /// snapshot into the user's home), honoured only while the directory is a
+    /// real directory — not a symlink — owned by the server's own user, and the
+    /// repo location is still canonicalized, so a symlink inside the cache that
+    /// points elsewhere is refused. Set `false` to allow `data_dir` and the
+    /// allowlist only.
+    pub hub_pack_restore: bool,
     /// Maximum HTTP request body size in bytes (default: `100 * 1024 * 1024`,
     /// i.e. 100 MiB). Caps NDJSON bulk payloads, large mget bodies, etc.
     /// Raise this only if your client routinely sends bigger requests; the
@@ -1802,17 +1925,29 @@ pub struct LimitsConfig {
     /// Ceiling on the machine size every other memory budget is derived FROM,
     /// in MiB. **Omitted / default = AUTO** ([`AUTO_PROCESS_MEMORY_MB`]): XERJ
     /// picks the cap from the effective (cgroup-aware) memory it can actually
-    /// see, in binary-GiB steps —
+    /// see —
     ///
-    ///   effective < 64 GiB             → 8 GiB cap
+    ///   effective < 16 GiB             → half of that RAM
+    ///   16 GiB ≤ effective < 64 GiB    → 8 GiB cap
     ///   64 GiB ≤ effective < 128 GiB   → 16 GiB cap
     ///   effective ≥ 128 GiB            → 32 GiB cap
     ///
     /// so a laptop is never sized for ~20 GiB of memtables and a big server is
-    /// no longer starved by a flat 8 GiB. Every budget in `ResourceGovernor`
+    /// no longer starved by a flat 8 GiB. A host under 16 GiB used to take the
+    /// 8 GiB step and then the machine, so an 8 GiB box's budget was all of
+    /// its RAM; half of RAM leaves room for the OS during a merge (#1122).
+    /// At 16 GiB the half-RAM step and the 8 GiB step are the same number.
+    /// Every budget in `ResourceGovernor`
     /// derives from `effective_memory_limit_bytes()` = min(cgroup limit, total
     /// system RAM); capping that ONE base is what makes every dependent budget
     /// shrink coherently instead of each growing its own ceiling.
+    ///
+    /// On Windows that base is then lowered to what this process can still
+    /// commit (`GlobalMemoryStatusEx` commit limit and available commit, minus
+    /// a reserve). Physical RAM alone is not a commit budget: with no pagefile
+    /// the commit limit is about RAM, and other processes' commit charge is
+    /// already spent, so an allocation aborts the process while RSS is still
+    /// under the physical-RAM tier (#1122). Linux and macOS are unchanged.
     ///
     /// The cap only ever LOWERS the base — `min(machine, cap)`, never invented
     /// headroom: on a 40 GiB box the 8 GiB tier still yields 8, and under a
@@ -1838,6 +1973,7 @@ impl Default for LimitsConfig {
             max_fields_per_index: 500,
             max_actions_per_bulk: 50_000,
             snapshot_repo_allowlist: Vec::new(),
+            hub_pack_restore: true,
             max_body_bytes: 100 * 1024 * 1024,
             max_result_window: 10_000,
             max_mget_docs: 10_000,
@@ -1846,7 +1982,7 @@ impl Default for LimitsConfig {
             max_segment_hydration_cache_mb: 0, // 0 = 20% effective memory, no floor
             memory_watermark_percent: 95,
             disk_flood_stage_percent: 95,
-            // AUTO: tier the cap (8/16/32 GiB) off the machine at governor
+            // AUTO: half of RAM under 16 GiB, then 8/16/32 GiB, at governor
             // build time. 0 = uncapped (whole machine); N = a fixed MiB cap.
             max_process_memory_mb: AUTO_PROCESS_MEMORY_MB,
         }
@@ -1936,13 +2072,15 @@ impl IndexingConfig {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Engine parallelism settings for vertical scaling.
+/// Engine parallelism and flush-deadline settings.
 ///
 /// Controls how many independent ingest/flush/search pipelines run in
-/// parallel.  The default is tuned for the host's core count.  Increase
-/// `ingest_shards` on high-core-count machines for linear throughput scaling.
+/// parallel, and how long a flush may wait before it fails instead of
+/// parking a refresh forever.  The worker defaults are tuned for the host's
+/// core count.  Increase `ingest_shards` on high-core-count machines for
+/// linear throughput scaling.
 ///
-/// **4 settings.**
+/// **6 settings.**
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct EngineConfig {
@@ -1967,6 +2105,25 @@ pub struct EngineConfig {
     /// (default: every core).  Search is the path a user waits on, so it gets
     /// the whole machine unless you deliberately hold cores back.
     pub search_workers: usize,
+    /// How long a shard flush waits for a flush-admission permit — the
+    /// per-index `flush_sema` or the process-global finalize gate — before
+    /// failing (default: [`Self::DEFAULT_FLUSH_ADMIT_TIMEOUT_SECS`]).
+    ///
+    /// The wait is before the memtable freeze, so a timeout drops no
+    /// documents and the flush can be retried. A healthy finalize is well
+    /// under a second; this bound exists so a permit held by a wedged
+    /// finalize cannot park every later flush (#1635).
+    /// `XERJ_FLUSH_ADMIT_TIMEOUT_SECS` overrides it for one run.
+    pub flush_admit_timeout_secs: u64,
+    /// How long `flush` / `refresh` waits for one index's flush before
+    /// returning an error that names the index (default:
+    /// [`Self::DEFAULT_FLUSH_TIMEOUT_SECS`]).
+    ///
+    /// Must be at least [`Self::flush_admit_timeout_secs`]. A publication
+    /// that has already frozen the memtable is not cancelled; the caller
+    /// stops waiting and can retry. `XERJ_FLUSH_TIMEOUT_SECS` overrides it
+    /// for one run.
+    pub flush_timeout_secs: u64,
 }
 
 impl Default for EngineConfig {
@@ -1978,11 +2135,23 @@ impl Default for EngineConfig {
             flush_workers: threads_for(Workload::Maintenance),
             merge_workers: threads_for(Workload::Maintenance),
             search_workers: threads_for(Workload::Latency),
+            flush_admit_timeout_secs: Self::DEFAULT_FLUSH_ADMIT_TIMEOUT_SECS,
+            flush_timeout_secs: Self::DEFAULT_FLUSH_TIMEOUT_SECS,
         }
     }
 }
 
 impl EngineConfig {
+    /// How long a flush may wait for admission before failing, in seconds.
+    /// See [`Self::flush_admit_timeout_secs`].
+    pub const DEFAULT_FLUSH_ADMIT_TIMEOUT_SECS: u64 = 120;
+    /// How long a caller waits for one index's flush, in seconds.
+    /// See [`Self::flush_timeout_secs`].
+    pub const DEFAULT_FLUSH_TIMEOUT_SECS: u64 = 300;
+    /// Upper bound on either flush deadline. Past a day the value is a typo,
+    /// and an unbounded wait is the hang #1635 exists to end.
+    pub const MAX_FLUSH_TIMEOUT_SECS: u64 = 86_400;
+
     /// Upper bound on any of the worker knobs. Threads are not free: past this
     /// the request is far more likely to be a typo than an intention, and a
     /// silently clamped typo is the bug class in #204.
@@ -2015,6 +2184,30 @@ impl EngineConfig {
                     Self::MAX_WORKERS
                 )));
             }
+        }
+        // A zero deadline would fail every flush; a missing deadline is the
+        // #1635 hang. Refuse both rather than clamping.
+        if !(1..=Self::MAX_FLUSH_TIMEOUT_SECS).contains(&self.flush_admit_timeout_secs) {
+            return Err(crate::XerjError::config(format!(
+                "engine.flush_admit_timeout_secs must be from 1 to {} seconds, got {}",
+                Self::MAX_FLUSH_TIMEOUT_SECS,
+                self.flush_admit_timeout_secs
+            )));
+        }
+        if !(1..=Self::MAX_FLUSH_TIMEOUT_SECS).contains(&self.flush_timeout_secs) {
+            return Err(crate::XerjError::config(format!(
+                "engine.flush_timeout_secs must be from 1 to {} seconds, got {}",
+                Self::MAX_FLUSH_TIMEOUT_SECS,
+                self.flush_timeout_secs
+            )));
+        }
+        if self.flush_timeout_secs < self.flush_admit_timeout_secs {
+            return Err(crate::XerjError::config(format!(
+                "engine.flush_timeout_secs ({}) must be at least \
+                 engine.flush_admit_timeout_secs ({}) so a flush can finish \
+                 waiting for admission",
+                self.flush_timeout_secs, self.flush_admit_timeout_secs
+            )));
         }
         Ok(())
     }
@@ -2581,6 +2774,10 @@ pub struct RerankProviderConfig {
     /// `https://api.typesafe.ai/v1/systemone`). Must be an absolute
     /// `http(s)://` URL without credentials in it.
     pub endpoint: String,
+    /// The Cohere Rerank provider (`rerank.provider = "cohere"` in a search).
+    /// Off until a key is set here or in `COHERE_API_KEY`. `enabled` above
+    /// governs it too: `false` forbids every provider.
+    pub cohere: CohereRerankConfig,
 }
 
 impl Default for RerankProviderConfig {
@@ -2589,6 +2786,65 @@ impl Default for RerankProviderConfig {
             enabled: true,
             api_key: String::new(),
             endpoint: String::new(),
+            cohere: CohereRerankConfig::default(),
+        }
+    }
+}
+
+/// `[rerank.cohere]`: key and endpoint for Cohere's `/v2/rerank`.
+///
+/// Same rules as the TypeSafe pair above: an explicit value here beats the
+/// environment (`COHERE_API_KEY`, `COHERE_ENDPOINT`), the key is never echoed,
+/// and the endpoint must be an absolute `http(s)://` URL with no credentials
+/// in it. Point `endpoint` at a private Cohere deployment to keep document
+/// text inside your perimeter; the default is Cohere's public API.
+#[derive(Clone, Default, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct CohereRerankConfig {
+    /// Cohere API key (default: empty → `COHERE_API_KEY`).
+    pub api_key: String,
+    /// Rerank endpoint (default: empty → `COHERE_ENDPOINT`, then
+    /// `https://api.cohere.com/v2/rerank`).
+    pub endpoint: String,
+}
+
+/// Hand-written so `{:?}` never prints the key.
+impl std::fmt::Debug for CohereRerankConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CohereRerankConfig")
+            .field(
+                "api_key",
+                &if self.api_key.trim().is_empty() {
+                    "<unset>"
+                } else {
+                    "<redacted>"
+                },
+            )
+            .field("endpoint", &redact_url_userinfo(&self.endpoint))
+            .finish()
+    }
+}
+
+impl CohereRerankConfig {
+    /// Environment fallback for the endpoint. Mirrors
+    /// `xerj_rerank::CohereProvider::ENV_ENDPOINT` (pinned by a test in
+    /// `xerj-api`, which links both crates).
+    pub const ENV_ENDPOINT: &'static str = "COHERE_ENDPOINT";
+
+    /// The endpoint the node will use (config field, else environment),
+    /// checked by [`RerankProviderConfig::check_endpoint`]. Pure.
+    pub fn check_resolved_endpoint(
+        config_endpoint: &str,
+        env_endpoint: Option<&str>,
+    ) -> Result<(), String> {
+        if !config_endpoint.trim().is_empty() {
+            return RerankProviderConfig::check_endpoint(config_endpoint)
+                .map_err(|r| format!("rerank.cohere.endpoint: {r}"));
+        }
+        match env_endpoint {
+            Some(v) if !v.trim().is_empty() => RerankProviderConfig::check_endpoint(v)
+                .map_err(|reason| format!("{}: {reason}", Self::ENV_ENDPOINT)),
+            _ => Ok(()),
         }
     }
 }
@@ -2607,6 +2863,7 @@ impl std::fmt::Debug for RerankProviderConfig {
                 },
             )
             .field("endpoint", &redact_url_userinfo(&self.endpoint))
+            .field("cohere", &self.cohere)
             .finish()
     }
 }
@@ -2642,7 +2899,9 @@ impl RerankProviderConfig {
     /// config tests do not depend on the developer's shell.
     pub fn check_environment(&self) -> Result<(), String> {
         let env = std::env::var(Self::ENV_ENDPOINT).ok();
-        Self::check_resolved_endpoint(&self.endpoint, env.as_deref())
+        Self::check_resolved_endpoint(&self.endpoint, env.as_deref())?;
+        let cohere_env = std::env::var(CohereRerankConfig::ENV_ENDPOINT).ok();
+        CohereRerankConfig::check_resolved_endpoint(&self.cohere.endpoint, cohere_env.as_deref())
     }
 
     /// An absolute `http(s)://` URL with no userinfo, or empty.
@@ -2797,6 +3056,106 @@ mod tests {
         assert!(RerankProviderConfig::check_resolved_endpoint(bad, Some(good)).is_err());
     }
 
+    /// `[rerank.cohere]` follows the same endpoint rules, names its own
+    /// variable in the refusal, and is rejected at load from the file too.
+    #[test]
+    fn cohere_rerank_endpoint_is_checked_from_file_and_environment() {
+        let bad = "https://user:pw@api.cohere.com/v2/rerank";
+        let good = "https://api.cohere.com/v2/rerank";
+        let err = CohereRerankConfig::check_resolved_endpoint("", Some(bad)).unwrap_err();
+        assert!(err.starts_with("COHERE_ENDPOINT: "), "{err}");
+        assert!(CohereRerankConfig::check_resolved_endpoint("", Some(good)).is_ok());
+        assert!(CohereRerankConfig::check_resolved_endpoint("", None).is_ok());
+        let err = CohereRerankConfig::check_resolved_endpoint(bad, None).unwrap_err();
+        assert!(err.starts_with("rerank.cohere.endpoint: "), "{err}");
+        assert!(CohereRerankConfig::check_resolved_endpoint(good, Some(bad)).is_ok());
+        let mut cfg = Config::default();
+        cfg.rerank.cohere.endpoint = "ftp://cohere".into();
+        assert!(cfg.validate().is_err());
+    }
+
+    /// `AuthConfig` holds the admin key and the metrics scrape token. Neither
+    /// may appear in `Debug` or in a serialized config: both are routinely
+    /// logged or emitted by diagnostics, and a leaked admin key bypasses every
+    /// other access check.
+    #[test]
+    fn auth_secrets_never_reach_debug_or_json_output() {
+        let auth = AuthConfig {
+            admin_api_key: "admin-secret-3057".into(),
+            metrics_token: "metrics-secret-3057".into(),
+            ..Default::default()
+        };
+
+        let debug = format!("{auth:?}");
+        assert!(!debug.contains("admin-secret-3057"), "{debug}");
+        assert!(!debug.contains("metrics-secret-3057"), "{debug}");
+        assert!(debug.contains("<redacted>"), "{debug}");
+
+        let auth_json = serde_json::to_string(&auth).expect("AuthConfig serialises");
+        assert!(!auth_json.contains("admin-secret-3057"), "{auth_json}");
+        assert!(!auth_json.contains("metrics-secret-3057"), "{auth_json}");
+
+        let config = Config {
+            auth: auth.clone(),
+            ..Default::default()
+        };
+        let config_debug = format!("{config:?}");
+        assert!(
+            !config_debug.contains("admin-secret-3057"),
+            "{config_debug}"
+        );
+        assert!(
+            !config_debug.contains("metrics-secret-3057"),
+            "{config_debug}"
+        );
+
+        let config_json = serde_json::to_string(&config).expect("Config serialises");
+        assert!(!config_json.contains("admin-secret-3057"), "{config_json}");
+        assert!(
+            !config_json.contains("metrics-secret-3057"),
+            "{config_json}"
+        );
+
+        // Redaction must not stop a real config from being loaded.
+        let loaded: AuthConfig = toml::from_str(
+            "admin_api_key = \"admin-secret-3057\"\nmetrics_token = \"metrics-secret-3057\"\n",
+        )
+        .expect("real secrets still deserialize");
+        assert_eq!(loaded.admin_api_key, "admin-secret-3057");
+        assert_eq!(loaded.metrics_token, "metrics-secret-3057");
+    }
+
+    /// `{:?}` on the whole rerank block never prints either provider's key.
+    #[test]
+    fn cohere_rerank_key_never_reaches_debug_output() {
+        let r = RerankProviderConfig {
+            api_key: "ts-secret-1".into(),
+            cohere: CohereRerankConfig {
+                api_key: "co-secret-2".into(),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let shown = format!("{r:?}");
+        assert!(!shown.contains("ts-secret-1"), "{shown}");
+        assert!(!shown.contains("co-secret-2"), "{shown}");
+        assert!(shown.contains("<redacted>"), "{shown}");
+    }
+
+    /// `[rerank.cohere]` parses from TOML, and an unknown key under it is a
+    /// load error rather than a silently ignored typo.
+    #[test]
+    fn cohere_rerank_block_parses_and_refuses_unknown_keys() {
+        let ok: RerankProviderConfig =
+            toml::from_str("[cohere]\napi_key = \"k\"\nendpoint = \"https://h/v2/rerank\"\n")
+                .unwrap();
+        assert_eq!(ok.cohere.api_key, "k");
+        assert_eq!(ok.cohere.endpoint, "https://h/v2/rerank");
+        assert!(ok.enabled);
+        let bad: Result<RerankProviderConfig, _> = toml::from_str("[cohere]\napi_kye = \"k\"\n");
+        assert!(bad.is_err());
+    }
+
     /// `[hub]` is closed and fail-closed: a typo is a boot error, the
     /// defaults leave every route behind the API key, and a public node with
     /// no catalogue is refused rather than left answering 404 to everything.
@@ -2947,6 +3306,30 @@ mod tests {
         let cfg = Config::from_toml_str("[embedding]\ntimeout_ms = 900\n")
             .expect("a sub-second timeout is a valid timeout");
         assert_eq!(cfg.embedding.timeout_ms, 900);
+    }
+
+    #[test]
+    fn flush_deadlines_must_be_positive_and_ordered() {
+        let zero = Config::from_toml_str("[engine]\nflush_admit_timeout_secs = 0\n");
+        let err = zero.expect_err("a zero flush admission timeout must be refused");
+        assert!(
+            err.to_string().contains("flush_admit_timeout_secs"),
+            "the error must name the setting, got: {err}"
+        );
+        let inverted = Config::from_toml_str(
+            "[engine]\nflush_admit_timeout_secs = 90\nflush_timeout_secs = 30\n",
+        );
+        let err = inverted.expect_err("the flush timeout must cover admission");
+        assert!(
+            err.to_string().contains("flush_timeout_secs"),
+            "the error must name the setting, got: {err}"
+        );
+        let cfg = Config::from_toml_str(
+            "[engine]\nflush_admit_timeout_secs = 30\nflush_timeout_secs = 90\n",
+        )
+        .expect("a shorter admission bound inside the flush bound is valid");
+        assert_eq!(cfg.engine.flush_admit_timeout_secs, 30);
+        assert_eq!(cfg.engine.flush_timeout_secs, 90);
     }
 
     #[test]
@@ -3702,9 +4085,9 @@ mod tests {
         ("vector", 6),
         ("logs", 2),
         ("embedding", 20),
-        ("limits", 14),
+        ("limits", 15),
         ("indexing", 3),
-        ("engine", 4),
+        ("engine", 6),
         ("cluster", 5),
         ("pit", 3),
         ("search_context", 7),
@@ -3712,7 +4095,7 @@ mod tests {
         ("compat", 2),
         ("lifecycle", 1),
         ("wal_tap", 10),
-        ("rerank", 3),
+        ("rerank", 5),
         ("decisions", 9),
         ("hub", 2),
     ];
@@ -3757,7 +4140,7 @@ mod tests {
             "the section table must sum to the whole config"
         );
         assert_eq!(
-            total, 134,
+            total, 139,
             "the total settings count changed. It is quoted in this module's \
              header, in xerj-common/src/lib.rs, in engine/README.md, in \
              xerj.default.toml and in EXPECTED_SETTINGS in \

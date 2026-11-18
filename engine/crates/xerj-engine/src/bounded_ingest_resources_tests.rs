@@ -239,3 +239,91 @@ async fn overwrite_flush_and_merge_churn_returns_to_a_bounded_baseline() {
     assert_eq!(index.memtable_bytes(), 0);
     assert_eq!(index.live_doc_count(), 1);
 }
+
+/// #1940: a small semantic_text record must not retain one `serde_json::Value`
+/// per embedding component. 32 docs at 384-d is enough to prove the per-doc
+/// bound; the old tree was `384 * size_of::<Value>()` before the rest of the
+/// object. Exact kNN after flush checks the packed form still scores, and
+/// `_source: true` / GET still return a number array.
+#[tokio::test]
+async fn semantic_log_records_retain_packed_vectors_not_value_arrays() {
+    let name = "packed-semantic-rss";
+    let dir = TempDir::new().expect("temp data directory");
+    let mut config = Config::default();
+    config.server.data_dir = dir.path().to_string_lossy().into_owned();
+    let engine = Engine::new(config).expect("engine");
+    let mut schema = Schema::empty();
+    let mut content = FieldConfig::new("content", FieldType::Text);
+    content.options.dimensions = Some(384);
+    content.embedding = Some(EmbeddingConfig {
+        endpoint: None,
+        model: None,
+        target_field: Some("content_vector".into()),
+    });
+    schema.fields.push(content);
+    engine.create_index(name, schema).expect("create index");
+    engine
+        .put_index_mapping(
+            name,
+            json!({"properties": {"content": {"type": "semantic_text"}}}),
+        )
+        .unwrap();
+
+    let index = engine.get_index(name).unwrap();
+    const N: usize = 32;
+    for i in 0..N {
+        index
+            .index_document(
+                Some(format!("d{i}")),
+                json!({"content": format!("segment queue header field flush buffer {i}")}),
+            )
+            .await
+            .unwrap();
+    }
+
+    let heaps = index.memtable_source_heaps_for_test();
+    assert_eq!(heaps.len(), N);
+    let expanded_floor = 384 * std::mem::size_of::<Value>();
+    let worst = heaps.iter().copied().max().unwrap_or(0);
+    assert!(
+        worst < expanded_floor,
+        "retained source heap {worst} bytes is at least one expanded 384-d Value array ({expanded_floor})"
+    );
+    // Packed hex of 384 f32s is 9 + 3072 bytes, plus the short log object.
+    assert!(
+        worst < 8 * 1024,
+        "retained source heap {worst} bytes exceeds 8 KB"
+    );
+
+    index.flush().await.unwrap();
+    assert_eq!(index.memtable_bytes(), 0);
+
+    let query_vector =
+        xerj_ai::local::local_embed("segment queue header field flush buffer 0", 384);
+    let request = xerj_query::parse_request(&json!({
+        "query": {
+            "knn": {
+                "field": "content_vector",
+                "query_vector": query_vector,
+                "k": 1,
+                "num_candidates": N,
+                "boost": 1.0
+            }
+        },
+        "size": 1,
+        "_source": true
+    }))
+    .unwrap();
+    let result = index.search(&request).await.unwrap();
+    assert_eq!(result.hits.len(), 1, "exact kNN must still answer");
+    assert_eq!(result.hits[0].id, "d0");
+    let returned = result.hits[0]
+        .source
+        .get("content_vector")
+        .and_then(Value::as_array)
+        .expect("search _source returns the embedding as a number array");
+    assert_eq!(returned.len(), 384);
+
+    let fetched = index.get_document("d0").await.unwrap().unwrap();
+    assert_eq!(fetched["content_vector"].as_array().unwrap().len(), 384);
+}

@@ -1,0 +1,2 @@
+HTTP 200 GET /gh-jsonl,gh-json,sessions-docs,sessions-jsonl/_count
+{"count":1540,"_shards":{"total":4,"successful":4,"skipped":0,"failed":0}}

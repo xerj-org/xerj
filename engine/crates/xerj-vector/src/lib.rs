@@ -15,7 +15,7 @@ pub mod search;
 pub mod sq8_codes;
 
 pub use distance::{compute_distance, cosine, dot_product, l2_squared, DistanceMetric};
-pub use hnsw::{HnswIndex, HnswParams};
+pub use hnsw::{CompactStats, HnswIndex, HnswParams};
 pub use quantizer::{
     NoneQuantizer, QuantizedData, QuantizedVectors, Quantizer, Scalar8Quantizer, Sq8Params,
 };

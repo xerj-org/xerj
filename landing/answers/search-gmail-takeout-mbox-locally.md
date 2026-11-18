@@ -2,11 +2,15 @@
 ---
 title: "Search a Gmail Takeout mbox on your own machine"
 canonical: "https://xerj.org/answers/search-gmail-takeout-mbox-locally"
-updated: "2026-09-26"
+updated: "2026-10-19"
 source: "content/answers/search-gmail-takeout-mbox-locally.md"
 ---
 
 # I exported my Gmail with Google Takeout. How do I search that mbox file locally?
+
+**Short answer** (updated 2026-10-19): How do I search a Google Takeout mbox file locally? Unzip the Takeout download, run xerj autoindex on the folder with its own --prefix, then search the mailbox over HTTP. The mbox is recognised by content and streamed one message at a time, attached PDFs become per-page documents, and with the default embedder no message text leaves your machine.
+
+**Key number:** On a 1 GB synthetic mailbox the client peaked at 296 MiB and finished in 279 s, and all 2,530 planted needles were found. (as of 2026-10-19; source: [benchmarks/mbox-ingest/results/after-mixed-1G-runC-verify-every-needle.json](https://github.com/xerj-org/xerj/blob/main/benchmarks/mbox-ingest/results/after-mixed-1G-runC-verify-every-needle.json))
 
 **TL;DR** — Unzip the Takeout download, run `xerj autoindex` on the folder with its own `--prefix`, then search the mailbox over HTTP. The mbox is recognised by its content and streamed one message at a time. Attached PDFs become per-page documents linked to their message. Senders are filterable by bare address, and Gmail thread ids and reply headers become filters and graph edges. With the default embedder, which is lexical (feature hashing, not neural), no message text leaves your machine. The node's ingest memory, which before #1002 (2026-09) pushed a 300 MB mailbox past a laptop's RAM, now finishes a 1 GB mailbox under the node's default 16 GiB cap in 407.7 s; the peak still crosses the cap (21,405.3 MiB on that run) because per-segment caches grow until a merge retires them, tracked as #1032.
 
@@ -207,3 +211,6 @@ No. The mbox splitter and the message extractor are tested against a generated m
 - [The indexer died overnight. Do I have to start over?](/answers/resume-interrupted-autoindex-run)
 - [Why would a folder search miss files that I can see on disk?](/answers/why-autoindex-skipped-files)
 - [Zero-config autoindex](/docs/recipes/zero-config-autoindex)
+- [How do I search gzipped logs without decompressing the whole file — including when JSONL sits next to them?](/answers/search-gzip-logs-without-zgrep) (same intent: logs and docs)
+- [What can I use for low-volume log search?](/answers/cheap-low-volume-log-search) (same intent: logs and docs)
+- [I downloaded a bunch of papers as PDFs. How do I search across them?](/answers/search-all-pdfs-in-a-folder) (same intent: logs and docs)

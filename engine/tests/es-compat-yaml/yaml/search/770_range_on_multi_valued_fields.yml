@@ -1,0 +1,117 @@
+# #1750: a `range` query matches a document when ANY ONE value of a
+# multi-valued field satisfies EVERY bound (Lucene per-value semantics).
+# Expected values are Elasticsearch 8.13.4's for the requests in #1750.
+# Documents stay buffered (no flush): the memtable numeric column keeps only
+# an array's first element, so its fast paths must defer to the source scan.
+setup:
+  - do:
+      indices.create:
+        index: range_mv
+        body:
+          mappings:
+            properties:
+              name: { type: keyword }
+              tags: { type: keyword }
+              ports: { type: long }
+              seen: { type: date }
+              addr: { type: ip }
+  - do:
+      bulk:
+        refresh: true
+        body:
+          - '{"index": {"_index": "range_mv", "_id": "1"}}'
+          - '{"name": "d1", "tags": ["alpha", "mid"], "ports": [22, 8080], "seen": ["2020-01-01", "2024-06-01"], "addr": ["10.0.0.1", "192.168.1.7"]}'
+          - '{"index": {"_index": "range_mv", "_id": "2"}}'
+          - '{"name": "d2", "tags": "mid", "ports": 443, "seen": "2024-01-01", "addr": "10.0.0.9"}'
+          - '{"index": {"_index": "range_mv", "_id": "3"}}'
+          - '{"name": "d3", "tags": "zeta", "ports": 5, "seen": ["2030-01-01", "2021-06-01"], "addr": "172.16.0.1"}'
+
+---
+"keyword range matches a later array element":
+  - do:
+      count:
+        index: range_mv
+        body: { query: { range: { tags: { gte: m, lt: n } } } }
+  - match: { count: 2 }
+  - do:
+      search:
+        index: range_mv
+        body: { query: { range: { tags: { gte: m, lt: n } } }, sort: [ name ] }
+  - match: { hits.total.value: 2 }
+  - length: { hits.hits: 2 }
+  - match: { hits.hits.0._id: "1" }
+  - match: { hits.hits.1._id: "2" }
+
+---
+"numeric range matches a later array element":
+  - do:
+      count:
+        index: range_mv
+        body: { query: { range: { ports: { gte: 8000, lte: 9000 } } } }
+  - match: { count: 1 }
+  - do:
+      search:
+        index: range_mv
+        body: { query: { range: { ports: { gte: 8000, lte: 9000 } } }, sort: [ name ] }
+  - match: { hits.total.value: 1 }
+  - length: { hits.hits: 1 }
+  - match: { hits.hits.0._id: "1" }
+
+---
+"date range matches a later array element":
+  - do:
+      count:
+        index: range_mv
+        body: { query: { range: { seen: { gte: "2021-01-01", lt: "2023-01-01" } } } }
+  - match: { count: 1 }
+  - do:
+      search:
+        index: range_mv
+        body: { query: { range: { seen: { gte: "2021-01-01", lt: "2023-01-01" } } }, sort: [ name ] }
+  - match: { hits.total.value: 1 }
+  - length: { hits.hits: 1 }
+  - match: { hits.hits.0._id: "3" }
+
+---
+"bounds are not split across array elements":
+  - do:
+      count:
+        index: range_mv
+        body: { query: { range: { ports: { gt: 22, lt: 443 } } } }
+  - match: { count: 0 }
+  - do:
+      search:
+        index: range_mv
+        body: { query: { range: { ports: { gt: 22, lt: 443 } } }, sort: [ name ] }
+  - match: { hits.total.value: 0 }
+  - length: { hits.hits: 0 }
+
+---
+"upper bound only matches an array element":
+  - do:
+      count:
+        index: range_mv
+        body: { query: { range: { ports: { lte: 5 } } } }
+  - match: { count: 1 }
+  - do:
+      search:
+        index: range_mv
+        body: { query: { range: { ports: { lte: 5 } } }, sort: [ name ] }
+  - match: { hits.total.value: 1 }
+  - length: { hits.hits: 1 }
+  - match: { hits.hits.0._id: "3" }
+
+---
+"ip range matches a later array element":
+  - do:
+      count:
+        index: range_mv
+        body: { query: { range: { addr: { gte: "192.168.0.0", lte: "192.168.255.255" } } } }
+  - match: { count: 1 }
+  - do:
+      search:
+        index: range_mv
+        body: { query: { range: { addr: { gte: "192.168.0.0", lte: "192.168.255.255" } } }, sort: [ name ] }
+  - match: { hits.total.value: 1 }
+  - length: { hits.hits: 1 }
+  - match: { hits.hits.0._id: "1" }

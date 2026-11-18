@@ -13,7 +13,7 @@ use crate::sync::{
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fs::{File, OpenOptions};
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::Path;
@@ -58,6 +58,17 @@ pub struct SnapshotFile {
     /// this file therefore also means "a pre-#971 snapshot: never reuse".
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub prepared_identity: Option<String>,
+    /// #2421: the sealed blob was deleted once this file's prepared artifact
+    /// was durable. Nothing after preparation reads the blob — replay, resume
+    /// and metadata updates all stream `prepared.relative_ndjson` — so keeping
+    /// a second copy of every indexed source byte made the state dir larger
+    /// than the corpus. Only ever true with `prepared: Some`; `open_snapshot`
+    /// then verifies the artifact instead of the blob, and a later generation
+    /// reuses the artifact by identity or re-copies from the verified live
+    /// source. Skip-serialized when false so a manifest sealed before this
+    /// field existed keeps hashing to the digest the journal recorded.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub blob_released: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -344,6 +355,83 @@ pub(crate) fn replay_windowed<T: Sync>(
     hooks: &mut dyn ReplayHooks<T>,
     apply: &(dyn Fn(&T) -> Result<()> + Sync),
 ) -> Result<()> {
+    replay_windowed_with(
+        &xerj_common::thread_spawn::StdSpawn,
+        xerj_common::thread_spawn::spawn_allowed,
+        items,
+        width,
+        hooks,
+        apply,
+    )
+}
+
+/// How many times a refused worker spawn is retried before the run
+/// continues with the workers it already has (#2428).
+pub(crate) const WORKER_SPAWN_ATTEMPTS: u32 = 3;
+/// First pause after a refused worker spawn; doubled on each retry.
+pub(crate) const WORKER_SPAWN_BACKOFF: std::time::Duration = std::time::Duration::from_millis(50);
+
+/// Start `f` on a scoped helper thread, retrying a refused spawn (`EAGAIN`
+/// from `pthread_create`, or the spawn gate saying no) up to `attempts`
+/// times with a doubling `backoff` (#2428). A refused spawn is a transient
+/// thread or memory limit, not a reason to lose the run: `Err` after the
+/// last attempt means `f` never ran and the caller carries on with the
+/// threads it has, or does the work itself.
+pub(crate) fn spawn_scoped_with_backoff<'scope, 'env, S, G, F>(
+    scope: &xerj_common::thread_spawn::Scope<'scope, 'env>,
+    spawner: &S,
+    gate: G,
+    name: &str,
+    attempts: u32,
+    backoff: std::time::Duration,
+    f: F,
+) -> std::io::Result<()>
+where
+    S: xerj_common::thread_spawn::Spawn + ?Sized,
+    G: Fn() -> bool,
+    F: FnOnce() + Send + Copy + 'scope,
+{
+    let attempts = attempts.max(1);
+    let mut delay = backoff;
+    let mut attempt = 1;
+    loop {
+        match scope.spawn_with(spawner, gate(), name, f) {
+            Ok(()) => return Ok(()),
+            Err(error) if attempt >= attempts => return Err(error),
+            Err(_) => {
+                std::thread::sleep(delay);
+                delay = delay.saturating_mul(2);
+                attempt += 1;
+            }
+        }
+    }
+}
+
+/// [`replay_windowed`] with an explicit spawner and spawn gate, so the
+/// spawn-failure paths are testable without exhausting a real machine.
+///
+/// #2428: the window used to start one thread per *operation*. A corpus
+/// replay is hundreds of thousands of operations, so a long run made
+/// hundreds of thousands of `pthread_create` calls, and under memory or
+/// thread pressure one of them eventually got `EAGAIN`. Now at most
+/// `width` workers are started once per replay and reused for every item.
+/// A refused worker spawn is retried with backoff; if it is still refused
+/// the replay continues on the workers that did start, and if none did,
+/// every item is applied on the calling thread. Ordering and failure
+/// semantics are unchanged.
+pub(crate) fn replay_windowed_with<T, S, G>(
+    spawner: &S,
+    gate: G,
+    items: &[T],
+    width: usize,
+    hooks: &mut dyn ReplayHooks<T>,
+    apply: &(dyn Fn(&T) -> Result<()> + Sync),
+) -> Result<()>
+where
+    T: Sync,
+    S: xerj_common::thread_spawn::Spawn + ?Sized,
+    G: Fn() -> bool,
+{
     if items.is_empty() {
         return Ok(());
     }
@@ -355,15 +443,68 @@ pub(crate) fn replay_windowed<T: Sync>(
         }
         return Ok(());
     }
-    /// One dispatched operation: on its own thread, or — when that thread
-    /// could not be started (#1122) — already applied inline.
-    enum Dispatched<'scope> {
-        Thread(std::thread::ScopedJoinHandle<'scope, Result<()>>),
+    /// One dispatched operation: queued to a worker, or — when no worker
+    /// could be started (#1122, #2428) — already applied inline.
+    enum Dispatched {
+        Worker(std::sync::mpsc::Receiver<Result<()>>),
         Inline(Result<()>),
     }
-    let failure = std::thread::scope(|scope| -> Result<Option<anyhow::Error>> {
+    type Job<'a, T> = (&'a T, std::sync::mpsc::Sender<Result<()>>);
+    let (job_tx, job_rx) = std::sync::mpsc::channel::<Job<'_, T>>();
+    let job_rx = std::sync::Mutex::new(job_rx);
+    let job_rx = &job_rx;
+    // A worker takes queued items until the sender is dropped. A panic in
+    // `apply` (unwind builds) becomes that item's error and the worker
+    // keeps serving the queue.
+    let worker = move || loop {
+        let job = {
+            let rx = job_rx
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner());
+            rx.recv()
+        };
+        let Ok((item, reply)) = job else { break };
+        let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| apply(item)))
+            .unwrap_or_else(|panic| {
+                Err(anyhow::anyhow!(
+                    "replay apply panicked: {}",
+                    panic_message(panic)
+                ))
+            });
+        // The scheduler may have stopped listening after a `begin` error.
+        let _ = reply.send(outcome);
+    };
+    // #1122: `Builder::spawn_scoped` can abort the process after returning
+    // `Ok`, when the child cannot map its alternate signal stack. This
+    // scope uses `pthread_create`.
+    let failure = xerj_common::thread_spawn::scope(|scope| -> Result<Option<anyhow::Error>> {
+        let wanted = width.min(items.len());
+        let mut workers = 0usize;
+        while workers < wanted {
+            match spawn_scoped_with_backoff(
+                scope,
+                spawner,
+                &gate,
+                "xerj-sync-apply",
+                WORKER_SPAWN_ATTEMPTS,
+                WORKER_SPAWN_BACKOFF,
+                worker,
+            ) {
+                Ok(()) => workers += 1,
+                Err(error) => {
+                    eprintln!(
+                        "autoindex: could not start replay worker {} of {wanted} ({error}); \
+                         continuing with {} (#2428)",
+                        workers + 1,
+                        workers.max(1)
+                    );
+                    break;
+                }
+            }
+        }
+        let job_tx = job_tx;
         let mut next = items.iter();
-        let mut in_flight: std::collections::VecDeque<(&T, Dispatched<'_>)> =
+        let mut in_flight: std::collections::VecDeque<(&T, Dispatched)> =
             std::collections::VecDeque::new();
         let mut failure: Option<anyhow::Error> = None;
         loop {
@@ -373,18 +514,15 @@ pub(crate) fn replay_windowed<T: Sync>(
                 // was never dispatched is also never recorded as begun.
                 let Some(item) = next.next() else { break };
                 hooks.begin(item)?;
-                let dispatched = item;
-                // #1122: `Scope::spawn` panics when a thread cannot be
-                // created, and release builds are panic=abort. A failed spawn
-                // never ran the closure, so the operation is applied inline
-                // instead: the window narrows, the order and the callbacks do
-                // not change.
-                let slot = match std::thread::Builder::new()
-                    .name("xerj-sync-apply".into())
-                    .spawn_scoped(scope, move || apply(dispatched))
-                {
-                    Ok(handle) => Dispatched::Thread(handle),
-                    Err(_) => Dispatched::Inline(apply(item)),
+                let slot = if workers > 0 {
+                    let (reply_tx, reply_rx) = std::sync::mpsc::channel();
+                    match job_tx.send((item, reply_tx)) {
+                        Ok(()) => Dispatched::Worker(reply_rx),
+                        // Unreachable while `job_rx` lives; apply inline.
+                        Err(_) => Dispatched::Inline(apply(item)),
+                    }
+                } else {
+                    Dispatched::Inline(apply(item))
                 };
                 in_flight.push_back((item, slot));
             }
@@ -392,11 +530,8 @@ pub(crate) fn replay_windowed<T: Sync>(
                 break;
             };
             let outcome = match slot {
-                Dispatched::Thread(handle) => handle.join().unwrap_or_else(|panic| {
-                    Err(anyhow::anyhow!(
-                        "replay apply panicked: {}",
-                        panic_message(panic)
-                    ))
+                Dispatched::Worker(reply) => reply.recv().unwrap_or_else(|_| {
+                    Err(anyhow::anyhow!("replay worker exited before applying"))
                 }),
                 Dispatched::Inline(outcome) => outcome,
             };
@@ -406,6 +541,7 @@ pub(crate) fn replay_windowed<T: Sync>(
                 failure = Some(error);
             }
         }
+        // Dropping `job_tx` here ends the workers; the scope joins them.
         Ok(failure)
     })?;
     match failure {
@@ -537,6 +673,177 @@ impl ReplayLookup {
     }
 }
 
+/// How many per-digest verify windows to issue for one semantic field, and
+/// how many to tick without asking (#1267).
+///
+/// A field whose `exists` total is zero cannot match any digest. Issuing the
+/// `term` + `exists` window anyway is the pre-#1260 brute scan: one window
+/// per [`EsSyncBackend::VERIFY_WINDOW`] digests, each walking the index, each
+/// returning no hits. `window == 0` asks for nothing.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct ExistsProbePlan {
+    issue_windows: u64,
+    skip_windows: u64,
+}
+
+fn plan_exists_probes(values: usize, window: usize, exists_total: u64) -> ExistsProbePlan {
+    if window == 0 {
+        return ExistsProbePlan {
+            issue_windows: 0,
+            skip_windows: 0,
+        };
+    }
+    let windows = values.div_ceil(window) as u64;
+    if exists_total == 0 {
+        ExistsProbePlan {
+            issue_windows: 0,
+            skip_windows: windows,
+        }
+    } else {
+        ExistsProbePlan {
+            issue_windows: windows,
+            skip_windows: 0,
+        }
+    }
+}
+
+/// Catalog documents whose live `_source` is not already the sealed projection.
+///
+/// A resume of the same generation re-enters publication with the same
+/// `run_id` and the same bytes (#1267). Those ids are not rewritten: the bulk
+/// that used to send every projection document is what made the following
+/// `run_id` walk match the whole catalog.
+fn catalog_docs_to_write(
+    expected: &BTreeMap<String, Value>,
+    live: &BTreeMap<String, Value>,
+) -> BTreeMap<String, Value> {
+    expected
+        .iter()
+        .filter(|(id, document)| live.get(*id) != Some(*document))
+        .map(|(id, document)| ((*id).clone(), (*document).clone()))
+        .collect()
+}
+
+/// How many of the prior generation's published ids this generation kept.
+///
+/// Kept documents still carry the prior `run_id`. The live count of that
+/// `run_id` equals this number when nothing stray remains and every kept
+/// document is still there. A smaller count is the documented cross-journal
+/// collision (a kept document was overwritten elsewhere). A larger count is a
+/// stray. Equal is the fast path that does not walk.
+fn prior_run_expected_remainder(prior_written: &BTreeSet<String>, kept: &BTreeSet<String>) -> u64 {
+    prior_written.intersection(kept).count() as u64
+}
+
+/// Ids carrying one generation's `run_id`, one per line, inside that
+/// generation's already-sealed snapshot directory.
+///
+/// The manifest digest does not cover this file. Missing means "published by
+/// an older client": the next generation walks that `run_id` once. Present
+/// means the next generation's stray check is a `size: 0` count.
+const CATALOG_RUN_IDS_FILE: &str = "catalog-run.ids";
+
+fn catalog_run_ids_path(state_dir: &Path, run_id: &str) -> Result<std::path::PathBuf> {
+    validate_tx_id(run_id)?;
+    Ok(state_dir
+        .join("sync-snapshots")
+        .join(run_id)
+        .join(CATALOG_RUN_IDS_FILE))
+}
+
+fn write_catalog_run_ids<'a>(
+    state_dir: &Path,
+    run_id: &str,
+    ids: impl IntoIterator<Item = &'a String>,
+) -> Result<()> {
+    let path = catalog_run_ids_path(state_dir, run_id)?;
+    let mut lines: Vec<&str> = Vec::new();
+    for id in ids {
+        anyhow::ensure!(
+            !id.contains('\n') && !id.contains('\r'),
+            "catalog document id {id:?} contains a newline and cannot be stored one-per-line"
+        );
+        lines.push(id.as_str());
+    }
+    lines.sort_unstable();
+    let parent = path
+        .parent()
+        .context("catalog run id file has no parent directory")?;
+    let tmp = parent.join(format!("{CATALOG_RUN_IDS_FILE}.tmp"));
+    {
+        let mut file = OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(true)
+            .open(&tmp)
+            .with_context(|| format!("create {}", tmp.display()))?;
+        for id in &lines {
+            writeln!(file, "{id}")?;
+        }
+        file.sync_all()?;
+    }
+    std::fs::rename(&tmp, &path)
+        .with_context(|| format!("rename {} to {}", tmp.display(), path.display()))?;
+    sync_dir(parent)?;
+    Ok(())
+}
+
+fn read_catalog_run_ids(state_dir: &Path, run_id: &str) -> Result<Option<BTreeSet<String>>> {
+    let path = catalog_run_ids_path(state_dir, run_id)?;
+    let text = match std::fs::read_to_string(&path) {
+        Ok(text) => text,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => {
+            return Err(error).with_context(|| format!("read {}", path.display()));
+        }
+    };
+    let mut ids = BTreeSet::new();
+    for line in text.lines() {
+        if !line.is_empty() {
+            ids.insert(line.to_owned());
+        }
+    }
+    Ok(Some(ids))
+}
+
+/// `_id -> _source` for every `found: true` entry of an `_mget` response.
+/// `found: false` is an absent id, not an error. A duplicate id is.
+fn mget_sources(response: &Value) -> Result<BTreeMap<String, Value>> {
+    let docs = response
+        .pointer("/docs")
+        .and_then(Value::as_array)
+        .context("catalog mget response has no docs")?;
+    let mut sources = BTreeMap::new();
+    for doc in docs {
+        let id = doc
+            .get("_id")
+            .and_then(Value::as_str)
+            .context("catalog mget doc has no _id")?;
+        if doc.get("found").and_then(Value::as_bool) != Some(true) {
+            continue;
+        }
+        let source = doc
+            .get("_source")
+            .cloned()
+            .with_context(|| format!("catalog mget doc {id} is found but has no _source"))?;
+        anyhow::ensure!(
+            sources.insert(id.to_owned(), source).is_none(),
+            "catalog mget returned duplicate ID {id}"
+        );
+    }
+    Ok(sources)
+}
+
+/// Advance the current phase by `n` items. Finalize-verify and the catalog
+/// read-back call this once per window (or once per skipped window) so the
+/// ticker moves while a request is in flight only for that one window, not
+/// for the whole phase (#1267).
+fn credit_verify_items(pr: &crate::progress::Progress, n: u64) {
+    for _ in 0..n {
+        pr.item_done(0);
+    }
+}
+
 /// Production ES-compatible operation backend for graph-disabled generations.
 ///
 /// Upserts stream sealed index actions after removing both replaced and
@@ -571,6 +878,10 @@ pub struct EsSyncBackend<'a> {
     /// flight at once. `1` — the default — is the historical serial loop,
     /// and what every run without `--workers` beyond it configures.
     replay_workers: usize,
+    /// #2669: how to rebuild this folder's corpus, appended to a record-count
+    /// abort. A resume re-checks the same live indices, so the
+    /// abort alone leaves the operator rerunning into it.
+    record_repair: Option<String>,
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
@@ -590,7 +901,14 @@ impl<'a> EsSyncBackend<'a> {
             installed_index_identity: None,
             in_flight: None,
             replay_workers: 1,
+            record_repair: None,
         }
+    }
+
+    /// See `record_repair`.
+    pub fn with_record_repair(mut self, advice: String) -> Self {
+        self.record_repair = Some(advice);
+        self
     }
 
     /// See `installed_index_identity`.
@@ -778,12 +1096,20 @@ impl<'a> EsSyncBackend<'a> {
     /// `extra_filters` are appended verbatim to the window query's
     /// `bool.filter`: the semantic leg's `exists`, the catalog leg's
     /// `run_id` term.
+    ///
+    /// `credit` ticks the current phase once per window after that window's
+    /// answer is in. The capability probe passes `false`: it is one sample,
+    /// not one of the phase's windows, and a tick there would walk the bar
+    /// past its denominator. A `timed_out` window is re-asked, bounded, and
+    /// only its exhaustion bails before the tick, so a partial window is
+    /// not counted as zero and is not credited (#1761, #2405).
     fn windowed_value_counts(
         &self,
         index: &str,
         field: &str,
         values: &[String],
         extra_filters: &[Value],
+        credit: bool,
     ) -> Result<HashMap<String, u64>> {
         let mut counts: HashMap<String, u64> =
             values.iter().map(|value| (value.clone(), 0u64)).collect();
@@ -791,7 +1117,18 @@ impl<'a> EsSyncBackend<'a> {
             let mut filter = Vec::with_capacity(1 + extra_filters.len());
             filter.push(serde_json::json!({"terms": {field: window}}));
             filter.extend(extra_filters.iter().cloned());
-            let response = self.es.search(
+            // #2222 + #2405: `search_page_for_verify`, not `search`. A
+            // DELETE of this index while the window is in flight used to
+            // leave the caller parked on it (`waiting_on` the deleted name)
+            // until the transport budget ran out, and the generation never
+            // committed; and a `timed_out` answer used to exit 1 on the
+            // first partial page. The call re-asks the same window, bounded,
+            // and still fails fast on a deleted index. A deadline page is
+            // HTTP 200 with `timed_out` and an empty aggregation — counting
+            // it as "every digest is absent" would abort a generation whose
+            // rows are on the node, so exhaustion stays a loud error and is
+            // never counted as zero (#1761).
+            let response = self.es.search_page_for_verify(
                 index,
                 &serde_json::json!({
                     "size": 0,
@@ -815,6 +1152,9 @@ impl<'a> EsSyncBackend<'a> {
                     .and_then(Value::as_u64)
                     .context("batched validation bucket has no doc_count")?;
                 counts.insert(key.to_owned(), doc_count);
+            }
+            if credit {
+                credit_verify_items(self.pr, 1);
             }
         }
         Ok(counts)
@@ -855,7 +1195,7 @@ impl<'a> EsSyncBackend<'a> {
                     "catalog read-back window needed more than {MAX_PAGES} pages"
                 );
                 pages += 1;
-                let response = self.es.search(
+                let response = self.es.search_page(
                     crate::catalog::CATALOG_INDEX,
                     &serde_json::json!({
                         "size": PAGE,
@@ -904,6 +1244,13 @@ impl<'a> EsSyncBackend<'a> {
                 "catalog read-back counted {counted} of {} matched documents in a window",
                 window_total.unwrap_or(0)
             );
+            // One tick per window, after the window's pages have all come
+            // back. The phase denominator is windows, not pages (#1267).
+            // `search_page` re-asks a `timed_out` page and bails only on
+            // exhaustion, so a partial catalog window is not counted as
+            // zero and the phase does not sit at 0/N while another corpus
+            // publishes to this shared index (#1761, #2405).
+            credit_verify_items(self.pr, 1);
         }
         Ok(counts)
     }
@@ -969,17 +1316,17 @@ impl<'a> EsSyncBackend<'a> {
     /// reaching the end of the generation's documents.
     const CATALOG_WALK_PAGE: usize = 1000;
 
-    /// The phase [`Self::catalog_generation`] surfaces itself under. A resume
-    /// that rewrote the whole catalog gives this walk a `run_id` matching every
-    /// document in the index (402,814 on the cve-records node), so the
-    /// "O(changed) by construction" invariant degenerates to O(corpus): 403
-    /// sorted pages at ~5.2 s each ≈ 35 min, during which the surface used to
-    /// show the FINISHED `finalize-catalog` ticker (every dataset already
-    /// counted done) with a `since_progress_s` that only climbed — which reads
-    /// exactly like a hang, and cost an hour of "is it deadlocked?" diagnosis
-    /// on the #1267 resume. The walk is its own phase now, with the engine's
-    /// own match total as a real denominator, so the long read-back shows a
-    /// moving bar and an ETA from its first page.
+    /// The phase the catalog read-back surfaces itself under.
+    ///
+    /// Publication used to rewrite every projection document and then walk
+    /// `term run_id` + `sort _id` + `search_after`. A resume of the same
+    /// generation rewrote the catalog, so that term matched every document
+    /// (402,814 on the cve-records node): 403 sorted pages at ~5.2 s each,
+    /// behind a finished `finalize-catalog` ticker (#1267). The happy path
+    /// now opens this phase on the projection's own length and reads those
+    /// ids with `_mget`. [`Self::catalog_generation`] still opens it when a
+    /// count does not match and the sorted walk is the way to name the
+    /// difference.
     const CATALOG_READBACK_PHASE: &'static str = "finalize-catalog-readback";
 
     fn catalog_generation(&self, run_id: &str) -> Result<BTreeMap<String, Value>> {
@@ -1167,6 +1514,156 @@ impl<'a> EsSyncBackend<'a> {
             .map(str::to_owned)
     }
 
+    /// Ids fetched per `_mget`. Under the engine's default
+    /// `limits.max_mget_docs` (10_000), so one window is one request.
+    const MGET_WINDOW: usize = 1000;
+
+    /// Read catalog `_source`s by id. `tick` credits one phase item per id
+    /// after that id's window returns, so a multi-window read-back moves the
+    /// bar between requests instead of once at the end.
+    fn mget_catalog(&self, ids: &[String], tick: bool) -> Result<BTreeMap<String, Value>> {
+        let mut observed = BTreeMap::new();
+        if ids.is_empty() {
+            return Ok(observed);
+        }
+        let _watching = self.pr.watch_file(crate::catalog::CATALOG_INDEX, 0);
+        for window in ids.chunks(Self::MGET_WINDOW) {
+            let response = self.es.mget(crate::catalog::CATALOG_INDEX, window)?;
+            observed.extend(mget_sources(&response)?);
+            if tick {
+                credit_verify_items(self.pr, window.len() as u64);
+            }
+        }
+        Ok(observed)
+    }
+
+    /// `hits.total` of `exists` on `field`. One query per semantic
+    /// `(index, field)`, in place of a per-digest `term` + `exists` window
+    /// that cannot match when this total is zero (#1267).
+    fn field_exists_total(&self, index: &str, field: &str) -> Result<u64> {
+        let response = self.es.search_for_verify(
+            index,
+            &serde_json::json!({
+                "size": 0,
+                "track_total_hits": true,
+                "query": {"bool": {"filter": [{"exists": {"field": field}}]}}
+            }),
+        )?;
+        response
+            .pointer("/hits/total/value")
+            .and_then(Value::as_u64)
+            .context("exists preflight has no total hit count")
+    }
+
+    /// How many live catalog documents carry `run_id`. `size: 0`, so the
+    /// answer is a count, not a page of stored sources.
+    fn catalog_run_count(&self, run_id: &str) -> Result<u64> {
+        let response = self.es.search(
+            crate::catalog::CATALOG_INDEX,
+            &serde_json::json!({
+                "size": 0,
+                "track_total_hits": true,
+                "query": {"bool": {"filter": [{"term": {"run_id": run_id}}]}}
+            }),
+        )?;
+        response
+            .pointer("/hits/total/value")
+            .and_then(Value::as_u64)
+            .context("catalog run_id count has no total hit count")
+    }
+
+    /// Live documents still carrying the prior generation's `run_id` must be
+    /// a subset of the ids this generation kept.
+    ///
+    /// When this process published that generation, `catalog-run.ids` is the
+    /// exact id set that carried the `run_id`. The live count equals the
+    /// intersection of that set with the ids kept now, or the sorted walk
+    /// names the strays. A missing file (a generation published before this
+    /// file existed) takes the walk once.
+    fn assert_no_prior_strays(
+        &self,
+        prior_run_id: &str,
+        projection: &crate::generation_catalog::CatalogProjection,
+    ) -> Result<()> {
+        let written: BTreeSet<String> = projection.documents.keys().cloned().collect();
+        let kept: BTreeSet<String> = projection
+            .managed_ids
+            .difference(&written)
+            .cloned()
+            .collect();
+        match read_catalog_run_ids(self.state_dir, prior_run_id)? {
+            Some(prior_written) => {
+                let expected = prior_run_expected_remainder(&prior_written, &kept);
+                let live = self.catalog_run_count(prior_run_id)?;
+                if live == expected {
+                    return Ok(());
+                }
+                self.pr.note(&format!(
+                    "autoindex: prior catalog generation {prior_run_id} still counts {live} \
+                     document(s) under its run_id against {expected} kept; walking them to name \
+                     any stray (#1267)"
+                ));
+            }
+            None => {
+                self.pr.note(&format!(
+                    "autoindex: prior catalog generation {prior_run_id} has no saved id list; \
+                     walking documents that still carry its run_id (#1267)"
+                ));
+            }
+        }
+        let remaining = self.catalog_generation(prior_run_id)?;
+        let strays: Vec<&String> = remaining.keys().filter(|id| !kept.contains(*id)).collect();
+        anyhow::ensure!(
+            strays.is_empty(),
+            "prior catalog generation {prior_run_id} still has {} document(s) this generation \
+             neither rewrote, deleted nor kept: {:?}",
+            strays.len(),
+            strays
+        );
+        Ok(())
+    }
+
+    /// `exists` total for one semantic field.
+    ///
+    /// The first field of the phase is the capability probe (#1267): a slow
+    /// answer is re-asked once, and a slow warm answer warns, but only when
+    /// the field actually matches documents — those are the windows about to
+    /// brute-scan. A zero total skips the windows, so a slow empty answer
+    /// must not project that one query across the whole phase. Later fields
+    /// ask once and do not warn again.
+    fn semantic_exists_total(
+        &self,
+        index: &str,
+        field: &str,
+        probe: bool,
+        windows_if_matched: u64,
+    ) -> Result<u64> {
+        let started = std::time::Instant::now();
+        let mut total = self.field_exists_total(index, field)?;
+        let first = started.elapsed();
+        if !probe || total == 0 || first <= Self::SERVER_PROBE_SLOW {
+            return Ok(total);
+        }
+        let started = std::time::Instant::now();
+        total = self.field_exists_total(index, field)?;
+        let warm = started.elapsed();
+        if total > 0 && warm > Self::SERVER_PROBE_SLOW {
+            let samples = std::cell::RefCell::new(vec![first, warm]);
+            Self::probe_server_generation(
+                self.pr,
+                windows_if_matched,
+                Self::SERVER_PROBE_SLOW,
+                || {
+                    let mut samples = samples.borrow_mut();
+                    anyhow::ensure!(!samples.is_empty(), "probe timing exhausted");
+                    Ok(samples.remove(0))
+                },
+                || self.server_xerj_version(),
+            );
+        }
+        Ok(total)
+    }
+
     fn exact_dataset_catalog_stats(
         &self,
         desired: &GenerationManifest,
@@ -1289,7 +1786,11 @@ impl<'a> EsSyncBackend<'a> {
                 })?;
             let time_bound = |order: &'static str| -> Result<Option<String>> {
                 match &dataset.time_field {
-                    Some(field) => self.extreme_time(&dataset.index, &filter, field, order),
+                    Some(field) => match self.extreme_time(&dataset.index, &filter, field, order) {
+                        Ok(bound) => Ok(bound),
+                        Err(err) if err.to_string().contains("in order to sort on") => Ok(None),
+                        Err(err) => Err(err),
+                    },
                     None => Ok(None),
                 }
             };
@@ -1343,7 +1844,7 @@ impl<'a> EsSyncBackend<'a> {
         let body = serde_json::json!({
             "size": 1,
             "query": {"bool": {"filter": filter}},
-            "sort": [{field: {"order": order}}],
+            "sort": [{field: {"order": order, "unmapped_type": "date"}}],
             "_source": [field]
         });
         let response = self.es.search(index, &body)?;
@@ -1499,12 +2000,14 @@ impl SyncOperationBackend for EsSyncBackend<'_> {
             .collect();
         const REFRESH_WINDOW: usize = 50;
         for batch in indexes.chunks(REFRESH_WINDOW) {
-            self.es.refresh(&batch.join(","))?;
+            // #2234: one attempt. `Es::refresh` would retry a timed-out window
+            // five more times (300s each) with no new information.
+            self.es.refresh_once(&batch.join(","))?;
             for _ in batch {
                 self.pr.item_done(0);
             }
         }
-        self.es.refresh(crate::catalog::CATALOG_INDEX)?;
+        self.es.refresh_once(crate::catalog::CATALOG_INDEX)?;
         let prior_run_id =
             base.execution
                 .as_ref()
@@ -1526,6 +2029,17 @@ impl SyncOperationBackend for EsSyncBackend<'_> {
             &BTreeMap::new(),
             &BTreeSet::new(),
         )?;
+        // #1267: read the projection's ids before writing. A resume of this
+        // same generation already stored these bytes under this `run_id`;
+        // sending them again is what made the old `run_id` walk match the
+        // whole catalog. The phase denominator is the projection, which is
+        // the changed set (#971) plus the documents a same-generation resume
+        // still has to confirm.
+        let ids: Vec<String> = projection.documents.keys().cloned().collect();
+        self.pr
+            .phase(Self::CATALOG_READBACK_PHASE, ids.len() as u64, 0);
+        let mut observed = self.mget_catalog(&ids, true)?;
+        let to_write = catalog_docs_to_write(&projection.documents, &observed);
         let mut body = Vec::new();
         for id in &projection.stale_ids {
             let action =
@@ -1533,7 +2047,7 @@ impl SyncOperationBackend for EsSyncBackend<'_> {
             body.extend_from_slice(serde_json::to_string(&action)?.as_bytes());
             body.push(b'\n');
         }
-        for (id, document) in &projection.documents {
+        for (id, document) in &to_write {
             append_index_action(crate::catalog::CATALOG_INDEX, id, document, &mut body)?;
         }
         // #955: one document per file — this body grows with the corpus. On
@@ -1543,45 +2057,51 @@ impl SyncOperationBackend for EsSyncBackend<'_> {
         // been applied. Windowed like every other bulk; deletes stay first.
         // #971: the projection is now incremental — a one-file change sends
         // that file's document (plus datasets and the run document), not one
-        // document per file in the corpus.
-        checked_bulk_windowed(self.es, body, self.bulk_bytes)?;
-        self.es.refresh(crate::catalog::CATALOG_INDEX)?;
-        // Exactly the documents this generation wrote carry its run_id (kept
-        // documents keep the run_id of the generation that last touched them),
-        // so the run_id-scoped read-back is O(changed) by construction.
-        // Re-walked while short of the projection: an unflagged truncated page
-        // (#1212) is intermittent, and validate_observed's exact equality is
-        // what should judge a COMPLETE walk, not a starved one.
-        projection.validate_observed(
-            &self.catalog_generation_complete(&snapshot.tx_id, projection.documents.len())?,
-        )?;
+        // document per file in the corpus. #1267: a document whose live
+        // source already equals that projection is not in `to_write`.
+        if !body.is_empty() {
+            checked_bulk_windowed(self.es, body, self.bulk_bytes)?;
+            // #2234: one attempt. `Es::refresh` would retry a timed-out
+            // catalog refresh five more times (300s each).
+            self.es.refresh_once(crate::catalog::CATALOG_INDEX)?;
+        }
+        if !to_write.is_empty() {
+            let written_ids: Vec<String> = to_write.keys().cloned().collect();
+            for (id, source) in self.mget_catalog(&written_ids, false)? {
+                observed.insert(id, source);
+            }
+        }
+        projection.validate_observed(&observed)?;
+        // The mget above sees only the projection's ids. A document this
+        // generation did not project that still carries its `run_id` would
+        // pass that check and inflate the next generation's kept set. The
+        // count is that extra. When it disagrees, the sorted walk — retried
+        // while short (#1212) — is what names the missing and unexpected ids.
+        // A walk that then matches the projection is the publish: the count
+        // was the optimization, and a capped total must not fail a complete
+        // read-back.
+        let live = self.catalog_run_count(&snapshot.tx_id)?;
+        if live != projection.documents.len() as u64 {
+            self.pr.note(&format!(
+                "autoindex: catalog run_id {} counts {live} live documents against {} in the \
+                 projection; reading them back by the sorted walk (#1267)",
+                snapshot.tx_id,
+                projection.documents.len()
+            ));
+            projection.validate_observed(
+                &self.catalog_generation_complete(&snapshot.tx_id, projection.documents.len())?,
+            )?;
+        }
+        write_catalog_run_ids(self.state_dir, &snapshot.tx_id, projection.documents.keys())?;
         if let Some(prior_run_id) = prior_run_id {
             // #971 sweep. Documents still carrying the prior generation's
             // run_id are legitimate — they are the intentionally kept
-            // (unchanged) ones — but NOTHING ELSE may: every id the prior
-            // generation published was either rewritten (new run_id), deleted
-            // (stale), or kept, and the prior generation's own exact
-            // read-back proved its published set matched its projection. A
-            // document surviving under the prior run_id that this projection
-            // did not keep is a stray the publication failed to account for.
-            // A kept document may legitimately be absent here (a same-prefix
-            // journal on another state-dir may have overwritten it — the
-            // documented cross-journal collision), so the check is a subset
-            // check, not equality. Deliberately NOT re-walked when short: this
-            // is a subset check, and an unflagged truncated page (#1212) can
-            // only UNDER-report strays — a false pass is impossible, and a
-            // re-walk here would only re-run the sweep's deletes.
-            let remaining = self.catalog_generation(prior_run_id)?;
-            let written: BTreeSet<String> = projection.documents.keys().cloned().collect();
-            let kept: BTreeSet<&String> = projection.managed_ids.difference(&written).collect();
-            let strays: Vec<&String> = remaining.keys().filter(|id| !kept.contains(id)).collect();
-            anyhow::ensure!(
-                strays.is_empty(),
-                "prior catalog generation {prior_run_id} still has {} document(s) this generation \
-                 neither rewrote, deleted nor kept: {:?}",
-                strays.len(),
-                strays
-            );
+            // (unchanged) ones — but NOTHING ELSE may. The check itself is
+            // unchanged (subset, not equality; a kept document may have been
+            // overwritten by another journal). What changed (#1267) is that
+            // the common case is a count against the ids the prior generation
+            // saved, not another sorted walk of the catalog.
+            self.assert_no_prior_strays(prior_run_id, &projection)?;
         }
         Ok(())
     }
@@ -1605,13 +2125,27 @@ impl SyncOperationBackend for EsSyncBackend<'_> {
             desired.plan.datasets.len() as u64 + 1,
             0,
         );
+        let mut refresh_failures: Vec<String> = Vec::new();
         for dataset in &desired.plan.datasets {
             let _refreshing = self.pr.file(&dataset.index, 0);
-            self.es.refresh(&dataset.index)?;
+            // #2234: one attempt per index. The file guard names the index
+            // on the progress line for as long as this request is in flight.
+            if let Err(error) = self.es.refresh_once(&dataset.index) {
+                refresh_failures.push(format!("{}: {error:#}", dataset.index));
+            }
         }
         {
             let _refreshing = self.pr.file(crate::catalog::CATALOG_INDEX, 0);
-            self.es.refresh(crate::catalog::CATALOG_INDEX)?;
+            if let Err(error) = self.es.refresh_once(crate::catalog::CATALOG_INDEX) {
+                refresh_failures.push(format!("{}: {error:#}", crate::catalog::CATALOG_INDEX));
+            }
+        }
+        if !refresh_failures.is_empty() {
+            anyhow::bail!(
+                "finalize-refresh failed for {} index(es): {}",
+                refresh_failures.len(),
+                refresh_failures.join(" | ")
+            );
         }
         // The generation-wide barrier reads changed groups back. Every
         // question it asks has the same shape — "how many rows in this index
@@ -1714,7 +2248,10 @@ impl SyncOperationBackend for EsSyncBackend<'_> {
             readbacks += windows(values.len());
         }
         for values in semantic_wanted.values() {
-            readbacks += windows(values.len());
+            // One exists preflight per field, then its digest windows — issued
+            // when the field matches anything, ticked and skipped when it
+            // matches nothing (#1267).
+            readbacks += 1 + windows(values.len());
         }
         let catalog_wanted: Vec<String> = changed_groups
             .iter()
@@ -1725,55 +2262,71 @@ impl SyncOperationBackend for EsSyncBackend<'_> {
         }
         self.pr.phase("finalize-verify", readbacks, 0);
 
-        // #1267 operational: one representative window, timed, before the
-        // walk. The semantic leg is preferred because its `term`+`exists`
-        // shape is exactly the one a server without the #1260 exists arm
-        // brute-scans; a generation with no semantic field probes a record
-        // window instead. One digest is enough — the brute path's cost is the
-        // index size, not the window width.
-        let probe = semantic_wanted
-            .iter()
-            .find_map(|((index, field), values)| {
-                let exists = serde_json::json!({"exists": {"field": field}});
-                values.first().map(|value| (index, value, vec![exists]))
-            })
-            .or_else(|| {
-                record_wanted
-                    .iter()
-                    .find_map(|(index, values)| values.first().map(|value| (index, value, vec![])))
-            });
-        if let Some((index, value, extra)) = probe {
-            let _probing = self.pr.file(index, 0);
-            Self::probe_server_generation(
-                self.pr,
-                readbacks,
-                Self::SERVER_PROBE_SLOW,
-                || {
-                    let started = std::time::Instant::now();
-                    self.windowed_value_counts(
-                        index,
-                        "ax_file",
-                        std::slice::from_ref(value),
-                        &extra,
-                    )?;
-                    Ok(started.elapsed())
-                },
-                || self.server_xerj_version(),
-            );
+        // #1267 operational: a generation with no semantic field still times
+        // one record window, so an old server is named before the walk. The
+        // semantic leg's probe is the exists preflight below — a per-digest
+        // `term` + `exists` sample is the query this change exists to stop
+        // issuing when the field matches nothing. `watch_file` names the
+        // index and does not credit an item: the probe is not one of
+        // `readbacks`.
+        if semantic_wanted.is_empty() {
+            if let Some((index, value)) = record_wanted
+                .iter()
+                .find_map(|(index, values)| values.first().map(|value| (index.as_str(), value)))
+            {
+                let _probing = self.pr.watch_file(index, 0);
+                Self::probe_server_generation(
+                    self.pr,
+                    readbacks,
+                    Self::SERVER_PROBE_SLOW,
+                    || {
+                        let started = std::time::Instant::now();
+                        self.windowed_value_counts(
+                            index,
+                            "ax_file",
+                            std::slice::from_ref(value),
+                            &[],
+                            false,
+                        )?;
+                        Ok(started.elapsed())
+                    },
+                    || self.server_xerj_version(),
+                );
+            }
         }
 
         let mut record_counts: HashMap<String, HashMap<String, u64>> = HashMap::new();
         for (index, values) in &record_wanted {
-            let _reading = self.pr.file(index, 0);
-            let counts = self.windowed_value_counts(index, "ax_file", values, &[])?;
+            let _reading = self.pr.watch_file(index, 0);
+            let counts = self.windowed_value_counts(index, "ax_file", values, &[], true)?;
             record_counts.insert(index.clone(), counts);
         }
         let mut semantic_counts: HashMap<(String, String), HashMap<String, u64>> = HashMap::new();
+        let mut first_semantic = true;
         for ((index, field), values) in &semantic_wanted {
-            let _reading = self.pr.file(index, 0);
-            let exists = serde_json::json!({"exists": {"field": field}});
-            let counts = self.windowed_value_counts(index, "ax_file", values, &[exists])?;
-            semantic_counts.insert((index.clone(), field.clone()), counts);
+            let _reading = self.pr.watch_file(index, 0);
+            let probe = first_semantic;
+            first_semantic = false;
+            let total = self.semantic_exists_total(index, field, probe, windows(values.len()))?;
+            credit_verify_items(self.pr, 1);
+            let plan = plan_exists_probes(values.len(), Self::VERIFY_WINDOW, total);
+            if plan.skip_windows > 0 {
+                self.pr.note(&format!(
+                    "autoindex: semantic field {field} on {index} matches no documents; skipped \
+                     {} verify window(s) (#1267)",
+                    plan.skip_windows
+                ));
+                credit_verify_items(self.pr, plan.skip_windows);
+                semantic_counts.insert(
+                    (index.clone(), field.clone()),
+                    values.iter().cloned().map(|value| (value, 0)).collect(),
+                );
+            } else {
+                let exists = serde_json::json!({"exists": {"field": field}});
+                let counts =
+                    self.windowed_value_counts(index, "ax_file", values, &[exists], true)?;
+                semantic_counts.insert((index.clone(), field.clone()), counts);
+            }
         }
         // Scoped to this generation's `run_id`, the same way the run-summary
         // read-back is (`lib.rs`). `file_key` is derived from CONTENT alone
@@ -1789,10 +2342,10 @@ impl SyncOperationBackend for EsSyncBackend<'_> {
         // record counts above, only changed groups ask — a kept group's
         // canonical/alias documents intentionally keep the run_id of the
         // generation that last wrote them.
-        let catalog_counts = if catalog_wanted.is_empty() {
+        let mut catalog_counts = if catalog_wanted.is_empty() {
             HashMap::new()
         } else {
-            let _reading = self.pr.file(crate::catalog::CATALOG_INDEX, 0);
+            let _reading = self.pr.watch_file(crate::catalog::CATALOG_INDEX, 0);
             self.windowed_catalog_counts(&catalog_wanted, &snapshot.tx_id)?
         };
 
@@ -1803,13 +2356,22 @@ impl SyncOperationBackend for EsSyncBackend<'_> {
         // makes it fail loud either way.
         for group in changed_groups {
             let mut records = 0u64;
-            for index in group_indices(group, &desired.plan)? {
-                records += record_counts[&index][&group.content_id];
+            let indices = group_indices(group, &desired.plan)?;
+            for index in &indices {
+                records += record_counts[index][&group.content_id];
             }
             anyhow::ensure!(
                 records == group.expected_records,
-                "live record count disagrees with desired group {}",
-                group.group_id
+                "live record count disagrees with desired group {}: live_records={records} \
+                 expected_records={} indices=[{}]; a resume checks the same live indices, \
+                 so it stops here again until they are rebuilt{}",
+                group.group_id,
+                group.expected_records,
+                indices.join(", "),
+                self.record_repair
+                    .as_deref()
+                    .map(|advice| format!(". {advice}"))
+                    .unwrap_or_default()
             );
             let mut semantic = 0u64;
             for slug in &group.dataset_slugs {
@@ -1824,12 +2386,38 @@ impl SyncOperationBackend for EsSyncBackend<'_> {
             }
             anyhow::ensure!(
                 semantic == group.expected_passages && semantic == group.expected_vectors,
-                "live semantic count disagrees with desired group {}",
-                group.group_id
+                "live semantic count disagrees with desired group {}: \
+                 live_semantic_records={}, expected_passages={}, expected_vectors={}, datasets={:?}",
+                group.group_id,
+                semantic,
+                group.expected_passages,
+                group.expected_vectors,
+                group.dataset_slugs
             );
+            // #2314: the equality used to be one shot. A folder of identical
+            // empty files published the canonical doc and its aliases, then
+            // lost the race with catalog visibility and aborted; the same
+            // command retried clean. Recount after a refresh, the same bound
+            // as the short read-back walk, before calling it a disagreement.
+            let expected = 1 + group.aliases.len() as u64;
+            let mut observed = catalog_counts.get(&group.content_id).copied().unwrap_or(0);
+            let mut attempt = 1usize;
+            while observed != expected && attempt < Self::READBACK_WALK_ATTEMPTS {
+                self.pr.note(&format!(
+                    "autoindex: catalog canonical/alias count for {} saw {observed} of \
+                     {expected} document(s) — refreshing and recounting (attempt {attempt} of {})",
+                    group.group_id,
+                    Self::READBACK_WALK_ATTEMPTS
+                ));
+                self.es.refresh_once(crate::catalog::CATALOG_INDEX)?;
+                catalog_counts = self.windowed_catalog_counts(&catalog_wanted, &snapshot.tx_id)?;
+                observed = catalog_counts.get(&group.content_id).copied().unwrap_or(0);
+                attempt += 1;
+            }
             anyhow::ensure!(
-                catalog_counts[&group.content_id] == 1 + group.aliases.len() as u64,
-                "catalog canonical/alias count disagrees with desired group {}",
+                observed == expected,
+                "catalog canonical/alias count disagrees with desired group {}: \
+                 observed {observed}, expected {expected}",
                 group.group_id
             );
         }
@@ -2259,7 +2847,8 @@ fn checked_bulk(es: &crate::esclient::Es, body: Vec<u8>) -> Result<()> {
     if body.is_empty() {
         return Ok(());
     }
-    check_bulk_outcome(es, es.bulk(body)?)
+    let outcome = es.bulk(body.clone())?;
+    check_bulk_outcome(es, outcome, &body)
 }
 
 /// [`checked_bulk`] for a body nobody windowed — the catalog projection, which
@@ -2269,47 +2858,109 @@ fn checked_bulk_windowed(es: &crate::esclient::Es, body: Vec<u8>, bulk_bytes: us
     if body.is_empty() {
         return Ok(());
     }
-    check_bulk_outcome(es, es.bulk_windowed(body, bulk_bytes)?)
+    let outcome = es.bulk_windowed(body.clone(), bulk_bytes)?;
+    check_bulk_outcome(es, outcome, &body)
+}
+
+/// The `ax_path` of each refused record, read back from the body that was
+/// sent: a refusal reports only the record's `_id`, which is a hash.
+fn refused_paths(body: &[u8], outcome: &crate::esclient::BulkOutcome) -> Vec<String> {
+    let ids: HashSet<&str> = outcome
+        .refused
+        .iter()
+        .filter_map(|item| item.id.as_deref())
+        .collect();
+    let mut paths = Vec::new();
+    let mut lines = body.split(|byte| *byte == b'\n');
+    while let (Some(action), Some(doc)) = (lines.next(), lines.next()) {
+        let Ok(action) = serde_json::from_slice::<Value>(action) else {
+            continue;
+        };
+        let id = action
+            .as_object()
+            .and_then(|op| op.values().next())
+            .and_then(|op| op.get("_id"))
+            .and_then(Value::as_str);
+        if !id.is_some_and(|id| ids.contains(id)) {
+            continue;
+        }
+        if let Some(path) = serde_json::from_slice::<Value>(doc)
+            .ok()
+            .and_then(|doc| doc.get("ax_path")?.as_str().map(str::to_owned))
+        {
+            if !paths.contains(&path) {
+                paths.push(path);
+            }
+        }
+    }
+    paths
 }
 
 fn check_bulk_outcome(
     es: &crate::esclient::Es,
     outcome: crate::esclient::BulkOutcome,
+    body: &[u8],
 ) -> Result<()> {
     // `Es::bulk` has already re-sent per-item 429s, and only those, for the
-    // whole of its patience (`THROTTLE_PATIENCE`, #944/#949).
-    // What is left is either a server condition that did not clear — fatal,
-    // and resumable, because a sealed operation is journaled applied only
-    // after this returns — or a record the server refused outright.
+    // whole of its patience (`THROTTLE_PATIENCE`, #944/#949, shortened to
+    // `ZERO_PROGRESS_PATIENCE` when a parent memory breaker accepts nothing,
+    // #2238). What is left is either a server condition that did not clear —
+    // fatal, and resumable, because a sealed operation is journaled applied
+    // only after this returns — or a record the server refused outright.
     if outcome.throttled_out > 0 {
-        return Err(anyhow::Error::new(crate::esclient::BackpressureExhausted {
-            items: outcome.server_errors,
-            patience: es.throttle_patience(),
-            reason: outcome
-                .first_server_error
-                .unwrap_or_else(|| "unknown server error".into()),
-        }));
+        let patience = outcome
+            .exhausted_after
+            .unwrap_or_else(|| es.throttle_patience());
+        let reason = outcome
+            .first_server_error
+            .unwrap_or_else(|| "unknown server error".into());
+        return Err(anyhow::Error::new(crate::esclient::backpressure_exhausted(
+            outcome.server_errors,
+            patience,
+            &reason,
+        )));
     }
     if outcome.server_errors > 0 {
+        let reason = outcome
+            .first_server_error
+            .as_deref()
+            .map(crate::esclient::memory_cap_hint)
+            .unwrap_or_else(|| "unknown server error".into());
         anyhow::bail!(
-            "the server failed {} of a prepared bulk's items: {}. Nothing from this bulk was \
+            "the server failed {} of a prepared bulk's items: {reason}. Nothing from this bulk was \
              journaled applied; fix the reported server condition and rerun the same command — \
              the run resumes from its last committed operation",
             outcome.server_errors,
-            outcome
-                .first_server_error
-                .unwrap_or_else(|| "unknown server error".into())
         );
     }
-    anyhow::ensure!(
-        outcome.item_errors == 0,
-        "prepared bulk contained {} rejected items: {}",
+    if outcome.item_errors == 0 {
+        return Ok(());
+    }
+    // This route seals the generation before it sends, so a file can no
+    // longer leave the plan here, and a rerun replays the same refusal. Name
+    // the file and the ways out instead (#2807).
+    let paths = refused_paths(body, &outcome);
+    let source = if paths.is_empty() {
+        String::new()
+    } else {
+        format!(" from {}", paths.join(", "))
+    };
+    let too_large = outcome.refused.iter().any(|item| item.too_large);
+    let remedy = if too_large {
+        " The server adds vectors to a `semantic_text` field, and they count toward its \
+         per-document limit. A sealed generation cannot set a file aside, so rerunning \
+         repeats this refusal: index the folder under a new --prefix and --state-dir with \
+         the file left out (`--exclude`), or with `--no-semantic`"
+    } else {
+        ""
+    };
+    anyhow::bail!(
+        "the server refused {} record(s){source}: {}.{remedy}",
         outcome.item_errors,
         outcome
             .first_error
             .unwrap_or_else(|| "unknown error".into())
-    );
-    Ok(())
+    )
 }
 
 fn append_index_action(index: &str, id: &str, doc: &Value, body: &mut Vec<u8>) -> Result<()> {
@@ -2534,6 +3185,7 @@ pub fn create_snapshot(
         // The source-snapshot wrapper has no plan and therefore never runs
         // `prepare_artifact`; a labeler would have nothing to vote on.
         None,
+        None,
     )
 }
 
@@ -2563,6 +3215,8 @@ pub fn create_prepared_snapshot(
         "prepared-records-v1",
         // Test-only wrapper: no `--label` in these snapshots' contracts.
         None,
+        // Test-only wrapper: no server vectors to size records against.
+        None,
     )
 }
 
@@ -2580,6 +3234,13 @@ pub fn create_prepared_snapshot(
 /// one-file change seals O(changed) new bytes. `chunker_identity` is the run's
 /// `prepared_records_identity` and becomes part of each file's sealed
 /// preparation identity.
+///
+/// #2807: `vector_dims` is the width of the vectors the server adds to each
+/// record's semantic field, from its embedding identity. A record that would
+/// pass [`xerj_common::document_limit::MAX_INDEXED_DOCUMENT_BYTES`] once they
+/// are added is set aside as a junk record instead of sealed. `None` sizes
+/// records without vectors. The width is pinned in the generation's execution
+/// identity, so a reused artifact was sized against the same width.
 #[allow(clippy::too_many_arguments)]
 pub fn create_prepared_snapshot_reporting(
     state_dir: &Path,
@@ -2592,6 +3253,7 @@ pub fn create_prepared_snapshot_reporting(
     reuse: Option<&SourceSnapshot>,
     chunker_identity: &str,
     labeler: Option<&crate::label::Labeler>,
+    vector_dims: Option<usize>,
 ) -> Result<SourceSnapshot> {
     create_snapshot_inner(
         state_dir,
@@ -2604,6 +3266,7 @@ pub fn create_prepared_snapshot_reporting(
         reuse,
         chunker_identity,
         labeler,
+        vector_dims,
     )
 }
 
@@ -2619,6 +3282,7 @@ fn create_snapshot_inner(
     reuse: Option<&SourceSnapshot>,
     chunker_identity: &str,
     labeler: Option<&crate::label::Labeler>,
+    vector_dims: Option<usize>,
 ) -> Result<SourceSnapshot> {
     validate_tx_id(tx_id)?;
     ensure_inventory_lengths(inventory)?;
@@ -2721,6 +3385,9 @@ fn create_snapshot_inner(
     // Entered only when there is work to report: a retry that reuses a verified
     // final snapshot returned above and never claims a phase it did not run.
     pr.phase("snapshot", inventory.files.len() as u64, source_bytes);
+    // #2314: a test grows one source in the window after the hash and before
+    // this seal. Production runs leave the hook empty.
+    snapshot_source_hook(state_dir);
     for (ordinal, ((source, content_id), content_digest)) in inventory
         .files
         .iter()
@@ -2756,6 +3423,16 @@ fn create_snapshot_inner(
             .copied()
             .filter(|prior| {
                 prior.content_digest == *content_digest && prior.content_size == source.size
+            })
+            // #2421: a prior file whose blob was released can only be reused
+            // through its prepared artifact. If the preparation identity moved,
+            // there are no sealed bytes to re-extract from, so it re-seals from
+            // the live source (verified against this run's digest) below.
+            .filter(|prior| {
+                !prior.blob_released
+                    || (prior.prepared.is_some()
+                        && prior.prepared_identity.is_some()
+                        && prior.prepared_identity == prepared_identity)
             });
         match reusable {
             Some(prior) => {
@@ -2763,13 +3440,15 @@ fn create_snapshot_inner(
                     .as_ref()
                     .expect("reuse root exists whenever reuse_by_content is non-empty")
                     .join(&prior.relative_blob);
-                std::fs::hard_link(&prior_blob, &destination).with_context(|| {
-                    format!(
-                        "hardlink unchanged snapshot blob {} -> {}",
-                        prior_blob.display(),
-                        destination.display()
-                    )
-                })?;
+                if !prior.blob_released {
+                    std::fs::hard_link(&prior_blob, &destination).with_context(|| {
+                        format!(
+                            "hardlink unchanged snapshot blob {} -> {}",
+                            prior_blob.display(),
+                            destination.display()
+                        )
+                    })?;
+                }
                 budget.charge(source.size as usize)?;
                 let prepared = match &prior.prepared {
                     Some(prior_artifact)
@@ -2816,10 +3495,13 @@ fn create_snapshot_inner(
                             lookup.as_ref().expect("assignment implies a plan"),
                             &mut budget,
                             labeler,
+                            vector_dims,
+                            pr,
                         )?),
                         None => None,
                     },
                 };
+                let blob_released = release_prepared_blob(&destination, prepared.as_ref())?;
                 files.push(SnapshotFile {
                     content_id: content_id.clone(),
                     content_digest: content_digest.clone(),
@@ -2827,12 +3509,28 @@ fn create_snapshot_inner(
                     relative_blob,
                     prepared,
                     prepared_identity,
+                    blob_released,
                 });
             }
             None => {
-                crate::content::verify(&source.path, source.size, content_digest)?;
-                copy_synced(&source.path, &destination, &mut budget)?;
-                crate::content::verify(&destination, source.size, content_digest)?;
+                // #2314: a file that changes size (or disappears) between the
+                // hash and this copy used to abort the generation on the `?`.
+                // The error names the live source so the caller can drop that
+                // one file and seal the rest.
+                verify_live_source(source, content_digest)?;
+                if let Err(error) = copy_synced(&source.path, &destination, &mut budget) {
+                    if verify_live_source(source, content_digest).is_err() {
+                        return Err(source_changed(
+                            &source.path,
+                            format!(
+                                "{} changed while it was being copied into the snapshot ({error:#})",
+                                source.path.display()
+                            ),
+                        ));
+                    }
+                    return Err(error);
+                }
+                verify_sealed_blob(source, &destination, content_digest)?;
                 #[cfg(test)]
                 apply_post_seal_source_replacement(&source.path)?;
                 let prepared = match assignment {
@@ -2847,9 +3545,12 @@ fn create_snapshot_inner(
                         lookup.as_ref().expect("assignment implies a plan"),
                         &mut budget,
                         labeler,
+                        vector_dims,
+                        pr,
                     )?),
                     None => None,
                 };
+                let blob_released = release_prepared_blob(&destination, prepared.as_ref())?;
                 files.push(SnapshotFile {
                     content_id: content_id.clone(),
                     content_digest: content_digest.clone(),
@@ -2857,6 +3558,7 @@ fn create_snapshot_inner(
                     relative_blob,
                     prepared,
                     prepared_identity,
+                    blob_released,
                 });
             }
         }
@@ -2911,6 +3613,28 @@ fn create_snapshot_inner(
     open_snapshot(state_dir, tx_id)
 }
 
+/// #2421: once a file's prepared artifact is durable (`prepare_artifact`
+/// fsyncs it before returning), its sealed blob has served its only purpose —
+/// a stable input for extraction — so it is unlinked from the staging dir
+/// before the manifest is written. The blob is a hardlink when reused, so this
+/// never touches the prior generation's copy. Files with nothing prepared
+/// (junk/skipped, or a plan-less snapshot) keep their blob.
+fn release_prepared_blob(destination: &Path, prepared: Option<&PreparedArtifact>) -> Result<bool> {
+    if prepared.is_none() {
+        return Ok(false);
+    }
+    match std::fs::remove_file(destination) {
+        Ok(()) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => {
+            return Err(error).with_context(|| {
+                format!("release prepared snapshot blob {}", destination.display())
+            })
+        }
+    }
+    Ok(true)
+}
+
 pub fn open_snapshot(state_dir: &Path, tx_id: &str) -> Result<SourceSnapshot> {
     validate_tx_id(tx_id)?;
     let dir = state_dir.join("sync-snapshots").join(tx_id);
@@ -2956,11 +3680,20 @@ pub fn open_snapshot(state_dir: &Path, tx_id: &str) -> Result<SourceSnapshot> {
                 && !Path::new(&file.relative_blob).is_absolute(),
             "invalid source snapshot blob path"
         );
-        crate::content::verify(
-            &dir.join(&file.relative_blob),
-            file.content_size,
-            &file.content_digest,
-        )?;
+        if file.blob_released {
+            // #2421: the bytes live only in the prepared artifact, which is
+            // size- and digest-verified below.
+            anyhow::ensure!(
+                file.prepared.is_some(),
+                "source snapshot released a blob that has no prepared artifact"
+            );
+        } else {
+            crate::content::verify(
+                &dir.join(&file.relative_blob),
+                file.content_size,
+                &file.content_digest,
+            )?;
+        }
         if let Some(prepared) = &file.prepared {
             validate_relative_path(&prepared.relative_ndjson, "prepared/")?;
             let path = dir.join(&prepared.relative_ndjson);
@@ -3039,6 +3772,8 @@ fn prepare_artifact(
     // differently-labelled) NDJSON. `None` — the default, and every caller
     // without `--label` — seals unlabelled exactly as before.
     labeler: Option<&crate::label::Labeler>,
+    vector_dims: Option<usize>,
+    pr: &crate::progress::Progress,
 ) -> Result<PreparedArtifact> {
     let datasets = &lookup.datasets;
     let coercions = &lookup.coercions;
@@ -3069,6 +3804,9 @@ fn prepare_artifact(
     let mut records_by_dataset: BTreeMap<String, u64> = BTreeMap::new();
     let mut passages = 0u64;
     let mut vectors = 0u64;
+    // Records set aside for size, and the first one's locator and size.
+    let mut oversized = 0u64;
+    let mut first_oversized: Option<(String, usize, bool)> = None;
     let mut sink_error: Option<anyhow::Error> = None;
     let mut sink = |record: crate::extract::RawRecord| -> bool {
         let Some(slug) = assignments
@@ -3136,10 +3874,39 @@ fn prepare_artifact(
                 }
             }
         }
+        let semantic = dataset
+            .semantic_field
+            .as_ref()
+            .is_some_and(|field| fields.get(field).is_some());
+        // #2807: the server adds the semantic vectors before it checks the
+        // per-document limit, so a record well under it can be refused, and a
+        // refusal after sealing stops every rerun of this generation. Size the
+        // record as the server will see it, and set it aside as a junk record
+        // when it would not fit. The file's other records are still indexed.
+        let vector_bytes = match (vector_dims, dataset.semantic_field.as_deref()) {
+            (Some(dims), Some(field)) => {
+                fields.get(field).and_then(Value::as_str).map_or(0, |text| {
+                    xerj_common::document_limit::semantic_vector_bytes(
+                        field,
+                        &format!("{field}_vector"),
+                        dims,
+                        &xerj_ai::semantic_lexical::semantic_passage_offsets(text),
+                    )
+                })
+            }
+            _ => 0,
+        };
+        let document = Value::Object(fields).to_string();
+        let indexed_bytes = document.len().saturating_add(vector_bytes);
+        if xerj_common::document_limit::indexed_document_too_large(indexed_bytes) {
+            oversized += 1;
+            first_oversized.get_or_insert((record.locator, indexed_bytes, vector_bytes > 0));
+            return true;
+        }
         let id = crate::ids::doc_id(slug, content_id, &record.locator);
         let action = serde_json::json!({"index": {"_index": dataset.index, "_id": id}});
-        if let Err(error) = writeln!(writer, "{action}")
-            .and_then(|_| writeln!(writer, "{}", Value::Object(fields.clone())))
+        if let Err(error) =
+            writeln!(writer, "{action}").and_then(|_| writeln!(writer, "{document}"))
         {
             sink_error = Some(anyhow::Error::new(error).context("write prepared NDJSON"));
             return false;
@@ -3149,11 +3916,7 @@ fn prepare_artifact(
         // under, so a file that fans out over several datasets stays reconcilable
         // against each one separately.
         *records_by_dataset.entry(slug.to_string()).or_default() += 1;
-        if dataset
-            .semantic_field
-            .as_ref()
-            .is_some_and(|field| fields.get(field).is_some())
-        {
+        if semantic {
             passages += 1;
             vectors += 1;
         }
@@ -3198,6 +3961,23 @@ fn prepare_artifact(
     if let Some(error) = sink_error {
         return Err(error);
     }
+    if let Some((locator, indexed_bytes, with_vectors)) = first_oversized {
+        let (sized, remedy) = if with_vectors {
+            (
+                "with the vectors the server adds, ",
+                "; --no-semantic indexes it without vectors",
+            )
+        } else {
+            ("", "")
+        };
+        pr.note(&format!(
+            "warning: {} had {oversized} record(s) set aside as junk: {sized}record \
+             {locator} would be {indexed_bytes} bytes, over the {} byte limit for one \
+             document. The file's other records are indexed{remedy}",
+            source.rel,
+            xerj_common::document_limit::MAX_INDEXED_DOCUMENT_BYTES,
+        ));
+    }
     writer.flush()?;
     writer.inner.get_ref().sync_all()?;
     drop(writer);
@@ -3207,7 +3987,7 @@ fn prepare_artifact(
         records,
         passages,
         vectors,
-        junk: stats.junk,
+        junk: stats.junk + oversized,
         truncated: stats.truncated,
         records_by_dataset,
         bytes,
@@ -3392,6 +4172,77 @@ fn apply_post_seal_source_replacement(path: &Path) -> Result<()> {
     }
     Ok(())
 }
+
+/// A live source no longer matches the bytes this generation hashed.
+///
+/// Stat failures are included: a file deleted between the hash and the seal
+/// is the same skip, not a reason to abort every other file.
+fn verify_live_source(source: &crate::walk::FileEntry, digest: &str) -> Result<()> {
+    match crate::content::verify(&source.path, source.size, digest) {
+        Ok(()) => Ok(()),
+        Err(error) => Err(source_changed(&source.path, format!("{error:#}"))),
+    }
+}
+
+/// The staged blob does not match the hashed source. A size or content miss
+/// is reported against the live path, which is the file the caller can drop.
+fn verify_sealed_blob(source: &crate::walk::FileEntry, sealed: &Path, digest: &str) -> Result<()> {
+    match crate::content::verify(sealed, source.size, digest) {
+        Ok(()) => Ok(()),
+        Err(error)
+            if error
+                .downcast_ref::<crate::content::SourceChanged>()
+                .is_some() =>
+        {
+            Err(source_changed(&source.path, format!("{error:#}")))
+        }
+        Err(error) => Err(error),
+    }
+}
+
+fn source_changed(path: &Path, detail: String) -> anyhow::Error {
+    crate::content::SourceChanged {
+        path: path.to_path_buf(),
+        detail,
+        locked: false,
+    }
+    .into()
+}
+
+/// Test-only: run once at the start of a snapshot seal, keyed by state dir
+/// so a parallel test cannot grow another run's files (#2314).
+#[cfg(test)]
+type SnapshotSourceHook = (std::path::PathBuf, Box<dyn FnOnce() + Send>);
+#[cfg(test)]
+static SNAPSHOT_SOURCE_HOOK: std::sync::Mutex<Option<SnapshotSourceHook>> =
+    std::sync::Mutex::new(None);
+
+#[cfg(test)]
+pub(crate) fn arm_snapshot_source_hook(state_dir: &Path, action: impl FnOnce() + Send + 'static) {
+    *SNAPSHOT_SOURCE_HOOK
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner()) =
+        Some((state_dir.to_path_buf(), Box::new(action)));
+}
+
+#[cfg(test)]
+fn snapshot_source_hook(state_dir: &Path) {
+    let action = {
+        let mut armed = SNAPSHOT_SOURCE_HOOK
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        match armed.as_ref() {
+            Some((dir, _)) if dir == state_dir => armed.take().map(|(_, action)| action),
+            _ => None,
+        }
+    };
+    if let Some(action) = action {
+        action();
+    }
+}
+
+#[cfg(not(test))]
+fn snapshot_source_hook(_state_dir: &Path) {}
 
 #[cfg(test)]
 fn fail_next_snapshot(boundary: u8) {
@@ -3670,6 +4521,7 @@ mod tests {
             None,
             "chunker-v1",
             None,
+            None,
         )
         .unwrap();
         assert_eq!(first.files.len(), 3);
@@ -3705,6 +4557,7 @@ mod tests {
             &crate::progress::Progress::silent(),
             Some(&first),
             "chunker-v1",
+            None,
             None,
         )
         .unwrap();
@@ -3749,11 +4602,22 @@ mod tests {
             .unwrap()
             .ino()
         };
-        let prior_blob_inodes: std::collections::HashSet<_> = first
+        // #2421: every prepared file's blob is released at seal, in both
+        // generations — reuse carries the prepared artifact, not the bytes.
+        for (snapshot, file) in first
             .files
             .iter()
-            .map(|file| artifact_inode(&first, &file.relative_blob))
-            .collect();
+            .map(|file| (&first, file))
+            .chain(second.files.iter().map(|file| (&second, file)))
+        {
+            assert!(file.blob_released, "{}", file.content_id);
+            assert!(!state
+                .path()
+                .join("sync-snapshots")
+                .join(&snapshot.tx_id)
+                .join(&file.relative_blob)
+                .exists());
+        }
 
         for file in &second.files {
             let new_prepared = file.prepared.as_ref().unwrap();
@@ -3764,10 +4628,6 @@ mod tests {
                 None => {
                     // The changed file: everything sealed fresh, under the new
                     // generation's identity.
-                    assert!(
-                        !prior_blob_inodes.contains(&artifact_inode(&second, &file.relative_blob)),
-                        "the changed file's blob must be a fresh inode"
-                    );
                     let ndjson = std::fs::read_to_string(
                         state
                             .path()
@@ -3781,11 +4641,6 @@ mod tests {
                     );
                 }
                 Some(prior) => {
-                    assert_eq!(
-                        artifact_inode(&first, &prior.relative_blob),
-                        artifact_inode(&second, &file.relative_blob),
-                        "an unchanged file's blob must be the prior generation's inode"
-                    );
                     let prior_prepared = prior.prepared.as_ref().unwrap();
                     assert_eq!(
                         artifact_inode(&first, &prior_prepared.relative_ndjson),
@@ -3812,6 +4667,137 @@ mod tests {
         // hardlinked or not.
         let reopened = open_snapshot(state.path(), "tx-g2").unwrap();
         assert_eq!(reopened, second);
+    }
+
+    /// #2421: a committed generation's snapshot used to hold a full copy of
+    /// every source byte (`blobs/`) next to the prepared NDJSON, so the state
+    /// dir was larger than the corpus it indexed. With prepared blobs released
+    /// at seal, nothing under `blobs/` survives, and what the protected
+    /// snapshots hold beyond the prepared records a resume replays from —
+    /// counted per inode, so hardlinked reuse is not double-counted — stays
+    /// under 1x the source after a commit and after the next generation's gc.
+    /// (The prepared records themselves are the replay authority; their size
+    /// depends on the corpus: overlapping text chunks run above the source,
+    /// compacted JSON below it.)
+    #[cfg(unix)]
+    #[test]
+    fn committed_snapshot_keeps_no_source_copy_beside_its_prepared_records() {
+        use std::os::unix::fs::MetadataExt;
+        let _guard = SNAPSHOT_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let corpus = tempfile::tempdir().unwrap();
+        let state = tempfile::tempdir().unwrap();
+        for file in 0..8 {
+            let body: String = (0..400)
+                .map(|line| format!("file {file} line {line}: the quick brown fox jumps over it\n"))
+                .collect();
+            std::fs::write(corpus.path().join(format!("f{file}.md")), body).unwrap();
+        }
+        // (bytes beyond the prepared records, prepared bytes)
+        let footprint = |state: &Path| -> (u64, u64) {
+            let mut seen = std::collections::HashSet::new();
+            let mut other = 0;
+            let mut prepared = 0;
+            for entry in walkdir::WalkDir::new(state.join("sync-snapshots")) {
+                let entry = entry.unwrap();
+                let metadata = entry.metadata().unwrap();
+                if metadata.is_file() && seen.insert(metadata.ino()) {
+                    let parts: Vec<_> = entry.path().components().collect();
+                    let under = |dir: &str| parts.iter().any(|part| part.as_os_str() == dir);
+                    assert!(
+                        !under("blobs"),
+                        "a released snapshot keeps no source copy: {}",
+                        entry.path().display()
+                    );
+                    if under("prepared") {
+                        prepared += metadata.len();
+                    } else {
+                        other += metadata.len();
+                    }
+                }
+            }
+            (other, prepared)
+        };
+        let seal = |tx: &str, prior: Option<&SourceSnapshot>| {
+            let inventory = inventory(corpus.path());
+            let plan = plan_for_all(&inventory);
+            let source: u64 = inventory.files.iter().map(|file| file.size).sum();
+            let snapshot = create_prepared_snapshot_reporting(
+                state.path(),
+                tx,
+                &inventory,
+                &plan,
+                "test-preparation-v1",
+                u64::MAX,
+                &crate::progress::Progress::silent(),
+                prior,
+                "chunker-v1",
+                None,
+                None,
+            )
+            .unwrap();
+            (snapshot, source)
+        };
+        let (first, source) = seal("tx-g1", None);
+        let (used, prepared) = footprint(state.path());
+        assert!(prepared > 0);
+        assert!(
+            used < source,
+            "snapshot bytes beyond the prepared records ({used}) must stay below the \
+             {source}-byte source"
+        );
+        assert!(first.files.iter().all(|file| file.blob_released));
+
+        std::fs::write(corpus.path().join("f3.md"), "changed\n").unwrap();
+        let (second, source) = seal("tx-g2", Some(&first));
+        // What gc does once g2 is the committed authority.
+        std::fs::remove_dir_all(state.path().join("sync-snapshots/tx-g1")).unwrap();
+        let (used, _) = footprint(state.path());
+        assert!(
+            used < source,
+            "after gc the bytes beyond the prepared records ({used}) must stay below the \
+             {source}-byte source"
+        );
+        assert_eq!(open_snapshot(state.path(), "tx-g2").unwrap(), second);
+    }
+
+    /// #2421: a released blob is never silently trusted. The prepared artifact
+    /// that replaces it is still size- and digest-verified on every open.
+    #[test]
+    fn released_blob_snapshot_still_verifies_its_prepared_artifact() {
+        let _guard = SNAPSHOT_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let corpus = tempfile::tempdir().unwrap();
+        let state = tempfile::tempdir().unwrap();
+        std::fs::write(corpus.path().join("a.md"), "alpha contents one\n").unwrap();
+        let inventory = inventory(corpus.path());
+        let plan = plan_for_all(&inventory);
+        let snapshot = create_prepared_snapshot(
+            state.path(),
+            "tx-released",
+            &inventory,
+            &plan,
+            "test-preparation-v1",
+            u64::MAX,
+        )
+        .unwrap();
+        assert!(snapshot.files[0].blob_released);
+        let artifact = state
+            .path()
+            .join("sync-snapshots/tx-released")
+            .join(&snapshot.files[0].prepared.as_ref().unwrap().relative_ndjson);
+        let original = std::fs::read(&artifact).unwrap();
+        let mut corrupt = original.clone();
+        corrupt[0] ^= 0x20;
+        std::fs::write(&artifact, &corrupt).unwrap();
+        assert!(open_snapshot(state.path(), "tx-released").is_err());
+        std::fs::write(&artifact, &original).unwrap();
+        assert_eq!(
+            open_snapshot(state.path(), "tx-released").unwrap(),
+            snapshot
+        );
     }
 
     /// #971: gc removes the prior snapshot's directory entries after a new
@@ -3845,6 +4831,7 @@ mod tests {
             None,
             "chunker-v1",
             None,
+            None,
         )
         .unwrap();
         std::fs::write(corpus.path().join("b.md"), "bravo contents CHANGED\n").unwrap();
@@ -3861,6 +4848,7 @@ mod tests {
             Some(&first),
             "chunker-v1",
             None,
+            None,
         )
         .unwrap();
 
@@ -3875,10 +4863,11 @@ mod tests {
 
     /// #971: a preparation-input change (chunker identity) busts prepared
     /// reuse even when the bytes are identical — the artifact is re-extracted
-    /// under the new contract, while the blob itself is still shared.
+    /// under the new contract. #2421: the prior blob was released at seal, so
+    /// the bytes are re-sealed from the verified live source and released again.
     #[cfg(unix)]
     #[test]
-    fn changed_preparation_identity_reextracts_but_still_shares_the_blob() {
+    fn changed_preparation_identity_reextracts_from_the_live_source() {
         let _guard = SNAPSHOT_TEST_LOCK
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
@@ -3898,6 +4887,7 @@ mod tests {
             None,
             "chunker-v1",
             None,
+            None,
         )
         .unwrap();
         let second = create_prepared_snapshot_reporting(
@@ -3910,6 +4900,7 @@ mod tests {
             &crate::progress::Progress::silent(),
             Some(&first),
             "chunker-v2",
+            None,
             None,
         )
         .unwrap();
@@ -3929,11 +4920,8 @@ mod tests {
                 )
         };
         let inode = |path: std::path::PathBuf| std::fs::metadata(path).unwrap().ino();
-        assert_eq!(
-            inode(blob(&first)),
-            inode(blob(&second)),
-            "identical content still shares the blob"
-        );
+        assert!(!blob(&first).exists() && !blob(&second).exists());
+        assert!(first.files[0].blob_released && second.files[0].blob_released);
         // The artifacts live in different snapshot directories under the same
         // ordinal name, so compare inodes, not relative paths.
         let prepared = |snapshot: &SourceSnapshot| {
@@ -4326,6 +5314,72 @@ mod tests {
         journal.sync_begin(&pending).unwrap();
     }
 
+    /// The `windows:` native identity `stable_path_id` writes for `rel` on a
+    /// Windows walk: each UTF-16 unit of the NATIVE path (separator `\`) as
+    /// four hex digits. `native_path_id_supported` accepts it on every
+    /// platform, so a Windows walk can be reproduced from a macOS/Linux one.
+    fn windows_path_id(rel: &str) -> String {
+        let mut out = String::from("windows:");
+        for unit in rel.replace('/', "\\").encode_utf16() {
+            use std::fmt::Write;
+            write!(out, "{unit:04x}").unwrap();
+        }
+        out
+    }
+
+    /// #1723: `corpus index` on Windows aborted every generation — even with
+    /// `--fresh` — with "plan canonical projection disagrees with manifest
+    /// group" once the corpus held byte-identical files at `Pill/x.scss` and
+    /// `PillS/x.scss` (any pair whose paths first differ at a separator on
+    /// one side and a digit, `A-Z`, or `:;<=>?@[` on the other).
+    ///
+    /// The inventory picked the canonical copy by `rel`, where the separator
+    /// is `/` (0x2F) and sorts first; the manifest ranks by `path_id`, the
+    /// native identity, where the separator is `\` (0x5C) and sorts after
+    /// those characters. The plan projected one path, the manifest group
+    /// another, and `PendingSync::new` refused the generation.
+    #[test]
+    fn windows_duplicate_canonical_agrees_between_plan_and_manifest() {
+        let corpus = tempfile::tempdir().unwrap();
+        for dir in ["Pill", "PillS", "Pill1"] {
+            std::fs::create_dir_all(corpus.path().join(dir)).unwrap();
+            std::fs::write(corpus.path().join(dir).join("x.scss"), ".pill{}\n").unwrap();
+        }
+        std::fs::write(corpus.path().join("other.txt"), "unrelated").unwrap();
+        let mut files = walk::walk(corpus.path(), false).unwrap();
+        for file in &mut files {
+            file.rel_id = windows_path_id(&file.rel);
+        }
+        let inventory = crate::content::resolve_reporting(files, &|_| {}).unwrap();
+        assert_eq!(inventory.files.len(), 2, "three copies, one content file");
+        let canonical = inventory
+            .files
+            .iter()
+            .find(|file| file.rel.ends_with("x.scss"))
+            .unwrap();
+        assert_eq!(
+            canonical.rel, "Pill1/x.scss",
+            "the canonical copy is the lowest native identity: `1` (0x31) and \
+             `S` (0x53) both sort below `\\` (0x5C)"
+        );
+
+        let mut plan = plan_for_all(&inventory);
+        plan.duplicate_files = inventory.duplicates.clone();
+        let groups = groups_from_inventory(&inventory, &plan, &[]).unwrap();
+        let base = CommittedManifest::genesis().unwrap();
+        PendingSync::new(
+            "tx-1723".into(),
+            &base,
+            GenerationManifest {
+                generation: 1,
+                execution: Some(execution("tx-1723", "digest")),
+                plan,
+                groups,
+            },
+        )
+        .expect("#1723: plan and manifest must agree on the canonical duplicate");
+    }
+
     #[test]
     fn inventory_bridge_retains_counts_only_for_identical_content() {
         let corpus = tempfile::tempdir().unwrap();
@@ -4461,10 +5515,10 @@ mod tests {
             assert!(document.get("id").is_none(), "{document}");
             assert!(document.get("value").is_none(), "{document}");
         }
-        assert_eq!(
-            std::fs::read(root.join(&snapshot.files[0].relative_blob)).unwrap(),
-            sealed
-        );
+        // #2421: the sealed bytes served extraction and were then released;
+        // the artifact above is the durable copy.
+        assert!(snapshot.files[0].blob_released);
+        assert!(!root.join(&snapshot.files[0].relative_blob).exists());
     }
 
     /// #294: snapshot blobs are content-addressed and extensionless
@@ -5025,6 +6079,176 @@ mod tests {
         );
     }
 
+    /// A spawner that refuses its first `refuse` calls with `EAGAIN`, as
+    /// `pthread_create` does under thread or memory pressure, then starts
+    /// real threads. Counts every call (#2428).
+    struct FlakySpawn {
+        refuse: usize,
+        calls: std::sync::atomic::AtomicUsize,
+        started: std::sync::atomic::AtomicUsize,
+    }
+
+    impl FlakySpawn {
+        fn refusing(refuse: usize) -> Self {
+            FlakySpawn {
+                refuse,
+                calls: std::sync::atomic::AtomicUsize::new(0),
+                started: std::sync::atomic::AtomicUsize::new(0),
+            }
+        }
+    }
+
+    impl xerj_common::thread_spawn::Spawn for FlakySpawn {
+        fn spawn(
+            &self,
+            name: &str,
+            job: xerj_common::thread_spawn::BoxedJob,
+        ) -> std::io::Result<xerj_common::thread_spawn::SpawnedThread> {
+            let call = self.calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            if call < self.refuse {
+                return Err(std::io::Error::from_raw_os_error(11));
+            }
+            self.started
+                .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            xerj_common::thread_spawn::StdSpawn.spawn(name, job)
+        }
+    }
+
+    #[test]
+    fn replay_windowed_reuses_at_most_width_workers_for_a_long_replay() {
+        // #2428: one thread per operation was hundreds of thousands of
+        // `pthread_create` calls over a corpus replay. The window must start
+        // at most `width` workers once and reuse them.
+        let items: Vec<usize> = (0..500).collect();
+        let spawner = FlakySpawn::refusing(0);
+        let threads = std::sync::Mutex::new(std::collections::HashSet::new());
+        let apply = |_item: &usize| {
+            threads.lock().unwrap().insert(std::thread::current().id());
+            Ok(())
+        };
+        let mut hooks = WindowHooks::default();
+        replay_windowed_with(&spawner, || true, &items, 4, &mut hooks, &apply).unwrap();
+        assert_eq!(hooks.begun, items);
+        assert_eq!(hooks.applied.len(), items.len());
+        assert!(hooks.applied.iter().all(|(_, ok)| *ok));
+        let spawned = spawner.calls.load(std::sync::atomic::Ordering::SeqCst);
+        assert!(
+            spawned <= 4,
+            "500 operations at width 4 must start at most 4 threads, started {spawned}"
+        );
+        assert!(threads.lock().unwrap().len() <= 4);
+    }
+
+    #[test]
+    fn replay_windowed_completes_inline_when_every_worker_spawn_is_refused() {
+        // #2428: EAGAIN on every spawn is a slower replay, not a lost run.
+        let items: Vec<usize> = (0..20).collect();
+        let spawner = FlakySpawn::refusing(usize::MAX);
+        let caller = std::thread::current().id();
+        let threads = std::sync::Mutex::new(std::collections::HashSet::new());
+        let apply = |_item: &usize| {
+            threads.lock().unwrap().insert(std::thread::current().id());
+            Ok(())
+        };
+        let mut hooks = WindowHooks::default();
+        replay_windowed_with(&spawner, || true, &items, 4, &mut hooks, &apply).unwrap();
+        assert_eq!(hooks.begun, items);
+        assert_eq!(
+            hooks
+                .applied
+                .iter()
+                .map(|(item, _)| *item)
+                .collect::<Vec<_>>(),
+            items,
+            "every item applied and reported in dispatch order"
+        );
+        assert!(hooks.applied.iter().all(|(_, ok)| *ok));
+        assert_eq!(
+            *threads.lock().unwrap(),
+            std::collections::HashSet::from([caller]),
+            "with no worker, every apply runs on the calling thread"
+        );
+        assert_eq!(spawner.started.load(std::sync::atomic::Ordering::SeqCst), 0);
+        assert_eq!(
+            spawner.calls.load(std::sync::atomic::Ordering::SeqCst),
+            WORKER_SPAWN_ATTEMPTS as usize,
+            "the first worker is retried with backoff, then the replay goes inline"
+        );
+    }
+
+    #[test]
+    fn replay_windowed_retries_a_transient_spawn_refusal() {
+        // Two EAGAINs, then the OS has threads again: the retry gets the
+        // worker instead of giving up on it.
+        let items: Vec<usize> = (0..50).collect();
+        let spawner = FlakySpawn::refusing(2);
+        let apply = |_item: &usize| Ok(());
+        let mut hooks = WindowHooks::default();
+        replay_windowed_with(&spawner, || true, &items, 3, &mut hooks, &apply).unwrap();
+        assert_eq!(hooks.applied.len(), items.len());
+        assert!(hooks.applied.iter().all(|(_, ok)| *ok));
+        assert_eq!(
+            spawner.started.load(std::sync::atomic::Ordering::SeqCst),
+            3,
+            "all three workers started after the transient refusals"
+        );
+    }
+
+    #[test]
+    fn replay_windowed_continues_on_the_workers_that_started() {
+        // Spawn succeeds once, then EAGAIN forever: the replay finishes on
+        // that one worker.
+        struct OneThenRefuse(std::sync::atomic::AtomicUsize);
+        impl xerj_common::thread_spawn::Spawn for OneThenRefuse {
+            fn spawn(
+                &self,
+                name: &str,
+                job: xerj_common::thread_spawn::BoxedJob,
+            ) -> std::io::Result<xerj_common::thread_spawn::SpawnedThread> {
+                if self.0.fetch_add(1, std::sync::atomic::Ordering::SeqCst) == 0 {
+                    xerj_common::thread_spawn::StdSpawn.spawn(name, job)
+                } else {
+                    Err(std::io::Error::from_raw_os_error(11))
+                }
+            }
+        }
+        let items: Vec<usize> = (0..40).collect();
+        let spawner = OneThenRefuse(std::sync::atomic::AtomicUsize::new(0));
+        let apply = |_item: &usize| Ok(());
+        let mut hooks = WindowHooks::default();
+        replay_windowed_with(&spawner, || true, &items, 4, &mut hooks, &apply).unwrap();
+        assert_eq!(hooks.begun, items);
+        assert_eq!(
+            hooks
+                .applied
+                .iter()
+                .map(|(item, _)| *item)
+                .collect::<Vec<_>>(),
+            items
+        );
+    }
+
+    #[test]
+    fn spawn_scoped_with_backoff_gives_up_after_the_attempts_without_running_the_job() {
+        let spawner = FlakySpawn::refusing(usize::MAX);
+        let ran = std::sync::atomic::AtomicBool::new(false);
+        let ran_ref = &ran;
+        let result = xerj_common::thread_spawn::scope(|scope| {
+            spawn_scoped_with_backoff(
+                scope,
+                &spawner,
+                || true,
+                "test-worker",
+                3,
+                std::time::Duration::from_millis(1),
+                move || ran_ref.store(true, std::sync::atomic::Ordering::SeqCst),
+            )
+        });
+        assert!(result.is_err());
+        assert_eq!(spawner.calls.load(std::sync::atomic::Ordering::SeqCst), 3);
+        assert!(!ran.load(std::sync::atomic::Ordering::SeqCst));
+    }
+
     /// A backend whose Nth `apply` is the server still answering 429 after
     /// the client's patience — the one way a throttled node still ends a run.
     struct ThrottledOutBackend {
@@ -5297,6 +6521,7 @@ mod tests {
             keys: vec![],
             digests: vec![],
             duplicates: vec![],
+            unreadable: vec![],
         };
         let empty_snapshot = create_snapshot(state.path(), "tx-delete", &empty).unwrap();
         let mut empty_plan = journal.committed_manifest.as_ref().unwrap().plan.clone();
@@ -5330,6 +6555,7 @@ mod tests {
             keys: vec![],
             digests: vec![],
             duplicates: vec![],
+            unreadable: vec![],
         };
         let snapshot = create_snapshot(state.path(), "tx-hostile", &inventory).unwrap();
         let mut journal =
@@ -5751,6 +6977,586 @@ mod tests {
             err.contains("continuation sort key"),
             "a full page with no sort key is a loud failure: {err}"
         );
+    }
+
+    /// #2222: deleting a finalize-verify target while its window search is in
+    /// flight must end the wait. The search connection is held open on purpose
+    /// — that is the in-flight request whose handle the node already resolved,
+    /// so it does not become a 404 — and `HEAD` starts answering 404 once the
+    /// index is "deleted". Verify has to return the deleted-index error while
+    /// that search is still unanswered.
+    #[test]
+    fn finalize_verify_stops_when_its_target_index_is_deleted() {
+        use std::io::{Read, Write};
+        use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+        use std::sync::mpsc;
+        use std::time::Duration;
+
+        const INDEX: &str = "xc-elastic-charts-cpu-profile-tree-mock";
+
+        fn read_http(stream: &mut std::net::TcpStream) -> String {
+            stream
+                .set_read_timeout(Some(Duration::from_secs(2)))
+                .unwrap();
+            let mut buf = Vec::new();
+            let mut tmp = [0u8; 2048];
+            loop {
+                match stream.read(&mut tmp) {
+                    Ok(0) => break,
+                    Ok(n) => {
+                        buf.extend_from_slice(&tmp[..n]);
+                        if buf.windows(4).any(|w| w == b"\r\n\r\n") {
+                            break;
+                        }
+                    }
+                    Err(_) => break,
+                }
+            }
+            String::from_utf8_lossy(&buf).into_owned()
+        }
+
+        fn write_status(stream: &mut std::net::TcpStream, status: &str) {
+            write!(
+                stream,
+                "HTTP/1.1 {status}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+            )
+            .unwrap();
+        }
+
+        let listener = crate::test_loopback::bind();
+        let address = listener.local_addr().unwrap();
+        // Accepted sockets inherit non-blocking from the listener. Put each
+        // one back into blocking mode inside its handler. The accept loop
+        // itself stays non-blocking so a parked `_search` — handled on its
+        // own thread — cannot stop a later `HEAD` from being answered.
+        listener.set_nonblocking(true).unwrap();
+        let deleted = std::sync::Arc::new(AtomicBool::new(false));
+        let release = std::sync::Arc::new(AtomicBool::new(false));
+        let heads = std::sync::Arc::new(AtomicUsize::new(0));
+        let deleted_srv = std::sync::Arc::clone(&deleted);
+        let release_srv = std::sync::Arc::clone(&release);
+        let heads_srv = std::sync::Arc::clone(&heads);
+        let server = std::thread::spawn(move || {
+            // Hold the search well past the test's own deadline so a client
+            // that waits for the response fails the test instead of passing
+            // by accident. `release` lets the passing path close the socket.
+            let hold_until = std::time::Instant::now() + Duration::from_secs(45);
+            let started = std::time::Instant::now();
+            let mut handlers = Vec::new();
+            while started.elapsed() < Duration::from_secs(60) {
+                if release_srv.load(Ordering::SeqCst) {
+                    break;
+                }
+                match listener.accept() {
+                    Ok((stream, _)) => {
+                        let deleted_one = std::sync::Arc::clone(&deleted_srv);
+                        let release_one = std::sync::Arc::clone(&release_srv);
+                        let heads_one = std::sync::Arc::clone(&heads_srv);
+                        handlers.push(std::thread::spawn(move || {
+                            let mut stream = stream;
+                            stream.set_nonblocking(false).unwrap();
+                            let request = read_http(&mut stream);
+                            if request.starts_with("HEAD ") {
+                                heads_one.fetch_add(1, Ordering::SeqCst);
+                                let status = if deleted_one.load(Ordering::SeqCst) {
+                                    "404 Not Found"
+                                } else {
+                                    "200 OK"
+                                };
+                                write_status(&mut stream, status);
+                            } else if request.contains("_search") {
+                                while !release_one.load(Ordering::SeqCst)
+                                    && std::time::Instant::now() < hold_until
+                                {
+                                    std::thread::sleep(Duration::from_millis(20));
+                                }
+                                write_status(&mut stream, "200 OK");
+                            }
+                        }));
+                    }
+                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                        std::thread::sleep(Duration::from_millis(10));
+                    }
+                    Err(_) => break,
+                }
+            }
+            for handler in handlers {
+                let _ = handler.join();
+            }
+        });
+
+        let deleted_watch = std::sync::Arc::clone(&deleted);
+        let heads_watch = std::sync::Arc::clone(&heads);
+        std::thread::spawn(move || {
+            let deadline = std::time::Instant::now() + Duration::from_secs(10);
+            while heads_watch.load(Ordering::SeqCst) == 0 && std::time::Instant::now() < deadline {
+                std::thread::sleep(Duration::from_millis(20));
+            }
+            deleted_watch.store(true, Ordering::SeqCst);
+        });
+
+        let url = format!("http://{address}");
+        let (tx, rx) = mpsc::channel();
+        // Release the parked search even if an assertion panics, so the
+        // server thread does not sit out the rest of its hold.
+        struct ReleaseOnDrop(std::sync::Arc<AtomicBool>);
+        impl Drop for ReleaseOnDrop {
+            fn drop(&mut self) {
+                self.0.store(true, Ordering::SeqCst);
+            }
+        }
+        let _release_on_drop = ReleaseOnDrop(std::sync::Arc::clone(&release));
+        std::thread::spawn(move || {
+            let es = crate::esclient::Es::new(&url, None).unwrap();
+            let dir = tempfile::tempdir().unwrap();
+            let pr = crate::progress::Progress::silent();
+            let backend = EsSyncBackend::new(&es, dir.path(), 8 * 1024 * 1024, &pr);
+            let result =
+                backend.windowed_value_counts(INDEX, "ax_file", &["digest".into()], &[], false);
+            let _ = tx.send(result.map_err(|error| format!("{error:#}")));
+        });
+
+        let message = rx
+            .recv_timeout(Duration::from_secs(20))
+            .expect("finalize-verify hung on an index that was deleted during verify")
+            .expect_err("a deleted verify target must fail that item");
+        assert!(
+            !release.load(Ordering::SeqCst),
+            "verify returned only after the hung search was released"
+        );
+        assert!(message.contains("was deleted during verify"), "{message}");
+        assert!(message.contains(INDEX), "{message}");
+
+        release.store(true, Ordering::SeqCst);
+        // Unblock `accept` if it is parked, then let the held search finish.
+        let _ = std::net::TcpStream::connect(address);
+        server.join().unwrap();
+    }
+
+    /// The same window, when the index stays and the search answers, still
+    /// returns the bucket counts. The deletion check must not fire on a live
+    /// target.
+    #[test]
+    fn finalize_verify_window_counts_a_live_index() {
+        use std::io::{Read, Write};
+
+        let listener = crate::test_loopback::bind();
+        let address = listener.local_addr().unwrap();
+        let server = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            stream
+                .set_read_timeout(Some(std::time::Duration::from_secs(2)))
+                .unwrap();
+            let mut buf = Vec::new();
+            let mut tmp = [0u8; 2048];
+            loop {
+                match stream.read(&mut tmp) {
+                    Ok(0) => break,
+                    Ok(n) => {
+                        buf.extend_from_slice(&tmp[..n]);
+                        if buf.windows(4).any(|w| w == b"\r\n\r\n") {
+                            break;
+                        }
+                    }
+                    Err(_) => break,
+                }
+            }
+            let body =
+                br#"{"aggregations":{"values":{"buckets":[{"key":"digest-a","doc_count":3}]}}}"#;
+            write!(
+                stream,
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                body.len()
+            )
+            .unwrap();
+            stream.write_all(body).unwrap();
+        });
+
+        let es = crate::esclient::Es::new(&format!("http://{address}"), None).unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let pr = crate::progress::Progress::silent();
+        let backend = EsSyncBackend::new(&es, dir.path(), 8 * 1024 * 1024, &pr);
+        let counts = backend
+            .windowed_value_counts(
+                "xc-live",
+                "ax_file",
+                &["digest-a".into(), "digest-b".into()],
+                &[],
+                false,
+            )
+            .unwrap();
+        assert_eq!(counts.get("digest-a"), Some(&3));
+        assert_eq!(counts.get("digest-b"), Some(&0));
+        server.join().unwrap();
+    }
+
+    /// A scripted node for the finalize-verify retry tests (#2405). Every
+    /// connection gets its own handler thread so a `_search` in flight
+    /// cannot starve the `HEAD` probe `search_for_verify` may send while a
+    /// search is unanswered. `HEAD` always answers 200 (the index lives);
+    /// each `_search` records its request body and answers with the next
+    /// scripted response — the last one repeats when the script runs out,
+    /// so a caller that keeps re-asking past the script is still answered.
+    struct ScriptedSearch {
+        address: std::net::SocketAddr,
+        search_bodies: std::sync::Arc<std::sync::Mutex<Vec<Value>>>,
+        stop: std::sync::Arc<std::sync::atomic::AtomicBool>,
+        server: Option<std::thread::JoinHandle<()>>,
+    }
+
+    impl ScriptedSearch {
+        fn start(script: &[&str]) -> Self {
+            use std::io::{Read, Write};
+            use std::sync::atomic::{AtomicBool, Ordering};
+            use std::sync::{Arc, Mutex};
+            use std::time::Duration;
+
+            fn read_request(stream: &mut std::net::TcpStream) -> (String, Vec<u8>) {
+                stream
+                    .set_read_timeout(Some(Duration::from_secs(5)))
+                    .unwrap();
+                let mut buf = Vec::new();
+                let mut tmp = [0u8; 4096];
+                loop {
+                    match stream.read(&mut tmp) {
+                        Ok(0) => break,
+                        Ok(n) => {
+                            buf.extend_from_slice(&tmp[..n]);
+                            if let Some(end) = buf.windows(4).position(|w| w == b"\r\n\r\n") {
+                                let head = String::from_utf8_lossy(&buf[..end]).into_owned();
+                                let length = head
+                                    .lines()
+                                    .find_map(|line| {
+                                        line.to_ascii_lowercase()
+                                            .strip_prefix("content-length:")
+                                            .and_then(|v| v.trim().parse::<usize>().ok())
+                                    })
+                                    .unwrap_or(0);
+                                let have = buf.len() - (end + 4);
+                                if have >= length {
+                                    return (head, buf[end + 4..end + 4 + length].to_vec());
+                                }
+                            }
+                        }
+                        Err(_) => break,
+                    }
+                }
+                let head = String::from_utf8_lossy(&buf).into_owned();
+                (head, Vec::new())
+            }
+
+            fn write_json(stream: &mut std::net::TcpStream, body: &str) {
+                write!(
+                    stream,
+                    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                    body.len()
+                )
+                .unwrap();
+                stream.write_all(body.as_bytes()).unwrap();
+            }
+
+            let listener = crate::test_loopback::bind();
+            let address = listener.local_addr().unwrap();
+            listener.set_nonblocking(true).unwrap();
+            let search_bodies = Arc::new(Mutex::new(Vec::new()));
+            let stop = Arc::new(AtomicBool::new(false));
+            let script: Arc<Mutex<std::collections::VecDeque<String>>> =
+                Arc::new(Mutex::new(script.iter().map(|s| s.to_string()).collect()));
+            let bodies_srv = Arc::clone(&search_bodies);
+            let stop_srv = Arc::clone(&stop);
+            let script_srv = Arc::clone(&script);
+            let server = std::thread::spawn(move || {
+                let mut handlers = Vec::new();
+                while !stop_srv.load(Ordering::SeqCst) {
+                    match listener.accept() {
+                        Ok((stream, _)) => {
+                            let bodies_one = Arc::clone(&bodies_srv);
+                            let script_one = Arc::clone(&script_srv);
+                            handlers.push(std::thread::spawn(move || {
+                                let mut stream = stream;
+                                stream.set_nonblocking(false).unwrap();
+                                let (head, body) = read_request(&mut stream);
+                                if head.starts_with("HEAD ") {
+                                    write_json(&mut stream, "{}");
+                                } else if head.contains("_search") {
+                                    let parsed =
+                                        serde_json::from_slice(&body).unwrap_or(Value::Null);
+                                    bodies_one.lock().unwrap().push(parsed);
+                                    let answer = {
+                                        let mut scripted = script_one.lock().unwrap();
+                                        if scripted.len() > 1 {
+                                            scripted.pop_front().unwrap()
+                                        } else {
+                                            scripted
+                                                .front()
+                                                .cloned()
+                                                .unwrap_or_else(|| "{}".to_string())
+                                        }
+                                    };
+                                    write_json(&mut stream, &answer);
+                                } else {
+                                    write_json(&mut stream, "{}");
+                                }
+                            }));
+                        }
+                        Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                            std::thread::sleep(Duration::from_millis(10));
+                        }
+                        Err(_) => break,
+                    }
+                }
+                for handler in handlers {
+                    let _ = handler.join();
+                }
+            });
+            ScriptedSearch {
+                address,
+                search_bodies,
+                stop,
+                server: Some(server),
+            }
+        }
+
+        fn searches(&self) -> Vec<Value> {
+            self.search_bodies.lock().unwrap().clone()
+        }
+
+        fn es(&self) -> crate::esclient::Es {
+            crate::esclient::Es::new(&format!("http://{}", self.address), None).unwrap()
+        }
+
+        fn shutdown(&mut self) {
+            self.stop.store(true, std::sync::atomic::Ordering::SeqCst);
+            // Unblock `accept` if it is parked.
+            let _ = std::net::TcpStream::connect(self.address);
+            if let Some(server) = self.server.take() {
+                server.join().unwrap();
+            }
+        }
+    }
+
+    impl Drop for ScriptedSearch {
+        fn drop(&mut self) {
+            self.shutdown();
+        }
+    }
+
+    /// #2405: a `timed_out` window used to exit 1 on the spot. The window
+    /// is re-asked — with the page timeout the body lacked — and the second
+    /// answer counts.
+    #[test]
+    fn finalize_verify_window_retries_a_timed_out_answer() {
+        let mut server = ScriptedSearch::start(&[
+            r#"{"timed_out":true,"hits":{"hits":[]}}"#,
+            r#"{"aggregations":{"values":{"buckets":[{"key":"digest-a","doc_count":3}]}}}"#,
+        ]);
+        let es = server.es();
+        let dir = tempfile::tempdir().unwrap();
+        let pr = crate::progress::Progress::silent();
+        let backend = EsSyncBackend::new(&es, dir.path(), 8 * 1024 * 1024, &pr);
+        let counts = backend
+            .windowed_value_counts(
+                "xc-retry",
+                "ax_file",
+                &["digest-a".into(), "digest-b".into()],
+                &[],
+                false,
+            )
+            .unwrap();
+        assert_eq!(counts.get("digest-a"), Some(&3));
+        assert_eq!(counts.get("digest-b"), Some(&0));
+        let searches = server.searches();
+        assert_eq!(
+            searches.len(),
+            2,
+            "one retry, not a page storm: {searches:?}"
+        );
+        for body in &searches {
+            assert_eq!(
+                body.get("timeout").and_then(Value::as_str),
+                Some("120s"),
+                "the retried window must carry the page timeout: {body}"
+            );
+        }
+        server.shutdown();
+    }
+
+    /// The retry is bounded: a node that answers every attempt partial
+    /// gets the loud error, not an infinite wait, and the window was never
+    /// counted.
+    #[test]
+    fn finalize_verify_window_fails_loud_when_every_attempt_times_out() {
+        let mut server = ScriptedSearch::start(&[r#"{"timed_out":true,"hits":{"hits":[]}}"#]);
+        let es = server.es();
+        let dir = tempfile::tempdir().unwrap();
+        let pr = crate::progress::Progress::silent();
+        let backend = EsSyncBackend::new(&es, dir.path(), 8 * 1024 * 1024, &pr);
+        let error = backend
+            .windowed_value_counts("xc-wedged", "ax_file", &["digest-a".into()], &[], false)
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("xc-wedged"), "{error}");
+        assert!(error.contains("timed_out"), "{error}");
+        assert!(error.contains("consecutive attempts"), "{error}");
+        assert!(error.contains("rerun the same command"), "{error}");
+        assert_eq!(
+            server.searches().len(),
+            crate::esclient::PARTIAL_PAGE_ATTEMPTS,
+        );
+        server.shutdown();
+    }
+
+    /// The catalog read-back's `search_page` leg retries the same way.
+    #[test]
+    fn catalog_read_back_window_retries_a_timed_out_page() {
+        let mut server = ScriptedSearch::start(&[
+            r#"{"timed_out":true,"hits":{"hits":[]}}"#,
+            r#"{"timed_out":false,"hits":{"total":{"value":1,"relation":"eq"},"hits":[{"_id":"x","_source":{"file_key":"k1"}}]}}"#,
+        ]);
+        let es = server.es();
+        let dir = tempfile::tempdir().unwrap();
+        let pr = crate::progress::Progress::silent();
+        let backend = EsSyncBackend::new(&es, dir.path(), 8 * 1024 * 1024, &pr);
+        let counts = backend
+            .windowed_catalog_counts(&["k1".into()], "run-1")
+            .unwrap();
+        assert_eq!(counts.get("k1"), Some(&1));
+        assert_eq!(server.searches().len(), 2);
+        server.shutdown();
+    }
+
+    #[test]
+    fn a_zero_exists_total_skips_the_per_digest_windows() {
+        // #1267 measured 2,619 term+exists probes, each a brute scan with zero
+        // hits. After the windowed verify those are three windows of 1,024.
+        // A field that matches nothing issues none of them.
+        let skipped = plan_exists_probes(2619, EsSyncBackend::VERIFY_WINDOW, 0);
+        assert_eq!(skipped.issue_windows, 0);
+        assert_eq!(skipped.skip_windows, 3);
+        let issued = plan_exists_probes(2619, EsSyncBackend::VERIFY_WINDOW, 1);
+        assert_eq!(issued.issue_windows, 3);
+        assert_eq!(issued.skip_windows, 0);
+        assert_eq!(
+            plan_exists_probes(0, EsSyncBackend::VERIFY_WINDOW, 0),
+            ExistsProbePlan {
+                issue_windows: 0,
+                skip_windows: 0
+            }
+        );
+        assert_eq!(plan_exists_probes(5, 0, 0).issue_windows, 0);
+    }
+
+    #[test]
+    fn skipped_exists_windows_advance_the_verify_phase() {
+        let (pr, buffer) = crate::progress::Progress::capture(
+            crate::progress::Surface::Plain,
+            std::time::Duration::from_millis(40),
+        );
+        let ticker = pr.spawn_ticker();
+        let plan = plan_exists_probes(2619, EsSyncBackend::VERIFY_WINDOW, 0);
+        pr.phase("finalize-verify", plan.skip_windows, 0);
+        credit_verify_items(&pr, plan.skip_windows);
+
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
+        loop {
+            let out = String::from_utf8(buffer.lock().unwrap().clone()).unwrap();
+            if out.contains("phase=finalize-verify") && out.contains("items=3/3") {
+                break;
+            }
+            assert!(
+                std::time::Instant::now() < deadline,
+                "the ticker never showed the skipped windows advance to items=3/3: {out}"
+            );
+            std::thread::yield_now();
+        }
+        drop(ticker);
+    }
+
+    #[test]
+    fn an_unchanged_catalog_source_is_not_rewritten() {
+        let same = serde_json::json!({"run_id": "g1", "path": "a"});
+        let expected = BTreeMap::from([
+            ("file:same".to_owned(), same.clone()),
+            (
+                "file:changed".to_owned(),
+                serde_json::json!({"run_id": "g2", "path": "b"}),
+            ),
+            (
+                "file:missing".to_owned(),
+                serde_json::json!({"run_id": "g2", "path": "c"}),
+            ),
+        ]);
+        let live = BTreeMap::from([
+            ("file:same".to_owned(), same),
+            (
+                "file:changed".to_owned(),
+                serde_json::json!({"run_id": "g1", "path": "b"}),
+            ),
+        ]);
+        let write = catalog_docs_to_write(&expected, &live);
+        assert!(
+            !write.contains_key("file:same"),
+            "a resume that already stored this projection must not bulk it again"
+        );
+        assert_eq!(write["file:changed"]["run_id"], "g2");
+        assert!(write.contains_key("file:missing"));
+        assert_eq!(write.len(), 2);
+    }
+
+    #[test]
+    fn the_prior_run_remainder_is_the_kept_intersection() {
+        let prior = BTreeSet::from([
+            "kept".to_owned(),
+            "rewritten".to_owned(),
+            "not-kept".to_owned(),
+        ]);
+        let kept = BTreeSet::from(["kept".to_owned(), "born-kept".to_owned()]);
+        assert_eq!(prior_run_expected_remainder(&prior, &kept), 1);
+    }
+
+    #[test]
+    fn catalog_run_ids_round_trip_and_a_missing_file_is_an_upgrade() {
+        let dir = tempfile::tempdir().unwrap();
+        let snap = dir.path().join("sync-snapshots").join("tx-1267");
+        std::fs::create_dir_all(&snap).unwrap();
+        assert!(
+            read_catalog_run_ids(dir.path(), "tx-1267")
+                .unwrap()
+                .is_none(),
+            "a generation published before this file existed walks once"
+        );
+        let ids = ["b".to_owned(), "a".to_owned()];
+        write_catalog_run_ids(dir.path(), "tx-1267", [&ids[0], &ids[1]]).unwrap();
+        assert_eq!(
+            read_catalog_run_ids(dir.path(), "tx-1267")
+                .unwrap()
+                .unwrap(),
+            BTreeSet::from(["a".to_owned(), "b".to_owned()])
+        );
+        let bad = "a\nb".to_owned();
+        let err = write_catalog_run_ids(dir.path(), "tx-1267", [&bad]).unwrap_err();
+        assert!(
+            err.to_string().contains("newline"),
+            "a newline id must not split into two lines: {err}"
+        );
+        assert!(read_catalog_run_ids(dir.path(), "../tx").is_err());
+    }
+
+    #[test]
+    fn mget_sources_keep_found_documents_and_reject_a_duplicate_id() {
+        let body = serde_json::json!({"docs": [
+            {"_id": "a", "found": true, "_source": {"k": 1}},
+            {"_id": "b", "found": false}
+        ]});
+        let got = mget_sources(&body).unwrap();
+        assert_eq!(got.len(), 1);
+        assert_eq!(got["a"]["k"], 1);
+        let dup = serde_json::json!({"docs": [
+            {"_id": "a", "found": true, "_source": {}},
+            {"_id": "a", "found": true, "_source": {}}
+        ]});
+        let err = mget_sources(&dup).unwrap_err().to_string();
+        assert!(err.contains("duplicate ID a"), "{err}");
     }
 }
 

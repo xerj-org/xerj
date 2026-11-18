@@ -1,0 +1,145 @@
+# #1745 / #1748: `filter` and `filters` aggregations analyze `match` and
+# `match_phrase` on `text` fields like the query does, while a `keyword`
+# value is a single term, so `york` never matches inside "new york".
+# Every count below is what Elasticsearch returns for the same request.
+setup:
+  - do:
+      indices.create:
+        index: places
+        body:
+          mappings:
+            properties:
+              title:
+                type: text
+              tag:
+                type: keyword
+  - do:
+      bulk:
+        refresh: true
+        body:
+          - index:
+              _index: places
+              _id: "1"
+          - title: New York pizza
+            tag: new york
+          - index:
+              _index: places
+              _id: "2"
+          - title: york minster tour
+            tag: york
+          - index:
+              _index: places
+              _id: "3"
+          - title: new jersey diner
+            tag: new jersey
+          - index:
+              _index: places
+              _id: "4"
+          - title: the big apple
+            tag: New York
+
+---
+"keyword values match whole, text values match by token":
+
+  - do:
+      search:
+        index: places
+        body:
+          size: 0
+          aggs:
+            kw_word:
+              filter:
+                match:
+                  tag: york
+            kw_phrase:
+              filter:
+                match:
+                  tag: new york
+            text_word:
+              filter:
+                match:
+                  title: york
+            text_or:
+              filter:
+                match:
+                  title: new york
+            text_and:
+              filter:
+                match:
+                  title:
+                    query: new york
+                    operator: and
+  - match: { hits.total.value: 4 }
+  - match: { aggregations.kw_word.doc_count: 1 }
+  - match: { aggregations.kw_phrase.doc_count: 1 }
+  - match: { aggregations.text_word.doc_count: 2 }
+  - match: { aggregations.text_or.doc_count: 3 }
+  - match: { aggregations.text_and.doc_count: 1 }
+
+---
+"term on a keyword value that contains a space":
+
+  - do:
+      search:
+        index: places
+        body:
+          size: 0
+          aggs:
+            f:
+              filters:
+                other_bucket_key: rest
+                filters:
+                  exact:
+                    term:
+                      tag: new york
+                  other_case:
+                    term:
+                      tag: New York
+                  one_word:
+                    term:
+                      tag: new
+                  either:
+                    terms:
+                      tag: [york, new jersey]
+  - match: { aggregations.f.buckets.exact.doc_count: 1 }
+  - match: { aggregations.f.buckets.other_case.doc_count: 1 }
+  - match: { aggregations.f.buckets.one_word.doc_count: 0 }
+  - match: { aggregations.f.buckets.either.doc_count: 2 }
+  - match: { aggregations.f.buckets.rest.doc_count: 0 }
+
+---
+"multi-word match_phrase on a text field":
+
+  - do:
+      search:
+        index: places
+        body:
+          size: 0
+          aggs:
+            two_words:
+              filter:
+                match_phrase:
+                  title: new york
+            reversed:
+              filter:
+                match_phrase:
+                  title: york new
+            three_words:
+              filter:
+                match_phrase:
+                  title: New York Pizza
+            gap:
+              filter:
+                match_phrase:
+                  title: new pizza
+            gap_slop:
+              filter:
+                match_phrase:
+                  title:
+                    query: new pizza
+                    slop: 1
+  - match: { aggregations.two_words.doc_count: 1 }
+  - match: { aggregations.reversed.doc_count: 0 }
+  - match: { aggregations.three_words.doc_count: 1 }
+  - match: { aggregations.gap.doc_count: 0 }
+  - match: { aggregations.gap_slop.doc_count: 1 }

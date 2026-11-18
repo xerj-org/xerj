@@ -502,6 +502,11 @@ mod tests {
 
     /// A mock OpenAI-compatible `/v1/embeddings` endpoint on an ephemeral port.
     async fn mock_embedding_backend() -> (String, BackendCalls) {
+        mock_embedding_backend_with_width(DIMS).await
+    }
+
+    /// The same mock, answering with vectors of `width` dimensions.
+    async fn mock_embedding_backend_with_width(width: usize) -> (String, BackendCalls) {
         let calls = Arc::new(AtomicUsize::new(0));
         let widest_call = Arc::new(AtomicUsize::new(0));
         let texts = Arc::new(AtomicUsize::new(0));
@@ -525,7 +530,7 @@ mod tests {
                     w.fetch_max(n, Ordering::SeqCst);
                     let data: Vec<Value> = (0..n)
                         .map(|i| {
-                            let embedding: Vec<f64> = (0..DIMS)
+                            let embedding: Vec<f64> = (0..width)
                                 .map(|d| ((i + d) % 7) as f64 / 7.0 + 0.1)
                                 .collect();
                             json!({ "index": i, "embedding": embedding })
@@ -535,9 +540,8 @@ mod tests {
                 }
             }),
         );
-        let listener = TcpListener::bind("127.0.0.1:0")
-            .await
-            .expect("bind mock backend");
+        let listener =
+            xerj_common::loopback_test::expect_loopback(TcpListener::bind("127.0.0.1:0").await);
         let addr = listener.local_addr().expect("mock backend addr");
         tokio::spawn(async move {
             let _ = axum::serve(listener, app).await;
@@ -555,6 +559,29 @@ mod tests {
     /// An index with one `semantic_text`-shaped field, served by the binary
     /// protocol on an ephemeral port. The temp dir must outlive the engine.
     async fn node(endpoint: String) -> (std::net::SocketAddr, tempfile::TempDir) {
+        let (config, engine, dir) = semantic_engine(endpoint);
+        let metrics = xerj_common::metrics::Metrics::new().expect("metrics");
+        let state = Arc::new(crate::state::AppState::new(config, engine, metrics));
+        let listener =
+            xerj_common::loopback_test::expect_loopback(TcpListener::bind("127.0.0.1:0").await);
+        let addr = listener.local_addr().expect("binary protocol addr");
+        tokio::spawn(async move {
+            while let Ok((stream, _)) = listener.accept().await {
+                tokio::spawn(handle_connection(stream, Arc::clone(&state)));
+            }
+        });
+        (addr, dir)
+    }
+
+    /// An engine with a `notes` index holding one `semantic_text`-shaped
+    /// field of `DIMS` dimensions, embedded by the proxy at `endpoint`.
+    fn semantic_engine(
+        endpoint: String,
+    ) -> (
+        xerj_common::config::Config,
+        xerj_engine::Engine,
+        tempfile::TempDir,
+    ) {
         let dir = tempfile::tempdir().expect("tempdir");
         let mut config = xerj_common::config::Config::default();
         config.server.data_dir = dir.path().to_string_lossy().into_owned();
@@ -563,7 +590,6 @@ mod tests {
         config.embedding.default_endpoint = endpoint;
         config.embedding.default_model = "mock-embed".into();
 
-        let metrics = xerj_common::metrics::Metrics::new().expect("metrics");
         let engine = xerj_engine::Engine::new(config.clone()).expect("engine");
 
         let mut schema = Schema::empty();
@@ -581,18 +607,7 @@ mod tests {
         companion.options.similarity = Some("cosine".into());
         schema.add_field(companion).expect("companion field");
         engine.create_index("notes", schema).expect("create index");
-
-        let state = Arc::new(crate::state::AppState::new(config, engine, metrics));
-        let listener = TcpListener::bind("127.0.0.1:0")
-            .await
-            .expect("bind binary protocol");
-        let addr = listener.local_addr().expect("binary protocol addr");
-        tokio::spawn(async move {
-            while let Ok((stream, _)) = listener.accept().await {
-                tokio::spawn(handle_connection(stream, Arc::clone(&state)));
-            }
-        });
-        (addr, dir)
+        (config, engine, dir)
     }
 
     /// One framed request/response round trip on a fresh connection.
@@ -708,5 +723,28 @@ mod tests {
         assert_eq!(found["found"], json!(true), "get response: {found}");
         let missing = round_trip(addr, op::GET, json!({ "index": "notes", "id": "bad" })).await;
         assert_eq!(missing["found"], json!(false), "get response: {missing}");
+    }
+
+    /// #2191: a backend whose vector width contradicts the mapping fails the
+    /// document with a 400 mapping error, not a retryable 500 backend error —
+    /// the width is fixed, so a client retry loop could never succeed.
+    #[tokio::test]
+    async fn an_embedding_width_mismatch_is_a_per_item_400() {
+        let (endpoint, _backend) = mock_embedding_backend_with_width(DIMS / 2).await;
+        let (_config, engine, _dir) = semantic_engine(endpoint);
+        let idx = engine.get_index("notes").expect("index");
+
+        let results = idx
+            .index_documents_batched(vec![(Some("d0".into()), json!({ "body": "a passage" }))])
+            .await;
+        assert_eq!(results.len(), 1);
+        let error = results[0].as_ref().expect_err("a width mismatch must fail");
+        let xerj_engine::EngineError::Common(common) = error else {
+            panic!("expected a common error, got {error:?}");
+        };
+        assert_eq!(common.http_status(), 400, "{common}");
+        let message = common.to_string();
+        assert!(message.contains("mapping requires"), "{message}");
+        assert!(message.contains("dimensions"), "{message}");
     }
 }

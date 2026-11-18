@@ -1,0 +1,21 @@
+{
+  "claude_version": "2.1.278 (Claude Code)",
+  "sample_kind": "engineered hint delivery/uptake check; not a relevance or adoption benchmark",
+  "baseline": {
+    "exit_code": 0,
+    "tool_names": [
+      "Grep"
+    ],
+    "xerj_search_calls": 0,
+    "result_error": false
+  },
+  "enabled": {
+    "exit_code": 0,
+    "tool_names": [
+      "Grep",
+      "Bash"
+    ],
+    "xerj_search_calls": 1,
+    "result_error": false
+  }
+}

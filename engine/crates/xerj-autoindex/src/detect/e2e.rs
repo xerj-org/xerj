@@ -10,8 +10,9 @@ use serde_json::{json, Value};
 use std::collections::{BTreeMap, HashMap};
 use std::fs;
 use std::io::{BufRead, BufReader, Read, Write};
-use std::net::{TcpListener, TcpStream};
+use std::net::TcpStream;
 use std::path::Path;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
@@ -21,25 +22,28 @@ pub(super) type Docs = BTreeMap<String, BTreeMap<String, Value>>;
 pub(super) struct MockEs {
     pub(super) url: String,
     pub(super) docs: Arc<Mutex<Docs>>,
+    /// `POST /{index}/_refresh` requests served (#2640).
+    pub(super) refreshes: Arc<AtomicU64>,
     stop: Arc<Mutex<bool>>,
     join: Option<thread::JoinHandle<()>>,
 }
 
 impl MockEs {
     pub(super) fn start() -> Self {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         listener.set_nonblocking(true).unwrap();
         let url = format!("http://{}", listener.local_addr().unwrap());
         let docs: Arc<Mutex<Docs>> = Arc::default();
         let stop = Arc::new(Mutex::new(false));
-        let (sd, ss) = (Arc::clone(&docs), Arc::clone(&stop));
+        let refreshes: Arc<AtomicU64> = Arc::default();
+        let (sd, ss, sr) = (Arc::clone(&docs), Arc::clone(&stop), Arc::clone(&refreshes));
         let join = thread::spawn(move || loop {
             match listener.accept() {
                 Ok((stream, _)) => {
                     // BSD/macOS: accepted sockets inherit the listener's
                     // O_NONBLOCK; the handler does blocking reads.
                     stream.set_nonblocking(false).unwrap();
-                    handle(stream, &sd)
+                    handle(stream, &sd, &sr)
                 }
                 Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
                     if *ss.lock().unwrap() {
@@ -53,6 +57,7 @@ impl MockEs {
         Self {
             url,
             docs,
+            refreshes,
             stop,
             join: Some(join),
         }
@@ -113,7 +118,7 @@ fn respond(mut stream: TcpStream, status: u16, body: &Value) {
     .unwrap();
 }
 
-fn handle(stream: TcpStream, docs: &Arc<Mutex<Docs>>) {
+fn handle(stream: TcpStream, docs: &Arc<Mutex<Docs>>, refreshes: &AtomicU64) {
     let clone = stream.try_clone().unwrap();
     let mut reader = BufReader::new(clone);
     let mut request_line = String::new();
@@ -141,6 +146,12 @@ fn handle(stream: TcpStream, docs: &Arc<Mutex<Docs>>) {
     let method = parts.next().unwrap_or("");
     let path = parts.next().unwrap_or("").to_string();
 
+    if method == "GET" && path == "/" {
+        return respond(stream, 200, &crate::test_loopback::xerj_root());
+    }
+    if method == "POST" && path.ends_with("/_refresh") {
+        refreshes.fetch_add(1, Ordering::SeqCst);
+    }
     if method == "POST" && path == "/_bulk" {
         return respond(stream, 200, &bulk(&body, docs));
     }
@@ -163,15 +174,43 @@ fn handle(stream: TcpStream, docs: &Arc<Mutex<Docs>>) {
     if method == "POST" && path.contains("/_delete_by_query") {
         let index = path.trim_start_matches('/').split('/').next().unwrap_or("");
         let query: Value = serde_json::from_slice(&body).unwrap_or(Value::Null);
-        let key = query
-            .pointer("/query/term/ax_file")
-            .and_then(Value::as_str)
-            .map(str::to_owned);
+        // A replacement purge is a `bool.should` of `ax_file` and `ax_path`
+        // (#2139). A lone `term` is the older shape, still sent by sweeps.
+        // Either matching term is enough: the path term drops a generation
+        // published under a different content key.
+        let mut terms: Vec<(String, String)> = Vec::new();
+        for field in ["ax_file", "ax_path"] {
+            if let Some(value) = query
+                .pointer(&format!("/query/term/{field}"))
+                .and_then(Value::as_str)
+            {
+                terms.push((field.to_string(), value.to_string()));
+            }
+            if let Some(should) = query
+                .pointer("/query/bool/should")
+                .and_then(Value::as_array)
+            {
+                for clause in should {
+                    if let Some(value) = clause
+                        .pointer(&format!("/term/{field}"))
+                        .and_then(Value::as_str)
+                    {
+                        terms.push((field.to_string(), value.to_string()));
+                    }
+                }
+            }
+        }
         let mut deleted = 0u64;
-        if let (Some(key), Some(store)) = (key, docs.lock().unwrap().get_mut(index)) {
-            let before = store.len();
-            store.retain(|_, d| d.get("ax_file").and_then(Value::as_str) != Some(key.as_str()));
-            deleted = (before - store.len()) as u64;
+        if let Some(store) = docs.lock().unwrap().get_mut(index) {
+            if !terms.is_empty() {
+                let before = store.len();
+                store.retain(|_, doc| {
+                    !terms.iter().any(|(field, expected)| {
+                        doc.get(field).and_then(Value::as_str) == Some(expected.as_str())
+                    })
+                });
+                deleted = (before - store.len()) as u64;
+            }
         }
         return respond(stream, 200, &json!({"deleted": deleted, "failures": []}));
     }
@@ -326,6 +365,26 @@ fn search(index: &str, body: &Value, docs: &Arc<Mutex<Docs>>) -> Value {
             .collect();
         return json!({"hits": {"total": {"value": hits.len()}, "hits": hits}});
     }
+    // #1977: the graph path reads the catalog back with `query.ids` after
+    // the write. This mock used to fall through to the size:0 stub below
+    // and answer `hits: []`, so every stored row looked missing and a
+    // healthy run failed the visibility gate. Return the requested ids that
+    // are actually in the store; an id that was never written stays absent,
+    // which is what the gate is there to catch.
+    if let Some(values) = body.pointer("/query/ids/values").and_then(Value::as_array) {
+        let wanted: Vec<&str> = values.iter().filter_map(Value::as_str).collect();
+        let size = body.get("size").and_then(Value::as_u64).unwrap_or(10) as usize;
+        let matched: Vec<(&String, &Value)> = store
+            .iter()
+            .filter(|(id, _)| wanted.contains(&id.as_str()))
+            .collect();
+        let hits: Vec<Value> = matched
+            .iter()
+            .take(size)
+            .map(|(id, source)| json!({"_id": id, "_source": source}))
+            .collect();
+        return json!({"hits": {"total": {"value": matched.len()}, "hits": hits}});
+    }
     // size:0 totals (dataset counts, map summary): total = matching docs.
     let live_only = body.pointer("/query/bool/must_not").is_some();
     let total = store
@@ -356,6 +415,8 @@ pub(super) fn cfg(root: &Path, state_dir: &Path, url: &str) -> IndexCfg {
         bulk_timeout_secs: 300,
         snapshot_max_bytes: 64 << 30,
         prefix: "ax".into(),
+        replace_prefix: false,
+        prefix_note: None,
         state_dir: Some(state_dir.to_owned()),
         fresh: false,
         follow_symlinks: false,
@@ -374,7 +435,11 @@ pub(super) fn cfg(root: &Path, state_dir: &Path, url: &str) -> IndexCfg {
         // behaviour is covered in `gate_tests` and `cli::tests`.
         max_minutes: 0,
         approve: None,
+        max_index_bytes: None,
+        budget_plan: None,
+        drop_indexed: false,
         dry_run: false,
+        walk_only: false,
         json: false,
         quiet: true,
         progress: crate::progress::ProgressMode::None,
@@ -383,6 +448,8 @@ pub(super) fn cfg(root: &Path, state_dir: &Path, url: &str) -> IndexCfg {
         label: None,
         debounce: std::time::Duration::from_millis(0),
         exclude_rels: Vec::new(),
+        exclude: Vec::new(),
+        skip_corpus_data: false,
     }
 }
 
@@ -888,5 +955,282 @@ fn replaced_file_soft_invalidates_its_prior_edges() {
     assert!(
         g["edges_invalidated"].as_u64().unwrap() >= 1,
         "invalidation surfaced in the run summary: {g}"
+    );
+}
+
+/// #2640: `autoindex --fresh` after a branch switch supersedes most of the
+/// corpus's anchors at once. Invalidation used to run one
+/// `search → bulk → refresh` round per replaced file (and again per
+/// superseded anchor on `dst`), so a ~1k-file repo paid ~2k refreshes of the
+/// edges index and the phase took hours. The batched sweep must invalidate
+/// exactly the same edges with a constant number of refreshes, across more
+/// values than one `terms` slice and more hits than one bulk page.
+/// Fail-before: the per-value loop issues one refresh per value (600 here).
+#[test]
+fn batched_invalidation_matches_per_file_result_with_constant_refreshes() {
+    let es = MockEs::start();
+    let client = crate::esclient::Es::new(&es.url, None).unwrap();
+    let edges = ".xerj-memory-fresh2640-edges";
+    const FILES: usize = 600; // > SCAN_TERMS (256): several `terms` slices
+    const PER_FILE: usize = 3; // 1,800 hits > SCAN_PAGE (1,000): paged bulks
+    let mut store = BTreeMap::new();
+    let mut replaced: Vec<String> = Vec::new();
+    for f in 0..FILES {
+        let rel = format!("d/{f:04}.md");
+        for e in 0..PER_FILE {
+            store.insert(
+                format!("e-{f:04}-{e}"),
+                json!({"src_file": rel, "dst": format!("n-{e}"), "type": "links_to"}),
+            );
+        }
+        replaced.push(rel);
+    }
+    // Untouched: a surviving file's live edge, and an edge already
+    // invalidated by an earlier generation (its stamp must not move).
+    store.insert(
+        "keep".into(),
+        json!({"src_file": "kept.md", "dst": "n-0", "type": "links_to"}),
+    );
+    store.insert(
+        "old".into(),
+        json!({"src_file": "d/0000.md", "dst": "n-0", "type": "links_to",
+               "invalid_at": 5, "expired_at": 5}),
+    );
+    es.docs.lock().unwrap().insert(edges.to_string(), store);
+
+    let rels: Vec<&str> = replaced.iter().map(String::as_str).collect();
+    let now_ms = 1_800_000_000_000i64;
+    let n = detect::invalidate_edges_by_field_values(&client, edges, "src_file", &rels, now_ms)
+        .unwrap();
+    assert_eq!(n, (FILES * PER_FILE) as u64);
+    let after = es.index(edges);
+    for (id, doc) in &after {
+        match id.as_str() {
+            "keep" => assert!(doc.get("invalid_at").is_none(), "survivor stays live"),
+            "old" => assert_eq!(doc["invalid_at"], json!(5), "prior stamp kept"),
+            _ => {
+                assert_eq!(doc["invalid_at"], json!(now_ms), "{id} invalidated");
+                assert_eq!(doc["expired_at"], json!(now_ms), "{id} expired");
+            }
+        }
+    }
+    assert!(
+        es.refreshes.load(Ordering::SeqCst) <= 2,
+        "one refresh per sweep, not per file: {}",
+        es.refreshes.load(Ordering::SeqCst)
+    );
+
+    // The inbound (`dst`) half takes the same path; a second call is a no-op
+    // sweep over already-invalidated edges and refreshes nothing.
+    let before = es.refreshes.load(Ordering::SeqCst);
+    let again =
+        detect::invalidate_edges_by_field_values(&client, edges, "src_file", &rels, now_ms + 1)
+            .unwrap();
+    assert_eq!(again, 0);
+    assert_eq!(es.refreshes.load(Ordering::SeqCst), before);
+    let dst =
+        detect::invalidate_edges_by_field_values(&client, edges, "dst", &["n-0"], now_ms).unwrap();
+    assert_eq!(dst, 1, "only the surviving file's live edge points at n-0");
+    assert_eq!(es.index(edges)["keep"]["invalid_at"], json!(now_ms));
+    // An absent edges index holds nothing to invalidate.
+    assert_eq!(
+        detect::invalidate_edges_by_field_values(&client, ".missing-edges", "dst", &["x"], 1)
+            .unwrap(),
+        0
+    );
+}
+
+fn preseed_meta(es: &MockEs, edges: &str, nodes_index: &str, created_at: i64) {
+    let mut store = BTreeMap::new();
+    store.insert(
+        detect::BRAIN_META_ID.to_string(),
+        json!({
+            "meta_version": 1,
+            "brain": "nbkristqik",
+            "nodes_index": nodes_index,
+            "created_at": created_at,
+        }),
+    );
+    es.docs.lock().unwrap().insert(edges.to_string(), store);
+}
+
+/// #2351: a later autoindex of the same folder under a new prefix must
+/// replace `nodes_index`. The first writer (default prefix `ax`, or
+/// `graph_api::link`'s memory default) used to stick forever because the
+/// meta doc is create-if-absent.
+#[test]
+fn ensure_brain_meta_replaces_stale_prefix_and_keeps_created_at() {
+    let es = MockEs::start();
+    let client = crate::esclient::Es::new(&es.url, None).unwrap();
+    let edges = ".xerj-memory-nbkristqik-edges";
+    preseed_meta(&es, edges, "ax-code,ax-docs", 42);
+
+    detect::ensure_brain_meta(
+        &client,
+        edges,
+        "nbkristqik",
+        "nbkristqik-code,nbkristqik-docs",
+        99,
+    )
+    .unwrap();
+    let meta = es.index(edges).remove(detect::BRAIN_META_ID).unwrap();
+    assert_eq!(
+        meta["nodes_index"],
+        json!("nbkristqik-code,nbkristqik-docs")
+    );
+    assert_eq!(meta["created_at"], json!(42), "created_at is not rewritten");
+    assert_eq!(meta["brain"], json!("nbkristqik"));
+    assert_eq!(meta["meta_version"], json!(1));
+
+    // Same set, different order: leave the stored string alone.
+    detect::ensure_brain_meta(
+        &client,
+        edges,
+        "nbkristqik",
+        "nbkristqik-docs, nbkristqik-code",
+        100,
+    )
+    .unwrap();
+    let again = es.index(edges).remove(detect::BRAIN_META_ID).unwrap();
+    assert_eq!(again, meta);
+
+    // An empty desired list must not wipe a pointer a reader already resolved.
+    detect::ensure_brain_meta(&client, edges, "nbkristqik", "", 101).unwrap();
+    assert_eq!(es.index(edges).remove(detect::BRAIN_META_ID).unwrap(), meta);
+
+    let fresh = ".xerj-memory-freshprefix-edges";
+    detect::ensure_brain_meta(
+        &client,
+        fresh,
+        "freshprefix",
+        "freshprefix-code,freshprefix-docs",
+        7,
+    )
+    .unwrap();
+    let created = es.index(fresh).remove(detect::BRAIN_META_ID).unwrap();
+    assert_eq!(
+        created["nodes_index"],
+        json!("freshprefix-code,freshprefix-docs")
+    );
+    assert_eq!(created["created_at"], json!(7));
+    assert_eq!(created["brain"], json!("freshprefix"));
+}
+
+/// #2351: `brain overview` reads `nodes_index` off this meta doc. A custom
+/// prefix on a folder that was already indexed under `ax` must show the
+/// indexes this run created, and a `_source` include of path/start_line/end_line
+/// must locate both code symbols and prose.
+#[test]
+fn custom_prefix_overview_and_hit_locators_follow_the_run() {
+    let parent = tempfile::tempdir().unwrap();
+    let corpus = parent.path().join("nbkristqik");
+    fs::create_dir_all(corpus.join("src/bot")).unwrap();
+    fs::write(
+        corpus.join("src/bot/dailyCheckIn.ts"),
+        "export function dailyCheckIn() {\n  return 1;\n}\n",
+    )
+    .unwrap();
+    fs::write(
+        corpus.join("notes.md"),
+        "Daily check-in lives in the bot.\n",
+    )
+    .unwrap();
+    // Three lines: the log family probe ignores a one-line file.
+    fs::write(
+        corpus.join("xferlog"),
+        "Fri Oct 16 09:06:58 2026 1 10.0.0.7 4242 /uploads/fw.bin b _ o r admin ftp 0 * c\n\
+         Fri Oct 16 09:07:10 2026 2 10.0.0.7 10 /uploads/invalid.bin b _ o r admin ftp 0 * i\n\
+         Sat Oct 17 11:00:00 2026 0 10.0.0.9 0 /pub/README b _ i a guest ftp 0 * c\n",
+    )
+    .unwrap();
+    let state = tempfile::tempdir().unwrap();
+    let es = MockEs::start();
+    let edges = ".xerj-memory-nbkristqik-edges";
+    preseed_meta(&es, edges, "ax-code,ax-docs", 1);
+
+    let mut cfg = cfg(&corpus, state.path(), &es.url);
+    cfg.prefix = "nbkristqik".into();
+    cfg.brain = None;
+    assert_eq!(crate::run_index(cfg).unwrap(), 0);
+
+    let meta = &es.index(edges)[detect::BRAIN_META_ID];
+    assert_eq!(meta["brain"], json!("nbkristqik"));
+    assert_eq!(meta["created_at"], json!(1));
+    let listed: Vec<&str> = meta["nodes_index"]
+        .as_str()
+        .unwrap()
+        .split(',')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .collect();
+    assert!(
+        listed.iter().all(|name| name.starts_with("nbkristqik-")),
+        "overview nodes_index must be this prefix, not a stale ax-* list: {listed:?}"
+    );
+    assert!(
+        listed.iter().all(|name| !name.starts_with("ax-")),
+        "{listed:?}"
+    );
+    let live: BTreeMap<String, BTreeMap<String, Value>> = es
+        .docs
+        .lock()
+        .unwrap()
+        .iter()
+        .filter(|(index, _)| index.starts_with("nbkristqik-"))
+        .map(|(k, v)| (k.clone(), v.clone()))
+        .collect();
+    let mut live_names: Vec<&str> = live.keys().map(String::as_str).collect();
+    live_names.sort_unstable();
+    let mut listed_sorted = listed.clone();
+    listed_sorted.sort_unstable();
+    assert_eq!(
+        listed_sorted, live_names,
+        "nodes_index is exactly the datasets"
+    );
+
+    let mut saw_symbol = false;
+    let mut saw_code_file = false;
+    let mut saw_prose = false;
+    let mut saw_log_path = false;
+    for docs in live.values() {
+        for source in docs.values() {
+            let rel = source.get("ax_path").and_then(Value::as_str).unwrap_or("");
+            let locator = source
+                .get("ax_locator")
+                .and_then(Value::as_str)
+                .unwrap_or("");
+            if source.get("name").and_then(Value::as_str) == Some("dailyCheckIn") {
+                saw_symbol = true;
+                assert_eq!(source["path"], json!("src/bot/dailyCheckIn.ts"));
+                assert_eq!(source["ax_path"], json!("src/bot/dailyCheckIn.ts"));
+                assert_eq!(source["start_line"], source["line"]);
+                assert!(source.get("end_line").is_some(), "{source}");
+            }
+            if rel == "src/bot/dailyCheckIn.ts" && locator == "code" {
+                saw_code_file = true;
+                assert_eq!(source["path"], json!(rel));
+                assert_eq!(source["start_line"], json!(1));
+                assert!(source["end_line"].as_u64().unwrap_or(0) >= 1);
+            }
+            if rel == "notes.md" && locator.starts_with('s') {
+                saw_prose = true;
+                assert_eq!(source["path"], json!("notes.md"));
+                assert_eq!(source["ax_path"], json!("notes.md"));
+                assert!(source.get("start_line").is_some(), "{source}");
+                assert!(source.get("end_line").is_some(), "{source}");
+            }
+            if source.get("path").and_then(Value::as_str) == Some("/uploads/fw.bin") {
+                saw_log_path = true;
+                assert_eq!(source["ax_path"], json!("xferlog"));
+                assert_ne!(source["path"], json!("xferlog"));
+            }
+        }
+    }
+    assert!(saw_symbol, "dailyCheckIn symbol document was not indexed");
+    assert!(saw_code_file, "code file document was not indexed");
+    assert!(saw_prose, "prose section was not indexed");
+    assert!(
+        saw_log_path,
+        "xferlog path column must stay /uploads/fw.bin"
     );
 }

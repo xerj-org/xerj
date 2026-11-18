@@ -389,8 +389,20 @@ Order and scoring, exactly:
    lowercase words; for each corpus, score = (tokens present in its sketch) /
    (tokens total), ×0.8; tokens present in more than 25% of all sketches count half.
 4. Merge by slug taking the max score. `Confident` if top ≥ 0.6 and top ≥ 1.5 × second
-   (or no second). `Ambiguous` if two or more are ≥ 0.3. Else `NoCorpus`.
-   `--corpus` skips routing. Corpora already cached (`cached`) get +0.05.
+   (or no second). `Ambiguous` if two or more are ≥ 0.3 and the best reaches 0.35
+   (a full overlap of common tokens scores 0.4 and stays a real tie). Two or more
+   between 0.3 and 0.35 is `NoCoverage`: a weak overlap, not a choice. Else `NoCorpus`.
+   A question that names a project no entry contains (`Phaser`, `setInteractive`) is
+   `NoCoverage` even when another token ties several corpora. `xerj ask` exits 1 for
+   both `NoCorpus` and `NoCoverage` (the latter names `xerj autoindex` and `xerj hub find`);
+   exit 4 is only a real ambiguity. `--corpus` skips routing. Corpora already cached
+   (`cached`) get +0.05.
+
+   A question that names a language or a technology is decided before those four
+   steps, from the catalogue entry itself (slug, topics, a language word in
+   `ask_for`, then the rest of `ask_for`). An exact slug the question spells
+   out still wins first. The sketch path above still decides when no distinctive
+   name matches. See `xerj_hub::router`.
 
 **Answer flow** (`xerj_hub::ask`):
 
@@ -400,6 +412,9 @@ Order and scoring, exactly:
 2. Route. `Ambiguous` → print the candidates (`slug — ask_for`, one per line) and
    exit 4 (the same "needs a decision" code autoindex uses); the agent re-asks with
    `--corpus`. `NoCorpus` → exit 1 with `no hub corpus matches; see xerj.org/llms.txt`.
+   `NoCoverage` → exit 1 with `no hub corpus covers this topic` and the local-index
+   hint (`xerj autoindex <path>`, then `xerj code` or `xerj search`; `xerj hub find`
+   to see what the hub does have). Not exit 4.
 3. If the pack is cached locally → answer locally (`AnsweredFrom::LocalPack`).
 4. Else if hosted is allowed → answer through the hosted node now; then, unless
    `--no-fetch`/`--offline`, start the pull in the background: spawn
@@ -425,6 +440,12 @@ health check fails, start `current_exe() --insecure --port <free port ≥ 9300> 
 detached, PID to `~/.xerj/hub/node.pid`, wait for green (max 60 s), remember the port
 in `~/.xerj/hub/node.port`. Never start a node on a port that answers. `xerj hub status`
 shows it; `xerj hub stop` stops only that PID.
+A node the user started themselves needs no config for `xerj hub pull` to restore
+into it: by default a server allows snapshot **restores** (never creates) from the
+pack cache of the user it runs as (`limits.hub_pack_restore`, `xerj_common::hub::hub_packs_dir`,
+refused if that directory is a symlink or owned by another user). A server that does
+not share the cache (other user, container, other machine) refuses, and the pull
+error prints the exact `snapshot_repo_allowlist` line to add.
 
 **Tests** (`xerj-hub/tests/routing.rs`, `xerj-hub/tests/ask_flow.rs`):
 
@@ -719,6 +740,15 @@ production `hub.xerj.org`):
   `xerj_hub_ask` in one call (step 9).
 - A tampered pack (one flipped byte) and a tampered catalogue are refused, with nothing
   extracted.
+
+Runnable as `tools/hub-packs/whole_hub_e2e.sh` (`.github/workflows/hub-e2e.yml`,
+`workflow_dispatch`: a release tag or `build`, and the hub URL). It covers every
+item above except the `curl …/api/v1/def/…` check (no public node) and the
+shell-less persona (the agent harness). Per-corpus results are backfill-report rows
+(`kind: "e2e"`); the gate-level checks go to `GATE.md` and the job summary. Until a
+signed catalogue is deployed, `--rehearse <pack tags>` runs the same checks against a
+loopback catalogue of published packs re-signed with a throwaway key; their real
+signatures are checked separately, and every check says which key it ran against.
 
 Only after 12.1–12.4 pass do the held agent-surface PRs merge and the release notes
 mention Hub v2. Step 10's measurement is separate and still governs any published

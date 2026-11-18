@@ -19,7 +19,7 @@ use crate::objsource::{
 use crate::source::{DocSource, ObjectScheme, ObjectSpec};
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::{BufRead, BufReader, Read, Write};
-use std::net::{TcpListener, TcpStream};
+use std::net::TcpStream;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
@@ -75,7 +75,7 @@ struct S3Stub {
 impl S3Stub {
     fn start() -> Self {
         ensure_credentials();
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         let state = Arc::new(Mutex::new(StubState::default()));
         let stop = Arc::new(AtomicBool::new(false));

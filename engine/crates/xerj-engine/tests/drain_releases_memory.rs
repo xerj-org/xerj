@@ -184,3 +184,43 @@ async fn flush_prunes_published_storage_memtable_entries() {
     // readable, all durable.
     assert_eq!(count_all(&engine, "docs").await, 40);
 }
+
+/// #2427/#1122: the breaker drain between cache releases flushes the
+/// memtable (data safety, memory relief) but keeps the warm caches, so a
+/// read-heavy node is not forced to re-hydrate cold on every query while the
+/// breaker stays engaged — the thrash loop the gate showed.
+#[tokio::test]
+async fn pressure_drain_without_release_flushes_but_keeps_caches() {
+    let dir = TempDir::new().unwrap();
+    let engine = make_engine(&dir);
+    seed(&engine, "docs", 50).await;
+    engine.get_index("docs").unwrap().refresh().await.unwrap();
+    hydrate(&engine, "docs").await;
+    let cached_before = engine.get_index("docs").unwrap().total_cache_entries();
+    assert!(cached_before > 0, "precondition: hydrated caches");
+
+    // Unflushed docs must still be flushed by the keep-caches drain.
+    let idx = engine.get_index("docs").unwrap();
+    for i in 50..60 {
+        idx.index_document(
+            Some(format!("d{i}")),
+            json!({ "body": format!("document number {i}") }),
+        )
+        .await
+        .unwrap();
+    }
+    assert!(idx.memtable_bytes() > 0, "precondition: live memtable");
+
+    let drained = engine.pressure_drain(false).await;
+    assert_eq!(drained, 1);
+    assert_eq!(idx.memtable_bytes(), 0, "the drain still flushes");
+    assert!(
+        idx.total_cache_entries() >= cached_before,
+        "caches must survive a drain between releases (was {cached_before}, now {})",
+        idx.total_cache_entries()
+    );
+
+    engine.pressure_drain(true).await;
+    assert_eq!(idx.total_cache_entries(), 0, "a due release still releases");
+    assert_eq!(count_all(&engine, "docs").await, 60, "lossless");
+}

@@ -340,7 +340,10 @@ impl MergeExecutor {
             if let Some(stored_bytes_raw) = reader.section(SectionType::Stored)? {
                 rate_limiter.consume(stored_bytes_raw.len() as u64);
 
-                let stored_bytes = crate::stored_codec::decode_stored(stored_bytes_raw)?;
+                // #1122/#2433: re-encoded below; stripped rows stay stripped
+                // unless XERJ_STORE_SEMANTIC_VECTORS asks for full vectors.
+                let stored_bytes =
+                    crate::stored_codec::decode_stored_for_rewrite(stored_bytes_raw)?;
                 let docs: Vec<Json> = serde_json::from_slice(&stored_bytes)?;
                 for doc in docs {
                     let doc_id = doc.get("_id").and_then(|v| v.as_str()).unwrap_or("");
@@ -412,47 +415,67 @@ impl MergeExecutor {
     /// Spawn a background thread that periodically checks for merge candidates.
     ///
     /// The thread runs until [`MergeExecutor::shutdown`] is called.  Returns a
-    /// handle that can be joined on shutdown.
-    pub fn spawn_background<P>(self: Arc<Self>, policy: Arc<P>) -> std::thread::JoinHandle<()>
+    /// handle that can be joined on shutdown. If the thread cannot be created
+    /// (#1122) the handle is inert — `join` returns immediately — and merges
+    /// are not scheduled until the next successful spawn. The loop is not run
+    /// inline: it does not return until shutdown.
+    pub fn spawn_background<P>(
+        self: Arc<Self>,
+        policy: Arc<P>,
+    ) -> xerj_common::thread_spawn::SpawnedThread
     where
         P: MergePolicy,
     {
         let shutdown = Arc::clone(&self.shutdown);
         let interval = Duration::from_millis(self.config.check_interval_ms);
 
-        std::thread::Builder::new()
-            .name("xerj-merge".to_string())
-            .spawn(move || {
-                info!("merge background thread started");
-                while !shutdown.load(Ordering::Relaxed) {
-                    std::thread::sleep(interval);
+        // #1122: `.expect` on `std::thread::Builder::spawn` aborts the process
+        // both when `pthread_create` returns an error and when the child
+        // panics mapping its alternate signal stack (`panic = "abort"`).
+        // Background merges are maintenance; failing to start the thread
+        // skips them instead of taking the node down.
+        match xerj_common::thread_spawn::try_spawn_unguarded("xerj-merge", move || {
+            info!("merge background thread started");
+            while !shutdown.load(Ordering::Relaxed) {
+                std::thread::sleep(interval);
 
+                if shutdown.load(Ordering::Relaxed) {
+                    break;
+                }
+
+                let snap = self.store.snapshot();
+                let candidates = policy.select_merges(&snap.segments);
+                drop(snap); // release guard before I/O
+
+                if candidates.is_empty() {
+                    debug!("no merge candidates");
+                    continue;
+                }
+
+                for batch in candidates {
                     if shutdown.load(Ordering::Relaxed) {
                         break;
                     }
-
-                    let snap = self.store.snapshot();
-                    let candidates = policy.select_merges(&snap.segments);
-                    drop(snap); // release guard before I/O
-
-                    if candidates.is_empty() {
-                        debug!("no merge candidates");
-                        continue;
-                    }
-
-                    for batch in candidates {
-                        if shutdown.load(Ordering::Relaxed) {
-                            break;
-                        }
-                        match self.execute_merge(&batch) {
-                            Ok(meta) => info!(merged_id = meta.id, "background merge completed"),
-                            Err(e) => warn!("background merge failed: {e}"),
-                        }
+                    match self.execute_merge(&batch) {
+                        Ok(meta) => info!(merged_id = meta.id, "background merge completed"),
+                        Err(e) => warn!("background merge failed: {e}"),
                     }
                 }
-                info!("merge background thread stopped");
-            })
-            .expect("failed to spawn merge thread")
+            }
+            info!("merge background thread stopped");
+        }) {
+            Ok(handle) => handle,
+            Err(failure) => {
+                static LOGGED: AtomicBool = AtomicBool::new(false);
+                xerj_common::thread_spawn::warn_best_effort_degraded(
+                    &LOGGED,
+                    "xerj-merge",
+                    &failure.error,
+                );
+                drop(failure.job);
+                xerj_common::thread_spawn::SpawnedThread::inert()
+            }
+        }
     }
 
     /// Signal the background thread to stop at the next check.

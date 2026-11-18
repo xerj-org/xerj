@@ -1,17 +1,28 @@
 ---
-title: "Make an agent cite a file instead of dumping it"
+title: "Code search MCP for Claude Code: cite file:line, not grep"
 h1: "I need my agent to find a passage and cite the file, not dump the whole tree. How?"
-description: "Index the repository with xerj autoindex, then call xerj_search through xerj mcp. One captured call returned the file and line for 2 symbols without opening a file."
+description: "Local code search MCP for Claude Code with file:line citations: index with xerj autoindex, call xerj_search. One captured call cited 2 symbols without opening files."
 slug: "code-search-mcp-for-claude-code"
 cluster: "Agent access and memory"
 question: "I need my agent to find a passage and cite the file, not dump the whole tree. How?"
 intent: "how-to"
 published: "2026-08-21"
-updated: "2026-08-21"
+updated: "2026-10-31"
 author: "XERJ documentation team"
 reviewer: "XERJ engineering team"
 schema_type: "TechArticle"
+structured_data: [faq]
 agent_prompt: "Act as a coding agent. Read https://xerj.org/llms.txt, index this repository with xerj autoindex --prefix mcpcode, add xerj mcp to your MCP host with the absolute binary path, then answer 'where is merge_segments defined' with one xerj_search call on the defs field and quote the file and line from the symbols array without opening the file."
+answer: "How do I make my agent find a passage and cite the file, not dump the whole tree? Index the repository with xerj autoindex, register xerj mcp in the agent host, and query the defs field. One captured xerj_search call returned 2 documents whose symbols arrays gave file and line, including merge_segments at src/lib.rs line 17."
+key_fact: "XERJ's tree-sitter registry covers 36 languages, a count pinned by a unit test so the docs cannot drift."
+key_fact_source: "engine/crates/xerj-autoindex/src/extract/code.rs"
+key_fact_date: "2026-10-19"
+intent_group: "code search for agents"
+queries:
+  - "code search with file line citations"
+  - "local code search MCP Claude Code fewer tokens than grep"
+  - "MCP server search local codebase"
+  - "cited answers file and line MCP server"
 commands:
   - cmd: "xerj autoindex ./code --url http://127.0.0.1:9500 --prefix mcpcode --state-dir ./state-mcpcode --progress plain --disable-feedback"
     note: "Index the repository into mcpcode-* before the agent asks anything."
@@ -24,6 +35,11 @@ links_out:
   - "syntax-aware-code-search-refactoring"
   - "give-chatgpt-claude-local-file-access"
   - "/compare/xerj-vs-ast-grep"
+  - "local-code-search-mcp-fewer-tokens-than-grep"
+  - "ask-questions-about-a-github-repo-without-cloning"
+  - "/answers/claude-code-memory"
+  - "/answers/what-is-an-mcp-memory-server"
+  - "/compare/xerj-vs-claude-mem-and-mempalace"
 faq:
   - q: "I need my agent to find a passage and cite the file, not dump the whole tree. How?"
     a: "Register `xerj mcp` and let the agent call `xerj_search`. Each hit carries a `symbols` array with `name`, `kind` and `line`, so the answer can cite the declaration site."
@@ -38,7 +54,7 @@ faq:
   - q: "Can XERJ tell the agent who calls a function?"
     a: "No. Extraction is definitions only, with no call graph, no import graph and no cross-file reference resolution. A `defs` hit names the declaration site."
   - q: "Are the OpenAI and Anthropic tool schema files up to date?"
-    a: "No. Both list 6 tools while the binary serves 10. Read `tools/list` from a live server rather than copying either file."
+    a: "No. Both list 6 tools, while on main the binary serves 23 (checked 2026-10-28). Read `tools/list` from a live server, or the generated `mcp-tools.json`, rather than copying either file."
 ---
 
 **TL;DR** — Index the repository with `xerj autoindex`, then register `xerj mcp` as an MCP server in the agent host. One captured `xerj_search` call on the `defs` field returned 2 documents. Each carried a `symbols` array with file and line, including `merge_segments` at `src/lib.rs` line 17.
@@ -51,7 +67,7 @@ The MCP server holds no code of its own. Index the tree into a predictable prefi
 xerj autoindex ./code --url http://127.0.0.1:9500 --prefix mcpcode --state-dir ./state-mcpcode --progress plain --disable-feedback
 ```
 
-XERJ parses 34 languages with tree-sitter and writes `language`, `defs`, `symbols[]`, `symbol_count` and `body` on every code document. The `defs` field is the retrieval hook for an agent.
+XERJ parses 36 languages with tree-sitter and writes `language`, `defs`, `symbols[]`, `symbol_count` and `body` on every code document. The `defs` field is the retrieval hook for an agent.
 
 ## Register the MCP server
 
@@ -135,8 +151,10 @@ Two caps bound the extractor: a 2 MB file cap and 5,000 symbols per file. A pars
 
 Install the latest XERJ before you write any host configuration, so that the `xerj mcp` subcommand is present.
 
-The published `openai-tools.json` and `anthropic-tools.json` still list 6 tools while the binary serves 10. The 4 missing names are `xerj_brain_ego`, `xerj_brain_link`, `xerj_brain_overview` and `xerj_brain_unlink`. Read `tools/list` from a live server instead of copying either file.
+The published `openai-tools.json` and `anthropic-tools.json` still list 6 tools, while on main the binary serves 23 (checked 2026-10-28). The 17 missing names include the 4 `xerj_brain_*` tools, `xerj_code_search` and the 3 `xerj_hub_*` tools. Read `tools/list` from a live server, or the generated `mcp-tools.json`, instead of copying either file.
 
 ## What the capture was
 
 One single-node XERJ process and a generated 2-file code tree in Rust and Python. This run measured no large repository, and the binary was a `ci-test` build, so no timing from it is a performance figure.
+
+When the symbol is absent, the same citation path can exit 1 instead of inventing a hit: [retrieval that says not found](/answers/retrieval-that-says-not-found-with-file-line-citations).

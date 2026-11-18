@@ -61,6 +61,9 @@ const HEADERS = {
   'content-type': CT,
   'cache-control': 'no-store',
   'x-content-type-options': 'nosniff',
+  // The installer is a script, not a page: keep it out of search results
+  // (GSC listed /get and /get.ps1 as crawled, not indexed). Fetching is unaffected.
+  'x-robots-tag': 'noindex',
 };
 
 // Bot/crawler UA substrings (lowercase). Kept deliberately short: this

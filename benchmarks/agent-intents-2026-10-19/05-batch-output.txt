@@ -1,0 +1,6 @@
+CVE-2021-25900  RUSTSEC-2021-0003  smallvec  fixed 0.6.14,1.6.1  src https://github.com/rustsec/advisory-db :: crates/smallvec/RUSTSEC-2021-0003.md
+GHSA-9q5j-jm53-v7vr  RUSTSEC-2022-0051  lz4-sys  fixed 1.9.4  src https://github.com/rustsec/advisory-db :: crates/lz4-sys/RUSTSEC-2022-0051.md
+CVE-2026-35355  GHSA-239g-2685-54x3  uu_install  fixed 0.6.0  src https://osv-vulnerabilities.storage.googleapis.com/crates.io/all.zip :: GHSA-239g-2685-54x3.json
+RUSTSEC-2023-0071  RUSTSEC-2023-0071  rsa  fixed   src https://github.com/rustsec/advisory-db :: crates/rsa/RUSTSEC-2023-0071.md
+CVE-2024-24576  NOT FOUND in this pack: abstain
+CVE-2099-00001  NOT FOUND in this pack: abstain

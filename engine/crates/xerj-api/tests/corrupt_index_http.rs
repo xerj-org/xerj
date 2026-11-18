@@ -107,6 +107,22 @@ async fn delete(app: &axum::Router, path: &str) -> (StatusCode, Value) {
     .await
 }
 
+/// The default refuses `DELETE /_all` and `DELETE /pattern*`. These two tests
+/// exist to prove expansion still reaches a failed index, so they opt out.
+async fn allow_wildcard_delete(app: &axum::Router) {
+    let (status, body) = send(
+        app,
+        Request::put("/_cluster/settings")
+            .header("content-type", "application/json")
+            .body(Body::from(
+                r#"{"persistent":{"action.destructive_requires_name":false}}"#,
+            ))
+            .expect("request"),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+}
+
 // ── DELETE /{index} is the documented escape hatch ───────────────────────────
 
 /// The recovery story for a corrupt sidecar ("restore the file and retry,
@@ -185,6 +201,7 @@ async fn delete_all_actually_removes_a_failed_index() {
     tear_schema(&dir, "victim");
 
     let app = app_over(&dir).await;
+    allow_wildcard_delete(&app).await;
     let (status, body) = delete(&app, "/_all").await;
     assert_eq!(status, StatusCode::OK, "got {status} {body}");
     assert!(
@@ -205,6 +222,7 @@ async fn delete_wildcard_resolves_a_failed_index() {
     tear_schema(&dir, "vic-1");
 
     let app = app_over(&dir).await;
+    allow_wildcard_delete(&app).await;
     let (status, body) = delete(&app, "/vic-*").await;
     assert_eq!(status, StatusCode::OK, "got {status} {body}");
     assert!(

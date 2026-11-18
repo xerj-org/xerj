@@ -1,0 +1,35 @@
+xerj search: these hits are lexical; this command does not consult the embedding.
+
+─── src/requests/sessions.py:309  (score 22.97)
+    def rebuild_auth(
+            self, prepared_request: PreparedRequest, response: Response
+        ) -> None:
+            """When being redirected we may want to strip authentication from the
+            request to avoid leaking credentials. This method intelligently removes
+            and reapplies authentication where possible to avoid credential loss.
+            """
+            original_request = response.request
+           
+    … (--full 800 to see more)
+
+─── docs/conf.py:62  [const]  (score 22.11)
+    author = u"Kenneth Reitz"
+
+─── tests/test_requests.py:662  (score 21.64)
+    @pytest.mark.parametrize(
+            "url,has_proxy_auth",
+            (
+                ("http://example.com", True),
+                ("https://example.com", False),
+            ),
+        )
+        def test_proxy_authorization_not_appended_to_https_request(
+            self, url, has_proxy_auth
+        ):
+            session = requests.Session()
+            proxies = {
+                "http": "http://test:pass@localhost:8080",
+                "h
+    … (--full 800 to see more)
+
+3 passage(s) from 'req-*'. Cite ax_path:line for anything you rely on.

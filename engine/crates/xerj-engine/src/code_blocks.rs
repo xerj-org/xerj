@@ -50,6 +50,17 @@ use tree_sitter::{Language, Parser, Tree};
 /// `XERJ_CODE_PASSAGE_MAX_BYTES` for deployments with different tolerances.
 pub const DEFAULT_MAX_BLOCK_BYTES: usize = 16_384;
 
+/// A call-argument callback larger than this is not a passage (#2327).
+///
+/// The same bound as the lexical `_passage` window (`LEXICAL_PASSAGE_MAX_BYTES`
+/// in `index.rs`). A nested `it(() => { ... })` body under the 16 KiB block
+/// cap used to come back whole. Past this size the caller keeps that
+/// line-snapped window instead. A top-level arrow (`const f = () => {}`) is
+/// not a call argument and keeps [`DEFAULT_MAX_BLOCK_BYTES`].
+pub const NESTED_CALLBACK_MAX_BYTES: usize = 2_048;
+
+const CALLBACK_KINDS: &[&str] = &["arrow_function", "function_expression"];
+
 fn max_block_bytes() -> usize {
     std::env::var("XERJ_CODE_PASSAGE_MAX_BYTES")
         .ok()
@@ -298,6 +309,30 @@ const WRAPPER_KINDS: &[&str] = &[
 
 // ── Public API ────────────────────────────────────────────────────────────
 
+/// An arrow or function expression passed as a call argument (`it(() => {})`,
+/// `items.map(function () {})`). Wrappers between the function and `arguments`
+/// (`await`, parentheses) still count. A `const f = () => {}` declarator does
+/// not.
+fn is_call_callback(node: tree_sitter::Node<'_>) -> bool {
+    if !CALLBACK_KINDS.contains(&node.kind()) {
+        return false;
+    }
+    let mut cur = node.parent();
+    for _ in 0..4 {
+        let Some(parent) = cur else {
+            return false;
+        };
+        match parent.kind() {
+            "arguments" => return true,
+            "parenthesized_expression" | "await_expression" | "unary_expression" => {
+                cur = parent.parent();
+            }
+            _ => return false,
+        }
+    }
+    false
+}
+
 /// Find the smallest node enclosing byte range `[start, end)` in `body`
 /// whose kind counts as an acceptable semantic block for `language`, and
 /// return its own `[start_byte, end_byte)` span.
@@ -313,7 +348,9 @@ const WRAPPER_KINDS: &[&str] = &[
 ///   top-level `use`/`import` statement, not inside any function/class);
 /// - the smallest acceptable block exceeds [`max_block_bytes`] — since any
 ///   larger enclosing block is only bigger, this stops at the first
-///   candidate rather than searching further up.
+///   candidate rather than searching further up;
+/// - that block is a call-argument callback bigger than
+///   [`NESTED_CALLBACK_MAX_BYTES`] (#2327).
 pub fn enclosing_block(
     language: &str,
     body: &str,
@@ -334,6 +371,15 @@ pub fn enclosing_block(
     let mut cur = Some(node);
     while let Some(n) = cur {
         if kinds.contains(&n.kind()) {
+            // A nested test callback (`it("…", () => { … })`) is an argument,
+            // not the function a reader asked for. One larger than a passage
+            // falls back to the caller's window (#2327). Walking further up
+            // only finds a bigger callback.
+            let callback_cap = if is_call_callback(n) {
+                NESTED_CALLBACK_MAX_BYTES.min(max_block_bytes())
+            } else {
+                max_block_bytes()
+            };
             // Widen through modifier wrappers so the passage carries the
             // declaration as written. Returning the bare `function_declaration`
             // inside `export function f() {}` would show an agent a function
@@ -349,7 +395,7 @@ pub fn enclosing_block(
             }
             let n = outer;
             let (s, e) = (n.start_byte(), n.end_byte());
-            if e.saturating_sub(s) > max_block_bytes() {
+            if e.saturating_sub(s) > callback_cap {
                 return None;
             }
             if s > e || e > body.len() || !body.is_char_boundary(s) || !body.is_char_boundary(e) {
@@ -536,6 +582,67 @@ mod tests {
         let start = body.find("use").unwrap();
         let end = start + "use std::fmt;".len();
         assert_eq!(enclosing_block("rust", body, start, end), None);
+    }
+
+    /// #2327: a nested test callback under the 16 KiB block cap and over a
+    /// passage is not returned whole. A short callback still is, and a
+    /// top-level arrow keeps the normal cap.
+    #[test]
+    fn nested_test_callback_larger_than_a_passage_is_not_a_block() {
+        let mut inner = String::from("() => {\n  const CALLBACK_START_SENTINEL = 1;\n");
+        for i in 0..70 {
+            inner.push_str(&format!(
+                "  const pad_{i:03} = \"session-token-handler-pad\";\n"
+            ));
+        }
+        inner.push_str("  const refreshMarker = sessionTokenHandler();\n}\n");
+        assert!(
+            inner.len() > NESTED_CALLBACK_MAX_BYTES,
+            "the callback has to be the oversized case, got {}",
+            inner.len()
+        );
+        assert!(inner.len() < DEFAULT_MAX_BLOCK_BYTES);
+        let body = format!(
+            "describe(\"session token\", () => {{\n  it(\"refreshes the handler\", {inner});\n}});\n"
+        );
+        let needle = "refreshMarker";
+        let start = body.find(needle).unwrap();
+        assert_eq!(
+            enclosing_block("typescript", &body, start, start + needle.len()),
+            None,
+            "a nested callback bigger than a passage must fall back to the window"
+        );
+
+        let small =
+            "describe(\"s\", () => {\n  it(\"t\", () => {\n    return refreshMarker;\n  });\n});\n";
+        let start = small.find(needle).unwrap();
+        let (s, e) = enclosing_block("typescript", small, start, start + needle.len())
+            .expect("a short callback is still the block");
+        let block = &small[s..e];
+        assert!(
+            block.contains("refreshMarker") && block.len() <= NESTED_CALLBACK_MAX_BYTES,
+            "{block:?}"
+        );
+        assert!(!block.contains("describe"), "{block:?}");
+
+        let mut top = String::from("const refreshSession = () => {\n");
+        for i in 0..70 {
+            top.push_str(&format!(
+                "  const pad_{i:03} = \"session-token-handler-pad\";\n"
+            ));
+        }
+        top.push_str("  return refreshMarker;\n};\n");
+        assert!(top.len() > NESTED_CALLBACK_MAX_BYTES);
+        assert!(top.len() < DEFAULT_MAX_BLOCK_BYTES);
+        let start = top.find(needle).unwrap();
+        let (s, e) = enclosing_block("typescript", &top, start, start + needle.len())
+            .expect("a top-level arrow is a function, not a callback");
+        let block = &top[s..e];
+        assert!(
+            block.contains("refreshMarker") && block.len() > NESTED_CALLBACK_MAX_BYTES,
+            "the whole arrow stays the block: {} bytes",
+            block.len()
+        );
     }
 
     #[test]

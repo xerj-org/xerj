@@ -104,7 +104,7 @@ mod tests {
     /// pattern from `failure_resume_http_tests.rs`. No reqwest server dep.
     /// Owned arguments: the serving thread must be 'static.
     fn serve_once(head: String, body: Vec<u8>) -> std::io::Result<std::net::SocketAddr> {
-        let listener = std::net::TcpListener::bind("127.0.0.1:0")?;
+        let listener = crate::test_loopback::bind();
         let addr = listener.local_addr()?;
         std::thread::spawn(move || {
             if let Ok((mut sock, _)) = listener.accept() {

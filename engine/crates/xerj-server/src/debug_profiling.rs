@@ -14,8 +14,8 @@ use std::io::{self, Write};
 use std::os::unix::fs::OpenOptionsExt;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Condvar, Mutex};
-use std::thread::JoinHandle;
 use std::time::Duration;
+use xerj_common::thread_spawn::SpawnedThread;
 
 use anyhow::{anyhow, Context, Result};
 use pprof::protos::Message;
@@ -120,7 +120,7 @@ fn parse_duration(name: &str, value: Option<&str>) -> Result<Option<u64>> {
 }
 
 pub struct ProfileRuntime {
-    workers: Vec<JoinHandle<()>>,
+    workers: Vec<SpawnedThread>,
     stop: Arc<(Mutex<bool>, Condvar)>,
     lock_path: Option<PathBuf>,
     _lock: File,
@@ -150,6 +150,21 @@ pub fn spawn() -> Result<Option<ProfileRuntime>> {
     spawn_configured(config).map(Some)
 }
 
+/// #1122: `std::thread::Builder::spawn` panics inside the child when the
+/// alternate signal stack cannot be mapped, and the release profile is
+/// `panic = "abort"`. A profile worker that cannot be created fails this
+/// startup step with an error instead of aborting the process.
+fn spawn_profile_thread<F>(name: &'static str, job: F) -> Result<SpawnedThread>
+where
+    F: FnOnce() + Send + 'static,
+{
+    xerj_common::thread_spawn::try_spawn_unguarded(name, job).map_err(|failure| {
+        let error = failure.error;
+        drop(failure.job);
+        anyhow!("spawn {name} worker: {error}")
+    })
+}
+
 fn spawn_configured(config: Config) -> Result<ProfileRuntime> {
     let lock_path = config.output_dir.join(".xerj-debug-profile.lock");
     let lock = OpenOptions::new()
@@ -175,39 +190,34 @@ fn spawn_configured(config: Config) -> Result<ProfileRuntime> {
         let stop = Arc::clone(&runtime.stop);
         let frequency = config.cpu_hz;
         let delay = config.delay_seconds;
-        runtime.workers.push(
-            std::thread::Builder::new()
-                .name("xerj-debug-cpu-profile".into())
-                .spawn(move || {
-                    if wait_for_duration_or_stop(&stop, Duration::from_secs(delay)) {
-                        return;
-                    }
-                    if let Err(error) = capture_cpu(&directory, seconds, frequency, &stop) {
-                        write_profile_error(&directory, "cpu", &error);
-                        tracing::error!(%error, "CPU profile capture failed");
-                    }
-                })
-                .context("spawn CPU profile worker")?,
-        );
+        runtime
+            .workers
+            .push(spawn_profile_thread("xerj-debug-cpu-profile", move || {
+                if wait_for_duration_or_stop(&stop, Duration::from_secs(delay)) {
+                    return;
+                }
+                if let Err(error) = capture_cpu(&directory, seconds, frequency, &stop) {
+                    write_profile_error(&directory, "cpu", &error);
+                    tracing::error!(%error, "CPU profile capture failed");
+                }
+            })?);
     }
     if let Some(seconds) = config.heap_seconds {
         let directory = config.output_dir.clone();
         let stop = Arc::clone(&runtime.stop);
         let delay = config.delay_seconds;
-        runtime.workers.push(
-            std::thread::Builder::new()
-                .name("xerj-debug-heap-profile".into())
-                .spawn(move || {
-                    if wait_for_duration_or_stop(&stop, Duration::from_secs(delay)) {
-                        return;
-                    }
-                    if let Err(error) = capture_heap(&directory, seconds, &stop) {
-                        write_profile_error(&directory, "heap", &error);
-                        tracing::error!(%error, "heap profile capture failed");
-                    }
-                })
-                .context("spawn heap profile worker")?,
-        );
+        runtime.workers.push(spawn_profile_thread(
+            "xerj-debug-heap-profile",
+            move || {
+                if wait_for_duration_or_stop(&stop, Duration::from_secs(delay)) {
+                    return;
+                }
+                if let Err(error) = capture_heap(&directory, seconds, &stop) {
+                    write_profile_error(&directory, "heap", &error);
+                    tracing::error!(%error, "heap profile capture failed");
+                }
+            },
+        )?);
     }
     Ok(runtime)
 }

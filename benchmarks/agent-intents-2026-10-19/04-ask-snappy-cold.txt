@@ -1,0 +1,96 @@
+xerj hub: no node answers at http://127.0.0.1:9555; starting a local node on port 9300 (data: ~/.xerj/hub/node, log: ~/.xerj/hub/node.log)
+xerj hub: node ready on port 9300 (pid 1822371)
+xerj hub: pulling 'snappy' (10.8 MB) — one-time download, later questions answer locally
+xerj hub: pulled snappy 9c28114a 11338487 → 4 indices, 382 definitions
+snappy  pin 2026-10-02 (18 days old)  BSD-3-Clause  snappy/snappy.cc:1643
+  DecompressAllTags(Writer* writer) {
+    const char* ip = ip_;
+    ResetLimit(ip);
+    auto op = writer->GetOutputPtr();
+    // We could have put this refill fragment only at the beginning of the loop.
+    // However, duplicating it at the end of each branch gives the compiler more
+    // scope to optimize the <ip_limit_ - ip> expression based on the local
+    // context, which overall increases speed.
+#define MAYBE_REFILL()                                      \
+  if (SNAPPY_PREDICT_FALSE(ip >= ip_limit_min_maxtaglen_)) { \
+    ip_ = ip;                                               \
+    if (SNAPPY_PREDICT_FALSE(!RefillTag())) goto exit;       \
+    ip = ip_;                                               \
+    ResetLimit(ip);                                         \
+  }                
+    ... [method DecompressAllTags truncated at 800 chars]
+snappy  pin 2026-10-02 (18 days old)  BSD-3-Clause  snappy/snappy_unittest.cc:375
+void AppendLiteral(std::string* dst, const std::string& literal) {
+  if (literal.empty()) return;
+  int n = literal.size() - 1;
+  if (n < 60) {
+    // Fit length in tag byte
+    dst->push_back(0 | (n << 2));
+  } else {
+    // Encode in upcoming bytes
+    char number[4];
+    int count = 0;
+    while (n > 0) {
+      number[count++] = n & 0xff;
+      n >>= 8;
+    }
+    dst->push_back(0 | ((59+count) << 2));
+    *dst += std::string(number, count);
+  }
+  *dst += literal;
+}
+snappy  pin 2026-10-02 (18 days old)  BSD-3-Clause  snappy/NEWS:0
+
+
+  * Speed up decompression by ~2%; much more so (~13-20%) on
+    a few benchmarks on given compilers and CPUs.
+
+  * Fix a few issues with MSVC compilation.
+
+  * Support truncated test data in the benchmark.
+
+
+Snappy v1.1.0, January 18th 2013:
+
+  * Snappy now uses 64 kB block size instead of 32 kB. On average,
+    this means it compresses about 3% denser (more so for some
+    inputs), at the same or better speeds.
+
+  * libsnappy no longer depends on iostream.
+
+  * Some small performance improvements in compression on x86
+    (0.5–1%).
+
+  * Various portability fixes for ARM-based platforms, for MSVC,
+    and for GNU/Hurd.
+
+
+Snappy v1.0.5, February 24th 2012:
+
+  * More speed improvements. Exactly how big will depend on
+    the architecture:
+
+    - 3–10% faster decompression for the base cas
+snappy  pin 2026-10-02 (18 days old)  BSD-3-Clause  snappy/snappy-internal.h:50
+#define SNAPPY_HAVE_RVV 1
+#include <riscv_vector.h>
+snappy  pin 2026-10-02 (18 days old)  BSD-3-Clause  snappy/NEWS:0
+rch64) builds use the code paths optimized for 64-bit processors.
+
+Snappy v1.1.6, July 12th 2017:
+
+This is a re-release of v1.1.5 with proper SONAME / SOVERSION values.
+
+Snappy v1.1.5, June 28th 2017:
+
+This release has broken SONAME / SOVERSION values. Users of snappy as a shared
+library should avoid 1.1.5 and use 1.1.6 instead. SONAME / SOVERSION errors will
+manifest as the dynamic library loader complaining that it cannot find snappy's
+shared library file (libsnappy.so / libsnappy.dylib), or that the library it
+found does not have the required version. 1.1.6 has the same code as 1.1.5, but
+carries build configuration fixes for the issues above.
+
+  * Add CMake build support. The autoconf build support is now deprecated, and
+    will be removed in the next release.
+
+answered from: local pack

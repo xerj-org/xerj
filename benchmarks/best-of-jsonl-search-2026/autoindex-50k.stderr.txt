@@ -1,0 +1,46 @@
+autoindex: 8 scan threads, 8 index workers, 4 pdf workers, --bulk-mb 8 [cores=8 ram_total_mib=16002 ram_available_mib=11954 safe_zone_mib=8001]
+autoindex: bulk HTTP request timeout: 300s
+xerj-bar [????????????????????????] pct unknown | walk | eta unknown
+xerj-progress phase=walk basis=none pct=unknown items=0/0 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=0.0
+autoindex: 1 files (9 MB) under /workspace/seo_geo/bestof/bench/work/xerj-src
+xerj-progress phase=hash basis=bytes pct=0.0 items=0/1 bytes=0/9724646 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=0.0
+xerj-progress phase=scan basis=bytes pct=0.0 items=0/1 bytes=0/9724646 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=0.0
+phase A: sniffing + sampling 1 files with 8 threads…
+phase A: 1 dataset inferred, 0 junk/skipped files
+estimate: no estimate — no estimate: phase A did not read any of the 1 planned file(s) end to end, so no throughput was measured on this machine. Families seen: jsonl
+estimate: basis — no estimate: phase A did not read any of the 1 planned file(s) end to end, so no throughput was measured on this machine. Families seen: jsonl
+  estimate: jsonl          1 file     9.3 MB NOT priced — phase A never read a file of this family end to end on this run, so no throughput was measured for it
+  estimate excludes: server-side indexing, embedding and merge time (autoindex cannot measure it without writing)
+  estimate excludes: network round trips to the endpoint
+  estimate excludes: relationship detection and edge writes (--no-graph removes these)
+  estimate excludes: families with no end-to-end read in phase A, listed under unmeasured_families
+work order: data (1 file, 9.3 MB) — biggest first inside each band at 8 worker(s); a file that outlasts everything above it starts first regardless of band
+  data             structured data: rows, records and tables
+xerj-progress phase=prepare basis=items pct=0.0 items=0/1 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=0.7
+xerj-progress phase=snapshot basis=bytes pct=0.0 items=0/1 bytes=0/9724646 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=0.7
+xerj-progress phase=index basis=bytes pct=0.0 items=0/1 bytes=0/23918923 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=1.0
+xerj-bar [------------------------] 0.0% | index | 0/1 items | eta unknown | waiting on logs.jsonl(22.8MB)
+xerj-progress phase=index basis=bytes pct=0.0 items=0/1 bytes=0/23918923 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=4.0 phase_elapsed_s=4.0 elapsed_s=5.0 waiting_on=logs.jsonl(22.8MB)
+xerj-progress phase=index basis=bytes pct=0.0 items=0/1 bytes=0/23918923 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=9.0 phase_elapsed_s=9.0 elapsed_s=10.0 waiting_on=logs.jsonl(22.8MB)
+xerj-progress phase=index basis=bytes pct=0.0 items=0/1 bytes=0/23918923 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=14.0 phase_elapsed_s=14.0 elapsed_s=15.0 waiting_on=logs.jsonl(22.8MB)
+xerj-bar [------------------------] 0.0% | index | 0/1 items | eta unknown | waiting on logs.jsonl(22.8MB)
+xerj-progress phase=index basis=bytes pct=0.0 items=0/1 bytes=0/23918923 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=19.0 phase_elapsed_s=19.0 elapsed_s=20.0 waiting_on=logs.jsonl(22.8MB)
+xerj-progress phase=index basis=bytes pct=0.0 items=0/1 bytes=0/23918923 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=24.0 phase_elapsed_s=24.0 elapsed_s=25.0 waiting_on=logs.jsonl(22.8MB)
+xerj-progress phase=index basis=bytes pct=0.0 items=0/1 bytes=0/23918923 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=29.0 phase_elapsed_s=29.0 elapsed_s=30.0 waiting_on=logs.jsonl(22.8MB)
+xerj-bar [------------------------] 0.0% | index | 0/1 items | eta unknown | waiting on logs.jsonl(22.8MB)
+xerj-progress phase=index basis=bytes pct=0.0 items=0/1 bytes=0/23918923 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=34.0 phase_elapsed_s=34.0 elapsed_s=35.0 waiting_on=logs.jsonl(22.8MB)
+xerj-progress phase=index basis=bytes pct=0.0 items=0/1 bytes=0/23918923 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=39.0 phase_elapsed_s=39.0 elapsed_s=40.0 waiting_on=logs.jsonl(22.8MB)
+xerj-bar [------------------------] 0.0% | finalize-catalog | 0/1 items | eta unknown
+xerj-progress phase=finalize-catalog basis=items pct=0.0 items=0/1 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=43.0
+xerj-progress phase=finalize-catalog basis=items pct=0.0 items=0/1 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=2.0 phase_elapsed_s=2.0 elapsed_s=45.0
+xerj-progress phase=finalize-catalog basis=items pct=0.0 items=0/1 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=7.0 phase_elapsed_s=7.0 elapsed_s=50.0
+xerj-bar [------------------------] 0.0% | finalize-catalog-readback | 0/3 items | eta unknown
+xerj-progress phase=finalize-catalog-readback basis=items pct=0.0 items=0/3 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=54.1
+xerj-progress phase=finalize-refresh basis=items pct=0.0 items=0/2 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=54.1
+xerj-progress phase=finalize-verify basis=items pct=0.0 items=0/3 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=54.6
+xerj-progress phase=finalize-verify basis=items pct=0.0 items=0/3 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.4 phase_elapsed_s=0.4 elapsed_s=55.0 waiting_on=bx-jsonl
+xerj-bar [------------------------] 0.0% | finalize-verify | 0/3 items | eta unknown | waiting on bx-jsonl
+xerj-progress phase=finalize-verify basis=items pct=0.0 items=0/3 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=5.4 phase_elapsed_s=5.4 elapsed_s=60.0 waiting_on=bx-jsonl
+xerj-progress phase=finalize-verify basis=items pct=0.0 items=0/3 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=10.4 phase_elapsed_s=10.4 elapsed_s=65.0 waiting_on=bx-jsonl
+xerj-progress phase=finalize-verify basis=items pct=0.0 items=0/3 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=15.4 phase_elapsed_s=15.4 elapsed_s=70.0 waiting_on=bx-jsonl
+xerj-done ok=true exit=0 reason=completed wall=70.2s files=1 records=50000 generation=1 code_files=0 code_files_indexed=0 code_files_junked=0

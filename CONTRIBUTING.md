@@ -42,6 +42,22 @@ cargo test                                # unit + integration tests
 cargo test -p xerj-engine --test integration
 ```
 
+Many tests start fake nodes on `127.0.0.1`, so they need loopback networking. In a
+sandbox that denies binding `127.0.0.1`, those tests fail with a message that says
+so. A new test that binds an ephemeral loopback port should wrap the bind in
+`xerj_common::loopback_test::expect_loopback`.
+
+CI runs the tests with `cargo test --profile ci-test` (optimised, with unwinding
+panics). A plain debug `cargo test` passes too. In a debug build, the ES-compat
+handlers need more than tokio's 2 MiB default worker stack, so a test that
+serves the router in process builds its runtime with
+`thread_stack_size(4 * 1024 * 1024)`, the server's own size, instead of using
+`#[tokio::test]`.
+
+One test, `xerj-mcp`'s `loopback_proxy`, connects to `127.0.0.2`. Linux routes
+all of `127.0.0.0/8` to loopback. Stock macOS configures only `127.0.0.1`, so the
+test fails and names the fix: `sudo ifconfig lo0 alias 127.0.0.2 up`.
+
 ### ES-YAML conformance suite (required)
 
 XERJ's compatibility contract is the Elasticsearch REST API YAML test suite based on ES 8.13. **CI requires 0 failed cases — there is no "known failures" list.** The runner reports passed, failed, and skipped cases separately; skipped cases do not fail the gate, and the total changes as cases are added. If a test expects one response and XERJ returns another, XERJ is wrong; fix the engine, not the test.
@@ -134,8 +150,19 @@ The [pull request template](./.github/PULL_REQUEST_TEMPLATE.md) prompts you for 
 Performance claims must be reproducible. The head-to-head-vs-Elasticsearch harness lives under [`demo/playbooks`](./demo/playbooks):
 
 ```bash
+XERJ_DISABLE_QUERY_CACHE=1 ./engine/target/release/xerj --data-dir ./bench-data --insecure &
 node demo/playbooks/bench-matrix.mjs --docs 100k,1m --clients 1,8 --knn --mixed
 ```
+
+XERJ caches whole search responses by default, so a repeated identical query is
+answered from memory instead of being executed (#3020: 0.70 ms cached against
+7.80 ms executed). `request_cache=false` does not turn that cache off. Start
+the node with `XERJ_DISABLE_QUERY_CACHE=1`, or send only unique queries, for any
+latency you publish. `xerj_query_cache_hits` on `/v1/metrics` counts the
+responses the cache served, per index, summed over the indexes open now (a
+deleted index's hits are gone). `bench-matrix.mjs` reads it before and after
+each timed section and the [`scripts/bench`](./scripts/bench) repros print it;
+it should be 0.
 
 Read latencies are measured with a lean keep-alive HTTP client applied identically to both engines (see the methodology note the harness emits). If your change touches a hot path, include before/after numbers in the commit body.
 

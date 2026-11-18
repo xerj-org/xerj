@@ -2,11 +2,15 @@
 ---
 title: "XERJ vs Pagefind for a folder of saved HTML"
 canonical: "https://xerj.org/compare/xerj-vs-pagefind"
-updated: "2026-08-23"
+updated: "2026-10-28"
 source: "content/compare/xerj-vs-pagefind.md"
 ---
 
 # Pagefind vs indexing a local HTML dump for an agent?
+
+**Short answer** (updated 2026-10-28): Pagefind or a local index for a folder of saved HTML? Pagefind wins search on a built static website: no server, a chunked index and a small download for the visitor. XERJ wins when an agent must query a saved HTML export on disk beside the PDFs next to it. No head-to-head was run.
+
+**Key number:** Pagefind has 5,519 GitHub stars, is MIT-licensed, and released v1.5.2 on 2026-04-12. (as of 2026-10-19; source: [github.com/Pagefind/pagefind](https://github.com/Pagefind/pagefind))
 
 **TL;DR** — Pagefind wins search on a built static website: no server, a chunked index and a small download for the visitor. XERJ wins when an agent must query a saved HTML export on disk alongside the PDFs next to it. No head-to-head was run for this page.
 
@@ -70,7 +74,7 @@ The command reads a content signature rather than the file extension. It infers 
 
 Thirteen families are covered. The list holds HTML, plain text, PDF, DOCX and CSV. It also holds JSON and JSONL, structured logs, SQL exports, SQLite, XML, YAML, code and gzip variants.
 
-The result is queryable over the Elasticsearch REST API, and `xerj mcp` serves 10 tools to an agent over stdio. A `match_phrase` query returns the file path and the matching passage rather than the whole page.
+The result is queryable over the Elasticsearch REST API, and `xerj mcp` serves 24 tools to an agent over stdio. A `match_phrase` query returns the file path and the matching passage rather than the whole page.
 
 ## What XERJ is not
 
@@ -158,3 +162,6 @@ It depends who is asking. Pagefind serves your readers in the browser on a built
 - [How do I search a Confluence export?](/answers/search-confluence-html-export)
 - [I want to point something at a folder and then ask questions about what's in it. What should I use?](/answers/how-xerj-autoindexes-a-folder)
 - [Why does my Notion export duplicate titles?](/answers/notion-export-duplicate-search-results)
+- [I indexed a folder of email and PDFs. How do I actually read what it found?](/answers/read-indexed-email-and-pdf-folder) (same intent: logs and docs)
+- [What's the best local desktop search for a folder of PDFs and docs?](/compare/xerj-vs-recoll) (same intent: logs and docs)
+- [How do I index Markdown into the Elasticsearch API?](/answers/index-markdown-into-elasticsearch-api) (same intent: logs and docs)

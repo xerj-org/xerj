@@ -7,11 +7,19 @@ cluster: "Comparison: desktop search"
 question: "HoudahSpot vs a local search engine I can script?"
 intent: "comparison"
 published: "2026-08-22"
-updated: "2026-09-26"
+updated: "2026-10-28"
 author: "XERJ documentation team"
 reviewer: "XERJ engineering team"
 schema_type: "TechArticle"
+structured_data: [faq]
 agent_prompt: "Act as a coding agent that must query a folder on a Mac without a person driving a GUI. Read https://xerj.org/llms.txt, start a local XERJ node, run xerj autoindex on the folder, read the data map, then answer over HTTP or through xerj mcp and cite the ax_path of every file you used."
+answer: "HoudahSpot or a local search engine I can script? HoudahSpot is a power-user front end for the Mac's own Spotlight index, with hundreds of attribute filters and saved templates. XERJ is a folder index a program calls over HTTP or MCP. No head-to-head was run, and nothing on this page was tested on macOS."
+key_fact: "XERJ's tree-sitter registry covers 36 languages, one of the extractor families a Spotlight importer does not provide."
+key_fact_source: "engine/crates/xerj-autoindex/src/extract/code.rs"
+key_fact_date: "2026-10-19"
+intent_group: "logs and docs"
+queries:
+  - "desktop search alternative for agents"
 commands:
   - cmd: "xerj autoindex ./documents --url http://127.0.0.1:9200 --prefix docs --progress plain"
     note: "Index the folder. The command takes no configuration file and no mapping."
@@ -44,7 +52,7 @@ faq:
   - q: "HoudahSpot vs a local search engine I can script?"
     a: "HoudahSpot is a GUI over the Mac's metadata store, scriptable through AppleScript. XERJ is a node that answers HTTP and MCP directly, so a program calls it without a wrapper."
   - q: "What's better than HoudahSpot if I want an API for an agent?"
-    a: "An engine with an API. XERJ answers the Elasticsearch REST API and serves 10 MCP tools from the same binary, so the agent sends a query rather than driving an interface."
+    a: "An engine with an API. XERJ answers the Elasticsearch REST API and serves 24 MCP tools from the same binary, so the agent sends a query rather than driving an interface."
   - q: "Advanced Mac file search that a coding agent can call?"
     a: "Index the folder with `xerj autoindex` and attach it with `xerj mcp`. The agent then gets cited passages with a file path on every hit."
   - q: "Did you compare XERJ and HoudahSpot head to head?"
@@ -91,7 +99,7 @@ XERJ is a single Rust binary that runs one search node. `xerj autoindex <folder>
 
 The streaming extractors cover JSON and JSONL, CSV with dialect sniffing, structured logs, `sqldump` files, SQLite, PDF, DOCX, HTML, XML, YAML, plain text and gzip variants of those. XERJ builds its own index. It does not read the operating system's.
 
-The node answers the Elasticsearch REST API, and `xerj autoindex map` prints a data map of what the folder became. The `xerj mcp` subcommand is a stdio MCP server in the same binary, and it serves 10 tools against a running node.
+The node answers the Elasticsearch REST API, and `xerj autoindex map` prints a data map of what the folder became. The `xerj mcp` subcommand is a stdio MCP server in the same binary, and it serves 24 tools against a running node.
 
 XERJ is single-node, with no replication and no failover. The default embedder is lexical feature hashing rather than a neural model; neural retrieval is opt-in through `--embed-mode neural`. There is no OCR.
 
@@ -110,7 +118,7 @@ Every row is a documented capability of each tool. **No row is a measured result
 | multiple search folders, excluded folders | yes | one folder per run, plus ignore rules |
 | scripting surface | AppleScript, launcher integrations | Elasticsearch REST API and MCP |
 | HTTP query API | not advertised | yes |
-| MCP server for an agent | none | yes, `xerj mcp`, 10 tools |
+| MCP server for an agent | none | yes, `xerj mcp`, 24 tools |
 | typed columns from a CSV, a `sqldump` file or SQLite | not advertised | yes, a dataset per file shape |
 | per-file refusal reason | not advertised | `autoindex-catalog`, one reason per file |
 | agent memory in the engine | none | yes, `/_memory/{namespace}` |

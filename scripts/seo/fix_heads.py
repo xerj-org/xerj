@@ -14,12 +14,16 @@ For every page it guarantees, in `<head>` and nowhere else:
   * the `<title>` and `<meta name="description">` from `pagedata.py`;
   * `<meta name="robots" content="noindex">` on, and only on, the pages in
     `urlmap.NOINDEX`;
-  * `lang` on `<html>` and a viewport meta, if the page was missing them.
+  * `lang` on `<html>` and a viewport meta, if the page was missing them;
+  * the GA4 tag from ``seo_head.ga4_snippet()``, once, immediately after
+    ``<head>``.
 
-Deliberately NOT emitted, per scripts' research doc §5:
-  * FAQPage — Google restricted FAQ rich results to government/health sites,
-    and they end entirely on 7 May 2026.
-  * HowTo — the rich result and its documentation were removed outright.
+Emitted only on opt-in (README trap 6, seo_lint rules 46/46b):
+  * FAQPage / HowTo when the article source lists them under
+    `structured_data:`; ItemList from a best-of page's `items:`. Google no
+    longer draws FAQ/HowTo rich results; these are for answer engines.
+
+Deliberately NOT emitted:
   * aggregateRating / Review — we have no review corpus; inventing one is a
     manual-action risk under Google's structured-data spam policies.
 
@@ -36,8 +40,11 @@ than by luck — there is no "already applied?" heuristic to get wrong.
 CSP note: `<script type="application/ld+json">` is a *data block* per WHATWG
 HTML ("prepare the script element" returns at step 13, before the CSP inline
 check at step 21).  It is never an inline script, so `script-src` never
-applies.  Do not touch `landing/_headers`; `seo_lint.py` fails the build if
-anyone widens `script-src` on account of this file.
+applies to it.  Do not widen `script-src` on account of JSON-LD;
+`seo_lint.py` fails the build if anyone does.  The GA4 tag is a real script.
+Its host is an explicit entry in `seo_lint.ALLOWED_SCRIPT_SRC`, and
+`landing/_headers` allows that host plus the Analytics collect endpoints
+for that tag alone.
 """
 
 from __future__ import annotations
@@ -146,12 +153,20 @@ def transform(rel: str, src: str, dates: urlmap.DateSource,
     # changes the date the next run computes, so `--check` fails on main the
     # first time a merge touches the file on a later date. build_articles.py
     # dates those hubs from the articles they list; keep what it wrote.
+    # A pinned `updated` in pagedata.py still wins, so a content edit can
+    # move dateModified forward on purpose.
     if not meta.get("_source_path"):
         kept = _existing_ld_dates(src)
-        published = kept.get("datePublished", published)
-        modified = kept.get("dateModified", modified)
+        published = meta.get("published") or kept.get("datePublished", published)
+        modified = meta.get("updated") or kept.get("dateModified", modified)
     block = build_block(rel, title, desc, published, modified, meta)
     head = head.rstrip("\n \t") + "\n" + block + "\n"
+
+    # GA4 sits immediately after <head>, which is where Google's install
+    # instructions put the snippet.  Delete then emit, same as the SEO block,
+    # so a second run does not duplicate it.
+    head = seo_head.RE_GA4.sub("", head)
+    head = "\n" + seo_head.ga4_snippet() + "\n" + head.lstrip("\n")
 
     out = src[:m.start()] + open_tag + head + close_tag + src[m.end():]
 

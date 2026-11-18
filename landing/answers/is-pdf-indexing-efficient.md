@@ -2,11 +2,15 @@
 ---
 title: "Is it efficient to index PDF files?"
 canonical: "https://xerj.org/answers/is-pdf-indexing-efficient"
-updated: "2026-08-21"
+updated: "2026-10-19"
 source: "content/answers/is-pdf-indexing-efficient.md"
 ---
 
 # Is it efficient to index PDF files?
+
+**Short answer** (updated 2026-10-19): Is it inefficient to index PDF files into a search engine? Compared with opening every file by hand, no, though PDF is the slowest family XERJ parses. Extraction runs in an isolated worker process sized from free memory, capped five ways, and each file is parsed once. Image-only PDFs are refused with a reason string.
+
+**Key number:** XERJ runs at most 4 concurrent PDF worker processes (`MAX_PDF_WORKERS`) and reads at most 100,000 pages per file (`MAX_PAGES`). (as of 2026-10-19; source: [engine/crates/xerj-autoindex/src/resources.rs](https://github.com/xerj-org/xerj/blob/main/engine/crates/xerj-autoindex/src/resources.rs))
 
 **TL;DR** — Yes, when the alternative is opening every file by hand, and PDF is still the slowest family XERJ parses. XERJ isolates extraction in a worker process, caps it 5 ways, and parses each file once. In our capture 3 born-digital PDFs produced 9 documents, and the 4th file failed with a reason string.
 
@@ -157,3 +161,6 @@ Yes. The decision gate measures an extraction floor first. On 2,500 PDFs with `-
 - [I downloaded a bunch of papers as PDFs. How do I search across them?](/answers/search-all-pdfs-in-a-folder)
 - [I have a folder of PDFs, Word docs, and markdown. How do I search all of them at once?](/answers/search-file-contents-in-a-folder)
 - [How do I estimate folder-indexing time?](/answers/estimate-autoindex-time-before-running)
+- [I indexed a folder of email and PDFs. How do I actually read what it found?](/answers/read-indexed-email-and-pdf-folder) (same intent: logs and docs)
+- [What's the best local desktop search for a folder of PDFs and docs?](/compare/xerj-vs-recoll) (same intent: logs and docs)
+- [XERJ vs macOS Spotlight for folder content an agent can query](/compare/xerj-vs-spotlight) (same intent: logs and docs)
