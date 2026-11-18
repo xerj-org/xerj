@@ -1328,8 +1328,8 @@ pub(crate) fn node_tls_bypass_allowed(url: &str) -> bool {
 }
 
 /// Load a PEM CA certificate file for `--ca-cert` / `XERJ_CA_CERT`: one
-/// certificate, trusted as an extra root next to the system roots. Fails
-/// here, before any request is made, so a bad path is a usage error rather
+/// certificate, trusted as the only root for the node it is handed to.
+/// Fails here, before any request is made, so a bad path is a usage error rather
 /// than a handshake failure halfway through a run. The file must hold
 /// exactly one PEM certificate: `Certificate::from_pem` does not parse
 /// under rustls (it stores the bytes for client build), so the bundle is
@@ -1364,17 +1364,24 @@ pub(crate) fn load_ca_cert(path: &Path) -> Result<reqwest::Certificate> {
 }
 
 /// Apply the node-URL TLS policy to a client builder. A supplied CA
-/// certificate is trusted as an extra root and verification stays on: the
-/// node's own self-signed certificate then verifies, and any other
-/// untrusted certificate still fails. Without one, loopback nodes accept
-/// their self-signed certificate and anything else verifies normally.
+/// certificate is trusted as the only root and the hostname check is
+/// skipped: the operator pinned that exact certificate, and a node mints
+/// its self-signed certificate for `localhost` only while the operator
+/// reaches it by IP, so a name check against the pinned certificate would
+/// refuse the very certificate that was handed over. Any other
+/// certificate still fails, because no other root is trusted. Without
+/// one, loopback nodes accept their self-signed certificate and anything
+/// else verifies normally.
 pub(crate) fn with_node_tls_policy(
     builder: reqwest::blocking::ClientBuilder,
     url: &str,
     ca_cert: Option<&reqwest::Certificate>,
 ) -> reqwest::blocking::ClientBuilder {
     if let Some(cert) = ca_cert {
-        builder.add_root_certificate(cert.clone())
+        builder
+            .tls_built_in_root_certs(false)
+            .add_root_certificate(cert.clone())
+            .danger_accept_invalid_hostnames(true)
     } else if node_tls_bypass_allowed(url) {
         builder.danger_accept_invalid_certs(true)
     } else {
@@ -1387,9 +1394,9 @@ impl Es {
         Self::with_bulk_timeout(url, api_key, 300)
     }
 
-    /// Same as [`Self::new`], but trusts one extra CA certificate as well
-    /// as the system roots: the escape hatch for a remote node that serves
-    /// the self-signed certificate it minted on first start (`--ca-cert` /
+    /// Same as [`Self::new`], but trusts only one CA certificate for the
+    /// node: the escape hatch for a remote node that serves the self-signed
+    /// certificate it minted on first start (`--ca-cert` /
     /// `XERJ_CA_CERT`). The file must hold one PEM certificate; a missing
     /// or unparsable file fails here, before any request is made.
     pub fn with_ca_cert(
@@ -1415,8 +1422,8 @@ impl Es {
     }
 
     /// Same as [`Self::with_bulk_timeout`], plus the `--ca-cert` escape
-    /// hatch: `ca_cert` names a PEM file whose certificate is trusted as an
-    /// extra root for this node (see [`Self::with_ca_cert`]).
+    /// hatch: `ca_cert` names a PEM file whose certificate is the only root
+    /// trusted for this node (see [`Self::with_ca_cert`]).
     pub fn with_bulk_timeout_and_ca_cert(
         url: &str,
         api_key: Option<String>,
@@ -1591,9 +1598,12 @@ impl Es {
     /// True when `ping` failed because the node presented a certificate this
     /// machine does not trust. reqwest's Display hides the source chain, so
     /// this reads the full chain like `ping_failure_is_auth` does: the
-    /// rustls refusal names its cause `UnknownIssuer`.
+    /// rustls refusal names its cause `UnknownIssuer`, and a certificate
+    /// whose name does not match the address used fails with
+    /// `not valid for name`.
     pub fn ping_failure_is_tls_cert(err: &anyhow::Error) -> bool {
-        format!("{err:#}").contains("UnknownIssuer")
+        let text = format!("{err:#}");
+        text.contains("UnknownIssuer") || text.contains("not valid for name")
     }
 
     pub fn ping(&self) -> Result<Value> {
@@ -4514,22 +4524,28 @@ mod tests {
         }
     }
 
-    /// One self-signed certificate for `localhost` and `127.0.0.1`, as DER,
-    /// PEM, and private key DER: the material the test TLS server serves
-    /// and the `--ca-cert` tests load. Both names are on the certificate so
-    /// a client that trusts it as an extra root verifies by either one.
-    fn generate_self_signed_test_cert() -> (Vec<u8>, String, Vec<u8>) {
+    /// One self-signed certificate for the given names, as DER, PEM, and
+    /// private key DER: the material the test TLS server serves and the
+    /// `--ca-cert` tests load.
+    fn generate_self_signed_test_cert_for(names: Vec<String>) -> (Vec<u8>, String, Vec<u8>) {
         let key_pair = rcgen::KeyPair::generate().expect("generate test key pair");
-        let certified =
-            rcgen::CertificateParams::new(vec!["localhost".to_string(), "127.0.0.1".to_string()])
-                .expect("test cert params")
-                .self_signed(&key_pair)
-                .expect("generate self-signed test cert");
+        let certified = rcgen::CertificateParams::new(names)
+            .expect("test cert params")
+            .self_signed(&key_pair)
+            .expect("generate self-signed test cert");
         (
             certified.der().to_vec(),
             certified.pem(),
             key_pair.serialize_der(),
         )
+    }
+
+    /// One self-signed certificate for `localhost` and `127.0.0.1`, as DER,
+    /// PEM, and private key DER: the material the test TLS server serves
+    /// and the `--ca-cert` tests load. Both names are on the certificate so
+    /// a client that trusts it as an extra root verifies by either one.
+    fn generate_self_signed_test_cert() -> (Vec<u8>, String, Vec<u8>) {
+        generate_self_signed_test_cert_for(vec!["localhost".to_string(), "127.0.0.1".to_string()])
     }
 
     /// A TLS server with a self-signed certificate for `localhost` and
@@ -4544,6 +4560,19 @@ mod tests {
     fn spawn_self_signed_tls_server() -> (std::net::SocketAddr, String, std::thread::JoinHandle<()>)
     {
         let (cert_der, cert_pem, key_der) = generate_self_signed_test_cert();
+        spawn_tls_server(cert_der, cert_pem, key_der)
+    }
+
+    /// A TLS server serving the given certificate material, on 127.0.0.1.
+    /// Returns the bound address, the certificate in PEM form (what
+    /// `--ca-cert` consumes), and the server handle; the server exits after
+    /// two connection attempts, so a refused handshake still lets it shut
+    /// down instead of hanging the test.
+    fn spawn_tls_server(
+        cert_der: Vec<u8>,
+        cert_pem: String,
+        key_der: Vec<u8>,
+    ) -> (std::net::SocketAddr, String, std::thread::JoinHandle<()>) {
         let (tx, rx) = std::sync::mpsc::channel();
         let server = std::thread::spawn(move || {
             let _ = tokio_rustls::rustls::crypto::ring::default_provider().install_default();
@@ -4663,13 +4692,14 @@ mod tests {
 
     /// The `--ca-cert` escape hatch, against the same self-signed server:
     /// a client built for a non-loopback node URL trusts the server's own
-    /// certificate when it is handed it as an extra root, and still refuses
+    /// certificate when it is handed it as the only root, and still refuses
     /// it without one. The policy URL is deliberately not the address the
     /// request goes to: it is what the client judges the node by, exactly
     /// as a remote `--url` is judged while the request itself goes to the
     /// node. The request goes to the loopback address because that is where
     /// the test server listens; the certificate carries that address as a
-    /// SAN, so verification by name succeeds once the root is trusted.
+    /// SAN, and the hostname check is skipped for a pinned certificate, so
+    /// the handshake succeeds once the root is trusted.
     #[test]
     fn ca_cert_trusts_self_signed_node() {
         let (address, cert_pem, server) = spawn_self_signed_tls_server();
@@ -4713,6 +4743,71 @@ mod tests {
         assert!(resp.status().is_success(), "got {}", resp.status());
 
         server.join().unwrap();
+    }
+
+    /// A `--ca-cert` certificate that names only `localhost`, reached via
+    /// an address the certificate does not name: the pinned certificate is
+    /// trusted on its own and the hostname check is skipped, so the
+    /// handshake still succeeds. A different self-signed certificate is
+    /// still refused, so the pin is exact rather than a blanket bypass.
+    /// Regression test for the maintainer's live check on #3196: their node
+    /// mints its certificate for `DNS:localhost` only, and connecting via
+    /// its IP failed with `certificate not valid for name` because the
+    /// client still verified the hostname against the pinned certificate.
+    #[test]
+    fn ca_cert_trusts_pinned_cert_without_matching_hostname() {
+        let (cert_der, cert_pem, key_der) =
+            generate_self_signed_test_cert_for(vec!["localhost".to_string()]);
+        let (address, _cert_pem, server) = spawn_tls_server(cert_der, cert_pem, key_der);
+        let dir = tempfile::tempdir().expect("test tempdir");
+        let path = dir.path().join("node.pem");
+        std::fs::write(&path, &_cert_pem).expect("write test CA cert");
+        let cert = super::load_ca_cert(&path).expect("load test CA cert");
+
+        let trusting = super::with_node_tls_policy(
+            super::node_blocking_builder("https://node.invalid:9200"),
+            "https://node.invalid:9200",
+            Some(&cert),
+        )
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .unwrap();
+        let resp = trusting
+            .get(format!("https://{address}/"))
+            .send()
+            .expect("a client trusting the pinned cert must complete the handshake even though the cert names only localhost");
+        assert!(resp.status().is_success(), "got {}", resp.status());
+        // A second request so the test server sees its two attempts and
+        // exits instead of waiting out its accept timeout on join.
+        let resp = trusting
+            .get(format!("https://{address}/"))
+            .send()
+            .expect("the second request to the pinned server must succeed too");
+        assert!(resp.status().is_success(), "got {}", resp.status());
+        server.join().unwrap();
+
+        // A different self-signed certificate is still refused by the same
+        // trusting client: only the pinned certificate is a root. The
+        // refusal names the certificate (UnknownIssuer when no candidate
+        // root matches, BadSignature when the other self-signed certificate
+        // shares the empty subject and is tried as its own issuer), so
+        // assert on the certificate failure rather than one cause.
+        let (other_der, other_pem, other_key) = generate_self_signed_test_cert();
+        let (other_addr, _, other_server) = spawn_tls_server(other_der, other_pem, other_key);
+        for _ in 0..2 {
+            let debug = format!(
+                "{:?}",
+                trusting
+                    .get(format!("https://{other_addr}/"))
+                    .send()
+                    .unwrap_err()
+            );
+            assert!(
+                debug.contains("InvalidCertificate"),
+                "a different self-signed certificate must still be refused, got: {debug}"
+            );
+        }
+        other_server.join().unwrap();
     }
 
     /// `--ca-cert` loads a PEM file, and a bad file fails with the path and
@@ -4789,13 +4884,18 @@ mod tests {
     }
 
     /// The TLS-cert detector reads the full error chain: a refusal names
-    /// its cause `UnknownIssuer`, a refused connection does not.
+    /// its cause `UnknownIssuer`, a name mismatch names `not valid for
+    /// name`, and a refused connection names neither.
     #[test]
     fn ping_failure_is_tls_cert_only_for_certificate_refusals() {
         let cert_err = anyhow::anyhow!(
             "endpoint unreachable: https://node.invalid:9200: invalid peer certificate: UnknownIssuer"
         );
         assert!(Es::ping_failure_is_tls_cert(&cert_err));
+        let name_err = anyhow::anyhow!(
+            "endpoint unreachable: https://10.200.0.1:9200: certificate not valid for name \"10.200.0.1\""
+        );
+        assert!(Es::ping_failure_is_tls_cert(&name_err));
         let conn_err = anyhow::anyhow!(
             "endpoint unreachable: http://127.0.0.1:9: Connection refused (os error 111)"
         );
