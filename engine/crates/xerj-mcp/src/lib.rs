@@ -1155,7 +1155,9 @@ pub fn tool_specs_with(include_hub: bool) -> Value {
                  recall; set `semantic:true` to embed the query server-side and recall by \
                  meaning; set `hybrid:true` to run both over the same `query` and fuse them \
                  by reciprocal rank; supply `vector` for pure vector recall. Proxies \
-                 POST /_memory/{namespace}/_recall.",
+                 POST /_memory/{namespace}/_recall. \
+                 Pass `max_tokens` to cap the response at a token budget (never exceeded; \
+                 see that argument for the tokenizer and the locator-only rule).",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -1210,7 +1212,8 @@ pub fn tool_specs_with(include_hub: bool) -> Value {
                             "as_of": { "description": "Bi-temporal cut: epoch-ms number or RFC3339 string (default now)." }
                         },
                         "required": ["mode"]
-                    }
+                    },
+                    "max_tokens": max_tokens_arg_schema()
                 },
                 "required": ["namespace"]
             }
@@ -2109,12 +2112,16 @@ async fn call_tool(ctx: &Ctx, msg: &Value) -> Value {
 
     // #1058: `max_tokens` is enforced PROXY-SIDE on the response — the engine
     // never sees it (the builders copy only their own known keys), so the
-    // request bodies are bit-identical with and without a budget. Only the
-    // four `_search`-proxying tools take it here; `xerj_code_search` reads it
-    // itself and budgets its rendered text.
+    // request bodies are bit-identical with and without a budget. The
+    // four `_search`-proxying tools and `xerj_memory_recall` take it here;
+    // `xerj_code_search` reads it itself and budgets its rendered text.
     let budget = if matches!(
         name,
-        "xerj_search" | "xerj_hybrid_search" | "xerj_semantic_search" | "xerj_vector_search"
+        "xerj_search"
+            | "xerj_hybrid_search"
+            | "xerj_semantic_search"
+            | "xerj_vector_search"
+            | "xerj_memory_recall"
     ) {
         match token_budget::opt_max_tokens(&args) {
             Ok(b) => b,
@@ -5405,6 +5412,8 @@ mod tests {
             "xerj_semantic_search",
             "xerj_vector_search",
             "xerj_code_search",
+            // #2958: recall hits are budgeted by the same proxy-side adapter.
+            "xerj_memory_recall",
         ];
         for tool in specs.as_array().unwrap() {
             let name = tool["name"].as_str().unwrap();

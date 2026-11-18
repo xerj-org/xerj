@@ -395,7 +395,7 @@
     },
     {
       "name": "xerj_memory_recall",
-      "description": "Recall the most relevant memories from a namespace. Default is BM25 text recall; set `semantic:true` to embed the query server-side and recall by meaning; set `hybrid:true` to run both over the same `query` and fuse them by reciprocal rank; supply `vector` for pure vector recall. Proxies POST /_memory/{namespace}/_recall.",
+      "description": "Recall the most relevant memories from a namespace. Default is BM25 text recall; set `semantic:true` to embed the query server-side and recall by meaning; set `hybrid:true` to run both over the same `query` and fuse them by reciprocal rank; supply `vector` for pure vector recall. Proxies POST /_memory/{namespace}/_recall. Pass `max_tokens` to cap the response at a token budget (never exceeded; see that argument for the tokenizer and the locator-only rule).",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -481,6 +481,12 @@
             "required": [
               "mode"
             ]
+          },
+          "max_tokens": {
+            "type": "integer",
+            "minimum": 32,
+            "default": 8000,
+            "description": "Word budget for the successful search payload. Errors and mandatory xerj_search staleness hints are outside this budget. Tokens are counted with XERJ's StandardTokenizer (UAX #29 word boundaries) — the same word split the engine's own analyzer uses for BM25. Honest scope: that under-counts model-context subwords (snake_case is ONE token here), so treat it as a deterministic proxy, not a BPE count. The budget covers the whole response text (JSON keys and syntax included). JSON responses dedupe overlapping file:line passages first (higher-ranked wins); rendered code dedupes only identical locators with identical displayed passages. Hits that no longer fit are listed as LOCATORS ONLY (file:line, index/id) rather than dropped, and the response's `_token_budget` block accounts for every hit: kept, locator-only, deduped, dropped. Errors are never truncated — a refusal you cannot read end-to-end is worse than a long response. Minimum 32; when omitted the budget is 8000 UAX #29 words. This is not a byte cap or a guarantee against host output limits. Pass a larger integer to request more."
           }
         },
         "required": [
