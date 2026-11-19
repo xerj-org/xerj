@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on gpu, rapids, cudf queries this for how NVIDIA/cudf implements it: cuDF - GPU DataFrame Library (selected work: python)",
+ "domain": "an agent working on gpu, rapids, cudf queries this for how NVIDIA/cudf implements it: cuDF - GPU DataFrame Library (selected work: cpp, java)",
  "repos": [
   {
    "repo": "cudf",
    "url": "https://github.com/NVIDIA/cudf",
-   "sha": "e0dcaf69d171b6d8fc44fdc157f798046692b5f0",
-   "licence": "Apache-2.0 (LICENSE file at pin e0dcaf69d171, GitHub licence API 2026-10-30)",
+   "sha": "9414338324f92389775f7a94de4e535db86175cf",
+   "licence": "Apache-2.0 (LICENSE file at pin 9414338324f9, GitHub licence API 2026-11-12)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
-    "at": "2026-10-30T04:10Z",
-    "consent_receipt": "391e52323e8e",
-    "note": "Inclusion consented by the commit author by email at 2026-10-30T04:10Z (receipt 391e52323e8e); selected commit e0dcaf69d171: \"Preserve row order for ordered multi-rank Union (#24685)\". LICENSE file at pin e0dcaf69d171 detected as Apache-2.0 by the GitHub licence API on 2026-10-30; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @NVIDIA, who has not added it."
+    "at": "2026-11-11T17:57Z",
+    "consent_receipt": "f42fcdd2498a",
+    "note": "Inclusion consented by the commit author by email at 2026-11-11T17:57Z (receipt f42fcdd2498a); selected commit 9414338324f9: \"Accept a span of split points in contiguous_split (#24677)\". LICENSE file at pin 9414338324f9 detected as Apache-2.0 by the GitHub licence API on 2026-11-12; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @NVIDIA, who has not added it."
    },
    "paths": [
     "cpp/benchmarks/contiguous_split",

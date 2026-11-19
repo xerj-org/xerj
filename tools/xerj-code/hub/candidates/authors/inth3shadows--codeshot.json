@@ -8,15 +8,15 @@
   {
    "repo": "codeshot",
    "url": "https://github.com/inth3shadows/codeshot",
-   "sha": "b76efec4c1e98b059c0fe93d751d8312fbc7a7b8",
-   "licence": "MIT (LICENSE file at pin b76efec4c1e9, GitHub licence API 2026-11-19)",
+   "sha": "9952cc9de987c952acd48c3f63a9db3b4b5e6f5d",
+   "licence": "MIT (LICENSE file at pin 9952cc9de987, GitHub licence API 2026-11-19)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T22:01Z",
     "consent_receipt": "727e11a59dc6",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:01Z (receipt 727e11a59dc6); pinned to the default-branch head. LICENSE file at pin b76efec4c1e9 detected as MIT by the GitHub licence API on 2026-11-19; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:01Z (receipt 727e11a59dc6); pinned to the default-branch head. LICENSE file at pin 9952cc9de987 detected as MIT by the GitHub licence API on 2026-11-19; used under that licence with attribution."
    }
   }
  ]
