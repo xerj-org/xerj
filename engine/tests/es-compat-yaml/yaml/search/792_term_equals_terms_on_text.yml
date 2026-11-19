@@ -1,0 +1,81 @@
+setup:
+  - do:
+      indices.create:
+          index: term_terms_text
+          body:
+              mappings:
+                  properties:
+                      body: { type: text }
+  - do:
+      bulk:
+          body:
+              - '{"index": {"_index": "term_terms_text", "_id": "1"}}'
+              - '{"body": "the quick brown fox"}'
+              - '{"index": {"_index": "term_terms_text", "_id": "2"}}'
+              - '{"body": "quick start"}'
+              - '{"index": {"_index": "term_terms_text", "_id": "3"}}'
+              - '{"body": "lazy dog"}'
+
+---
+"term on a text field matches one analysed token like terms, before refresh (#3259)":
+  - do:
+      count:
+          index: term_terms_text
+          body: { query: { term: { body: "quick" } } }
+  - match: { count: 2 }
+  - do:
+      count:
+          index: term_terms_text
+          body: { query: { terms: { body: [ "quick" ] } } }
+  - match: { count: 2 }
+  - do:
+      count:
+          index: term_terms_text
+          body: { query: { bool: { must: [ { term: { body: "quick" } } ] } } }
+  - match: { count: 2 }
+
+---
+"term on a text field matches one analysed token like terms, after refresh (#3259)":
+  - do:
+      indices.refresh: {}
+  - do:
+      search:
+          index: term_terms_text
+          body: { query: { term: { body: "quick" } } }
+  - match: { hits.total.value: 2 }
+  - do:
+      count:
+          index: term_terms_text
+          body: { query: { terms: { body: [ "quick" ] } } }
+  - match: { count: 2 }
+  - do:
+      count:
+          index: term_terms_text
+          body: { query: { bool: { must: [ { term: { body: "quick" } } ] } } }
+  - match: { count: 2 }
+  - do:
+      count:
+          index: term_terms_text
+          body: { query: { bool: { filter: [ { term: { body: "fox" } } ] } } }
+  - match: { count: 1 }
+
+---
+"term on a text field matches one analysed token like terms, after flush (#3259)":
+  - do:
+      indices.flush:
+          index: term_terms_text
+  - do:
+      count:
+          index: term_terms_text
+          body: { query: { term: { body: "quick" } } }
+  - match: { count: 2 }
+  - do:
+      count:
+          index: term_terms_text
+          body: { query: { terms: { body: [ "quick" ] } } }
+  - match: { count: 2 }
+  - do:
+      count:
+          index: term_terms_text
+          body: { query: { bool: { must: [ { term: { body: "quick" } } ] } } }
+  - match: { count: 2 }

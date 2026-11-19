@@ -24403,15 +24403,21 @@ impl Index {
         // `dataset_version` counter which bumps on every doc write.
         //
         // Skipped when:
-        // - `request.profile == true` (profiling output should always
-        //   reflect a fresh execution).
         // - `request.scroll.is_some()` / scroll cursor (stateful).
         // - `request.search_after.is_some()` (cursor-based pagination
         //   could collide with cached state).
         // XERJ_DISABLE_QUERY_CACHE=1 turns off the whole-result cache so a
         // benchmark measures true per-request execution on every call (no
         // took_ms=0 clone). Read once. Normal operation is unaffected.
-        let cache_eligible = !request.profile && request.search_after.is_none() && {
+        //
+        // #3020: a `profile: true` request is cached too (its key differs
+        // from the plain request's: `profile` is part of the hashed body), and
+        // its profile says which way it went: `request_cache` is "miss" on
+        // the run that executed, "hit" when this cache (or an in-flight
+        // identical request) answered, "bypass" when the request was not
+        // eligible. Before this, profile requests always bypassed the cache
+        // and nothing in any response said whether a timing was a cache hit.
+        let cache_eligible = request.search_after.is_none() && {
             static DISABLED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
             !*DISABLED.get_or_init(|| {
                 matches!(
@@ -24478,6 +24484,7 @@ impl Index {
                 self.query_cache_hits.fetch_add(1, Ordering::Relaxed);
                 let mut cloned = (**entry.value()).clone();
                 cloned.took_ms = 0;
+                stamp_request_cache(&mut cloned, request, RequestCacheOutcome::Hit);
                 self.metric_query_count.fetch_add(1, Ordering::Relaxed);
                 return Ok(cloned);
             }
@@ -24536,6 +24543,7 @@ impl Index {
                         if let Some(r) = rx.borrow_and_update().clone() {
                             let mut cloned = (*r).clone();
                             cloned.took_ms = 0;
+                            stamp_request_cache(&mut cloned, request, RequestCacheOutcome::Hit);
                             self.metric_query_count.fetch_add(1, Ordering::Relaxed);
                             self.metric_singleflight_coalesced
                                 .fetch_add(1, Ordering::Relaxed);
@@ -24561,6 +24569,7 @@ impl Index {
                             if let Some(entry) = self.query_cache.get(&key) {
                                 let mut cloned = (**entry.value()).clone();
                                 cloned.took_ms = 0;
+                                stamp_request_cache(&mut cloned, request, RequestCacheOutcome::Hit);
                                 self.metric_query_count.fetch_add(1, Ordering::Relaxed);
                                 self.metric_singleflight_coalesced
                                     .fetch_add(1, Ordering::Relaxed);
@@ -24728,7 +24737,18 @@ impl Index {
                 .await
         };
         match search_result {
-            Ok(result) => {
+            Ok(mut result) => {
+                if let Ok(r) = result.as_mut() {
+                    stamp_request_cache(
+                        r,
+                        request,
+                        if cache_key.is_some() {
+                            RequestCacheOutcome::Miss
+                        } else {
+                            RequestCacheOutcome::Bypass
+                        },
+                    );
+                }
                 let took_ms = search_start.elapsed().as_millis() as u64;
                 // Record metrics.
                 self.metric_query_count.fetch_add(1, Ordering::Relaxed);
@@ -48789,7 +48809,7 @@ pub(crate) fn declared_field<'a>(schema: &'a Schema, field: &str) -> Option<&'a 
 /// Such a field's doc-values column — when its mapping asks for one (ES's
 /// `mapper.text.doc_values`) — holds the RAW `_source` values, while `_search`
 /// resolves a `term`/`terms` leaf against the analyzed token stream
-/// (`tokens_contain` in `doc_matches_query_typed` — the answer the memtable
+/// (`text_tokens_contain` in `doc_matches_query_typed` — the answer the memtable
 /// gives before any flush). A set built from the column is therefore NOT a
 /// superset of the segment's matches, and every consumer that treats it as one
 /// (the term/terms prefilters, the doc-values count shortcuts) silently drops
@@ -53264,6 +53284,44 @@ fn multi_match_field_values_lc(source: &Value, field: &str) -> Option<Vec<String
     }
 }
 
+/// #3020: how the whole-response query cache served one request.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum RequestCacheOutcome {
+    /// Eligible, executed, and (unless timed out) stored for the next caller.
+    Miss,
+    /// Answered from the cache or from an identical in-flight request.
+    Hit,
+    /// Not eligible (`search_after`, `XERJ_DISABLE_QUERY_CACHE=1`).
+    Bypass,
+}
+
+impl RequestCacheOutcome {
+    fn as_str(self) -> &'static str {
+        match self {
+            RequestCacheOutcome::Miss => "miss",
+            RequestCacheOutcome::Hit => "hit",
+            RequestCacheOutcome::Bypass => "bypass",
+        }
+    }
+}
+
+/// Record the cache outcome in a `profile: true` result's engine profile
+/// (`profile.request_cache`), which the `_search` handler copies into every
+/// shard of the ES profile. A request without `profile` is left untouched,
+/// so a non-profile response never grows a key.
+fn stamp_request_cache(r: &mut SearchResult, request: &SearchRequest, how: RequestCacheOutcome) {
+    if !request.profile {
+        return;
+    }
+    let v = Value::String(how.as_str().to_string());
+    match r.profile.as_mut().and_then(Value::as_object_mut) {
+        Some(obj) => {
+            obj.insert("request_cache".to_string(), v);
+        }
+        None => r.profile = Some(serde_json::json!({ "request_cache": v })),
+    }
+}
+
 /// Evaluate a query against a single stored document source value.
 ///
 /// Returns true if the document matches the query.
@@ -53295,6 +53353,30 @@ pub(crate) fn value_present(v: &Value) -> bool {
     }
 }
 
+/// Text-field token fallback shared by the stored-scan `term` and `terms`
+/// arms: if the doc value is a string with whitespace (it looks tokenised),
+/// each space-separated token is a candidate match. This mirrors ES running
+/// `term`/`terms` against the analysed token stream of a text field, case
+/// folded to match the `standard` analyzer.
+fn text_tokens_contain(doc_val: &Option<Value>, v: &Value) -> bool {
+    let target = match v {
+        Value::String(s) => s.to_lowercase(),
+        Value::Number(n) => n.to_string(),
+        _ => return false,
+    };
+    let dv = match doc_val {
+        Some(Value::String(s)) => s,
+        _ => return false,
+    };
+    if !dv.contains(char::is_whitespace) {
+        return false;
+    }
+    dv.split_whitespace().any(|t| {
+        t.trim_matches(|c: char| !c.is_alphanumeric())
+            .eq_ignore_ascii_case(&target)
+    })
+}
+
 pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Schema) -> bool {
     match q {
         QueryNode::MatchAll => true,
@@ -53312,7 +53394,15 @@ pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Sc
                     }
                 }
             }
-            json_values_equal(&doc_val, value)
+            if json_values_equal(&doc_val, value) {
+                return true;
+            }
+            // #3259: `term` is `terms` with one value. On a mapped, indexed
+            // `text` field the `terms` arm below also matches the analysed
+            // token stream, so `term: "quick"` returned 0 where
+            // `terms: ["quick"]` returned 2. Same token rule here; the raw
+            // whole-value match above is kept (an open question on #3259).
+            field_is_analyzed_text(schema, field) && text_tokens_contain(&doc_val, value)
         }
 
         QueryNode::Terms { field, values, .. } => {
@@ -53329,30 +53419,7 @@ pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Sc
             {
                 return false;
             }
-            // Text-field fallback: if the doc has a string with whitespace
-            // (i.e. looks tokenized), treat each space-separated token as a
-            // candidate match. This mirrors ES's behavior of running `terms`
-            // against the analyzed-token stream for text fields. Case folded
-            // to match ES's standard analyzer.
-            fn tokens_contain(doc_val: &Option<Value>, v: &Value) -> bool {
-                let target = match v {
-                    Value::String(s) => s.to_lowercase(),
-                    Value::Number(n) => n.to_string(),
-                    _ => return false,
-                };
-                let dv = match doc_val {
-                    Some(Value::String(s)) => s,
-                    _ => return false,
-                };
-                if !dv.contains(char::is_whitespace) {
-                    return false;
-                }
-                dv.split_whitespace().any(|t| {
-                    t.trim_matches(|c: char| !c.is_alphanumeric())
-                        .eq_ignore_ascii_case(&target)
-                })
-            }
-            values.iter().any(|v| tokens_contain(&doc_val, v))
+            values.iter().any(|v| text_tokens_contain(&doc_val, v))
         }
 
         QueryNode::Range {
@@ -68529,6 +68596,60 @@ mod exact_scan_hydration_tests {
         let source = serde_json::json!({ "text": "quick brown fox" });
 
         assert!(doc_matches_query_typed(&query, &source, &Schema::empty()));
+    }
+
+    /// #3259: on a mapped, indexed `text` field `term` answers exactly like
+    /// `terms` with one value — token hits added, the raw whole-value hit
+    /// kept. Keyword and undeclared fields keep whole-value `term` matching.
+    #[test]
+    fn term_on_indexed_text_matches_tokens_like_terms() {
+        let mut schema = Schema::empty();
+        schema
+            .add_field(FieldConfig::new("body", FieldType::Text))
+            .unwrap();
+        schema
+            .add_field(FieldConfig::new("tag", FieldType::Keyword))
+            .unwrap();
+        let term = |f: &str, v: &str| QueryNode::Term {
+            field: f.into(),
+            value: Value::from(v),
+            boost: None,
+        };
+        let terms = |f: &str, v: &str| QueryNode::Terms {
+            field: f.into(),
+            values: vec![Value::from(v)],
+            boost: None,
+        };
+        let docs = [
+            serde_json::json!({ "body": "the quick brown fox", "tag": "a b" }),
+            serde_json::json!({ "body": "quick start", "tag": "quick" }),
+            serde_json::json!({ "body": "lazy dog", "tag": "c" }),
+        ];
+        for v in ["quick", "fox", "the quick brown fox", "slow"] {
+            for d in &docs {
+                assert_eq!(
+                    doc_matches_query_typed(&term("body", v), d, &schema),
+                    doc_matches_query_typed(&terms("body", v), d, &schema),
+                    "term vs terms on body={v:?} doc={d}"
+                );
+            }
+        }
+        let hits = |q: &QueryNode| {
+            docs.iter()
+                .filter(|d| doc_matches_query_typed(q, d, &schema))
+                .count()
+        };
+        assert_eq!(hits(&term("body", "quick")), 2);
+        assert_eq!(hits(&term("body", "the quick brown fox")), 1);
+        // Keyword: whole value only, no token fallback for `term`.
+        assert_eq!(hits(&term("tag", "a")), 0);
+        assert_eq!(hits(&term("tag", "quick")), 1);
+        // Undeclared field: whole value only, as before.
+        assert!(!doc_matches_query_typed(
+            &term("text", "brown"),
+            &serde_json::json!({ "text": "quick brown fox" }),
+            &Schema::empty()
+        ));
     }
 
     /// The full-source plan IS the old behaviour: the whole source with `_id`
