@@ -207,7 +207,12 @@ export function parseKnowledge(payload) {
   const brains = (Array.isArray(d.brains) ? d.brains : []).map((b) => ({
     name: str(b.name), links: num(b.links),
   }));
-  return { status: 'ok', datasets, summaries, totals, relations, capabilities, brains, _live: true };
+  // #2409: which data directory the node serves (owner/admin only; null
+  // otherwise) and the --data-dir/--config hint, worded server-side as
+  // `xerj autoindex map` words it. Shown by the empty state.
+  const dataDir = str(d.data_dir) || null;
+  const dataDirHint = str(d.data_dir_hint) || null;
+  return { status: 'ok', datasets, summaries, totals, relations, capabilities, brains, dataDir, dataDirHint, _live: true };
 }
 
 function firstMatchText(clause) {

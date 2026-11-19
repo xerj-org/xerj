@@ -656,3 +656,41 @@ async fn nothing_indexed_is_the_empty_state_not_an_error() {
     );
     assert!(ids.contains(&"search"), "search is always real");
 }
+
+/// #2409: a fresh data directory reads as "my data is gone" unless the page
+/// says which directory this node serves. The owner gets the path and the
+/// same --data-dir/--config hint `xerj autoindex map` prints; a viewer gets
+/// the hint without the server path.
+#[tokio::test]
+async fn the_empty_state_names_the_served_data_directory() {
+    let app = boot_empty().await;
+    let served = std::fs::canonicalize(app._dir.path())
+        .unwrap()
+        .display()
+        .to_string();
+
+    let (_, v) = get(&app, Some(&app.owner_cookie)).await;
+    let d = data(&v);
+    assert_eq!(d["data_dir"].as_str(), Some(served.as_str()));
+    let hint = d["data_dir_hint"].as_str().expect("hint");
+    assert!(
+        hint.contains(&format!("serves data directory {served}")),
+        "{hint}"
+    );
+    assert!(
+        hint.contains("--data-dir") && hint.contains("--config"),
+        "{hint}"
+    );
+    assert!(hint.contains("does not look for others"), "{hint}");
+
+    let (_, vv) = get(&app, Some(&app.viewer_cookie)).await;
+    let dv = data(&vv);
+    assert!(dv["data_dir"].is_null(), "viewer must not get the path");
+    let hint = dv["data_dir_hint"].as_str().expect("hint");
+    assert!(!hint.contains(&served), "{hint}");
+    assert!(
+        hint.contains("--data-dir") && hint.contains("--config"),
+        "{hint}"
+    );
+    assert!(hint.contains("server data directory data_dir="), "{hint}");
+}
