@@ -12617,6 +12617,24 @@ pub struct Index {
     /// (pre-existing, split) behaviour rather than silently changing how
     /// its unflushed documents match.
     segment_default_analyzer_honored: bool,
+    /// #3308: the analyzer name the SEGMENT paths use for each text field
+    /// that declares a per-field analyzer, decided per field at open (or
+    /// create, or mapping change) and stable for the life of the index.
+    /// A field is present here only when its mapping declares an analyzer;
+    /// the value is the declared name when the index's segments were
+    /// written with it, else the index text analyzer
+    /// ([`Self::segment_text_analyzer`]), the same conservative posture
+    /// #937 took for the index default: a pre-fix index whose segments
+    /// were written with the index default keeps them, the decision is
+    /// recorded in `analysis-binding.json` so it cannot flip later, and
+    /// reindex is the only repair. The memtable is NOT bound by this map
+    /// (see `analyzer_for_field`): it always honours the declared
+    /// analyzer for unflushed documents.
+    ///
+    /// Guarded by a plain (std) lock: decisions change only on mapping
+    /// updates, and every reader already holds the schema or is on a
+    /// cold path (open / flush / search setup).
+    segment_field_analyzers: std::sync::RwLock<HashMap<String, String>>,
     /// #1092 — which `analysis` spelling built [`Self::registry`]
     /// (`Canonical` for every index this build creates; possibly
     /// `LegacyShorthandOnly` for a pre-#204 index reopened with documents).
@@ -13423,6 +13441,19 @@ impl Index {
             )));
         }
 
+        // #3308: refuse a per-field analyzer the registry cannot resolve,
+        // checked BEFORE the index directory is created so a rejected create
+        // leaves nothing behind. The probe registry is built from the same
+        // settings the real registry below uses.
+        {
+            let probe_registry = build_registry_from_settings(&settings);
+            if let Err(reason) = validate_field_analyzers(&schema.fields, &probe_registry) {
+                return Err(EngineError::Common(
+                    xerj_common::XerjError::invalid_mapping(reason),
+                ));
+            }
+        }
+
         let index_dir = data_dir.join(name.as_str());
         // Defense-in-depth: IndexName::validate rejects '.', '..', separators,
         // and '..' substrings, so join cannot escape data_dir. The debug_assert
@@ -13509,6 +13540,33 @@ impl Index {
         publish_index_meta_objects(&store, &index_dir, name.as_str());
         let registry = Arc::new(build_registry_from_settings(&settings));
 
+        // #3308: a new index honours every declared per-field analyzer
+        // from birth (it is empty: no segments can disagree). Record the
+        // decisions so the first reopen cannot mistake it for a pre-fix
+        // index.
+        let segment_text_analyzer_name: &str = if registry.get_analyzer("default").is_some() {
+            "default"
+        } else {
+            "standard"
+        };
+        let segment_field_analyzers: HashMap<String, String> = managed
+            .schema
+            .fields
+            .iter()
+            .filter(|f| f.field_type == FieldType::Text)
+            .filter_map(|f| {
+                f.options.analyzer.as_deref().map(|declared| {
+                    let effective = if declared == "default" {
+                        segment_text_analyzer_name.to_string()
+                    } else {
+                        declared.to_string()
+                    };
+                    (f.name.clone(), effective)
+                })
+            })
+            .collect();
+        write_analysis_binding_field_analyzers(&index_dir, &segment_field_analyzers);
+
         info!(name = name.as_str(), "index created");
         let has_dates = managed
             .fields()
@@ -13581,6 +13639,7 @@ impl Index {
             query_cache_misses: Arc::new(AtomicU64::new(0)),
             registry,
             segment_default_analyzer_honored: true,
+            segment_field_analyzers: std::sync::RwLock::new(segment_field_analyzers),
             analysis_binding: AnalysisBinding::Canonical,
             data_dir: index_dir,
             flush_doc_threshold,
@@ -13843,6 +13902,29 @@ impl Index {
             &registry,
             segment_doc_count > 0 || store.version_map.live_count() > 0,
         );
+        // #3308: per-field segment analyzers, decided once at open (see
+        // `field_analyzer_bindings_for_open`). The name mirrors
+        // `segment_text_analyzer()` exactly: the method cannot run yet,
+        // no `Index` exists.
+        let segment_text_analyzer_name: &str =
+            if segment_default_analyzer_honored && registry.get_analyzer("default").is_some() {
+                "default"
+            } else {
+                "standard"
+            };
+        let segment_field_analyzers = {
+            let snap = store.snapshot();
+            let segment_ids: Vec<String> = snap.segments.iter().map(|m| m.id.clone()).collect();
+            let segment_id_refs: Vec<&str> = segment_ids.iter().map(|s| s.as_str()).collect();
+            let segments_dir = index_dir.join("segments");
+            field_analyzer_bindings_for_open(
+                &index_dir,
+                &schema.schema,
+                segment_text_analyzer_name,
+                &segments_dir,
+                &segment_id_refs,
+            )
+        };
         let passage_scored_fields_at_open = passage_scored_vector_fields(&schema.schema);
         let mut wal_passage_chunk_fields = HashSet::new();
 
@@ -14121,6 +14203,7 @@ impl Index {
             query_cache_misses: Arc::new(AtomicU64::new(0)),
             registry,
             segment_default_analyzer_honored,
+            segment_field_analyzers: std::sync::RwLock::new(segment_field_analyzers),
             analysis_binding,
             data_dir: index_dir,
             flush_doc_threshold,
@@ -15382,10 +15465,9 @@ impl Index {
         let analyze_reservation = self.reserve_batch_analyze(validated.docs())?;
         let analyzed: Vec<Vec<(String, Vec<xerj_fts::analyzer::Token>)>> = {
             let schema = &publication_schema.schema;
-            let analyzer = self
-                .memtable
-                .default_analyzer()
-                .expect("standard analyzer always present");
+            // #3308: the registry, not one resolved pipeline: each field
+            // is tokenised with its own analyzer inside `analyze_doc`.
+            let registry = Arc::clone(&self.registry);
             let excluded_fts_fields = crate::memtable::fts_excluded_fields(schema);
             let p_t = std::time::Instant::now();
             let analyzed = crate::ingest_pool().install(|| {
@@ -15395,7 +15477,7 @@ impl Index {
                         crate::memtable::analyze_doc_excluding(
                             source.as_ref(),
                             schema,
-                            &analyzer,
+                            &registry,
                             &excluded_fts_fields,
                         )
                     })
@@ -15998,9 +16080,12 @@ impl Index {
         let collection_publication = Arc::clone(&self.collection_publication);
         let registry = Arc::clone(&self.registry);
         let data_dir = self.data_dir.clone();
-        let field_configs = self
-            .flush_signal
-            .field_configs(&self.schema, self.segment_text_analyzer());
+        let field_analyzers = self.segment_field_analyzers_snapshot();
+        let field_configs = self.flush_signal.field_configs(
+            &self.schema,
+            self.segment_text_analyzer(),
+            &field_analyzers,
+        );
         let excluded_fts_fields = self.flush_signal.fts_excluded_fields(&self.schema);
         let dv_skip = self.flush_signal.doc_values_skip_set(&self.schema);
         let dataset_version = Arc::clone(&self.dataset_version);
@@ -16277,23 +16362,59 @@ impl Index {
         }
     }
 
-    /// The analyzer a document-scan `match_phrase` uses for text fields
-    /// (#3285): the segment text analyzer when it is not `standard`, else
-    /// `None` (the standard walk).
-    fn scan_phrase_analyzer(&self) -> Option<Arc<AnalyzerPipeline>> {
-        match self.segment_text_analyzer() {
+    /// The analyzers a document-scan walk uses (#3285, #3308): the index
+    /// text analyzer when it is not `standard`, plus every field's recorded
+    /// per-field analyzer. `None` keeps the standard walk.
+    fn scan_analyzers(&self) -> Option<Arc<ScanAnalyzers>> {
+        let default = match self.segment_text_analyzer() {
             "standard" => None,
             name => self.registry.get_analyzer(name),
+        };
+        let per_field: HashMap<String, Arc<AnalyzerPipeline>> = self
+            .segment_field_analyzers
+            .read()
+            .ok()
+            .map(|guard| {
+                guard
+                    .iter()
+                    .filter_map(|(field, name)| {
+                        self.registry
+                            .get_analyzer(name)
+                            .map(|pipeline| (field.clone(), pipeline))
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        if default.is_none() && per_field.is_empty() {
+            None
+        } else {
+            Some(Arc::new(ScanAnalyzers { default, per_field }))
         }
+    }
+
+    /// Snapshot of the recorded per-field segment analyzers (#3308) for a
+    /// flush/merge/config build. A poisoned lock degrades to "no per-field
+    /// analyzer", the historical behaviour, rather than failing the flush.
+    fn segment_field_analyzers_snapshot(&self) -> HashMap<String, String> {
+        self.segment_field_analyzers
+            .read()
+            .map(|guard| guard.clone())
+            .unwrap_or_default()
     }
 
     /// How the segment FTS query projection analyses text clauses (#937) —
     /// the same term space [`Self::segment_text_analyzer`] writes.
-    fn segment_analyzer_binding(&self) -> SegmentAnalyzerBinding<'_> {
+    /// `field_analyzers` is this search's snapshot of
+    /// [`Self::segment_field_analyzers`] (#3308): the per-field analyzer
+    /// names the projection resolves unnamed clauses with.
+    fn segment_analyzer_binding<'a>(
+        &'a self,
+        field_analyzers: &'a HashMap<String, String>,
+    ) -> SegmentAnalyzerBinding<'a> {
         if self.segment_default_analyzer_honored {
-            SegmentAnalyzerBinding::Honored(&self.registry)
+            SegmentAnalyzerBinding::Honored(&self.registry, field_analyzers)
         } else {
-            SegmentAnalyzerBinding::Standard
+            SegmentAnalyzerBinding::Standard(field_analyzers)
         }
     }
 
@@ -16361,8 +16482,13 @@ impl Index {
         // not this path (#2234).
         let (field_configs, excluded_fts_fields, dv_skip) = {
             let schema = self.schema.read().await;
+            let field_analyzers = self.segment_field_analyzers_snapshot();
             (
-                build_fts_field_configs(&schema.schema, self.segment_text_analyzer()),
+                build_fts_field_configs(
+                    &schema.schema,
+                    self.segment_text_analyzer(),
+                    &field_analyzers,
+                ),
                 crate::memtable::fts_excluded_fields(&schema.schema),
                 doc_values_skip_set(&schema.schema),
             )
@@ -16561,7 +16687,12 @@ impl Index {
                 cfg.clone()
             } else {
                 let schema = self.schema.read().await;
-                let cfg = build_fts_field_configs(&schema.schema, self.segment_text_analyzer());
+                let field_analyzers = self.segment_field_analyzers_snapshot();
+                let cfg = build_fts_field_configs(
+                    &schema.schema,
+                    self.segment_text_analyzer(),
+                    &field_analyzers,
+                );
                 let _ = field_configs_once.set(cfg.clone());
                 cfg
             };
@@ -17048,8 +17179,13 @@ impl Index {
         // `keyword` analyzer or the FST drops their values to stop-words.
         let (field_configs, excluded_fts_fields, mapped_field_names) = {
             let schema = self.schema.read().await;
+            let field_analyzers = self.segment_field_analyzers_snapshot();
             (
-                build_fts_field_configs(&schema.schema, self.segment_text_analyzer()),
+                build_fts_field_configs(
+                    &schema.schema,
+                    self.segment_text_analyzer(),
+                    &field_analyzers,
+                ),
                 crate::memtable::fts_excluded_fields(&schema.schema),
                 // #876 — a side-car whose field name is not a portable
                 // filename is stored under a SHA-256 digest. Enumerating a
@@ -27737,6 +27873,22 @@ impl Index {
         };
         let fts_kw_all: std::collections::HashSet<String> =
             kw_fields.union(&object_kw_fields).cloned().collect();
+        // #3308: one snapshot of the per-field analyzer map for this whole
+        // search: the projection resolves unnamed clauses against it, so the
+        // query terms meet the segment postings the fields were flushed with.
+        // A concurrent PUT _mapping cannot change it mid-search.
+        let segment_field_analyzers = self
+            .segment_field_analyzers
+            .read()
+            .map(|g| g.clone())
+            .unwrap_or_default();
+        // #3308: per-field analyzer resolver for the memtable query side:
+        // a field's own declared analyzer, else the index default, else
+        // standard. Mirrors what `analyze_doc` does at insert time, so the
+        // memtable scores in the same term space it indexed.
+        let mem_field_analyzer = |field: &str| {
+            crate::memtable::analyzer_for_field(&self.registry, dmq_schema.field(field))
+        };
         // #1359: `query_node_to_fts_projected` projects a `QueryNode::Term` on a
         // `FieldType::Keyword` field into `FtsQuery::Term` so a `bool` or
         // `dis_max` combining a text clause and a keyword `term` clause does
@@ -28349,6 +28501,8 @@ impl Index {
                         mem_doc_count,
                         pinned_probe,
                         &date_doc_fields,
+                        &segment_field_analyzers,
+                        &mem_field_analyzer,
                     )
                     .map(Arc::new)
                 })
@@ -28498,6 +28652,7 @@ impl Index {
                     dm_tie,
                     mem_limit,
                     mem_stats.as_deref(),
+                    &mem_field_analyzer,
                 );
                 if hits.is_empty() {
                     MemSnapshot::Empty
@@ -28531,6 +28686,7 @@ impl Index {
                     mm_tie,
                     mem_limit,
                     mem_stats.as_deref(),
+                    &mem_field_analyzer,
                 );
                 if hits.is_empty() {
                     MemSnapshot::Empty
@@ -28542,7 +28698,7 @@ impl Index {
                     )
                 }
             } else if let Some(ph_subs) = self
-                .scan_phrase_analyzer()
+                .scan_analyzers()
                 .is_none()
                 .then(|| {
                     phrase_mem_fts_subs(query, &dmq_schema, &text_fields, mem_analyzer.as_deref())
@@ -28579,6 +28735,7 @@ impl Index {
                     0.0,
                     mem_limit,
                     mem_stats.as_deref(),
+                    &mem_field_analyzer,
                     &admit,
                 );
                 if hits.is_empty() {
@@ -28619,6 +28776,7 @@ impl Index {
                             usize::MAX,
                             &field_boosts,
                             mem_stats.as_deref(),
+                            &mem_field_analyzer,
                         )
                     }
                     MemFtsMust::MultiMatch(subs, tie) => mem
@@ -28627,6 +28785,7 @@ impl Index {
                             tie,
                             usize::MAX,
                             mem_stats.as_deref(),
+                            &mem_field_analyzer,
                         ),
                 };
                 // Same conservative `_id` detection as the doc-scan arm: only
@@ -28666,7 +28825,7 @@ impl Index {
                             text_fields: &text_fields,
                             exact_fields: &exact_fields,
                             analyzer,
-                            phrase_ok: self.scan_phrase_analyzer().is_none(),
+                            phrase_ok: self.scan_analyzers().is_none(),
                         },
                     )
                 })
@@ -28677,7 +28836,7 @@ impl Index {
                             &text_fields,
                             &exact_fields,
                             fts_kw_fields,
-                            self.segment_analyzer_binding(),
+                            self.segment_analyzer_binding(&segment_field_analyzers),
                             None,
                             DateDocs::Decline,
                         )
@@ -28926,6 +29085,7 @@ impl Index {
                         mem_limit,
                         &field_boosts,
                         mem_stats.as_deref(),
+                        &mem_field_analyzer,
                     );
                     if !hits.is_empty() {
                         let uncollected = mem_total.saturating_sub(hits.len() as u64);
@@ -29083,7 +29243,7 @@ impl Index {
                 // Lock already released — scan docs without holding the memtable lock.
                 // #3285: no `.await` in this arm, so the scoped analyzer
                 // stays on this thread for the whole walk.
-                let _phrase_analyzer = ScanPhraseAnalyzer::enter(self.scan_phrase_analyzer());
+                let _phrase_analyzer = ScanPhraseAnalyzer::enter(self.scan_analyzers());
                 //
                 // `_id` injection (a full per-doc Object clone) is only
                 // observable when the query tree can actually read `_id`
@@ -29386,7 +29546,7 @@ impl Index {
             &text_fields,
             &exact_fields,
             fts_kw_fields,
-            self.segment_analyzer_binding(),
+            self.segment_analyzer_binding(&segment_field_analyzers),
             pinned_probe,
             DateDocs::Probe(&date_doc_fields),
         )
@@ -29449,7 +29609,7 @@ impl Index {
                     } else {
                         fts_kw_fields
                     },
-                    self.segment_analyzer_binding(),
+                    self.segment_analyzer_binding(&segment_field_analyzers),
                     pinned_probe,
                     DateDocs::Probe(&date_doc_fields),
                 )
@@ -29738,7 +29898,7 @@ impl Index {
                 &text_fields,
                 &exact_fields,
                 fts_kw_fields,
-                self.segment_analyzer_binding(),
+                self.segment_analyzer_binding(&segment_field_analyzers),
                 pinned_probe,
                 DateDocs::Probe(&date_doc_fields),
             );
@@ -29755,7 +29915,7 @@ impl Index {
                     &text_fields,
                     &exact_fields,
                     fts_kw_fields,
-                    self.segment_analyzer_binding(),
+                    self.segment_analyzer_binding(&segment_field_analyzers),
                     pinned_probe,
                     DateDocs::Probe(&date_doc_fields),
                 );
@@ -30108,7 +30268,7 @@ impl Index {
                             &text_fields,
                             &exact_fields,
                             fts_kw_fields,
-                            self.segment_analyzer_binding(),
+                            self.segment_analyzer_binding(&segment_field_analyzers),
                             pinned_positions
                                 .as_ref()
                                 .map(|map| PinnedIds::Positions(map)),
@@ -33154,8 +33314,13 @@ impl Index {
         }
         let (field_configs, excluded_fts_fields, dv_skip) = {
             let schema = self.schema.read().await;
+            let field_analyzers = self.segment_field_analyzers_snapshot();
             (
-                build_fts_field_configs(&schema.schema, self.segment_text_analyzer()),
+                build_fts_field_configs(
+                    &schema.schema,
+                    self.segment_text_analyzer(),
+                    &field_analyzers,
+                ),
                 crate::memtable::fts_excluded_fields(&schema.schema),
                 doc_values_skip_set(&schema.schema),
             )
@@ -33736,7 +33901,17 @@ impl Index {
             (None, Some(f)) => {
                 let schema = self.schema.read().await;
                 match schema.schema.field(f).map(|fc| fc.field_type) {
-                    Some(FieldType::Text) => self.segment_text_analyzer().to_string(),
+                    // #3308: a Text field with a recorded per-field analyzer
+                    // analyses with it (the analyzer its segment postings were
+                    // written with); otherwise the index fallback.
+                    Some(FieldType::Text) => {
+                        let recorded = self
+                            .segment_field_analyzers
+                            .read()
+                            .ok()
+                            .and_then(|g| g.get(f).cloned());
+                        recorded.unwrap_or_else(|| self.segment_text_analyzer().to_string())
+                    }
                     Some(_) => "keyword".to_string(),
                     None if self.registry.get_analyzer("default").is_some() => {
                         "default".to_string()
@@ -34188,6 +34363,13 @@ impl Index {
         if fields.is_empty() {
             return Ok(());
         }
+        // #3308: refuse an unknown per-field analyzer against the live
+        // registry before any schema mutation.
+        if let Err(reason) = validate_field_analyzers(&fields, &self.registry) {
+            return Err(EngineError::Common(
+                xerj_common::XerjError::invalid_mapping(reason),
+            ));
+        }
         let mut schema = self.schema.write().await;
         let current = schema.clone();
         let activates_embedder =
@@ -34206,6 +34388,60 @@ impl Index {
                 validate_onnx_dimensions(&fields)?;
             }
             ensure_embedding_identity_for_new_field(&self.data_dir, &self.embedding_config)?;
+        }
+        // #3308: decide the segment-path analyzer for every field this
+        // update (re)declares one for. An unchanged declaration keeps its
+        // recorded decision; a new or changed one is honoured only when
+        // the on-disk segments agree with it (see
+        // `segments_agree_with_field_analyzer`), else the field keeps the
+        // index default and the operator is told to reindex. Decided here,
+        // against the pre-update schema, and published after the schema
+        // save below so a failed update changes nothing.
+        let segment_ids: Vec<String> = {
+            let snap = self.store.snapshot();
+            snap.segments.iter().map(|m| m.id.clone()).collect()
+        };
+        let segment_id_refs: Vec<&str> = segment_ids.iter().map(|s| s.as_str()).collect();
+        let segments_dir = self.data_dir.join("segments");
+        let mut field_analyzer_updates: Vec<(String, Option<String>)> = Vec::new();
+        for f in &fields {
+            if f.field_type != FieldType::Text {
+                field_analyzer_updates.push((f.name.clone(), None));
+                continue;
+            }
+            let Some(declared) = f.options.analyzer.as_deref() else {
+                field_analyzer_updates.push((f.name.clone(), None));
+                continue;
+            };
+            let current_declared = schema
+                .schema
+                .field(&f.name)
+                .and_then(|c| c.options.analyzer.clone());
+            if current_declared.as_deref() == Some(declared) {
+                continue;
+            }
+            let effective = if declared == "default" {
+                self.segment_text_analyzer().to_string()
+            } else if segments_agree_with_field_analyzer(
+                &segments_dir,
+                &segment_id_refs,
+                &f.name,
+                declared,
+            ) {
+                declared.to_string()
+            } else {
+                tracing::error!(
+                    field = %f.name,
+                    declared,
+                    fallback = self.segment_text_analyzer(),
+                    "field declares a per-field analyzer but this index already holds \
+                     segments written with a different analyzer for it, so the field keeps \
+                     the index default on the segment paths. Reindex into a newly-created \
+                     index to activate the declared analyzer."
+                );
+                self.segment_text_analyzer().to_string()
+            };
+            field_analyzer_updates.push((f.name.clone(), Some(effective)));
         }
         let mut candidate = current;
         for field in fields {
@@ -34249,6 +34485,25 @@ impl Index {
         }
         *schema = candidate;
         drop(schema);
+        // #3308: publish the per-field segment-analyzer decisions decided
+        // above, and drop the cached flush field configs so the next flush
+        // builds them from the new map.
+        if !field_analyzer_updates.is_empty() {
+            if let Ok(mut map) = self.segment_field_analyzers.write() {
+                for (name, effective) in &field_analyzer_updates {
+                    match effective {
+                        Some(analyzer) => {
+                            map.insert(name.clone(), analyzer.clone());
+                        }
+                        None => {
+                            map.remove(name);
+                        }
+                    }
+                }
+                write_analysis_binding_field_analyzers(&self.data_dir, &map);
+            }
+            self.flush_signal.invalidate_field_configs();
+        }
         // #392: a mapping update can introduce a `scalar8` field — create
         // its code store now and walk the live docs (the index may already
         // carry documents predating the handle).
@@ -35340,8 +35595,19 @@ fn read_doc_values_sidecar(
 /// (`memtable.rs`), so before #937 an index with a declared default
 /// analysed documents one way until `_flush` and another way after it.
 ///
+/// `field_analyzers` (#3308) is the per-field override: the analyzer name
+/// the SEGMENT paths use for each text field that declares one, decided at
+/// open / create / mapping change and recorded in `analysis-binding.json`.
+/// A field present here takes its recorded name; a field absent here takes
+/// `text_analyzer`. The memtable resolves the DECLARED analyzer directly
+/// (see `analyzer_for_field`) and is not bound by this map, so the two
+/// agree exactly when the field is honoured, and disagree, by design and
+/// with an ERROR log, for a pre-fix index whose segments predate the
+/// declaration.
+///
 /// Mapping rules (matches Lucene's behaviour):
-/// - `Text` → `text_analyzer` (`standard`, or the declared `default`)
+/// - `Text` → the field's recorded analyzer, else `text_analyzer`
+///   (`standard`, or the declared `default`)
 /// - `Keyword`, `Long`, `Integer` (alias), `Double`, `Float`, `Date`,
 ///   `Boolean`, `Ip` → `keyword` analyzer (whole input as one token, no
 ///   stop-words)
@@ -35353,6 +35619,7 @@ fn read_doc_values_sidecar(
 fn build_fts_field_configs(
     schema: &Schema,
     text_analyzer: &str,
+    field_analyzers: &HashMap<String, String>,
 ) -> HashMap<String, xerj_fts::index::FieldIndexConfig> {
     use xerj_fts::index::FieldIndexConfig;
     let mut out = HashMap::new();
@@ -35362,7 +35629,12 @@ fn build_fts_field_configs(
             continue;
         }
         let analyzer = match f.field_type {
-            FieldType::Text => text_analyzer,
+            // #3308: the field's recorded segment analyzer when it has
+            // one, else the index text analyzer.
+            FieldType::Text => field_analyzers
+                .get(&f.name)
+                .map(String::as_str)
+                .unwrap_or(text_analyzer),
             // Everything else is exact-match.  We use the registered
             // "keyword" analyzer (KeywordTokenizer) which emits the input
             // string as a single token.
@@ -37450,6 +37722,12 @@ impl Index {
         pinned: Option<PinnedIds<'_>>,
         // #3492: the same holds for the date leaves (`DateDocs`).
         date_doc_fields: &DocSetFields,
+        // #3308: the per-field analyzer names the projection resolves
+        // unnamed clauses with (this search's snapshot).
+        field_analyzers: &HashMap<String, String>,
+        // #3308: per-field analyzer resolver for the memtable's own
+        // contribution to the index-wide statistics.
+        field_analyzer: &dyn Fn(&str) -> Arc<AnalyzerPipeline>,
     ) -> Option<xerj_fts::CollectionStats> {
         // Widest pre-pass we will pay for, budgeted per COST CLASS (#1186):
         //
@@ -37490,7 +37768,7 @@ impl Index {
             text_fields,
             exact_fields,
             keyword_fields,
-            self.segment_analyzer_binding(),
+            self.segment_analyzer_binding(field_analyzers),
             pinned,
             DateDocs::Probe(date_doc_fields),
         )?;
@@ -37530,7 +37808,7 @@ impl Index {
                         .and_then(|(subs, _)| subs.first().map(|s| s.1.to_string()))
                     })
                     .or_else(|| {
-                        if self.scan_phrase_analyzer().is_some() {
+                        if self.scan_analyzers().is_some() {
                             return None;
                         }
                         phrase_mem_fts_subs(query, schema, text_fields, mem_analyzer.as_deref())
@@ -37545,7 +37823,7 @@ impl Index {
                                 text_fields,
                                 exact_fields,
                                 analyzer: mem_analyzer.as_deref()?,
-                                phrase_ok: self.scan_phrase_analyzer().is_none(),
+                                phrase_ok: self.scan_analyzers().is_none(),
                             },
                         )?;
                         let mut texts = Vec::new();
@@ -37554,7 +37832,10 @@ impl Index {
                     }),
             };
         let mem_stats: Option<xerj_fts::CollectionStats> = if mem_doc_count > 0 {
-            mem_text.and_then(|text| self.memtable.collection_stats(&text, &field_refs))
+            mem_text.and_then(|text| {
+                self.memtable
+                    .collection_stats(&text, &field_refs, field_analyzer)
+            })
         } else {
             None
         };
@@ -41697,7 +41978,7 @@ impl Index {
     ) {
         // #3285: this walk is synchronous, so the scoped analyzer covers
         // every `doc_matches_query_typed` below.
-        let _phrase_analyzer = ScanPhraseAnalyzer::enter(self.scan_phrase_analyzer());
+        let _phrase_analyzer = ScanPhraseAnalyzer::enter(self.scan_analyzers());
         // One call walks one segment: hits from `segment_floor` on are its own.
         let segment_floor = all_hits.len();
         // #3509: `(all_hits.len(), displacements)` when `segment_worst` was
@@ -43687,13 +43968,23 @@ impl SyncFlushCoord {
         let _ = self.drain_cv.wait_for(&mut g, timeout);
     }
 
+    /// Drop the cached field configs: a mapping change (#3308: a new or
+    /// changed per-field analyzer) makes them stale. Called from
+    /// `Index::add_fields` after the schema save.
+    pub(crate) fn invalidate_field_configs(&self) {
+        *self.field_configs_cache.write() = None;
+    }
+
     /// Get the cached field_configs, or build + cache them on first call.
     /// `text_analyzer` is #937's per-index text analyzer name — fixed at
-    /// index open, so caching the configs against it is sound.
+    /// index open, so caching the configs against it is sound; the
+    /// per-field map (#3308) is likewise fixed between mapping changes,
+    /// and `invalidate_field_configs` clears the cache when one lands.
     fn field_configs(
         &self,
         schema: &Arc<RwLock<ManagedSchema>>,
         text_analyzer: &str,
+        field_analyzers: &HashMap<String, String>,
     ) -> HashMap<String, xerj_fts::index::FieldIndexConfig> {
         if let Some(cfg) = self.field_configs_cache.read().as_ref() {
             return cfg.clone();
@@ -43704,7 +43995,7 @@ impl SyncFlushCoord {
         };
         let cfg = rt.block_on(async {
             let guard = schema.read().await;
-            build_fts_field_configs(&guard.schema, text_analyzer)
+            build_fts_field_configs(&guard.schema, text_analyzer, field_analyzers)
         });
         *self.field_configs_cache.write() = Some(cfg.clone());
         cfg
@@ -59369,26 +59660,38 @@ fn geo_coord(v: &Value) -> Option<f64> {
         .or_else(|| v.as_str().and_then(|s| s.trim().parse().ok()))
 }
 
+/// Analyzers the stored-doc evaluator uses, scoped to one synchronous scan
+/// walk (#3285, #3308).
+///
+/// `default` is the index text analyzer when it is not `standard` (else
+/// `None`, meaning the standard walk); `per_field` maps a text field to its
+/// recorded per-field analyzer. A field present in `per_field` is analyzed
+/// with its own pipeline; every other field uses `default` (or standard).
+pub(crate) struct ScanAnalyzers {
+    pub(crate) default: Option<Arc<AnalyzerPipeline>>,
+    pub(crate) per_field: HashMap<String, Arc<AnalyzerPipeline>>,
+}
+
 thread_local! {
-    /// The index text analyzer a document-scan `match_phrase` must use
-    /// (#3285). Set only around synchronous scan loops by
-    /// [`ScanPhraseAnalyzer::enter`]; `None` (the default) keeps the
-    /// standard-analyzer walk every other caller has always had.
-    static SCAN_PHRASE_ANALYZER: std::cell::RefCell<Option<Arc<AnalyzerPipeline>>> =
+    /// The analyzers a document-scan walk must use (#3285, #3308). Set only
+    /// around synchronous scan loops by [`ScanPhraseAnalyzer::enter`];
+    /// `None` (the default) keeps the standard-analyzer walk every other
+    /// caller has always had.
+    static SCAN_ANALYZERS: std::cell::RefCell<Option<Arc<ScanAnalyzers>>> =
         const { std::cell::RefCell::new(None) };
 }
 
-/// Scope guard for [`SCAN_PHRASE_ANALYZER`]. Not `Send`, so holding it
+/// Scope guard for [`SCAN_ANALYZERS`]. Not `Send`, so holding it
 /// across an `.await` in a spawned future is a compile error rather than a
 /// value leaking onto another task's thread.
 pub(crate) struct ScanPhraseAnalyzer {
-    previous: Option<Arc<AnalyzerPipeline>>,
+    previous: Option<Arc<ScanAnalyzers>>,
     _not_send: std::marker::PhantomData<*const ()>,
 }
 
 impl ScanPhraseAnalyzer {
-    pub(crate) fn enter(analyzer: Option<Arc<AnalyzerPipeline>>) -> Self {
-        let previous = SCAN_PHRASE_ANALYZER.with(|cell| cell.replace(analyzer));
+    pub(crate) fn enter(analyzers: Option<Arc<ScanAnalyzers>>) -> Self {
+        let previous = SCAN_ANALYZERS.with(|cell| cell.replace(analyzers));
         Self {
             previous,
             _not_send: std::marker::PhantomData,
@@ -59399,12 +59702,22 @@ impl ScanPhraseAnalyzer {
 impl Drop for ScanPhraseAnalyzer {
     fn drop(&mut self) {
         let previous = self.previous.take();
-        SCAN_PHRASE_ANALYZER.with(|cell| *cell.borrow_mut() = previous);
+        SCAN_ANALYZERS.with(|cell| *cell.borrow_mut() = previous);
     }
 }
 
-fn scan_phrase_analyzer() -> Option<Arc<AnalyzerPipeline>> {
-    SCAN_PHRASE_ANALYZER.with(|cell| cell.borrow().clone())
+/// The analyzer the stored-doc evaluator analyses `field` with: the field's
+/// recorded per-field analyzer, else the index text analyzer (#3308, #3285).
+/// `None` means the standard walk.
+fn scan_analyzer_for(field: &str) -> Option<Arc<AnalyzerPipeline>> {
+    SCAN_ANALYZERS.with(|cell| {
+        cell.borrow().as_ref().and_then(|a| {
+            a.per_field
+                .get(field)
+                .cloned()
+                .or_else(|| a.default.clone())
+        })
+    })
 }
 
 /// `match_phrase` over one text value with the index's own text analyzer —
@@ -59543,6 +59856,18 @@ fn phrase_tokens(text: &str) -> Vec<String> {
         .analyze_to_terms(text)
 }
 
+/// `phrase_tokens` for one field (#3308): the field's recorded per-field
+/// analyzer when the scan walk carries one, else the index text analyzer,
+/// else standard. The stored-scan twin of the segment projection's
+/// per-field resolution, so a field analyzed with `english` tokenizes the
+/// same way on both sides of `_flush`.
+fn phrase_tokens_for(field: &str, text: &str) -> Vec<String> {
+    match scan_analyzer_for(field) {
+        Some(pipeline) => pipeline.analyze_to_terms(text),
+        None => phrase_tokens(text),
+    }
+}
+
 /// True when `query_tokens` occur in `field_tokens` within `slop` under
 /// Lucene sloppy-phrase semantics — the stored-scan twin of
 /// `xerj_fts::search::phrase_positions_match`, which evaluates the same
@@ -59661,21 +59986,30 @@ fn phrase_prefix_positions_in_tokens(
 /// #332 put the gap where it belongs — `xerj_fts::index::POSITION_INCREMENT_GAP`
 /// now separates array elements in the segment postings, matching Lucene — so
 /// per-element evaluation here is what KEEPS the two sides equal.
+/// Per-field positional phrase hit for `multi_match` phrase types (#3308):
+/// the query AND the field values tokenize with the FIELD's analyzer, so a
+/// phrase over an `english` field matches the stemmed terms its segments
+/// hold. A query that analyses to nothing under this field's analyzer
+/// matches nothing here; another listed field may still match (its own
+/// tokens decide), and a stop-word-only query over a stop-filtering field
+/// is correctly a non-match for that field rather than a vacuous hit.
 fn multi_match_phrase_hit(
+    field: &str,
     field_values_lc: &[String],
-    query_tokens: &[String],
+    query: &str,
     is_prefix: bool,
     slop: u32,
 ) -> bool {
+    let query_tokens = phrase_tokens_for(field, query);
     if query_tokens.is_empty() {
-        return true;
+        return false;
     }
     field_values_lc.iter().any(|value| {
-        let field_tokens = phrase_tokens(value);
+        let field_tokens = phrase_tokens_for(field, value);
         if is_prefix {
-            phrase_prefix_positions_in_tokens(&field_tokens, query_tokens, slop)
+            phrase_prefix_positions_in_tokens(&field_tokens, &query_tokens, slop)
         } else {
-            phrase_positions_in_tokens(&field_tokens, query_tokens, slop)
+            phrase_positions_in_tokens(&field_tokens, &query_tokens, slop)
         }
     })
 }
@@ -60365,7 +60699,7 @@ pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Sc
                 let q_tokens: Vec<String> = match analyzer.as_deref() {
                     Some("keyword") => vec![query.clone()],
                     Some("whitespace") => query.split_whitespace().map(str::to_string).collect(),
-                    _ => phrase_tokens(query),
+                    _ => phrase_tokens_for(field, query),
                 };
                 if q_tokens.is_empty() {
                     return false;
@@ -60457,13 +60791,15 @@ pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Sc
                 // `whitespace` analyzer splits only on ASCII whitespace.
                 query.split_whitespace().map(str::to_string).collect()
             } else {
-                // The standard analyzer, as on the segment side (#1280). A
+                // The field's analyzer (#3308: its recorded per-field
+                // analyzer when one exists, else the index default, else
+                // standard), as on the segment side (#1280). A
                 // `!is_alphanumeric()` split is not UAX#29: it keeps a run of
                 // Han ideographs as ONE token where the analyzer emits one per
                 // character, so a CJK `match` scanned here matched nothing
                 // until `_refresh`; and it splits `foo_bar`, `don't` and
                 // `3.14`, so `foo` matched here and not after `_refresh`.
-                phrase_tokens(query)
+                phrase_tokens_for(field, query)
             };
             if q_tokens.is_empty() {
                 return false;
@@ -60481,7 +60817,7 @@ pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Sc
                         .map(str::to_string)
                         .collect()
                 } else {
-                    phrase_tokens(s)
+                    phrase_tokens_for(field, s)
                 }
             };
             // How many of the query tokens must be present. `operator:and`
@@ -60612,17 +60948,25 @@ pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Sc
             // term but two split ones. Only the phrase arms switch — the
             // cross_fields / AND / OR arms below intentionally keep the
             // split, which is what they have always matched with.
-            let phrase_q_tokens: Vec<String> = if is_phrase {
-                phrase_tokens(query)
-            } else {
-                Vec::new()
-            };
+            //
+            // #3308: the phrase arms tokenize PER FIELD (see
+            // `multi_match_phrase_hit`): this probe only decides whether
+            // the query tokenizes to anything at all under any listed
+            // field's analyzer, mirroring the old gate, which used the
+            // shared standard token list.
+            let phrase_q_nonempty: bool = is_phrase
+                && fields.iter().any(|field_spec| {
+                    let (field, _) = parse_field_boost(field_spec);
+                    !phrase_tokens_for(field, query).is_empty()
+                });
             // Per-field values, one entry per array element (#332). The
             // non-phrase arms below join them back with a space — byte-
             // identical to the extraction they had before — while the phrase
             // arm evaluates each element on its own, matching the
             // `POSITION_INCREMENT_GAP` the segment postings now carry.
-            let field_value_lists: Vec<Vec<String>> = fields
+            // The field name rides along: the phrase arm tokenizes each
+            // field's values with THAT field's analyzer (#3308).
+            let field_value_lists: Vec<(String, Vec<String>)> = fields
                 .iter()
                 .filter_map(|field_spec| {
                     let (field, _) = parse_field_boost(field_spec);
@@ -60630,20 +60974,21 @@ pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Sc
                         return None;
                     }
                     multi_match_field_values_lc(source, field)
+                        .map(|values| (field.to_string(), values))
                 })
                 .collect();
             // Only the non-phrase arms below read the joined form; building it
             // for the phrase arm would be a per-field allocation this scan pays
             // once per buffered doc per query.
-            let field_texts: Vec<String> = if is_phrase && !phrase_q_tokens.is_empty() {
+            let field_texts: Vec<String> = if phrase_q_nonempty {
                 Vec::new()
             } else {
                 field_value_lists
                     .iter()
-                    .map(|values| values.join(" "))
+                    .map(|(_, values)| values.join(" "))
                     .collect()
             };
-            if is_phrase && !phrase_q_tokens.is_empty() {
+            if phrase_q_nonempty {
                 // phrase / phrase_prefix: POSITIONAL, per field (issue
                 // #230). ES lowers these types to a dis_max over per-field
                 // `match_phrase`/`match_phrase_prefix`, so the predicate is
@@ -60669,8 +61014,8 @@ pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Sc
                 // consults it), and pre-fix `{"type":"phrase","operator":
                 // "and"}` fell into the token-AND branch below and silently
                 // stopped being a phrase at all.
-                field_value_lists.iter().any(|values| {
-                    multi_match_phrase_hit(values, &phrase_q_tokens, is_phrase_prefix, *slop)
+                field_value_lists.iter().any(|(field, values)| {
+                    multi_match_phrase_hit(field, values, query, is_phrase_prefix, *slop)
                 })
             } else if is_cross && is_and && !tokens.is_empty() {
                 // cross_fields + operator AND: every token must appear in
@@ -60742,10 +61087,10 @@ pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Sc
             if is_unmapped_leaf_subfield(schema, field) {
                 return false;
             }
-            // The same analyzer as the field side below (#1280): a split here
-            // made `报表` one query term against the field's `报`,`表`, and
-            // `3.14` two terms against the field's one.
-            let query_tokens: Vec<String> = phrase_tokens(query);
+            // The same analyzer as the field side below (#1280, #3308): a
+            // split here made `报表` one query term against the field's
+            // `报`,`表`, and `3.14` two terms against the field's one.
+            let query_tokens: Vec<String> = phrase_tokens_for(field, query);
             // Real ES tokenizes whatever the field holds — a
             // `boolean`/numeric field's value is just its string form
             // ("true"/"false", "42") for phrase-matching purposes. Pre-fix
@@ -60763,14 +61108,19 @@ pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Sc
             // `phrase_positions_in_tokens` so the `multi_match` phrase arm
             // evaluates the SAME predicate (issue #230) instead of its own
             // substring approximation.
-            fn matches_scalar(v: &Value, query_tokens: &[String], slop: u32) -> Option<bool> {
+            fn matches_scalar(
+                field: &str,
+                v: &Value,
+                query_tokens: &[String],
+                slop: u32,
+            ) -> Option<bool> {
                 let s = match v {
                     Value::String(s) => s.clone(),
                     Value::Bool(_) | Value::Number(_) => v.to_string(),
                     _ => return None,
                 };
                 Some(phrase_positions_in_tokens(
-                    &phrase_tokens(&s),
+                    &phrase_tokens_for(field, &s),
                     query_tokens,
                     slop,
                 ))
@@ -60778,8 +61128,9 @@ pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Sc
             // #3285: a text field of an index whose declared default
             // analyzer is not `standard` (the `code` analyzer autoindex
             // puts on code datasets) is matched with that analyzer, the
-            // term space its segments hold.
-            let scoped = scan_phrase_analyzer().filter(|_| {
+            // term space its segments hold. #3308: the field's own recorded
+            // analyzer when one exists.
+            let scoped = scan_analyzer_for(field).filter(|_| {
                 schema
                     .field(field)
                     .is_some_and(|f| matches!(f.field_type, FieldType::Text))
@@ -60810,14 +61161,14 @@ pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Sc
                     Value::Array(arr) => {
                         if arr
                             .iter()
-                            .any(|e| matches_scalar(e, &query_tokens, *slop) == Some(true))
+                            .any(|e| matches_scalar(field, e, &query_tokens, *slop) == Some(true))
                         {
                             Some(true)
                         } else {
                             None
                         }
                     }
-                    _ => matches_scalar(&v, &query_tokens, *slop),
+                    _ => matches_scalar(field, &v, &query_tokens, *slop),
                 })
                 .unwrap_or(false)
         }
@@ -60968,20 +61319,20 @@ pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Sc
             // while the segment path (`FtsQuery::PhrasePrefix`) matched over
             // the analyzed positions. The two states disagreed at `_flush`.
             // Both now walk the same analyzed token stream.
-            fn matches_str(s: &str, query: &str, slop: u32) -> Option<bool> {
-                let query_tokens = phrase_tokens(query);
+            fn matches_str(field: &str, s: &str, query: &str, slop: u32) -> Option<bool> {
+                let query_tokens = phrase_tokens_for(field, query);
                 if query_tokens.is_empty() {
                     return Some(true);
                 }
                 Some(phrase_prefix_positions_in_tokens(
-                    &phrase_tokens(s),
+                    &phrase_tokens_for(field, s),
                     &query_tokens,
                     slop,
                 ))
             }
             get_field_value(source, field)
                 .and_then(|v| match &v {
-                    Value::String(s) => matches_str(s, query, *slop),
+                    Value::String(s) => matches_str(field, s, query, *slop),
                     // Multi-valued field: ES matches if ANY element
                     // satisfies the phrase-prefix — pre-fix this arm only
                     // handled a scalar string, so a `match_phrase_prefix`
@@ -60991,7 +61342,7 @@ pub(crate) fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Sc
                     Value::Array(arr) => {
                         if arr.iter().any(|e| {
                             e.as_str()
-                                .and_then(|s| matches_str(s, query, *slop))
+                                .and_then(|s| matches_str(field, s, query, *slop))
                                 .unwrap_or(false)
                         }) {
                             Some(true)
@@ -62743,16 +63094,21 @@ fn score_query_against_doc(q: &QueryNode, source: &Value, schema: &Schema) -> f3
             // `doc_matches_query` and the segment clause built by
             // `query_node_to_fts` — see `phrase_tokens`. The non-phrase arms
             // keep `q_tokens` (the alphanumeric split) unchanged.
-            let phrase_q_tokens: Vec<String> = if is_phrase {
-                phrase_tokens(query)
-            } else {
-                Vec::new()
-            };
-            let field_hit = |values_lc: &[String]| -> bool {
-                if is_phrase && !phrase_q_tokens.is_empty() {
+            // #3308: the phrase arms tokenize PER FIELD (see
+            // `multi_match_phrase_hit`): this probe only decides whether
+            // the query tokenizes to anything at all under any listed
+            // field's analyzer, mirroring the old shared-token gate.
+            let phrase_q_nonempty: bool = is_phrase
+                && fields.iter().any(|field_spec| {
+                    let (field, _) = parse_field_boost(field_spec);
+                    !phrase_tokens_for(field, query).is_empty()
+                });
+            let field_hit = |field: &str, values_lc: &[String]| -> bool {
+                if phrase_q_nonempty {
                     return multi_match_phrase_hit(
+                        field,
                         values_lc,
-                        &phrase_q_tokens,
+                        query,
                         is_phrase_prefix,
                         *slop,
                     );
@@ -62785,7 +63141,7 @@ fn score_query_against_doc(q: &QueryNode, source: &Value, schema: &Schema) -> f3
                 // not score 0.0.
                 let values_lc: Option<Vec<String>> = multi_match_field_values_lc(source, field);
                 if let Some(values) = values_lc {
-                    if field_hit(&values) {
+                    if field_hit(field, &values) {
                         sum_score += field_boost;
                         if field_boost > max_score {
                             max_score = field_boost;
@@ -65790,11 +66146,18 @@ fn query_node_to_fts(
         text_fields,
         exact_fields,
         exact_fields,
-        SegmentAnalyzerBinding::Standard,
+        SegmentAnalyzerBinding::Standard(&EMPTY_FIELD_ANALYZERS),
         None,
         DateDocs::Decline,
     )
 }
+
+/// Empty per-field analyzer map for the schema-blind legacy projection
+/// helper (`query_node_to_fts`), used by unit tests only: no field has a
+/// recorded analyzer, so every clause falls back to the index default.
+#[cfg(test)]
+static EMPTY_FIELD_ANALYZERS: std::sync::LazyLock<HashMap<String, String>> =
+    std::sync::LazyLock::new(HashMap::new);
 
 /// #892: how the projection may resolve a #825-pinned kNN disjunct.
 ///
@@ -66118,42 +66481,101 @@ fn pinned_constant_ids_pairs(q: &QueryNode) -> Option<Vec<(&str, f32)>> {
 
 /// How a segment-side FTS projection analyses text clauses (#937).
 ///
-/// `Honored(&registry)` — the index's own analyzer registry. An unnamed text
-/// clause resolves the registry's `default` when the index settings declared
-/// one (the analyzer the segment's postings were built with at flush), else
-/// `standard`; a clause that names an analyzer resolves it against the
-/// index's custom analyzers too.
+/// `Honored(&registry, field_analyzers)`: the index's own analyzer
+/// registry. An unnamed text clause resolves the registry's `default`
+/// when the index settings declared one (the analyzer the segment's
+/// postings were built with at flush), else `standard`; a clause that
+/// names an analyzer resolves it against the index's custom analyzers
+/// too.
 ///
-/// `Standard` — a pre-#937 index whose segments hold `standard` postings
-/// (`segment_default_analyzer_honored == false`): exactly the pre-fix
-/// behaviour, a fresh default registry, `standard` for unnamed clauses,
-/// built-ins only for named ones.
+/// `Standard(field_analyzers)`: a pre-#937 index whose segments hold
+/// `standard` postings (`segment_default_analyzer_honored == false`):
+/// exactly the pre-fix behaviour, a fresh default registry, `standard`
+/// for unnamed clauses, built-ins only for named ones.
+///
+/// #3308: `field_analyzers` maps a text field to the analyzer name the
+/// SEGMENT paths use for it (decided at open / create / mapping change,
+/// recorded in `analysis-binding.json`). An unnamed clause on a field
+/// present in the map resolves THAT analyzer before falling back to the
+/// index default above; a clause that names an analyzer still wins.
+/// A field absent from the map takes the index fallback, exactly as
+/// before.
 ///
 /// The memtable needs no equivalent: it has resolved
 /// `get_analyzer("default").or_else(standard)` on both its insert and its
 /// query side since before #937.
 #[derive(Clone, Copy)]
 enum SegmentAnalyzerBinding<'a> {
-    Honored(&'a AnalyzerRegistry),
-    Standard,
+    Honored(&'a AnalyzerRegistry, &'a HashMap<String, String>),
+    Standard(&'a HashMap<String, String>),
 }
 
 impl SegmentAnalyzerBinding<'_> {
-    /// Resolve the analyzer pipeline for one text clause. `None` declines
-    /// the projection (unknown analyzer name), same as pre-#937.
-    fn resolve(&self, requested: Option<&str>) -> Option<Arc<AnalyzerPipeline>> {
+    /// The analyzer name the segment paths use for `field`: its recorded
+    /// per-field analyzer when one exists, else the index fallback
+    /// (`default` when honoured and declared, else `standard`).
+    fn effective_name(&self, field: &str) -> &str {
         match self {
-            SegmentAnalyzerBinding::Honored(registry) => {
+            SegmentAnalyzerBinding::Honored(registry, field_analyzers) => {
+                if let Some(name) = field_analyzers.get(field) {
+                    return name;
+                }
+                if registry.get_analyzer("default").is_some() {
+                    "default"
+                } else {
+                    "standard"
+                }
+            }
+            SegmentAnalyzerBinding::Standard(field_analyzers) => field_analyzers
+                .get(field)
+                .map(String::as_str)
+                .unwrap_or("standard"),
+        }
+    }
+
+    /// Resolve the analyzer pipeline for one text clause on `field`.
+    /// `None` declines the projection (unknown analyzer name), same as
+    /// pre-#937. An explicitly named analyzer wins; otherwise the field's
+    /// recorded analyzer (#3308), else the index fallback.
+    fn resolve(
+        &self,
+        field: Option<&str>,
+        requested: Option<&str>,
+    ) -> Option<Arc<AnalyzerPipeline>> {
+        if let Some(name) = requested {
+            return match self {
+                SegmentAnalyzerBinding::Honored(registry, _) => registry.get_analyzer(name),
+                SegmentAnalyzerBinding::Standard(_) => {
+                    AnalyzerRegistry::default().get_analyzer(name)
+                }
+            };
+        }
+        match self {
+            SegmentAnalyzerBinding::Honored(registry, field_analyzers) => {
+                if let Some(field) = field {
+                    if let Some(name) = field_analyzers.get(field) {
+                        return registry.get_analyzer(name);
+                    }
+                }
                 let fallback = if registry.get_analyzer("default").is_some() {
                     "default"
                 } else {
                     "standard"
                 };
-                let name = requested.unwrap_or(fallback);
-                registry.get_analyzer(name)
+                registry.get_analyzer(fallback)
             }
-            SegmentAnalyzerBinding::Standard => {
-                AnalyzerRegistry::default().get_analyzer(requested.unwrap_or("standard"))
+            SegmentAnalyzerBinding::Standard(field_analyzers) => {
+                let defaults = AnalyzerRegistry::default();
+                if let Some(field) = field {
+                    if let Some(name) = field_analyzers.get(field) {
+                        // A field honoured while the index default is not can
+                        // only name a builtin here (its segments were written
+                        // by a build that knew nothing else); an unresolvable
+                        // name declines the projection to the stored scan.
+                        return defaults.get_analyzer(name);
+                    }
+                }
+                defaults.get_analyzer("standard")
             }
         }
     }
@@ -66256,7 +66678,11 @@ fn query_node_to_fts_projected(
             // always tokenised with `standard`, so a `match` answered
             // differently before and after `_flush` on an index that
             // declared an analyzer.
-            let analyzer = binding.resolve(analyzer.as_deref())?;
+            //
+            // #3308: a clause on a field with a recorded per-field analyzer
+            // analyses with THAT analyzer instead, in the field's own term
+            // space, not the index default's.
+            let analyzer = binding.resolve(Some(field.as_str()), analyzer.as_deref())?;
             let tokens = analyzer.analyze(query);
             if tokens.is_empty() {
                 return None;
@@ -66328,15 +66754,6 @@ fn query_node_to_fts_projected(
             let is_phrase_prefix =
                 matches!(match_type, xerj_query::ast::MultiMatchType::PhrasePrefix);
             let query_analyzer_name = analyzer.as_deref();
-            // #937: the field's indexing analyzer (declared `default` else
-            // `standard`) for unnamed clauses / an explicit `standard`; a
-            // named non-standard analyzer still tokenises with the resolved
-            // default here and declines the phrase arm in the gate below.
-            let analyzer = binding.resolve(match query_analyzer_name {
-                Some("standard") => Some("standard"),
-                _ => None,
-            })?;
-            let tokens = analyzer.analyze(query);
             // Split boost factors out of field specs (e.g. "title^3" → ("title", 3.0)).
             //
             // ES IGNORES unmapped fields in `multi_match` (its per-type
@@ -66373,6 +66790,39 @@ fn query_node_to_fts_projected(
             if field_specs.is_empty() {
                 return None;
             }
+            // #3308: one token list is shared by every field below, so it
+            // is only valid when every listed field was indexed with the
+            // SAME analyzer. Mixed-analyzer fields decline to the stored-doc
+            // scan, which analyses per field; keyword (exact) fields do not
+            // take part in the token comparison (they match whole-value).
+            let text_field_specs: Vec<&(String, f32)> = field_specs
+                .iter()
+                .filter(|(f, _)| !exact_fields.contains(f.as_str()))
+                .collect();
+            if let Some(first) = text_field_specs.first() {
+                let shared = binding.effective_name(&first.0);
+                if text_field_specs
+                    .iter()
+                    .any(|(f, _)| binding.effective_name(f) != shared)
+                {
+                    return None;
+                }
+            }
+            // #937: the field's indexing analyzer (declared `default` else
+            // `standard`) for unnamed clauses / an explicit `standard`; a
+            // named non-standard analyzer still tokenises with the resolved
+            // default here and declines the phrase arm in the gate below.
+            // #3308: resolved against the first listed text field, so a
+            // shared per-field analyzer is the one tokenised with.
+            let first_text_field = text_field_specs.first().map(|(f, _)| f.as_str());
+            let analyzer = binding.resolve(
+                first_text_field,
+                match query_analyzer_name {
+                    Some("standard") => Some("standard"),
+                    _ => None,
+                },
+            )?;
+            let tokens = analyzer.analyze(query);
             // ── phrase: one positional clause per field ──
             if is_phrase_type {
                 // `phrase_prefix` deliberately keeps the DECLINED /
@@ -66844,8 +67294,9 @@ fn query_node_to_fts_projected(
                 }
                 // #937: analyse with the field's indexing analyzer — the
                 // declared `default` when the index honours one — so the
-                // query terms meet the segment's postings.
-                let analyzer = binding.resolve(None)?;
+                // query terms meet the segment's postings. #3308: the
+                // field's own analyzer when it declares one.
+                let analyzer = binding.resolve(Some(field), None)?;
                 let tokens = analyzer.analyze(query);
                 if tokens.is_empty() {
                     return None;
@@ -66872,7 +67323,16 @@ fn query_node_to_fts_projected(
                 text_fields
             };
             // #937: same resolution as the default_field arm above.
-            let analyzer = binding.resolve(None)?;
+            // #3308: one token list is shared by every field below, so
+            // mixed-analyzer fields decline to the stored-doc scan, which
+            // analyses per field.
+            if fields
+                .iter()
+                .any(|f| binding.effective_name(f) != binding.effective_name(&fields[0]))
+            {
+                return None;
+            }
+            let analyzer = binding.resolve(Some(fields[0].as_str()), None)?;
             let tokens = analyzer.analyze(query);
             if tokens.is_empty() {
                 return None;
@@ -66948,16 +67408,23 @@ fn query_node_to_fts_projected(
             // route to a positional phrase intersection bounded to candidate
             // docs (`FtsQuery::Phrase`) instead of the O(N·field_len) stored
             // scan.  The query is analyzed with the SAME analyzer the field
-            // was indexed with — `standard`, or the declared `default` the
-            // segment's postings were written with (#937) — so the phrase
-            // terms line up byte-for-byte with the indexed terms.  slop>0 and
-            // non-standard NAMED analyzers keep the stored scan (None): the
-            // sloppy/analyzer semantics stay on the proven path.
-            if *slop == 0
-                && text_fields.iter().any(|f| f == field)
-                && matches!(analyzer.as_deref(), None | Some("standard"))
-            {
-                let analyzer = binding.resolve(analyzer.as_deref())?;
+            // was indexed with: `standard`, the declared `default` the
+            // segment's postings were written with (#937), or the field's own
+            // declared analyzer (#3308), so the phrase terms line up
+            // byte-for-byte with the indexed terms.  slop>0 and a NAMED
+            // analyzer that is not the field's own keep the stored scan
+            // (None): the sloppy/analyzer semantics stay on the proven path.
+            //
+            // #3308: an explicitly named analyzer is admitted exactly when it
+            // IS the field's effective analyzer, so naming any other analyzer
+            // still declines, as before.
+            let field_analyzer_name = binding.effective_name(field);
+            let analyzer_is_fields_own = match analyzer.as_deref() {
+                None | Some("standard") => true,
+                Some(name) => name == field_analyzer_name,
+            };
+            if *slop == 0 && text_fields.iter().any(|f| f == field) && analyzer_is_fields_own {
+                let analyzer = binding.resolve(Some(field.as_str()), analyzer.as_deref())?;
                 let tokens = analyzer.analyze(query);
                 if tokens.is_empty() {
                     // Empty analyzed phrase — fall back to the stored scan.
@@ -67002,8 +67469,9 @@ fn query_node_to_fts_projected(
                 }));
             }
             // TEXT field: analyze the query with the field's indexing
-            // analyzer (`standard`, or the declared `default` the segment's
-            // postings were written with — #937) — the leading tokens form
+            // analyzer (`standard`, the declared `default` the segment's
+            // postings were written with, #937, or the field's own
+            // declared analyzer, #3308), the leading tokens form
             // an ordered phrase and the LAST token is a prefix expanded
             // against the field's term dictionary (bounded by
             // `max_expansions`).  Positional, bounded to candidate docs,
@@ -67011,7 +67479,7 @@ fn query_node_to_fts_projected(
             // every token, so the head phrase and the prefix are
             // case-insensitive exactly like ES (which analyzes the input).
             if text_fields.iter().any(|f| f == field) {
-                let analyzer = binding.resolve(None)?;
+                let analyzer = binding.resolve(Some(field.as_str()), None)?;
                 let tokens = analyzer.analyze(query);
                 if tokens.is_empty() {
                     return None;
@@ -69649,12 +70117,13 @@ fn analysis_binding_for_open(
 }
 
 /// The parsed `analysis-binding.json` marker. Every field is optional: the
-/// file grew a key per fix (#204 `binding`, #937 `segment_analyzers`), and
-/// an older file simply lacks the newer decisions.
+/// file grew a key per fix (#204 `binding`, #937 `segment_analyzers`, #3308
+/// `field_analyzers`), and an older file simply lacks the newer decisions.
 #[derive(Default, serde::Deserialize)]
 struct AnalysisBindingMarker {
     binding: Option<String>,
     segment_analyzers: Option<String>,
+    field_analyzers: Option<HashMap<String, String>>,
 }
 
 fn read_analysis_binding_marker(index_dir: &Path) -> Option<AnalysisBindingMarker> {
@@ -69754,6 +70223,173 @@ fn segment_analyzer_binding_for_open(
          Reindex into a newly-created index to activate the declared analyzer."
     );
     false
+}
+
+/// Record the per-field segment-analyzer decisions (`field_analyzers`) in
+/// the binding marker, preserving the keys already recorded. Best effort
+/// in the same sense as [`write_analysis_binding_keys`].
+fn write_analysis_binding_field_analyzers(
+    index_dir: &Path,
+    map: &HashMap<String, String>,
+) -> Option<()> {
+    let path = index_dir.join(ANALYSIS_BINDING_MARKER);
+    let mut doc: serde_json::Map<String, Value> = std::fs::read(&path)
+        .ok()
+        .and_then(|bytes| serde_json::from_slice(&bytes).ok())
+        .unwrap_or_default();
+    doc.insert(
+        "field_analyzers".to_string(),
+        Value::Object(
+            map.iter()
+                .map(|(k, v)| (k.clone(), Value::String(v.clone())))
+                .collect(),
+        ),
+    );
+    let bytes = serde_json::to_vec(&Value::Object(doc)).ok()?;
+    write_file_atomic(&path, &bytes)
+        .map_err(|e| {
+            tracing::error!(
+                path = %path.display(), error = %e,
+                "could not record this index's per-field analyzer binding: if the index \
+                 is empty now and a per-field analyzer is declared, a later restart may \
+                 disagree with how documents written in the meantime were analysed"
+            );
+        })
+        .ok()
+}
+
+/// #3308: refuse a per-field analyzer the index's registry cannot
+/// resolve, as an invalid-mapping error (400 at the API). `default` is
+/// always resolvable: it names the index default (or `standard` when none
+/// is declared), never a pipeline of its own. Walks the whole field tree:
+/// a text multi-field carries its own analyzer too.
+fn validate_field_analyzers(
+    fields: &[FieldConfig],
+    registry: &AnalyzerRegistry,
+) -> std::result::Result<(), String> {
+    for f in fields {
+        if f.field_type == FieldType::Text {
+            if let Some(name) = &f.options.analyzer {
+                if name != "default" && registry.get_analyzer(name).is_none() {
+                    return Err(format!(
+                        "field [{}] declares unknown analyzer [{}]",
+                        f.name, name
+                    ));
+                }
+            }
+        }
+        validate_field_analyzers(&f.fields, registry)?;
+    }
+    Ok(())
+}
+
+/// #3308: do the on-disk segments agree with `declared` as the analyzer
+/// for `field`? True when no segment FTS-indexes the field (nothing on
+/// disk can disagree) or every segment that does records exactly
+/// `declared`. A segment with no `.ftsan` marker records `standard` for
+/// every field. Unprovable (directory unreadable) counts as disagreement:
+/// the conservative arm keeps the index default.
+fn segments_agree_with_field_analyzer(
+    segments_dir: &Path,
+    segment_ids: &[&str],
+    field: &str,
+    declared: &str,
+) -> bool {
+    let Ok(per_segment) = xerj_fts::index::segments_indexed_field_names(
+        segments_dir,
+        segment_ids,
+        &[field.to_string()],
+    ) else {
+        return false;
+    };
+    for (segment_id, names) in segment_ids.iter().zip(per_segment.iter()) {
+        if !names.iter().any(|n| n == field) {
+            continue;
+        }
+        let recorded = xerj_fts::index::segment_recorded_analyzers(segments_dir, segment_id)
+            .and_then(|map| map.get(field).cloned())
+            .unwrap_or_else(|| "standard".to_string());
+        if recorded != declared {
+            return false;
+        }
+    }
+    true
+}
+
+/// Decide, at index OPEN, which analyzer the SEGMENT paths use for each
+/// text field that declares a per-field analyzer (#3308).
+///
+/// Mirrors [`segment_analyzer_binding_for_open`] (#937) in posture, per
+/// field, but decides on EVIDENCE rather than on the blunt "has documents"
+/// rule: a field is honoured when every segment that FTS-indexes it
+/// records exactly the declared analyzer (or no segment indexes it at
+/// all, so nothing on disk can disagree).
+///
+/// * marker records an effective analyzer for the field → that stands,
+///   unchanged, for the life of the index;
+/// * no record and the segments agree → honour the declared analyzer and
+///   record it, so documents written from now on cannot flip the answer
+///   at the next boot;
+/// * no record and the segments disagree → the segments on disk were
+///   written with the index default by a pre-fix build. Honouring the
+///   declaration now would put new segments in the declared analyzer's
+///   term space while every old segment stays in the default's, so queries
+///   answer differently per segment, silently. Keep the segments on
+///   the index default, record that, and say so at ERROR: reindex into
+///   a newly-created index is the only correct repair.
+///
+/// `default` as a declared per-field name is not a pipeline of its own:
+/// it resolves to the index text analyzer, so it is recorded as such.
+/// Fields without a declared analyzer never enter the map (they take the
+/// index text analyzer at every use site).
+fn field_analyzer_bindings_for_open(
+    index_dir: &Path,
+    schema: &Schema,
+    text_analyzer: &str,
+    segments_dir: &Path,
+    segment_ids: &[&str],
+) -> HashMap<String, String> {
+    let recorded = read_analysis_binding_marker(index_dir)
+        .and_then(|m| m.field_analyzers)
+        .unwrap_or_default();
+    let mut out: HashMap<String, String> = HashMap::new();
+    let mut changed = false;
+    for f in &schema.fields {
+        if f.field_type != FieldType::Text {
+            continue;
+        }
+        let Some(declared) = f.options.analyzer.as_deref() else {
+            continue;
+        };
+        let effective: String = if declared == "default" {
+            text_analyzer.to_string()
+        } else if let Some(prev) = recorded.get(&f.name) {
+            prev.clone()
+        } else if segments_agree_with_field_analyzer(segments_dir, segment_ids, &f.name, declared) {
+            declared.to_string()
+        } else {
+            tracing::error!(
+                index_dir = %index_dir.display(),
+                field = %f.name,
+                declared,
+                fallback = text_analyzer,
+                "field declares a per-field analyzer but this index already holds \
+                 segments written before per-field analyzers were honoured, so its \
+                 segments hold postings in the index default's term space. The field \
+                 keeps the index default on the segment paths. Reindex into a \
+                 newly-created index to activate the declared analyzer."
+            );
+            text_analyzer.to_string()
+        };
+        if recorded.get(&f.name) != Some(&effective) {
+            changed = true;
+        }
+        out.insert(f.name.clone(), effective);
+    }
+    if changed {
+        write_analysis_binding_field_analyzers(index_dir, &out);
+    }
+    out
 }
 
 #[cfg(test)]
@@ -74086,8 +74722,13 @@ mod flush_memory_integration_tests {
         let shard = idx.memtable.shard_for_dynamic(&doc_id);
         let (field_configs, excluded_fts_fields, dv_skip) = {
             let schema = idx.schema.read().await;
+            let field_analyzers = idx.segment_field_analyzers_snapshot();
             (
-                build_fts_field_configs(&schema.schema, idx.segment_text_analyzer()),
+                build_fts_field_configs(
+                    &schema.schema,
+                    idx.segment_text_analyzer(),
+                    &field_analyzers,
+                ),
                 crate::memtable::fts_excluded_fields(&schema.schema),
                 doc_values_skip_set(&schema.schema),
             )
@@ -74808,7 +75449,7 @@ mod pinned_knn_fts_892_tests {
                 &text_fields,
                 &empty,
                 &empty,
-                SegmentAnalyzerBinding::Standard,
+                SegmentAnalyzerBinding::Standard(&EMPTY_FIELD_ANALYZERS),
                 None,
                 DateDocs::Decline,
             )
@@ -74824,7 +75465,7 @@ mod pinned_knn_fts_892_tests {
             &text_fields,
             &empty,
             &empty,
-            SegmentAnalyzerBinding::Standard,
+            SegmentAnalyzerBinding::Standard(&EMPTY_FIELD_ANALYZERS),
             Some(PinnedIds::Positions(&positions)),
             DateDocs::Decline,
         )

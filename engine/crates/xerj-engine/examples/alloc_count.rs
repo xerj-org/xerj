@@ -49,7 +49,6 @@ fn main() {
     // Build inputs OUTSIDE the measured region: parse + analyze every doc,
     // and synthesize turbo-style auto ids (20-char, like the bulk path).
     let reg = AnalyzerRegistry::default();
-    let analyzer = reg.get_analyzer("standard").unwrap();
     let schema = Schema::default();
     type DocInput = (
         String,
@@ -60,7 +59,7 @@ fn main() {
     for i in 0..n_docs {
         let line = &raw[i % raw.len()];
         let v: Value = serde_json::from_str(line).unwrap();
-        let analyzed = analyze_doc(&v, &schema, &analyzer);
+        let analyzed = analyze_doc(&v, &schema, &reg);
         // Auto-id shape: 20 base62-ish chars, unique per doc.
         let id = format!("{:020x}", 0xdead_0000_0000u64 + i as u64);
         inputs.push((id, Arc::new(v), analyzed));

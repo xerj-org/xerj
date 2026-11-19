@@ -426,7 +426,7 @@ fn filter_range_beside_should_projects_3518() {
             &text,
             &exact,
             &exact,
-            SegmentAnalyzerBinding::Standard,
+            SegmentAnalyzerBinding::Standard(&EMPTY_FIELD_ANALYZERS),
             None,
             DateDocs::Probe(&fields),
         )
