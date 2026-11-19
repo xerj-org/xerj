@@ -2,8 +2,8 @@
  "corpus": "lacker--penta",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Rust queries this for how lacker/penta implements it: A deterministic engine for Eternal Central Old School 93/94 Magic (selected work: src/formats, web, src/decks)",
+ "shelf": "WEB",
+ "domain": "an agent working on Rust queries this for how lacker/penta implements it: Primarily an engine for efficiently simulating Magic games, secondarily a web interface for playing them (selected work: src/formats, web, src/decks)",
  "repos": [
   {
    "repo": "penta",

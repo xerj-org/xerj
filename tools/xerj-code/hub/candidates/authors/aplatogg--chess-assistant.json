@@ -2,8 +2,8 @@
  "corpus": "aplatogg--chess-assistant",
  "cloned_at": null,
  "status": "draft",
- "shelf": "WEB",
- "domain": "an agent working on chess, chess-com, overlay queries this for how aplatogg/chess-assistant implements it: Real-time Chess.com assistant powered by Stockfish \u2014 live board reading via CDP, floating overlay UI, top 5 moves, auto-play with human-like (selected work: the project root, tests)",
+ "shelf": "API",
+ "domain": "an agent working on chess, chess-com, overlay queries this for how aplatogg/chess-assistant implements it: Real-time Chess.com assistant: Stockfish moves over a floating overlay, board read via CDP (selected work: the project root, tests)",
  "repos": [
   {
    "repo": "chess-assistant",

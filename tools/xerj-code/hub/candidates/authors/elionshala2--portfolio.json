@@ -8,15 +8,15 @@
   {
    "repo": "portfolio",
    "url": "https://github.com/elionshala2/portfolio",
-   "sha": "2360a394931d16bc8863fe0de7c0722ec38c7584",
-   "licence": "MIT (LICENSE file at pin 2360a394931d, GitHub licence API 2026-11-01)",
+   "sha": "9ed1effe98cdb901daee72945194067fc5f19083",
+   "licence": "MIT (LICENSE file at pin 9ed1effe98cd, GitHub licence API 2026-11-19)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-01T21:06Z",
     "consent_receipt": "69cad9ce5b9b",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T21:06Z (receipt 69cad9ce5b9b); pinned to the default-branch head. LICENSE file at pin 2360a394931d detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T21:06Z (receipt 69cad9ce5b9b); pinned to the default-branch head. LICENSE file at pin 9ed1effe98cd detected as MIT by the GitHub licence API on 2026-11-19; used under that licence with attribution."
    }
   }
  ]

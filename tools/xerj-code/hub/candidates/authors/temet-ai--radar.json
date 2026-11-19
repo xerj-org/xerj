@@ -2,8 +2,8 @@
  "corpus": "temet-ai--radar",
  "cloned_at": null,
  "status": "draft",
- "shelf": "AI",
- "domain": "an agent working on Rust queries this for how temet-ai/radar implements it: A terminal workspace for GitLab, GitHub, Jira and Slack, with coding agents beside your work (selected work: ink, crates/radar-core, crates/radar-gitlab)",
+ "shelf": "WEB",
+ "domain": "an agent working on claude-code, code-review, developer-tools queries this for how temet-ai/radar implements it: A terminal workspace for GitLab, GitHub, Jira and Slack, with coding agents beside your work (selected work: ink, crates/radar-core, crates/radar-gitlab)",
  "repos": [
   {
    "repo": "radar",
