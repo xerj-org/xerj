@@ -929,7 +929,8 @@ fn max_tokens_arg_schema() -> Value {
         "default": token_budget::DEFAULT_MAX_TOKENS,
         "description": format!(
             "Word budget for the successful search payload. Errors and mandatory \
-             xerj_search staleness hints are outside this budget. Tokens are \
+             xerj_search staleness hints are outside this budget, as is the \
+             `_xerj.embed_mode` note. Tokens are \
              counted with {} — the same word split the engine's own analyzer uses for BM25. \
              Honest scope: that under-counts model-context subwords (snake_case is ONE token \
              here), so treat it as a deterministic proxy, not a BPE count. The budget covers \
@@ -1001,7 +1002,11 @@ pub fn tool_specs_with(include_hub: bool) -> Value {
                  the response adds `_xerj.hints` code `index_stale` with the last index \
                  time and a reindex command. Hits are returned with that hint. The check \
                  stats at most 4096 entries, stops after 100ms, and skips hidden and \
-                 ignored paths.",
+                 ignored paths. \
+                 The response's `_xerj.embed_mode` names the embedder the node runs \
+                 (`lexical` feature hashing unless it was started with --embed-mode); a \
+                 natural-language query on a lexical node adds `_xerj.hints` code \
+                 `lexical_embedder` (words match, not meaning).",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -1059,6 +1064,10 @@ pub fn tool_specs_with(include_hub: bool) -> Value {
                  embedded SERVER-SIDE by XERJ's built-in lexical embedder (no external \
                  API key), then matched by vector similarity. Proxies POST /{index}/_search \
                  with {\"query\":{\"semantic\":{...}}}. \
+                 The response's `_xerj.embed_mode` names the embedder the node runs \
+                 (`lexical` feature hashing unless it was started with --embed-mode); a \
+                 natural-language query on a lexical node adds `_xerj.hints` code \
+                 `lexical_embedder` (words match, not meaning). \
                  Pass `max_tokens` to override the default word budget (see that argument \
                  for the tokenizer, exceptions and locator-only rule).",
             "inputSchema": {
@@ -1121,6 +1130,10 @@ pub fn tool_specs_with(include_hub: bool) -> Value {
                  Optional `judge` re-judges the fused hits LOCALLY (zero tokens, \
                  nothing leaves the node); `judge.query` is REQUIRED for the same \
                  reason. \
+                 The response's `_xerj.embed_mode` names the embedder the node runs \
+                 (`lexical` feature hashing unless it was started with --embed-mode); a \
+                 natural-language query on a lexical node adds `_xerj.hints` code \
+                 `lexical_embedder` (words match, not meaning). \
                  Pass `max_tokens` to override the default word budget (see that argument \
                  for the tokenizer, exceptions and locator-only rule).",
             "inputSchema": {
@@ -2401,10 +2414,86 @@ async fn call_tool_inner(ctx: &Ctx, msg: &Value) -> Value {
             } else {
                 search_staleness(ctx, name, &args).await
             };
-            apply_staleness(result, hint)
+            let result = apply_staleness(result, hint);
+            // #2513: name the node's embedder on the search tools, and say
+            // when a question ran on lexical feature hashing.
+            if embed_mode_reported(name) && result.get("isError") != Some(&Value::Bool(true)) {
+                let mode = node_embed_mode(ctx).await;
+                apply_embed_mode(result, mode.as_deref(), name, &args)
+            } else {
+                result
+            }
         }
         Err(msg) => tool_text(msg, true),
     }
+}
+
+/// The search tools whose results carry `_xerj.embed_mode` (#2513).
+fn embed_mode_reported(name: &str) -> bool {
+    matches!(
+        name,
+        "xerj_search" | "xerj_semantic_search" | "xerj_hybrid_search"
+    )
+}
+
+/// The node's embedder backend from `GET /v1/embedding/identity`. A refused
+/// key, an old node or a malformed body is `None`, and the response then
+/// says nothing about the embedder instead of guessing.
+async fn node_embed_mode(ctx: &Ctx) -> Option<String> {
+    use xerj_autoindex::search::{embed_mode_from_identity, EMBED_IDENTITY_PATH};
+    let (code, text) = status::get(ctx, EMBED_IDENTITY_PATH).await.ok()?;
+    if !(200..300).contains(&code) {
+        return None;
+    }
+    embed_mode_from_identity(&serde_json::from_str::<Value>(&text).ok()?)
+}
+
+/// The text a search tool's query asks in words: `query` for `xerj_search`
+/// (a plain string only) and `xerj_semantic_search`, and the first string
+/// `query` inside a hybrid sub-query.
+fn query_words(name: &str, args: &Value) -> Option<String> {
+    fn first_query(v: &Value) -> Option<&str> {
+        match v {
+            Value::Object(map) => {
+                if let Some(Value::String(q)) = map.get("query") {
+                    return Some(q.as_str());
+                }
+                // `{"match": {"body": "words"}}`: the field's value is the text.
+                for key in ["match", "match_phrase"] {
+                    if let Some(Value::Object(fields)) = map.get(key) {
+                        if let Some(q) = fields.values().find_map(Value::as_str) {
+                            return Some(q);
+                        }
+                    }
+                }
+                map.values().find_map(first_query)
+            }
+            Value::Array(items) => items.iter().find_map(first_query),
+            _ => None,
+        }
+    }
+    let text = match name {
+        "xerj_hybrid_search" => first_query(args.get("queries")?)?,
+        _ => args.get("query")?.as_str()?,
+    };
+    Some(text.to_string()).filter(|t| !t.trim().is_empty())
+}
+
+/// Add `_xerj.embed_mode` (and the `lexical_embedder` hint) to a successful
+/// JSON search result. Outside the word budget, like the staleness hint.
+fn apply_embed_mode(result: Value, mode: Option<&str>, name: &str, args: &Value) -> Value {
+    if mode.is_none() || result.get("isError") == Some(&Value::Bool(true)) {
+        return result;
+    }
+    let Some(text) = result.pointer("/content/0/text").and_then(Value::as_str) else {
+        return result;
+    };
+    let Ok(mut resp) = serde_json::from_str::<Value>(text) else {
+        return result;
+    };
+    let query = query_words(name, args);
+    xerj_autoindex::search::attach_embed_mode(&mut resp, mode, query.as_deref(), name);
+    tool_text(resp.to_string(), false)
 }
 
 /// Plain-word `xerj_search` on a code corpus (#2122).
@@ -7720,6 +7809,120 @@ mod tests {
                 .iter()
                 .any(|r| r.contains("_cat/indices")),
             "a page with hits reads no index list"
+        );
+    }
+
+    fn identity(backend: &str) -> String {
+        json!({"data": {"version": 1, "backend": backend,
+            "identity_sha256": "a".repeat(64), "dimensions": 384,
+            "semantic_contract": "x", "resumable": true}})
+        .to_string()
+    }
+
+    /// #2513: a question on a lexical node says so, with the node's mode.
+    #[test]
+    fn a_question_on_a_lexical_node_names_the_embedder_and_hints_once() {
+        let page = r#"{"hits":{"total":{"value":1},"hits":[{"_index":"docs","_id":"1","_source":{"body":"x"}}]}}"#;
+        let (url, seen) = serve_routes(vec![
+            ("POST /docs/_search", page.to_string()),
+            ("GET /v1/embedding/identity", identity("lexical")),
+        ]);
+        let ctx = ctx_for(url);
+        let result = call(
+            &ctx,
+            "xerj_search",
+            json!({"index": "docs", "query": "when is a worktree path allowed"}),
+        );
+        assert_eq!(result["isError"], false, "{result}");
+        let body: Value = serde_json::from_str(&tool_body(&result)).unwrap();
+        assert_eq!(body["_xerj"]["embed_mode"], "lexical", "{body}");
+        let hints = body["_xerj"]["hints"].as_array().unwrap();
+        let lexical: Vec<_> = hints
+            .iter()
+            .filter(|h| h["code"] == "lexical_embedder")
+            .collect();
+        assert_eq!(lexical.len(), 1, "{body}");
+        let reason = lexical[0]["reason"].as_str().unwrap();
+        assert!(reason.contains("keyword search"), "{reason}");
+        assert!(reason.contains("--embed-mode neural"), "{reason}");
+        assert_eq!(body["hits"]["total"]["value"], 1);
+        // The identity read follows the search; it never replaces it.
+        let requests = seen.lock().unwrap().clone();
+        assert!(requests.iter().any(|r| r.starts_with("POST /docs/_search")));
+        assert!(requests
+            .iter()
+            .any(|r| r.starts_with("GET /v1/embedding/identity")));
+    }
+
+    /// An identifier is a lookup: the mode is reported, the hint is not.
+    #[test]
+    fn an_identifier_lookup_reports_the_mode_without_the_hint() {
+        let page = r#"{"hits":{"total":{"value":1},"hits":[{"_index":"docs","_id":"1","_source":{"body":"x"}}]}}"#;
+        let (url, _) = serve_routes(vec![
+            ("POST /docs/_search", page.to_string()),
+            ("GET /v1/embedding/identity", identity("lexical")),
+        ]);
+        let result = call(
+            &ctx_for(url),
+            "xerj_search",
+            json!({"index": "docs", "query": "parse_config"}),
+        );
+        let body: Value = serde_json::from_str(&tool_body(&result)).unwrap();
+        assert_eq!(body["_xerj"]["embed_mode"], "lexical", "{body}");
+        let lexical_hint = body
+            .pointer("/_xerj/hints")
+            .and_then(Value::as_array)
+            .is_some_and(|h| h.iter().any(|h| h["code"] == "lexical_embedder"));
+        assert!(!lexical_hint, "{body}");
+    }
+
+    /// A neural node gets its mode and no lexical hint; a node that does not
+    /// answer the identity read gets nothing, not a guessed "lexical".
+    #[test]
+    fn semantic_search_reports_a_neural_node_and_an_unknown_node_says_nothing() {
+        let page = r#"{"hits":{"total":{"value":0},"hits":[]}}"#;
+        let (url, _) = serve_routes(vec![
+            ("POST /docs/_search", page.to_string()),
+            ("GET /v1/embedding/identity", identity("neural")),
+        ]);
+        let args = json!({"index": "docs", "field": "body",
+            "query": "how do I roll back a bad deployment"});
+        let result = call(&ctx_for(url), "xerj_semantic_search", args.clone());
+        let body: Value = serde_json::from_str(&tool_body(&result)).unwrap();
+        assert_eq!(body["_xerj"]["embed_mode"], "neural", "{body}");
+        assert!(body["_xerj"].get("hints").is_none(), "{body}");
+
+        let (url, _) = serve_routes(vec![("POST /docs/_search", page.to_string())]);
+        let result = call(&ctx_for(url), "xerj_semantic_search", args);
+        let body: Value = serde_json::from_str(&tool_body(&result)).unwrap();
+        assert!(body.get("_xerj").is_none(), "{body}");
+    }
+
+    /// Hybrid reads the question out of its sub-queries, and the reason
+    /// names the vector leg.
+    #[test]
+    fn hybrid_on_a_lexical_node_reads_the_question_from_its_sub_queries() {
+        let page = r#"{"hits":{"total":{"value":0},"hits":[]}}"#;
+        let (url, _) = serve_routes(vec![
+            ("POST /notes/_search", page.to_string()),
+            ("GET /v1/embedding/identity", identity("lexical")),
+        ]);
+        let args = json!({"index": "notes", "queries": [
+            {"match": {"body": "uniqueness and clone naming rules"}},
+            {"semantic": {"field": "body", "query": "uniqueness and clone naming rules"}}
+        ]});
+        let result = call(&ctx_for(url), "xerj_hybrid_search", args);
+        let body: Value = serde_json::from_str(&tool_body(&result)).unwrap();
+        assert_eq!(body["_xerj"]["embed_mode"], "lexical", "{body}");
+        let reason = body["_xerj"]["hints"][0]["reason"].as_str().unwrap();
+        assert!(reason.contains("vector leg"), "{reason}");
+        assert_eq!(
+            query_words(
+                "xerj_hybrid_search",
+                &json!({"queries": [{"query": {"match": {"body": "a b c"}}}]})
+            )
+            .as_deref(),
+            Some("a b c")
         );
     }
 

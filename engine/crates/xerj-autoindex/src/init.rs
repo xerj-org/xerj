@@ -297,8 +297,43 @@ fn mcp_registration(bin: &str, url: &str) -> String {
          \x20 Kimi CLI:  `~/.kimi-code/mcp.json` (user) or `.kimi-code/mcp.json` (project); root key \"mcpServers\"; the current CLI, not the archived `~/.kimi/mcp.json`\n\
          \x20 Windsurf, Claude Desktop, Cline:  copy the \"xerj\" entry from .mcp.json; the root key is \"mcpServers\"\n\
          \x20 VS Code (.vscode/mcp.json):  root key \"servers\", not \"mcpServers\"; the entry needs \"type\": \"stdio\"\n\
-         \x20 Codex (.codex/config.toml, trusted projects only; xerj init writes it when .codex/ exists): [mcp_servers.xerj]",
-        shell_quote(bin)
+         \x20 Codex (.codex/config.toml, trusted projects only; xerj init writes it when .codex/ exists): [mcp_servers.xerj]\n\
+         {}",
+        shell_quote(bin),
+        desktop_agent_registration(bin, url)
+    )
+}
+
+/// Print-only setup for computer-use tools and AI-coworker apps (#2965,
+/// #2756). Nothing here is written: init never edits another app's data.
+///
+/// Checked against upstream docs on 2026-11-19:
+/// * vercel-labs/agent-desktop and agent-browser are MCP *servers*
+///   (`agent-desktop mcp`, `agent-browser mcp`, stdio, `mcpServers` shape in
+///   their READMEs), not MCP clients. They run inside a coding agent, so xerj
+///   goes in that agent's config beside them.
+/// * OpenMausBot (milind-soni, docs/custom-mcp-servers.md): Plugins > MCP
+///   servers > Add server takes a `claude mcp add` line or an `mcpServers`
+///   block; the registry is `~/.openmausbot/config.json`; its first-run
+///   import brings servers from `~/.claude.json` in switched off.
+fn desktop_agent_registration(bin: &str, url: &str) -> String {
+    let mut xerj = json!({"command": bin, "args": ["mcp"]});
+    if url != DEFAULT_URL {
+        xerj["env"] = json!({ "XERJ_URL": url });
+    }
+    let alone = json!({"mcpServers": {"xerj": xerj.clone()}});
+    let beside = json!({"mcpServers": {
+        "xerj": xerj,
+        "agent-desktop": {"command": "agent-desktop", "args": ["mcp"]},
+        "agent-browser": {"command": "agent-browser", "args": ["mcp"]},
+    }});
+    format!(
+        "Computer-use tools and AI-coworker apps (print only; init writes none of these files):\n\
+         \x20 agent-desktop, agent-browser (vercel-labs):  MCP servers, not clients; register xerj in the same agent's \"mcpServers\", beside them:\n\
+         \x20   {beside}\n\
+         \x20 OpenMausBot:  Plugins > MCP servers > Add server, paste this block (registry: ~/.openmausbot/config.json; success: \"Connected: <N> tools\"):\n\
+         \x20   {alone}\n\
+         \x20   A xerj entry its first-run import copied from ~/.claude.json arrives switched off: turn \"xerj\" on in Plugins > MCP servers"
     )
 }
 
@@ -1344,6 +1379,52 @@ mod tests {
             printed.contains("Windsurf, Claude Desktop, Cline"),
             "{printed}"
         );
+    }
+
+    /// #2965 / #2756: the computer-use tools and OpenMausBot get a pasteable
+    /// stdio block with this binary and this URL, and init writes no file of
+    /// theirs.
+    #[test]
+    fn desktop_agents_and_openmausbot_get_a_pasteable_stdio_block() {
+        let printed = mcp_registration(r"C:\Program Files\xerj\xerj.exe", "http://10.0.0.7:9200");
+        let blocks: Vec<Value> = printed
+            .lines()
+            .map(str::trim)
+            .filter(|l| l.starts_with("{\"mcpServers\""))
+            .map(|l| serde_json::from_str(l).unwrap_or_else(|e| panic!("{l}: {e}")))
+            .collect();
+        assert_eq!(blocks.len(), 2, "{printed}");
+        let beside = &blocks[0]["mcpServers"];
+        for tool in ["agent-desktop", "agent-browser"] {
+            assert_eq!(beside[tool]["command"], tool);
+            assert_eq!(beside[tool]["args"], json!(["mcp"]));
+        }
+        for block in &blocks {
+            let xerj = &block["mcpServers"]["xerj"];
+            assert_eq!(xerj["command"], r"C:\Program Files\xerj\xerj.exe");
+            assert_eq!(xerj["args"], json!(["mcp"]));
+            assert_eq!(xerj["env"]["XERJ_URL"], "http://10.0.0.7:9200");
+            // stdio only: no URL transport is offered for xerj.
+            assert!(xerj.get("url").is_none() && xerj.get("type").is_none());
+        }
+        assert_eq!(blocks[1]["mcpServers"].as_object().unwrap().len(), 1);
+        assert!(printed.contains("~/.openmausbot/config.json"));
+        assert!(printed.contains("switched off"));
+        assert!(printed.contains("init writes none of these files"));
+
+        let default = mcp_registration("/usr/local/bin/xerj", DEFAULT_URL);
+        assert!(!default.contains("XERJ_URL"), "{default}");
+    }
+
+    #[test]
+    fn init_writes_nothing_into_openmausbot_or_agent_tool_config() {
+        let dir = tmp();
+        let lines = run_init_in(dir.path(), DEFAULT_URL, false).unwrap();
+        for line in &lines {
+            assert!(!line.contains(".openmausbot"), "{line}");
+            assert!(!line.contains("agent-desktop"), "{line}");
+        }
+        assert!(!dir.path().join(".openmausbot").exists());
     }
 
     /// What init prints and what the skill teaches are one registration, not

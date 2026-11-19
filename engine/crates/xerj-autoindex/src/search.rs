@@ -127,6 +127,136 @@ pub(crate) fn lexical_semantic_note(resp: &Value) -> Option<&'static str> {
     )
 }
 
+/// The node endpoint that names the embedder this process runs (#487). It is
+/// the same read `xerj autoindex` makes before a semantic run, and it carries
+/// no model path, URL or key.
+pub const EMBED_IDENTITY_PATH: &str = "/v1/embedding/identity";
+
+/// `_xerj.hints` code for a natural-language query on a lexical node (#2513).
+pub const LEXICAL_EMBEDDER_HINT: &str = "lexical_embedder";
+
+/// The embedder backend out of a `GET /v1/embedding/identity` body
+/// (`lexical`, `neural`, `proxy`, `onnx-experimental`). An error body, an old
+/// node without the endpoint, or a malformed answer is `None`: the caller then
+/// states nothing rather than guessing the default.
+pub fn embed_mode_from_identity(body: &Value) -> Option<String> {
+    let backend = body.pointer("/data/backend")?.as_str()?.trim();
+    let known = !backend.is_empty()
+        && backend.len() <= 32
+        && backend
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-' || c == '_');
+    known.then(|| backend.to_string())
+}
+
+/// True when `q` reads as a sentence or question rather than a lookup.
+///
+/// Three or more words, at least two of them plain words (letters only, no
+/// `_`, `::`, `.` or inner capital, so `getUserInfo` and `parse_config` are
+/// not), or any query ending in `?`. Scripts without case (Persian, CJK)
+/// count as plain words. One or two words are a lookup.
+pub fn looks_natural_language(q: &str) -> bool {
+    let q = q.trim();
+    if q.is_empty() {
+        return false;
+    }
+    if q.ends_with('?') && q.split_whitespace().count() >= 2 {
+        return true;
+    }
+    let words: Vec<&str> = q.split_whitespace().collect();
+    if words.len() < 3 {
+        return false;
+    }
+    let plain = words
+        .iter()
+        .filter(|w| {
+            let w = w.trim_matches(|c: char| matches!(c, ',' | ';' | ':' | '"' | '\'' | '(' | ')'));
+            let mut chars = w.chars();
+            match chars.next() {
+                Some(first) if first.is_alphabetic() => {
+                    chars.all(|c| c.is_alphabetic() && !c.is_uppercase())
+                }
+                _ => false,
+            }
+        })
+        .count();
+    plain >= 2
+}
+
+/// The hint reason for `tool` when a natural-language query ran while the
+/// node embeds with lexical feature hashing.
+///
+/// `xerj search` and a plain `xerj_search` send a keyword query whatever the
+/// embedder is; the semantic and hybrid tools embed the query, and on this
+/// node that embedding is also word based. Both cases say what to do next.
+pub fn lexical_embedder_reason(tool: &str) -> String {
+    let what = match tool {
+        "xerj_semantic_search" | "xerj_hybrid_search" => {
+            "This node embeds with lexical feature hashing (embed_mode: lexical, the default), \
+             so the vector leg matched shared words, not meaning."
+        }
+        _ => {
+            "This is a keyword search, and this node's embedder is lexical feature hashing \
+             (embed_mode: lexical, the default), so semantic and hybrid search would also \
+             match words, not meaning."
+        }
+    };
+    format!(
+        "{what} A natural-language question finds the passage only when it shares words with \
+         it: use the words and identifiers the target text uses, or `xerj def <Symbol>` / \
+         xerj_def for a definition. Meaning-based matching needs a node started with \
+         --embed-mode neural and a re-index."
+    )
+}
+
+/// Add `_xerj.embed_mode` to a search response, and one
+/// [`LEXICAL_EMBEDDER_HINT`] entry when `query` reads as natural language and
+/// the node is lexical (#2513). `mode` is `None` when the node did not say;
+/// then nothing is added. A response that is not a JSON object is left alone.
+pub fn attach_embed_mode(resp: &mut Value, mode: Option<&str>, query: Option<&str>, tool: &str) {
+    let Some(mode) = mode else {
+        return;
+    };
+    let Some(obj) = resp.as_object_mut() else {
+        return;
+    };
+    let xerj = obj.entry("_xerj").or_insert_with(|| json!({}));
+    let Some(xerj) = xerj.as_object_mut() else {
+        return;
+    };
+    xerj.insert("embed_mode".into(), json!(mode));
+    if mode != "lexical" || !query.is_some_and(looks_natural_language) {
+        return;
+    }
+    let hints = xerj.entry("hints").or_insert_with(|| json!([]));
+    let Some(hints) = hints.as_array_mut() else {
+        return;
+    };
+    if hints
+        .iter()
+        .any(|h| h.get("code").and_then(Value::as_str) == Some(LEXICAL_EMBEDDER_HINT))
+    {
+        return;
+    }
+    hints.push(json!({
+        "code": LEXICAL_EMBEDDER_HINT,
+        "reason": lexical_embedder_reason(tool),
+    }));
+}
+
+/// The one stderr line `xerj search` prints for the same case.
+pub(crate) fn lexical_embedder_line(resp: &Value) -> Option<&'static str> {
+    let hints = resp.pointer("/_xerj/hints")?.as_array()?;
+    hints
+        .iter()
+        .any(|h| h.get("code").and_then(Value::as_str) == Some(LEXICAL_EMBEDDER_HINT))
+        .then_some(
+            "xerj search: keyword match on a lexical node (embed_mode: lexical). A question \
+             finds a passage only through shared words; use the words or identifiers the code \
+             uses, or `xerj def <Symbol>`.",
+        )
+}
+
 /// Text to print for one hit.
 ///
 /// Passage first, then the symbol `code`. When the engine matched a document
@@ -1166,6 +1296,18 @@ pub fn run_search_cli() -> i32 {
     // header cite the matched line. `xerj code --json` is the raw server
     // body and does not share this hit post-pass.
     xerj_common::xccode::passage::annotate_search_match_lines(&mut resp, &query);
+    // #2513: say which embedder the node runs, so a question that missed is
+    // not read as a semantic miss. An old node or a refused read adds nothing.
+    let embed_mode = es
+        .get_json(EMBED_IDENTITY_PATH)
+        .ok()
+        .and_then(|body| embed_mode_from_identity(&body));
+    attach_embed_mode(
+        &mut resp,
+        embed_mode.as_deref(),
+        Some(&query),
+        "xerj search",
+    );
     let hint = stale.join().ok().flatten();
     if as_json {
         if let Some(hint) = &hint {
@@ -1177,8 +1319,9 @@ pub fn run_search_cli() -> i32 {
         );
         return 0;
     }
-    if let Some(note) = lexical_semantic_note(&resp) {
-        eprintln!("{note}");
+    // One line, not two: the embedder line already says the hits are lexical.
+    if let Some(line) = lexical_embedder_line(&resp).or_else(|| lexical_semantic_note(&resp)) {
+        eprintln!("{line}");
     }
     if let Some(hint) = &hint {
         println!("{}", hint.cli_line());
@@ -1453,6 +1596,76 @@ mod tests {
             "search /ax-* HTTP 403: {\"error\":{\"type\":\"security_exception\"}}",
         );
         assert!(!other.contains("is the prefix right"), "{other}");
+    }
+
+    /// #2513: questions are told apart from lookups, in any script.
+    #[test]
+    fn natural_language_queries_are_told_apart_from_lookups() {
+        for nl in [
+            "when is a worktree path allowed",
+            "how is WAL rotation implemented",
+            "getUserInfo user info api",
+            "where does it retry?",
+            "قوانین نام گذاری کلون ها",
+        ] {
+            assert!(looks_natural_language(nl), "{nl}");
+        }
+        for lookup in [
+            "",
+            "parse_config",
+            "IOSIntfLine",
+            "Tree::flush",
+            "rotate keys",
+            "src/lib.rs parse_config Tree::flush",
+            "WAL HNSW BM25",
+        ] {
+            assert!(!looks_natural_language(lookup), "{lookup}");
+        }
+    }
+
+    #[test]
+    fn embed_mode_is_read_from_the_identity_body_and_never_guessed() {
+        let body = json!({"data": {"backend": "lexical", "identity_sha256": "a"}});
+        assert_eq!(embed_mode_from_identity(&body).as_deref(), Some("lexical"));
+        let neural = json!({"data": {"backend": "neural"}});
+        assert_eq!(embed_mode_from_identity(&neural).as_deref(), Some("neural"));
+        for bad in [
+            json!({"error": "not found"}),
+            json!({"data": {"backend": ""}}),
+            json!({"data": {"backend": 7}}),
+            json!({"data": {"backend": "<script>"}}),
+        ] {
+            assert_eq!(embed_mode_from_identity(&bad), None, "{bad}");
+        }
+    }
+
+    #[test]
+    fn embed_mode_and_one_hint_are_attached_beside_existing_hints() {
+        let mut resp = json!({"hits": {"hits": []},
+            "_xerj": {"hints": [{"code": "index_stale", "reason": "r"}]}});
+        let q = Some("when is a worktree path allowed");
+        attach_embed_mode(&mut resp, Some("lexical"), q, "xerj search");
+        attach_embed_mode(&mut resp, Some("lexical"), q, "xerj search");
+        assert_eq!(resp["_xerj"]["embed_mode"], "lexical");
+        let hints = resp["_xerj"]["hints"].as_array().unwrap();
+        assert_eq!(hints.len(), 2, "{resp}");
+        assert_eq!(hints[0]["code"], "index_stale");
+        assert_eq!(hints[1]["code"], LEXICAL_EMBEDDER_HINT);
+        assert!(lexical_embedder_line(&resp).is_some());
+
+        let mut neural = json!({"hits": {"hits": []}});
+        attach_embed_mode(&mut neural, Some("neural"), q, "xerj search");
+        assert_eq!(neural["_xerj"]["embed_mode"], "neural");
+        assert!(neural["_xerj"].get("hints").is_none());
+        assert!(lexical_embedder_line(&neural).is_none());
+
+        let mut unknown = json!({"hits": {"hits": []}});
+        attach_embed_mode(&mut unknown, None, q, "xerj search");
+        assert!(unknown.get("_xerj").is_none(), "{unknown}");
+
+        let reason = lexical_embedder_reason("xerj_semantic_search");
+        assert!(reason.contains("vector leg"), "{reason}");
+        assert!(reason.contains("--embed-mode neural"), "{reason}");
     }
 
     #[test]

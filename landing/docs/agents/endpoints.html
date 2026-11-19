@@ -310,7 +310,15 @@
  "_source": ["body"]}
 
 → top hit _id "2" — "Reverting a broken release to the previous version." (shares no words)</pre>
-  <p><strong>Honesty:</strong> the zero-config built-in embedder is deterministic and lexical, not a large neural model — great for offline, reproducible retrieval. For production semantic quality, map the field with an <code class="inline">inference_id</code> / <code class="inline">inference_endpoint</code> pointing at your own OpenAI-compatible embeddings service; the query shape is unchanged.</p>
+  <p><strong>Honesty:</strong> the zero-config built-in embedder is deterministic and lexical, not a large neural model — great for offline, reproducible retrieval. For meaning-based matching, start the node with <code class="inline">--embed-mode neural</code> (the built-in BERT encoder) or <code class="inline">--embed-mode proxy</code> (your own OpenAI-compatible embeddings service) and re-index; the query shape is unchanged. An <code class="inline">inference_id</code> / <code class="inline">inference_endpoint</code> in the mapping does not switch the embedder: the create response says so in a warning.</p>
+  <h3 id="embed-mode">Which embedder answered</h3>
+  <p><code class="inline">GET /v1/embedding/identity</code> names the node's embedder in <code class="inline">data.backend</code> (<code class="inline">lexical</code>, <code class="inline">neural</code>, <code class="inline">proxy</code>, <code class="inline">onnx-experimental</code>), with no model path, URL or key. On main (not in rc.104), the MCP tools <code class="inline">xerj_search</code>, <code class="inline">xerj_semantic_search</code>, <code class="inline">xerj_hybrid_search</code> and <code class="inline">xerj search --json</code> copy it into the response, and add one hint when a natural-language question ran on a lexical node:</p>
+<pre class="code">"_xerj": {
+  "embed_mode": "lexical",
+  "hints": [{"code": "lexical_embedder",
+             "reason": "This is a keyword search, and this node's embedder is lexical feature hashing (embed_mode: lexical, the default), so semantic and hybrid search would also match words, not meaning. …"}]
+}</pre>
+  <p>A lookup (<code class="inline">parse_config</code>, <code class="inline">Tree::flush</code>, one or two words) gets <code class="inline">embed_mode</code> and no hint. A node that does not answer the identity read (an old build, or a key without access) gets neither: the tools never guess the default. Rephrase with the words and identifiers the target text uses, or call <code class="inline">xerj_def</code> for a definition.</p>
 
   <h2 id="vector">xerj_vector_search — kNN</h2>
   <p>Bring your own embeddings: map a <code class="inline">dense_vector</code> field, store vectors on each doc, and pass a <code class="inline">query_vector</code> as a <strong>top-level</strong> <code class="inline">knn</code> block (ES 8.x shape).</p>
@@ -442,8 +450,33 @@ warning: approach-only licence (mixed: BSD-2 (lib) / GPL-2.0+ (rest)): read, do 
   <p><strong>The tools never download.</strong> A tool call does not wait on the network: it reads the catalogue already cached and the packs already on the machine. Until a human or a shell agent has run <code class="inline">xerj hub sync</code> once and <code class="inline">xerj hub pull &lt;slug&gt;</code> for the corpus, the call returns <code class="inline">isError: true</code> with the command to run:</p>
 <pre class="code">no hub catalogue is cached on this machine, and hub tools never fetch one (a tool call does not wait on the network); run `xerj hub sync` in a shell once, then call the tool again (…)
 no local pack for 'lz4' and --no-fetch forbids downloading it; run: xerj hub pull lz4 (5.5 MB)</pre>
-  <p>Report that line to the user; do not answer from memory instead. Registration per client, the routing rules and every other message: <a href="/docs/corpus-hub#mcp">Corpus Hub · MCP</a>. Schemas: <a href="/docs/agents/schemas/mcp-tools.json">mcp-tools.json</a>.</p>
+  <p>Report that line to the user; do not answer from memory instead. Registration per client, the routing rules and every other message: <a href="/docs/corpus-hub#mcp">Corpus Hub · MCP</a>. Schemas: <a href="#mcp-schema">per release, and for main</a>.</p>
   <p class="source-note">Tools: engine/crates/xerj-mcp/src/lib.rs · flow: engine/crates/xerj-hub/src/ask.rs</p>
+
+  <h2 id="mcp-schema">MCP tool schemas, per release</h2>
+  <p>Two files, both generated from a real <code class="inline">tools/list</code>, never written by hand:</p>
+  <ul>
+    <li><a href="/docs/agents/schemas/mcp-tools-1.0.0-rc.104.json">mcp-tools-1.0.0-rc.104.json</a>: exactly what the rc.104 binary serves (24 tools). Each release adds <code class="inline">mcp-tools-&lt;version&gt;.json</code>, named by the version the binary itself reports, and attaches the same file to its GitHub release. A published one never changes.</li>
+    <li><a href="/docs/agents/schemas/mcp-tools.json">mcp-tools.json</a>: what main serves. It can list a tool your installed binary does not have yet.</li>
+  </ul>
+  <p>Read the file that matches <code class="inline">xerj --version</code>. To check it against the binary you hold, from a checkout of the release tag:</p>
+<pre class="code">XERJ_BIN="$(command -v xerj)" scripts/mcp-schema-check.sh --release
+→ RESULT: PASS — published schema matches the binary (24 tools)</pre>
+  <p>The <code class="inline">xerj_status</code> tool also lists the tools the running binary serves, with its version.</p>
+
+  <h2 id="desktop-agents">Computer-use tools and AI-coworker apps</h2>
+  <p><code class="inline">xerj mcp</code> is a stdio server. These setups were checked against each project's own docs on 2026-11-19; <code class="inline">xerj init</code> prints them with your binary's absolute path and writes none of them.</p>
+  <p><strong>agent-desktop and agent-browser</strong> (vercel-labs). Both are MCP servers themselves (<code class="inline">agent-desktop mcp</code>, <code class="inline">agent-browser mcp</code>), not clients: they run inside a coding agent. Register xerj in that agent's <code class="inline">mcpServers</code>, beside them, so the agent that drives the desktop or the browser can also search the project and the files it downloaded:</p>
+<pre class="code">{"mcpServers": {
+  "agent-browser": {"command": "agent-browser", "args": ["mcp"]},
+  "agent-desktop": {"command": "agent-desktop", "args": ["mcp"]},
+  "xerj": {"command": "/abs/path/to/xerj", "args": ["mcp"]}
+}}</pre>
+  <p>Index what they produce like any folder: <code class="inline">xerj autoindex ~/Downloads --prefix downloads</code>, then search with <code class="inline">--prefix downloads</code>. Restart the agent; success: <code class="inline">xerj_search</code> is in its tool list next to <code class="inline">desktop_snapshot</code> or the browser tools.</p>
+  <p><strong>OpenMausBot.</strong> Open Plugins → MCP servers → Add server and paste:</p>
+<pre class="code">{"mcpServers": {"xerj": {"command": "/abs/path/to/xerj", "args": ["mcp"]}}}</pre>
+  <p>Success: the row says <em>Connected: &lt;N&gt; tools</em>. The registry is <code class="inline">~/.openmausbot/config.json</code>. If xerj is already registered in Claude Code, OpenMausBot's first-run import copies it in <em>switched off</em>: turn <code class="inline">xerj</code> on in Plugins → MCP servers. For a node that is not on <code class="inline">localhost:9200</code>, add <code class="inline">"env": {"XERJ_URL": "http://host:port"}</code>, and <code class="inline">"XERJ_AUTH": "ApiKey &lt;key&gt;"</code> when it is not a loopback node.</p>
+  <p class="source-note">Printed by: engine/crates/xerj-autoindex/src/init.rs (desktop_agent_registration)</p>
 
   <div class="next">
       <div class="step"><span class="dir">◀ PREV</span><a href="/docs/agents/quickstart">Agent quickstart</a></div>
