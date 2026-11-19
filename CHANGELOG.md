@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Bio pack `bio.outline` and `bio.evidence` grading primitives (#2766, #2769).**
+  `xerj_common::bio_pack` deterministically grades biomedical evidence by
+  `StudyType` (`MetaAnalysis`, `SystematicReview`,
+  `RandomizedControlledTrial`, `CohortStudy`, `CaseControl`, `CaseReport`,
+  `Preclinical`, `InVitro`) into `EvidenceTier` (`Level1A`..`Level5`) with an
+  explicit `GradeRule`, refuses `LicenceClass::Excluded` corpora, separates
+  clinical from preclinical/in-vitro findings with automatic abstention,
+  surfaces contradictory/adverse findings, and seals `BioEvidencePacket` and
+  `BioOutlineReport` with a mandatory non-medical-advice notice and RFC 8785
+  (JCS) SHA-256 receipt (`docs/bio-pack.md`).
+
+
 ## [1.0.0-rc.104] - 2026-11-18
 
 **rc.104: rc.103 on every platform.** rc.104 is the rc.103 code with the
