@@ -315,6 +315,12 @@ jobs:
       - name: List artifacts
         run: ls -la dist/
 
+      # One combined checksum file for mirror installs (#3278). The model
+      # bundle is uploaded separately; `scripts/release-sha256sums.sh --tag`
+      # rebuilds this asset from every *.sha256 on the release afterwards.
+      - name: Build SHA256SUMS
+        run: bash scripts/release-sha256sums.sh --dir dist
+
       # GitHub anchors auto-generated release notes ("Full Changelog") on the
       # most recently *published* release. Since the daily pack-rust-vulns-*
       # corpus-pack releases started, that anchor is a corpus pack, not the
@@ -378,3 +384,4 @@ jobs:
             dist/*.zip
             dist/*.deb
             dist/*.sha256
+            dist/SHA256SUMS

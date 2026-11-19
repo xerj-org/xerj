@@ -490,7 +490,7 @@ pub(crate) fn empty_lookup_report(
     let prefix_absent = matches!(snap.under_prefix, Some(ref names) if names.is_empty());
     let mut lines = Vec::new();
     if prefix_absent {
-        lines.push(missing_prefix_line(&pattern, snap));
+        lines.push(missing_prefix_line(&pattern, prefix, snap));
     } else if command == "def" {
         lines.push(format!("no definition in {pattern} for: {query}"));
         lines.push(format!(
@@ -502,6 +502,12 @@ pub(crate) fn empty_lookup_report(
     if command == "search" && identifier {
         lines.push(format!(
             "(looks like a symbol name — try: xerj def {query})"
+        ));
+    } else if command == "search" && !prefix_absent {
+        // #3269: a sentence that matched nothing gets one concrete retry.
+        lines.push(format!(
+            "({})",
+            crate::zero_hits::no_match_suggestion(query)
         ));
     }
 
@@ -542,7 +548,10 @@ pub(crate) fn empty_lookup_report(
         if !prefix_absent {
             lines.push(format!("prefixes on this node: {}", prefixes.join(", ")));
         }
-        if let Some(other) = prefixes.iter().find(|p| p.as_str() != prefix) {
+        // #3269: the closest prefix, not the first in sort order.
+        let other = crate::zero_hits::closest_prefix(prefix, prefixes)
+            .or_else(|| prefixes.iter().find(|p| p.as_str() != prefix).cloned());
+        if let Some(other) = other {
             lines.push(format!("try: xerj {command} --prefix {other} \"{query}\""));
         }
     } else if let Some(indices) = snap.all_indices.as_ref().filter(|n| !n.is_empty()) {
@@ -566,7 +575,12 @@ pub(crate) fn empty_lookup_report(
 /// Prefixes from the catalog win. Index names are the fallback when the
 /// catalog has none (an autoindex that aborted before writing a run or
 /// dataset document still left `{prefix}-{slug}` indices).
-fn missing_prefix_line(pattern: &str, snap: &CorpusSnapshot) -> String {
+///
+/// #3269: the line also names the closest prefix — a suffix of the real name
+/// (`foo` for `grp-foo`), the same letters with another separator (`ab` for
+/// `a-b`), or a near spelling — and says so when the node holds no index at
+/// all, instead of ending after the headline.
+fn missing_prefix_line(pattern: &str, prefix: &str, snap: &CorpusSnapshot) -> String {
     let mut line = format!("no indices named {pattern} — this is not a search result");
     if let Some(prefixes) = snap.catalog_prefixes.as_ref().filter(|p| !p.is_empty()) {
         line.push_str(&format!("; prefixes on this node: {}", prefixes.join(", ")));
@@ -575,6 +589,15 @@ fn missing_prefix_line(pattern: &str, snap: &CorpusSnapshot) -> String {
             "; indices on this node: {}",
             join_capped(indices, 20)
         ));
+    } else if snap.all_indices.as_ref().is_some_and(|n| n.is_empty()) {
+        line.push_str("; this node holds no indices yet");
+    }
+    let known = crate::zero_hits::node_prefixes(
+        snap.catalog_prefixes.as_deref().unwrap_or_default(),
+        snap.all_indices.as_deref().unwrap_or_default(),
+    );
+    if let Some(closest) = crate::zero_hits::closest_prefix(prefix, &known) {
+        line.push_str(&format!("; closest: {closest}"));
     }
     line
 }
@@ -1040,8 +1063,11 @@ pub fn run_search_cli() -> i32 {
     let prefix = resolved.prefix;
     let pattern = resolved.pattern;
     if url.is_empty() {
-        url = "http://localhost:9200".to_string();
+        // #3267: the local node's recorded port, not a fixed :9200.
+        url = xerj_common::localnode::default_url();
     }
+    // #3267: a stopped loopback node is started (detached) before the query.
+    xerj_common::localnode::ensure_for_cli("xerj search", &url);
     if api_key.is_none() && xerj_common::localauth::url_is_loopback(&url) {
         if let Some(found) =
             xerj_common::localauth::discover_local_admin_key_for_url_with_origin(&url)
@@ -2323,6 +2349,72 @@ mod tests {
         );
         assert!(text.contains("catalog lists no prefixes"), "{text}");
         assert!(!text.contains("xerj autoindex"), "{text}");
+    }
+
+    /// #3269: `--prefix foo` on a node that only holds `grp-foo-*` names
+    /// `grp-foo` as the closest prefix and the retry uses it, not the first
+    /// prefix in sort order. An index-only node (no catalog) derives its
+    /// prefixes from the index names; an empty node says so.
+    #[test]
+    fn a_missing_prefix_names_the_closest_one() {
+        let (lines, exit) = empty_lookup_report(
+            "search",
+            "foo",
+            "q",
+            false,
+            &snap(
+                Some(vec![]),
+                Some(vec!["aaa-docs", "grp-foo-docs"]),
+                Some(vec!["aaa", "grp-foo"]),
+            ),
+        );
+        assert_eq!(exit, 1);
+        assert!(lines[0].contains("closest: grp-foo"), "{lines:?}");
+        let text = lines.join("\n");
+        assert!(
+            text.contains("try: xerj search --prefix grp-foo \"q\""),
+            "{text}"
+        );
+
+        let (lines, _) = empty_lookup_report(
+            "search",
+            "ab",
+            "q",
+            false,
+            &snap(Some(vec![]), Some(vec!["a-b-docs"]), None),
+        );
+        assert!(lines[0].contains("closest: a-b"), "{lines:?}");
+
+        let (lines, _) = empty_lookup_report(
+            "def",
+            "nope",
+            "Db",
+            false,
+            &snap(Some(vec![]), Some(vec![]), Some(vec![])),
+        );
+        assert!(
+            lines[0].contains("this node holds no indices yet"),
+            "{lines:?}"
+        );
+    }
+
+    #[test]
+    fn a_sentence_that_matched_nothing_gets_one_retry_line() {
+        let (lines, exit) = empty_lookup_report(
+            "search",
+            "sled",
+            "how does the tree flush work",
+            false,
+            &snap(
+                Some(vec!["sled-docs"]),
+                Some(vec!["sled-docs"]),
+                Some(vec!["sled"]),
+            ),
+        );
+        assert_eq!(exit, 0);
+        let text = lines.join("\n");
+        assert!(text.contains("no match in sled-*"), "{text}");
+        assert!(text.contains("two or three distinctive words"), "{text}");
     }
 
     #[test]

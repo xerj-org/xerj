@@ -48,6 +48,38 @@ pub(crate) struct Volume {
 pub(crate) struct Probe {
     pub volume: Option<Volume>,
     pub refusal: Option<String>,
+    /// `path.data` from the same row, when the node reports it.
+    pub data_dir: Option<String>,
+}
+
+impl Probe {
+    /// The #3282 sentence when the volume is at an enabled flood stage: the
+    /// drive, its used percent, the stage, how much to free, and the
+    /// `--data-dir` move. `None` below the stage or when the node did not
+    /// report a threshold.
+    pub(crate) fn flood_hint(&self) -> Option<String> {
+        flood_hint(self.volume.as_ref()?, self.data_dir.as_deref())
+    }
+}
+
+/// See [`Probe::flood_hint`].
+pub(crate) fn flood_hint(volume: &Volume, data_dir: Option<&str>) -> Option<String> {
+    let flood = volume.flood_stage?;
+    let used = volume.used_percent.or_else(|| {
+        let (total, avail) = (volume.total?, volume.avail?);
+        (total > 0).then(|| total.saturating_sub(avail).saturating_mul(100) / total)
+    })?;
+    if !xerj_common::disk_hint::at_flood_stage(used, flood, volume.threshold_enabled) {
+        return None;
+    }
+    let sizes = volume.total.zip(volume.avail);
+    Some(xerj_common::disk_hint::flood_stage_hint(
+        data_dir.unwrap_or(""),
+        used,
+        flood,
+        sizes,
+        "0 bytes of index budget",
+    ))
 }
 
 /// `None` fields when the node cannot be asked. A stats blip must not abort
@@ -58,17 +90,21 @@ pub(crate) fn probe(es: &Es) -> Probe {
         return Probe {
             volume: None,
             refusal: None,
+            data_dir: None,
         };
     };
     if !(200..300).contains(&status) {
         return Probe {
             volume: None,
             refusal: None,
+            data_dir: None,
         };
     }
+    let dir = disk_facts_from_allocation(&body).data_dir;
     Probe {
         volume: volume_from_allocation(&body),
         refusal: refusal_from_allocation(&body),
+        data_dir: (!dir.is_empty()).then_some(dir),
     }
 }
 
@@ -312,6 +348,41 @@ pub fn disk_facts_from_allocation(body: &Value) -> DiskFacts {
     }
 }
 
+/// The data directory the node at `es` serves, from the same
+/// `_cat/allocation` row. `None` when the node does not say (an older XERJ,
+/// Elasticsearch, a test double) or cannot be asked.
+pub(crate) fn data_dir(es: &Es) -> Option<String> {
+    let (status, body) = es.request_json("GET", ALLOCATION_PATH, None).ok()?;
+    if !(200..300).contains(&status) {
+        return None;
+    }
+    let dir = disk_facts_from_allocation(&body).data_dir;
+    (!dir.is_empty()).then_some(dir)
+}
+
+/// What `autoindex map` adds when the catalog is missing or empty (#2409).
+///
+/// A bare `xerj` launch can start on a brand-new data directory while the
+/// user's indices live in the one an earlier `--data-dir`/`--config` named.
+/// The map then reads "missing autoindex-catalog", which looked like data
+/// loss. Naming the directory this node serves turns that into a check the
+/// user can make. The node does not look for other data directories, so the
+/// hint does not claim any exist.
+pub(crate) fn map_data_dir_hint(data_dir: Option<&str>, url: &str) -> String {
+    match data_dir {
+        Some(dir) => format!(
+            "The node at {url} serves data directory {dir}. If you indexed while the node \
+             ran with another --data-dir or --config, restart it with that one: a node \
+             reads only its own data directory and does not look for others."
+        ),
+        None => format!(
+            "If you indexed while the node ran with another --data-dir or --config, the node \
+             at {url} may be serving a different data directory; its startup log names the \
+             one in use (`server data directory data_dir=...`)."
+        ),
+    }
+}
+
 fn classify_memory_flood(body: &Value) -> MemoryFloodClass {
     if let Some(reason) = body.pointer("/error/reason").and_then(Value::as_str) {
         if reason.contains("the disk holding the data dir is nearly full") {
@@ -410,6 +481,30 @@ mod tests {
         assert!(refusal_from_allocation(&row("95", "1b", "95", "true", "false")).is_some());
     }
 
+    /// #2409: an empty map names the data directory the node serves, so a
+    /// node started on a new folder is not read as data loss.
+    #[test]
+    fn the_map_hint_names_the_served_data_directory() {
+        let hint = map_data_dir_hint(Some("/work/proj/data"), "http://127.0.0.1:19300");
+        assert!(hint.contains("http://127.0.0.1:19300"), "{hint}");
+        assert!(
+            hint.contains("serves data directory /work/proj/data"),
+            "{hint}"
+        );
+        assert!(
+            hint.contains("--data-dir") && hint.contains("--config"),
+            "{hint}"
+        );
+        assert!(hint.contains("does not look for others"), "{hint}");
+
+        let unknown = map_data_dir_hint(None, "http://127.0.0.1:19300");
+        assert!(!unknown.contains("serves data directory"), "{unknown}");
+        assert!(
+            unknown.contains("server data directory data_dir="),
+            "{unknown}"
+        );
+    }
+
     #[test]
     fn a_healthy_volume_and_a_raised_or_disabled_watermark_do_not_refuse() {
         assert!(refusal_from_allocation(&row("40", "1000b", "95", "true", "false")).is_none());
@@ -444,6 +539,41 @@ mod tests {
         .is_none());
         assert!(refusal_from_allocation(&json!({"acknowledged": true})).is_none());
         assert!(refusal_from_allocation(&json!([])).is_none());
+    }
+
+    /// #3282: a volume at the flood stage names the drive, the percent, the
+    /// stage and the `--data-dir` fix; below it, or with the watermark off,
+    /// nothing is printed.
+    #[test]
+    fn flood_hint_names_the_drive_and_the_data_dir_fix() {
+        const GIB: u64 = 1 << 30;
+        let mut v = Volume {
+            total: Some(100 * GIB),
+            avail: Some(4 * GIB),
+            used_percent: Some(96),
+            flood_stage: Some(95),
+            threshold_enabled: true,
+            flood_blocked: true,
+        };
+        let hint = flood_hint(&v, Some("D:/xerj-data")).unwrap();
+        assert!(
+            hint.starts_with("data-dir drive holding D:/xerj-data is 96% full (flood stage 95%)"),
+            "{hint}"
+        );
+        assert!(hint.contains("0 bytes of index budget"), "{hint}");
+        assert!(hint.contains("--data-dir on another drive"), "{hint}");
+        v.used_percent = Some(90);
+        assert_eq!(flood_hint(&v, Some("D:/xerj-data")), None);
+        v.used_percent = Some(96);
+        v.threshold_enabled = false;
+        assert_eq!(flood_hint(&v, None), None);
+        v.threshold_enabled = true;
+        v.flood_stage = None;
+        assert_eq!(
+            flood_hint(&v, None),
+            None,
+            "no threshold reported: not guessed"
+        );
     }
 
     #[test]

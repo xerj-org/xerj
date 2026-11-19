@@ -980,6 +980,15 @@ pub(crate) fn pending_script_fault() -> Option<String> {
         .unwrap_or(None)
 }
 
+/// The script deadline of the enclosing [`with_script_deadline`] scope, if any.
+///
+/// For work that leaves the request's task (a hybrid leg run on its own
+/// thread, #3018): read it here, then reinstall it there with
+/// [`with_script_deadline`], so the leg's scripts keep the request's budget.
+pub(crate) fn current_script_deadline() -> Option<std::time::Instant> {
+    SCRIPT_REQUEST_DEADLINE.try_with(|deadline| *deadline).ok()
+}
+
 /// Run `fut` with the enclosing request's deadline visible to every script it
 /// evaluates, so no single document's evaluation can overshoot it.
 pub async fn with_script_deadline<F>(deadline: std::time::Instant, fut: F) -> F::Output

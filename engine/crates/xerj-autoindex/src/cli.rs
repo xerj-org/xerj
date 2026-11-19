@@ -85,6 +85,11 @@ pub struct IndexCfg {
     /// `--stub <glob>` patterns: matching files are indexed as one
     /// existence-only name card, contents never opened.
     pub stub_globs: Vec<String>,
+    /// Stub the lockfiles in [`crate::order::GENERATED_FILES`] as if each had
+    /// been passed to `--stub` (#2439). On by default; `--no-default-stubs`
+    /// clears it so a lockfile is extracted in full. Kept apart from
+    /// `stub_globs` so the rebuild argv states only what the operator typed.
+    pub default_stubs: bool,
     /// `.gitignore` / `.xerjignore` / built-in build-output rules (#276).
     /// `deep_count` is set from `--dry-run` (and from `--walk-only`, which
     /// implies it).
@@ -427,11 +432,13 @@ pub fn help_text_with(feedback: bool) -> String {
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20refuse anything, because your folder is\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20already inside it\n\
          \x20\x20\x20\x20--stub <GLOB>        index matching files as ONE existence-only name\n\
-         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20card (title + provenance); contents are never\n\
-         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20opened. Repeatable. A pattern without '/'\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20card (title, size + provenance); contents are\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20never parsed. Repeatable. A pattern without '/'\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20matches file names anywhere ('*.bvh'); with '/'\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20it matches the root-relative path\n\
-         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20('unity/**/*.csv'). '**' crosses directories\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20('unity/**/*.csv'). '**' crosses directories.\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20Lockfiles are stubbed by default: {lockfiles}\n\
+         \x20\x20\x20\x20--no-default-stubs   extract those lockfiles in full instead of stubbing\n\
          \x20\x20\x20\x20--exclude <GLOB>     leave matching paths out of the index entirely (not\n\\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20walked, not counted). Repeatable, same glob syntax\n\\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20as --stub ('gen/**', '*.log'). Use it for a tree you do\n\\
@@ -687,6 +694,11 @@ pub fn help_text_with(feedback: bool) -> String {
          \x20\x20\x20\x20enforced: paths and other outside text are stripped of control\n\
          \x20\x20\x20\x20characters and bounded before they reach any line, so a crafted\n\
          \x20\x20\x20\x20filename cannot forge a record or repaint your terminal.\n\
+         \x20\x20\x20\x20Every line is UTF-8. A Windows console window shows it as written;\n\
+         \x20\x20\x20\x20a pipe is decoded by its reader, so a PowerShell capture on a\n\
+         \x20\x20\x20\x20non-UTF-8 code page (936, 932, ...) turns non-ASCII paths into\n\
+         \x20\x20\x20\x20mojibake. Run `[Console]::OutputEncoding = [Text.Encoding]::UTF8`\n\
+         \x20\x20\x20\x20(or `chcp 65001`) first.\n\
          \x20\x20\x20\x20`pct`/`eta_s` are the literal word `unknown` (JSON null) whenever they\n\
          \x20\x20\x20\x20cannot be computed honestly, never a filler number — and the drawn\n\
          \x20\x20\x20\x20bar obeys the same rule: `[????…]` when there is no denominator,\n\
@@ -699,7 +711,10 @@ pub fn help_text_with(feedback: bool) -> String {
          \x20\x20\x20\x20\x20\x20\x20\x20finalize-correlate, finalize-histogram, finalize-catalog\n\
          \x20\x20\x20\x20\x20\x20--no-graph path:      walk, hash, scan, prepare (install mappings),\n\
          \x20\x20\x20\x20\x20\x20\x20\x20snapshot (seal + extract, bytes), index (sealed bulk bytes, the\n\
-         \x20\x20\x20\x20\x20\x20\x20\x20in-flight file named), finalize-catalog, finalize-refresh (one\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20in-flight file named), finalize-catalog,\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20finalize-catalog-readback (catalog ids read back),\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20finalize-catalog-commit (one item per catalog request, the\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20request named), finalize-refresh (one\n\
          \x20\x20\x20\x20\x20\x20\x20\x20refresh per dataset), finalize-verify (read-backs batched\n\
          \x20\x20\x20\x20\x20\x20\x20\x20into per-index digest windows, one search per window). A\n\
          \x20\x20\x20\x20\x20\x20\x20\x20resumed run starts at `replay` and its `index` phase\n\
@@ -875,7 +890,8 @@ pub fn help_text_with(feedback: bool) -> String {
         code_cap_bytes = crate::extract::code::CODE_CAP,
         fresh_help = FRESH_HELP,
         resume_policy_help = RESUME_POLICY_HELP,
-        defaults = crate::ignore_rules::DEFAULT_IGNORE_PATTERNS.join(" ")
+        defaults = crate::ignore_rules::DEFAULT_IGNORE_PATTERNS.join(" "),
+        lockfiles = crate::order::GENERATED_FILES.join(" ")
     )
 }
 
@@ -1011,6 +1027,7 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
     let mut exclude_globs: Vec<String> = Vec::new();
     let mut no_ignore = false;
     let mut no_default_ignores = false;
+    let mut no_default_stubs = false;
     // One of --max-file-gb / --max-file-mb / --max-file-bytes sets this, all
     // normalised to bytes; `None` until one is seen so a second size flag is a
     // hard error and the default (2 GB) applies only when none is given (#1233).
@@ -1186,6 +1203,7 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
             "--exclude" => exclude_globs.push(it.next().ok_or("--exclude needs a glob pattern")?),
             "--no-ignore" => no_ignore = true,
             "--no-default-ignores" => no_default_ignores = true,
+            "--no-default-stubs" => no_default_stubs = true,
             "--max-file-gb" => {
                 set_max_file_bytes(&mut max_file_bytes, "--max-file-gb", it.next(), 1u64 << 30)?
             }
@@ -2120,6 +2138,7 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
                 follow_symlinks,
                 follow_symlinks_outside_root,
                 stubs: !stub_globs.is_empty(),
+                no_default_stubs,
                 excludes: !exclude_globs.is_empty(),
                 ignore: !ignore_flags_used.is_empty(),
                 max_file: max_file_bytes.is_some(),
@@ -2300,6 +2319,7 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
                 follow_symlinks,
                 follow_symlinks_outside_root,
                 stub_globs,
+                default_stubs: !no_default_stubs,
                 ignore: IgnoreOptions {
                     enabled: !no_ignore,
                     defaults: !no_ignore && !no_default_ignores,
@@ -2366,6 +2386,7 @@ struct RemoveReject {
     follow_symlinks: bool,
     follow_symlinks_outside_root: bool,
     stubs: bool,
+    no_default_stubs: bool,
     excludes: bool,
     ignore: bool,
     max_file: bool,
@@ -2434,6 +2455,7 @@ fn remove_cmd(input: RemoveParse) -> Result<Cmd, String> {
             reject.follow_symlinks_outside_root,
         ),
         ("--stub", reject.stubs),
+        ("--no-default-stubs", reject.no_default_stubs),
         ("--exclude", reject.excludes),
         ("--no-ignore", reject.ignore),
         ("--max-file-bytes", reject.max_file),
@@ -3392,6 +3414,14 @@ mod tests {
         let walk = err(&["remove", "--prefix", "proj", "--walk-only"]);
         assert!(walk.contains("--walk-only"), "{walk}");
         assert!(walk.contains("not `autoindex remove`"), "{walk}");
+        let stubs = err(&["remove", "--prefix", "proj", "--no-default-stubs"]);
+        assert!(stubs.contains("--no-default-stubs"), "{stubs}");
+        assert!(
+            index(&["data"]).default_stubs,
+            "#2439: lockfiles stub by default"
+        );
+        assert!(!index(&["data", "--no-default-stubs"]).default_stubs);
+        assert!(super::help_text_with(false).contains("--no-default-stubs"));
         let cfg = match parse(
             [
                 "remove",

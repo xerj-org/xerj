@@ -206,6 +206,7 @@ pub fn finalize_definition_response(response: &mut Value, query: &str, k: usize)
         .unwrap_or_default();
     rerank_def_hits(&mut hits, query);
     let mut hits = unique_locations(hits);
+    demote_literal_references(&mut hits, query);
     hits.truncate(k);
     if let Some(slot) = response.pointer_mut("/hits/hits") {
         *slot = Value::Array(hits.clone());
@@ -481,6 +482,145 @@ pub(crate) fn rerank_def_hits(hits: &mut [Value], query: &str) {
     xerj_common::xccode::render::demote_sparse_definition_hits(hits, query);
 }
 
+/// True when `text` names `name` (as a whole identifier) at least once and
+/// every such occurrence sits inside a quoted string or a `[...]` list.
+///
+/// Quotes are `"`, `` ` `` and, unless `apostrophe_quotes` is false (Rust
+/// and OCaml use `'` for lifetimes and type variables), `'`. A quote counts
+/// only when it closes on the same line (backslash escapes honoured), so a
+/// stray apostrophe opens nothing. Bracket depth carries across lines, so a
+/// list that spans lines is one list. Comments are not parsed: a name in a
+/// comment counts as an occurrence outside a literal, which keeps the hit a
+/// declaration.
+fn only_in_literals(text: &str, name: &str, apostrophe_quotes: bool) -> bool {
+    if name.is_empty() {
+        return false;
+    }
+    let word = |b: u8| b.is_ascii_alphanumeric() || b == b'_' || b == b'$';
+    // The quote at `open` has a matching close later on the same line.
+    let closes = |bytes: &[u8], open: usize| {
+        let q = bytes[open];
+        let mut j = open + 1;
+        while j < bytes.len() {
+            match bytes[j] {
+                b'\\' => j += 2,
+                b if b == q => return true,
+                _ => j += 1,
+            }
+        }
+        false
+    };
+    let needle = name.as_bytes();
+    let mut depth = 0usize;
+    let mut seen = false;
+    for line in text.lines() {
+        let bytes = line.as_bytes();
+        let mut quote: Option<u8> = None;
+        let mut i = 0;
+        while i < bytes.len() {
+            let b = bytes[i];
+            if let Some(q) = quote {
+                if b == b'\\' {
+                    i += 2;
+                    continue;
+                }
+                if b == q {
+                    quote = None;
+                }
+            } else {
+                match b {
+                    b'"' | b'`' if closes(bytes, i) => quote = Some(b),
+                    b'\'' if apostrophe_quotes && closes(bytes, i) => quote = Some(b),
+                    b'[' => depth += 1,
+                    b']' => depth = depth.saturating_sub(1),
+                    _ => {}
+                }
+            }
+            if bytes[i..].starts_with(needle)
+                && (i == 0 || !word(bytes[i - 1]))
+                && bytes.get(i + needle.len()).is_none_or(|&n| !word(n))
+            {
+                seen = true;
+                if quote.is_none() && depth == 0 {
+                    return false;
+                }
+                i += needle.len();
+                continue;
+            }
+            i += 1;
+        }
+    }
+    seen
+}
+
+/// #3270: a hit that is not a declaration of `query` and names it only
+/// inside a string or a list (a helper script's `LABELS = ["foo", ...]`)
+/// is a reference. References keep their order but sort after every other
+/// hit, and carry `reference: true`. Only an identifier query is checked;
+/// a plain-words query has no single name to look for.
+pub(crate) fn demote_literal_references(hits: &mut Vec<Value>, query: &str) {
+    let name = query.trim();
+    if !is_identifier(name) {
+        return;
+    }
+    let mut declarations = Vec::with_capacity(hits.len());
+    let mut references = Vec::new();
+    for mut hit in hits.drain(..) {
+        let src = hit.get("_source").unwrap_or(&Value::Null);
+        let declares = src.get("name").and_then(Value::as_str) == Some(name);
+        let text = src
+            .get("code")
+            .and_then(Value::as_str)
+            .map(str::to_string)
+            .or_else(|| passage_text(&hit));
+        let apostrophes = !matches!(
+            src.get("language").and_then(Value::as_str),
+            Some("rust" | "ocaml" | "ocaml_interface")
+        );
+        let reference = !declares && text.is_some_and(|t| only_in_literals(&t, name, apostrophes));
+        if reference {
+            if let Some(obj) = hit.as_object_mut() {
+                obj.insert("reference".into(), Value::Bool(true));
+            }
+            references.push(hit);
+        } else {
+            declarations.push(hit);
+        }
+    }
+    declarations.extend(references);
+    *hits = declarations;
+}
+
+/// The bracketed tag after a hit's location: its kind plus what the
+/// freshness pass (#3268) or the reference check (#3270) said about it.
+fn hit_tag(hit: &Value) -> String {
+    let mut tags = Vec::new();
+    if let Some(kind) = hit
+        .pointer("/_source/kind")
+        .and_then(Value::as_str)
+        .filter(|k| !k.is_empty())
+    {
+        tags.push(kind.to_string());
+    }
+    if hit.get("reanchored") == Some(&Value::Bool(true)) {
+        match hit.get("indexed_line").and_then(Value::as_u64) {
+            Some(old) => tags.push(format!("reanchored, indexed at line {old}")),
+            None => tags.push("reanchored".into()),
+        }
+    }
+    if hit.get("unindexed") == Some(&Value::Bool(true)) {
+        tags.push("unindexed: in the file on disk, not in the index yet".into());
+    }
+    if hit.get("reference") == Some(&Value::Bool(true)) {
+        tags.push("reference: named inside a string or list, not declared".into());
+    }
+    if tags.is_empty() {
+        String::new()
+    } else {
+        format!("  [{}]", tags.join(", "))
+    }
+}
+
 /// Entry point for the `def` subcommand. Returns a process exit code.
 pub fn run_def_cli() -> i32 {
     let mut url = std::env::var("XERJ_URL")
@@ -551,8 +691,11 @@ pub fn run_def_cli() -> i32 {
     let prefix = resolved.prefix;
     let pattern = resolved.pattern;
     if url.is_empty() {
-        url = "http://localhost:9200".to_string();
+        // #3267: the local node's recorded port, not a fixed :9200.
+        url = xerj_common::localnode::default_url();
     }
+    // #3267: a stopped loopback node is started (detached) before the lookup.
+    xerj_common::localnode::ensure_for_cli("xerj def", &url);
     if api_key.is_none() && xerj_common::localauth::url_is_loopback(&url) {
         if let Some(found) =
             xerj_common::localauth::discover_local_admin_key_for_url_with_origin(&url)
@@ -620,12 +763,35 @@ pub fn run_def_cli() -> i32 {
         }
     };
 
-    let hits = finalize_definition_response(&mut resp, &query, k);
+    let mut hits = finalize_definition_response(&mut resp, &query, k);
     let hint = stale.join().ok().flatten();
+    // #3268: only a prefix the check found stale is compared with the
+    // folder, so a fresh tree reads no file and prints what it always did.
+    let correction = hint.as_ref().map(|hint| {
+        let fixed = crate::freshness::correct_definition_response(
+            &mut resp,
+            hint,
+            &query,
+            kind.as_deref(),
+            lang.as_deref(),
+            k,
+        );
+        if !fixed.is_empty() {
+            hits = resp
+                .pointer("/hits/hits")
+                .and_then(Value::as_array)
+                .cloned()
+                .unwrap_or_default();
+        }
+        fixed
+    });
 
     if as_json {
         if let Some(hint) = &hint {
             crate::staleness::attach(&mut resp, hint);
+        }
+        if let Some(fixed) = correction.as_ref().filter(|c| !c.is_empty()) {
+            crate::freshness::attach(&mut resp, fixed);
         }
         println!(
             "{}",
@@ -636,6 +802,9 @@ pub fn run_def_cli() -> i32 {
 
     if let Some(hint) = &hint {
         println!("{}", hint.cli_line_for("def"));
+    }
+    if let Some(line) = correction.as_ref().and_then(|c| c.cli_line()) {
+        println!("{line}");
     }
 
     if hits.is_empty() {
@@ -650,12 +819,7 @@ pub fn run_def_cli() -> i32 {
     for h in &hits {
         let src = h.get("_source").cloned().unwrap_or(Value::Null);
         let loc = hit_location(h);
-        let kind = src.get("kind").and_then(Value::as_str).unwrap_or("");
-        let tag = if kind.is_empty() {
-            String::new()
-        } else {
-            format!("  [{kind}]")
-        };
+        let tag = hit_tag(h);
         println!("\n─── {loc}{tag}");
         // The declaration, not the file: `code` on symbol docs is the
         // signature block; `_passage` covers file-level hits. The preview
@@ -742,6 +906,51 @@ mod tests {
         assert_eq!(kept.len(), 2, "{kept:?}");
         assert_eq!(kept[0]["_id"], "a");
         assert_eq!(kept[1]["_id"], "c");
+    }
+
+    /// #3270: `foo:` in an assembly file is the definition. `"foo"` inside a
+    /// helper script's list, with a higher engine score, is a reference.
+    #[test]
+    fn a_name_inside_a_string_list_ranks_after_the_declaration() {
+        let script = json!({
+            "_score": 30.0,
+            "_source": {
+                "ax_path": "tools/fixup.py", "name": "LABELS", "kind": "const", "line": 3,
+                "code": "LABELS = [\"foo\", \"bar_loop\"]"
+            }
+        });
+        let label = json!({
+            "_score": 12.0,
+            "_source": {
+                "ax_path": "rt/lib.s", "name": "foo", "kind": "label", "line": 3500,
+                "code": "foo:"
+            }
+        });
+        let mut resp = json!({ "hits": { "hits": [script, label] } });
+        let hits = finalize_definition_response(&mut resp, "foo", 5);
+        assert_eq!(hits[0]["_source"]["ax_path"], "rt/lib.s");
+        assert_eq!(hits[1]["reference"], true);
+        assert!(hits[0].get("reference").is_none());
+        assert!(
+            hit_tag(&hits[1]).contains("reference"),
+            "{}",
+            hit_tag(&hits[1])
+        );
+
+        assert!(only_in_literals("X = ['a',\n  'foo',\n]", "foo", true));
+        assert!(only_in_literals("call(\"foo\")", "foo", true));
+        assert!(!only_in_literals("def foo(x):", "foo", true));
+        assert!(!only_in_literals("y = foo + \"foo\"", "foo", true));
+        assert!(!only_in_literals("names = [\"food\"]", "foo", true));
+        assert!(!only_in_literals("s = \"a\\\"\" ; foo()", "foo", true));
+        // A Rust lifetime is not a quote, and an unclosed apostrophe opens
+        // nothing.
+        assert!(!only_in_literals("fn bar<'a>(x: Foo<'a>)", "Foo", false));
+        assert!(!only_in_literals("// don't call foo here", "foo", true));
+        // A plain-words query is not classified.
+        let mut words = vec![json!({"_source": {"name": "x", "code": "\"flush the tree\""}})];
+        demote_literal_references(&mut words, "flush the tree");
+        assert!(words[0].get("reference").is_none());
     }
 
     #[test]

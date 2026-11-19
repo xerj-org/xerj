@@ -2,7 +2,7 @@
   "tools": [
     {
       "name": "xerj_def",
-      "description": "Find a symbol's definition in local autoindexed data, like `xerj def --json`. Lexical ranking, not neural: shares the CLI's mapping-aware query, preferred-kind and public-declaration ranking, location deduplication and bounded candidate window. Returns ES JSON with declarations in hits.hits[]._source.code and locations in ax_path/path plus line/start_line (page/cell for documents); older file-level hits may carry fields._passage instead. hits.total counts engine matches before deduplication. No match is a successful empty hits list. Unlike xerj_hub_def, this queries the configured node, not a Hub pack. Optional max_tokens caps the response; see its tokenizer and locator-only rule. If this prefix was autoindexed from a folder on this machine and a file there is newer than the last run, or an indexed file has been removed, the response adds `_xerj.hints` code `index_stale` with the last index time and a reindex command, the same check as xerj_search: a definition from that index can be stale or missing.",
+      "description": "Find a symbol's definition in local autoindexed data, like `xerj def --json`. Lexical ranking, not neural: shares the CLI's mapping-aware query, preferred-kind and public-declaration ranking, location deduplication and bounded candidate window. Returns ES JSON with declarations in hits.hits[]._source.code and locations in ax_path/path plus line/start_line (page/cell for documents); older file-level hits may carry fields._passage instead. hits.total counts engine matches before deduplication. No match is a successful empty hits list. Unlike xerj_hub_def, this queries the configured node, not a Hub pack. Optional max_tokens caps the response; see its tokenizer and locator-only rule. If this prefix was autoindexed from a folder on this machine and a file there is newer than the last run, or an indexed file has been removed, the response adds `_xerj.hints` code `index_stale` with the last index time and a reindex command, the same check as xerj_search. On such a stale prefix, hits whose file changed are re-read: a moved declaration gets its current line with `reanchored: true` and `indexed_line`, a removed one is dropped, and when no hit is an exact-name definition the changed code files are parsed read-only and matches come back with `unindexed: true`. A hit that names the symbol only inside a string or list is ranked last with `reference: true`.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -66,7 +66,7 @@
                 },
                 {
                   "type": "object",
-                  "additionalProperties": false,
+                  "description": "Pass query, or identifier plus field. Items are checked one by one: an item with an unknown key, or with both query and identifier, fails alone and its error lists the allowed keys (key, query, identifier, field, _source); the other items still run.",
                   "properties": {
                     "key": {
                       "type": "string",
@@ -82,7 +82,7 @@
                           "type": "object"
                         }
                       ],
-                      "description": "Plain text or ES query clause. Cannot be combined with identifier/field."
+                      "description": "Plain text or ES query clause; a string that is a JSON object is read as the clause. Cannot be combined with identifier/field."
                     },
                     "identifier": {
                       "type": "string",
@@ -93,21 +93,11 @@
                       "type": "string",
                       "minLength": 1,
                       "description": "Flat keyword field for identifier. Must be mapped as keyword wherever present; unreadable, absent or conflicting mappings fail this item."
-                    }
-                  },
-                  "oneOf": [
-                    {
-                      "required": [
-                        "query"
-                      ]
                     },
-                    {
-                      "required": [
-                        "identifier",
-                        "field"
-                      ]
+                    "_source": {
+                      "description": "Source filtering for this item's hits (bool, field list, or {includes,excludes}). Default: the whole _source, minus embedding vectors."
                     }
-                  ]
+                  }
                 }
               ]
             }
@@ -126,6 +116,10 @@
             "maximum": 50,
             "default": 3,
             "description": "Maximum hits per item."
+          },
+          "include_vectors": {
+            "type": "boolean",
+            "description": "Return embedding vectors (dense_vector and semantic_text embedding arrays) in `_source`. Default false: they are dropped from every hit and `_xerj.hints` code `vectors_omitted` names the fields."
           },
           "max_tokens": {
             "type": "integer",
@@ -155,7 +149,7 @@
           },
           "query": {
             "type": "string",
-            "description": "What to search for, in plain words — the definition-first code search `xerj search` runs. Use `query_dsl` for a structured clause. Omit both for legacy match_all browsing; explicit query_dsl: {match_all: {}} is clearer."
+            "description": "What to search for, in plain words — the definition-first code search `xerj search` runs. Use `query_dsl` for a structured clause. Omit both for legacy match_all browsing; explicit query_dsl: {match_all: {}} is clearer. A string that is a JSON object (\"{\\\"match_all\\\":{}}\") is read as query DSL, and `_xerj.hints` says so."
           },
           "query_dsl": {
             "type": "object",
@@ -174,6 +168,10 @@
           },
           "_source": {
             "description": "Source filtering (bool, field, or {includes,excludes})."
+          },
+          "include_vectors": {
+            "type": "boolean",
+            "description": "Return embedding vectors (dense_vector and semantic_text embedding arrays) in `_source`. Default false: they are dropped from every hit and `_xerj.hints` code `vectors_omitted` names the fields."
           },
           "rerank": {
             "type": [
@@ -223,6 +221,13 @@
             "type": "object",
             "description": "Optional ES query clause applied as a pre-filter."
           },
+          "_source": {
+            "description": "Source filtering (bool, field, or {includes,excludes})."
+          },
+          "include_vectors": {
+            "type": "boolean",
+            "description": "Return embedding vectors (dense_vector and semantic_text embedding arrays) in `_source`. Default false: they are dropped from every hit and `_xerj.hints` code `vectors_omitted` names the fields."
+          },
           "max_tokens": {
             "type": "integer",
             "minimum": 32,
@@ -268,6 +273,13 @@
           "filter": {
             "type": "object",
             "description": "Optional ES query clause applied as a pre-filter."
+          },
+          "_source": {
+            "description": "Source filtering (bool, field, or {includes,excludes})."
+          },
+          "include_vectors": {
+            "type": "boolean",
+            "description": "Return embedding vectors (dense_vector and semantic_text embedding arrays) in `_source`. Default false: they are dropped from every hit and `_xerj.hints` code `vectors_omitted` names the fields."
           },
           "max_tokens": {
             "type": "integer",
@@ -321,6 +333,13 @@
           "size": {
             "type": "integer",
             "description": "Max fused hits to return."
+          },
+          "_source": {
+            "description": "Source filtering (bool, field, or {includes,excludes})."
+          },
+          "include_vectors": {
+            "type": "boolean",
+            "description": "Return embedding vectors (dense_vector and semantic_text embedding arrays) in `_source`. Default false: they are dropped from every hit and `_xerj.hints` code `vectors_omitted` names the fields."
           },
           "rerank": {
             "type": [
@@ -395,7 +414,7 @@
     },
     {
       "name": "xerj_memory_recall",
-      "description": "Recall the most relevant memories from a namespace. Default is BM25 text recall; set `semantic:true` to embed the query server-side and recall by meaning; set `hybrid:true` to run both over the same `query` and fuse them by reciprocal rank; supply `vector` for pure vector recall. Proxies POST /_memory/{namespace}/_recall.",
+      "description": "Recall the most relevant memories from a namespace. Default is BM25 text recall; set `semantic:true` to embed the query server-side and recall by meaning; set `hybrid:true` to run both over the same `query` and fuse them by reciprocal rank; supply `vector` for pure vector recall. Proxies POST /_memory/{namespace}/_recall. Pass `max_tokens` to cap the response at a token budget (never exceeded; see that argument for the tokenizer and the locator-only rule).",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -481,6 +500,12 @@
             "required": [
               "mode"
             ]
+          },
+          "max_tokens": {
+            "type": "integer",
+            "minimum": 32,
+            "default": 8000,
+            "description": "Word budget for the successful search payload. Errors and mandatory xerj_search staleness hints are outside this budget. Tokens are counted with XERJ's StandardTokenizer (UAX #29 word boundaries) — the same word split the engine's own analyzer uses for BM25. Honest scope: that under-counts model-context subwords (snake_case is ONE token here), so treat it as a deterministic proxy, not a BPE count. The budget covers the whole response text (JSON keys and syntax included). JSON responses dedupe overlapping file:line passages first (higher-ranked wins); rendered code dedupes only identical locators with identical displayed passages. Hits that no longer fit are listed as LOCATORS ONLY (file:line, index/id) rather than dropped, and the response's `_token_budget` block accounts for every hit: kept, locator-only, deduped, dropped. Errors are never truncated — a refusal you cannot read end-to-end is worse than a long response. Minimum 32; when omitted the budget is 8000 UAX #29 words. This is not a byte cap or a guarantee against host output limits. Pass a larger integer to request more."
           }
         },
         "required": [
@@ -654,7 +679,7 @@
     },
     {
       "name": "xerj_map",
-      "description": "Per-index FIELD MAP from this node's autoindex catalog — call it BEFORE writing query DSL, so you stop guessing field names. For each catalogued index: record count, time field and time range, semantic body field, and every field the profiler inferred — name, es_type (keyword|text|long|double|boolean|date|semantic_text), date encoding, semantic tag, cardinality estimate, coverage, up to 5 examples, and the sampled date AND numeric min-max (numeric ranges appear on `long` fields only; fractional `double` ranges are not tracked). Reads the catalog index `autoindex-catalog` that `xerj autoindex <folder>` writes; never-autoindexed indexes are not listed. Honesty: every fact is inferred from a bounded sample taken at autoindex time — cardinality is an estimate (with `cardinality_overflow:true` it means AT LEAST that many), and min/max/coverage describe the sample, not the whole index. Up to 100 indexes per call (`indexes_omitted` reports more). When more than 8 indexes match and you did not pass `index`, the answer is a SUMMARY page (index, records, field names) — pass `index` or `detail: true` with `offset`/`limit` for full fields. This map lists autoindex datasets, not the managed corpus registry. A managed corpus slug is not an autoindex dataset/index pattern. Use `xerj corpus list` for this client's configured corpora, then `xerj code <corpus> <query>` (MCP `xerj_code_search`); the node's `_cat/indices` lists indices. An empty map does not establish that managed corpus data is absent; no managed corpus existence was checked. Never DELETE an index you did not create in this session. A shared default prefix is not a reason to delete one: use `xerj autoindex remove --prefix <name>` (MCP tool `xerj_autoindex_remove` is the same operation). It lists the indices, catalog rows, doc counts and sizes, deletes nothing without confirmation, and never removes another folder under that prefix.",
+      "description": "Per-index FIELD MAP from this node's autoindex catalog — call it BEFORE writing query DSL, so you stop guessing field names. For each catalogued index: record count, time field and time range, semantic body field, and every field the profiler inferred — name, es_type (keyword|text|long|double|boolean|date|semantic_text), date encoding, semantic tag, cardinality estimate, coverage, up to 5 examples, and the sampled date AND numeric min-max (numeric ranges appear on `long` fields only; fractional `double` ranges are not tracked). Reads the catalog index `autoindex-catalog` that `xerj autoindex <folder>` writes; never-autoindexed indexes are not listed. Honesty: every fact is inferred from a bounded sample taken at autoindex time — cardinality is an estimate (with `cardinality_overflow:true` it means AT LEAST that many), and min/max/coverage describe the sample, not the whole index. Up to 100 indexes per call (`indexes_omitted` reports more). When more than 8 indexes match and you did not pass `index`, the answer is a SUMMARY page (index, records, field names) — pass `index` or `detail: true` with `offset`/`limit` for full fields. `index_runs` lists, per autoindex prefix, `indexed_at`, `root` and, for a local git checkout, `indexed_commit` (HEAD at index time, from the reflog) and `head_commit` (HEAD now): compare them before trusting line numbers. This map lists autoindex datasets, not the managed corpus registry. A managed corpus slug is not an autoindex dataset/index pattern. Use `xerj corpus list` for this client's configured corpora, then `xerj code <corpus> <query>` (MCP `xerj_code_search`); the node's `_cat/indices` lists indices. An empty map does not establish that managed corpus data is absent; no managed corpus existence was checked. Never DELETE an index you did not create in this session. A shared default prefix is not a reason to delete one: use `xerj autoindex remove --prefix <name>` (MCP tool `xerj_autoindex_remove` is the same operation). It lists the indices, catalog rows, doc counts and sizes, deletes nothing without confirmation, and never removes another folder under that prefix.",
       "inputSchema": {
         "type": "object",
         "properties": {

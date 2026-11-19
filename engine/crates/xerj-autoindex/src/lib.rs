@@ -21,11 +21,13 @@ pub mod facts_rows;
 mod family_junk;
 pub mod feedback;
 pub mod flood;
+pub mod freshness;
 pub mod gain;
 pub mod gate;
 mod generation_catalog;
 #[cfg(test)]
 mod generation_catalog_http_tests;
+pub mod gitref;
 /// `xerj corpus build` — harvested-record corpus packs (recipe → store →
 /// identity → merge → deterministic pack).
 pub mod harvest;
@@ -63,6 +65,7 @@ pub mod sources;
 mod stage;
 pub mod staleness;
 pub mod state;
+pub mod status_cli;
 mod sync;
 mod sync_executor;
 #[cfg(test)]
@@ -71,6 +74,7 @@ pub mod walk;
 pub mod watch;
 pub mod worktree;
 pub mod xc;
+pub mod zero_hits;
 
 use anyhow::{Context, Result};
 use serde::Serialize;
@@ -1081,8 +1085,7 @@ fn project_reconcile_plan(
         inventory.files.len() as u64,
         inventory.files.iter().map(|file| file.size).sum(),
     );
-    let stub_matcher =
-        GlobMatcher::compile(&cfg.stub_globs, "--stub").expect("validated at startup");
+    let stub_matcher = stub_matcher(cfg).expect("validated at startup");
     let scans: Vec<FileScan> = crate::pool::install(|| {
         use rayon::prelude::*;
         inventory
@@ -4123,6 +4126,29 @@ impl GlobMatcher {
     }
 }
 
+/// The `--stub` matcher a run plans, reconciles and indexes with.
+///
+/// The operator's `--stub` globs, plus — unless `--no-default-stubs` — the
+/// lockfile names in [`order::GENERATED_FILES`] (#2439). Before this a
+/// lockfile was only queued last (`Band::Vendored`) and then parsed in full:
+/// `waiting_on=package-lock.json(410.5KB)` held `phase=index` at 10% until
+/// the 180 s deadline ended the run, and `--stub package-lock.json` was the
+/// reporter's workaround. The names have no `/`, so they match at any depth
+/// (a monorepo keeps one lockfile per package). The seed is added here rather
+/// than to `cfg.stub_globs` so `legacy_rebuild_argv` still writes back only
+/// the globs the operator typed.
+pub(crate) fn stub_matcher(cfg: &IndexCfg) -> Result<GlobMatcher> {
+    let mut globs = cfg.stub_globs.clone();
+    if cfg.default_stubs {
+        globs.extend(
+            order::GENERATED_FILES
+                .iter()
+                .map(|name| (*name).to_string()),
+        );
+    }
+    GlobMatcher::compile(&globs, "--stub")
+}
+
 fn glob_to_regex(glob: &str) -> String {
     let mut out = String::from("^");
     let mut chars = glob.chars().peekable();
@@ -4158,7 +4184,7 @@ fn glob_to_regex(glob: &str) -> String {
 /// only output is a name card, so taking the name from the content path would
 /// title every stub after a blob ordinal — the #294 failure class that
 /// `Sniffed::logical_name` exists to prevent.
-fn stub_sniffed(logical_path: &Path) -> Sniffed {
+pub(crate) fn stub_sniffed(logical_path: &Path) -> Sniffed {
     Sniffed {
         family: Family::Stub,
         gzip: false,
@@ -4172,6 +4198,48 @@ fn stub_sniffed(logical_path: &Path) -> Sniffed {
 #[cfg(test)]
 mod stub_matcher_tests {
     use super::GlobMatcher;
+
+    fn cfg(extra: &[&str]) -> super::IndexCfg {
+        let mut argv = vec!["data".to_string()];
+        argv.extend(extra.iter().map(|s| s.to_string()));
+        match super::cli::parse(argv).unwrap() {
+            super::cli::Cmd::Index(cfg) => *cfg,
+            other => panic!("expected index config, got {other:?}"),
+        }
+    }
+
+    /// #2439: every lockfile name is stubbed with no flag, at any depth.
+    #[test]
+    fn lockfiles_are_stubbed_by_default() {
+        let s = super::stub_matcher(&cfg(&[])).unwrap();
+        for name in crate::order::GENERATED_FILES {
+            assert!(s.matches(name), "{name} must be stubbed by default");
+            assert!(
+                s.matches(&format!("packages/web/{name}")),
+                "{name} must be stubbed below the root too"
+            );
+        }
+        assert!(!s.matches("src/main.rs"));
+        assert!(!s.matches("package.json"), "the manifest is not a lockfile");
+        assert!(!s.matches("docs/package-lock.json.md"));
+    }
+
+    #[test]
+    fn no_default_stubs_extracts_lockfiles_in_full() {
+        let s = super::stub_matcher(&cfg(&["--no-default-stubs"])).unwrap();
+        assert!(s.is_empty(), "no operator glob and no seed");
+        assert!(!s.matches("package-lock.json"));
+    }
+
+    #[test]
+    fn an_operator_glob_adds_to_the_lockfile_seed() {
+        let s = super::stub_matcher(&cfg(&["--stub", "*.bvh"])).unwrap();
+        assert!(s.matches("motion/walk.bvh"));
+        assert!(s.matches("Cargo.lock"));
+        let only = super::stub_matcher(&cfg(&["--stub", "*.bvh", "--no-default-stubs"])).unwrap();
+        assert!(only.matches("motion/walk.bvh"));
+        assert!(!only.matches("Cargo.lock"));
+    }
 
     fn m(globs: &[&str]) -> GlobMatcher {
         GlobMatcher::compile(
@@ -4932,6 +5000,7 @@ mod phase_a_grouping_tests {
             root: root.to_path_buf(),
             endpoint_url: None,
             stub_globs: Vec::new(),
+            default_stubs: true,
             url: "http://unused.invalid".into(),
             api_key: None,
             api_key_file: None,
@@ -4984,6 +5053,31 @@ mod phase_a_grouping_tests {
 
     fn plan_for(root: &Path) -> Plan {
         plan_for_cfg(root, &cfg_for(root))
+    }
+
+    /// #2439: a lockfile is planned as a name card unless the operator opts
+    /// out, and the opt-out puts it back on its own family's extractor.
+    #[test]
+    fn a_lockfile_is_planned_as_a_name_card_by_default() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(dir.path().join("web")).unwrap();
+        std::fs::write(
+            dir.path().join("web/package-lock.json"),
+            r#"{"name":"web","lockfileVersion":3,"packages":{"":{"name":"web"}}}"#,
+        )
+        .unwrap();
+        std::fs::write(dir.path().join("web/index.js"), "export const a = 1;\n").unwrap();
+        let family = |plan: &Plan| {
+            plan.files
+                .values()
+                .find(|f| f.rel == "web/package-lock.json")
+                .map(|f| f.family.clone())
+                .expect("the lockfile is planned")
+        };
+        assert_eq!(family(&plan_for(dir.path())), "stub");
+        let mut full = cfg_for(dir.path());
+        full.default_stubs = false;
+        assert_eq!(family(&plan_for_cfg(dir.path(), &full)), "json");
     }
 
     fn plan_for_cfg(root: &Path, cfg: &IndexCfg) -> Plan {
@@ -5910,8 +6004,7 @@ fn build_phase_a(
     // spooled is counted exactly like a plainly parsed one.
     // Patterns were validated (loudly) at run start; a failure here would be
     // a programming error, not user input.
-    let stub_matcher =
-        GlobMatcher::compile(&cfg.stub_globs, "--stub").expect("validated at startup");
+    let stub_matcher = stub_matcher(cfg).expect("validated at startup");
     let rels: Vec<String> = files.iter().map(|f| f.rel.clone()).collect();
     let scopes = compute_scopes(root, &rels);
     // (family, gzip) per file, from the scan's sniff — reused for assignments
@@ -8976,6 +9069,9 @@ fn legacy_rebuild_argv(cfg: &IndexCfg, state_dir: &Path, prefix: &str) -> Vec<St
         argv.push("--stub".to_owned());
         argv.push(glob.clone());
     }
+    if !cfg.default_stubs {
+        argv.push("--no-default-stubs".to_owned());
+    }
     if !cfg.ignore.enabled {
         argv.push("--no-ignore".to_owned());
     } else if !cfg.ignore.defaults {
@@ -9123,18 +9219,20 @@ fn run_index_report_inner(
     // estimate is built from whatever this invocation actually parsed.
     let scan_meter = estimate::Meter::new();
     // What this run decided to take from the machine, before it takes it.
-    pr.note(&format!(
+    // Printed after the disk probe below, so a full data-dir drive (#3282)
+    // is the first thing on stderr.
+    let mut startup_notes = vec![format!(
         "autoindex: {} scan threads, {} index workers, {} pdf workers, --bulk-mb {} [{}]",
         scan_threads,
         cfg.workers,
         cfg.pdf_workers,
         cfg.bulk_mb,
         xerj_common::resource::describe(),
-    ));
+    )];
     for note in &cfg.resource_notes {
-        pr.note(&format!("autoindex: {note}"));
+        startup_notes.push(format!("autoindex: {note}"));
     }
-    pr.note(&format!(
+    startup_notes.push(format!(
         "autoindex: bulk HTTP request timeout: {}s",
         cfg.bulk_timeout_secs
     ));
@@ -9173,10 +9271,23 @@ fn run_index_report_inner(
     // A dry run writes nothing, so a full volume is not a reason to refuse
     // it: the plan (and its size) is exactly what a user short on disk needs.
     let disk = flood::probe(&es);
+    // #3282: a full data-dir drive is named, with the `--data-dir` fix, before
+    // anything else reaches stderr — the dry run's budget then says 0 bytes
+    // and exits 4, and that line is the reason.
+    let disk_hint = disk.flood_hint();
     if !cfg.dry_run {
         if let Some(message) = disk.refusal {
-            anyhow::bail!("{message}");
+            match &disk_hint {
+                Some(hint) => anyhow::bail!("{hint}\n{message}"),
+                None => anyhow::bail!("{message}"),
+            }
         }
+    }
+    if let Some(hint) = &disk_hint {
+        eprintln!("{hint}");
+    }
+    for note in &startup_notes {
+        pr.note(note);
     }
     let disk_volume = disk.volume;
 
@@ -9205,7 +9316,7 @@ fn run_index_report_inner(
             None => None,
         };
 
-    let stub_matcher = GlobMatcher::compile(&cfg.stub_globs, "--stub")?;
+    let stub_matcher = stub_matcher(&cfg)?;
     // An `s3://`/`r2://` positional argument becomes a local mirror directory
     // here, before any state is opened: `cfg.root` is rewritten to that mirror,
     // so every later phase — walk, hash, plan, journal, reconcile — is the code
@@ -9569,15 +9680,28 @@ fn run_index_report_inner(
     // Totals are unknown until the walk returns, so this phase honestly
     // reports `pct=unknown` and proves liveness with the clock alone.
     pr.phase("walk", 0, 0);
-    let (discovered_files, ignore_report) = walk::walk_reporting_opts(
+    // #3280: `--exclude` is applied during the walk, so an excluded file costs
+    // no `stat` and a directory a `<dir>/**` glob covers is pruned and named.
+    let exclude_matcher = GlobMatcher::compile(&cfg.exclude, "--exclude")?;
+    let walk_excludes = walk::WalkExcludes::new(&exclude_matcher, &cfg.exclude, &cfg.exclude_rels);
+    let (discovered_files, ignore_report, exclude_report) = walk::walk_reporting_excluding(
         &cfg.root,
         cfg.follow_symlinks,
         cfg.follow_symlinks_outside_root,
         cfg.ignore,
+        &walk_excludes,
     )?;
-    let (discovered_files, excluded) =
+    for pruned in &exclude_report.pruned {
+        pr.note(&format!(
+            "autoindex: pruned {}/ ({})",
+            crate::progress::sanitize(&pruned.rel, crate::progress::SAFE_PATH_MAX),
+            pruned.why
+        ));
+    }
+    let (discovered_files, excluded_after) =
         without_excluded_rels(discovered_files, &cfg.exclude_rels, &cfg.exclude)?;
-    if excluded > 0 {
+    let excluded = exclude_report.excluded_files + excluded_after;
+    if excluded > 0 || !exclude_report.pruned.is_empty() {
         let mut rules = cfg.exclude_rels.clone();
         rules.extend(cfg.exclude.iter().map(|glob| format!("--exclude {glob}")));
         pr.note(&format!(
@@ -9748,7 +9872,10 @@ fn run_index_report_inner(
             budget::Choice::Absent
         };
         match budget::resolve(&assessment, choice) {
-            budget::Outcome::Stop { code, body } => {
+            budget::Outcome::Stop { code, mut body } => {
+                if let (Some(hint), false) = (&disk_hint, body.is_null()) {
+                    body["disk_hint"] = serde_json::json!(hint);
+                }
                 if !body.is_null() {
                     println!("{}", serde_json::to_string(&body)?);
                 }
@@ -13988,6 +14115,8 @@ fn run_map(cfg: MapCfg) -> Result<i32> {
     if let Some(note) = &cfg.xerj_url_note {
         eprintln!("autoindex: {note}");
     }
+    // #3267: a stopped loopback node is started (detached) before the read.
+    xerj_common::localnode::ensure_for_cli("autoindex map", &cfg.url);
     let es = Es::new(&cfg.url, cfg.api_key.clone())?;
     // The same first-run miss as `xerj search`: nothing is listening, and a
     // raw `endpoint unreachable` does not say how to start a node.
@@ -14003,8 +14132,9 @@ fn run_map(cfg: MapCfg) -> Result<i32> {
             .search_present(catalog::CATALOG_INDEX, &body)?
             .ok_or_else(|| {
                 anyhow::anyhow!(
-                    "autoindex catalog {} is missing (HTTP 404). {}",
+                    "autoindex catalog {} is missing (HTTP 404). {} {}",
                     catalog::CATALOG_INDEX,
+                    flood::map_data_dir_hint(flood::data_dir(&es).as_deref(), &cfg.url),
                     catalog::MAP_NAMESPACE_HINT
                 )
             })?;
@@ -14050,6 +14180,10 @@ fn run_map(cfg: MapCfg) -> Result<i32> {
                 catalog::CATALOG_INDEX
             );
         }
+        eprintln!(
+            "{}",
+            flood::map_data_dir_hint(flood::data_dir(&es).as_deref(), &cfg.url)
+        );
         eprintln!("{}", catalog::MAP_NAMESPACE_HINT);
         return Ok(1);
     }
@@ -17911,6 +18045,7 @@ mod legacy_rebuild_argv_tests {
         assert!(rebuilt.no_graph);
         assert_eq!(rebuilt.code_analyzer, cfg.code_analyzer, "{argv:?}");
         assert_eq!(rebuilt.stub_globs, cfg.stub_globs, "{argv:?}");
+        assert_eq!(rebuilt.default_stubs, cfg.default_stubs, "{argv:?}");
         assert_eq!(rebuilt.ignore.enabled, cfg.ignore.enabled, "{argv:?}");
         assert_eq!(rebuilt.ignore.defaults, cfg.ignore.defaults, "{argv:?}");
         assert_eq!(rebuilt.label, cfg.label, "{argv:?}");
@@ -17940,6 +18075,7 @@ mod legacy_rebuild_argv_tests {
             "--stub",
             "vendor/**",
             "--no-default-ignores",
+            "--no-default-stubs",
             "--label",
             "questions.json",
             "--no-semantic",
@@ -18037,6 +18173,7 @@ mod legacy_rebuild_argv_tests {
             "--stub",
             "--no-ignore",
             "--no-default-ignores",
+            "--no-default-stubs",
             "--label",
         ] {
             assert!(!argv.iter().any(|a| a == flag), "{flag} in {argv:?}");

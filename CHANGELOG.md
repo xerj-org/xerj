@@ -7,16 +7,152 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-rc.104] - 2026-11-18
+
+**rc.104: rc.103 on every platform.** rc.104 is the rc.103 code with the
+macOS and Windows builds that rc.103 could not ship. No pull request merged
+to `main` between the rc.103 cut (`0de7653b`) and this one, so the engine,
+the model crates, the model bundle and the serve rule are exactly those of
+rc.103; the only source change is the version string. Everything in the
+rc.103 section below (the rc.101 field-report fixes #3287 #3289 #3290 #3291
+#3292, the 2026-11-18 fix sweep, the contributor ES-compatibility wave)
+ships in rc.104 on all platforms.
+
+### Upgrade notes
+
+- **All platforms, marked latest.** rc.104 ships eight targets: Linux x86_64
+  and aarch64 (glibc and musl, `.deb` for both glibc targets), macOS x86_64
+  and aarch64, and Windows x86_64 and aarch64, plus the rc.102 model bundle
+  under the rc.104 name. It supersedes v1.0.0-rc.103, which was published
+  Linux-only; GitHub releases on this repository are immutable once
+  published, so the macOS and Windows builds could not be added to rc.103.
+  `releases/latest` and the installer move from v1.0.0-rc.101 to rc.104.
+- **Data directories, provenance and the opt-in model flag** are as stated
+  for rc.103 below: on-disk format 4 (an rc.101, rc.102 or rc.103 data
+  directory opens unchanged); binaries built from a private tree (public
+  `main` plus the XERJ-Query engine lanes plus the **Proprietary** model
+  crates `xerj-infer`, `xerj-serve` and `xerj-exec`); `/_facts` answers 404
+  `xerj_query_not_enabled` unless `--facts-model-dir <DIR>` is set.
+
+### Changed
+
+- Version `1.0.0-rc.104`; landing footer stamps follow.
+
+## [1.0.0-rc.103] - 2026-11-18
+
+<!-- notes-exempt: #2956 #2974 #3004 #3027 #3041 #3045 #3046 #3068 #3072 #3107 #3110 #3112 #3124 #3132 #3139 #3144 #3147 #3150 #3151 #3242 (CLA signatures and the .contributors list only) -->
+<!-- notes-exempt: #3251 (README hero only, no shipped-binary change) -->
+<!-- notes-exempt: #3001 (research scoring script for ask-plan macro-F1, not in the binary) -->
+
+**rc.103: the rc.101 field-report fixes, the 2026-11-18 fix sweep, and a wave
+of Elasticsearch-compatibility fixes from contributors.** Five lanes answer
+the rc.101 field reports (#3287, #3289, #3290, #3291, #3292): a stopped local
+node starts again on its own, a zero-hit search says why, `xerj def` checks
+hits against the files on disk, `DELETE` of an index no longer fails while
+its files are held, and `match_phrase` matches dotted identifiers under the
+`code` analyzer. The fix sweep (#3263, #3264, #3265, #3266) adds a token
+budget to memory recall, stubs lockfiles by default, makes small-index kNN
+and hybrid search faster, and lowers `_forcemerge` memory on vector indices.
+The model, its bundle and its serve rule are those of rc.102.
+
+### Upgrade notes
+
+- **Linux only, not marked latest.** rc.103 ships Linux binaries (x86_64 and
+  aarch64, glibc and musl, `.deb` for both glibc targets) and the rc.102
+  model bundle under the rc.103 name. macOS and Windows builds need the
+  release workflow, which cannot run for this release; macOS and Windows
+  users stay on v1.0.0-rc.101, which `releases/latest` and the installer
+  keep serving.
+- **Data directories.** rc.103 keeps the rc.101 storage defaults (ZPS4
+  postings, row-dictionary stored text, on-disk format 4), so an rc.101 or
+  rc.102 data directory opens unchanged. The storage and ingest lanes are
+  still not on public `main` (carried forward from rc.101 and rc.102): a
+  build from public `main` writes format 3 and refuses a format-4 directory.
+- **Provenance.** The rc.103 binaries are built from a private tree: public
+  `main` at `5a449f4b` plus the XERJ-Query engine lanes plus the model crates
+  `xerj-infer`, `xerj-serve` and `xerj-exec`, which are licensed
+  **Proprietary** and ship as binary + model bundle only. The Apache-2.0
+  LICENSE covers the engine source on `main`.
+- **XERJ-Query stays opt-in.** The flag is `--facts-model-dir <DIR>` (or
+  `XERJ_FACTS_MODEL_DIR`); without it every `/_facts` path answers 404
+  `xerj_query_not_enabled`.
+- **`DELETE /<index>` moves the directory to `<data-dir>/_trash/` first**
+  and removes it there; a removal that fails is retried in the background
+  and at the next boot (#3292). An index cannot be named `_trash`.
+- **Hybrid search legs run in parallel** on the multi-thread runtime (#3265).
+  `XERJ_HYBRID_PARALLEL_LEGS=0` restores the single-thread join.
+- **MCP search tools drop embedding arrays from `_source`** and say so in
+  `_xerj.hints` (`vectors_omitted`); `include_vectors: true` keeps them
+  (#3289). Detection is by shape: an array of at least 8 numbers with a
+  fraction, so a long float time series is dropped too unless asked for.
+- **`xerj_memory_recall` is budgeted** at 8,000 words by default, like the
+  search tools (#3263).
+- **Lockfiles are stubbed by default** in `xerj autoindex`
+  (`--no-default-stubs` turns full extraction back on) (#3264).
+
 ### Added
+
+- **A stopped local node starts again on its own** (#3290, refs #3267, which
+  stays open for macOS/Windows verification and the installer wording). The
+  server writes `<data-dir>/node.launch.json` after it binds; when a loopback
+  client (`xerj mcp` node-backed tools, `xerj search`, `def`, `code`,
+  `batch-search`, `autoindex map`) finds the port closed, it starts the node
+  that last served it, detached, and waits for a real answer before the call.
+  `XERJ_NO_AUTOSTART=1` or `xerj mcp --no-autostart` turns it off; a
+  non-loopback URL is never started. `xerj --detach …` starts a node in the
+  background and prints its url, data dir, log and stop command. Not run on
+  macOS or Windows.
+- `xerj status [--prefix p] [--json]` (#3291): when a prefix was indexed, the
+  commit then and now, the changed files and a verdict. `xerj_map` adds
+  `index_runs` with the same commits.
+- Code extraction for assembly (`.s`, `.S`, `.asm`: labels, exported
+  functions, macros and constants), GDScript (`.gd`) and K&R C definitions
+  without a return type (#3291).
+- `_reindex` accepts several source indices and wildcards (#2921).
+- `scripts/release-sha256sums.sh` builds one `SHA256SUMS` from a release's
+  per-asset `.sha256` files, and the release workflow publishes it (#3287).
+- A zero-dependency Node.js semantic and hybrid search recipe (#3067).
 - `xerj-autoindex`: detect OpenSpec (`openspec/`) and `github/spec-kit` (`.specify/`, `specs/<feature>/spec.md`) layouts and route specs, constitutions, and ADRs into a dedicated `<prefix>-specs` corpus by default (#2966).
 - `xerj-autoindex`: add `--worktree shared|isolated` so parallel agents in linked Git worktrees either share one main-checkout index (`ax-<repo>`) or keep an isolated per-worktree index (`ax-<repo>-<worktree>`) without lock contention or prefix collisions (#2967).
 - Configurable, deterministic plain-text writing review primitive in
-  `xerj-common` (Refs #2765): phrase, length, repetition, hedging and
+  `xerj-common` (#2970, refs #2765): phrase, length, repetition, hedging and
   syntactic source-citation checks with stable line notes. This is a library
   foundation; recipe-runner and MCP integration remain pending #2762.
 
 ### Changed
 
+- **Small-index kNN and hybrid search** (#3265, fixes #3006 and #3016, refs
+  #3018). An unfiltered kNN over at most 10,000 KiB of stored f32 vectors
+  (3,333 vectors of 768 dims) scans exactly instead of walking the graph;
+  only the requested page is hydrated, not the whole `k` pool; a single ES
+  top-level `knn` clause no longer raises the engine page to `k` when nothing
+  re-ranks afterwards; the two hybrid legs run on their own threads. RRF
+  refuses a non-numeric or negative leg `weight` and an invalid `k` with 400
+  (they were silently 1.0 and 60), and accepts `rank_constant` as the ES name
+  for `k`. Measured in #3265 on public `main` (721 docs, 768-d, `query.knn`
+  k=300, size 10): server `took` 29 ms to 0-1 ms; not re-measured on the
+  rc.103 binaries.
+- `xerj_memory_recall` takes `max_tokens` and is budgeted by default at 8,000
+  words, like the search tools (#3263, carries #2958).
+- `xerj autoindex` stubs the eight common lockfiles by default
+  (`--no-default-stubs` restores full extraction), and an explicit `--stub`
+  is now honoured on the `--no-graph` route too (#3264, fixes #2439). The
+  catalog commit after the read-back is its own progress phase,
+  `finalize-catalog-commit`, and names a request that takes 5 s or more;
+  progress lines count terminal cells, so CJK paths keep their width; an
+  empty `autoindex map` names the node's data directory; sitemap dates come
+  from one `git log` walk (fixes #3226). The Windows stall behind #2929 is
+  not reproduced and stays open.
+- `--exclude` applies during the walk (#3287, fixes #3280): excluded files are
+  never stat'ed and `<dir>/**` prunes the directory. Measured in #3287 on
+  Linux tmpfs with 200k excluded files: 1.67 s to 0.48 s. A large excluded
+  directory with no `<dir>/**` glob is still read in full. Not measured on
+  Windows, where #3280 was reported.
+- Hub packs: one shared member and unpacked-size cap for the builder, the
+  catalogue and the client, which names the real count and the cap (#3287,
+  fixes #3283).
+- Benchmark recipes switch the query cache off and report its hits (#3255,
+  refs #3020).
 - With no `search.max_buckets` set, the node's `limits.max_buckets` (default
   65536) now also caps the total buckets a `_search` or `_msearch` response
   keeps across its whole aggregation tree, as Elasticsearch's default does.
@@ -25,7 +161,109 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **Cluster: each index routes documents with its own shard count.** The shard
+- **`DELETE /<index>` no longer answers 500 while the index's files are still
+  held** (#3292, fixes #3274). The index is unregistered first, merges stop,
+  the delete waits up to 3 s for other handles, then the directory is renamed
+  to `<data-dir>/_trash/<name>-<uuid>` and removed there; a failed removal is
+  retried for about 10 minutes and swept at boot. Measured in #3292: DELETE
+  200 in 422 ms after a SIGKILLed autoindex, `_trash` empty after. The NFS
+  case is covered by a test, not reproduced live.
+- **`match_phrase` on a dotted identifier under the `code` analyzer** returned
+  0 hits after a flush (#3292, fixes #3285). `PhraseQuery` takes per-term
+  positions, so tokens the analyzer stacks at one position match there.
+  `request.client.host` and `client.host` now match before and after flush.
+- `record_count` and a `match_all` total differed by the file-card anchors;
+  `xerj_map` and `xerj autoindex map` now report `count_units` and a per-index
+  `files` count (#3292, fixes #3275).
+- **Headless first launch aborted with exit 134** when stderr could not be
+  written (`2>/dev/full`, a closed fd) (#3290, fixes #3276). Prints are
+  fallible, closed fds 0-2 point at `/dev/null`, and the setup link is also
+  written to `<data-dir>/owner-claim.txt` (mode 0600).
+- The auto memory tier adds the memory the node holds at boot to its write
+  breaker (#3290). Partial fix of #3277, which stays open: the facts-model
+  preload does not reserve its own RSS yet.
+- `xerj def` and MCP `xerj_def` check hits against the files when the index
+  is stale (#3291, fixes #3268): a moved declaration is re-anchored
+  (`reanchored: true`), a deleted one is dropped, and a definition not yet
+  indexed is found by parsing the changed files read-only (`unindexed: true`).
+  Assembly (fixes #3270) and GDScript (fixes #3271) are indexed as code.
+- **A zero-hit search says why** (#3289, fixes #3269): MCP `xerj_search` adds
+  `zero_hits_reason` (`no_index` or `no_match`) and a hint naming the closest
+  prefix; the CLI's missing-prefix line ends with `closest: <p>`.
+- A `query` string holding a JSON object is read as DSL, and hybrid,
+  semantic and vector search keep `_source` (#3289, fixes #3272). When a node
+  refuses `?savings=false`, the CLI retries once without it and says what the
+  node is (#3289, fixes #3273). A bad `xerj_batch_search` item fails on its
+  own with the keys it accepts (#3289); the Windows `_msearch` timeout in
+  #2497 is not reproduced and stays open.
+- The installer checks every tool it needs up front and exits 2 naming all
+  missing ones, resumes the model bundle download with a 30 s stall timeout,
+  and `get.ps1` prints the full path to `xerj.exe` (#3287, fixes #3278).
+  `get.ps1` was not run (no PowerShell on the build host). A refused
+  download names the HTTP status and prints a manual install (#3062); the
+  rest of #2460 stays open.
+- A full data-dir drive is named in one sentence (drive, used %, flood stage,
+  how much to free, the `--data-dir` fix): first stderr line of autoindex,
+  `disk_hint` in the budget JSON and `xerj_index_budget`, and a node WARN
+  when flood stage engages (#3287, fixes #3282).
+- `xerj index` retries memory-breaker rejections and exits 1 when documents
+  are lost (#2991). It used to drop the batch and exit 0.
+- Cluster: a replica that misses a write the primary applied leaves the
+  in-sync set (#2993).
+- `PUT /_bulk` and `PUT /{index}/_bulk` are accepted (#3037, fixes #3036).
+- Auth secrets are redacted from debug and serialized config output (#3149,
+  fixes #3057).
+- Large scalar string fields in extracted JSON are capped at
+  `NESTED_JSON_FIELD_MAX` (#3115, fixes #3058).
+- `xerj feedback` keeps `--title` and `--filed-alongside` in its
+  ready-to-run commands (#3106, fixes #3061).
+- Fused BM25 file and symbol hits report the fused `hits.total` and relation
+  (#3071, fixes #3060).
+- Autoindex: quarantining changed content replaces its junk status (#3026);
+  the remove that rebuilds a folder after a record-count abort is named
+  (#2907, fixes #2669); a first run is pointed at the existing data dir
+  (#2953, fixes #2941); `.luau` is Lua code end to end (#2955, fixes #2940);
+  `xerj code` accepts dot-leading repo names such as `.tmux` (#2952, fixes
+  #2939).
+- Elasticsearch-compatibility fixes from contributors, each matching ES 8:
+  clear-scroll that frees nothing answers 404 (#2914); `?create=true` on the
+  three template PUTs (#2930) and ES's names on template GET and DELETE
+  (#2931); date min/max keep their format across indices (#2943); stats
+  (#2948) and composite pages (#2949) reduce over every participating index;
+  integer `_search` URL params are bounded (#2960); closing a PIT id no node
+  issued is refused (#2961); `exists` on `_source` is refused (#2962);
+  `extended_stats` `sigma` is validated (#2963); search parameters ES 8
+  refuses are refused (#2964); a negative `track_total_hits` reads as in ES 8
+  and the query cache is keyed per tracking mode (#2973); `indices_boost`
+  keys resolve before searching (#2977); `weighted_avg` fails on a
+  multi-valued weight (#2981); a `fields` format on a type that cannot format
+  is refused (#2986); percentile aggregations on a non-numeric field are
+  refused (#2989); `search.allow_expensive_queries` is honoured (#2996); a
+  `buckets_path` that reaches no number is refused (#2997); regex
+  include/exclude on a non-string `terms` field (#3008), a `reverse_nested`
+  path that is not a parent (#3009), collapse with `search_after` unless
+  sorted on the collapse field (#3010), match queries and aggregations on a
+  lookup runtime field (#3011) and a script on `matrix_stats` (#3012) are
+  refused with ES's errors.
+- **`_forcemerge` on a vector index no longer holds a parsed copy of every
+  vector (#3266; partial fix of #2917, which stays open because forced
+  merges are still exempt from the yield rules; refs #2427).** The stored-section encoder and decoder kept
+  array and object fields (a 1024-d `dense_vector` in `_source`) as one
+  `serde_json::Value` per number for the whole segment. They now keep those
+  columns as row JSON text, and at the same zstd level the encoded and
+  decoded bytes are identical to before (tested). The
+  explicit-forcemerge long-effort zstd candidate drops from level 19 to 12
+  above 16 MiB per column and to 9 above 128 MiB, keeping long-distance
+  matching. On a 12,000-doc, 101.7 MB, 1024-d index merged from 2 segments to
+  1: peak RSS 1,770 MB → 885 MB and 144 s → 15 s at the auto cap; at a
+  1,200 MB cap 2,318 MB (7 breaker engages) → 776 MB (none). The merged
+  segment is 1.8% larger (89.4 → 91.0 MB). Those numbers were measured on
+  public `main`. In the rc.103 binaries a JSON column of 256 KiB or more is
+  written as row blocks when they come out smaller than LZ4 over the whole
+  column (the rc.101 storage default; `XERJ_STORED_ROW_BLOCKS=0` turns it
+  off), and the row text is cut into those blocks without parsing it. The
+  rc.103 binaries were not re-measured.
+- **Cluster: each index routes documents with its own shard count (#2992).** The shard
   router used one hash width for the whole cluster, set to the widest plan, so
   creating an index with more shards (for example after a fourth node joined)
   re-bucketed every older index: acknowledged ids answered 404 and new writes
@@ -57,11 +295,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   node writes the rows instead of skipping them as unchanged, and escapes tabs,
   newlines and backslashes in `doc_id` when writing and replaying `.journal`
   files (#3130).
-- Incremental autoindex and watch passes accept an edited file that becomes
+- Incremental autoindex and watch passes (#3069) accept an edited file that becomes
   identical to another indexed file. The existing content group keeps its
   identity and gains the path as an alias; the superseded group is retired
   instead of failing with conflicting content and path identities.
-- `search.max_buckets` set through `PUT _cluster/settings` now caps the
+- `search.max_buckets` set through `PUT _cluster/settings` (#3073) now caps the
   aggregation buckets of `_search` and `_msearch`, as in Elasticsearch 8. It
   was stored and returned by `GET _cluster/settings` but never read, so
   `_search` kept answering 200. The buckets the response keeps are counted

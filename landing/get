@@ -45,8 +45,19 @@ info() { printf '%s==>%s %s\n' "$YEL" "$RST" "$*"; }
 ok()   { printf '%s ok %s %s\n' "$GRN" "$RST" "$*"; }
 die()  { printf '%serror:%s %s\n' "$RED" "$RST" "$*" >&2; exit 1; }
 
-need() { command -v "$1" >/dev/null 2>&1 || die "'$1' is required but not found in PATH"; }
-need uname; need tar
+# --- precheck: every tool this script calls, named at once (#3278) -----------
+# A minimal PATH (NixOS, a bare container, `env -i`) used to fail one tool at
+# a time, mid-install. Exit 2 (not 1) so a caller can tell "this host lacks
+# tools" from "the download or checksum failed". Nothing is downloaded yet.
+missing=''
+for t in uname tar gzip sed awk tr cut head mktemp; do
+  command -v "$t" >/dev/null 2>&1 || missing="${missing} ${t}"
+done
+command -v curl >/dev/null 2>&1 || command -v wget >/dev/null 2>&1 || missing="${missing} curl-or-wget"
+if [ -n "$missing" ]; then
+  printf '%serror:%s missing required tools:%s. NixOS: nix-shell -p gnutar gzip gnused gawk curl; Alpine: apk add tar gzip sed curl; Debian/Ubuntu: apt-get install tar gzip sed curl. Nothing was installed.\n' "$RED" "$RST" "$missing" >&2
+  exit 2
+fi
 
 # --- pick a downloader ------------------------------------------------------
 # DL leaves the HTTP status of its download in $dl_status ("" when the server
@@ -70,6 +81,32 @@ elif command -v wget >/dev/null 2>&1; then
 else
   die "need curl or wget"
 fi
+
+# DL_RESUME: the large-download variant (#3278, the ~460 MiB model bundle).
+# A field report saw the bundle stall at 0 bytes and needed 25 ranged retries
+# by hand. Each attempt resumes from the bytes already on disk (HTTP Range)
+# and gives up on a connection that moves no byte for 30 s; the SHA-256 check
+# after it is what proves the reassembled file.
+DL_RESUME_TRIES="${XERJ_DL_TRIES:-40}"
+DL_RESUME() {
+  if command -v curl >/dev/null 2>&1; then
+    n=1
+    while :; do
+      dl_status=$(curl -fsSL -C - --connect-timeout 30 --speed-limit 1 --speed-time 30 \
+        -w '%{http_code}' "$1" -o "$2") && return 0
+      [ "$dl_status" = "000" ] && dl_status=''
+      case "$dl_status" in 404|410|401|403) return 1 ;; 416) return 0 ;; esac
+      [ "$n" -ge "$DL_RESUME_TRIES" ] && return 1
+      have=$(wc -c < "$2" 2>/dev/null | tr -d ' ' || echo 0)
+      printf '   download interrupted at %s bytes; resuming (attempt %s of %s)\n' "${have:-0}" "$((n + 1))" "$DL_RESUME_TRIES" >&2
+      n=$((n + 1))
+      sleep "$([ "$n" -lt 8 ] && echo "$n" || echo 8)"
+    done
+  else
+    dl_status=''
+    wget -q -c -T 30 -t "$DL_RESUME_TRIES" --waitretry=8 -O "$2" "$1"
+  fi
+}
 
 # --- detect target triple ---------------------------------------------------
 # Supported matrix (8 release targets):
@@ -206,7 +243,9 @@ download_failed() {  # $1 = what failed, $2 = its URL
            && [ \"\$(${sha_cmd} \"\$a\" | cut -d' ' -f1)\" = \"\$(cut -d' ' -f1 \"\$a.sha256\")\" ] \\
            && ${unpack} && mkdir -p \"\$d\" && cp ${stage}/${bin} \"\$d/\" && \"\$d/${bin}\" --version
        With the GitHub CLI signed in (not subject to anonymous rate limits), fetch the two files with:
-         gh release download ${tag} -R ${REPO} -p ${asset} -p ${asset}.sha256"
+         gh release download ${tag} -R ${REPO} -p ${asset} -p ${asset}.sha256
+       From a mirror: every asset's digest is also in one file, ${base}/SHA256SUMS
+         (check with: ${sha_cmd} -c SHA256SUMS --ignore-missing)"
 }
 
 info "downloading ${asset}…"
@@ -350,7 +389,7 @@ if [ "$WITH_MODEL" = "1" ]; then
   model_asset="xerj-model-bundle-v1-${tag}.tar.gz"
   say ""
   info "downloading model bundle ${model_asset}… (about 460 MiB)"
-  DL "${base}/${model_asset}" "${tmp}/${model_asset}" \
+  DL_RESUME "${base}/${model_asset}" "${tmp}/${model_asset}" \
     || die "model download failed (${dl_status:+HTTP }${dl_status:-no HTTP response}): ${base}/${model_asset}. Assets: https://github.com/${REPO}/releases/tag/${tag}"
   DL "${base}/${model_asset}.sha256" "${tmp}/${model_asset}.sha256" 2>/dev/null \
     || die "could not download checksum ${model_asset}.sha256 (${dl_status:+HTTP }${dl_status:-no HTTP response}) — refusing to install an unverified model bundle"

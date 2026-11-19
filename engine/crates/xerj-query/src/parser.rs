@@ -3395,7 +3395,22 @@ fn parse_hybrid(params: &Value) -> Result<QueryNode> {
                 ))
             })?;
             let query = parse_query(q_val)?;
-            let weight = entry.get("weight").and_then(|v| v.as_f64()).unwrap_or(1.0) as f32;
+            // #3016: the weight is the per-leg RRF (or linear) multiplier, the
+            // knob that tilts fusion toward one leg. A weight that is not a
+            // finite, non-negative number used to fall back to 1 in silence, so
+            // a typo (`"weight": "0.3"`) ran an equal-weight fusion while the
+            // caller believed the vector leg was down-weighted.
+            let weight = match entry.get("weight") {
+                None | Some(Value::Null) => 1.0,
+                Some(v) => match v.as_f64() {
+                    Some(w) if w.is_finite() && w >= 0.0 && (w as f32).is_finite() => w as f32,
+                    _ => {
+                        return Err(qerr(format!(
+                            "`hybrid.queries[{i}].weight` must be a finite number >= 0, got {v}"
+                        )))
+                    }
+                },
+            };
             Ok(WeightedQuery { query, weight })
         })
         .collect::<Result<Vec<_>>>()?;
@@ -3420,8 +3435,13 @@ fn parse_hybrid(params: &Value) -> Result<QueryNode> {
             let t = m.get("type").and_then(|v| v.as_str()).unwrap_or("rrf");
             match t {
                 "rrf" => {
-                    let k = m.get("k").and_then(|v| v.as_u64()).unwrap_or(60) as u32;
-                    FusionStrategy::Rrf { k }
+                    // `rank_constant` is the name the ES `rrf` retriever uses
+                    // for the same smoothing constant (#3016). Giving both is
+                    // ambiguous; a value that is not a whole number >= 0 used
+                    // to fall back to 60 in silence.
+                    FusionStrategy::Rrf {
+                        k: parse_rrf_rank_constant(m)?,
+                    }
                 }
                 "linear" => FusionStrategy::Linear,
                 // Learned fusion is not implemented — fail loud (see above).
@@ -3436,6 +3456,26 @@ fn parse_hybrid(params: &Value) -> Result<QueryNode> {
     };
 
     Ok(QueryNode::Hybrid { queries, fusion })
+}
+
+/// The RRF smoothing constant of an object-form `hybrid.fusion`: `k`, or
+/// `rank_constant` — the name the ES `rrf` retriever uses for it (#3016) —
+/// defaulting to 60. Giving both is ambiguous, and a value that is not a whole
+/// number >= 0 used to fall back to 60 in silence.
+fn parse_rrf_rank_constant(fusion: &serde_json::Map<String, Value>) -> Result<u32> {
+    let raw = match (fusion.get("k"), fusion.get("rank_constant")) {
+        (Some(_), Some(_)) => {
+            return invalid("`hybrid.fusion` takes `k` or its alias `rank_constant`, not both")
+        }
+        (Some(v), None) | (None, Some(v)) => v,
+        (None, None) => return Ok(60),
+    };
+    match raw.as_u64().map(u32::try_from) {
+        Some(Ok(k)) => Ok(k),
+        _ => invalid(format!(
+            "`hybrid.fusion` rrf `k` (`rank_constant`) must be a whole number >= 0, got {raw}"
+        )),
+    }
 }
 
 /// Parse a `function_score` query.
@@ -6569,6 +6609,55 @@ mod tests {
             ),
             "{msg}"
         );
+    }
+
+    /// #3016: per-leg weights and the RRF constant are the tuning knobs, so a
+    /// value that cannot be one is a 400, never a silent default.
+    #[test]
+    fn hybrid_weight_and_rank_constant_are_validated() {
+        let legs = |weight: Value| {
+            json!([
+                {"query": {"match": {"title": "rust"}}, "weight": weight},
+                {"query": {"match": {"title": "go"}}}
+            ])
+        };
+        for bad in [json!("0.3"), json!(-0.5), json!(true), json!([1])] {
+            let err = parse_query(&json!({"hybrid": {"queries": legs(bad.clone())}})).unwrap_err();
+            assert!(
+                err.to_string()
+                    .contains("`hybrid.queries[0].weight` must be a finite number >= 0"),
+                "{bad}: {err}"
+            );
+        }
+        for (raw, want) in [(json!(0), 0.0f32), (json!(2.5), 2.5), (Value::Null, 1.0)] {
+            let QueryNode::Hybrid { queries, .. } =
+                q(json!({"hybrid": {"queries": legs(raw.clone())}}))
+            else {
+                panic!("wrong variant");
+            };
+            assert_eq!(queries[0].weight, want, "{raw}");
+            assert_eq!(queries[1].weight, 1.0);
+        }
+
+        let fusion = |f: Value| json!({"hybrid": {"queries": legs(json!(1)), "fusion": f}});
+        for (f, want) in [
+            (json!({"type": "rrf", "rank_constant": 20}), 20u32),
+            (json!({"type": "rrf", "k": 0}), 0),
+            (json!({"type": "rrf"}), 60),
+        ] {
+            let QueryNode::Hybrid { fusion, .. } = q(fusion(f.clone())) else {
+                panic!("wrong variant");
+            };
+            assert_eq!(fusion, FusionStrategy::Rrf { k: want }, "{f}");
+        }
+        for bad in [
+            json!({"type": "rrf", "k": -1}),
+            json!({"type": "rrf", "k": "40"}),
+            json!({"type": "rrf", "rank_constant": 1.5}),
+            json!({"type": "rrf", "k": 10, "rank_constant": 10}),
+        ] {
+            assert!(parse_query(&fusion(bad.clone())).is_err(), "{bad}");
+        }
     }
 
     #[test]

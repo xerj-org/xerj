@@ -1072,6 +1072,20 @@ pub struct Engine {
     /// cluster transport is up. Single-node boots leave this empty and every
     /// index create/delete/mapping/settings path stays local.
     cluster: Arc<parking_lot::Mutex<Option<xerj_cluster::ClusterHandle>>>,
+
+    /// Names deleted while this process runs (#3274). A delete that timed
+    /// out waiting for a straggling flush or merge can see that straggler
+    /// recreate `<data_dir>/<name>/segments` after the rename; a create of
+    /// the same name moves such a leftover into the trash instead of
+    /// building the new index on top of it.
+    deleted_names: Arc<DashMap<String, ()>>,
+
+    /// Names whose delete is between unregistering the index and freeing
+    /// its directory (#3274) — the bounded wait for other handles sits in
+    /// that window. A create of the name answers "already exists" until the
+    /// delete finishes, instead of building a new index in the directory
+    /// the delete is about to move away.
+    deleting_names: Arc<DashMap<String, ()>>,
 }
 
 impl Engine {
@@ -1229,6 +1243,8 @@ impl Engine {
             cluster_state_write: Arc::new(parking_lot::Mutex::new(())),
             cluster_state_boot: Arc::new(cluster_state_status),
             cluster: Arc::new(parking_lot::Mutex::new(None)),
+            deleted_names: Arc::new(DashMap::new()),
+            deleting_names: Arc::new(DashMap::new()),
         };
 
         // A rejected cluster-state document means this binary cannot know the
@@ -1237,6 +1253,9 @@ impl Engine {
         // includes `.xerj_*` system indices; treating them as harmless was the
         // exact path that mutated `.xerj_dashboards` during the causal A/B.
         if storage_available {
+            // #3274: finish deletes whose bytes could not be removed last
+            // run. Nothing is open yet, so nothing in the trash is mapped.
+            crate::index_trash::sweep(&data_dir);
             // Scan data_dir for existing index directories.
             if let Ok(read_dir) = std::fs::read_dir(&data_dir) {
                 for entry in read_dir.flatten() {
@@ -1751,6 +1770,28 @@ impl Engine {
             return Err(EngineError::Common(
                 xerj_common::XerjError::index_unavailable(name, f.reason.clone()),
             ));
+        }
+
+        if self.deleting_names.contains_key(name) {
+            return Err(EngineError::Common(
+                xerj_common::XerjError::index_already_exists(name),
+            ));
+        }
+
+        // #3274: a straggler of a deleted index of this name may have
+        // recreated part of its directory after the delete renamed it away.
+        // Only a directory is ours: anything else at the path is not a
+        // straggler's doing, and the create reports it as before.
+        if self.deleted_names.remove(name).is_some() {
+            let leftover = self.data_dir.join(name);
+            if leftover.is_dir() {
+                warn!(
+                    name,
+                    "moving a leftover of the deleted index aside before re-create"
+                );
+                crate::index_trash::retire_dir(&self.data_dir, &leftover, name)
+                    .map_err(EngineError::Io)?;
+            }
         }
 
         let idx = Index::create_with_settings(
@@ -3653,10 +3694,36 @@ impl Engine {
     /// Does not propose. The cluster applier calls this after the delete has
     /// committed. The single-node [`Engine::delete_index`] falls through here
     /// after the visibility check.
+    ///
+    /// The work runs on its own task (#3274): it now waits for other index
+    /// handles between unregistering the index and freeing its directory, and
+    /// a caller that goes away in that window (a client disconnect drops the
+    /// request future) must not leave the name unregistered with its bytes
+    /// still in place.
     pub(crate) async fn delete_index_local(&self, name: &str) -> Result<()> {
+        let engine = self.clone();
+        let owned = name.to_string();
+        match tokio::spawn(async move { engine.delete_index_local_inner(&owned).await }).await {
+            Ok(result) => result,
+            Err(e) => Err(EngineError::Common(xerj_common::XerjError::storage(
+                format!("index [{name}] delete task failed: {e}"),
+            ))),
+        }
+    }
+
+    async fn delete_index_local_inner(&self, name: &str) -> Result<()> {
         self.ensure_cluster_state_writable()?;
         match self.indices.remove(name).map(|(_, v)| v) {
             Some(idx) => {
+                // #3274: the index is unregistered (new requests get 404).
+                // Stop its merge scheduling and give in-flight readers,
+                // bulks, flushes and merges a bounded window to drop their
+                // handles before the directory goes. A handle that outlives
+                // the window does not block the delete: the directory is
+                // renamed into the trash, and its removal is retried there.
+                self.deleting_names.insert(name.to_string(), ());
+                idx.abort_background_tasks();
+                Self::quiesce_for_delete(name, &idx).await;
                 // The handle is pulled out of the map first so no write can
                 // land in a directory that is being removed — but if the
                 // removal then fails (read-only mount, EACCES, EROFS), the
@@ -3668,7 +3735,10 @@ impl Engine {
                 // levers this module adds can name it. Put the handle back so
                 // a delete that did not happen leaves the index addressable
                 // and the operator can retry it.
-                if let Err(e) = idx.delete_all_data().await {
+                let deleted = idx.delete_all_data().await;
+                self.deleting_names.remove(name);
+                if let Err(e) = deleted {
+                    idx.resume_merge_scheduling();
                     self.indices.insert(name.to_string(), idx);
                     warn!(name, error = %e, "index delete failed; index left in service");
                     return Err(e);
@@ -3694,8 +3764,35 @@ impl Engine {
         }
 
         self.forget_index_metadata(name);
+        self.deleted_names.insert(name.to_string(), ());
         info!(name, "index deleted");
         Ok(())
+    }
+
+    /// Longest a delete waits for other holders of the index handle
+    /// (#3274). Readers and bulk batches finish in milliseconds; this bounds
+    /// the wait when one does not, and the trash covers what is left.
+    const DELETE_QUIESCE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(3);
+
+    /// Wait until `idx` is the last handle and no merge pass is running, or
+    /// until [`Self::DELETE_QUIESCE_TIMEOUT`]. Returns whether it got there.
+    async fn quiesce_for_delete(name: &str, idx: &Arc<Index>) -> bool {
+        let deadline = Instant::now() + Self::DELETE_QUIESCE_TIMEOUT;
+        loop {
+            if Arc::strong_count(idx) == 1 && !idx.is_merge_in_progress() {
+                return true;
+            }
+            if Instant::now() >= deadline {
+                warn!(
+                    index = name,
+                    handles = Arc::strong_count(idx),
+                    merge_running = idx.is_merge_in_progress(),
+                    "index delete proceeding while the index is still held"
+                );
+                return false;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+        }
     }
 
     /// Drop every piece of engine-side metadata that names `index` — aliases
@@ -3771,7 +3868,9 @@ impl Engine {
                 format!("refusing to delete index [{name}] outside data_dir (canonical)"),
             )));
         }
-        std::fs::remove_dir_all(&dir_canon).map_err(EngineError::Io)?;
+        // Through the trash, like the open-index arm (#3274): a failed index
+        // can still have files the filesystem will not let go of yet.
+        crate::index_trash::retire_dir(&root_canon, &dir_canon, name).map_err(EngineError::Io)?;
         Ok(())
     }
 
@@ -4943,6 +5042,7 @@ impl Engine {
             let mut rss_drains =
                 crate::governor::MemoryDrainSchedule::new(MEMORY_DRAIN_MIN_INTERVAL);
             let mut last_memtable_drain_at: Option<std::time::Instant> = None;
+            let mut disk_hint_shown = false;
             loop {
                 std::thread::sleep(period);
                 if weak_a.strong_count() == 0 {
@@ -4959,6 +5059,24 @@ impl Engine {
                 let available_commit = xerj_common::resource::available_commit_bytes();
                 let (disk_pct, disk_avail) = crate::governor::disk_used_pct_and_avail(&data_dir);
                 governor.refresh_memory_observing(observed, disk_pct, disk_avail, available_commit);
+                // #3282: name the drive and the `--data-dir` fix once per
+                // engagement (the first sample after startup included), so a
+                // node that starts in flood stage says why every write fails.
+                let flood = governor.disk_flood_admission();
+                if flood.blocked && !disk_hint_shown {
+                    let sizes = crate::governor::disk_stats(&data_dir);
+                    tracing::warn!(
+                        "{}",
+                        xerj_common::disk_hint::flood_stage_hint(
+                            &data_dir,
+                            disk_pct,
+                            flood.flood_pct,
+                            sizes,
+                            "writes are refused until space is freed",
+                        )
+                    );
+                }
+                disk_hint_shown = flood.blocked;
 
                 if sample_drain_due(
                     std::time::Instant::now(),
