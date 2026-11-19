@@ -726,9 +726,10 @@ fn encode_v2_columns(
 /// per row instead of parsed values (#2917, see [`lazy_columns`]).
 ///
 /// `json_columns[cix]` is `Some` for such a column, and `columns[cix]` is
-/// then an empty placeholder. Every non-null row of a JSON column is an
-/// array or object, so it would take neither the dictionary, cross-dep nor
-/// typed-int codec; it goes straight to CONSTANT, COPY_OF or the JSON
+/// then an empty placeholder. A JSON column has at least one array or
+/// object row (its other rows may be scalars, #2427), so it would take
+/// neither the dictionary, cross-dep nor typed-int codec; it goes straight
+/// to CONSTANT, COPY_OF or the JSON
 /// fallback, whose input is the same `[row,row,…]` bytes `serde_json`
 /// writes for the parsed column. `json_columns` may be shorter than
 /// `columns` (missing = parsed column).
