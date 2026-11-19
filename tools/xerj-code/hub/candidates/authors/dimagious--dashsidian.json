@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on dashboard, obsidian, obsidian-md queries this for how Dimagious/dashsidian implements it: Describe the dashboard you want, your AI agent builds it in an Obsidian note. Charts, streaks, heatmaps and goals from note properties, as p (selected work: src/core, src/app, src/adapters)",
+ "domain": "an agent working on dashboard, obsidian, obsidian-md queries this for how Dimagious/dashsidian implements it: Dashy for Obsidian: dashboards inside a note, from your frontmatter. Charts, streaks, heatmaps and goals as plain YAML (selected work: src/core, src/app, src/adapters)",
  "repos": [
   {
    "repo": "dashsidian",

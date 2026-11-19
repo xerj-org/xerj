@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Python queries this for how BowlOfData/maki implements it: An AI Framework to interact with local models (selected work: maki, the project root)",
+ "domain": "an agent working on agents, ai-agents, llama-cpp queries this for how BowlOfData/maki implements it: Python framework for multi-agent LLM apps that run on Ollama, llama.cpp, vLLM or hosted APIs (selected work: maki, the project root)",
  "repos": [
   {
    "repo": "maki",

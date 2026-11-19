@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agent-memory, agent-skills, agent-starter queries this for how Songhonglei/better-agent-skills implements it: Skill suite for better usage of agent ( openclaw, hermes and more) (selected work: skills, tests)",
+ "domain": "an agent working on agent-memory, agent-skills, agent-starter queries this for how Songhonglei/better-agent-skills implements it: Portable skills for AI agents covering memory, profiles, session recovery, environment diagnostics, usage tracking, and multi-agent coordina (selected work: skills, tests)",
  "repos": [
   {
    "repo": "better-agent-skills",
