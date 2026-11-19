@@ -74,6 +74,7 @@ pub mod schema;
 pub mod service;
 pub mod thread_spawn;
 pub mod types;
+pub mod writing_pack;
 pub mod writing_review;
 pub mod xccode;
 
