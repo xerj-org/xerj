@@ -1413,8 +1413,11 @@ class BuiltSiteDiscoverabilityTest(SiteLinksTest):
         restored = [r for r in table if r["restored"] == "yes"]
         withheld = [r for r in table if r["restored"] == "no"]
         weak_restored = []
-        self.assertEqual(len(restored), 200, len(restored))
-        self.assertEqual(len(withheld), 37)
+        # 200 restored + 37 withheld on 2026-11-10; an author who opts out later moves from restored=yes to no in the
+        # audit (2cdede069, SquishOut), so count against the audit itself and keep a floor instead of a fixed 200/37
+        # (a fixed count blocked every hub deploy on 2026-11-18)
+        self.assertEqual(len(restored) + len(withheld), len(table))
+        self.assertGreaterEqual(len(restored), 190, len(restored))
         authors = gen.HUB / "candidates" / "authors"
         ledger = {}
         for path in sorted(authors.glob("CONTRIBUTORS*.jsonl")):
