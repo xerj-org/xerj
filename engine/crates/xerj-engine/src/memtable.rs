@@ -7039,4 +7039,135 @@ mod concurrent_freeze_tests {
         assert_eq!(torn_reads.load(Ordering::Relaxed), 0, "{summary}");
         assert!(freezes.load(Ordering::Relaxed) > 1, "{summary}");
     }
+
+    #[test]
+    fn deletes_racing_freeze_are_never_lost_and_never_resurrected() {
+        const DEL_WRITERS: usize = 2;
+        let mem = Arc::new(ShardedFtsMemtable::with_registry_and_shards(
+            Arc::new(AnalyzerRegistry::default()),
+            1,
+        ));
+        let schema = Schema::default();
+        let seq = Arc::new(AtomicU64::new(1));
+        let acked: Arc<Vec<AtomicUsize>> =
+            Arc::new((0..DEL_WRITERS).map(|_| AtomicUsize::new(0)).collect());
+        let deleted: Mutex<std::collections::HashMap<String, usize>> =
+            Mutex::new(std::collections::HashMap::new());
+        let snapshotted: Mutex<std::collections::HashMap<String, usize>> =
+            Mutex::new(std::collections::HashMap::new());
+        let freezes_started = AtomicUsize::new(0);
+        let dup_in_snapshots = AtomicUsize::new(0);
+        let visible_after_delete = AtomicUsize::new(0);
+        let done = AtomicUsize::new(0);
+
+        std::thread::scope(|scope| {
+            for w in 0..DEL_WRITERS {
+                let (mem, seq, acked, done, schema) = (&mem, &seq, &acked, &done, &schema);
+                scope.spawn(move || {
+                    for i in 0..DOCS_PER_WRITER {
+                        let id = id_of(w, i);
+                        let s = seq.fetch_add(1, Ordering::Relaxed);
+                        mem.insert(id.clone(), &json!({ "body": id }), schema, s);
+                        acked[w].store(i + 1, Ordering::Release);
+                    }
+                    done.fetch_add(1, Ordering::Release);
+                });
+            }
+            for w in 0..DEL_WRITERS {
+                let (mem, acked, done, deleted) = (&mem, &acked, &done, &deleted);
+                let (started, visible) = (&freezes_started, &visible_after_delete);
+                scope.spawn(move || {
+                    let mut next = 0;
+                    while next < DOCS_PER_WRITER {
+                        let n = acked[w].load(Ordering::Acquire);
+                        while next < n {
+                            if next % 2 == 0 {
+                                let id = id_of(w, next);
+                                mem.remove(&id);
+                                std::sync::atomic::fence(Ordering::SeqCst);
+                                let s = started.load(Ordering::SeqCst);
+                                if mem.contains(&id) {
+                                    visible.fetch_add(1, Ordering::Relaxed);
+                                }
+                                deleted.lock().unwrap().insert(id, s);
+                            }
+                            next += 1;
+                        }
+                    }
+                    done.fetch_add(1, Ordering::Release);
+                });
+            }
+            {
+                let (mem, done, snapshotted) = (&mem, &done, &snapshotted);
+                let (started, dups) = (&freezes_started, &dup_in_snapshots);
+                scope.spawn(move || loop {
+                    let finished = done.load(Ordering::Acquire) == 2 * DEL_WRITERS;
+                    let k = started.fetch_add(1, Ordering::SeqCst);
+                    let (rows, claim) = mem.freeze_shard_accounted(0, true);
+                    {
+                        let mut snap = snapshotted.lock().unwrap();
+                        for (_, id, _, _) in &rows {
+                            if snap.insert(id.clone(), k).is_some() {
+                                dups.fetch_add(1, Ordering::Relaxed);
+                            }
+                        }
+                    }
+                    drop(claim.retire());
+                    if finished {
+                        break;
+                    }
+                });
+            }
+        });
+
+        let deleted = deleted.into_inner().unwrap();
+        let snapshotted = snapshotted.into_inner().unwrap();
+        let in_mem: HashSet<String> = mem.all_doc_ids().into_iter().collect();
+        let mut lost = 0usize;
+        let mut resurrected = 0usize;
+        let mut deleted_but_live = 0usize;
+        for w in 0..DEL_WRITERS {
+            for i in 0..DOCS_PER_WRITER {
+                let id = id_of(w, i);
+                match deleted.get(&id) {
+                    Some(&s) => {
+                        if in_mem.contains(&id) {
+                            deleted_but_live += 1;
+                        }
+                        if snapshotted.get(&id).is_some_and(|&k| k >= s) {
+                            resurrected += 1;
+                        }
+                    }
+                    None => {
+                        if !in_mem.contains(&id) && !snapshotted.contains_key(&id) {
+                            lost += 1;
+                        }
+                    }
+                }
+            }
+        }
+        let summary = format!(
+            "freezes={} deleted={} snapshotted={} in_mem={} lost={lost} \
+             resurrected={resurrected} deleted_but_live={deleted_but_live} \
+             visible_after_delete={} dup_in_snapshots={}",
+            freezes_started.load(Ordering::Relaxed),
+            deleted.len(),
+            snapshotted.len(),
+            in_mem.len(),
+            visible_after_delete.load(Ordering::Relaxed),
+            dup_in_snapshots.load(Ordering::Relaxed),
+        );
+        eprintln!("{summary}");
+        assert_eq!(
+            deleted.len(),
+            DEL_WRITERS * DOCS_PER_WRITER / 2,
+            "{summary}"
+        );
+        assert_eq!(lost, 0, "{summary}");
+        assert_eq!(resurrected, 0, "{summary}");
+        assert_eq!(deleted_but_live, 0, "{summary}");
+        assert_eq!(visible_after_delete.load(Ordering::Relaxed), 0, "{summary}");
+        assert_eq!(dup_in_snapshots.load(Ordering::Relaxed), 0, "{summary}");
+        assert!(freezes_started.load(Ordering::Relaxed) > 1, "{summary}");
+    }
 }
