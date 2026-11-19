@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on TypeScript queries this for how euanylin/lingfern implements it: Offline English reading and listening practice (selected work: tests, src/app, scripts)",
+ "domain": "an agent working on TypeScript queries this for how euanylin/lingfern implements it: Offline-first English learning (selected work: tests, src/app, scripts)",
  "repos": [
   {
    "repo": "lingfern",

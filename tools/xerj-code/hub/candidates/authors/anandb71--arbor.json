@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-tools, ast, code-analysis queries this for how Anandb71/arbor implements it: Graph-native code intelligence that replaces embedding-based RAG with deterministic program understanding (selected work: eval, crates/arbor-cli)",
+ "domain": "an agent working on ai-tools, ast, code-analysis queries this for how Anandb71/arbor implements it: Graph-native code intelligence that replaces embedding-based RAG with deterministic program understanding (selected work: crates/arbor-core, crates/arbor-graph, crates/arbor-cli)",
  "repos": [
   {
    "repo": "arbor",
    "url": "https://github.com/Anandb71/arbor",
-   "sha": "5a7dbf0bcf563897892004ed0a6e8f346eb86c0d",
-   "licence": "MIT (LICENSE file at pin 5a7dbf0bcf56, GitHub licence API 2026-11-11)",
+   "sha": "c6d7b42559eac5cc9346fb76b7b445adc65e3969",
+   "licence": "MIT (LICENSE file at pin c6d7b42559ea, GitHub licence API 2026-10-24)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
-    "at": "2026-10-07T04:56Z",
-    "consent_receipt": "7aacfda88353",
-    "note": "Inclusion consented by the commit author by email at 2026-10-07T04:56Z (receipt 7aacfda88353); selected commit 5a7dbf0bcf56: \"test(eval): two-state corpus fixtures, real-repo slice, second langua\u2026\". LICENSE file at pin 5a7dbf0bcf56 detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution."
+    "at": "2026-10-16T03:03Z",
+    "consent_receipt": "9c3e7985e6c8",
+    "note": "Inclusion consented by the commit author by email at 2026-10-16T03:03Z (receipt 9c3e7985e6c8); selected commit c6d7b42559ea: \"fix(graph): emit class inheritance edges and reach inherited methods \u2026\". LICENSE file at pin c6d7b42559ea detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
    }
   }
  ]
