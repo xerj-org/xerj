@@ -278,6 +278,17 @@ impl Drop for TestSinkGuard {
 }
 
 enum Sink {
+    /// `std::io::stderr()`, deliberately, and no `SetConsoleOutputCP` (#3102).
+    /// On Windows, std writes to a console handle whose code page is not
+    /// UTF-8 through `WriteConsoleW` after converting the UTF-8 to UTF-16
+    /// (`library/std/src/sys/stdio/windows.rs`, `write` / `is_console`), so a
+    /// console window shows CJK paths correctly on code page 936 already.
+    /// The mojibake in #3102 comes from a *pipe*: its reader (a PowerShell
+    /// capture) decodes the bytes with an encoding the reader chose. Setting
+    /// the console's code page here changes nothing std writes to a console
+    /// window, and would leave the user's shell on 65001 whenever the
+    /// process is killed before restoring it.
+    /// `--help` (cli.rs) tells pipe readers to switch their decoder.
     Stderr,
     /// Test-only: the identical render path, captured in memory.
     #[cfg(test)]
