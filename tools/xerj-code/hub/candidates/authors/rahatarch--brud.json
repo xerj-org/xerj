@@ -8,15 +8,15 @@
   {
    "repo": "brud",
    "url": "https://github.com/rahatarch/brud",
-   "sha": "990907375951dc1f35a63473ecb895508595605d",
-   "licence": "Apache-2.0 (LICENSE file at pin 990907375951, GitHub licence API 2026-11-18)",
+   "sha": "2bd50d1ec95d2cab2c0a583879539ce5e0261582",
+   "licence": "Apache-2.0 (LICENSE file at pin 2bd50d1ec95d, GitHub licence API 2026-11-19)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-11T05:12Z",
     "consent_receipt": "b91fb2dc4ed0",
-    "note": "Inclusion consented by the commit author by email at 2026-10-11T05:12Z (receipt b91fb2dc4ed0); selected commit 990907375951: \"feat(kernel): introduce standalone microkernel architecture and capab\u2026\". LICENSE file at pin 990907375951 detected as Apache-2.0 by the GitHub licence API on 2026-11-18; used under that licence with attribution. Pinned to head 990907375951 (contains the selected commit): the LICENSE at the selected commit was MIT."
+    "note": "Inclusion consented by the commit author by email at 2026-10-11T05:12Z (receipt b91fb2dc4ed0); selected commit 2bd50d1ec95d: \"feat(kernel): introduce standalone microkernel architecture and capab\u2026\". LICENSE file at pin 2bd50d1ec95d detected as Apache-2.0 by the GitHub licence API on 2026-11-19; used under that licence with attribution. Pinned to head 2bd50d1ec95d (contains the selected commit): the LICENSE at the selected commit was MIT."
    }
   }
  ]

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on TypeScript queries this for how thebozturk/yokla implements it: Open-source end-to-end testing for conversational AI assistants: quality, factual safety, red team, robustness, cost and resilience. Turkish (selected work: packages/cli)",
+ "domain": "an agent working on ai-assistant, chatbot, cli queries this for how thebozturk/yokla implements it: Open-source end-to-end testing for conversational AI assistants: quality, factual safety, red team, robustness, cost and resilience. Turkish (selected work: packages/cli)",
  "repos": [
   {
    "repo": "yokla",
