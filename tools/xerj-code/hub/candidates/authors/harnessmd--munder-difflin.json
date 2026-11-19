@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agents, claude-code, harness queries this for how HarnessMD/munder-difflin implements it: an open-source alternative to the dots, bots and muses of the world, run an office of claude code/codex like agents on your laptop, sandboxe (selected work: blog)",
+ "domain": "an agent working on claude-code, agent-orchestration, ai-agents queries this for how HarnessMD/munder-difflin implements it: Coolest app to use agents, local, multi provider and open source grok bot alternative. Build custom worlds for your claude code and codex li (selected work: blog)",
  "repos": [
   {
    "repo": "munder-difflin",

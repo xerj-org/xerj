@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "CRYPTO",
- "domain": "an agent working on Kotlin queries this for how pasichDev/Encly implements it: Offline, encrypted notes and tasks for Android. No account, no cloud, no internet permission (selected work: app/src)",
+ "domain": "an agent working on android, compose-multiplatform, encrypted-notes queries this for how pasichDev/Encly implements it: Offline encrypted notes and tasks for Android. PIN lock, SQLCipher, no account, no network. Kotlin Multiplatform (selected work: app/src)",
  "repos": [
   {
    "repo": "Encly",

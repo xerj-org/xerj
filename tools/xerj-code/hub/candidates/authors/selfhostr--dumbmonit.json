@@ -8,15 +8,15 @@
   {
    "repo": "dumbmonit",
    "url": "https://github.com/laupernoe/dumbmonit",
-   "sha": "347d6b4d812d3af98f11e8a846de11d37cb4d80b",
-   "licence": "MIT (LICENSE file at pin 347d6b4d812d, GitHub licence API 2026-11-17)",
+   "sha": "96205910edf8ef0984c185d232a30e9df548bf0c",
+   "licence": "MIT (LICENSE file at pin 96205910edf8, GitHub licence API 2026-11-19)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-19T08:45Z",
     "consent_receipt": "fc2ebdaf9990",
-    "note": "Inclusion consented by the commit author by email at 2026-10-19T08:45Z (receipt fc2ebdaf9990); selected commit 347d6b4d812d: \"Wall widgets: Anthropic and OpenAI usage (cost, tokens, biggest users\u2026\". LICENSE file at pin 347d6b4d812d detected as MIT by the GitHub licence API on 2026-11-17; used under that licence with attribution. Pinned to head 347d6b4d812d (contains the selected commit): the LICENSE at the selected commit was Apache-2.0."
+    "note": "Inclusion consented by the commit author by email at 2026-10-19T08:45Z (receipt fc2ebdaf9990); selected commit 96205910edf8: \"Wall widgets: Anthropic and OpenAI usage (cost, tokens, biggest users\u2026\". LICENSE file at pin 96205910edf8 detected as MIT by the GitHub licence API on 2026-11-19; used under that licence with attribution. Pinned to head 96205910edf8 (contains the selected commit): the LICENSE at the selected commit was Apache-2.0."
    }
   }
  ]
