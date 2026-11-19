@@ -12,7 +12,7 @@ use std::sync::OnceLock;
 
 use rustc_hash::{FxHashMap, FxHashSet};
 use serde_json::Value;
-use xerj_common::types::{FieldType, Schema};
+use xerj_common::types::{FieldConfig, FieldType, Schema};
 use xerj_compress::field_codec::{FieldAnalyzer, FieldEncoding};
 use xerj_fts::analyzer::{AnalyzerPipeline, AnalyzerRegistry, Token};
 use xerj_fts::bm25::Bm25Scorer;
@@ -1153,8 +1153,8 @@ impl ShardedFtsMemtable {
     /// registry's "default" pipeline when one was configured via index
     /// settings, else "standard".  Every shard shares the same registry
     /// (see `with_registry_and_shards`), so shard 0 is representative.
-    /// Used by the bulk turbo path to pre-analyze docs OUTSIDE the
-    /// shard write locks via [`analyze_doc`].
+    /// Retained for direct callers that need the index-default pipeline
+    /// (the insert and query paths resolve per field instead, #3308).
     pub fn default_analyzer(&self) -> Option<Arc<AnalyzerPipeline>> {
         let g = self.shards[0].read();
         g.active
@@ -1645,26 +1645,56 @@ impl ShardedFtsMemtable {
     pub fn search_text(&self, query: &str, fields: &[&str], limit: usize) -> Vec<MemtableHit> {
         static NO_BOOSTS: std::sync::OnceLock<std::collections::HashMap<String, f32>> =
             std::sync::OnceLock::new();
-        self.search_text_boosted(
+        // Historical contract: the index default (else `standard`) for every
+        // field. Callers that know the schema pass the per-field resolver
+        // through `search_text_boosted` instead.
+        let default_analyzer = |_: &str| {
+            self.shards
+                .iter()
+                .find_map(|s| {
+                    let g = s.read();
+                    g.active
+                        .registry
+                        .get_analyzer("default")
+                        .or_else(|| g.active.registry.get_analyzer("standard"))
+                })
+                .expect("standard analyzer always present")
+        };
+        self.search_text_boosted_inner(
             query,
             fields,
             limit,
+            limit,
             NO_BOOSTS.get_or_init(std::collections::HashMap::new),
+            None,
+            &default_analyzer,
         )
+        .0
     }
 
     /// `search_text` with per-field boost multipliers from the query tree
     /// (ES `boost` on match clauses / `field^N` on multi_match). Fields
     /// absent from the map score with boost 1.0.
+    ///
+    /// #3308: `field_analyzer` resolves the pipeline for one field.
     pub fn search_text_boosted(
         &self,
         query: &str,
         fields: &[&str],
         limit: usize,
         field_boosts: &std::collections::HashMap<String, f32>,
+        field_analyzer: &dyn Fn(&str) -> Arc<AnalyzerPipeline>,
     ) -> Vec<MemtableHit> {
-        self.search_text_boosted_inner(query, fields, limit, limit, field_boosts, None)
-            .0
+        self.search_text_boosted_inner(
+            query,
+            fields,
+            limit,
+            limit,
+            field_boosts,
+            None,
+            field_analyzer,
+        )
+        .0
     }
 
     /// `search_text_boosted` with counting DECOUPLED from materialisation:
@@ -1682,8 +1712,17 @@ impl ShardedFtsMemtable {
         fields: &[&str],
         limit: usize,
         field_boosts: &std::collections::HashMap<String, f32>,
+        field_analyzer: &dyn Fn(&str) -> Arc<AnalyzerPipeline>,
     ) -> (Vec<MemtableHit>, u64) {
-        self.search_text_boosted_inner(query, fields, limit, usize::MAX, field_boosts, None)
+        self.search_text_boosted_inner(
+            query,
+            fields,
+            limit,
+            usize::MAX,
+            field_boosts,
+            None,
+            field_analyzer,
+        )
     }
 
     /// `search_text_boosted_with_total` scored against INDEX-WIDE BM25
@@ -1705,8 +1744,17 @@ impl ShardedFtsMemtable {
         limit: usize,
         field_boosts: &std::collections::HashMap<String, f32>,
         stats: Option<&xerj_fts::CollectionStats>,
+        field_analyzer: &dyn Fn(&str) -> Arc<AnalyzerPipeline>,
     ) -> (Vec<MemtableHit>, u64) {
-        self.search_text_boosted_inner(query, fields, limit, usize::MAX, field_boosts, stats)
+        self.search_text_boosted_inner(
+            query,
+            fields,
+            limit,
+            usize::MAX,
+            field_boosts,
+            stats,
+            field_analyzer,
+        )
     }
 
     /// `dis_max` over single-field text subs, each scored through the SAME
@@ -1725,6 +1773,7 @@ impl ShardedFtsMemtable {
         tie_breaker: f32,
         limit: usize,
         stats: Option<&xerj_fts::CollectionStats>,
+        field_analyzer: &dyn Fn(&str) -> Arc<AnalyzerPipeline>,
     ) -> (Vec<MemtableHit>, u64) {
         // Per-doc (max, sum, seq_no) accumulator over sub scores — the same
         // f32 (max, sum) pair `execute_dis_max` keeps.
@@ -1740,6 +1789,7 @@ impl ShardedFtsMemtable {
                     usize::MAX,
                     &boosts,
                     stats,
+                    field_analyzer,
                 );
                 hits.into_iter().fold(acc, |mut acc, h| {
                     let e = acc
@@ -1780,23 +1830,29 @@ impl ShardedFtsMemtable {
     /// Returns `None` when the memtable can't analyse the query (no analyzer,
     /// or the query analyses to zero tokens) — the caller must then not build
     /// index-wide stats at all rather than build partial ones.
+    ///
+    /// #3308: the query is tokenized once PER FIELD with that field's own
+    /// analyzer (`field_analyzer`), because the same query string analyses
+    /// differently per field once fields declare their own analyzers.
     pub fn collection_stats(
         &self,
         query: &str,
         fields: &[&str],
+        field_analyzer: &dyn Fn(&str) -> Arc<AnalyzerPipeline>,
     ) -> Option<xerj_fts::CollectionStats> {
-        let analyzer = self.shards.iter().find_map(|s| {
-            let g = s.read();
-            g.active
-                .registry
-                .get_analyzer("default")
-                .or_else(|| g.active.registry.get_analyzer("standard"))
-        })?;
-        let q_tokens = analyzer.analyze(query);
-        if q_tokens.is_empty() {
+        let field_list: Vec<String> = if fields.is_empty() {
+            self.indexed_field_names()
+        } else {
+            fields.iter().map(|s| s.to_string()).collect()
+        };
+        let field_tokens: Vec<(String, Vec<xerj_fts::analyzer::Token>)> = field_list
+            .iter()
+            .map(|f| (f.clone(), field_analyzer(f).analyze(query)))
+            .collect();
+        if field_tokens.iter().all(|(_, t)| t.is_empty()) {
             return None;
         }
-        let (field_total_len, term_df) = self.aggregate_shard_stats(&q_tokens, fields);
+        let (field_total_len, term_df) = self.aggregate_shard_stats(&field_tokens, fields);
         let mut out = xerj_fts::CollectionStats::new();
         for (fname, (sum, n)) in field_total_len {
             out.add_field(
@@ -1813,17 +1869,43 @@ impl ShardedFtsMemtable {
         Some(out)
     }
 
+    /// Union of field names holding postings anywhere in the memtable
+    /// (active + frozen generations, all shards). #3308: the field list
+    /// the per-field query tokenization falls back to when the caller
+    /// names no fields.
+    fn indexed_field_names(&self) -> Vec<String> {
+        let mut out: std::collections::HashSet<String> = std::collections::HashSet::new();
+        for shard in &self.shards {
+            let g = shard.read();
+            let frozen: Vec<parking_lot::RwLockReadGuard<'_, FtsMemtable>> =
+                g.frozen.iter().map(|fz| fz.gen.read()).collect();
+            for gen in std::iter::once(&g.active).chain(frozen.iter().map(|rd| &**rd)) {
+                out.extend(gen.index.keys().cloned());
+            }
+        }
+        out.into_iter().collect()
+    }
+
     /// Shared cross-shard fold behind both [`Self::collection_stats`] and the
     /// in-search aggregation: `(per-field (Σ field_len, docs-with-field),
     /// per-(field, term) doc_freq)`, ghosts included.
+    ///
+    /// #3308: `field_tokens` carries one token list PER FIELD (each
+    /// analysed with that field's own analyzer); a term is only ever
+    /// looked up in its own field's postings.
     fn aggregate_shard_stats(
         &self,
-        q_tokens: &[xerj_fts::analyzer::Token],
+        field_tokens: &[(String, Vec<xerj_fts::analyzer::Token>)],
         fields: &[&str],
     ) -> (
         std::collections::HashMap<String, (f64, u64)>,
         std::collections::HashMap<(String, String), u64>,
     ) {
+        let tokens_by_field: std::collections::HashMap<&str, &[xerj_fts::analyzer::Token]> =
+            field_tokens
+                .iter()
+                .map(|(f, t)| (f.as_str(), t.as_slice()))
+                .collect();
         let mut field_total_len: std::collections::HashMap<String, (f64, u64)> =
             std::collections::HashMap::new();
         let mut term_df: std::collections::HashMap<(String, String), u64> =
@@ -1850,7 +1932,10 @@ impl ShardedFtsMemtable {
                     if !fields.is_empty() && !fields.iter().any(|f| f == fname) {
                         continue;
                     }
-                    for token in q_tokens {
+                    let Some(q_tokens) = tokens_by_field.get(fname.as_str()) else {
+                        continue;
+                    };
+                    for token in *q_tokens {
                         if let Some(pl) = postings.get(&token.text) {
                             *term_df
                                 .entry((fname.clone(), token.text.clone()))
@@ -1863,7 +1948,10 @@ impl ShardedFtsMemtable {
                     if !fields.is_empty() && !fields.iter().any(|f| f == fname) {
                         continue;
                     }
-                    for token in q_tokens {
+                    let Some(q_tokens) = tokens_by_field.get(fname.as_str()) else {
+                        continue;
+                    };
+                    for token in *q_tokens {
                         if let Some(df) = terms.get(&token.text) {
                             *term_df
                                 .entry((fname.clone(), token.text.clone()))
@@ -1879,6 +1967,14 @@ impl ShardedFtsMemtable {
     /// Shared body: `shard_limit` caps each shard's hit materialisation
     /// (`usize::MAX` ⇒ the returned total is the exact global match count);
     /// `limit` caps the merged, score-sorted result.
+    ///
+    /// #3308: `field_analyzer` resolves the pipeline for one field, so
+    /// the query is tokenized per field (each field's own analyzer) in
+    /// both the statistics pre-pass and the per-shard scoring below.
+    // The resolver joins the stats params the orchestrator already threads
+    // through; bundling them into a struct would only move the same list
+    // one level out.
+    #[allow(clippy::too_many_arguments)]
     fn search_text_boosted_inner(
         &self,
         query: &str,
@@ -1887,23 +1983,21 @@ impl ShardedFtsMemtable {
         shard_limit: usize,
         field_boosts: &std::collections::HashMap<String, f32>,
         external: Option<&xerj_fts::CollectionStats>,
+        field_analyzer: &dyn Fn(&str) -> Arc<AnalyzerPipeline>,
     ) -> (Vec<MemtableHit>, u64) {
-        // Pre-pass: tokenise the query (use any shard's analyzer — they're
-        // all the same registry-provided one) and aggregate per-term
-        // global doc_freq + per-field global stats.
-        let analyzer = self.shards.iter().find_map(|s| {
-            let g = s.read();
-            g.active
-                .registry
-                .get_analyzer("default")
-                .or_else(|| g.active.registry.get_analyzer("standard"))
-        });
-        let analyzer = match analyzer {
-            Some(a) => a,
-            None => return (Vec::new(), 0),
+        // Pre-pass: tokenise the query per field and aggregate per-term
+        // global doc_freq + per-field global stats. An all-empty token
+        // list means no field can match; return early exactly as before.
+        let token_fields: Vec<String> = if fields.is_empty() {
+            self.indexed_field_names()
+        } else {
+            fields.iter().map(|s| s.to_string()).collect()
         };
-        let q_tokens = analyzer.analyze(query);
-        if q_tokens.is_empty() {
+        let field_tokens: Vec<(String, Vec<xerj_fts::analyzer::Token>)> = token_fields
+            .iter()
+            .map(|f| (f.clone(), field_analyzer(f).analyze(query)))
+            .collect();
+        if field_tokens.iter().all(|(_, t)| t.is_empty()) {
             return (Vec::new(), 0);
         }
 
@@ -1968,11 +2062,17 @@ impl ShardedFtsMemtable {
                 }
                 global_avg_field_len = avg;
                 let mut df = std::collections::HashMap::new();
-                for token in &q_tokens {
-                    for fname in global_avg_field_len.keys() {
-                        if !fields.is_empty() && !fields.iter().any(|f| f == fname) {
-                            continue;
-                        }
+                // #3308: per-field tokens: a term is only ever looked up
+                // in its own field's df, so a stemmed token never counts
+                // against a standard-analysed field (and vice versa).
+                for (fname, tokens) in &field_tokens {
+                    if !fields.is_empty() && !fields.iter().any(|f| f == fname) {
+                        continue;
+                    }
+                    if !global_avg_field_len.contains_key(fname) {
+                        continue;
+                    }
+                    for token in tokens {
                         if let Some(v) = cs.df(fname, &token.text) {
                             df.insert((fname.clone(), token.text.clone()), v);
                         }
@@ -1982,7 +2082,7 @@ impl ShardedFtsMemtable {
             }
             None => {
                 global_doc_count = ghost_inclusive_n;
-                let (field_total_len, df) = self.aggregate_shard_stats(&q_tokens, fields);
+                let (field_total_len, df) = self.aggregate_shard_stats(&field_tokens, fields);
                 global_avg_field_len = field_total_len
                     .into_iter()
                     .map(|(k, (sum, n))| (k, if n == 0 { 0.0 } else { (sum / n as f64) as f32 }))
@@ -2006,6 +2106,7 @@ impl ShardedFtsMemtable {
                     &global_avg_field_len,
                     &term_global_df,
                     field_boosts,
+                    field_analyzer,
                 ));
             }
         }
@@ -3140,15 +3241,10 @@ impl FtsMemtable {
         schema: &Schema,
         seq_no: u64,
     ) {
-        // Prefer a "default" analyzer if one was registered via custom settings
-        // (e.g. with synonym expansion), otherwise fall back to "standard".
-        let analyzer = self
-            .registry
-            .get_analyzer("default")
-            .or_else(|| self.registry.get_analyzer("standard"))
-            .expect("standard analyzer always present");
-
-        let analyzed = analyze_doc(&source, schema, &analyzer);
+        // #3308: `analyze_doc` resolves each field's own analyzer from the
+        // registry (declared per-field analyzer, else the index default,
+        // else `standard`).
+        let analyzed = analyze_doc(&source, schema, &self.registry);
 
         // See `insert_pretokenized` for sizing rationale.
         let raw_size = source.to_string().len() + doc_id.len();
@@ -3564,6 +3660,9 @@ impl FtsMemtable {
             &std::collections::HashMap::new(),
             &std::collections::HashMap::new(),
             &std::collections::HashMap::new(),
+            // Historical contract: no schema in scope here, so the index
+            // default (else standard) for every field.
+            &|_: &str| analyzer_for_field(&self.registry, None),
         )
     }
 
@@ -3591,19 +3690,33 @@ impl FtsMemtable {
         global_avg_field_len: &std::collections::HashMap<String, f32>,
         global_term_df: &std::collections::HashMap<(String, String), u64>,
         field_boosts: &std::collections::HashMap<String, f32>,
+        field_analyzer: &dyn Fn(&str) -> Arc<AnalyzerPipeline>,
     ) -> Vec<MemtableHit> {
-        let analyzer = match self
-            .registry
-            .get_analyzer("default")
-            .or_else(|| self.registry.get_analyzer("standard"))
-        {
-            Some(a) => a,
-            None => return Vec::new(),
+        // #3308: tokenize the query once PER FIELD with that field's own
+        // analyzer. A token only ever looks up its own field's postings.
+        let search_fields: Vec<&str> = if fields.is_empty() {
+            self.index.keys().map(|s| s.as_str()).collect()
+        } else {
+            fields.to_vec()
         };
-
-        let tokens = analyzer.analyze(query);
-        if tokens.is_empty() {
+        let field_tokens: Vec<(&str, Vec<Token>)> = search_fields
+            .iter()
+            .map(|f| (*f, field_analyzer(f).analyze(query)))
+            .collect();
+        if field_tokens.iter().all(|(_, t)| t.is_empty()) {
             return Vec::new();
+        }
+        // Token-major work list: preserves the historical (token, field)
+        // visit order exactly when every field analyses alike, so scores
+        // stay bit-identical for indices with no per-field analyzer.
+        let max_len = field_tokens.iter().map(|(_, t)| t.len()).max().unwrap_or(0);
+        let mut work: Vec<(&str, &Token)> = Vec::new();
+        for i in 0..max_len {
+            for (fname, tokens) in &field_tokens {
+                if let Some(tok) = tokens.get(i) {
+                    work.push((fname, tok));
+                }
+            }
         }
 
         let doc_count = if global_doc_count > 0 {
@@ -3616,15 +3729,8 @@ impl FtsMemtable {
         // rather than a per-hit `String` allocation.
         let mut scores: HashMap<DocId, f32> = HashMap::new();
 
-        for token in &tokens {
-            // Search across requested fields (or all indexed fields if none specified).
-            let search_fields: Vec<&str> = if fields.is_empty() {
-                self.index.keys().map(|s| s.as_str()).collect()
-            } else {
-                fields.to_vec()
-            };
-
-            for field_name in &search_fields {
+        for (field_name, token) in &work {
+            {
                 let field_index = match self.index.get(*field_name) {
                     Some(fi) => fi,
                     None => continue,
@@ -4854,26 +4960,57 @@ fn collect_text_fields(
     }
 }
 
+/// Resolve the analyzer pipeline for one field on the MEMTABLE paths
+/// (ingest + query). #3308: the field's own declared analyzer when set,
+/// else the registry's `default`, else `standard`.
+///
+/// The memtable is deliberately NOT bound by the segment-path honored
+/// decision (`Index::segment_field_analyzers`): it has resolved the
+/// declared `default` since before #937, and freezing it too would
+/// silently change how an existing index's unflushed documents match.
+/// An analyzer name the registry cannot resolve (unreachable through
+/// the mapping paths, which refuse unknown names) degrades to the index
+/// default rather than failing an ingest.
+pub fn analyzer_for_field(
+    registry: &AnalyzerRegistry,
+    field: Option<&FieldConfig>,
+) -> Arc<AnalyzerPipeline> {
+    if let Some(fc) = field {
+        if let Some(name) = &fc.options.analyzer {
+            if name != "default" {
+                if let Some(pipeline) = registry.get_analyzer(name) {
+                    return pipeline;
+                }
+            }
+        }
+    }
+    registry
+        .get_analyzer("default")
+        .or_else(|| registry.get_analyzer("standard"))
+        .expect("standard analyzer always present")
+}
+
 /// Front half of `FtsMemtable::insert`, factored out as a pure function
 /// so it can run OUTSIDE the memtable shard write locks (e.g. on the
 /// rayon pool, one call per doc, before the bucketed per-shard insert).
 ///
 /// Extracts the schema Text fields plus the dynamic-mapping dotted-path
 /// text fields (exactly like `insert` did in-lock) and tokenises each
-/// with `analyzer`.  Feed the result to [`FtsMemtable::insert_analyzed`].
+/// with its own analyzer (#3308).  Feed the result to
+/// [`FtsMemtable::insert_analyzed`].
 pub fn analyze_doc(
     source: &Value,
     schema: &Schema,
-    analyzer: &AnalyzerPipeline,
+    registry: &AnalyzerRegistry,
 ) -> Vec<(String, Vec<Token>)> {
     let excluded = fts_excluded_fields(schema);
-    analyze_doc_excluding(source, schema, analyzer, &excluded)
+    analyze_doc_excluding(source, schema, registry, &excluded)
 }
 
 pub fn analyze_doc_excluding(
     source: &Value,
     schema: &Schema,
-    analyzer: &AnalyzerPipeline,
+    registry: &AnalyzerRegistry,
     excluded: &std::collections::HashSet<String>,
 ) -> Vec<(String, Vec<Token>)> {
     let mut text_fields: HashMap<String, String> = HashMap::new();
@@ -4904,9 +5041,15 @@ pub fn analyze_doc_excluding(
         collect_text_fields(source, "", &mut text_fields, excluded);
     }
 
+    // #3308: each field is tokenized with ITS analyzer, not one index-wide
+    // pipeline: a field the schema maps to a field config takes that field's
+    // declared analyzer (else the index default / standard); a dynamic field
+    // with no config takes the index default / standard.
     text_fields
         .into_iter()
         .map(|(field_name, text)| {
+            let field = schema.field(&field_name);
+            let analyzer = analyzer_for_field(registry, field);
             let tokens = analyzer.analyze(&text);
             (field_name, tokens)
         })
@@ -5680,14 +5823,9 @@ mod index_false_exclusion_tests {
         // Text field is exactly the case that made the omission visible.
         let schema = schema_with_a_non_indexed_field();
         let source = json!({ "note": "zzquagga", "code": "AB-1234", "body": "ordinary text" });
-        let analyzer = xerj_fts::analyzer::AnalyzerPipeline::new(
-            vec![],
-            std::sync::Arc::new(xerj_fts::analyzer::StandardTokenizer),
-            vec![std::sync::Arc::new(xerj_fts::analyzer::LowercaseFilter)
-                as std::sync::Arc<dyn xerj_fts::analyzer::TokenFilter>],
-        );
+        let registry = AnalyzerRegistry::default();
         let analysed: std::collections::HashMap<String, Vec<Token>> =
-            analyze_doc(&source, &schema, &analyzer)
+            analyze_doc(&source, &schema, &registry)
                 .into_iter()
                 .collect();
         let names: Vec<&str> = analysed.keys().map(String::as_str).collect();
@@ -6560,14 +6698,26 @@ mod external_scalar_n_ghost_tests {
         );
 
         let boosts = std::collections::HashMap::new();
-        let (none_hits, none_total) =
-            mem.search_text_boosted_with_total("quicklist", &["body"], 10, &boosts);
+        // No per-field analyzer in this schema: the default/standard
+        // resolver reproduces the historical single-analyzer behaviour.
+        let field_analyzer = |_: &str| {
+            mem.default_analyzer()
+                .expect("standard analyzer always present")
+        };
+        let (none_hits, none_total) = mem.search_text_boosted_with_total(
+            "quicklist",
+            &["body"],
+            10,
+            &boosts,
+            &field_analyzer,
+        );
         let (ext_hits, ext_total) = mem.search_text_boosted_with_total_using(
             "quicklist",
             &["body"],
             10,
             &boosts,
             Some(&cs),
+            &field_analyzer,
         );
 
         assert_eq!(none_total, 2, "sanity: two live matches");

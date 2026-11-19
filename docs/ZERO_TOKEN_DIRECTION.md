@@ -280,7 +280,11 @@ The descriptions below are the defects as found and measured.
   is accepted. At the time, this is why stemming could not be turned on. Fixed
   by PR [#991](https://github.com/xerj-org/xerj/pull/991): the declared
   default analyzer is honoured at flush, at segment query and at merge, and
-  stemming can be turned on. As of #1059 `xerj autoindex` turns it on by
+  stemming can be turned on. The per-field half was fixed separately by the
+  PR for [#3308](https://github.com/xerj-org/xerj/issues/3308): a text
+  field's own `analyzer` is honoured in the memtable, at flush, at merge,
+  in segment query projection and in the stored-doc scan, and an unknown
+  analyzer name is rejected at mapping time with a 400. As of #1059 `xerj autoindex` turns it on by
   default: every dataset index it CREATES for profiler-marked semantic prose
   (the measured `word_ratio`/`mean_tokens` election) declares the built-in
   Snowball `stemmer` analyzer as `analysis.analyzer.default`; indexes created

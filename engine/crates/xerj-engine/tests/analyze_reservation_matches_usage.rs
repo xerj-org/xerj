@@ -128,7 +128,6 @@ fn packed_vector_doc(rng: &mut Rng) -> String {
 /// way the raw bulk path holds them.
 fn measured_peak(docs: &[String]) -> u64 {
     let registry = AnalyzerRegistry::default();
-    let analyzer = registry.get_analyzer("standard").unwrap();
     let schema = Schema::default();
     let base = LIVE.load(Ordering::Relaxed);
     PEAK.store(base, Ordering::Relaxed);
@@ -138,7 +137,7 @@ fn measured_peak(docs: &[String]) -> u64 {
         .collect();
     let analyzed: Vec<_> = parsed
         .iter()
-        .map(|v| analyze_doc(v, &schema, &analyzer))
+        .map(|v| analyze_doc(v, &schema, &registry))
         .collect();
     let peak = (PEAK.load(Ordering::Relaxed) - base).max(0) as u64;
     drop(analyzed);
