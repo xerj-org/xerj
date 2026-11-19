@@ -1,0 +1,23 @@
+{
+ "corpus": "t2ncay--vyne",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on programming-language, cuda, cuda-programming queries this for how t2ncay/vyne implements it: Vyne is a high-level language that transpiles to C and compiles to native executables (selected work: vyne)",
+ "repos": [
+  {
+   "repo": "vyne",
+   "url": "https://github.com/t2ncay/vyne",
+   "sha": "d2dc30fe97847745eb66d348f3edbcc5a8e16ece",
+   "licence": "author's permission (LICENSE at pin d2dc30fe9784: NOASSERTION; repository: AGPL-3.0)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-19T01:32Z",
+    "consent_receipt": "77e04165473a",
+    "note": "Inclusion consented by the commit author by email at 2026-11-19T01:32Z (receipt 77e04165473a); selected commit d2dc30fe9784: \"feat: implement C-eligibility checks for interfaces and enhance array\u2026\". LICENSE at pin d2dc30fe9784: NOASSERTION (repository: AGPL-3.0); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

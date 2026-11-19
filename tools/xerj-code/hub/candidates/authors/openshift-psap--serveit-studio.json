@@ -2,8 +2,8 @@
  "corpus": "openshift-psap--serveit-studio",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Python queries this for how openshift-psap/serveit-studio implements it: Reserved (selected work: core, tests)",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how openshift-psap/serveit-studio implements it: Automated LLM inference optimization for Kubernetes (selected work: core, tests)",
  "repos": [
   {
    "repo": "serveit-studio",

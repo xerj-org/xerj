@@ -8,15 +8,15 @@
   {
    "repo": "tin",
    "url": "https://github.com/Egoushka/tin",
-   "sha": "f744e21b27b7ff43943d8c0611e81d99debdcf85",
-   "licence": "MIT (LICENSE file at pin f744e21b27b7, GitHub licence API 2026-11-15)",
+   "sha": "7ceaa9854665209d713c30d2c2cb59c8915d4aca",
+   "licence": "MIT (LICENSE file at pin 7ceaa9854665, GitHub licence API 2026-11-19)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-07T15:00Z",
     "consent_receipt": "18857483c552",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-07T15:00Z (receipt 18857483c552); pinned to the default-branch head. LICENSE file at pin f744e21b27b7 detected as MIT by the GitHub licence API on 2026-11-15; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-07T15:00Z (receipt 18857483c552); pinned to the default-branch head. LICENSE file at pin 7ceaa9854665 detected as MIT by the GitHub licence API on 2026-11-19; used under that licence with attribution."
    }
   }
  ]

@@ -1,0 +1,23 @@
+{
+ "corpus": "gasparcavallero--routineapp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how GasparCavallero/RoutineApp implements it: GasparCavallero/RoutineApp (TypeScript) (selected work: patches, the project root, src/screens)",
+ "repos": [
+  {
+   "repo": "RoutineApp",
+   "url": "https://github.com/GasparCavallero/RoutineApp",
+   "sha": "4046a300c0afc019d7a57bf4287f4ddc7804258a",
+   "licence": "MIT (LICENSE file at pin 4046a300c0af, GitHub licence API 2026-11-19)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-19T01:41Z",
+    "consent_receipt": "a748373960da",
+    "note": "Inclusion consented by the commit author by email at 2026-11-19T01:41Z (receipt a748373960da); selected commit 4046a300c0af: \"fixxxx\". LICENSE file at pin 4046a300c0af detected as MIT by the GitHub licence API on 2026-11-19; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on accountability, discipline, good-first-issue queries this for how TheVicky1/Pact_OS implements it: Personal Productivity & Accountability OS -Turn Intent Into Discipline with server-authoritative commitments, time-blocked planning, and pro (selected work: tests, src/components, the project root)",
+ "domain": "an agent working on accountability, discipline, good-first-issue queries this for how TheVicky1/Pact_OS implements it: Personal Productivity & Accountability OS -Turn Intent Into Discipline with server-authoritative commitments, time-blocked planning, and pro (selected work: tests, src/lib, the project root)",
  "repos": [
   {
    "repo": "Pact_OS",
    "url": "https://github.com/TheVicky1/Pact_OS",
-   "sha": "38d3611cddabe6289bef864a35ce0b5bf3cb6a4d",
-   "licence": "MIT (LICENSE file at pin 38d3611cddab, GitHub licence API 2026-11-11)",
+   "sha": "f8fa13cbe6848425a47b1a1ecaf3f0564902c752",
+   "licence": "MIT (LICENSE file at pin f8fa13cbe684, GitHub licence API 2026-11-12)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
-    "at": "2026-11-05T08:16Z",
-    "consent_receipt": "92af81c515b0",
-    "note": "Inclusion consented by the commit author by email at 2026-11-05T08:16Z (receipt 92af81c515b0); selected commit 38d3611cddab: \"feat: add unsaved changes warning modal (#504)\". LICENSE file at pin 38d3611cddab detected as MIT by the GitHub licence API on 2026-11-11; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @TheVicky1, who has not added it."
+    "at": "2026-11-01T11:39Z",
+    "consent_receipt": "144825d92f56",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T11:39Z (receipt 144825d92f56); selected commit f8fa13cbe684: \"test: add array utility unit coverage (#376) (#697)\". LICENSE file at pin f8fa13cbe684 detected as MIT by the GitHub licence API on 2026-11-12; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @TheVicky1, who has not added it."
    },
    "paths": [
     "scratch",
