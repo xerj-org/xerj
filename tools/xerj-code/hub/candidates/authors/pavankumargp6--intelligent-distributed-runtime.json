@@ -8,15 +8,15 @@
   {
    "repo": "intelligent-distributed-runtime",
    "url": "https://github.com/pavankumargp6/intelligent-distributed-runtime",
-   "sha": "b41ba01915416b607e5fa3349d4be69da33f4478",
-   "licence": "MIT (LICENSE file at pin b41ba0191541, GitHub licence API 2026-11-18)",
+   "sha": "4d3930ac4beff859201f22ccfb230a6e30fd8902",
+   "licence": "MIT (LICENSE file at pin 4d3930ac4bef, GitHub licence API 2026-11-19)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-18T20:34Z",
     "consent_receipt": "4f93dedfe438",
-    "note": "Inclusion consented by the commit author by email at 2026-10-18T20:34Z (receipt 4f93dedfe438); selected commit b41ba0191541: \"feat: add METRICS command and client for real-time observability\". LICENSE file at pin b41ba0191541 detected as MIT by the GitHub licence API on 2026-11-18; used under that licence with attribution. Pinned to head b41ba0191541 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-18T20:34Z (receipt 4f93dedfe438); selected commit 4d3930ac4bef: \"feat: add METRICS command and client for real-time observability\". LICENSE file at pin 4d3930ac4bef detected as MIT by the GitHub licence API on 2026-11-19; used under that licence with attribution. Pinned to head 4d3930ac4bef (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

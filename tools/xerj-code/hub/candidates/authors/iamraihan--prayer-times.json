@@ -8,15 +8,15 @@
   {
    "repo": "prayer-times",
    "url": "https://github.com/iamraihan/prayer-times",
-   "sha": "a1476c71c72d524704785a03fdc99e84d0db51e1",
-   "licence": "MIT (LICENSE file at pin a1476c71c72d, GitHub licence API 2026-11-17)",
+   "sha": "bb6d5db53d3803ed20a1297938b5448c018c0ab1",
+   "licence": "MIT (LICENSE file at pin bb6d5db53d38, GitHub licence API 2026-11-19)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-09T18:50Z",
     "consent_receipt": "e64490a24938",
-    "note": "Inclusion consented by the commit author by email at 2026-11-09T18:50Z (receipt e64490a24938); selected commit a1476c71c72d: \"add custom alarm tone feature with file validation and settings integ\u2026\". LICENSE file at pin a1476c71c72d detected as MIT by the GitHub licence API on 2026-11-17; used under that licence with attribution. Pinned to head a1476c71c72d (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T18:50Z (receipt e64490a24938); selected commit bb6d5db53d38: \"add custom alarm tone feature with file validation and settings integ\u2026\". LICENSE file at pin bb6d5db53d38 detected as MIT by the GitHub licence API on 2026-11-19; used under that licence with attribution. Pinned to head bb6d5db53d38 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

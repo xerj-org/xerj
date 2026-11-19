@@ -8,15 +8,15 @@
   {
    "repo": "pyropdf",
    "url": "https://github.com/yhay81/pyropdf",
-   "sha": "5393d9e356c3702c4d19ea6f28d0d0fca5e338e4",
-   "licence": "MIT (LICENSE file at pin 5393d9e356c3, GitHub licence API 2026-11-19)",
+   "sha": "ac40f0d5287a2e3323a65bfc2f26f748a058505d",
+   "licence": "MIT (LICENSE file at pin ac40f0d5287a, GitHub licence API 2026-11-19)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-17T22:08Z",
     "consent_receipt": "420db18ff3ed",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-17T22:08Z (receipt 420db18ff3ed); pinned to the default-branch head. LICENSE file at pin 5393d9e356c3 detected as MIT by the GitHub licence API on 2026-11-19; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-17T22:08Z (receipt 420db18ff3ed); pinned to the default-branch head. LICENSE file at pin ac40f0d5287a detected as MIT by the GitHub licence API on 2026-11-19; used under that licence with attribution."
    }
   }
  ]

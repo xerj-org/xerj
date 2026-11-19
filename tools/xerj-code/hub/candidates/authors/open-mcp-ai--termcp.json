@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-agents, go, mcp queries this for how open-mcp-ai/Termcp implements it: \u6700\u7ec8\u7684 MCP | Terminus MCP\uff1a Termcp \u662f\u4e00\u4e2a\u7ed9 AI \u7528\u7684\u201c\u8d85\u7ea7\u7ec8\u7aef\u201d\u3002 \u5b83\u8ba9 AI \u80fd\u8de8\u673a\u5668\u88c5\u5de5\u5177\u3001\u6267\u884c\u547d\u4ee4\uff0c\u4e14\u65e0\u8bba\u88c5\u591a\u5c11\u5de5\u5177\uff0c\u90fd\u4e0d\u4f1a\u628a\u4f60\u7684 AI \u4e0a\u4e0b\u6587\u6491\u7206\u3002Termcp is a \"super terminal\" for AI. It enables (selected work: internal/webui)",
+ "domain": "an agent working on ai-agents, go, mcp queries this for how open-mcp-ai/Termcp implements it: \u6700\u7ec8\u7684 MCP | Terminus MCP\uff1a Termcp \u662f\u4e00\u4e2a\u7ed9 AI \u7528\u7684\u201c\u8d85\u7ea7\u7ec8\u7aef\u201d\u3002 \u5b83\u8ba9 AI \u80fd\u8de8\u673a\u5668\u88c5/\u7528MCP\u3001\u6267\u884c\u547d\u4ee4\uff0c\u4e14\u65e0\u8bba\u88c5\u591a\u5c11MCP\uff0c\u90fd\u4e0d\u4f1a\u628a\u4f60\u7684 AI \u4e0a\u4e0b\u6587\u6491\u7206\u3002Termcp is a \"super terminal\" for AI. It ena (selected work: internal/webui)",
  "repos": [
   {
    "repo": "Termcp",

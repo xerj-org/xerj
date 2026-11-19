@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on C++ queries this for how hww/soot implements it: hww/soot (C++) (selected work: common, soot_src)",
+ "domain": "an agent working on automation, compiler, cpp23 queries this for how hww/soot implements it: Embeddable C++23 Lisp interpreter, compiler, and bytecode VM ecosystem (SOOT & Carbon) with an interactive REPL for orchestrating embedded s (selected work: common, soot_src)",
  "repos": [
   {
    "repo": "soot",

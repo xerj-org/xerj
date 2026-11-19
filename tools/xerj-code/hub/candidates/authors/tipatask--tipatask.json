@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-agent-tools, ai-agents, claude queries this for how Tipatask/tipatask implements it: The Project Operating Layer for AI Coding Agents (selected work: src/client, src/server, scripts)",
+ "domain": "an agent working on ai-agent-tools, ai-agents, claude queries this for how Tipatask/tipatask implements it: An AI agent harness with task management and collaboration for developers and teams (selected work: src/client, src/server, scripts)",
  "repos": [
   {
    "repo": "tipatask",
