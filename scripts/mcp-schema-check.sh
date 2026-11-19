@@ -17,6 +17,20 @@
 #   ./scripts/mcp-schema-check.sh            # check — non-zero on drift
 #   ./scripts/mcp-schema-check.sh --write    # regenerate from the binary
 #
+# Per release (#3286): `mcp-tools.json` follows main, so an agent on an
+# installed release read a tool list its binary did not serve. `--release`
+# targets `mcp-tools-<version>.json` instead, where <version> is the
+# `serverInfo.version` the binary itself reports on `initialize` — the file is
+# named by the binary that produced it, never by a hand-typed argument.
+#
+#   ./scripts/mcp-schema-check.sh --release --write   # write mcp-tools-<v>.json
+#   ./scripts/mcp-schema-check.sh --release           # check it against the binary
+#
+# A released file is frozen: `--release --write` refuses to replace an
+# existing mcp-tools-<v>.json whose content differs (exit 1), because that
+# release's binary cannot change. The release workflow runs both against the
+# x86_64-unknown-linux-gnu archive it is about to publish.
+#
 # Environment:
 #   XERJ_BIN   path to the main `xerj` binary (default:
 #              engine/target/release/xerj). The server is driven as
@@ -29,14 +43,19 @@ set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/.." && pwd)"
-SCHEMA="$REPO/landing/docs/agents/schemas/mcp-tools.json"
+SCHEMA_DIR="$REPO/landing/docs/agents/schemas"
+SCHEMA="$SCHEMA_DIR/mcp-tools.json"
 
 MODE="check"
-case "${1:-}" in
-  --write) MODE="write" ;;
-  ""|--check) ;;
-  *) echo "usage: $(basename "$0") [--check|--write]" >&2; exit 2 ;;
-esac
+RELEASE=0
+for arg in "$@"; do
+  case "$arg" in
+    --write) MODE="write" ;;
+    --check) MODE="check" ;;
+    --release) RELEASE=1 ;;
+    *) echo "usage: $(basename "$0") [--check|--write] [--release]" >&2; exit 2 ;;
+  esac
+done
 
 command -v jq >/dev/null 2>&1 || { echo "FAIL: jq is required" >&2; exit 2; }
 
@@ -104,6 +123,29 @@ if [ "$COUNT" -lt 1 ]; then
   exit 1
 fi
 
+SCHEMA_LABEL="landing/docs/agents/schemas/mcp-tools.json"
+if [ "$RELEASE" = 1 ]; then
+  VERSION=$(jq -rs '[.[] | select(.id == 1)] | .[0].result.serverInfo.version // empty' "$WORK/out.jsonl")
+  # A version becomes part of a published path: semver-shaped only.
+  if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?$'; then
+    echo "FAIL: the binary reported no usable serverInfo.version on initialize (got '${VERSION}')"
+    exit 1
+  fi
+  SCHEMA="$SCHEMA_DIR/mcp-tools-$VERSION.json"
+  SCHEMA_LABEL="landing/docs/agents/schemas/mcp-tools-$VERSION.json"
+  echo "  release: $VERSION -> $SCHEMA_LABEL"
+  if [ "$MODE" = "write" ] && [ -f "$SCHEMA" ]; then
+    if [ "$(jq -S . "$SCHEMA" 2>/dev/null)" = "$(jq -S . "$WORK/live.json")" ]; then
+      echo "RESULT: PASS — $SCHEMA_LABEL already matches the binary ($COUNT tools)"
+      exit 0
+    fi
+    echo "FAIL: $SCHEMA_LABEL already exists and differs from this binary."
+    echo "      A released schema is frozen; a binary reporting $VERSION but serving other"
+    echo "      tools is a different build. Delete the file by hand only if it was never released."
+    exit 1
+  fi
+fi
+
 if [ "$MODE" = "write" ]; then
   # jq already terminates its output with a newline — do not add a second one.
   cp "$WORK/live.json" "$SCHEMA"
@@ -127,9 +169,13 @@ if diff -u "$WORK/a.json" "$WORK/b.json" > "$WORK/diff.txt"; then
   exit 0
 fi
 
-echo "FAIL: landing/docs/agents/schemas/mcp-tools.json has DRIFTED from the binary."
+echo "FAIL: $SCHEMA_LABEL has DRIFTED from the binary."
 echo "      (-published  +served)"
 sed -n '1,120p' "$WORK/diff.txt" | sed 's/^/  /'
-echo "      regenerate: ./scripts/mcp-schema-check.sh --write"
+if [ "$RELEASE" = 1 ]; then
+  echo "      a released schema is frozen: check which binary this is before changing it"
+else
+  echo "      regenerate: ./scripts/mcp-schema-check.sh --write"
+fi
 echo "RESULT: FAIL"
 exit 1
