@@ -43,6 +43,8 @@
 //!   returns
 //! - [`hub`]     — Corpus Hub v2 shared types: the catalogue, pack manifest,
 //!   definition record, and the [`hub::Answer`] every surface renders (#1374)
+//! - [`hub_client_cache`] — Hub-first stdio MCP runtime mode, local-node probe,
+//!   and bounded LRU disk cache (#2760, #2769)
 
 pub mod argv;
 pub mod calibration;
@@ -59,6 +61,7 @@ pub mod field_report;
 pub mod fsio;
 pub mod home;
 pub mod hub;
+pub mod hub_client_cache;
 pub mod hub_evidence;
 pub mod localauth;
 pub mod localnode;
