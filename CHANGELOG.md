@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Writing pack `write.outline` and `write.section` primitives (#2763, #2764, #2769).**
+  `xerj_common::writing_pack` clusters verified Corpus Hub citations into
+  deterministic `WriteOutline` chapters (`thesis`, `evidence`, `source_ids`)
+  scaled by `OutlineLength` (`Brief`, `Standard`, `Comprehensive`), refuses
+  insufficient evidence instead of padding, and resolves per-chapter
+  `WriteSectionPacket` bundles (`facts`, `quotes`, `counterpoints`,
+  `style_rules`) with `file:line`/byte-span provenance, deterministic token
+  budgeting, and RFC 8785 (JCS) SHA-256 receipts (`docs/writing-pack.md`).
+
+
 ## [1.0.0-rc.104] - 2026-11-18
 
 **rc.104: rc.103 on every platform.** rc.104 is the rc.103 code with the
