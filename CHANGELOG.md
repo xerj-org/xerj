@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Hub-first stdio MCP runtime mode and bounded LRU disk cache (Refs #2760, #2769):
+  `xerj_common::hub_client_cache` detects local-node reachability within a fixed
+  startup probe budget, falls back to hub-only mode when no node is running,
+  caches verified catalogue and corpus pack artifacts on disk with deterministic
+  byte-budget LRU eviction and explicit TTL staleness warnings, and fails loudly
+  on unknown corpora or unsupported format versions.
+
 ## [1.0.0-rc.104] - 2026-11-18
 
 **rc.104: rc.103 on every platform.** rc.104 is the rc.103 code with the
