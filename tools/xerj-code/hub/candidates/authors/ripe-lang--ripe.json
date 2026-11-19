@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on compiler, programming-language, systems-programming queries this for how ripe-lang/ripe implements it: The Ripe programming language (selected work: lib, test)",
+ "domain": "an agent working on compiler, programming-language, ripe queries this for how ripe-lang/ripe implements it: The Ripe programming language (selected work: lib, test)",
  "repos": [
   {
    "repo": "ripe",

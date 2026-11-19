@@ -8,15 +8,15 @@
   {
    "repo": "FH6-Vinyl-Group-Editor",
    "url": "https://github.com/KlaraStellaa/FH6-Vinyl-Group-Editor",
-   "sha": "fc35a11259e22c93ebf70fc222b0400d2c314306",
-   "licence": "MIT (LICENSE file at pin fc35a11259e2, GitHub licence API 2026-11-17)",
+   "sha": "878b015e7f7c3aaef2c47f6fd023e61047afe768",
+   "licence": "MIT (LICENSE file at pin 878b015e7f7c, GitHub licence API 2026-11-19)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-31T19:46Z",
     "consent_receipt": "ee771dff9eb6",
-    "note": "Inclusion consented by the commit author by email at 2026-10-31T19:46Z (receipt ee771dff9eb6); selected commit fc35a11259e2: \"Fixed known issues\". LICENSE file at pin fc35a11259e2 detected as MIT by the GitHub licence API on 2026-11-17; used under that licence with attribution. Pinned to head fc35a11259e2 (contains the selected commit): the LICENSE at the selected commit was GPL-3.0."
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T19:46Z (receipt ee771dff9eb6); selected commit 878b015e7f7c: \"Fixed known issues\". LICENSE file at pin 878b015e7f7c detected as MIT by the GitHub licence API on 2026-11-19; used under that licence with attribution. Pinned to head 878b015e7f7c (contains the selected commit): the LICENSE at the selected commit was GPL-3.0."
    }
   }
  ]

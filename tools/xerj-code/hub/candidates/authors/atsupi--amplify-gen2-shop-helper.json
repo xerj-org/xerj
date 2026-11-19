@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on amplify, backend, frontend queries this for how atsupi/amplify-gen2-shop-helper implements it: PoC for shopping tool with Amplify Gen2 (selected work: src/pages, src, src/hooks)",
+ "domain": "an agent working on amplify, backend, frontend queries this for how atsupi/amplify-gen2-shop-helper implements it: Fullstack React+Vite frontend / backend Amplify Gen 2 (selected work: src/pages, src, src/hooks)",
  "repos": [
   {
    "repo": "amplify-gen2-shop-helper",

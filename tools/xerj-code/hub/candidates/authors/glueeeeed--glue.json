@@ -1,9 +1,9 @@
 {
- "corpus": "glueeeeed--gloo-lang",
+ "corpus": "glueeeeed--glue",
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on C++ queries this for how Glueeeeed/Gloo_Lang implements it: A minimalist procedural programming language compiled to LLVM IR (selected work: src/codegen)",
+ "domain": "an agent working on C++ queries this for how Glueeeeed/Glue implements it: A minimalist procedural programming language (selected work: src/codegen)",
  "repos": [
   {
    "repo": "GlueIR_Lang",
