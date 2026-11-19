@@ -1,0 +1,23 @@
+{
+ "corpus": "carl0srmz--blackshard",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Rust queries this for how carl0srmz/blackshard implements it: open-source adaptive antivirus agent (selected work: src, src/bin, the project root)",
+ "repos": [
+  {
+   "repo": "blackshard",
+   "url": "https://github.com/carlosrmz009/blackshard",
+   "sha": "05a82124a4df4dd66978f1a6f3e13a858d454ba7",
+   "licence": "GPL-3.0 (LICENSE file at pin 05a82124a4df, GitHub licence API 2026-11-19)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-18T21:59Z",
+    "consent_receipt": "62d43ee9da5f",
+    "note": "Inclusion consented by the commit author by email at 2026-11-18T21:59Z (receipt 62d43ee9da5f); selected commit 05a82124a4df: \"fix\". LICENSE file at pin 05a82124a4df detected as GPL-3.0 by the GitHub licence API on 2026-11-19; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "paulogustavopeixoto--agnostic-agents",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on JavaScript queries this for how paulogustavopeixoto/agnostic-agents implements it: agnostic-agents is a modular, provider-agnostic framework for building and orchestrating AI agents (selected work: tests, src/runtime, the project root)",
+ "repos": [
+  {
+   "repo": "agnostic-agents",
+   "url": "https://github.com/paulogustavopeixoto/agnostic-agents",
+   "sha": "27b9a38364313e5c547a27d93e81d4b5f74b1140",
+   "licence": "MIT (LICENSE file at pin 27b9a3836431, GitHub licence API 2026-11-19)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-18T21:19Z",
+    "consent_receipt": "7d594ca45d17",
+    "note": "Inclusion consented by the commit author by email at 2026-11-18T21:19Z (receipt 7d594ca45d17); selected commit 27b9a3836431: \"fix: bound artifact reads and verify content integrity\". LICENSE file at pin 27b9a3836431 detected as MIT by the GitHub licence API on 2026-11-19; used under that licence with attribution."
+   }
+  }
+ ]
+}

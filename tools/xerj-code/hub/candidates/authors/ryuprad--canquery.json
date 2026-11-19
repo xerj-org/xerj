@@ -2,8 +2,8 @@
  "corpus": "ryuprad--canquery",
  "cloned_at": null,
  "status": "draft",
- "shelf": "WEB",
- "domain": "an agent working on JavaScript queries this for how RyuPrad/canquery implements it: Query Canada's open data: a unified API and web UI over open.canada.ca (selected work: client)",
+ "shelf": "API",
+ "domain": "an agent working on arcgis, bilingual, canada queries this for how RyuPrad/canquery implements it: Search, preview, chart and map Canada's open data: one bilingual (EN/FR) catalogue and API over open.canada.ca and 82 municipal, regional an (selected work: client)",
  "repos": [
   {
    "repo": "canquery",

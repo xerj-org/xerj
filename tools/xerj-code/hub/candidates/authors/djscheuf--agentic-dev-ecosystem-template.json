@@ -1,0 +1,23 @@
+{
+ "corpus": "djscheuf--agentic-dev-ecosystem-template",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how djscheuf/agentic-dev-ecosystem-template implements it: Template Repo with The Ecosystem of Rules, Skills, and Workflows for development with Devin (selected work: src/common, src/edd_refinement_workflow, tests)",
+ "repos": [
+  {
+   "repo": "agentic-dev-ecosystem-template",
+   "url": "https://github.com/djscheuf/agentic-dev-ecosystem-template",
+   "sha": "8ada8ed98d616199584980171a14785ec27d0e7e",
+   "licence": "MIT (LICENSE file at pin 8ada8ed98d61, GitHub licence API 2026-11-19)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-18T22:01Z",
+    "consent_receipt": "74879b7103ad",
+    "note": "Inclusion consented by the commit author by email at 2026-11-18T22:01Z (receipt 74879b7103ad); selected commit 8ada8ed98d61: \"feat: add ClaudeHarness adapter with generalized harness infrastructu\u2026\". LICENSE file at pin 8ada8ed98d61 detected as MIT by the GitHub licence API on 2026-11-19; used under that licence with attribution."
+   }
+  }
+ ]
+}

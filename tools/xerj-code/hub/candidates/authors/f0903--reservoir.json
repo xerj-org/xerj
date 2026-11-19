@@ -1,0 +1,23 @@
+{
+ "corpus": "f0903--reservoir",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on apt, apt-cache, caching-proxy queries this for how F0903/reservoir implements it: A caching and coalescing MITM (Man-in-the-Middle) HTTP(S) forward proxy with an embedded dashboard (selected work: webserver, utils, config)",
+ "repos": [
+  {
+   "repo": "reservoir",
+   "url": "https://github.com/F0903/reservoir",
+   "sha": "8916dad1ea59bae27081722d1acf97c47fe76f2f",
+   "licence": "Apache-2.0 (LICENSE file at pin 8916dad1ea59, GitHub licence API 2026-11-19)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-19T00:03Z",
+    "consent_receipt": "bf2a351a22b0",
+    "note": "Inclusion consented by the commit author by email at 2026-11-19T00:03Z (receipt bf2a351a22b0); selected commit 8916dad1ea59: \"Fixed lots of issues after audit by Fable 5.2\". LICENSE file at pin 8916dad1ea59 detected as Apache-2.0 by the GitHub licence API on 2026-11-19; used under that licence with attribution."
+   }
+  }
+ ]
+}

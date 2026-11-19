@@ -1,0 +1,23 @@
+{
+ "corpus": "sunnybagal--tracehound",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on code-review, github-actions, nebius queries this for how SunnyBagal/TraceHound implements it: Open-source GitHub Action that reviews pull requests with NVIDIA Nemotron on Nebius Token Factory. Pre-registered benchmarks; every loss pub (selected work: packages/action)",
+ "repos": [
+  {
+   "repo": "TraceHound",
+   "url": "https://github.com/SunnyBagal/TraceHound",
+   "sha": "7b5462ae41871536f6a150b4c1b68f10ae91ca25",
+   "licence": "MIT (LICENSE file at pin 7b5462ae4187, GitHub licence API 2026-11-19)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-18T23:00Z",
+    "consent_receipt": "1624782fa316",
+    "note": "Inclusion consented by the commit author by email at 2026-11-18T23:00Z (receipt 1624782fa316); selected commit 7b5462ae4187: \"action: post TraceHound pull request review comments\". LICENSE file at pin 7b5462ae4187 detected as MIT by the GitHub licence API on 2026-11-19; used under that licence with attribution."
+   }
+  }
+ ]
+}
