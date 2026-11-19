@@ -8,15 +8,15 @@
   {
    "repo": "TheClawRepo",
    "url": "https://github.com/ClawProject/TheClawRepo",
-   "sha": "e1b5416cd8311d09be1610a907afc9846c2a966a",
-   "licence": "MIT (LICENSE file at pin e1b5416cd831, GitHub licence API 2026-11-18)",
+   "sha": "ee450a2795e2b3601e869e201eb72db2b5721217",
+   "licence": "MIT (LICENSE file at pin ee450a2795e2, GitHub licence API 2026-11-19)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-09T13:34Z",
     "consent_receipt": "bedf350bc7c9",
-    "note": "Inclusion consented by the commit author by email at 2026-11-09T13:34Z (receipt bedf350bc7c9); selected commit e1b5416cd831: \"Arreglar funcion de vetar no vetaba a los numeros\". LICENSE file at pin e1b5416cd831 detected as MIT by the GitHub licence API on 2026-11-18; used under that licence with attribution. Pinned to head e1b5416cd831 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-11-09T13:34Z (receipt bedf350bc7c9); selected commit ee450a2795e2: \"Arreglar funcion de vetar no vetaba a los numeros\". LICENSE file at pin ee450a2795e2 detected as MIT by the GitHub licence API on 2026-11-19; used under that licence with attribution. Pinned to head ee450a2795e2 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

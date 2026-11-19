@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on blender, blender-addon, dungeon-generator queries this for how dottyboy/BlenderLevelArchitect implements it: Procedural game-level generator for Blender \u2014 a WFC-style room/corridor/stair solver with automatic Geometry Nodes + Python mesh generation  (selected work: the project root, tests, tools)",
+ "domain": "an agent working on blender, blender-addon, dungeon-generator queries this for how dottyboy/BlenderLevelArchitect implements it: Generate whole game worlds in Blender: dungeons, castles, villages, hill cities, cities carved in rock, and houses traced from floor-plan pi (selected work: the project root, tests, tools)",
  "repos": [
   {
    "repo": "BlenderLevelArchitect",
