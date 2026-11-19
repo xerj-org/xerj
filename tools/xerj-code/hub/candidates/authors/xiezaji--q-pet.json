@@ -8,15 +8,15 @@
   {
    "repo": "q-pet",
    "url": "https://github.com/xiezaji/q-pet",
-   "sha": "b1d07831fc9cda6e9e2a0ef36c876b0ec11785a0",
-   "licence": "MIT (LICENSE file at pin b1d07831fc9c, GitHub licence API 2026-11-10)",
+   "sha": "4a5fc0299b30222311872b382ebd637e48b8f5e1",
+   "licence": "MIT (LICENSE file at pin 4a5fc0299b30, GitHub licence API 2026-11-19)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-24T00:20Z",
     "consent_receipt": "cc400443c3bd",
-    "note": "Inclusion consented by the commit author by email at 2026-10-24T00:20Z (receipt cc400443c3bd); selected commit b1d07831fc9c: \"feat(pet): \u65b0\u589e\u300c\u684c\u9762\u663e\u793a\u300d\u603b\u5f00\u5173\u4e0e\u4e24\u79cd\u5206\u53d1\u5305\". LICENSE file at pin b1d07831fc9c detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution. Pinned to head b1d07831fc9c (contains the selected commit): the LICENSE at the selected commit was NOASSERTION."
+    "note": "Inclusion consented by the commit author by email at 2026-10-24T00:20Z (receipt cc400443c3bd); selected commit 4a5fc0299b30: \"feat(pet): \u65b0\u589e\u300c\u684c\u9762\u663e\u793a\u300d\u603b\u5f00\u5173\u4e0e\u4e24\u79cd\u5206\u53d1\u5305\". LICENSE file at pin 4a5fc0299b30 detected as MIT by the GitHub licence API on 2026-11-19; used under that licence with attribution. Pinned to head 4a5fc0299b30 (contains the selected commit): the LICENSE at the selected commit was NOASSERTION."
    }
   }
  ]
