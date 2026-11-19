@@ -1,0 +1,23 @@
+{
+ "corpus": "vinrawa--vin-music-v2",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Kotlin queries this for how Vinrawa/Vin-music-v2 implements it: VIN Music (VinMusic) \u2014 Free & Open Source Audiophile Android Music Player with 32-bit DSP, synchronized lyrics, and offline playback (selected work: app/src)",
+ "repos": [
+  {
+   "repo": "Vin-music-v2",
+   "url": "https://github.com/Vinrawa/Vin-music-v2",
+   "sha": "b0c83a92a21a1864343c20bcfb01ea3a333de5cd",
+   "licence": "MIT (LICENSE file at pin b0c83a92a21a, GitHub licence API 2026-11-18)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-18T20:12Z",
+    "consent_receipt": "601b49e4db31",
+    "note": "Inclusion consented by the commit author by email at 2026-11-18T20:12Z (receipt 601b49e4db31); selected commit b0c83a92a21a: \"fix(home): dynamic recommendation refresh, prune shelves and extend f\u2026\". LICENSE file at pin b0c83a92a21a detected as MIT by the GitHub licence API on 2026-11-18; used under that licence with attribution."
+   }
+  }
+ ]
+}

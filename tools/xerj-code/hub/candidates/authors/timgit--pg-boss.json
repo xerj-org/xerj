@@ -1,0 +1,23 @@
+{
+ "corpus": "timgit--pg-boss",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on postgresql, postgres, queue queries this for how timgit/pg-boss implements it: Queueing jobs in Postgres from Node.js like a boss (selected work: src, test, the project root)",
+ "repos": [
+  {
+   "repo": "pg-boss",
+   "url": "https://github.com/timgit/pg-boss",
+   "sha": "bc59459a672341af99a66cad17a113c2d40e8490",
+   "licence": "MIT (LICENSE file at pin bc59459a6723, GitHub licence API 2026-11-18)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-18T20:55Z",
+    "consent_receipt": "75c200af698e",
+    "note": "Inclusion consented by the commit author by email at 2026-11-18T20:55Z (receipt 75c200af698e); selected commit bc59459a6723: \"fix: concurrent upsert() calls with singleton key (#949)\". LICENSE file at pin bc59459a6723 detected as MIT by the GitHub licence API on 2026-11-18; used under that licence with attribution."
+   }
+  }
+ ]
+}

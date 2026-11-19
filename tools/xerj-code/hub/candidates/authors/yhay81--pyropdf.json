@@ -1,0 +1,23 @@
+{
+ "corpus": "yhay81--pyropdf",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on document-processing, ocr, pdf queries this for how yhay81/pyropdf implements it: Read, render, and edit PDFs in Python with a Rust core. Undo/redo, atomic transactions, and incremental saves. MIT licensed",
+ "repos": [
+  {
+   "repo": "pyropdf",
+   "url": "https://github.com/yhay81/pyropdf",
+   "sha": "c06f295fac4e64ce0c0f88cb706c387b11eddf30",
+   "licence": "MIT (LICENSE file at pin c06f295fac4e, GitHub licence API 2026-11-18)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-17T22:08Z",
+    "consent_receipt": "420db18ff3ed",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-17T22:08Z (receipt 420db18ff3ed); pinned to the default-branch head. LICENSE file at pin c06f295fac4e detected as MIT by the GitHub licence API on 2026-11-18; used under that licence with attribution."
+   }
+  }
+ ]
+}

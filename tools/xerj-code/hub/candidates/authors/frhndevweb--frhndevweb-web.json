@@ -1,0 +1,23 @@
+{
+ "corpus": "frhndevweb--frhndevweb-web",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on portofolio, react, tailwindcss queries this for how frhndevweb/frhndevweb-web implements it: Website portofolio pribadi berbasis React yang menampilkan profil, skill, dan karya secara modern, responsif, serta berorientasi pada pengal",
+ "repos": [
+  {
+   "repo": "frhndevweb-web",
+   "url": "https://github.com/frhndevweb/frhndevweb-web",
+   "sha": "c88d7496fae93cee268312b6d885c93f8b3a6eb0",
+   "licence": "MIT (LICENSE file at pin c88d7496fae9, GitHub licence API 2026-11-18)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-16T00:56Z",
+    "consent_receipt": "168f7634ec67",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-16T00:56Z (receipt 168f7634ec67); pinned to the default-branch head. LICENSE file at pin c88d7496fae9 detected as MIT by the GitHub licence API on 2026-11-18; used under that licence with attribution."
+   }
+  }
+ ]
+}

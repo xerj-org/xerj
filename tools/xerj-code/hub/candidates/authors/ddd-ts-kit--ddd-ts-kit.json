@@ -1,0 +1,23 @@
+{
+ "corpus": "ddd-ts-kit--ddd-ts-kit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on claude-code, claude-code-plugin, clean-architecture queries this for how ddd-ts-kit/ddd-ts-kit implements it: Domain-Driven Design (DDD), Clean Architecture (hexagonal, ports and adapters) and Clean Code for TypeScript and Node.js backends: CLI to bo (selected work: packages/cli)",
+ "repos": [
+  {
+   "repo": "ddd-ts-kit",
+   "url": "https://github.com/gbourgeat/ddd-ts-kit",
+   "sha": "9f192ba219be800dfc2b82cd45fe0059c0c15bf8",
+   "licence": "MIT (LICENSE file at pin 9f192ba219be, GitHub licence API 2026-10-24)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-16T19:28Z",
+    "consent_receipt": "97fc0f1e2b82",
+    "note": "Inclusion consented by the commit author by email at 2026-10-16T19:28Z (receipt 97fc0f1e2b82); selected commit 9f192ba219be: \"feat(cli): an event handler and an integration handler take --name, a\u2026\". LICENSE file at pin 9f192ba219be detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
+   }
+  }
+ ]
+}

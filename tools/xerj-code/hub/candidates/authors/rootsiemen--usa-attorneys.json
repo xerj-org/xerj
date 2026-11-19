@@ -1,0 +1,23 @@
+{
+ "corpus": "rootsiemen--usa-attorneys",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how rootsiemen/usa-attorneys implements it: USA Attorneys - free US attorney directory (50 states + 10 practice areas) at usaattorneys.company",
+ "repos": [
+  {
+   "repo": "usa-attorneys",
+   "url": "https://github.com/rootsiemen/usa-attorneys",
+   "sha": "21f1bea10df5b355a537a58c6cf21cf10d824f5b",
+   "licence": "author's permission (LICENSE at pin 21f1bea10df5: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-18T06:11Z",
+    "consent_receipt": "4b6cfa560040",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-18T06:11Z (receipt 4b6cfa560040); pinned to the default-branch head. LICENSE at pin 21f1bea10df5: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

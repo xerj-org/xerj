@@ -1,0 +1,23 @@
+{
+ "corpus": "dummy3ye--forest",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on forest, idle, pine queries this for how dummy3ye/forest implements it: a idle 2d moving detailed forest written in C. for any kinda cli from pwsh to bash and zsh",
+ "repos": [
+  {
+   "repo": "forest",
+   "url": "https://github.com/dummy3ye/forest",
+   "sha": "1549d1468c7f7ecd36e81aa5db4af30fc588590c",
+   "licence": "author's permission (LICENSE at pin 1549d1468c7f: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-18T03:18Z",
+    "consent_receipt": "cd3c31530753",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-18T03:18Z (receipt cd3c31530753); pinned to the default-branch head. LICENSE at pin 1549d1468c7f: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

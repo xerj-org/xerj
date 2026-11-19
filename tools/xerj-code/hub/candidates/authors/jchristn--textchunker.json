@@ -8,15 +8,15 @@
   {
    "repo": "TextChunker",
    "url": "https://github.com/jchristn/TextChunker",
-   "sha": "db8bfbac0b0a3e764d086ad3036eb8f389064e1b",
-   "licence": "MIT (LICENSE file at pin db8bfbac0b0a, GitHub licence API 2026-10-28)",
+   "sha": "4777ba207e3c24c7610fe6cff7ac057a305897b1",
+   "licence": "MIT (LICENSE file at pin 4777ba207e3c, GitHub licence API 2026-11-18)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T22:23Z",
     "consent_receipt": "b99f9fd8121f",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:23Z (receipt b99f9fd8121f); pinned to the default-branch head. LICENSE file at pin db8bfbac0b0a detected as MIT by the GitHub licence API on 2026-10-28; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:23Z (receipt b99f9fd8121f); pinned to the default-branch head. LICENSE file at pin 4777ba207e3c detected as MIT by the GitHub licence API on 2026-11-18; used under that licence with attribution."
    }
   }
  ]

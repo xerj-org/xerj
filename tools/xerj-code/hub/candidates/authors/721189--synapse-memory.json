@@ -1,0 +1,23 @@
+{
+ "corpus": "721189--synapse-memory",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on aimemory, memory-management, rag-pipeline queries this for how 721189/Synapse-Memory implements it: An AI memory infrastructure designed to give intelligent applications persistent, context-aware memory across conversations and interactions (selected work: sdk, the project root)",
+ "repos": [
+  {
+   "repo": "Synapse-Memory",
+   "url": "https://github.com/721189/Synapse-Memory",
+   "sha": "154d02ec7421b9a72ee3ba373b7ef6cb827601b5",
+   "licence": "Apache-2.0 (LICENSE file at pin 154d02ec7421, GitHub licence API 2026-11-18)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-18T21:14Z",
+    "consent_receipt": "f2c3962fc86c",
+    "note": "Inclusion consented by the commit author by email at 2026-11-18T21:14Z (receipt f2c3962fc86c); selected commit 154d02ec7421: \"implemented and verified all required authorization and gateway tests\". LICENSE file at pin 154d02ec7421 detected as Apache-2.0 by the GitHub licence API on 2026-11-18; used under that licence with attribution. Pinned to head 154d02ec7421 (contains the selected commit): the LICENSE at the selected commit was MIT."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "frhndevweb--portofolio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on HTML queries this for how frhndevweb/Portofolio implements it: frhndevweb/Portofolio (HTML)",
+ "repos": [
+  {
+   "repo": "Portofolio",
+   "url": "https://github.com/frhndevweb/Portofolio",
+   "sha": "fd5fdbeb5488bba0e48ab7ac6cf9803ec8377152",
+   "licence": "author's permission (LICENSE at pin fd5fdbeb5488: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-16T00:56Z",
+    "consent_receipt": "b34f27735116",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-16T00:56Z (receipt b34f27735116); pinned to the default-branch head. LICENSE at pin fd5fdbeb5488: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "chandlerbassett--depleted",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how chandlerbassett/Depleted implements it: PvE recorder and coach for macOS. Records your runs from the combat log and reviews them against top Warcraft Logs runs (selected work: src/shared, src/main, tests)",
+ "repos": [
+  {
+   "repo": "Depleted",
+   "url": "https://github.com/chandlerbassett/Depleted",
+   "sha": "68e1ffe6f2f20c202e9b565e69ed58cedff07247",
+   "licence": "MIT (LICENSE file at pin 68e1ffe6f2f2, GitHub licence API 2026-11-19)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-18T22:15Z",
+    "consent_receipt": "6f2537a67a7e",
+    "note": "Inclusion consented by the commit author by email at 2026-11-18T22:15Z (receipt 6f2537a67a7e); selected commit 68e1ffe6f2f2: \"1.1.3: name the recording player, sign the DMG, security follow-ups, \u2026\". LICENSE file at pin 68e1ffe6f2f2 detected as MIT by the GitHub licence API on 2026-11-19; used under that licence with attribution."
+   }
+  }
+ ]
+}

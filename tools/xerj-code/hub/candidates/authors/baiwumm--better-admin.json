@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on admin-dashboard, drizzle-orm, nestjs queries this for how baiwumm/better-admin implements it: \u4e00\u5957 Admin \u7cfb\u7edf \u4e94\u79cd\u6280\u672f\u6808\u5b9e\u73b0 (selected work: apps/nest)",
+ "domain": "an agent working on admin-dashboard, drizzle-orm, nestjs queries this for how baiwumm/better-admin implements it: Open-source multi-stack admin system: one product, one UI, one database - React, Vue, Next.js, Nuxt, NestJS (selected work: apps/nest)",
  "repos": [
   {
    "repo": "better-admin",

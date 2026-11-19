@@ -1,0 +1,23 @@
+{
+ "corpus": "saman-pasha--cocolog",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, c, cicili queries this for how saman-pasha/cocolog implements it: Cocolog: A Durable Reasoning Engine, a state machine, a Prolog execution runtime in which logical computation state is explicit, position-in (selected work: lib, library, test)",
+ "repos": [
+  {
+   "repo": "cocolog",
+   "url": "https://github.com/saman-pasha/cocolog",
+   "sha": "885f9b710be6b5bebe16e3c6adf52dddcdaeb6b5",
+   "licence": "BSD-2-Clause (LICENSE file at pin 885f9b710be6, GitHub licence API 2026-11-19)",
+   "review": {
+    "spdx": "BSD-2-Clause",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-18T23:30Z",
+    "consent_receipt": "dc7169091577",
+    "note": "Inclusion consented by the commit author by email at 2026-11-18T23:30Z (receipt dc7169091577); selected commit 885f9b710be6: \"Shared tables, dynamic declarations and astar/7 (cocolog 2.11.0)\". LICENSE file at pin 885f9b710be6 detected as BSD-2-Clause by the GitHub licence API on 2026-11-19; used under that licence with attribution."
+   }
+  }
+ ]
+}

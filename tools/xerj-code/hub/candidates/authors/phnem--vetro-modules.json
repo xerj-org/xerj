@@ -1,0 +1,23 @@
+{
+ "corpus": "phnem--vetro-modules",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Kotlin queries this for how Phnem/Vetro-Modules implements it: Frosted glass, a spring-token motion system and a chunked resumable downloader from the Vetro Android app, packaged as SKILL.md prompts for ",
+ "repos": [
+  {
+   "repo": "Vetro-Modules",
+   "url": "https://github.com/Phnem/Vetro-Modules",
+   "sha": "56c325b084a5b079f4a1455bef50a789738cc1f7",
+   "licence": "GPL-3.0 (LICENSE file at pin 56c325b084a5, GitHub licence API 2026-11-18)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-17T23:38Z",
+    "consent_receipt": "8e2d2f04fade",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-17T23:38Z (receipt 8e2d2f04fade); pinned to the default-branch head. LICENSE file at pin 56c325b084a5 detected as GPL-3.0 by the GitHub licence API on 2026-11-18; used under that licence with attribution."
+   }
+  }
+ ]
+}

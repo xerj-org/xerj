@@ -2,8 +2,8 @@
  "corpus": "galilieo--heart-island",
  "cloned_at": null,
  "status": "draft",
- "shelf": "AI",
- "domain": "an agent working on ai, community, full-stack queries this for how Galilieo/heart-island implements it: \u57fa\u4e8e Spring Boot\u3001Vue 3 \u4e0e MySQL \u7684 AI \u60c5\u7eea\u8bb0\u5f55\u548c\u533f\u540d\u4e92\u52a9\u793e\u533a\uff0c\u652f\u6301 JWT \u767b\u5f55\u3001AI \u966a\u4f34\u56de\u590d\u3001\u53d1\u5e16\u4e92\u52a8\u3001\u540e\u53f0\u5185\u5bb9\u6cbb\u7406\u53ca AI \u8c03\u7528\u8bb0\u5f55\u3002 (selected work: xinyu-backend, xinyu-vue)",
+ "shelf": "DB",
+ "domain": "an agent working on ai, community, full-stack queries this for how Galilieo/heart-island implements it: AI \u60c5\u7eea\u8bb0\u5f55\u4e0e\u533f\u540d\u4e92\u52a9\u793e\u533a\uff1aSpring Boot + MySQL \u6301\u4e45\u5316\u4efb\u52a1\u961f\u5217\u5f02\u6b65\u751f\u6210 AI \u56de\u5e94\uff0cPython FastAPI \u6a21\u578b\u670d\u52a1\uff0cRedis \u9650\u6d41\uff0cVue 3 \u524d\u7aef\uff1b\u542b\u8fd1\u671f\u56de\u987e\u4e0e\u5468\u62a5\u3001\u4e3e\u62a5\u6cbb\u7406\u3001\u4e24\u5c42 CI\uff0c\u5df2\u90e8\u7f72\u4e0a\u7ebf\u3002 (selected work: xinyu-backend, xinyu-vue)",
  "repos": [
   {
    "repo": "heart-island",

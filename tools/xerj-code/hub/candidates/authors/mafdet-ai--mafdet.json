@@ -1,0 +1,28 @@
+{
+ "corpus": "mafdet-ai--mafdet",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on deep-learning, framework, large-language-models queries this for how Mafdet-AI/mafdet implements it: You type. It already knows. Local LLMs that read and think while you type (selected work: mafdet, tests)",
+ "repos": [
+  {
+   "repo": "mafdet",
+   "url": "https://github.com/Mafdet-AI/mafdet",
+   "sha": "1224fc771ed8f05d8b4287f5d1737f3651a691f4",
+   "licence": "Apache-2.0 (LICENSE file at pin 1224fc771ed8, GitHub licence API 2026-11-19)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-18T21:51Z",
+    "consent_receipt": "5393e7ac21f5",
+    "note": "Inclusion consented by the commit author by email at 2026-11-18T21:51Z (receipt 5393e7ac21f5); selected commit 1224fc771ed8: \"Add agent binary walking and context improvements\". LICENSE file at pin 1224fc771ed8 detected as Apache-2.0 by the GitHub licence API on 2026-11-19; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @Mafdet-AI, who has not added it."
+   },
+   "paths": [
+    "mafdet",
+    "research",
+    "tests"
+   ]
+  }
+ ]
+}

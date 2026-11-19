@@ -6,17 +6,17 @@
  "domain": "an agent working on android, capacitor, fitness-app queries this for how abhassachan/Conqur implements it: \ud83c\udfc3\u200d\u2642\ufe0f GPS-powered territory conquest running game. Run real-world closed loops to capture city zones, battle in Clan Wars, and climb weekly l (selected work: frontend)",
  "repos": [
   {
-   "repo": "Minor_Project",
-   "url": "https://github.com/abhassachan/Minor_Project",
+   "repo": "Conqur",
+   "url": "https://github.com/abhassachan/Conqur",
    "sha": "e85160c2cd9eb13edf0c40d7dc9af365981fa82f",
-   "licence": "MIT (LICENSE file at pin e85160c2cd9e, GitHub licence API 2026-11-17)",
+   "licence": "MIT (LICENSE file at pin e85160c2cd9e, GitHub licence API 2026-11-18)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-17T07:05Z",
     "consent_receipt": "ec2c47677c2f",
-    "note": "Inclusion consented by the commit author by email at 2026-11-17T07:05Z (receipt ec2c47677c2f); selected commit e85160c2cd9e: \"feat: add native Android and iOS Capacitor projects with automated AP\u2026\". LICENSE file at pin e85160c2cd9e detected as MIT by the GitHub licence API on 2026-11-17; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-11-17T07:05Z (receipt ec2c47677c2f); selected commit e85160c2cd9e: \"feat: add native Android and iOS Capacitor projects with automated AP\u2026\". LICENSE file at pin e85160c2cd9e detected as MIT by the GitHub licence API on 2026-11-18; used under that licence with attribution."
    }
   }
  ]

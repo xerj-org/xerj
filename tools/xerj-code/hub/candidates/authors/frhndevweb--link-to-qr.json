@@ -1,0 +1,23 @@
+{
+ "corpus": "frhndevweb--link-to-qr",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how frhndevweb/link-to-qr implements it: frhndevweb/link-to-qr (Python)",
+ "repos": [
+  {
+   "repo": "link-to-qr",
+   "url": "https://github.com/frhndevweb/link-to-qr",
+   "sha": "e6c3fccf4dad32f2178fa6844727e14e74dcfbf4",
+   "licence": "author's permission (LICENSE at pin e6c3fccf4dad: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-16T00:56Z",
+    "consent_receipt": "7b71365ac2cb",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-16T00:56Z (receipt 7b71365ac2cb); pinned to the default-branch head. LICENSE at pin e6c3fccf4dad: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

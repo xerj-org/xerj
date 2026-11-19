@@ -1,0 +1,23 @@
+{
+ "corpus": "rootsiemen--loophole",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on appsec, code-quality, code-scanning queries this for how rootsiemen/loophole implements it: Loophole \u2014 a lightweight static security scanner that catches hardcoded secrets, SQLi, XSS, command injection, path traversal, weak crypto a",
+ "repos": [
+  {
+   "repo": "loophole",
+   "url": "https://github.com/rootsiemen/loophole",
+   "sha": "9f5431581261d07fecac216ec474c1a46eec4e81",
+   "licence": "MIT (LICENSE file at pin 9f5431581261, GitHub licence API 2026-11-18)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-18T06:11Z",
+    "consent_receipt": "02679cb9d80f",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-18T06:11Z (receipt 02679cb9d80f); pinned to the default-branch head. LICENSE file at pin 9f5431581261 detected as MIT by the GitHub licence API on 2026-11-18; used under that licence with attribution."
+   }
+  }
+ ]
+}

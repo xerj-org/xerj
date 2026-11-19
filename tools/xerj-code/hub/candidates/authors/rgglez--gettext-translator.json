@@ -1,0 +1,23 @@
+{
+ "corpus": "rgglez--gettext-translator",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on gettext, translator, ai queries this for how rgglez/gettext-translator implements it: Translates Gettext .po files using a variety of supported AI backends (selected work: translators, src/gettext_translator, tests)",
+ "repos": [
+  {
+   "repo": "gettext-translator",
+   "url": "https://github.com/rgglez/gettext-translator",
+   "sha": "77a6289d23a478553b57848092b51f5e5b9561bc",
+   "licence": "GPL-3.0 (LICENSE file at pin 77a6289d23a4, GitHub licence API 2026-11-18)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-18T20:33Z",
+    "consent_receipt": "9013d0e54617",
+    "note": "Inclusion consented by the commit author by email at 2026-11-18T20:33Z (receipt 9013d0e54617); selected commit 77a6289d23a4: \"Several improvements\". LICENSE file at pin 77a6289d23a4 detected as GPL-3.0 by the GitHub licence API on 2026-11-18; used under that licence with attribution."
+   }
+  }
+ ]
+}

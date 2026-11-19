@@ -1,0 +1,23 @@
+{
+ "corpus": "clockerka--mscshop-backend",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how clockerka/mscshop_backend implements it: clockerka/mscshop_backend (TypeScript)",
+ "repos": [
+  {
+   "repo": "mscshop_backend",
+   "url": "https://github.com/clockerka/mscshop_backend",
+   "sha": "d9eb8668c702a114cb40d059af17da4cd5c37f8c",
+   "licence": "author's permission (LICENSE at pin d9eb8668c702: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-18T06:26Z",
+    "consent_receipt": "b89e25201a62",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-18T06:26Z (receipt b89e25201a62); pinned to the default-branch head. LICENSE at pin d9eb8668c702: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

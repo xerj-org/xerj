@@ -1,0 +1,23 @@
+{
+ "corpus": "sarathsp06--janusfs",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, claude-code, filesystem queries this for how sarathsp06/janusfs implements it: Secret-masking filesystem for AI agents: secrets read as ****, byte-length preserved, enforced at the FS boundary. Kernel-enforced on Linux ",
+ "repos": [
+  {
+   "repo": "janusfs",
+   "url": "https://github.com/sarathsp06/janusfs",
+   "sha": "3e1e6a716281cab255c12ef6829f5ac766ee18bb",
+   "licence": "author's permission (LICENSE at pin 3e1e6a716281: NOASSERTION; repository: NOASSERTION)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-18T21:04Z",
+    "consent_receipt": "ddb39f60f1e7",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-18T21:04Z (receipt ddb39f60f1e7); pinned to the default-branch head. LICENSE at pin 3e1e6a716281: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agent-hooks, claude-code, claude-code-plugin queries this for how yannelli/be-concise implements it: Be concise catches the agent's own verbosity and makes it corrects in real-time (selected work: plugins, test)",
+ "domain": "an agent working on agent-hooks, claude-code, claude-code-plugin queries this for how yannelli/be-concise implements it: Be concise catches the agent's own verbosity and makes it correct itself in real time (selected work: plugins, test)",
  "repos": [
   {
    "repo": "be-concise",

@@ -1,0 +1,23 @@
+{
+ "corpus": "clockerka--langg",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how clockerka/lanGG implements it: best way to learn languages",
+ "repos": [
+  {
+   "repo": "lanGG",
+   "url": "https://github.com/clockerka/lanGG",
+   "sha": "83b23b185a9282d07b8cd229f589ff9f6a2d6a7c",
+   "licence": "MIT (LICENSE file at pin 83b23b185a92, GitHub licence API 2026-11-18)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-18T06:26Z",
+    "consent_receipt": "873356c6e69a",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-18T06:26Z (receipt 873356c6e69a); pinned to the default-branch head. LICENSE file at pin 83b23b185a92 detected as MIT by the GitHub licence API on 2026-11-18; used under that licence with attribution."
+   }
+  }
+ ]
+}

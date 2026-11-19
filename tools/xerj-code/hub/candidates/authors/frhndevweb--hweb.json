@@ -1,0 +1,23 @@
+{
+ "corpus": "frhndevweb--hweb",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how frhndevweb/hweb implements it: frhndevweb/hweb (TypeScript)",
+ "repos": [
+  {
+   "repo": "hweb",
+   "url": "https://github.com/frhndevweb/hweb",
+   "sha": "1ba03e70ee0d93f1a141221ecaf87578dcce2b2e",
+   "licence": "author's permission (LICENSE at pin 1ba03e70ee0d: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-16T00:56Z",
+    "consent_receipt": "306d08027848",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-16T00:56Z (receipt 306d08027848); pinned to the default-branch head. LICENSE at pin 1ba03e70ee0d: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

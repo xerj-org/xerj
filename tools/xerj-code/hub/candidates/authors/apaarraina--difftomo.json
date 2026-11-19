@@ -8,15 +8,15 @@
   {
    "repo": "DiffTomo",
    "url": "https://github.com/ApaarRaina/DiffTomo",
-   "sha": "ab8469d495d5e4518701a92d761e715ae937a08c",
-   "licence": "Apache-2.0 (LICENSE file at pin ab8469d495d5, GitHub licence API 2026-11-10)",
+   "sha": "fadac2e5b71b2a4eba899c7920ba351583c941bd",
+   "licence": "Apache-2.0 (LICENSE file at pin fadac2e5b71b, GitHub licence API 2026-11-18)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-31T21:53Z",
     "consent_receipt": "19aef7e485e3",
-    "note": "Inclusion consented by the commit author by email at 2026-10-31T21:53Z (receipt 19aef7e485e3); selected commit ab8469d495d5: \"added src/ and Contirbution guide\". LICENSE file at pin ab8469d495d5 detected as Apache-2.0 by the GitHub licence API on 2026-11-10; used under that licence with attribution. Pinned to head ab8469d495d5 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T21:53Z (receipt 19aef7e485e3); selected commit fadac2e5b71b: \"added src/ and Contirbution guide\". LICENSE file at pin fadac2e5b71b detected as Apache-2.0 by the GitHub licence API on 2026-11-18; used under that licence with attribution. Pinned to head fadac2e5b71b (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

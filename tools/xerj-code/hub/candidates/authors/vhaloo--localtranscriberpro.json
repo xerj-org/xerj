@@ -1,0 +1,23 @@
+{
+ "corpus": "vhaloo--localtranscriberpro",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on multilingual, offline-ai, omnilingual-asr queries this for how vhaloo/LocalTranscriberPro implements it: Offline transcription, live multilingual translation and local speech playback. Guided setup, explained settings, hardware-aware local model (selected work: src, tests, scripts)",
+ "repos": [
+  {
+   "repo": "LocalTranscriberPro",
+   "url": "https://github.com/vhaloo/LocalTranscriberPro",
+   "sha": "33b8f7ab7419c6b1bce5f29e486820c892b07f57",
+   "licence": "MIT (LICENSE file at pin 33b8f7ab7419, GitHub licence API 2026-11-18)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-18T20:27Z",
+    "consent_receipt": "e6c5f3f2575e",
+    "note": "Inclusion consented by the commit author by email at 2026-11-18T20:27Z (receipt e6c5f3f2575e); selected commit 33b8f7ab7419: \"Prepare one selected model on demand and retain full accuracy on low-\u2026\". LICENSE file at pin 33b8f7ab7419 detected as MIT by the GitHub licence API on 2026-11-18; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "faratech--trashd",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on cli, command-line-tool, devops queries this for how faratech/trashd implements it: Transparent Linux recycle bin and rm undelete daemon. 4-layer interception (PATH shim, LD_PRELOAD, seccomp, fanotify). FreeDesktop.org trash (selected work: crates/trashd-common, the project root, crates/trashd-seccomp)",
+ "repos": [
+  {
+   "repo": "trashd",
+   "url": "https://github.com/faratech/trashd",
+   "sha": "147fd75bb466f579c0c26467583b0b55cc432678",
+   "licence": "MIT (LICENSE file at pin 147fd75bb466, GitHub licence API 2026-11-18)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-18T20:22Z",
+    "consent_receipt": "533f363df5da",
+    "note": "Inclusion consented by the commit author by email at 2026-11-18T20:22Z (receipt 533f363df5da); selected commit 147fd75bb466: \"Fix all 24 open audit issues (#229, #243-#265)\". LICENSE file at pin 147fd75bb466 detected as MIT by the GitHub licence API on 2026-11-18; used under that licence with attribution."
+   }
+  }
+ ]
+}

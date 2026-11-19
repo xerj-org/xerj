@@ -8,15 +8,15 @@
   {
    "repo": "Kobo",
    "url": "https://github.com/loicngr/Kobo",
-   "sha": "e248486ee6a8c92d88b133e423f8775b99d8d7a0",
-   "licence": "GPL-3.0 (LICENSE file at pin e248486ee6a8, read directly on 2026-11-02)",
+   "sha": "c2c8d4a53d68142da58942f27ea8d8d24d9d84eb",
+   "licence": "GPL-3.0 (LICENSE file at pin c2c8d4a53d68, GitHub licence API 2026-10-27)",
    "review": {
     "spdx": "GPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-27T18:07Z",
     "consent_receipt": "bff64177cf4d",
-    "note": "Inclusion consented by the repository owner by email at 2026-10-27T18:07Z (receipt bff64177cf4d) and extended to the whole repository at the default-branch (develop) head by the owner in #2755 (2026-11-02). LICENSE file at pin e248486ee6a8 is GPL-3.0 (read directly on 2026-11-02); used under that licence, approach-only, with attribution. The owner permits inclusion under GPL-3.0 only and gave no MIT or other licence grant (#2755)."
+    "note": "Inclusion consented by the commit author by email at 2026-10-27T18:07Z (receipt bff64177cf4d); selected commit c2c8d4a53d68: \"fix(workspaces): preserve pr merge transitions and mobile focus\". LICENSE file at pin c2c8d4a53d68 detected as GPL-3.0 by the GitHub licence API on 2026-10-27; used under that licence with attribution."
    }
   }
  ]

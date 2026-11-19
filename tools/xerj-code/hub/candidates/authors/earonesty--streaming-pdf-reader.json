@@ -9,14 +9,14 @@
    "repo": "streaming-pdf-reader",
    "url": "https://github.com/earonesty/streaming-pdf-reader",
    "sha": "bfb225632c3fb35c668eee3c7132acec5dc71d1b",
-   "licence": "MIT (LICENSE file at pin bfb225632c3f, GitHub licence API 2026-10-26)",
+   "licence": "author's permission (LICENSE at pin bfb225632c3f: MIT; repository: NOASSERTION)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-25T22:28Z",
     "consent_receipt": "d62204a7df8b",
-    "note": "Inclusion consented by the commit author by email at 2026-10-25T22:28Z (receipt d62204a7df8b); selected commit bfb225632c3f: \"Extract large PDF object streams with bounded target buffers\". LICENSE file at pin bfb225632c3f detected as MIT by the GitHub licence API on 2026-10-26; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-10-25T22:28Z (receipt d62204a7df8b); selected commit bfb225632c3f: \"Extract large PDF object streams with bounded target buffers\". LICENSE at pin bfb225632c3f: MIT (repository: NOASSERTION); used with the author's permission, with attribution."
    }
   }
  ]

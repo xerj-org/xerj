@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on TypeScript queries this for how maeneko/forgetting implements it: maeneko/forgetting (TypeScript) (selected work: internal/agent, cmd/awg-control)",
+ "domain": "an agent working on Go queries this for how maeneko/forgetting implements it: maeneko/forgetting (Go) (selected work: internal/agent, cmd/awg-control)",
  "repos": [
   {
    "repo": "forgetting",

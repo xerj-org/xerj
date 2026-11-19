@@ -1,0 +1,23 @@
+{
+ "corpus": "larythelord--rls-open-check",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on linter, postgres, row-level-security queries this for how LarytheLord/rls-open-check implements it: Catch Supabase RLS holes in SQL migrations before you deploy. No database, no credentials. Text, JSON or SARIF output",
+ "repos": [
+  {
+   "repo": "rls-open-check",
+   "url": "https://github.com/LarytheLord/rls-open-check",
+   "sha": "30619d2893d0bc59273ce98866ee4da7700e3a38",
+   "licence": "MIT (LICENSE file at pin 30619d2893d0, GitHub licence API 2026-11-18)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-16T04:12Z",
+    "consent_receipt": "48e719615d48",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-16T04:12Z (receipt 48e719615d48); pinned to the default-branch head. LICENSE file at pin 30619d2893d0 detected as MIT by the GitHub licence API on 2026-11-18; used under that licence with attribution."
+   }
+  }
+ ]
+}

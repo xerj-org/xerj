@@ -1,0 +1,23 @@
+{
+ "corpus": "hzyl--journeyaiengineer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-engineering, fastapi, learning-platform queries this for how Hzyl/JourneyAIEngineer implements it: Local-first bilingual AI Engineer learning platform with structured lessons, VS Code labs, review scheduling, Git evidence workflow and a po (selected work: content, src/components, tests)",
+ "repos": [
+  {
+   "repo": "JourneyAIEngineer",
+   "url": "https://github.com/Hzyl/JourneyAIEngineer",
+   "sha": "7c00a8d668ccee61de7e8254e7b341c3cbf921ae",
+   "licence": "Apache-2.0 (LICENSE file at pin 7c00a8d668cc, GitHub licence API 2026-11-18)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-18T20:55Z",
+    "consent_receipt": "4c84f7f6d884",
+    "note": "Inclusion consented by the commit author by email at 2026-11-18T20:55Z (receipt 4c84f7f6d884); selected commit 7c00a8d668cc: \"fix(learning): harden admin state and clarify ML evaluation lessons\". LICENSE file at pin 7c00a8d668cc detected as Apache-2.0 by the GitHub licence API on 2026-11-18; used under that licence with attribution."
+   }
+  }
+ ]
+}

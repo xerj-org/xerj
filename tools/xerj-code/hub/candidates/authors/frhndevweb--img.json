@@ -1,0 +1,23 @@
+{
+ "corpus": "frhndevweb--img",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on code queries this for how frhndevweb/img implements it: frhndevweb/img (code)",
+ "repos": [
+  {
+   "repo": "img",
+   "url": "https://github.com/frhndevweb/img",
+   "sha": "e2351d376a3746689189b148ee7192ddc5771e58",
+   "licence": "author's permission (LICENSE at pin e2351d376a37: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-16T00:56Z",
+    "consent_receipt": "1168337ae8d8",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-16T00:56Z (receipt 1168337ae8d8); pinned to the default-branch head. LICENSE at pin e2351d376a37: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "jaylordibe--laravel-api-starter",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on PHP queries this for how jaylordibe/laravel-api-starter implements it: Production-ready Laravel API template with secure authentication, modular architecture, automated testing, and deployment best practices (selected work: tests, config, the project root)",
+ "repos": [
+  {
+   "repo": "laravel-api",
+   "url": "https://github.com/jaylordibe/laravel-api",
+   "sha": "0077bff4ac269afae46afb08adb260508c840326",
+   "licence": "MIT (LICENSE file at pin 0077bff4ac26, GitHub licence API 2026-10-24)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-22T06:17Z",
+    "consent_receipt": "459da9c493ce",
+    "note": "Inclusion consented by the commit author by email at 2026-10-22T06:17Z (receipt 459da9c493ce); selected commit 0077bff4ac26: \"fix: let the base image's nginx own TRUSTED_PROXIES and keep the base\u2026\". LICENSE file at pin 0077bff4ac26 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
+   }
+  }
+ ]
+}

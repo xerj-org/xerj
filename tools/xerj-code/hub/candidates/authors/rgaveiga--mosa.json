@@ -1,0 +1,23 @@
+{
+ "corpus": "rgaveiga--mosa",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on global-optimization-algorithms, heuristic-algorithm, monte-carlo queries this for how rgaveiga/mosa implements it: Multi-objective Simulated Annealing (MOSA) implementation in pure Python (selected work: tests, mosa, the project root)",
+ "repos": [
+  {
+   "repo": "mosa",
+   "url": "https://github.com/rgaveiga/mosa",
+   "sha": "73414553668379c2f92a96310820d14b1634f5e1",
+   "licence": "GPL-3.0 (LICENSE file at pin 734145536683, GitHub licence API 2026-11-18)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-18T16:56Z",
+    "consent_receipt": "ac5a1690ed53",
+    "note": "Inclusion consented by the commit author by email at 2026-11-18T16:56Z (receipt ac5a1690ed53); selected commit 734145536683: \"Add automatic objective weight\". LICENSE file at pin 734145536683 detected as GPL-3.0 by the GitHub licence API on 2026-11-18; used under that licence with attribution."
+   }
+  }
+ ]
+}

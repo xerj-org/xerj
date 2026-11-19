@@ -1,0 +1,23 @@
+{
+ "corpus": "aristotile-dev--semiconductor-wafer-detection-system",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on computer-vision, deep-learning, efficientnet queries this for how aristotile-dev/Semiconductor-Wafer-Detection-System implements it: Find the defect before it ships. Drop a wafer map, get the pattern, the yield and a save / review / scrap call in seconds. EfficientNet-B3 +",
+ "repos": [
+  {
+   "repo": "Semiconductor-Wafer-Detection-System",
+   "url": "https://github.com/aristotile-dev/Semiconductor-Wafer-Detection-System",
+   "sha": "45c3cf85e44dd9527227af7a261a208ef47e85ac",
+   "licence": "MIT (LICENSE file at pin 45c3cf85e44d, GitHub licence API 2026-11-18)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-16T08:04Z",
+    "consent_receipt": "2982c35019e1",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-16T08:04Z (receipt 2982c35019e1); pinned to the default-branch head. LICENSE file at pin 45c3cf85e44d detected as MIT by the GitHub licence API on 2026-11-18; used under that licence with attribution."
+   }
+  }
+ ]
+}

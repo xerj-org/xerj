@@ -8,15 +8,15 @@
   {
    "repo": "braindance",
    "url": "https://github.com/vladleesi/braindance",
-   "sha": "b02fa38865c52e8cd1408a180aa3a6869e9cde6a",
-   "licence": "MPL-2.0 (LICENSE file at pin b02fa38865c5, GitHub licence API 2026-11-17)",
+   "sha": "58a2c53edc227a6a8583f737895b647d77698467",
+   "licence": "MPL-2.0 (LICENSE file at pin 58a2c53edc22, GitHub licence API 2026-11-19)",
    "review": {
     "spdx": "MPL-2.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-13T23:17Z",
     "consent_receipt": "36acd82eae29",
-    "note": "Inclusion consented by the commit author by email at 2026-10-13T23:17Z (receipt 36acd82eae29); selected commit b02fa38865c5: \"perf: cache public reads and warm backend on app startup\". LICENSE file at pin b02fa38865c5 detected as MPL-2.0 by the GitHub licence API on 2026-11-17; used under that licence with attribution. Pinned to head b02fa38865c5 (contains the selected commit): the LICENSE at the selected commit was GPL-3.0."
+    "note": "Inclusion consented by the commit author by email at 2026-10-13T23:17Z (receipt 36acd82eae29); selected commit 58a2c53edc22: \"perf: cache public reads and warm backend on app startup\". LICENSE file at pin 58a2c53edc22 detected as MPL-2.0 by the GitHub licence API on 2026-11-19; used under that licence with attribution. Pinned to head 58a2c53edc22 (contains the selected commit): the LICENSE at the selected commit was GPL-3.0."
    }
   }
  ]

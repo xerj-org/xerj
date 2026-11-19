@@ -2,8 +2,8 @@
  "corpus": "julianzhucode--23-design-pattern",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Java queries this for how JulianZhuCode/23-design-pattern implements it: JulianZhuCode/23-design-pattern (Java) (selected work: design-patternz)",
+ "shelf": "WEB",
+ "domain": "an agent working on chinese, design-pattern, design-patterns queries this for how JulianZhuCode/23-design-pattern implements it: Interactive Java 21 lab for all 23 GoF design patterns \u2014 docs, runnable cases & GUI (selected work: design-patternz)",
  "repos": [
   {
    "repo": "23-design-pattern",

@@ -1,0 +1,23 @@
+{
+ "corpus": "rootsiemen--rootsiemen",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on code queries this for how rootsiemen/rootsiemen implements it: Muhamad Raza Haider \u2014 Web developer (Next.js, React). My projects and sites",
+ "repos": [
+  {
+   "repo": "rootsiemen",
+   "url": "https://github.com/rootsiemen/rootsiemen",
+   "sha": "ff2ec24d28a423c4e10b2cd2972e6a2615b867e9",
+   "licence": "author's permission (LICENSE at pin ff2ec24d28a4: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-18T06:11Z",
+    "consent_receipt": "eede10ea9774",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-18T06:11Z (receipt eede10ea9774); pinned to the default-branch head. LICENSE at pin ff2ec24d28a4: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

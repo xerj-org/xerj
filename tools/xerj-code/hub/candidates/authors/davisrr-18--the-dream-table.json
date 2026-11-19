@@ -1,0 +1,23 @@
+{
+ "corpus": "davisrr-18--the-dream-table",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Java queries this for how davisrr-18/the-dream-table implements it: The Dream Table for Minecraft 1.21.1 on Fabric and NeoForge (selected work: common, fabric)",
+ "repos": [
+  {
+   "repo": "the-dream-table",
+   "url": "https://github.com/davisrr-18/the-dream-table",
+   "sha": "9092bfe2f95697bb412e41f81de283b0d59b8c34",
+   "licence": "MIT (LICENSE file at pin 9092bfe2f956, GitHub licence API 2026-11-18)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-18T20:08Z",
+    "consent_receipt": "e724640c67d5",
+    "note": "Inclusion consented by the commit author by email at 2026-11-18T20:08Z (receipt e724640c67d5); selected commit 9092bfe2f956: \"feat: keep each player's project when a Dream Table is broken\". LICENSE file at pin 9092bfe2f956 detected as MIT by the GitHub licence API on 2026-11-18; used under that licence with attribution."
+   }
+  }
+ ]
+}

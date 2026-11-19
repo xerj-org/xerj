@@ -1,0 +1,23 @@
+{
+ "corpus": "codesphere-u--potemkin",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-skills, ai-agents, claude-code queries this for how codesphere-u/potemkin implements it: Deterministic Agent Skill & CI gate exposing Potemkin stubs, fake fallbacks, dead full-stack wires, secret defaults & AI reward hacking",
+ "repos": [
+  {
+   "repo": "potemkin",
+   "url": "https://github.com/codesphere-u/potemkin",
+   "sha": "62502022a68334cb6a24b3e9ef25949d179b1ff7",
+   "licence": "MIT (LICENSE file at pin 62502022a683, GitHub licence API 2026-11-18)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-17T02:03Z",
+    "consent_receipt": "73d5be7f4275",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-17T02:03Z (receipt 73d5be7f4275); pinned to the default-branch head. LICENSE file at pin 62502022a683 detected as MIT by the GitHub licence API on 2026-11-18; used under that licence with attribution."
+   }
+  }
+ ]
+}

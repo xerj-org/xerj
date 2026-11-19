@@ -1,0 +1,23 @@
+{
+ "corpus": "cogflux--ashlar",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, ai-agents, bukkit queries this for how CogFlux/ashlar implements it: Ashlar - let AI assistants (Claude, ChatGPT, Cursor...) survey, render, build and inspect a live Minecraft Paper server through MCP (selected work: plugin, mcp-server)",
+ "repos": [
+  {
+   "repo": "ashlar",
+   "url": "https://github.com/rcwalter24/ashlar",
+   "sha": "9f21a071ecc3493c924387aea721f7d827e38aa9",
+   "licence": "AGPL-3.0 (LICENSE file at pin 9f21a071ecc3, GitHub licence API 2026-10-26)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-15T10:53Z",
+    "consent_receipt": "8844230014fc",
+    "note": "Inclusion consented by the commit author by email at 2026-10-15T10:53Z (receipt 8844230014fc); selected commit 9f21a071ecc3: \"mc_inspect format \"columns\" (exact per-column runs); repair guidance:\u2026\". LICENSE file at pin 9f21a071ecc3 detected as AGPL-3.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution."
+   }
+  }
+ ]
+}

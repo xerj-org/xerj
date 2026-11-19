@@ -2,8 +2,8 @@
  "corpus": "lfourneen--nixos-lf",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Python queries this for how lfourneen/nixos-lf implements it: \u2692\ufe0f Declarative NixOS system config using flakes, with a customized desktop environment and various productivity tools (selected work: system, overlays, home)",
+ "shelf": "NET",
+ "domain": "an agent working on Python queries this for how lfourneen/nixos-lf implements it: \u2692\ufe0f Personal NixOS workstation configuration with flakes and Home Manager, featuring an nftables firewall, transparent proxying with Mihomo ( (selected work: system, overlays, home)",
  "repos": [
   {
    "repo": "nixos-lf",

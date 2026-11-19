@@ -8,15 +8,15 @@
   {
    "repo": "RecallDB",
    "url": "https://github.com/jchristn/RecallDB",
-   "sha": "35da3283d5713835af30ea8ae46031e5f3ba3942",
-   "licence": "MIT (LICENSE file at pin 35da3283d571, GitHub licence API 2026-10-28)",
+   "sha": "9bd46ac0f1e2da0b8586f2c639b37ca27ceb7082",
+   "licence": "MIT (LICENSE file at pin 9bd46ac0f1e2, GitHub licence API 2026-11-18)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T22:23Z",
     "consent_receipt": "f9a7a61287ba",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:23Z (receipt f9a7a61287ba); pinned to the default-branch head. LICENSE file at pin 35da3283d571 detected as MIT by the GitHub licence API on 2026-10-28; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:23Z (receipt f9a7a61287ba); pinned to the default-branch head. LICENSE file at pin 9bd46ac0f1e2 detected as MIT by the GitHub licence API on 2026-11-18; used under that licence with attribution."
    }
   }
  ]

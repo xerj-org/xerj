@@ -8,15 +8,15 @@
   {
    "repo": "elixir-phoenix-skills",
    "url": "https://github.com/igmarin/elixir-phoenix-skills",
-   "sha": "f69eb69a7bd66f5d45921f1c220e35b87bf934b4",
-   "licence": "MIT (LICENSE file at pin f69eb69a7bd6, GitHub licence API 2026-10-28)",
+   "sha": "386a67ae8202755ee93e62fa18ad5d8f3b7fbcd4",
+   "licence": "MIT (LICENSE file at pin 386a67ae8202, GitHub licence API 2026-11-19)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T22:02Z",
     "consent_receipt": "9f933b04d102",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:02Z (receipt 9f933b04d102); pinned to the default-branch head. LICENSE file at pin f69eb69a7bd6 detected as MIT by the GitHub licence API on 2026-10-28; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:02Z (receipt 9f933b04d102); pinned to the default-branch head. LICENSE file at pin 386a67ae8202 detected as MIT by the GitHub licence API on 2026-11-19; used under that licence with attribution."
    }
   }
  ]

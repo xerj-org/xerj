@@ -1,0 +1,23 @@
+{
+ "corpus": "lilkoon--cvatoptimization",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how LilKoon/CvatOptimization implements it: LilKoon/CvatOptimization (Python) (selected work: cvat-ui)",
+ "repos": [
+  {
+   "repo": "CvatOptimization",
+   "url": "https://github.com/LilKoon/CvatOptimization",
+   "sha": "f13c059be2183e4faca2feca48d36ffe263a7eea",
+   "licence": "MIT (LICENSE file at pin f13c059be218, GitHub licence API 2026-11-18)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-18T03:20Z",
+    "consent_receipt": "f5287ed77346",
+    "note": "Inclusion consented by the commit author by email at 2026-11-18T03:20Z (receipt f5287ed77346); selected commit f13c059be218: \"Improve 3D editing and add a cuboid QA/QC workspace\". LICENSE file at pin f13c059be218 detected as MIT by the GitHub licence API on 2026-11-18; used under that licence with attribution."
+   }
+  }
+ ]
+}

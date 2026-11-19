@@ -1,0 +1,23 @@
+{
+ "corpus": "frhndevweb--zip2git",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how frhndevweb/Zip2git implements it: frhndevweb/Zip2git (Python)",
+ "repos": [
+  {
+   "repo": "Zip2git",
+   "url": "https://github.com/frhndevweb/Zip2git",
+   "sha": "7abe32c2f325df9a5f50edbb7b2e2301661171ef",
+   "licence": "author's permission (LICENSE at pin 7abe32c2f325: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-16T00:56Z",
+    "consent_receipt": "870821a2d0b1",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-16T00:56Z (receipt 870821a2d0b1); pinned to the default-branch head. LICENSE at pin 7abe32c2f325: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

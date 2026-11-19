@@ -1,0 +1,23 @@
+{
+ "corpus": "clockerka--cubingrfchromiumdarktheme",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on CSS queries this for how clockerka/cubingrfchromiumdarktheme implements it: dark theme for live.cubingrf.org for chromium browsers",
+ "repos": [
+  {
+   "repo": "cubingrfchromiumdarktheme",
+   "url": "https://github.com/clockerka/cubingrfchromiumdarktheme",
+   "sha": "b07eff5206a93547fe444d1b29f356b497f6de79",
+   "licence": "author's permission (LICENSE at pin b07eff5206a9: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-18T06:26Z",
+    "consent_receipt": "5a3e082e35c2",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-18T06:26Z (receipt 5a3e082e35c2); pinned to the default-branch head. LICENSE at pin b07eff5206a9: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

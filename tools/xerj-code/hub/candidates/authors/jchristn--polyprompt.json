@@ -8,15 +8,15 @@
   {
    "repo": "PolyPrompt",
    "url": "https://github.com/jchristn/PolyPrompt",
-   "sha": "6f88ddbe86a28343a482d3bb50dd18276c41d2b5",
-   "licence": "MIT (LICENSE file at pin 6f88ddbe86a2, GitHub licence API 2026-11-16)",
+   "sha": "6c575e68f7c0b3f8a6a6a6203b8854bf8ce5a96c",
+   "licence": "MIT (LICENSE file at pin 6c575e68f7c0, GitHub licence API 2026-11-18)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T22:23Z",
     "consent_receipt": "1e5019c76343",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:23Z (receipt 1e5019c76343); pinned to the default-branch head. LICENSE file at pin 6f88ddbe86a2 detected as MIT by the GitHub licence API on 2026-11-16; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:23Z (receipt 1e5019c76343); pinned to the default-branch head. LICENSE file at pin 6c575e68f7c0 detected as MIT by the GitHub licence API on 2026-11-18; used under that licence with attribution."
    }
   }
  ]

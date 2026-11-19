@@ -2,8 +2,8 @@
  "corpus": "iuseamouse--timessm",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Python queries this for how IUseAMouse/TimeSSM implements it: Linear SSM training and evaluation for 0-shot forecasting (selected work: src/timessm)",
+ "shelf": "DB",
+ "domain": "an agent working on forecasting, foundation-models, gift-eval queries this for how IUseAMouse/TimeSSM implements it: TimeSSM: small zero-shot time series forecasters (2.5M and 10M parameters) built on state space layers, with the RateIN layer (selected work: src/timessm)",
  "repos": [
   {
    "repo": "TimeSSM",

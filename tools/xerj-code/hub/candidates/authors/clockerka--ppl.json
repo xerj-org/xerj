@@ -1,0 +1,23 @@
+{
+ "corpus": "clockerka--ppl",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how clockerka/ppl implements it: ppl corporation ultra mega wow giga meta shiish",
+ "repos": [
+  {
+   "repo": "ppl",
+   "url": "https://github.com/clockerka/ppl",
+   "sha": "898a457c756e0fb7765a59fab03ab84387d67e58",
+   "licence": "author's permission (LICENSE at pin 898a457c756e: NOASSERTION; repository: NOASSERTION)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-18T06:26Z",
+    "consent_receipt": "90a3828c4d44",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-18T06:26Z (receipt 90a3828c4d44); pinned to the default-branch head. LICENSE at pin 898a457c756e: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

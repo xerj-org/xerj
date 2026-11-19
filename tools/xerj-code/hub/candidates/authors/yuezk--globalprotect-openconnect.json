@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "NET",
- "domain": "an agent working on openconnect, gui, linux queries this for how yuezk/GlobalProtect-openconnect implements it: GlobalProtect VPN client and CLI for macOS, Linux, FreeBSD, and OpenBSD. Built in Rust with SAML SSO, MFA, YubiKey, client certificates, and (selected work: apps/gpclient, apps/gpservice, the project root)",
+ "domain": "an agent working on openconnect, gui, linux queries this for how yuezk/GlobalProtect-openconnect implements it: GlobalProtect VPN client for Windows, macOS, Linux, FreeBSD, and OpenBSD. Built in Rust with SAML SSO, MFA, YubiKey, client certificates, an (selected work: apps/gpclient, apps/gpservice, the project root)",
  "repos": [
   {
    "repo": "GlobalProtect-openconnect",

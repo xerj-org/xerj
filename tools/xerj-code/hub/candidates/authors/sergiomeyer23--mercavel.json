@@ -1,0 +1,23 @@
+{
+ "corpus": "sergiomeyer23--mercavel",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how sergiomeyer23/Mercavel implements it: Comparador de pre\u00e7os de cesta de supermercado entre mercados de Cascavel, com dados rastre\u00e1veis (selected work: src/pages, src/colaboracao, src/components)",
+ "repos": [
+  {
+   "repo": "Mercavel",
+   "url": "https://github.com/sergiomeyer23/Mercavel",
+   "sha": "54c15c05cbc48a9595a67d728e0e43d00d433c8a",
+   "licence": "ISC (LICENSE file at pin 54c15c05cbc4, GitHub licence API 2026-11-19)",
+   "review": {
+    "spdx": "ISC",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-18T22:48Z",
+    "consent_receipt": "7c7bfaeeaedd",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-18T22:48Z (receipt 7c7bfaeeaedd); selected commit 54c15c05cbc4: \"front: extrai o seletor de produto e a linha de envio, junta os r\u00f3tul\u2026\". LICENSE file at pin 54c15c05cbc4 detected as ISC by the GitHub licence API on 2026-11-19; used under that licence with attribution."
+   }
+  }
+ ]
+}

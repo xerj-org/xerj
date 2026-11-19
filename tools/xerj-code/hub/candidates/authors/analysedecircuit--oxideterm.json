@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on filemanager, rust, sftp queries this for how AnalyseDeCircuit/oxideterm implements it: Fast, native Rust + GPUI workspace for local shells, SSH/SFTP, and MCP tools\u2014no WebView, no telemetry, open source (selected work: crates/oxideterm-terminal, crates/oxideterm-gpui-editor, crates/oxideterm-gpui-app)",
+ "domain": "an agent working on filemanager, rust, sftp queries this for how AnalyseDeCircuit/oxideterm implements it: Fast, native Rust + GPUI workspace for local and SSH with MCP tools\u2014no WebView, no telemetry, open source (selected work: crates/oxideterm-terminal, crates/oxideterm-gpui-editor, crates/oxideterm-gpui-app)",
  "repos": [
   {
    "repo": "oxideterm",

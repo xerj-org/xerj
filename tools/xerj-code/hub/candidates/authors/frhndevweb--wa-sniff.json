@@ -1,0 +1,23 @@
+{
+ "corpus": "frhndevweb--wa-sniff",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Shell queries this for how frhndevweb/wa-sniff implements it: frhndevweb/wa-sniff (Shell)",
+ "repos": [
+  {
+   "repo": "wa-sniff",
+   "url": "https://github.com/frhndevweb/wa-sniff",
+   "sha": "faedd32ac9aa442967d2744a526cf5ed8c9bdf0c",
+   "licence": "MIT (LICENSE file at pin faedd32ac9aa, GitHub licence API 2026-11-18)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-16T00:56Z",
+    "consent_receipt": "f9c422221060",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-16T00:56Z (receipt f9c422221060); pinned to the default-branch head. LICENSE file at pin faedd32ac9aa detected as MIT by the GitHub licence API on 2026-11-18; used under that licence with attribution."
+   }
+  }
+ ]
+}

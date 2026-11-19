@@ -8,15 +8,15 @@
   {
    "repo": "loca",
    "url": "https://github.com/omrylcn/loca",
-   "sha": "fe607a6a1b0dd4c8d555d1ac5cca1be730a9fcd6",
-   "licence": "AGPL-3.0 (LICENSE file at pin fe607a6a1b0d, GitHub licence API 2026-11-18)",
+   "sha": "635b711c224a25c721acba0801fa42b72bd38266",
+   "licence": "AGPL-3.0 (LICENSE file at pin 635b711c224a, GitHub licence API 2026-11-19)",
    "review": {
     "spdx": "AGPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-11T21:10Z",
     "consent_receipt": "55b69994897c",
-    "note": "Inclusion consented by the commit author by email at 2026-10-11T21:10Z (receipt 55b69994897c); selected commit fe607a6a1b0d: \"fix(runtime): relay final replies for steered attention (v0.12.3)\". LICENSE file at pin fe607a6a1b0d detected as AGPL-3.0 by the GitHub licence API on 2026-11-18; used under that licence with attribution. Pinned to head fe607a6a1b0d (contains the selected commit): the LICENSE at the selected commit was MIT."
+    "note": "Inclusion consented by the commit author by email at 2026-10-11T21:10Z (receipt 55b69994897c); selected commit 635b711c224a: \"fix(runtime): relay final replies for steered attention (v0.12.3)\". LICENSE file at pin 635b711c224a detected as AGPL-3.0 by the GitHub licence API on 2026-11-19; used under that licence with attribution. Pinned to head 635b711c224a (contains the selected commit): the LICENSE at the selected commit was MIT."
    }
   }
  ]

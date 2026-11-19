@@ -1,0 +1,23 @@
+{
+ "corpus": "frhndevweb--upuimg",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on PHP queries this for how frhndevweb/Upuimg implements it: frhndevweb/Upuimg (PHP)",
+ "repos": [
+  {
+   "repo": "Upuimg",
+   "url": "https://github.com/frhndevweb/Upuimg",
+   "sha": "8ab03ecf0931553a773f212a3064045798e850de",
+   "licence": "author's permission (LICENSE at pin 8ab03ecf0931: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-16T00:56Z",
+    "consent_receipt": "b16c2f271912",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-16T00:56Z (receipt b16c2f271912); pinned to the default-branch head. LICENSE at pin 8ab03ecf0931: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

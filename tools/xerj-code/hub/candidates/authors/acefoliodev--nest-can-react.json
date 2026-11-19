@@ -1,0 +1,29 @@
+{
+ "corpus": "acefoliodev--nest-can-react",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on csr, express, express-js queries this for how acefolioDev/nest-can-react implements it: Use React Server Components directly in NestJS. Build server-rendered React interfaces with access to NestJS services and dependency injecti (selected work: src/flight, src/client)",
+ "repos": [
+  {
+   "repo": "nest-can-react",
+   "url": "https://github.com/acefolioDev/nest-can-react",
+   "sha": "07bf5d87b9a30d32593ef4f4ef0aad46c0337e0b",
+   "licence": "MIT (LICENSE file at pin 07bf5d87b9a3, GitHub licence API 2026-11-18)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-18T11:13Z",
+    "consent_receipt": "b4f223c6e46c",
+    "note": "Inclusion consented by the commit author by email at 2026-11-18T11:13Z (receipt b4f223c6e46c); selected commit 07bf5d87b9a3: \"feat(flight): implement client-side navigation and link interception\". LICENSE file at pin 07bf5d87b9a3 detected as MIT by the GitHub licence API on 2026-11-18; used under that licence with attribution. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @acefolioDev, who has not added it."
+   },
+   "paths": [
+    "docs",
+    "src/build",
+    "src/client",
+    "src/flight"
+   ]
+  }
+ ]
+}

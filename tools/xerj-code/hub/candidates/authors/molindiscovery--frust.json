@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Jupyter Notebook queries this for how MolinDiscovery/FRUST implements it: MolinDiscovery/FRUST (Jupyter Notebook) (selected work: frust, tests)",
+ "domain": "an agent working on catalysis, catalyst-screening, cheminformatics queries this for how MolinDiscovery/FRUST implements it: Automated transition-state generation and catalyst screening for metal-free C\u2013H borylation with frustrated Lewis pairs (selected work: frust, tests)",
  "repos": [
   {
    "repo": "FRUST",
