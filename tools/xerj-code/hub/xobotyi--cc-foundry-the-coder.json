@@ -1,15 +1,15 @@
 {
   "corpus": "xobotyi--cc-foundry-the-coder",
-  "cloned_at": "2026-10-31T11:48:14Z",
+  "cloned_at": "2026-11-19T15:31:29Z",
   "own": true,
   "repos": [
     {
       "repo": "cc-foundry",
       "url": "https://github.com/xobotyi/cc-foundry.git",
       "licence": "NONE-FOUND",
-      "sha": "b9f5057a2ac66d82874a9885f06c72a0d9a19cb6",
-      "files": 7,
-      "bytes": 67065,
+      "sha": "4b709dcad285fee6073e8020a8f2d4e66eef2b00",
+      "files": 8,
+      "bytes": 73423,
       "paths": [
         "plugins/the-coder/skills",
         "plugins/the-coder/output-styles"
@@ -18,8 +18,8 @@
         "spdx": "MIT",
         "use": "adapt-with-attribution",
         "by": "@xobotyi",
-        "at": "2026-10-31",
-        "note": "First-party code by the commit author. The repository LICENSE at pin b9f5057a2ac6 opened and read: it is the verbatim MIT License (Copyright (c) 2026 Anton Zinovyev) with no added clauses, and each plugin directory carries an identical copy. The GitHub licence API reports MIT; the xerj detector reports NONE-FOUND because no licence file sits inside the harvested paths. Pinned commit b9f5057a2ac6: \"[plugin-rollcall] bump to 2.0.0\"."
+        "at": "2026-11-19",
+        "note": "First-party code by the commit author. The repository LICENSE at pin 4b709dcad285 is byte-identical to the one reviewed at pin b9f5057a2ac6 (MIT, Copyright (c) 2026 Anton Zinovyev), and each plugin directory carries an identical copy. The xerj detector reports NONE-FOUND because no licence file sits inside the harvested paths. Pinned commit 4b709dcad285: \"[the-coder] bump to 1.18.0\"."
       }
     }
   ]
