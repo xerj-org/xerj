@@ -17971,6 +17971,10 @@ async fn search_impl(
     // each per-index result, so collapse+track_scores reports ES `max_score`.
     let mut merged_population_max: Option<f64> = None;
     let mut any_timed_out = false;
+    // #3020: per-index whole-response cache outcome ("hit" / "miss" /
+    // "bypass"), reported by the engine on `profile: true` requests and
+    // emitted as `profile.shards[*].request_cache`.
+    let mut request_cache_by_index: HashMap<String, String> = HashMap::new();
 
     // Request-level index-resolution policy. Wildcards default to silently
     // skipping missing indices; literal names 404 unless the caller opted
@@ -18171,6 +18175,14 @@ async fn search_impl(
                 }
                 if result.timed_out {
                     any_timed_out = true;
+                }
+                if let Some(how) = result
+                    .profile
+                    .as_ref()
+                    .and_then(|p| p.get("request_cache"))
+                    .and_then(Value::as_str)
+                {
+                    request_cache_by_index.insert(idx_name.to_string(), how.to_string());
                 }
                 total_count += result.total.value;
                 if result.total.relation == xerj_query::executor::TotalHitsRelation::Gte {
@@ -21983,6 +21995,13 @@ async fn search_impl(
             if let Some(dfs) = dfs_block.as_ref() {
                 if let Some(obj) = shard_obj.as_object_mut() {
                     obj.insert("dfs".to_string(), dfs.clone());
+                }
+            }
+            // #3020: whether this index's whole-response cache answered.
+            // Absent only when the engine reported nothing for the index.
+            if let Some(how) = request_cache_by_index.get(profile_index) {
+                if let Some(obj) = shard_obj.as_object_mut() {
+                    obj.insert("request_cache".to_string(), Value::String(how.clone()));
                 }
             }
             shard_profiles.push(shard_obj);
@@ -27394,17 +27413,131 @@ fn run_adhoc_analyze(
     Ok(pipeline.analyze(input))
 }
 
+/// #2580: `_analyze` offsets in ES's unit, UTF-16 code units (Java `char`
+/// indices into the input). The pipelines produce BYTE offsets into the UTF-8
+/// input, which is what highlighting and passage slicing need internally, so
+/// the conversion happens only here, at the `_analyze` response. For CJK
+/// `雷同` that is 雷 0-1 / 同 1-2 instead of 0-3 / 3-6; ASCII input is
+/// unchanged. Built once per response: `map[b]` is the UTF-16 length of the
+/// characters that start before byte `b` (a byte inside a character maps to
+/// that character's start). An offset past the input keeps its distance from
+/// the end, so a malformed offset is never silently clamped onto a real one.
+struct Utf16Offsets {
+    map: Option<Vec<u64>>,
+    len: usize,
+}
+
+impl Utf16Offsets {
+    fn new(input: &str) -> Self {
+        if input.is_ascii() {
+            return Self {
+                map: None,
+                len: input.len(),
+            };
+        }
+        let mut map = vec![0u64; input.len() + 1];
+        let mut units = 0u64;
+        for (b, ch) in input.char_indices() {
+            for slot in map.iter_mut().skip(b).take(ch.len_utf8()) {
+                *slot = units;
+            }
+            units += ch.len_utf16() as u64;
+        }
+        map[input.len()] = units;
+        Self {
+            map: Some(map),
+            len: input.len(),
+        }
+    }
+
+    fn convert(&self, byte: u64) -> u64 {
+        let Some(map) = &self.map else {
+            return byte;
+        };
+        match usize::try_from(byte) {
+            Ok(b) if b <= self.len => map[b],
+            _ => map[self.len] + (byte - self.len as u64),
+        }
+    }
+
+    /// Rewrite every `start_offset` / `end_offset` in an `_analyze` response
+    /// body (token lists, and the per-stage lists of an `explain`).
+    fn rewrite(&self, v: &mut Value) {
+        if self.map.is_none() {
+            return;
+        }
+        match v {
+            Value::Object(obj) => {
+                for key in ["start_offset", "end_offset"] {
+                    if let Some(n) = obj.get(key).and_then(Value::as_u64) {
+                        obj.insert(key.to_string(), Value::from(self.convert(n)));
+                    }
+                }
+                for child in obj.values_mut() {
+                    if child.is_object() || child.is_array() {
+                        self.rewrite(child);
+                    }
+                }
+            }
+            Value::Array(items) => {
+                for item in items {
+                    self.rewrite(item);
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
+#[cfg(test)]
+mod utf16_offsets_tests {
+    use super::Utf16Offsets;
+    use serde_json::json;
+
+    #[test]
+    fn byte_offsets_become_utf16_units() {
+        let o = Utf16Offsets::new("雷同");
+        assert_eq!((o.convert(0), o.convert(3), o.convert(6)), (0, 1, 2));
+        // A byte inside a character maps to that character's start.
+        assert_eq!(o.convert(4), 1);
+        // A supplementary-plane character is two UTF-16 units.
+        let o = Utf16Offsets::new("𠀀x 雷");
+        assert_eq!(
+            (o.convert(4), o.convert(5), o.convert(6), o.convert(9)),
+            (2, 3, 4, 5)
+        );
+        // Past the end keeps its distance from the end.
+        assert_eq!(o.convert(11), 7);
+        // ASCII is the identity.
+        let o = Utf16Offsets::new("quick fox");
+        assert_eq!(o.convert(6), 6);
+    }
+
+    #[test]
+    fn rewrite_walks_explain_stages() {
+        let o = Utf16Offsets::new("雷同");
+        let mut v = json!({"detail": {"tokenizer": {"tokens": [
+            {"token": "雷", "start_offset": 0, "end_offset": 3},
+            {"token": "同", "start_offset": 3, "end_offset": 6}
+        ]}}});
+        o.rewrite(&mut v);
+        assert_eq!(v["detail"]["tokenizer"]["tokens"][1]["start_offset"], 1);
+        assert_eq!(v["detail"]["tokenizer"]["tokens"][1]["end_offset"], 2);
+    }
+}
+
 /// ES `_analyze` token objects from real pipeline output. `type` stays the
-/// `word` this endpoint has always reported; offsets and positions are the
-/// pipeline's own.
-fn analyze_tokens_json(tokens: &[xerj_engine::Token]) -> Vec<Value> {
+/// `word` this endpoint has always reported; positions are the pipeline's
+/// own, offsets are converted to UTF-16 units (see [`Utf16Offsets`]).
+fn analyze_tokens_json(tokens: &[xerj_engine::Token], input: &str) -> Vec<Value> {
+    let offsets = Utf16Offsets::new(input);
     tokens
         .iter()
         .map(|t| {
             json!({
                 "token": t.text,
-                "start_offset": t.start_offset,
-                "end_offset": t.end_offset,
+                "start_offset": offsets.convert(t.start_offset as u64),
+                "end_offset": offsets.convert(t.end_offset as u64),
                 "type": "word",
                 "position": t.position,
             })
@@ -27471,7 +27604,9 @@ pub async fn analyze_text(
             idx.analysis_in_force().await
         };
         return match run_adhoc_analyze(&body, index_analysis.as_ref(), &input) {
-            Ok(tokens) => Json(json!({ "tokens": analyze_tokens_json(&tokens) })).into_response(),
+            Ok(tokens) => {
+                Json(json!({ "tokens": analyze_tokens_json(&tokens, &input) })).into_response()
+            }
             Err(reason) => analyze_illegal_argument(reason),
         };
     }
@@ -27488,12 +27623,14 @@ pub async fn analyze_text(
         if body.explain {
             // Step-by-step pipeline explanation (unchanged): stage-by-stage
             // for "standard"/"english", final tokens otherwise.
-            return Json(analyze_explain(&input, name)).into_response();
+            let mut explained = analyze_explain(&input, name);
+            Utf16Offsets::new(&input).rewrite(&mut explained);
+            return Json(explained).into_response();
         }
         let Some(pipeline) = xerj_engine::analyzer_registry().get_analyzer(name) else {
             return analyze_illegal_argument(format!("failed to find global analyzer [{name}]"));
         };
-        let tokens = analyze_tokens_json(&pipeline.analyze(&input));
+        let tokens = analyze_tokens_json(&pipeline.analyze(&input), &input);
         return Json(json!({ "tokens": tokens })).into_response();
     }
 
@@ -27512,7 +27649,7 @@ pub async fn analyze_text(
         .await
     {
         Ok((name, tokens)) => {
-            let tokens = analyze_tokens_json(&tokens);
+            let tokens = analyze_tokens_json(&tokens, &input);
             if body.explain {
                 return Json(json!({
                     "detail": {

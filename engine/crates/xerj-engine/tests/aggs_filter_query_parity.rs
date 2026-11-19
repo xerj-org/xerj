@@ -16,11 +16,9 @@
 //! ES-pinned counts for the clauses where XERJ's query path already matches
 //! ES.
 //!
-//! `term` on a `text` field is deliberately asserted for PARITY only:
-//! XERJ's query path answers it by whole value (0 here) — a pre-existing
-//! contract this PR does not change — so the agg must join it rather than
-//! keep a second opinion. ES answers 2 by matching the analyzed token; that
-//! difference belongs to the query path, not to this aggregation fix.
+//! `term` on a `text` field: since #3259 the query path matches the analysed
+//! token (as `terms` already did), so `term(dog)` counts 2 — ES's answer —
+//! and the agg, sharing the matcher, agrees.
 
 use serde_json::{json, Value};
 use tempfile::TempDir;
@@ -160,13 +158,8 @@ async fn filter_and_filters_aggs_count_what_the_same_clause_counts_as_a_query() 
         json!(1),
         "match_phrase(fox and) != ES: {body}"
     );
-    // Whole-value `term` on text: the query path's answer, not ES's (see the
-    // module comment). The point is that the agg no longer has its own answer.
-    assert_eq!(
-        body["t"]["doc_count"],
-        json!(0),
-        "term(dog) must match _count: {body}"
-    );
+    // `term` on text matches the analysed token (#3259), like ES.
+    assert_eq!(body["t"]["doc_count"], json!(2), "term(dog) != ES: {body}");
 }
 
 /// The schema scope must survive the bucket boundary: a `filter` nested under

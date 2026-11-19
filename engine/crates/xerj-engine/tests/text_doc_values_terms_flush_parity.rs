@@ -81,6 +81,12 @@ async fn terms_on_text_with_doc_values_is_flush_invariant() {
     );
     assert_eq!(pre_total, 2);
     assert_eq!(count_total(&idx, &token_q).await, 2, "count before flush");
+    // #3259: `term` with one token answers like `terms` before the flush.
+    assert_eq!(
+        search(&idx, &json!({"term": {"text": "brown"}})).await,
+        (2, set(&["d1", "d2"])),
+        "pre-flush term token match"
+    );
 
     // The whole-value query both sides agree on. NOTE: this pins flush
     // invariance of XERJ's current answer, not ES semantics — ES's term-level
@@ -120,19 +126,26 @@ async fn terms_on_text_with_doc_values_is_flush_invariant() {
         "whole-value match must stay"
     );
 
-    // The conjunction lane (bool prefilter) and the `term` shape, which
-    // answers by whole value on both sides by design.
+    // The conjunction lane (bool prefilter): a whole-value `term` still
+    // matches (#3259 keeps the raw whole-value match).
     let filtered = json!({"bool": {
         "must": [{"terms": {"text": ["brown"]}}],
         "filter": [{"term": {"text": "quick brown fox"}}],
     }});
     assert_eq!(search(&idx, &filtered).await.1, set(&["d1", "d2"]));
     assert_eq!(count_total(&idx, &filtered).await, 2);
+    // #3259: `term` is `terms` with one value — it matches the analysed
+    // token after the flush too, and the doc-values shortcuts stay declined.
     let term_q = json!({"term": {"text": "brown"}});
     assert_eq!(
         search(&idx, &term_q).await,
-        (0, set(&[])),
-        "term on text stays whole-value"
+        (2, set(&["d1", "d2"])),
+        "term on text matches the token like terms"
+    );
+    assert_eq!(
+        count_total(&idx, &term_q).await,
+        2,
+        "term count after flush"
     );
 }
 
