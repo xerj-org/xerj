@@ -1,0 +1,23 @@
+{
+ "corpus": "arafat678--4-th-sem-code",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Jupyter Notebook queries this for how arafat678/4-th-sem-code implements it: [IEEE ISAECT 2025] Advanced Apple Sorting and Quality Grading Application Using Computer Vision & Deep Learning (DOI: 10.1109/ISAECT68904.20 (selected work: src/classification, the project root, src/trait_extraction)",
+ "repos": [
+  {
+   "repo": "4-th-sem-code",
+   "url": "https://github.com/arafat678/4-th-sem-code",
+   "sha": "012c9aec12e90baa1e136f3d3bb043823139dc9a",
+   "licence": "MIT (LICENSE file at pin 012c9aec12e9, GitHub licence API 2026-11-19)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-19T00:15Z",
+    "consent_receipt": "225a1c9eacd0",
+    "note": "Inclusion consented by the commit author by email at 2026-11-19T00:15Z (receipt 225a1c9eacd0); selected commit 012c9aec12e9: \"feat: overhaul repository with research documentation, modular archit\u2026\". LICENSE file at pin 012c9aec12e9 detected as MIT by the GitHub licence API on 2026-11-19; used under that licence with attribution."
+   }
+  }
+ ]
+}

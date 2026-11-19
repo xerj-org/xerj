@@ -1,9 +1,9 @@
 {
- "corpus": "skillfulagents--superagent",
+ "corpus": "skillfulagents--gamut",
  "cloned_at": null,
  "status": "draft",
- "shelf": "AI",
- "domain": "an agent working on TypeScript queries this for how SkillfulAgents/SuperAgent implements it: SkillfulAgents/SuperAgent (TypeScript) (selected work: src/renderer, scripts, perf)",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how SkillfulAgents/Gamut implements it: SkillfulAgents/Gamut (TypeScript) (selected work: src/renderer, scripts, perf)",
  "repos": [
   {
    "repo": "SuperAgent",
