@@ -2,21 +2,21 @@
  "corpus": "kiyonya--biliparser-api",
  "cloned_at": null,
  "status": "draft",
- "shelf": "OPS",
- "domain": "an agent working on bilibili, bilibili-api, chanfana-openapi queries this for how kiyonya/BiliParser-API implements it: \u57fa\u4e8eCloudflare Workers\u548cVercel\u90e8\u7f72\u7684bilibili\u89c6\u9891\u76f4\u94fe\u63a5\u548c\u89c6\u9891\u4fe1\u606f\u7684\u89e3\u6790\u670d\u52a1 (selected work: src/routes, src/utils, src/services)",
+ "shelf": "API",
+ "domain": "an agent working on bilibili, bilibili-api, chanfana-openapi queries this for how kiyonya/BiliParser-API implements it: \u652f\u6301\u591a\u8fb9\u7f18\u8ba1\u7b97\u5e73\u53f0\u7684bilibili\u89c6\u9891\u76f4\u94fe\u63a5\u548c\u89c6\u9891\u4fe1\u606f\u7684\u89e3\u6790\u670d\u52a1 (selected work: src/routes, src/utils, src/services)",
  "repos": [
   {
    "repo": "BiliParser-API",
    "url": "https://github.com/kiyonya/BiliParser-API",
    "sha": "a02a628b7e3def97acf975b5db4a726d5d54849c",
-   "licence": "MIT (LICENSE file at pin a02a628b7e3d, GitHub licence API 2026-10-31)",
+   "licence": "author's permission (LICENSE at pin a02a628b7e3d: MIT; repository: none)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-31T19:46Z",
     "consent_receipt": "c0d43d3aa037",
-    "note": "Inclusion consented by the commit author by email at 2026-10-31T19:46Z (receipt c0d43d3aa037); selected commit a02a628b7e3d: \"feat: \u4f18\u5316\u53c2\u6570\u89e3\u6790\uff0c\u652f\u6301\u4f7f\u7528\u65e7\u7248av\u53f7\". LICENSE file at pin a02a628b7e3d detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T19:46Z (receipt c0d43d3aa037); selected commit a02a628b7e3d: \"feat: \u4f18\u5316\u53c2\u6570\u89e3\u6790\uff0c\u652f\u6301\u4f7f\u7528\u65e7\u7248av\u53f7\". LICENSE at pin a02a628b7e3d: MIT (repository: none); used with the author's permission, with attribution."
    }
   }
  ]

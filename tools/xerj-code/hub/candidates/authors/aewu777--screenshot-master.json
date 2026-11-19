@@ -1,9 +1,9 @@
 {
- "corpus": "aewu777--dsh-screenshot-master",
+ "corpus": "aewu777--screenshot-master",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on TypeScript queries this for how aewu777/dsh-screenshot-master implements it: Cross-platform full-screen and per-window screenshot capture for DeepSeek Harness (Windows 10/11 and macOS 14+). Saves PNG files and returns (selected work: src/platforms, tests)",
+ "shelf": "AI",
+ "domain": "an agent working on deepseek-harness, dsh, dsh-plugin queries this for how aewu777/screenshot-master implements it: Cross-platform screenshot tools for AI agent harnesses: capture the screen, a display, or a window to PNG and get the absolute path. Windows (selected work: src/platforms, tests)",
  "repos": [
   {
    "repo": "dsh-screenshot-master",
