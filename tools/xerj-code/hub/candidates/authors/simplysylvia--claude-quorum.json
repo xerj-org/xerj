@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Shell queries this for how SimplySylvia/Claude-Quorum implements it: A spec-to-pull-request verification pipeline for Claude Code: reviewed specs and plans, fresh-context code review with a verifier vote, a bl (selected work: evals)",
+ "domain": "an agent working on TypeScript queries this for how SimplySylvia/Claude-Quorum implements it: A spec-to-pull-request verification pipeline for Claude Code: reviewed specs and plans, fresh-context code review with a verifier vote, a bl (selected work: evals)",
  "repos": [
   {
    "repo": "Claude-Quorum",

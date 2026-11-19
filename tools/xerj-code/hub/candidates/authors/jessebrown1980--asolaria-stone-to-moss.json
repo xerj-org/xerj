@@ -8,15 +8,15 @@
   {
    "repo": "asolaria-stone-to-moss",
    "url": "https://github.com/JesseBrown1980/asolaria-stone-to-moss",
-   "sha": "89300be5b7db8e9c363e5b48d97bdf3475fb5ed6",
-   "licence": "author's permission (LICENSE at pin 89300be5b7db: NONE; repository: none)",
+   "sha": "9da0ac44e428aaf15529652b4ff2935342a20dcc",
+   "licence": "author's permission (LICENSE at pin 9da0ac44e428: NONE; repository: none)",
    "review": {
     "spdx": "NONE",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-05T14:53Z",
     "consent_receipt": "62b0d9faf262",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T14:53Z (receipt 62b0d9faf262); pinned to the default-branch head. LICENSE at pin 89300be5b7db: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-05T14:53Z (receipt 62b0d9faf262); pinned to the default-branch head. LICENSE at pin 9da0ac44e428: NONE (repository: none); used with the author's permission, with attribution."
    }
   }
  ]

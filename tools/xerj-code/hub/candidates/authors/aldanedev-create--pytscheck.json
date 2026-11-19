@@ -8,15 +8,15 @@
   {
    "repo": "pytscheck",
    "url": "https://github.com/aldanedev-create/pytscheck",
-   "sha": "ac23212fa3dc5d8555c701364162cebc715031be",
-   "licence": "author's permission (LICENSE at pin ac23212fa3dc: NOASSERTION; repository: NOASSERTION)",
+   "sha": "ddef52061abdc8025fb76058636d98a24ce44c9e",
+   "licence": "author's permission (LICENSE at pin ddef52061abd: NOASSERTION; repository: NOASSERTION)",
    "review": {
     "spdx": "NOASSERTION",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-01T08:40Z",
     "consent_receipt": "1a155fbec664",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T08:40Z (receipt 1a155fbec664); pinned to the default-branch head. LICENSE at pin ac23212fa3dc: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T08:40Z (receipt 1a155fbec664); pinned to the default-branch head. LICENSE at pin ddef52061abd: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
    }
   }
  ]
