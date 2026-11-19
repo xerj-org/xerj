@@ -8,15 +8,15 @@
   {
    "repo": "fakh-patches",
    "url": "https://github.com/amfakh/fakh-patches",
-   "sha": "d83ce0ed480a23ffd41b7bada6bf82dc9fd490bf",
-   "licence": "GPL-3.0 (LICENSE file at pin d83ce0ed480a, GitHub licence API 2026-11-18)",
+   "sha": "3bf0c64e34b38af76e16a0b5d36fe7b7900dbdf8",
+   "licence": "GPL-3.0 (LICENSE file at pin 3bf0c64e34b3, GitHub licence API 2026-11-19)",
    "review": {
     "spdx": "GPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-28T17:47Z",
     "consent_receipt": "7ef68f834bc7",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T17:47Z (receipt 7ef68f834bc7); pinned to the default-branch head. LICENSE file at pin d83ce0ed480a detected as GPL-3.0 by the GitHub licence API on 2026-11-18; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T17:47Z (receipt 7ef68f834bc7); pinned to the default-branch head. LICENSE file at pin 3bf0c64e34b3 detected as GPL-3.0 by the GitHub licence API on 2026-11-19; used under that licence with attribution."
    }
   }
  ]
