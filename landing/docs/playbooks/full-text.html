@@ -242,16 +242,18 @@
 <pre class="code">$ curl -sX PUT http://localhost:9200/articles \
     -H 'Content-Type: application/json' \
     -d '{
+      "settings": { "analysis": { "analyzer": { "default": { "type": "english" } } } },
       "mappings": {
         "properties": {
-          "title":    { "type": "text", "analyzer": "english" },
-          "body":     { "type": "text", "analyzer": "english" },
+          "title":    { "type": "text" },
+          "body":     { "type": "text" },
           "tags":     { "type": "keyword" },
           "author":   { "type": "keyword" },
           "published":{ "type": "date" }
         }
       }
     }'</pre>
+  <p>The default analyzer does not stem. The <code class="inline">english</code> index default above makes "running" match "runs"; see <a href="/docs/analyzers#stemming">Analyzers</a>.</p>
 
   <h2>Bulk ingest</h2>
 <pre class="code">$ curl -sX POST http://localhost:9200/articles/_bulk \

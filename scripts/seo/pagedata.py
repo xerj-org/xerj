@@ -508,7 +508,7 @@ PAGES: dict[str, dict[str, str]] = {
     ),
     "docs/analyzers.html": dict(
         label="Analyzers", kind="techarticle",
-        description="How XERJ turns raw text into a token stream: the four built-in analyzers, what each one is correct for, and how default_analyzer picks between them.",
+        description="How XERJ turns raw text into a token stream: the built-in analyzers, why the default does not stem, and how to turn on English stemming for better BM25 relevance.",
     ),
     "docs/aggregations.html": dict(
         label="Aggregations", kind="techarticle",
