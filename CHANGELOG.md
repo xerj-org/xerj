@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add a deterministic `xerj tools list` catalog grouped by core, hub, writing,
+  bio and cyber packs, with per-pack tool and catalog-token counts, plus pack
+  overview documentation (#2768).
+
 ## [1.0.0-rc.104] - 2026-11-18
 
 **rc.104: rc.103 on every platform.** rc.104 is the rc.103 code with the
