@@ -1,9 +1,9 @@
 {
- "corpus": "needyamin--pdf-reader",
+ "corpus": "ansnew--pdf-reader",
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on pdf-reader queries this for how needyamin/pdf-reader implements it: A professional, fast, native, cross-platform PDF reader written in Rust with an egui/wgpu interface and a PDFium rendering engine (selected work: crates/pdf, crates/app, crates/ui)",
+ "domain": "an agent working on pdf-reader queries this for how ansnew/pdf-reader implements it: A professional, fast, native, cross-platform PDF reader written in Rust with an egui/wgpu interface and a PDFium rendering engine (selected work: crates/pdf, crates/app, crates/ui)",
  "repos": [
   {
    "repo": "pdf-reader",

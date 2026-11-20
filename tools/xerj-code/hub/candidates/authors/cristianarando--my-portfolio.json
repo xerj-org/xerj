@@ -1,9 +1,9 @@
 {
- "corpus": "iamcristian--my-portfolio",
+ "corpus": "cristianarando--my-portfolio",
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on astro, blog, daisyui queries this for how iamcristian/my-portfolio implements it: My personal portfolio (selected work: src/components, src/scripts, src/pages)",
+ "domain": "an agent working on astro, blog, daisyui queries this for how cristianarando/my-portfolio implements it: My personal portfolio (selected work: src/components, src/scripts, src/pages)",
  "repos": [
   {
    "repo": "my-portfolio",

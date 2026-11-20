@@ -8,15 +8,15 @@
   {
    "repo": "bijlitrack",
    "url": "https://github.com/ahmmikun/bijlitrack",
-   "sha": "0e40b788b6919612fed366fbce927d40f9c8f08b",
-   "licence": "MIT (LICENSE file at pin 0e40b788b691, GitHub licence API 2026-10-28)",
+   "sha": "bd09e2f25869d1de0db6e5c66f2148ff43dae63e",
+   "licence": "MIT (LICENSE file at pin bd09e2f25869, GitHub licence API 2026-11-20)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-15T10:31Z",
     "consent_receipt": "c81c0cd626ac",
-    "note": "Inclusion consented by the commit author by email at 2026-10-15T10:31Z (receipt c81c0cd626ac); selected commit 0e40b788b691: \"feat(ui): wire Claude bill roast into audit report and add interactiv\u2026\". LICENSE file at pin 0e40b788b691 detected as MIT by the GitHub licence API on 2026-10-28; used under that licence with attribution. Pinned to head 0e40b788b691 (contains the selected commit): the LICENSE at the selected commit was NONE. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @ahmmikun, who has not added it."
+    "note": "Inclusion consented by the commit author by email at 2026-10-15T10:31Z (receipt c81c0cd626ac); selected commit bd09e2f25869: \"feat(ui): wire Claude bill roast into audit report and add interactiv\u2026\". LICENSE file at pin bd09e2f25869 detected as MIT by the GitHub licence API on 2026-11-20; used under that licence with attribution. Pinned to head bd09e2f25869 (contains the selected commit): the LICENSE at the selected commit was NONE. Commit-scoped: only the directories changed by the consenting commit author(s); the repository is maintained by @ahmmikun, who has not added it."
    },
    "paths": [
     "src/app/dashboard",
