@@ -12,9 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **A collapsed `_search` or `_msearch` whose `collapse.inner_hits` block has
   no `name` is refused with a 400**, as Elasticsearch 8.13 refuses it
   (`x_content_parse_exception` caused by `illegal_argument_exception`
-  "inner_hits must have a [name]..."). XERJ ran the search and listed the
-  group's hits under a made-up `inner_hits` key. Every entry of an
-  `inner_hits` array is checked; one unnamed block fails a whole `_msearch`.
+  "inner_hits must have a [name]..."). `_search` ran the search and listed
+  the group's hits under a made-up `inner_hits` key; `_msearch` ran it
+  ungrouped. Every entry of an `inner_hits` array is checked; one unnamed
+  block fails a whole `_msearch`.
 
 ## [1.0.0-rc.104] - 2026-11-18
 
