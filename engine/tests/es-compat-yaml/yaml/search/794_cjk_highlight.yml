@@ -1,0 +1,92 @@
+---
+# A CJK match_phrase hit must carry highlight fragments, as English hits do.
+# The highlighter treated every ideograph as a word character, so `北京`
+# inside the unspaced run `我喜欢北京的天气` was never a whole word and the hit
+# came back with no `highlight` key. ES's unified highlighter tags each phrase
+# token (`<em>北</em><em>京</em>` under the standard analyzer); the patterns
+# below accept that and the merged `<em>北京</em>` form.
+setup:
+  - do:
+      indices.create:
+        index: cjk_highlight
+        body:
+          mappings:
+            properties:
+              body:
+                type: text
+              bigram:
+                type: text
+                analyzer: cjk
+  - do:
+      bulk:
+        refresh: true
+        body:
+          - '{"index": {"_index": "cjk_highlight", "_id": "zh"}}'
+          - '{"body": "我喜欢北京的天气 and the weather in Beijing", "bigram": "我喜欢北京的天气"}'
+          - '{"index": {"_index": "cjk_highlight", "_id": "ja"}}'
+          - '{"body": "東京都に住んでいます", "bigram": "東京都に住んでいます"}'
+
+---
+"match_phrase on a CJK term inside an unspaced run is highlighted":
+  - do:
+      search:
+        index: cjk_highlight
+        body:
+          query: { match_phrase: { body: "北京" } }
+          highlight: { fields: { body: {} } }
+  - match: { hits.total.value: 1 }
+  - match: { hits.hits.0._id: "zh" }
+  - length: { hits.hits.0.highlight.body: 1 }
+  - match: { hits.hits.0.highlight.body.0: "/^我喜欢<em>北(</em><em>)?京</em>的天气 and the weather in Beijing$/" }
+
+---
+"match_phrase on a cjk-analyzed field is highlighted":
+  - do:
+      search:
+        index: cjk_highlight
+        body:
+          query: { match_phrase: { bigram: "東京" } }
+          highlight: { fields: { bigram: {} } }
+  - match: { hits.total.value: 1 }
+  - match: { hits.hits.0._id: "ja" }
+  - match: { hits.hits.0.highlight.bigram.0: "/<em>東(</em><em>)?京</em>都に住んでいます/" }
+
+---
+"match on a CJK run highlights every hit it returns":
+  - do:
+      search:
+        index: cjk_highlight
+        body:
+          query: { match: { body: "北京天气" } }
+          sort: [ "_doc" ]
+          highlight: { fields: { body: {} } }
+  - match: { hits.total.value: 2 }
+  - match: { hits.hits.0._id: "zh" }
+  - match: { hits.hits.0.highlight.body.0: "/^我喜欢<em>北(</em><em>)?京</em>的<em>天(</em><em>)?气</em> and/" }
+  - match: { hits.hits.1._id: "ja" }
+  - match: { hits.hits.1.highlight.body.0: "/^東<em>京</em>都に住んでいます$/" }
+
+---
+"English highlighting in the same field is unchanged":
+  - do:
+      search:
+        index: cjk_highlight
+        body:
+          query: { match_phrase: { body: "weather" } }
+          highlight: { fields: { body: {} } }
+  - match: { hits.total.value: 1 }
+  - match: { hits.hits.0.highlight.body.0: "我喜欢北京的天气 and the <em>weather</em> in Beijing" }
+
+---
+"CJK highlight survives a flush":
+  - do:
+      indices.flush:
+        index: cjk_highlight
+  - do:
+      search:
+        index: cjk_highlight
+        body:
+          query: { match_phrase: { body: "北京" } }
+          highlight: { fields: { body: {} } }
+  - match: { hits.total.value: 1 }
+  - match: { hits.hits.0.highlight.body.0: "/<em>北(</em><em>)?京</em>/" }
