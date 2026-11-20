@@ -7853,6 +7853,7 @@ dependencies = [
  "chrono",
  "flate2",
  "h2",
+ "hyper-util",
  "jemalloc_pprof",
  "libc",
  "memchr",

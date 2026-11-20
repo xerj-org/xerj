@@ -1723,6 +1723,63 @@ mod starting_responder_tests {
         assert!(after.ends_with("real"), "{after}");
         server.abort();
     }
+
+    /// A connection still sending its request at the hand-over used to
+    /// outlive `stop` (axum spawns connections detached) and answer
+    /// "starting" after the real router was serving. It is closed now, and
+    /// a "starting" answer tells keep-alive clients to reconnect.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn no_starting_answer_after_the_hand_over() {
+        let listener =
+            xerj_common::loopback_test::expect_loopback(std::net::TcpListener::bind("127.0.0.1:0"));
+        listener.set_nonblocking(true).unwrap();
+        let addr = listener.local_addr().unwrap();
+        let starting = StartingResponder::start(&[(&listener, "ES-compat")]);
+
+        let answer = get(addr, "/_cluster/health").await.to_ascii_lowercase();
+        assert!(answer.contains("connection: close"), "{answer}");
+
+        let mut partial = tokio::net::TcpStream::connect(addr).await.unwrap();
+        partial
+            .write_all(b"GET /_cluster/health HTTP/1.1\r\nHost: x\r\n")
+            .await
+            .unwrap();
+        // Let the responder read the partial head, so the connection is
+        // past version detection and mid-request.
+        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+
+        let begun = std::time::Instant::now();
+        starting.stop().await;
+        let stop_took = begun.elapsed();
+        assert!(
+            stop_took < STARTING_GRACE * 3,
+            "stop took {stop_took:?} with a stalled client"
+        );
+
+        let real =
+            Router::new().route("/_cluster/health", axum::routing::get(|| async { "green" }));
+        let server = tokio::spawn(async move {
+            axum::serve(TcpListener::from_std(listener).unwrap(), real)
+                .await
+                .unwrap();
+        });
+        assert!(get(addr, "/_cluster/health").await.ends_with("green"));
+
+        let _ = partial.write_all(b"\r\n").await;
+        let mut late = Vec::new();
+        let _ = tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            partial.read_to_end(&mut late),
+        )
+        .await
+        .expect("the stalled connection is closed, not left open");
+        let late = String::from_utf8_lossy(&late);
+        assert!(
+            !late.contains("503"),
+            "starting answer after hand-over: {late}"
+        );
+        server.abort();
+    }
 }
 
 #[cfg(test)]
@@ -1910,7 +1967,14 @@ const AUTO_PORT_SCAN: u16 = 1000;
 /// opens the data dir (#2575). Every path returns 503 with an ES-shaped
 /// `node_starting_exception` and `Retry-After: 1`, except `/health/live`,
 /// which returns 200 because the process is alive. `/health/ready` gets the
-/// 503 like everything else.
+/// 503 like everything else. Every answer carries `Connection: close`, so a
+/// keep-alive client opens a fresh connection for its retry and that one
+/// lands on the real router.
+///
+/// The responder owns its connections. It used `axum::serve`, which spawns
+/// each connection as a detached task: `stop` aborted the accept loop after
+/// its grace, but a connection still mid-request kept running and answered
+/// "starting" after the node was ready.
 struct StartingResponder {
     stop: tokio::sync::watch::Sender<bool>,
     tasks: Vec<tokio::task::JoinHandle<()>>,
@@ -1919,6 +1983,12 @@ struct StartingResponder {
 const STARTING_REASON: &str = "XERJ is starting: the node is opening the indices in its data \
      directory and will serve requests when that finishes. Retry shortly; GET /health/ready \
      returns 200 once the node is ready.";
+
+/// How long `StartingResponder::stop` lets open connections finish. A
+/// "starting" answer is static and leaves in microseconds; what is still
+/// open after this is a client that has not finished sending its request,
+/// and it would hold the real routers off the port.
+const STARTING_GRACE: std::time::Duration = std::time::Duration::from_millis(500);
 
 fn starting_router() -> Router {
     use axum::http::{header, StatusCode};
@@ -1929,6 +1999,7 @@ fn starting_router() -> Router {
             get(|| async {
                 (
                     StatusCode::OK,
+                    [(header::CONNECTION, "close")],
                     axum::Json(serde_json::json!({"status": "starting"})),
                 )
             }),
@@ -1936,7 +2007,7 @@ fn starting_router() -> Router {
         .fallback(|| async {
             (
                 StatusCode::SERVICE_UNAVAILABLE,
-                [(header::RETRY_AFTER, "1")],
+                [(header::RETRY_AFTER, "1"), (header::CONNECTION, "close")],
                 axum::Json(serde_json::json!({
                     "error": {"type": "node_starting_exception", "reason": STARTING_REASON},
                     "status": 503,
@@ -1960,33 +2031,27 @@ impl StartingResponder {
                     continue;
                 }
             };
-            let mut rx = rx.clone();
+            let rx = rx.clone();
             let name = *name;
             tasks.push(tokio::spawn(async move {
-                let listener = match TcpListener::from_std(clone) {
-                    Ok(listener) => listener,
-                    Err(error) => {
-                        warn!("{name}: no starting responder ({error})");
-                        return;
-                    }
-                };
-                let serve =
-                    axum::serve(listener, starting_router()).with_graceful_shutdown(async move {
-                        let _ = rx.wait_for(|stopped| *stopped).await;
-                    });
-                let _ = serve.await;
+                match TcpListener::from_std(clone) {
+                    Ok(listener) => serve_starting(listener, rx).await,
+                    Err(error) => warn!("{name}: no starting responder ({error})"),
+                }
             }));
         }
         StartingResponder { stop, tasks }
     }
 
-    /// Stop answering and release the duplicate sockets before the real
-    /// routers take the listeners. In-flight "starting" answers get 2 s.
+    /// Stop answering, close every "starting" connection and release the
+    /// duplicate sockets before the real routers take the listeners.
     async fn stop(self) {
         let _ = self.stop.send(true);
         for task in self.tasks {
+            // `serve_starting` bounds itself to STARTING_GRACE. Aborting a
+            // stuck task drops its `JoinSet`, which aborts its connections.
             let abort = task.abort_handle();
-            if tokio::time::timeout(std::time::Duration::from_secs(2), task)
+            if tokio::time::timeout(STARTING_GRACE * 4, task)
                 .await
                 .is_err()
             {
@@ -1994,6 +2059,66 @@ impl StartingResponder {
             }
         }
     }
+}
+
+/// Resolves once the starting responder is told to stop (or its sender is
+/// gone). Drops the watch guard here, so callers' futures stay `Send`.
+async fn stopped(stop: &mut tokio::sync::watch::Receiver<bool>) {
+    let _ = stop.wait_for(|stopped| *stopped).await;
+}
+
+/// Serve [`starting_router`] on `listener` until `stop` turns true, then
+/// stop accepting, give open connections [`STARTING_GRACE`] and close the
+/// rest. Every connection lives in `conns`, so none outlives this function.
+///
+/// Accept loop and per-connection graceful shutdown follow axum 0.7.9
+/// `src/serve.rs` (`WithGracefulShutdown::into_future`, MIT); the change is
+/// the `JoinSet`, where axum's `tokio::spawn` leaves connections running.
+async fn serve_starting(listener: TcpListener, mut stop: tokio::sync::watch::Receiver<bool>) {
+    use hyper_util::rt::{TokioExecutor, TokioIo};
+    use hyper_util::server::conn::auto::Builder;
+    use hyper_util::service::TowerToHyperService;
+
+    let service = TowerToHyperService::new(starting_router());
+    let mut conns = tokio::task::JoinSet::new();
+    let conn_stop = stop.clone();
+    loop {
+        tokio::select! {
+            biased;
+            _ = stopped(&mut stop) => break,
+            Some(_) = conns.join_next(), if !conns.is_empty() => {}
+            accepted = listener.accept() => {
+                let stream = match accepted {
+                    Ok((stream, _)) => stream,
+                    Err(_) => {
+                        // Out of descriptors and the like: back off, as
+                        // axum's accept loop does, instead of spinning.
+                        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+                        continue;
+                    }
+                };
+                let _ = stream.set_nodelay(true);
+                let service = service.clone();
+                let mut stop = conn_stop.clone();
+                conns.spawn(async move {
+                    let builder = Builder::new(TokioExecutor::new());
+                    let conn = builder.serve_connection_with_upgrades(TokioIo::new(stream), service);
+                    tokio::pin!(conn);
+                    tokio::select! {
+                        _ = conn.as_mut() => return,
+                        _ = stopped(&mut stop) => conn.as_mut().graceful_shutdown(),
+                    }
+                    let _ = conn.await;
+                });
+            }
+        }
+    }
+    drop(listener);
+    let _ = tokio::time::timeout(STARTING_GRACE, async {
+        while conns.join_next().await.is_some() {}
+    })
+    .await;
+    conns.shutdown().await;
 }
 
 async fn serve_on(
