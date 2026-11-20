@@ -1,9 +1,9 @@
 {
- "corpus": "brunomakeram--previsao-bateria-lm-esp32",
+ "corpus": "brunomakeram--regressao-linear-esp32-ia",
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on C++ queries this for how brunomakeram/Previsao-Bateria-LM-ESP32 implements it: Reposit\u00f3rio dedicado ao estudo, desenvolvimento e otimiza\u00e7\u00e3o de sistemas embarcados e automa\u00e7\u00e3o com ESP32 e C++, incluindo a l\u00f3gica de receb (selected work: modelo)",
+ "domain": "an agent working on C++ queries this for how brunomakeram/Regressao-Linear-ESP32-IA implements it: Reposit\u00f3rio dedicado ao estudo, desenvolvimento e otimiza\u00e7\u00e3o de sistemas embarcados e automa\u00e7\u00e3o com ESP32 e C++, incluindo a l\u00f3gica de receb (selected work: modelo)",
  "repos": [
   {
    "repo": "Previsao-Bateria-LM-ESP32",

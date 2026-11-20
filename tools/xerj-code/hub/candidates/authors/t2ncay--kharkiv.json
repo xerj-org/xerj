@@ -1,0 +1,23 @@
+{
+ "corpus": "t2ncay--kharkiv",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how t2ncay/kharkiv implements it: A minimalist drone FPV simulation written in Vyne",
+ "repos": [
+  {
+   "repo": "kharkiv",
+   "url": "https://github.com/t2ncay/kharkiv",
+   "sha": "f4f59cec961a7a5354ad36eadd1af90e8536c9ba",
+   "licence": "author's permission (LICENSE at pin f4f59cec961a: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-20T18:28Z",
+    "consent_receipt": "3ac27ed77b9e",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-20T18:28Z (receipt 3ac27ed77b9e); pinned to the default-branch head. LICENSE at pin f4f59cec961a: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

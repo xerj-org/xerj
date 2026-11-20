@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "OPS",
- "domain": "an agent working on saas, ipricing, pricing-driven-devops queries this for how SCORELabUS/SPHERE implements it: SCORELabUS/SPHERE (HTML) (selected work: api, frontend)",
+ "domain": "an agent working on saas, ipricing, pricing-driven-devops queries this for how SCORELabUS/SPHERE implements it: SCORELabUS/SPHERE (TypeScript) (selected work: api, frontend)",
  "repos": [
   {
    "repo": "SPHERE",
