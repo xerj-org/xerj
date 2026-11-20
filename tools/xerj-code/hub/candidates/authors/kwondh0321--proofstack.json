@@ -1,0 +1,23 @@
+{
+ "corpus": "kwondh0321--proofstack",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-evaluation, ai-agents, observability queries this for how Kwondh0321/proofstack implements it: Experimental Agent Reliability Engineering platform \u2014 foundation under active development, not production-ready (selected work: apps/api, packages/core, packages/contracts)",
+ "repos": [
+  {
+   "repo": "proofstack",
+   "url": "https://github.com/Kwondh0321/proofstack",
+   "sha": "f594317afaf1077ef1f1757feeef0b13cc0d1bec",
+   "licence": "Apache-2.0 (LICENSE file at pin f594317afaf1, GitHub licence API 2026-11-20)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-19T06:41Z",
+    "consent_receipt": "cc3ae65dc245",
+    "note": "Inclusion consented by the commit author by email at 2026-11-19T06:41Z (receipt cc3ae65dc245); selected commit f594317afaf1: \"feat(policy-evaluation): expose scoped control and read API\". LICENSE file at pin f594317afaf1 detected as Apache-2.0 by the GitHub licence API on 2026-11-20; used under that licence with attribution."
+   }
+  }
+ ]
+}

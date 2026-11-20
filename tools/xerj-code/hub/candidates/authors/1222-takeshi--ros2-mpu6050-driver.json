@@ -1,0 +1,23 @@
+{
+ "corpus": "1222-takeshi--ros2-mpu6050-driver",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how 1222-takeshi/ros2-mpu6050-driver implements it: 1222-takeshi/ros2-mpu6050-driver (C++) (selected work: test, include, src)",
+ "repos": [
+  {
+   "repo": "ros2-mpu6050-driver",
+   "url": "https://github.com/1222-takeshi/ros2-mpu6050-driver",
+   "sha": "3286696f0d837c7b4d1f0d6f5ee4fa19facd2b21",
+   "licence": "Apache-2.0 (LICENSE file at pin 3286696f0d83, GitHub licence API 2026-11-20)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-19T07:40Z",
+    "consent_receipt": "6bdabf194276",
+    "note": "Inclusion consented by the commit author by email at 2026-11-19T07:40Z (receipt 6bdabf194276); selected commit 3286696f0d83: \"fix: Reject invalid IMU samples before publication (#66)\". LICENSE file at pin 3286696f0d83 detected as Apache-2.0 by the GitHub licence API on 2026-11-20; used under that licence with attribution."
+   }
+  }
+ ]
+}

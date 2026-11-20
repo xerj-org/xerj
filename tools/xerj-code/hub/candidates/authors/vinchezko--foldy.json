@@ -1,0 +1,23 @@
+{
+ "corpus": "vinchezko--foldy",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on folder-launcher, macos, productivity queries this for how vinchezko/Foldy implements it: Foldy is a lightweight Windows app that brings macOS-inspired folder access to your taskbar, with smooth animations and quick access to your (selected work: src/foldy)",
+ "repos": [
+  {
+   "repo": "Foldy",
+   "url": "https://github.com/vinchezko/Foldy",
+   "sha": "19647d1277882fe12b783780b5a89a59ba137fba",
+   "licence": "MIT (LICENSE file at pin 19647d127788, GitHub licence API 2026-11-20)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-19T02:41Z",
+    "consent_receipt": "daa439e7629d",
+    "note": "Inclusion consented by the commit author by email at 2026-11-19T02:41Z (receipt daa439e7629d); selected commit 19647d127788: \"Add files via upload\". LICENSE file at pin 19647d127788 detected as MIT by the GitHub licence API on 2026-11-20; used under that licence with attribution."
+   }
+  }
+ ]
+}

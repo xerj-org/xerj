@@ -1,0 +1,23 @@
+{
+ "corpus": "shomay12--hottea",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Dart queries this for how Shomay12/hottea implements it: HotTea is an open-source, privacy-first AI browser and research workspace built with Flutter. Bringing web browsing, AI assistance, evidence (selected work: lib, lib/features, test)",
+ "repos": [
+  {
+   "repo": "hottea",
+   "url": "https://github.com/Shomay12/hottea",
+   "sha": "657621aa7dee6e0557ab4d71bedf0d0f5a49f674",
+   "licence": "Apache-2.0 (LICENSE file at pin 657621aa7dee, GitHub licence API 2026-11-20)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-19T03:28Z",
+    "consent_receipt": "b76ee43f0a27",
+    "note": "Inclusion consented by the commit author by email at 2026-11-19T03:28Z (receipt b76ee43f0a27); selected commit 657621aa7dee: \"Optimization for the interfaces v1\". LICENSE file at pin 657621aa7dee detected as Apache-2.0 by the GitHub licence API on 2026-11-20; used under that licence with attribution."
+   }
+  }
+ ]
+}

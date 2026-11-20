@@ -1,0 +1,23 @@
+{
+ "corpus": "anaserose--paksward",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Python queries this for how Anaserose/paksward implements it: Local password manager with a Tkinter GUI, built with Python's standard library (selected work: paksward, tests, the project root)",
+ "repos": [
+  {
+   "repo": "paksward",
+   "url": "https://github.com/Anaserose/paksward",
+   "sha": "0278809b40d3cedd64f02c2b2a67f83f7bdf1928",
+   "licence": "MIT (LICENSE file at pin 0278809b40d3, GitHub licence API 2026-11-20)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-19T07:22Z",
+    "consent_receipt": "4591597539a7",
+    "note": "Inclusion consented by the commit author by email at 2026-11-19T07:22Z (receipt 4591597539a7); selected commit 0278809b40d3: \"Paksward 4.0.0: rename from MyPass, new vault format\". LICENSE file at pin 0278809b40d3 detected as MIT by the GitHub licence API on 2026-11-20; used under that licence with attribution."
+   }
+  }
+ ]
+}

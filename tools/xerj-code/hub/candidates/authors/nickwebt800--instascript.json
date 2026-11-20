@@ -1,0 +1,23 @@
+{
+ "corpus": "nickwebt800--instascript",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on browser-ai, cloudflare-pages, instagram queries this for how nickwebt800/instascript implements it: Free browser-based Instagram Reel & video transcript tool. Runs Whisper AI entirely in your browser \u2014 no signup, no server upload (selected work: the project root, functions, assets)",
+ "repos": [
+  {
+   "repo": "instascript",
+   "url": "https://github.com/nickwebt800/instascript",
+   "sha": "26efa1d3f3ec72fdb0b0115d6fda840efb90779c",
+   "licence": "MIT (LICENSE file at pin 26efa1d3f3ec, GitHub licence API 2026-11-20)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-19T02:25Z",
+    "consent_receipt": "474a92a25176",
+    "note": "Inclusion consented by the commit author by email at 2026-11-19T02:25Z (receipt 474a92a25176); selected commit 26efa1d3f3ec: \"Add illustrated SRT translation guide and readable translation fields\". LICENSE file at pin 26efa1d3f3ec detected as MIT by the GitHub licence API on 2026-11-20; used under that licence with attribution."
+   }
+  }
+ ]
+}

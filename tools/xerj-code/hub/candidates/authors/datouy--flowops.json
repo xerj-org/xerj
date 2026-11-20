@@ -1,0 +1,23 @@
+{
+ "corpus": "datouy--flowops",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how datouy/FlowOps implements it: All-in-one social media ops workbench for Douyin, Kuaishou, WeChat Channels, Xiaohongshu, Weibo & Baijiahao \u2014 AI content generation, multi-a (selected work: social-auto-upload-main)",
+ "repos": [
+  {
+   "repo": "FlowOps",
+   "url": "https://github.com/datouy/FlowOps",
+   "sha": "3482ad7e2e8a3f1ebb82e6969a01f3870400245d",
+   "licence": "MIT (LICENSE file at pin 3482ad7e2e8a, GitHub licence API 2026-11-20)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-19T08:07Z",
+    "consent_receipt": "9bc36d6c2681",
+    "note": "Inclusion consented by the commit author by email at 2026-11-19T08:07Z (receipt 9bc36d6c2681); selected commit 3482ad7e2e8a: \"feat: AI \u6587\u6848\u652f\u6301\u591a\u884c\u4e1a\u4e0e\u81ea\u5b9a\u4e49\u884c\u4e1a\". LICENSE file at pin 3482ad7e2e8a detected as MIT by the GitHub licence API on 2026-11-20; used under that licence with attribution."
+   }
+  }
+ ]
+}

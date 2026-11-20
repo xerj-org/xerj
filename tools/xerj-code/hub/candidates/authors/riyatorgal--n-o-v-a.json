@@ -1,0 +1,23 @@
+{
+ "corpus": "riyatorgal--n-o-v-a",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on assistant, cli, openweathermap-api queries this for how RiyaTorgal/N.O.V.A implements it: Python voice assistant powered by a local LLM (Ollama). Offline-first. v2 in progress on the v-2 branch (selected work: main)",
+ "repos": [
+  {
+   "repo": "N.O.V.A",
+   "url": "https://github.com/RiyaTorgal/N.O.V.A",
+   "sha": "2826636b09730bdc75418f91c8a31d6d03152911",
+   "licence": "MIT (LICENSE file at pin 2826636b0973, GitHub licence API 2026-11-20)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-19T05:14Z",
+    "consent_receipt": "83cd89cf6b49",
+    "note": "Inclusion consented by the commit author by email at 2026-11-19T05:14Z (receipt 83cd89cf6b49); selected commit 2826636b0973: \"Refactor AI search implementation: replace GeminiSearch with local Ol\u2026\". LICENSE file at pin 2826636b0973 detected as MIT by the GitHub licence API on 2026-11-20; used under that licence with attribution."
+   }
+  }
+ ]
+}
