@@ -122,6 +122,25 @@ impl ReadAdmission {
             label,
         )
     }
+
+    /// [`Self::admit`] for a caller on an async runtime worker: the same
+    /// parent-breaker 429, but the reservation is accounted without waiting
+    /// for room. `acquire` parks the thread on a condvar for up to its
+    /// max wait, and parking a tokio worker stalls every task scheduled on
+    /// it, so the exact kNN scan only records what it is about to build.
+    fn admit_on_runtime(
+        &self,
+        bytes: u64,
+        label: &str,
+    ) -> std::result::Result<Option<ReadPermit>, xerj_common::XerjError> {
+        if self.hydration.has_headroom(bytes) {
+            return Ok(None);
+        }
+        if let Some(governor) = self.governor.as_deref() {
+            governor.check_read_transient(bytes, label)?;
+        }
+        Ok(Some(self.read_budget.reserve_built(bytes)))
+    }
 }
 
 /// Peak of a whole-segment stored-values load over its decompressed size:
@@ -20667,7 +20686,7 @@ impl Index {
             // (a 429 if it would carry the process past its hard limit).
             let admission = self.read_admission();
             let mut column_permit = match builder.as_ref() {
-                Some(_) => admission.admit(
+                Some(_) => admission.admit_on_runtime(
                     vector_column_estimate(docs_arc.len(), query_vec.len()),
                     "vector_column",
                 )?,
