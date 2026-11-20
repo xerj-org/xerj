@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added corpus-resolved `cyber.cve_context` and citation-checked `cyber.advisory` output with loud unknown-ID failures and RFC 8785 report sealing.
+
 ## [1.0.0-rc.104] - 2026-11-18
 
 **rc.104: rc.103 on every platform.** rc.104 is the rc.103 code with the
