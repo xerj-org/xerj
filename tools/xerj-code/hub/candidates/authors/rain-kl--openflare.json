@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "SEC",
- "domain": "an agent working on cdn, network, reverse-proxy queries this for how Rain-kl/OpenFlare implements it: Next-Gen Distributed Reverse Proxy & Edge Security Gateway for OpenResty / Nginx (selected work: frontend, internal/apps, the project root)",
+ "domain": "an agent working on cdn, network, reverse-proxy queries this for how Rain-kl/OpenFlare implements it: Next-Gen Distributed Reverse Proxy & Edge Security Gateway (selected work: frontend, internal/apps, the project root)",
  "repos": [
   {
    "repo": "OpenFlare",

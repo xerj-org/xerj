@@ -8,15 +8,15 @@
   {
    "repo": "SkiaPageControl",
    "url": "https://github.com/LaMitaOne/SkiaPageControl",
-   "sha": "702c115ff171c1b4272dab30e1ff811a05419dec",
-   "licence": "MIT (LICENSE file at pin 702c115ff171, GitHub licence API 2026-11-19)",
+   "sha": "5977f0dc8b3fe17cdd7c8dff1f7631bf1dd6d61c",
+   "licence": "MIT (LICENSE file at pin 5977f0dc8b3f, GitHub licence API 2026-11-20)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-15T18:06Z",
     "consent_receipt": "80803cafbca6",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-15T18:06Z (receipt 80803cafbca6); pinned to the default-branch head. LICENSE file at pin 702c115ff171 detected as MIT by the GitHub licence API on 2026-11-19; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-15T18:06Z (receipt 80803cafbca6); pinned to the default-branch head. LICENSE file at pin 5977f0dc8b3f detected as MIT by the GitHub licence API on 2026-11-20; used under that licence with attribution."
    }
   }
  ]

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "OPS",
- "domain": "an agent working on spring-boot, upm, user-authentication-and-authorization queries this for how yilers/infra-parent implements it: infra\u57fa\u7840\u670d\u52a1 \u5305\u542bupm\u7edf\u4e00\u8ba4\u8bc1\u6388\u6743 flow\u5de5\u4f5c\u6d41\u5e95\u5ea7 (selected work: flow)",
+ "domain": "an agent working on spring-boot, upm, user-authentication-and-authorization queries this for how yilers/infra-parent implements it: \u57fa\u4e8e Spring Boot 4 \u7684\u6a21\u5757\u5316\u591a\u79df\u6237\u57fa\u7840\u5e73\u53f0\uff0c\u63d0\u4f9b\u7528\u6237\u6743\u9650\u3001\u7edf\u4e00\u767b\u5f55\u3001\u7b2c\u4e09\u65b9\u8ba4\u8bc1\u3001\u5de5\u4f5c\u6d41\u5ba1\u6279\u548c\u77ed\u94fe\u670d\u52a1\uff0c\u652f\u6301\u72ec\u7acb\u90e8\u7f72\u4e0e\u4f9d\u8d56\u96c6\u6210\u3002(A modular multi-tenant platform built on Spring Boot 4, featuring RBA (selected work: flow)",
  "repos": [
   {
    "repo": "infra-parent",

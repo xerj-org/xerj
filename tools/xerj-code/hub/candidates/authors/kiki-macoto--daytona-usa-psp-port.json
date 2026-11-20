@@ -1,9 +1,9 @@
 {
- "corpus": "kiki-macoto--daytona-usa-for-psp",
+ "corpus": "kiki-macoto--daytona-usa-psp-port",
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on C++ queries this for how kiki-macoto/DAYTONA-USA-for-PSP implements it: into Dreams (selected work: platform)",
+ "domain": "an agent working on C++ queries this for how kiki-macoto/DAYTONA-USA-PSP-Port implements it: into Dreams (selected work: platform)",
  "repos": [
   {
    "repo": "DAYTONA-USA-for-PSP",

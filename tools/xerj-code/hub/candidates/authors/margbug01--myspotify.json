@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on desktop-app, golang, gui queries this for how margbug01/MySpotify implements it: Windows/macOS \u975e\u5b98\u65b9 Spotify \u684c\u9762\u64ad\u653e\u5668\uff1aGo + MyGo \u539f\u751f\u754c\u9762\u3001\u540c\u6b65\u6b4c\u8bcd\u4e0e MV \u64ad\u653e\u3002Unofficial Spotify desktop client; read the account risks before use (selected work: internal/app)",
+ "domain": "an agent working on desktop-app, golang, gui queries this for how margbug01/MySpotify implements it: Unofficial Spotify desktop client for Windows/macOS: native Go UI, synced lyrics, music videos. Read the account risks before use. \u975e\u5b98\u65b9 Spoti (selected work: internal/app)",
  "repos": [
   {
    "repo": "MySpotify",
