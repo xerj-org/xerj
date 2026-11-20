@@ -8,15 +8,15 @@
   {
    "repo": "haven-cpp",
    "url": "https://github.com/ssfdre38/haven-cpp",
-   "sha": "20e03d6ea182e5bbb1f805298bb838861a760d1c",
-   "licence": "author's permission (LICENSE at pin 20e03d6ea182: NONE; repository: none)",
+   "sha": "c51262716b2f285efc9c983e63028dff35680eae",
+   "licence": "author's permission (LICENSE at pin c51262716b2f: NONE; repository: none)",
    "review": {
     "spdx": "NONE",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-02T02:35Z",
     "consent_receipt": "994204141c9c",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T02:35Z (receipt 994204141c9c); pinned to the default-branch head. LICENSE at pin 20e03d6ea182: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T02:35Z (receipt 994204141c9c); pinned to the default-branch head. LICENSE at pin c51262716b2f: NONE (repository: none); used with the author's permission, with attribution."
    }
   }
  ]

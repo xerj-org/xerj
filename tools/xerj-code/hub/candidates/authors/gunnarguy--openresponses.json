@@ -8,15 +8,15 @@
   {
    "repo": "OpenResponses",
    "url": "https://github.com/Gunnarguy/OpenResponses",
-   "sha": "7a12b34a75b1d5078b0f1737d47f1daf4bab9a2d",
-   "licence": "MIT (LICENSE file at pin 7a12b34a75b1, GitHub licence API 2026-11-18)",
+   "sha": "2b361da6c7621c6ead128ad7e27c10dc6ed9fccf",
+   "licence": "MIT (LICENSE file at pin 2b361da6c762, GitHub licence API 2026-11-20)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-10T22:58Z",
     "consent_receipt": "6686ef9596bd",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T22:58Z (receipt 6686ef9596bd); pinned to the default-branch head. LICENSE file at pin 7a12b34a75b1 detected as MIT by the GitHub licence API on 2026-11-18; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T22:58Z (receipt 6686ef9596bd); pinned to the default-branch head. LICENSE file at pin 2b361da6c762 detected as MIT by the GitHub licence API on 2026-11-20; used under that licence with attribution."
    }
   }
  ]
