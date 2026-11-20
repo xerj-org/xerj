@@ -78,6 +78,93 @@ fn transient_read_permit(
     }
 }
 
+/// #2427: [`transient_read_permit`] for a value sized by its segment rather
+/// than by the request, where a refusal can be reported: when the cache
+/// cannot keep it, the parent breaker (`governor`) first refuses with a 429 a
+/// value that would carry the process past its hard memory limit, then the
+/// read budget reserves it.
+fn admit_transient_read(
+    hydration: &SegmentHydrationBudget,
+    read_budget: &Arc<ReadTransientBudget>,
+    governor: Option<&crate::governor::ResourceGovernor>,
+    bytes: u64,
+    label: &str,
+) -> std::result::Result<Option<ReadPermit>, xerj_common::XerjError> {
+    if hydration.has_headroom(bytes) {
+        return Ok(None);
+    }
+    if let Some(governor) = governor {
+        governor.check_read_transient(bytes, label)?;
+    }
+    Ok(Some(read_budget.acquire(bytes)))
+}
+
+/// The budgets one read-side transient is admitted against (#2427). Search
+/// paths use the process-wide ones; tests pin their own.
+#[derive(Clone)]
+struct ReadAdmission {
+    hydration: Arc<SegmentHydrationBudget>,
+    read_budget: Arc<ReadTransientBudget>,
+    governor: Option<Arc<crate::governor::ResourceGovernor>>,
+}
+
+impl ReadAdmission {
+    fn admit(
+        &self,
+        bytes: u64,
+        label: &str,
+    ) -> std::result::Result<Option<ReadPermit>, xerj_common::XerjError> {
+        admit_transient_read(
+            &self.hydration,
+            &self.read_budget,
+            self.governor.as_deref(),
+            bytes,
+            label,
+        )
+    }
+
+    /// [`Self::admit`] for a caller on an async runtime worker: the same
+    /// parent-breaker 429, but the reservation is accounted without waiting
+    /// for room. `acquire` parks the thread on a condvar for up to its
+    /// max wait, and parking a tokio worker stalls every task scheduled on
+    /// it, so the exact kNN scan only records what it is about to build.
+    fn admit_on_runtime(
+        &self,
+        bytes: u64,
+        label: &str,
+    ) -> std::result::Result<Option<ReadPermit>, xerj_common::XerjError> {
+        if self.hydration.has_headroom(bytes) {
+            return Ok(None);
+        }
+        if let Some(governor) = self.governor.as_deref() {
+            governor.check_read_transient(bytes, label)?;
+        }
+        Ok(Some(self.read_budget.reserve_built(bytes)))
+    }
+}
+
+/// Peak of a whole-segment stored-values load over its decompressed size:
+/// the decompressed bytes and the parsed `Value` tree (a number-heavy row
+/// parses to ~3.5x its JSON text) are alive together during the parse.
+const STORED_VALUES_PEAK_FACTOR: u64 = 4;
+
+/// Pre-build size of a per-segment vector column (#2427): `docs` pooled
+/// vectors of `dims` `f32`s plus each document's entry, slot and identity.
+/// Passage-chunked documents hold more; the reservation is trued up to the
+/// built column's measured size.
+fn vector_column_estimate(docs: usize, dims: usize) -> u64 {
+    const PER_DOC_OVERHEAD: u64 = 112;
+    (docs as u64).saturating_mul(
+        (dims as u64)
+            .saturating_mul(std::mem::size_of::<f32>() as u64)
+            .saturating_add(PER_DOC_OVERHEAD),
+    )
+}
+
+/// A cold stored-values load as its single-flight followers see it: the
+/// parsed section, or the 429 that refused the decode (#2427).
+type StoredValuesLoad = std::result::Result<Resident<Vec<Value>>, Arc<str>>;
+
 /// How long a rayon worker polls a segment's stored-decode flight lock
 /// before decoding on its own (#2427).
 const STORED_FLIGHT_WORKER_WAIT: std::time::Duration = std::time::Duration::from_millis(200);
@@ -2694,6 +2781,203 @@ mod flush_publication_recovery_tests {
             "only the transient decode reserved"
         );
         drop(cached);
+    }
+
+    async fn vector_index_2427(engine: &crate::Engine, name: &str, docs: u64) -> Arc<Index> {
+        engine.create_index(name, Schema::empty()).unwrap();
+        let idx = engine.get_index(name).unwrap();
+        idx.abort_background_tasks();
+        for i in 0..docs {
+            let x = (i as f32 + 1.0) / docs as f32;
+            idx.index_document(
+                Some(format!("doc-{i}")),
+                json!({"title": format!("title {i}"), "embedding": [x, 1.0 - x, 0.5, 0.25]}),
+            )
+            .await
+            .unwrap();
+        }
+        idx.flush().await.unwrap();
+        idx.release_memory();
+        idx.stored_value_cache.clear();
+        idx.vector_column_cache.clear();
+        idx
+    }
+
+    fn pinned_admission_2427(
+        hydration: u64,
+        governor: Option<Arc<crate::governor::ResourceGovernor>>,
+    ) -> ReadAdmission {
+        ReadAdmission {
+            hydration: SegmentHydrationBudget::new(hydration),
+            read_budget: ReadTransientBudget::new(1 << 30, std::time::Duration::from_secs(5)),
+            governor,
+        }
+    }
+
+    /// #2427: a whole-segment stored-values decode the hydration cache
+    /// refuses reserves its size in the read budget before decoding and holds
+    /// it until the last reader drops the value; one the cache keeps
+    /// reserves nothing.
+    ///
+    /// Fails before the fix: the cold load decoded and parsed the section
+    /// with no reservation, so the read budget saw 0 bytes and 0 admissions.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn transient_stored_values_hold_a_read_reservation_until_dropped_2427() {
+        let dir = tempfile::tempdir().unwrap();
+        let engine = crate::Engine::new(topk_projection_config(dir.path())).unwrap();
+        let idx = vector_index_2427(&engine, "sv-read-budget", 256).await;
+        let seg = idx.store.snapshot().segments[0].clone();
+
+        let full = pinned_admission_2427(0, None);
+        let docs = idx
+            .stored_values_load_with(&seg.id, full.clone())
+            .await
+            .unwrap()
+            .expect("stored values load");
+        assert_eq!(docs.len() as u64, seg.doc_count);
+        assert!(!idx.stored_value_cache.contains_key(&seg.id));
+        let held = full.read_budget.snapshot().current;
+        assert!(held > 0, "the transient decode must hold a reservation");
+        assert_eq!(full.read_budget.snapshot().admitted, 1);
+        let second = Arc::clone(&docs);
+        drop(docs);
+        assert_eq!(full.read_budget.snapshot().current, held);
+        drop(second);
+        assert_eq!(
+            full.read_budget.snapshot().current,
+            0,
+            "released with the last reader"
+        );
+        assert!(idx.stored_value_loads.is_empty());
+
+        let roomy = pinned_admission_2427(u64::MAX, None);
+        let cached = idx
+            .stored_values_load_with(&seg.id, roomy.clone())
+            .await
+            .unwrap()
+            .expect("stored values load");
+        assert!(idx.stored_value_cache.contains_key(&seg.id));
+        assert_eq!(roomy.read_budget.snapshot().current, 0);
+        assert_eq!(roomy.read_budget.snapshot().admitted, 0);
+        drop(cached);
+    }
+
+    /// #2427: a cold stored-values decode that would carry the process past
+    /// its hard memory limit is refused with a 429 before it allocates —
+    /// every single-flight follower sees the 429, nothing is cached or
+    /// reserved, and the single-flight slot is freed for a later retry.
+    ///
+    /// Fails before the fix: the decode ran unconditionally (no `Err` path).
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn cold_stored_values_decode_over_the_hard_limit_is_a_429_2427() {
+        const MIB: u64 = 1024 * 1024;
+        let dir = tempfile::tempdir().unwrap();
+        let engine = crate::Engine::new(topk_projection_config(dir.path())).unwrap();
+        let idx = vector_index_2427(&engine, "sv-breaker", 256).await;
+        let seg = idx.store.snapshot().segments[0].clone();
+        let at_limit =
+            crate::governor::ResourceGovernor::with_rss_and_limit_for_test(1024 * MIB, 1024 * MIB);
+        let tripped = pinned_admission_2427(0, Some(at_limit));
+        let err = match idx.stored_values_load_with(&seg.id, tripped.clone()).await {
+            Err(err) => err,
+            Ok(value) => panic!("expected a 429, got a value: {}", value.is_some()),
+        };
+        assert!(
+            matches!(
+                &err,
+                EngineError::Common(xerj_common::XerjError::CircuitBreaking { .. })
+            ),
+            "{err:?}"
+        );
+        assert!(format!("{err}").contains("stored_values_decode"), "{err}");
+        assert!(!idx.stored_value_cache.contains_key(&seg.id));
+        assert_eq!(tripped.read_budget.snapshot().admitted, 0);
+        tokio::time::timeout(std::time::Duration::from_secs(2), async {
+            while !idx.stored_value_loads.is_empty() {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("the refused load must free its single-flight slot");
+
+        // Room under the limit: the same load succeeds.
+        let roomy_node =
+            crate::governor::ResourceGovernor::with_rss_and_limit_for_test(MIB, 64 * 1024 * MIB);
+        let ok = idx
+            .stored_values_load_with(&seg.id, pinned_admission_2427(0, Some(roomy_node)))
+            .await
+            .unwrap();
+        assert!(ok.is_some());
+    }
+
+    /// #2427: the exact kNN scan's per-query vector column (built from the
+    /// stored documents when the cache refuses it) reserves read memory, and
+    /// a scan whose transients would cross the hard limit answers 429 rather
+    /// than allocating — the kNN search fails with `circuit_breaking_exception`
+    /// instead of silently skipping the segment or growing RSS into an OOM.
+    ///
+    /// Fails before the fix: the scan made no read reservation (admitted 0),
+    /// and a refused load was `None`, so the segment was skipped (`continue`).
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn knn_scan_transients_reserve_read_memory_and_429_at_the_limit_2427() {
+        const MIB: u64 = 1024 * 1024;
+        let dir = tempfile::tempdir().unwrap();
+        let engine = crate::Engine::new(topk_projection_config(dir.path())).unwrap();
+        let idx = vector_index_2427(&engine, "knn-breaker", 256).await;
+        let request = SearchRequest {
+            timeout_ms: Some(10_000),
+            ..SearchRequest::default()
+        };
+        let query = [1.0_f32, 0.0, 0.5, 0.25];
+
+        // Cache full: the stored values and the column are both transient.
+        let full = pinned_admission_2427(0, None);
+        *idx.test_read_admission.lock() = Some(full.clone());
+        let result = idx
+            .run_knn_brute_force(
+                &request,
+                "embedding",
+                &query,
+                3,
+                Some(Box::new(QueryNode::MatchAll)),
+                "cosine",
+                None,
+                None,
+            )
+            .await
+            .unwrap();
+        assert_eq!(result.hits.len(), 3);
+        assert_eq!(result.hits[0].id, "doc-255");
+        let snap = full.read_budget.snapshot();
+        assert!(
+            snap.admitted >= 2,
+            "stored values and vector column must both reserve ({snap:?})"
+        );
+        assert_eq!(snap.current, 0, "released when the query drops them");
+        assert!(idx.vector_column_cache.is_empty());
+
+        // At the hard limit: a 429, not a partial answer.
+        let at_limit =
+            crate::governor::ResourceGovernor::with_rss_and_limit_for_test(1024 * MIB, 1024 * MIB);
+        *idx.test_read_admission.lock() = Some(pinned_admission_2427(0, Some(at_limit)));
+        let err = idx
+            .run_knn_brute_force(
+                &request,
+                "embedding",
+                &query,
+                3,
+                Some(Box::new(QueryNode::MatchAll)),
+                "cosine",
+                None,
+                None,
+            )
+            .await
+            .unwrap_err();
+        match &err {
+            EngineError::Common(e) => assert_eq!(e.http_status(), 429, "{e}"),
+            other => panic!("expected a 429 circuit_breaking_exception, got {other:?}"),
+        }
+        *idx.test_read_admission.lock() = None;
     }
 
     fn topk_projection_config(dir: &std::path::Path) -> Config {
@@ -11600,6 +11884,9 @@ pub struct Index {
     test_hnsw_save_passage_snapshot_ready: Arc<AtomicBool>,
     #[cfg(test)]
     test_stored_value_load_delay_ms: Arc<AtomicU64>,
+    /// Pins the budgets read-side transients are admitted against (#2427).
+    #[cfg(test)]
+    test_read_admission: Arc<parking_lot::Mutex<Option<ReadAdmission>>>,
     #[cfg(test)]
     test_stored_value_load_count: Arc<AtomicU64>,
     #[cfg(test)]
@@ -11815,7 +12102,7 @@ pub struct Index {
     /// publishes the immutable parsed section to every concurrent vector
     /// query; the detached producer survives cancellation of any requester.
     stored_value_loads:
-        Arc<dashmap::DashMap<String, tokio::sync::watch::Sender<Option<Resident<Vec<Value>>>>>>,
+        Arc<dashmap::DashMap<String, tokio::sync::watch::Sender<Option<StoredValuesLoad>>>>,
     /// Bounds simultaneous whole-segment decompression/parsing across distinct
     /// cold segments. Per-segment single-flight removes duplicate work; this
     /// bound prevents a many-segment cold storm from multiplying peak memory.
@@ -12383,6 +12670,8 @@ impl Index {
             #[cfg(test)]
             test_stored_value_load_delay_ms: Arc::new(AtomicU64::new(0)),
             #[cfg(test)]
+            test_read_admission: Arc::new(parking_lot::Mutex::new(None)),
+            #[cfg(test)]
             test_stored_value_load_count: Arc::new(AtomicU64::new(0)),
             #[cfg(test)]
             test_stored_value_load_pause_before_publish: Arc::new(
@@ -12805,6 +13094,8 @@ impl Index {
             test_hnsw_save_passage_snapshot_ready: Arc::new(AtomicBool::new(false)),
             #[cfg(test)]
             test_stored_value_load_delay_ms: Arc::new(AtomicU64::new(0)),
+            #[cfg(test)]
+            test_read_admission: Arc::new(parking_lot::Mutex::new(None)),
             #[cfg(test)]
             test_stored_value_load_count: Arc::new(AtomicU64::new(0)),
             #[cfg(test)]
@@ -19584,6 +19875,8 @@ impl Index {
         let store = Arc::clone(&self.store);
         let load_segment_id = segment_id.to_string();
         let vector_field = field.to_string();
+        let admission = self.read_admission();
+        let hydration = Arc::clone(&admission.hydration);
         let built = Self::on_background_pool(move || {
             let _permit = permit;
             let reader = store.open_segment_arc(&load_segment_id).ok()?;
@@ -19609,6 +19902,20 @@ impl Index {
             {
                 return None;
             }
+            // #2427: reserve the column before copying the projection into
+            // it. A refusal (the parent breaker) answers `Unavailable`: the
+            // caller's stored-document load then meets the same breaker and
+            // reports the 429.
+            let dims = projection
+                .vectors
+                .iter()
+                .flatten()
+                .map(Vec::len)
+                .next()
+                .unwrap_or(0);
+            let read_permit = admission
+                .admit(vector_column_estimate(rows, dims), "vector_column")
+                .ok()?;
             let mut builder = ColumnBuilder::new(&vector_field, ColumnMode::BestPassage);
             for row in 0..rows {
                 builder.push_projected(
@@ -19621,24 +19928,26 @@ impl Index {
                         .and_then(|chunks| chunks[row].as_deref()),
                 );
             }
-            Some(Some(builder.finish()))
+            Some(Some((builder.finish(), read_permit)))
         })
         .await;
-        let column = match built {
-            Some(Some(column)) => column,
+        let (column, read_permit) = match built {
+            Some(Some(built)) => built,
             Some(None) => return ProjectedColumn::NoStoredSection,
             None => return ProjectedColumn::Unavailable,
         };
         let bytes = column
             .retained_bytes()
             .saturating_add(column_key.len() as u64);
-        ProjectedColumn::Built(self.publish_current(
+        ProjectedColumn::Built(self.publish_current_permitted(
             &self.vector_column_cache,
             segment_id,
             column_key,
             SegmentCacheCategory::VectorColumn,
             bytes,
             column,
+            &hydration,
+            read_permit,
         ))
     }
 
@@ -20351,12 +20660,15 @@ impl Index {
             }
             let docs_arc = match tokio::time::timeout_at(
                 tokio::time::Instant::from_std(deadline),
-                self.stored_values_for_async(&meta.id),
+                self.stored_values_for_async_checked(&meta.id),
             )
             .await
             {
-                Ok(Some(a)) => a,
-                Ok(None) => continue,
+                Ok(Ok(Some(a))) => a,
+                Ok(Ok(None)) => continue,
+                // #2427: the parent breaker refused the cold decode — a 429,
+                // not a segment silently missing from the answer.
+                Ok(Err(refused)) => return Err(refused),
                 Err(_) => {
                     timed_out = true;
                     break;
@@ -20369,6 +20681,17 @@ impl Index {
             let mut builder = cached_column
                 .is_none()
                 .then(|| ColumnBuilder::new(field, column_mode));
+            // #2427: a column the cache cannot keep is a per-query transient
+            // as large as the segment's vectors. Reserve it before building
+            // (a 429 if it would carry the process past its hard limit).
+            let admission = self.read_admission();
+            let mut column_permit = match builder.as_ref() {
+                Some(_) => admission.admit_on_runtime(
+                    vector_column_estimate(docs_arc.len(), query_vec.len()),
+                    "vector_column",
+                )?,
+                None => None,
+            };
             let view = segment_views.len();
             let mut segment_complete = true;
             // Cache-backed iteration: stored_values_for() handles the
@@ -20404,24 +20727,37 @@ impl Index {
                 (Some(column), _) => column,
                 // A column abandoned at the deadline covers a prefix of the
                 // segment. It serves this request's partial answer and is
-                // dropped — only a complete column is ever published.
+                // dropped — only a complete column is ever published. It is
+                // transient even when the cache had room, so it always holds
+                // a read reservation (#2427).
                 (None, Some(builder)) if !segment_complete => {
-                    CacheResident::uncached(builder.finish())
+                    let column = builder.finish();
+                    let bytes = column.retained_bytes();
+                    let permit = match column_permit.take() {
+                        Some(mut permit) => {
+                            permit.true_up(bytes);
+                            permit
+                        }
+                        None => admission.read_budget.reserve_built(bytes),
+                    };
+                    CacheResident::uncached_with_permit(column, Some(permit))
                 }
                 (None, Some(builder)) => {
                     let column = builder.finish();
                     let bytes = column
                         .retained_bytes()
                         .saturating_add(column_key.len() as u64);
-                    // Over budget this comes back uncached: the next query
-                    // derives it again, which is what every query did before.
-                    self.publish_current(
+                    // Over budget this comes back uncached, holding its read
+                    // reservation: the next query derives it again.
+                    self.publish_current_permitted(
                         &self.vector_column_cache,
                         &meta.id,
                         column_key,
                         SegmentCacheCategory::VectorColumn,
                         bytes,
                         column,
+                        &admission.hydration,
+                        column_permit.take(),
                     )
                 }
                 (None, None) => unreachable!("a builder exists whenever the column is not cached"),
@@ -20804,8 +21140,8 @@ impl Index {
                 // gone altogether sends the request back to a full rescan.
                 None => {
                     let Some(docs) = self
-                        .stored_values_for_async(&segment_views[view].segment_id)
-                        .await
+                        .stored_values_for_async_checked(&segment_views[view].segment_id)
+                        .await?
                     else {
                         return Ok(None);
                     };
@@ -22398,12 +22734,15 @@ impl Index {
             // run_knn_brute_force.
             let docs_arc = match tokio::time::timeout_at(
                 tokio::time::Instant::from_std(deadline),
-                self.stored_values_for_async(&meta.id),
+                self.stored_values_for_async_checked(&meta.id),
             )
             .await
             {
-                Ok(Some(a)) => a,
-                Ok(None) => continue,
+                Ok(Ok(Some(a))) => a,
+                Ok(Ok(None)) => continue,
+                // #2427: the parent breaker refused the cold decode — a 429,
+                // not a segment silently missing from the answer.
+                Ok(Err(refused)) => return Err(refused),
                 Err(_) => {
                     timed_out = true;
                     break;
@@ -29868,7 +30207,7 @@ impl Index {
                 // caller decodes and publishes, every other concurrent
                 // caller (single-flight) and every later query (cache hit)
                 // just clone the `Arc`.
-                let arr = match self.stored_values_for_async(&seg.id).await {
+                let arr = match self.stored_values_for_async_checked(&seg.id).await? {
                     Some(a) => a,
                     // Segment unreadable (transient I/O, or merged away
                     // under this pass's snapshot). A skipped segment
@@ -35878,9 +36217,59 @@ impl Index {
     /// warms the immutable segment for the next request. The segment-current
     /// check prevents such a detached completion from resurrecting a cache
     /// entry that a concurrent merge already retired.
+    ///
+    /// Background callers (index rebuilds, presence probes) read a refused
+    /// decode as `None`, like an unreadable segment; search paths use
+    /// [`Self::stored_values_for_async_checked`] to answer it with a 429.
     async fn stored_values_for_async(&self, segment_id: &str) -> Option<Resident<Vec<Value>>> {
+        self.stored_values_for_async_checked(segment_id)
+            .await
+            .ok()
+            .flatten()
+    }
+
+    /// [`Self::stored_values_for_async`] for a search: `Err` is the 429
+    /// `circuit_breaking_exception` of a cold decode the parent breaker
+    /// refused (#2427).
+    async fn stored_values_for_async_checked(
+        &self,
+        segment_id: &str,
+    ) -> Result<Option<Resident<Vec<Value>>>> {
+        self.stored_values_load_with(segment_id, self.read_admission())
+            .await
+    }
+
+    /// The process-wide budgets a read-side transient is admitted against.
+    fn read_admission(&self) -> ReadAdmission {
+        #[cfg(test)]
+        if let Some(pinned) = self.test_read_admission.lock().clone() {
+            return pinned;
+        }
+        ReadAdmission {
+            hydration: Arc::clone(&self.segment_hydration_budget),
+            read_budget: Arc::clone(crate::read_budget::global()),
+            governor: crate::governor::global(),
+        }
+    }
+
+    /// The cold load behind [`Self::stored_values_for_async_checked`], with
+    /// explicit budgets (tests pin them).
+    ///
+    /// #2427: a whole-segment decode the hydration cache cannot keep is a
+    /// per-query transient. Before the decode it reserves a bound on its peak
+    /// (decompressed section plus the parsed tree) in the read budget and
+    /// keeps the reservation until its last reader drops it, like the
+    /// stored-slices, doc-values and FTS-reader builds. One that would carry
+    /// the process past its hard memory limit is refused with a 429 before
+    /// anything is allocated. Before this the load decoded and parsed the
+    /// whole section with no reservation at all.
+    async fn stored_values_load_with(
+        &self,
+        segment_id: &str,
+        admission: ReadAdmission,
+    ) -> Result<Option<Resident<Vec<Value>>>> {
         if let Some(entry) = self.stored_value_cache.get(segment_id) {
-            return Some(Arc::clone(entry.value()));
+            return Ok(Some(Arc::clone(entry.value())));
         }
 
         let segment_id = segment_id.to_string();
@@ -35895,7 +36284,6 @@ impl Index {
                     let store = Arc::clone(&self.store);
                     let cache = Arc::clone(&self.stored_value_cache);
                     let lifecycle = Arc::clone(&self.segment_cache_lifecycle);
-                    let budget = Arc::clone(&self.segment_hydration_budget);
                     let loads = Arc::clone(&self.stored_value_loads);
                     let load_semaphore = Arc::clone(&self.stored_value_load_semaphore);
                     let load_segment_id = segment_id.clone();
@@ -35948,8 +36336,8 @@ impl Index {
                         // pool's `nice(10)`, which only bites when every core is
                         // already saturated.
                         let (decoded_tx, decoded_rx) =
-                            tokio::sync::oneshot::channel::<Option<Resident<Vec<Value>>>>();
-                        let decode = move || -> Option<Resident<Vec<Value>>> {
+                            tokio::sync::oneshot::channel::<Option<StoredValuesLoad>>();
+                        let decode = move || -> Option<StoredValuesLoad> {
                             #[cfg(test)]
                             {
                                 load_count.fetch_add(1, Ordering::Relaxed);
@@ -35960,15 +36348,35 @@ impl Index {
                             }
                             let reader = store.open_segment(&load_segment_id).ok()?;
                             let stored_bytes_raw = reader.section(SectionType::Stored).ok()??;
+                            let doc_count = store
+                                .snapshot()
+                                .segments
+                                .iter()
+                                .find(|meta| meta.id == load_segment_id)
+                                .map_or(0, |meta| meta.doc_count);
+                            let estimate = stored_slices_bound(stored_bytes_raw, doc_count)
+                                .saturating_mul(STORED_VALUES_PEAK_FACTOR);
+                            let mut read_permit =
+                                match admission.admit(estimate, "stored_values_decode") {
+                                    Ok(permit) => permit,
+                                    Err(refused) => {
+                                        return Some(Err(Arc::from(refused.to_string())));
+                                    }
+                                };
                             let stored_bytes =
                                 xerj_storage::stored_codec::decode_stored(stored_bytes_raw).ok()?;
                             let docs: Vec<Value> = serde_json::from_slice(&stored_bytes).ok()?;
+                            drop(stored_bytes);
                             let key = load_segment_id.clone();
                             let bytes = cache_estimates::stored_values_bytes(
                                 &key,
                                 std::mem::size_of::<CacheResident<Vec<Value>>>(),
                                 &docs,
                             );
+                            if let Some(permit) = read_permit.as_mut() {
+                                permit.true_up(bytes);
+                            }
+                            let budget = &admission.hydration;
                             #[cfg(test)]
                             {
                                 ready_to_publish.store(true, Ordering::Release);
@@ -35984,7 +36392,7 @@ impl Index {
                                     .iter()
                                     .any(|meta| meta.id == load_segment_id)
                                 {
-                                    CacheResident::uncached(docs)
+                                    CacheResident::uncached_with_permit(docs, read_permit)
                                 } else {
                                     use dashmap::mapref::entry::Entry;
                                     match cache.entry(key) {
@@ -35994,6 +36402,8 @@ impl Index {
                                                 SegmentCacheCategory::StoredValues,
                                                 bytes,
                                             ) {
+                                                // The cache accounts it now;
+                                                // the reservation is returned.
                                                 let resident = CacheResident::admitted(
                                                     docs,
                                                     charge,
@@ -36003,13 +36413,16 @@ impl Index {
                                                 entry.insert(Arc::clone(&resident));
                                                 resident
                                             } else {
-                                                CacheResident::uncached(docs)
+                                                CacheResident::uncached_with_permit(
+                                                    docs,
+                                                    read_permit,
+                                                )
                                             }
                                         }
                                     }
                                 }
                             };
-                            Some(resident)
+                            Some(Ok(resident))
                         };
                         crate::background_pool().spawn(move || {
                             // Preserve the pre-#751 failure semantics: a panic
@@ -36036,11 +36449,17 @@ impl Index {
         };
 
         loop {
-            if let Some(value) = receiver.borrow_and_update().clone() {
-                return Some(value);
+            match receiver.borrow_and_update().clone() {
+                Some(Ok(value)) => return Ok(Some(value)),
+                Some(Err(refused)) => {
+                    return Err(EngineError::Common(
+                        xerj_common::XerjError::circuit_breaking(refused.to_string()),
+                    ))
+                }
+                None => {}
             }
             if receiver.changed().await.is_err() {
-                return None;
+                return Ok(None);
             }
         }
     }

@@ -126,6 +126,23 @@ impl ReadTransientBudget {
         }
     }
 
+    /// Account `bytes` of a transient value that is already built (#2427),
+    /// without waiting: the memory is allocated, so a wait would only delay
+    /// its release. Later reservations see it until the permit drops.
+    pub fn reserve_built(self: &Arc<Self>, bytes: u64) -> ReadPermit {
+        let mut used = self.used.lock().unwrap_or_else(|p| p.into_inner());
+        *used = used.saturating_add(bytes);
+        self.peak.fetch_max(*used, Ordering::Relaxed);
+        self.admitted.fetch_add(1, Ordering::Relaxed);
+        drop(used);
+        HELD_ON_THREAD.with(|held| held.set(held.get().saturating_add(1)));
+        ReadPermit {
+            budget: Arc::clone(self),
+            bytes,
+            thread: std::thread::current().id(),
+        }
+    }
+
     pub fn snapshot(&self) -> ReadTransientBudgetSnapshot {
         let current = *self.used.lock().unwrap_or_else(|p| p.into_inner());
         ReadTransientBudgetSnapshot {

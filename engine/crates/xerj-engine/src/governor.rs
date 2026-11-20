@@ -1522,6 +1522,29 @@ impl ResourceGovernor {
         self.memory_limit_bytes.max(watermark)
     }
 
+    /// #2427: admission for one query-time transient the hydration cache
+    /// refused (a whole-segment stored-values decode, a per-query vector
+    /// column). The search was admitted under the hard limit, but such a
+    /// value is sized by the segment, not the request: on a node near its
+    /// limit it is what carries RSS into the OOM killer. A transient that
+    /// would cross the limit gets a 429 `circuit_breaking_exception` instead.
+    /// No-op when no limit is known.
+    pub fn check_read_transient(&self, bytes: u64, label: &str) -> Result<(), XerjError> {
+        let limit = self.search_hard_limit_bytes();
+        let rss = self.search_admission_rss();
+        if limit != 0 && rss.saturating_add(bytes) > limit {
+            return Err(XerjError::circuit_breaking(format!(
+                "[parent] Data too large: data for [{label}] would be [{}/{}], which is larger than the memory limit of [{limit}/{}] (process memory [{rss}/{}], transient read [{bytes}/{}]); search rejected",
+                rss.saturating_add(bytes),
+                human_bytes(rss.saturating_add(bytes)),
+                human_bytes(limit),
+                human_bytes(rss),
+                human_bytes(bytes),
+            )));
+        }
+        Ok(())
+    }
+
     fn check_search_hard_limit(&self) -> Result<(), XerjError> {
         let limit = self.search_hard_limit_bytes();
         let rss = self.search_admission_rss();
@@ -3019,6 +3042,20 @@ impl ResourceGovernor {
         self.rss_bytes.store(live, Ordering::Relaxed);
     }
 
+    /// A standalone governor whose hard search limit is `limit` and whose
+    /// last RSS sample is `rss` (#2427 read-transient admission tests).
+    pub(crate) fn with_rss_and_limit_for_test(rss: u64, limit: u64) -> Arc<Self> {
+        let mut cfg = Config::default();
+        cfg.limits.max_total_memtable_mb = 0;
+        let mut governor = build(&cfg);
+        governor.memory_limit_bytes = limit;
+        governor
+            .memory_watermark_bytes
+            .store(limit, Ordering::Relaxed);
+        governor.rss_bytes.store(rss, Ordering::Relaxed);
+        Arc::new(governor)
+    }
+
     /// Bytes currently held by analyze reservations.
     pub(crate) fn analyze_reserved_for_test(&self) -> u64 {
         self.analyze_reserved.load(Ordering::Acquire)
@@ -3943,6 +3980,24 @@ mod tests {
             line.contains(&format!("{}MB write breaker", before / (1024 * 1024))),
             "{line}"
         );
+    }
+
+    /// #2427: a refused read transient that would carry RSS past the hard
+    /// limit is a 429, not an allocation; one that fits passes; no known
+    /// limit never rejects.
+    #[test]
+    fn read_transient_over_the_hard_limit_is_a_429_2427() {
+        const MIB: u64 = 1024 * 1024;
+        let g = ResourceGovernor::with_rss_and_limit_for_test(900 * MIB, 1000 * MIB);
+        assert!(g.check_read_transient(100 * MIB, "stored-values").is_ok());
+        let err = g
+            .check_read_transient(100 * MIB + 1, "stored-values")
+            .unwrap_err();
+        assert_eq!(err.http_status(), 429);
+        assert!(matches!(err, XerjError::CircuitBreaking { .. }));
+        assert!(format!("{err}").contains("[stored-values]"), "{err}");
+        let unlimited = ResourceGovernor::with_rss_and_limit_for_test(900 * MIB, 0);
+        assert!(unlimited.check_read_transient(u64::MAX, "x").is_ok());
     }
 
     #[test]
