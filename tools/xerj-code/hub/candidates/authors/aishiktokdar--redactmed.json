@@ -8,15 +8,15 @@
   {
    "repo": "RedactMed",
    "url": "https://github.com/AishikTokdar/RedactMed",
-   "sha": "9453baadb82325de61b478045385cad9324f499d",
-   "licence": "MIT (LICENSE file at pin 9453baadb823, GitHub licence API 2026-11-10)",
+   "sha": "4837ce69fd852186d0ea3f3a01be53975e603a5b",
+   "licence": "MIT (LICENSE file at pin 4837ce69fd85, GitHub licence API 2026-11-20)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-10T07:43Z",
     "consent_receipt": "fb1895617797",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T07:43Z (receipt fb1895617797); pinned to the default-branch head. LICENSE file at pin 9453baadb823 detected as MIT by the GitHub licence API on 2026-11-10; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-10T07:43Z (receipt fb1895617797); pinned to the default-branch head. LICENSE file at pin 4837ce69fd85 detected as MIT by the GitHub licence API on 2026-11-20; used under that licence with attribution."
    }
   }
  ]
