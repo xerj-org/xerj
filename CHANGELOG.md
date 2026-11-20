@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add `xerj init` pack guidance and MCP registration for Claude Code, Cursor
+  and Codex, with idempotent updates, user-config preservation and `--remove`
+  rollback (#2761).
+
 ## [1.0.0-rc.104] - 2026-11-18
 
 **rc.104: rc.103 on every platform.** rc.104 is the rc.103 code with the
