@@ -13,9 +13,8 @@
 //! locks those, and this file locks that the source still contains the
 //! sentence.
 //!
-//! The homepage prompt is deliberately short: it points the agent at
-//! `llms.txt`, which carries the field-report instructions, so the prompt
-//! itself must not repeat them.
+//! The homepage prompt points the agent at `llms.txt`, which carries the
+//! field-report instructions, so the prompt itself must not repeat them.
 
 use std::path::PathBuf;
 
@@ -134,33 +133,53 @@ fn init_banner_docs_and_mcp_name_the_field_report() {
     assert!(page.contains("send the field report automatically"));
 }
 
-/// The homepage prompt stays short and defers to `llms.txt`, which the test
+/// The homepage prompt defers the field report to `llms.txt`, which the test
 /// above requires to carry the auto-send line. The prompt (the visible text
 /// and its copy button) must not repeat the field-report instructions.
+///
+/// The exact wording belongs to the page (the 2026-11-07 redesign replaced the
+/// one-line prompt with a numbered setup prompt) and is locked character for
+/// character by `scripts/seo/test_llms_field_report.py`. This test locks the
+/// invariants that matter to an agent instead, so a copy edit cannot turn it
+/// red: one copy button, it opens by pointing at `llms.txt`, the visible text
+/// is what the button copies, and none of it carries the field report.
 #[test]
 fn homepage_prompt_defers_the_field_report_to_llms_txt() {
     let html = repo_file("landing/index.html");
     assert!(!html.contains(OLD_ASK));
-    let prompt = "Install XERJ (docs: https://xerj.org/llms.txt), index this project's sources, and set up reference coding: clone and index the open-source repos closest to what we're building, and search how they solved a problem before writing code.";
-    assert!(
-        html.contains(&format!("<code>{prompt}</code>")),
-        "the homepage prompt a person reads must be the short llms.txt prompt"
-    );
 
-    // Every copy button that starts with the prompt copies exactly the prompt.
-    let start = "data-copy=\"Install XERJ (docs: https://xerj.org/llms.txt)";
+    let attr = "data-copy=\"";
     let copies: Vec<&str> = html
-        .match_indices(start)
+        .match_indices(attr)
         .map(|(i, _)| {
-            let value = &html[i + "data-copy=\"".len()..];
+            let value = &html[i + attr.len()..];
             &value[..value.find('"').expect("closing quote")]
         })
         .collect();
-    assert_eq!(copies.len(), 1, "one agent prompt copy button: {copies:?}");
     assert_eq!(
-        copies[0], prompt,
-        "the homepage copy button must carry the same short prompt"
+        copies.len(),
+        1,
+        "one copy button on the home page, the agent prompt: {copies:?}"
     );
+    let prompt = unescape_html(copies[0]);
+    let first = prompt.lines().next().unwrap_or_default();
+    assert!(
+        first.contains("https://xerj.org/llms.txt"),
+        "the prompt's first line points the agent at llms.txt, got {first:?}"
+    );
+
+    let shown_start = html
+        .find("<div class=\"prompt\"")
+        .expect("the hero prompt block");
+    let shown = &html[shown_start..];
+    let pre = shown.find("<pre>").expect("the visible prompt") + "<pre>".len();
+    let shown = &shown[pre..pre + shown[pre..].find("</pre>").expect("closing </pre>")];
+    assert_eq!(
+        unescape_html(shown),
+        prompt,
+        "the prompt a person reads is the prompt the button copies"
+    );
+
     for needle in [
         "After using xerj",
         "field report",
@@ -170,8 +189,18 @@ fn homepage_prompt_defers_the_field_report_to_llms_txt() {
         "XERJ_DISABLE_FEEDBACK",
     ] {
         assert!(
-            !copies[0].contains(needle),
+            !prompt.contains(needle),
             "the homepage prompt must leave the field report to llms.txt, found {needle:?}"
         );
     }
+}
+
+/// The entities the landing page uses inside attributes and `<pre>`.
+fn unescape_html(text: &str) -> String {
+    text.replace("&#10;", "\n")
+        .replace("&quot;", "\"")
+        .replace("&#39;", "'")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&amp;", "&")
 }
