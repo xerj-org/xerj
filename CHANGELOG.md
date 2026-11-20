@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Merges and flushes encode fields that are sometimes a scalar and
+  sometimes an array in less memory (#3311, refs #2427 #1122).** The
+  stored-section encoder now keeps a `_source` column as row JSON text when
+  any row is an array or object, not only when every row is (#3266). Fields
+  such as `"t1"` / `["t1","t2"]` or `0.5` / `[0.5, ...]` were parsed into one
+  `serde_json::Value` tree per row for the whole encode. The encoded bytes
+  are unchanged (same length and hash on both builds). Measured on one
+  6,000-document encode with a 1024-d vector, text, keyword, long and three
+  mixed fields (121.5 MB input): peak heap 725.3 MB before, 398.9 MB after.
+  On a 12,000-document `_forcemerge` with `XERJ_MAX_PROCESS_MEMORY_MB=1200`,
+  peak RSS went from 936-943 MB to 791-820 MB; under the automatic cap the
+  peak did not move (1,014-1,056 MB both ways). Inputs without mixed fields
+  see no difference.
+
 ## [1.0.0-rc.104] - 2026-11-18
 
 **rc.104: rc.103 on every platform.** rc.104 is the rc.103 code with the

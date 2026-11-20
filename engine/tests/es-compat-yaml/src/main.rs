@@ -172,7 +172,113 @@ fn extract_setup_indices(steps: &[YamlValue]) -> Vec<String> {
     indices
 }
 
-fn cleanup_indices(client: &reqwest::blocking::Client, base_url: &str) {
+/// How long the between-case wipe keeps retrying before it gives up and
+/// says so. It only runs this long when the server is slow, and a case that
+/// starts on a dirty cluster is the bug being avoided.
+const WIPE_DEADLINE: std::time::Duration = std::time::Duration::from_secs(120);
+
+/// What a between-case wipe left behind.
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+struct Wipe {
+    /// Index names still listed after the deadline (empty when clean).
+    leftover: Vec<String>,
+    /// `DELETE /_all` attempts made.
+    attempts: u32,
+}
+
+/// Delete every index and confirm that none is left.
+///
+/// The wipe used to be fire-and-forget: one `DELETE /_all` whose result was
+/// dropped. When that delete outlasted the client's request timeout or
+/// answered an error, the indices stayed and the next case's setup ran
+/// against them: its `indices.create` got a 400 the runner tolerates, and a
+/// later setup step tripped over the stale mapping or documents. Each leaked
+/// index also stayed open for the rest of the run. Now the wipe lists what is
+/// left and retries until the cluster is empty or [`WIPE_DEADLINE`] passes,
+/// and the caller fails a case that would start on a dirty cluster instead of
+/// running it.
+fn cleanup_indices(client: &reqwest::blocking::Client, base_url: &str) -> Wipe {
+    cleanup_indices_until(client, base_url, WIPE_DEADLINE)
+}
+
+fn cleanup_indices_until(
+    client: &reqwest::blocking::Client,
+    base_url: &str,
+    deadline: std::time::Duration,
+) -> Wipe {
+    let started = std::time::Instant::now();
+    let mut wipe = Wipe::default();
+    loop {
+        wipe.attempts += 1;
+        delete_all_indices(client, base_url);
+        match list_indices(client, base_url) {
+            Some(names) if names.is_empty() => {
+                wipe.leftover.clear();
+                return wipe;
+            }
+            Some(names) => wipe.leftover = names,
+            // A listing that did not answer proves nothing either way.
+            None => wipe.leftover = vec!["<_cat/indices did not answer>".into()],
+        }
+        if started.elapsed() >= deadline {
+            return wipe;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(250));
+    }
+}
+
+/// Every index the cluster still lists, open or closed; `None` when the
+/// listing itself failed. The default expansion is the set `DELETE /_all`
+/// covers: it lists closed indices and leaves out the hidden system ones
+/// (`.xerj_*`), which the wipe must not touch.
+fn list_indices(client: &reqwest::blocking::Client, base_url: &str) -> Option<Vec<String>> {
+    let resp = client
+        .get(format!("{base_url}/_cat/indices?format=json&h=index"))
+        .send()
+        .ok()?;
+    if !resp.status().is_success() {
+        return None;
+    }
+    let body: Value = resp.json().ok()?;
+    Some(index_names(&body))
+}
+
+/// Index names from a `_cat/indices?format=json` body.
+fn index_names(body: &Value) -> Vec<String> {
+    let mut names: Vec<String> = body
+        .as_array()
+        .map(|rows| {
+            rows.iter()
+                .filter_map(|row| row.get("index").and_then(Value::as_str))
+                .map(str::to_owned)
+                .collect()
+        })
+        .unwrap_or_default();
+    names.sort();
+    names
+}
+
+/// The case-result line for a wipe that did not finish, or `None` when the
+/// cluster is clean.
+fn wipe_failure(wipe: &Wipe) -> Option<String> {
+    if wipe.leftover.is_empty() {
+        return None;
+    }
+    let shown: Vec<&str> = wipe.leftover.iter().take(5).map(String::as_str).collect();
+    let more = if wipe.leftover.len() > shown.len() {
+        ", ..."
+    } else {
+        ""
+    };
+    Some(format!(
+        "cluster not clean before the case: {} index(es) left after {} DELETE /_all attempt(s) ({}{more})",
+        wipe.leftover.len(),
+        wipe.attempts,
+        shown.join(", "),
+    ))
+}
+
+fn delete_all_indices(client: &reqwest::blocking::Client, base_url: &str) {
     // XERJ defaults `action.destructive_requires_name` to true, matching ES 8,
     // so a bare `DELETE /_all` is a 400 and would leak indices into the next
     // file. The suite wipe is an explicit opt-out: turn the guard off, delete,
@@ -242,7 +348,8 @@ fn run_file(
     verbose: bool,
     stats: &mut Stats,
 ) {
-    cleanup_indices(client, base_url);
+    // Checked per case below, where a dirty cluster fails the case.
+    let _ = cleanup_indices(client, base_url);
     cleanup_templates(client, base_url);
 
     let content = match std::fs::read_to_string(path) {
@@ -305,11 +412,23 @@ fn run_file(
     }
 
     for (name, steps) in &tests {
-        cleanup_indices(client, base_url);
+        let wipe = cleanup_indices(client, base_url);
         cleanup_templates(client, base_url);
         let key = catch_lenient::key(path, name);
         stats.ran.insert(key.clone());
         catch_lenient::enter(key);
+
+        if let Some(reason) = wipe_failure(&wipe) {
+            println!(
+                "  {} {} · {} — {}",
+                "FAIL".red().bold(),
+                short_name,
+                name,
+                reason
+            );
+            stats.failed += 1;
+            continue;
+        }
 
         let mut setup_ok = true;
         let mut setup_response: Value = Value::Null;
@@ -318,16 +437,30 @@ fn run_file(
             if let Err(e) =
                 execute_step(client, base_url, step, &mut setup_response, &mut setup_vars)
             {
-                if verbose {
-                    println!(
-                        "  {} {} · {} — setup: {}",
-                        "SKIP".yellow(),
-                        short_name,
-                        name,
-                        e
-                    );
+                match setup_outcome(&e) {
+                    SetupOutcome::Skip => {
+                        if verbose {
+                            println!(
+                                "  {} {} · {} — setup: {}",
+                                "SKIP".yellow(),
+                                short_name,
+                                name,
+                                e
+                            );
+                        }
+                        stats.skipped += 1;
+                    }
+                    SetupOutcome::Fail => {
+                        println!(
+                            "  {} {} · {} — setup: {}",
+                            "FAIL".red().bold(),
+                            short_name,
+                            name,
+                            e
+                        );
+                        stats.failed += 1;
+                    }
                 }
-                stats.skipped += 1;
                 setup_ok = false;
                 break;
             }
@@ -403,6 +536,28 @@ fn run_teardown(
                 );
             }
         }
+    }
+}
+
+/// What a setup step that returned an error means for its case.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SetupOutcome {
+    /// A `skip:` directive in the setup block: the file asked not to run here.
+    Skip,
+    /// Anything else: an HTTP error, a 5xx, a refresh that timed out, an
+    /// assertion. ES's own runner fails the case when its setup fails.
+    Fail,
+}
+
+/// Only a `skip:` directive skips a case from setup. Every other setup error
+/// used to be counted as a skip and printed only under `--verbose`, so a
+/// setup request that failed on a loaded box lowered the pass count without
+/// a line of output and without failing the gate.
+fn setup_outcome(error: &str) -> SetupOutcome {
+    if error.starts_with("skip directive") {
+        SetupOutcome::Skip
+    } else {
+        SetupOutcome::Fail
     }
 }
 
@@ -2024,5 +2179,132 @@ mod catch_regex_tests {
                     [the_terms>unknown_aggregation];";
         assert_eq!(catch_mismatch(pat, 400, body), None);
         assert_eq!(java_regex_to_rust(r"a\\>b \<c"), r"a\\>b <c");
+    }
+}
+
+#[cfg(test)]
+mod hygiene_tests {
+    use super::*;
+    use std::io::{BufRead, BufReader, Read, Write};
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Arc;
+
+    /// FAIL-BEFORE: every setup error was a skip, so a refresh that timed out
+    /// in setup lowered the pass count silently instead of failing the gate.
+    #[test]
+    fn only_a_skip_directive_skips_a_case_from_setup() {
+        assert_eq!(setup_outcome("skip directive"), SetupOutcome::Skip);
+        assert_eq!(
+            setup_outcome("skip directive (awaits_fix)"),
+            SetupOutcome::Skip
+        );
+        assert_eq!(
+            setup_outcome("HTTP error: error sending request: operation timed out"),
+            SetupOutcome::Fail
+        );
+        assert_eq!(
+            setup_outcome("POST /test/_refresh → 500 Internal Server Error flush timed out"),
+            SetupOutcome::Fail
+        );
+    }
+
+    #[test]
+    fn index_names_reads_the_cat_listing() {
+        let body = serde_json::json!([{ "index": "b" }, { "index": "a" }, { "health": "x" }]);
+        assert_eq!(index_names(&body), vec!["a".to_string(), "b".to_string()]);
+        assert!(index_names(&serde_json::json!([])).is_empty());
+        assert!(index_names(&serde_json::json!({ "error": "x" })).is_empty());
+    }
+
+    #[test]
+    fn a_dirty_wipe_is_a_reported_failure_and_a_clean_one_is_not() {
+        assert_eq!(wipe_failure(&Wipe::default()), None);
+        let wipe = Wipe {
+            leftover: (0..7).map(|i| format!("idx-{i}")).collect(),
+            attempts: 3,
+        };
+        let msg = wipe_failure(&wipe).expect("dirty");
+        assert!(msg.contains("7 index(es)"), "{msg}");
+        assert!(msg.contains("3 DELETE /_all attempt(s)"), "{msg}");
+        assert!(
+            msg.contains("idx-0, idx-1, idx-2, idx-3, idx-4, ..."),
+            "{msg}"
+        );
+    }
+
+    /// A one-request-per-connection HTTP stub. `GET /_cat/indices` lists one
+    /// index until `DELETE /_all` has been called `deletes_needed` times.
+    fn stub(deletes_needed: usize) -> (String, Arc<AtomicUsize>) {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}", listener.local_addr().unwrap());
+        let deletes = Arc::new(AtomicUsize::new(0));
+        let seen = Arc::clone(&deletes);
+        std::thread::spawn(move || {
+            for stream in listener.incoming() {
+                let Ok(mut stream) = stream else { return };
+                let mut reader = BufReader::new(stream.try_clone().unwrap());
+                let mut request = String::new();
+                if reader.read_line(&mut request).is_err() {
+                    continue;
+                }
+                let mut len = 0usize;
+                loop {
+                    let mut header = String::new();
+                    if reader.read_line(&mut header).unwrap_or(0) == 0 || header == "\r\n" {
+                        break;
+                    }
+                    let lower = header.to_ascii_lowercase();
+                    if let Some(v) = lower.strip_prefix("content-length:") {
+                        len = v.trim().parse().unwrap_or(0);
+                    }
+                }
+                let mut body = vec![0u8; len];
+                let _ = reader.read_exact(&mut body);
+                let reply = if request.starts_with("DELETE /_all") {
+                    seen.fetch_add(1, Ordering::SeqCst);
+                    r#"{"acknowledged":true}"#
+                } else if request.starts_with("GET /_cat/indices") {
+                    if seen.load(Ordering::SeqCst) >= deletes_needed {
+                        "[]"
+                    } else {
+                        r#"[{"index":"stuck"}]"#
+                    }
+                } else {
+                    "{}"
+                };
+                let _ = write!(
+                    stream,
+                    "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{reply}",
+                    reply.len()
+                );
+            }
+        });
+        (url, deletes)
+    }
+
+    /// FAIL-BEFORE: the wipe sent one DELETE and returned, whatever was left.
+    #[test]
+    fn the_wipe_retries_until_the_listing_is_empty() {
+        let client = reqwest::blocking::Client::new();
+        let (url, deletes) = stub(3);
+        let wipe = cleanup_indices_until(&client, &url, std::time::Duration::from_secs(30));
+        assert_eq!(
+            wipe,
+            Wipe {
+                leftover: vec![],
+                attempts: 3
+            }
+        );
+        assert_eq!(deletes.load(Ordering::SeqCst), 3);
+    }
+
+    #[test]
+    fn a_wipe_that_cannot_finish_reports_what_is_left() {
+        let client = reqwest::blocking::Client::new();
+        let (url, _) = stub(usize::MAX);
+        let wipe = cleanup_indices_until(&client, &url, std::time::Duration::from_millis(600));
+        assert_eq!(wipe.leftover, vec!["stuck".to_string()]);
+        assert!(wipe.attempts >= 2, "{wipe:?}");
+        assert!(wipe_failure(&wipe).is_some());
     }
 }
