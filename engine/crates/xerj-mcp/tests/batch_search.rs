@@ -479,3 +479,68 @@ async fn an_oversized_msearch_is_split_and_only_the_oversized_item_fails() {
     server.abort();
     let _ = server.await;
 }
+
+/// #2497: the node runs `_msearch` items one after another while the client
+/// gives the call the 30 s of one search, so a few slow items used to drop
+/// the whole batch. The adapter sends one node-side budget
+/// (`batch_timeout=25000ms`), and an item the node reports `timed_out` fails
+/// alone as `search_incomplete` with a re-run hint; its sibling keeps its hits.
+#[tokio::test]
+async fn the_batch_sends_one_budget_and_a_timed_out_item_fails_alone() {
+    let queries = Arc::new(Mutex::new(Vec::<String>::new()));
+    let seen = queries.clone();
+    let app = Router::new().route(
+        "/_msearch",
+        axum::routing::post(move |uri: axum::http::Uri, text: String| {
+            seen.lock()
+                .unwrap()
+                .push(uri.query().unwrap_or_default().to_string());
+            let responses: Vec<Value> = text
+                .lines()
+                .collect::<Vec<_>>()
+                .chunks(2)
+                .map(|pair| {
+                    let slow = pair[1].contains("slow");
+                    json!({"timed_out": slow, "status": 200,
+                        "hits":{"total":{"value":1,"relation":if slow {"gte"} else {"eq"}},
+                        "hits":[{"_index":"docs","_id":"r1","_source":{"ax_path":"src/a.rs"}}]}})
+                })
+                .collect();
+            async move { Json(json!({ "responses": responses })) }
+        }),
+    );
+    let listener = xerj_common::loopback_test::expect_loopback(
+        tokio::net::TcpListener::bind("127.0.0.1:0").await,
+    );
+    let url = format!("http://{}", listener.local_addr().unwrap());
+    let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+    let result = body(
+        &call(
+            &url,
+            json!({"index":"docs","queries":[
+                {"query":{"match":{"body":"slow scan"}}},
+                {"query":{"match":{"body":"quick lookup"}}}
+            ]}),
+        )
+        .await,
+    );
+    assert_eq!(
+        queries.lock().unwrap().as_slice(),
+        ["batch_timeout=25000ms"],
+        "one _msearch, carrying the node-side budget"
+    );
+    let items = result["results"].as_array().unwrap();
+    assert_eq!(items[0]["status"], "error", "{result}");
+    assert_eq!(items[0]["error"]["reason"], "search_incomplete");
+    assert!(
+        items[0]["error"]["message"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("run it alone"),
+        "{result}"
+    );
+    assert_eq!(items[1]["status"], "hits", "{result}");
+    assert_eq!(items[1]["hits"][0]["citation"]["_id"], "r1");
+    server.abort();
+    let _ = server.await;
+}

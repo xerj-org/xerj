@@ -21,11 +21,19 @@ const ENVELOPE_KEYS: &[&str] = &[
 
 pub const MAX_INPUT_BYTES: usize = 1024 * 1024;
 const MAX_RESPONSE_BYTES: usize = 32 * 1024 * 1024;
+/// #2497: the node-side deadline for one whole `_msearch`, sent as
+/// `batch_timeout`. The node runs items one after another, and the HTTP
+/// client gives the call 30 s (the MCP `REQUEST_TIMEOUT`, and `xerj
+/// batch-search`'s client), the time it gives one search. Without a budget a
+/// few slow items added up past 30 s and the client dropped the whole batch,
+/// though each item alone finished. 25 s leaves the transfer 5 s; an item
+/// the budget does not reach fails alone as `search_incomplete`.
+pub(crate) const BATCH_TIME_BUDGET_MS: u64 = 25_000;
 
 pub(crate) fn spec() -> Value {
     json!({
         "name":"xerj_batch_search",
-        "description": "Search 1..50 IDs or questions in one call, in input order. Shares the CLI xerj batch-search adapter. Each result has its zero-based position, optional caller key, and status hits, abstain (only a complete empty search), or error. Hits carry citations: index/id plus file/line or record locator when available. This retrieves evidence, not generated answers or calibrated confidence. Use identifier plus an explicitly keyword-mapped field for exact IDs; query takes plain text or an ES query clause. One bad item never discards its siblings; identical inputs remain separate. Uses one _msearch request, plus at most one mapping read; a response over 32 MiB is retried in halves, and an item still over it alone fails alone. Omitted or null max_tokens defaults to 8000 UAX #29 words and caps the entire successful JSON response using StandardTokenizer UAX #29 words, not BPE. Budgeting removes raw hit bodies, then extra hits, retaining each item's status and at least one citation per matched item. If that minimum cannot fit, returns an actionable tool error, never truncated JSON or a false abstention. Errors are not truncated.",
+        "description": "Search 1..50 IDs or questions in one call, in input order. Shares the CLI xerj batch-search adapter. Each result has its zero-based position, optional caller key, and status hits, abstain (only a complete empty search), or error. Hits carry citations: index/id plus file/line or record locator when available. This retrieves evidence, not generated answers or calibrated confidence. Use identifier plus an explicitly keyword-mapped field for exact IDs; query takes plain text or an ES query clause. One bad item never discards its siblings; identical inputs remain separate. The batch shares one 25 s time budget; an item it does not reach fails alone as search_incomplete. Uses one _msearch request, plus at most one mapping read; a response over 32 MiB is retried in halves, and an item still over it alone fails alone. Omitted or null max_tokens defaults to 8000 UAX #29 words and caps the entire successful JSON response using StandardTokenizer UAX #29 words, not BPE. Budgeting removes raw hit bodies, then extra hits, retaining each item's status and at least one citation per matched item. If that minimum cannot fit, returns an actionable tool error, never truncated JSON or a false abstention. Errors are not truncated.",
         "inputSchema":{
             "type":"object", "additionalProperties":false,
             "properties":{
@@ -299,7 +307,11 @@ fn item_result(
     {
         return failed(
             base,
-            json!({"reason":"search_incomplete","response":response}),
+            json!({
+                "reason":"search_incomplete",
+                "message":"this item hit its time limit (the batch shares one 25 s budget), so its hits are partial or missing; run it alone with xerj_search, or narrow it",
+                "response":response
+            }),
         );
     }
     let query = item.get("query").map(|v| {
@@ -411,7 +423,10 @@ async fn msearch_split(
 }
 
 async fn msearch(ctx: &Ctx, ndjson: String) -> Result<Vec<Value>, MsearchError> {
-    let url = format!("{}/_msearch", ctx.base_url);
+    let url = format!(
+        "{}/_msearch?batch_timeout={BATCH_TIME_BUDGET_MS}ms",
+        ctx.base_url
+    );
     let mut req = ctx
         .client
         .post(&url)
