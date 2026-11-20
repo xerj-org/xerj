@@ -8,15 +8,15 @@
   {
    "repo": "moss-sas6-alphafold-public",
    "url": "https://github.com/djabbat/moss-sas6-alphafold-public",
-   "sha": "7adade83c96e384ea500b3fc7db2e33d1745eeb2",
-   "licence": "Apache-2.0 (LICENSE file at pin 7adade83c96e, GitHub licence API 2026-10-28)",
+   "sha": "111ae34623aadd48f3b0ffceffe3530ae20f190c",
+   "licence": "Apache-2.0 (LICENSE file at pin 111ae34623aa, GitHub licence API 2026-11-20)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T20:46Z",
     "consent_receipt": "8aa19541a85f",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T20:46Z (receipt 8aa19541a85f); pinned to the default-branch head. LICENSE file at pin 7adade83c96e detected as Apache-2.0 by the GitHub licence API on 2026-10-28; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T20:46Z (receipt 8aa19541a85f); pinned to the default-branch head. LICENSE file at pin 111ae34623aa detected as Apache-2.0 by the GitHub licence API on 2026-11-20; used under that licence with attribution."
    }
   }
  ]

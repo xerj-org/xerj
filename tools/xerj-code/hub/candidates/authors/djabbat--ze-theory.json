@@ -8,15 +8,15 @@
   {
    "repo": "ze-theory",
    "url": "https://github.com/djabbat/ze-theory",
-   "sha": "c6b4439257fe8e6a3bbe42edb6d67b529407db5d",
-   "licence": "Apache-2.0 (LICENSE file at pin c6b4439257fe, GitHub licence API 2026-11-19)",
+   "sha": "bdc0a06b87229aa1c7d39915ed70b7bafd544c63",
+   "licence": "Apache-2.0 (LICENSE file at pin bdc0a06b8722, GitHub licence API 2026-11-20)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T20:46Z",
     "consent_receipt": "e857674b537e",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T20:46Z (receipt e857674b537e); pinned to the default-branch head. LICENSE file at pin c6b4439257fe detected as Apache-2.0 by the GitHub licence API on 2026-11-19; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T20:46Z (receipt e857674b537e); pinned to the default-branch head. LICENSE file at pin bdc0a06b8722 detected as Apache-2.0 by the GitHub licence API on 2026-11-20; used under that licence with attribution."
    }
   }
  ]

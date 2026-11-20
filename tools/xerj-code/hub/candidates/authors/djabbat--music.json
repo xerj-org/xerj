@@ -8,15 +8,15 @@
   {
    "repo": "Music",
    "url": "https://github.com/djabbat/Music",
-   "sha": "e0d1c80c612dc169834580547ae39d0c4c03166b",
-   "licence": "Apache-2.0 (LICENSE file at pin e0d1c80c612d, GitHub licence API 2026-11-19)",
+   "sha": "02214a6106a6fc155720dd5b438a17fad824557a",
+   "licence": "Apache-2.0 (LICENSE file at pin 02214a6106a6, GitHub licence API 2026-11-20)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T20:46Z",
     "consent_receipt": "adbcdfd8af23",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T20:46Z (receipt adbcdfd8af23); pinned to the default-branch head. LICENSE file at pin e0d1c80c612d detected as Apache-2.0 by the GitHub licence API on 2026-11-19; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T20:46Z (receipt adbcdfd8af23); pinned to the default-branch head. LICENSE file at pin 02214a6106a6 detected as Apache-2.0 by the GitHub licence API on 2026-11-20; used under that licence with attribution."
    }
   }
  ]

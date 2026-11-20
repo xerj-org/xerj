@@ -8,15 +8,15 @@
   {
    "repo": "DITING",
    "url": "https://github.com/haoze-evolluling/DITING",
-   "sha": "6d352e780492365f8e84f044d434fcf73d3f1a83",
-   "licence": "GPL-3.0 (LICENSE file at pin 6d352e780492, GitHub licence API 2026-11-19)",
+   "sha": "276c0f9afaab66b0f2ff702013e3e4b1f6395c6d",
+   "licence": "GPL-3.0 (LICENSE file at pin 276c0f9afaab, GitHub licence API 2026-11-20)",
    "review": {
     "spdx": "GPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-11-04T09:03Z",
     "consent_receipt": "605a5ab308dd",
-    "note": "Inclusion consented by the commit author by email at 2026-11-04T09:03Z (receipt 605a5ab308dd); selected commit 6d352e780492: \"feat(desktop): \u8865\u9f50\u7cfb\u7edf\u6258\u76d8\u5e76\u6539\u7528\u54c1\u724c\u56fe\u6807\". LICENSE file at pin 6d352e780492 detected as GPL-3.0 by the GitHub licence API on 2026-11-19; used under that licence with attribution. Pinned to head 6d352e780492 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-11-04T09:03Z (receipt 605a5ab308dd); selected commit 276c0f9afaab: \"feat(desktop): \u8865\u9f50\u7cfb\u7edf\u6258\u76d8\u5e76\u6539\u7528\u54c1\u724c\u56fe\u6807\". LICENSE file at pin 276c0f9afaab detected as GPL-3.0 by the GitHub licence API on 2026-11-20; used under that licence with attribution. Pinned to head 276c0f9afaab (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]
