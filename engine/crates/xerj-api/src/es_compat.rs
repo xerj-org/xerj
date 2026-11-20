@@ -5677,6 +5677,31 @@ fn search_context_missing(scroll_id: &str) -> Response {
         .into_response()
 }
 
+/// ES 8.13 refuses a `collapse.inner_hits` object, or any entry of an
+/// `inner_hits` array, that has no `name` while it parses the body. Only the
+/// key's absence counts: an empty name passes, as in ES.
+fn collapse_has_unnamed_inner_hits(collapse: Option<&Value>) -> bool {
+    let unnamed = |spec: &Value| spec.as_object().is_some_and(|o| !o.contains_key("name"));
+    match collapse.and_then(|c| c.get("inner_hits")) {
+        Some(Value::Array(specs)) => specs.iter().any(unnamed),
+        Some(spec) => unnamed(spec),
+        None => false,
+    }
+}
+
+/// The 400 for [`collapse_has_unnamed_inner_hits`]: ES wraps the name
+/// refusal in the parse error of the `collapse` object.
+fn unnamed_inner_hits_refusal() -> Response {
+    es_bad_request(
+        "x_content_parse_exception",
+        "[collapse] failed to parse field [inner_hits]",
+        Some((
+            "illegal_argument_exception",
+            "inner_hits must have a [name]; set the [name] field in the inner_hits definition",
+        )),
+    )
+}
+
 /// Body extractor for `_search` that layers ES 8.13.4's deny-unknown-key
 /// behaviour on top of `OptionalJson<EsSearchBody>` (item 4a): a bogus
 /// top-level key is rejected with the exact ES `parsing_exception` instead of
@@ -5704,6 +5729,7 @@ pub enum EsSearchJsonRejection {
         col: usize,
     },
     IllegalArgument(String),
+    UnnamedInnerHits,
 }
 
 impl IntoResponse for EsSearchJsonRejection {
@@ -5717,6 +5743,7 @@ impl IntoResponse for EsSearchJsonRejection {
                 col,
             } => unknown_search_key_error(&key, token, line, col),
             EsSearchJsonRejection::IllegalArgument(reason) => illegal_argument(&reason),
+            EsSearchJsonRejection::UnnamedInnerHits => unnamed_inner_hits_refusal(),
         }
     }
 }
@@ -5789,6 +5816,11 @@ impl<S: Send + Sync> FromRequest<S> for EsSearchJson {
                 });
             }
         };
+        // Refused here, at parse time as in ES, so the cluster fan-out and
+        // every URL-parameter check after the extractor never see the body.
+        if collapse_has_unnamed_inner_hits(value.collapse.as_ref()) {
+            return Err(EsSearchJsonRejection::UnnamedInnerHits);
+        }
         Ok(EsSearchJson(Some(value)))
     }
 }
@@ -33073,6 +33105,9 @@ async fn msearch_impl(
         if let Ok(item) = serde_json::from_str::<Value>(body.trim()) {
             if let Some(reason) = xerj_query::track_total_hits_refusal(&item) {
                 return es_bad_request("illegal_argument_exception", &reason, None);
+            }
+            if collapse_has_unnamed_inner_hits(item.get("collapse")) {
+                return unnamed_inner_hits_refusal();
             }
         }
     }
