@@ -354,6 +354,7 @@ class DateSource:
         self.git_ok = self._probe()
         self._prior_cache: dict[str, dict[str, str]] = {}
         self._history_cache: dict[str, list[tuple[str, str]]] | None = None
+        self._batch_history_ok: bool | None = None
 
     def _probe(self) -> bool:
         try:
@@ -411,8 +412,27 @@ class DateSource:
                 history.setdefault(line, []).append(current)
         return history
 
+    def _can_batch_history(self) -> bool:
+        """Read effective log.follow once; inconclusive reads keep Git's path log."""
+        if self._batch_history_ok is None:
+            self._batch_history_ok = False
+            try:
+                r = subprocess.run(
+                    ["git", "-C", str(self.repo_root), "config", "--bool", "--get", "log.follow"],
+                    capture_output=True, text=True, timeout=15)
+            except (OSError, subprocess.SubprocessError):
+                return False
+            self._batch_history_ok = (r.returncode == 1 or
+                                      (r.returncode == 0 and r.stdout.strip() == "false"))
+        return self._batch_history_ok
+
     def _commits(self, path: pathlib.Path) -> list[tuple[str, str]] | None:
         """This file's commits from the shared walk, or None to ask git."""
+        # log.follow only takes effect with a single path. A repository-wide
+        # changed-path list cannot reproduce that rename-following history.
+        # Gate both ordinary dates and the content-aware sitemap caller here.
+        if not self._can_batch_history():
+            return None
         # `git -C <root> log -- <path>` reads a relative path from the root
         # and does not follow a symlinked file, so neither does this lookup.
         candidate = pathlib.Path(os.path.abspath(
