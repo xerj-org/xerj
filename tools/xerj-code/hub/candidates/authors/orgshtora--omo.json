@@ -1,9 +1,9 @@
 {
- "corpus": "orgshtora-1--omo",
+ "corpus": "orgshtora--omo",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agent-framework, ai-agents, bun queries this for how orgShtora-1/omo implements it: OpenCode V2 agent orchestration: durable plans, parallel delegation, LSP intelligence, and memory with dream reflection (selected work: test, src, src/goal)",
+ "domain": "an agent working on agent-framework, ai-agents, bun queries this for how orgShtora/omo implements it: OpenCode V2 agent orchestration: durable plans, parallel delegation, LSP intelligence, and memory with dream reflection (selected work: test, src, src/goal)",
  "repos": [
   {
    "repo": "omo",

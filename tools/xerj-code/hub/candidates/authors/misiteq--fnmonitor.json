@@ -8,15 +8,15 @@
   {
    "repo": "fnmonitor",
    "url": "https://github.com/MisiteQ/fnmonitor",
-   "sha": "d56d81e0ebecf735a8506b6246e31be65133775b",
-   "licence": "MIT (LICENSE file at pin d56d81e0ebec, GitHub licence API 2026-11-20)",
+   "sha": "c90a5628f9605f202b1dd390ac2c46bebf8b85fe",
+   "licence": "MIT (LICENSE file at pin c90a5628f960, GitHub licence API 2026-11-20)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-17T11:46Z",
     "consent_receipt": "e6f0de38bd02",
-    "note": "Inclusion consented by the commit author by email at 2026-10-17T11:46Z (receipt e6f0de38bd02); selected commit d56d81e0ebec: \"v2.17.0 \u767b\u5f55\u53e3\u4ee4\u529f\u80fd + \u9762\u677f\u62d6\u62fd\u4ec5\u6807\u9898\u680f + cmd manifest \u540c\u6b65\". LICENSE file at pin d56d81e0ebec detected as MIT by the GitHub licence API on 2026-11-20; used under that licence with attribution. Pinned to head d56d81e0ebec (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-17T11:46Z (receipt e6f0de38bd02); selected commit c90a5628f960: \"v2.17.0 \u767b\u5f55\u53e3\u4ee4\u529f\u80fd + \u9762\u677f\u62d6\u62fd\u4ec5\u6807\u9898\u680f + cmd manifest \u540c\u6b65\". LICENSE file at pin c90a5628f960 detected as MIT by the GitHub licence API on 2026-11-20; used under that licence with attribution. Pinned to head c90a5628f960 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]
