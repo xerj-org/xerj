@@ -12691,6 +12691,13 @@ fn lexical_on_semantic_text_hint(
         if vectorised.iter().any(|f| *f == field || *f == companion) {
             continue;
         }
+        // #2497: a compound identifier (`RESERVE_MIN`, `svgTrend`) is an exact
+        // lookup. It has no paraphrase for the embedding to recall, so the
+        // hint was noise on every identifier search an agent made over a
+        // `semantic_text` field, and noise mutes the hint channel.
+        if xerj_common::xccode::render::compound_identifier(&text).is_some() {
+            continue;
+        }
         if flagged.iter().any(|(f, _)| *f == field) {
             continue;
         }
@@ -13502,6 +13509,46 @@ mod semantic_text_lexical_hint_tests {
             scores(&control_index),
             "identical BM25 scores prove the embedding is never consulted"
         );
+    }
+
+    /// #2497: an agent's exact identifier lookups (`RESERVE_MIN`) over a
+    /// `semantic_text` field got this hint on every call. A compound
+    /// identifier has no paraphrase to recall, so it is not flagged; a plain
+    /// word or phrase still is.
+    #[tokio::test]
+    async fn an_exact_identifier_lookup_is_not_flagged() {
+        let state = test_state();
+        build_index(
+            &state,
+            "sem-ident",
+            json!({"type": "semantic_text", "dimensions": 32}),
+        )
+        .await;
+        for ident in ["neighbour_edges", "RESERVE_MIN", "pruneGraph"] {
+            let (status, json) = request_json(
+                &state,
+                "POST",
+                "/sem-ident/_search",
+                json!({"query": {"match": {"ctx": ident}}, "_source": false}),
+            )
+            .await;
+            assert_eq!(status, StatusCode::OK, "{json}");
+            assert!(
+                semantic_hint(&json).is_none(),
+                "{ident} is an exact lookup, not a paraphrase: {json}"
+            );
+        }
+        for words in ["graph", "graph edges"] {
+            let (status, json) = request_json(
+                &state,
+                "POST",
+                "/sem-ident/_search",
+                json!({"query": {"match": {"ctx": words}}, "_source": false}),
+            )
+            .await;
+            assert_eq!(status, StatusCode::OK, "{json}");
+            assert!(semantic_hint(&json).is_some(), "{words}: {json}");
+        }
     }
 
     /// The fix: the response now says which question it answered and names
@@ -32919,8 +32966,12 @@ mod flat_object_field_caps_tests {
 // POST /_msearch — Multi-Search API (NDJSON)
 // ─────────────────────────────────────────────────────────────────────────────
 
-pub async fn msearch(State(state): State<AppState>, body: bytes::Bytes) -> impl IntoResponse {
-    msearch_impl(state, body, None).await
+pub async fn msearch(
+    State(state): State<AppState>,
+    Query(params): Query<HashMap<String, String>>,
+    body: bytes::Bytes,
+) -> impl IntoResponse {
+    msearch_impl(state, body, None, &params).await
 }
 
 /// GET|POST /{index}/_msearch — index-scoped multi-search. The path index is
@@ -32928,19 +32979,76 @@ pub async fn msearch(State(state): State<AppState>, body: bytes::Bytes) -> impl 
 pub async fn msearch_index(
     State(state): State<AppState>,
     Path(index): Path<String>,
+    Query(params): Query<HashMap<String, String>>,
     body: bytes::Bytes,
 ) -> impl IntoResponse {
-    msearch_impl(state, body, Some(index)).await
+    msearch_impl(state, body, Some(index), &params).await
+}
+
+/// The engine's own deadline when a search names no `timeout`
+/// (`request.timeout_ms.unwrap_or(30_000)` in `xerj-engine`).
+const ENGINE_DEFAULT_SEARCH_TIMEOUT_MS: u64 = 30_000;
+
+/// #2497: what is left of an `_msearch?batch_timeout=` budget, as the
+/// `timeout_ms` one search may use. `None` = no budget, the request's own
+/// timeout stands. `Some(0)` = the budget is spent; the caller does not run
+/// the search.
+fn msearch_budget_ms(deadline: Option<Instant>, own_timeout_ms: Option<u64>) -> Option<u64> {
+    let left = deadline?
+        .saturating_duration_since(Instant::now())
+        .as_millis() as u64;
+    Some(left.min(own_timeout_ms.unwrap_or(ENGINE_DEFAULT_SEARCH_TIMEOUT_MS)))
+}
+
+/// One `_msearch` item the batch budget ran out before: nothing searched,
+/// reported as ES reports a search that hit its timeout with no hits yet
+/// (`timed_out: true`, a lower-bound total of 0), so a client never reads it
+/// as a complete empty answer.
+fn msearch_item_out_of_budget() -> Value {
+    json!({
+        "took": 0,
+        "timed_out": true,
+        "_shards": { "total": 1, "successful": 0, "skipped": 0, "failed": 0 },
+        "hits": {
+            "total": { "value": 0, "relation": "gte" },
+            "max_score": null,
+            "hits": [],
+        },
+        "status": 200,
+    })
 }
 
 async fn msearch_impl(
     state: AppState,
     body: bytes::Bytes,
     default_index: Option<String>,
+    params: &HashMap<String, String>,
 ) -> axum::response::Response {
     // Envelope `took` (#1288): ES 8.x reports the wall time of the whole
     // multi-search next to `responses`, as `msearch_template_impl` does.
     let msearch_started = Instant::now();
+    // #2497: `batch_timeout` (XERJ extension, ES time units) is one deadline
+    // for the whole request. Items run one after another, each with its own
+    // timeout (30 s by default), so a client that gives the whole call the
+    // time it gives one search lost every item when a few slow ones added
+    // up. Under a budget each item gets what is left (at most its own
+    // timeout); once it is spent the remaining items answer `timed_out`
+    // without running, and the completed items keep their hits.
+    let batch_deadline = match params.get("batch_timeout") {
+        None => None,
+        Some(raw) => match parse_time_to_millis(raw) {
+            Some(ms) => Some(msearch_started + Duration::from_millis(ms)),
+            None => {
+                return es_bad_request(
+                    "illegal_argument_exception",
+                    &format!(
+                        "failed to parse [batch_timeout] value [{raw}]: expected a time value such as 500ms or 25s"
+                    ),
+                    None,
+                );
+            }
+        },
+    };
     let text = match std::str::from_utf8(&body) {
         Ok(t) => t,
         Err(_) => {
@@ -33257,6 +33365,12 @@ async fn msearch_impl(
         // the semantic field.
         let mut semantic_skips = ExpandedSemanticSkips::default();
         let search_node = state.engine.node_id.clone();
+        let own_timeout_ms = search_req.timeout_ms;
+        if msearch_budget_ms(batch_deadline, own_timeout_ms) == Some(0) {
+            responses.push(msearch_item_out_of_budget());
+            continue;
+        }
+        let mut item_timed_out = false;
 
         for idx_name in &index_names {
             let idx = match state.engine.get_index(idx_name) {
@@ -33266,9 +33380,22 @@ async fn msearch_impl(
                     break;
                 }
             };
+            // Each target index is searched with what is left of the batch
+            // budget, so a wildcard item cannot spend it once per index.
+            if let Some(left) = msearch_budget_ms(batch_deadline, own_timeout_ms) {
+                if left == 0 {
+                    item_timed_out = true;
+                    break;
+                }
+                search_req.timeout_ms = Some(left);
+            }
             semantic_skips.note_attempt();
             match idx.search(&search_req).await {
                 Ok(result) => {
+                    // #2497: a search that stopped at its deadline returns
+                    // partial hits; the item says so instead of reading as
+                    // complete (this renderer hardcoded `timed_out: false`).
+                    item_timed_out |= result.timed_out;
                     // A Painless resource limit tripped during scoring/aggs:
                     // the hits carry degraded scores. Report this sub-request
                     // as failed rather than merging wrong numbers in. Tracked
@@ -33383,9 +33510,13 @@ async fn msearch_impl(
             })
             .collect();
 
+        if item_timed_out {
+            // A partial count is a lower bound, as in `_search`.
+            total_relation = "gte";
+        }
         let mut resp = json!({
             "took": took_ms,
-            "timed_out": false,
+            "timed_out": item_timed_out,
             "_shards": { "total": 1, "successful": 1, "skipped": 0, "failed": 0 },
             "hits": {
                 "total": { "value": total_count, "relation": total_relation },
@@ -56793,9 +56924,13 @@ mod msearch_script_guard_tests {
         body.push('\n');
         assert!(body.len() > 240_000, "fixture must be the ~240 KB repro");
 
-        let resp = msearch(State(state), bytes::Bytes::from(body))
-            .await
-            .into_response();
+        let resp = msearch(
+            State(state),
+            Query(HashMap::new()),
+            bytes::Bytes::from(body),
+        )
+        .await
+        .into_response();
         let v = drain_json(resp).await;
         let items = v["responses"].as_array().expect("responses array");
         assert_eq!(items.len(), 4);
@@ -56834,9 +56969,13 @@ mod msearch_script_guard_tests {
                 }
             })
         );
-        let resp = msearch(State(state), bytes::Bytes::from(body))
-            .await
-            .into_response();
+        let resp = msearch(
+            State(state),
+            Query(HashMap::new()),
+            bytes::Bytes::from(body),
+        )
+        .await
+        .into_response();
         let v = drain_json(resp).await;
         assert_eq!(v["responses"][0]["status"], json!(200), "{v}");
     }
@@ -57660,5 +57799,157 @@ mod search_actor_class_tests {
         // A catalog-named DATA index must not be caught by the exact-name
         // match — only the maintenance index itself is machine.
         assert_eq!(search_actor_class(10, "autoindex-catalog-copy"), "user");
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// #2497 — `_msearch` reports a timed-out item and honours `batch_timeout`.
+// Items run one after another, each with its own (30 s default) deadline; a
+// client that gave the whole call the time of one search lost every item
+// when a few slow ones added up, and an item that did stop at its deadline
+// came back `timed_out: false` with partial hits.
+// ─────────────────────────────────────────────────────────────────────────────
+#[cfg(test)]
+mod msearch_batch_budget_tests {
+    use super::*;
+    use axum::body::{to_bytes, Body};
+    use axum::http::Request;
+    use tower::ServiceExt;
+    use xerj_common::{
+        config::{Config, WalSync},
+        metrics::Metrics,
+    };
+    use xerj_engine::Engine;
+
+    const IDX: &str = "ms-budget";
+
+    async fn state_with_memtable_docs() -> AppState {
+        let dir = tempfile::tempdir().expect("tempdir").keep();
+        let mut config = Config::default();
+        config.server.data_dir = dir.to_string_lossy().into_owned();
+        config.storage.wal_sync = WalSync::Async;
+        let metrics = Metrics::new().expect("metrics");
+        let engine = Engine::new(config.clone()).expect("engine");
+        engine.create_index(IDX, Schema::empty()).expect("create");
+        let idx = engine.get_index(IDX).expect("index");
+        for n in 0..1500u64 {
+            idx.index_document(Some(format!("d{n}")), json!({"a": n % 7, "b": n}))
+                .await
+                .expect("index doc");
+        }
+        AppState::new(config, engine, metrics)
+    }
+
+    /// A two-key sort is outside the bounded memtable sort path, so the
+    /// unflushed memtable goes through the per-document scan that polls the
+    /// deadline (`test_memtable_scan_stops_at_the_search_deadline`).
+    fn scan_body(timeout: Option<&str>) -> Value {
+        let mut body = json!({
+            "query": {"match_all": {}},
+            "sort": [{"a": "asc"}, {"b": "asc"}],
+            "size": 10
+        });
+        if let Some(t) = timeout {
+            body["timeout"] = json!(t);
+        }
+        body
+    }
+
+    async fn msearch(state: &AppState, query: &str, bodies: &[Value]) -> (StatusCode, Value) {
+        let mut ndjson = String::new();
+        for body in bodies {
+            ndjson.push_str(&format!("{}\n{}\n", json!({ "index": IDX }), body));
+        }
+        let resp = crate::router::build_es_compat_router(state.clone())
+            .oneshot(
+                Request::post(format!("/_msearch{query}"))
+                    .header("content-type", "application/x-ndjson")
+                    .body(Body::from(ndjson))
+                    .expect("msearch request"),
+            )
+            .await
+            .expect("msearch response");
+        let status = resp.status();
+        let bytes = to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+        (status, serde_json::from_slice(&bytes).expect("json"))
+    }
+
+    #[tokio::test]
+    async fn an_item_that_stops_at_its_deadline_reports_timed_out() {
+        let state = state_with_memtable_docs().await;
+        let (status, json) = msearch(
+            &state,
+            "",
+            &[scan_body(Some("0ms")), scan_body(Some("60s"))],
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{json}");
+        let items = json["responses"].as_array().expect("responses");
+        assert_eq!(items.len(), 2, "{json}");
+        assert_eq!(
+            items[0]["timed_out"], true,
+            "an expired item must not read as a complete answer: {json}"
+        );
+        assert_eq!(items[0]["hits"]["total"]["relation"], "gte", "{json}");
+        assert_eq!(items[1]["timed_out"], false, "{json}");
+        assert_eq!(items[1]["hits"]["total"]["value"], 1500, "{json}");
+        assert_eq!(items[1]["hits"]["hits"].as_array().unwrap().len(), 10);
+    }
+
+    #[tokio::test]
+    async fn a_live_batch_budget_leaves_items_whole() {
+        let state = state_with_memtable_docs().await;
+        let (status, json) = msearch(
+            &state,
+            "?batch_timeout=1h",
+            &[scan_body(None), scan_body(None)],
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{json}");
+        for item in json["responses"].as_array().expect("responses") {
+            assert_eq!(item["status"], 200, "{json}");
+            assert_eq!(item["timed_out"], false, "{json}");
+            assert_eq!(item["hits"]["total"]["value"], 1500, "{json}");
+        }
+    }
+
+    #[tokio::test]
+    async fn an_unparseable_batch_budget_is_refused() {
+        let state = state_with_memtable_docs().await;
+        let (status, json) = msearch(&state, "?batch_timeout=soon", &[scan_body(None)]).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{json}");
+        assert_eq!(json["error"]["type"], "illegal_argument_exception");
+        assert!(
+            json["error"]["reason"]
+                .as_str()
+                .unwrap_or_default()
+                .contains("batch_timeout"),
+            "{json}"
+        );
+    }
+
+    #[test]
+    fn the_budget_caps_each_item_and_reports_when_it_is_spent() {
+        let now = Instant::now();
+        assert_eq!(msearch_budget_ms(None, Some(5)), None, "no budget, no cap");
+        let far = Some(now + Duration::from_secs(3600));
+        assert_eq!(
+            msearch_budget_ms(far, None),
+            Some(ENGINE_DEFAULT_SEARCH_TIMEOUT_MS),
+            "a long budget never raises the engine's own default"
+        );
+        assert_eq!(msearch_budget_ms(far, Some(5_000)), Some(5_000));
+        let near = Some(now + Duration::from_secs(2));
+        let left = msearch_budget_ms(near, Some(60_000)).unwrap();
+        assert!(left <= 2_000 && left > 0, "capped at what is left: {left}");
+        assert_eq!(
+            msearch_budget_ms(Some(now), Some(60_000)),
+            Some(0),
+            "a deadline that has passed is spent"
+        );
+        let skipped = msearch_item_out_of_budget();
+        assert_eq!(skipped["timed_out"], true);
+        assert_eq!(skipped["hits"]["total"]["relation"], "gte");
+        assert_eq!(skipped["hits"]["hits"], json!([]));
     }
 }
