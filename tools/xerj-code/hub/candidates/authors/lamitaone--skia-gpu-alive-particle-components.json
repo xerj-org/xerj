@@ -8,15 +8,15 @@
   {
    "repo": "Skia-GPU-Alive-Particle-Components",
    "url": "https://github.com/LaMitaOne/Skia-GPU-Alive-Particle-Components",
-   "sha": "457c500edddb4c668276c528ddf37dd906c663ea",
-   "licence": "MIT (LICENSE file at pin 457c500edddb, GitHub licence API 2026-11-20)",
+   "sha": "5d417c89ce1a3caac3580d8d5eb2c6b20427602a",
+   "licence": "MIT (LICENSE file at pin 5d417c89ce1a, GitHub licence API 2026-11-20)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-20T06:30Z",
     "consent_receipt": "5988fbfff983",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-20T06:30Z (receipt 5988fbfff983); pinned to the default-branch head. LICENSE file at pin 457c500edddb detected as MIT by the GitHub licence API on 2026-11-20; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-20T06:30Z (receipt 5988fbfff983); pinned to the default-branch head. LICENSE file at pin 5d417c89ce1a detected as MIT by the GitHub licence API on 2026-11-20; used under that licence with attribution."
    }
   }
  ]

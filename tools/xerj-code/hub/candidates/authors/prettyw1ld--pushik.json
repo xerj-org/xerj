@@ -1,9 +1,9 @@
 {
- "corpus": "prettyw1ld--desktop-helper",
+ "corpus": "prettyw1ld--pushik",
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on TypeScript queries this for how prettyw1ld/Desktop-Helper implements it: \u0412\u0438\u0440\u0442\u0443\u0430\u043b\u044c\u043d\u044b\u0439 \u043f\u043e\u043c\u043e\u0449\u043d\u0438\u043a \u0432 \u043e\u0441\u0432\u043e\u0435\u043d\u0438\u0438 \u043a\u043e\u043c\u043f\u044c\u044e\u0442\u0435\u0440\u0430 (selected work: src/main, src/renderer, src/shared)",
+ "domain": "an agent working on TypeScript queries this for how prettyw1ld/Pushik implements it: \u0412\u0438\u0440\u0442\u0443\u0430\u043b\u044c\u043d\u044b\u0439 \u043f\u043e\u043c\u043e\u0449\u043d\u0438\u043a \u0432 \u043e\u0441\u0432\u043e\u0435\u043d\u0438\u0438 \u043a\u043e\u043c\u043f\u044c\u044e\u0442\u0435\u0440\u0430 (selected work: src/main, src/renderer, src/shared)",
  "repos": [
   {
    "repo": "Desktop-Helper",

@@ -8,15 +8,15 @@
   {
    "repo": "Aegis",
    "url": "https://github.com/sebin-gg/Aegis",
-   "sha": "c9f0e60460b78f765f6bf2eefd35c7cc79b6df5e",
-   "licence": "MIT (LICENSE file at pin c9f0e60460b7, GitHub licence API 2026-11-18)",
+   "sha": "dcb24e802d7349c4117a47a868b4ed2c3f21058f",
+   "licence": "MIT (LICENSE file at pin dcb24e802d73, GitHub licence API 2026-11-20)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-02T15:14Z",
     "consent_receipt": "ef2161818f44",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T15:14Z (receipt ef2161818f44); pinned to the default-branch head. LICENSE file at pin c9f0e60460b7 detected as MIT by the GitHub licence API on 2026-11-18; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T15:14Z (receipt ef2161818f44); pinned to the default-branch head. LICENSE file at pin dcb24e802d73 detected as MIT by the GitHub licence API on 2026-11-20; used under that licence with attribution."
    }
   }
  ]

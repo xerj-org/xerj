@@ -1,9 +1,9 @@
 {
- "corpus": "alexrolls--startup-factory",
+ "corpus": "alexrolls--first-factory",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Python queries this for how alexrolls/startup-factory implements it: Open-source AI harness framework that turns coding agents into coordinated delivery teams. Orchestrate product, architecture, development, Q (selected work: tests, bin, extensions)",
+ "domain": "an agent working on Python queries this for how alexrolls/first-factory implements it: Open-source AI harness framework that turns coding agents into coordinated delivery teams. Orchestrate product, architecture, development, Q (selected work: tests, bin, extensions)",
  "repos": [
   {
    "repo": "startup-factory",
