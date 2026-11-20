@@ -1,9 +1,9 @@
 {
- "corpus": "phelandev--duck-mini-training",
+ "corpus": "phelandev--phelan-robot",
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Python queries this for how PhelanDev/DUCK_MINI_TRAINING implements it: PhelanDev/DUCK_MINI_TRAINING (Python) (selected work: pipelines, tests)",
+ "domain": "an agent working on Python queries this for how PhelanDev/PHELAN_ROBOT implements it: PhelanDev/PHELAN_ROBOT (Python) (selected work: pipelines, tests)",
  "repos": [
   {
    "repo": "DUCK_MINI_TRAINING",

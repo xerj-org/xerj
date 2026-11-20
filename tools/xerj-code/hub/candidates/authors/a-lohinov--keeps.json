@@ -1,9 +1,9 @@
 {
- "corpus": "reixie--keeps",
+ "corpus": "a-lohinov--keeps",
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on Go queries this for how reixie/keeps implements it: Keeps is a native macOS library for images, videos, GIFs, and web links. Collect inspiration, organize collections, and keep your library on (selected work: the project root, native, script)",
+ "domain": "an agent working on Go queries this for how a-lohinov/keeps implements it: Keeps is a native macOS library for images, videos, GIFs, and web links. Collect inspiration, organize collections, and keep your library on (selected work: the project root, native, script)",
  "repos": [
   {
    "repo": "keeps",

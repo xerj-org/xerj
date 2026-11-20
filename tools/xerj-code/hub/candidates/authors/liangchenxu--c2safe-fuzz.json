@@ -8,15 +8,15 @@
   {
    "repo": "c2safe-fuzz",
    "url": "https://github.com/Liangchenxu/c2safe-fuzz",
-   "sha": "eeb013918ff98f97c00778671f31b8d4ef843ebd",
-   "licence": "author's permission (LICENSE at pin eeb013918ff9: NONE; repository: none)",
+   "sha": "bef543f01651641a632f7380d66d04897636edbb",
+   "licence": "author's permission (LICENSE at pin bef543f01651: NONE; repository: none)",
    "review": {
     "spdx": "NONE",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-13T13:35Z",
     "consent_receipt": "813ceffedbf0",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-13T13:35Z (receipt 813ceffedbf0); pinned to the default-branch head. LICENSE at pin eeb013918ff9: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-13T13:35Z (receipt 813ceffedbf0); pinned to the default-branch head. LICENSE at pin bef543f01651: NONE (repository: none); used with the author's permission, with attribution."
    }
   }
  ]

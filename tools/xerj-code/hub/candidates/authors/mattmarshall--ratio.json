@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Rust queries this for how mattmarshall/ratio implements it: A formally proven high-performance investment accounting kernel (selected work: crates/ratio, deploy, proto)",
+ "domain": "an agent working on Rust queries this for how mattmarshall/ratio implements it: A formally proven high-performance accounting kernel (selected work: crates/ratio, deploy, proto)",
  "repos": [
   {
    "repo": "ratio",
